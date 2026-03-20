@@ -1,4 +1,4 @@
-import { LuX } from "react-icons/lu";
+import { X } from "lucide-react";
 
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
@@ -51,7 +51,7 @@ export function ActiveFilterChips() {
 }
 
 const COLOR_CLASSES = {
-  brand: "bg-brand-500/15 text-brand-300 border-brand-500/30",
+  brand: "bg-accent-500/15 text-accent-300 border-accent-500/30",
   emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   sky: "bg-sky-500/15 text-sky-300 border-sky-500/30",
 } as const;
@@ -71,7 +71,7 @@ function Chip({
     >
       {label}
       <button onClick={onRemove} className="rounded-full p-0.5 hover:bg-white/10">
-        <LuX className="h-3 w-3" />
+        <X className="h-3 w-3" />
       </button>
     </span>
   );

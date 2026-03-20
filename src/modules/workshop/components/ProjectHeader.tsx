@@ -1,12 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import {
-  LuArrowLeft,
-  LuEllipsisVertical,
-  LuFolderOpen,
-  LuPackage,
-  LuPlay,
-  LuTrash2,
-} from "react-icons/lu";
+import { ArrowLeft, EllipsisVertical, FolderOpen, Package, Play, Trash2 } from "lucide-react";
 
 import { Button, IconButton, Menu, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
@@ -28,7 +21,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
       <Tooltip content="Back to Workshop">
         <Link to="/workshop">
           <IconButton
-            icon={<LuArrowLeft className="h-4 w-4" />}
+            icon={<ArrowLeft className="h-4 w-4" />}
             variant="ghost"
             size="sm"
             aria-label="Back to Workshop"
@@ -49,7 +42,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         <Button
           variant="outline"
           size="sm"
-          left={<LuPlay className="h-4 w-4" />}
+          left={<Play className="h-4 w-4" />}
           onClick={actions.handleTestProject}
           disabled={isPatcherActive}
         >
@@ -58,7 +51,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         <Button
           variant="outline"
           size="sm"
-          left={<LuPackage className="h-4 w-4" />}
+          left={<Package className="h-4 w-4" />}
           onClick={actions.handleOpenPackDialog}
         >
           Pack
@@ -67,7 +60,7 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<LuEllipsisVertical className="h-4 w-4" />}
+                icon={<EllipsisVertical className="h-4 w-4" />}
                 variant="ghost"
                 size="sm"
               />
@@ -77,14 +70,14 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
             <Menu.Positioner>
               <Menu.Popup>
                 <Menu.Item
-                  icon={<LuFolderOpen className="h-4 w-4" />}
+                  icon={<FolderOpen className="h-4 w-4" />}
                   onClick={actions.handleOpenLocation}
                 >
                   Open Location
                 </Menu.Item>
                 <Menu.Separator />
                 <Menu.Item
-                  icon={<LuTrash2 className="h-4 w-4" />}
+                  icon={<Trash2 className="h-4 w-4" />}
                   variant="danger"
                   onClick={actions.handleOpenDeleteDialog}
                 >

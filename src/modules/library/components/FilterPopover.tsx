@@ -1,4 +1,4 @@
-import { LuFilter, LuX } from "react-icons/lu";
+import { Filter, X } from "lucide-react";
 
 import { Checkbox, IconButton, Popover, Tooltip } from "@/components";
 import type { FilterOptions } from "@/modules/library/api";
@@ -36,9 +36,9 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
             <IconButton
               icon={
                 <div className="relative">
-                  <LuFilter className="h-4 w-4" />
+                  <Filter className="h-4 w-4" />
                   {hasActive && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-brand-500" />
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-500" />
                   )}
                 </div>
               }
@@ -58,7 +58,7 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
                   onClick={clearFilters}
                   className="flex items-center gap-1 text-xs text-surface-400 hover:text-surface-200"
                 >
-                  <LuX className="h-3 w-3" />
+                  <X className="h-3 w-3" />
                   Clear all
                 </button>
               )}

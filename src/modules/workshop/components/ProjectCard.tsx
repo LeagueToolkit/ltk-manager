@@ -1,14 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useMemo } from "react";
 import {
-  LuChevronRight,
-  LuEllipsisVertical,
-  LuFolderOpen,
-  LuPackage,
-  LuPencil,
-  LuPlay,
-  LuTrash2,
-} from "react-icons/lu";
+  ChevronRight,
+  EllipsisVertical,
+  FolderOpen,
+  Package,
+  Pencil,
+  Play,
+  Trash2,
+} from "lucide-react";
+import { useMemo } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Button, Checkbox, IconButton, Menu } from "@/components";
@@ -70,7 +70,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   const listBorderClass = isTesting
     ? "border-green-500/40"
     : selected
-      ? "border-brand-500/40"
+      ? "border-accent-500/40"
       : "border-surface-700";
 
   if (viewMode === "list") {
@@ -107,11 +107,11 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
 
         <div className="min-w-0 flex-1">
           <h3
-            className="group/title flex cursor-pointer items-center gap-1 font-medium text-surface-100 hover:text-brand-400"
+            className="group/title flex cursor-pointer items-center gap-1 font-medium text-surface-100 hover:text-accent-400"
             onClick={() => onEdit(project)}
           >
             <span className="truncate">{project.displayName}</span>
-            <LuChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover/title:opacity-100" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover/title:opacity-100" />
           </h3>
           <p className="truncate text-sm text-surface-500">
             v{project.version} • {project.authors.map((a) => a.name).join(", ") || "Unknown author"}
@@ -129,7 +129,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           <Button
             variant="outline"
             size="sm"
-            left={<LuPlay className="h-4 w-4" />}
+            left={<Play className="h-4 w-4" />}
             onClick={handleTest}
             disabled={isTestDisabled}
           >
@@ -138,7 +138,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           <Button
             variant="outline"
             size="sm"
-            left={<LuPackage className="h-4 w-4" />}
+            left={<Package className="h-4 w-4" />}
             onClick={() => openPackDialog(project)}
           >
             Pack
@@ -147,7 +147,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
             <Menu.Trigger
               render={
                 <IconButton
-                  icon={<LuEllipsisVertical className="h-4 w-4" />}
+                  icon={<EllipsisVertical className="h-4 w-4" />}
                   variant="ghost"
                   size="sm"
                 />
@@ -156,34 +156,28 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
             <Menu.Portal>
               <Menu.Positioner>
                 <Menu.Popup>
-                  <Menu.Item
-                    icon={<LuPencil className="h-4 w-4" />}
-                    onClick={() => onEdit(project)}
-                  >
+                  <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={() => onEdit(project)}>
                     Edit Project
                   </Menu.Item>
                   <Menu.Item
-                    icon={<LuPlay className="h-4 w-4" />}
+                    icon={<Play className="h-4 w-4" />}
                     onClick={handleTest}
                     disabled={isTestDisabled}
                   >
                     Test
                   </Menu.Item>
                   <Menu.Item
-                    icon={<LuPackage className="h-4 w-4" />}
+                    icon={<Package className="h-4 w-4" />}
                     onClick={() => openPackDialog(project)}
                   >
                     Pack
                   </Menu.Item>
-                  <Menu.Item
-                    icon={<LuFolderOpen className="h-4 w-4" />}
-                    onClick={handleOpenLocation}
-                  >
+                  <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
                     Open Location
                   </Menu.Item>
                   <Menu.Separator />
                   <Menu.Item
-                    icon={<LuTrash2 className="h-4 w-4" />}
+                    icon={<Trash2 className="h-4 w-4" />}
                     variant="danger"
                     onClick={() => openDeleteDialog(project)}
                   >
@@ -194,7 +188,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
             </Menu.Portal>
           </Menu.Root>
           <IconButton
-            icon={<LuChevronRight />}
+            icon={<ChevronRight />}
             variant="ghost"
             size="sm"
             onClick={() => onEdit(project)}
@@ -207,7 +201,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   const gridBorderClass = isTesting
     ? "border-green-500/40"
     : selected
-      ? "border-brand-500/40"
+      ? "border-accent-500/40"
       : "border-surface-600";
 
   return (
@@ -250,11 +244,11 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
       <div className="flex items-start gap-1 p-3">
         <div className="min-w-0 flex-1">
           <h3
-            className="group/title mb-1 flex cursor-pointer items-center gap-1 text-sm font-medium text-surface-100 hover:text-brand-400"
+            className="group/title mb-1 flex cursor-pointer items-center gap-1 text-sm font-medium text-surface-100 hover:text-accent-400"
             onClick={() => onEdit(project)}
           >
             <span className="line-clamp-1">{project.displayName}</span>
-            <LuChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover/title:opacity-100" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-0 transition-opacity group-hover/title:opacity-100" />
           </h3>
           <ProjectPills project={project} max={3} className="mb-1" />
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
@@ -272,33 +266,33 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
         </div>
         <Menu.Root>
           <Menu.Trigger
-            render={<IconButton icon={<LuEllipsisVertical />} variant="ghost" size="md" compact />}
+            render={<IconButton icon={<EllipsisVertical />} variant="ghost" size="md" compact />}
           />
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup>
-                <Menu.Item icon={<LuPencil className="h-4 w-4" />} onClick={() => onEdit(project)}>
+                <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={() => onEdit(project)}>
                   Edit Project
                 </Menu.Item>
                 <Menu.Item
-                  icon={<LuPlay className="h-4 w-4" />}
+                  icon={<Play className="h-4 w-4" />}
                   onClick={handleTest}
                   disabled={isPatcherActive}
                 >
                   Test
                 </Menu.Item>
                 <Menu.Item
-                  icon={<LuPackage className="h-4 w-4" />}
+                  icon={<Package className="h-4 w-4" />}
                   onClick={() => openPackDialog(project)}
                 >
                   Pack
                 </Menu.Item>
-                <Menu.Item icon={<LuFolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
+                <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
                   Open Location
                 </Menu.Item>
                 <Menu.Separator />
                 <Menu.Item
-                  icon={<LuTrash2 className="h-4 w-4" />}
+                  icon={<Trash2 className="h-4 w-4" />}
                   variant="danger"
                   onClick={() => openDeleteDialog(project)}
                 >
@@ -332,7 +326,7 @@ function ProjectPills({
   const overflow = pills.length - max;
 
   const colorClasses = {
-    brand: "bg-brand-500/15 text-brand-400",
+    brand: "bg-accent-500/15 text-accent-400",
     emerald: "bg-emerald-500/15 text-emerald-400",
   } as const;
 

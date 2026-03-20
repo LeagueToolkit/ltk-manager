@@ -1,4 +1,4 @@
-import { LuCircleCheck } from "react-icons/lu";
+import { CircleCheck } from "lucide-react";
 
 import type { Settings } from "@/lib/tauri";
 
@@ -52,7 +52,7 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
           <button
             key={key}
             onClick={() => handlePresetClick(key)}
-            className={`group relative h-8 w-8 rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+            className={`group relative h-8 w-8 rounded-full transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
               settings.accentColor?.preset === key && !isCustomHue
                 ? "ring-2 ring-surface-100 ring-offset-2 ring-offset-surface-900"
                 : ""
@@ -62,7 +62,7 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
           >
             {settings.accentColor?.preset === key && !isCustomHue && (
               <span className="absolute inset-0 flex items-center justify-center">
-                <LuCircleCheck className="h-4 w-4 text-white drop-shadow-md" />
+                <CircleCheck className="h-4 w-4 text-white drop-shadow-md" />
               </span>
             )}
           </button>

@@ -1,7 +1,8 @@
-import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
+import { ChevronDown } from "lucide-react";
 import { useMemo } from "react";
-import { LuCheck, LuChevronDown } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
+
+import { Combobox, useComboboxFilter } from "./Combobox";
 
 export interface MultiSelectOption {
   value: string;
@@ -30,7 +31,7 @@ export function MultiSelect({
   className,
   variant = "compact",
 }: MultiSelectProps) {
-  const filter = BaseCombobox.useFilter();
+  const filter = useComboboxFilter();
 
   const selectedOptions = useMemo(
     () => options.filter((o) => selected.has(o.value)),
@@ -46,7 +47,7 @@ export function MultiSelect({
   }, [options, selected]);
 
   return (
-    <BaseCombobox.Root<MultiSelectOption, true>
+    <Combobox.Root<MultiSelectOption, true>
       multiple
       value={selectedOptions}
       onValueChange={(opts) => onChange(new Set(opts.map((o) => o.value)))}
@@ -57,31 +58,31 @@ export function MultiSelect({
       disabled={disabled}
     >
       {variant === "compact" ? (
-        <BaseCombobox.Trigger
+        <Combobox.Trigger
           className={twMerge(
             "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-surface-400",
-            "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
         >
           {label && <span className="text-surface-300">{label}</span>}
           {selected.size > 0 && (
-            <span className="rounded-full bg-brand-500/20 px-1.5 text-xs text-brand-400">
+            <span className="rounded-full bg-accent-500/20 px-1.5 text-xs text-accent-400">
               {selected.size}
             </span>
           )}
-          <LuChevronDown className="h-3.5 w-3.5 text-surface-400" />
-        </BaseCombobox.Trigger>
+          <ChevronDown className="h-3.5 w-3.5 text-surface-400" />
+        </Combobox.Trigger>
       ) : (
-        <BaseCombobox.Trigger
+        <Combobox.Trigger
           className={twMerge(
             "flex min-h-[42px] w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-surface-400",
-            "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
@@ -100,12 +101,12 @@ export function MultiSelect({
               <span className="text-surface-400">{label ?? "Select..."}</span>
             )}
           </span>
-          <LuChevronDown className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-        </BaseCombobox.Trigger>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+        </Combobox.Trigger>
       )}
-      <BaseCombobox.Portal>
-        <BaseCombobox.Positioner side="bottom" sideOffset={4} className="z-50">
-          <BaseCombobox.Popup
+      <Combobox.Portal>
+        <Combobox.Positioner side="bottom" sideOffset={4} className="z-50">
+          <Combobox.Popup
             className={twMerge(
               "w-64 rounded-lg border border-surface-600 bg-surface-700/60 shadow-xl backdrop-blur-lg",
               "animate-fade-in",
@@ -113,40 +114,33 @@ export function MultiSelect({
             )}
           >
             <div className="border-b border-surface-600 px-3 py-2">
-              <BaseCombobox.Input
+              <Combobox.Input
                 placeholder={placeholder}
                 className="w-full border-0 bg-transparent text-sm text-surface-50 outline-none placeholder:text-surface-400 focus:ring-0"
               />
             </div>
-            <BaseCombobox.List className="max-h-60 overflow-y-auto py-1">
+            <Combobox.List className="max-h-60 overflow-y-auto py-1">
               {(item: MultiSelectOption) => (
-                <BaseCombobox.Item
+                <Combobox.Item
                   key={item.value}
                   value={item}
                   disabled={item.disabled}
                   className={twMerge(
-                    "flex cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
                     "text-surface-400 data-[highlighted]:bg-surface-600",
                     "data-[selected]:text-surface-100",
-                    "data-[disabled]:opacity-50",
                   )}
                 >
-                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-                    <BaseCombobox.ItemIndicator>
-                      <LuCheck className="h-3.5 w-3.5" />
-                    </BaseCombobox.ItemIndicator>
-                  </span>
                   {item.label}
-                </BaseCombobox.Item>
+                </Combobox.Item>
               )}
-            </BaseCombobox.List>
-            <BaseCombobox.Empty>
+            </Combobox.List>
+            <Combobox.Empty>
               <p className="px-3 py-6 text-center text-sm text-surface-400">No results found</p>
-            </BaseCombobox.Empty>
-          </BaseCombobox.Popup>
-        </BaseCombobox.Positioner>
-      </BaseCombobox.Portal>
-    </BaseCombobox.Root>
+            </Combobox.Empty>
+          </Combobox.Popup>
+        </Combobox.Positioner>
+      </Combobox.Portal>
+    </Combobox.Root>
   );
 }
 MultiSelect.displayName = "MultiSelect";

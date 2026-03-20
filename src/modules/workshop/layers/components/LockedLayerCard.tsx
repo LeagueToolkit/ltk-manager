@@ -1,4 +1,4 @@
-import { LuEllipsisVertical, LuLock, LuPencil } from "react-icons/lu";
+import { EllipsisVertical, Lock, Pencil } from "lucide-react";
 
 import { IconButton, Menu } from "@/components";
 import type { WorkshopLayer } from "@/lib/tauri";
@@ -16,7 +16,7 @@ export function LockedLayerCard({ layer, onEdit }: LockedLayerCardProps) {
   return (
     <div className="relative flex items-center gap-2">
       <div className="flex shrink-0 items-center">
-        <LuLock className="h-4 w-4 text-surface-600" />
+        <Lock className="h-4 w-4 text-surface-600" />
       </div>
 
       <div className="min-w-0 flex-1 rounded-lg border border-surface-700 bg-surface-800/50 p-4">
@@ -45,14 +45,14 @@ export function LockedLayerCard({ layer, onEdit }: LockedLayerCardProps) {
                 <IconButton
                   variant="ghost"
                   size="sm"
-                  icon={<LuEllipsisVertical className="h-4 w-4" />}
+                  icon={<EllipsisVertical className="h-4 w-4" />}
                 />
               }
             />
             <Menu.Portal>
               <Menu.Positioner align="end" sideOffset={4}>
                 <Menu.Popup>
-                  <Menu.Item icon={<LuPencil className="h-4 w-4" />} onClick={onEdit}>
+                  <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={onEdit}>
                     Edit
                   </Menu.Item>
                 </Menu.Popup>

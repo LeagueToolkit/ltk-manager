@@ -54,18 +54,18 @@ export interface TabsTabProps extends Omit<BaseTabs.Tab.Props, "className"> {
 export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
   ({ variant = "default", className, children, ...props }, ref) => {
     const baseClasses =
-      "relative px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
+      "relative px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
 
     const variantClasses = match(variant)
       .with(
         "default",
         () =>
-          "text-surface-400 hover:text-surface-200 data-[active]:text-brand-400 data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:-bottom-px data-[active]:after:h-0.5 data-[active]:after:bg-brand-500",
+          "text-surface-400 hover:text-surface-200 data-[active]:text-accent-400 data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:-bottom-px data-[active]:after:h-0.5 data-[active]:after:bg-accent-500",
       )
       .with(
         "pills",
         () =>
-          "rounded-md text-surface-400 hover:text-surface-200 data-[active]:bg-brand-500/10 data-[active]:text-brand-400",
+          "rounded-md text-surface-400 hover:text-surface-200 data-[active]:bg-accent-500/10 data-[active]:text-accent-400",
       )
       .exhaustive();
 
@@ -114,7 +114,7 @@ export const TabsIndicator = forwardRef<HTMLSpanElement, TabsIndicatorProps>(
       <BaseTabs.Indicator
         ref={ref}
         className={twMerge(
-          "absolute bottom-0 h-0.5 bg-brand-500 transition-all duration-200",
+          "absolute bottom-0 h-0.5 bg-accent-500 transition-all duration-200",
           className,
         )}
         {...props}

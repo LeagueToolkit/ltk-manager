@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { LuArrowLeft } from "react-icons/lu";
+import { ArrowLeft } from "lucide-react";
 
 import { Button, NavTabs } from "@/components";
 import {
@@ -30,7 +30,7 @@ function ProjectDetailLayout() {
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-surface-400">Project not found: {projectName}</p>
         <Link to="/workshop">
-          <Button variant="outline" left={<LuArrowLeft className="h-4 w-4" />}>
+          <Button variant="outline" left={<ArrowLeft className="h-4 w-4" />}>
             Back to Workshop
           </Button>
         </Link>

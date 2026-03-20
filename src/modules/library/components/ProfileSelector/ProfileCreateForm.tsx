@@ -1,5 +1,5 @@
+import { Check, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { LuCheck, LuPlus, LuX } from "react-icons/lu";
 
 import { Button, Field, IconButton, useToast } from "@/components";
 import { useCreateProfile } from "@/modules/library/api";
@@ -54,7 +54,7 @@ export function ProfileCreateForm() {
         variant="ghost"
         size="sm"
         onClick={() => setIsCreating(true)}
-        left={<LuPlus className="h-4 w-4" />}
+        left={<Plus className="h-4 w-4" />}
         className="w-full justify-start"
       >
         New Profile
@@ -74,7 +74,7 @@ export function ProfileCreateForm() {
         placeholder="Profile name..."
       />
       <IconButton
-        icon={<LuCheck className="h-4 w-4" />}
+        icon={<Check className="h-4 w-4" />}
         variant="ghost"
         size="xs"
         onClick={handleSubmit}
@@ -83,7 +83,7 @@ export function ProfileCreateForm() {
         className="text-green-400 hover:text-green-300"
       />
       <IconButton
-        icon={<LuX className="h-4 w-4" />}
+        icon={<X className="h-4 w-4" />}
         variant="ghost"
         size="xs"
         onClick={handleCancel}

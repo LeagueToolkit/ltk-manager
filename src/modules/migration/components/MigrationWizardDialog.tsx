@@ -1,5 +1,5 @@
+import { FolderOpen, Loader2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { LuFolderOpen, LuLoader, LuSearch } from "react-icons/lu";
 
 import { Button, Checkbox, Dialog, Progress } from "@/components";
 import type { CslolModInfo, MigrationProgress } from "@/lib/tauri";
@@ -118,13 +118,13 @@ function BrowseStep({ onBrowse, isScanning, error }: BrowseStepProps) {
       <Button variant="outline" size="sm" onClick={onBrowse} disabled={isScanning}>
         {isScanning && (
           <span className="flex items-center gap-2">
-            <LuLoader className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             Scanning...
           </span>
         )}
         {!isScanning && (
           <span className="flex items-center gap-2">
-            <LuFolderOpen className="h-4 w-4" />
+            <FolderOpen className="h-4 w-4" />
             Browse...
           </span>
         )}
@@ -177,13 +177,13 @@ function SelectStep({
       </div>
 
       <div className="relative">
-        <LuSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
         <input
           type="text"
           placeholder="Search mods..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-surface-600 bg-surface-800 py-2 pr-4 pl-10 text-sm text-surface-100 placeholder:text-surface-500 focus:border-transparent focus:ring-2 focus:ring-brand-500 focus:outline-none"
+          className="w-full rounded-lg border border-surface-600 bg-surface-800 py-2 pr-4 pl-10 text-sm text-surface-100 placeholder:text-surface-500 focus:border-transparent focus:ring-2 focus:ring-accent-500 focus:outline-none"
         />
       </div>
 

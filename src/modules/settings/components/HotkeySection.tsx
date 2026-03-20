@@ -1,5 +1,5 @@
+import { Keyboard, X } from "lucide-react";
 import { useState } from "react";
-import { LuKeyboard, LuX } from "react-icons/lu";
 
 import { Button, ButtonGroup, IconButton, SectionCard, Switch, useToast } from "@/components";
 import { api, isErr, type Settings } from "@/lib/tauri";
@@ -11,7 +11,7 @@ interface HotkeySectionProps {
 
 export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
   return (
-    <SectionCard title="Hotkeys" icon={<LuKeyboard className="h-5 w-5" />}>
+    <SectionCard title="Hotkeys" icon={<Keyboard className="h-5 w-5" />}>
       <div className="space-y-4">
         <p className="text-sm text-surface-400">
           System-wide keyboard shortcuts that work even when the app is not focused. Useful for
@@ -147,7 +147,7 @@ function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
       <ButtonGroup className="shrink-0">
         {isCapturing ? (
           <div
-            className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-brand-500 bg-brand-500/10 px-3 text-sm font-medium text-brand-300 outline-none"
+            className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-accent-500 bg-accent-500/10 px-3 text-sm font-medium text-accent-300 outline-none"
             tabIndex={0}
             ref={(el: HTMLDivElement | null) => el?.focus()}
             onKeyDown={handleKeyDown}
@@ -159,7 +159,7 @@ function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
           <Button
             variant="outline"
             size="sm"
-            left={<LuKeyboard className="h-3.5 w-3.5" />}
+            left={<Keyboard className="h-3.5 w-3.5" />}
             onClick={() => startCapture()}
             loading={isPending}
           >
@@ -171,7 +171,7 @@ function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
           <IconButton
             variant="outline"
             size="sm"
-            icon={<LuX className="h-3.5 w-3.5" />}
+            icon={<X className="h-3.5 w-3.5" />}
             onClick={handleClear}
             loading={isPending}
           />

@@ -16,9 +16,9 @@ interface NavTabsProps {
 }
 
 const tabBase =
-  "relative px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900";
+  "relative px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900";
 const tabActive =
-  "text-brand-400 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-brand-500";
+  "text-accent-400 after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:bg-accent-500";
 const tabInactive = "text-surface-400 hover:text-surface-200";
 
 export function NavTabs({ tabs, className }: NavTabsProps) {

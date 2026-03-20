@@ -1,6 +1,6 @@
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
+import { X } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { LuX } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 // Root
@@ -153,7 +153,7 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
         )}
         {...props}
       >
-        <LuX className="h-5 w-5" />
+        <X className="h-5 w-5" />
       </BaseDialog.Close>
     );
   },

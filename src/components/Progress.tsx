@@ -62,17 +62,16 @@ ProgressTrack.displayName = "Progress.Track";
 
 export interface ProgressIndicatorProps extends Omit<BaseProgress.Indicator.Props, "className"> {
   className?: string;
-  color?: "brand" | "accent";
 }
 
 export const ProgressIndicator = forwardRef<HTMLDivElement, ProgressIndicatorProps>(
-  ({ color = "brand", className, ...props }, ref) => {
+  ({ className, ...props }, ref) => {
     return (
       <BaseProgress.Indicator
         ref={ref}
         className={twMerge(
           "relative overflow-hidden rounded-full transition-all duration-300",
-          color === "brand" ? "bg-brand-500" : "bg-accent-500",
+          "bg-accent-500",
           "data-[indeterminate]:w-1/3 data-[indeterminate]:animate-pulse",
           "after:absolute after:inset-0 after:animate-shimmer after:bg-linear-to-r after:from-transparent after:via-white/25 after:to-transparent",
           className,

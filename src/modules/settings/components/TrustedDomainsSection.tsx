@@ -1,5 +1,5 @@
+import { Plus, ShieldCheck, X } from "lucide-react";
 import { useState } from "react";
-import { LuPlus, LuShieldCheck, LuX } from "react-icons/lu";
 
 import { Button, Field, IconButton, SectionCard } from "@/components";
 import type { Settings } from "@/lib/tauri";
@@ -33,7 +33,7 @@ export function TrustedDomainsSection({ settings, onSave }: TrustedDomainsSectio
   }
 
   return (
-    <SectionCard title="Trusted Mod Providers" icon={<LuShieldCheck className="h-5 w-5" />}>
+    <SectionCard title="Trusted Mod Providers" icon={<ShieldCheck className="h-5 w-5" />}>
       <div className="space-y-3">
         <p className="text-sm text-surface-400">
           Only mods from these domains can be installed via one-click links. Remove all domains to
@@ -48,7 +48,7 @@ export function TrustedDomainsSection({ settings, onSave }: TrustedDomainsSectio
             >
               <span className="text-sm text-surface-200">{domain}</span>
               <IconButton
-                icon={<LuX className="h-3.5 w-3.5" />}
+                icon={<X className="h-3.5 w-3.5" />}
                 variant="ghost"
                 size="xs"
                 compact
@@ -68,7 +68,7 @@ export function TrustedDomainsSection({ settings, onSave }: TrustedDomainsSectio
             className="flex-1"
           />
           <Button variant="ghost" size="sm" onClick={addDomain} disabled={!newDomain.trim()}>
-            <LuPlus className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Add
           </Button>
         </div>

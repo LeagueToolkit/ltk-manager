@@ -1,6 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
+import { CircleAlert, CircleCheck, FolderOpen, Gamepad2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { LuCircleAlert, LuCircleCheck, LuFolderOpen, LuGamepad2, LuLoader } from "react-icons/lu";
 
 import { Button, Field, IconButton, SectionCard, Tooltip } from "@/components";
 import { api, type Settings } from "@/lib/tauri";
@@ -63,7 +63,7 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
   }
 
   return (
-    <SectionCard title="League of Legends" icon={<LuGamepad2 className="h-5 w-5" />}>
+    <SectionCard title="League of Legends" icon={<Gamepad2 className="h-5 w-5" />}>
       <div className="space-y-3">
         <span className="block text-sm font-medium text-surface-400">Installation Path</span>
         <div className="flex gap-2">
@@ -76,14 +76,14 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
             />
             {settings.leaguePath && (
               <div className="absolute top-1/2 right-3 -translate-y-1/2">
-                {leaguePathValid === true && <LuCircleCheck className="h-5 w-5 text-green-500" />}
-                {leaguePathValid === false && <LuCircleAlert className="h-5 w-5 text-red-500" />}
+                {leaguePathValid === true && <CircleCheck className="h-5 w-5 text-green-500" />}
+                {leaguePathValid === false && <CircleAlert className="h-5 w-5 text-red-500" />}
               </div>
             )}
           </div>
           <Tooltip content="Browse">
             <IconButton
-              icon={<LuFolderOpen className="h-5 w-5" />}
+              icon={<FolderOpen className="h-5 w-5" />}
               variant="outline"
               size="lg"
               onClick={handleBrowse}
@@ -95,8 +95,8 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
           size="sm"
           onClick={handleAutoDetect}
           loading={isDetecting}
-          left={isDetecting ? undefined : <LuLoader className="h-4 w-4" />}
-          className="text-brand-400 hover:text-brand-300"
+          left={isDetecting ? undefined : <Loader2 className="h-4 w-4" />}
+          className="text-accent-400 hover:text-accent-300"
         >
           Auto-detect installation
         </Button>

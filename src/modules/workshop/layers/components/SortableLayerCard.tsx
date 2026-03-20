@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { EllipsisVertical, GripVertical, Pencil, Trash2 } from "lucide-react";
 import type { CSSProperties } from "react";
-import { LuEllipsisVertical, LuGripVertical, LuPencil, LuTrash2 } from "react-icons/lu";
 
 import { IconButton, Menu } from "@/components";
 import type { WorkshopLayer } from "@/lib/tauri";
@@ -34,7 +34,7 @@ export function SortableLayerCard({ layer, onEdit, onDelete }: SortableLayerCard
         {...attributes}
         {...listeners}
       >
-        <LuGripVertical className="h-5 w-5 text-surface-500" />
+        <GripVertical className="h-5 w-5 text-surface-500" />
       </div>
 
       <div className="min-w-0 flex-1 rounded-lg border border-surface-700 bg-surface-800/50 p-4">
@@ -63,18 +63,18 @@ export function SortableLayerCard({ layer, onEdit, onDelete }: SortableLayerCard
                 <IconButton
                   variant="ghost"
                   size="sm"
-                  icon={<LuEllipsisVertical className="h-4 w-4" />}
+                  icon={<EllipsisVertical className="h-4 w-4" />}
                 />
               }
             />
             <Menu.Portal>
               <Menu.Positioner align="end" sideOffset={4}>
                 <Menu.Popup>
-                  <Menu.Item icon={<LuPencil className="h-4 w-4" />} onClick={onEdit}>
+                  <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={onEdit}>
                     Edit
                   </Menu.Item>
                   <Menu.Item
-                    icon={<LuTrash2 className="h-4 w-4" />}
+                    icon={<Trash2 className="h-4 w-4" />}
                     variant="danger"
                     onClick={onDelete}
                   >

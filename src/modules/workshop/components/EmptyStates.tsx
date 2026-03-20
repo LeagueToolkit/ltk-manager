@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
-import { LuDownload, LuFolderOpen, LuHammer, LuPlus, LuSearch, LuSettings } from "react-icons/lu";
+import { Download, FolderOpen, Hammer, Plus, Search, Settings } from "lucide-react";
 
 import { Button } from "@/components";
 import type { AppError } from "@/lib/tauri";
@@ -11,7 +11,7 @@ import { useImportFromModpkg } from "../api/useImportFromModpkg";
 export function LoadingState() {
   return (
     <div className="flex h-64 items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
     </div>
   );
 }
@@ -38,14 +38,14 @@ export function NotConfiguredState() {
       <div className="flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-surface-800">
-            <LuFolderOpen className="h-10 w-10 text-surface-600" />
+            <FolderOpen className="h-10 w-10 text-surface-600" />
           </div>
           <h3 className="mb-1 text-lg font-medium text-surface-300">Workshop Not Configured</h3>
           <p className="mb-4 max-w-sm text-surface-500">
             Set up a workshop directory in Settings to start creating mod projects.
           </p>
           <Link to="/settings">
-            <Button variant="filled" left={<LuSettings className="h-4 w-4" />}>
+            <Button variant="filled" left={<Settings className="h-4 w-4" />}>
               Open Settings
             </Button>
           </Link>
@@ -74,21 +74,17 @@ export function NoProjectsState() {
   return (
     <div className="flex h-64 flex-col items-center justify-center text-center">
       <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl">
-        <LuHammer className="h-10 w-10 text-surface-600" />
+        <Hammer className="h-10 w-10 text-surface-600" />
       </div>
       <h3 className="mb-1 text-lg font-medium text-surface-300">No projects yet</h3>
       <p className="mb-4 text-surface-500">
         Create a new project or import an existing mod package
       </p>
       <div className="flex gap-3">
-        <Button variant="outline" onClick={handleImport} left={<LuDownload className="h-4 w-4" />}>
+        <Button variant="outline" onClick={handleImport} left={<Download className="h-4 w-4" />}>
           Import
         </Button>
-        <Button
-          variant="filled"
-          onClick={openNewProjectDialog}
-          left={<LuPlus className="h-4 w-4" />}
-        >
+        <Button variant="filled" onClick={openNewProjectDialog} left={<Plus className="h-4 w-4" />}>
           New Project
         </Button>
       </div>
@@ -99,7 +95,7 @@ export function NoProjectsState() {
 export function NoSearchResultsState() {
   return (
     <div className="flex h-64 flex-col items-center justify-center text-center">
-      <LuSearch className="mb-4 h-12 w-12 text-surface-600" />
+      <Search className="mb-4 h-12 w-12 text-surface-600" />
       <h3 className="mb-1 text-lg font-medium text-surface-300">No projects found</h3>
       <p className="text-surface-500">Try adjusting your search query</p>
     </div>

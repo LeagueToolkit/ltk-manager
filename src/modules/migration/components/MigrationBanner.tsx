@@ -1,4 +1,4 @@
-import { LuArrowRight } from "react-icons/lu";
+import { ArrowRight } from "lucide-react";
 
 import { AlertBox, Button } from "@/components";
 
@@ -17,7 +17,7 @@ export function MigrationBanner({ onImport, onDismiss }: MigrationBannerProps) {
         <Button variant="outline" size="sm" onClick={onImport}>
           <span className="flex items-center gap-1.5">
             Import Mods
-            <LuArrowRight className="h-3.5 w-3.5" />
+            <ArrowRight className="h-3.5 w-3.5" />
           </span>
         </Button>
       }

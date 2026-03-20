@@ -1,4 +1,4 @@
-import { LuWrench } from "react-icons/lu";
+import { Wrench } from "lucide-react";
 
 import { SectionCard, Switch } from "@/components";
 import type { Settings } from "@/lib/tauri";
@@ -10,7 +10,7 @@ interface PatchingSectionProps {
 
 export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
   return (
-    <SectionCard title="Patching" icon={<LuWrench className="h-5 w-5" />}>
+    <SectionCard title="Patching" icon={<Wrench className="h-5 w-5" />}>
       <div className="space-y-3">
         <label className="flex items-center justify-between gap-4">
           <div>

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { LuCalendar, LuFolderOpen, LuLayers, LuMap, LuSword, LuTag, LuUser } from "react-icons/lu";
+import { Calendar, FolderOpen, Layers, Map, Sword, Tag, User } from "lucide-react";
 
 import { Button, Dialog } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
@@ -38,7 +38,7 @@ export function ModDetailsDialog({ open, mod, onClose }: ModDetailsDialogProps) 
             </Button>
             <Button
               variant="filled"
-              left={<LuFolderOpen className="h-4 w-4" />}
+              left={<FolderOpen className="h-4 w-4" />}
               onClick={async () => {
                 try {
                   await invoke("reveal_in_explorer", { path: mod.modDir });
@@ -87,11 +87,11 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm text-surface-400">v{mod.version}</p>
           <div className="flex items-center gap-1.5 text-sm text-surface-400">
-            <LuUser className="h-3.5 w-3.5 shrink-0" />
+            <User className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{mod.authors.join(", ") || "Unknown author"}</span>
           </div>
           <div className="flex items-center gap-1.5 text-sm text-surface-400">
-            <LuCalendar className="h-3.5 w-3.5 shrink-0" />
+            <Calendar className="h-3.5 w-3.5 shrink-0" />
             <span>Installed {installedDate}</span>
           </div>
         </div>
@@ -111,14 +111,14 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
       {mod.tags.length > 0 && (
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-500 uppercase">
-            <LuTag className="h-3.5 w-3.5" />
+            <Tag className="h-3.5 w-3.5" />
             Tags
           </h4>
           <div className="flex flex-wrap gap-1.5">
             {mod.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-brand-500/15 px-2.5 py-0.5 text-xs text-brand-300"
+                className="rounded-full bg-accent-500/15 px-2.5 py-0.5 text-xs text-accent-300"
               >
                 {getTagLabel(tag)}
               </span>
@@ -131,7 +131,7 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
       {mod.champions.length > 0 && (
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-500 uppercase">
-            <LuSword className="h-3.5 w-3.5" />
+            <Sword className="h-3.5 w-3.5" />
             Champions
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -151,7 +151,7 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
       {mod.maps.length > 0 && (
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-500 uppercase">
-            <LuMap className="h-3.5 w-3.5" />
+            <Map className="h-3.5 w-3.5" />
             Maps
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -195,7 +195,7 @@ function ModDetailsLayers({ mod }: { mod: InstalledMod }) {
   return (
     <div>
       <h4 className="mb-2 flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-500 uppercase">
-        <LuLayers className="h-3.5 w-3.5" />
+        <Layers className="h-3.5 w-3.5" />
         Layers ({mod.layers.filter((l) => l.enabled).length}/{mod.layers.length})
       </h4>
       <LayerToggleList layers={mod.layers} onToggle={handleToggle} />

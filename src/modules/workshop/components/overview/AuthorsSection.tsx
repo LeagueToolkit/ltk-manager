@@ -1,4 +1,4 @@
-import { LuPlus, LuTrash2, LuUsers } from "react-icons/lu";
+import { Plus, Trash2, Users } from "lucide-react";
 
 import { Button, FormField, IconButton, SectionCard } from "@/components";
 import type { WorkshopAuthor } from "@/lib/tauri";
@@ -14,10 +14,10 @@ export function AuthorsSection({ authors, onAdd, onRemove, onUpdate }: AuthorsSe
   return (
     <SectionCard
       title="Authors"
-      icon={<LuUsers className="h-4 w-4" />}
+      icon={<Users className="h-4 w-4" />}
       description="People who contributed to this mod."
       action={
-        <Button variant="outline" size="sm" left={<LuPlus className="h-4 w-4" />} onClick={onAdd}>
+        <Button variant="outline" size="sm" left={<Plus className="h-4 w-4" />} onClick={onAdd}>
           Add Author
         </Button>
       }
@@ -45,7 +45,7 @@ export function AuthorsSection({ authors, onAdd, onRemove, onUpdate }: AuthorsSe
                 className="w-48"
               />
               <IconButton
-                icon={<LuTrash2 className="h-4 w-4" />}
+                icon={<Trash2 className="h-4 w-4" />}
                 variant="ghost"
                 size="sm"
                 onClick={() => onRemove(index)}

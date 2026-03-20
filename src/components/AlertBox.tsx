@@ -1,5 +1,5 @@
+import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { type ReactNode } from "react";
-import { LuCircleAlert, LuCircleCheck, LuCircleX, LuInfo, LuX } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 export type AlertBoxVariant = "info" | "success" | "warning" | "error";
@@ -38,10 +38,10 @@ const variantStyles: Record<AlertBoxVariant, { border: string; bg: string; icon:
 };
 
 const defaultIcons: Record<AlertBoxVariant, ReactNode> = {
-  info: <LuInfo className="h-5 w-5" />,
-  success: <LuCircleCheck className="h-5 w-5" />,
-  warning: <LuCircleAlert className="h-5 w-5" />,
-  error: <LuCircleX className="h-5 w-5" />,
+  info: <Info className="h-5 w-5" />,
+  success: <CircleCheck className="h-5 w-5" />,
+  warning: <CircleAlert className="h-5 w-5" />,
+  error: <CircleX className="h-5 w-5" />,
 };
 
 export function AlertBox({
@@ -79,7 +79,7 @@ export function AlertBox({
           className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
           aria-label="Dismiss"
         >
-          <LuX className="h-4 w-4" />
+          <X className="h-4 w-4" />
         </button>
       )}
     </div>

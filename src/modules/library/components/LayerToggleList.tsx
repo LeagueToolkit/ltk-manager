@@ -1,4 +1,4 @@
-import { LuLock } from "react-icons/lu";
+import { Lock } from "lucide-react";
 
 import { Switch } from "@/components";
 import type { ModLayer } from "@/lib/tauri";
@@ -27,7 +27,7 @@ export function LayerToggleList({ layers, onToggle, disabled }: LayerToggleListP
               <span className="ml-2 text-xs text-surface-500">Priority {layer.priority}</span>
             </div>
             {isBase ? (
-              <LuLock className="h-4 w-4 shrink-0 text-surface-500" />
+              <Lock className="h-4 w-4 shrink-0 text-surface-500" />
             ) : (
               <Switch
                 size="sm"

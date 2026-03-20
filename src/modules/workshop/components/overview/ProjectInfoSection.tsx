@@ -1,5 +1,5 @@
+import { Check, ChevronDown, ChevronRight, Info, Pencil, X } from "lucide-react";
 import { useState } from "react";
-import { LuCheck, LuChevronDown, LuChevronRight, LuInfo, LuPencil, LuX } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, useToast } from "@/components";
@@ -53,9 +53,9 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
         className="flex w-full items-center gap-2 px-5 py-3.5 text-left text-sm font-medium text-surface-300 transition-colors hover:text-surface-100"
       >
         <span className={twMerge("transition-transform duration-200", isOpen && "rotate-90")}>
-          {isOpen ? <LuChevronDown className="h-4 w-4" /> : <LuChevronRight className="h-4 w-4" />}
+          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </span>
-        <LuInfo className="h-4 w-4 text-surface-400" />
+        <Info className="h-4 w-4 text-surface-400" />
         Project Info
       </button>
 
@@ -76,10 +76,10 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                         if (e.key === "Escape") handleCancelSlug();
                       }}
                       autoFocus
-                      className="w-48 rounded border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                      className="w-48 rounded border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none"
                     />
                     <IconButton
-                      icon={<LuCheck className="h-3.5 w-3.5" />}
+                      icon={<Check className="h-3.5 w-3.5" />}
                       variant="ghost"
                       size="xs"
                       onClick={handleSaveSlug}
@@ -87,7 +87,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                       aria-label="Save slug"
                     />
                     <IconButton
-                      icon={<LuX className="h-3.5 w-3.5" />}
+                      icon={<X className="h-3.5 w-3.5" />}
                       variant="ghost"
                       size="xs"
                       onClick={handleCancelSlug}
@@ -98,7 +98,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                   <>
                     <span className="font-mono text-surface-200">{project.name}</span>
                     <IconButton
-                      icon={<LuPencil className="h-3 w-3" />}
+                      icon={<Pencil className="h-3 w-3" />}
                       variant="ghost"
                       size="xs"
                       onClick={() => {

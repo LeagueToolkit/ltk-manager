@@ -43,7 +43,7 @@ function RootLayout() {
   // Show loading state while checking setup
   if (isCheckingSetup) {
     return (
-      <div className="via-night-600 flex h-screen items-center justify-center bg-linear-to-br from-surface-900 to-surface-900">
+      <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-900 via-surface-800 to-surface-900">
         <div className="text-surface-400">Loading...</div>
       </div>
     );

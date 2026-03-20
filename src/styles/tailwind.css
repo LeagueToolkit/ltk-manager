@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "./animations.css";
+@import "./global.css";
+
+@theme {
+  /* Surface colors - reference CSS custom properties for theme switching */
+  --color-surface-50: var(--surface-50);
+  --color-surface-100: var(--surface-100);
+  --color-surface-200: var(--surface-200);
+  --color-surface-300: var(--surface-300);
+  --color-surface-400: var(--surface-400);
+  --color-surface-500: var(--surface-500);
+  --color-surface-600: var(--surface-600);
+  --color-surface-700: var(--surface-700);
+  --color-surface-800: var(--surface-800);
+  --color-surface-900: var(--surface-900);
+  --color-surface-950: var(--surface-950);
+
+  /* Accent colors - dynamic based on accent-hue */
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+
+  /* Spacing tokens (NNN × 6px) */
+  --spacing-1: var(--space-001);
+  --spacing-2: var(--space-002);
+  --spacing-3: var(--space-003);
+  --spacing-4: var(--space-004);
+  --spacing-5: var(--space-005);
+  --spacing-6: var(--space-006);
+  --spacing-7: var(--space-007);
+  --spacing-8: var(--space-008);
+  --spacing-9: var(--space-009);
+  --spacing-10: var(--space-010);
+  --spacing-11: var(--space-011);
+  --spacing-12: var(--space-012);
+
+  /* Radius tokens */
+  --radius-sm: var(--radius-001);
+  --radius-md: var(--radius-002);
+  --radius-lg: var(--radius-003);
+  --radius-xl: var(--radius-004);
+  --radius-2xl: var(--radius-005);
+  --radius-full: var(--radius-006);
+
+  /* Shadow tokens */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-glass: var(--shadow-glass);
+
+  /* Z-index tokens */
+  --z-index-dropdown: var(--z-dropdown);
+  --z-index-modal: var(--z-modal);
+  --z-index-toast: var(--z-toast);
+  --z-index-notification: var(--z-notification);
+
+  /* Fonts */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-display: "Beaufort for LOL", "Inter", system-ui, sans-serif;
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.3s ease-out;
+  --animate-slide-down: slide-down 0.3s ease-out;
+  --animate-toast-slide-in: toast-slide-in 0.3s ease-out;
+  --animate-toast-slide-out: toast-slide-out 0.2s ease-in;
+  --animate-shimmer: shimmer 1.5s ease-in-out infinite;
+}

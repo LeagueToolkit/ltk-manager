@@ -1,5 +1,5 @@
+import { Filter, Plus, Search, Upload } from "lucide-react";
 import { useState } from "react";
-import { LuFilter, LuPlus, LuSearch, LuUpload } from "react-icons/lu";
 
 import { Button } from "@/components";
 import type { AppError, InstalledMod } from "@/lib/tauri";
@@ -111,7 +111,7 @@ export function LibraryContent({
 function LoadingState() {
   return (
     <div className="flex h-64 items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
     </div>
   );
 }
@@ -142,9 +142,9 @@ function EmptyState({
     return (
       <div className="flex h-64 flex-col items-center justify-center text-center">
         {hasFilters ? (
-          <LuFilter className="mb-4 h-12 w-12 text-surface-600" />
+          <Filter className="mb-4 h-12 w-12 text-surface-600" />
         ) : (
-          <LuSearch className="mb-4 h-12 w-12 text-surface-600" />
+          <Search className="mb-4 h-12 w-12 text-surface-600" />
         )}
         <h3 className="mb-1 text-lg font-medium text-surface-300">No mods found</h3>
         <p className="text-surface-500">
@@ -157,11 +157,11 @@ function EmptyState({
   return (
     <div className="flex h-64 flex-col items-center justify-center text-center">
       <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl">
-        <LuUpload className="h-10 w-10 text-surface-600" />
+        <Upload className="h-10 w-10 text-surface-600" />
       </div>
       <h3 className="mb-1 text-lg font-medium text-surface-300">No mods installed</h3>
       <p className="mb-4 text-surface-500">Get started by adding your first mod</p>
-      <Button variant="filled" onClick={onInstall} left={<LuPlus className="h-4 w-4" />}>
+      <Button variant="filled" onClick={onInstall} left={<Plus className="h-4 w-4" />}>
         Add Mod
       </Button>
     </div>

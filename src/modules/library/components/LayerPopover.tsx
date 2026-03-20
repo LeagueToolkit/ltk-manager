@@ -1,4 +1,4 @@
-import { LuLayers } from "react-icons/lu";
+import { Layers } from "lucide-react";
 
 import { IconButton, Popover } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
@@ -29,7 +29,7 @@ export function LayerPopover({ mod, disabled }: LayerPopoverProps) {
       <Popover.Trigger
         render={
           <IconButton
-            icon={<LuLayers className="h-4 w-4" />}
+            icon={<Layers className="h-4 w-4" />}
             variant="ghost"
             size="md"
             disabled={disabled}

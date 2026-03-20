@@ -1,5 +1,5 @@
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { LuCheck, LuPencil, LuTrash2, LuX } from "react-icons/lu";
 
 import { Button, Field, IconButton, Tooltip, useToast } from "@/components";
 import type { Profile } from "@/lib/tauri";
@@ -83,7 +83,7 @@ export function ProfileListItem({
           placeholder="Profile name..."
         />
         <IconButton
-          icon={<LuCheck className="h-4 w-4" />}
+          icon={<Check className="h-4 w-4" />}
           variant="ghost"
           size="xs"
           onClick={handleRename}
@@ -91,7 +91,7 @@ export function ProfileListItem({
           className="text-green-400 hover:text-green-300"
         />
         <IconButton
-          icon={<LuX className="h-4 w-4" />}
+          icon={<X className="h-4 w-4" />}
           variant="ghost"
           size="xs"
           onClick={cancelEditing}
@@ -108,7 +108,7 @@ export function ProfileListItem({
         onClick={() => onSwitch(profile.id)}
         disabled={isSwitching || isActive}
         className="flex-1 justify-between"
-        right={isActive ? <LuCheck className="h-4 w-4 text-brand-500" /> : undefined}
+        right={isActive ? <Check className="h-4 w-4 text-accent-500" /> : undefined}
       >
         {profile.name}
       </Button>
@@ -117,7 +117,7 @@ export function ProfileListItem({
         <>
           <Tooltip content="Rename profile">
             <IconButton
-              icon={<LuPencil className="h-3.5 w-3.5" />}
+              icon={<Pencil className="h-3.5 w-3.5" />}
               variant="ghost"
               size="xs"
               onClick={startEditing}
@@ -125,7 +125,7 @@ export function ProfileListItem({
           </Tooltip>
           <Tooltip content="Delete profile">
             <IconButton
-              icon={<LuTrash2 className="h-3.5 w-3.5" />}
+              icon={<Trash2 className="h-3.5 w-3.5" />}
               variant="ghost"
               size="xs"
               onClick={() => onDeleteClick(profile)}

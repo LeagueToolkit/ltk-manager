@@ -1,4 +1,4 @@
-import { LuCircleCheck, LuCircleX, LuDownload, LuGlobe, LuPackage, LuUser } from "react-icons/lu";
+import { CircleCheck, CircleX, Download, Globe, Package, User } from "lucide-react";
 
 import { Button, Dialog, Progress, useToast } from "@/components";
 import type { ProtocolInstallProgress } from "@/lib/tauri";
@@ -62,8 +62,8 @@ export function ProtocolInstallDialog() {
             {!isComplete && !isError && (
               <>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/15">
-                    <LuPackage className="h-5 w-5 text-brand-400" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+                    <Package className="h-5 w-5 text-accent-400" />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-medium text-surface-100">{displayName}</p>
@@ -71,13 +71,13 @@ export function ProtocolInstallDialog() {
                       <div className="mt-0.5 flex items-center gap-3 text-xs text-surface-400">
                         {request.author && (
                           <span className="flex items-center gap-1">
-                            <LuUser className="h-3 w-3 shrink-0" />
+                            <User className="h-3 w-3 shrink-0" />
                             {request.author}
                           </span>
                         )}
                         {request.source && (
                           <span className="flex items-center gap-1">
-                            <LuGlobe className="h-3 w-3 shrink-0" />
+                            <Globe className="h-3 w-3 shrink-0" />
                             {request.source}
                           </span>
                         )}
@@ -99,7 +99,7 @@ export function ProtocolInstallDialog() {
             {isComplete && (
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
-                  <LuCircleCheck className="h-5 w-5 text-emerald-400" />
+                  <CircleCheck className="h-5 w-5 text-emerald-400" />
                 </div>
                 <p className="text-sm text-surface-300">
                   <span className="font-medium text-surface-100">{displayName}</span> has been
@@ -111,7 +111,7 @@ export function ProtocolInstallDialog() {
             {isError && error && (
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
-                  <LuCircleX className="h-5 w-5 text-red-400" />
+                  <CircleX className="h-5 w-5 text-red-400" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-surface-100">
@@ -130,7 +130,7 @@ export function ProtocolInstallDialog() {
                   Cancel
                 </Button>
                 <Button variant="filled" onClick={handleConfirm} loading={isInstalling}>
-                  <LuDownload className="h-4 w-4" />
+                  <Download className="h-4 w-4" />
                   Install
                 </Button>
               </>

@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Check, CircleAlert, FolderOpen, Package, TriangleAlert } from "lucide-react";
 import { useState } from "react";
-import { LuCheck, LuCircleAlert, LuFolderOpen, LuPackage, LuTriangleAlert } from "react-icons/lu";
 
 import { Button, Dialog, RadioGroup } from "@/components";
 import type { PackResult } from "@/lib/tauri";
@@ -60,7 +60,7 @@ export function PackDialog() {
               <div className="space-y-4">
                 <div className="flex flex-col items-center py-4 text-center">
                   <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-                    <LuCheck className="h-8 w-8 text-green-400" />
+                    <Check className="h-8 w-8 text-green-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-surface-100">Package Created</h3>
                   <p className="mt-2 text-sm font-medium text-surface-200">{packResult.fileName}</p>
@@ -73,7 +73,7 @@ export function PackDialog() {
               <div className="space-y-4">
                 {validationLoading ? (
                   <div className="flex items-center gap-2 text-surface-400">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
                     Validating project...
                   </div>
                 ) : validation ? (
@@ -81,7 +81,7 @@ export function PackDialog() {
                     {hasErrors && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-red-400">
-                          <LuCircleAlert className="h-4 w-4" />
+                          <CircleAlert className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {validation.errors.length} error{validation.errors.length !== 1 && "s"}
                           </span>
@@ -97,7 +97,7 @@ export function PackDialog() {
                     {hasWarnings && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 text-yellow-400">
-                          <LuTriangleAlert className="h-4 w-4" />
+                          <TriangleAlert className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {validation.warnings.length} warning
                             {validation.warnings.length !== 1 && "s"}
@@ -113,7 +113,7 @@ export function PackDialog() {
 
                     {validation.valid && !hasWarnings && (
                       <div className="flex items-center gap-2 text-green-400">
-                        <LuCheck className="h-4 w-4" />
+                        <Check className="h-4 w-4" />
                         <span className="text-sm">Project is valid</span>
                       </div>
                     )}
@@ -141,7 +141,7 @@ export function PackDialog() {
 
                 {format === "fantome" && project.layers.length > 1 && (
                   <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm">
-                    <LuTriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
                     <div className="text-yellow-300">
                       This project has {project.layers.length} layers, but Fantome format only
                       supports the base layer. Other layers will not be included.
@@ -160,7 +160,7 @@ export function PackDialog() {
                 </Button>
                 <Button
                   variant="filled"
-                  left={<LuFolderOpen className="h-4 w-4" />}
+                  left={<FolderOpen className="h-4 w-4" />}
                   onClick={async () => {
                     try {
                       await invoke("reveal_in_explorer", { path: packResult.outputPath });
@@ -179,7 +179,7 @@ export function PackDialog() {
                 </Button>
                 <Button
                   variant="filled"
-                  left={<LuPackage className="h-4 w-4" />}
+                  left={<Package className="h-4 w-4" />}
                   onClick={handlePack}
                   loading={packProject.isPending}
                   disabled={hasErrors || validationLoading}

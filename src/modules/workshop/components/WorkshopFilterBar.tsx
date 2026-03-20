@@ -1,5 +1,5 @@
+import { X } from "lucide-react";
 import { useMemo } from "react";
-import { LuX } from "react-icons/lu";
 
 import { MultiSelect, type MultiSelectOption } from "@/components";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
@@ -83,7 +83,7 @@ export function WorkshopFilterBar({ filterOptions }: WorkshopFilterBarProps) {
           onClick={clearFilters}
           className="flex shrink-0 items-center gap-1 text-xs text-surface-400 hover:text-surface-200"
         >
-          <LuX className="h-3 w-3" />
+          <X className="h-3 w-3" />
           Clear all
         </button>
       )}

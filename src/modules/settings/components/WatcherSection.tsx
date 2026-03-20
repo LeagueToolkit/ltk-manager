@@ -1,4 +1,4 @@
-import { LuEye } from "react-icons/lu";
+import { Eye } from "lucide-react";
 
 import { AlertBox, SectionCard, Switch } from "@/components";
 import type { Settings } from "@/lib/tauri";
@@ -10,7 +10,7 @@ interface WatcherSectionProps {
 
 export function WatcherSection({ settings, onSave }: WatcherSectionProps) {
   return (
-    <SectionCard title="Library Watcher" icon={<LuEye className="h-5 w-5" />}>
+    <SectionCard title="Library Watcher" icon={<Eye className="h-5 w-5" />}>
       <div className="space-y-3">
         <AlertBox variant="warning" title="Experimental feature">
           The library watcher may behave unexpectedly on some system configurations. File system

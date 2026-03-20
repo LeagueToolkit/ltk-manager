@@ -172,7 +172,7 @@ export function ImportFantomeDialog() {
                   )}
                   <div className="h-2 overflow-hidden rounded-full bg-surface-700">
                     <div
-                      className="h-full rounded-full bg-brand-500 transition-all duration-300"
+                      className="h-full rounded-full bg-accent-500 transition-all duration-300"
                       style={{
                         width:
                           progress.total > 0

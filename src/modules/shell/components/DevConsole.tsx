@@ -1,6 +1,6 @@
+import { Terminal, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { LuTerminal, LuTrash2, LuX } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tooltip } from "@/components";
@@ -71,7 +71,7 @@ export function DevConsole() {
     <div className="flex h-64 shrink-0 flex-col border-t border-surface-600 bg-surface-900">
       {/* Toolbar */}
       <div className="flex items-center gap-2 border-b border-surface-700 px-2 py-1">
-        <LuTerminal className="h-3.5 w-3.5 text-surface-400" />
+        <Terminal className="h-3.5 w-3.5 text-surface-400" />
         <span className="text-xs font-medium text-surface-300">Dev Console</span>
 
         <select
@@ -98,7 +98,7 @@ export function DevConsole() {
 
         <Tooltip content="Clear console">
           <IconButton
-            icon={<LuTrash2 className="h-3.5 w-3.5" />}
+            icon={<Trash2 className="h-3.5 w-3.5" />}
             variant="ghost"
             size="xs"
             onClick={clear}
@@ -108,7 +108,7 @@ export function DevConsole() {
         </Tooltip>
         <Tooltip content="Close console">
           <IconButton
-            icon={<LuX className="h-3.5 w-3.5" />}
+            icon={<X className="h-3.5 w-3.5" />}
             variant="ghost"
             size="xs"
             onClick={toggle}

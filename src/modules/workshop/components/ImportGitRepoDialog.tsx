@@ -113,7 +113,7 @@ export function ImportGitRepoDialog() {
                   </div>
                   {progress.stage !== "error" && (
                     <div className="h-2 overflow-hidden rounded-full bg-surface-700">
-                      <div className="h-full w-full animate-pulse rounded-full bg-brand-500 transition-all duration-300" />
+                      <div className="h-full w-full animate-pulse rounded-full bg-accent-500 transition-all duration-300" />
                     </div>
                   )}
                 </div>

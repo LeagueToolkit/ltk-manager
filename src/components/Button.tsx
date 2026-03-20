@@ -1,6 +1,6 @@
 import { Button as BaseButton } from "@base-ui/react";
+import { Loader2 } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { CgSpinner } from "react-icons/cg";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -53,8 +53,8 @@ const compactIconOnlySizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "bg-surface-700 text-surface-100 hover:bg-surface-600 active:bg-surface-800",
-  filled: "bg-brand-600 text-white hover:bg-brand-500 active:bg-brand-700",
-  light: "bg-brand-600/15 text-brand-400 hover:bg-brand-600/25 active:bg-brand-600/35",
+  filled: "bg-accent-600 text-white hover:bg-accent-500 active:bg-accent-700",
+  light: "bg-accent-600/15 text-accent-400 hover:bg-accent-600/25 active:bg-accent-600/35",
   outline:
     "bg-transparent text-surface-200 border border-surface-600 hover:bg-surface-800 active:bg-surface-700",
   ghost: "bg-transparent text-surface-200 hover:bg-surface-700 active:bg-surface-800",
@@ -62,7 +62,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const baseClasses =
-  "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 cursor-pointer select-none focus-visible:outline-brand-500 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
+  "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 cursor-pointer select-none focus-visible:outline-accent-500 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
 
 const spinnerSizeClasses: Record<ButtonSize, string> = {
   xs: "text-sm",
@@ -124,7 +124,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const content = match([loading, isIconOnly] as const)
       .with([true, true], [true, false], () => (
         <>
-          <CgSpinner className={twMerge("animate-spin", spinnerSizeClasses[size])} />
+          <Loader2 className={twMerge("animate-spin", spinnerSizeClasses[size])} />
           {children && <span className="opacity-0">{children}</span>}
         </>
       ))

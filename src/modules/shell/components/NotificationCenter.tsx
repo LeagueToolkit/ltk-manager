@@ -1,23 +1,15 @@
 import { formatDistanceToNow } from "date-fns";
+import { Bell, CircleAlert, CircleCheck, CircleX, Info, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import {
-  LuBell,
-  LuCircleAlert,
-  LuCircleCheck,
-  LuCircleX,
-  LuInfo,
-  LuTrash2,
-  LuX,
-} from "react-icons/lu";
 
 import { IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { type Notification, useNotificationStore } from "@/stores/notifications";
 
 const typeIcons: Record<ToastType, React.ReactNode> = {
-  success: <LuCircleCheck className="h-4 w-4 text-green-500" />,
-  error: <LuCircleX className="h-4 w-4 text-red-500" />,
-  warning: <LuCircleAlert className="h-4 w-4 text-amber-500" />,
-  info: <LuInfo className="h-4 w-4 text-blue-500" />,
+  success: <CircleCheck className="h-4 w-4 text-green-500" />,
+  error: <CircleX className="h-4 w-4 text-red-500" />,
+  warning: <CircleAlert className="h-4 w-4 text-amber-500" />,
+  info: <Info className="h-4 w-4 text-blue-500" />,
 };
 
 function NotificationItem({
@@ -45,7 +37,7 @@ function NotificationItem({
         onClick={() => onDismiss(notification.id)}
         className="shrink-0 rounded p-0.5 text-surface-500 transition-colors hover:bg-surface-700 hover:text-surface-300"
       >
-        <LuX className="h-3.5 w-3.5" />
+        <X className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -76,9 +68,9 @@ export function NotificationCenter() {
         aria-label="Notifications"
         className="relative flex h-full items-center px-3 text-surface-400 transition-colors hover:text-surface-200"
       >
-        <LuBell className="h-4 w-4" />
+        <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -92,7 +84,7 @@ export function NotificationCenter() {
               {notifications.length > 0 && (
                 <Tooltip content="Clear all">
                   <IconButton
-                    icon={<LuTrash2 className="h-3.5 w-3.5" />}
+                    icon={<Trash2 className="h-3.5 w-3.5" />}
                     variant="ghost"
                     size="xs"
                     onClick={dismissAll}

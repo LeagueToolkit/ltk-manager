@@ -1,5 +1,5 @@
+import { Check, FolderOpen, Package, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { LuCheck, LuFolderOpen, LuPackage, LuX } from "react-icons/lu";
 
 import { Button, Dialog, IconButton, Progress, RadioGroup, Tooltip } from "@/components";
 import { api, type PackFormat, type PackResult } from "@/lib/tauri";
@@ -147,9 +147,9 @@ export function BulkPackDialog() {
                       return (
                         <li key={i} className="flex items-center gap-2">
                           {outcome.ok ? (
-                            <LuCheck className="h-4 w-4 shrink-0 text-green-400" />
+                            <Check className="h-4 w-4 shrink-0 text-green-400" />
                           ) : (
-                            <LuX className="h-4 w-4 shrink-0 text-red-400" />
+                            <X className="h-4 w-4 shrink-0 text-red-400" />
                           )}
                           <span className={outcome.ok ? "flex-1 text-surface-300" : "text-red-300"}>
                             {r.displayName}
@@ -157,7 +157,7 @@ export function BulkPackDialog() {
                           {outcome.ok && (
                             <Tooltip content="Show in Explorer">
                               <IconButton
-                                icon={<LuFolderOpen className="h-3.5 w-3.5" />}
+                                icon={<FolderOpen className="h-3.5 w-3.5" />}
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => api.revealInExplorer(outcome.result.outputPath)}
@@ -186,7 +186,7 @@ export function BulkPackDialog() {
                 </Button>
                 <Button
                   variant="filled"
-                  left={<LuPackage className="h-4 w-4" />}
+                  left={<Package className="h-4 w-4" />}
                   onClick={handlePack}
                 >
                   Pack {projects.length} {projects.length === 1 ? "Project" : "Projects"}
