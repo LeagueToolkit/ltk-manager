@@ -110,7 +110,7 @@
 }
 
 /* Light theme overrides (slate-tinted) */
-:root.light {
+[data-theme="light"] {
   --surface-950-rgb: 248 250 252;
   --surface-900-rgb: 241 245 249;
 
@@ -244,29 +244,29 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
-.backdrop-active:not(.light) {
+.backdrop-active:not([data-theme="light"]) {
   --surface-400: #a0a0a0;
   --surface-500: #707070;
 }
 
 /* Light theme backdrop adjustments */
-.backdrop-active.light .title-bar {
+.backdrop-active[data-theme="light"] .title-bar {
   background-color: rgb(var(--surface-950-rgb));
 }
 
-.backdrop-active.light main {
+.backdrop-active[data-theme="light"] main {
   background-color: rgb(var(--surface-900-rgb) / 0.88);
 }
 
-.backdrop-active.light main > * > [class*="border-b"] {
+.backdrop-active[data-theme="light"] main > * > [class*="border-b"] {
   background-color: rgb(var(--surface-950-rgb) / 0.5);
 }
 
-.backdrop-active.light main .settings-container {
+.backdrop-active[data-theme="light"] main .settings-container {
   background-color: rgb(var(--surface-900-rgb) / 0.7);
 }
 
-.backdrop-active.light main * {
+.backdrop-active[data-theme="light"] main * {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
 }
 

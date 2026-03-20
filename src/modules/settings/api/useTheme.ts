@@ -31,13 +31,7 @@ export function useTheme() {
     const root = document.documentElement;
 
     const applyTheme = (isDark: boolean) => {
-      if (isDark) {
-        root.classList.remove("light");
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-        root.classList.add("light");
-      }
+      root.setAttribute("data-theme", isDark ? "dark" : "light");
     };
 
     if (theme === "system") {
