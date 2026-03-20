@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./animations.css";
+@import "./global.css";
 
 @theme {
   /* Surface colors - reference CSS custom properties for theme switching */
