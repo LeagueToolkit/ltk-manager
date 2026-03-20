@@ -103,7 +103,7 @@ Two Tauri-managed states:
 
 ### Error Codes
 
-`ErrorCode` enum variants (serialized as `SCREAMING_SNAKE_CASE`): `Io`, `Serialization`, `Modpkg`, `LeagueNotFound`, `InvalidPath`, `ModNotFound`, `ValidationFailed`, `InternalState`, `MutexLockFailed`, `Unknown`, `WorkshopNotConfigured`, `ProjectNotFound`, `ProjectAlreadyExists`, `PackFailed`, `Wad`.
+`ErrorCode` enum variants (serialized as `SCREAMING_SNAKE_CASE`): `Io`, `Serialization`, `Modpkg`, `Fantome`, `LeagueNotFound`, `InvalidPath`, `ModNotFound`, `ValidationFailed`, `InternalState`, `MutexLockFailed`, `PatcherRunning`, `Unknown`, `WorkshopNotConfigured`, `ProjectNotFound`, `ProjectAlreadyExists`, `PackFailed`, `Wad`, `Zip`.
 
 Errors can carry JSON context: `AppErrorResponse::new(code, msg).with_context(json!({ "modId": id }))`.
 
@@ -147,18 +147,19 @@ TanStack Router with file-based routing in `src/routes/`. Route tree is auto-gen
 | `Checkbox`, `CheckboxGroup` | Boolean/multi-select inputs | `Checkbox` |
 | `RadioGroup` (compound: `Root`, `Label`, `Options`, `Card`, `Item`) | Mutually exclusive choices | `Radio`, `RadioGroup` |
 | `Tabs` (compound: `Root`, `List`, `Tab`, `Panel`, `Indicator`) | Tabbed content | `Tabs` |
-| `Tooltip`, `SimpleTooltip` | Hover information | `Tooltip` |
+| `Tooltip` | Hover information | `Tooltip` |
 | `Toast`, `ToastProvider`, `useToast()` | Notifications | `Toast` |
 | `Switch` (sizes: `sm`, `md`) | Toggle on/off | `Switch` |
 | `Menu` (compound: `Root`, `Trigger`, `Portal`, `Positioner`, `Popup`, `Item`, `Separator`, `Group`, `GroupLabel`) | Dropdown/context menus | `Menu` |
 | `Select`, `SelectField` (compound + simplified), TanStack Form: `field.SelectField` | Dropdown select inputs | `Select` |
 | `Popover` (compound: `Root`, `Trigger`, `Portal`, `Backdrop`, `Positioner`, `Popup`, `Arrow`, `Title`, `Description`, `Close`) | Positioned popover panels | `Popover` |
 
-**Not yet wrapped (needed):**
-| Component | Priority | Current Workaround |
+**Also wrapped:**
+| Component | Usage | Base-UI Primitive |
 | ------------ | -------- | --------------------------------- |
-| `Progress` | LOW | Custom overlay progress rendering |
-| `ScrollArea` | LOW | Native scrollbars |
+| `Progress` (compound: `Root`, `Track`, `Indicator`) | Progress bars | `Progress` |
+| `Combobox` (compound: `Root`, `Input`, `Trigger`, `Portal`, `Positioner`, `Popup`, `List`, `Item`, `Empty`, `Clear`, `Chips`, `Chip`, `ChipRemove`) | Autocomplete / combobox | `Combobox` |
+| `MultiSelect` | Multi-value combobox | Wraps `Combobox` |
 
 When adding a new base-ui component:
 
@@ -166,18 +167,64 @@ When adding a new base-ui component:
 2. Export from `src/components/index.ts`
 3. Import in modules via `@/components`, never from `@base-ui-components/react` directly
 
+### Form System (`src/lib/form/`)
+
+Uses `@tanstack/react-form` with Zod validation. The form system provides:
+
+- `useAppForm()` — Pre-configured form hook with Zod adapter
+- Pre-registered field components available via `form.AppField` and `form.AppForm`:
+  - `field.TextField`, `field.TextareaField` — Text inputs
+  - `field.SelectField` — Dropdown select
+  - `field.CheckboxField` — Boolean checkbox
+- All field components integrate with the wrapped `@/components` primitives
+
 ### Key Dependencies
 
-- `@base-ui-components/react` — Headless UI primitives (wrapped via `src/components/`)
+- `@base-ui/react` — Headless UI primitives (wrapped via `src/components/`)
 - `@tanstack/react-form` + `zod` — Form management with validation
 - `ts-pattern` — Exhaustive pattern matching
 - `zustand` — Client-side state (not for server state — use TanStack Query)
-- `react-icons` — Icon library
+- `lucide-react` — Icon library (`import { IconName } from "lucide-react"`)
 - `tailwind-merge` — Merging Tailwind classes in component variants
+
+### Icons
+
+All icons come from `lucide-react`. Import by PascalCase name:
+
+```ts
+import { Check, Settings, Loader2 } from "lucide-react";
+import type { LucideIcon } from "lucide-react"; // for type annotations
+```
+
+- Standard spinner: `<Loader2 className="animate-spin" />`
+- Icons accept `className`, `size`, `strokeWidth` props
+- Do NOT use `react-icons` — it has been removed from the project
 
 ### Styling
 
-Tailwind CSS v4 via `@tailwindcss/vite` plugin. Theme uses CSS custom properties with HSL-based accent color system (`--accent-hue`). Color tokens: `surface-{50..950}` for neutrals, `brand-{50..950}` for accent. Dark theme is default; light theme inverts the surface palette.
+Tailwind CSS v4 via `@tailwindcss/vite` plugin. CSS is organized into three files in `src/styles/`:
+
+| File | Purpose |
+|------|---------|
+| `global.css` | Design tokens (all scales), CSS reset, dark/light themes, global utilities, scrollbar, focus ring, drag region, toast viewport, glassmorphism |
+| `animations.css` | All `@keyframes` definitions (fade-in, slide-up, slide-down, toast-slide-in/out, shimmer) |
+| `tailwind.css` | `@import "tailwindcss"` + `@theme {}` mapping tokens to Tailwind utilities. **This is the single CSS entry point** imported in `main.tsx`. |
+
+**Design tokens** use numbered scales defined as CSS custom properties:
+
+| Category | Pattern | Example |
+|----------|---------|---------|
+| Spacing | `--space-{NNN}` | `--space-004` → 24px (NNN × 6px) |
+| Radius | `--radius-{NNN}` | `--radius-003` → 8px |
+| Icon sizes | `--icon-{NNN}` | `--icon-003` → 16px |
+| Shadows | `--shadow-{name}` | `--shadow-sm`, `--shadow-glass` |
+| Z-index | `--z-{name}` | `--z-modal`, `--z-toast` |
+| Duration | `--duration-{NNN}` | `--duration-004` → 200ms |
+| Easing | `--ease-{name}` | `--ease-spring` |
+
+**Color tokens:** `surface-{50..950}` for neutrals, `accent-{50..950}` for the dynamic accent color (HSL-based via `--accent-hue`). Dark theme is default; light theme uses `[data-theme="light"]` attribute on `<html>`.
+
+**Important:** `global.css` must NOT use `@apply` with Tailwind utilities — use raw CSS custom property references instead (e.g., `background-color: var(--surface-900)`).
 
 ## Log Files
 
