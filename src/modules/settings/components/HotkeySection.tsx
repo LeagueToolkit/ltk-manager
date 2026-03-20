@@ -147,7 +147,7 @@ function HotkeyInput({ label, description, value, onSet }: HotkeyInputProps) {
       <ButtonGroup className="shrink-0">
         {isCapturing ? (
           <div
-            className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-brand-500 bg-brand-500/10 px-3 text-sm font-medium text-brand-300 outline-none"
+            className="flex h-8 min-w-[140px] animate-pulse items-center justify-center rounded-md border-2 border-accent-500 bg-accent-500/10 px-3 text-sm font-medium text-accent-300 outline-none"
             tabIndex={0}
             ref={(el: HTMLDivElement | null) => el?.focus()}
             onKeyDown={handleKeyDown}

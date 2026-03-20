@@ -73,7 +73,7 @@ export function PackDialog() {
               <div className="space-y-4">
                 {validationLoading ? (
                   <div className="flex items-center gap-2 text-surface-400">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
                     Validating project...
                   </div>
                 ) : validation ? (

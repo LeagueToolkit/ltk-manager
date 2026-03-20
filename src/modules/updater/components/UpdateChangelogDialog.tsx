@@ -36,14 +36,14 @@ export function UpdateChangelogDialog() {
       <Dialog.Portal>
         <Dialog.Backdrop />
         <Dialog.Overlay size="md">
-          <Dialog.Header className="border-b-brand-500/20 bg-linear-to-r from-brand-600/10 to-brand-500/5">
+          <Dialog.Header className="border-b-accent-500/20 bg-linear-to-r from-accent-600/10 to-accent-500/5">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-500/15">
-                <Sparkles className="h-5 w-5 text-brand-400" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500/15">
+                <Sparkles className="h-5 w-5 text-accent-400" />
               </div>
               <div>
                 <Dialog.Title>What&apos;s New</Dialog.Title>
-                <p className="text-xs font-medium text-brand-400">v{update.version}</p>
+                <p className="text-xs font-medium text-accent-400">v{update.version}</p>
               </div>
             </div>
             {!updating && <Dialog.Close />}

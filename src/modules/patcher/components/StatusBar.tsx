@@ -74,12 +74,12 @@ export function StatusBar() {
         : null;
 
     return (
-      <div className="animate-in slide-in-from-bottom-2 border-t-2 border-brand-500 bg-surface-950 px-4 py-2">
+      <div className="animate-in slide-in-from-bottom-2 border-t-2 border-accent-500 bg-surface-950 px-4 py-2">
         <div className="flex items-center gap-3">
-          <Loader className="h-4 w-4 shrink-0 animate-spin text-brand-500" />
-          <span className="shrink-0 text-sm font-medium text-brand-500">Building Overlay</span>
+          <Loader className="h-4 w-4 shrink-0 animate-spin text-accent-500" />
+          <span className="shrink-0 text-sm font-medium text-accent-500">Building Overlay</span>
           {testLabel && (
-            <span className="shrink-0 rounded-full bg-brand-500/10 px-2 py-0.5 text-xs font-medium text-brand-400">
+            <span className="shrink-0 rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
               {testLabel}
             </span>
           )}

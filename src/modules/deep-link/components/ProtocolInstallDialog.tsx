@@ -62,8 +62,8 @@ export function ProtocolInstallDialog() {
             {!isComplete && !isError && (
               <>
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-500/15">
-                    <Package className="h-5 w-5 text-brand-400" />
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+                    <Package className="h-5 w-5 text-accent-400" />
                   </div>
                   <div className="min-w-0">
                     <p className="truncate font-medium text-surface-100">{displayName}</p>

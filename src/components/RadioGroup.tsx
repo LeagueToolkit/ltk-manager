@@ -77,8 +77,8 @@ export const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>
         className={twMerge(
           "flex-1 cursor-pointer rounded-lg border p-3 text-left transition-all",
           "border-surface-600 hover:border-surface-500",
-          "data-[checked]:border-brand-500 data-[checked]:bg-brand-500/10",
-          "focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-800 focus-visible:outline-none",
+          "data-[checked]:border-accent-500 data-[checked]:bg-accent-500/10",
+          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-800 focus-visible:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
@@ -116,8 +116,8 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
             "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
             "border-surface-600 bg-surface-800",
             "group-hover:border-surface-500",
-            "group-focus-visible:ring-2 group-focus-visible:ring-brand-500 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface-900",
-            "group-data-[checked]:border-brand-600 group-data-[checked]:bg-brand-600",
+            "group-focus-visible:ring-2 group-focus-visible:ring-accent-500 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface-900",
+            "group-data-[checked]:border-accent-600 group-data-[checked]:bg-accent-600",
           )}
         >
           <span className="hidden h-2 w-2 rounded-full bg-white group-data-[checked]:block" />

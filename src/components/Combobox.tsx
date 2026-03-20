@@ -37,7 +37,7 @@ export const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
           "w-full rounded-lg border px-4 py-2.5 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
           "border-surface-500 hover:border-surface-400",
-          "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
           className,

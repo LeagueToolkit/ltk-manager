@@ -62,14 +62,14 @@ export function MultiSelect({
             "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-surface-400",
-            "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
         >
           {label && <span className="text-surface-300">{label}</span>}
           {selected.size > 0 && (
-            <span className="rounded-full bg-brand-500/20 px-1.5 text-xs text-brand-400">
+            <span className="rounded-full bg-accent-500/20 px-1.5 text-xs text-accent-400">
               {selected.size}
             </span>
           )}
@@ -81,7 +81,7 @@ export function MultiSelect({
             "flex min-h-[42px] w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-surface-400",
-            "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}

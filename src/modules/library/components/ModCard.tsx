@@ -82,7 +82,7 @@ export function ModCard({
           disabled ? "cursor-default" : "cursor-pointer"
         } ${
           mod.enabled
-            ? "border-brand-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-brand-500/30"
+            ? "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30"
             : "border-surface-700 bg-surface-900 hover:border-surface-600"
         }`}
       >
@@ -191,7 +191,7 @@ export function ModCard({
         disabled ? "cursor-default" : "cursor-pointer"
       } ${
         mod.enabled
-          ? "border-brand-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-brand-500/40"
+          ? "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40"
           : "border-surface-600 bg-surface-800 hover:border-surface-400"
       }`}
     >
@@ -319,7 +319,7 @@ function ModPills({ mod, max, className }: { mod: InstalledMod; max: number; cla
   const overflow = pills.length - max;
 
   const colorClasses = {
-    brand: "bg-brand-500/15 text-brand-400",
+    brand: "bg-accent-500/15 text-accent-400",
     emerald: "bg-emerald-500/15 text-emerald-400",
   } as const;
 

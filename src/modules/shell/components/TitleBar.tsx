@@ -19,11 +19,11 @@ const navItems = [
 const linkBaseClass =
   "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors";
 const settingsLinkBase = "relative flex h-full items-center px-3 transition-colors";
-const activeLinkClass = "text-brand-400";
+const activeLinkClass = "text-accent-400";
 const inactiveLinkClass = "text-surface-400 hover:text-surface-200";
 
 function ActiveIndicator() {
-  return <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-brand-500" />;
+  return <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-accent-500" />;
 }
 
 function NavLink({

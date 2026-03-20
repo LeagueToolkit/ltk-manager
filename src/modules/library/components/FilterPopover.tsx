@@ -38,7 +38,7 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
                 <div className="relative">
                   <Filter className="h-4 w-4" />
                   {hasActive && (
-                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-brand-500" />
+                    <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-500" />
                   )}
                 </div>
               }

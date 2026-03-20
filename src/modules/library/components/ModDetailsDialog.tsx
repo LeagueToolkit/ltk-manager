@@ -118,7 +118,7 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
             {mod.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded-full bg-brand-500/15 px-2.5 py-0.5 text-xs text-brand-300"
+                className="rounded-full bg-accent-500/15 px-2.5 py-0.5 text-xs text-accent-300"
               >
                 {getTagLabel(tag)}
               </span>

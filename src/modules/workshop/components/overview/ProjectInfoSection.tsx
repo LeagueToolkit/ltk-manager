@@ -76,7 +76,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                         if (e.key === "Escape") handleCancelSlug();
                       }}
                       autoFocus
-                      className="w-48 rounded border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                      className="w-48 rounded border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none"
                     />
                     <IconButton
                       icon={<Check className="h-3.5 w-3.5" />}

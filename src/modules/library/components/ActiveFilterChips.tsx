@@ -51,7 +51,7 @@ export function ActiveFilterChips() {
 }
 
 const COLOR_CLASSES = {
-  brand: "bg-brand-500/15 text-brand-300 border-brand-500/30",
+  brand: "bg-accent-500/15 text-accent-300 border-accent-500/30",
   emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   sky: "bg-sky-500/15 text-sky-300 border-sky-500/30",
 } as const;

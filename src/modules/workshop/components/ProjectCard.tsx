@@ -70,7 +70,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   const listBorderClass = isTesting
     ? "border-green-500/40"
     : selected
-      ? "border-brand-500/40"
+      ? "border-accent-500/40"
       : "border-surface-700";
 
   if (viewMode === "list") {
@@ -107,7 +107,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
 
         <div className="min-w-0 flex-1">
           <h3
-            className="group/title flex cursor-pointer items-center gap-1 font-medium text-surface-100 hover:text-brand-400"
+            className="group/title flex cursor-pointer items-center gap-1 font-medium text-surface-100 hover:text-accent-400"
             onClick={() => onEdit(project)}
           >
             <span className="truncate">{project.displayName}</span>
@@ -201,7 +201,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   const gridBorderClass = isTesting
     ? "border-green-500/40"
     : selected
-      ? "border-brand-500/40"
+      ? "border-accent-500/40"
       : "border-surface-600";
 
   return (
@@ -244,7 +244,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
       <div className="flex items-start gap-1 p-3">
         <div className="min-w-0 flex-1">
           <h3
-            className="group/title mb-1 flex cursor-pointer items-center gap-1 text-sm font-medium text-surface-100 hover:text-brand-400"
+            className="group/title mb-1 flex cursor-pointer items-center gap-1 text-sm font-medium text-surface-100 hover:text-accent-400"
             onClick={() => onEdit(project)}
           >
             <span className="line-clamp-1">{project.displayName}</span>
@@ -326,7 +326,7 @@ function ProjectPills({
   const overflow = pills.length - max;
 
   const colorClasses = {
-    brand: "bg-brand-500/15 text-brand-400",
+    brand: "bg-accent-500/15 text-accent-400",
     emerald: "bg-emerald-500/15 text-emerald-400",
   } as const;
 

@@ -108,7 +108,7 @@ export function ProfileListItem({
         onClick={() => onSwitch(profile.id)}
         disabled={isSwitching || isActive}
         className="flex-1 justify-between"
-        right={isActive ? <Check className="h-4 w-4 text-brand-500" /> : undefined}
+        right={isActive ? <Check className="h-4 w-4 text-accent-500" /> : undefined}
       >
         {profile.name}
       </Button>

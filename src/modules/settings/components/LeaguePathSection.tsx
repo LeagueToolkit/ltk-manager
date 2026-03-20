@@ -96,7 +96,7 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
           onClick={handleAutoDetect}
           loading={isDetecting}
           left={isDetecting ? undefined : <Loader className="h-4 w-4" />}
-          className="text-brand-400 hover:text-brand-300"
+          className="text-accent-400 hover:text-accent-300"
         >
           Auto-detect installation
         </Button>

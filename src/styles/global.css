@@ -164,7 +164,7 @@ body {
 
 /* Focus styles */
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-brand-500;
+  @apply outline-2 outline-offset-2 outline-accent-500;
 }
 
 /* Drag region for Tauri window */

@@ -36,7 +36,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
             href="https://github.com/LeagueToolkit/ltk-manager"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-brand-400 transition-colors hover:text-brand-300"
+            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
           >
             View on GitHub →
           </a>
@@ -44,7 +44,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
             href="https://github.com/LeagueToolkit/ltk-manager/wiki"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-brand-400 transition-colors hover:text-brand-300"
+            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
           >
             Documentation →
           </a>

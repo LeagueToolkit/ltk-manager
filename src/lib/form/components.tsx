@@ -112,7 +112,7 @@ export function TextareaField({
           "w-full rounded-lg border px-4 py-2.5 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
           "border-surface-500 hover:border-surface-400",
-          "focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none",
+          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "min-h-[80px] resize-y",
           hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
@@ -267,10 +267,10 @@ export function SubmitButton({ children, className, variant = "filled" }: Submit
     >
       {({ isSubmitting, canSubmit }) => {
         const baseStyles =
-          "relative inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:cursor-not-allowed disabled:opacity-50";
+          "relative inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:cursor-not-allowed disabled:opacity-50";
 
         const variantStyles = {
-          filled: "bg-brand-600 text-white hover:bg-brand-700",
+          filled: "bg-accent-600 text-white hover:bg-accent-700",
           ghost: "text-surface-300 hover:bg-surface-700 hover:text-surface-100",
           outline:
             "border border-surface-600 text-surface-300 hover:border-surface-500 hover:text-surface-100",

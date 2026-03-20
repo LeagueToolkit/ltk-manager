@@ -16,19 +16,7 @@
   --color-surface-900: var(--surface-900);
   --color-surface-950: var(--surface-950);
 
-  /* Brand/Accent colors - dynamic based on accent-hue */
-  --color-brand-50: var(--accent-50);
-  --color-brand-100: var(--accent-100);
-  --color-brand-200: var(--accent-200);
-  --color-brand-300: var(--accent-300);
-  --color-brand-400: var(--accent-400);
-  --color-brand-500: var(--accent-500);
-  --color-brand-600: var(--accent-600);
-  --color-brand-700: var(--accent-700);
-  --color-brand-800: var(--accent-800);
-  --color-brand-900: var(--accent-900);
-
-  /* Accent color aliases */
+  /* Accent colors - dynamic based on accent-hue */
   --color-accent-50: var(--accent-50);
   --color-accent-100: var(--accent-100);
   --color-accent-200: var(--accent-200);
