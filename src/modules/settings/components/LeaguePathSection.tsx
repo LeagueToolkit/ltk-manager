@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { CircleAlert, CircleCheck, FolderOpen, Gamepad2, Loader } from "lucide-react";
+import { CircleAlert, CircleCheck, FolderOpen, Gamepad2, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button, Field, IconButton, SectionCard, Tooltip } from "@/components";
@@ -95,7 +95,7 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
           size="sm"
           onClick={handleAutoDetect}
           loading={isDetecting}
-          left={isDetecting ? undefined : <Loader className="h-4 w-4" />}
+          left={isDetecting ? undefined : <Loader2 className="h-4 w-4" />}
           className="text-accent-400 hover:text-accent-300"
         >
           Auto-detect installation

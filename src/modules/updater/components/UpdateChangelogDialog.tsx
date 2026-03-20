@@ -73,7 +73,7 @@ export function UpdateChangelogDialog() {
                 </div>
                 <Progress.Root value={progress} className="mt-2">
                   <Progress.Track size="sm">
-                    <Progress.Indicator color="accent" />
+                    <Progress.Indicator />
                   </Progress.Track>
                 </Progress.Root>
               </div>

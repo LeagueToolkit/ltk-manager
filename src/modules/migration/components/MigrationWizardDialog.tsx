@@ -1,4 +1,4 @@
-import { FolderOpen, Loader, Search } from "lucide-react";
+import { FolderOpen, Loader2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button, Checkbox, Dialog, Progress } from "@/components";
@@ -118,7 +118,7 @@ function BrowseStep({ onBrowse, isScanning, error }: BrowseStepProps) {
       <Button variant="outline" size="sm" onClick={onBrowse} disabled={isScanning}>
         {isScanning && (
           <span className="flex items-center gap-2">
-            <Loader className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" />
             Scanning...
           </span>
         )}

@@ -1,5 +1,5 @@
 import { getRouteApi } from "@tanstack/react-router";
-import { Info, Keyboard, Loader, Palette, Settings as SettingsIcon } from "lucide-react";
+import { Info, Keyboard, Loader2, Palette, Settings as SettingsIcon } from "lucide-react";
 
 import { Tabs } from "@/components";
 import {
@@ -23,7 +23,7 @@ export function Settings() {
   if (isLoading || !settings) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader className="h-8 w-8 animate-spin text-accent-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent-500" />
       </div>
     );
   }
