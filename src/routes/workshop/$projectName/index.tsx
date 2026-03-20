@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Package, Save } from "lucide-react";
 import { useState } from "react";
-import { LuPackage, LuSave } from "react-icons/lu";
 
 import { Button, SectionCard, useToast } from "@/components";
 import { useAppForm } from "@/lib/form";
@@ -65,7 +65,7 @@ function ProjectOverview() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 pb-20">
-      <SectionCard title="Mod Details" icon={<LuPackage className="h-4 w-4" />}>
+      <SectionCard title="Mod Details" icon={<Package className="h-4 w-4" />}>
         <div className="flex flex-col gap-6 md:flex-row md:gap-8">
           <ThumbnailSection project={project} />
 
@@ -120,7 +120,7 @@ function ProjectOverview() {
         <div className="mx-auto flex max-w-4xl items-center justify-end px-6 py-3">
           <Button
             variant="filled"
-            left={<LuSave className="h-4 w-4" />}
+            left={<Save className="h-4 w-4" />}
             onClick={() => form.handleSubmit()}
             loading={saveConfig.isPending}
           >

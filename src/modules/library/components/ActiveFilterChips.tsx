@@ -1,4 +1,4 @@
-import { LuX } from "react-icons/lu";
+import { X } from "lucide-react";
 
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
@@ -71,7 +71,7 @@ function Chip({
     >
       {label}
       <button onClick={onRemove} className="rounded-full p-0.5 hover:bg-white/10">
-        <LuX className="h-3 w-3" />
+        <X className="h-3 w-3" />
       </button>
     </span>
   );

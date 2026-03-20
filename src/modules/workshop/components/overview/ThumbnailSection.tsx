@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { LuImage, LuPencil, LuTrash2 } from "react-icons/lu";
+import { Image, Pencil, Trash2 } from "lucide-react";
 
 import { Button, Menu, useToast } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
@@ -58,7 +58,7 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
-            <LuImage className="h-10 w-10 text-surface-500" />
+            <Image className="h-10 w-10 text-surface-500" />
           </div>
         )}
       </div>
@@ -69,7 +69,7 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
               <Button
                 variant="outline"
                 size="sm"
-                left={<LuPencil className="h-3.5 w-3.5" />}
+                left={<Pencil className="h-3.5 w-3.5" />}
                 loading={setThumbnail.isPending || removeThumbnail.isPending}
               >
                 Edit
@@ -79,12 +79,12 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup>
-                <Menu.Item icon={<LuImage className="h-4 w-4" />} onClick={handleSetThumbnail}>
+                <Menu.Item icon={<Image className="h-4 w-4" />} onClick={handleSetThumbnail}>
                   Change
                 </Menu.Item>
                 <Menu.Separator />
                 <Menu.Item
-                  icon={<LuTrash2 className="h-4 w-4" />}
+                  icon={<Trash2 className="h-4 w-4" />}
                   variant="danger"
                   onClick={handleRemoveThumbnail}
                 >
@@ -98,7 +98,7 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
         <Button
           variant="outline"
           size="sm"
-          left={<LuImage className="h-4 w-4" />}
+          left={<Image className="h-4 w-4" />}
           onClick={handleSetThumbnail}
           loading={setThumbnail.isPending}
         >

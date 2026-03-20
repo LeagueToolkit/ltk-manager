@@ -1,4 +1,4 @@
-import { LuTriangleAlert } from "react-icons/lu";
+import { TriangleAlert } from "lucide-react";
 
 import { Button, Dialog, useToast } from "@/components";
 import type { Profile } from "@/lib/tauri";
@@ -41,7 +41,7 @@ export function ProfileDeleteDialog({ open, profile, onClose }: ProfileDeleteDia
 
           <Dialog.Body>
             <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-              <LuTriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
               <div>
                 <h3 className="font-medium text-red-300">
                   Are you sure you want to delete &ldquo;{profile.name}&rdquo;?

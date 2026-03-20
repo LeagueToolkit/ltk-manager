@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Check, TriangleAlert, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
-import { LuCheck, LuTriangleAlert, LuX } from "react-icons/lu";
 
 import { Button, Dialog, Progress } from "@/components";
 import { api } from "@/lib/tauri";
@@ -93,7 +93,7 @@ export function BulkDeleteDialog() {
             {phase === "confirm" && (
               <div className="space-y-4">
                 <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                  <LuTriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
                   <div>
                     <h3 className="font-medium text-red-300">
                       Are you sure you want to delete {projects.length} projects?
@@ -147,9 +147,9 @@ export function BulkDeleteDialog() {
                     {results.map((r, i) => (
                       <li key={i} className="flex items-center gap-2">
                         {r.outcome.ok ? (
-                          <LuCheck className="h-4 w-4 shrink-0 text-green-400" />
+                          <Check className="h-4 w-4 shrink-0 text-green-400" />
                         ) : (
-                          <LuX className="h-4 w-4 shrink-0 text-red-400" />
+                          <X className="h-4 w-4 shrink-0 text-red-400" />
                         )}
                         <span className={r.outcome.ok ? "text-surface-300" : "text-red-300"}>
                           {r.displayName}

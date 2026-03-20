@@ -1,6 +1,6 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
+import { Check, ChevronDown, X } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { LuCheck, LuChevronDown, LuX } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 // Re-export the filter hook for consumers
@@ -83,7 +83,7 @@ export const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
-        <LuChevronDown className="h-4 w-4" />
+        <ChevronDown className="h-4 w-4" />
       </BaseCombobox.Icon>
     );
   },
@@ -182,7 +182,7 @@ export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
         {...props}
       >
         <BaseCombobox.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-          <LuCheck className="h-3.5 w-3.5" />
+          <Check className="h-3.5 w-3.5" />
         </BaseCombobox.ItemIndicator>
         {children}
       </BaseCombobox.Item>
@@ -229,7 +229,7 @@ export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
         )}
         {...props}
       >
-        {children ?? <LuX className="h-4 w-4" />}
+        {children ?? <X className="h-4 w-4" />}
       </BaseCombobox.Clear>
     );
   },
@@ -296,7 +296,7 @@ export const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemo
         )}
         {...props}
       >
-        {children ?? <LuX className="h-3 w-3" />}
+        {children ?? <X className="h-3 w-3" />}
       </BaseCombobox.ChipRemove>
     );
   },

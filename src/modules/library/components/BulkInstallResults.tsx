@@ -1,4 +1,4 @@
-import { LuCircleCheck, LuCircleX } from "react-icons/lu";
+import { CircleCheck, CircleX } from "lucide-react";
 
 import type { BulkInstallResult } from "@/lib/tauri";
 
@@ -13,7 +13,7 @@ export function BulkInstallResults({ result, verb = "installed" }: BulkInstallRe
     <div className="space-y-3">
       {result.installed.length > 0 && (
         <div className="flex items-center gap-2 text-sm text-green-400">
-          <LuCircleCheck className="h-4 w-4 shrink-0" />
+          <CircleCheck className="h-4 w-4 shrink-0" />
           <span>
             {result.installed.length} mod{result.installed.length !== 1 ? "s" : ""} {verb}
           </span>
@@ -23,7 +23,7 @@ export function BulkInstallResults({ result, verb = "installed" }: BulkInstallRe
       {result.failed.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-red-400">
-            <LuCircleX className="h-4 w-4 shrink-0" />
+            <CircleX className="h-4 w-4 shrink-0" />
             <span>{result.failed.length} failed</span>
           </div>
           <ul className="space-y-1 pl-6">

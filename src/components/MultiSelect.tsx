@@ -1,6 +1,6 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
+import { Check, ChevronDown } from "lucide-react";
 import { useMemo } from "react";
-import { LuCheck, LuChevronDown } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 export interface MultiSelectOption {
@@ -73,7 +73,7 @@ export function MultiSelect({
               {selected.size}
             </span>
           )}
-          <LuChevronDown className="h-3.5 w-3.5 text-surface-400" />
+          <ChevronDown className="h-3.5 w-3.5 text-surface-400" />
         </BaseCombobox.Trigger>
       ) : (
         <BaseCombobox.Trigger
@@ -100,7 +100,7 @@ export function MultiSelect({
               <span className="text-surface-400">{label ?? "Select..."}</span>
             )}
           </span>
-          <LuChevronDown className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-surface-400" />
         </BaseCombobox.Trigger>
       )}
       <BaseCombobox.Portal>
@@ -133,7 +133,7 @@ export function MultiSelect({
                 >
                   <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
                     <BaseCombobox.ItemIndicator>
-                      <LuCheck className="h-3.5 w-3.5" />
+                      <Check className="h-3.5 w-3.5" />
                     </BaseCombobox.ItemIndicator>
                   </span>
                   {item.label}

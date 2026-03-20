@@ -1,17 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
+import type { LucideIcon } from "lucide-react";
+import { Accessibility, Hammer, Library, Minus, Settings, Square, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import type { IconType } from "react-icons";
-import {
-  LuAccessibility,
-  LuHammer,
-  LuLibrary,
-  LuMinus,
-  LuSettings,
-  LuSquare,
-  LuX,
-} from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tooltip } from "@/components";
@@ -20,8 +12,8 @@ import { api, type AppInfo } from "@/lib/tauri";
 import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
-  { to: "/", label: "Library", icon: LuLibrary, exact: true },
-  { to: "/workshop", label: "Workshop", icon: LuHammer, exact: false },
+  { to: "/", label: "Library", icon: Library, exact: true },
+  { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
 ] as const;
 
 const linkBaseClass =
@@ -42,7 +34,7 @@ function NavLink({
 }: {
   to: string;
   label: string;
-  icon: IconType;
+  icon: LucideIcon;
   exact: boolean;
 }) {
   return (
@@ -139,7 +131,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
         <Tooltip content="Report a Bug">
           <IconButton
-            icon={<LuAccessibility className="h-5 w-5" />}
+            icon={<Accessibility className="h-5 w-5" />}
             variant="ghost"
             size="sm"
             onClick={() => open(bugReportUrl)}
@@ -161,7 +153,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
         >
           {({ isActive }) => (
             <>
-              <LuSettings className="h-4 w-4" />
+              <Settings className="h-4 w-4" />
               {isActive && <ActiveIndicator />}
             </>
           )}
@@ -172,7 +164,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
         {/* Window controls */}
         <IconButton
-          icon={<LuMinus className="h-4 w-4" />}
+          icon={<Minus className="h-4 w-4" />}
           variant="ghost"
           size="md"
           onClick={handleMinimize}
@@ -184,7 +176,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             isMaximized ? (
               <OverlappingSquares className="h-3.5 w-3.5" />
             ) : (
-              <LuSquare className="h-3.5 w-3.5" />
+              <Square className="h-3.5 w-3.5" />
             )
           }
           variant="ghost"
@@ -194,7 +186,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
           className="h-full w-12 rounded-none text-surface-400 hover:bg-surface-700 hover:text-surface-200"
         />
         <IconButton
-          icon={<LuX className="h-4 w-4" />}
+          icon={<X className="h-4 w-4" />}
           variant="ghost"
           size="md"
           onClick={handleClose}

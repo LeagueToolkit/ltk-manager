@@ -1,13 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
+import { Copy, EllipsisVertical, FolderOpen, Info, Layers, Trash2 } from "lucide-react";
 import { useState } from "react";
-import {
-  LuCopy,
-  LuEllipsisVertical,
-  LuFolderOpen,
-  LuInfo,
-  LuLayers,
-  LuTrash2,
-} from "react-icons/lu";
 
 import { IconButton, Menu, Switch, useToast } from "@/components";
 import type { InstalledMod, ModLayer } from "@/lib/tauri";
@@ -151,7 +144,7 @@ export function ModCard({
               disabled={disabled}
               render={
                 <IconButton
-                  icon={<LuEllipsisVertical className="h-4 w-4" />}
+                  icon={<EllipsisVertical className="h-4 w-4" />}
                   variant="ghost"
                   size="md"
                   disabled={disabled}
@@ -162,23 +155,20 @@ export function ModCard({
               <Menu.Positioner>
                 <Menu.Popup>
                   <Menu.Item
-                    icon={<LuInfo className="h-4 w-4" />}
+                    icon={<Info className="h-4 w-4" />}
                     onClick={() => onViewDetails?.(mod)}
                   >
                     View Details
                   </Menu.Item>
-                  <Menu.Item
-                    icon={<LuFolderOpen className="h-4 w-4" />}
-                    onClick={handleOpenLocation}
-                  >
+                  <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
                     Open Location
                   </Menu.Item>
-                  <Menu.Item icon={<LuCopy className="h-4 w-4" />} onClick={handleCopyId}>
+                  <Menu.Item icon={<Copy className="h-4 w-4" />} onClick={handleCopyId}>
                     Copy ID
                   </Menu.Item>
                   <Menu.Separator />
                   <Menu.Item
-                    icon={<LuTrash2 className="h-4 w-4" />}
+                    icon={<Trash2 className="h-4 w-4" />}
                     variant="danger"
                     disabled={disabled}
                     onClick={() => onUninstall(mod.id)}
@@ -273,7 +263,7 @@ export function ModCard({
                 disabled={disabled}
                 render={
                   <IconButton
-                    icon={<LuEllipsisVertical className="h-4 w-4" />}
+                    icon={<EllipsisVertical className="h-4 w-4" />}
                     variant="ghost"
                     size="md"
                     disabled={disabled}
@@ -284,23 +274,23 @@ export function ModCard({
                 <Menu.Positioner>
                   <Menu.Popup>
                     <Menu.Item
-                      icon={<LuInfo className="h-4 w-4" />}
+                      icon={<Info className="h-4 w-4" />}
                       onClick={() => onViewDetails?.(mod)}
                     >
                       View Details
                     </Menu.Item>
                     <Menu.Item
-                      icon={<LuFolderOpen className="h-4 w-4" />}
+                      icon={<FolderOpen className="h-4 w-4" />}
                       onClick={handleOpenLocation}
                     >
                       Open Location
                     </Menu.Item>
-                    <Menu.Item icon={<LuCopy className="h-4 w-4" />} onClick={handleCopyId}>
+                    <Menu.Item icon={<Copy className="h-4 w-4" />} onClick={handleCopyId}>
                       Copy ID
                     </Menu.Item>
                     <Menu.Separator />
                     <Menu.Item
-                      icon={<LuTrash2 className="h-4 w-4" />}
+                      icon={<Trash2 className="h-4 w-4" />}
                       variant="danger"
                       disabled={disabled}
                       onClick={() => onUninstall(mod.id)}
@@ -354,7 +344,7 @@ function LayerBadge({ layers }: { layers: ModLayer[] }) {
 
   return (
     <span className="inline-flex items-center gap-0.5 rounded bg-surface-700/60 px-1.5 py-0.5 text-[10px] leading-tight text-surface-400">
-      <LuLayers className="h-2.5 w-2.5" />
+      <Layers className="h-2.5 w-2.5" />
       {allEnabled ? layers.length : `${enabledCount}/${layers.length}`}
     </span>
   );

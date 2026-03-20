@@ -1,6 +1,6 @@
 import { Button as BaseButton } from "@base-ui/react";
+import { Loader2 } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { CgSpinner } from "react-icons/cg";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
@@ -124,7 +124,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const content = match([loading, isIconOnly] as const)
       .with([true, true], [true, false], () => (
         <>
-          <CgSpinner className={twMerge("animate-spin", spinnerSizeClasses[size])} />
+          <Loader2 className={twMerge("animate-spin", spinnerSizeClasses[size])} />
           {children && <span className="opacity-0">{children}</span>}
         </>
       ))

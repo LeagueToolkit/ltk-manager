@@ -1,5 +1,5 @@
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { LuChevronDown } from "react-icons/lu";
 
 import { Button, Popover, useToast } from "@/components";
 import type { Profile } from "@/lib/tauri";
@@ -40,7 +40,7 @@ export function ProfileSelector() {
               size="sm"
               className="group"
               right={
-                <LuChevronDown className="h-4 w-4 text-surface-400 transition-transform group-data-[popup-open]:rotate-180" />
+                <ChevronDown className="h-4 w-4 text-surface-400 transition-transform group-data-[popup-open]:rotate-180" />
               }
             />
           }

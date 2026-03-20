@@ -1,16 +1,16 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import {
-  LuChevronDown,
-  LuDownload,
-  LuFileArchive,
-  LuGitBranch,
-  LuGrid3X3,
-  LuList,
-  LuPackage,
-  LuPlus,
-  LuSearch,
-  LuSquareCheckBig,
-} from "react-icons/lu";
+  ChevronDown,
+  Download,
+  FileArchive,
+  GitBranch,
+  Grid3X3,
+  List,
+  Package,
+  Plus,
+  Search,
+  SquareCheckBig,
+} from "lucide-react";
 
 import { Button, IconButton, Kbd, Menu, Tooltip } from "@/components";
 import { usePatcherStatus } from "@/modules/patcher";
@@ -76,7 +76,7 @@ export function WorkshopToolbar() {
       data-tauri-drag-region
     >
       <div className="relative flex-1">
-        <LuSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
         <input
           type="text"
           placeholder="Search projects..."
@@ -91,7 +91,7 @@ export function WorkshopToolbar() {
       <div className="flex items-center gap-1">
         <Tooltip content="Grid view">
           <IconButton
-            icon={<LuGrid3X3 className="h-4 w-4" />}
+            icon={<Grid3X3 className="h-4 w-4" />}
             variant={viewMode === "grid" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("grid")}
@@ -99,7 +99,7 @@ export function WorkshopToolbar() {
         </Tooltip>
         <Tooltip content="List view">
           <IconButton
-            icon={<LuList className="h-4 w-4" />}
+            icon={<List className="h-4 w-4" />}
             variant={viewMode === "list" ? "default" : "ghost"}
             size="sm"
             onClick={() => setViewMode("list")}
@@ -117,7 +117,7 @@ export function WorkshopToolbar() {
             }
           >
             <IconButton
-              icon={<LuSquareCheckBig className="h-4 w-4" />}
+              icon={<SquareCheckBig className="h-4 w-4" />}
               variant="ghost"
               size="sm"
               onClick={() => selectAll(filteredProjects.map((p) => p.path))}
@@ -135,8 +135,8 @@ export function WorkshopToolbar() {
               variant="outline"
               size="sm"
               loading={isImporting}
-              left={<LuDownload className="h-4 w-4" />}
-              right={<LuChevronDown className="h-3.5 w-3.5" />}
+              left={<Download className="h-4 w-4" />}
+              right={<ChevronDown className="h-3.5 w-3.5" />}
             >
               Import
             </Button>
@@ -145,13 +145,13 @@ export function WorkshopToolbar() {
         <Menu.Portal>
           <Menu.Positioner>
             <Menu.Popup>
-              <Menu.Item icon={<LuFileArchive className="h-4 w-4" />} onClick={handleImportFantome}>
+              <Menu.Item icon={<FileArchive className="h-4 w-4" />} onClick={handleImportFantome}>
                 From Fantome
               </Menu.Item>
-              <Menu.Item icon={<LuPackage className="h-4 w-4" />} onClick={handleImportModpkg}>
+              <Menu.Item icon={<Package className="h-4 w-4" />} onClick={handleImportModpkg}>
                 From Modpkg
               </Menu.Item>
-              <Menu.Item icon={<LuGitBranch className="h-4 w-4" />} onClick={openGitImportDialog}>
+              <Menu.Item icon={<GitBranch className="h-4 w-4" />} onClick={openGitImportDialog}>
                 From Git Repository
               </Menu.Item>
             </Menu.Popup>
@@ -169,7 +169,7 @@ export function WorkshopToolbar() {
           variant="filled"
           size="sm"
           onClick={openNewProjectDialog}
-          left={<LuPlus className="h-4 w-4" />}
+          left={<Plus className="h-4 w-4" />}
         >
           New Project
         </Button>

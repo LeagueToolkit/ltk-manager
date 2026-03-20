@@ -1,6 +1,6 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
+import { Check, ChevronDown } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { LuCheck, LuChevronDown } from "react-icons/lu";
 import { twMerge } from "tailwind-merge";
 
 // Root
@@ -78,7 +78,7 @@ export const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseSelect.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
-        <LuChevronDown className="h-4 w-4" />
+        <ChevronDown className="h-4 w-4" />
       </BaseSelect.Icon>
     );
   },
@@ -176,7 +176,7 @@ export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         {...props}
       >
         <BaseSelect.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-          <LuCheck className="h-3.5 w-3.5" />
+          <Check className="h-3.5 w-3.5" />
         </BaseSelect.ItemIndicator>
         <BaseSelect.ItemText>{children}</BaseSelect.ItemText>
       </BaseSelect.Item>

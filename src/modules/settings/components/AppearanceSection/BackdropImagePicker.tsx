@@ -1,5 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { LuImage, LuX } from "react-icons/lu";
+import { Image, X } from "lucide-react";
 
 import { Field, IconButton, Tooltip } from "@/components";
 import type { Settings } from "@/lib/tauri";
@@ -48,7 +48,7 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
         />
         <Tooltip content="Browse image">
           <IconButton
-            icon={<LuImage className="h-5 w-5" />}
+            icon={<Image className="h-5 w-5" />}
             variant="outline"
             size="lg"
             onClick={handleBrowse}
@@ -57,7 +57,7 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
         {settings.backdropImage && (
           <Tooltip content="Clear image">
             <IconButton
-              icon={<LuX className="h-5 w-5" />}
+              icon={<X className="h-5 w-5" />}
               variant="outline"
               size="lg"
               onClick={handleClear}

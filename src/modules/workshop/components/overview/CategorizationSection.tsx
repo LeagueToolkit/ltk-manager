@@ -1,5 +1,5 @@
+import { Tags } from "lucide-react";
 import { useMemo } from "react";
-import { LuTags } from "react-icons/lu";
 
 import { FormField, MultiSelect, type MultiSelectOption, SectionCard } from "@/components";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
@@ -33,7 +33,7 @@ export function CategorizationSection({
   return (
     <SectionCard
       title="Categorization"
-      icon={<LuTags className="h-4 w-4" />}
+      icon={<Tags className="h-4 w-4" />}
       description="Help users find your mod by adding tags, maps, and champions."
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

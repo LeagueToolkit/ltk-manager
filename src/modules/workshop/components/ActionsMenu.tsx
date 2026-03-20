@@ -1,4 +1,4 @@
-import { LuChevronDown, LuPackage, LuPlay, LuTrash2, LuX } from "react-icons/lu";
+import { ChevronDown, Package, Play, Trash2, X } from "lucide-react";
 
 import { Button, Menu } from "@/components";
 import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
@@ -55,7 +55,7 @@ export function ActionsMenu() {
             variant="outline"
             size="sm"
             disabled={!hasSelection}
-            right={<LuChevronDown className="h-3.5 w-3.5" />}
+            right={<ChevronDown className="h-3.5 w-3.5" />}
           >
             {hasSelection ? `Actions (${selectedCount})` : "Actions"}
           </Button>
@@ -65,7 +65,7 @@ export function ActionsMenu() {
         <Menu.Positioner>
           <Menu.Popup>
             <Menu.Item
-              icon={<LuTrash2 className="h-4 w-4" />}
+              icon={<Trash2 className="h-4 w-4" />}
               variant="danger"
               onClick={handleDelete}
               disabled={!hasSelection}
@@ -73,14 +73,14 @@ export function ActionsMenu() {
               {selectedCount > 1 ? `Delete ${selectedCount}` : "Delete"}
             </Menu.Item>
             <Menu.Item
-              icon={<LuPackage className="h-4 w-4" />}
+              icon={<Package className="h-4 w-4" />}
               onClick={handlePack}
               disabled={!hasSelection}
             >
               {selectedCount > 1 ? `Pack ${selectedCount}` : "Pack"}
             </Menu.Item>
             <Menu.Item
-              icon={<LuPlay className="h-4 w-4" />}
+              icon={<Play className="h-4 w-4" />}
               onClick={handleTest}
               disabled={!hasSelection}
             >
@@ -89,7 +89,7 @@ export function ActionsMenu() {
             {hasSelection && (
               <>
                 <Menu.Separator />
-                <Menu.Item icon={<LuX className="h-4 w-4" />} onClick={clear}>
+                <Menu.Item icon={<X className="h-4 w-4" />} onClick={clear}>
                   Clear selection
                 </Menu.Item>
               </>

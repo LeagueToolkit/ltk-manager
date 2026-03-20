@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Layers, Plus } from "lucide-react";
 import { useState } from "react";
-import { LuLayers, LuPlus } from "react-icons/lu";
 
 import { Button } from "@/components";
 import type { WorkshopLayer } from "@/lib/tauri";
@@ -62,7 +62,7 @@ function ProjectLayers() {
         <Button
           variant="filled"
           size="sm"
-          left={<LuPlus />}
+          left={<Plus />}
           onClick={() => setCreateOpen(true)}
           className="shrink-0"
         >
@@ -72,7 +72,7 @@ function ProjectLayers() {
 
       {allLayers.length === 0 ? (
         <div className="flex h-48 flex-col items-center justify-center text-center">
-          <LuLayers className="mb-3 h-10 w-10 text-surface-600" />
+          <Layers className="mb-3 h-10 w-10 text-surface-600" />
           <h3 className="text-sm font-medium text-surface-300">No layers</h3>
           <p className="mt-1 text-sm text-surface-500">This project has no layers configured.</p>
         </div>

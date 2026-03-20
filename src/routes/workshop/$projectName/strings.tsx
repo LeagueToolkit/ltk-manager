@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Globe, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { LuGlobe, LuPlus, LuTrash2 } from "react-icons/lu";
 
 import { Button, Field, IconButton, Tabs, Tooltip, useToast } from "@/components";
 import type { WorkshopLayer } from "@/lib/tauri";
@@ -191,7 +191,7 @@ function ProjectStrings() {
       <Field.Root>
         <Field.Label>Locale</Field.Label>
         <div className="relative">
-          <LuGlobe className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-400" />
+          <Globe className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-400" />
           <select
             value={selectedLocale}
             onChange={(e) => setSelectedLocale(e.target.value)}
@@ -217,7 +217,7 @@ function ProjectStrings() {
           <Button
             variant="outline"
             size="sm"
-            left={<LuPlus className="h-4 w-4" />}
+            left={<Plus className="h-4 w-4" />}
             onClick={handleAddEntry}
           >
             Add Override
@@ -255,7 +255,7 @@ function ProjectStrings() {
 
                 <Tooltip content="Delete entry">
                   <IconButton
-                    icon={<LuTrash2 className="h-4 w-4" />}
+                    icon={<Trash2 className="h-4 w-4" />}
                     variant="ghost"
                     size="sm"
                     onClick={() => handleRemoveEntry(index)}

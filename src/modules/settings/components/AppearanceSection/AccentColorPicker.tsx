@@ -1,4 +1,4 @@
-import { LuCircleCheck } from "react-icons/lu";
+import { CircleCheck } from "lucide-react";
 
 import type { Settings } from "@/lib/tauri";
 
@@ -62,7 +62,7 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
           >
             {settings.accentColor?.preset === key && !isCustomHue && (
               <span className="absolute inset-0 flex items-center justify-center">
-                <LuCircleCheck className="h-4 w-4 text-white drop-shadow-md" />
+                <CircleCheck className="h-4 w-4 text-white drop-shadow-md" />
               </span>
             )}
           </button>

@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
 import type { CSSProperties } from "react";
-import { LuGripVertical } from "react-icons/lu";
 
 import type { InstalledMod } from "@/lib/tauri";
 
@@ -45,7 +45,7 @@ export function SortableModCard({
           {...attributes}
           {...listeners}
         >
-          <LuGripVertical className="h-5 w-5 text-surface-500" />
+          <GripVertical className="h-5 w-5 text-surface-500" />
         </div>
       )}
       {!disabled && viewMode !== "list" && (
@@ -56,7 +56,7 @@ export function SortableModCard({
           {...attributes}
           {...listeners}
         >
-          <LuGripVertical className="h-4 w-4 text-surface-400" />
+          <GripVertical className="h-4 w-4 text-surface-400" />
         </div>
       )}
 

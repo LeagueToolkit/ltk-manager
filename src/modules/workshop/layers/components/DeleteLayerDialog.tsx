@@ -1,4 +1,4 @@
-import { LuTrash2 } from "react-icons/lu";
+import { Trash2 } from "lucide-react";
 
 import { Button, Dialog } from "@/components";
 import type { WorkshopLayer } from "@/lib/tauri";
@@ -32,7 +32,7 @@ export function DeleteLayerDialog({
 
           <Dialog.Body>
             <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-              <LuTrash2 className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+              <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
               <div>
                 <h3 className="font-medium text-red-300">
                   Delete layer &ldquo;{layer.name}&rdquo;?
