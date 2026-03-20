@@ -1,4 +1,5 @@
-import "./styles/app.css";
+import "./styles/global.css";
+import "./styles/tailwind.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
