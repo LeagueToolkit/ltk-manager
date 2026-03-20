@@ -1,0 +1,185 @@
+{
+  "_doc": "Maps project-root Genesis files to their CLI package equivalents. Used by Cli/sync-from-root.mjs for automated synchronization. Source of truth for CLI package contents.",
+  "files": [
+    {
+      "source": ".genesis/hooks/_utils.mjs",
+      "dest": "Cli/.genesis/hooks/_utils.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/accept-gate.mjs",
+      "dest": "Cli/.genesis/hooks/accept-gate.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/branch-guard.mjs",
+      "dest": "Cli/.genesis/hooks/branch-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/git-guard.mjs",
+      "dest": "Cli/.genesis/hooks/git-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/scope-guard.mjs",
+      "dest": "Cli/.genesis/hooks/scope-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/size-guard.mjs",
+      "dest": "Cli/.genesis/hooks/size-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/secrets-scan.mjs",
+      "dest": "Cli/.genesis/hooks/secrets-scan.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/supervised-guard.mjs",
+      "dest": "Cli/.genesis/hooks/supervised-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/stale-read.mjs",
+      "dest": "Cli/.genesis/hooks/stale-read.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/model-guard.mjs",
+      "dest": "Cli/.genesis/hooks/model-guard.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/compile-check.mjs",
+      "dest": "Cli/.genesis/hooks/compile-check.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/transaction-track.mjs",
+      "dest": "Cli/.genesis/hooks/transaction-track.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/dep-audit.mjs",
+      "dest": "Cli/.genesis/hooks/dep-audit.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/import-order.mjs",
+      "dest": "Cli/.genesis/hooks/import-order.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/css-token-check.mjs",
+      "dest": "Cli/.genesis/hooks/css-token-check.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/auto-format.mjs",
+      "dest": "Cli/.genesis/hooks/auto-format.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/naming-check.mjs",
+      "dest": "Cli/.genesis/hooks/naming-check.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/test-on-commit.mjs",
+      "dest": "Cli/.genesis/hooks/test-on-commit.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/ears-score.mjs",
+      "dest": "Cli/.genesis/hooks/ears-score.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/cost-logger.mjs",
+      "dest": "Cli/.genesis/hooks/cost-logger.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/ota-logger.mjs",
+      "dest": "Cli/.genesis/hooks/ota-logger.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/classify-failure.mjs",
+      "dest": "Cli/.genesis/hooks/classify-failure.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/step-complete.mjs",
+      "dest": "Cli/.genesis/hooks/step-complete.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/subagent-scope.mjs",
+      "dest": "Cli/.genesis/hooks/subagent-scope.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/context-preserve.mjs",
+      "dest": "Cli/.genesis/hooks/context-preserve.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/context-restore.mjs",
+      "dest": "Cli/.genesis/hooks/context-restore.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/prompt-context.mjs",
+      "dest": "Cli/.genesis/hooks/prompt-context.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/session-init.mjs",
+      "dest": "Cli/.genesis/hooks/session-init.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/session-end.mjs",
+      "dest": "Cli/.genesis/hooks/session-end.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/confidence-auto-approve.mjs",
+      "dest": "Cli/.genesis/hooks/confidence-auto-approve.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/elicitation-auto-respond.mjs",
+      "dest": "Cli/.genesis/hooks/elicitation-auto-respond.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/elicitation-sanitize.mjs",
+      "dest": "Cli/.genesis/hooks/elicitation-sanitize.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/hooks/phase-complete.mjs",
+      "dest": "Cli/.genesis/hooks/phase-complete.mjs",
+      "type": "hook"
+    },
+    {
+      "source": ".genesis/config/phase-gates.json",
+      "dest": "Cli/.genesis/config/phase-gates.json",
+      "type": "config"
+    },
+    {
+      "source": ".genesis/config/pricing.json",
+      "dest": "Cli/.genesis/config/pricing.json",
+      "type": "config"
+    },
+    {
+      "source": ".genesis/config/cli-sync-manifest.json",
+      "dest": "Cli/.genesis/config/cli-sync-manifest.json",
+      "type": "config"
+    }
+  ]
+}

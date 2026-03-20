@@ -1,0 +1,1999 @@
+{
+  "files": {
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\genesis-pass4-v1\\tasks.md": {
+      "mtime": "2026-03-11T12:37:52.427Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:56:22.150Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\059177dc-d757-4552-b2ff-767f63e28b4a.jsonl": {
+      "mtime": "2026-03-11T13:12:08.723Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T13:12:13.269Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\settings.local.json": {
+      "mtime": "2026-03-15T21:51:26.444Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-15T21:52:45.597Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\_utils.mjs": {
+      "mtime": "2026-03-15T21:51:26.349Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-15T21:52:55.837Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\auto-format.mjs": {
+      "mtime": "2026-03-11T11:46:32.513Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:54:08.715Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\import-order.mjs": {
+      "mtime": "2026-03-11T12:36:23.240Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:49.174Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\constitution.md": {
+      "mtime": "2026-03-09T22:07:13.948Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:09:36.147Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\extensions\\catalog.json": {
+      "mtime": "2026-03-14T09:44:02.407Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T07:57:48.631Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\extensions\\changelog\\extension.md": {
+      "mtime": "2026-03-10T01:20:03.059Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:21:35.107Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\extensions\\security-audit\\extension.md": {
+      "mtime": "2026-03-10T01:20:03.061Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:21:35.411Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\session-init.mjs": {
+      "mtime": "2026-03-11T12:47:23.801Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:51.145Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\context-preserve.mjs": {
+      "mtime": "2026-03-11T11:54:04.220Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:44.984Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\session-end.mjs": {
+      "mtime": "2026-03-11T11:54:14.920Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:45.179Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\classify-failure.mjs": {
+      "mtime": "2026-03-11T12:28:53.294Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:48.546Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\subagent-scope.mjs": {
+      "mtime": "2026-03-11T11:54:41.785Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:45.396Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\prompt-enrich.mjs": {
+      "mtime": "2026-03-11T11:55:31.565Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:45.618Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\step-complete.mjs": {
+      "mtime": "2026-03-11T11:55:40.188Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:47.810Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/specify.md": {
+      "mtime": "2026-03-10T01:20:03.052Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:06.498Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/clarify.md": {
+      "mtime": "2026-03-10T01:20:03.045Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:10.498Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/plan.md": {
+      "mtime": "2026-03-10T01:20:03.047Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:10.900Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/tasks.md": {
+      "mtime": "2026-03-10T01:20:03.052Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:11.224Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/implement.md": {
+      "mtime": "2026-03-10T01:20:03.046Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:11.473Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/review.md": {
+      "mtime": "2026-03-10T01:20:03.049Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:14.416Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/design.md": {
+      "mtime": "2026-03-10T01:20:03.046Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:14.914Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/discover.md": {
+      "mtime": "2026-03-06T20:31:52.887Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:15.268Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/init.md": {
+      "mtime": "2026-03-11T12:06:34.180Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:24:17.565Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\cmd-inject.mjs": {
+      "mtime": "2026-03-11T11:56:31.678Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:48.055Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/constitute.md": {
+      "mtime": "2026-03-06T20:31:52.877Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:15.953Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\artifact-preread.mjs": {
+      "mtime": "2026-03-11T11:57:03.308Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:48.313Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\constitution-autoload.mjs": {
+      "mtime": "2026-03-11T12:35:07.015Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:48.967Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/status.md": {
+      "mtime": "2026-03-06T20:31:52.911Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:18.895Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/resume.md": {
+      "mtime": "2026-03-09T03:17:00.360Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:19.181Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/diff.md": {
+      "mtime": "2026-03-09T03:17:00.352Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:19.583Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/amend.md": {
+      "mtime": "2026-03-10T01:20:03.041Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:19.958Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/analyze.md": {
+      "mtime": "2026-03-10T01:20:03.043Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:20.461Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/archive.md": {
+      "mtime": "2026-03-09T03:17:00.347Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:23.508Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/checklist.md": {
+      "mtime": "2026-03-10T01:20:03.044Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:23.796Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/issues.md": {
+      "mtime": "2026-03-09T03:17:00.357Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:24.169Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/metrics.md": {
+      "mtime": "2026-03-09T03:17:00.357Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:24.548Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/migrate.md": {
+      "mtime": "2026-03-09T03:17:00.357Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:24.928Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/phase.md": {
+      "mtime": "2026-03-06T20:31:52.901Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:27.586Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/reverse-specify.md": {
+      "mtime": "2026-03-10T01:20:03.048Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:27.977Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/rollback.md": {
+      "mtime": "2026-03-09T03:17:00.364Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:28.358Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/simulate.md": {
+      "mtime": "2026-03-10T01:20:03.050Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:28.773Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/help.md": {
+      "mtime": "2026-03-09T03:17:00.352Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:56:29.250Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\templates\\spec-template.md": {
+      "mtime": "2026-03-10T01:20:03.072Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:57:52.321Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\templates\\plan-template.md": {
+      "mtime": "2026-03-10T01:20:03.070Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:42:30.235Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\templates\\tasks-template.md": {
+      "mtime": "2026-03-10T01:20:03.074Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:46:00.195Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/init.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:58:50.820Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/status.md": {
+      "mtime": "2026-03-11T08:44:44.221Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:58:51.570Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/phase.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:58:52.313Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/simulate.md": {
+      "mtime": "2026-03-11T08:44:44.220Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:58:56.649Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/help.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:01:33.280Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/specify.md": {
+      "mtime": "2026-03-11T08:44:44.221Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:07.298Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/clarify.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:08.048Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/plan.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:08.801Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/tasks.md": {
+      "mtime": "2026-03-11T08:44:44.222Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:09.524Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/implement.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:10.379Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/review.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:39.031Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/design.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:39.602Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/discover.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:40.503Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/constitute.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:41.284Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/amend.md": {
+      "mtime": "2026-03-11T08:44:44.203Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T11:59:41.783Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\bin\\genesis-validate.js": {
+      "mtime": "2026-03-10T01:11:10.022Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:16.165Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/analyze.md": {
+      "mtime": "2026-03-11T08:44:44.204Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:10.539Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/archive.md": {
+      "mtime": "2026-03-11T08:44:44.205Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:11.316Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/checklist.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:12.159Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/issues.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:12.507Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/metrics.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:13.029Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\src\\templates.js": {
+      "mtime": "2026-03-10T00:57:50.754Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:40.466Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/migrate.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:38.972Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/resume.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:39.738Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/reverse-specify.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:40.507Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/rollback.md": {
+      "mtime": "2026-03-11T08:44:44.219Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:40.935Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src-tauri/src/genesis_commands/diff.md": {
+      "mtime": "2026-03-11T08:44:44.206Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:00:41.509Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\amend.md": {
+      "mtime": "2026-03-11T11:57:39.353Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:50.124Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\analyze.md": {
+      "mtime": "2026-03-11T11:57:43.006Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:50.544Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\archive.md": {
+      "mtime": "2026-03-11T11:57:46.500Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:50.944Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\checklist.md": {
+      "mtime": "2026-03-11T11:57:51.189Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:51.357Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\clarify.md": {
+      "mtime": "2026-03-11T11:56:43.530Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:51.648Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\constitute.md": {
+      "mtime": "2026-03-11T11:57:21.488Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:54.897Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\design.md": {
+      "mtime": "2026-03-11T11:57:07.371Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:55.360Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\diff.md": {
+      "mtime": "2026-03-11T12:06:10.666Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:15:25.998Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\discover.md": {
+      "mtime": "2026-03-11T11:57:12.086Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:55.776Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\implement.md": {
+      "mtime": "2026-03-11T11:56:59.207Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:04:56.122Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\init.md": {
+      "mtime": "2026-03-11T12:06:34.180Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:10.087Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\issues.md": {
+      "mtime": "2026-03-11T11:57:55.872Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:00.779Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\metrics.md": {
+      "mtime": "2026-03-11T12:06:52.582Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:15:01.541Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\migrate.md": {
+      "mtime": "2026-03-11T12:06:59.742Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:10.933Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\phase.md": {
+      "mtime": "2026-03-11T12:07:07.653Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:11.496Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\plan.md": {
+      "mtime": "2026-03-11T11:56:48.310Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:04.111Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\resume.md": {
+      "mtime": "2026-03-11T12:07:24.348Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:12.290Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\reverse-specify.md": {
+      "mtime": "2026-03-11T11:58:17.835Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:05.055Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\review.md": {
+      "mtime": "2026-03-11T11:57:03.775Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:05.333Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\rollback.md": {
+      "mtime": "2026-03-11T12:07:45.706Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:12.719Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\simulate.md": {
+      "mtime": "2026-03-11T11:58:27.607Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:09.239Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\specify.md": {
+      "mtime": "2026-03-11T11:56:40.097Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:30.855Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\status.md": {
+      "mtime": "2026-03-11T12:08:08.443Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:15:19.295Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\tasks.md": {
+      "mtime": "2026-03-11T11:56:53.254Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:05:09.928Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\help.md": {
+      "mtime": "2026-03-11T12:08:21.582Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:28:09.607Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\brainstorm.md": {
+      "mtime": "2026-03-11T11:58:48.763Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:34.239Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\Cargo.toml": {
+      "mtime": "2026-03-11T13:02:50.607Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:09:22.273Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\package.json": {
+      "mtime": "2026-03-09T00:24:44.205Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:09:54.793Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\bin\\genesis-init.js": {
+      "mtime": "2026-03-10T01:05:30.070Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:09:54.874Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\app.css": {
+      "mtime": "2026-03-11T22:11:41.434Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:17:45.287Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\AppShell.svelte": {
+      "mtime": "2026-03-10T18:21:28.799Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:35:12.538Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\amend.md": {
+      "mtime": "2026-03-11T12:00:07.108Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:08:45.539Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\analyze.md": {
+      "mtime": "2026-03-11T12:00:18.861Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:08:45.917Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\archive.md": {
+      "mtime": "2026-03-11T12:00:22.573Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:08:46.366Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\checklist.md": {
+      "mtime": "2026-03-11T12:00:26.282Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:08:46.809Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\clarify.md": {
+      "mtime": "2026-03-11T11:59:20.294Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:08:46.958Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\constitute.md": {
+      "mtime": "2026-03-11T12:00:02.798Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:26.610Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\design.md": {
+      "mtime": "2026-03-11T11:59:53.547Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:27.029Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\diff.md": {
+      "mtime": "2026-03-11T12:01:03.507Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:27.758Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\discover.md": {
+      "mtime": "2026-03-11T11:59:58.682Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:51.061Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\implement.md": {
+      "mtime": "2026-03-11T11:59:35.402Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:55.203Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\init.md": {
+      "mtime": "2026-03-11T12:01:08.810Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:09:52.735Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\issues.md": {
+      "mtime": "2026-03-11T12:00:30.103Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:10:22.719Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\metrics.md": {
+      "mtime": "2026-03-11T12:00:34.648Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:10:23.537Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\migrate.md": {
+      "mtime": "2026-03-11T12:00:46.963Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:10:24.032Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\phase.md": {
+      "mtime": "2026-03-11T12:01:22.310Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:10:50.039Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\plan.md": {
+      "mtime": "2026-03-11T11:59:24.051Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:10:54.338Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\resume.md": {
+      "mtime": "2026-03-11T12:00:50.721Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:12.809Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\reverse-specify.md": {
+      "mtime": "2026-03-11T12:00:54.583Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:25.347Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\review.md": {
+      "mtime": "2026-03-11T11:59:46.685Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:29.253Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\rollback.md": {
+      "mtime": "2026-03-11T12:00:59.516Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:26.662Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\simulate.md": {
+      "mtime": "2026-03-11T12:01:28.423Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:58.003Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\specify.md": {
+      "mtime": "2026-03-11T11:59:15.307Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:58.654Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\status.md": {
+      "mtime": "2026-03-11T12:01:14.420Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:11:55.607Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\tasks.md": {
+      "mtime": "2026-03-11T11:59:30.534Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:12:23.270Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_commands\\help.md": {
+      "mtime": "2026-03-11T12:01:38.766Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:12:23.928Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\validate.rs": {
+      "mtime": "2026-03-08T08:31:30.697Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:16.833Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\main.rs": {
+      "mtime": "2026-03-08T05:05:30.263Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:14.306Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\lib.rs": {
+      "mtime": "2026-03-11T08:44:44.242Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:16.395Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\projects.rs": {
+      "mtime": "2026-03-11T08:44:44.246Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:19.521Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\project-state.md": {
+      "mtime": "2026-03-15T21:58:22.689Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T07:57:45.985Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude": {
+      "mtime": "2026-03-11T12:17:01.264Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:22:27.668Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\secrets-scan.mjs": {
+      "mtime": "2026-03-11T11:35:19.799Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:12.967Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\genesis-pass4-v1\\spec.md": {
+      "mtime": "2026-03-11T11:09:51.317Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:56:21.416Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\genesis-pass4-v1\\plan.md": {
+      "mtime": "2026-03-11T11:23:53.121Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:56:22.308Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\059177dc-d757-4552-b2ff-767f63e28b4a\\tool-results\\toolu_011YinqzmFjhy7Ho9p1RbPnY.txt": {
+      "mtime": "2026-03-11T12:22:47.945Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:28.370Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\scope-guard.mjs": {
+      "mtime": "2026-03-11T11:35:01.416Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:40.359Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\compile-check.mjs": {
+      "mtime": "2026-03-11T12:35:01.266Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:54:08.964Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\git-guard.mjs": {
+      "mtime": "2026-03-11T11:35:38.453Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:40.763Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\polish.md": {
+      "mtime": "2026-03-11T11:59:10.025Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:34.672Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claude\\commands\\genesis\\cascade.md": {
+      "mtime": "2026-03-11T11:59:31.204Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:35.607Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.genesis/hooks/ota-logger.mjs": {
+      "mtime": "2026-03-11T11:38:47.478Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:59.416Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.genesis/templates/plan-template.md": {
+      "mtime": "2026-03-10T01:20:03.070Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:59.776Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Apps/src/templates.js": {
+      "mtime": "2026-03-11T12:00:44.563Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:23:59.859Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Apps/bin/genesis-validate.js": {
+      "mtime": "2026-03-11T12:00:32.494Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:24:00.178Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.claude/commands/genesis/brainstorm.md": {
+      "mtime": "2026-03-11T11:58:48.763Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:24:17.424Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\059177dc-d757-4552-b2ff-767f63e28b4a\\tool-results\\bu4r3sh3a.txt": {
+      "mtime": "2026-03-11T12:31:52.081Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:32:03.601Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\test-on-commit.mjs": {
+      "mtime": "2026-03-11T12:38:09.609Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:49.318Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.git\\HEAD": {
+      "mtime": "2026-03-11T13:11:26.320Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T13:12:39.592Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\059177dc-d757-4552-b2ff-767f63e28b4a\\tool-results\\toolu_01UzfXeGNHs9nfB1pi32mLXS.txt": {
+      "mtime": "2026-03-11T12:44:01.928Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:44:06.814Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\prompt-context.mjs": {
+      "mtime": "2026-03-11T12:48:56.695Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:51.412Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.claudeignore": {
+      "mtime": "2026-03-11T12:34:48.224Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:48:03.484Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\size-guard.mjs": {
+      "mtime": "2026-03-11T11:35:26.799Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:40.554Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\stale-read.mjs": {
+      "mtime": "2026-03-11T11:35:49.658Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:40.981Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\transaction-track.mjs": {
+      "mtime": "2026-03-11T11:36:56.393Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:41.187Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\dep-audit.mjs": {
+      "mtime": "2026-03-11T11:37:18.152Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:41.412Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\naming-check.mjs": {
+      "mtime": "2026-03-11T11:37:49.875Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:41.487Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\css-token-check.mjs": {
+      "mtime": "2026-03-11T11:38:07.974Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:44.179Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\ears-score.mjs": {
+      "mtime": "2026-03-11T11:38:35.581Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:44.257Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\ota-logger.mjs": {
+      "mtime": "2026-03-11T11:38:47.478Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:51:44.555Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\059177dc-d757-4552-b2ff-767f63e28b4a\\tool-results\\toolu_01BEJAAJxTW5W3igEtY9PK3b.txt": {
+      "mtime": "2026-03-11T12:56:21.695Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T12:56:37.949Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.git\\logs\\refs\\heads\\main": {
+      "mtime": "2026-03-11T13:11:28.351Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T13:12:37.052Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\package.json": {
+      "mtime": "2026-03-15T21:51:26.358Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:09:20.590Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\vite.config.ts": {
+      "mtime": "2026-03-08T06:57:26.726Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:42.179Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\staging-launcher\\spec.md": {
+      "mtime": "2026-03-11T19:30:30.057Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:15:34.908Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\constitution\\index.md": {
+      "mtime": "2026-03-15T11:25:45.068Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T07:58:01.526Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\constitution\\frontend.md": {
+      "mtime": "2026-03-15T11:25:45.068Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:00:17.332Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475.jsonl": {
+      "mtime": "2026-03-11T23:28:39.964Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:28:45.820Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\tauri.conf.json": {
+      "mtime": "2026-03-11T08:44:44.256Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:11:40.223Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\TopHeader.svelte": {
+      "mtime": "2026-03-11T22:03:52.369Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:23:25.110Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\staging-launcher\\plan.md": {
+      "mtime": "2026-03-11T18:44:38.303Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:45:10.599Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\constitution": {
+      "mtime": "2026-03-10T01:20:03.059Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:45:15.071Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\staging-launcher\\tasks.md": {
+      "mtime": "2026-03-11T18:52:46.643Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:23:01.022Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\extensions\\spec-drift\\extension.md": {
+      "mtime": "2026-03-10T01:20:03.062Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:02:35.617Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\brand\\GenesisTitlebarIcon.svelte": {
+      "mtime": "2026-03-10T18:21:22.825Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:25:19.061Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\icons\\icon.png": {
+      "mtime": "2026-03-11T19:25:35.586Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:25:41.327Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\icons\\32x32.png": {
+      "mtime": "2026-03-08T05:05:30.235Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:56:32.980Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\staging-icon.svg": {
+      "mtime": "2026-03-11T18:57:15.050Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:23:00.545Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\icons\\128x128.png": {
+      "mtime": "2026-03-11T19:25:35.508Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:25:41.527Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\staging-icons\\icon.png": {
+      "mtime": "2026-03-11T18:57:26.441Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:57:30.673Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\staging-icons\\128x128.png": {
+      "mtime": "2026-03-11T18:57:26.392Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T18:57:30.790Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\tauri.staging.conf.json": {
+      "mtime": "2026-03-11T19:11:05.043Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:23:17.420Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\scripts\\stage.js": {
+      "mtime": "2026-03-11T19:22:08.246Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:23:14.315Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis": {
+      "mtime": "2026-03-15T21:50:47.381Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:09:08.015Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\svelte.config.js": {
+      "mtime": "2026-03-08T05:06:05.067Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:09:23.864Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\routes\\+layout.svelte": {
+      "mtime": "2026-03-10T18:21:32.408Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:15:31.859Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\SplashScreen.svelte": {
+      "mtime": "2026-03-11T21:18:21.885Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:28:58.219Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\config.rs": {
+      "mtime": "2026-03-11T08:44:44.191Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:17.175Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\platform\\http.rs": {
+      "mtime": "2026-03-11T08:44:44.244Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:19.065Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\platform\\websocket.rs": {
+      "mtime": "2026-03-11T08:44:44.245Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:19.245Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.taledom\\Taledom\\packages\\db\\package.json": {
+      "mtime": "2026-03-08T02:34:19.634Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:31.796Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.taledom\\Taledom\\package.json": {
+      "mtime": "2026-03-08T02:34:19.598Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:19:31.887Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\.transaction.json": {
+      "mtime": "2026-03-11T19:22:14.613Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:22:54.184Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\.session-context.json": {
+      "mtime": "2026-03-11T18:48:27.739Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:22:54.250Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\app-icon.svg": {
+      "mtime": "2026-03-11T19:25:26.820Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T19:27:24.171Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\spec.md": {
+      "mtime": "2026-03-11T21:21:19.503Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:35:32.910Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\design\\features\\genesis-studio.md": {
+      "mtime": "2026-03-08T03:49:14.667Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T07:59:03.789Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\aiStore.svelte.ts": {
+      "mtime": "2026-03-11T23:15:43.529Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:34:48.024Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\scratchpadStore.svelte.ts": {
+      "mtime": "2026-03-11T20:44:23.725Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:46:16.424Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\terminal\\PrismOutput.svelte": {
+      "mtime": "2026-03-11T20:21:57.198Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:22.552Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ChatInput.svelte": {
+      "mtime": "2026-03-11T22:09:58.431Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:10:13.380Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\AIChat.svelte": {
+      "mtime": "2026-03-11T23:41:55.341Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:45:09.555Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ThreadPanel.svelte": {
+      "mtime": "2026-03-11T22:32:24.302Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:21.102Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\tree\\FileTree.svelte": {
+      "mtime": "2026-03-11T22:36:03.366Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:37:18.563Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\styles\\tokens.css": {
+      "mtime": "2026-03-11T22:09:33.035Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:19:51.729Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\styles\\themes.css": {
+      "mtime": "2026-03-08T22:02:06.813Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:12:43.110Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\shared\\EmptyState.svelte": {
+      "mtime": "2026-03-10T18:21:31.507Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:49.826Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\shared\\Shimmer.svelte": {
+      "mtime": "2026-03-10T18:21:31.753Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:14.739Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\LeftSidebar.svelte": {
+      "mtime": "2026-03-11T22:58:45.405Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:18:44.011Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.taledom\\Taledom\\.claude\\settings.local.json": {
+      "mtime": "2026-03-08T02:34:18.941Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:02:13.896Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\tasks.md": {
+      "mtime": "2026-03-11T22:08:41.642Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:30:14.075Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\plan.md": {
+      "mtime": "2026-03-11T19:50:15.857Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:30:21.004Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\Scratchpad.svelte": {
+      "mtime": "2026-03-11T20:22:28.790Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:29.026Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ActivityIndicator.svelte": {
+      "mtime": "2026-03-11T21:33:45.988Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:17:15.326Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ChatMessage.svelte": {
+      "mtime": "2026-03-11T21:34:41.814Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:00:05.471Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\tasks-phase2.md": {
+      "mtime": "2026-03-11T20:44:58.171Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:49:04.685Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01RoW3dFjc1fh2iLqRsDejzL.txt": {
+      "mtime": "2026-03-11T20:38:25.436Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:38:34.375Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ReadMorePill.svelte": {
+      "mtime": "2026-03-11T21:33:12.168Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:17:17.954Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ThreadStatusBar.svelte": {
+      "mtime": "2026-03-11T20:39:41.224Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:55:56.371Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\shared\\ActivityShimmer.svelte": {
+      "mtime": "2026-03-11T20:26:22.214Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:46:20.299Z"
+    },
+    "C:\\Users\\Nagil\\AppData\\Local\\Temp\\claude\\C--Users-Nagil-Project-Genesis\\tasks\\ac142e6feca21d5d6.output": {
+      "mtime": "2026-03-11T20:46:42.000Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:48:19.041Z"
+    },
+    "C:\\Users\\Nagil\\AppData\\Local\\Temp\\claude\\C--Users-Nagil-Project-Genesis\\tasks\\aa3bf4712d33dbbda.output": {
+      "mtime": "2026-03-11T20:46:23.954Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:48:19.274Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\constitution\\database.md": {
+      "mtime": "2026-03-10T01:20:03.052Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T20:50:45.108Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\tasks-phase3.md": {
+      "mtime": "2026-03-11T21:10:15.858Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:16:29.746Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\tree\\TreeNode.svelte": {
+      "mtime": "2026-03-11T22:03:35.451Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:22:17.607Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\CodeMirrorEditor.svelte": {
+      "mtime": "2026-03-11T22:46:18.131Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:49:24.520Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\ScrollbarMarkers.svelte": {
+      "mtime": "2026-03-10T18:21:26.601Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:48:29.266Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\EditorPanel.svelte": {
+      "mtime": "2026-03-11T22:31:02.427Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:40:42.309Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\diffMarkers.ts": {
+      "mtime": "2026-03-11T21:25:54.753Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:55:00.268Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\fileActivityStore.svelte.ts": {
+      "mtime": "2026-03-11T20:57:37.210Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:54:56.958Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\tree\\OutOfBinderBookmark.svelte": {
+      "mtime": "2026-03-11T21:04:06.275Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:22:19.484Z"
+    },
+    "C:\\Users\\Nagil\\AppData\\Local\\Temp\\claude\\C--Users-Nagil-Project-Genesis\\tasks\\ac8e94c7471252748.output": {
+      "mtime": "2026-03-11T21:14:29.611Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:15:20.051Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-ui-polish\\tasks-phase4.md": {
+      "mtime": "2026-03-11T21:21:39.068Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:55:50.553Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01DUpKzM51i74yojMjhZtJKh.txt": {
+      "mtime": "2026-03-11T21:17:52.022Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:18:00.491Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01LfpAyGAWJ9qfcZ7yhir4GK.txt": {
+      "mtime": "2026-03-11T21:17:52.462Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:18:01.251Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\terminal\\Terminal.svelte": {
+      "mtime": "2026-03-11T22:20:11.552Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:00.762Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\ResizeHandle.svelte": {
+      "mtime": "2026-03-11T08:44:44.312Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:06.097Z"
+    },
+    "C:\\Users\\Nagil\\AppData\\Local\\Temp\\claude\\C--Users-Nagil-Project-Genesis\\tasks\\a5aafcccd23c7f7ef.output": {
+      "mtime": "2026-03-11T21:22:20.144Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:22:20.154Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01ASSv4MtabUK7XcyduU8tWB.txt": {
+      "mtime": "2026-03-11T21:26:28.098Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:26:30.543Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01EGHf7LMYko1nCG3upM1NuM.txt": {
+      "mtime": "2026-03-11T21:26:28.237Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:26:30.766Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\styles\\typography.css": {
+      "mtime": "2026-03-11T21:29:54.973Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:19:51.874Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\styles\\animations.css": {
+      "mtime": "2026-03-11T22:02:57.328Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:13:04.232Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphMinimap.svelte": {
+      "mtime": "2026-03-11T08:44:44.291Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:28:05.919Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectSetup.svelte": {
+      "mtime": "2026-03-11T22:06:15.709Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:56:50.334Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\data\\presetColors.ts": {
+      "mtime": "2026-03-09T03:17:12.035Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:56:50.801Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\WorkspaceManager.svelte": {
+      "mtime": "2026-03-11T21:47:03.431Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:22.612Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\shared\\IconPicker.svelte": {
+      "mtime": "2026-03-11T21:37:51.420Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:22.239Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ChatsView.svelte": {
+      "mtime": "2026-03-11T21:31:56.057Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:10:40.157Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\CommandAutocomplete.svelte": {
+      "mtime": "2026-03-11T22:04:19.382Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:56.773Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\MentionAutocomplete.svelte": {
+      "mtime": "2026-03-11T22:04:26.150Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:09:20.590Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\SuggestionChips.svelte": {
+      "mtime": "2026-03-11T22:05:11.175Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:31:53.593Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ContextBar.svelte": {
+      "mtime": "2026-03-11T21:34:01.143Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:08:15.909Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ThreadBar.svelte": {
+      "mtime": "2026-03-11T21:34:23.708Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:38.714Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\IncidentBanner.svelte": {
+      "mtime": "2026-03-11T21:34:40.979Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:34:50.888Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ReplyPreview.svelte": {
+      "mtime": "2026-03-10T18:21:23.595Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:34:36.408Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\ChatSearch.svelte": {
+      "mtime": "2026-03-11T21:34:44.572Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:28.634Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\BottomHeader.svelte": {
+      "mtime": "2026-03-11T21:33:01.788Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:27.068Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\ConnectionIndicator.svelte": {
+      "mtime": "2026-03-11T08:44:44.308Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:30:56.553Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\HelpMenu.svelte": {
+      "mtime": "2026-03-11T22:09:46.624Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:24:30.130Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\ProjectDegraded.svelte": {
+      "mtime": "2026-03-11T08:44:44.310Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:30:57.887Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\ProjectTabBar.svelte": {
+      "mtime": "2026-03-11T21:57:06.629Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:20:06.513Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\UpdateNotifier.svelte": {
+      "mtime": "2026-03-11T21:35:55.863Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:48.488Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\WritingStatsPanel.svelte": {
+      "mtime": "2026-03-11T21:36:26.739Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:55.329Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\WindowControls.svelte": {
+      "mtime": "2026-03-11T21:36:33.039Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:08.449Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\BreadcrumbBar.svelte": {
+      "mtime": "2026-03-10T18:21:30.702Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:12.281Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\FileStats.svelte": {
+      "mtime": "2026-03-10T18:21:30.954Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:12.764Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\MinimizedTabBar.svelte": {
+      "mtime": "2026-03-10T18:21:31.009Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:13.662Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\EditorTitleBar.svelte": {
+      "mtime": "2026-03-11T22:30:21.061Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:18.264Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\PanelManager.svelte": {
+      "mtime": "2026-03-11T08:44:44.341Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:15.408Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\SplitPane.svelte": {
+      "mtime": "2026-03-11T08:44:44.342Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:16.240Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\settings\\SettingsPanel.svelte": {
+      "mtime": "2026-03-11T22:06:22.349Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:27.523Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ActivityEvent.svelte": {
+      "mtime": "2026-03-10T18:21:27.497Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:35.647Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ActivityFeed.svelte": {
+      "mtime": "2026-03-10T18:21:27.578Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:36.078Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ConnectionIndicator.svelte": {
+      "mtime": "2026-03-10T18:21:27.649Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:37.029Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\HomeView.svelte": {
+      "mtime": "2026-03-11T08:44:44.294Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:37.857Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectCard.svelte": {
+      "mtime": "2026-03-11T22:08:40.150Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:16.575Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\MigrationPreview.svelte": {
+      "mtime": "2026-03-11T21:42:13.992Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:52.261Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectErrorNotification.svelte": {
+      "mtime": "2026-03-11T08:44:44.298Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:43.747Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectListItem.svelte": {
+      "mtime": "2026-03-10T18:21:27.932Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:48.037Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\RecentSessionCard.svelte": {
+      "mtime": "2026-03-10T18:21:28.154Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:48.957Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\UpdateDetector.svelte": {
+      "mtime": "2026-03-11T08:44:44.305Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:49.829Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectSortControls.svelte": {
+      "mtime": "2026-03-10T18:21:28.037Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:50.717Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\QuickActions.svelte": {
+      "mtime": "2026-03-11T21:44:46.132Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:08:25.070Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ResumeHero.svelte": {
+      "mtime": "2026-03-10T18:21:28.214Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:52.437Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\WorkspaceCard.svelte": {
+      "mtime": "2026-03-10T18:21:28.325Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:31:57.037Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\syntaxTheme.ts": {
+      "mtime": "2026-03-11T21:35:24.571Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:36:57.650Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\settingsStore.svelte.ts": {
+      "mtime": "2026-03-11T08:44:44.377Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:41:36.818Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\MarkdownPreview.svelte": {
+      "mtime": "2026-03-11T21:35:17.071Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:47:04.543Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\TipTapEditor.svelte": {
+      "mtime": "2026-03-11T21:49:26.903Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:52:34.891Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\git\\SquashMergeAssistant.svelte": {
+      "mtime": "2026-03-10T18:21:26.988Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:40.013Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\git\\PRPreview.svelte": {
+      "mtime": "2026-03-10T18:21:26.920Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:40.496Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\git\\GitPanel.svelte": {
+      "mtime": "2026-03-11T21:58:58.417Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:35.205Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\inspector\\MetadataPanel.svelte": {
+      "mtime": "2026-03-11T21:57:03.622Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:39.586Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\settings\\UpdateNotifier.svelte": {
+      "mtime": "2026-03-10T18:21:31.414Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:43.609Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\tree\\FileOperationDialog.svelte": {
+      "mtime": "2026-03-11T08:44:44.347Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:47.151Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\shared\\FloatingActionButtons.svelte": {
+      "mtime": "2026-03-10T18:21:31.547Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:48.947Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\HeroHeader.svelte": {
+      "mtime": "2026-03-11T21:58:26.777Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:53.584Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\CollaborativeCursor.svelte": {
+      "mtime": "2026-03-11T21:57:13.710Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:25.366Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\GlobalFindReplace.svelte": {
+      "mtime": "2026-03-11T21:57:14.446Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:28.125Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\SnippetLibrary.svelte": {
+      "mtime": "2026-03-10T18:21:26.732Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:54.456Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\app.html": {
+      "mtime": "2026-03-08T05:06:37.592Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:56:58.441Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\ConnectionBadge.svelte": {
+      "mtime": "2026-03-10T18:21:23.818Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:03.663Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\Dashboard.svelte": {
+      "mtime": "2026-03-11T21:57:50.477Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:54.482Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\ActiveFeatureWidget.svelte": {
+      "mtime": "2026-03-11T21:57:52.247Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:20:07.433Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\ActivityFeedWidget.svelte": {
+      "mtime": "2026-03-10T18:21:24.066Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:05.923Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\GitActivityWidget.svelte": {
+      "mtime": "2026-03-11T08:44:44.270Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:06.300Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\HeatmapWidget.svelte": {
+      "mtime": "2026-03-11T21:58:00.830Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:20:08.085Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\HealthShieldWidget.svelte": {
+      "mtime": "2026-03-11T08:44:44.272Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:07.684Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\IncidentsWidget.svelte": {
+      "mtime": "2026-03-10T18:21:24.600Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:08.095Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\MarkdownNotesWidget.svelte": {
+      "mtime": "2026-03-11T08:44:44.275Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:08.576Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\OpenQuestionsWidget.svelte": {
+      "mtime": "2026-03-10T18:21:24.814Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:09.471Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\widgets\\Widget.svelte": {
+      "mtime": "2026-03-10T18:21:25.277Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:09.488Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphFilterPanel.svelte": {
+      "mtime": "2026-03-11T08:44:44.289Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:15.132Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphLoadingOverlay.svelte": {
+      "mtime": "2026-03-10T18:21:27.258Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:15.568Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphView.svelte": {
+      "mtime": "2026-03-11T08:44:44.293Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:16.386Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\EdgeTooltip.svelte": {
+      "mtime": "2026-03-10T18:21:27.049Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:16.816Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphContextMenu.svelte": {
+      "mtime": "2026-03-11T22:04:41.005Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:04:44.790Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\graph\\GraphToolbar.svelte": {
+      "mtime": "2026-03-11T08:44:44.292Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:17.736Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\welcome\\WelcomeScreen.svelte": {
+      "mtime": "2026-03-11T21:59:03.307Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:02.914Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\BinaryPlaceholder.svelte": {
+      "mtime": "2026-03-10T18:21:25.361Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:24.476Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\EditorContainer.svelte": {
+      "mtime": "2026-03-11T08:44:44.275Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:25.813Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\EmptyEditor.svelte": {
+      "mtime": "2026-03-11T22:46:40.339Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:49:11.874Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\ExternalChangeNotification.svelte": {
+      "mtime": "2026-03-10T18:21:25.923Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:27.156Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\ScratchpadBinder.svelte": {
+      "mtime": "2026-03-11T08:44:44.275Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:29.706Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\palette\\CommandPalette.svelte": {
+      "mtime": "2026-03-11T22:26:56.961Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:33:49.697Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\notifications\\NotificationCenter.svelte": {
+      "mtime": "2026-03-11T08:44:44.322Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:36.320Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\onboarding\\ModeWizard.svelte": {
+      "mtime": "2026-03-11T08:44:44.324Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T21:57:37.206Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\onboarding\\TourSegment.svelte": {
+      "mtime": "2026-03-11T22:00:09.047Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:57.907Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\project\\ProjectOverview.svelte": {
+      "mtime": "2026-03-11T22:00:23.708Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:57.147Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\inspector\\OutlinePanel.svelte": {
+      "mtime": "2026-03-11T22:00:25.050Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:08:52.380Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\userProfileStore.svelte.ts": {
+      "mtime": "2026-03-08T09:12:47.622Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:00:22.618Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\ModalWrapper.svelte": {
+      "mtime": "2026-03-11T22:03:20.035Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:57:09.071Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\TabBar.svelte": {
+      "mtime": "2026-03-11T22:04:03.774Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:26.832Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\notifications\\Toast.svelte": {
+      "mtime": "2026-03-11T22:03:30.368Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:07:40.702Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\BottomBar.svelte": {
+      "mtime": "2026-03-10T18:21:28.862Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:21.918Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\notifications\\ToastContainer.svelte": {
+      "mtime": "2026-03-10T18:21:30.133Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:22.073Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\tree\\TreeContextMenu.svelte": {
+      "mtime": "2026-03-11T22:07:32.305Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:22:31.687Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\WorkspacePresetBar.svelte": {
+      "mtime": "2026-03-10T18:21:29.847Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:26.158Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\inspector\\Inspector.svelte": {
+      "mtime": "2026-03-11T22:04:31.929Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:04:40.986Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\SlashMenu.svelte": {
+      "mtime": "2026-03-11T22:04:11.488Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:07:10.439Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\dashboard\\WidgetPicker.svelte": {
+      "mtime": "2026-03-11T22:05:36.272Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:05:40.519Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\FloatingToolbar.svelte": {
+      "mtime": "2026-03-10T18:21:26.065Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:02:32.968Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\palette\\ShortcutsOverlay.svelte": {
+      "mtime": "2026-03-11T22:26:18.131Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:26:29.008Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\editor\\FindReplace.svelte": {
+      "mtime": "2026-03-10T18:21:25.982Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:08.891Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\PinnedMessages.svelte": {
+      "mtime": "2026-03-10T18:21:23.528Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:09.302Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\panels\\EditorTopbar.svelte": {
+      "mtime": "2026-03-11T08:44:44.338Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:06:37.811Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\inspector\\BacklinksPanel.svelte": {
+      "mtime": "2026-03-10T18:21:28.437Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:08:51.490Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\inspector\\HistoryPanel.svelte": {
+      "mtime": "2026-03-10T18:21:28.478Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:08:52.755Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01WiyUA9oHSTy81yzBUwhtpj.txt": {
+      "mtime": "2026-03-11T22:15:02.282Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:15:14.576Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/tree/FileTree.svelte": {
+      "mtime": "2026-03-11T22:29:04.216Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:32:00.188Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/graph/GraphView.svelte": {
+      "mtime": "2026-03-11T21:58:42.570Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:15:13.686Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/onboarding/GuidedTour.svelte": {
+      "mtime": "2026-03-11T08:44:44.324Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:15:14.242Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01DBwH9j5wfUxtp8ABxUxNJR.txt": {
+      "mtime": "2026-03-11T22:17:09.699Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:17:27.500Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\fa65225c-be7b-48b3-953f-81fcb7de6475\\tool-results\\toolu_01McphEBSTe3Lcho2fxfNgic.txt": {
+      "mtime": "2026-03-11T22:17:33.353Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:17:36.512Z"
+    },
+    "C:/Users/Nagil/Project Genesis/.genesis/features/studio-ui-polish/spec.md": {
+      "mtime": "2026-03-11T21:21:19.503Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:21:49.114Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\fileTreeStore.svelte.ts": {
+      "mtime": "2026-03-11T22:32:36.898Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:38:24.279Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\routes\\+page.svelte": {
+      "mtime": "2026-03-11T23:27:53.125Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:34:19.897Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\editorStore.svelte.ts": {
+      "mtime": "2026-03-11T22:30:43.309Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:43:22.274Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/chat/ThreadPanel.svelte": {
+      "mtime": "2026-03-11T22:03:46.688Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:31:58.967Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/chat/AIChat.svelte": {
+      "mtime": "2026-03-11T22:12:11.428Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:32:19.126Z"
+    },
+    "C:/Users/Nagil/Project Genesis/Genesis/src/lib/components/notifications/Toast.svelte": {
+      "mtime": "2026-03-11T22:07:45.952Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:32:00.155Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\layout\\LeftZone.svelte": {
+      "mtime": "2026-03-10T18:21:29.246Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:36:07.772Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\tauriProcess.ts": {
+      "mtime": "2026-03-11T08:44:44.369Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:15:49.296Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\terminal\\GenesisOutput.svelte": {
+      "mtime": "2026-03-10T18:21:31.808Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:21.252Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\process.rs": {
+      "mtime": "2026-03-11T08:44:44.246Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:30.477Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\threadService.ts": {
+      "mtime": "2026-03-10T11:07:06.627Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:50:36.492Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\types\\chat.ts": {
+      "mtime": "2026-03-10T11:07:06.628Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:45:49.847Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\data\\iconCatalog.json": {
+      "mtime": "2026-03-08T22:02:23.892Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T22:52:13.673Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\projectStore.svelte.ts": {
+      "mtime": "2026-03-11T23:28:05.425Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:33:58.063Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\projectInfoStore.svelte.ts": {
+      "mtime": "2026-03-09T03:17:00.431Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:23:27.245Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\home\\ProjectSettingsModal.svelte": {
+      "mtime": "2026-03-11T23:06:05.452Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:10:28.764Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\src\\detect.js": {
+      "mtime": "2026-03-06T20:21:00.453Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:10:00.567Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\src\\generate.js": {
+      "mtime": "2026-03-10T01:05:26.321Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:10:03.484Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Apps\\src\\scaffold.js": {
+      "mtime": "2026-03-06T20:21:00.454Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:10:05.992Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\app.d.ts": {
+      "mtime": "2026-03-08T05:04:32.265Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:16:57.390Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\index.ts": {
+      "mtime": "2026-03-08T05:04:32.266Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:16:57.509Z"
+    },
+    "/Users/Nagil/Project Genesis/Genesis/src-tauri/src/projects.rs": {
+      "mtime": "2026-03-11T08:44:44.246Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:17:48.269Z"
+    },
+    "/Users/Nagil/Project Genesis/Genesis/src/lib/stores/projectStore.svelte.ts": {
+      "mtime": "2026-03-11T23:14:30.335Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:17:50.088Z"
+    },
+    "/Users/Nagil/Project Genesis/Genesis/src-tauri/src/lib.rs": {
+      "mtime": "2026-03-11T08:44:44.242Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:17:41.339Z"
+    },
+    "/Users/Nagil/Project Genesis/Genesis/src/routes/+page.svelte": {
+      "mtime": "2026-03-11T23:14:50.091Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:17:46.069Z"
+    },
+    "/Users/Nagil/Project Genesis/Genesis/src/lib/services/projectScanner.ts": {
+      "mtime": "2026-03-10T06:42:24.881Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:17:46.229Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\projectScanner.ts": {
+      "mtime": "2026-03-10T06:42:24.881Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:23:27.354Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\workspaceStore.svelte.ts": {
+      "mtime": "2026-03-09T03:16:48.280Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:23:31.710Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src-tauri\\src\\genesis_templates\\constitution-template.md": {
+      "mtime": "2026-03-11T08:44:44.227Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:29:13.402Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\phaseDetector.ts": {
+      "mtime": "2026-03-10T11:07:06.625Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:33:30.206Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\services\\tauriFs.ts": {
+      "mtime": "2026-03-08T09:06:24.481Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:36:39.375Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\components\\chat\\SuggestionPills.svelte": {
+      "mtime": "2026-03-11T23:42:19.586Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:42:42.766Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\Genesis\\src\\lib\\stores\\actionQueueStore.svelte.ts": {
+      "mtime": "2026-03-11T23:36:55.695Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-11T23:44:39.690Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\memory\\MEMORY.md": {
+      "mtime": "2026-03-14T08:24:49.516Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-15T21:51:54.501Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\81469e62-5148-4d74-a1dc-821780e0c429.jsonl": {
+      "mtime": "2026-03-15T21:55:31.515Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-15T21:55:36.607Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\hooks\\phase-complete.mjs": {
+      "mtime": "2026-03-15T21:51:26.353Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-15T21:52:45.299Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\features\\studio-frontend-icon-system\\spec.md": {
+      "mtime": "2026-03-14T20:42:50.188Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:00:10.420Z"
+    },
+    "C:\\Users\\Nagil\\Project Genesis\\.genesis\\templates\\flag-parsing-template.md": {
+      "mtime": "2026-03-14T09:44:02.420Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T07:57:48.849Z"
+    },
+    "C:\\Users\\Nagil\\.claude\\projects\\C--Users-Nagil-Project-Genesis\\a157dd18-de31-42ba-aea9-a06d1e3283df.jsonl": {
+      "mtime": "2026-03-16T08:08:59.219Z",
+      "lastAction": "read",
+      "lastActionAt": "2026-03-16T08:09:17.897Z"
+    }
+  }
+}
