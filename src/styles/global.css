@@ -36,6 +36,66 @@
   --surface-100: #e5e5e5; /* Bright text */
   --surface-50: #f5f5f5; /* White text */
 
+  /* ---- Design Token Scales ---- */
+
+  /* Spacing: NNN × 6px */
+  --space-001: 6px;
+  --space-002: 12px;
+  --space-003: 18px;
+  --space-004: 24px;
+  --space-005: 30px;
+  --space-006: 36px;
+  --space-007: 42px;
+  --space-008: 48px;
+  --space-009: 54px;
+  --space-010: 60px;
+  --space-011: 66px;
+  --space-012: 72px;
+
+  /* Border radius */
+  --radius-001: 4px;
+  --radius-002: 6px;
+  --radius-003: 8px;
+  --radius-004: 12px;
+  --radius-005: 16px;
+  --radius-006: 9999px;
+
+  /* Icon sizes */
+  --icon-001: 12px;
+  --icon-002: 14px;
+  --icon-003: 16px;
+  --icon-004: 20px;
+  --icon-005: 24px;
+  --icon-006: 28px;
+  --icon-007: 32px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-glass: 0 8px 32px rgb(0 0 0 / 0.3);
+
+  /* Z-index layers */
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+  --z-notification: 400;
+
+  /* Duration */
+  --duration-001: 50ms;
+  --duration-002: 100ms;
+  --duration-003: 150ms;
+  --duration-004: 200ms;
+  --duration-005: 300ms;
+  --duration-006: 500ms;
+
+  /* Easing */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
   /* Accent/brand colors (generated from hue) */
   --accent-50: hsl(var(--accent-hue), var(--accent-saturation), 95%);
   --accent-100: hsl(var(--accent-hue), var(--accent-saturation), 90%);

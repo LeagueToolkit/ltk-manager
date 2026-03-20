@@ -39,6 +39,40 @@
   --color-accent-800: var(--accent-800);
   --color-accent-900: var(--accent-900);
 
+  /* Spacing tokens (NNN × 6px) */
+  --spacing-1: var(--space-001);
+  --spacing-2: var(--space-002);
+  --spacing-3: var(--space-003);
+  --spacing-4: var(--space-004);
+  --spacing-5: var(--space-005);
+  --spacing-6: var(--space-006);
+  --spacing-7: var(--space-007);
+  --spacing-8: var(--space-008);
+  --spacing-9: var(--space-009);
+  --spacing-10: var(--space-010);
+  --spacing-11: var(--space-011);
+  --spacing-12: var(--space-012);
+
+  /* Radius tokens */
+  --radius-sm: var(--radius-001);
+  --radius-md: var(--radius-002);
+  --radius-lg: var(--radius-003);
+  --radius-xl: var(--radius-004);
+  --radius-2xl: var(--radius-005);
+  --radius-full: var(--radius-006);
+
+  /* Shadow tokens */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-glass: var(--shadow-glass);
+
+  /* Z-index tokens */
+  --z-index-dropdown: var(--z-dropdown);
+  --z-index-modal: var(--z-modal);
+  --z-index-toast: var(--z-toast);
+  --z-index-notification: var(--z-notification);
+
   /* Fonts */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-display: "Beaufort for LOL", "Inter", system-ui, sans-serif;
