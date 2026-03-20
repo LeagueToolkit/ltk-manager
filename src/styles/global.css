@@ -136,7 +136,8 @@ html {
 }
 
 body {
-  @apply bg-surface-900 text-surface-200;
+  background-color: var(--surface-900);
+  color: var(--surface-200);
   min-height: 100vh;
 }
 
@@ -151,20 +152,23 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-surface-900;
+  background-color: var(--surface-900);
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-surface-600;
+  background-color: var(--surface-600);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-surface-500;
+  background-color: var(--surface-500);
 }
 
 /* Focus styles */
 :focus-visible {
-  @apply outline-2 outline-offset-2 outline-accent-500;
+  outline-width: 2px;
+  outline-offset: 2px;
+  outline-color: var(--accent-500);
 }
 
 /* Drag region for Tauri window */
