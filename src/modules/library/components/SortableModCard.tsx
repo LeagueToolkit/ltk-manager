@@ -33,24 +33,16 @@ export function SortableModCard({
     transform: CSS.Transform.toString(transform),
     transition: transition ?? "transform 200ms ease-out",
     ...(isDragging && {
-      transform: `${CSS.Transform.toString(transform)} scale(1.02)`,
-      zIndex: 50,
-      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
-      opacity: 0.85,
+      opacity: 0.25,
     }),
   };
-
-  const showDropIndicator = isOver && !isDragging;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/sortable relative rounded-xl transition-[margin] duration-200 ${showDropIndicator ? "ml-3" : ""}`}
+      className={`group/sortable relative rounded-xl ${isDragging ? "border-2 border-dashed border-accent-500/40 bg-accent-500/5 [&>*:not(.drag-handle)]:invisible" : ""}`}
     >
-      {showDropIndicator && (
-        <div className="absolute top-1 bottom-1 -left-2 w-0.5 rounded-full bg-accent-500 transition-opacity" />
-      )}
       {/* Drag handle */}
       {!disabled && viewMode === "list" && (
         <div

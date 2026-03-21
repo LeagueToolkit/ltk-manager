@@ -92,7 +92,7 @@ export function SortableModList({
       </SortableContext>
       <DragOverlay>
         {activeMod ? (
-          <div className="opacity-90">
+          <div className="scale-[1.02] cursor-grabbing shadow-lg">
             <ModCard
               mod={activeMod}
               viewMode={viewMode}
