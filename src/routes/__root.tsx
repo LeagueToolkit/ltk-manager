@@ -68,7 +68,9 @@ function RootLayout() {
       <TitleBar appInfo={appInfo} />
       <main className="relative flex-1 overflow-hidden">
         <UpdateNotification />
-        <Outlet />
+        <div key={location.pathname} className="animate-fade-in">
+          <Outlet />
+        </div>
       </main>
       <StatusBar />
       <ProtocolInstallDialog />

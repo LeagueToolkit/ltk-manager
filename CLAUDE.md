@@ -160,6 +160,8 @@ TanStack Router with file-based routing in `src/routes/`. Route tree is auto-gen
 | `Progress` (compound: `Root`, `Track`, `Indicator`) | Progress bars | `Progress` |
 | `Combobox` (compound: `Root`, `Input`, `Trigger`, `Portal`, `Positioner`, `Popup`, `List`, `Item`, `Empty`, `Clear`, `Chips`, `Chip`, `ChipRemove`) | Autocomplete / combobox | `Combobox` |
 | `MultiSelect` | Multi-value combobox | Wraps `Combobox` |
+| `Skeleton` (`width`, `height`, `count`, `rounded`, `className`) | Shimmer loading placeholders | None (custom) |
+| `Spinner` (`size`: sm/md/lg, `className`) | Loading spinner (wraps Loader2) | None (custom) |
 
 When adding a new base-ui component:
 
@@ -186,6 +188,7 @@ Uses `@tanstack/react-form` with Zod validation. The form system provides:
 - `zustand` — Client-side state (not for server state — use TanStack Query)
 - `lucide-react` — Icon library (`import { IconName } from "lucide-react"`)
 - `tailwind-merge` — Merging Tailwind classes in component variants
+- `framer-motion` — Layout animations for DnD (`AnimatePresence` on `DragDropOverlay` only). Tree-shake to ≤30KB gzipped.
 
 ### Icons
 
@@ -204,27 +207,63 @@ import type { LucideIcon } from "lucide-react"; // for type annotations
 
 Tailwind CSS v4 via `@tailwindcss/vite` plugin. CSS is organized into three files in `src/styles/`:
 
-| File | Purpose |
-|------|---------|
-| `global.css` | Design tokens (all scales), CSS reset, dark/light themes, global utilities, scrollbar, focus ring, drag region, toast viewport, glassmorphism |
-| `animations.css` | All `@keyframes` definitions (fade-in, slide-up, slide-down, toast-slide-in/out, shimmer) |
-| `tailwind.css` | `@import "tailwindcss"` + `@theme {}` mapping tokens to Tailwind utilities. **This is the single CSS entry point** imported in `main.tsx`. |
+| File             | Purpose                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `global.css`     | Design tokens (all scales), CSS reset, dark/light themes, global utilities, scrollbar, focus ring, drag region, toast viewport, glassmorphism         |
+| `animations.css` | All `@keyframes` (fade-in, slide-up, slide-down, toast-slide-in/out, shimmer, dialog-enter/exit, spinner) + `.stagger-enter` system + utility classes |
+| `tailwind.css`   | `@import "tailwindcss"` + `@theme {}` mapping tokens to Tailwind utilities. **This is the single CSS entry point** imported in `main.tsx`.            |
 
 **Design tokens** use numbered scales defined as CSS custom properties:
 
-| Category | Pattern | Example |
-|----------|---------|---------|
-| Spacing | `--space-{NNN}` | `--space-004` → 24px (NNN × 6px) |
-| Radius | `--radius-{NNN}` | `--radius-003` → 8px |
-| Icon sizes | `--icon-{NNN}` | `--icon-003` → 16px |
-| Shadows | `--shadow-{name}` | `--shadow-sm`, `--shadow-glass` |
-| Z-index | `--z-{name}` | `--z-modal`, `--z-toast` |
-| Duration | `--duration-{NNN}` | `--duration-004` → 200ms |
-| Easing | `--ease-{name}` | `--ease-spring` |
+| Category   | Pattern            | Example                          |
+| ---------- | ------------------ | -------------------------------- |
+| Spacing    | `--space-{NNN}`    | `--space-004` → 24px (NNN × 6px) |
+| Radius     | `--radius-{NNN}`   | `--radius-003` → 8px             |
+| Icon sizes | `--icon-{NNN}`     | `--icon-003` → 16px              |
+| Shadows    | `--shadow-{name}`  | `--shadow-sm`, `--shadow-glass`  |
+| Z-index    | `--z-{name}`       | `--z-modal`, `--z-toast`         |
+| Duration   | `--duration-{NNN}` | `--duration-004` → 200ms         |
+| Easing     | `--ease-{name}`    | `--ease-spring`                  |
 
 **Color tokens:** `surface-{50..950}` for neutrals, `accent-{50..950}` for the dynamic accent color (HSL-based via `--accent-hue`). Dark theme is default; light theme uses `[data-theme="light"]` attribute on `<html>`.
 
 **Important:** `global.css` must NOT use `@apply` with Tailwind utilities — use raw CSS custom property references instead (e.g., `background-color: var(--surface-900)`).
+
+### Density Modes
+
+Three density modes applied via `[data-density]` attribute on `<html>`:
+
+| Mode     | Scale | Description                          |
+| -------- | ----- | ------------------------------------ |
+| Compact  | 0.6x  | Extra tight spacing and icons        |
+| Normal   | 0.75x | Default — tighter than original base |
+| Spacious | 1x    | Original base spacing                |
+
+`--density-scale` CSS custom property is set on `:root` for `calc()` usage. Density affects `--space-*` and `--icon-*` tokens. Does NOT affect `--radius-*`, `--shadow-*`, `--z-*`, or colors.
+
+Managed by `useDisplayStore` (Zustand persist, localStorage key `ltk-display-prefs`). Synced to `<html>` via `useEffect` in `__root.tsx`.
+
+### Reduce Motion
+
+Three-option system applied via `[data-reduce-motion]` attribute on `<html>`:
+
+- **System Default** — follows OS `prefers-reduced-motion` media query
+- **On** — always suppress animations (durations collapse to 0.01ms)
+- **Off** — always animate regardless of OS
+
+Use `useReducedMotion()` hook from `@/hooks` for component-level checks. Returns `boolean`.
+
+### Animation System
+
+**Overlay transitions:** All popups (Dialog, Menu, Select, Popover) use base-ui's `data-[starting-style]`/`data-[ending-style]` with CSS `transition-[opacity,transform]` for enter/exit.
+
+**Stagger system:** Add `stagger-enter` class to a parent container. Children animate in sequence with 60ms delay, capped at 7 items. Uses `slide-up` keyframe.
+
+**Toast animations:** Slide-in via `animate-toast-slide-in`, exit via `data-[ending-style]`. Includes rAF progress bar and hover pause.
+
+**DnD animations:** CSS transitions for sortable reorder (200ms ease-out). framer-motion `AnimatePresence` on `DragDropOverlay` only.
+
+**Utility classes:** `.animate-fade-in`, `.animate-slide-down`, `.scroll-fade` (bottom gradient on scrollable containers).
 
 ## Log Files
 

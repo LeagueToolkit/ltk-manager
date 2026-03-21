@@ -169,7 +169,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
           size="md"
           onClick={handleMinimize}
           aria-label="Minimize"
-          className="h-full w-12 rounded-none text-surface-400 hover:bg-surface-700 hover:text-surface-200"
+          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500/20 hover:text-amber-400 active:scale-90 active:opacity-80"
         />
         <IconButton
           icon={
@@ -183,7 +183,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
           size="md"
           onClick={handleMaximize}
           aria-label={isMaximized ? "Restore" : "Maximize"}
-          className="h-full w-12 rounded-none text-surface-400 hover:bg-surface-700 hover:text-surface-200"
+          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500/20 hover:text-green-400 active:scale-90 active:opacity-80"
         />
         <IconButton
           icon={<X className="h-4 w-4" />}
@@ -191,7 +191,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
           size="md"
           onClick={handleClose}
           aria-label="Close"
-          className="h-full w-12 rounded-none text-surface-400 hover:bg-red-600 hover:text-white"
+          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-600 hover:text-white active:scale-90 active:opacity-80"
         />
       </div>
     </header>
