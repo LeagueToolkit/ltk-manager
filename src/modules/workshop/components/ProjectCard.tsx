@@ -77,7 +77,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
     return (
       <div
         className={twMerge(
-          "group flex items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-all hover:border-surface-600",
+          "group flex items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-600 hover:shadow-md",
           listBorderClass,
           isPatcherActive && !isTesting && "opacity-50",
         )}
@@ -207,7 +207,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   return (
     <div
       className={twMerge(
-        "group relative rounded-xl border bg-surface-800 transition-all hover:border-surface-400",
+        "group relative rounded-xl border bg-surface-800 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:shadow-md",
         gridBorderClass,
         isPatcherActive && !isTesting && "opacity-50",
       )}

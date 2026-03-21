@@ -78,12 +78,12 @@ export function ModCard({
     return (
       <div
         onClick={handleCardClick}
-        className={`flex items-center gap-4 rounded-lg border p-4 transition-all ${
+        className={`flex items-center gap-4 rounded-lg border p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out ${
           disabled ? "cursor-default" : "cursor-pointer"
         } ${
           mod.enabled
-            ? "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30"
-            : "border-surface-700 bg-surface-900 hover:border-surface-600"
+            ? "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30 hover:-translate-y-px"
+            : "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-surface-600 hover:bg-surface-800/80 hover:shadow-md"
         }`}
       >
         {/* Thumbnail */}
@@ -187,12 +187,12 @@ export function ModCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative rounded-xl border transition-all ${
+      className={`group relative rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out ${
         disabled ? "cursor-default" : "cursor-pointer"
       } ${
         mod.enabled
-          ? "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40"
-          : "border-surface-600 bg-surface-800 hover:border-surface-400"
+          ? "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40 hover:-translate-y-px hover:shadow-[0_0_20px_-3px,0_4px_6px_-1px] hover:shadow-accent-500/40"
+          : "border-surface-600 bg-surface-800 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-700/80 hover:shadow-md"
       }`}
     >
       {/* Toggle in top-right corner */}
