@@ -183,10 +183,14 @@ body {
    ============================================ */
 :root {
   --density-scale: 0.75;
+  --card-min-w: 240px;
+  --card-max-w: 320px;
 }
 
 [data-density="compact"] {
   --density-scale: 0.6;
+  --card-min-w: 200px;
+  --card-max-w: 260px;
   --space-001: calc(1 * 6px * 0.6);
   --space-002: calc(2 * 6px * 0.6);
   --space-003: calc(3 * 6px * 0.6);
@@ -233,6 +237,8 @@ body {
 
 [data-density="spacious"] {
   --density-scale: 1;
+  --card-min-w: 280px;
+  --card-max-w: 380px;
 }
 
 /* ============================================

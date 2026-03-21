@@ -15,7 +15,7 @@ export function ProjectGrid({ projects, onEdit }: ProjectGridProps) {
     <div
       className={
         viewMode === "grid"
-          ? "grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4"
+          ? "grid grid-cols-[repeat(auto-fill,minmax(var(--card-min-w,240px),var(--card-max-w,320px)))] justify-center gap-4"
           : "space-y-2"
       }
     >

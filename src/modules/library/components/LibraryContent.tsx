@@ -14,7 +14,7 @@ import { SortableModList } from "./SortableModList";
 
 function gridClass(viewMode: "grid" | "list", indent = false) {
   if (viewMode === "list") return indent ? "space-y-2 pl-7" : "space-y-2";
-  return "grid grid-cols-[repeat(auto-fill,minmax(280px,380px))] gap-4";
+  return "grid grid-cols-[repeat(auto-fill,minmax(var(--card-min-w,240px),var(--card-max-w,320px)))] justify-center gap-4";
 }
 
 interface LibraryContentProps {
@@ -110,7 +110,7 @@ export function LibraryContent({
 
 function LoadingState() {
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,380px))] gap-4">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(var(--card-min-w,240px),var(--card-max-w,320px)))] justify-center gap-4">
       {Array.from({ length: 6 }, (_, i) => (
         <div
           key={i}
