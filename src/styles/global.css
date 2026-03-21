@@ -145,14 +145,14 @@ body {
   isolation: isolate;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar (narrow, rounded, transparent track) */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background-color: var(--surface-900);
+  background-color: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -166,9 +166,104 @@ body {
 
 /* Focus styles */
 :focus-visible {
+  outline-style: solid;
   outline-width: 2px;
   outline-offset: 2px;
   outline-color: var(--accent-500);
+}
+
+/* Text selection */
+::selection {
+  background: color-mix(in srgb, var(--accent-500) 30%, transparent);
+}
+
+/* ============================================
+   Density Mode Overrides
+   Applied via [data-density] attribute on <html>
+   ============================================ */
+:root {
+  --density-scale: 1;
+}
+
+[data-density="compact"] {
+  --density-scale: 0.75;
+  --space-001: calc(1 * 6px * 0.75);
+  --space-002: calc(2 * 6px * 0.75);
+  --space-003: calc(3 * 6px * 0.75);
+  --space-004: calc(4 * 6px * 0.75);
+  --space-005: calc(5 * 6px * 0.75);
+  --space-006: calc(6 * 6px * 0.75);
+  --space-007: calc(7 * 6px * 0.75);
+  --space-008: calc(8 * 6px * 0.75);
+  --space-009: calc(9 * 6px * 0.75);
+  --space-010: calc(10 * 6px * 0.75);
+  --space-011: calc(11 * 6px * 0.75);
+  --space-012: calc(12 * 6px * 0.75);
+  --icon-001: calc(12px * 0.75);
+  --icon-002: calc(14px * 0.75);
+  --icon-003: calc(16px * 0.75);
+  --icon-004: calc(20px * 0.75);
+  --icon-005: calc(24px * 0.75);
+  --icon-006: calc(28px * 0.75);
+  --icon-007: calc(32px * 0.75);
+}
+
+[data-density="normal"] {
+  --density-scale: 1;
+}
+
+[data-density="spacious"] {
+  --density-scale: 1.25;
+  --space-001: calc(1 * 6px * 1.25);
+  --space-002: calc(2 * 6px * 1.25);
+  --space-003: calc(3 * 6px * 1.25);
+  --space-004: calc(4 * 6px * 1.25);
+  --space-005: calc(5 * 6px * 1.25);
+  --space-006: calc(6 * 6px * 1.25);
+  --space-007: calc(7 * 6px * 1.25);
+  --space-008: calc(8 * 6px * 1.25);
+  --space-009: calc(9 * 6px * 1.25);
+  --space-010: calc(10 * 6px * 1.25);
+  --space-011: calc(11 * 6px * 1.25);
+  --space-012: calc(12 * 6px * 1.25);
+  --icon-001: calc(12px * 1.25);
+  --icon-002: calc(14px * 1.25);
+  --icon-003: calc(16px * 1.25);
+  --icon-004: calc(20px * 1.25);
+  --icon-005: calc(24px * 1.25);
+  --icon-006: calc(28px * 1.25);
+  --icon-007: calc(32px * 1.25);
+}
+
+/* ============================================
+   Reduce Motion
+   Applied via [data-reduce-motion] attribute on <html>
+   ============================================ */
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* ============================================
+   Scroll Fade Utility
+   ============================================ */
+.scroll-fade {
+  position: relative;
+}
+
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  background: linear-gradient(to top, var(--surface-900), transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Drag region for Tauri window */

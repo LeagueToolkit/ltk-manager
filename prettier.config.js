@@ -7,5 +7,5 @@ export default {
   trailingComma: "all",
   printWidth: 100,
   tailwindFunctions: ["clsx", "cn", "twMerge", "twJoin"],
-  tailwindStylesheet: "./src/styles/app.css",
+  tailwindStylesheet: "./src/styles/tailwind.css",
 };
