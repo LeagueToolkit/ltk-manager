@@ -103,7 +103,7 @@
    ============================================ */
 .stagger-enter > * {
   opacity: 0;
-  animation: slide-up var(--duration-004) var(--ease-out) forwards;
+  animation: fade-in var(--duration-004) var(--ease-out) forwards;
   animation-delay: calc(var(--stagger-index, 0) * 60ms);
 }
 
@@ -132,9 +132,22 @@
   --stagger-index: 7;
 }
 
+@keyframes page-enter {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Utility classes for consuming keyframes */
 .animate-fade-in {
   animation: fade-in var(--duration-004) var(--ease-out);
+}
+
+.page-enter {
+  animation: page-enter 400ms ease-out both;
 }
 
 .animate-slide-down {

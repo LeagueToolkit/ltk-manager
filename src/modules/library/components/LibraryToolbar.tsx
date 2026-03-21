@@ -39,7 +39,7 @@ export function LibraryToolbar({
 
   return (
     <div
-      className="flex items-center gap-4 border-b border-surface-600 px-4 py-3"
+      className="flex items-center gap-4 border-b border-surface-600 bg-surface-800/50 px-4 py-3"
       data-tauri-drag-region
     >
       <ProfileSelector />

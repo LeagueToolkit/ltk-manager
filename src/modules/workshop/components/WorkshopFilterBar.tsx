@@ -56,7 +56,7 @@ export function WorkshopFilterBar({ filterOptions }: WorkshopFilterBarProps) {
   );
 
   return (
-    <div className="flex items-center gap-3 border-b border-surface-700 px-4 py-2">
+    <div className="flex items-center gap-3 border-b border-surface-700 bg-surface-800/30 px-4 py-2">
       <MultiSelect
         label="Tags"
         options={tagOptions}

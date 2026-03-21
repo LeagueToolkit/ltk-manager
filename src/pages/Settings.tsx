@@ -34,14 +34,14 @@ export function Settings() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-16 shrink-0 items-center border-b border-surface-600 px-6">
+      <header className="flex h-16 shrink-0 items-center border-b border-surface-600 bg-surface-800/50 px-6">
         <h2 className="text-xl font-semibold text-surface-100">Settings</h2>
       </header>
 
       <Tabs.Root defaultValue="general" className="flex min-h-0 flex-1 flex-row">
         <Tabs.List
           variant="pills"
-          className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-900/80 p-3"
+          className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-950/60 p-3"
         >
           <Tabs.Tab
             variant="pills"

@@ -1,4 +1,4 @@
-import { defaultAnimateLayoutChanges, useSortable } from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -26,12 +26,11 @@ export function SortableModCard({
 }: SortableModCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: mod.id,
-    animateLayoutChanges: (args) => defaultAnimateLayoutChanges({ ...args, wasDragging: true }),
   });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
-    transition: transition ?? "transform 300ms cubic-bezier(0.25, 1, 0.5, 1)",
+    transition: transition ?? "transform 250ms cubic-bezier(0.25, 1, 0.5, 1)",
     willChange: transform ? "transform" : undefined,
   };
 
@@ -39,7 +38,7 @@ export function SortableModCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/sortable relative rounded-xl ${isDragging ? "z-0 opacity-0" : ""}`}
+      className={`group/sortable relative rounded-xl ${isDragging ? "z-0" : ""}`}
     >
       {isDragging && (
         <div className="absolute inset-0 rounded-xl border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
@@ -68,14 +67,16 @@ export function SortableModCard({
         </div>
       )}
 
-      <ModCard
-        mod={mod}
-        viewMode={viewMode}
-        onToggle={onToggle}
-        onUninstall={onUninstall}
-        onViewDetails={onViewDetails}
-        disabled={disabled}
-      />
+      <div className={isDragging ? "invisible" : undefined}>
+        <ModCard
+          mod={mod}
+          viewMode={viewMode}
+          onToggle={onToggle}
+          onUninstall={onUninstall}
+          onViewDetails={onViewDetails}
+          disabled={disabled}
+        />
+      </div>
     </div>
   );
 }

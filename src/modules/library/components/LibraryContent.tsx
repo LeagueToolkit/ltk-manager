@@ -7,9 +7,7 @@ import type { useLibraryActions } from "@/modules/library/api";
 import { useFilteredMods, useLibraryViewMode } from "@/modules/library/api";
 import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
 
-import { ModCard } from "./ModCard";
 import { ModDetailsDialog } from "./ModDetailsDialog";
-import { SortableModCard } from "./SortableModCard";
 import { SortableModList } from "./SortableModList";
 
 function gridClass(viewMode: "grid" | "list", indent = false) {
@@ -70,8 +68,6 @@ export function LibraryContent({
     );
   }
 
-  const Card = dndDisabled ? ModCard : SortableModCard;
-
   return (
     <>
       <div className="flex-1 overflow-auto p-6">
@@ -83,21 +79,9 @@ export function LibraryContent({
           onToggle={actions.handleToggleMod}
           onUninstall={actions.handleUninstallMod}
           onViewDetails={setDetailsMod}
-        >
-          <div className={`${gridClass(viewMode, !dndDisabled)} stagger-enter`}>
-            {filteredMods.map((mod) => (
-              <Card
-                key={mod.id}
-                mod={mod}
-                viewMode={viewMode}
-                onToggle={actions.handleToggleMod}
-                onUninstall={actions.handleUninstallMod}
-                onViewDetails={setDetailsMod}
-                disabled={isPatcherActive}
-              />
-            ))}
-          </div>
-        </SortableModList>
+          isPatcherActive={isPatcherActive}
+          className={`${gridClass(viewMode, !dndDisabled)} stagger-enter`}
+        />
       </div>
       <ModDetailsDialog
         open={detailsMod !== null}

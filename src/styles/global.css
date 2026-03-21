@@ -17,24 +17,24 @@
   --hue-teal: 174;
 }
 
-/* Dark theme (VS Code inspired) - DEFAULT */
+/* Dark theme - DEFAULT */
 :root {
   /* RGB channels for alpha compositing in glass mode */
-  --surface-950-rgb: 14 14 14;
-  --surface-900-rgb: 30 30 30;
+  --surface-950-rgb: 20 20 22;
+  --surface-900-rgb: 28 28 31;
 
-  /* Background colors */
-  --surface-950: #0e0e0e;
-  --surface-900: #1e1e1e; /* Editor background */
-  --surface-800: #252526; /* Sidebar background */
-  --surface-700: #2d2d30; /* Input/card background */
-  --surface-600: #3c3c3c; /* Borders, dividers */
-  --surface-500: #4a4a4a; /* Muted elements */
-  --surface-400: #808080; /* Placeholder text */
-  --surface-300: #9d9d9d; /* Secondary text */
-  --surface-200: #cccccc; /* Primary text */
-  --surface-100: #e5e5e5; /* Bright text */
-  --surface-50: #f5f5f5; /* White text */
+  /* Background colors — layered with visible depth steps */
+  --surface-950: #141416; /* Deepest — titlebar, status bar */
+  --surface-900: #1c1c1f; /* Base background */
+  --surface-800: #242428; /* Toolbars, sidebars, cards */
+  --surface-700: #2c2c32; /* Inputs, hover backgrounds */
+  --surface-600: #3a3a42; /* Borders, dividers */
+  --surface-500: #4a4a52; /* Muted elements */
+  --surface-400: #85858f; /* Placeholder text */
+  --surface-300: #a0a0aa; /* Secondary text */
+  --surface-200: #d4d4d8; /* Primary text */
+  --surface-100: #ededf0; /* Bright text */
+  --surface-50: #fafafa; /* White text */
 
   /* ---- Design Token Scales ---- */
 
