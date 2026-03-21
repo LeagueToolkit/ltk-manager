@@ -24,22 +24,31 @@ export function SortableModCard({
   onViewDetails,
   disabled,
 }: SortableModCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: mod.id,
-  });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
+    useSortable({
+      id: mod.id,
+    });
 
   const style: CSSProperties = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : undefined,
+    transition: transition ?? "transform 200ms ease-out",
+    ...(isDragging && {
+      transform: `${CSS.Transform.toString(transform)} scale(1.02)`,
+      zIndex: 50,
+      boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+    }),
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="group/sortable relative">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group/sortable relative rounded-xl ${isOver && !isDragging ? "outline-2 outline-[color-mix(in_srgb,var(--accent-500)_40%,transparent)] outline-dashed" : ""}`}
+    >
       {/* Drag handle */}
       {!disabled && viewMode === "list" && (
         <div
-          className="absolute top-1/2 -left-7 z-10 flex -translate-y-1/2 cursor-grab items-center opacity-0 transition-opacity group-hover/sortable:opacity-100"
+          className={`absolute top-1/2 -left-7 z-10 flex -translate-y-1/2 items-center opacity-0 transition-opacity group-hover/sortable:opacity-100 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           data-no-toggle
           onClick={(e) => e.stopPropagation()}
           {...attributes}
@@ -50,7 +59,7 @@ export function SortableModCard({
       )}
       {!disabled && viewMode !== "list" && (
         <div
-          className="absolute top-2 left-2 z-10 flex cursor-grab items-center rounded-md bg-surface-900/80 p-1 opacity-0 backdrop-blur-sm transition-opacity group-hover/sortable:opacity-100"
+          className={`absolute top-2 left-2 z-10 flex items-center rounded-md bg-surface-900/80 p-1 opacity-0 backdrop-blur-sm transition-opacity group-hover/sortable:opacity-100 ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           data-no-toggle
           onClick={(e) => e.stopPropagation()}
           {...attributes}
