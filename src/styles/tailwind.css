@@ -70,7 +70,7 @@
   --animate-fade-in: fade-in 0.2s ease-out;
   --animate-slide-up: slide-up 0.3s ease-out;
   --animate-slide-down: slide-down 0.3s ease-out;
-  --animate-toast-slide-in: toast-slide-in 0.3s ease-out;
-  --animate-toast-slide-out: toast-slide-out 0.2s ease-in;
+  --animate-toast-slide-in: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-toast-slide-out: toast-slide-out 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
 }

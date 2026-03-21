@@ -1,4 +1,4 @@
-import { useSortable } from "@dnd-kit/sortable";
+import { defaultAnimateLayoutChanges, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 import type { CSSProperties } from "react";
@@ -24,25 +24,26 @@ export function SortableModCard({
   onViewDetails,
   disabled,
 }: SortableModCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
-    useSortable({
-      id: mod.id,
-    });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: mod.id,
+    animateLayoutChanges: (args) => defaultAnimateLayoutChanges({ ...args, wasDragging: true }),
+  });
 
   const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition: transition ?? "transform 200ms ease-out",
-    ...(isDragging && {
-      opacity: 0.25,
-    }),
+    transform: CSS.Translate.toString(transform),
+    transition: transition ?? "transform 300ms cubic-bezier(0.25, 1, 0.5, 1)",
+    willChange: transform ? "transform" : undefined,
   };
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/sortable relative rounded-xl ${isDragging ? "border-2 border-dashed border-accent-500/40 bg-accent-500/5 [&>*:not(.drag-handle)]:invisible" : ""}`}
+      className={`group/sortable relative rounded-xl ${isDragging ? "z-0 opacity-0" : ""}`}
     >
+      {isDragging && (
+        <div className="absolute inset-0 rounded-xl border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
+      )}
       {/* Drag handle */}
       {!disabled && viewMode === "list" && (
         <div

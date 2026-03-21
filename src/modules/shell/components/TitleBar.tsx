@@ -164,34 +164,34 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
         {/* Window controls */}
         <IconButton
-          icon={<Minus className="h-4 w-4" />}
+          icon={<Minus className="h-3.5 w-3.5" />}
           variant="ghost"
-          size="md"
+          size="sm"
           onClick={handleMinimize}
           aria-label="Minimize"
-          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500/20 hover:text-amber-500 active:scale-90 active:opacity-80 [html[data-theme=light]_&]:hover:bg-amber-400/15 [html[data-theme=light]_&]:hover:text-amber-600"
+          className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500 hover:text-white active:scale-90 active:opacity-80"
         />
         <IconButton
           icon={
             isMaximized ? (
-              <OverlappingSquares className="h-3.5 w-3.5" />
+              <OverlappingSquares className="h-3 w-3" />
             ) : (
-              <Square className="h-3.5 w-3.5" />
+              <Square className="h-3 w-3" />
             )
           }
           variant="ghost"
-          size="md"
+          size="sm"
           onClick={handleMaximize}
           aria-label={isMaximized ? "Restore" : "Maximize"}
-          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500/20 hover:text-green-500 active:scale-90 active:opacity-80 [html[data-theme=light]_&]:hover:bg-green-400/15 [html[data-theme=light]_&]:hover:text-green-600"
+          className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500 hover:text-white active:scale-90 active:opacity-80"
         />
         <IconButton
-          icon={<X className="h-4 w-4" />}
+          icon={<X className="h-3.5 w-3.5" />}
           variant="ghost"
-          size="md"
+          size="sm"
           onClick={handleClose}
           aria-label="Close"
-          className="h-full w-12 rounded-none text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-500/20 hover:text-red-400 active:scale-90 active:opacity-80 [html[data-theme=light]_&]:hover:bg-red-500/15 [html[data-theme=light]_&]:hover:text-red-600"
+          className="mx-0.5 mr-2 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-500 hover:text-white active:scale-90 active:opacity-80"
         />
       </div>
     </header>

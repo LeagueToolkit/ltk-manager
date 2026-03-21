@@ -98,10 +98,10 @@ export function ToastItem({ toast }: ToastItemProps) {
     <BaseToast.Root
       toast={toast}
       className={twMerge(
-        "relative flex w-full flex-col overflow-hidden rounded-lg border border-l-[3px] shadow-lg backdrop-blur-sm",
+        "relative flex w-full flex-col overflow-hidden rounded-md border border-l-[3px] shadow-lg backdrop-blur-sm",
         "border-surface-700 bg-surface-800/95",
         typeStripeClasses[type],
-        "transition-[transform,opacity,max-height] duration-200 ease-out",
+        "transition-[transform,opacity,max-height] duration-350 ease-[cubic-bezier(0.16,1,0.3,1)]",
         "data-[swipe=move]:transition-none",
         "data-[swipe=cancel]:translate-x-0",
         "animate-toast-slide-in",
