@@ -78,8 +78,9 @@ export const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
         ref={ref}
         className={twMerge(
           "w-44 rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
-          "animate-fade-in",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "transition-[opacity,transform] duration-150 ease-out",
+          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
+          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,
         )}
         {...props}

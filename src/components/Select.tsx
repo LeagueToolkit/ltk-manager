@@ -77,7 +77,15 @@ export interface SelectIconProps extends Omit<BaseSelect.Icon.Props, "className"
 export const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(
   ({ className, ...props }, ref) => {
     return (
-      <BaseSelect.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
+      <BaseSelect.Icon
+        ref={ref}
+        className={twMerge(
+          "text-surface-400 transition-transform",
+          "data-[popup-open]:rotate-180",
+          className,
+        )}
+        {...props}
+      >
         <ChevronDown className="h-4 w-4" />
       </BaseSelect.Icon>
     );
@@ -143,8 +151,9 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
         className={twMerge(
           "max-h-60 overflow-y-auto",
           "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
-          "animate-fade-in",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "transition-[opacity,transform] duration-150 ease-out",
+          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
+          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,
         )}
         {...props}
