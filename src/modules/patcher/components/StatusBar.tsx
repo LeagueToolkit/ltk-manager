@@ -74,7 +74,7 @@ export function StatusBar() {
         : null;
 
     return (
-      <div className="animate-in slide-in-from-bottom-2 border-t-2 border-accent-500 bg-surface-950 px-4 py-2">
+      <div className="animate-slide-up border-t-2 border-accent-500 bg-surface-950 px-4 py-2">
         <div className="flex items-center gap-3">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-accent-500" />
           <span className="shrink-0 text-sm font-medium text-accent-500">Building Overlay</span>
@@ -105,7 +105,7 @@ export function StatusBar() {
 
   // Patcher running (post-build) — minimal indicator
   return (
-    <div className="animate-in slide-in-from-bottom-2 flex items-center border-t-2 border-green-500 bg-surface-950 px-4 py-2">
+    <div className="flex animate-slide-up items-center border-t-2 border-green-500 bg-surface-950 px-4 py-2">
       <span className="mr-2 h-2 w-2 shrink-0 animate-pulse rounded-full bg-green-500" />
       <span className="text-sm font-medium text-green-500">{testLabel ?? "Patcher running"}</span>
       <div className="flex-1" />

@@ -1,7 +1,7 @@
 import { Filter, Plus, Search, Upload } from "lucide-react";
 import { useState } from "react";
 
-import { Button } from "@/components";
+import { Button, Skeleton } from "@/components";
 import type { AppError, InstalledMod } from "@/lib/tauri";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useFilteredMods, useLibraryViewMode } from "@/modules/library/api";
@@ -84,7 +84,7 @@ export function LibraryContent({
           onUninstall={actions.handleUninstallMod}
           onViewDetails={setDetailsMod}
         >
-          <div className={gridClass(viewMode, !dndDisabled)}>
+          <div className={`${gridClass(viewMode, !dndDisabled)} stagger-enter`}>
             {filteredMods.map((mod) => (
               <Card
                 key={mod.id}
@@ -110,8 +110,17 @@ export function LibraryContent({
 
 function LoadingState() {
   return (
-    <div className="flex h-64 items-center justify-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,380px))] gap-4">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div
+          key={i}
+          className="flex flex-col gap-3 rounded-lg border border-surface-700 bg-surface-800 p-4"
+        >
+          <Skeleton height="10rem" rounded />
+          <Skeleton height="1rem" width="60%" />
+          <Skeleton height="0.75rem" width="40%" />
+        </div>
+      ))}
     </div>
   );
 }
