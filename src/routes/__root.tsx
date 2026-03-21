@@ -1,13 +1,16 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { useReducedMotion } from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useLibraryWatcher } from "@/modules/library";
 import { StatusBar } from "@/modules/patcher";
 import { useAppInfo, useCheckSetupRequired } from "@/modules/settings";
 import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
+import { useDisplayStore } from "@/stores";
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
@@ -17,9 +20,20 @@ function RootLayout() {
 
   const { data: setupRequired, isLoading: isCheckingSetup } = useCheckSetupRequired();
 
+  const density = useDisplayStore((s) => s.density);
+  const isReducedMotion = useReducedMotion();
+
   useDevLogStream();
   useDeepLinkListener();
   useLibraryWatcher();
+
+  useEffect(() => {
+    document.documentElement.dataset.density = density;
+  }, [density]);
+
+  useEffect(() => {
+    document.documentElement.dataset.reduceMotion = String(isReducedMotion);
+  }, [isReducedMotion]);
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });
@@ -44,7 +58,7 @@ function RootLayout() {
   if (isCheckingSetup) {
     return (
       <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-900 via-surface-800 to-surface-900">
-        <div className="text-surface-400">Loading...</div>
+        <Loader2 className="h-6 w-6 animate-spin text-surface-400" />
       </div>
     );
   }

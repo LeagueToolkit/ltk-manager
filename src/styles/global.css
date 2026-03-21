@@ -182,10 +182,33 @@ body {
    Applied via [data-density] attribute on <html>
    ============================================ */
 :root {
-  --density-scale: 1;
+  --density-scale: 0.75;
 }
 
 [data-density="compact"] {
+  --density-scale: 0.6;
+  --space-001: calc(1 * 6px * 0.6);
+  --space-002: calc(2 * 6px * 0.6);
+  --space-003: calc(3 * 6px * 0.6);
+  --space-004: calc(4 * 6px * 0.6);
+  --space-005: calc(5 * 6px * 0.6);
+  --space-006: calc(6 * 6px * 0.6);
+  --space-007: calc(7 * 6px * 0.6);
+  --space-008: calc(8 * 6px * 0.6);
+  --space-009: calc(9 * 6px * 0.6);
+  --space-010: calc(10 * 6px * 0.6);
+  --space-011: calc(11 * 6px * 0.6);
+  --space-012: calc(12 * 6px * 0.6);
+  --icon-001: calc(12px * 0.6);
+  --icon-002: calc(14px * 0.6);
+  --icon-003: calc(16px * 0.6);
+  --icon-004: calc(20px * 0.6);
+  --icon-005: calc(24px * 0.6);
+  --icon-006: calc(28px * 0.6);
+  --icon-007: calc(32px * 0.6);
+}
+
+[data-density="normal"] {
   --density-scale: 0.75;
   --space-001: calc(1 * 6px * 0.75);
   --space-002: calc(2 * 6px * 0.75);
@@ -208,31 +231,8 @@ body {
   --icon-007: calc(32px * 0.75);
 }
 
-[data-density="normal"] {
-  --density-scale: 1;
-}
-
 [data-density="spacious"] {
-  --density-scale: 1.25;
-  --space-001: calc(1 * 6px * 1.25);
-  --space-002: calc(2 * 6px * 1.25);
-  --space-003: calc(3 * 6px * 1.25);
-  --space-004: calc(4 * 6px * 1.25);
-  --space-005: calc(5 * 6px * 1.25);
-  --space-006: calc(6 * 6px * 1.25);
-  --space-007: calc(7 * 6px * 1.25);
-  --space-008: calc(8 * 6px * 1.25);
-  --space-009: calc(9 * 6px * 1.25);
-  --space-010: calc(10 * 6px * 1.25);
-  --space-011: calc(11 * 6px * 1.25);
-  --space-012: calc(12 * 6px * 1.25);
-  --icon-001: calc(12px * 1.25);
-  --icon-002: calc(14px * 1.25);
-  --icon-003: calc(16px * 1.25);
-  --icon-004: calc(20px * 1.25);
-  --icon-005: calc(24px * 1.25);
-  --icon-006: calc(28px * 1.25);
-  --icon-007: calc(32px * 1.25);
+  --density-scale: 1;
 }
 
 /* ============================================

@@ -1,5 +1,6 @@
 export * from "./deepLink";
 export * from "./devConsole";
+export * from "./displayStore";
 export * from "./libraryFilter";
 export * from "./notifications";
 export * from "./patcherSession";
