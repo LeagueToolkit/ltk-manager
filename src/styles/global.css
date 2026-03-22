@@ -164,14 +164,6 @@ body {
   background-color: var(--surface-500);
 }
 
-/* Focus styles */
-:focus-visible {
-  outline-style: solid;
-  outline-width: 2px;
-  outline-offset: 2px;
-  outline-color: var(--accent-500);
-}
-
 /* Text selection */
 ::selection {
   background: color-mix(in srgb, var(--accent-500) 30%, transparent);
