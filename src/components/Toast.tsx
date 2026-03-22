@@ -45,7 +45,7 @@ function ToastProgressBar({
   const [progress, setProgress] = useState(100);
   const startTimeRef = useRef(Date.now());
   const elapsedBeforePauseRef = useRef(0);
-  const rafRef = useRef<number>();
+  const rafRef = useRef<number>(undefined);
 
   useEffect(() => {
     if (paused) {
