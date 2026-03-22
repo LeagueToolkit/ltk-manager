@@ -43,7 +43,7 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
   }
 
   return (
-    <div className="mt-6 space-y-3">
+    <div className="space-y-3">
       <span className="block text-sm font-medium text-surface-400">Accent Color</span>
 
       {/* Preset Colors */}
