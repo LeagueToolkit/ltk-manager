@@ -79,14 +79,13 @@ export function MinimizeToTraySection({ settings, onSave }: MinimizeToTraySectio
               Always start patcher at launch
             </span>
             <span className="block text-sm text-surface-400">
-              Automatically start patching mods every time the app launches, this starts last active profile.
+              Automatically start patching mods every time the app launches, this starts last active
+              profile.
             </span>
           </div>
           <Switch
             checked={settings.alwaysStartPatcher}
-            onCheckedChange={(checked) =>
-              onSave({ ...settings, alwaysStartPatcher: checked })
-            }
+            onCheckedChange={(checked) => onSave({ ...settings, alwaysStartPatcher: checked })}
           />
         </label>
       </div>
