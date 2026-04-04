@@ -1,16 +1,17 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { usePageTransition, useReducedMotion } from "@/hooks";
+import { useAutoStartPatcher, usePageTransition, useReducedMotion } from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useLibraryWatcher } from "@/modules/library";
 import { StatusBar } from "@/modules/patcher";
-import { useAppInfo, useCheckSetupRequired } from "@/modules/settings";
+import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
 import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
-import { useDisplayStore } from "@/stores";
+import { useDisplayStore, useUpdaterUpdate } from "@/stores";
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
@@ -27,6 +28,16 @@ function RootLayout() {
   useDevLogStream();
   useDeepLinkListener();
   useLibraryWatcher();
+  useAutoStartPatcher();
+
+  const update = useUpdaterUpdate();
+  const { data: settings } = useSettings();
+
+  useEffect(() => {
+    if (update && settings?.startInTrayUnlessUpdate) {
+      void getCurrentWindow().show();
+    }
+  }, [update, settings?.startInTrayUnlessUpdate]);
 
   useEffect(() => {
     document.documentElement.style.setProperty("--zoom-scale", String(zoomLevel / 100));

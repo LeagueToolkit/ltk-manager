@@ -161,6 +161,15 @@ pub struct Settings {
     /// Whether to start the application minimized to the system tray. Default: false.
     #[serde(default)]
     pub start_in_tray: bool,
+    /// Whether to register the app to launch automatically on login. Default: false.
+    #[serde(default)]
+    pub auto_run: bool,
+    /// When starting in tray, show the window if an update is available. Default: false.
+    #[serde(default)]
+    pub start_in_tray_unless_update: bool,
+    /// Always start the patcher automatically on launch. Default: false.
+    #[serde(default)]
+    pub always_start_patcher: bool,
     /// Whether the user has dismissed the cslol-manager migration banner.
     #[serde(default)]
     pub migration_dismissed: bool,
@@ -206,6 +215,9 @@ impl Default for Settings {
             patch_tft: false,
             minimize_to_tray: true,
             start_in_tray: false,
+            auto_run: false,
+            start_in_tray_unless_update: false,
+            always_start_patcher: false,
             migration_dismissed: false,
             reload_mods_hotkey: None,
             kill_league_hotkey: None,

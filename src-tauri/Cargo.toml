@@ -23,6 +23,7 @@ tauri-plugin-process = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
 
 ltk_modpkg = { version = "0.3.3", features = ["project"] }
 ltk_mod_project = { version = "0.3.0" }

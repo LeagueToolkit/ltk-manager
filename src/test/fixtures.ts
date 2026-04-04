@@ -24,6 +24,9 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     wadBlocklist: [],
     authorProfiles: [],
     defaultAuthorProfileId: null,
+    autoRun: false,
+    startInTrayUnlessUpdate: false,
+    alwaysStartPatcher: false,
     ...overrides,
   };
 }

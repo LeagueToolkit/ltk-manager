@@ -2,6 +2,7 @@ use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::{save_settings_to_disk, Settings, SettingsState};
 use std::path::PathBuf;
 use tauri::{AppHandle, State};
+use tauri_plugin_autostart::ManagerExt;
 
 /// Get current settings.
 #[tauri::command]
@@ -29,6 +30,14 @@ fn save_settings_inner(
     app_handle: &AppHandle,
     state: &State<SettingsState>,
 ) -> AppResult<()> {
+    // Sync OS autolaunch with the updated setting
+    let autolaunch = app_handle.autolaunch();
+    if settings.auto_run {
+        let _ = autolaunch.enable();
+    } else {
+        let _ = autolaunch.disable();
+    }
+
     save_settings_to_disk(app_handle, &settings)?;
 
     let mut current = state.0.lock().mutex_err()?;
