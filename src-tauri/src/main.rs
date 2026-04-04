@@ -6,6 +6,7 @@
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tracing_appender::{non_blocking::WorkerGuard, rolling};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -99,6 +100,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_autostart::Builder::new().build())
         .setup(move |app| {
             let app_handle = app.handle();
 
@@ -130,6 +132,17 @@ fn main() {
             {
                 let settings = settings_state.0.lock().unwrap();
                 hotkey_manager.register_from_settings(&settings);
+            }
+
+            // Sync OS autolaunch with the saved setting
+            {
+                let settings = settings_state.0.lock().unwrap();
+                let autolaunch = app_handle.autolaunch();
+                if settings.auto_run {
+                    let _ = autolaunch.enable();
+                } else {
+                    let _ = autolaunch.disable();
+                }
             }
 
             let deep_link_state = DeepLinkState::new();
@@ -191,11 +204,11 @@ fn main() {
                 }
             }
 
-            // Hide the main window on startup if start_in_tray is enabled
+            // Hide the main window on startup if start_in_tray or start_in_tray_unless_update is enabled
             {
                 let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
                 let settings = settings_state.0.lock().unwrap();
-                if settings.start_in_tray {
+                if settings.start_in_tray || settings.start_in_tray_unless_update {
                     if let Some(window) = app_handle.get_webview_window("main") {
                         let _ = window.hide();
                     }
