@@ -185,18 +185,18 @@ pub(crate) fn start_patcher_inner(
 
     let settings_snapshot = settings.0.lock().mutex_err()?.clone();
     tracing::info!(
-            "Settings snapshot: league_path={} mod_storage_path={}",
-            settings_snapshot
-                .league_path
-                .as_ref()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| "<unset>".to_string()),
-            settings_snapshot
-                .mod_storage_path
-                .as_ref()
-                .map(|p| p.display().to_string())
-                .unwrap_or_else(|| "<unset>".to_string())
-        );
+        "Settings snapshot: league_path={} mod_storage_path={}",
+        settings_snapshot
+            .league_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "<unset>".to_string()),
+        settings_snapshot
+            .mod_storage_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "<unset>".to_string())
+    );
     let library_clone = library.0.clone();
 
     // tray: clone the app handle so we can pass it into the background thread
