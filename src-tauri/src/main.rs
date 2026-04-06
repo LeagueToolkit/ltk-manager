@@ -120,6 +120,8 @@ fn main() {
             commands::update_layer_description,
             // Deep Link
             commands::deep_link_install_mod,
+            // for dynamic icons
+            tray::set_tray_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

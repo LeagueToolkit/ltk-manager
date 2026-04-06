@@ -150,7 +150,7 @@ pub(crate) fn start_patcher_inner(
 
     tracing::info!("Start patcher requested (legacy DLL mode)");
 
-    // Resolve DLL path and snapshot settings — quick operations done on the calling thread
+    // Resolve DLL path and snapshot settings
     let dll_path = resolve_patcher_dll_path(app_handle)?;
     tracing::info!("Using patcher DLL: {}", dll_path.display());
 
@@ -168,6 +168,10 @@ pub(crate) fn start_patcher_inner(
     let log_file = config.log_file.clone();
     let timeout_ms = config.timeout_ms.unwrap_or(DEFAULT_HOOK_TIMEOUT_MS);
     let flags = config.flags.unwrap_or(0);
+    
+    // tray: we see if we are loading Workshop or Library based on the config
+    let is_workshop = config.workshop_projects.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
         .unwrap_or_default()
@@ -177,21 +181,18 @@ pub(crate) fn start_patcher_inner(
 
     let settings_snapshot = settings.0.lock().mutex_err()?.clone();
 
-    tracing::info!(
-        "Settings snapshot: league_path={} mod_storage_path={}",
-        settings_snapshot
-            .league_path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| "<unset>".to_string()),
-        settings_snapshot
-            .mod_storage_path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| "<unset>".to_string())
-    );
-
     let library_clone = library.0.clone();
+    
+    // tray: clone the app handle so we can pass it into the background thread
+    let app_handle_thread = app_handle.clone();
+
+    // tray: set initial LOADING state before thread starts
+    let initial_state = if is_workshop {
+        crate::tray::AppTrayState::WorkshopLoading
+    } else {
+        crate::tray::AppTrayState::LibraryLoading
+    };
+    let _ = crate::tray::set_tray_state(app_handle.clone(), initial_state);
 
     let handle = thread::spawn(move || {
         // Phase 1: Build overlay (the slow part)
@@ -207,6 +208,8 @@ pub(crate) fn start_patcher_inner(
                     if let Ok(mut s) = state_arc.lock() {
                         s.phase = PatcherPhase::Idle;
                     }
+                    // TRAY: Reset to default on error
+                    let _ = crate::tray::set_tray_state(app_handle_thread.clone(), crate::tray::AppTrayState::Default);
                     return;
                 }
             };
@@ -217,13 +220,13 @@ pub(crate) fn start_patcher_inner(
             if let Ok(mut s) = state_arc.lock() {
                 s.phase = PatcherPhase::Idle;
             }
+            // tray: R$reset to default on early stop
+            let _ = crate::tray::set_tray_state(app_handle_thread.clone(), crate::tray::AppTrayState::Default);
             return;
         }
 
         tracing::info!("Using overlay root: {}", overlay_root.display());
 
-        // Legacy patcher concatenates the prefix directly with filenames
-        // like "DATA/FINAL/..." without adding a separator. Ensure trailing backslash.
         let mut overlay_root_str = overlay_root.display().to_string();
         if !overlay_root_str.ends_with('\\') && !overlay_root_str.ends_with('/') {
             overlay_root_str.push('\\');
@@ -237,6 +240,15 @@ pub(crate) fn start_patcher_inner(
             }
         }
 
+        // tray: overlay is built, we are now Patching
+        let on_state = if is_workshop {
+            crate::tray::AppTrayState::WorkshopOn
+        } else {
+            crate::tray::AppTrayState::LibraryOn
+        };
+        let _ = crate::tray::set_tray_state(app_handle_thread.clone(), on_state);
+
+        // This blocks until the game closes or the patcher is stopped
         match run_legacy_patcher_loop(
             &dll_path,
             &overlay_root_str,
@@ -250,11 +262,15 @@ pub(crate) fn start_patcher_inner(
             Err(e) => tracing::error!("Patcher loop error: {}", e),
         }
 
-        // Cleanup
+        // Cleanup Phase
         if let Ok(mut s) = state_arc.lock() {
             s.phase = PatcherPhase::Idle;
             s.config_path = None;
         }
+        
+        // tray: game closed or patcher stopped, revert to default icon
+        let _ = crate::tray::set_tray_state(app_handle_thread, crate::tray::AppTrayState::Default);
+        
         tracing::info!("Patcher thread exiting");
     });
 
