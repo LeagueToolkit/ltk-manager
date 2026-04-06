@@ -168,10 +168,14 @@ pub(crate) fn start_patcher_inner(
     let log_file = config.log_file.clone();
     let timeout_ms = config.timeout_ms.unwrap_or(DEFAULT_HOOK_TIMEOUT_MS);
     let flags = config.flags.unwrap_or(0);
-    
+
     // tray: we see if we are loading Workshop or Library based on the config
-    let is_workshop = config.workshop_projects.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
-    
+    let is_workshop = config
+        .workshop_projects
+        .as_ref()
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
+
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
         .unwrap_or_default()
@@ -182,7 +186,7 @@ pub(crate) fn start_patcher_inner(
     let settings_snapshot = settings.0.lock().mutex_err()?.clone();
 
     let library_clone = library.0.clone();
-    
+
     // tray: clone the app handle so we can pass it into the background thread
     let app_handle_thread = app_handle.clone();
 
@@ -209,7 +213,10 @@ pub(crate) fn start_patcher_inner(
                         s.phase = PatcherPhase::Idle;
                     }
                     // TRAY: Reset to default on error
-                    let _ = crate::tray::set_tray_state(app_handle_thread.clone(), crate::tray::AppTrayState::Default);
+                    let _ = crate::tray::set_tray_state(
+                        app_handle_thread.clone(),
+                        crate::tray::AppTrayState::Default,
+                    );
                     return;
                 }
             };
@@ -221,7 +228,10 @@ pub(crate) fn start_patcher_inner(
                 s.phase = PatcherPhase::Idle;
             }
             // tray: R$reset to default on early stop
-            let _ = crate::tray::set_tray_state(app_handle_thread.clone(), crate::tray::AppTrayState::Default);
+            let _ = crate::tray::set_tray_state(
+                app_handle_thread.clone(),
+                crate::tray::AppTrayState::Default,
+            );
             return;
         }
 
@@ -267,10 +277,10 @@ pub(crate) fn start_patcher_inner(
             s.phase = PatcherPhase::Idle;
             s.config_path = None;
         }
-        
+
         // tray: game closed or patcher stopped, revert to default icon
         let _ = crate::tray::set_tray_state(app_handle_thread, crate::tray::AppTrayState::Default);
-        
+
         tracing::info!("Patcher thread exiting");
     });
 

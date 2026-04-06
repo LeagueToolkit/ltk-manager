@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{Manager};
+use tauri::Manager;
 
 // states, profiles and workshop
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -83,19 +83,22 @@ pub fn set_tray_state(app: tauri::AppHandle, state: AppTrayState) -> Result<(), 
     };
     // apply icon
     if let Some(bytes) = icon_bytes {
-
         let img = image::load_from_memory(bytes)
             .map_err(|e| e.to_string())?
             .into_rgba8();
-        
+
         let (width, height) = img.dimensions();
-        
+
         let icon_image = Image::new_owned(img.into_raw(), width, height);
 
         tray.set_icon(Some(icon_image)).map_err(|e| e.to_string())?;
     } else {
-        let default_icon = app.default_window_icon().cloned().ok_or("No default icon")?;
-        tray.set_icon(Some(default_icon)).map_err(|e| e.to_string())?;
+        let default_icon = app
+            .default_window_icon()
+            .cloned()
+            .ok_or("No default icon")?;
+        tray.set_icon(Some(default_icon))
+            .map_err(|e| e.to_string())?;
     }
     let _ = tray.set_tooltip(Some(tooltip));
 
