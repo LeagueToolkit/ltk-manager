@@ -72,12 +72,13 @@ pub fn set_tray_state(app: tauri::AppHandle, state: AppTrayState) -> Result<(), 
             Some(include_bytes!("../icons/icon_on.png").as_slice()),
             "LTK Manager - Profile Patched",
         ),
+        // workshop solution if someone changed their mind :P
         AppTrayState::WorkshopLoading => (
-            Some(include_bytes!("../icons/icon_load_workshop.png").as_slice()),
+            Some(include_bytes!("../icons/icon_load.png").as_slice()),
             "LTK Manager - Workshop Building...",
         ),
         AppTrayState::WorkshopOn => (
-            Some(include_bytes!("../icons/icon_on_workshop.png").as_slice()),
+            Some(include_bytes!("../icons/icon_on.png").as_slice()),
             "LTK Manager - Workshop Patched",
         ),
     };
