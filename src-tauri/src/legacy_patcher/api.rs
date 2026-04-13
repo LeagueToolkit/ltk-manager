@@ -6,10 +6,13 @@ use libloading::Library;
 
 use crate::utils::native::{cstr_to_str, str_to_cstr_utf16};
 
-/// Bundled legacy patcher DLL (C implementation).
+/// Bundled patcher library name.
 ///
 /// This must match the relative path inside `src-tauri/resources/`.
+#[cfg(target_os = "windows")]
 pub const PATCHER_DLL_NAME: &str = "cslol-dll.dll";
+#[cfg(target_os = "macos")]
+pub const PATCHER_DLL_NAME: &str = "libcslol.dylib";
 
 #[repr(u64)]
 #[allow(dead_code)]
