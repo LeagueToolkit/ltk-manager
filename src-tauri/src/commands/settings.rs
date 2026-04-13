@@ -69,8 +69,8 @@ pub fn validate_league_path(path: PathBuf) -> IpcResult<bool> {
     let valid = if cfg!(target_os = "macos") {
         // Path points to the .app bundle (e.g. /Applications/League of Legends.app)
         path.join("Contents").join("LoL").join("Game").exists()
-            // Path points to the LoL root inside the bundle
-            || path.join("Game").join("League of Legends.app").exists()
+            // Path points to the LoL root inside the bundle (e.g. .../Contents/LoL)
+            || path.join("Game").join("LeagueofLegends.app").exists()
     } else {
         path.join("Game").join("League of Legends.exe").exists()
     };
