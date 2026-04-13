@@ -127,6 +127,7 @@ pub fn start_patcher(
     result.into()
 }
 
+#[allow(unreachable_code, unused_variables)]
 pub(crate) fn start_patcher_inner(
     config: PatcherConfig,
     app_handle: &AppHandle,

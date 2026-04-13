@@ -13,6 +13,8 @@ use crate::utils::native::{cstr_to_str, str_to_cstr_utf16};
 pub const PATCHER_DLL_NAME: &str = "cslol-dll.dll";
 #[cfg(target_os = "macos")]
 pub const PATCHER_DLL_NAME: &str = "libcslol.dylib";
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub const PATCHER_DLL_NAME: &str = "libcslol.so";
 
 #[repr(u64)]
 #[allow(dead_code)]
