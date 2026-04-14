@@ -9,7 +9,7 @@ export function PatcherUnsupported() {
           Patcher not available on this platform
         </span>
         <span className="text-xs text-surface-400">
-          Mod management works normally. The overlay patcher requires Windows.
+          Mod management works normally. The overlay patcher requires Windows or macOS.
         </span>
       </div>
     </div>

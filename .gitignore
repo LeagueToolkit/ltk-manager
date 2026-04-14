@@ -34,5 +34,9 @@ src-tauri/src/lib/bindings/
 .claude/
 .mcp.json
 
+# cslol-dylib cmake build artifacts and generated dylib
+src-tauri/cslol-dylib/build-*/
+src-tauri/resources/libcslol.dylib
+
 # Windows
 nul

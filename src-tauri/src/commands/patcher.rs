@@ -127,6 +127,7 @@ pub fn start_patcher(
     result.into()
 }
 
+#[allow(unreachable_code, unused_variables)]
 pub(crate) fn start_patcher_inner(
     config: PatcherConfig,
     app_handle: &AppHandle,
@@ -134,11 +135,10 @@ pub(crate) fn start_patcher_inner(
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
 ) -> AppResult<()> {
-    if cfg!(not(target_os = "windows")) {
-        return Err(AppError::Other(
-            "The patcher is not yet available on this platform".to_string(),
-        ));
-    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    return Err(AppError::Other(
+        "The patcher is not yet available on this platform".to_string(),
+    ));
 
     // Lock briefly: check state, set phase, clone what we need for the thread
     let (stop_flag, state_arc) = {
