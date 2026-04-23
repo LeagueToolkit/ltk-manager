@@ -10,6 +10,7 @@ import {
   ImportProgressDialog,
   LibraryContent,
   LibraryToolbar,
+  useFilteredMods,
   useFilterOptions,
   useInstalledMods,
   useLibraryActions,
@@ -53,6 +54,7 @@ export function Library({ folderId }: LibraryProps = {}) {
 
   const filterOptions = useFilterOptions(mods);
   const hasEnabledMods = mods.some((m) => m.enabled);
+  const visibleMods = useFilteredMods(mods, searchQuery);
 
   useHotkeys("ctrl+i", () => actions.handleInstallMod(), {
     preventDefault: true,
@@ -144,6 +146,7 @@ export function Library({ folderId }: LibraryProps = {}) {
         isLoading={isLoading}
         isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
+        visibleMods={visibleMods}
       />
       <StatusBar />
       <LibraryContent

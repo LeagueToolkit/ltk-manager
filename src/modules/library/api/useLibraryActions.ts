@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
-import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
+import { api, type BulkInstallResult, type InstalledMod, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
 import { useBulkInstallMods } from "./useBulkInstallMods";
@@ -113,6 +113,22 @@ export function useLibraryActions() {
     );
   }
 
+  function handleSetEnabledForMods(mods: InstalledMod[], enabled: boolean) {
+    const targets = mods.filter((m) => m.enabled !== enabled);
+    if (targets.length === 0) return;
+
+    for (const mod of targets) {
+      toggleMod.mutate(
+        { modId: mod.id, enabled },
+        {
+          onError: (error) => {
+            console.error("Failed to toggle mod:", error.message);
+          },
+        },
+      );
+    }
+  }
+
   function handleUninstallMod(modId: string) {
     uninstallMod.mutate(modId, {
       onError: (error) => {
@@ -141,9 +157,11 @@ export function useLibraryActions() {
   return {
     installMod,
     bulkInstallMods,
+    toggleMod,
     handleInstallMod,
     handleBulkInstallFiles,
     handleToggleMod,
+    handleSetEnabledForMods,
     handleUninstallMod,
     handleReorder,
     handleOpenStorageDirectory,

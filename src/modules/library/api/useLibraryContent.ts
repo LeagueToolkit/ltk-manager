@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
 import { usePatcherStatus } from "@/modules/patcher";
-import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
+import { useHasActiveFilters, useLibraryFilterStore, useLibrarySelectionStore } from "@/stores";
 import { useLibraryViewStore } from "@/stores/libraryView";
 
 import { useFolderOrder, useFolders } from "./queries";
@@ -57,9 +57,11 @@ export function useLibraryContent({
     cleanupStaleFolders(validIds);
   }, [folders, cleanupStaleFolders]);
 
+  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
   const isSearching = searchQuery.length > 0;
   const isPrioritySort = sort.field === "priority";
-  const dndDisabled = isSearching || isPatcherActive || !isPrioritySort || hasActiveFilters;
+  const dndDisabled =
+    isSearching || isPatcherActive || !isPrioritySort || hasActiveFilters || selectMode;
   const isFlatMode = isSearching || hasActiveFilters;
 
   const folderMap = useMemo(() => {

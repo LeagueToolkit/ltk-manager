@@ -6,6 +6,7 @@ dist/
 
 # Editor
 .vscode/
+.history/
 *.sw?
 
 # Logs
@@ -36,3 +37,5 @@ src-tauri/src/lib/bindings/
 
 # Windows
 nul
+
+.gitignore

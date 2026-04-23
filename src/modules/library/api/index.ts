@@ -1,6 +1,8 @@
 export { libraryKeys } from "./keys";
 export { useAnalyzeModWads } from "./useAnalyzeModWads";
 export { useBulkInstallMods } from "./useBulkInstallMods";
+export type { BulkUninstallResult } from "./useBulkUninstallMods";
+export { useBulkUninstallMods } from "./useBulkUninstallMods";
 export { useCreateProfile } from "./useCreateProfile";
 export { useDeleteProfile } from "./useDeleteProfile";
 export { useEnableModWithLayers } from "./useEnableModWithLayers";

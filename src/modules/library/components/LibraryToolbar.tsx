@@ -1,13 +1,15 @@
-import { Grid3X3, List, Play, Plus, Search } from "lucide-react";
+import { CheckCheck, CheckSquare, Grid3X3, List, Play, Plus, Search, X } from "lucide-react";
 
 import { Button, IconButton, Kbd, Tooltip } from "@/components";
-import type { PatcherStatus } from "@/lib/tauri";
+import type { InstalledMod, PatcherStatus } from "@/lib/tauri";
 import type { FilterOptions } from "@/modules/library/api";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
+import { useLibrarySelectionStore } from "@/stores";
 
 import { ActiveFilterChips } from "./ActiveFilterChips";
 import { FilterPopover } from "./FilterPopover";
+import { SelectionActionBar } from "./SelectionActionBar";
 import { SortDropdown } from "./SortDropdown";
 
 interface PatcherProps {
@@ -27,6 +29,7 @@ interface LibraryToolbarProps {
   isLoading: boolean;
   isPatcherActive: boolean;
   filterOptions: FilterOptions;
+  visibleMods: InstalledMod[];
 }
 
 export function LibraryToolbar({
@@ -38,8 +41,16 @@ export function LibraryToolbar({
   isLoading,
   isPatcherActive,
   filterOptions,
+  visibleMods,
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
+  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const enterSelectMode = useLibrarySelectionStore((s) => s.enterSelectMode);
+  const exitSelectMode = useLibrarySelectionStore((s) => s.exitSelectMode);
+  const visibleEnabledCount = visibleMods.reduce((n, m) => n + (m.enabled ? 1 : 0), 0);
+  const canEnableAll = visibleMods.length > 0 && visibleEnabledCount < visibleMods.length;
+  const canDisableAll = visibleEnabledCount > 0;
+  const bulkDisabled = isPatcherActive || isLoading || actions.toggleMod.isPending;
 
   return (
     <div className="border-b border-surface-600 bg-surface-800/50 px-4 py-3" data-tauri-drag-region>
@@ -79,6 +90,49 @@ export function LibraryToolbar({
             />
           </Tooltip>
         </div>
+
+        {/* Bulk toggle */}
+        <div className="flex items-center gap-1">
+          <Tooltip content="Enable every mod matching the current search/filters">
+            <IconButton
+              icon={<CheckCheck className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => actions.handleSetEnabledForMods(visibleMods, true)}
+              disabled={bulkDisabled || !canEnableAll}
+              aria-label="Enable all visible mods"
+            />
+          </Tooltip>
+          <Tooltip content="Disable every mod matching the current search/filters">
+            <IconButton
+              icon={<X className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => actions.handleSetEnabledForMods(visibleMods, false)}
+              disabled={bulkDisabled || !canDisableAll}
+              aria-label="Disable all visible mods"
+            />
+          </Tooltip>
+        </div>
+
+        {/* Select mode toggle */}
+        <Tooltip
+          content={
+            selectMode
+              ? "Exit select mode"
+              : "Select mods to bulk-uninstall (combine with search/filters to narrow down)"
+          }
+        >
+          <Button
+            variant={selectMode ? "filled" : "outline"}
+            size="sm"
+            onClick={selectMode ? exitSelectMode : enterSelectMode}
+            disabled={isPatcherActive || isLoading}
+            left={<CheckSquare className="h-4 w-4" />}
+          >
+            {selectMode ? "Done" : "Select"}
+          </Button>
+        </Tooltip>
 
         {/* Actions */}
         <Tooltip
@@ -156,6 +210,7 @@ export function LibraryToolbar({
         )}
       </div>
       <ActiveFilterChips />
+      {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
     </div>
   );
 }

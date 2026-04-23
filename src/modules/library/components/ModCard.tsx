@@ -10,8 +10,10 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+import { twMerge } from "tailwind-merge";
+import { match } from "ts-pattern";
 
-import { Dialog, IconButton, Menu, Switch, Tooltip, useToast } from "@/components";
+import { Checkbox, Dialog, IconButton, Menu, Switch, Tooltip, useToast } from "@/components";
 import type { InstalledMod, ModLayer } from "@/lib/tauri";
 import {
   useEnableModWithLayers,
@@ -21,6 +23,7 @@ import {
   useUninstallMod,
 } from "@/modules/library/api";
 import { usePatcherStatus } from "@/modules/patcher";
+import { useLibrarySelectionStore } from "@/stores";
 
 const ROOT_FOLDER_ID = "root";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
@@ -45,6 +48,10 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
   const { data: patcherStatus } = usePatcherStatus();
   const [pickerOpen, setPickerOpen] = useState(false);
 
+  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
+  const toggleSelection = useLibrarySelectionStore((s) => s.toggle);
+
   const {
     isFlagged,
     reason: skinhackReason,
@@ -53,6 +60,7 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
   } = useSkinhackFlag(mod);
   const patcherRunning = patcherStatus?.running ?? false;
   const disabled = isFlagged || patcherRunning;
+  const interactionsDisabled = disabled || selectMode;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
@@ -98,25 +106,61 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
   }
 
   function handleCardClick(e: React.MouseEvent) {
-    if (disabled) return;
     if ((e.target as HTMLElement).closest("[data-no-toggle]")) {
       return;
     }
+    if (selectMode) {
+      toggleSelection(mod.id);
+      return;
+    }
+    if (disabled) return;
     handleToggle(mod.id, !mod.enabled);
   }
 
+  const inSelectedState = selectMode && isSelected;
+  const inEnabledState = mod.enabled && !isFlagged;
+  const isInteractive = !isFlagged && (selectMode || !disabled);
+
+  const cursorClass = match({ isFlagged, isInteractive })
+    .with({ isFlagged: true }, () => "cursor-default opacity-50")
+    .with({ isInteractive: true }, () => "cursor-pointer")
+    .otherwise(() => "cursor-default");
+
   if (viewMode === "list") {
+    const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+      .with(
+        { isSelected: true },
+        () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60",
+      )
+      .with(
+        { isEnabled: true },
+        () =>
+          "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30 hover:-translate-y-px",
+      )
+      .otherwise(
+        () =>
+          "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-surface-600 hover:bg-surface-800/80 hover:shadow-md",
+      );
+
     return (
       <div
         onClick={handleCardClick}
-        className={`flex items-center gap-4 rounded-lg border p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out ${
-          isFlagged ? "cursor-default opacity-50" : disabled ? "cursor-default" : "cursor-pointer"
-        } ${
-          mod.enabled && !isFlagged
-            ? "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30 hover:-translate-y-px"
-            : "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-surface-600 hover:bg-surface-800/80 hover:shadow-md"
-        }`}
+        className={twMerge(
+          "flex items-center gap-4 rounded-lg border p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+          cursorClass,
+          stateClass,
+        )}
       >
+        {selectMode && (
+          <div data-no-toggle onClick={(e) => e.stopPropagation()} className="shrink-0">
+            <Checkbox
+              size="md"
+              checked={isSelected}
+              onCheckedChange={() => toggleSelection(mod.id)}
+              aria-label={`Select ${mod.displayName}`}
+            />
+          </div>
+        )}
         <div className="relative h-12 w-[5.25rem] shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-700 to-surface-800">
           {thumbnailUrl ? (
             <img
@@ -164,11 +208,11 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
               switchChecked={mod.enabled}
               onConfirm={handlePickerConfirm}
               onCancel={handlePickerCancel}
-              disabled={disabled}
+              disabled={interactionsDisabled}
             />
           ) : (
             <Switch
-              disabled={disabled}
+              disabled={interactionsDisabled}
               checked={mod.enabled}
               onCheckedChange={(checked) => handleToggle(mod.id, checked)}
             />
@@ -178,13 +222,13 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
         <div data-no-toggle onClick={(e) => e.stopPropagation()}>
           <Menu.Root>
             <Menu.Trigger
-              disabled={patcherRunning}
+              disabled={interactionsDisabled}
               render={
                 <IconButton
                   icon={<EllipsisVertical className="h-4 w-4" />}
                   variant="ghost"
                   size="md"
-                  disabled={patcherRunning}
+                  disabled={interactionsDisabled}
                 />
               }
             />
@@ -227,7 +271,7 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
                   <Menu.Item
                     icon={<Trash2 className="h-4 w-4" />}
                     variant="danger"
-                    disabled={patcherRunning}
+                    disabled={interactionsDisabled}
                     onClick={handleUninstall}
                   >
                     Uninstall
@@ -242,17 +286,42 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
     );
   }
 
+  const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+    .with({ isSelected: true }, () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60")
+    .with(
+      { isEnabled: true },
+      () =>
+        "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40 hover:-translate-y-px hover:shadow-[0_0_20px_-3px,0_4px_6px_-1px] hover:shadow-accent-500/40",
+    )
+    .otherwise(
+      () =>
+        "border-surface-600 bg-surface-800 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-700/80 hover:shadow-md",
+    );
+
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative flex h-full flex-col rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out ${
-        isFlagged ? "cursor-default opacity-50" : disabled ? "cursor-default" : "cursor-pointer"
-      } ${
-        mod.enabled && !isFlagged
-          ? "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40 hover:-translate-y-px hover:shadow-[0_0_20px_-3px,0_4px_6px_-1px] hover:shadow-accent-500/40"
-          : "border-surface-600 bg-surface-800 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-700/80 hover:shadow-md"
-      }`}
+      className={twMerge(
+        "group relative flex h-full flex-col rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+        cursorClass,
+        stateClass,
+      )}
     >
+      {selectMode && (
+        <div
+          className="absolute top-2 left-2 z-10"
+          data-no-toggle
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Checkbox
+            size="md"
+            checked={isSelected}
+            onCheckedChange={() => toggleSelection(mod.id)}
+            aria-label={`Select ${mod.displayName}`}
+            className="shadow-lg backdrop-blur-sm"
+          />
+        </div>
+      )}
       <div
         className="absolute top-2 right-2 z-10"
         data-no-toggle
@@ -269,12 +338,12 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
             switchChecked={mod.enabled}
             onConfirm={handlePickerConfirm}
             onCancel={handlePickerCancel}
-            disabled={disabled}
+            disabled={interactionsDisabled}
           />
         ) : (
           <Switch
             size="sm"
-            disabled={disabled}
+            disabled={interactionsDisabled}
             checked={mod.enabled}
             onCheckedChange={(checked) => handleToggle(mod.id, checked)}
             className="shadow-lg data-[unchecked]:bg-surface-600/80 data-[unchecked]:backdrop-blur-sm"
@@ -325,13 +394,13 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
           <div className="ml-1 shrink-0" data-no-toggle onClick={(e) => e.stopPropagation()}>
             <Menu.Root>
               <Menu.Trigger
-                disabled={patcherRunning}
+                disabled={interactionsDisabled}
                 render={
                   <IconButton
                     icon={<EllipsisVertical className="h-4 w-4" />}
                     variant="ghost"
                     size="md"
-                    disabled={patcherRunning}
+                    disabled={interactionsDisabled}
                   />
                 }
               />
@@ -377,7 +446,7 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
                     <Menu.Item
                       icon={<Trash2 className="h-4 w-4" />}
                       variant="danger"
-                      disabled={patcherRunning}
+                      disabled={interactionsDisabled}
                       onClick={handleUninstall}
                     >
                       Uninstall

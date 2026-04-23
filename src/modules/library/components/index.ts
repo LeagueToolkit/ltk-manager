@@ -1,6 +1,7 @@
 export * from "./ActiveFilterChips";
 export * from "./BulkInstallProgress";
 export * from "./BulkInstallResults";
+export * from "./BulkUninstallDialog";
 export * from "./CreateFolderDialog";
 export * from "./DndDragOverlay";
 export * from "./DragDropOverlay";
@@ -26,6 +27,7 @@ export * from "./ModCard";
 export * from "./ModDetailsDialog";
 export * from "./ProfileSelector";
 export * from "./RemoveFromFolderZone";
+export * from "./SelectionActionBar";
 export * from "./SortableFolderCard";
 export * from "./SortableFolderRow";
 export * from "./SortableModCard";
