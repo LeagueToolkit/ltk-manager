@@ -30,6 +30,7 @@ interface UnifiedDndGridProps {
   dndDisabled: boolean;
   onReorder: (modIds: string[]) => void;
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 export function UnifiedDndGrid({
@@ -40,6 +41,7 @@ export function UnifiedDndGrid({
   dndDisabled,
   onReorder,
   onViewDetails,
+  onEditMetadata,
 }: UnifiedDndGridProps) {
   const hasMountedRef = useRef(false);
   const stagger = !hasMountedRef.current ? " stagger-enter" : "";
@@ -53,6 +55,7 @@ export function UnifiedDndGrid({
         modsByFolder={modsByFolder}
         viewMode={viewMode}
         onViewDetails={onViewDetails}
+        onEditMetadata={onEditMetadata}
         staggerClass={stagger}
       />
     );
@@ -66,6 +69,7 @@ export function UnifiedDndGrid({
       viewMode={viewMode}
       onReorder={onReorder}
       onViewDetails={onViewDetails}
+      onEditMetadata={onEditMetadata}
     />
   );
 }
@@ -76,6 +80,7 @@ interface StaticGridProps {
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
   staggerClass?: string;
 }
 
@@ -85,6 +90,7 @@ function StaticGrid({
   modsByFolder,
   viewMode,
   onViewDetails,
+  onEditMetadata,
   staggerClass = "",
 }: StaticGridProps) {
   return (
@@ -99,13 +105,20 @@ function StaticGrid({
               mods={folderMods}
               dndDisabled
               onViewDetails={onViewDetails}
+              onEditMetadata={onEditMetadata}
             />
           );
         }
         return <FolderCard key={folder.id} folder={folder} mods={folderMods} />;
       })}
       {rootMods.map((mod) => (
-        <ModCard key={mod.id} mod={mod} viewMode={viewMode} onViewDetails={onViewDetails} />
+        <ModCard
+          key={mod.id}
+          mod={mod}
+          viewMode={viewMode}
+          onViewDetails={onViewDetails}
+          onEditMetadata={onEditMetadata}
+        />
       ))}
     </div>
   );
@@ -118,6 +131,7 @@ interface DndGridProps {
   viewMode: "grid" | "list";
   onReorder: (modIds: string[]) => void;
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 function DndGrid({
@@ -127,6 +141,7 @@ function DndGrid({
   viewMode,
   onReorder,
   onViewDetails,
+  onEditMetadata,
 }: DndGridProps) {
   const {
     folderLocalOrder,
@@ -178,6 +193,7 @@ function DndGrid({
                   mods={folderMods}
                   sortDisabled={isDraggingMod || isDraggingFolderMod}
                   onViewDetails={onViewDetails}
+                  onEditMetadata={onEditMetadata}
                 />
               );
             }
@@ -198,6 +214,7 @@ function DndGrid({
               mod={mod}
               viewMode={viewMode}
               onViewDetails={onViewDetails}
+              onEditMetadata={onEditMetadata}
             />
           ))}
         </div>

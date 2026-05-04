@@ -16,9 +16,16 @@ interface FolderRowProps {
   mods: InstalledMod[];
   dndDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-export function FolderRow({ folder, mods, dndDisabled = true, onViewDetails }: FolderRowProps) {
+export function FolderRow({
+  folder,
+  mods,
+  dndDisabled = true,
+  onViewDetails,
+  onEditMetadata,
+}: FolderRowProps) {
   const expandedFolders = useLibraryViewStore((s) => s.expandedFolders);
   const toggleFolderExpanded = useLibraryViewStore((s) => s.toggleFolderExpanded);
   const isExpanded = expandedFolders.has(folder.id);
@@ -65,7 +72,13 @@ export function FolderRow({ folder, mods, dndDisabled = true, onViewDetails }: F
             ) : dndDisabled ? (
               <div className="flex flex-col gap-2">
                 {mods.map((mod) => (
-                  <ModCard key={mod.id} mod={mod} viewMode="list" onViewDetails={onViewDetails} />
+                  <ModCard
+                    key={mod.id}
+                    mod={mod}
+                    viewMode="list"
+                    onViewDetails={onViewDetails}
+                    onEditMetadata={onEditMetadata}
+                  />
                 ))}
               </div>
             ) : (
@@ -77,6 +90,7 @@ export function FolderRow({ folder, mods, dndDisabled = true, onViewDetails }: F
                       mod={mod}
                       viewMode="list"
                       onViewDetails={onViewDetails}
+                      onEditMetadata={onEditMetadata}
                     />
                   ))}
                 </div>

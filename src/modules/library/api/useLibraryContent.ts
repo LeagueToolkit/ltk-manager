@@ -44,6 +44,7 @@ export function useLibraryContent({
   const { data: patcherStatus } = usePatcherStatus();
   const isPatcherActive = patcherStatus?.running ?? false;
   const [detailsMod, setDetailsMod] = useState<InstalledMod | null>(null);
+  const [editMod, setEditMod] = useState<InstalledMod | null>(null);
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
   const { sort } = useLibraryFilterStore();
@@ -140,5 +141,7 @@ export function useLibraryContent({
     contentView,
     detailsMod,
     setDetailsMod,
+    editMod,
+    setEditMod,
   };
 }

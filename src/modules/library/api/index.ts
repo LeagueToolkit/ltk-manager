@@ -3,6 +3,7 @@ export { useAnalyzeModWads } from "./useAnalyzeModWads";
 export { useBulkInstallMods } from "./useBulkInstallMods";
 export { useCreateProfile } from "./useCreateProfile";
 export { useDeleteProfile } from "./useDeleteProfile";
+export { useEditMod } from "./useEditMod";
 export { useEnableModWithLayers } from "./useEnableModWithLayers";
 export { useFilteredMods } from "./useFilteredMods";
 export type { FilterOptions } from "./useFilterOptions";

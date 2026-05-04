@@ -11,9 +11,15 @@ interface SortableModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-export function SortableModCard({ mod, viewMode, onViewDetails }: SortableModCardProps) {
+export function SortableModCard({
+  mod,
+  viewMode,
+  onViewDetails,
+  onEditMetadata,
+}: SortableModCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: mod.id,
   });
@@ -37,7 +43,12 @@ export function SortableModCard({ mod, viewMode, onViewDetails }: SortableModCar
         <div className="absolute inset-0 rounded-xl border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
       )}
       <div className={`${viewMode === "list" ? "" : "h-full"} ${isDragging ? "invisible" : ""}`}>
-        <ModCard mod={mod} viewMode={viewMode} onViewDetails={onViewDetails} />
+        <ModCard
+          mod={mod}
+          viewMode={viewMode}
+          onViewDetails={onViewDetails}
+          onEditMetadata={onEditMetadata}
+        />
       </div>
     </div>
   );

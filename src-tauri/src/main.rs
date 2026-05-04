@@ -63,6 +63,7 @@ fn main() {
             commands::toggle_mod,
             commands::set_mod_layers,
             commands::enable_mod_with_layers,
+            commands::edit_mod_metadata,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_storage_directory,

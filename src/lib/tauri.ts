@@ -7,6 +7,7 @@ import type {
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  EditModMetadataArgs,
   FantomePeekResult,
   HotkeyAction,
   ImportFantomeArgs,
@@ -102,6 +103,8 @@ export const api = {
     invokeResult<void>("set_mod_layers", { modId, layerStates }),
   enableModWithLayers: (modId: string, layerStates: Record<string, boolean>) =>
     invokeResult<void>("enable_mod_with_layers", { modId, layerStates }),
+  editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
+    invokeResult<InstalledMod>("edit_mod_metadata", { modId, metadata }),
   getModWadReport: (modId: string) =>
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),

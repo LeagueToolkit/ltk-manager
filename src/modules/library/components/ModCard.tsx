@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import {
   Copy,
+  Edit3,
   EllipsisVertical,
   FolderOpen,
   FolderX,
@@ -33,9 +34,10 @@ interface ModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
+export function ModCard({ mod, viewMode, onViewDetails, onEditMetadata }: ModCardProps) {
   const { data: thumbnailUrl } = useModThumbnail(mod.id);
   const toast = useToast();
   const toggleMod = useToggleMod();
@@ -207,6 +209,14 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
                       View Details
                     </Menu.Item>
                   )}
+                  {!isFlagged && (
+                    <Menu.Item
+                      icon={<Edit3 className="h-4 w-4" />}
+                      onClick={() => onEditMetadata?.(mod)}
+                    >
+                      Edit Metadata
+                    </Menu.Item>
+                  )}
                   <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
                     Open Location
                   </Menu.Item>
@@ -352,6 +362,14 @@ export function ModCard({ mod, viewMode, onViewDetails }: ModCardProps) {
                         onClick={() => onViewDetails?.(mod)}
                       >
                         View Details
+                      </Menu.Item>
+                    )}
+                    {!isFlagged && (
+                      <Menu.Item
+                        icon={<Edit3 className="h-4 w-4" />}
+                        onClick={() => onEditMetadata?.(mod)}
+                      >
+                        Edit Metadata
                       </Menu.Item>
                     )}
                     <Menu.Item

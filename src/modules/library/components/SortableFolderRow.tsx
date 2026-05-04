@@ -13,6 +13,7 @@ interface SortableFolderRowProps {
   mods: InstalledMod[];
   sortDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 export function SortableFolderRow({
@@ -21,6 +22,7 @@ export function SortableFolderRow({
   mods,
   sortDisabled,
   onViewDetails,
+  onEditMetadata,
 }: SortableFolderRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
     useSortable({ id: sortableId, disabled: sortDisabled ? { draggable: true } : false });
@@ -58,6 +60,7 @@ export function SortableFolderRow({
             mods={mods}
             dndDisabled={false}
             onViewDetails={onViewDetails}
+            onEditMetadata={onEditMetadata}
           />
         </div>
       </div>

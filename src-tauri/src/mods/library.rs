@@ -300,6 +300,50 @@ impl ModLibrary {
         })
     }
 
+    pub fn edit_mod_metadata(
+        &self,
+        settings: &Settings,
+        mod_id: &str,
+        args: crate::commands::EditModMetadataArgs,
+    ) -> AppResult<InstalledMod> {
+        self.mutate_index(settings, |storage_dir, index| {
+            let entry = index
+                .mods
+                .iter()
+                .find(|m| m.id == mod_id)
+                .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
+
+            let mod_dir = entry.metadata_dir(storage_dir);
+            let mut project = load_mod_project(&mod_dir)?;
+
+            if let Some(dn) = args.display_name {
+                project.display_name = dn;
+            }
+            if let Some(t) = args.tags {
+                project.tags = t.into_iter().map(ltk_mod_project::ModTag::from).collect();
+            }
+            if let Some(c) = args.champions {
+                project.champions = c;
+            }
+            if let Some(m) = args.maps {
+                project.maps = m.into_iter().map(ltk_mod_project::ModMap::from).collect();
+            }
+
+            let config_path = mod_dir.join("mod.config.json");
+            std::fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
+
+            // Determine if enabled
+            let mut enabled = false;
+            let mut layer_states = None;
+            if let Ok(active_profile) = super::get_active_profile(index) {
+                enabled = active_profile.enabled_mods.contains(&mod_id.to_string());
+                layer_states = active_profile.layer_states.get(mod_id);
+            }
+
+            read_installed_mod(entry, enabled, storage_dir, layer_states)
+        })
+    }
+
     pub fn uninstall_mod_by_id(&self, settings: &Settings, mod_id: &str) -> AppResult<()> {
         self.mutate_index(settings, |storage_dir, index| {
             let Some(pos) = index.mods.iter().position(|m| m.id == mod_id) else {
