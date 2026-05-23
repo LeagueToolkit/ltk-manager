@@ -1,14 +1,25 @@
-import { FolderOpen, Layers, RefreshCw } from "lucide-react";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  ChevronDown,
+  FileArchive,
+  Folder,
+  FolderOpen,
+  Layers,
+  Plus,
+  RefreshCw,
+} from "lucide-react";
 
-import { IconButton, Tooltip } from "@/components";
+import { Button, IconButton, Menu, Tooltip } from "@/components";
 import { api, type LayerContent } from "@/lib/tauri";
 import { formatBytes } from "@/utils";
 
+import { useAddFilesToLayer } from "../api";
 import { ContentTree } from "./ContentTree";
 
 interface ContentBrowserLayerSectionProps {
   projectPath: string;
   layer: LayerContent;
+  layerDisplayName: string;
   isRefreshing: boolean;
   onRefresh: () => void;
 }
@@ -16,11 +27,43 @@ interface ContentBrowserLayerSectionProps {
 export function ContentBrowserLayerSection({
   projectPath,
   layer,
+  layerDisplayName,
   isRefreshing,
   onRefresh,
 }: ContentBrowserLayerSectionProps) {
+  const addFilesToLayer = useAddFilesToLayer();
+
   async function handleOpenFolder() {
     await api.revealInExplorer(`${projectPath}/content/${layer.name}`);
+  }
+
+  function dispatchAdd(sources: string[]) {
+    if (sources.length === 0) return;
+    addFilesToLayer.mutate({
+      projectPath,
+      layerName: layer.name,
+      layerDisplayName,
+      sources,
+    });
+  }
+
+  async function handleAddFiles() {
+    const selection = await open({
+      multiple: true,
+      filters: [
+        { name: "WAD files", extensions: ["wad", "client", "mobile"] },
+        { name: "All files", extensions: ["*"] },
+      ],
+    });
+    if (!selection) return;
+    const paths = Array.isArray(selection) ? selection : [selection];
+    dispatchAdd(paths);
+  }
+
+  async function handleAddFolder() {
+    const selection = await open({ directory: true, multiple: false });
+    if (!selection) return;
+    dispatchAdd([selection as string]);
   }
 
   return (
@@ -35,6 +78,33 @@ export function ContentBrowserLayerSection({
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <Menu.Root>
+            <Menu.Trigger
+              render={
+                <Button
+                  variant="outline"
+                  size="xs"
+                  loading={addFilesToLayer.isPending}
+                  left={<Plus className="h-3.5 w-3.5" />}
+                  right={<ChevronDown className="h-3 w-3" />}
+                >
+                  Add WAD
+                </Button>
+              }
+            />
+            <Menu.Portal>
+              <Menu.Positioner align="end" sideOffset={4}>
+                <Menu.Popup>
+                  <Menu.Item icon={<FileArchive className="h-4 w-4" />} onClick={handleAddFiles}>
+                    Add WAD file…
+                  </Menu.Item>
+                  <Menu.Item icon={<Folder className="h-4 w-4" />} onClick={handleAddFolder}>
+                    Add WAD folder…
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
           <Tooltip content="Refresh">
             <IconButton
               icon={

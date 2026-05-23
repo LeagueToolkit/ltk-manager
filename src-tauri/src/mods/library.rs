@@ -300,6 +300,106 @@ impl ModLibrary {
         })
     }
 
+    pub fn edit_mod_metadata(
+        &self,
+        settings: &Settings,
+        mod_id: &str,
+        args: crate::commands::EditModMetadataArgs,
+    ) -> AppResult<InstalledMod> {
+        self.mutate_index(settings, |storage_dir, index| {
+            let entry = index
+                .mods
+                .iter()
+                .find(|m| m.id == mod_id)
+                .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
+
+            let mod_dir = entry.metadata_dir(storage_dir);
+            let mut project = load_mod_project(&mod_dir)?;
+
+            if let Some(dn) = args.display_name {
+                project.display_name = dn;
+            }
+            if let Some(t) = args.tags {
+                project.tags = t.into_iter().map(ltk_mod_project::ModTag::from).collect();
+            }
+            if let Some(c) = args.champions {
+                project.champions = c;
+            }
+            if let Some(m) = args.maps {
+                project.maps = m.into_iter().map(ltk_mod_project::ModMap::from).collect();
+            }
+
+            if let Some(true) = args.remove_thumbnail {
+                let _ = fs::remove_file(mod_dir.join("thumbnail.webp"));
+                let _ = fs::remove_file(mod_dir.join("thumbnail.png"));
+                project.thumbnail = None;
+            } else if let Some(image_path) = args.set_thumbnail_path {
+                let source_path = PathBuf::from(&image_path);
+                if !source_path.exists() {
+                    return Err(AppError::InvalidPath(image_path));
+                }
+
+                let extension = source_path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .map(|e| e.to_lowercase())
+                    .unwrap_or_default();
+
+                let supported_formats = [
+                    "webp", "png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif", "ico",
+                ];
+                if !supported_formats.contains(&extension.as_str()) {
+                    return Err(AppError::ValidationFailed(format!(
+                        "Unsupported image format: {}. Supported formats: {}",
+                        extension,
+                        supported_formats.join(", ")
+                    )));
+                }
+
+                let webp_data = if extension == "webp" {
+                    image::open(&source_path).map_err(|e| {
+                        AppError::ValidationFailed(format!("Failed to open image: {}", e))
+                    })?;
+                    fs::read(&source_path)?
+                } else {
+                    let img = image::open(&source_path).map_err(|e| {
+                        AppError::ValidationFailed(format!("Failed to open image: {}", e))
+                    })?;
+                    let encoder = webp::Encoder::from_image(&img).map_err(|e| {
+                        AppError::ValidationFailed(format!("Failed to encode WebP: {}", e))
+                    })?;
+                    encoder.encode(90.0).to_vec()
+                };
+
+                let target_path = mod_dir.join("thumbnail.webp");
+                let tmp_path = mod_dir.join("thumbnail.webp.tmp");
+
+                fs::write(&tmp_path, webp_data)?;
+
+                if target_path.exists() {
+                    let _ = fs::remove_file(&target_path);
+                }
+                fs::rename(&tmp_path, &target_path)?;
+
+                let _ = fs::remove_file(mod_dir.join("thumbnail.png"));
+                project.thumbnail = Some("thumbnail.webp".to_string());
+            }
+
+            let config_path = mod_dir.join("mod.config.json");
+            std::fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
+
+            // Determine if enabled
+            let mut enabled = false;
+            let mut layer_states = None;
+            if let Ok(active_profile) = super::get_active_profile(index) {
+                enabled = active_profile.enabled_mods.contains(&mod_id.to_string());
+                layer_states = active_profile.layer_states.get(mod_id);
+            }
+
+            read_installed_mod(entry, enabled, storage_dir, layer_states)
+        })
+    }
+
     pub fn uninstall_mod_by_id(&self, settings: &Settings, mod_id: &str) -> AppResult<()> {
         self.mutate_index(settings, |storage_dir, index| {
             let Some(pos) = index.mods.iter().position(|m| m.id == mod_id) else {

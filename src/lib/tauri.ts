@@ -1,12 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 
 import type {
+  AddFilesReport,
   AppError,
   AppInfo,
   BulkInstallResult,
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DiagnosticReport,
+  EditModMetadataArgs,
   FantomePeekResult,
   HotkeyAction,
   ImportFantomeArgs,
@@ -23,6 +26,7 @@ import type {
   Profile,
   SaveProjectConfigArgs,
   Settings,
+  StorageMedium,
   ValidationResult,
   WorkshopLayerInfo,
   WorkshopProject,
@@ -101,6 +105,8 @@ export const api = {
     invokeResult<void>("set_mod_layers", { modId, layerStates }),
   enableModWithLayers: (modId: string, layerStates: Record<string, boolean>) =>
     invokeResult<void>("enable_mod_with_layers", { modId, layerStates }),
+  editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
+    invokeResult<InstalledMod>("edit_mod_metadata", { modId, metadata }),
   getModWadReport: (modId: string) =>
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
@@ -164,6 +170,15 @@ export const api = {
   // Shell
   revealInExplorer: (path: string) => invokeResult<void>("reveal_in_explorer", { path }),
   minimizeToTray: () => invokeResult<void>("minimize_to_tray"),
+
+  // Storage
+  detectStorageMedium: (path: string) =>
+    invokeResult<StorageMedium>("detect_storage_medium", { path }),
+
+  // Diagnostics
+  runDiagnostics: () => invokeResult<DiagnosticReport>("run_diagnostics"),
+  openElevatedTerminal: (withBanner: boolean) =>
+    invokeResult<void>("open_elevated_terminal", { withBanner }),
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),
@@ -238,4 +253,6 @@ export const api = {
       layerName,
       description,
     }),
+  addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
+    invokeResult<AddFilesReport>("add_files_to_layer", { projectPath, layerName, sources }),
 };

@@ -122,7 +122,7 @@ impl ModLibrary {
         f(&storage_dir, &index)
     }
 
-    /// Mutate index: acquire lock, load, run closure, save, invalidate overlay.
+    /// Mutate index: acquire lock, load, run closure, save.
     ///
     /// Records the completion timestamp so the file watcher ignores filesystem
     /// notifications caused by our own writes for [`WATCHER_SUPPRESS_SECS`].
@@ -136,9 +136,6 @@ impl ModLibrary {
         let mut index = load_library_index(&storage_dir)?;
         let result = f(&storage_dir, &mut index)?;
         save_library_index(&storage_dir, &index)?;
-        if let Err(e) = invalidate_overlay_for_profile(&storage_dir, &index) {
-            tracing::warn!("Failed to invalidate overlay: {}", e);
-        }
         // Drop WAD report cache entries for mods that are no longer in the
         // library after this mutation (e.g. uninstall paths).
         if let Some(state) = self
@@ -440,31 +437,54 @@ pub(super) fn load_library_index(storage_dir: &Path) -> AppResult<LibraryIndex> 
         return Ok(LibraryIndex::default());
     }
 
-    LibraryIndex::load_and_migrate(storage_dir)
+    match LibraryIndex::load_and_migrate(storage_dir) {
+        Ok(index) => Ok(index),
+        // Version conflicts and IO errors must surface — the former is a user-visible
+        // compatibility issue; the latter may indicate permissions or disk problems
+        // that the user needs to address (and not silently overwrite).
+        Err(e @ AppError::SchemaVersionTooNew { .. }) | Err(e @ AppError::Io(_)) => Err(e),
+        Err(e) => {
+            // JSON parse failure or structural mismatch means the file content is
+            // corrupt (e.g. truncated mid-write). Back it up for diagnostics and
+            // reset to defaults so the app can recover.
+            tracing::warn!(
+                "Library index content is corrupt ({}); resetting to defaults",
+                e
+            );
+            let corrupt_path = path.with_extension("json.corrupt");
+            if let Err(rename_err) = fs::rename(&path, &corrupt_path) {
+                tracing::warn!(
+                    "Failed to rename corrupt library index to {}: {}",
+                    corrupt_path.display(),
+                    rename_err
+                );
+            }
+            Ok(LibraryIndex::default())
+        }
+    }
 }
 
 pub(super) fn save_library_index(storage_dir: &Path, index: &LibraryIndex) -> AppResult<()> {
     fs::create_dir_all(storage_dir)?;
     let path = library_index_path(storage_dir);
-    // Ensure the version field is always current when writing
     let mut to_save = index.clone();
     to_save.version = schema_migration::CURRENT_VERSION;
     let contents = serde_json::to_string_pretty(&to_save)?;
-    fs::write(path, contents)?;
+    atomic_write_json(&path, &contents)?;
     Ok(())
 }
 
-/// Delete the active profile's `overlay.json` to force the next build to rebuild.
-fn invalidate_overlay_for_profile(storage_dir: &Path, index: &LibraryIndex) -> AppResult<()> {
-    let active_profile = get_active_profile(index)?;
-    let overlay_json = storage_dir
-        .join("profiles")
-        .join(active_profile.slug.as_str())
-        .join("overlay.json");
-    if overlay_json.exists() {
-        std::fs::remove_file(&overlay_json)?;
-        tracing::info!("Invalidated overlay for profile {}", active_profile.slug);
-    }
+/// Write `contents` to `path` atomically via a sibling `.json.tmp` file.
+///
+/// A plain `fs::write` can leave `path` empty if the process is killed
+/// mid-write; the rename is atomic on all supported platforms so the
+/// destination is either the old version or the new version, never partial.
+pub(super) fn atomic_write_json(path: &Path, contents: &str) -> AppResult<()> {
+    let tmp = path.with_extension("json.tmp");
+
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)?;
+
     Ok(())
 }
 

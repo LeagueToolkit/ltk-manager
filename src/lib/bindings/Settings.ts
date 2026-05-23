@@ -90,4 +90,10 @@ export type Settings = {
   wadBlocklist: Array<WadBlocklistEntry>;
   authorProfiles: Array<AuthorProfile>;
   defaultAuthorProfileId: string | null;
+  /**
+   * Whether the user has dismissed the HDD-performance warning. Once true,
+   * we suppress the warning on subsequent patcher starts. Reset by toggling
+   * the "show performance warnings" setting if/when we add one.
+   */
+  hasSeenHddWarning: boolean;
 };

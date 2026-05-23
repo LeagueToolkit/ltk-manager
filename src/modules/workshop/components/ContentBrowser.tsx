@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Spinner } from "@/components";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 
-import { useProjectContentTree } from "../api";
+import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../api";
 import { ContentBrowserLayerRail } from "./ContentBrowserLayerRail";
 import { ContentBrowserLayerSection } from "./ContentBrowserLayerSection";
+import { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 
 interface ContentBrowserProps {
   project: WorkshopProject;
@@ -35,8 +36,32 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
     }
   }, [selectedLayer, selectedLayerName]);
 
+  const selectedLayerDisplayName = useMemo(() => {
+    if (!selectedLayer) return "";
+    const layerMeta = project.layers.find((l) => l.name === selectedLayer.name);
+    return layerMeta?.displayName ?? selectedLayer.name;
+  }, [project.layers, selectedLayer]);
+
+  const addFilesToLayer = useAddFilesToLayer();
+
+  const handleDrop = useCallback(
+    (paths: string[]) => {
+      if (!selectedLayer) return;
+      addFilesToLayer.mutate({
+        projectPath,
+        layerName: selectedLayer.name,
+        layerDisplayName: selectedLayerDisplayName,
+        sources: paths,
+      });
+    },
+    [addFilesToLayer, projectPath, selectedLayer, selectedLayerDisplayName],
+  );
+
+  const isDragOver = useLayerFileDrop(handleDrop);
+  const showDropOverlay = isDragOver && selectedLayer !== null;
+
   return (
-    <div className="flex h-full min-h-0">
+    <div className="relative flex h-full min-h-0">
       <ContentBrowserLayerRail
         project={project}
         contentLayers={contentLayers}
@@ -63,6 +88,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
             key={selectedLayer.name}
             projectPath={projectPath}
             layer={selectedLayer}
+            layerDisplayName={selectedLayerDisplayName}
             isRefreshing={isFetching}
             onRefresh={() => refetch()}
           />
@@ -74,6 +100,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
           </div>
         )}
       </div>
+
+      <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import type { AppError, InstalledMod } from "@/lib/tauri";
 import { useLibraryContent, useReorderFolderMods, useReorderMods } from "@/modules/library/api";
 
+import { EditMetadataDialog } from "./EditMetadataDialog";
 import { FolderHeader } from "./FolderHeader";
 import { LibraryContextMenu } from "./LibraryContextMenu";
 import { LibraryEmptyState, LibraryErrorState, LibraryLoadingState } from "./LibraryStates";
@@ -23,13 +24,14 @@ export function LibraryContent({
   error,
   folderId,
 }: LibraryContentProps) {
-  const { viewMode, dndDisabled, contentView, detailsMod, setDetailsMod } = useLibraryContent({
-    mods,
-    searchQuery,
-    isLoading,
-    hasError: error !== null,
-    folderId,
-  });
+  const { viewMode, dndDisabled, contentView, detailsMod, setDetailsMod, editMod, setEditMod } =
+    useLibraryContent({
+      mods,
+      searchQuery,
+      isLoading,
+      hasError: error !== null,
+      folderId,
+    });
   const reorderMods = useReorderMods();
   const reorderFolderMods = useReorderFolderMods();
 
@@ -68,6 +70,7 @@ export function LibraryContent({
               onReorder={(modIds) => reorderMods.mutate(modIds)}
               disabled={dndDisabled}
               onViewDetails={setDetailsMod}
+              onEditMetadata={setEditMod}
               className={`${gridClass(viewMode)} stagger-enter`}
             />
           </div>
@@ -77,6 +80,13 @@ export function LibraryContent({
           mod={detailsMod}
           onClose={() => setDetailsMod(null)}
         />
+        {editMod && (
+          <EditMetadataDialog
+            mod={editMod}
+            open={editMod !== null}
+            onOpenChange={(open) => !open && setEditMod(null)}
+          />
+        )}
       </>
     );
   }
@@ -95,6 +105,7 @@ export function LibraryContent({
               }
               disabled={dndDisabled}
               onViewDetails={setDetailsMod}
+              onEditMetadata={setEditMod}
               className={`${gridClass(viewMode)} stagger-enter mt-4`}
               folderId={contentView.folder.id}
             />
@@ -105,6 +116,13 @@ export function LibraryContent({
           mod={detailsMod}
           onClose={() => setDetailsMod(null)}
         />
+        {editMod && (
+          <EditMetadataDialog
+            mod={editMod}
+            open={editMod !== null}
+            onOpenChange={(open) => !open && setEditMod(null)}
+          />
+        )}
       </>
     );
   }
@@ -121,6 +139,7 @@ export function LibraryContent({
             dndDisabled={dndDisabled}
             onReorder={(modIds) => reorderMods.mutate(modIds)}
             onViewDetails={setDetailsMod}
+            onEditMetadata={setEditMod}
           />
         </div>
       </LibraryContextMenu>
@@ -129,6 +148,13 @@ export function LibraryContent({
         mod={detailsMod}
         onClose={() => setDetailsMod(null)}
       />
+      {editMod && (
+        <EditMetadataDialog
+          mod={editMod}
+          open={editMod !== null}
+          onOpenChange={(open) => !open && setEditMod(null)}
+        />
+      )}
     </>
   );
 }

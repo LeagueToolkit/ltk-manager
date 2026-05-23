@@ -1,11 +1,15 @@
 use super::{
-    is_valid_project_name, load_workshop_project, Workshop, WorkshopLayerInfo, WorkshopProject,
+    is_valid_project_name, load_workshop_project, AddFilesReport, Workshop, WorkshopError,
+    WorkshopLayerInfo, WorkshopProject,
 };
 use crate::error::{AppError, AppResult};
+use camino::Utf8Path;
 use ltk_mod_project::ModProject;
 use ltk_mod_project::ModProjectLayer;
+use ltk_wad::{HexPathResolver, Wad, WadExtractor};
 use std::collections::HashMap;
 use std::fs;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 /// Create a new layer in a project at the given path.
@@ -275,6 +279,150 @@ fn is_wad_entry(name: &str) -> bool {
     lower.ends_with(".wad.client") || lower.ends_with(".wad") || lower.ends_with(".wad.mobile")
 }
 
+/// Extract a packed WAD file into `dst` using hex-named paths (no hashtable).
+fn extract_wad_into_dir(src: &Path, dst: &Path) -> AppResult<()> {
+    fs::create_dir_all(dst)?;
+
+    let file = fs::File::open(src)?;
+    let mut wad = Wad::mount(BufReader::new(file))?;
+
+    let resolver = HexPathResolver;
+    let extractor = WadExtractor::new(&resolver);
+    let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
+        AppError::Other(format!(
+            "WAD output path is not valid UTF-8: {}",
+            dst.display()
+        ))
+    })?;
+    extractor.extract_all(&mut wad, utf8_dst)?;
+    Ok(())
+}
+
+/// Recursively copy `src` directory into `dst`, skipping symlinks.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
+    fs::create_dir_all(dst)?;
+    for entry in walkdir::WalkDir::new(src).follow_links(false).into_iter() {
+        let entry = entry.map_err(|e| AppError::Io(std::io::Error::other(e.to_string())))?;
+        let file_type = entry.file_type();
+        if file_type.is_symlink() {
+            continue;
+        }
+        let rel = entry
+            .path()
+            .strip_prefix(src)
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        let target = dst.join(rel);
+        if file_type.is_dir() {
+            fs::create_dir_all(&target)?;
+        } else if file_type.is_file() {
+            if let Some(parent) = target.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+/// Add files or directories (`.wad`, `.wad.client`, `.wad.mobile`) into a layer's content
+/// directory. Packed WAD files are extracted into a same-named directory using hex-named
+/// paths (no hashtable); directory sources are copied as-is. If any source conflicts with
+/// an existing entry, no source is imported.
+pub(crate) fn add_files_to_layer_at_path(
+    project_path: &Path,
+    layer_name: &str,
+    sources: Vec<PathBuf>,
+) -> AppResult<AddFilesReport> {
+    let layer_dir = get_layer_content_path(project_path, layer_name)?;
+
+    let mut canonical_seen = std::collections::HashSet::<PathBuf>::new();
+    let mut prepared: Vec<(PathBuf, String)> = Vec::with_capacity(sources.len());
+
+    for src in sources {
+        if !src.exists() {
+            return Err(AppError::ValidationFailed(format!(
+                "Source does not exist: {}",
+                src.display()
+            )));
+        }
+
+        let canonical = fs::canonicalize(&src).unwrap_or_else(|_| src.clone());
+        if !canonical_seen.insert(canonical.clone()) {
+            continue;
+        }
+
+        let basename = canonical
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| {
+                AppError::ValidationFailed(format!(
+                    "Source has no usable file name: {}",
+                    src.display()
+                ))
+            })?
+            .to_string();
+
+        if !is_wad_entry(&basename) {
+            return Err(AppError::ValidationFailed(format!(
+                "'{}' is not a WAD file or folder (must end in .wad, .wad.client, or .wad.mobile)",
+                basename
+            )));
+        }
+
+        prepared.push((canonical, basename));
+    }
+
+    let conflicts: Vec<String> = prepared
+        .iter()
+        .filter(|(_, name)| layer_dir.join(name).exists())
+        .map(|(_, name)| name.clone())
+        .collect();
+    if !conflicts.is_empty() {
+        return Err(WorkshopError::LayerFileConflict { conflicts }.into());
+    }
+
+    let mut added: Vec<String> = Vec::with_capacity(prepared.len());
+    for (src, basename) in prepared {
+        let dest = layer_dir.join(&basename);
+        let temp = layer_dir.join(format!(".{}.tmp", basename));
+
+        if temp.exists() {
+            if temp.is_dir() {
+                let _ = fs::remove_dir_all(&temp);
+            } else {
+                let _ = fs::remove_file(&temp);
+            }
+        }
+
+        let was_packed = src.is_file();
+        let result = if was_packed {
+            extract_wad_into_dir(&src, &temp)
+        } else {
+            copy_dir_recursive(&src, &temp)
+        };
+
+        if let Err(e) = result {
+            let _ = fs::remove_dir_all(&temp);
+            return Err(e);
+        }
+
+        if let Err(e) = fs::rename(&temp, &dest) {
+            let _ = fs::remove_dir_all(&temp);
+            return Err(AppError::Io(e));
+        }
+
+        tracing::info!(
+            layer = %layer_name,
+            file = %basename,
+            extracted = was_packed,
+            "Added WAD entry to layer"
+        );
+        added.push(basename);
+    }
+
+    Ok(AddFilesReport { added })
+}
+
 /// Collect runtime info about each layer's content directory.
 pub(crate) fn get_layer_info_at_path(
     path: &Path,
@@ -415,6 +563,21 @@ impl Workshop {
             return Err(AppError::ProjectNotFound(project_path.to_string()));
         }
         reorder_layers_at_path(&path, layer_names)
+    }
+
+    /// Add files or folders to a layer's content directory.
+    pub fn add_files_to_layer(
+        &self,
+        project_path: &str,
+        layer_name: &str,
+        sources: Vec<String>,
+    ) -> AppResult<AddFilesReport> {
+        let path = PathBuf::from(project_path);
+        if !path.exists() {
+            return Err(AppError::ProjectNotFound(project_path.to_string()));
+        }
+        let source_paths = sources.into_iter().map(PathBuf::from).collect();
+        add_files_to_layer_at_path(&path, layer_name, source_paths)
     }
 }
 
@@ -643,6 +806,127 @@ mod tests {
         let layers = load_layers(dir.path());
         assert_eq!(layers[1].name, "vfx");
         assert_eq!(layers[1].priority, 1);
+    }
+
+    fn build_test_wad(path: &std::path::Path, chunk_paths: &[&str]) {
+        use ltk_wad::{WadBuilder, WadChunkBuilder};
+        use std::io::Write;
+
+        let mut builder = WadBuilder::default();
+        for chunk_path in chunk_paths {
+            builder = builder.with_chunk(WadChunkBuilder::default().with_path(*chunk_path));
+        }
+
+        let mut file = fs::File::create(path).unwrap();
+        builder
+            .build_to_writer(&mut file, |_path_hash, cursor| {
+                cursor.write_all(&[0xAA; 64])?;
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn add_files_to_layer_extracts_wad_file() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+
+        let src_dir = tempfile::tempdir().unwrap();
+        let src_file = src_dir.path().join("Aatrox.wad.client");
+        build_test_wad(&src_file, &["assets/test1.bin", "assets/test2.bin"]);
+
+        let report = add_files_to_layer_at_path(dir.path(), "base", vec![src_file]).unwrap();
+
+        assert_eq!(report.added, vec!["Aatrox.wad.client".to_string()]);
+        let dest = dir
+            .path()
+            .join("content")
+            .join("base")
+            .join("Aatrox.wad.client");
+        assert!(
+            dest.is_dir(),
+            "expected extracted directory at {}",
+            dest.display()
+        );
+
+        let extracted: Vec<_> = fs::read_dir(&dest)
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(
+            !extracted.is_empty(),
+            "expected at least one extracted entry under {}",
+            dest.display()
+        );
+    }
+
+    #[test]
+    fn add_files_to_layer_copies_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+
+        let src_dir = tempfile::tempdir().unwrap();
+        let wad_dir = src_dir.path().join("Champion.wad.client");
+        fs::create_dir_all(wad_dir.join("nested")).unwrap();
+        fs::write(wad_dir.join("meta.json"), "{}").unwrap();
+        fs::write(wad_dir.join("nested").join("a.bin"), b"x").unwrap();
+
+        let report = add_files_to_layer_at_path(dir.path(), "base", vec![wad_dir]).unwrap();
+
+        assert_eq!(report.added, vec!["Champion.wad.client".to_string()]);
+        let dest = dir
+            .path()
+            .join("content")
+            .join("base")
+            .join("Champion.wad.client");
+        assert!(dest.is_dir());
+        assert!(dest.join("meta.json").is_file());
+        assert!(dest.join("nested").join("a.bin").is_file());
+    }
+
+    #[test]
+    fn add_files_to_layer_rejects_non_wad() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+
+        let src_dir = tempfile::tempdir().unwrap();
+        let bad = src_dir.path().join("readme.txt");
+        fs::write(&bad, b"hi").unwrap();
+
+        let result = add_files_to_layer_at_path(dir.path(), "base", vec![bad]);
+        assert!(matches!(result, Err(AppError::ValidationFailed(_))));
+    }
+
+    #[test]
+    fn add_files_to_layer_aborts_on_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        make_project_with_layers(dir.path(), ltk_mod_project::default_layers());
+
+        let layer_dir = dir.path().join("content").join("base");
+        fs::create_dir_all(&layer_dir).unwrap();
+        fs::write(layer_dir.join("Aatrox.wad.client"), b"existing").unwrap();
+
+        let src_dir = tempfile::tempdir().unwrap();
+        let new_a = src_dir.path().join("Aatrox.wad.client");
+        let new_b = src_dir.path().join("Sona.wad.client");
+        fs::write(&new_a, b"new").unwrap();
+        fs::write(&new_b, b"new").unwrap();
+
+        let result = add_files_to_layer_at_path(dir.path(), "base", vec![new_a, new_b]);
+        match result {
+            Err(AppError::Workshop(WorkshopError::LayerFileConflict { conflicts })) => {
+                assert_eq!(conflicts, vec!["Aatrox.wad.client".to_string()]);
+            }
+            other => panic!("expected LayerFileConflict, got: {:?}", other),
+        }
+
+        // Sona.wad.client must not have been copied.
+        assert!(!layer_dir.join("Sona.wad.client").exists());
+        // Existing file untouched.
+        assert_eq!(
+            fs::read(layer_dir.join("Aatrox.wad.client")).unwrap(),
+            b"existing"
+        );
     }
 
     #[test]

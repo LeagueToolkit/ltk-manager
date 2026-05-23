@@ -14,7 +14,21 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
+use thiserror::Error;
 use ts_rs::TS;
+
+/// Domain errors specific to workshop operations.
+///
+/// Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
+/// Frontend code can switch on `kind` to handle each variant.
+#[derive(Debug, Clone, Serialize, Deserialize, Error, TS)]
+#[ts(export)]
+#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum WorkshopError {
+    /// One or more files already exist in the target layer directory.
+    #[error("File(s) already exist in target layer: {conflicts:?}")]
+    LayerFileConflict { conflicts: Vec<String> },
+}
 
 /// Managed struct that encapsulates workshop operations.
 ///
@@ -248,6 +262,15 @@ pub struct PackResult {
     pub output_path: String,
     pub file_name: String,
     pub format: String,
+}
+
+/// Result of adding files/folders to a layer.
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct AddFilesReport {
+    /// Basenames of items added to the layer directory.
+    pub added: Vec<String>,
 }
 
 /// Validation result for a project.

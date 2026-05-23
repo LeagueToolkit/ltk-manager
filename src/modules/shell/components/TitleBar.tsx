@@ -10,6 +10,7 @@ import {
   Minus,
   Settings,
   Square,
+  Stethoscope,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -195,6 +196,26 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             aria-label="Join our Discord"
             className="text-surface-400 hover:text-surface-200"
           />
+        </Tooltip>
+
+        <Tooltip content="Diagnostics">
+          <Link
+            to="/diagnostics"
+            activeProps={{
+              className: twMerge(settingsLinkBase, activeLinkClass),
+            }}
+            inactiveProps={{
+              className: twMerge(settingsLinkBase, inactiveLinkClass),
+            }}
+            aria-label="Diagnostics"
+          >
+            {({ isActive }) => (
+              <>
+                <Stethoscope className="h-4 w-4" />
+                {isActive && <ActiveIndicator />}
+              </>
+            )}
+          </Link>
         </Tooltip>
 
         {/* Settings button */}

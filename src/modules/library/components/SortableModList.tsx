@@ -42,6 +42,7 @@ interface SortableModListProps {
   onReorder: (modIds: string[]) => void;
   disabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
+  onEditMetadata?: (mod: InstalledMod) => void;
   className?: string;
   folderId?: string;
 }
@@ -52,6 +53,7 @@ export function SortableModList({
   onReorder,
   disabled,
   onViewDetails,
+  onEditMetadata,
   className,
   folderId,
 }: SortableModListProps) {
@@ -75,7 +77,13 @@ export function SortableModList({
     return (
       <div className={className}>
         {mods.map((mod) => (
-          <ModCard key={mod.id} mod={mod} viewMode={viewMode} onViewDetails={onViewDetails} />
+          <ModCard
+            key={mod.id}
+            mod={mod}
+            viewMode={viewMode}
+            onViewDetails={onViewDetails}
+            onEditMetadata={onEditMetadata}
+          />
         ))}
       </div>
     );
@@ -102,6 +110,7 @@ export function SortableModList({
               mod={mod}
               viewMode={viewMode}
               onViewDetails={onViewDetails}
+              onEditMetadata={onEditMetadata}
             />
           ))}
         </div>

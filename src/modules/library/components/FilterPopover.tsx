@@ -36,6 +36,8 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
     toggleChampion,
     toggleMap,
     clearFilters,
+    showOnlyEnabled,
+    setShowOnlyEnabled,
   } = useLibraryFilterStore();
   const hasActive = useHasActiveFilters();
   const [champSearch, setChampSearch] = useState("");
@@ -94,6 +96,17 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
             </div>
 
             <div className="space-y-3">
+              <div className="flex flex-col gap-1.5 pb-1">
+                <Checkbox
+                  size="sm"
+                  label="Show only enabled"
+                  checked={showOnlyEnabled}
+                  onCheckedChange={setShowOnlyEnabled}
+                />
+              </div>
+
+              <Separator />
+
               <FilterSection title="Tags">
                 <div className="flex flex-wrap gap-1.5">
                   {tags.map((tag) => (

@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
-use super::{library_index_path, LibraryIndex, ROOT_FOLDER_ID};
+use super::{atomic_write_json, library_index_path, LibraryIndex, ROOT_FOLDER_ID};
 
 /// Current schema version for the library index.
 /// Increment this when making breaking changes to the schema and add a
@@ -50,7 +50,7 @@ impl LibraryIndex {
 
         if migrated {
             let contents = serde_json::to_string_pretty(&index)?;
-            fs::write(&path, contents)?;
+            atomic_write_json(&path, &contents)?;
         }
 
         Ok(index)

@@ -139,6 +139,35 @@ pub fn enable_mod_with_layers(
     result.into()
 }
 
+#[derive(Debug, serde::Deserialize, ts_rs::TS)]
+#[ts(export)]
+#[serde(rename_all = "camelCase")]
+pub struct EditModMetadataArgs {
+    pub display_name: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub champions: Option<Vec<String>>,
+    pub maps: Option<Vec<String>>,
+    #[serde(default)]
+    pub set_thumbnail_path: Option<String>,
+    #[serde(default)]
+    pub remove_thumbnail: Option<bool>,
+}
+
+/// Edit a mod's metadata (name, tags, champions, maps).
+#[tauri::command]
+pub fn edit_mod_metadata(
+    mod_id: String,
+    metadata: EditModMetadataArgs,
+    library: State<ModLibraryState>,
+    settings: State<SettingsState>,
+) -> IpcResult<InstalledMod> {
+    let result: AppResult<InstalledMod> = (|| {
+        let settings = settings.0.lock().mutex_err()?.clone();
+        library.0.edit_mod_metadata(&settings, &mod_id, metadata)
+    })();
+    result.into()
+}
+
 /// Inspect a `.modpkg` file and return its metadata.
 #[tauri::command]
 pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {

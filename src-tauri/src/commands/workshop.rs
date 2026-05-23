@@ -1,9 +1,9 @@
 use crate::error::{AppResult, IpcResult, MutexResultExt};
 use crate::state::SettingsState;
 use crate::workshop::{
-    ContentTree, CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs,
-    PackProjectArgs, PackResult, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
-    WorkshopProject, WorkshopState,
+    AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, ImportFantomeArgs,
+    ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs, ValidationResult,
+    WorkshopLayerInfo, WorkshopProject, WorkshopState,
 };
 use std::collections::HashMap;
 use tauri::State;
@@ -252,4 +252,17 @@ pub fn reorder_project_layers(
     workshop: State<WorkshopState>,
 ) -> IpcResult<WorkshopProject> {
     workshop.0.reorder_layers(&project_path, layer_names).into()
+}
+
+#[tauri::command]
+pub fn add_files_to_layer(
+    project_path: String,
+    layer_name: String,
+    sources: Vec<String>,
+    workshop: State<WorkshopState>,
+) -> IpcResult<AddFilesReport> {
+    workshop
+        .0
+        .add_files_to_layer(&project_path, &layer_name, sources)
+        .into()
 }

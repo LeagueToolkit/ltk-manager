@@ -30,132 +30,162 @@ pub struct OverlayProgress {
     pub total: u32,
 }
 
-/// Ensure the overlay exists and is up-to-date for the current enabled mod set.
-///
-/// Returns the overlay root directory (the prefix passed to the legacy patcher).
-///
-/// Workshop project paths (if any) are loaded via `FsModContent` and prepended
-/// to the enabled mod list so they take highest priority.
-pub fn ensure_overlay(
-    library: &ModLibrary,
-    settings: &Settings,
-    workshop_project_paths: &[PathBuf],
-) -> AppResult<PathBuf> {
-    let storage_dir = library.storage_dir(settings)?;
+impl ModLibrary {
+    /// Ensure the overlay exists and is up-to-date for the current enabled mod set.
+    ///
+    /// Returns the overlay root directory (the prefix passed to the legacy patcher).
+    ///
+    /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
+    /// to the enabled mod list so they take highest priority.
+    pub fn ensure_overlay(
+        &self,
+        settings: &Settings,
+        workshop_project_paths: &[PathBuf],
+    ) -> AppResult<PathBuf> {
+        let storage_dir = self.storage_dir(settings)?;
+        let game_dir = resolve_game_dir(settings)?;
+        let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(settings)?;
 
-    let game_dir = resolve_game_dir(settings)?;
+        let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
+        let overlay_root = profile_dir.join("overlay");
 
-    // Get active profile slug and enabled mods
-    let (profile_slug, enabled_mods) = library.get_enabled_mods_for_overlay(settings)?;
+        tracing::info!("Overlay: storage_dir={}", storage_dir.display());
+        tracing::info!("Overlay: profile_slug={}", profile_slug);
+        tracing::info!("Overlay: overlay_root={}", overlay_root.display());
+        tracing::info!("Overlay: game_dir={}", game_dir.display());
 
-    // Use profile-specific overlay and state directories
-    let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
-    let overlay_root = profile_dir.join("overlay");
-
-    tracing::info!("Overlay: storage_dir={}", storage_dir.display());
-    tracing::info!("Overlay: profile_slug={}", profile_slug);
-    tracing::info!("Overlay: overlay_root={}", overlay_root.display());
-    tracing::info!("Overlay: game_dir={}", game_dir.display());
-
-    let enabled_ids = enabled_mods
-        .iter()
-        .map(|m| m.id.clone())
-        .collect::<Vec<_>>();
-    tracing::info!(
-        "Overlay: enabled_mods={} ids=[{}]",
-        enabled_ids.len(),
-        enabled_ids.join(", ")
-    );
-
-    // Convert to Utf8PathBuf for ltk_overlay API
-    let utf8_game_dir = Utf8PathBuf::from_path_buf(game_dir.clone())
-        .map_err(|p| AppError::Other(format!("Non-UTF-8 game directory path: {}", p.display())))?;
-    let utf8_overlay_root = Utf8PathBuf::from_path_buf(overlay_root.clone())
-        .map_err(|p| AppError::Other(format!("Non-UTF-8 overlay root path: {}", p.display())))?;
-    let utf8_state_dir = Utf8PathBuf::from_path_buf(profile_dir).map_err(|p| {
-        AppError::Other(format!("Non-UTF-8 profile directory path: {}", p.display()))
-    })?;
-
-    let available_wads = list_game_wads(&game_dir).unwrap_or_else(|e| {
-        tracing::warn!(
-            "Failed to enumerate game WADs for regex expansion: {}; \
-             regex blocklist entries will match nothing",
-            e
+        let enabled_ids = enabled_mods
+            .iter()
+            .map(|m| m.id.clone())
+            .collect::<Vec<_>>();
+        tracing::info!(
+            "Overlay: enabled_mods={} ids=[{}]",
+            enabled_ids.len(),
+            enabled_ids.join(", ")
         );
-        Vec::new()
-    });
-    let blocked_wads = resolve_blocked_wads(settings, &available_wads);
-    tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
 
-    // Build overlay using ltk_overlay crate
-    let app_handle_clone = library.app_handle().clone();
-    let mut builder =
-        ltk_overlay::OverlayBuilder::new(utf8_game_dir, utf8_overlay_root, utf8_state_dir)
-            .with_blocked_wads(blocked_wads)
-            .with_progress(move |progress| {
-                // Convert ltk_overlay progress to our format
-                let stage = match progress.stage {
-                    ltk_overlay::OverlayStage::Indexing => OverlayStage::Indexing,
-                    ltk_overlay::OverlayStage::CollectingOverrides => OverlayStage::Collecting,
-                    ltk_overlay::OverlayStage::PatchingWad => OverlayStage::Patching,
-                    ltk_overlay::OverlayStage::ApplyingStringOverrides => OverlayStage::Strings,
-                    ltk_overlay::OverlayStage::Complete => OverlayStage::Complete,
-                };
-
-                let _ = app_handle_clone.emit(
-                    "overlay-progress",
-                    OverlayProgress {
-                        stage,
-                        current_file: progress.current_file,
-                        current: progress.current,
-                        total: progress.total,
-                    },
-                );
-            });
-
-    let mut all_mods = Vec::new();
-    for project_path in workshop_project_paths {
-        let utf8_path = Utf8PathBuf::from_path_buf(project_path.clone()).map_err(|p| {
-            AppError::Other(format!("Non-UTF-8 workshop project path: {}", p.display()))
+        let utf8_game_dir = Utf8PathBuf::from_path_buf(game_dir.clone()).map_err(|p| {
+            AppError::Other(format!("Non-UTF-8 game directory path: {}", p.display()))
         })?;
-        let dir_name = project_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("unknown");
-        let id = format!("workshop:{}", dir_name);
-        tracing::info!("Adding workshop project: id={}, path={}", id, utf8_path);
-        all_mods.push(ltk_overlay::EnabledMod {
-            id,
-            content: Box::new(ltk_overlay::FsModContent::new(utf8_path)),
-            enabled_layers: None,
+        let utf8_overlay_root = Utf8PathBuf::from_path_buf(overlay_root.clone()).map_err(|p| {
+            AppError::Other(format!("Non-UTF-8 overlay root path: {}", p.display()))
+        })?;
+        let utf8_state_dir = Utf8PathBuf::from_path_buf(profile_dir).map_err(|p| {
+            AppError::Other(format!("Non-UTF-8 profile directory path: {}", p.display()))
+        })?;
+
+        let available_wads = list_game_wads(&game_dir).unwrap_or_else(|e| {
+            tracing::warn!(
+                "Failed to enumerate game WADs for regex expansion: {}; \
+                 regex blocklist entries will match nothing",
+                e
+            );
+            Vec::new()
         });
+        let blocked_wads = resolve_blocked_wads(settings, &available_wads);
+        tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
+
+        Self::clean_corrupt_overlay_state(&utf8_state_dir);
+
+        let app_handle_clone = self.app_handle().clone();
+        let mut builder =
+            ltk_overlay::OverlayBuilder::new(utf8_game_dir, utf8_overlay_root, utf8_state_dir)
+                .with_blocked_wads(blocked_wads)
+                .with_progress(move |progress| {
+                    let stage = match progress.stage {
+                        ltk_overlay::OverlayStage::Indexing => OverlayStage::Indexing,
+                        ltk_overlay::OverlayStage::CollectingOverrides => OverlayStage::Collecting,
+                        ltk_overlay::OverlayStage::PatchingWad => OverlayStage::Patching,
+                        ltk_overlay::OverlayStage::ApplyingStringOverrides => OverlayStage::Strings,
+                        ltk_overlay::OverlayStage::Complete => OverlayStage::Complete,
+                    };
+                    let _ = app_handle_clone.emit(
+                        "overlay-progress",
+                        OverlayProgress {
+                            stage,
+                            current_file: progress.current_file,
+                            current: progress.current,
+                            total: progress.total,
+                        },
+                    );
+                });
+
+        let mut all_mods = Vec::new();
+        for project_path in workshop_project_paths {
+            let utf8_path = Utf8PathBuf::from_path_buf(project_path.clone()).map_err(|p| {
+                AppError::Other(format!("Non-UTF-8 workshop project path: {}", p.display()))
+            })?;
+            let dir_name = project_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown");
+            let id = format!("workshop:{}", dir_name);
+            tracing::info!("Adding workshop project: id={}, path={}", id, utf8_path);
+            all_mods.push(ltk_overlay::EnabledMod {
+                id,
+                content: Box::new(ltk_overlay::FsModContent::new(utf8_path)),
+                enabled_layers: None,
+            });
+        }
+        all_mods.extend(enabled_mods);
+        builder.set_enabled_mods(all_mods);
+
+        builder
+            .build()
+            .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
+
+        // Capture per-mod WAD reports for the library badge UI. Failure to
+        // persist must not fail the patch — log and continue.
+        //
+        // Note: `OverlayBuilder::build()` emits its own `Complete` progress event
+        // *before* returning, so the frontend may see that event before the reports
+        // are persisted. We emit a dedicated `wad-reports-updated` event after
+        // persisting so the frontend knows the cache is ready to query.
+        let reports = builder.take_mod_wad_reports();
+        if !reports.is_empty() {
+            if let Some(state) = self.app_handle().try_state::<WadReportState>() {
+                if let Err(e) = state.record_reports(reports) {
+                    tracing::warn!("Failed to persist per-mod WAD reports: {}", e);
+                } else {
+                    let _ = self.app_handle().emit("wad-reports-updated", ());
+                }
+            }
+        }
+
+        Ok(overlay_root)
     }
-    all_mods.extend(enabled_mods);
-    builder.set_enabled_mods(all_mods);
 
-    builder
-        .build()
-        .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
-
-    // Capture per-mod WAD reports for the library badge UI. Failure to
-    // persist must not fail the patch — log and continue.
-    //
-    // Note: `OverlayBuilder::build()` emits its own `Complete` progress event
-    // *before* returning, so the frontend may see that event before the reports
-    // are persisted. We emit a dedicated `wad-reports-updated` event after
-    // persisting so the frontend knows the cache is ready to query.
-    let reports = builder.take_mod_wad_reports();
-    if !reports.is_empty() {
-        if let Some(state) = library.app_handle().try_state::<WadReportState>() {
-            if let Err(e) = state.record_reports(reports) {
-                tracing::warn!("Failed to persist per-mod WAD reports: {}", e);
-            } else {
-                let _ = library.app_handle().emit("wad-reports-updated", ());
+    /// Scan `state_dir` for top-level JSON files that are empty or contain invalid
+    /// JSON and remove them so `ltk_overlay` does not fail to parse stale/corrupt
+    /// state files written by a previous run that was interrupted mid-write.
+    fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
+        let entries = match std::fs::read_dir(state_dir) {
+            Ok(e) => e,
+            Err(_) => return,
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                continue;
+            }
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let contents = match std::fs::read_to_string(&path) {
+                Ok(c) => c,
+                Err(_) => continue,
+            };
+            if contents.trim().is_empty()
+                || serde_json::from_str::<serde_json::Value>(&contents).is_err()
+            {
+                tracing::warn!(
+                    "Removing corrupt overlay state file before build: {}",
+                    path.display()
+                );
+                let _ = std::fs::remove_file(&path);
             }
         }
     }
-
-    Ok(overlay_root)
 }
 
 /// Resolve the user's blocklist settings into a concrete, deduped list of WAD

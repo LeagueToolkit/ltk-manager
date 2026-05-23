@@ -11,6 +11,7 @@ export {
 } from "./EmptyStates";
 export { ImportFantomeDialog } from "./ImportFantomeDialog";
 export { ImportGitRepoDialog } from "./ImportGitRepoDialog";
+export { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 export { NewProjectDialog } from "./NewProjectDialog";
 export {
   appendAuthor,

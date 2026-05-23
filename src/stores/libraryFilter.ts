@@ -12,6 +12,7 @@ interface LibraryFilterStore {
   selectedTags: Set<string>;
   selectedChampions: Set<string>;
   selectedMaps: Set<string>;
+  showOnlyEnabled: boolean;
   sort: SortConfig;
 
   toggleTag: (tag: string) => void;
@@ -21,6 +22,7 @@ interface LibraryFilterStore {
   setChampions: (champions: Set<string>) => void;
   setMaps: (maps: Set<string>) => void;
   clearFilters: () => void;
+  setShowOnlyEnabled: (show: boolean) => void;
   setSort: (sort: SortConfig) => void;
 }
 
@@ -28,6 +30,7 @@ export const useLibraryFilterStore = create<LibraryFilterStore>((set) => ({
   selectedTags: new Set(),
   selectedChampions: new Set(),
   selectedMaps: new Set(),
+  showOnlyEnabled: false,
   sort: { field: "priority", direction: "desc" },
 
   toggleTag: (tag) =>
@@ -63,13 +66,19 @@ export const useLibraryFilterStore = create<LibraryFilterStore>((set) => ({
       selectedTags: new Set(),
       selectedChampions: new Set(),
       selectedMaps: new Set(),
+      showOnlyEnabled: false,
     }),
 
+  setShowOnlyEnabled: (show) => set({ showOnlyEnabled: show }),
   setSort: (sort) => set({ sort }),
 }));
 
 export function useHasActiveFilters() {
   return useLibraryFilterStore(
-    (s) => s.selectedTags.size > 0 || s.selectedChampions.size > 0 || s.selectedMaps.size > 0,
+    (s) =>
+      s.selectedTags.size > 0 ||
+      s.selectedChampions.size > 0 ||
+      s.selectedMaps.size > 0 ||
+      s.showOnlyEnabled,
   );
 }

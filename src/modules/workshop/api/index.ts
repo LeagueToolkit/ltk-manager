@@ -1,4 +1,5 @@
 export { workshopKeys } from "./keys";
+export { useAddFilesToLayer } from "./useAddFilesToLayer";
 export { useCreateProject } from "./useCreateProject";
 export { useDeleteProject } from "./useDeleteProject";
 export { useFantomeImportProgress } from "./useFantomeImportProgress";
@@ -8,6 +9,7 @@ export { useGitImportProgress } from "./useGitImportProgress";
 export { useImportFromFantome } from "./useImportFromFantome";
 export { useImportFromGitRepo } from "./useImportFromGitRepo";
 export { useImportFromModpkg } from "./useImportFromModpkg";
+export { useLayerFileDrop } from "./useLayerFileDrop";
 export { usePackProject } from "./usePackProject";
 export { usePeekFantome } from "./usePeekFantome";
 export { useProjectActions } from "./useProjectActions";

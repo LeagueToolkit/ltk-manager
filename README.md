@@ -5,6 +5,7 @@ The next-generation mod manager for League of Legends, built by the [League Tool
 [![Releases](https://img.shields.io/github/v/release/LeagueToolkit/ltk-manager?style=for-the-badge)](https://github.com/LeagueToolkit/ltk-manager/releases)
 [![License: MIT/Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue?style=for-the-badge)](https://github.com/LeagueToolkit/ltk-manager)
 [![Windows 10+](https://img.shields.io/badge/Windows-10+-0078D4?style=for-the-badge&logo=windows)](https://www.microsoft.com/windows)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FLeagueToolkit%2Fltk-manager.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FLeagueToolkit%2Fltk-manager?ref=badge_shield)
 
 ---
 
@@ -60,6 +61,8 @@ The next-generation mod manager for League of Legends, built by the [League Tool
 ## ⚖️ License & Reuse
 
 LTK Manager is open-source under a dual **MIT / Apache-2.0** license — you may choose either.
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FLeagueToolkit%2Fltk-manager.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FLeagueToolkit%2Fltk-manager?ref=badge_large)
 
 ### `cslol-dll.dll` Policy
 

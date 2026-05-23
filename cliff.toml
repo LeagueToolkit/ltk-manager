@@ -14,6 +14,8 @@ body = """
 {%- endmacro -%}
 
 {% if version -%}
+👉 **Download** [`LTK.Manager_{{ version | trim_start_matches(pat="v") }}_x64_en-US.msi`]({{ self::remote_url() }}/releases/download/{{ version }}/LTK.Manager_{{ version | trim_start_matches(pat="v") }}_x64_en-US.msi)
+
 ## [{{ version | trim_start_matches(pat="v") }}]({{ self::remote_url() }}/releases/tag/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else -%}
 ## [Unreleased]

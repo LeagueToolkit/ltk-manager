@@ -46,6 +46,8 @@ pub enum ErrorCode {
     Zip,
     /// Library index was written by a newer app version
     SchemaVersionTooNew,
+    /// Workshop domain error. The specific variant is in `context.kind`.
+    Workshop,
 }
 
 /// Structured error response sent over IPC.
@@ -212,6 +214,9 @@ pub enum AppError {
         file_version: u32,
         max_supported: u32,
     },
+
+    #[error(transparent)]
+    Workshop(#[from] crate::workshop::WorkshopError),
 }
 
 impl From<AppError> for AppErrorResponse {
@@ -291,6 +296,12 @@ impl From<AppError> for AppErrorResponse {
                 ),
             )
             .with_context(serde_json::json!({ "fileVersion": file_version, "maxSupported": max_supported })),
+
+            AppError::Workshop(workshop_err) => {
+                let mut response = AppErrorResponse::new(ErrorCode::Workshop, workshop_err.to_string());
+                response.context = serde_json::to_value(&workshop_err).ok();
+                response
+            }
         }
     }
 }
@@ -380,6 +391,7 @@ mod tests {
             ErrorCode::PatcherRunning,
             ErrorCode::Zip,
             ErrorCode::SchemaVersionTooNew,
+            ErrorCode::Workshop,
         ] {
             let json = serde_json::to_string(&code).unwrap();
             let deserialized: ErrorCode = serde_json::from_str(&json).unwrap();

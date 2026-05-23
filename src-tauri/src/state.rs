@@ -238,6 +238,11 @@ pub struct Settings {
     pub author_profiles: Vec<AuthorProfile>,
     #[serde(default)]
     pub default_author_profile_id: Option<String>,
+    /// Whether the user has dismissed the HDD-performance warning. Once true,
+    /// we suppress the warning on subsequent patcher starts. Reset by toggling
+    /// the "show performance warnings" setting if/when we add one.
+    #[serde(default)]
+    pub has_seen_hdd_warning: bool,
 }
 
 impl Default for Settings {
@@ -268,6 +273,7 @@ impl Default for Settings {
             wad_blocklist: default_wad_blocklist(),
             author_profiles: vec![],
             default_author_profile_id: None,
+            has_seen_hdd_warning: false,
         }
     }
 }
@@ -329,6 +335,7 @@ mod tests {
                 role: Some("3D Artist".to_string()),
             }],
             default_author_profile_id: Some("test-id".to_string()),
+            has_seen_hdd_warning: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();

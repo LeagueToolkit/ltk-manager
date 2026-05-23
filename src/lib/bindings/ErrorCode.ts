@@ -23,4 +23,5 @@ export type ErrorCode =
   | "WAD"
   | "PATCHER_RUNNING"
   | "ZIP"
-  | "SCHEMA_VERSION_TOO_NEW";
+  | "SCHEMA_VERSION_TOO_NEW"
+  | "WORKSHOP";

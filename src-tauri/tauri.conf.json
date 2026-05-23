@@ -17,7 +17,6 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "center": true,
         "decorations": false,
         "resizable": true,
         "transparent": false

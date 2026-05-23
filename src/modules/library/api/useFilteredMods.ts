@@ -5,7 +5,8 @@ import { sortMods } from "@/modules/library/utils";
 import { useLibraryFilterStore } from "@/stores";
 
 export function useFilteredMods(mods: InstalledMod[], searchQuery: string): InstalledMod[] {
-  const { selectedTags, selectedChampions, selectedMaps, sort } = useLibraryFilterStore();
+  const { selectedTags, selectedChampions, selectedMaps, showOnlyEnabled, sort } =
+    useLibraryFilterStore();
 
   return useMemo(() => {
     let result = mods;
@@ -15,6 +16,10 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
       result = result.filter(
         (mod) => mod.displayName.toLowerCase().includes(q) || mod.name.toLowerCase().includes(q),
       );
+    }
+
+    if (showOnlyEnabled) {
+      result = result.filter((mod) => mod.enabled);
     }
 
     if (selectedTags.size > 0) {
@@ -28,5 +33,5 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
     }
 
     return sortMods(result, sort);
-  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, sort]);
+  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, showOnlyEnabled, sort]);
 }

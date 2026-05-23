@@ -4,7 +4,6 @@ use crate::legacy_patcher::runner::{
     run_legacy_patcher_loop, LegacyPatcherLoopError, DEFAULT_HOOK_TIMEOUT_MS,
 };
 use crate::mods::ModLibraryState;
-use crate::overlay;
 use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
@@ -218,26 +217,25 @@ pub(crate) fn start_patcher_inner(
 
     let handle = thread::spawn(move || {
         // Phase 1: Build overlay (the slow part)
-        let overlay_root =
-            match overlay::ensure_overlay(&library_clone, &settings_snapshot, &workshop_paths) {
-                Ok(root) => root,
-                Err(e) => {
-                    tracing::error!(error = ?e, "Overlay build failed");
-                    let error_response: AppErrorResponse = e.into();
-                    let _ = library_clone
-                        .app_handle()
-                        .emit("patcher-error", &error_response);
-                    if let Ok(mut s) = state_arc.lock() {
-                        s.phase = PatcherPhase::Idle;
-                    }
-                    // TRAY: Reset to default on error
-                    let _ = crate::tray::set_tray_state(
-                        app_handle_thread.clone(),
-                        crate::tray::AppTrayState::Default,
-                    );
-                    return;
+        let overlay_root = match library_clone.ensure_overlay(&settings_snapshot, &workshop_paths) {
+            Ok(root) => root,
+            Err(e) => {
+                tracing::error!(error = ?e, "Overlay build failed");
+                let error_response: AppErrorResponse = e.into();
+                let _ = library_clone
+                    .app_handle()
+                    .emit("patcher-error", &error_response);
+                if let Ok(mut s) = state_arc.lock() {
+                    s.phase = PatcherPhase::Idle;
                 }
-            };
+                // TRAY: Reset to default on error
+                let _ = crate::tray::set_tray_state(
+                    app_handle_thread.clone(),
+                    crate::tray::AppTrayState::Default,
+                );
+                return;
+            }
+        };
 
         // Check stop flag between build and patcher loop
         if stop_flag.load(Ordering::SeqCst) {

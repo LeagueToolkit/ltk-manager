@@ -27,6 +27,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     autoRun: false,
     startInTrayUnlessUpdate: false,
     alwaysStartPatcher: false,
+    hasSeenHddWarning: false,
     ...overrides,
   };
 }

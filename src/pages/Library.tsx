@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { useToast } from "@/components";
-import { usePlatformSupport } from "@/hooks";
+import { useHddWarning, usePlatformSupport } from "@/hooks";
 import { api } from "@/lib/tauri";
 import {
   checkModForSkinhack,
@@ -48,6 +48,7 @@ export function Library({ folderId }: LibraryProps = {}) {
   const { data: patcherStatus } = usePatcherStatus();
   const startPatcher = useStartPatcher();
   const stopPatcher = useStopPatcher();
+  const maybeShowHddWarning = useHddWarning();
 
   const isStarting = patcherStatus?.phase === "building";
   const isPatcherActive = patcherStatus?.running ?? false;
@@ -89,6 +90,8 @@ export function Library({ folderId }: LibraryProps = {}) {
     if (flaggedMods.length >= enabledMods.length) {
       return;
     }
+
+    await maybeShowHddWarning();
 
     startPatcher.mutate(
       {},
