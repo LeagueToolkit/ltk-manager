@@ -39,3 +39,17 @@ vi.mock("@tauri-apps/plugin-process", () => ({
 vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(),
 }));
+
+vi.mock("@tauri-apps/plugin-store", () => ({
+  LazyStore: class {
+    get = vi.fn((key: string) => Promise.resolve(localStorage.getItem(key)));
+    set = vi.fn((key: string, value: unknown) => {
+      localStorage.setItem(key, value as string);
+      return Promise.resolve();
+    });
+    delete = vi.fn((key: string) => {
+      localStorage.removeItem(key);
+      return Promise.resolve();
+    });
+  },
+}));

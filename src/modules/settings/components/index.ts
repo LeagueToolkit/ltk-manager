@@ -3,6 +3,7 @@ export { AppearanceSection } from "./AppearanceSection";
 export { AuthorProfilesSection } from "./AuthorProfilesSection";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
+export { LayoutSection } from "./LayoutSection";
 export { LeaguePathSection } from "./LeaguePathSection";
 export { MinimizeToTraySection } from "./MinimizeToTraySection";
 export { ModStorageSection } from "./ModStorageSection";

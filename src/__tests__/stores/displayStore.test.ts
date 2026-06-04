@@ -69,7 +69,7 @@ describe("displayStore", () => {
   });
 
   describe("migration", () => {
-    it("migrates compact density to zoomLevel 70", () => {
+    it("migrates compact density to zoomLevel 70", async () => {
       localStorage.setItem(
         "ltk-display-prefs",
         JSON.stringify({
@@ -79,10 +79,10 @@ describe("displayStore", () => {
       );
 
       useDisplayStore.persist.rehydrate();
-      expect(useDisplayStore.getState().zoomLevel).toBe(70);
+      await vi.waitFor(() => expect(useDisplayStore.getState().zoomLevel).toBe(70));
     });
 
-    it("migrates normal density to zoomLevel 80", () => {
+    it("migrates normal density to zoomLevel 80", async () => {
       localStorage.setItem(
         "ltk-display-prefs",
         JSON.stringify({
@@ -92,11 +92,13 @@ describe("displayStore", () => {
       );
 
       useDisplayStore.persist.rehydrate();
-      expect(useDisplayStore.getState().zoomLevel).toBe(80);
-      expect(useDisplayStore.getState().reduceMotion).toBe("on");
+      await vi.waitFor(() => {
+        expect(useDisplayStore.getState().zoomLevel).toBe(80);
+        expect(useDisplayStore.getState().reduceMotion).toBe("on");
+      });
     });
 
-    it("migrates spacious density to zoomLevel 100", () => {
+    it("migrates spacious density to zoomLevel 100", async () => {
       localStorage.setItem(
         "ltk-display-prefs",
         JSON.stringify({
@@ -106,7 +108,7 @@ describe("displayStore", () => {
       );
 
       useDisplayStore.persist.rehydrate();
-      expect(useDisplayStore.getState().zoomLevel).toBe(100);
+      await vi.waitFor(() => expect(useDisplayStore.getState().zoomLevel).toBe(100));
     });
   });
 });

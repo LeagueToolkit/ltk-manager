@@ -25,6 +25,7 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-store = "2"
 
 ltk_modpkg = { version = "0.5.0", features = ["project"] }
 ltk_mod_project = { version = "0.4.1" }

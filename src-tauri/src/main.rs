@@ -44,6 +44,7 @@ fn main() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .manage(logging_guards)
         .setup(setup::run)
         .invoke_handler(tauri::generate_handler![

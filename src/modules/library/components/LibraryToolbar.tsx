@@ -5,6 +5,7 @@ import type { PatcherStatus } from "@/lib/tauri";
 import type { FilterOptions } from "@/modules/library/api";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
+import { useUiPreferences } from "@/stores";
 
 import { ActiveFilterChips } from "./ActiveFilterChips";
 import { FilterPopover } from "./FilterPopover";
@@ -40,6 +41,7 @@ export function LibraryToolbar({
   filterOptions,
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
+  const uiPrefs = useUiPreferences();
 
   return (
     <div className="border-b border-surface-600 bg-surface-800/50 px-4 py-3" data-tauri-drag-region>
@@ -56,29 +58,31 @@ export function LibraryToolbar({
           />
         </div>
 
-        <FilterPopover filterOptions={filterOptions} />
+        {uiPrefs.showFilterPopover && <FilterPopover filterOptions={filterOptions} />}
 
-        <SortDropdown />
+        {uiPrefs.showSortDropdown && <SortDropdown />}
 
         {/* View toggle */}
-        <div className="flex items-center gap-1">
-          <Tooltip content="Grid view">
-            <IconButton
-              icon={<Grid3X3 className="h-4 w-4" />}
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-            />
-          </Tooltip>
-          <Tooltip content="List view">
-            <IconButton
-              icon={<List className="h-4 w-4" />}
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-            />
-          </Tooltip>
-        </div>
+        {uiPrefs.showViewToggle && (
+          <div className="flex items-center gap-1">
+            <Tooltip content="Grid view">
+              <IconButton
+                icon={<Grid3X3 className="h-4 w-4" />}
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              />
+            </Tooltip>
+            <Tooltip content="List view">
+              <IconButton
+                icon={<List className="h-4 w-4" />}
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              />
+            </Tooltip>
+          </div>
+        )}
 
         {/* Actions */}
         <Tooltip

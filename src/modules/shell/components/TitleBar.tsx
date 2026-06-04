@@ -20,6 +20,7 @@ import { IconButton, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { ProfileSelector } from "@/modules/library";
+import { useUiPreferences } from "@/stores";
 
 import { NotificationCenter } from "./NotificationCenter";
 
@@ -87,6 +88,7 @@ interface TitleBarProps {
 export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const { data: platform } = usePlatformSupport();
   const isMacOS = platform?.os === "macos";
+  const uiPrefs = useUiPreferences();
 
   const version = appInfo?.version;
   const bugReportUrl = buildBugReportUrl(appInfo);
@@ -163,60 +165,68 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
-        <Tooltip content="Open storage directory">
-          <IconButton
-            icon={<FolderOpen className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenStorageDirectory}
-            aria-label="Open storage directory"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        {uiPrefs.showStorageButton && (
+          <Tooltip content="Open storage directory">
+            <IconButton
+              icon={<FolderOpen className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStorageDirectory}
+              aria-label="Open storage directory"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
+        )}
 
-        <NotificationCenter />
+        {uiPrefs.showNotificationBell && <NotificationCenter />}
 
-        <Tooltip content="Report a Bug">
-          <IconButton
-            icon={<Accessibility className="h-5 w-5" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open(bugReportUrl)}
-            aria-label="Report a Bug"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        {uiPrefs.showBugReportButton && (
+          <Tooltip content="Report a Bug">
+            <IconButton
+              icon={<Accessibility className="h-5 w-5" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open(bugReportUrl)}
+              aria-label="Report a Bug"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
+        )}
 
-        <Tooltip content="Join our Discord">
-          <IconButton
-            icon={<DiscordIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open("https://discord.gg/yhzDVRyQex")}
-            aria-label="Join our Discord"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        {uiPrefs.showDiscordButton && (
+          <Tooltip content="Join our Discord">
+            <IconButton
+              icon={<DiscordIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open("https://discord.gg/yhzDVRyQex")}
+              aria-label="Join our Discord"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
+        )}
 
-        <Tooltip content="Diagnostics">
-          <Link
-            to="/diagnostics"
-            activeProps={{
-              className: twMerge(settingsLinkBase, activeLinkClass),
-            }}
-            inactiveProps={{
-              className: twMerge(settingsLinkBase, inactiveLinkClass),
-            }}
-            aria-label="Diagnostics"
-          >
-            {({ isActive }) => (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                {isActive && <ActiveIndicator />}
-              </>
-            )}
-          </Link>
-        </Tooltip>
+        {uiPrefs.showDiagnosticsLink && (
+          <Tooltip content="Diagnostics">
+            <Link
+              to="/diagnostics"
+              activeProps={{
+                className: twMerge(settingsLinkBase, activeLinkClass),
+              }}
+              inactiveProps={{
+                className: twMerge(settingsLinkBase, inactiveLinkClass),
+              }}
+              aria-label="Diagnostics"
+            >
+              {({ isActive }) => (
+                <>
+                  <Stethoscope className="h-4 w-4" />
+                  {isActive && <ActiveIndicator />}
+                </>
+              )}
+            </Link>
+          </Tooltip>
+        )}
 
         {/* Settings button */}
         <Link
