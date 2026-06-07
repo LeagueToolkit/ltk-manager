@@ -1,17 +1,16 @@
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult, MutexResultExt};
-use crate::legacy_patcher::api::PATCHER_DLL_NAME;
-use crate::legacy_patcher::runner::{
-    run_legacy_patcher_loop, LegacyPatcherLoopError, DEFAULT_HOOK_TIMEOUT_MS,
-};
 use crate::mods::ModLibraryState;
-use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
+use crate::patcher::{
+    run_platform_patcher_loop, PatcherPhase, PatcherState, PlatformPatcherConfig,
+    StoredPatcherConfig,
+};
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 use ts_rs::TS;
 
 /// Configuration for starting the patcher.
@@ -51,62 +50,6 @@ pub struct PatcherStatus {
     pub phase: PatcherPhase,
 }
 
-/// Resolve the path to the patcher DLL from bundled resources.
-fn resolve_patcher_dll_path(app_handle: &AppHandle) -> AppResult<PathBuf> {
-    let resource_path = app_handle
-        .path()
-        .resource_dir()
-        .map_err(|e| AppError::Other(format!("Failed to get resource directory: {}", e)))?
-        .join(PATCHER_DLL_NAME);
-
-    if resource_path.exists() {
-        tracing::info!(
-            "Resolved patcher DLL from resource_dir: {}",
-            resource_path.display()
-        );
-        return Ok(resource_path);
-    }
-
-    // Fallback for development: check next to executable
-    let dev_path = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .map(|p| p.join(PATCHER_DLL_NAME));
-
-    if let Some(ref path) = dev_path {
-        if path.exists() {
-            tracing::info!(
-                "Resolved patcher DLL next to executable: {}",
-                path.display()
-            );
-            return Ok(path.clone());
-        }
-    }
-
-    // Fallback for `tauri dev`: use the checked-in resources folder from the crate.
-    // (`resource_dir()` during dev often points at `target/debug/`, but resources may not be copied there.)
-    let manifest_resource_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("resources")
-        .join(PATCHER_DLL_NAME);
-    if manifest_resource_path.exists() {
-        tracing::info!(
-            "Resolved patcher DLL from CARGO_MANIFEST_DIR resources: {}",
-            manifest_resource_path.display()
-        );
-        return Ok(manifest_resource_path);
-    }
-
-    Err(AppError::Other(format!(
-        "Patcher DLL not found. Tried:\n - {}\n - {}\n - {}",
-        resource_path.display(),
-        dev_path
-            .as_ref()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|| "<unavailable>".to_string()),
-        manifest_resource_path.display(),
-    )))
-}
-
 /// Start the patcher with the given configuration.
 ///
 /// Returns immediately after spawning a background thread that builds the overlay
@@ -133,7 +76,7 @@ pub(crate) fn start_patcher_inner(
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
 ) -> AppResult<()> {
-    if cfg!(not(target_os = "windows")) {
+    if cfg!(not(any(target_os = "windows", target_os = "macos"))) {
         return Err(AppError::Other(
             "The patcher is not yet available on this platform".to_string(),
         ));
@@ -153,11 +96,7 @@ pub(crate) fn start_patcher_inner(
         (Arc::clone(&patcher_state.stop_flag), Arc::clone(&state.0))
     };
 
-    tracing::info!("Start patcher requested (legacy DLL mode)");
-
-    // Resolve DLL path and snapshot settings
-    let dll_path = resolve_patcher_dll_path(app_handle)?;
-    tracing::info!("Using patcher DLL: {}", dll_path.display());
+    tracing::info!("Start patcher requested");
 
     // Stash config for hot-reload
     {
@@ -170,9 +109,12 @@ pub(crate) fn start_patcher_inner(
         });
     }
 
+    #[cfg(target_os = "windows")]
     let log_file = config.log_file.clone();
-    let timeout_ms = config.timeout_ms.unwrap_or(DEFAULT_HOOK_TIMEOUT_MS);
-    let flags = config.flags.unwrap_or(0);
+    #[cfg(target_os = "windows")]
+    let timeout_ms = config.timeout_ms;
+    #[cfg(target_os = "windows")]
+    let flags = config.flags;
 
     // tray: we see if we are loading Workshop or Library based on the config
     let is_workshop = config
@@ -274,18 +216,27 @@ pub(crate) fn start_patcher_inner(
         };
         let _ = crate::tray::set_tray_state(app_handle_thread.clone(), on_state);
 
-        // This blocks until the game closes or the patcher is stopped
-        match run_legacy_patcher_loop(
-            &dll_path,
-            &overlay_root_str,
-            log_file.as_deref(),
+        match run_platform_patcher_loop(PlatformPatcherConfig {
+            app_handle: &app_handle_thread,
+            overlay_root: &overlay_root,
+            #[cfg(target_os = "windows")]
+            overlay_root_str: &overlay_root_str,
+            #[cfg(target_os = "windows")]
+            log_file: log_file.as_deref(),
+            #[cfg(target_os = "windows")]
             timeout_ms,
+            #[cfg(target_os = "windows")]
             flags,
-            &stop_flag,
-        ) {
+            stop_flag: &stop_flag,
+        }) {
             Ok(()) => tracing::info!("Patcher loop completed successfully"),
-            Err(LegacyPatcherLoopError::Stopped) => tracing::info!("Patcher stopped by request"),
-            Err(e) => tracing::error!("Patcher loop error: {}", e),
+            Err(e) => {
+                tracing::error!(error = ?e, "Patcher loop error");
+                let error_response: AppErrorResponse = e.into();
+                let _ = library_clone
+                    .app_handle()
+                    .emit("patcher-error", &error_response);
+            }
         }
 
         // Cleanup Phase

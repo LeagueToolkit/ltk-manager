@@ -288,8 +288,16 @@ pub(crate) fn resolve_game_dir(settings: &Settings) -> AppResult<PathBuf> {
         .clone()
         .ok_or_else(|| AppError::ValidationFailed("League path is not configured".to_string()))?;
 
-    // Users might configure either the install root (…/League of Legends) or the Game dir (…/League of Legends/Game).
-    // Accept both.
+    #[cfg(target_os = "macos")]
+    {
+        let bundle_game_dir = league_root.join("Contents").join("LoL").join("Game");
+        if bundle_game_dir.exists() {
+            return Ok(bundle_game_dir);
+        }
+    }
+
+    // Users might configure either the install root (.../League of Legends) or the Game dir (.../League of Legends/Game).
+    // Accept both. On macOS, the inner LoL root uses the same `Game` child shape.
     let game_dir = league_root.join("Game");
     if game_dir.exists() {
         return Ok(game_dir);
@@ -342,6 +350,21 @@ mod tests {
         };
         let result = resolve_game_dir(&settings).unwrap();
         assert_eq!(result, dir.path().to_path_buf());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resolve_game_dir_with_macos_outer_app_bundle() {
+        let dir = tempfile::tempdir().unwrap();
+        let app = dir.path().join("League of Legends.app");
+        std::fs::create_dir_all(app.join("Contents").join("LoL").join("Game")).unwrap();
+
+        let settings = Settings {
+            league_path: Some(app.clone()),
+            ..Settings::default()
+        };
+        let result = resolve_game_dir(&settings).unwrap();
+        assert_eq!(result, app.join("Contents").join("LoL").join("Game"));
     }
 
     #[test]

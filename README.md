@@ -40,7 +40,7 @@ The next-generation mod manager for League of Legends, built by the [League Tool
 
 ### Prerequisites
 
-- **Windows 10 or 11** (64-bit). macOS and Linux support is planned.
+- **Windows 10/11 (64-bit) or macOS (Apple Silicon)**. Linux support is planned.
 - **League of Legends** — a valid game installation.
 
 ### Installation

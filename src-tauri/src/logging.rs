@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+#[cfg(debug_assertions)]
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
 use tracing_appender::{non_blocking, non_blocking::WorkerGuard, rolling};

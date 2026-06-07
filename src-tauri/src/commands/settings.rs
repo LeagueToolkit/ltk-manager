@@ -67,14 +67,11 @@ fn auto_detect_league_path_inner() -> Option<PathBuf> {
 /// Validate a League installation path.
 #[tauri::command]
 pub fn validate_league_path(path: PathBuf) -> IpcResult<bool> {
-    let valid = if cfg!(target_os = "macos") {
-        // Path points to the .app bundle (e.g. /Applications/League of Legends.app)
-        path.join("Contents").join("LoL").join("Game").exists()
-            // Path points to the LoL root inside the bundle
-            || path.join("Game").join("League of Legends.app").exists()
-    } else {
-        path.join("Game").join("League of Legends.exe").exists()
-    };
+    let valid = resolve_game_dir(&Settings {
+        league_path: Some(path),
+        ..Settings::default()
+    })
+    .is_ok();
     IpcResult::ok(valid)
 }
 
@@ -103,4 +100,38 @@ fn check_setup_required_inner(state: &State<SettingsState>) -> AppResult<bool> {
     let settings = state.0.lock().mutex_err()?;
 
     Ok(settings.league_path.is_none())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_league_path_accepts_resolvable_game_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("League of Legends");
+        std::fs::create_dir_all(root.join("Game")).unwrap();
+
+        assert!(matches!(
+            validate_league_path(root),
+            IpcResult::Ok { value: true }
+        ));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn validate_league_path_accepts_macos_inner_lol_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir
+            .path()
+            .join("League of Legends.app")
+            .join("Contents")
+            .join("LoL");
+        std::fs::create_dir_all(root.join("Game")).unwrap();
+
+        assert!(matches!(
+            validate_league_path(root),
+            IpcResult::Ok { value: true }
+        ));
+    }
 }

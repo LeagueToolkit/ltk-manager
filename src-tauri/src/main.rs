@@ -8,6 +8,7 @@ mod deep_link;
 mod diagnostics;
 mod error;
 mod hotkeys;
+#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
 mod legacy_patcher;
 #[cfg(debug_assertions)]
 mod log_layer;
