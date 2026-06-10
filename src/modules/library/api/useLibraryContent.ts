@@ -61,8 +61,8 @@ export function useLibraryContent({
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
   const isSearching = searchQuery.length > 0;
   const isPrioritySort = sort.field === "priority";
-  const dndDisabled =
-    isSearching || isPatcherActive || !isPrioritySort || hasActiveFilters || selectMode;
+  const dndDisabled = isSearching || isPatcherActive || hasActiveFilters || selectMode;
+  const reorderDisabled = !isPrioritySort;
   const isFlatMode = isSearching || hasActiveFilters;
 
   const folderMap = useMemo(() => {
@@ -140,6 +140,7 @@ export function useLibraryContent({
   return {
     viewMode,
     dndDisabled,
+    reorderDisabled,
     selectMode,
     contentView,
     detailsMod,

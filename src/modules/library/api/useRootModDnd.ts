@@ -10,9 +10,10 @@ import { useMoveModToFolder } from "./useMoveMod";
 interface UseRootModDndArgs {
   rootMods: InstalledMod[];
   onReorder: (modIds: string[]) => void;
+  reorderDisabled: boolean;
 }
 
-export function useRootModDnd({ rootMods, onReorder }: UseRootModDndArgs) {
+export function useRootModDnd({ rootMods, onReorder, reorderDisabled }: UseRootModDndArgs) {
   const moveModToFolder = useMoveModToFolder();
 
   const rootModIds = useMemo(() => rootMods.map((m) => m.id), [rootMods]);
@@ -21,6 +22,11 @@ export function useRootModDnd({ rootMods, onReorder }: UseRootModDndArgs) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[]>(rootModIds);
   const lastPropsOrder = useRef<string[]>(rootModIds);
+  const localOrderRef = useRef<string[]>(localOrder);
+
+  useEffect(() => {
+    localOrderRef.current = localOrder;
+  }, [localOrder]);
 
   useEffect(() => {
     if (hasOrderChanged(rootModIds, lastPropsOrder.current)) {
@@ -40,20 +46,24 @@ export function useRootModDnd({ rootMods, onReorder }: UseRootModDndArgs) {
     setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
 
-    const overId = over.id as string;
-    if (resolveFolderId(overId)) return;
+      const overId = over.id as string;
+      if (resolveFolderId(overId)) return;
+      if (reorderDisabled) return;
 
-    setLocalOrder((prev) => {
-      const oldIndex = prev.indexOf(active.id as string);
-      const newIndex = prev.indexOf(overId);
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      return arrayMove(prev, oldIndex, newIndex);
-    });
-  }, []);
+      setLocalOrder((prev) => {
+        const oldIndex = prev.indexOf(active.id as string);
+        const newIndex = prev.indexOf(overId);
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    },
+    [reorderDisabled],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -68,11 +78,12 @@ export function useRootModDnd({ rootMods, onReorder }: UseRootModDndArgs) {
         }
       }
 
-      if (hasOrderChanged(localOrder, rootModIds)) {
-        onReorder(localOrder);
+      const currentOrder = localOrderRef.current;
+      if (!reorderDisabled && hasOrderChanged(currentOrder, rootModIds)) {
+        onReorder(currentOrder);
       }
     },
-    [localOrder, rootModIds, onReorder, moveModToFolder],
+    [rootModIds, onReorder, moveModToFolder, reorderDisabled],
   );
 
   const handleDragCancel = useCallback(() => {

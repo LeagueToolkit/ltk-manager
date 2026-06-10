@@ -27,6 +27,7 @@ export function LibraryContent({
   const {
     viewMode,
     dndDisabled,
+    reorderDisabled,
     selectMode,
     contentView,
     detailsMod,
@@ -117,6 +118,7 @@ export function LibraryContent({
                 reorderFolderMods.mutate({ folderId: contentView.folder.id, modIds })
               }
               disabled={dndDisabled}
+              reorderDisabled={reorderDisabled}
               onViewDetails={setDetailsMod}
               onEditMetadata={setEditMod}
               className={`${gridClass(viewMode)} stagger-enter mt-4`}
@@ -150,6 +152,7 @@ export function LibraryContent({
             modsByFolder={contentView.modsByFolder}
             viewMode={viewMode}
             dndDisabled={dndDisabled}
+            reorderDisabled={reorderDisabled}
             onReorder={(modIds) => reorderMods.mutate(modIds)}
             onViewDetails={setDetailsMod}
             onEditMetadata={setEditMod}

@@ -41,6 +41,7 @@ interface SortableModListProps {
   viewMode: "grid" | "list";
   onReorder: (modIds: string[]) => void;
   disabled?: boolean;
+  reorderDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
   className?: string;
@@ -52,6 +53,7 @@ export function SortableModList({
   viewMode,
   onReorder,
   disabled,
+  reorderDisabled,
   onViewDetails,
   onEditMetadata,
   className,
@@ -66,7 +68,7 @@ export function SortableModList({
     handleDragOver,
     handleDragEnd,
     handleDragCancel,
-  } = useSortableModDnd({ mods, onReorder, folderId });
+  } = useSortableModDnd({ mods, onReorder, folderId, reorderDisabled });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -109,6 +111,7 @@ export function SortableModList({
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              reorderDisabled={reorderDisabled}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

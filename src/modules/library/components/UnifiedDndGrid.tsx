@@ -28,6 +28,7 @@ interface UnifiedDndGridProps {
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
   dndDisabled: boolean;
+  reorderDisabled: boolean;
   onReorder: (modIds: string[]) => void;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
@@ -39,6 +40,7 @@ export function UnifiedDndGrid({
   modsByFolder,
   viewMode,
   dndDisabled,
+  reorderDisabled,
   onReorder,
   onViewDetails,
   onEditMetadata,
@@ -67,6 +69,7 @@ export function UnifiedDndGrid({
       rootMods={rootMods}
       modsByFolder={modsByFolder}
       viewMode={viewMode}
+      reorderDisabled={reorderDisabled}
       onReorder={onReorder}
       onViewDetails={onViewDetails}
       onEditMetadata={onEditMetadata}
@@ -129,6 +132,7 @@ interface DndGridProps {
   rootMods: InstalledMod[];
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
+  reorderDisabled: boolean;
   onReorder: (modIds: string[]) => void;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
@@ -139,6 +143,7 @@ function DndGrid({
   rootMods,
   modsByFolder,
   viewMode,
+  reorderDisabled,
   onReorder,
   onViewDetails,
   onEditMetadata,
@@ -156,7 +161,7 @@ function DndGrid({
     handleDragOver,
     handleDragEnd,
     handleDragCancel,
-  } = useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder });
+  } = useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder, reorderDisabled });
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -191,7 +196,7 @@ function DndGrid({
                   sortableId={sortableId}
                   folder={folder}
                   mods={folderMods}
-                  sortDisabled={isDraggingMod || isDraggingFolderMod}
+                  sortDisabled={reorderDisabled || isDraggingMod || isDraggingFolderMod}
                   onViewDetails={onViewDetails}
                   onEditMetadata={onEditMetadata}
                 />
@@ -203,7 +208,7 @@ function DndGrid({
                 sortableId={sortableId}
                 folder={folder}
                 mods={folderMods}
-                sortDisabled={isDraggingMod || isDraggingFolderMod}
+                sortDisabled={reorderDisabled || isDraggingMod || isDraggingFolderMod}
               />
             );
           })}
@@ -213,6 +218,7 @@ function DndGrid({
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              reorderDisabled={reorderDisabled}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

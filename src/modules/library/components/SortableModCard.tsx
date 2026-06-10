@@ -10,6 +10,7 @@ import { ModCard } from "./ModCard";
 interface SortableModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
+  reorderDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
 }
@@ -17,11 +18,13 @@ interface SortableModCardProps {
 export function SortableModCard({
   mod,
   viewMode,
+  reorderDisabled,
   onViewDetails,
   onEditMetadata,
 }: SortableModCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: mod.id,
+    disabled: reorderDisabled ? { droppable: true } : false,
   });
   const { data: patcherStatus } = usePatcherStatus();
   const disabled = patcherStatus?.running ?? false;

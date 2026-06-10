@@ -24,9 +24,16 @@ interface UseUnifiedDndArgs {
   rootMods: InstalledMod[];
   modsByFolder: Map<string, InstalledMod[]>;
   onReorder: (modIds: string[]) => void;
+  reorderDisabled: boolean;
 }
 
-export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: UseUnifiedDndArgs) {
+export function useUnifiedDnd({
+  folders,
+  rootMods,
+  modsByFolder,
+  onReorder,
+  reorderDisabled,
+}: UseUnifiedDndArgs) {
   const {
     localOrder: modLocalOrder,
     orderedRootMods,
@@ -35,7 +42,7 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
     handleDragOver: handleModDragOver,
     handleDragEnd: handleModDragEnd,
     handleDragCancel: handleModDragCancel,
-  } = useRootModDnd({ rootMods, onReorder });
+  } = useRootModDnd({ rootMods, onReorder, reorderDisabled });
 
   const {
     folderLocalOrder,
@@ -134,6 +141,7 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
 
           const overFolderMod = folderModLookup.get(overId);
           if (overFolderMod && overFolderMod.folderId === activeFolderModSource) {
+            if (reorderDisabled) return;
             const currentOrder = (modsByFolder.get(activeFolderModSource) ?? []).map((m) => m.id);
             const oldIndex = currentOrder.indexOf(id);
             const newIndex = currentOrder.indexOf(overId);
@@ -159,6 +167,7 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
       modsByFolder,
       moveModToFolder,
       reorderFolderMods,
+      reorderDisabled,
     ],
   );
 
@@ -186,12 +195,58 @@ export function useUnifiedDnd({ folders, rootMods, modsByFolder, onReorder }: Us
         const withoutSource = args.droppableContainers.filter(
           (c) => c.id !== `sortable-folder:${activeSourceFolderId}`,
         );
-        return closestCenter({ ...args, droppableContainers: withoutSource });
+        if (reorderDisabled) {
+          const hits = pointerWithin({ ...args, droppableContainers: withoutSource });
+          return hits
+            .map((hit) => {
+              const folderMod = folderModLookup.get(hit.id as string);
+              if (folderMod && folderMod.folderId !== activeSourceFolderId) {
+                return { ...hit, id: `sortable-folder:${folderMod.folderId}` };
+              }
+              if (folderMod && folderMod.folderId === activeSourceFolderId) {
+                return null;
+              }
+              return hit;
+            })
+            .filter(Boolean) as ReturnType<CollisionDetection>;
+        }
+        const folderHit = pointerWithin({ ...args, droppableContainers: withoutSource }).find((c) =>
+          parseSortableFolderId(c.id as string),
+        );
+        if (folderHit) return [folderHit];
+
+        const siblingsOnly = withoutSource.filter((c) => {
+          const mod = folderModLookup.get(c.id as string);
+          return mod && mod.folderId === activeSourceFolderId;
+        });
+        return closestCenter({ ...args, droppableContainers: siblingsOnly });
       }
 
-      return closestCenter(args);
+      if (reorderDisabled) {
+        const hits = pointerWithin(args);
+        return hits.map((hit) => {
+          const folderMod = folderModLookup.get(hit.id as string);
+          if (folderMod) {
+            return { ...hit, id: `sortable-folder:${folderMod.folderId}` };
+          }
+          return hit;
+        });
+      }
+
+      const withoutFolderMods = args.droppableContainers.filter(
+        (c) => !folderModLookup.has(c.id as string),
+      );
+      // Use pointerWithin for folder drops (requires pointer inside folder),
+      // closestCenter for mod reorder (works by proximity to center)
+      const folderHit = pointerWithin({ ...args, droppableContainers: withoutFolderMods }).find(
+        (c) => parseSortableFolderId(c.id as string),
+      );
+      if (folderHit) return [folderHit];
+
+      const rootModsOnly = withoutFolderMods.filter((c) => !parseSortableFolderId(c.id as string));
+      return closestCenter({ ...args, droppableContainers: rootModsOnly });
     },
-    [folderModLookup],
+    [folderModLookup, reorderDisabled],
   );
 
   return {

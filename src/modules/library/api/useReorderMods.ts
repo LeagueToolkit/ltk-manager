@@ -6,7 +6,9 @@ import { unwrapForQuery } from "@/utils/query";
 import { libraryKeys } from "./keys";
 
 /**
- * Hook to reorder enabled mods in the active profile.
+ * Hook to reorder mods in the active profile.
+ * Accepts a partial list of mod IDs (e.g. root mods only) and automatically
+ * appends any remaining mods from the cache so the backend receives the full set.
  * Uses optimistic updates for instant UI feedback.
  */
 export function useReorderMods() {
@@ -14,7 +16,9 @@ export function useReorderMods() {
 
   return useMutation<void, AppError, string[], { previous?: InstalledMod[] }>({
     mutationFn: async (modIds) => {
-      const result = await api.reorderMods(modIds);
+      const allMods = queryClient.getQueryData<InstalledMod[]>(libraryKeys.mods());
+      const fullOrder = buildFullOrder(modIds, allMods);
+      const result = await api.reorderMods(fullOrder);
       return unwrapForQuery(result);
     },
     onMutate: async (modIds) => {
@@ -26,7 +30,18 @@ export function useReorderMods() {
         if (!old) return old;
 
         const modMap = new Map(old.map((m) => [m.id, m]));
-        return modIds.map((id) => modMap.get(id)).filter(Boolean) as InstalledMod[];
+        const reorderedSet = new Set(modIds);
+        const folderMods = old.filter((m) => !reorderedSet.has(m.id));
+        const reorderedMods = modIds
+          .map((id) => {
+            const mod = modMap.get(id);
+            if (!mod) {
+              console.warn(`[useReorderMods] mod ID "${id}" not found in cache, skipping`);
+            }
+            return mod;
+          })
+          .filter(Boolean) as InstalledMod[];
+        return [...reorderedMods, ...folderMods];
       });
 
       return { previous };
@@ -40,4 +55,12 @@ export function useReorderMods() {
       queryClient.invalidateQueries({ queryKey: libraryKeys.mods() });
     },
   });
+}
+
+/** Build the full mod ID list the backend expects: reordered IDs first, then any remaining. */
+function buildFullOrder(reorderedIds: string[], allMods: InstalledMod[] | undefined): string[] {
+  if (!allMods) return reorderedIds;
+  const reorderedSet = new Set(reorderedIds);
+  const remaining = allMods.filter((m) => !reorderedSet.has(m.id)).map((m) => m.id);
+  return [...reorderedIds, ...remaining];
 }
