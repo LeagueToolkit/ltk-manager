@@ -1,4 +1,4 @@
-import { CheckCheck, CheckSquare, Grid3X3, List, Play, Plus, Search, X } from "lucide-react";
+import { CheckCheck, Grid3X3, List, Play, Plus, Search, Trash2, X } from "lucide-react";
 
 import { Button, IconButton, Kbd, Tooltip } from "@/components";
 import type { InstalledMod, PatcherStatus } from "@/lib/tauri";
@@ -127,9 +127,10 @@ export function LibraryToolbar({
             size="sm"
             onClick={selectMode ? exitSelectMode : enterSelectMode}
             disabled={isPatcherActive || isLoading}
-            left={<CheckSquare className="h-4 w-4" />}
+            left={<Trash2 className="h-4 w-4" />}
+            className="min-w-[108px]"
           >
-            Select
+            {selectMode ? "Cancel" : "Uninstall"}
           </Button>
         </Tooltip>
 
