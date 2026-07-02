@@ -207,6 +207,9 @@ pub struct Settings {
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
+    /// Exit the application after the patcher successfully injects into the game. Default: false.
+    #[serde(default)]
+    pub exit_after_patching: bool,
     /// Whether the user has dismissed the migration banner.
     #[serde(default)]
     pub migration_dismissed: bool,
@@ -286,6 +289,7 @@ impl Default for Settings {
             auto_run: false,
             start_in_tray_unless_update: false,
             always_start_patcher: false,
+            exit_after_patching: false,
             migration_dismissed: false,
             reload_mods_hotkey: None,
             kill_league_hotkey: None,
@@ -319,6 +323,7 @@ mod tests {
         assert_eq!(settings.theme, Theme::System);
         assert!(!settings.patch_tft);
         assert!(settings.minimize_to_tray);
+        assert!(!settings.exit_after_patching);
         assert!(!settings.migration_dismissed);
         assert!(settings.reload_mods_hotkey.is_none());
         assert!(settings.kill_league_hotkey.is_none());
@@ -351,6 +356,7 @@ mod tests {
             auto_run: false,
             start_in_tray_unless_update: false,
             always_start_patcher: false,
+            exit_after_patching: false,
             migration_dismissed: false,
             reload_mods_hotkey: Some("Ctrl+Shift+R".to_string()),
             kill_league_hotkey: None,

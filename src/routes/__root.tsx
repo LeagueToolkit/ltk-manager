@@ -4,7 +4,12 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { useAutoStartPatcher, useReducedMotion, useSurfaceLinkedBinWarning } from "@/hooks";
+import {
+  useAutoStartPatcher,
+  useExitAfterPatching,
+  useReducedMotion,
+  useSurfaceLinkedBinWarning,
+} from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useLibraryWatcher } from "@/modules/library";
 import { LinkedBinWarningDialog, PatcherStatusPill, WadScanFailedDialog } from "@/modules/patcher";
@@ -28,6 +33,7 @@ function RootLayout() {
   useDeepLinkListener();
   useLibraryWatcher();
   useAutoStartPatcher();
+  useExitAfterPatching();
   useSurfaceLinkedBinWarning();
 
   const update = useUpdaterUpdate();

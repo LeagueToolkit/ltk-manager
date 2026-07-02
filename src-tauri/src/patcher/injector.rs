@@ -29,6 +29,8 @@ pub enum InjectorError {
 /// command layer supplies a callback that translates these into UI events.
 #[derive(Debug, Clone)]
 pub enum InjectorEvent {
+    /// The host reported that the hook DLL attached to the game process.
+    Injected,
     /// One or more archives failed the injected DLL's integrity scan, so no mods
     /// were applied this session. The DLL aborts on the first failure, so we
     /// auto-stop the patcher and surface the failures instead of silently doing
@@ -250,6 +252,7 @@ impl Injector {
                         }
                         HostState::Injected => {
                             tracing::info!("[cslol-host] injected: {}", message);
+                            self.emit_event(InjectorEvent::Injected);
                         }
                         HostState::Waiting => {
                             tracing::info!("[cslol-host] waiting: {}", message);

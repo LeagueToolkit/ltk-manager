@@ -57,6 +57,10 @@ export type Settings = {
    */
   alwaysStartPatcher: boolean;
   /**
+   * Exit the application after the patcher successfully injects into the game. Default: false.
+   */
+  exitAfterPatching: boolean;
+  /**
    * Whether the user has dismissed the migration banner.
    */
   migrationDismissed: boolean;

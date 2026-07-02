@@ -352,6 +352,9 @@ pub(crate) fn start_patcher_inner(
         match Injector::new(injector_exe)
             .with_elevate(should_elevate)
             .on_event(move |event| match event {
+                InjectorEvent::Injected => {
+                    let _ = event_handle.emit("patcher-injected", ());
+                }
                 InjectorEvent::WadScanFailed { failures } => {
                     let payload = WadScanFailedPayload {
                         failures: failures
