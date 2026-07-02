@@ -71,6 +71,21 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               off.
             </AlertBox>
           )}
+
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-sm font-medium text-surface-200">
+                Exit after patching
+              </span>
+              <span className="block text-sm text-surface-400">
+                Close LTK Manager after the patcher successfully injects into the running game.
+              </span>
+            </div>
+            <Switch
+              checked={settings.exitAfterPatching}
+              onCheckedChange={(checked) => onSave({ ...settings, exitAfterPatching: checked })}
+            />
+          </label>
         </div>
       </SectionCard>
 
