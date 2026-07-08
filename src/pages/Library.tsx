@@ -44,7 +44,7 @@ export function Library({ folderId }: LibraryProps = {}) {
   const saveSettings = useSaveSettings();
 
   const { data: patcherStatus } = usePatcherStatus();
-  const guardedStart = useGuardedStartPatcher();
+  const { start: guardedStart } = useGuardedStartPatcher();
   const stopPatcher = useStopPatcher();
   const maybeShowHddWarning = useHddWarning();
 
@@ -80,8 +80,8 @@ export function Library({ folderId }: LibraryProps = {}) {
   async function handleStartPatcher() {
     await maybeShowHddWarning();
 
-    // Shared pre-patch gate: force-disables skinhacks, runs the linked-bin check
-    // (handing any offenders to the global LinkedBinWarningDialog), then starts.
+    // Shared start path: force-disables skinhacks, then starts. Linked-bin
+    // offenders surface afterwards via badges + a warning toast, not a pre-flight.
     await guardedStart({});
   }
 

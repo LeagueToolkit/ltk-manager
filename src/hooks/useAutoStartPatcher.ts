@@ -7,7 +7,7 @@ import { useHddWarning } from "./useHddWarning";
 
 export function useAutoStartPatcher() {
   const { data: settings } = useSettings();
-  const guardedStart = useGuardedStartPatcher();
+  const { start: guardedStart } = useGuardedStartPatcher();
   const maybeShowHddWarning = useHddWarning();
 
   const guardedStartRef = useRef(guardedStart);

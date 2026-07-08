@@ -26,7 +26,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
       <BaseSelect.Trigger
         ref={ref}
         className={twMerge(
-          "flex w-full items-center justify-between rounded-lg border px-4 py-2.5 text-sm transition-colors",
+          "flex h-8 w-full items-center justify-between rounded-lg border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50",
           "border-surface-500 hover:border-surface-400",
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",

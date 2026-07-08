@@ -27,7 +27,7 @@ export interface TabsListProps extends Omit<ComponentPropsWithoutRef<"div">, "cl
 export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
   ({ variant = "default", className, children, ...props }, ref) => {
     const variantClasses = match(variant)
-      .with("default", () => "border-b border-surface-700 gap-0")
+      .with("default", () => "border-b border-surface-700 gap-0 overflow-x-auto")
       .with("pills", () => "bg-surface-800 rounded-lg p-1 gap-1")
       .exhaustive();
 
@@ -54,13 +54,13 @@ export interface TabsTabProps extends Omit<BaseTabs.Tab.Props, "className"> {
 export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
   ({ variant = "default", className, children, ...props }, ref) => {
     const baseClasses =
-      "relative px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
+      "relative shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
 
     const variantClasses = match(variant)
       .with(
         "default",
         () =>
-          "text-surface-400 hover:text-surface-200 data-[active]:text-accent-400 data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:-bottom-px data-[active]:after:h-0.5 data-[active]:after:bg-accent-500",
+          "text-surface-400 hover:text-surface-200 data-[active]:text-accent-400 data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:bottom-0 data-[active]:after:h-0.5 data-[active]:after:bg-accent-500",
       )
       .with(
         "pills",

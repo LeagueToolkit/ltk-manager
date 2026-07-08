@@ -3,7 +3,7 @@ use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 
 use crate::deep_link::DeepLinkState;
-use crate::mods::{ModLibrary, ModLibraryState, WadReportState};
+use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
 use crate::patcher::PatcherState;
 use crate::platform::LeagueInstall;
 use crate::state::SettingsState;
@@ -49,6 +49,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     app.manage(settings_state);
     app.manage(patcher_state);
+    app.manage(LinkedBinState::default());
+    app.manage(crate::strings::StringKeyIndexState::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(hotkey_manager);

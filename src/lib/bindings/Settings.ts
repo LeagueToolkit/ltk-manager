@@ -85,6 +85,10 @@ export type Settings = {
    */
   blockScriptsWad: boolean;
   /**
+   * Whether to run the linked-bin dependency check before starting the patcher. Default: true.
+   */
+  linkedBinCheckEnabled: boolean;
+  /**
    * Additional WAD files to exclude from overlay building.
    */
   wadBlocklist: Array<WadBlocklistEntry>;
@@ -105,4 +109,24 @@ export type Settings = {
    * flag (see `commands::patcher::start_patcher_inner`).
    */
   elevateInjector: boolean;
+  /**
+   * Whether to automatically categorize mods from their content (champions,
+   * maps and content tags derived from the WAD/chunk footprint, surfaced as
+   * "auto" suggestions and library filters). When off, only the categories
+   * the user sets themselves are used. Default: true.
+   */
+  autoCategorizationEnabled: boolean;
+  /**
+   * Whether to enforce the anti-skinhack scan while patching. When on
+   * (default), a champion WAD that fails the scan aborts patching. When off,
+   * the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+   * downgraded to warnings and flagged mods load anyway. Default: true.
+   */
+  enforceSkinhackScan: boolean;
+  /**
+   * Whether mods' string overrides are applied to every installed locale
+   * instead of only the locale the League client is configured to use.
+   * Default: false (current locale only).
+   */
+  applyStringOverridesToAllLocales: boolean;
 };

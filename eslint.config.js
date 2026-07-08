@@ -47,6 +47,14 @@ export default tseslint.config(
     },
   },
   {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
     ignores: ["dist/", "node_modules/", "src-tauri/", "target/", "gen/", "prettier.config.js"],
   },
   eslintConfigPrettier,

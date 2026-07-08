@@ -1,11 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import {
-  useEnableModWithLayers,
   useMoveModToFolder,
   useSkinhackFlag,
   useToggleMod,
@@ -44,14 +42,10 @@ export interface ModCardView {
   inSelectedState: boolean;
   inEnabledState: boolean;
   cursorClass: string;
-  pickerOpen: boolean;
-  setPickerOpen: (open: boolean) => void;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
-  onPickerConfirm: (layerStates: Record<string, boolean>) => void;
-  onPickerCancel: () => void;
   onUninstall: () => void;
   onCopyId: () => void;
   onOpenLocation: () => void;
@@ -73,10 +67,8 @@ export function useModCardController({
   const toast = useToast();
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
-  const enableWithLayers = useEnableModWithLayers();
   const moveModToFolder = useMoveModToFolder();
   const { data: patcherStatus } = usePatcherStatus();
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
@@ -97,25 +89,10 @@ export function useModCardController({
   const isMultiLayer = mod.layers.length > 1;
 
   function handleToggle(modId: string, enabled: boolean) {
-    if (enabled && !mod.enabled && isMultiLayer) {
-      setPickerOpen(true);
-      return;
-    }
     toggleMod.mutate(
       { modId, enabled },
       { onError: (error) => console.error("Failed to toggle mod:", error.message) },
     );
-  }
-
-  function handlePickerConfirm(layerStates: Record<string, boolean>) {
-    enableWithLayers.mutate(
-      { modId: mod.id, layerStates },
-      { onError: (error) => console.error("Failed to enable mod with layers:", error.message) },
-    );
-  }
-
-  function handlePickerCancel() {
-    setPickerOpen(false);
   }
 
   function handleUninstall() {
@@ -177,14 +154,10 @@ export function useModCardController({
     inSelectedState,
     inEnabledState,
     cursorClass,
-    pickerOpen,
-    setPickerOpen,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick: handleCardClick,
     onToggle: handleToggle,
-    onPickerConfirm: handlePickerConfirm,
-    onPickerCancel: handlePickerCancel,
     onUninstall: handleUninstall,
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,

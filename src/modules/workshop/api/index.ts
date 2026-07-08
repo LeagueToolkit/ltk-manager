@@ -20,6 +20,7 @@ export { useRenameProject } from "./useRenameProject";
 export { useSaveProjectConfig } from "./useSaveProjectConfig";
 export { useSaveStringOverrides } from "./useSaveStringOverrides";
 export { useSetProjectThumbnail } from "./useSetProjectThumbnail";
+export { useStringKeySearch } from "./useStringKeySearch";
 export { useTestProjects } from "./useTestProject";
 export { useValidateProject, validateProjectOptions } from "./useValidateProject";
 export { useWorkshopProject, workshopProjectOptions } from "./useWorkshopProject";

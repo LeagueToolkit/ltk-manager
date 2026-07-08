@@ -19,7 +19,7 @@ pub use macos::{resolve_helper_path, MacOsBackend, MACOS_HELPER_VERSION};
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 use unsupported::UnsupportedBackend;
 #[cfg(target_os = "windows")]
-use windows::WindowsDllBackend;
+use windows::WindowsHostBackend;
 
 #[derive(Debug, Clone)]
 pub struct PatcherContext {
@@ -29,6 +29,9 @@ pub struct PatcherContext {
     pub log_file: Option<String>,
     pub timeout_ms: u32,
     pub flags: u64,
+    /// Run the injection host elevated (UAC bridge). Windows-only concept;
+    /// other backends ignore it.
+    pub elevate: bool,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -103,7 +106,7 @@ pub trait PatcherBackend: Send + Sync {
 pub fn selected_backend(app_handle: &AppHandle) -> Box<dyn PatcherBackend> {
     #[cfg(target_os = "windows")]
     {
-        Box::new(WindowsDllBackend::new(app_handle.clone()))
+        Box::new(WindowsHostBackend::new(app_handle.clone()))
     }
     #[cfg(target_os = "macos")]
     {
@@ -188,6 +191,7 @@ mod tests {
             log_file: None,
             timeout_ms: 100,
             flags: 0,
+            elevate: false,
         }
     }
 

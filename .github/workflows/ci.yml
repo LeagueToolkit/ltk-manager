@@ -81,3 +81,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with: { components: rustfmt }
       - run: cargo fmt --all -- --check
+
+  licenses:
+    name: License Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-about@0.9.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: node scripts/generate-licenses.mjs
+      - name: Verify committed license manifest is up to date
+        run: git diff --exit-code public/third-party-licenses.json

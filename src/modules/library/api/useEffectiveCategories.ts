@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
 import { computeEffectiveCategories, type EffectiveCategories } from "@/modules/library/utils";
+import { useSettings } from "@/modules/settings";
 
 import { useAllModWadReports } from "./useModWadReport";
 
@@ -11,18 +12,21 @@ import { useAllModWadReports } from "./useModWadReport";
  * the footprint. Reads the shared batch report query, so no per-mod IPC.
  *
  * Every mod gets an entry; mods without a report contribute declared-only
- * values.
+ * values. When auto-categorization is disabled in settings, the derived
+ * footprint is ignored entirely so only user-declared categories remain.
  */
 export function useEffectiveCategories(mods: InstalledMod[]): Map<string, EffectiveCategories> {
   const { data: reports } = useAllModWadReports();
+  const { data: settings } = useSettings();
+  const autoEnabled = settings?.autoCategorizationEnabled ?? true;
 
   return useMemo(() => {
     const map = new Map<string, EffectiveCategories>();
     for (const mod of mods) {
-      map.set(mod.id, computeEffectiveCategories(mod, reports?.[mod.id]));
+      map.set(mod.id, computeEffectiveCategories(mod, autoEnabled ? reports?.[mod.id] : undefined));
     }
     return map;
-  }, [mods, reports]);
+  }, [mods, reports, autoEnabled]);
 }
 
 /**
@@ -31,5 +35,11 @@ export function useEffectiveCategories(mods: InstalledMod[]): Map<string, Effect
  */
 export function useModEffectiveCategories(mod: InstalledMod): EffectiveCategories {
   const { data: reports } = useAllModWadReports();
-  return useMemo(() => computeEffectiveCategories(mod, reports?.[mod.id]), [mod, reports]);
+  const { data: settings } = useSettings();
+  const autoEnabled = settings?.autoCategorizationEnabled ?? true;
+
+  return useMemo(
+    () => computeEffectiveCategories(mod, autoEnabled ? reports?.[mod.id] : undefined),
+    [mod, reports, autoEnabled],
+  );
 }

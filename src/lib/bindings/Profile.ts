@@ -27,7 +27,6 @@ export type Profile = {
   modOrder: Array<string>;
   /**
    * Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled).
-   * Missing entries default to all layers enabled.
    */
   layerStates: { [key in string]: { [key in string]: boolean } };
   /**

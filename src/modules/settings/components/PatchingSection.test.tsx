@@ -19,6 +19,16 @@ vi.mock("@/modules/settings/api", () => ({
   useDetectLeagueRunAsAdmin: () => ({ data: false }),
 }));
 
+vi.mock("@/modules/patcher", () => ({
+  usePatcherStatus: () => ({ data: { running: false } }),
+  useRebuildOverlay: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
+vi.mock("@/components", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components")>()),
+  useToast: () => ({ success: vi.fn(), error: vi.fn() }),
+}));
+
 vi.mock("./WadBlocklistEditor", () => ({
   WadBlocklistEditor: () => null,
 }));

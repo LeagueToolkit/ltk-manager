@@ -7,10 +7,10 @@
 
 use crate::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
-#[cfg(target_os = "windows")]
-use crate::legacy_patcher::api::PATCHER_DLL_NAME;
 #[cfg(target_os = "macos")]
 use crate::patcher::backend::resolve_helper_path;
+#[cfg(target_os = "windows")]
+use crate::patcher::host::HOOK_DLL_NAME;
 use crate::platform::LeagueInstall;
 use crate::state::{get_app_data_dir, SettingsState};
 #[cfg(target_os = "windows")]
@@ -19,13 +19,13 @@ use std::path::PathBuf;
 use tauri::Manager;
 use tauri::{AppHandle, State};
 
-/// Same lookup chain as `commands::patcher::resolve_resource`, but returns
+/// Same lookup chain as the Windows backend's host-exe resolution, but returns
 /// `None` instead of an error so we can still report the rest of the
 /// diagnostics when the DLL is missing.
 #[cfg(target_os = "windows")]
 fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
     if let Ok(dir) = app_handle.path().resource_dir() {
-        let p = dir.join(PATCHER_DLL_NAME);
+        let p = dir.join(HOOK_DLL_NAME);
         if p.exists() {
             return Some(p);
         }
@@ -33,7 +33,7 @@ fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
     if let Some(dev) = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .map(|p| p.join(PATCHER_DLL_NAME))
+        .map(|p| p.join(HOOK_DLL_NAME))
     {
         if dev.exists() {
             return Some(dev);
@@ -41,7 +41,7 @@ fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
     }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("resources")
-        .join(PATCHER_DLL_NAME);
+        .join(HOOK_DLL_NAME);
     if manifest.exists() {
         return Some(manifest);
     }

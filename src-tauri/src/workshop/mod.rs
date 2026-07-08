@@ -8,9 +8,9 @@ pub use content::ContentTree;
 use crate::error::{AppError, AppResult};
 use crate::state::Settings;
 use chrono::{DateTime, Utc};
+use indexmap::IndexMap;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -105,7 +105,7 @@ pub struct WorkshopLayer {
     pub priority: i32,
     pub description: Option<String>,
     #[serde(default)]
-    pub string_overrides: HashMap<String, HashMap<String, String>>,
+    pub string_overrides: IndexMap<String, IndexMap<String, String>>,
 }
 
 /// Runtime info about a layer's content directory, fetched separately from config.

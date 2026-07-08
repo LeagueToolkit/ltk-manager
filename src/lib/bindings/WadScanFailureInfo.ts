@@ -3,10 +3,9 @@
 /**
  * One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
  *
- * Retained for the `patcher-wad-scan-failed` event contract and its generated
- * TypeScript binding. The scan itself runs inside the Windows injection host,
- * which the macOS-focused fork does not use, so this is currently only emitted
- * on Windows builds wired to that host.
+ * The scan itself runs inside the Windows injection host, so this is only
+ * emitted by the Windows backend; the type stays cross-platform for the
+ * generated TypeScript binding.
  */
 export type WadScanFailureInfo = {
   /**

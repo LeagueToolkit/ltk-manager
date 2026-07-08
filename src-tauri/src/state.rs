@@ -228,6 +228,9 @@ pub struct Settings {
     /// Whether to block mods from patching Scripts.wad.client. Default: true.
     #[serde(default = "default_true")]
     pub block_scripts_wad: bool,
+    /// Whether to run the linked-bin dependency check before starting the patcher. Default: true.
+    #[serde(default = "default_true")]
+    pub linked_bin_check_enabled: bool,
     /// Additional WAD files to exclude from overlay building.
     #[serde(
         default = "default_wad_blocklist",
@@ -251,6 +254,23 @@ pub struct Settings {
     /// flag (see `commands::patcher::start_patcher_inner`).
     #[serde(default)]
     pub elevate_injector: bool,
+    /// Whether to automatically categorize mods from their content (champions,
+    /// maps and content tags derived from the WAD/chunk footprint, surfaced as
+    /// "auto" suggestions and library filters). When off, only the categories
+    /// the user sets themselves are used. Default: true.
+    #[serde(default = "default_true")]
+    pub auto_categorization_enabled: bool,
+    /// Whether to enforce the anti-skinhack scan while patching. When on
+    /// (default), a champion WAD that fails the scan aborts patching. When off,
+    /// the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+    /// downgraded to warnings and flagged mods load anyway. Default: true.
+    #[serde(default = "default_true")]
+    pub enforce_skinhack_scan: bool,
+    /// Whether mods' string overrides are applied to every installed locale
+    /// instead of only the locale the League client is configured to use.
+    /// Default: false (current locale only).
+    #[serde(default)]
+    pub apply_string_overrides_to_all_locales: bool,
 }
 
 impl Default for Settings {
@@ -278,11 +298,15 @@ impl Default for Settings {
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
             block_scripts_wad: true,
+            linked_bin_check_enabled: true,
             wad_blocklist: default_wad_blocklist(),
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
             elevate_injector: false,
+            auto_categorization_enabled: true,
+            enforce_skinhack_scan: true,
+            apply_string_overrides_to_all_locales: false,
         }
     }
 }
@@ -306,7 +330,11 @@ mod tests {
         assert!(settings.kill_league_hotkey.is_none());
         assert!(settings.kill_league_stops_patcher);
         assert!(settings.block_scripts_wad);
+        assert!(settings.linked_bin_check_enabled);
         assert!(settings.wad_blocklist.is_empty());
+        assert!(settings.auto_categorization_enabled);
+        assert!(settings.enforce_skinhack_scan);
+        assert!(!settings.apply_string_overrides_to_all_locales);
     }
 
     #[test]
@@ -337,6 +365,7 @@ mod tests {
             trusted_domains: vec!["runeforge.dev".to_string()],
             watcher_enabled: false,
             block_scripts_wad: true,
+            linked_bin_check_enabled: true,
             wad_blocklist: vec![],
             author_profiles: vec![AuthorProfile {
                 id: "test-id".to_string(),
@@ -346,6 +375,9 @@ mod tests {
             default_author_profile_id: Some("test-id".to_string()),
             has_seen_hdd_warning: false,
             elevate_injector: false,
+            auto_categorization_enabled: true,
+            enforce_skinhack_scan: true,
+            apply_string_overrides_to_all_locales: false,
         };
         let json = serde_json::to_string(&settings).unwrap();
         let deserialized: Settings = serde_json::from_str(&json).unwrap();

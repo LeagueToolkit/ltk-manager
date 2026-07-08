@@ -4,9 +4,10 @@ import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
 
+import { LayerPopover } from "../LayerPopover";
+import { MissingDepsBadge } from "../MissingDepsBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import {
-  LayerBadge,
   ModCardMenu,
   ModCardThumbnail,
   ModCardToggle,
@@ -37,7 +38,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_15px_-3px] shadow-accent-500/30 hover:-translate-y-px",
+        "border-accent-500/40 bg-surface-800 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
     )
     .otherwise(
       () =>
@@ -79,9 +80,12 @@ export function ModCardList({ view }: { view: ModCardView }) {
             v{mod.version} • {mod.authors.join(", ") || "Unknown author"}
           </p>
           <ModPills mod={mod} max={3} />
-          {isMultiLayer && <LayerBadge layers={mod.layers} />}
+          {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>
         </div>
       </div>

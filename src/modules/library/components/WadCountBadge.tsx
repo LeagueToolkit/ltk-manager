@@ -2,7 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { HardDrive, Loader2, RefreshCw } from "lucide-react";
 import { useMemo } from "react";
 
-import { IconButton, Popover, Skeleton, Tooltip } from "@/components";
+import { Button, IconButton, Popover, Skeleton, Tooltip } from "@/components";
 import { useAnalyzeModWads, useModWadReport } from "@/modules/library";
 
 interface WadCountBadgeProps {
@@ -70,7 +70,7 @@ function shortWadName(path: string): string {
 }
 
 /**
- * Compact pill rendered next to `LayerBadge` on each mod card. Owns its own
+ * Compact pill rendered next to `LayerPopover` on each mod card. Owns its own
  * data via `useModWadReport`; the parent passes only the mod id.
  *
  * States:
@@ -111,13 +111,19 @@ export function WadCountBadge({ modId }: WadCountBadgeProps) {
     <Popover.Root>
       <Tooltip content={tooltipContent}>
         <Popover.Trigger
-          className={`relative inline-flex h-6 cursor-pointer items-center gap-1 rounded px-2 py-0.5 text-xs leading-tight font-medium transition-colors ${tierClasses(report.wadCount)}`}
-          aria-label={`Affects ${report.wadCount} WADs — click for details`}
-        >
-          <HardDrive className="h-3 w-3" />
-          {report.wadCount}
-          {report.isStale && <RefreshCw className="h-3 w-3 text-amber-400" aria-hidden />}
-        </Popover.Trigger>
+          render={
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={`Affects ${report.wadCount} WADs — click for details`}
+              className={`relative h-6 gap-1 rounded px-2 py-0.5 text-xs leading-tight ${tierClasses(report.wadCount)}`}
+            >
+              <HardDrive className="h-3 w-3" />
+              {report.wadCount}
+              {report.isStale && <RefreshCw className="h-3 w-3 text-amber-400" aria-hidden />}
+            </Button>
+          }
+        />
       </Tooltip>
       <Popover.Portal>
         <Popover.Positioner sideOffset={6}>

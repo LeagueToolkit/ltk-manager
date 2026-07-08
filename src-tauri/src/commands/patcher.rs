@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult, MutexResultExt};
-use crate::mods::ModLibraryState;
+use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::backend::{
     selected_backend, BackendError, BackendEvent, PatcherContext, PatcherEventSink,
     PatcherPreflight,
@@ -8,11 +8,14 @@ use crate::patcher::{PatcherPhase, PatcherState, StoredPatcherConfig};
 use crate::platform::LeagueInstall;
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
+
+use super::mods::reject_if_patcher_running;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::thread;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use ts_rs::TS;
 
 const DEFAULT_PATCHER_TIMEOUT_MS: u32 = 300_000;
@@ -69,6 +72,7 @@ fn preflight_patcher_inner(
         log_file: None,
         timeout_ms: DEFAULT_PATCHER_TIMEOUT_MS,
         flags: 0,
+        elevate: false,
     })
 }
 
@@ -149,7 +153,30 @@ pub(crate) fn start_patcher_inner(
         .collect();
     let log_file = config.log_file;
     let timeout_ms = config.timeout_ms.unwrap_or(DEFAULT_PATCHER_TIMEOUT_MS);
-    let flags = config.flags.unwrap_or(0);
+
+    let mut flags = config.flags.unwrap_or(0);
+    // The anti-skinhack scan aborts patching on a flagged champion WAD by
+    // default; turning the setting off opts out via the hook flag, downgrading
+    // the failure to a warning so patching proceeds. Only the Windows host
+    // backend interprets these flag bits; other backends ignore them.
+    if !settings_snapshot.enforce_skinhack_scan {
+        flags |= crate::patcher::host::hook_flags::OPT_OUT_AH_V1 as u64;
+    }
+
+    // Decide whether to elevate the injection host (Windows only — both
+    // diagnostics probes return false elsewhere). An elevated game can only be
+    // injected by an equally elevated host, so we elevate when the user opts in
+    // OR when we detect League is configured to run as administrator. If the
+    // manager is already elevated, any host it spawns inherits high integrity,
+    // so the `--elevate` UAC bridge would be redundant and we skip it.
+    let manager_elevated = crate::diagnostics::manager_is_elevated();
+    let league_admin = crate::diagnostics::league_configured_as_admin();
+    let elevate = !manager_elevated && (settings_snapshot.elevate_injector || league_admin);
+    tracing::info!(
+        "Injector elevation = {elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
+        settings_snapshot.elevate_injector
+    );
+
     let library_clone = library.0.clone();
     let app_handle_thread = app_handle.clone();
 
@@ -162,9 +189,26 @@ pub(crate) fn start_patcher_inner(
 
     let handle = thread::spawn(move || {
         let result = (|| -> AppResult<()> {
-            let overlay_root = library_clone.ensure_overlay(&settings_snapshot, &workshop_paths)?;
+            // The build records any linked-bin offenders into `LinkedBinState` and
+            // emits `linked-bins-updated` as a byproduct (no separate pre-flight
+            // build); we only need the count here to decide whether to raise the
+            // non-blocking warning toast below.
+            let (overlay_root, offender_count) =
+                library_clone.ensure_overlay(&settings_snapshot, &workshop_paths, false)?;
             if stop_flag.load(Ordering::SeqCst) {
                 return Ok(());
+            }
+
+            // Non-blocking advisory: missing linked bins are non-fatal at
+            // injection, so we patch straight through and let the user
+            // review/disable via the badges and reachable dialog.
+            if settings_snapshot.linked_bin_check_enabled && offender_count > 0 {
+                let _ = app_handle_thread.emit(
+                    "linked-bins-warning",
+                    LinkedBinWarningPayload {
+                        count: offender_count as u32,
+                    },
+                );
             }
 
             let context = PatcherContext {
@@ -174,6 +218,7 @@ pub(crate) fn start_patcher_inner(
                 log_file,
                 timeout_ms,
                 flags,
+                elevate,
             };
             let preflight = backend.preflight(&context)?;
             if !preflight.compatible {
@@ -262,6 +307,40 @@ pub(crate) fn stop_patcher_inner(state: &PatcherState) -> AppResult<()> {
     Ok(())
 }
 
+/// Force a full rebuild of the active profile's overlay.
+///
+/// Troubleshooting escape hatch: the incremental overlay builder can reuse a
+/// previously-built (and possibly stale or incorrectly-built) WAD, so this
+/// discards the cached overlay state and regenerates it from scratch. Refuses
+/// while the patcher is running, since it rewrites the very files the running
+/// session points at. Runs on a blocking thread and reports progress via the
+/// same `overlay-progress` events as a normal patch.
+#[tauri::command]
+pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
+    let setup: AppResult<_> = (|| {
+        let patcher = app_handle.state::<PatcherState>();
+        reject_if_patcher_running(&patcher)?;
+        let settings = app_handle
+            .state::<SettingsState>()
+            .0
+            .lock()
+            .mutex_err()?
+            .clone();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        Ok((settings, library))
+    })();
+
+    let (settings, library) = match setup {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<(), _>(e)),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || library.rebuild_overlay(&settings).map(|_| ()))
+        .await
+        .unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+        .into()
+}
+
 #[tauri::command]
 pub fn get_patcher_status(state: State<PatcherState>) -> IpcResult<PatcherStatus> {
     get_patcher_status_inner(&state).into()
@@ -321,10 +400,9 @@ fn backend_event_message(event: &BackendEvent) -> String {
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
 ///
-/// Retained for the `patcher-wad-scan-failed` event contract and its generated
-/// TypeScript binding. The scan itself runs inside the Windows injection host,
-/// which the macOS-focused fork does not use, so this is currently only emitted
-/// on Windows builds wired to that host.
+/// The scan itself runs inside the Windows injection host, so this is only
+/// emitted by the Windows backend; the type stays cross-platform for the
+/// generated TypeScript binding.
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
@@ -349,63 +427,58 @@ pub struct WadScanFailedPayload {
     pub failures: Vec<WadScanFailureInfo>,
 }
 
-/// One library mod flagged by the pre-patch linked-bin check, sent in [`LinkedBinReport`].
+/// Payload for the `linked-bins-warning` event, emitted after a patcher start whose
+/// single overlay build found enabled mods with unresolved linked dependencies (only
+/// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
+/// start — it drives a non-blocking toast. The per-mod badges and the reachable
+/// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
 #[derive(Debug, Clone, Serialize, TS)]
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
-pub struct LinkedBinOffenderInfo {
-    /// Library mod id (matches `InstalledMod.id` on the frontend).
-    pub mod_id: String,
-    /// Mod display name — a fallback for the UI when it can't resolve the id.
-    pub display_name: String,
-    /// WAD targets (e.g. `Ahri.wad.client`) in this mod that contain the unresolved
-    /// bins. May be empty when the offending bin came from a RAW override.
-    pub wads: Vec<String>,
-    /// The missing linked bin paths, deduped.
-    pub missing_links: Vec<String>,
+pub struct LinkedBinWarningPayload {
+    /// Number of enabled mods flagged in the latest build.
+    pub count: u32,
 }
 
-/// Result of [`check_linked_bins`]: enabled mods whose property-bins reference linked
-/// dependencies that won't resolve at load time. Empty `offenders` means clean.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkedBinReport {
-    pub offenders: Vec<LinkedBinOffenderInfo>,
-}
-
-/// Validate enabled library mods for unresolved property-bin linked dependencies
-/// before starting the patcher.
+/// Linked-bin offenders found in the most recent overlay build, keyed by mod id.
 ///
-/// The cslol patcher no longer treats a missing linked bin as fatal, so we run the
-/// equivalent check here proactively. The frontend uses the result to warn the user
-/// and offer to disable the offending mod(s) or start anyway.
+/// These are recorded as a byproduct of `start_patcher`'s single overlay build (and
+/// any hot-reload), so this is a cheap read with no IO — it never builds the overlay
+/// itself. Display names are resolved from the library index; mods absent from the
+/// latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
+/// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
+/// badges and a reachable warning dialog.
 #[tauri::command]
-pub fn check_linked_bins(
-    settings: State<SettingsState>,
+pub fn get_linked_bin_offenders(
+    linked_bins: State<LinkedBinState>,
     library: State<ModLibraryState>,
-) -> IpcResult<LinkedBinReport> {
-    check_linked_bins_inner(&settings, &library).into()
-}
+    settings: State<SettingsState>,
+) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {
+    let result: AppResult<HashMap<String, LinkedBinOffenderInfo>> = (|| {
+        let offenders = linked_bins.get_all()?;
+        if offenders.is_empty() {
+            return Ok(HashMap::new());
+        }
 
-fn check_linked_bins_inner(
-    settings: &State<SettingsState>,
-    library: &State<ModLibraryState>,
-) -> AppResult<LinkedBinReport> {
-    let settings_snapshot = settings.0.lock().mutex_err()?.clone();
-    let library = library.0.clone();
-    let offenders = library.validate_linked_bins(&settings_snapshot)?;
-    Ok(LinkedBinReport {
-        offenders: offenders
+        let settings_snapshot = settings.0.lock().mutex_err()?.clone();
+        let display_names: HashMap<String, String> = library
+            .0
+            .get_installed_mods(&settings_snapshot)?
             .into_iter()
-            .map(|o| LinkedBinOffenderInfo {
-                mod_id: o.mod_id,
-                display_name: o.display_name,
-                wads: o.wads,
-                missing_links: o.missing_links,
+            .map(|m| (m.id, m.display_name))
+            .collect();
+
+        Ok(offenders
+            .into_iter()
+            .map(|mut offender| {
+                if let Some(name) = display_names.get(&offender.mod_id) {
+                    offender.display_name = name.clone();
+                }
+                (offender.mod_id.clone(), offender)
             })
-            .collect(),
-    })
+            .collect())
+    })();
+    result.into()
 }
 
 #[cfg(test)]

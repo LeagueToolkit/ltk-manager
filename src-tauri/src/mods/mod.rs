@@ -2,6 +2,7 @@ mod categorize;
 mod folders;
 mod inspect;
 mod library;
+mod linked_bins;
 mod migration;
 mod profiles;
 mod schema_migration;
@@ -12,6 +13,7 @@ pub use migration::*;
 
 pub use categorize::{ChampionRoster, DerivedCategorization};
 pub use inspect::{inspect_modpkg_file, ModpkgInfo};
+pub use linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use wad_reports::{ModWadReport, WadReportState};
 
 use crate::error::{AppError, AppResult, MutexResultExt};
@@ -241,7 +243,6 @@ pub struct Profile {
     /// Display order of all mods (enabled and disabled) in the UI
     pub mod_order: Vec<String>,
     /// Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled).
-    /// Missing entries default to all layers enabled.
     #[serde(default)]
     pub layer_states: HashMap<String, HashMap<String, bool>>,
     /// Creation timestamp

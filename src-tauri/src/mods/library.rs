@@ -5,14 +5,14 @@ use chrono::Utc;
 use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
 use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, ModpkgContent};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use super::{
     BulkInstallError, BulkInstallResult, InstallProgress, InstalledMod, LibraryIndex,
-    LibraryModEntry, ModArchiveFormat, ModLayer, ModLibrary,
+    LibraryModEntry, ModArchiveFormat, ModLayer, ModLibrary, Profile,
 };
 use tauri::{Emitter, Manager};
 
@@ -733,29 +733,8 @@ impl ModLibrary {
                     archive_path.display()
                 );
 
-                let utf8_archive_path = archive_path.clone().try_into_utf8("archive path")?;
-
-                let content: Box<dyn ltk_overlay::ModContentProvider> = match entry.format {
-                    ModArchiveFormat::Fantome => Box::new(
-                        FantomeContent::new(File::open(&archive_path)?)
-                            .map_err(|e| {
-                                AppError::Other(format!("Failed to open fantome archive: {}", e))
-                            })?
-                            .with_archive_path(utf8_archive_path),
-                    ),
-                    ModArchiveFormat::Modpkg => Box::new(
-                        ModpkgContent::new(Modpkg::mount_from_reader(File::open(&archive_path)?)?)
-                            .with_archive_path(utf8_archive_path),
-                    ),
-                };
-
-                let enabled_layers = active_profile.layer_states.get(&entry.id).map(|states| {
-                    states
-                        .iter()
-                        .filter(|(_, &enabled)| enabled)
-                        .map(|(name, _)| name.clone())
-                        .collect::<std::collections::HashSet<String>>()
-                });
+                let content = entry.content_provider(storage_dir)?;
+                let enabled_layers = active_profile.enabled_overlay_layers(entry, storage_dir)?;
 
                 enabled_mods.push(ltk_overlay::EnabledMod {
                     id: entry.id.clone(),
@@ -766,6 +745,72 @@ impl ModLibrary {
 
             Ok((active_profile.slug.clone(), enabled_mods))
         })
+    }
+}
+
+impl Profile {
+    /// Resolves which layers the overlay should apply for `entry` under this profile.
+    ///
+    /// Returns `None` to apply every layer (the overlay builder's default), or
+    /// `Some(set)` naming the exact layers to apply. Layers are opt-in: with no
+    /// saved layer config, a multi-layer mod applies only its always-on `base`
+    /// layer, while a single-layer mod falls back to the default so a plain mod
+    /// still applies when simply enabled.
+    fn enabled_overlay_layers(
+        &self,
+        entry: &LibraryModEntry,
+        storage_dir: &Path,
+    ) -> AppResult<Option<HashSet<String>>> {
+        if let Some(states) = self.layer_states.get(&entry.id) {
+            return Ok(Some(
+                states
+                    .iter()
+                    .filter(|(_, &enabled)| enabled)
+                    .map(|(name, _)| name.clone())
+                    .collect(),
+            ));
+        }
+
+        let project = load_mod_project(&entry.metadata_dir(storage_dir))?;
+        if project.layers.len() <= 1 {
+            return Ok(None);
+        }
+
+        Ok(Some(
+            project
+                .layers
+                .iter()
+                .filter(|l| l.name == "base")
+                .map(|l| l.name.clone())
+                .collect(),
+        ))
+    }
+}
+
+impl LibraryModEntry {
+    /// Opens this mod's archive and wraps it in the overlay content provider
+    /// matching its format. The archive path is stored on the provider for
+    /// downstream WAD resolution.
+    fn content_provider(
+        &self,
+        storage_dir: &Path,
+    ) -> AppResult<Box<dyn ltk_overlay::ModContentProvider>> {
+        let archive_path = self
+            .archive_path(storage_dir)
+            .try_into_utf8("archive path")?;
+
+        let content: Box<dyn ltk_overlay::ModContentProvider> = match self.format {
+            ModArchiveFormat::Fantome => Box::new(
+                FantomeContent::new(File::open(&archive_path)?)
+                    .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {}", e)))?
+                    .with_archive_path(archive_path),
+            ),
+            ModArchiveFormat::Modpkg => Box::new(
+                ModpkgContent::new(Modpkg::mount_from_reader(File::open(&archive_path)?)?)
+                    .with_archive_path(archive_path),
+            ),
+        };
+        Ok(content)
     }
 }
 
@@ -892,7 +937,7 @@ fn read_installed_mod(
                 enabled: layer_states
                     .and_then(|states| states.get(&l.name))
                     .copied()
-                    .unwrap_or(true),
+                    .unwrap_or(l.name == "base"),
             }
         })
         .collect::<Vec<_>>();

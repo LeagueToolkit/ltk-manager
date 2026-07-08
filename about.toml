@@ -1,0 +1,25 @@
+# Configuration for cargo-about (https://github.com/EmbarkStudios/cargo-about)
+# Generates the third-party license manifest shown in Settings -> About.
+# Regenerate with: pnpm generate:licenses
+
+# Only the platform we actually ship (see release.yml)
+targets = ["x86_64-pc-windows-msvc"]
+
+# Build tools and test-only dependencies are not distributed with the app
+ignore-build-dependencies = true
+ignore-dev-dependencies = true
+
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "BSL-1.0",
+    "CC0-1.0",
+    "Unicode-3.0",
+    "MPL-2.0",
+    # ltk_io_ext — first-party LeagueToolkit crate
+    "AGPL-3.0-only",
+]

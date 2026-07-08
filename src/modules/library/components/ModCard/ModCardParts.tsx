@@ -5,17 +5,15 @@ import {
   FolderOpen,
   FolderX,
   Info,
-  Layers,
   ShieldAlert,
   Trash2,
 } from "lucide-react";
 
 import { AutoPill, Dialog, IconButton, Menu, Switch, Tooltip } from "@/components";
-import type { InstalledMod, ModLayer } from "@/lib/tauri";
+import type { InstalledMod } from "@/lib/tauri";
 import { useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 
-import { LayerPickerPopover } from "../LayerPickerPopover";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -65,23 +63,6 @@ export function ModCardToggle({ variant, view }: { variant: CardVariant; view: M
   const isGrid = variant === "grid";
   const switchSize = isGrid ? "sm" : undefined;
   const switchClassName = isGrid ? GRID_SWITCH_CLASS : undefined;
-
-  if (view.isMultiLayer && !mod.enabled) {
-    return (
-      <LayerPickerPopover
-        open={view.pickerOpen}
-        onOpenChange={view.setPickerOpen}
-        modName={mod.displayName}
-        layers={mod.layers}
-        switchSize={switchSize}
-        switchClassName={switchClassName}
-        switchChecked={mod.enabled}
-        onConfirm={view.onPickerConfirm}
-        onCancel={view.onPickerCancel}
-        disabled={view.interactionsDisabled}
-      />
-    );
-  }
 
   return (
     <Switch
@@ -244,18 +225,6 @@ export function ModPills({
       )}
       {overflow > 0 && <span className="text-[10px] text-surface-500">+{overflow}</span>}
     </div>
-  );
-}
-
-export function LayerBadge({ layers }: { layers: ModLayer[] }) {
-  const enabledCount = layers.filter((l) => l.enabled).length;
-  const allEnabled = enabledCount === layers.length;
-
-  return (
-    <span className="inline-flex items-center gap-0.5 rounded bg-surface-700/60 px-1.5 py-0.5 text-[10px] leading-tight text-surface-400">
-      <Layers className="h-2.5 w-2.5" />
-      {allEnabled ? layers.length : `${enabledCount}/${layers.length}`}
-    </span>
   );
 }
 

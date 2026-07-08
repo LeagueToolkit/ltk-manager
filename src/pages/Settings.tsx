@@ -2,6 +2,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import {
   Info,
   Keyboard,
+  Library,
   Loader2,
   Palette,
   Settings as SettingsIcon,
@@ -16,6 +17,7 @@ import {
   AuthorProfilesSection,
   GeneralSection,
   HotkeySection,
+  LibrarySection,
   PatchingSection,
   useAppInfo,
   useSaveSettings,
@@ -60,6 +62,14 @@ export function Settings() {
           >
             <SettingsIcon className="h-4 w-4 shrink-0" />
             General
+          </Tabs.Tab>
+          <Tabs.Tab
+            variant="pills"
+            value="library"
+            className="flex items-center gap-2.5 text-left data-active:bg-accent-500/15 data-active:text-accent-300"
+          >
+            <Library className="h-4 w-4 shrink-0" />
+            Library
           </Tabs.Tab>
           <Tabs.Tab
             variant="pills"
@@ -118,6 +128,10 @@ export function Settings() {
               </div>
             )}
             <GeneralSection settings={settings} onSave={saveSettings} />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="library" className="mx-auto max-w-2xl space-y-8 p-6">
+            <LibrarySection settings={settings} onSave={saveSettings} />
           </Tabs.Panel>
 
           <Tabs.Panel value="patching" className="mx-auto max-w-2xl space-y-8 p-6">

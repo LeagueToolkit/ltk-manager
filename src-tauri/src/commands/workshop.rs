@@ -5,6 +5,7 @@ use crate::workshop::{
     ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs, ValidationResult,
     WorkshopLayerInfo, WorkshopProject, WorkshopState,
 };
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use tauri::State;
 
@@ -166,7 +167,7 @@ pub fn get_project_thumbnail(
 pub fn save_layer_string_overrides(
     project_path: String,
     layer_name: String,
-    string_overrides: HashMap<String, HashMap<String, String>>,
+    string_overrides: IndexMap<String, IndexMap<String, String>>,
     workshop: State<WorkshopState>,
 ) -> IpcResult<WorkshopProject> {
     workshop

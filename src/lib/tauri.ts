@@ -16,7 +16,7 @@ import type {
   ImportGitRepoArgs,
   InstalledMod,
   LibraryFolder,
-  LinkedBinReport,
+  LinkedBinOffenderInfo,
   ModpkgInfo,
   ModWadReport,
   PackProjectArgs,
@@ -29,6 +29,7 @@ import type {
   SaveProjectConfigArgs,
   Settings,
   StorageMedium,
+  StringKeySearchResult,
   ValidationResult,
   WorkshopLayerInfo,
   WorkshopProject,
@@ -128,9 +129,11 @@ export const api = {
   // Patcher
   startPatcher: (config: PatcherConfig) => invokeResult<void>("start_patcher", { config }),
   stopPatcher: () => invokeResult<void>("stop_patcher"),
+  rebuildOverlay: () => invokeResult<void>("rebuild_overlay"),
   getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
   preflightPatcher: () => invokeResult<PatcherPreflight>("preflight_patcher"),
-  checkLinkedBins: () => invokeResult<LinkedBinReport>("check_linked_bins"),
+  getLinkedBinOffenders: () =>
+    invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),
 
   // Hotkeys
   pauseHotkeys: () => invokeResult<void>("pause_hotkeys"),
@@ -227,6 +230,8 @@ export const api = {
       layerName,
       stringOverrides,
     }),
+  searchStringKeys: (query: string, limit?: number) =>
+    invokeResult<StringKeySearchResult>("search_string_keys", { query, limit }),
   getLayerContentPath: (projectPath: string, layerName: string) =>
     invokeResult<string>("get_layer_content_path", { projectPath, layerName }),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>

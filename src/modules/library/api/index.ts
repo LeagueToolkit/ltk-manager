@@ -27,6 +27,7 @@ export type { ContentView } from "./useLibraryContent";
 export { useLibraryContent } from "./useLibraryContent";
 export { useLibraryViewMode } from "./useLibraryViewMode";
 export { useLibraryWatcher } from "./useLibraryWatcher";
+export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffenders";
 export { useModFileDrop } from "./useModFileDrop";
 export { useAllModWadReports, useModWadReport } from "./useModWadReport";
 export { useMoveModToFolder, useReorderFolderMods, useReorderFolders } from "./useMoveMod";

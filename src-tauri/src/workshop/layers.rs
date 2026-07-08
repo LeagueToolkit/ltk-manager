@@ -4,6 +4,7 @@ use super::{
 };
 use crate::error::{AppError, AppResult};
 use camino::Utf8Path;
+use indexmap::IndexMap;
 use ltk_mod_project::ModProject;
 use ltk_mod_project::ModProjectLayer;
 use ltk_wad::{HexPathResolver, Wad, WadExtractor};
@@ -48,7 +49,7 @@ pub(crate) fn create_layer_at_path(
         display_name,
         priority: max_priority + 1,
         description,
-        string_overrides: HashMap::new(),
+        string_overrides: IndexMap::new(),
     });
 
     let json_config_path = path.join("mod.config.json");
@@ -244,7 +245,7 @@ pub(crate) fn reorder_layers_at_path(
 pub(crate) fn save_layer_string_overrides_at_path(
     path: &Path,
     layer_name: &str,
-    string_overrides: HashMap<String, HashMap<String, String>>,
+    string_overrides: IndexMap<String, IndexMap<String, String>>,
 ) -> AppResult<WorkshopProject> {
     let mut mod_project = ModProject::load(path)?;
 
@@ -491,7 +492,7 @@ impl Workshop {
         &self,
         project_path: &str,
         layer_name: &str,
-        string_overrides: HashMap<String, HashMap<String, String>>,
+        string_overrides: IndexMap<String, IndexMap<String, String>>,
     ) -> AppResult<WorkshopProject> {
         let path = PathBuf::from(project_path);
         if !path.exists() {
@@ -585,7 +586,6 @@ impl Workshop {
 mod tests {
     use super::*;
     use crate::error::AppError;
-    use std::collections::HashMap;
 
     fn make_project_with_layers(dir: &std::path::Path, layers: Vec<ModProjectLayer>) {
         let mod_project = ltk_mod_project::ModProject {
@@ -692,7 +692,7 @@ mod tests {
                     display_name: None,
                     priority: 1,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
             ],
         );
@@ -720,7 +720,7 @@ mod tests {
                     display_name: None,
                     priority: 1,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
             ],
         );
@@ -750,14 +750,14 @@ mod tests {
                     display_name: None,
                     priority: 1,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
                 ModProjectLayer {
                     name: "vfx".to_string(),
                     display_name: None,
                     priority: 2,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
             ],
         );
@@ -780,14 +780,14 @@ mod tests {
                     display_name: None,
                     priority: 1,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
                 ModProjectLayer {
                     name: "vfx".to_string(),
                     display_name: None,
                     priority: 2,
                     description: None,
-                    string_overrides: HashMap::new(),
+                    string_overrides: IndexMap::new(),
                 },
             ],
         );

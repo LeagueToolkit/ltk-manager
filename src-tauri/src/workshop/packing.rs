@@ -263,7 +263,7 @@ impl Workshop {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
+    use indexmap::IndexMap;
 
     fn make_valid_project(dir: &std::path::Path) {
         let mod_project = ltk_mod_project::ModProject {
@@ -494,7 +494,7 @@ mod tests {
                 display_name: Some("Chroma".to_string()),
                 priority: 1,
                 description: None,
-                string_overrides: HashMap::new(),
+                string_overrides: IndexMap::new(),
             }],
             thumbnail: None,
         };

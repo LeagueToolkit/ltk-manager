@@ -29,6 +29,7 @@ mod profiles;
 mod settings;
 mod shell;
 mod storage;
+mod strings;
 mod workshop;
 
 pub use app::*;
@@ -44,4 +45,5 @@ pub use profiles::*;
 pub use settings::*;
 pub use shell::*;
 pub use storage::*;
+pub use strings::*;
 pub use workshop::*;

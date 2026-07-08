@@ -8,8 +8,6 @@ mod deep_link;
 mod diagnostics;
 mod error;
 mod hotkeys;
-#[cfg(target_os = "windows")]
-mod legacy_patcher;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
@@ -20,6 +18,7 @@ mod platform;
 mod setup;
 mod state;
 mod storage;
+mod strings;
 mod tray;
 mod utils;
 mod workshop;
@@ -101,9 +100,10 @@ fn main() {
             // Patcher
             commands::start_patcher,
             commands::stop_patcher,
+            commands::rebuild_overlay,
             commands::get_patcher_status,
             commands::preflight_patcher,
-            commands::check_linked_bins,
+            commands::get_linked_bin_offenders,
             // Hotkeys
             commands::pause_hotkeys,
             commands::resume_hotkeys,
@@ -143,6 +143,7 @@ fn main() {
             commands::remove_project_thumbnail,
             commands::get_project_thumbnail,
             commands::save_layer_string_overrides,
+            commands::search_string_keys,
             commands::get_layer_content_path,
             commands::get_layer_info,
             commands::create_project_layer,

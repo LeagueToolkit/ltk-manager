@@ -3,27 +3,28 @@ import { useCallback } from "react";
 import { useToast } from "@/components";
 import { api, type PatcherConfig } from "@/lib/tauri";
 import { checkModForSkinhack, useInstalledMods } from "@/modules/library";
-import { useLinkedBinGuardStore } from "@/stores";
 
-import { useCheckLinkedBins } from "./useCheckLinkedBins";
 import { useStartPatcher } from "./useStartPatcher";
 
 /**
- * Shared pre-patch gate for both the manual and auto-start paths. In order it:
- * force-disables any enabled skinhack mods (which would crash the game), runs the
- * linked-bin check and defers to the globally-mounted `LinkedBinWarningDialog` when
- * a mod has unresolved dependencies, then starts the patcher. A failed linked-bin
- * check never blocks the patch, but a start failure surfaces a toast.
+ * Shared start path for both the manual and auto-start flows. It force-disables any
+ * enabled skinhack mods (which would crash the game), then starts the patcher.
+ *
+ * Linked-bin dependency issues are no longer gated here: missing linked bins are
+ * non-fatal at injection, so the single overlay build inside `start_patcher` records
+ * any offenders as a byproduct. They surface afterwards as per-mod badges and a
+ * one-time warning toast (see `useSurfaceLinkedBinWarning`) — no pre-flight build,
+ * no blocking dialog before the patch.
  */
 export function useGuardedStartPatcher() {
   const startPatcher = useStartPatcher();
-  const checkLinkedBins = useCheckLinkedBins();
-  const setPending = useLinkedBinGuardStore((s) => s.setPending);
   const { data: mods = [] } = useInstalledMods();
   const toast = useToast();
 
-  return useCallback(
+  const start = useCallback(
     async (config: PatcherConfig = {}) => {
+      if (startPatcher.isPending) return;
+
       const enabledMods = mods.filter((m) => m.enabled);
       const flaggedMods = enabledMods.filter((m) => checkModForSkinhack(m) != null);
       for (const mod of flaggedMods) {
@@ -40,16 +41,6 @@ export function useGuardedStartPatcher() {
       }
 
       try {
-        const report = await checkLinkedBins.mutateAsync();
-        if (report.offenders.length > 0) {
-          setPending({ report, config });
-          return;
-        }
-      } catch (error) {
-        console.error("Linked-bin pre-flight check failed:", error);
-      }
-
-      try {
         await startPatcher.mutateAsync(config);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -57,6 +48,8 @@ export function useGuardedStartPatcher() {
         console.error("Failed to start patcher:", error);
       }
     },
-    [mods, checkLinkedBins, setPending, startPatcher, toast],
+    [mods, startPatcher, toast],
   );
+
+  return { start };
 }

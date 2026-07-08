@@ -1,13 +1,18 @@
-import { FileText } from "lucide-react";
+import { FileText, ScrollText } from "lucide-react";
+import { useState } from "react";
 
-import { Button, SectionCard } from "@/components";
+import { Button, ExternalLink, SectionCard } from "@/components";
 import { api, type AppInfo } from "@/lib/tauri";
+
+import { LicensesDialog } from "./LicensesDialog";
 
 interface AboutSectionProps {
   appInfo: AppInfo | undefined;
 }
 
 export function AboutSection({ appInfo }: AboutSectionProps) {
+  const [licensesOpen, setLicensesOpen] = useState(false);
+
   return (
     <SectionCard title="About">
       <div>
@@ -31,25 +36,28 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
           LTK Manager is part of the LeagueToolkit project. It provides a graphical interface for
           managing League of Legends mods using the modpkg format.
         </p>
-        <div className="mt-4 flex gap-4 border-t border-surface-600 pt-4">
-          <a
-            href="https://github.com/LeagueToolkit/ltk-manager"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
-          >
-            View on GitHub →
-          </a>
-          <a
+        <div className="mt-4 flex items-center gap-4 border-t border-surface-600 pt-4">
+          <ExternalLink href="https://github.com/LeagueToolkit/ltk-manager" className="text-sm">
+            View on GitHub
+          </ExternalLink>
+          <ExternalLink
             href="https://github.com/LeagueToolkit/ltk-manager/wiki"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-accent-400 transition-colors hover:text-accent-300"
+            className="text-sm"
           >
-            Documentation →
-          </a>
+            Documentation
+          </ExternalLink>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => setLicensesOpen(true)}
+          >
+            <ScrollText className="h-4 w-4" />
+            Third-Party Licenses
+          </Button>
         </div>
       </div>
+      <LicensesDialog open={licensesOpen} onOpenChange={setLicensesOpen} />
     </SectionCard>
   );
 }

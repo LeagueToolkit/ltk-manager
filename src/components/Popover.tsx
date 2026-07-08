@@ -71,7 +71,7 @@ export const PopoverPositioner = forwardRef<HTMLDivElement, PopoverPositionerPro
         side={side}
         align={align}
         sideOffset={sideOffset}
-        className={twMerge("z-50", className)}
+        className={twMerge("z-50 shadow-2xl", className)}
         {...props}
       >
         {children}

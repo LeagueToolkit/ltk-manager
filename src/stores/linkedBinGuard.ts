@@ -1,27 +1,20 @@
 import { create } from "zustand";
 
-import type { LinkedBinReport, PatcherConfig } from "@/lib/tauri";
-
-interface PendingLinkedBinWarning {
-  report: LinkedBinReport;
-  /** The patcher config to start with once the user resolves the warning. */
-  config: PatcherConfig;
-}
-
-interface LinkedBinGuardStore {
-  /** Set while a pre-patch linked-bin warning is awaiting the user's decision. */
-  pending: PendingLinkedBinWarning | null;
-  setPending: (pending: PendingLinkedBinWarning) => void;
-  clear: () => void;
+interface LinkedBinDialogStore {
+  /** Whether the reachable linked-bin warning dialog is open. */
+  open: boolean;
+  openDialog: () => void;
+  close: () => void;
 }
 
 /**
- * Holds the pending linked-bin warning surfaced by the pre-patch check, so the
- * globally-mounted `LinkedBinWarningDialog` can render it regardless of which start
- * path (manual or auto-start) triggered the check.
+ * Open-state for the reachable `LinkedBinWarningDialog`. The dialog reads the
+ * offenders themselves from the `useLinkedBinOffenders` query; this store just
+ * controls visibility so it can be opened from anywhere — a mod card's
+ * `MissingDepsBadge` or the post-start warning toast.
  */
-export const useLinkedBinGuardStore = create<LinkedBinGuardStore>((set) => ({
-  pending: null,
-  setPending: (pending) => set({ pending }),
-  clear: () => set({ pending: null }),
+export const useLinkedBinGuardStore = create<LinkedBinDialogStore>((set) => ({
+  open: false,
+  openDialog: () => set({ open: true }),
+  close: () => set({ open: false }),
 }));

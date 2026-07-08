@@ -26,17 +26,20 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
-ltk_modpkg = { version = "0.5.0", features = ["project"] }
-ltk_mod_project = { version = "0.4.1" }
+ltk_modpkg = { version = "0.6.0", features = ["project"] }
+ltk_mod_project = { version = "0.5.0" }
 ltk_mod_core = { version = "0.1.0" }
-ltk_fantome = { version = "0.5.1" }
-ltk_overlay = { version = "0.2.9" }
+ltk_fantome = { version = "0.6.0" }
+ltk_overlay = { version = "0.5.2" }
+ltk_rst = "0.2.0"
 ltk_wad = "0.2.12"
 ltk_file = { version = "0.2.8", features = ["serde"] }
 
 camino = "1.2"
+serde_yaml_ng = "0.10"
 semver = "1.0"
 toml = "0.8"
+indexmap = { version = "2", features = ["serde"] }
 
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
@@ -44,7 +47,11 @@ serde_json = "1"
 regex = "1"
 libc = "0.2"
 
-ts-rs = { version = "12", features = ["chrono-impl", "serde-json-impl"] }
+ts-rs = { version = "12", features = [
+    "chrono-impl",
+    "serde-json-impl",
+    "indexmap-impl",
+] }
 
 thiserror = "2"
 anyhow = "1"
@@ -75,7 +82,6 @@ tracing-appender = "0.2"
 tempfile = "3"
 
 [target.'cfg(windows)'.dependencies]
-libloading = "0.9.0"
 windows-sys = { version = "0.59", features = [
     "Win32_Foundation",
     "Win32_Security",

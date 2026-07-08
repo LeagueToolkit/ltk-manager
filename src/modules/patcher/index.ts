@@ -4,6 +4,7 @@ export {
   useOverlayProgress,
   usePatcherError,
   usePatcherStatus,
+  useRebuildOverlay,
   useStartPatcher,
   useStopPatcher,
 } from "./api";

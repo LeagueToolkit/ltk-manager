@@ -4,9 +4,10 @@ import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
 
+import { LayerPopover } from "../LayerPopover";
+import { MissingDepsBadge } from "../MissingDepsBadge";
 import { WadCountBadge } from "../WadCountBadge";
 import {
-  LayerBadge,
   ModCardMenu,
   ModCardThumbnail,
   ModCardToggle,
@@ -37,7 +38,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_20px_-5px] shadow-accent-500/40 hover:-translate-y-px hover:shadow-[0_0_20px_-3px,0_4px_6px_-1px] hover:shadow-accent-500/40",
+        "border-accent-500/40 bg-surface-800 shadow-[0_0_12px_-6px] shadow-accent-500/25 hover:-translate-y-px hover:shadow-[0_0_14px_-5px,0_4px_6px_-1px] hover:shadow-accent-500/30",
     )
     .otherwise(
       () =>
@@ -90,9 +91,12 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
 
         <div className="mb-1 flex min-h-5 items-center gap-1">
           <ModPills mod={mod} max={3} />
-          {isMultiLayer && <LayerBadge layers={mod.layers} />}
+          {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <WadCountBadge modId={mod.id} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>
         </div>
 

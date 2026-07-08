@@ -110,8 +110,9 @@ function wadLabel(wad: string): string {
  * integrity scan rejected a modded archive (a skinhack, a corrupt WAD, or out of
  * memory), so the DLL refused to load any mods and the patcher was auto-stopped.
  * The body pins the failure to the offending library mod(s) so the user knows
- * exactly what to fix. (Missing linked bins are handled pre-flight by
- * `LinkedBinWarningDialog`; the `missingBin` kind here is a defensive fallback.)
+ * exactly what to fix. (Missing linked bins are non-fatal at injection and are
+ * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`; the
+ * `missingBin` kind here is a defensive fallback.)
  */
 export function WadScanFailedDialog() {
   const { failure, clear } = useWadScanFailure();

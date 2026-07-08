@@ -20,8 +20,8 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     watch: {
-      // Tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // Ignore `src-tauri` and the Cargo build output.
+      ignored: ["**/src-tauri/**", "**/target/**"],
     },
   },
 

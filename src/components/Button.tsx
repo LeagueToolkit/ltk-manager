@@ -127,7 +127,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           <span className="animate-fade-in">
             <Loader2 className={twMerge("animate-spin", spinnerSizeClasses[size])} />
           </span>
-          {children && <span className="opacity-0">{children}</span>}
+          {children}
         </>
       ))
       .with([false, true], () => <IconSlot size={size}>{icon}</IconSlot>)

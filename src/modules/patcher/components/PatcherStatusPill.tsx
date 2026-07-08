@@ -51,7 +51,7 @@ export function PatcherStatusPill() {
   return (
     <div
       className={twMerge(
-        "fixed right-4 bottom-4 z-40 flex h-9 animate-fade-in items-center gap-2 rounded-full border px-3 text-sm font-medium shadow-lg backdrop-blur-sm",
+        "fixed right-4 bottom-4 z-40 flex h-9 animate-fade-in items-center gap-2 rounded-full border px-3 text-sm font-medium shadow-lg",
         tone === "accent"
           ? "border-accent-500/40 bg-accent-500/15 text-accent-300"
           : "border-green-500/40 bg-green-500/15 text-green-300",
@@ -60,10 +60,7 @@ export function PatcherStatusPill() {
       {building ? (
         <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
       ) : (
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
-        </span>
+        <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
       )}
       <span className="max-w-[240px] truncate">{label}</span>
       {!building && (

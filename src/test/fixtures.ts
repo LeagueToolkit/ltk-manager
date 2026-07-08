@@ -21,6 +21,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     trustedDomains: ["runeforge.dev", "divineskins.gg"],
     watcherEnabled: false,
     blockScriptsWad: true,
+    linkedBinCheckEnabled: true,
     wadBlocklist: [],
     authorProfiles: [],
     defaultAuthorProfileId: null,
@@ -29,6 +30,9 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     alwaysStartPatcher: false,
     hasSeenHddWarning: false,
     elevateInjector: false,
+    autoCategorizationEnabled: true,
+    enforceSkinhackScan: true,
+    applyStringOverridesToAllLocales: false,
     ...overrides,
   };
 }

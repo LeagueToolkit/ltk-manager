@@ -1,17 +1,14 @@
 use crate::error::{AppError, AppResult, Utf8PathExt};
-use crate::mods::{ModLibrary, WadReportState};
+use crate::mods::{LinkedBinState, ModLibrary, WadReportState};
 use crate::state::{Settings, WadBlocklistEntry};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 #[cfg(target_os = "macos")]
 use std::{
     collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{BufWriter, Read, Seek, SeekFrom, Write},
-    path::Path,
 };
 use tauri::{Emitter, Manager};
-
-pub mod linked_bins;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
 const TFT_WAD: &str = "map22.wad.client";
@@ -22,6 +19,9 @@ const WAD_V3_SIGNATURE_SIZE: usize = 256;
 #[cfg(target_os = "macos")]
 const WAD_V3_CHECKSUM_OFFSET: u64 = 4 + 256;
 
+// Never overlay-patch the macOS platform WADs: cross-WAD chunk distribution
+// can match mod chunk hashes into Metal shader / platform-bootstrap WADs,
+// corrupting them and crashing the game at the loading screen.
 const MACOS_PLATFORM_WADS: &[&str] = &[
     "bootstrap.macos.wad.client",
     "shadercache.metal.wad.client",
@@ -53,7 +53,11 @@ pub struct OverlayProgress {
 impl ModLibrary {
     /// Ensure the overlay exists and is up-to-date for the current enabled mod set.
     ///
-    /// Returns the overlay root directory (the prefix passed to the legacy patcher).
+    /// Returns the overlay root directory (the prefix passed to the legacy patcher)
+    /// and the number of mods whose property-bins reference linked dependencies that
+    /// don't resolve against the overlay WADs they land in (0 when everything
+    /// resolves). The offenders themselves are recorded into [`LinkedBinState`] and
+    /// announced via the `linked-bins-updated` event so the library badges can refresh.
     ///
     /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
     /// to the enabled mod list so they take highest priority.
@@ -61,13 +65,24 @@ impl ModLibrary {
         &self,
         settings: &Settings,
         workshop_project_paths: &[PathBuf],
-    ) -> AppResult<PathBuf> {
+        force_rebuild: bool,
+    ) -> AppResult<(PathBuf, usize)> {
         let storage_dir = self.storage_dir(settings)?;
+
+        Self::flush_overlays_if_app_version_changed(&storage_dir);
+
         let game_dir = crate::utils::game::resolve_game_dir(settings)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(settings)?;
 
         let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
+
+        // A manual rebuild discards this profile's cached overlay state so the
+        // builder regenerates every WAD from scratch instead of reusing files.
+        if force_rebuild {
+            tracing::info!("Overlay: force rebuild requested, purging cached overlay state");
+            Self::purge_overlay_artifacts(&profile_dir, true);
+        }
 
         tracing::info!("Overlay: storage_dir={}", storage_dir.display());
         tracing::info!("Overlay: profile_slug={}", profile_slug);
@@ -99,12 +114,16 @@ impl ModLibrary {
         let blocked_wads = resolve_blocked_wads(settings, &available_wads);
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
 
+        let string_override_mode = resolve_string_override_mode(settings, &game_dir);
+        tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
+
         Self::clean_corrupt_overlay_state(&utf8_state_dir);
 
         let app_handle_clone = self.app_handle().clone();
         let mut builder =
             ltk_overlay::OverlayBuilder::new(utf8_game_dir, utf8_overlay_root, utf8_state_dir)
                 .with_blocked_wads(blocked_wads.clone())
+                .with_string_overrides(string_override_mode)
                 .with_progress(move |progress| {
                     let stage = match progress.stage {
                         ltk_overlay::OverlayStage::Indexing => OverlayStage::Indexing,
@@ -148,8 +167,26 @@ impl ModLibrary {
             .build()
             .map_err(|e| AppError::Other(format!("Overlay build failed: {}", e)))?;
 
+        // The builder's own sweep_unexpected_overlay_files runs inside build()
+        // and removes the blocked-WAD passthrough symlinks from the previous
+        // run, so the macOS pass must come after build() to recreate them.
         #[cfg(target_os = "macos")]
         prepare_macos_overlay_wads(&overlay_root, &game_dir, &blocked_wads)?;
+
+        let linked_bin_offenders = builder.take_linked_bin_offenders();
+        let offender_count = linked_bin_offenders.len();
+
+        // Record offenders as a byproduct of this single build (no separate
+        // pre-flight). The library badges and the reachable warning dialog read
+        // them via `get_linked_bin_offenders`; the event tells the frontend the
+        // snapshot changed. Failure here must not fail the patch.
+        if let Some(state) = self.app_handle().try_state::<LinkedBinState>() {
+            if let Err(e) = state.record(linked_bin_offenders) {
+                tracing::warn!("Failed to record linked-bin offenders: {}", e);
+            } else {
+                let _ = self.app_handle().emit("linked-bins-updated", ());
+            }
+        }
 
         // Capture per-mod WAD reports for the library badge UI. Failure to
         // persist must not fail the patch — log and continue.
@@ -169,7 +206,104 @@ impl ModLibrary {
             }
         }
 
-        Ok(overlay_root)
+        Ok((overlay_root, offender_count))
+    }
+
+    /// Force a full rebuild of the active profile's overlay.
+    ///
+    /// Discards the profile's cached overlay state (patched WADs, `overlay.json`,
+    /// metadata and game-index caches) so the builder regenerates everything from
+    /// scratch. This is the escape hatch for the case where the incremental builder
+    /// would otherwise reuse a stale or incorrectly-built overlay WAD — its reuse
+    /// decision keys on the mod set and content, not on the overlay's actual bytes
+    /// or the builder version.
+    pub fn rebuild_overlay(&self, settings: &Settings) -> AppResult<(PathBuf, usize)> {
+        self.ensure_overlay(settings, &[], true)
+    }
+
+    /// Wipe every profile's cached overlay artifacts when the app version changed
+    /// since the overlays were last built.
+    ///
+    /// The overlay builder keys its reuse/skip decisions on the mod set, mod
+    /// content, game fingerprint and a state *schema* version — none of which move
+    /// when the overlay-building *logic* changes between releases. So a build-logic
+    /// fix would otherwise never reach users who already have an overlay on disk.
+    /// Gating on the app version forces one clean rebuild after each update.
+    ///
+    /// Best-effort: a marker file under `storage_dir` records the version that last
+    /// built overlays. Failures are logged, never fatal.
+    fn flush_overlays_if_app_version_changed(storage_dir: &Path) {
+        const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+        let marker = storage_dir.join(".overlay-build-version");
+
+        let up_to_date = std::fs::read_to_string(&marker)
+            .ok()
+            .is_some_and(|v| v.trim() == APP_VERSION);
+        if up_to_date {
+            return;
+        }
+
+        let profiles_dir = storage_dir.join("profiles");
+        if let Ok(entries) = std::fs::read_dir(&profiles_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    Self::purge_overlay_artifacts(&path, false);
+                }
+            }
+        }
+
+        let _ = std::fs::create_dir_all(storage_dir);
+        match std::fs::write(&marker, APP_VERSION) {
+            Ok(()) => tracing::info!(
+                "Flushed cached overlays for app version {} (overlay build logic may have changed)",
+                APP_VERSION
+            ),
+            Err(e) => tracing::warn!(
+                "Failed to write overlay build-version marker {}: {}",
+                marker.display(),
+                e
+            ),
+        }
+    }
+
+    /// Remove a profile's cached overlay artifacts so the next build starts clean.
+    ///
+    /// Always removes the patched-WAD `overlay/` tree, the `overlay.json` state
+    /// file, and the `override_meta.bin` metadata cache. The `game_index.bin` cache
+    /// is only removed when `include_game_index` is set — it is expensive to rebuild
+    /// and is independently validated by the game fingerprint, so the version flush
+    /// keeps it and only a manual full rebuild drops it.
+    fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bool) {
+        let overlay_dir = profile_dir.join("overlay");
+        if overlay_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&overlay_dir) {
+                tracing::warn!(
+                    "Failed to remove overlay directory {}: {}",
+                    overlay_dir.display(),
+                    e
+                );
+            }
+        }
+
+        let mut files = vec![
+            profile_dir.join("overlay.json"),
+            profile_dir.join("override_meta.bin"),
+        ];
+        if include_game_index {
+            files.push(profile_dir.join("game_index.bin"));
+        }
+        for file in files {
+            if file.exists() {
+                if let Err(e) = std::fs::remove_file(&file) {
+                    tracing::warn!(
+                        "Failed to remove overlay artifact {}: {}",
+                        file.display(),
+                        e
+                    );
+                }
+            }
+        }
     }
 
     /// Scan `state_dir` for top-level JSON files that are empty or contain invalid
@@ -239,11 +373,15 @@ fn prepare_macos_overlay_wads(
                     .map_err(|error| AppError::Other(error.to_string()))?,
             );
             // Revert any cross-WAD overrides that clobbered a subchunk entry in
-            // this WAD with a standalone (non-subchunked) chunk. ltk_overlay's
-            // cross-WAD distribution doesn't account for the same path_hash
-            // being subchunked in one WAD but standalone in another — see the
-            // Aatrox crash root cause. Always run this *before* canonicalize so
-            // canonicalize sees the restored subchunk and treats it correctly.
+            // this WAD with a standalone (non-subchunked) chunk — the Aatrox
+            // crash root cause. ltk_overlay 0.5.2's cross-WAD routing fix
+            // (route_targets) only changed *which* WADs receive a chunk; its
+            // writer still emits overrides as standalone entries
+            // (frame_count = 0, start_frame = 0), so a subchunked TOC entry is
+            // still clobbered and macOS rejects the WAD at mount
+            // (ALE-18967994 Inconsistent). Always run this *before*
+            // canonicalize so canonicalize sees the restored subchunk and
+            // treats it correctly.
             if restore_subchunk_overrides(entry.path(), &source_path)? {
                 restored += 1;
             }
@@ -776,6 +914,12 @@ fn restore_subchunk_overrides(path: &Path, source_path: &Path) -> AppResult<bool
     Ok(true)
 }
 
+/// Symlink every blocked WAD in the overlay back to the pristine game WAD.
+///
+/// The injected fopen hook redirects every `.client` open into the overlay
+/// prefix and only falls back when the overlay open fails — a stale patched
+/// copy of a now-blocked WAD left by an earlier incremental build would still
+/// be served. The symlink guarantees the original wins.
 #[cfg(target_os = "macos")]
 fn create_blocked_wad_passthroughs(
     overlay_root: &Path,
@@ -1002,6 +1146,13 @@ fn canonicalize_macos_wad(path: &Path, source_path: &Path) -> AppResult<bool> {
     Ok(true)
 }
 
+/// Rewrite a WAD v3 header so macOS mount validation accepts it: copy the
+/// 256-byte signature block from the original game WAD and recompute the
+/// TOC checksum (xxh3 over the version bytes plus each chunk's
+/// path_hash/checksum pair). `ltk_overlay`'s writer copies the *original*
+/// WAD's checksum verbatim, which no longer matches the patched TOC; the
+/// strip/revert/restore rewrites above leave a zero placeholder. This is the
+/// terminal fixup that makes the header consistent.
 #[cfg(target_os = "macos")]
 fn repair_macos_wad_header(path: &Path, source_path: &Path) -> AppResult<bool> {
     use byteorder::{ReadBytesExt as _, WriteBytesExt as _, LE};
@@ -1052,6 +1203,27 @@ fn repair_macos_wad_header(path: &Path, source_path: &Path) -> AppResult<bool> {
     Ok(true)
 }
 
+/// Resolve which locales mods' string overrides should be applied to.
+///
+/// With the "all locales" setting on, every installed locale is patched.
+/// Otherwise only the locale the League client is configured to use — read
+/// from `LeagueClientSettings.yaml`, falling back to the sole installed locale
+/// and finally to `en_us` so string overrides still apply on unusual installs.
+pub(crate) fn resolve_string_override_mode(
+    settings: &Settings,
+    game_dir: &Path,
+) -> ltk_overlay::StringOverrideMode {
+    if settings.apply_string_overrides_to_all_locales {
+        return ltk_overlay::StringOverrideMode::AllInstalled;
+    }
+
+    let locale = crate::utils::locale::detect_league_locale(game_dir).unwrap_or_else(|| {
+        tracing::warn!("Falling back to 'en_us' for string overrides");
+        "en_us".to_string()
+    });
+    ltk_overlay::StringOverrideMode::Locales(vec![locale])
+}
+
 /// Resolve the user's blocklist settings into a concrete, deduped list of WAD
 /// filenames to hand to `ltk_overlay::OverlayBuilder::with_blocked_wads`.
 ///
@@ -1095,6 +1267,7 @@ pub(crate) fn resolve_blocked_wads(settings: &Settings, available_wads: &[String
         blocked.push(TFT_WAD.to_string());
     }
 
+    // Runtime check (not cfg) so the function stays testable cross-platform.
     if cfg!(target_os = "macos") {
         for wad in MACOS_PLATFORM_WADS {
             blocked.push(wad.to_string());
@@ -1109,6 +1282,98 @@ pub(crate) fn resolve_blocked_wads(settings: &Settings, available_wads: &[String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn resolve_blocked_wads_exact_lowercased_and_scripts_added_by_default() {
+        let settings = Settings {
+            wad_blocklist: vec![WadBlocklistEntry::Exact {
+                value: "Aatrox.wad.client".to_string(),
+            }],
+            ..Settings::default()
+        };
+        let result = resolve_blocked_wads(&settings, &[]);
+        assert!(result.contains(&"aatrox.wad.client".to_string()));
+        assert!(result.contains(&"scripts.wad.client".to_string()));
+        assert!(result.contains(&"map22.wad.client".to_string()));
+    }
+
+    #[test]
+    fn resolve_blocked_wads_regex_expanded_against_available() {
+        let settings = Settings {
+            block_scripts_wad: false,
+            patch_tft: true,
+            wad_blocklist: vec![WadBlocklistEntry::Regex {
+                value: r"^map\d+\.en_us\.wad\.client$".to_string(),
+            }],
+            ..Settings::default()
+        };
+        let available = vec![
+            "map11.en_us.wad.client".to_string(),
+            "map12.wad.client".to_string(),
+            "map22.en_us.wad.client".to_string(),
+            "aatrox.wad.client".to_string(),
+        ];
+        let result = resolve_blocked_wads(&settings, &available);
+        assert!(result.contains(&"map11.en_us.wad.client".to_string()));
+        assert!(result.contains(&"map22.en_us.wad.client".to_string()));
+        assert!(!result.contains(&"map12.wad.client".to_string()));
+        assert!(!result.contains(&"aatrox.wad.client".to_string()));
+    }
+
+    #[test]
+    fn resolve_blocked_wads_invalid_regex_skipped_and_others_kept() {
+        let settings = Settings {
+            block_scripts_wad: false,
+            patch_tft: true,
+            wad_blocklist: vec![
+                WadBlocklistEntry::Regex {
+                    value: "[bad(".to_string(),
+                },
+                WadBlocklistEntry::Exact {
+                    value: "keeper.wad.client".to_string(),
+                },
+            ],
+            ..Settings::default()
+        };
+        let result = resolve_blocked_wads(&settings, &[]);
+        assert!(result.contains(&"keeper.wad.client".to_string()));
+    }
+
+    #[test]
+    fn resolve_blocked_wads_dedupes_overlapping_entries() {
+        let settings = Settings {
+            block_scripts_wad: true,
+            patch_tft: true,
+            wad_blocklist: vec![
+                WadBlocklistEntry::Exact {
+                    value: "Scripts.wad.client".to_string(),
+                },
+                WadBlocklistEntry::Regex {
+                    value: "^scripts".to_string(),
+                },
+            ],
+            ..Settings::default()
+        };
+        let available = vec!["scripts.wad.client".to_string()];
+        let result = resolve_blocked_wads(&settings, &available);
+        assert!(result.contains(&"scripts.wad.client".to_string()));
+        let scripts_count = result.iter().filter(|w| *w == "scripts.wad.client").count();
+        assert_eq!(scripts_count, 1);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn resolve_blocked_wads_includes_macos_platform_wads() {
+        let settings = Settings {
+            block_scripts_wad: false,
+            patch_tft: true,
+            ..Settings::default()
+        };
+        let result = resolve_blocked_wads(&settings, &[]);
+        assert!(result.contains(&"bootstrap.macos.wad.client".to_string()));
+        assert!(result.contains(&"shadercache.metal.wad.client".to_string()));
+        assert!(result.contains(&"shaders.wad.client".to_string()));
+    }
 
     #[cfg(target_os = "macos")]
     #[test]
@@ -1208,98 +1473,6 @@ mod tests {
             .all(|chunk| chunk.compression_type == WadChunkCompression::Zstd));
         assert_eq!(chunks[0].data_offset, chunks[1].data_offset);
         assert_eq!(chunks[0].checksum, chunks[1].checksum);
-    }
-
-    #[test]
-    fn resolve_blocked_wads_exact_lowercased_and_scripts_added_by_default() {
-        let settings = Settings {
-            wad_blocklist: vec![WadBlocklistEntry::Exact {
-                value: "Aatrox.wad.client".to_string(),
-            }],
-            ..Settings::default()
-        };
-        let result = resolve_blocked_wads(&settings, &[]);
-        assert!(result.contains(&"aatrox.wad.client".to_string()));
-        assert!(result.contains(&"scripts.wad.client".to_string()));
-        assert!(result.contains(&"map22.wad.client".to_string()));
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn resolve_blocked_wads_includes_macos_platform_wads() {
-        let settings = Settings {
-            block_scripts_wad: false,
-            patch_tft: true,
-            ..Settings::default()
-        };
-        let result = resolve_blocked_wads(&settings, &[]);
-        assert!(result.contains(&"bootstrap.macos.wad.client".to_string()));
-        assert!(result.contains(&"shadercache.metal.wad.client".to_string()));
-        assert!(result.contains(&"shaders.wad.client".to_string()));
-    }
-
-    #[test]
-    fn resolve_blocked_wads_regex_expanded_against_available() {
-        let settings = Settings {
-            block_scripts_wad: false,
-            patch_tft: true,
-            wad_blocklist: vec![WadBlocklistEntry::Regex {
-                value: r"^map\d+\.en_us\.wad\.client$".to_string(),
-            }],
-            ..Settings::default()
-        };
-        let available = vec![
-            "map11.en_us.wad.client".to_string(),
-            "map12.wad.client".to_string(),
-            "map22.en_us.wad.client".to_string(),
-            "aatrox.wad.client".to_string(),
-        ];
-        let result = resolve_blocked_wads(&settings, &available);
-        assert!(result.contains(&"map11.en_us.wad.client".to_string()));
-        assert!(result.contains(&"map22.en_us.wad.client".to_string()));
-        assert!(!result.contains(&"map12.wad.client".to_string()));
-        assert!(!result.contains(&"aatrox.wad.client".to_string()));
-    }
-
-    #[test]
-    fn resolve_blocked_wads_invalid_regex_skipped_and_others_kept() {
-        let settings = Settings {
-            block_scripts_wad: false,
-            patch_tft: true,
-            wad_blocklist: vec![
-                WadBlocklistEntry::Regex {
-                    value: "[bad(".to_string(),
-                },
-                WadBlocklistEntry::Exact {
-                    value: "keeper.wad.client".to_string(),
-                },
-            ],
-            ..Settings::default()
-        };
-        let result = resolve_blocked_wads(&settings, &[]);
-        assert!(result.contains(&"keeper.wad.client".to_string()));
-    }
-
-    #[test]
-    fn resolve_blocked_wads_dedupes_overlapping_entries() {
-        let settings = Settings {
-            block_scripts_wad: true,
-            patch_tft: true,
-            wad_blocklist: vec![
-                WadBlocklistEntry::Exact {
-                    value: "Scripts.wad.client".to_string(),
-                },
-                WadBlocklistEntry::Regex {
-                    value: "^scripts".to_string(),
-                },
-            ],
-            ..Settings::default()
-        };
-        let available = vec!["scripts.wad.client".to_string()];
-        let result = resolve_blocked_wads(&settings, &available);
-        assert!(result.contains(&"scripts.wad.client".to_string()));
-        let scripts_count = result.iter().filter(|w| *w == "scripts.wad.client").count();
-        assert_eq!(scripts_count, 1);
     }
 
     #[test]
