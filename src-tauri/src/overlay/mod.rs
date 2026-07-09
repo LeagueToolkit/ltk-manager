@@ -353,9 +353,13 @@ fn prepare_macos_overlay_wads(
 
     let mut restored = 0;
     let mut stripped = 0;
+    let mut tex_repaired = 0;
+    let mut repathed = 0;
+    let mut bank_reverted = 0;
     let mut reverted = 0;
     let mut repacked = 0;
     let mut repaired = 0;
+    let mut locale_passthroughs = 0;
     for entry in walkdir::WalkDir::new(&data_dir).follow_links(false) {
         let entry = entry.map_err(|error| {
             AppError::Other(format!("Failed to scan macOS overlay WADs: {}", error))
@@ -372,6 +376,23 @@ fn prepare_macos_overlay_wads(
                     .strip_prefix(&data_dir)
                     .map_err(|error| AppError::Other(error.to_string()))?,
             );
+            // Locale WADs (`*.<xx_xx>.wad.client`) hold only routed voice-over
+            // audio, and the macOS client rejects *any* rewritten locale WAD at
+            // mount (ALE-18967994 Inconsistent) — even one whose chunk contents
+            // are byte-for-byte vanilla. Empirically the base champion WAD
+            // tolerates our repack but a locale WAD does not: the client
+            // validates the locale WAD's header against a value we can't
+            // reproduce (no xxh/xxh3 formula over the TOC matches Riot's
+            // original), so a repacked copy always fails. A mod's VO therefore
+            // cannot be served on macOS at all; symlink the overlay entry back
+            // to the pristine game WAD so the original mounts. The visual mod
+            // lives in the base champion WAD and is unaffected (vanilla VO).
+            if is_locale_wad(&file_name) {
+                if link_overlay_passthrough(entry.path(), &source_path)? {
+                    locale_passthroughs += 1;
+                }
+                continue;
+            }
             // Revert any cross-WAD overrides that clobbered a subchunk entry in
             // this WAD with a standalone (non-subchunked) chunk — the Aatrox
             // crash root cause. ltk_overlay 0.5.2's cross-WAD routing fix
@@ -385,21 +406,49 @@ fn prepare_macos_overlay_wads(
             if restore_subchunk_overrides(entry.path(), &source_path)? {
                 restored += 1;
             }
-            // Strip oversized new audio (Wwise .bnk / .wpk) entries that the
-            // macOS game's audio engine can't ingest. Vayne ships a 36 MB
-            // BKHD bank as a brand-new chunk that crashes the game right after
-            // the loading screen completes. The mod still applies textures/VFX,
-            // just without custom voice lines.
-            let stripped_hashes = strip_oversized_audio_chunks(entry.path(), &source_path)?;
-            if !stripped_hashes.is_empty() {
+            // A mod that ships its voice-over under the *base* WAD directory
+            // (e.g. `WAD/Vayne.wad.client/assets/sounds/.../vo/en_us/...`) makes
+            // ltk_overlay add those locale chunks to the base WAD. Their path
+            // hashes collide with the untouched locale WAD, so the game finds
+            // the same file in two WADs with different content and rejects the
+            // locale WAD at mount (ALE-18967994 Inconsistent) — the crash even
+            // a pristine locale passthrough can't cure, because the conflict
+            // lives in the base WAD. Collect the sibling locale WADs' chunk
+            // hashes so the sanitize pass can repath (or drop) the duplicates.
+            let locale_collisions = locale_sibling_chunk_hashes(&source_path)?;
+            // Sanitize mod chunks the macOS game can't ingest:
+            //
+            // * banks whose BKHD generator version doesn't match the exact
+            //   game bank they override — Wwise refuses wrong-version banks;
+            //   on Windows that only mutes the mod's audio, but on macOS the
+            //   failed bank load crashes the game during the loading screen;
+            // * block-compressed `.tex` textures with non-power-of-two
+            //   dimensions and a mip chain. The engine's mip-offset math
+            //   assumes power-of-two dimensions, so such a chain makes the
+            //   loader read out of bounds — silent garbage on Windows, a
+            //   fatal segfault on macOS mid champion-load (this, not its
+            //   36 MB soundbank, is what crashed the silvervayne Vayne skin).
+            //   Repaired by stripping the chain down to the full-res level.
+            let sanitized = sanitize_mod_chunks(entry.path(), &source_path, &locale_collisions)?;
+            if sanitized.reverted > 0 {
+                bank_reverted += 1;
+            }
+            if sanitized.repaired_textures > 0 {
+                tex_repaired += 1;
+            }
+            if sanitized.repathed > 0 {
+                repathed += 1;
+            }
+            if !sanitized.dropped.is_empty() {
                 stripped += 1;
                 // The BIN/PTCH files that the mod ships as overrides still
-                // reference the just-stripped audio paths by hash. When the game
+                // reference the just-dropped audio paths by hash. When the game
                 // looks them up it gets `AudioManager: Failed to load Bank for
                 // Wwise (...)` and then crashes shortly after. Revert any
-                // mod-overridden BIN that points at a stripped chunk so the
+                // mod-overridden BIN that points at a dropped chunk so the
                 // game loads its original audio config instead.
-                if revert_audio_referring_overrides(entry.path(), &source_path, &stripped_hashes)? {
+                if revert_audio_referring_overrides(entry.path(), &source_path, &sanitized.dropped)?
+                {
                     reverted += 1;
                 }
             }
@@ -412,32 +461,298 @@ fn prepare_macos_overlay_wads(
     }
 
     tracing::info!(
-        "Overlay: restored subchunks in {} WAD(s), stripped oversized audio in {} WAD(s), reverted dangling-audio BIN overrides in {} WAD(s), canonicalized {} macOS WAD(s), repaired headers for {} WAD(s), linked {} blocked WAD passthrough(s)",
+        "Overlay: restored subchunks in {} WAD(s), dropped incompatible audio in {} WAD(s), repaired NPOT mipped textures in {} WAD(s), repathed locale audio in {} WAD(s), reverted wrong-version banks in {} WAD(s), reverted dangling-audio BIN overrides in {} WAD(s), canonicalized {} macOS WAD(s), repaired headers for {} WAD(s), passed through {} locale WAD(s), linked {} blocked WAD passthrough(s)",
         restored,
         stripped,
+        tex_repaired,
+        repathed,
+        bank_reverted,
         reverted,
         repacked,
         repaired,
+        locale_passthroughs,
         passthroughs
     );
     Ok(())
 }
 
-/// Maximum size (in bytes) for a mod-added Wwise audio chunk. Banks above this
-/// threshold crash the macOS game's Wwise loader on first playback. Riot's own
-/// audio banks live well under this limit; oversized mod banks are dropped from
-/// the overlay so the visual portion of the mod still applies.
+/// Whether a WAD filename is a locale variant (`*.<xx_xx>.wad.client`, e.g.
+/// `vayne.en_us.wad.client`). `file_name` must already be lowercased. These
+/// WADs carry only routed voice-over audio.
 #[cfg(target_os = "macos")]
-const MAX_MACOS_AUDIO_CHUNK_BYTES: usize = 16 * 1024 * 1024;
+fn is_locale_wad(file_name: &str) -> bool {
+    let Some(stem) = file_name.strip_suffix(".wad.client") else {
+        return false;
+    };
+    let Some((_, locale)) = stem.rsplit_once('.') else {
+        return false;
+    };
+    let bytes = locale.as_bytes();
+    bytes.len() == 5
+        && bytes[2] == b'_'
+        && bytes[..2].iter().all(u8::is_ascii_lowercase)
+        && bytes[3..].iter().all(u8::is_ascii_lowercase)
+}
 
-/// Drop new (not-in-source) Wwise `.bnk`/`.wpk` entries whose compressed size
-/// exceeds [`MAX_MACOS_AUDIO_CHUNK_BYTES`]. Returns the set of path hashes
-/// that were stripped, empty if nothing matched.
+/// Collect the chunk path-hashes of every sibling locale WAD of a base
+/// champion WAD. For `.../Champions/Vayne.wad.client` this scans the same
+/// directory for `Vayne.<xx_xx>.wad.client` and unions their TOC hashes.
+///
+/// Used to detect a mod's voice-over that was shipped under the base WAD and
+/// therefore routed into it: such chunks share a path-hash with the locale WAD
+/// and make the macOS client reject the locale WAD at mount. Returns an empty
+/// set for locale WADs themselves or when the WAD has no locale siblings.
 #[cfg(target_os = "macos")]
-fn strip_oversized_audio_chunks(path: &Path, source_path: &Path) -> AppResult<HashSet<u64>> {
+fn locale_sibling_chunk_hashes(source_path: &Path) -> AppResult<HashSet<u64>> {
+    let mut hashes = HashSet::new();
+    let file_name = source_path
+        .file_name()
+        .map(|n| n.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    let Some(stem) = file_name.strip_suffix(".wad.client") else {
+        return Ok(hashes);
+    };
+    // Only base champion WADs have locale siblings; skip locale WADs.
+    if is_locale_wad(&file_name) {
+        return Ok(hashes);
+    }
+    let Some(dir) = source_path.parent() else {
+        return Ok(hashes);
+    };
+    let prefix = format!("{stem}.");
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Ok(hashes);
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+        if name == file_name || !name.starts_with(&prefix) || !is_locale_wad(&name) {
+            continue;
+        }
+        let Ok(file) = File::open(entry.path()) else {
+            continue;
+        };
+        if let Ok(wad) = ltk_wad::Wad::mount(file) {
+            hashes.extend(wad.chunks().iter().map(|c| c.path_hash));
+        }
+    }
+    Ok(hashes)
+}
+
+/// Replace an overlay WAD with a symlink to the pristine game WAD so the game
+/// mounts the original file instead of our rewritten copy. Returns `false`
+/// (without touching anything) when the source is missing or the correct
+/// symlink is already in place. Mirrors [`create_blocked_wad_passthroughs`].
+#[cfg(target_os = "macos")]
+fn link_overlay_passthrough(overlay_path: &Path, source_path: &Path) -> AppResult<bool> {
+    if !source_path.exists() {
+        return Ok(false);
+    }
+    match fs::read_link(overlay_path) {
+        Ok(existing) if existing == source_path => return Ok(false),
+        Ok(_) => fs::remove_file(overlay_path)?,
+        Err(_) if overlay_path.exists() => fs::remove_file(overlay_path)?,
+        Err(_) => {}
+    }
+    std::os::unix::fs::symlink(source_path, overlay_path)?;
+    Ok(true)
+}
+
+/// Result of [`sanitize_mod_chunks`] for one overlay WAD.
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+struct SanitizeOutcome {
+    /// Path hashes of new (not-in-source) audio entries dropped from the WAD.
+    dropped: HashSet<u64>,
+    /// Number of override entries reverted to the original game bytes.
+    reverted: usize,
+    /// Number of NPOT mipped textures rewritten without their mip chain.
+    repaired_textures: usize,
+    /// Number of locale-colliding entries re-added under a mutated path hash.
+    repathed: usize,
+}
+
+/// BKHD generator version of a Wwise soundbank, if `data` is one.
+#[cfg(target_os = "macos")]
+fn wwise_bank_version(data: &[u8]) -> Option<u32> {
+    if data.len() < 12 || &data[..4] != b"BKHD" {
+        return None;
+    }
+    Some(u32::from_le_bytes(data[8..12].try_into().unwrap()))
+}
+
+/// Rewrite a block-compressed League `.tex` with non-power-of-two dimensions
+/// and a mip chain so it carries only its full-resolution level, or `None`
+/// when `data` isn't such a texture (wrong magic, POT dimensions, no mip
+/// flag, non-BC format, or a payload too short to contain the full level).
+///
+/// The engine's mip-offset math assumes power-of-two dimensions; an NPOT
+/// chain (e.g. 1028×1028 → 514 → 257 …) makes it read past the buffer.
+/// Windows survives the out-of-bounds read by allocator luck, the macOS
+/// client segfaults during champion load with nothing in `r3dlog`. Riot's
+/// own textures are always POT, so only broken mod exports match.
+///
+/// `.tex` layout: a 12-byte header (`"TEX\0"`, u16 width, u16 height, u8
+/// unused, u8 format, u8 resource type, u8 flags with bit 0 = has mip chain)
+/// followed by the mip levels stored smallest-first — the full-resolution
+/// level 0 is the *last* `ceil(w/4)·ceil(h/4)·block_size` bytes.
+#[cfg(target_os = "macos")]
+fn strip_npot_tex_mips(data: &[u8]) -> Option<Vec<u8>> {
+    const TEX_HEADER_LEN: usize = 12;
+    if data.len() < TEX_HEADER_LEN || &data[..4] != b"TEX\0" {
+        return None;
+    }
+    let width = u16::from_le_bytes(data[4..6].try_into().unwrap()) as usize;
+    let height = u16::from_le_bytes(data[6..8].try_into().unwrap()) as usize;
+    let format = data[9];
+    let flags = data[11];
+    if flags & 1 == 0 || width == 0 || height == 0 {
+        return None;
+    }
+    if width.is_power_of_two() && height.is_power_of_two() {
+        return None;
+    }
+    let block_bytes: usize = match format {
+        0x0a => 8,  // BC1 / DXT1
+        0x0c => 16, // BC3 / DXT5
+        _ => return None,
+    };
+    let level0_len = width.div_ceil(4) * height.div_ceil(4) * block_bytes;
+    if data.len() < TEX_HEADER_LEN + level0_len {
+        return None;
+    }
+    let mut fixed = Vec::with_capacity(TEX_HEADER_LEN + level0_len);
+    fixed.extend_from_slice(&data[..TEX_HEADER_LEN]);
+    fixed[11] &= !1;
+    fixed.extend_from_slice(&data[data.len() - level0_len..]);
+    Some(fixed)
+}
+
+/// Offset of the two-letter locale directory (`/xx_xx/`) inside a lowercased
+/// path, pointing at the first letter after the slash.
+#[cfg(target_os = "macos")]
+fn locale_component_offset(lower_path: &[u8]) -> Option<usize> {
+    lower_path
+        .windows(7)
+        .position(|w| {
+            w[0] == b'/'
+                && w[6] == b'/'
+                && w[3] == b'_'
+                && w[1].is_ascii_lowercase()
+                && w[2].is_ascii_lowercase()
+                && w[4].is_ascii_lowercase()
+                && w[5].is_ascii_lowercase()
+        })
+        .map(|pos| pos + 1)
+}
+
+/// Rewrite every `.bnk`/`.wpk` path string in a PROP/PTCH `bin` whose
+/// lowercase xxh64 equals `hash` so its locale directory (`/xx_xx/`) becomes
+/// `/zz_zz/` (case pattern preserved, length unchanged — no PROP surgery
+/// needed). Returns the mutated bin and the mutated path's hash, or `None`
+/// when the bin holds no such reference.
+///
+/// `zz_zz` is never a real locale, so the new hash can never collide with a
+/// locale WAD again, and the mutation is deterministic: every mod bin
+/// referencing the same path converges on the same new hash.
+#[cfg(target_os = "macos")]
+fn repath_locale_reference(bin: &[u8], hash: u64) -> Option<(Vec<u8>, u64)> {
+    use xxhash_rust::xxh64::xxh64;
+
+    let mut mutated: Option<(Vec<u8>, u64)> = None;
+    let mut i = 0;
+    while i + 4 <= bin.len() {
+        let window = &bin[i..i + 4];
+        if window != b".bnk" && window != b".wpk" {
+            i += 1;
+            continue;
+        }
+        // Walk backwards over the path string. Wwise paths are URL-safe
+        // ASCII: letters, digits, `/`, `.`, `_`, `-`.
+        let mut start = i;
+        while start > 0 {
+            let c = bin[start - 1];
+            let is_path_char =
+                c.is_ascii_alphanumeric() || c == b'/' || c == b'.' || c == b'_' || c == b'-';
+            if !is_path_char {
+                break;
+            }
+            start -= 1;
+        }
+        let end = i + 4;
+        i += 4;
+        let path = &bin[start..end];
+        if path.len() < 5 || xxh64(&path.to_ascii_lowercase(), 0) != hash {
+            continue;
+        }
+        let Some(locale_at) = locale_component_offset(&path.to_ascii_lowercase()) else {
+            continue;
+        };
+        let (out, _) = mutated.get_or_insert_with(|| (bin.to_vec(), 0));
+        for offset in [0_usize, 1, 3, 4] {
+            let byte = &mut out[start + locale_at + offset];
+            *byte = if byte.is_ascii_uppercase() {
+                b'Z'
+            } else {
+                b'z'
+            };
+        }
+        let new_hash = xxh64(&out[start..end].to_ascii_lowercase(), 0);
+        mutated.as_mut().expect("just inserted").1 = new_hash;
+    }
+    mutated
+}
+
+/// Decompressed leading bytes of a chunk, or `None` for compression schemes
+/// we don't inspect (subchunked entries are never audio).
+#[cfg(target_os = "macos")]
+fn load_inspectable_chunk(
+    wad: &mut ltk_wad::Wad<File>,
+    chunk: &ltk_wad::WadChunk,
+) -> Option<Box<[u8]>> {
+    use ltk_wad::WadChunkCompression;
+
+    match chunk.compression_type {
+        WadChunkCompression::None => wad.load_chunk_raw(chunk).ok(),
+        WadChunkCompression::Zstd => wad.load_chunk_decompressed(chunk).ok(),
+        _ => None,
+    }
+}
+
+/// Remove, revert or repair mod chunk entries the macOS game can't ingest:
+///
+/// * a bank that OVERRIDES a game bank with a different BKHD generation is
+///   reverted to the original game bytes. New banks are NOT version-checked:
+///   the game ships banks of several BKHD versions, so there is no single
+///   expected version, and dropping a valid new bank only strands the skin
+///   bin that references it. Bank size is also never checked — the client
+///   loads even a 36 MB mod bank fine (verified in-game);
+/// * new (not-in-source) chunks whose path hash appears in `locale_collisions`
+///   — a mod's voice-over shipped under the base WAD directory and routed into
+///   it, colliding with the pristine locale WAD. The macOS client rejects the
+///   locale WAD at mount over the conflicting duplicate. When a mod bin
+///   references the chunk by path, both are REPATHED (locale directory →
+///   `zz_zz`, [`repath_locale_reference`]) so the collision disappears and the
+///   mod's voice-over still plays; unreferenced chunks are dropped;
+/// * block-compressed `.tex` entries with NPOT dimensions and a mip chain are
+///   rewritten without the chain ([`strip_npot_tex_mips`]) — the chain makes
+///   the loader read out of bounds, which segfaults the macOS client during
+///   champion load.
+///
+/// Returns the dropped path hashes (for [`revert_audio_referring_overrides`])
+/// and the number of reverted overrides / repaired textures.
+///
+/// Locale WADs never reach here — they are passed through to the pristine game
+/// file in [`prepare_macos_overlay_wads`], because the macOS client rejects
+/// any rewritten locale WAD at mount regardless of content.
+#[cfg(target_os = "macos")]
+fn sanitize_mod_chunks(
+    path: &Path,
+    source_path: &Path,
+    locale_collisions: &HashSet<u64>,
+) -> AppResult<SanitizeOutcome> {
     use byteorder::{WriteBytesExt as _, LE};
-    use ltk_file::LeagueFileKind;
-    use ltk_wad::WadChunk;
+    use ltk_wad::{WadChunk, WadChunkCompression};
+    use xxhash_rust::xxh3::xxh3_64;
 
     let mut overlay_wad = ltk_wad::Wad::mount(File::open(path)?).map_err(|error| {
         AppError::Other(format!(
@@ -448,58 +763,172 @@ fn strip_oversized_audio_chunks(path: &Path, source_path: &Path) -> AppResult<Ha
     })?;
     let overlay_chunks = overlay_wad.chunks().clone();
 
-    let source_path_hashes: HashSet<u64> = if source_path.exists() {
-        let source_wad = ltk_wad::Wad::mount(File::open(source_path)?).map_err(|error| {
-            AppError::Other(format!(
-                "Failed to read source WAD {}: {}",
-                source_path.display(),
-                error
-            ))
-        })?;
-        source_wad.chunks().iter().map(|c| c.path_hash).collect()
+    let mut source_wad = if source_path.exists() {
+        Some(
+            ltk_wad::Wad::mount(File::open(source_path)?).map_err(|error| {
+                AppError::Other(format!(
+                    "Failed to read source WAD {}: {}",
+                    source_path.display(),
+                    error
+                ))
+            })?,
+        )
     } else {
-        HashSet::new()
+        None
     };
+    let source_chunks = source_wad.as_ref().map(|wad| wad.chunks().clone());
 
     let mut drop_hashes: HashSet<u64> = HashSet::new();
+    let mut revert: HashMap<u64, WadChunk> = HashMap::new();
+    let mut replace: HashMap<u64, Vec<u8>> = HashMap::new();
+    let mut collisions: Vec<u64> = Vec::new();
+    let mut bins: Vec<(u64, Box<[u8]>)> = Vec::new();
+    let mut repaired_textures = 0;
     for chunk in &overlay_chunks {
-        if chunk.compressed_size <= MAX_MACOS_AUDIO_CHUNK_BYTES {
+        let source_chunk = source_chunks
+            .as_ref()
+            .and_then(|chunks| chunks.get(chunk.path_hash))
+            .copied();
+        if let Some(source_chunk) = &source_chunk {
+            if source_chunk.checksum == chunk.checksum {
+                continue; // Pass-through chunk, untouched by mods.
+            }
+        }
+
+        // A brand-new chunk that also lives in a sibling locale WAD is the
+        // mod's voice-over misrouted into the base WAD. It is not part of the
+        // vanilla base WAD (source_chunk is None) and its duplicate in the
+        // untouched locale WAD makes the client reject that locale WAD at
+        // mount. Collect it; the pass below tries to save it under a mutated
+        // path before falling back to dropping it.
+        if source_chunk.is_none() && locale_collisions.contains(&chunk.path_hash) {
+            collisions.push(chunk.path_hash);
             continue;
         }
-        if source_path_hashes.contains(&chunk.path_hash) {
+
+        let Some(data) = load_inspectable_chunk(&mut overlay_wad, chunk) else {
+            continue;
+        };
+
+        // Remember mod-provided bins: the locale-collision repair pass below
+        // scans them for the strings that reference the colliding chunks.
+        if data.starts_with(b"PROP") || data.starts_with(b"PTCH") {
+            bins.push((chunk.path_hash, data));
             continue;
         }
-        // Peek at the first few bytes to confirm it's audio. We only want to
-        // drop entries that the audio engine will try to ingest.
-        let raw = overlay_wad.load_chunk_raw(chunk).map_err(|error| {
-            AppError::Other(format!(
-                "Failed to read overlay chunk {:016x} from {}: {}",
+
+        if let Some(fixed) = strip_npot_tex_mips(&data) {
+            tracing::info!(
+                "Overlay: stripping mip chain from NPOT texture {:016x} ({} -> {} bytes) in {}",
+                chunk.path_hash,
+                data.len(),
+                fixed.len(),
+                path.display()
+            );
+            replace.insert(chunk.path_hash, fixed);
+            repaired_textures += 1;
+            continue;
+        }
+
+        // Version handling applies only to banks that OVERRIDE a game bank:
+        // if the mod swaps a bank for one of a different BKHD generation than
+        // the exact game bank it replaces, revert to the original. Brand-new
+        // banks are never version-dropped — the game ships banks of several
+        // BKHD versions (e.g. Vayne's are all v145 while other champions carry
+        // v134), so there is no single "game version" to judge a new bank
+        // against, and dropping a valid new bank only strands the skin bin
+        // that references it.
+        let Some(source_chunk) = source_chunk else {
+            continue;
+        };
+        let Some(version) = wwise_bank_version(&data) else {
+            continue;
+        };
+        let Some(expected) = source_wad
+            .as_mut()
+            .and_then(|wad| load_inspectable_chunk(wad, &source_chunk))
+            .and_then(|data| wwise_bank_version(&data))
+        else {
+            continue;
+        };
+        if version != expected {
+            tracing::info!(
+                "Overlay: reverting bank override {:016x} in {} (mod bank version {}, game uses {})",
                 chunk.path_hash,
                 path.display(),
-                error
-            ))
-        })?;
-        let kind = LeagueFileKind::identify_from_bytes(&raw);
-        if matches!(
-            kind,
-            LeagueFileKind::WwiseBank | LeagueFileKind::WwisePackage
-        ) {
-            drop_hashes.insert(chunk.path_hash);
+                version,
+                expected
+            );
+            revert.insert(chunk.path_hash, source_chunk);
         }
     }
 
-    if drop_hashes.is_empty() {
-        return Ok(HashSet::new());
+    // Save each misrouted locale chunk instead of dropping it when possible:
+    // rewrite the bin string that references it so its locale directory reads
+    // `zz_zz` (same length, never a real locale) and re-add the chunk under
+    // the mutated path's hash. The base WAD then carries the voice-over at a
+    // path no locale WAD contains — no cross-WAD duplicate, the locale WAD
+    // mounts, and the mod's VO plays (verified in-game with silvervayne).
+    // A chunk no bin references can't be repathed; dropping it is harmless
+    // because nothing looks it up.
+    let mut rehash: HashMap<u64, u64> = HashMap::new();
+    if !collisions.is_empty() {
+        let mut taken: HashSet<u64> = overlay_chunks.iter().map(|c| c.path_hash).collect();
+        if let Some(chunks) = &source_chunks {
+            taken.extend(chunks.iter().map(|c| c.path_hash));
+        }
+        taken.extend(locale_collisions.iter().copied());
+        for old_hash in collisions {
+            let new_hash = bins.iter().find_map(|(bin_hash, data)| {
+                let current = replace
+                    .get(bin_hash)
+                    .map(Vec::as_slice)
+                    .unwrap_or(data.as_ref());
+                repath_locale_reference(current, old_hash).map(|(_, new_hash)| new_hash)
+            });
+            match new_hash {
+                Some(new_hash) if !taken.contains(&new_hash) => {
+                    for (bin_hash, data) in &bins {
+                        let current = replace
+                            .get(bin_hash)
+                            .map(Vec::as_slice)
+                            .unwrap_or(data.as_ref());
+                        if let Some((mutated, _)) = repath_locale_reference(current, old_hash) {
+                            replace.insert(*bin_hash, mutated);
+                        }
+                    }
+                    tracing::info!(
+                        "Overlay: repathing misrouted locale chunk {:016x} -> {:016x} in {} (collides with a locale WAD)",
+                        old_hash,
+                        new_hash,
+                        path.display()
+                    );
+                    taken.insert(new_hash);
+                    rehash.insert(old_hash, new_hash);
+                }
+                _ => {
+                    tracing::info!(
+                        "Overlay: dropping misrouted locale chunk {:016x} from {} (collides with a locale WAD, no repathable reference)",
+                        old_hash,
+                        path.display()
+                    );
+                    drop_hashes.insert(old_hash);
+                }
+            }
+        }
     }
 
-    tracing::info!(
-        "Overlay: stripping {} oversized audio entry/entries from {}",
-        drop_hashes.len(),
-        path.display()
-    );
+    if drop_hashes.is_empty() && revert.is_empty() && replace.is_empty() && rehash.is_empty() {
+        return Ok(SanitizeOutcome::default());
+    }
 
     let mut signature = [0_u8; WAD_V3_SIGNATURE_SIZE];
-    let mut source = File::open(path)?;
+    let signature_source = if source_path.exists() {
+        source_path
+    } else {
+        path
+    };
+    let mut source = File::open(signature_source)?;
     source.seek(SeekFrom::Start(WAD_V3_SIGNATURE_OFFSET))?;
     source.read_exact(&mut signature)?;
 
@@ -521,23 +950,74 @@ fn strip_oversized_audio_chunks(path: &Path, source_path: &Path) -> AppResult<Ha
 
         let mut final_chunks: Vec<WadChunk> = Vec::with_capacity(kept.len());
         for chunk in &kept {
-            let raw = overlay_wad.load_chunk_raw(chunk).map_err(|error| {
-                AppError::Other(format!(
-                    "Failed to read overlay chunk {:016x} from {}: {}",
-                    chunk.path_hash,
-                    path.display(),
-                    error
-                ))
-            })?;
-            let data_offset = writer.stream_position()? as usize;
-            writer.write_all(&raw)?;
-            final_chunks.push(WadChunk {
-                path_hash: chunk.path_hash,
-                data_offset,
-                compressed_size: raw.len(),
-                ..**chunk
-            });
+            let out_hash = rehash
+                .get(&chunk.path_hash)
+                .copied()
+                .unwrap_or(chunk.path_hash);
+            let final_chunk = if let Some(replacement) = replace.get(&chunk.path_hash) {
+                let data_offset = writer.stream_position()? as usize;
+                writer.write_all(replacement)?;
+                WadChunk {
+                    path_hash: out_hash,
+                    data_offset,
+                    compressed_size: replacement.len(),
+                    uncompressed_size: replacement.len(),
+                    compression_type: WadChunkCompression::None,
+                    is_duplicated: false,
+                    frame_count: 0,
+                    start_frame: 0,
+                    checksum: xxh3_64(replacement),
+                }
+            } else if let Some(source_chunk) = revert.get(&chunk.path_hash) {
+                let raw = source_wad
+                    .as_mut()
+                    .expect("revert entries only exist when the source WAD does")
+                    .load_chunk_raw(source_chunk)
+                    .map_err(|error| {
+                        AppError::Other(format!(
+                            "Failed to read source chunk {:016x} from {}: {}",
+                            chunk.path_hash,
+                            source_path.display(),
+                            error
+                        ))
+                    })?;
+                let data_offset = writer.stream_position()? as usize;
+                writer.write_all(&raw)?;
+                WadChunk {
+                    path_hash: out_hash,
+                    data_offset,
+                    compressed_size: raw.len(),
+                    uncompressed_size: source_chunk.uncompressed_size,
+                    compression_type: source_chunk.compression_type,
+                    is_duplicated: false,
+                    frame_count: source_chunk.frame_count,
+                    start_frame: source_chunk.start_frame,
+                    checksum: source_chunk.checksum,
+                }
+            } else {
+                let raw = overlay_wad.load_chunk_raw(chunk).map_err(|error| {
+                    AppError::Other(format!(
+                        "Failed to read overlay chunk {:016x} from {}: {}",
+                        chunk.path_hash,
+                        path.display(),
+                        error
+                    ))
+                })?;
+                let data_offset = writer.stream_position()? as usize;
+                writer.write_all(&raw)?;
+                WadChunk {
+                    path_hash: out_hash,
+                    data_offset,
+                    compressed_size: raw.len(),
+                    ..**chunk
+                }
+            };
+            final_chunks.push(final_chunk);
         }
+
+        // Repathed entries break the mount-order sort; the game binary-searches
+        // the TOC, so it must stay sorted by path hash.
+        final_chunks.sort_by_key(|chunk| chunk.path_hash);
 
         writer.seek(SeekFrom::Start(toc_offset))?;
         for chunk in &final_chunks {
@@ -559,7 +1039,48 @@ fn strip_oversized_audio_chunks(path: &Path, source_path: &Path) -> AppResult<Ha
         let _ = std::fs::remove_file(&temporary_path);
     }
     result?;
-    Ok(drop_hashes)
+    Ok(SanitizeOutcome {
+        dropped: drop_hashes,
+        reverted: revert.len(),
+        repaired_textures,
+        repathed: rehash.len(),
+    })
+}
+
+/// Path hashes of the champion's skin/character *definition* bins for the WAD
+/// at `path` (derived from its filename, e.g. `Vayne.wad.client` → `vayne`):
+/// `data/characters/<champ>/<champ>.bin`, `.../skins/root.bin`, and
+/// `.../skins/skin<N>.bin` for a generous range of slots.
+///
+/// These bins define the model, materials and VFX (not just audio), so
+/// [`revert_audio_referring_overrides`] must never revert them — doing so
+/// throws away the visual mod. A stranded audio reference inside one only
+/// costs that skin its custom sound, not its appearance.
+#[cfg(target_os = "macos")]
+fn skin_definition_bin_hashes(path: &Path) -> HashSet<u64> {
+    use xxhash_rust::xxh64::xxh64;
+
+    let mut hashes = HashSet::new();
+    let Some(champ) = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .and_then(|n| n.split('.').next())
+        .map(str::to_ascii_lowercase)
+    else {
+        return hashes;
+    };
+    if champ.is_empty() {
+        return hashes;
+    }
+    let mut add = |p: String| {
+        hashes.insert(xxh64(p.as_bytes(), 0));
+    };
+    add(format!("data/characters/{champ}/{champ}.bin"));
+    add(format!("data/characters/{champ}/skins/root.bin"));
+    for slot in 0..=255 {
+        add(format!("data/characters/{champ}/skins/skin{slot}.bin"));
+    }
+    hashes
 }
 
 /// After stripping audio chunks, find any override BIN file (PROP/PTCH) whose
@@ -573,6 +1094,11 @@ fn strip_oversized_audio_chunks(path: &Path, source_path: &Path) -> AppResult<Ha
 /// path string inside each Zstd-compressed override and compare against the
 /// stripped set. That's the same hashing convention League uses internally
 /// for WAD path lookups.
+///
+/// Skin/character *definition* bins ([`skin_definition_bin_hashes`]) are
+/// exempt: they carry the model/material/VFX setup, so reverting them to
+/// vanilla would erase the visual mod. They keep their (now-stranded) audio
+/// reference, which merely mutes that skin's custom sound.
 #[cfg(target_os = "macos")]
 fn revert_audio_referring_overrides(
     path: &Path,
@@ -586,6 +1112,8 @@ fn revert_audio_referring_overrides(
     if stripped_hashes.is_empty() || !source_path.exists() {
         return Ok(false);
     }
+
+    let protected = skin_definition_bin_hashes(path);
 
     let mut overlay_wad = ltk_wad::Wad::mount(File::open(path)?).map_err(|error| {
         AppError::Other(format!(
@@ -607,6 +1135,9 @@ fn revert_audio_referring_overrides(
 
     let mut to_revert: HashMap<u64, WadChunk> = HashMap::new();
     for chunk in &overlay_chunks {
+        if protected.contains(&chunk.path_hash) {
+            continue; // Never revert a skin/character definition bin.
+        }
         let Some(source_chunk) = source_chunks.get(chunk.path_hash) else {
             continue;
         };
@@ -1473,6 +2004,502 @@ mod tests {
             .all(|chunk| chunk.compression_type == WadChunkCompression::Zstd));
         assert_eq!(chunks[0].data_offset, chunks[1].data_offset);
         assert_eq!(chunks[0].checksum, chunks[1].checksum);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sanitize_reverts_wrong_version_override_but_keeps_new_banks() {
+        use ltk_wad::{WadBuilder, WadChunkBuilder, WadChunkCompression};
+        use std::io::Write;
+
+        fn bank(version: u32, filler: u8) -> Vec<u8> {
+            let mut data = b"BKHD".to_vec();
+            data.extend_from_slice(&20_u32.to_le_bytes());
+            data.extend_from_slice(&version.to_le_bytes());
+            data.extend(std::iter::repeat_n(filler, 20));
+            data
+        }
+
+        const GAME_VERSION: u32 = 145;
+        const OLD_VERSION: u32 = 134;
+        const OVERRIDDEN_BANK: u64 = 10;
+        const PASSTHROUGH: u64 = 20;
+        const NEW_OLD_BANK: u64 = 30;
+        const NEW_CURRENT_BANK: u64 = 40;
+
+        let temp = tempfile::tempdir().unwrap();
+        let source_path = temp.path().join("Vayne.original.wad.client");
+        let wad_path = temp.path().join("Vayne.wad.client");
+
+        let source_builder = WadBuilder::default()
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(OVERRIDDEN_BANK)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .with_chunk(WadChunkBuilder::default().with_hash(PASSTHROUGH));
+        let mut output = File::create(&source_path).unwrap();
+        source_builder
+            .build_to_writer(&mut output, |path_hash, cursor| {
+                match path_hash {
+                    OVERRIDDEN_BANK => cursor.write_all(&bank(GAME_VERSION, 0xAA))?,
+                    _ => cursor.write_all(b"passthrough data")?,
+                }
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        let overlay_builder = WadBuilder::default()
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(OVERRIDDEN_BANK)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .with_chunk(WadChunkBuilder::default().with_hash(PASSTHROUGH))
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(NEW_OLD_BANK)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(NEW_CURRENT_BANK)
+                    .with_force_compression(WadChunkCompression::None),
+            );
+        let mut output = File::create(&wad_path).unwrap();
+        overlay_builder
+            .build_to_writer(&mut output, |path_hash, cursor| {
+                match path_hash {
+                    OVERRIDDEN_BANK => cursor.write_all(&bank(OLD_VERSION, 0xBB))?,
+                    NEW_OLD_BANK => cursor.write_all(&bank(OLD_VERSION, 0xCC))?,
+                    NEW_CURRENT_BANK => cursor.write_all(&bank(GAME_VERSION, 0xDD))?,
+                    _ => cursor.write_all(b"passthrough data")?,
+                }
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
+        // The override to a different version is reverted; new banks of any
+        // version are kept (no single "game version" to judge them against).
+        assert!(outcome.dropped.is_empty());
+        assert_eq!(outcome.reverted, 1);
+
+        let mut wad = ltk_wad::Wad::mount(File::open(&wad_path).unwrap()).unwrap();
+        let chunks = wad.chunks().clone();
+        assert_eq!(chunks.len(), 4);
+        assert!(chunks.contains(NEW_OLD_BANK));
+        assert!(chunks.contains(NEW_CURRENT_BANK));
+        let reverted_chunk = *chunks.get(OVERRIDDEN_BANK).unwrap();
+        let reverted_data = wad.load_chunk_raw(&reverted_chunk).unwrap();
+        assert_eq!(&*reverted_data, bank(GAME_VERSION, 0xAA).as_slice());
+
+        // A second pass is a no-op.
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
+        assert!(outcome.dropped.is_empty());
+        assert_eq!(outcome.reverted, 0);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sanitize_drops_new_chunks_that_collide_with_a_locale_wad() {
+        use ltk_wad::{WadBuilder, WadChunkBuilder};
+        use std::io::Write;
+
+        // Base WAD chunk hashes: one real (in source) and one the mod added
+        // that also lives in the sibling locale WAD (misrouted VO).
+        const REAL: u64 = 10;
+        const MISROUTED_VO: u64 = 0xf95d9c644e994f74;
+
+        let temp = tempfile::tempdir().unwrap();
+        let source_dir = temp.path().join("game");
+        let overlay_dir = temp.path().join("overlay");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::create_dir_all(&overlay_dir).unwrap();
+        let source_path = source_dir.join("Vayne.wad.client");
+        let wad_path = overlay_dir.join("Vayne.wad.client");
+
+        // Source base WAD has only the real chunk.
+        let mut output = File::create(&source_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .build_to_writer(&mut output, |_h, c| {
+                c.write_all(b"real base chunk")?;
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        // Overlay base WAD gained the misrouted VO chunk.
+        let mut output = File::create(&wad_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .with_chunk(WadChunkBuilder::default().with_hash(MISROUTED_VO))
+            .build_to_writer(&mut output, |h, c| {
+                match h {
+                    MISROUTED_VO => c.write_all(b"mod voice-over bytes")?,
+                    _ => c.write_all(b"real base chunk")?,
+                }
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        let collisions = HashSet::from([MISROUTED_VO]);
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &collisions).unwrap();
+        assert_eq!(outcome.dropped, HashSet::from([MISROUTED_VO]));
+        assert_eq!(outcome.repathed, 0);
+
+        let wad = ltk_wad::Wad::mount(File::open(&wad_path).unwrap()).unwrap();
+        assert!(!wad.chunks().contains(MISROUTED_VO));
+        assert!(wad.chunks().contains(REAL));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn repath_locale_reference_mutates_every_matching_path() {
+        use xxhash_rust::xxh64::xxh64;
+
+        let path = b"ASSETS/Sounds/Wwise2016/VO/en_US/Characters/Vayne/Skins/Base/Vayne_Base_VO_events.bnk";
+        let other =
+            b"ASSETS/Sounds/Wwise2016/VO/en_US/Characters/Vayne/Skins/Base/Vayne_Base_VO_audio.wpk";
+        let hash = xxh64(&path.to_ascii_lowercase(), 0);
+
+        // Bin with the target path twice and an unrelated VO path once.
+        let mut bin = b"PROP\x00\x00".to_vec();
+        bin.extend_from_slice(path);
+        bin.extend_from_slice(b"\x00\x01");
+        bin.extend_from_slice(other);
+        bin.extend_from_slice(b"\x00\x02");
+        bin.extend_from_slice(path);
+        bin.push(0);
+
+        let (mutated, new_hash) = repath_locale_reference(&bin, hash).unwrap();
+        assert_eq!(mutated.len(), bin.len());
+        let expected = b"ASSETS/Sounds/Wwise2016/VO/zz_ZZ/Characters/Vayne/Skins/Base/Vayne_Base_VO_events.bnk";
+        assert_eq!(new_hash, xxh64(&expected.to_ascii_lowercase(), 0));
+        // Both occurrences mutated, the unrelated path untouched.
+        assert_eq!(count_occurrences(&mutated, expected), 2);
+        assert_eq!(count_occurrences(&mutated, other), 1);
+        assert_eq!(count_occurrences(&mutated, path), 0);
+
+        // A bin without the reference yields nothing.
+        assert!(repath_locale_reference(b"PROP no audio here", hash).is_none());
+        // A referenced path without a locale directory yields nothing.
+        let no_locale = b"ASSETS/Sounds/Wwise2016/SFX/Vayne_Base_SFX_events.bnk";
+        let mut bin = b"PROP\x00".to_vec();
+        bin.extend_from_slice(no_locale);
+        bin.push(0);
+        assert!(repath_locale_reference(&bin, xxh64(&no_locale.to_ascii_lowercase(), 0)).is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    fn count_occurrences(haystack: &[u8], needle: &[u8]) -> usize {
+        haystack
+            .windows(needle.len())
+            .filter(|w| *w == needle)
+            .count()
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sanitize_repathes_locale_collisions_referenced_by_bins() {
+        use ltk_wad::{WadBuilder, WadChunkBuilder, WadChunkCompression};
+        use std::io::Write;
+        use xxhash_rust::xxh64::xxh64;
+
+        const REAL: u64 = 10;
+        const BIN: u64 = 30;
+        let vo_path =
+            b"ASSETS/Sounds/Wwise2016/VO/en_US/Characters/Vayne/Skins/Base/Vayne_Base_VO_events.bnk";
+        let misrouted_vo = xxh64(&vo_path.to_ascii_lowercase(), 0);
+        let expected_path =
+            b"ASSETS/Sounds/Wwise2016/VO/zz_ZZ/Characters/Vayne/Skins/Base/Vayne_Base_VO_events.bnk";
+        let expected_hash = xxh64(&expected_path.to_ascii_lowercase(), 0);
+
+        let mut bin = b"PROP\x00\x00\x00\x00".to_vec();
+        bin.extend_from_slice(vo_path);
+        bin.push(0);
+
+        let temp = tempfile::tempdir().unwrap();
+        let source_dir = temp.path().join("game");
+        let overlay_dir = temp.path().join("overlay");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::create_dir_all(&overlay_dir).unwrap();
+        let source_path = source_dir.join("Vayne.wad.client");
+        let wad_path = overlay_dir.join("Vayne.wad.client");
+
+        let mut output = File::create(&source_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .build_to_writer(&mut output, |_h, c| {
+                c.write_all(b"real base chunk")?;
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        // Overlay gained the misrouted VO chunk and a mod bin referencing it.
+        let mut output = File::create(&wad_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(misrouted_vo)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(BIN)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .build_to_writer(&mut output, |h, c| {
+                if h == misrouted_vo {
+                    c.write_all(b"mod voice-over bytes")?;
+                } else if h == BIN {
+                    c.write_all(&bin)?;
+                } else {
+                    c.write_all(b"real base chunk")?;
+                }
+                Ok(())
+            })
+            .unwrap();
+        drop(output);
+
+        let collisions = HashSet::from([misrouted_vo]);
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &collisions).unwrap();
+        assert!(outcome.dropped.is_empty());
+        assert_eq!(outcome.repathed, 1);
+
+        // The VO chunk now lives under the mutated hash with the same bytes,
+        // and the bin references the mutated path.
+        let mut wad = ltk_wad::Wad::mount(File::open(&wad_path).unwrap()).unwrap();
+        let chunks = wad.chunks().clone();
+        assert!(!chunks.contains(misrouted_vo));
+        let moved = *chunks.get(expected_hash).unwrap();
+        assert_eq!(
+            &*wad.load_chunk_raw(&moved).unwrap(),
+            b"mod voice-over bytes"
+        );
+        let rewritten_bin = *chunks.get(BIN).unwrap();
+        let bin_data = wad.load_chunk_raw(&rewritten_bin).unwrap();
+        assert_eq!(count_occurrences(&bin_data, expected_path), 1);
+        assert_eq!(count_occurrences(&bin_data, vo_path), 0);
+
+        // A second pass is a no-op: the mutated path no longer collides.
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &collisions).unwrap();
+        assert_eq!(outcome.repathed, 0);
+        assert!(outcome.dropped.is_empty());
+    }
+
+    /// Synthetic `.tex`: 12-byte header + mip levels stored smallest-first
+    /// (level 0 last), each level filled with `level + 1` bytes so the test
+    /// can tell which level survived.
+    #[cfg(target_os = "macos")]
+    fn synthetic_tex(width: u16, height: u16, format: u8, mips: bool) -> Vec<u8> {
+        let block_bytes: usize = if format == 0x0a { 8 } else { 16 };
+        let mut data = b"TEX\0".to_vec();
+        data.extend_from_slice(&width.to_le_bytes());
+        data.extend_from_slice(&height.to_le_bytes());
+        data.extend_from_slice(&[1, format, 0, u8::from(mips)]);
+        let levels = if mips {
+            usize::BITS as usize - (width.max(height) as usize).leading_zeros() as usize
+        } else {
+            1
+        };
+        for level in (0..levels).rev() {
+            let w = ((width as usize) >> level).max(1);
+            let h = ((height as usize) >> level).max(1);
+            let len = w.div_ceil(4) * h.div_ceil(4) * block_bytes;
+            data.extend(std::iter::repeat_n(level as u8 + 1, len));
+        }
+        data
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn strip_npot_tex_mips_keeps_trailing_level0_and_clears_flag() {
+        // 40x24 BC1 with mips: NPOT, so the chain must be stripped. Level 0
+        // is the last 10*6*8 bytes, filled with 0x01 by `synthetic_tex`.
+        let tex = synthetic_tex(40, 24, 0x0a, true);
+        let fixed = strip_npot_tex_mips(&tex).unwrap();
+        let level0_len = 10 * 6 * 8;
+        assert_eq!(fixed.len(), 12 + level0_len);
+        assert_eq!(&fixed[..4], b"TEX\0");
+        assert_eq!(fixed[11] & 1, 0);
+        assert!(fixed[12..].iter().all(|&b| b == 1));
+
+        // POT with mips, NPOT without mips, and non-BC formats are left alone.
+        assert!(strip_npot_tex_mips(&synthetic_tex(64, 64, 0x0c, true)).is_none());
+        assert!(strip_npot_tex_mips(&synthetic_tex(40, 24, 0x0a, false)).is_none());
+        assert!(strip_npot_tex_mips(&synthetic_tex(40, 24, 0x14, true)).is_none());
+        // A payload shorter than its own level 0 is left alone.
+        assert!(strip_npot_tex_mips(&tex[..40]).is_none());
+        // Non-texture data is left alone.
+        assert!(strip_npot_tex_mips(b"PROP\x00\x00\x00\x00blah").is_none());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sanitize_strips_mips_from_npot_textures() {
+        use ltk_wad::{WadBuilder, WadChunkBuilder, WadChunkCompression};
+        use std::io::Write;
+
+        const REAL: u64 = 10;
+        const NPOT_TEXTURE: u64 = 20;
+
+        // 1028x1028 BC3 with a mip chain — the exact shape that crashed the
+        // macOS client during champion load (silvervayne's W_Ring_2.tex).
+        let bad_tex = synthetic_tex(1028, 1028, 0x0c, true);
+
+        let temp = tempfile::tempdir().unwrap();
+        let source_dir = temp.path().join("game");
+        let overlay_dir = temp.path().join("overlay");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::create_dir_all(&overlay_dir).unwrap();
+        let source_path = source_dir.join("Vayne.wad.client");
+        let wad_path = overlay_dir.join("Vayne.wad.client");
+
+        // Source has only the real chunk (the NPOT texture is mod-new).
+        let mut out = File::create(&source_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .build_to_writer(&mut out, |_h, c| {
+                c.write_all(b"real")?;
+                Ok(())
+            })
+            .unwrap();
+        drop(out);
+
+        let mut out = File::create(&wad_path).unwrap();
+        WadBuilder::default()
+            .with_chunk(WadChunkBuilder::default().with_hash(REAL))
+            .with_chunk(
+                WadChunkBuilder::default()
+                    .with_hash(NPOT_TEXTURE)
+                    .with_force_compression(WadChunkCompression::None),
+            )
+            .build_to_writer(&mut out, |h, c| {
+                match h {
+                    NPOT_TEXTURE => c.write_all(&bad_tex)?,
+                    _ => c.write_all(b"real")?,
+                }
+                Ok(())
+            })
+            .unwrap();
+        drop(out);
+
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
+        assert!(outcome.dropped.is_empty());
+        assert_eq!(outcome.repaired_textures, 1);
+
+        // The texture is still present but now carries only level 0.
+        let mut wad = ltk_wad::Wad::mount(File::open(&wad_path).unwrap()).unwrap();
+        assert!(wad.chunks().contains(NPOT_TEXTURE));
+        let fixed_chunk = *wad.chunks().get(NPOT_TEXTURE).unwrap();
+        let fixed = wad.load_chunk_raw(&fixed_chunk).unwrap();
+        assert_eq!(fixed.len(), 12 + 257 * 257 * 16);
+        assert_eq!(fixed[11] & 1, 0);
+        assert!(fixed[12..].iter().all(|&b| b == 1));
+
+        // A second pass is a no-op.
+        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
+        assert_eq!(outcome.repaired_textures, 0);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn locale_sibling_chunk_hashes_unions_locale_wads_only() {
+        use ltk_wad::{WadBuilder, WadChunkBuilder};
+        use std::io::Write;
+
+        const LOCALE_CHUNK: u64 = 0xabcdef;
+        let temp = tempfile::tempdir().unwrap();
+        let dir = temp.path();
+        let write_wad = |name: &str, hash: u64| {
+            let mut f = File::create(dir.join(name)).unwrap();
+            WadBuilder::default()
+                .with_chunk(WadChunkBuilder::default().with_hash(hash))
+                .build_to_writer(&mut f, |_h, c| {
+                    c.write_all(b"data")?;
+                    Ok(())
+                })
+                .unwrap();
+        };
+        write_wad("Vayne.wad.client", 1);
+        write_wad("Vayne.en_US.wad.client", LOCALE_CHUNK);
+        write_wad("Vayne.ko_KR.wad.client", 0x123456);
+        write_wad("Vaystone.wad.client", 999); // different champion, must be ignored
+
+        let hashes = locale_sibling_chunk_hashes(&dir.join("Vayne.wad.client")).unwrap();
+        assert!(hashes.contains(&LOCALE_CHUNK));
+        assert!(hashes.contains(&0x123456));
+        assert!(!hashes.contains(&999));
+        assert!(!hashes.contains(&1));
+
+        // A locale WAD has no siblings of its own.
+        assert!(
+            locale_sibling_chunk_hashes(&dir.join("Vayne.en_US.wad.client"))
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn skin_definition_bins_are_protected_from_audio_revert() {
+        use xxhash_rust::xxh64::xxh64;
+        let h = skin_definition_bin_hashes(std::path::Path::new(
+            "/game/DATA/FINAL/Champions/Vayne.wad.client",
+        ));
+        // The champion root, skin slots, and skins/root bins are protected.
+        assert!(h.contains(&xxh64(b"data/characters/vayne/vayne.bin", 0)));
+        assert!(h.contains(&xxh64(b"data/characters/vayne/skins/skin0.bin", 0)));
+        assert!(h.contains(&xxh64(b"data/characters/vayne/skins/skin8.bin", 0)));
+        assert!(h.contains(&xxh64(b"data/characters/vayne/skins/root.bin", 0)));
+        // An audio bank-unit bin at the WAD root is NOT protected.
+        assert!(!h.contains(&xxh64(b"data/vayne_skins_skin0_skins_skin1.bin", 0)));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn link_overlay_passthrough_replaces_rewritten_copy_with_symlink() {
+        // Separate dirs — a case-insensitive filesystem (default on macOS)
+        // would alias two paths differing only in case.
+        let temp = tempfile::tempdir().unwrap();
+        let source_dir = temp.path().join("game");
+        let overlay_dir = temp.path().join("overlay");
+        std::fs::create_dir_all(&source_dir).unwrap();
+        std::fs::create_dir_all(&overlay_dir).unwrap();
+        let source_path = source_dir.join("Vayne.en_US.wad.client");
+        let overlay_path = overlay_dir.join("Vayne.en_US.wad.client");
+        std::fs::write(&source_path, b"PRISTINE GAME WAD").unwrap();
+        std::fs::write(&overlay_path, b"rewritten overlay copy").unwrap();
+
+        assert!(link_overlay_passthrough(&overlay_path, &source_path).unwrap());
+        assert_eq!(std::fs::read_link(&overlay_path).unwrap(), source_path);
+        assert_eq!(std::fs::read(&overlay_path).unwrap(), b"PRISTINE GAME WAD");
+
+        // Idempotent: the correct symlink is already in place.
+        assert!(!link_overlay_passthrough(&overlay_path, &source_path).unwrap());
+
+        // Missing source is a no-op rather than an error.
+        let absent = source_dir.join("Missing.en_US.wad.client");
+        let other = overlay_dir.join("Missing.en_US.wad.client");
+        std::fs::write(&other, b"x").unwrap();
+        assert!(!link_overlay_passthrough(&other, &absent).unwrap());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn is_locale_wad_matches_only_locale_variants() {
+        assert!(is_locale_wad("vayne.en_us.wad.client"));
+        assert!(is_locale_wad("map11.ko_kr.wad.client"));
+        assert!(!is_locale_wad("vayne.wad.client"));
+        assert!(!is_locale_wad("global.wad.client"));
+        assert!(!is_locale_wad("vayne.en_us.wad"));
     }
 
     #[test]
