@@ -355,7 +355,6 @@ fn prepare_macos_overlay_wads(
     let mut stripped = 0;
     let mut tex_repaired = 0;
     let mut repathed = 0;
-    let mut bank_reverted = 0;
     let mut reverted = 0;
     let mut repacked = 0;
     let mut repaired = 0;
@@ -430,9 +429,6 @@ fn prepare_macos_overlay_wads(
             //   36 MB soundbank, is what crashed the silvervayne Vayne skin).
             //   Repaired by stripping the chain down to the full-res level.
             let sanitized = sanitize_mod_chunks(entry.path(), &source_path, &locale_collisions)?;
-            if sanitized.reverted > 0 {
-                bank_reverted += 1;
-            }
             if sanitized.repaired_textures > 0 {
                 tex_repaired += 1;
             }
@@ -461,12 +457,11 @@ fn prepare_macos_overlay_wads(
     }
 
     tracing::info!(
-        "Overlay: restored subchunks in {} WAD(s), dropped incompatible audio in {} WAD(s), repaired NPOT mipped textures in {} WAD(s), repathed locale audio in {} WAD(s), reverted wrong-version banks in {} WAD(s), reverted dangling-audio BIN overrides in {} WAD(s), canonicalized {} macOS WAD(s), repaired headers for {} WAD(s), passed through {} locale WAD(s), linked {} blocked WAD passthrough(s)",
+        "Overlay: restored subchunks in {} WAD(s), dropped incompatible audio in {} WAD(s), repaired NPOT mipped textures in {} WAD(s), repathed locale audio in {} WAD(s), reverted dangling-audio BIN overrides in {} WAD(s), canonicalized {} macOS WAD(s), repaired headers for {} WAD(s), passed through {} locale WAD(s), linked {} blocked WAD passthrough(s)",
         restored,
         stripped,
         tex_repaired,
         repathed,
-        bank_reverted,
         reverted,
         repacked,
         repaired,
@@ -563,21 +558,10 @@ fn link_overlay_passthrough(overlay_path: &Path, source_path: &Path) -> AppResul
 struct SanitizeOutcome {
     /// Path hashes of new (not-in-source) audio entries dropped from the WAD.
     dropped: HashSet<u64>,
-    /// Number of override entries reverted to the original game bytes.
-    reverted: usize,
     /// Number of NPOT mipped textures rewritten without their mip chain.
     repaired_textures: usize,
     /// Number of locale-colliding entries re-added under a mutated path hash.
     repathed: usize,
-}
-
-/// BKHD generator version of a Wwise soundbank, if `data` is one.
-#[cfg(target_os = "macos")]
-fn wwise_bank_version(data: &[u8]) -> Option<u32> {
-    if data.len() < 12 || &data[..4] != b"BKHD" {
-        return None;
-    }
-    Some(u32::from_le_bytes(data[8..12].try_into().unwrap()))
 }
 
 /// Rewrite a block-compressed League `.tex` with non-power-of-two dimensions
@@ -718,14 +702,8 @@ fn load_inspectable_chunk(
     }
 }
 
-/// Remove, revert or repair mod chunk entries the macOS game can't ingest:
+/// Remove or repair mod chunk entries the macOS game can't ingest:
 ///
-/// * a bank that OVERRIDES a game bank with a different BKHD generation is
-///   reverted to the original game bytes. New banks are NOT version-checked:
-///   the game ships banks of several BKHD versions, so there is no single
-///   expected version, and dropping a valid new bank only strands the skin
-///   bin that references it. Bank size is also never checked — the client
-///   loads even a 36 MB mod bank fine (verified in-game);
 /// * new (not-in-source) chunks whose path hash appears in `locale_collisions`
 ///   — a mod's voice-over shipped under the base WAD directory and routed into
 ///   it, colliding with the pristine locale WAD. The macOS client rejects the
@@ -763,7 +741,7 @@ fn sanitize_mod_chunks(
     })?;
     let overlay_chunks = overlay_wad.chunks().clone();
 
-    let mut source_wad = if source_path.exists() {
+    let source_wad = if source_path.exists() {
         Some(
             ltk_wad::Wad::mount(File::open(source_path)?).map_err(|error| {
                 AppError::Other(format!(
@@ -779,7 +757,6 @@ fn sanitize_mod_chunks(
     let source_chunks = source_wad.as_ref().map(|wad| wad.chunks().clone());
 
     let mut drop_hashes: HashSet<u64> = HashSet::new();
-    let mut revert: HashMap<u64, WadChunk> = HashMap::new();
     let mut replace: HashMap<u64, Vec<u8>> = HashMap::new();
     let mut collisions: Vec<u64> = Vec::new();
     let mut bins: Vec<(u64, Box<[u8]>)> = Vec::new();
@@ -830,37 +807,12 @@ fn sanitize_mod_chunks(
             continue;
         }
 
-        // Version handling applies only to banks that OVERRIDE a game bank:
-        // if the mod swaps a bank for one of a different BKHD generation than
-        // the exact game bank it replaces, revert to the original. Brand-new
-        // banks are never version-dropped — the game ships banks of several
-        // BKHD versions (e.g. Vayne's are all v145 while other champions carry
-        // v134), so there is no single "game version" to judge a new bank
-        // against, and dropping a valid new bank only strands the skin bin
-        // that references it.
-        let Some(source_chunk) = source_chunk else {
-            continue;
-        };
-        let Some(version) = wwise_bank_version(&data) else {
-            continue;
-        };
-        let Some(expected) = source_wad
-            .as_mut()
-            .and_then(|wad| load_inspectable_chunk(wad, &source_chunk))
-            .and_then(|data| wwise_bank_version(&data))
-        else {
-            continue;
-        };
-        if version != expected {
-            tracing::info!(
-                "Overlay: reverting bank override {:016x} in {} (mod bank version {}, game uses {})",
-                chunk.path_hash,
-                path.display(),
-                version,
-                expected
-            );
-            revert.insert(chunk.path_hash, source_chunk);
-        }
+        // Mod banks are never version- or size-checked: the macOS client
+        // loads banks of any BKHD generation (the game itself ships mixed
+        // v134/v145 banks) and any size (a 36 MB mod bank loads fine, verified
+        // in-game). Both were early theories for the Vayne/Aatrox load crash
+        // and both were wrong — the real cause was an NPOT mipped texture,
+        // handled above. Reverting a bank only silences the mod's audio.
     }
 
     // Save each misrouted locale chunk instead of dropping it when possible:
@@ -918,7 +870,7 @@ fn sanitize_mod_chunks(
         }
     }
 
-    if drop_hashes.is_empty() && revert.is_empty() && replace.is_empty() && rehash.is_empty() {
+    if drop_hashes.is_empty() && replace.is_empty() && rehash.is_empty() {
         return Ok(SanitizeOutcome::default());
     }
 
@@ -968,32 +920,6 @@ fn sanitize_mod_chunks(
                     start_frame: 0,
                     checksum: xxh3_64(replacement),
                 }
-            } else if let Some(source_chunk) = revert.get(&chunk.path_hash) {
-                let raw = source_wad
-                    .as_mut()
-                    .expect("revert entries only exist when the source WAD does")
-                    .load_chunk_raw(source_chunk)
-                    .map_err(|error| {
-                        AppError::Other(format!(
-                            "Failed to read source chunk {:016x} from {}: {}",
-                            chunk.path_hash,
-                            source_path.display(),
-                            error
-                        ))
-                    })?;
-                let data_offset = writer.stream_position()? as usize;
-                writer.write_all(&raw)?;
-                WadChunk {
-                    path_hash: out_hash,
-                    data_offset,
-                    compressed_size: raw.len(),
-                    uncompressed_size: source_chunk.uncompressed_size,
-                    compression_type: source_chunk.compression_type,
-                    is_duplicated: false,
-                    frame_count: source_chunk.frame_count,
-                    start_frame: source_chunk.start_frame,
-                    checksum: source_chunk.checksum,
-                }
             } else {
                 let raw = overlay_wad.load_chunk_raw(chunk).map_err(|error| {
                     AppError::Other(format!(
@@ -1041,7 +967,6 @@ fn sanitize_mod_chunks(
     result?;
     Ok(SanitizeOutcome {
         dropped: drop_hashes,
-        reverted: revert.len(),
         repaired_textures,
         repathed: rehash.len(),
     })
@@ -2004,102 +1929,6 @@ mod tests {
             .all(|chunk| chunk.compression_type == WadChunkCompression::Zstd));
         assert_eq!(chunks[0].data_offset, chunks[1].data_offset);
         assert_eq!(chunks[0].checksum, chunks[1].checksum);
-    }
-
-    #[cfg(target_os = "macos")]
-    #[test]
-    fn sanitize_reverts_wrong_version_override_but_keeps_new_banks() {
-        use ltk_wad::{WadBuilder, WadChunkBuilder, WadChunkCompression};
-        use std::io::Write;
-
-        fn bank(version: u32, filler: u8) -> Vec<u8> {
-            let mut data = b"BKHD".to_vec();
-            data.extend_from_slice(&20_u32.to_le_bytes());
-            data.extend_from_slice(&version.to_le_bytes());
-            data.extend(std::iter::repeat_n(filler, 20));
-            data
-        }
-
-        const GAME_VERSION: u32 = 145;
-        const OLD_VERSION: u32 = 134;
-        const OVERRIDDEN_BANK: u64 = 10;
-        const PASSTHROUGH: u64 = 20;
-        const NEW_OLD_BANK: u64 = 30;
-        const NEW_CURRENT_BANK: u64 = 40;
-
-        let temp = tempfile::tempdir().unwrap();
-        let source_path = temp.path().join("Vayne.original.wad.client");
-        let wad_path = temp.path().join("Vayne.wad.client");
-
-        let source_builder = WadBuilder::default()
-            .with_chunk(
-                WadChunkBuilder::default()
-                    .with_hash(OVERRIDDEN_BANK)
-                    .with_force_compression(WadChunkCompression::None),
-            )
-            .with_chunk(WadChunkBuilder::default().with_hash(PASSTHROUGH));
-        let mut output = File::create(&source_path).unwrap();
-        source_builder
-            .build_to_writer(&mut output, |path_hash, cursor| {
-                match path_hash {
-                    OVERRIDDEN_BANK => cursor.write_all(&bank(GAME_VERSION, 0xAA))?,
-                    _ => cursor.write_all(b"passthrough data")?,
-                }
-                Ok(())
-            })
-            .unwrap();
-        drop(output);
-
-        let overlay_builder = WadBuilder::default()
-            .with_chunk(
-                WadChunkBuilder::default()
-                    .with_hash(OVERRIDDEN_BANK)
-                    .with_force_compression(WadChunkCompression::None),
-            )
-            .with_chunk(WadChunkBuilder::default().with_hash(PASSTHROUGH))
-            .with_chunk(
-                WadChunkBuilder::default()
-                    .with_hash(NEW_OLD_BANK)
-                    .with_force_compression(WadChunkCompression::None),
-            )
-            .with_chunk(
-                WadChunkBuilder::default()
-                    .with_hash(NEW_CURRENT_BANK)
-                    .with_force_compression(WadChunkCompression::None),
-            );
-        let mut output = File::create(&wad_path).unwrap();
-        overlay_builder
-            .build_to_writer(&mut output, |path_hash, cursor| {
-                match path_hash {
-                    OVERRIDDEN_BANK => cursor.write_all(&bank(OLD_VERSION, 0xBB))?,
-                    NEW_OLD_BANK => cursor.write_all(&bank(OLD_VERSION, 0xCC))?,
-                    NEW_CURRENT_BANK => cursor.write_all(&bank(GAME_VERSION, 0xDD))?,
-                    _ => cursor.write_all(b"passthrough data")?,
-                }
-                Ok(())
-            })
-            .unwrap();
-        drop(output);
-
-        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
-        // The override to a different version is reverted; new banks of any
-        // version are kept (no single "game version" to judge them against).
-        assert!(outcome.dropped.is_empty());
-        assert_eq!(outcome.reverted, 1);
-
-        let mut wad = ltk_wad::Wad::mount(File::open(&wad_path).unwrap()).unwrap();
-        let chunks = wad.chunks().clone();
-        assert_eq!(chunks.len(), 4);
-        assert!(chunks.contains(NEW_OLD_BANK));
-        assert!(chunks.contains(NEW_CURRENT_BANK));
-        let reverted_chunk = *chunks.get(OVERRIDDEN_BANK).unwrap();
-        let reverted_data = wad.load_chunk_raw(&reverted_chunk).unwrap();
-        assert_eq!(&*reverted_data, bank(GAME_VERSION, 0xAA).as_slice());
-
-        // A second pass is a no-op.
-        let outcome = sanitize_mod_chunks(&wad_path, &source_path, &HashSet::new()).unwrap();
-        assert!(outcome.dropped.is_empty());
-        assert_eq!(outcome.reverted, 0);
     }
 
     #[cfg(target_os = "macos")]
