@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-shell";
 import type { LucideIcon } from "lucide-react";
 import {
   Accessibility,
+  Download,
   FolderOpen,
   Hammer,
   Library,
@@ -26,6 +27,7 @@ import { NotificationCenter } from "./NotificationCenter";
 const navItems = [
   { to: "/", label: "Library", icon: Library, exact: true },
   { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
+  { to: "/downloads", label: "Download Mod", icon: Download, exact: true },
 ] as const;
 
 const linkBaseClass =
@@ -139,11 +141,17 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
       <div className="flex h-full items-center" data-tauri-drag-region>
         <div className="flex items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
           <img src="/icon.svg" alt="LTK" className="h-5 w-5" data-tauri-drag-region />
-          <span className="text-sm font-medium text-surface-100" data-tauri-drag-region>
+          <span
+            className="hidden text-sm font-medium text-surface-100 min-[1100px]:inline"
+            data-tauri-drag-region
+          >
             {title}
           </span>
           {version && (
-            <span className="text-xs text-surface-500" data-tauri-drag-region>
+            <span
+              className="hidden text-xs text-surface-500 min-[1100px]:inline"
+              data-tauri-drag-region
+            >
               v{version}
             </span>
           )}

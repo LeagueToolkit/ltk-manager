@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkshopRouteImport } from './routes/workshop'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as DownloadsRouteImport } from './routes/downloads'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkshopIndexRouteImport } from './routes/workshop/index'
@@ -28,6 +29,11 @@ const WorkshopRoute = WorkshopRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadsRoute = DownloadsRouteImport.update({
+  id: '/downloads',
+  path: '/downloads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiagnosticsRoute = DiagnosticsRouteImport.update({
@@ -77,6 +83,7 @@ const WorkshopProjectNameContentRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/downloads': typeof DownloadsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
   '/folder/$folderId': typeof FolderFolderIdRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/downloads': typeof DownloadsRoute
   '/settings': typeof SettingsRoute
   '/folder/$folderId': typeof FolderFolderIdRoute
   '/workshop': typeof WorkshopIndexRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/downloads': typeof DownloadsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
   '/folder/$folderId': typeof FolderFolderIdRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/diagnostics'
+    | '/downloads'
     | '/settings'
     | '/workshop'
     | '/folder/$folderId'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/diagnostics'
+    | '/downloads'
     | '/settings'
     | '/folder/$folderId'
     | '/workshop'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/diagnostics'
+    | '/downloads'
     | '/settings'
     | '/workshop'
     | '/folder/$folderId'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosticsRoute: typeof DiagnosticsRoute
+  DownloadsRoute: typeof DownloadsRoute
   SettingsRoute: typeof SettingsRoute
   WorkshopRoute: typeof WorkshopRouteWithChildren
   FolderFolderIdRoute: typeof FolderFolderIdRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/downloads': {
+      id: '/downloads'
+      path: '/downloads'
+      fullPath: '/downloads'
+      preLoaderRoute: typeof DownloadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/diagnostics': {
@@ -261,6 +281,7 @@ const WorkshopRouteWithChildren = WorkshopRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosticsRoute: DiagnosticsRoute,
+  DownloadsRoute: DownloadsRoute,
   SettingsRoute: SettingsRoute,
   WorkshopRoute: WorkshopRouteWithChildren,
   FolderFolderIdRoute: FolderFolderIdRoute,

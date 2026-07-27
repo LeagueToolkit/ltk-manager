@@ -25,7 +25,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost https://runeforge.dev https://r2-images-prod.runeforge.dev https://lol-assets.divine-cdn.com https://i.ytimg.com",
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]

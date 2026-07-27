@@ -49,6 +49,7 @@ function RootLayout() {
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });
+  useHotkeys("ctrl+3", () => navigate({ to: "/downloads" }), { preventDefault: true });
   useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
   useHotkeys(
     "ctrl+f",

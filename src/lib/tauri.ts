@@ -79,6 +79,54 @@ export type DeepLinkBlockedPayload = {
   url: string;
 };
 
+export type RuneforgeChampion = {
+  id: number;
+  name: string;
+};
+
+export type RuneforgeMap = {
+  id: number;
+  name: string;
+  mapStringId: string;
+};
+
+export type DownloadMod = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  publisher: { id: string; username: string };
+  thumbnailKey: string | null;
+  fallbackImageUrl: string | null;
+  videoUrl: string | null;
+  category: string;
+  viewCount: number;
+  downloadCount: number;
+  likeCount: number;
+  champions: Array<{ id: number; name: string }>;
+  maps: Array<{ id: number; name: string }>;
+  themes: string[];
+  features: string[];
+  status: string;
+  isGilded: boolean;
+};
+
+export type DownloadModsResponse = {
+  mods: DownloadMod[];
+  total: number;
+};
+
+export type DownloadRelease = {
+  id: string;
+  tag: string;
+  createdAt: string;
+  downloadUrl: string;
+};
+
+export type DownloadMedia = {
+  images: string[];
+  videoUrl: string | null;
+};
+
 // API functions
 export const api = {
   getAppInfo: () => invokeResult<AppInfo>("get_app_info"),
@@ -172,6 +220,38 @@ export const api = {
     author?: string | null,
     source?: string | null,
   ) => invokeResult<InstalledMod>("deep_link_install_mod", { url, name, author, source }),
+
+  // Download providers
+  getRuneforgeChampions: () =>
+    invokeResult<{ champions: RuneforgeChampion[] }>("get_runeforge_champions"),
+  getRuneforgeMaps: () => invokeResult<{ maps: RuneforgeMap[] }>("get_runeforge_maps"),
+  getRuneforgeMods: (query: {
+    page: number;
+    pageSize: number;
+    search: string;
+    sortBy: string;
+    championIds: number[];
+    mapIds: number[];
+    onlyGilded: boolean;
+  }) => invokeResult<DownloadModsResponse>("get_runeforge_mods", query),
+  getRuneforgeMedia: (modId: string) =>
+    invokeResult<DownloadMedia>("get_runeforge_media", { modId }),
+  getRuneforgeReleases: (modId: string) =>
+    invokeResult<DownloadRelease[]>("get_runeforge_releases", { modId }),
+  getDivineskinsMods: (query: {
+    page: number;
+    pageSize: number;
+    search: string;
+    sortBy: string;
+    championNames: string[];
+  }) => invokeResult<DownloadModsResponse>("get_divineskins_mods", query),
+  getDivineskinsMedia: (modId: string) =>
+    invokeResult<DownloadMedia>("get_divineskins_media", { modId }),
+  getDivineskinsReleases: (modId: string) =>
+    invokeResult<DownloadRelease[]>("get_divineskins_releases", { modId }),
+  getDivineskinsDownloadUrl: (modId: string, versionId: string) =>
+    invokeResult<string>("get_divineskins_download_url", { modId, versionId }),
+  getDownloadImageData: (url: string) => invokeResult<string>("get_download_image_data", { url }),
 
   // Shell
   revealInExplorer: (path: string) => invokeResult<void>("reveal_in_explorer", { path }),
