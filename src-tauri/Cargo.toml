@@ -1,6 +1,6 @@
 [package]
 name = "ltk-manager"
-version = "1.13.0"
+version = "1.13.1"
 description = "LeagueToolkit Mod Manager - Desktop app for managing League of Legends mods"
 edition = "2021"
 license = "MIT OR Apache-2.0"
