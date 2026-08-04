@@ -31,6 +31,7 @@ pub use analysis::categorize::{ChampionRoster, DerivedCategorization};
 pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
+pub(crate) use archive::metadata::parse_fantome_info;
 pub use archive::migration::*;
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
 
