@@ -23,7 +23,7 @@ export const useLibrarySelectionStore = create<LibrarySelectionStore>()((set) =>
   selectedIds: new Set(),
   orderedIds: [],
   anchorId: null,
-  enterSelectMode: () => set({ selectMode: true }),
+  enterSelectMode: () => set((state) => (state.selectMode ? state : { selectMode: true })),
   exitSelectMode: () => set({ selectMode: false, selectedIds: new Set(), anchorId: null }),
   setOrderedIds: (ids) =>
     set((state) => (sameOrder(state.orderedIds, ids) ? state : { orderedIds: ids })),
@@ -51,17 +51,31 @@ export const useLibrarySelectionStore = create<LibrarySelectionStore>()((set) =>
   addMany: (ids) =>
     set((state) => {
       const next = new Set(state.selectedIds);
-      for (const id of ids) next.add(id);
+      let changed = false;
+      for (const id of ids) {
+        if (!next.has(id)) {
+          next.add(id);
+          changed = true;
+        }
+      }
+      if (!changed) return state;
       return { selectedIds: next };
     }),
   removeMany: (ids) =>
     set((state) => {
       const next = new Set(state.selectedIds);
-      for (const id of ids) next.delete(id);
+      let changed = false;
+      for (const id of ids) changed = next.delete(id) || changed;
+      if (!changed) return state;
       return { selectedIds: next };
     }),
   setSelection: (ids) => set({ selectedIds: new Set(ids), anchorId: null }),
-  clear: () => set({ selectedIds: new Set(), anchorId: null }),
+  clear: () =>
+    set((state) =>
+      state.selectedIds.size === 0 && state.anchorId === null
+        ? state
+        : { selectedIds: new Set(), anchorId: null },
+    ),
 }));
 
 function sameOrder(a: string[], b: string[]): boolean {

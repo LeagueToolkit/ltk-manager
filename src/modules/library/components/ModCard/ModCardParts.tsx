@@ -1,4 +1,5 @@
 import {
+  Check,
   Copy,
   Edit3,
   EllipsisVertical,
@@ -17,6 +18,39 @@ import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
+
+/**
+ * Lightweight, permanently-mounted selection mark.
+ *
+ * Base UI checkboxes create a hidden form input and indicator subtree. Mounting
+ * or updating one on every card made bulk selection perform hundreds of extra
+ * DOM operations even though card clicks own the interaction.
+ */
+export function ModSelectionIndicator({
+  variant,
+  checked,
+}: {
+  variant: CardVariant;
+  checked: boolean;
+}) {
+  const position =
+    variant === "grid"
+      ? "mod-selection-indicator-grid absolute top-2 left-2 z-10 shadow-lg backdrop-blur-sm"
+      : "mod-selection-indicator-list";
+
+  return (
+    <span
+      aria-hidden
+      className={`mod-selection-indicator pointer-events-none flex h-5 shrink-0 items-center justify-center overflow-hidden rounded border transition-[width,opacity,margin,border-color,background-color] duration-150 ${position} ${
+        checked
+          ? "border-accent-600 bg-accent-600 text-white"
+          : "border-surface-600 bg-surface-800 text-transparent"
+      }`}
+    >
+      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+    </span>
+  );
+}
 
 const THUMBNAIL_VARIANTS: Record<CardVariant, { container: string; placeholder: string }> = {
   grid: {

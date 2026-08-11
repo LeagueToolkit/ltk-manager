@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
-import { usePatcherStatus } from "@/modules/patcher";
-import { useHasActiveFilters, useLibraryFilterStore, useLibrarySelectionStore } from "@/stores";
+import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
 import { useLibraryViewStore } from "@/stores/libraryView";
 
 import { useFolderOrder, useFolders } from "./queries";
@@ -41,8 +40,6 @@ export function useLibraryContent({
   folderId,
 }: UseLibraryContentArgs) {
   const { viewMode } = useLibraryViewMode();
-  const { data: patcherStatus } = usePatcherStatus();
-  const isPatcherActive = patcherStatus?.running ?? false;
   const [detailsMod, setDetailsMod] = useState<InstalledMod | null>(null);
   const [editMod, setEditMod] = useState<InstalledMod | null>(null);
   const filteredMods = useFilteredMods(mods, searchQuery);
@@ -58,9 +55,8 @@ export function useLibraryContent({
     cleanupStaleFolders(validIds);
   }, [folders, cleanupStaleFolders]);
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
   const isSearching = searchQuery.length > 0;
-  const dndDisabled = isSearching || isPatcherActive || hasActiveFilters || selectMode;
+  const dndDisabled = isSearching || hasActiveFilters;
   const isFlatMode = isSearching || hasActiveFilters;
 
   const folderMap = useMemo(() => {
@@ -138,7 +134,6 @@ export function useLibraryContent({
   return {
     viewMode,
     dndDisabled,
-    selectMode,
     contentView,
     detailsMod,
     setDetailsMod,

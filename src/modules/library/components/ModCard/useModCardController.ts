@@ -10,7 +10,6 @@ import {
   useUninstallMod,
 } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
-import { usePatcherStatus } from "@/modules/patcher";
 import { useLibrarySelectionStore } from "@/stores";
 
 const ROOT_FOLDER_ID = "root";
@@ -37,13 +36,11 @@ export interface ModCardView {
   interactionsDisabled: boolean;
   isInUserFolder: boolean;
   isMultiLayer: boolean;
-  selectMode: boolean;
-  isSelected: boolean;
-  inSelectedState: boolean;
   inEnabledState: boolean;
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
+  onCardClickCapture: (e: React.MouseEvent) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
@@ -68,13 +65,6 @@ export function useModCardController({
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
   const moveModToFolder = useMoveModToFolder();
-  const { data: patcherStatus } = usePatcherStatus();
-
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
-  const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
-  const toggleSelection = useLibrarySelectionStore((s) => s.toggle);
-  const selectRangeTo = useLibrarySelectionStore((s) => s.selectRangeTo);
-
   const {
     isFlagged,
     reason: skinhackReason,
@@ -82,9 +72,8 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
-  const patcherRunning = patcherStatus?.running ?? false;
-  const disabled = isFlagged || patcherRunning;
-  const interactionsDisabled = disabled || selectMode;
+  const disabled = isFlagged;
+  const interactionsDisabled = disabled;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
@@ -122,18 +111,24 @@ export function useModCardController({
     if ((e.target as HTMLElement).closest("[data-no-toggle]")) {
       return;
     }
-    if (selectMode) {
-      if (e.shiftKey) selectRangeTo(mod.id);
-      else toggleSelection(mod.id);
-      return;
-    }
     if (disabled) return;
     handleToggle(mod.id, !mod.enabled);
   }
 
-  const inSelectedState = selectMode && isSelected;
+  function handleCardClickCapture(e: React.MouseEvent) {
+    const selection = useLibrarySelectionStore.getState();
+    if (!selection.selectMode) return;
+
+    // Capture before switches, menus, and other `data-no-toggle` controls can
+    // stop propagation. In selection mode every click inside a card selects it.
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.shiftKey) selection.selectRangeTo(mod.id);
+    else selection.toggle(mod.id);
+  }
+
   const inEnabledState = mod.enabled && !isFlagged;
-  const isInteractive = !isFlagged && (selectMode || !disabled);
+  const isInteractive = !isFlagged && !disabled;
 
   const cursorClass = match({ isFlagged, isInteractive })
     .with({ isFlagged: true }, () => "cursor-default opacity-50")
@@ -149,13 +144,11 @@ export function useModCardController({
     interactionsDisabled,
     isInUserFolder,
     isMultiLayer,
-    selectMode,
-    isSelected,
-    inSelectedState,
     inEnabledState,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
+    onCardClickCapture: handleCardClickCapture,
     onCardClick: handleCardClick,
     onToggle: handleToggle,
     onUninstall: handleUninstall,

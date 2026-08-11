@@ -20,7 +20,6 @@ import { useSortableModDnd } from "@/modules/library/api";
 import { REMOVE_FROM_FOLDER_ID } from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
-import { ModCard } from "./ModCard";
 import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableModCard } from "./SortableModCard";
 
@@ -76,22 +75,6 @@ export function SortableModList({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  if (disabled) {
-    return (
-      <div className={className}>
-        {mods.map((mod) => (
-          <ModCard
-            key={mod.id}
-            mod={mod}
-            viewMode={viewMode}
-            onViewDetails={onViewDetails}
-            onEditMetadata={onEditMetadata}
-          />
-        ))}
-      </div>
-    );
-  }
-
   return (
     <DndContext
       sensors={sensors}
@@ -112,6 +95,7 @@ export function SortableModList({
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              dndDisabled={disabled}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

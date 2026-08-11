@@ -71,6 +71,9 @@ impl TauriPatcherEvents {
 
 impl PatcherEvents for TauriPatcherEvents {
     fn phase_changed(&self, phase: PatcherPhase) {
+        // The frontend keeps a slow polling fallback, but lifecycle transitions
+        // should be visible immediately rather than up to one poll interval late.
+        let _ = self.app_handle.emit("patcher-status-changed", phase);
         let _ = crate::tray::set_tray_state(
             self.app_handle.clone(),
             tray_state_for(phase, self.is_workshop),

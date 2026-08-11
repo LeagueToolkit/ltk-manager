@@ -1,8 +1,10 @@
 import { ShieldAlert } from "lucide-react";
+import { memo } from "react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-import { Checkbox, Tooltip } from "@/components";
+import { Tooltip } from "@/components";
+import { useLibrarySelectionStore } from "@/stores";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
@@ -12,28 +14,15 @@ import {
   ModCardThumbnail,
   ModCardToggle,
   ModPills,
+  ModSelectionIndicator,
   SkinhackInfoDialog,
 } from "./ModCardParts";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardList({ view }: { view: ModCardView }) {
-  const {
-    mod,
-    thumbnailUrl,
-    isFlagged,
-    skinhackReason,
-    isMultiLayer,
-    selectMode,
-    isSelected,
-    inSelectedState,
-    inEnabledState,
-    cursorClass,
-    skinhackInfoOpen,
-    setSkinhackInfoOpen,
-    onCardClick,
-  } = view;
+  const isSelected = useLibrarySelectionStore((state) => state.selectedIds.has(view.mod.id));
 
-  const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+  const stateClass = match({ isSelected, isEnabled: view.inEnabledState })
     .with({ isSelected: true }, () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60")
     .with(
       { isEnabled: true },
@@ -47,23 +36,34 @@ export function ModCardList({ view }: { view: ModCardView }) {
 
   return (
     <div
-      onClick={onCardClick}
+      onClick={view.onCardClick}
+      onClickCapture={view.onCardClickCapture}
       className={twMerge(
-        "flex items-center gap-4 rounded-lg border p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
-        cursorClass,
+        "mod-card mod-card-list flex items-center gap-4 rounded-lg border p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+        view.cursorClass,
         stateClass,
       )}
+      aria-selected={isSelected || undefined}
     >
-      {selectMode && (
-        <div className="pointer-events-none shrink-0">
-          <Checkbox
-            size="md"
-            checked={isSelected}
-            tabIndex={-1}
-            aria-label={`Select ${mod.displayName}`}
-          />
-        </div>
-      )}
+      <ModSelectionIndicator variant="list" checked={isSelected} />
+      <ModCardListContent view={view} />
+    </div>
+  );
+}
+
+const ModCardListContent = memo(function ModCardListContent({ view }: { view: ModCardView }) {
+  const {
+    mod,
+    thumbnailUrl,
+    isFlagged,
+    skinhackReason,
+    isMultiLayer,
+    skinhackInfoOpen,
+    setSkinhackInfoOpen,
+  } = view;
+
+  return (
+    <>
       <ModCardThumbnail variant="list" thumbnailUrl={thumbnailUrl} displayName={mod.displayName} />
 
       <div className="min-w-0 flex-1">
@@ -98,6 +98,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
         <ModCardMenu view={view} />
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-    </div>
+    </>
   );
-}
+});

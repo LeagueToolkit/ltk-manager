@@ -94,6 +94,23 @@ pub fn toggle_mod(
     result.into()
 }
 
+/// Set multiple mods to the same enabled state in one library transaction.
+#[tauri::command]
+pub fn set_mods_enabled(
+    mod_ids: Vec<String>,
+    enabled: bool,
+    library: State<ModLibraryState>,
+    settings: State<SettingsState>,
+    patcher: State<PatcherState>,
+) -> IpcResult<()> {
+    let result: AppResult<()> = (|| {
+        reject_if_patcher_running(&patcher)?;
+        let config = settings.config()?;
+        library.0.set_mods_enabled(&config, &mod_ids, enabled)
+    })();
+    result.into()
+}
+
 /// Reorder the enabled mods in the active profile.
 #[tauri::command]
 pub fn reorder_mods(

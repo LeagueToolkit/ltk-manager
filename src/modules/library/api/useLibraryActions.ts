@@ -9,6 +9,7 @@ import { useBulkInstallMods } from "./useBulkInstallMods";
 import { useInstallMod } from "./useInstallMod";
 import { useInstallProgress } from "./useInstallProgress";
 import { useReorderMods } from "./useReorderMods";
+import { useSetModsEnabled } from "./useSetModsEnabled";
 import { useToggleMod } from "./useToggleMod";
 import { useUninstallMod } from "./useUninstallMod";
 
@@ -16,6 +17,7 @@ export function useLibraryActions() {
   const installMod = useInstallMod();
   const bulkInstallMods = useBulkInstallMods();
   const toggleMod = useToggleMod();
+  const setModsEnabled = useSetModsEnabled();
   const uninstallMod = useUninstallMod();
   const reorderMods = useReorderMods();
   const toast = useToast();
@@ -117,16 +119,14 @@ export function useLibraryActions() {
     const targets = mods.filter((m) => m.enabled !== enabled);
     if (targets.length === 0) return;
 
-    for (const mod of targets) {
-      toggleMod.mutate(
-        { modId: mod.id, enabled },
-        {
-          onError: (error) => {
-            console.error("Failed to toggle mod:", error.message);
-          },
+    setModsEnabled.mutate(
+      { modIds: targets.map((mod) => mod.id), enabled },
+      {
+        onError: (error) => {
+          console.error("Failed to set mod states:", error.message);
         },
-      );
-    }
+      },
+    );
   }
 
   function handleUninstallMod(modId: string) {

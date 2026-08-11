@@ -12,9 +12,6 @@ import { useUnifiedDnd } from "@/modules/library/api";
 import { gridClass, parseSortableFolderId } from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
-import { FolderCard } from "./FolderCard";
-import { FolderRow } from "./FolderRow";
-import { ModCard } from "./ModCard";
 import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableFolderCard } from "./SortableFolderCard";
 import { SortableFolderRow } from "./SortableFolderRow";
@@ -47,80 +44,18 @@ export function UnifiedDndGrid({
   const stagger = !hasMountedRef.current ? " stagger-enter" : "";
   hasMountedRef.current = true;
 
-  if (dndDisabled) {
-    return (
-      <StaticGrid
-        folders={folders}
-        rootMods={rootMods}
-        modsByFolder={modsByFolder}
-        viewMode={viewMode}
-        onViewDetails={onViewDetails}
-        onEditMetadata={onEditMetadata}
-        staggerClass={stagger}
-      />
-    );
-  }
-
   return (
     <DndGrid
       folders={folders}
       rootMods={rootMods}
       modsByFolder={modsByFolder}
       viewMode={viewMode}
+      dndDisabled={dndDisabled}
       onReorder={onReorder}
       onViewDetails={onViewDetails}
       onEditMetadata={onEditMetadata}
+      staggerClass={stagger}
     />
-  );
-}
-
-interface StaticGridProps {
-  folders: LibraryFolder[];
-  rootMods: InstalledMod[];
-  modsByFolder: Map<string, InstalledMod[]>;
-  viewMode: "grid" | "list";
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
-  staggerClass?: string;
-}
-
-function StaticGrid({
-  folders,
-  rootMods,
-  modsByFolder,
-  viewMode,
-  onViewDetails,
-  onEditMetadata,
-  staggerClass = "",
-}: StaticGridProps) {
-  return (
-    <div className={`${gridClass(viewMode)}${staggerClass}`}>
-      {folders.map((folder) => {
-        const folderMods = modsByFolder.get(folder.id) ?? [];
-        if (viewMode === "list") {
-          return (
-            <FolderRow
-              key={folder.id}
-              folder={folder}
-              mods={folderMods}
-              dndDisabled
-              onViewDetails={onViewDetails}
-              onEditMetadata={onEditMetadata}
-            />
-          );
-        }
-        return <FolderCard key={folder.id} folder={folder} mods={folderMods} />;
-      })}
-      {rootMods.map((mod) => (
-        <ModCard
-          key={mod.id}
-          mod={mod}
-          viewMode={viewMode}
-          onViewDetails={onViewDetails}
-          onEditMetadata={onEditMetadata}
-        />
-      ))}
-    </div>
   );
 }
 
@@ -129,9 +64,11 @@ interface DndGridProps {
   rootMods: InstalledMod[];
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
+  dndDisabled: boolean;
   onReorder: (modIds: string[]) => void;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
+  staggerClass?: string;
 }
 
 function DndGrid({
@@ -139,9 +76,11 @@ function DndGrid({
   rootMods,
   modsByFolder,
   viewMode,
+  dndDisabled,
   onReorder,
   onViewDetails,
   onEditMetadata,
+  staggerClass = "",
 }: DndGridProps) {
   const {
     folderLocalOrder,
@@ -176,7 +115,7 @@ function DndGrid({
         items={sortableItems}
         strategy={viewMode === "list" ? verticalListSortingStrategy : rectSortingStrategy}
       >
-        <div className={gridClass(viewMode)}>
+        <div className={`${gridClass(viewMode)}${staggerClass}`}>
           {folderLocalOrder.map((sortableId) => {
             const folderId = parseSortableFolderId(sortableId);
             if (!folderId) return null;
@@ -192,6 +131,7 @@ function DndGrid({
                   folder={folder}
                   mods={folderMods}
                   sortDisabled={isDraggingMod || isDraggingFolderMod}
+                  dndDisabled={dndDisabled}
                   onViewDetails={onViewDetails}
                   onEditMetadata={onEditMetadata}
                 />
@@ -204,6 +144,7 @@ function DndGrid({
                 folder={folder}
                 mods={folderMods}
                 sortDisabled={isDraggingMod || isDraggingFolderMod}
+                dndDisabled={dndDisabled}
               />
             );
           })}
@@ -213,6 +154,7 @@ function DndGrid({
               key={mod.id}
               mod={mod}
               viewMode={viewMode}
+              dndDisabled={dndDisabled}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />

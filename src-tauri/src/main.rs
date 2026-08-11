@@ -80,6 +80,7 @@ fn main() {
             commands::install_mods,
             commands::uninstall_mod,
             commands::toggle_mod,
+            commands::set_mods_enabled,
             commands::set_mod_layers,
             commands::enable_mod_with_layers,
             commands::edit_mod_metadata,
