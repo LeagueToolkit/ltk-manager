@@ -23,14 +23,15 @@ import {
   useStopPatcher,
 } from "@/modules/patcher";
 import { useSaveSettings, useSettings } from "@/modules/settings";
-import { useLibrarySelectionStore } from "@/stores";
+import { useLibraryFilterStore, useLibrarySelectionStore } from "@/stores";
 
 interface LibraryProps {
   folderId?: string;
 }
 
 export function Library({ folderId }: LibraryProps = {}) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchQuery = useLibraryFilterStore((state) => state.searchQuery);
+  const setSearchQuery = useLibraryFilterStore((state) => state.setSearchQuery);
   const [migrationOpen, setMigrationOpen] = useState(false);
 
   const { data: platform } = usePlatformSupport();

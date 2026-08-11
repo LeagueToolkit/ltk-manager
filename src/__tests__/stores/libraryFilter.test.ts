@@ -2,11 +2,21 @@ import { useLibraryFilterStore } from "@/stores/libraryFilter";
 
 describe("libraryFilter store", () => {
   beforeEach(() => {
+    localStorage.clear();
     useLibraryFilterStore.setState({
       selectedTags: new Set(),
       selectedChampions: new Set(),
       selectedMaps: new Set(),
-      sort: { field: "priority", direction: "desc" },
+      showOnlyEnabled: false,
+      sort: { field: "enabled", direction: "asc" },
+      searchQuery: "",
+    });
+  });
+
+  it("defaults to enabled mods first", () => {
+    expect(useLibraryFilterStore.getState().sort).toEqual({
+      field: "enabled",
+      direction: "asc",
     });
   });
 
@@ -92,5 +102,32 @@ describe("libraryFilter store", () => {
       useLibraryFilterStore.getState().setSort({ field: "name", direction: "asc" });
       expect(useLibraryFilterStore.getState().sort).toEqual({ field: "name", direction: "asc" });
     });
+  });
+
+  it("restores filters, sort, and search after hydration", async () => {
+    const state = useLibraryFilterStore.getState();
+    state.setTags(new Set(["skin"]));
+    state.setShowOnlyEnabled(true);
+    state.setSort({ field: "installedAt", direction: "desc" });
+    state.setSearchQuery("Veigar");
+
+    const stored = localStorage.getItem("ltk-library-filters");
+    expect(stored).not.toBeNull();
+    expect(stored).toContain('"__type":"Set"');
+
+    useLibraryFilterStore.setState({
+      selectedTags: new Set(),
+      showOnlyEnabled: false,
+      sort: { field: "name", direction: "asc" },
+      searchQuery: "",
+    });
+    localStorage.setItem("ltk-library-filters", stored!);
+    await useLibraryFilterStore.persist.rehydrate();
+
+    const restored = useLibraryFilterStore.getState();
+    expect(restored.selectedTags).toEqual(new Set(["skin"]));
+    expect(restored.showOnlyEnabled).toBe(true);
+    expect(restored.sort).toEqual({ field: "installedAt", direction: "desc" });
+    expect(restored.searchQuery).toBe("Veigar");
   });
 });

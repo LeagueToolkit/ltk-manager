@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { persistentJsonStorage } from "./storage";
+
 interface LibraryViewStore {
   expandedFolders: Set<string>;
 
@@ -32,31 +34,18 @@ export const useLibraryViewStore = create<LibraryViewStore>()(
     }),
     {
       name: "ltk-library-view",
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = persisted as { expandedFolders?: Set<string> | string[] };
+        if (version === 0 && Array.isArray(state.expandedFolders)) {
+          return { ...state, expandedFolders: new Set(state.expandedFolders) };
+        }
+        return persisted as LibraryViewStore;
+      },
       partialize: (state) => ({
         expandedFolders: state.expandedFolders,
       }),
-      storage: {
-        getItem: (name) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          const parsed = JSON.parse(str);
-          if (parsed?.state?.expandedFolders) {
-            parsed.state.expandedFolders = new Set(parsed.state.expandedFolders);
-          }
-          return parsed;
-        },
-        setItem: (name, value) => {
-          const serializable = {
-            ...value,
-            state: {
-              ...value.state,
-              expandedFolders: [...(value.state.expandedFolders ?? [])],
-            },
-          };
-          localStorage.setItem(name, JSON.stringify(serializable));
-        },
-        removeItem: (name) => localStorage.removeItem(name),
-      },
+      storage: persistentJsonStorage,
     },
   ),
 );
