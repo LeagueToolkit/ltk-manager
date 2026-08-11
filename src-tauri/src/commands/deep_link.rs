@@ -48,6 +48,51 @@ pub fn deep_link_install_mod(
         let config = settings.config()?;
         let result = library.0.install_mod_from_package(&config, &temp_path_str);
 
+        // RuneForge serves its card artwork separately from many .fantome
+        // archives. Keep embedded artwork authoritative, then use the source
+        // page as a best-effort fallback for protocol installs.
+        if let Ok(installed) = &result {
+            let metadata_dir = std::path::Path::new(&installed.mod_dir);
+            let has_thumbnail = metadata_dir.join("thumbnail.webp").exists()
+                || metadata_dir.join("thumbnail.png").exists();
+            if !has_thumbnail {
+                let thumbnail = match deep_link::fetch_runeforge_thumbnail(&url) {
+                    Ok(Some(bytes)) => Some(bytes),
+                    Ok(None) => deep_link::find_runeforge_thumbnail(
+                        &installed.display_name,
+                        &installed.authors,
+                    )
+                    .unwrap_or_else(|error| {
+                        tracing::warn!("Failed to search RuneForge for thumbnail: {}", error);
+                        None
+                    }),
+                    Err(error) => {
+                        tracing::warn!("Failed to fetch RuneForge page thumbnail: {}", error);
+                        deep_link::find_runeforge_thumbnail(
+                            &installed.display_name,
+                            &installed.authors,
+                        )
+                        .unwrap_or_else(|search_error| {
+                            tracing::warn!(
+                                "Failed to search RuneForge for thumbnail: {}",
+                                search_error
+                            );
+                            None
+                        })
+                    }
+                };
+                if let Some(bytes) = thumbnail {
+                    if let Err(error) =
+                        library
+                            .0
+                            .cache_mod_thumbnail(&config, &installed.id, &bytes)
+                    {
+                        tracing::warn!("Failed to cache RuneForge thumbnail: {}", error);
+                    }
+                }
+            }
+        }
+
         if let Err(e) = std::fs::remove_file(&temp_path) {
             tracing::warn!("Failed to clean up temp file: {}", e);
         }

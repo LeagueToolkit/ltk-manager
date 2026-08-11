@@ -1,22 +1,29 @@
+import {
+  DownloadSimpleIcon,
+  ImageIcon,
+  PencilSimpleIcon,
+  SparkleIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
-import { Edit3, Image, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AutoPill, Button, Dialog, FormField, MultiSelect, useToast } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
-import { libraryKeys } from "@/modules/library/api/keys";
-import { useEditMod } from "@/modules/library/api/useEditMod";
-import { useModEffectiveCategories } from "@/modules/library/api/useEffectiveCategories";
-import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
-import { normKey } from "@/modules/library/utils/categories";
 import {
   getMapLabel,
   getTagLabel,
+  libraryKeys,
+  normKey,
+  useEditMod,
+  useFetchModThumbnail,
+  useModEffectiveCategories,
+  useModThumbnail,
   WELL_KNOWN_MAPS,
   WELL_KNOWN_TAGS,
-} from "@/modules/library/utils/labels";
+} from "@/modules/library";
 
 interface EditMetadataDialogProps {
   mod: InstalledMod;
@@ -33,6 +40,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
   const [removeThumbnail, setRemoveThumbnail] = useState(false);
 
   const editMod = useEditMod();
+  const fetchThumbnail = useFetchModThumbnail(mod.id);
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -149,6 +157,20 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
     setRemoveThumbnail(true);
   };
 
+  const handleFetchThumbnail = () => {
+    fetchThumbnail.mutate(undefined, {
+      onSuccess: (path) => {
+        if (path) {
+          setRemoveThumbnail(false);
+          toast.success("Thumbnail found", "Artwork was downloaded from RuneForge.");
+        } else {
+          toast.info("No match found", "RuneForge did not return an unambiguous match.");
+        }
+      },
+      onError: (error) => toast.error("Thumbnail lookup failed", error.message),
+    });
+  };
+
   const handleSave = () => {
     const champions = championsStr
       .split(",")
@@ -187,7 +209,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
         <Dialog.Overlay size="md">
           <Dialog.Header>
             <Dialog.Title className="flex items-center gap-2">
-              <Edit3 className="h-5 w-5 text-accent-500" />
+              <PencilSimpleIcon className="h-5 w-5 text-accent-500" />
               Edit Mod Metadata
             </Dialog.Title>
             <Dialog.Close />
@@ -204,7 +226,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <Image className="h-8 w-8 text-surface-500" />
+                    <ImageIcon className="h-8 w-8 text-surface-500" />
                   </div>
                 )}
               </div>
@@ -212,16 +234,27 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                 <Button
                   variant="outline"
                   size="sm"
-                  left={<Image className="h-4 w-4" />}
+                  left={<ImageIcon className="h-4 w-4" weight="bold" />}
                   onClick={handleSetThumbnail}
                 >
                   Set Thumbnail
                 </Button>
+                {!removeThumbnail && !thumbnailPath && !currentThumbnailUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    left={<DownloadSimpleIcon className="h-4 w-4" weight="bold" />}
+                    onClick={handleFetchThumbnail}
+                    loading={fetchThumbnail.isPending}
+                  >
+                    Find on RuneForge
+                  </Button>
+                )}
                 {!removeThumbnail && (thumbnailPath || currentThumbnailUrl) && (
                   <Button
                     variant="outline"
                     size="sm"
-                    left={<Trash2 className="h-4 w-4" />}
+                    left={<TrashIcon className="h-4 w-4" weight="bold" />}
                     onClick={handleRemoveThumbnail}
                     className="text-red-400 hover:bg-red-400/10 hover:text-red-300"
                   >
@@ -272,7 +305,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
               <div className="space-y-2 rounded-lg border border-dashed border-surface-600 bg-surface-800/40 p-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
-                    <Sparkles className="h-4 w-4 text-accent-400" />
+                    <SparkleIcon className="h-4 w-4 text-accent-400" />
                     Auto-detected suggestions
                   </span>
                   <Button variant="outline" size="sm" onClick={applyAllSuggestions}>

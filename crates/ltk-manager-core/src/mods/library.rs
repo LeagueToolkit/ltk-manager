@@ -8,6 +8,7 @@
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
     extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
@@ -437,6 +438,48 @@ impl ModLibrary {
             Ok(cached_path.map(|p| p.display().to_string()))
         })
     }
+
+    /// Validate and cache image bytes as a mod's local WebP thumbnail.
+    ///
+    /// This is used by source-aware installers when an archive does not embed
+    /// artwork. The decoded image is re-encoded so untrusted downloads cannot
+    /// be persisted under a misleading image extension.
+    pub fn cache_mod_thumbnail(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        image_bytes: &[u8],
+    ) -> AppResult<String> {
+        let path = self.with_index(config, |storage_dir, index| {
+            let entry = index
+                .mods
+                .iter()
+                .find(|entry| entry.id == mod_id)
+                .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
+            let metadata_dir = entry.metadata_dir(storage_dir);
+
+            let image = image::load_from_memory(image_bytes).map_err(|error| {
+                AppError::ValidationFailed(format!("Failed to decode thumbnail: {error}"))
+            })?;
+            let encoder = webp::Encoder::from_image(&image).map_err(|error| {
+                AppError::ValidationFailed(format!("Failed to encode thumbnail: {error}"))
+            })?;
+            let encoded = encoder.encode(90.0);
+
+            let destination = metadata_dir.join("thumbnail.webp");
+            let temporary = metadata_dir.join("thumbnail.webp.tmp");
+            fs::write(&temporary, &*encoded)?;
+            if destination.exists() {
+                fs::remove_file(&destination)?;
+            }
+            fs::rename(&temporary, &destination)?;
+            let _ = fs::remove_file(metadata_dir.join("thumbnail.png"));
+
+            Ok(destination.display().to_string())
+        })?;
+        self.events.emit(BackendEvent::LibraryChanged);
+        Ok(path)
+    }
 }
 
 #[cfg(test)]
@@ -523,5 +566,28 @@ mod tests {
 
         let index = load_library_index(dir.path()).unwrap();
         assert_eq!(index.profiles[0].enabled_mods, ["b", "c"].map(String::from));
+    }
+
+    #[test]
+    fn cache_mod_thumbnail_validates_and_writes_webp() {
+        let (dir, config, library) = fixture();
+        let metadata_dir = dir.path().join("mods").join("a");
+        fs::create_dir_all(&metadata_dir).unwrap();
+
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgba8(2, 2)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+
+        let path = library
+            .cache_mod_thumbnail(&config, "a", png.get_ref())
+            .unwrap();
+        assert_eq!(PathBuf::from(path), metadata_dir.join("thumbnail.webp"));
+        assert!(image::open(metadata_dir.join("thumbnail.webp")).is_ok());
+
+        let error = library
+            .cache_mod_thumbnail(&config, "a", b"not an image")
+            .unwrap_err();
+        assert!(matches!(error, AppError::ValidationFailed(_)));
     }
 }

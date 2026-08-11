@@ -1,8 +1,10 @@
 mod download;
+mod thumbnail;
 
 pub use download::download_mod_file;
 #[cfg(test)]
 pub(crate) use download::{extract_extension_from_content_disposition, sniff_extension_from_file};
+pub use thumbnail::{fetch_runeforge_thumbnail, find_runeforge_thumbnail};
 
 use crate::error::{AppError, AppResult};
 use crate::state::SettingsState;

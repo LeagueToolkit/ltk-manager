@@ -86,6 +86,7 @@ fn main() {
             commands::edit_mod_metadata,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
+            commands::fetch_mod_thumbnail,
             commands::get_storage_directory,
             commands::reorder_mods,
             commands::get_mod_wad_report,

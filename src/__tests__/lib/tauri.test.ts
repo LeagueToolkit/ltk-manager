@@ -57,6 +57,12 @@ describe("api", () => {
       });
     });
 
+    it("fetchModThumbnail invokes with modId", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: "C:/mods/mod1/thumbnail.webp" });
+      await api.fetchModThumbnail("mod1");
+      expect(mockInvoke).toHaveBeenCalledWith("fetch_mod_thumbnail", { modId: "mod1" });
+    });
+
     it("uninstallMod invokes with modId", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.uninstallMod("mod1");
