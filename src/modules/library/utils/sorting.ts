@@ -14,7 +14,7 @@ export function sortMods(mods: InstalledMod[], sort: SortConfig): InstalledMod[]
       case "installedAt":
         return dir * (new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime());
       case "enabled":
-        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+        if (a.enabled !== b.enabled) return dir * (a.enabled ? -1 : 1);
         return a.displayName.localeCompare(b.displayName);
       default:
         return 0;

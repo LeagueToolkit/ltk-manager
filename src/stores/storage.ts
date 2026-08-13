@@ -19,3 +19,8 @@ export const sessionJsonStorage = createJSONStorage(() => sessionStorage, {
   replacer,
   reviver,
 });
+
+export const persistentJsonStorage = createJSONStorage(() => localStorage, {
+  replacer,
+  reviver,
+});

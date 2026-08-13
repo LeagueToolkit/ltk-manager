@@ -106,7 +106,11 @@ export const api = {
   uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),
   toggleMod: (modId: string, enabled: boolean) =>
     invokeResult<void>("toggle_mod", { modId, enabled }),
+  setModsEnabled: (modIds: string[], enabled: boolean) =>
+    invokeResult<void>("set_mods_enabled", { modIds, enabled }),
   getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
+  fetchModThumbnail: (modId: string) =>
+    invokeResult<string | null>("fetch_mod_thumbnail", { modId }),
   getStorageDirectory: () => invokeResult<string>("get_storage_directory"),
   reorderMods: (modIds: string[]) => invokeResult<void>("reorder_mods", { modIds }),
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>

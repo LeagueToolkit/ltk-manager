@@ -8,7 +8,6 @@ import { useFolderToggle } from "@/modules/library/api";
 import { useLibraryViewStore } from "@/stores/libraryView";
 
 import { FolderContextMenu } from "./FolderContextMenu";
-import { ModCard } from "./ModCard";
 import { SortableModCard } from "./SortableModCard";
 
 interface FolderRowProps {
@@ -69,18 +68,6 @@ export function FolderRow({
               <p className="py-3 text-center text-sm text-surface-500">
                 No mods in this folder. Drag mods here to organize them.
               </p>
-            ) : dndDisabled ? (
-              <div className="flex flex-col gap-2">
-                {mods.map((mod) => (
-                  <ModCard
-                    key={mod.id}
-                    mod={mod}
-                    viewMode="list"
-                    onViewDetails={onViewDetails}
-                    onEditMetadata={onEditMetadata}
-                  />
-                ))}
-              </div>
             ) : (
               <SortableContext items={modIds} strategy={verticalListSortingStrategy}>
                 <div className="flex flex-col gap-2">
@@ -89,6 +76,7 @@ export function FolderRow({
                       key={mod.id}
                       mod={mod}
                       viewMode="list"
+                      dndDisabled={dndDisabled}
                       onViewDetails={onViewDetails}
                       onEditMetadata={onEditMetadata}
                     />

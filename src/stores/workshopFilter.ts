@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+import { persistentJsonStorage } from "./storage";
 
 export type WorkshopSortField = "name" | "lastModified";
 export type WorkshopSortDirection = "asc" | "desc";
@@ -24,49 +27,57 @@ interface WorkshopFilterStore {
   setSort: (sort: WorkshopSortConfig) => void;
 }
 
-export const useWorkshopFilterStore = create<WorkshopFilterStore>((set) => ({
-  selectedTags: new Set(),
-  selectedChampions: new Set(),
-  selectedMaps: new Set(),
-  sort: { field: "name", direction: "asc" },
-
-  toggleTag: (tag) =>
-    set((state) => {
-      const next = new Set(state.selectedTags);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return { selectedTags: next };
-    }),
-
-  toggleChampion: (champion) =>
-    set((state) => {
-      const next = new Set(state.selectedChampions);
-      if (next.has(champion)) next.delete(champion);
-      else next.add(champion);
-      return { selectedChampions: next };
-    }),
-
-  toggleMap: (map) =>
-    set((state) => {
-      const next = new Set(state.selectedMaps);
-      if (next.has(map)) next.delete(map);
-      else next.add(map);
-      return { selectedMaps: next };
-    }),
-
-  setTags: (tags) => set({ selectedTags: new Set(tags) }),
-  setChampions: (champions) => set({ selectedChampions: new Set(champions) }),
-  setMaps: (maps) => set({ selectedMaps: new Set(maps) }),
-
-  clearFilters: () =>
-    set({
+export const useWorkshopFilterStore = create<WorkshopFilterStore>()(
+  persist(
+    (set) => ({
       selectedTags: new Set(),
       selectedChampions: new Set(),
       selectedMaps: new Set(),
-    }),
+      sort: { field: "name", direction: "asc" },
 
-  setSort: (sort) => set({ sort }),
-}));
+      toggleTag: (tag) =>
+        set((state) => {
+          const next = new Set(state.selectedTags);
+          if (next.has(tag)) next.delete(tag);
+          else next.add(tag);
+          return { selectedTags: next };
+        }),
+
+      toggleChampion: (champion) =>
+        set((state) => {
+          const next = new Set(state.selectedChampions);
+          if (next.has(champion)) next.delete(champion);
+          else next.add(champion);
+          return { selectedChampions: next };
+        }),
+
+      toggleMap: (map) =>
+        set((state) => {
+          const next = new Set(state.selectedMaps);
+          if (next.has(map)) next.delete(map);
+          else next.add(map);
+          return { selectedMaps: next };
+        }),
+
+      setTags: (tags) => set({ selectedTags: new Set(tags) }),
+      setChampions: (champions) => set({ selectedChampions: new Set(champions) }),
+      setMaps: (maps) => set({ selectedMaps: new Set(maps) }),
+
+      clearFilters: () =>
+        set({
+          selectedTags: new Set(),
+          selectedChampions: new Set(),
+          selectedMaps: new Set(),
+        }),
+
+      setSort: (sort) => set({ sort }),
+    }),
+    {
+      name: "ltk-workshop-filters",
+      storage: persistentJsonStorage,
+    },
+  ),
+);
 
 export function useHasActiveWorkshopFilters() {
   return useWorkshopFilterStore(

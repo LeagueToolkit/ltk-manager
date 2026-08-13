@@ -1,3 +1,4 @@
+use crate::deep_link;
 use crate::error::{AppError, AppResult, IpcResult, MutexResultExt, Utf8PathExt};
 use crate::mods::{
     inspect_modpkg_file, BulkInstallResult, EditModMetadataArgs, InstalledMod, ModLibraryState,
@@ -5,6 +6,7 @@ use crate::mods::{
 };
 use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
+use ltk_manager_core::config::Config;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::State;
@@ -34,6 +36,16 @@ pub fn install_mod(
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
         let installed = library.0.install_mod_from_package(&config, &file_path)?;
+        let thumbnail_library = library.0.clone();
+        let thumbnail_config = config.clone();
+        let thumbnail_mod = installed.clone();
+        std::thread::spawn(move || {
+            cache_missing_runeforge_thumbnail(
+                &thumbnail_library,
+                &thumbnail_config,
+                &thumbnail_mod,
+            );
+        });
         library
             .0
             .spawn_categorization(&config, vec![installed.id.clone()]);
@@ -54,6 +66,18 @@ pub fn install_mods(
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
+        let thumbnail_library = library.0.clone();
+        let thumbnail_config = config.clone();
+        let thumbnail_mods = result.installed.clone();
+        std::thread::spawn(move || {
+            for installed in thumbnail_mods {
+                cache_missing_runeforge_thumbnail(
+                    &thumbnail_library,
+                    &thumbnail_config,
+                    &installed,
+                );
+            }
+        });
         let ids = result.installed.iter().map(|m| m.id.clone()).collect();
         library.0.spawn_categorization(&config, ids);
         Ok(result)
@@ -90,6 +114,44 @@ pub fn toggle_mod(
         reject_if_patcher_running(&patcher)?;
         let config = settings.config()?;
         library.0.toggle_mod_enabled(&config, &mod_id, enabled)
+    })();
+    result.into()
+}
+
+fn cache_missing_runeforge_thumbnail(
+    library: &crate::mods::ModLibrary,
+    config: &Config,
+    installed: &InstalledMod,
+) {
+    let metadata_dir = std::path::Path::new(&installed.mod_dir);
+    if metadata_dir.join("thumbnail.webp").exists() || metadata_dir.join("thumbnail.png").exists() {
+        return;
+    }
+
+    match deep_link::find_runeforge_thumbnail(&installed.display_name, &installed.authors) {
+        Ok(Some(bytes)) => {
+            if let Err(error) = library.cache_mod_thumbnail(config, &installed.id, &bytes) {
+                tracing::warn!("Failed to cache RuneForge thumbnail: {}", error);
+            }
+        }
+        Ok(None) => {}
+        Err(error) => tracing::warn!("Failed to find RuneForge thumbnail: {}", error),
+    }
+}
+
+/// Set multiple mods to the same enabled state in one library transaction.
+#[tauri::command]
+pub fn set_mods_enabled(
+    mod_ids: Vec<String>,
+    enabled: bool,
+    library: State<ModLibraryState>,
+    settings: State<SettingsState>,
+    patcher: State<PatcherState>,
+) -> IpcResult<()> {
+    let result: AppResult<()> = (|| {
+        reject_if_patcher_running(&patcher)?;
+        let config = settings.config()?;
+        library.0.set_mods_enabled(&config, &mod_ids, enabled)
     })();
     result.into()
 }
@@ -178,6 +240,37 @@ pub fn get_mod_thumbnail(
     let result: AppResult<Option<String>> = (|| {
         let config = settings.config()?;
         library.0.get_mod_thumbnail_path(&config, &mod_id)
+    })();
+    result.into()
+}
+
+/// Search RuneForge for artwork for an installed mod and cache a strong match.
+#[tauri::command]
+pub fn fetch_mod_thumbnail(
+    mod_id: String,
+    library: State<ModLibraryState>,
+    settings: State<SettingsState>,
+) -> IpcResult<Option<String>> {
+    let result: AppResult<Option<String>> = (|| {
+        let config = settings.config()?;
+        if let Some(existing) = library.0.get_mod_thumbnail_path(&config, &mod_id)? {
+            return Ok(Some(existing));
+        }
+        let installed = library
+            .0
+            .get_installed_mods(&config)?
+            .into_iter()
+            .find(|installed| installed.id == mod_id)
+            .ok_or_else(|| AppError::ModNotFound(mod_id.clone()))?;
+        let Some(bytes) =
+            deep_link::find_runeforge_thumbnail(&installed.display_name, &installed.authors)?
+        else {
+            return Ok(None);
+        };
+        library
+            .0
+            .cache_mod_thumbnail(&config, &mod_id, &bytes)
+            .map(Some)
     })();
     result.into()
 }

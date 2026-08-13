@@ -1,4 +1,4 @@
-import { useHotkeyEvents, usePatcherError } from "../api";
+import { useHotkeyEvents, usePatcherError, usePatcherStatusEvents } from "../api";
 
 /**
  * Mounts the patcher's fire-and-forget event subscriptions.
@@ -6,6 +6,7 @@ import { useHotkeyEvents, usePatcherError } from "../api";
 export function PatcherEventListeners() {
   usePatcherError();
   useHotkeyEvents();
+  usePatcherStatusEvents();
 
   return null;
 }

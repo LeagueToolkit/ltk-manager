@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
 import { api, type AppError, type InstalledMod, type ModWadReport } from "@/lib/tauri";
-import { isOk } from "@/utils/result";
+import { mutationFn } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 
@@ -13,7 +13,29 @@ interface AnalyzeFailure {
 
 interface AnalyzeBackfillResult {
   analyzed: number;
+  artworkAvailable: number;
+  artworkMissing: number;
   failures: AnalyzeFailure[];
+}
+
+interface AnalyzeBackfillRequest {
+  uncategorized: InstalledMod[];
+  artworkCandidates: InstalledMod[];
+}
+
+const ARTWORK_LOOKUP_CONCURRENCY = 3;
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return String(error);
 }
 
 /**
@@ -37,10 +59,9 @@ function describeFailures(failures: AnalyzeFailure[]): string {
 }
 
 /**
- * Backfill WAD-footprint reports for mods that don't have one yet — e.g.
- * installed before auto-categorization existed, or while no League path was
- * configured. New installs already analyze themselves in the background, so
- * this is a one-shot catch-up for an existing library.
+ * Backfill missing WAD-footprint reports and search RuneForge for artwork.
+ * Category analysis only touches uncategorized mods; artwork lookup covers the
+ * full supplied library so the same action can repair already-categorized mods.
  *
  * Runs sequentially (the analyzer reuses the warmed game index, so concurrent
  * runs would only thrash disk), patching the shared report cache as each mod
@@ -50,50 +71,81 @@ function describeFailures(failures: AnalyzeFailure[]): string {
 export function useAnalyzeUncategorizedMods() {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const analyzeMod = mutationFn(api.analyzeModWads);
+  const fetchThumbnail = mutationFn(api.fetchModThumbnail);
 
-  return useMutation<AnalyzeBackfillResult, AppError, InstalledMod[]>({
-    mutationFn: async (mods) => {
+  return useMutation<AnalyzeBackfillResult, AppError, AnalyzeBackfillRequest>({
+    mutationFn: async ({ uncategorized, artworkCandidates }) => {
       let analyzed = 0;
+      let artworkAvailable = 0;
+      let artworkMissing = 0;
       const failures: AnalyzeFailure[] = [];
 
-      for (const mod of mods) {
+      for (const mod of uncategorized) {
         try {
-          const result = await api.analyzeModWads(mod.id);
-          if (isOk(result)) {
-            analyzed++;
-            const report = result.value;
-            queryClient.setQueryData<Record<string, ModWadReport>>(
-              libraryKeys.wadReports(),
-              (old) => ({ ...(old ?? {}), [report.modId]: report }),
-            );
-          } else {
-            failures.push({ name: mod.displayName, message: result.error.message });
-          }
+          const report = await analyzeMod(mod.id);
+          analyzed++;
+          queryClient.setQueryData<Record<string, ModWadReport>>(
+            libraryKeys.wadReports(),
+            (old) => ({ ...(old ?? {}), [report.modId]: report }),
+          );
         } catch (err) {
           failures.push({
             name: mod.displayName,
-            message: err instanceof Error ? err.message : String(err),
+            message: errorMessage(err),
           });
         }
       }
 
-      return { analyzed, failures };
+      let nextArtworkIndex = 0;
+      async function artworkWorker() {
+        while (nextArtworkIndex < artworkCandidates.length) {
+          const mod = artworkCandidates[nextArtworkIndex++];
+          try {
+            const thumbnail = await fetchThumbnail(mod.id);
+            if (thumbnail) artworkAvailable++;
+            else artworkMissing++;
+            queryClient.invalidateQueries({ queryKey: libraryKeys.thumbnail(mod.id) });
+          } catch (err) {
+            failures.push({
+              name: mod.displayName,
+              message: `Artwork: ${errorMessage(err)}`,
+            });
+          }
+        }
+      }
+
+      const workers = Array.from(
+        { length: Math.min(ARTWORK_LOOKUP_CONCURRENCY, artworkCandidates.length) },
+        () => artworkWorker(),
+      );
+      await Promise.all(workers);
+
+      return { analyzed, artworkAvailable, artworkMissing, failures };
     },
-    onSuccess: ({ analyzed, failures }) => {
+    onSuccess: ({ analyzed, artworkAvailable, artworkMissing, failures }) => {
+      const summary = [
+        analyzed > 0 ? `categorized ${analyzed}` : null,
+        artworkAvailable > 0 ? `artwork available for ${artworkAvailable}` : null,
+        artworkMissing > 0 ? `no artwork match for ${artworkMissing}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+
       if (failures.length === 0) {
-        toast.success(`Categorized ${analyzed} mod${analyzed === 1 ? "" : "s"}`);
+        toast.success("Detection complete", summary || "Nothing needed updating.");
         return;
       }
-      if (analyzed === 0) {
+      if (analyzed === 0 && artworkAvailable === 0) {
         toast.error(
-          `Couldn't categorize ${failures.length} mod${failures.length === 1 ? "" : "s"}`,
+          `Detection failed for ${failures.length} mod${failures.length === 1 ? "" : "s"}`,
           describeFailures(failures),
         );
         return;
       }
       toast.warning(
-        `Categorized ${analyzed}, ${failures.length} failed`,
-        describeFailures(failures),
+        `Detection complete, ${failures.length} failed`,
+        [summary, describeFailures(failures)].filter(Boolean).join(" · "),
       );
     },
     onError: (error) => {

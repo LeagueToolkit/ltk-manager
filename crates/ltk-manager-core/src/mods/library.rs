@@ -8,6 +8,7 @@
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
     extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
@@ -15,7 +16,7 @@ use crate::mods::archive::metadata::{
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::index::get_active_profile;
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
@@ -152,6 +153,71 @@ impl ModLibrary {
                 }
             } else {
                 profile.enabled_mods.retain(|id| id != mod_id);
+            }
+
+            Ok(())
+        })
+    }
+
+    /// Set several mods to the same enabled state in one index transaction.
+    ///
+    /// Bulk toolbar actions must not call [`Self::toggle_mod_enabled`] once per
+    /// mod: every call reloads and atomically rewrites the complete library
+    /// document. This validates the complete request first, then performs one
+    /// ordered update and one write.
+    pub fn set_mods_enabled(
+        &self,
+        config: &Config,
+        mod_ids: &[String],
+        enabled: bool,
+    ) -> AppResult<()> {
+        if mod_ids.is_empty() {
+            return Ok(());
+        }
+
+        self.mutate_index(config, |_storage_dir, index| {
+            let requested: HashSet<&str> = mod_ids.iter().map(String::as_str).collect();
+            if let Some(missing) = requested
+                .iter()
+                .find(|id| !index.mods.iter().any(|entry| entry.id == **id))
+            {
+                return Err(AppError::ModNotFound((*missing).to_string()));
+            }
+
+            let active_profile_id = index.active_profile_id.clone();
+            let profile = index
+                .profiles
+                .iter_mut()
+                .find(|profile| profile.id == active_profile_id)
+                .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
+
+            if enabled {
+                let previously_enabled: HashSet<&str> =
+                    profile.enabled_mods.iter().map(String::as_str).collect();
+                let mut enabled_mods: Vec<String> = profile
+                    .mod_order
+                    .iter()
+                    .filter(|id| {
+                        previously_enabled.contains(id.as_str()) || requested.contains(id.as_str())
+                    })
+                    .cloned()
+                    .collect();
+                let mut included: HashSet<String> = enabled_mods.iter().cloned().collect();
+
+                // A repaired or legacy profile may omit an installed mod from
+                // `mod_order`. Preserve already-enabled entries and still honor
+                // the complete request instead of silently dropping either.
+                for id in profile.enabled_mods.iter().chain(mod_ids) {
+                    if included.insert(id.clone()) {
+                        enabled_mods.push(id.clone());
+                    }
+                }
+
+                profile.enabled_mods = enabled_mods;
+            } else {
+                profile
+                    .enabled_mods
+                    .retain(|id| !requested.contains(id.as_str()));
             }
 
             Ok(())
@@ -371,5 +437,157 @@ impl ModLibrary {
 
             Ok(cached_path.map(|p| p.display().to_string()))
         })
+    }
+
+    /// Validate and cache image bytes as a mod's local WebP thumbnail.
+    ///
+    /// This is used by source-aware installers when an archive does not embed
+    /// artwork. The decoded image is re-encoded so untrusted downloads cannot
+    /// be persisted under a misleading image extension.
+    pub fn cache_mod_thumbnail(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        image_bytes: &[u8],
+    ) -> AppResult<String> {
+        let path = self.with_index(config, |storage_dir, index| {
+            let entry = index
+                .mods
+                .iter()
+                .find(|entry| entry.id == mod_id)
+                .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
+            let metadata_dir = entry.metadata_dir(storage_dir);
+
+            let image = image::load_from_memory(image_bytes).map_err(|error| {
+                AppError::ValidationFailed(format!("Failed to decode thumbnail: {error}"))
+            })?;
+            let encoder = webp::Encoder::from_image(&image).map_err(|error| {
+                AppError::ValidationFailed(format!("Failed to encode thumbnail: {error}"))
+            })?;
+            let encoded = encoder.encode(90.0);
+
+            let destination = metadata_dir.join("thumbnail.webp");
+            let temporary = metadata_dir.join("thumbnail.webp.tmp");
+            fs::write(&temporary, &*encoded)?;
+            if destination.exists() {
+                fs::remove_file(&destination)?;
+            }
+            fs::rename(&temporary, &destination)?;
+            let _ = fs::remove_file(metadata_dir.join("thumbnail.png"));
+
+            Ok(destination.display().to_string())
+        })?;
+        self.events.emit(BackendEvent::LibraryChanged);
+        Ok(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::events::NullEventSink;
+    use crate::mods::index::document::{load_library_index, save_library_index};
+    use crate::mods::index::{LibraryIndex, LibraryModEntry};
+    use crate::mods::{LinkedBinState, WadReportState};
+    use chrono::Utc;
+    use std::sync::Arc;
+
+    fn fixture() -> (tempfile::TempDir, Config, ModLibrary) {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config {
+            mod_storage_path: Some(dir.path().to_path_buf()),
+            ..Config::default()
+        };
+        let library = ModLibrary::new(
+            Arc::new(NullEventSink),
+            Some(dir.path().to_path_buf()),
+            "test",
+            Arc::new(LinkedBinState::default()),
+            Arc::new(WadReportState::new(Some(dir.path()))),
+        );
+
+        let mut index = LibraryIndex::default();
+        for id in ["a", "b", "c"] {
+            index.mods.push(LibraryModEntry {
+                id: id.to_string(),
+                installed_at: Utc::now(),
+                format: ModArchiveFormat::Modpkg,
+            });
+        }
+        let profile = index.profiles.first_mut().unwrap();
+        profile.mod_order = ["a", "b", "c"].map(String::from).to_vec();
+        profile.enabled_mods = vec!["b".to_string()];
+        save_library_index(dir.path(), &index).unwrap();
+        (dir, config, library)
+    }
+
+    #[test]
+    fn set_mods_enabled_preserves_profile_order() {
+        let (dir, config, library) = fixture();
+
+        library
+            .set_mods_enabled(&config, &["c".to_string(), "a".to_string()], true)
+            .unwrap();
+        let index = load_library_index(dir.path()).unwrap();
+        assert_eq!(
+            index.profiles[0].enabled_mods,
+            ["a", "b", "c"].map(String::from)
+        );
+
+        library
+            .set_mods_enabled(&config, &["a".to_string(), "c".to_string()], false)
+            .unwrap();
+        let index = load_library_index(dir.path()).unwrap();
+        assert_eq!(index.profiles[0].enabled_mods, vec!["b"]);
+    }
+
+    #[test]
+    fn set_mods_enabled_validates_before_changing_anything() {
+        let (dir, config, library) = fixture();
+
+        let error = library
+            .set_mods_enabled(&config, &["a".to_string(), "missing".to_string()], true)
+            .unwrap_err();
+        assert!(matches!(error, AppError::ModNotFound(_)));
+        let index = load_library_index(dir.path()).unwrap();
+        assert_eq!(index.profiles[0].enabled_mods, vec!["b"]);
+    }
+
+    #[test]
+    fn set_mods_enabled_handles_mod_missing_from_profile_order() {
+        let (dir, config, library) = fixture();
+        let mut index = load_library_index(dir.path()).unwrap();
+        index.profiles[0].mod_order.retain(|id| id != "c");
+        save_library_index(dir.path(), &index).unwrap();
+
+        library
+            .set_mods_enabled(&config, &["c".to_string()], true)
+            .unwrap();
+
+        let index = load_library_index(dir.path()).unwrap();
+        assert_eq!(index.profiles[0].enabled_mods, ["b", "c"].map(String::from));
+    }
+
+    #[test]
+    fn cache_mod_thumbnail_validates_and_writes_webp() {
+        let (dir, config, library) = fixture();
+        let metadata_dir = dir.path().join("mods").join("a");
+        fs::create_dir_all(&metadata_dir).unwrap();
+
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::new_rgba8(2, 2)
+            .write_to(&mut png, image::ImageFormat::Png)
+            .unwrap();
+
+        let path = library
+            .cache_mod_thumbnail(&config, "a", png.get_ref())
+            .unwrap();
+        assert_eq!(PathBuf::from(path), metadata_dir.join("thumbnail.webp"));
+        assert!(image::open(metadata_dir.join("thumbnail.webp")).is_ok());
+
+        let error = library
+            .cache_mod_thumbnail(&config, "a", b"not an image")
+            .unwrap_err();
+        assert!(matches!(error, AppError::ValidationFailed(_)));
     }
 }

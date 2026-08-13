@@ -5,7 +5,7 @@ export { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 export { useHotkeyEvents } from "./useHotkeyEvents";
 export { useOverlayProgress } from "./useOverlayProgress";
 export { usePatcherError } from "./usePatcherError";
-export { usePatcherStatus } from "./usePatcherStatus";
+export { usePatcherStatus, usePatcherStatusEvents } from "./usePatcherStatus";
 export { useRebuildOverlay } from "./useRebuildOverlay";
 export { useStartPatcher } from "./useStartPatcher";
 export { useStopPatcher } from "./useStopPatcher";

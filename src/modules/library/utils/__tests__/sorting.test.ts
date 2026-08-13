@@ -60,6 +60,11 @@ describe("sortMods", () => {
     expect(result.map((m) => m.id)).toEqual(["a", "c", "b"]);
   });
 
+  it("reverses enabled groups when descending", () => {
+    const result = sortMods([modA, modB, modC], { field: "enabled", direction: "desc" });
+    expect(result.map((m) => m.id)).toEqual(["b", "a", "c"]);
+  });
+
   it("returns empty array for empty input", () => {
     const result = sortMods([], { field: "name", direction: "asc" });
     expect(result).toEqual([]);

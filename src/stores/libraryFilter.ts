@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+
+import { persistentJsonStorage } from "./storage";
 
 export type SortField = "priority" | "name" | "installedAt" | "enabled";
 export type SortDirection = "asc" | "desc";
@@ -14,6 +17,7 @@ interface LibraryFilterStore {
   selectedMaps: Set<string>;
   showOnlyEnabled: boolean;
   sort: SortConfig;
+  searchQuery: string;
 
   toggleTag: (tag: string) => void;
   toggleChampion: (champion: string) => void;
@@ -24,54 +28,65 @@ interface LibraryFilterStore {
   clearFilters: () => void;
   setShowOnlyEnabled: (show: boolean) => void;
   setSort: (sort: SortConfig) => void;
+  setSearchQuery: (query: string) => void;
 }
 
-export const useLibraryFilterStore = create<LibraryFilterStore>((set) => ({
-  selectedTags: new Set(),
-  selectedChampions: new Set(),
-  selectedMaps: new Set(),
-  showOnlyEnabled: false,
-  sort: { field: "priority", direction: "desc" },
-
-  toggleTag: (tag) =>
-    set((state) => {
-      const next = new Set(state.selectedTags);
-      if (next.has(tag)) next.delete(tag);
-      else next.add(tag);
-      return { selectedTags: next };
-    }),
-
-  toggleChampion: (champion) =>
-    set((state) => {
-      const next = new Set(state.selectedChampions);
-      if (next.has(champion)) next.delete(champion);
-      else next.add(champion);
-      return { selectedChampions: next };
-    }),
-
-  toggleMap: (map) =>
-    set((state) => {
-      const next = new Set(state.selectedMaps);
-      if (next.has(map)) next.delete(map);
-      else next.add(map);
-      return { selectedMaps: next };
-    }),
-
-  setTags: (tags) => set({ selectedTags: new Set(tags) }),
-  setChampions: (champions) => set({ selectedChampions: new Set(champions) }),
-  setMaps: (maps) => set({ selectedMaps: new Set(maps) }),
-
-  clearFilters: () =>
-    set({
+export const useLibraryFilterStore = create<LibraryFilterStore>()(
+  persist(
+    (set) => ({
       selectedTags: new Set(),
       selectedChampions: new Set(),
       selectedMaps: new Set(),
       showOnlyEnabled: false,
-    }),
+      sort: { field: "enabled", direction: "asc" },
+      searchQuery: "",
 
-  setShowOnlyEnabled: (show) => set({ showOnlyEnabled: show }),
-  setSort: (sort) => set({ sort }),
-}));
+      toggleTag: (tag) =>
+        set((state) => {
+          const next = new Set(state.selectedTags);
+          if (next.has(tag)) next.delete(tag);
+          else next.add(tag);
+          return { selectedTags: next };
+        }),
+
+      toggleChampion: (champion) =>
+        set((state) => {
+          const next = new Set(state.selectedChampions);
+          if (next.has(champion)) next.delete(champion);
+          else next.add(champion);
+          return { selectedChampions: next };
+        }),
+
+      toggleMap: (map) =>
+        set((state) => {
+          const next = new Set(state.selectedMaps);
+          if (next.has(map)) next.delete(map);
+          else next.add(map);
+          return { selectedMaps: next };
+        }),
+
+      setTags: (tags) => set({ selectedTags: new Set(tags) }),
+      setChampions: (champions) => set({ selectedChampions: new Set(champions) }),
+      setMaps: (maps) => set({ selectedMaps: new Set(maps) }),
+
+      clearFilters: () =>
+        set({
+          selectedTags: new Set(),
+          selectedChampions: new Set(),
+          selectedMaps: new Set(),
+          showOnlyEnabled: false,
+        }),
+
+      setShowOnlyEnabled: (show) => set({ showOnlyEnabled: show }),
+      setSort: (sort) => set({ sort }),
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
+    }),
+    {
+      name: "ltk-library-filters",
+      storage: persistentJsonStorage,
+    },
+  ),
+);
 
 export function useHasActiveFilters() {
   return useLibraryFilterStore(

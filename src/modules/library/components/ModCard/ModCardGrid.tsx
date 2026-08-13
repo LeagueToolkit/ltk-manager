@@ -1,8 +1,10 @@
 import { ShieldAlert } from "lucide-react";
+import { memo } from "react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-import { Checkbox, Tooltip } from "@/components";
+import { Tooltip } from "@/components";
+import { useLibrarySelectionStore } from "@/stores";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
@@ -12,28 +14,15 @@ import {
   ModCardThumbnail,
   ModCardToggle,
   ModPills,
+  ModSelectionIndicator,
   SkinhackInfoDialog,
 } from "./ModCardParts";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardGrid({ view }: { view: ModCardView }) {
-  const {
-    mod,
-    thumbnailUrl,
-    isFlagged,
-    skinhackReason,
-    isMultiLayer,
-    selectMode,
-    isSelected,
-    inSelectedState,
-    inEnabledState,
-    cursorClass,
-    skinhackInfoOpen,
-    setSkinhackInfoOpen,
-    onCardClick,
-  } = view;
+  const isSelected = useLibrarySelectionStore((state) => state.selectedIds.has(view.mod.id));
 
-  const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+  const stateClass = match({ isSelected, isEnabled: view.inEnabledState })
     .with({ isSelected: true }, () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60")
     .with(
       { isEnabled: true },
@@ -47,24 +36,34 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
 
   return (
     <div
-      onClick={onCardClick}
+      onClick={view.onCardClick}
+      onClickCapture={view.onCardClickCapture}
       className={twMerge(
-        "group relative flex h-full flex-col rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
-        cursorClass,
+        "mod-card mod-card-grid group relative flex h-full flex-col rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+        view.cursorClass,
         stateClass,
       )}
+      aria-selected={isSelected || undefined}
     >
-      {selectMode && (
-        <div className="pointer-events-none absolute top-2 left-2 z-10">
-          <Checkbox
-            size="md"
-            checked={isSelected}
-            tabIndex={-1}
-            aria-label={`Select ${mod.displayName}`}
-            className="shadow-lg backdrop-blur-sm"
-          />
-        </div>
-      )}
+      <ModSelectionIndicator variant="grid" checked={isSelected} />
+      <ModCardGridContent view={view} />
+    </div>
+  );
+}
+
+const ModCardGridContent = memo(function ModCardGridContent({ view }: { view: ModCardView }) {
+  const {
+    mod,
+    thumbnailUrl,
+    isFlagged,
+    skinhackReason,
+    isMultiLayer,
+    skinhackInfoOpen,
+    setSkinhackInfoOpen,
+  } = view;
+
+  return (
+    <>
       <div
         className="absolute top-2 right-2 z-10"
         data-no-toggle
@@ -112,6 +111,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
         </div>
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-    </div>
+    </>
   );
-}
+});

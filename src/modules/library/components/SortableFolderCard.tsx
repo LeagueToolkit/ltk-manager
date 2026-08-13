@@ -1,6 +1,6 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { CSSProperties } from "react";
+import { type CSSProperties, memo } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { useReorderDisabled } from "@/stores";
@@ -12,18 +12,20 @@ interface SortableFolderCardProps {
   folder: LibraryFolder;
   mods: InstalledMod[];
   sortDisabled?: boolean;
+  dndDisabled?: boolean;
 }
 
-export function SortableFolderCard({
+export const SortableFolderCard = memo(function SortableFolderCard({
   sortableId,
   folder,
   mods,
   sortDisabled,
+  dndDisabled,
 }: SortableFolderCardProps) {
   const reorderDisabled = useReorderDisabled();
   const disabled = sortDisabled || reorderDisabled;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
-    useSortable({ id: sortableId, disabled: disabled ? { draggable: true } : false });
+    useSortable({ id: sortableId, disabled: !!disabled });
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -34,12 +36,13 @@ export function SortableFolderCard({
   return (
     <div
       ref={setNodeRef}
+      data-library-sortable
       style={style}
       className={`group/sortable-folder relative h-full rounded-xl transition-all duration-150 ${
         isOver && !isDragging ? "scale-[1.02] ring-2 ring-accent-500" : ""
       } ${isDragging ? "z-0" : ""}`}
       {...attributes}
-      {...listeners}
+      {...(disabled || dndDisabled ? {} : listeners)}
     >
       {isDragging && (
         <div className="absolute inset-0 rounded-xl border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
@@ -49,4 +52,4 @@ export function SortableFolderCard({
       </div>
     </div>
   );
-}
+});

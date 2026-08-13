@@ -48,6 +48,21 @@ describe("api", () => {
       expect(mockInvoke).toHaveBeenCalledWith("toggle_mod", { modId: "mod1", enabled: false });
     });
 
+    it("setModsEnabled invokes one bulk command", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: undefined });
+      await api.setModsEnabled(["mod1", "mod2"], true);
+      expect(mockInvoke).toHaveBeenCalledWith("set_mods_enabled", {
+        modIds: ["mod1", "mod2"],
+        enabled: true,
+      });
+    });
+
+    it("fetchModThumbnail invokes with modId", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: "C:/mods/mod1/thumbnail.webp" });
+      await api.fetchModThumbnail("mod1");
+      expect(mockInvoke).toHaveBeenCalledWith("fetch_mod_thumbnail", { modId: "mod1" });
+    });
+
     it("uninstallMod invokes with modId", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.uninstallMod("mod1");

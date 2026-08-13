@@ -2,6 +2,7 @@ import type { DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core"
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useLibraryFilterStore } from "@/stores";
 import { createMockInstalledMod } from "@/test/fixtures";
 
 const mockMutate = vi.fn();
@@ -36,6 +37,7 @@ describe("useSortableModDnd", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    useLibraryFilterStore.setState({ sort: { field: "priority", direction: "desc" } });
   });
 
   it("initializes localOrder from mods", () => {

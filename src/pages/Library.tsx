@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { useHddWarning, usePlatformSupport } from "@/hooks";
@@ -23,14 +23,15 @@ import {
   useStopPatcher,
 } from "@/modules/patcher";
 import { useSaveSettings, useSettings } from "@/modules/settings";
-import { useLibrarySelectionStore } from "@/stores";
+import { useLibraryFilterStore, useLibrarySelectionStore } from "@/stores";
 
 interface LibraryProps {
   folderId?: string;
 }
 
 export function Library({ folderId }: LibraryProps = {}) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const searchQuery = useLibraryFilterStore((state) => state.searchQuery);
+  const setSearchQuery = useLibraryFilterStore((state) => state.setSearchQuery);
   const [migrationOpen, setMigrationOpen] = useState(false);
 
   const { data: platform } = usePlatformSupport();
@@ -53,7 +54,6 @@ export function Library({ folderId }: LibraryProps = {}) {
   const filterOptions = useFilterOptions(mods);
   const visibleMods = useFilteredMods(mods, searchQuery);
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
   const setOrderedIds = useLibrarySelectionStore((s) => s.setOrderedIds);
   useEffect(() => {
     setOrderedIds(visibleMods.map((m) => m.id));
@@ -122,7 +122,7 @@ export function Library({ folderId }: LibraryProps = {}) {
       <PatcherEventListeners />
       {/* Its own positioning context so the floating selection bar rides above
           the mod list rather than the session bar below it. */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
+      <LibraryInteractionRegion visibleMods={visibleMods} patcherActive={isPatcherActive}>
         <LibraryContent
           mods={mods}
           searchQuery={searchQuery}
@@ -130,8 +130,7 @@ export function Library({ folderId }: LibraryProps = {}) {
           error={error}
           folderId={folderId}
         />
-        {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
-      </div>
+      </LibraryInteractionRegion>
       <ImportProgressDialog
         open={actions.importDialogOpen}
         onClose={actions.handleCloseImportDialog}
@@ -139,6 +138,60 @@ export function Library({ folderId }: LibraryProps = {}) {
         result={actions.importResult}
       />
       <MigrationWizardDialog open={migrationOpen} onClose={() => setMigrationOpen(false)} />
+    </div>
+  );
+}
+
+function LibraryInteractionRegion({
+  visibleMods,
+  patcherActive,
+  children,
+}: {
+  visibleMods: ReturnType<typeof useFilteredMods>;
+  patcherActive: boolean;
+  children: ReactNode;
+}) {
+  const selectMode = useLibrarySelectionStore((state) => state.selectMode);
+
+  return (
+    <div
+      className="relative flex min-h-0 flex-1 flex-col"
+      data-library-select-mode={selectMode}
+      data-library-patcher-active={patcherActive}
+      onPointerDownCapture={(event) => {
+        if (
+          (selectMode || patcherActive) &&
+          (event.target as Element).closest("[data-library-sortable]")
+        ) {
+          event.stopPropagation();
+        }
+      }}
+      onClickCapture={(event) => {
+        if (patcherActive && (event.target as Element).closest(".mod-card")) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onContextMenuCapture={(event) => {
+        if (patcherActive && (event.target as Element).closest(".mod-card")) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      onKeyDownCapture={(event) => {
+        const isDndActivation = event.key === " " || event.key === "Enter";
+        if (
+          (selectMode || patcherActive) &&
+          isDndActivation &&
+          (event.target as Element).closest("[data-library-sortable]")
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+    >
+      {children}
+      {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
     </div>
   );
 }

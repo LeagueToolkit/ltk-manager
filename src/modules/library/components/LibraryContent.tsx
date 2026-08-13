@@ -17,36 +17,25 @@ interface LibraryContentProps {
   folderId?: string;
 }
 
-export function LibraryContent({
+export const LibraryContent = memo(function LibraryContent({
   mods,
   searchQuery,
   isLoading,
   error,
   folderId,
 }: LibraryContentProps) {
-  const {
-    viewMode,
-    dndDisabled,
-    selectMode,
-    contentView,
-    detailsMod,
-    setDetailsMod,
-    editMod,
-    setEditMod,
-  } = useLibraryContent({
-    mods,
-    searchQuery,
-    isLoading,
-    hasError: error !== null,
-    folderId,
-  });
+  const { viewMode, dndDisabled, contentView, detailsMod, setDetailsMod, editMod, setEditMod } =
+    useLibraryContent({
+      mods,
+      searchQuery,
+      isLoading,
+      hasError: error !== null,
+      folderId,
+    });
   const reorderMods = useReorderMods();
   const reorderFolderMods = useReorderFolderMods();
 
-  // Extra bottom padding in select mode so the floating action bar never covers the last row.
-  const scrollClass = selectMode
-    ? "flex-1 overflow-auto px-6 pt-6 pb-28"
-    : "flex-1 overflow-auto p-6";
+  const scrollClass = "library-scroll flex-1 overflow-auto p-6";
 
   if (contentView.type === "loading") {
     return (
@@ -170,4 +159,5 @@ export function LibraryContent({
       )}
     </>
   );
-}
+});
+import { memo } from "react";

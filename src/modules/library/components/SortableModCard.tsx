@@ -1,9 +1,8 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { CSSProperties } from "react";
+import { type CSSProperties, memo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
-import { usePatcherStatus } from "@/modules/patcher";
 import { useReorderDisabled } from "@/stores";
 
 import { ModCard } from "./ModCard";
@@ -11,23 +10,23 @@ import { ModCard } from "./ModCard";
 interface SortableModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
+  dndDisabled?: boolean;
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-export function SortableModCard({
+export const SortableModCard = memo(function SortableModCard({
   mod,
   viewMode,
+  dndDisabled = false,
   onViewDetails,
   onEditMetadata,
 }: SortableModCardProps) {
   const reorderDisabled = useReorderDisabled();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: mod.id,
-    disabled: reorderDisabled ? { droppable: true } : false,
+    disabled: reorderDisabled,
   });
-  const { data: patcherStatus } = usePatcherStatus();
-  const disabled = patcherStatus?.running ?? false;
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -38,9 +37,11 @@ export function SortableModCard({
   return (
     <div
       ref={setNodeRef}
+      data-library-sortable
       style={style}
       className={`group/sortable relative ${viewMode === "list" ? "rounded-xl" : "h-full rounded-xl"} ${isDragging ? "z-0" : ""}`}
-      {...(disabled ? {} : { ...attributes, ...listeners })}
+      {...attributes}
+      {...(dndDisabled ? {} : listeners)}
     >
       {isDragging && (
         <div className="absolute inset-0 rounded-xl border-2 border-dashed border-accent-500/40 bg-accent-500/5" />
@@ -55,4 +56,4 @@ export function SortableModCard({
       </div>
     </div>
   );
-}
+});

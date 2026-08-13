@@ -2,6 +2,7 @@ import { useLibraryViewStore } from "@/stores/libraryView";
 
 describe("libraryView store", () => {
   beforeEach(() => {
+    localStorage.clear();
     useLibraryViewStore.setState({ expandedFolders: new Set() });
   });
 
@@ -56,5 +57,22 @@ describe("libraryView store", () => {
       useLibraryViewStore.getState().cleanupStaleFolders(new Set(["folder-1"]));
       expect(useLibraryViewStore.getState().expandedFolders).toEqual(new Set());
     });
+  });
+
+  it("persists expanded folders using the shared Set encoding", () => {
+    useLibraryViewStore.getState().toggleFolderExpanded("folder-1");
+
+    expect(localStorage.getItem("ltk-library-view")).toContain('"__type":"Set"');
+  });
+
+  it("migrates the previous expanded-folder storage format", async () => {
+    localStorage.setItem(
+      "ltk-library-view",
+      JSON.stringify({ state: { expandedFolders: ["folder-1"] }, version: 0 }),
+    );
+
+    await useLibraryViewStore.persist.rehydrate();
+
+    expect(useLibraryViewStore.getState().expandedFolders).toEqual(new Set(["folder-1"]));
   });
 });
