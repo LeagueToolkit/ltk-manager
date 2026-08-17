@@ -284,25 +284,6 @@
 }
 
 /* ============================================
-   Brand Gradients
-   ============================================ */
-
-:root {
-  --ltk-wordmark: linear-gradient(105deg, #cfeafd 0%, #86a9ff 48%, #a482ff 100%);
-}
-
-[data-theme="light"] {
-  --ltk-wordmark: linear-gradient(105deg, #1e2a5e 0%, #2f4bb0 48%, #6a45d8 100%);
-}
-
-.ltk-wordmark {
-  background: var(--ltk-wordmark);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-/* ============================================
    Base Styles
    ============================================ */
 
