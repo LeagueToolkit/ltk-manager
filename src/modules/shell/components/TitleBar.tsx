@@ -26,14 +26,39 @@ const navItems = [
   { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
 ] as const;
 
-const linkBaseClass =
-  "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors";
-const settingsLinkBase = "relative flex h-full items-center px-3 transition-colors";
-const activeLinkClass = "text-accent-400";
-const inactiveLinkClass = "text-surface-400 hover:text-surface-200";
+/* Two nav shapes, split by what the target is rather than by where it sits.
+   A page tab fills the strip and carries a bottom bar, which only reads under a
+   full-height cell. An icon-only link in the action cluster takes the icon
+   buttons' rounded cell instead, and marks current with an accent fill - the
+   same pair the Settings tab rail uses.
 
+   Hover on both is the flat ghost-button fill. The wiki's brand-gradient row
+   wash is not used here: it fades to transparent across the row, and on a cell
+   this narrow it cuts off mid-fade at the trailing edge. */
+const tabBaseClass =
+  "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700";
+const tabActiveClass = "text-accent-400";
+const tabInactiveClass = "text-surface-400 hover:text-surface-200";
+
+const iconNavBase = "flex h-8 w-8 items-center justify-center rounded-md transition-colors";
+const iconNavActive = "bg-accent-500/15 text-accent-300";
+const iconNavInactive = "text-surface-400 hover:bg-surface-700 hover:text-surface-200";
+
+/* Window controls are OS chrome, so they take the platform's shape: full-height
+   square cells running flush to the window's corner, not the app's rounded
+   buttons. Their hover is the plain ghost fill, like every other button in the
+   bar. Minimize and maximize carry no colour - neither is a warning or a
+   success, and the saturated fills they used to flash read far louder than
+   anything else in the app. Close keeps a signal, but as a tinted wash and a red
+   glyph, the shape the status palette takes everywhere else. */
+const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
+
+/* The brand ramp rather than a flat accent bar, so the tab strip reads as the
+   same chrome as the wiki's nav. */
 function ActiveIndicator() {
-  return <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-accent-500" />;
+  return (
+    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-brand-blue to-brand-violet" />
+  );
 }
 
 function NavLink({
@@ -51,8 +76,8 @@ function NavLink({
     <Link
       to={to}
       activeOptions={{ exact }}
-      activeProps={{ className: twMerge(linkBaseClass, activeLinkClass) }}
-      inactiveProps={{ className: twMerge(linkBaseClass, inactiveLinkClass) }}
+      activeProps={{ className: twMerge(tabBaseClass, tabActiveClass) }}
+      inactiveProps={{ className: twMerge(tabBaseClass, tabInactiveClass) }}
     >
       {({ isActive }) => (
         <>
@@ -137,7 +162,10 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
       <div className="flex h-full items-center" data-tauri-drag-region>
         <div className="flex items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
           <img src="/icon.svg" alt="LTK" className="h-5 w-5" data-tauri-drag-region />
-          <span className="text-sm font-medium text-surface-100" data-tauri-drag-region>
+          <span
+            className="ltk-wordmark font-display text-sm font-bold tracking-tight"
+            data-tauri-drag-region
+          >
             {title}
           </span>
           {version && (
@@ -161,114 +189,103 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
-        <Tooltip content="Open storage directory">
-          <IconButton
-            icon={<FolderOpen className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={handleOpenStorageDirectory}
-            aria-label="Open storage directory"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          <Tooltip content="Open storage directory">
+            <IconButton
+              icon={<FolderOpen className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenStorageDirectory}
+              aria-label="Open storage directory"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
 
-        <NotificationCenter />
+          <NotificationCenter />
 
-        <Tooltip content="Report a Bug">
-          <IconButton
-            icon={<Accessibility className="h-5 w-5" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open(bugReportUrl)}
-            aria-label="Report a Bug"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <Tooltip content="Report a Bug">
+            <IconButton
+              icon={<Accessibility className="h-5 w-5" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open(bugReportUrl)}
+              aria-label="Report a Bug"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
 
-        <Tooltip content="Join our Discord">
-          <IconButton
-            icon={<DiscordIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={() => open("https://discord.gg/yhzDVRyQex")}
-            aria-label="Join our Discord"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+          <Tooltip content="Join our Discord">
+            <IconButton
+              icon={<DiscordIcon className="h-4 w-4" />}
+              variant="ghost"
+              size="sm"
+              onClick={() => open("https://discord.gg/yhzDVRyQex")}
+              aria-label="Join our Discord"
+              className="text-surface-400 hover:text-surface-200"
+            />
+          </Tooltip>
 
-        <Tooltip content="Diagnostics">
+          <Tooltip content="Diagnostics">
+            <Link
+              to="/diagnostics"
+              activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+              inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+              aria-label="Diagnostics"
+            >
+              <Stethoscope className="h-4 w-4" />
+            </Link>
+          </Tooltip>
+
+          {/* Settings button */}
           <Link
-            to="/diagnostics"
-            activeProps={{
-              className: twMerge(settingsLinkBase, activeLinkClass),
-            }}
-            inactiveProps={{
-              className: twMerge(settingsLinkBase, inactiveLinkClass),
-            }}
-            aria-label="Diagnostics"
+            to="/settings"
+            activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
+            inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
+            aria-label="Settings"
           >
-            {({ isActive }) => (
-              <>
-                <Stethoscope className="h-4 w-4" />
-                {isActive && <ActiveIndicator />}
-              </>
-            )}
+            <Settings className="h-4 w-4" />
           </Link>
-        </Tooltip>
-
-        {/* Settings button */}
-        <Link
-          to="/settings"
-          activeProps={{
-            className: twMerge(settingsLinkBase, activeLinkClass),
-          }}
-          inactiveProps={{
-            className: twMerge(settingsLinkBase, inactiveLinkClass),
-          }}
-          aria-label="Settings"
-        >
-          {({ isActive }) => (
-            <>
-              <Settings className="h-4 w-4" />
-              {isActive && <ActiveIndicator />}
-            </>
-          )}
-        </Link>
+        </div>
 
         {!isMacOS && (
           <>
             <Separator orientation="vertical" />
 
-            <IconButton
-              icon={<Minus className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleMinimize}
-              aria-label="Minimize"
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-amber-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={
-                isMaximized ? (
-                  <OverlappingSquares className="h-3 w-3" />
-                ) : (
-                  <Square className="h-3 w-3" />
-                )
-              }
-              variant="ghost"
-              size="sm"
-              onClick={handleMaximize}
-              aria-label={isMaximized ? "Restore" : "Maximize"}
-              className="mx-0.5 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-green-500 hover:text-white active:scale-90 active:opacity-80"
-            />
-            <IconButton
-              icon={<X className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              aria-label="Close"
-              className="mx-0.5 mr-2 h-7 w-7 rounded-md text-surface-400 transition-[transform,background-color,color] duration-100 hover:bg-red-500 hover:text-white active:scale-90 active:opacity-80"
-            />
+            <div className="flex h-full">
+              <IconButton
+                icon={<Minus className="h-3.5 w-3.5" />}
+                variant="ghost"
+                size="sm"
+                onClick={handleMinimize}
+                aria-label="Minimize"
+                className={windowControlClass}
+              />
+              <IconButton
+                icon={
+                  isMaximized ? (
+                    <OverlappingSquares className="h-3 w-3" />
+                  ) : (
+                    <Square className="h-3 w-3" />
+                  )
+                }
+                variant="ghost"
+                size="sm"
+                onClick={handleMaximize}
+                aria-label={isMaximized ? "Restore" : "Maximize"}
+                className={windowControlClass}
+              />
+              <IconButton
+                icon={<X className="h-3.5 w-3.5" />}
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                aria-label="Close"
+                className={twMerge(
+                  windowControlClass,
+                  "hover:bg-danger/15 hover:text-danger-text active:bg-danger/25",
+                )}
+              />
+            </div>
           </>
         )}
       </div>

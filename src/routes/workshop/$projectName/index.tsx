@@ -66,7 +66,7 @@ function ProjectOverview() {
   });
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 p-6 pb-20">
+    <div className="mx-auto max-w-6xl space-y-6 p-6 pb-20">
       <SectionCard title="Mod Details" icon={<Package className="h-4 w-4" />}>
         <div className="flex flex-col gap-6 md:flex-row md:gap-8">
           <ThumbnailSection project={project} />
@@ -109,9 +109,9 @@ function ProjectOverview() {
                                 Format: <code className="text-accent-400">MAJOR.MINOR.PATCH</code>
                               </p>
                               <ul className="list-inside list-disc space-y-0.5 text-surface-300">
-                                <li>MAJOR — breaking changes</li>
-                                <li>MINOR — new features</li>
-                                <li>PATCH — bug fixes</li>
+                                <li>MAJOR - breaking changes</li>
+                                <li>MINOR - new features</li>
+                                <li>PATCH - bug fixes</li>
                               </ul>
                               <p className="text-surface-400">
                                 Pre-release: <code>1.0.0-beta.1</code>

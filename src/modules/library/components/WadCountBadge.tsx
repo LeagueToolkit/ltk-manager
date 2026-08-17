@@ -56,7 +56,7 @@ function groupWadsByCategory(wads: string[]): CategoryGroup[] {
  */
 function tierClasses(count: number): string {
   if (count >= 26) {
-    return "bg-amber-500/15 text-amber-300 ring-1 ring-inset ring-amber-500/30 hover:bg-amber-500/25";
+    return "bg-warning/15 text-warning-text ring-1 ring-inset ring-warning/30 hover:bg-warning/25";
   }
   if (count >= 6) {
     return "bg-accent-500/15 text-accent-300 ring-1 ring-inset ring-accent-500/30 hover:bg-accent-500/25";
@@ -71,12 +71,12 @@ function shortWadName(path: string): string {
 
 /**
  * Compact pill rendered next to `LayerPopover` on each mod card. Owns its own
- * data via `useModWadReport`; the parent passes only the mod id.
+ * data via `useModWadReport`, so the parent passes only the mod id.
  *
  * States:
- * - **Loading** — skeleton placeholder matching badge dimensions.
- * - **Unknown** — never analyzed; renders a "?" pill with an Analyze action.
- * - **Known** — numeric pill with color tier; opens a popover with the full
+ * - **Loading**: skeleton placeholder matching badge dimensions.
+ * - **Unknown**: never analyzed, so it renders a "?" pill with an Analyze action.
+ * - **Known**: numeric pill with a color tier, opening a popover with the full
  *   list grouped by category and a Re-analyze button. Stale reports get a
  *   refresh-icon overlay.
  */
@@ -115,12 +115,12 @@ export function WadCountBadge({ modId }: WadCountBadgeProps) {
             <Button
               variant="ghost"
               size="xs"
-              aria-label={`Affects ${report.wadCount} WADs — click for details`}
+              aria-label={`Affects ${report.wadCount} WADs, click for details`}
               className={`relative h-6 gap-1 rounded px-2 py-0.5 text-xs leading-tight ${tierClasses(report.wadCount)}`}
             >
               <HardDrive className="h-3 w-3" />
               {report.wadCount}
-              {report.isStale && <RefreshCw className="h-3 w-3 text-amber-400" aria-hidden />}
+              {report.isStale && <RefreshCw className="h-3 w-3 text-warning-text" aria-hidden />}
             </Button>
           }
         />
@@ -141,8 +141,8 @@ export function WadCountBadge({ modId }: WadCountBadgeProps) {
                   {formatDistanceToNow(new Date(report.computedAt), { addSuffix: true })}
                 </p>
                 {report.isStale && (
-                  <p className="mt-0.5 text-[10px] text-amber-400">
-                    May be outdated — re-analyze or patch to refresh.
+                  <p className="mt-0.5 text-[10px] text-warning-text">
+                    May be outdated. Re-analyze or patch to refresh.
                   </p>
                 )}
               </div>
@@ -204,7 +204,7 @@ function UnknownBadge({
     <div className="max-w-[240px] space-y-1">
       <p className="font-semibold text-surface-100">WAD footprint</p>
       <p className="text-xs text-surface-200">
-        Shows how many game WAD files this mod patches. Not yet computed — click to analyze.
+        Shows how many game WAD files this mod patches. Not yet computed. Click to analyze.
       </p>
     </div>
   );

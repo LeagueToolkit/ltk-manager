@@ -80,7 +80,7 @@ export function ProfileCreateForm() {
         onClick={handleSubmit}
         disabled={!name.trim() || createProfile.isPending}
         loading={createProfile.isPending}
-        className="text-green-400 hover:text-green-300"
+        className="text-success-text hover:text-success-text"
       />
       <IconButton
         icon={<X className="h-4 w-4" />}

@@ -83,10 +83,10 @@ function CountsHeader({ checks }: { checks: Check[] }) {
   for (const c of checks) counts[c.severity]++;
 
   const items: { sev: Severity; label: string; cls: string }[] = [
-    { sev: "bad", label: "Issues", cls: "text-red-300" },
-    { sev: "warn", label: "Warnings", cls: "text-amber-300" },
-    { sev: "ok", label: "Passing", cls: "text-green-300" },
-    { sev: "info", label: "Info", cls: "text-blue-300" },
+    { sev: "bad", label: "Issues", cls: "text-danger-text" },
+    { sev: "warn", label: "Warnings", cls: "text-warning-text" },
+    { sev: "ok", label: "Passing", cls: "text-success-text" },
+    { sev: "info", label: "Info", cls: "text-info-text" },
   ];
 
   return (

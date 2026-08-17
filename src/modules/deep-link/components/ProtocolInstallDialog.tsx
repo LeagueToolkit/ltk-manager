@@ -98,8 +98,8 @@ export function ProtocolInstallDialog() {
 
             {isComplete && (
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15">
-                  <CircleCheck className="h-5 w-5 text-emerald-400" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-success/15">
+                  <CircleCheck className="h-5 w-5 text-success-text" />
                 </div>
                 <p className="text-sm text-surface-300">
                   <span className="font-medium text-surface-100">{displayName}</span> has been
@@ -110,14 +110,14 @@ export function ProtocolInstallDialog() {
 
             {isError && error && (
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500/15">
-                  <CircleX className="h-5 w-5 text-red-400" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-danger/15">
+                  <CircleX className="h-5 w-5 text-danger-text" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-surface-100">
                     Failed to install {displayName}
                   </p>
-                  <p className="mt-1 text-sm text-red-300">{error}</p>
+                  <p className="mt-1 text-sm text-danger-text">{error}</p>
                 </div>
               </div>
             )}

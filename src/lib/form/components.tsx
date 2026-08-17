@@ -115,7 +115,7 @@ export function TextareaField({
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
           "disabled:cursor-not-allowed disabled:opacity-50",
           "min-h-[80px] resize-y",
-          hasError && "border-red-500 focus:border-red-500 focus:ring-red-500",
+          hasError && "border-danger focus:border-danger focus:ring-danger",
           textareaClassName,
         )}
         {...props}
@@ -270,7 +270,7 @@ export function SubmitButton({ children, className, variant = "filled" }: Submit
           "relative inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 focus:ring-offset-surface-900 disabled:cursor-not-allowed disabled:opacity-50";
 
         const variantStyles = {
-          filled: "bg-accent-600 text-white hover:bg-accent-700",
+          filled: "bg-accent-600 text-brand-on hover:bg-accent-700",
           ghost: "text-surface-300 hover:bg-surface-700 hover:text-surface-100",
           outline:
             "border border-surface-600 text-surface-300 hover:border-surface-500 hover:text-surface-100",

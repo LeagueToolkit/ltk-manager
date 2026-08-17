@@ -139,7 +139,9 @@ pub enum LaunchMode {
 #[ts(export)]
 #[serde(rename_all = "camelCase")]
 pub struct AccentColor {
-    /// Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
+    /// Preset name: "ltk" (the brand accent), or one of the generated hues
+    /// "blue", "purple", "green", "orange", "pink", "red", "teal". `None` is
+    /// read as "ltk" by the frontend.
     pub preset: Option<String>,
     /// Custom hue value (0-360) for custom colors
     pub custom_hue: Option<f32>,
@@ -366,8 +368,8 @@ mod tests {
         assert!(deserialized.config.patch_tft);
     }
 
-    /// The `Config` flatten must keep the on-disk format flat — config keys at
-    /// the top level, no nested `config` object.
+    /// The `Config` flatten must keep the on-disk format flat, with config keys
+    /// at the top level and no nested `config` object.
     #[test]
     fn settings_serialize_flat() {
         let settings = Settings {

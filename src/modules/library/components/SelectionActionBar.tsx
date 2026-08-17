@@ -150,13 +150,12 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
           <div className="mx-1 h-6 w-px bg-surface-700" />
 
           <Button
-            variant="filled"
+            variant="danger"
             size="sm"
             onClick={handleOpenDialog}
             loading={bulkUninstall.isPending}
             disabled={selectedCount === 0 || patcherRunning}
             left={<Trash2 className="h-4 w-4" />}
-            className="bg-red-600 hover:bg-red-500"
           >
             Uninstall{selectedCount > 0 ? ` ${selectedCount}` : ""} mod
             {selectedCount === 1 ? "" : "s"}

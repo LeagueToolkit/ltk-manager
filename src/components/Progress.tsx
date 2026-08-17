@@ -73,7 +73,7 @@ export const ProgressIndicator = forwardRef<HTMLDivElement, ProgressIndicatorPro
           "relative overflow-hidden rounded-full transition-all duration-300",
           "bg-accent-500",
           "data-[indeterminate]:w-1/3 data-[indeterminate]:animate-pulse",
-          "after:absolute after:inset-0 after:animate-shimmer after:bg-linear-to-r after:from-transparent after:via-white/25 after:to-transparent",
+          "after:absolute after:inset-0 after:animate-shimmer after:bg-linear-to-r after:from-transparent after:via-brand-on/25 after:to-transparent",
           className,
         )}
         {...props}

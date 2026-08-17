@@ -147,11 +147,13 @@ export function BulkPackDialog() {
                       return (
                         <li key={i} className="flex items-center gap-2">
                           {outcome.ok ? (
-                            <Check className="h-4 w-4 shrink-0 text-green-400" />
+                            <Check className="h-4 w-4 shrink-0 text-success-text" />
                           ) : (
-                            <X className="h-4 w-4 shrink-0 text-red-400" />
+                            <X className="h-4 w-4 shrink-0 text-danger-text" />
                           )}
-                          <span className={outcome.ok ? "flex-1 text-surface-300" : "text-red-300"}>
+                          <span
+                            className={outcome.ok ? "flex-1 text-surface-300" : "text-danger-text"}
+                          >
                             {r.displayName}
                           </span>
                           {outcome.ok && (
@@ -165,8 +167,8 @@ export function BulkPackDialog() {
                             </Tooltip>
                           )}
                           {!outcome.ok && (
-                            <span className="truncate text-xs text-red-400/70">
-                              — {outcome.error}
+                            <span className="truncate text-xs text-danger-text/70">
+                              - {outcome.error}
                             </span>
                           )}
                         </li>

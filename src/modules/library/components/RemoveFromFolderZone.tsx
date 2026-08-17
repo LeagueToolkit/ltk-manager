@@ -19,7 +19,7 @@ export function RemoveFromFolderZone({ visible }: RemoveFromFolderZoneProps) {
           : "pointer-events-none translate-y-full p-0 opacity-0"
       } ${
         isOver
-          ? "bg-red-950 text-red-400 ring-2 ring-red-500/50 ring-inset"
+          ? "bg-danger/15 text-danger-text ring-2 ring-danger/50 ring-inset"
           : "border-t border-surface-700 bg-surface-900 text-surface-400"
       }`}
     >

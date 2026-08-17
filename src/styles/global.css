@@ -1,13 +1,66 @@
 /* ============================================
-   Global Tokens, Reset & Utilities
+   LTK Design Tokens
    ============================================ */
 
-/* Accent color presets (HSL hues for generating color scales) */
+/* ============================================
+   Brand Palette
+   ============================================ */
+
+/* The logo colours. */
 :root {
-  --accent-hue: 207; /* Default: Blue */
+  --ltk-blue: #4b7dfa;
+  --ltk-violet: #7d4bfa;
+  --ltk-on-brand: #ffffff;
+}
+
+/* ============================================
+   Status Palette
+   ============================================ */
+
+/* State colours, for components that derive their look from state. */
+:root {
+  --ltk-success: #22c55e;
+  --ltk-warning: #f59e0b;
+  --ltk-danger: #ef4444;
+  --ltk-info: var(--ltk-blue);
+
+  --ltk-success-text: var(--ltk-success);
+  --ltk-warning-text: var(--ltk-warning);
+  --ltk-danger-text: var(--ltk-danger);
+  --ltk-info-text: var(--ltk-info);
+
+  --ltk-danger-strong: #dc2626;
+  --ltk-required: #f193a9;
+
+  /* Colours for mod category pills. */
+  --ltk-cat-champion: #34d399;
+  --ltk-cat-map: #38bdf8;
+  --ltk-cat-champion-text: var(--ltk-cat-champion);
+  --ltk-cat-map-text: var(--ltk-cat-map);
+}
+
+[data-theme="light"] {
+  --ltk-success-text: color-mix(in srgb, var(--ltk-success) 60%, black);
+  --ltk-warning-text: color-mix(in srgb, var(--ltk-warning) 60%, black);
+  --ltk-danger-text: color-mix(in srgb, var(--ltk-danger) 60%, black);
+  --ltk-info-text: color-mix(in srgb, var(--ltk-info) 60%, black);
+  --ltk-required: #ad3a58;
+  --ltk-cat-champion-text: color-mix(in srgb, var(--ltk-cat-champion) 50%, black);
+  --ltk-cat-map-text: color-mix(in srgb, var(--ltk-cat-map) 50%, black);
+}
+
+/* ============================================
+   Accent Presets
+   ============================================ */
+
+/* One ramp, two sources: the literal "ltk" block below wins when
+   [data-accent="ltk"] is set, otherwise the ramp is generated from
+   --accent-hue. */
+:root {
+  --accent-hue: 223;
   --accent-saturation: 100%;
 
-  /* Accent color preset hues */
+  /* Accent picker hues */
   --hue-blue: 207;
   --hue-purple: 271;
   --hue-green: 122;
@@ -15,33 +68,112 @@
   --hue-pink: 340;
   --hue-red: 4;
   --hue-teal: 174;
+
+  --accent-l-50: 95%;
+  --accent-l-100: 90%;
+  --accent-l-200: 80%;
+  --accent-l-300: 70%;
+  --accent-l-400: 60%;
+  --accent-l-500: 50%;
+  --accent-l-600: 40%;
+  --accent-l-700: 30%;
+  --accent-l-800: 20%;
+  --accent-l-900: 10%;
 }
 
-/* Dark theme - DEFAULT */
+[data-theme="light"] {
+  --accent-l-50: 12%;
+  --accent-l-100: 16%;
+  --accent-l-200: 22%;
+  --accent-l-300: 28%;
+  --accent-l-400: 34%;
+  --accent-l-500: 46%;
+  --accent-l-600: 40%;
+  --accent-l-700: 65%;
+  --accent-l-800: 82%;
+  --accent-l-900: 92%;
+}
+
 :root {
-  /* RGB channels for alpha compositing in glass mode */
-  --surface-950-rgb: 20 20 22;
-  --surface-900-rgb: 28 28 31;
+  --accent-50: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-50));
+  --accent-100: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-100));
+  --accent-200: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-200));
+  --accent-300: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-300));
+  --accent-400: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-400));
+  --accent-500: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-500));
+  --accent-600: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-600));
+  --accent-700: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-700));
+  --accent-800: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-800));
+  --accent-900: hsl(var(--accent-hue), var(--accent-saturation), var(--accent-l-900));
+}
 
-  /* Background colors — layered with visible depth steps */
-  --surface-950: #141416; /* Deepest — titlebar, status bar */
-  --surface-900: #1c1c1f; /* Base background */
-  --surface-800: #242428; /* Toolbars, sidebars, cards */
-  --surface-700: #2c2c32; /* Inputs, hover backgrounds */
-  --surface-600: #3a3a42; /* Borders, dividers */
-  --surface-500: #4a4a52; /* Muted elements */
-  --surface-400: #85858f; /* Placeholder text */
-  --surface-300: #a0a0aa; /* Secondary text */
-  --surface-200: #d4d4d8; /* Primary text */
-  --surface-100: #ededf0; /* Bright text */
-  --surface-50: #fafafa; /* White text */
+:root[data-accent="ltk"] {
+  --accent-50: #eef4ff;
+  --accent-100: #d9e8ff;
+  --accent-200: #b9e5fb;
+  --accent-300: #a5c3ff;
+  --accent-400: #86a9ff;
+  --accent-500: #4b7dfa;
+  --accent-600: #3a5ec4;
+  --accent-700: #2b4593;
+  --accent-800: #21306b;
+  --accent-900: #1a1640;
+}
 
-  /* ---- Design Token Scales ---- */
+:root[data-accent="ltk"][data-theme="light"] {
+  --accent-50: #0e0b26;
+  --accent-100: #1a1640;
+  --accent-200: #21306b;
+  --accent-300: #2b4593;
+  --accent-400: #33529e;
+  --accent-500: #3a5ec4;
+  --accent-600: #2f4ca0;
+  --accent-700: #93b0ff;
+  --accent-800: #c9d9ff;
+  --accent-900: #e8f0ff;
+}
 
+/* ============================================
+   Surfaces
+   ============================================ */
+
+/* Neutrals. 950 is the page ground, and every other surface layers up from it. */
+:root {
+  --surface-950: #0c0d18;
+  --surface-900: #14152a;
+  --surface-800: #1e2035;
+  --surface-700: #25283c;
+  --surface-600: #33364a;
+  --surface-500: #4e536a;
+  --surface-400: #8189a6;
+  --surface-300: #aeb4ca;
+  --surface-200: #d3d7e4;
+  --surface-100: #f0f2f8;
+  --surface-50: #ffffff;
+}
+
+[data-theme="light"] {
+  --surface-950: #fafbfc;
+  --surface-900: #f0f2f5;
+  --surface-800: #e0e3ea;
+  --surface-700: #d2d6e0;
+  --surface-600: #c4c8d4;
+  --surface-500: #8b8fa3;
+  --surface-400: #676b80;
+  --surface-300: #4f5366;
+  --surface-200: #33364a;
+  --surface-100: #1a1c2e;
+  --surface-50: #0c0d18;
+}
+
+/* ============================================
+   Scales
+   ============================================ */
+
+:root {
   /* Zoom scale (set via JS, default 1 = 100%) */
   --zoom-scale: 1;
 
-  /* Spacing: NNN × 4.5px × zoom scale (base 6px scaled down 25%) */
   --space-001: calc(1 * 4.5px * var(--zoom-scale));
   --space-002: calc(2 * 4.5px * var(--zoom-scale));
   --space-003: calc(3 * 4.5px * var(--zoom-scale));
@@ -55,7 +187,7 @@
   --space-011: calc(11 * 4.5px * var(--zoom-scale));
   --space-012: calc(12 * 4.5px * var(--zoom-scale));
 
-  /* Border radius */
+  /* Corner radius. 006 is a pill, not a rung on the scale. */
   --radius-001: 2px;
   --radius-002: 4px;
   --radius-003: 6px;
@@ -63,7 +195,7 @@
   --radius-005: 13px;
   --radius-006: 9999px;
 
-  /* Icon sizes (base scaled down 25%, then by zoom) */
+  /* Icon sizes */
   --icon-001: calc(9px * var(--zoom-scale));
   --icon-002: calc(10.5px * var(--zoom-scale));
   --icon-003: calc(12px * var(--zoom-scale));
@@ -72,10 +204,13 @@
   --icon-006: calc(21px * var(--zoom-scale));
   --icon-007: calc(24px * var(--zoom-scale));
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  /* Elevation, dark-first. Light mode softens it below. */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.6);
   --shadow-glass: 0 8px 32px rgb(0 0 0 / 0.3);
 
   /* Z-index layers */
@@ -98,40 +233,62 @@
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  /* Accent/brand colors (generated from hue) */
-  --accent-50: hsl(var(--accent-hue), var(--accent-saturation), 95%);
-  --accent-100: hsl(var(--accent-hue), var(--accent-saturation), 90%);
-  --accent-200: hsl(var(--accent-hue), var(--accent-saturation), 80%);
-  --accent-300: hsl(var(--accent-hue), var(--accent-saturation), 70%);
-  --accent-400: hsl(var(--accent-hue), var(--accent-saturation), 60%);
-  --accent-500: hsl(var(--accent-hue), var(--accent-saturation), 50%);
-  --accent-600: hsl(var(--accent-hue), var(--accent-saturation), 40%);
-  --accent-700: hsl(var(--accent-hue), var(--accent-saturation), 30%);
-  --accent-800: hsl(var(--accent-hue), var(--accent-saturation), 20%);
-  --accent-900: hsl(var(--accent-hue), var(--accent-saturation), 10%);
 }
 
-/* Light theme overrides (slate-tinted) */
 [data-theme="light"] {
-  --surface-950-rgb: 248 250 252;
-  --surface-900-rgb: 241 245 249;
-
-  /* Background colors - slate-tinted for light mode */
-  --surface-950: #f8fafc; /* Page background */
-  --surface-900: #f1f5f9; /* Editor background */
-  --surface-800: #e8ecf2; /* Sidebar background */
-  --surface-700: #dbe1ea; /* Input/card background */
-  --surface-600: #bfc8d4; /* Borders, dividers */
-  --surface-500: #8494a7; /* Muted elements */
-  --surface-400: #64748b; /* Placeholder text */
-  --surface-300: #475569; /* Secondary text */
-  --surface-200: #1e293b; /* Primary text */
-  --surface-100: #0f172a; /* Bright text */
-  --surface-50: #020617; /* Black text */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-glass: 0 8px 32px rgb(0 0 0 / 0.12);
 }
 
-/* Base styles */
+/* ============================================
+   Glass Surfaces
+   ============================================ */
+
+/* Frosted surface tiers. Take the fill and the blur from the same tier. */
+:root {
+  --ltk-glass-chrome-fill: color-mix(in srgb, var(--surface-950) 97%, transparent);
+  --ltk-glass-chrome-blur: blur(24px) saturate(140%);
+  --ltk-glass-panel-fill: color-mix(in srgb, var(--surface-800) 70%, transparent);
+  --ltk-glass-panel-blur: blur(10px);
+  --ltk-glass-scrim-fill: rgb(0 0 0 / 0.6);
+  --ltk-glass-scrim-blur: blur(4px);
+}
+
+/* With blur available the chrome fill can be thinner. */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  :root {
+    --ltk-glass-chrome-fill: color-mix(in srgb, var(--surface-950) 65%, transparent);
+  }
+}
+
+/* ============================================
+   Brand Gradients
+   ============================================ */
+
+:root {
+  --ltk-wordmark: linear-gradient(105deg, #cfeafd 0%, #86a9ff 48%, #a482ff 100%);
+}
+
+[data-theme="light"] {
+  --ltk-wordmark: linear-gradient(105deg, #1e2a5e 0%, #2f4bb0 48%, #6a45d8 100%);
+}
+
+.ltk-wordmark {
+  background: var(--ltk-wordmark);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -139,7 +296,7 @@ html {
 }
 
 body {
-  background-color: var(--surface-900);
+  background-color: var(--surface-950);
   color: var(--surface-200);
   min-height: 100vh;
 }
@@ -148,7 +305,21 @@ body {
   isolation: isolate;
 }
 
-/* Custom scrollbar (narrow, rounded, transparent track) */
+/* Ligatures off: readers copy what they see. */
+code,
+pre,
+kbd,
+samp {
+  font-feature-settings:
+    "calt" 0,
+    "liga" 0;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-600) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -160,21 +331,23 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background-color: var(--surface-600);
-  border-radius: 9999px;
+  border-radius: var(--radius-006);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--surface-500);
 }
 
-/* Text selection */
+::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
 ::selection {
   background: color-mix(in srgb, var(--accent-500) 30%, transparent);
 }
 
 /* ============================================
    Zoom-Scaled Card Widths
-   --zoom-scale is set via JS on :root
    ============================================ */
 :root {
   --card-min-w: calc(180px * var(--zoom-scale, 1));
@@ -207,12 +380,11 @@ body {
   left: 0;
   right: 0;
   height: 2rem;
-  background: linear-gradient(to top, var(--surface-900), transparent);
+  background: linear-gradient(to top, var(--surface-950), transparent);
   pointer-events: none;
   z-index: 1;
 }
 
-/* Drag region for Tauri window */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
 }
@@ -224,7 +396,6 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* Toast viewport positioning */
 [data-toast-viewport] {
   position: fixed;
   bottom: 1rem;
@@ -246,6 +417,10 @@ body {
    Backdrop / Glassmorphism Mode
    ============================================ */
 
+/* -webkit-backdrop-filter stays BEFORE the standard property: the minifier keeps
+   only the last of the pair, and WebView2 reads the standard spelling while the
+   macOS WKWebView reads the prefixed one. */
+
 .backdrop-active body {
   background-color: transparent;
 }
@@ -264,55 +439,54 @@ body {
   background-position: center;
 }
 
+/* --backdrop-blur is user-set, standing in for each tier's own blur radius. */
 .backdrop-active .title-bar {
-  background-color: rgb(var(--surface-950-rgb));
-  backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(1.2);
+  background-color: var(--ltk-glass-chrome-fill);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(140%);
+  backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(140%);
 }
 
 .backdrop-active main {
-  background-color: rgb(var(--surface-900-rgb) / 0.75);
-  backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(1.2);
+  background-color: color-mix(in srgb, var(--surface-950) 75%, transparent);
+  -webkit-backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(140%);
+  backdrop-filter: blur(var(--backdrop-blur, 40px)) saturate(140%);
 }
 
 .backdrop-active main > * > [class*="border-b"] {
-  background-color: rgb(var(--surface-950-rgb) / 0.4);
+  background-color: color-mix(in srgb, var(--surface-950) 40%, transparent);
 }
 
 .backdrop-active main .settings-container {
-  background-color: rgb(var(--surface-900-rgb) / 0.5);
-  border-radius: 0.75rem;
+  background-color: color-mix(in srgb, var(--surface-900) 50%, transparent);
+  border-radius: var(--radius-004);
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
 }
 
 .backdrop-active main * {
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
 }
 
+/* Wallpaper costs the muted rungs contrast, so lift them. */
 .backdrop-active:not([data-theme="light"]) {
-  --surface-400: #a0a0a0;
-  --surface-500: #707070;
-}
-
-/* Light theme backdrop adjustments */
-.backdrop-active[data-theme="light"] .title-bar {
-  background-color: rgb(var(--surface-950-rgb));
+  --surface-400: #9ba2bb;
+  --surface-500: #6b7189;
 }
 
 .backdrop-active[data-theme="light"] main {
-  background-color: rgb(var(--surface-900-rgb) / 0.88);
+  background-color: color-mix(in srgb, var(--surface-950) 88%, transparent);
 }
 
 .backdrop-active[data-theme="light"] main > * > [class*="border-b"] {
-  background-color: rgb(var(--surface-950-rgb) / 0.5);
+  background-color: color-mix(in srgb, var(--surface-950) 50%, transparent);
 }
 
 .backdrop-active[data-theme="light"] main .settings-container {
-  background-color: rgb(var(--surface-900-rgb) / 0.7);
+  background-color: color-mix(in srgb, var(--surface-900) 70%, transparent);
 }
 
 .backdrop-active[data-theme="light"] main * {
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 2px rgb(255 255 255 / 0.5);
 }
 
 .backdrop-active ::-webkit-scrollbar-track {

@@ -42,23 +42,23 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
         loading={stopPatcher.isPending}
         left={
           !stopPatcher.isPending && (
-            <span className="inline-flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
+            <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
           )
         }
-        className="border-green-500/40 bg-green-500/10 text-green-400 hover:border-green-500/60 hover:bg-green-500/20"
+        className="border-success/40 bg-success/10 text-success-text hover:border-success/60 hover:bg-success/20"
       >
         {stopPatcher.isPending ? "Stopping…" : "Stop Test"}
       </Button>
     ))
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" — stop it first`}>
+      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running — stop it first">
+      <Tooltip content="Patcher is running - stop it first">
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>

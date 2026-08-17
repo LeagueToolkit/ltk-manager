@@ -223,7 +223,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                     size="sm"
                     left={<Trash2 className="h-4 w-4" />}
                     onClick={handleRemoveThumbnail}
-                    className="text-red-400 hover:bg-red-400/10 hover:text-red-300"
+                    className="text-danger-text hover:bg-danger/10 hover:text-danger-text"
                   >
                     Remove
                   </Button>
@@ -287,7 +287,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                     <AutoPill
                       key={`tag:${tag}`}
                       label={getTagLabel(tag)}
-                      tone="accent"
+                      tone="tag"
                       onClick={() => addTag(tag)}
                     />
                   ))}
@@ -295,7 +295,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                     <AutoPill
                       key={`champ:${champion}`}
                       label={champion}
-                      tone="emerald"
+                      tone="champion"
                       onClick={() => addChampion(champion)}
                     />
                   ))}
@@ -303,7 +303,7 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
                     <AutoPill
                       key={`map:${map}`}
                       label={getMapLabel(map)}
-                      tone="sky"
+                      tone="map"
                       onClick={() => addMap(map)}
                     />
                   ))}

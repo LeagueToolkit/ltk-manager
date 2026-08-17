@@ -88,7 +88,7 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
 );
 ContextMenuPopup.displayName = "ContextMenu.Popup";
 
-// Item — reuse same styling as Menu.Item
+// Item, styled the same as Menu.Item
 export type ContextMenuItemVariant = "default" | "danger";
 
 export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "className"> {
@@ -101,7 +101,7 @@ export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "
 
 const itemVariantClasses: Record<ContextMenuItemVariant, string> = {
   default: "text-surface-200 data-[highlighted]:bg-surface-600",
-  danger: "text-red-400 data-[highlighted]:bg-surface-600 data-[highlighted]:text-red-300",
+  danger: "text-danger-text data-[highlighted]:bg-surface-600 data-[highlighted]:text-danger",
 };
 
 export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(

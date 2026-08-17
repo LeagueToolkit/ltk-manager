@@ -19,13 +19,13 @@ declare module "@tanstack/react-router" {
     router: typeof router;
   }
 }
-// Reveal the window once the app has mounted. It starts hidden (visible:false);
-// the window/webview backgroundColor (#1c1c1f) plus the dark shell in index.html
+// Reveal the window once the app has mounted. It starts hidden (visible:false), and
+// the window/webview backgroundColor (#0c0d18) plus the dark shell in index.html
 // mean it reveals as the dark loading screen, never a white flash. The backend
 // keeps it hidden when the user starts in the tray.
 //
 // Deliberately a direct call, not requestAnimationFrame: while the window is
-// hidden the WebView document is `hidden`, which pauses rAF — a deferred reveal
+// hidden the WebView document is `hidden`, which pauses rAF, so a deferred reveal
 // could deadlock and never show the window.
 function showAppWindow() {
   void api.showMainWindow();

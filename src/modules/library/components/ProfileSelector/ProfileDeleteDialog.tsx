@@ -40,10 +40,10 @@ export function ProfileDeleteDialog({ open, profile, onClose }: ProfileDeleteDia
           </Dialog.Header>
 
           <Dialog.Body>
-            <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
+              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
               <div>
-                <h3 className="font-medium text-red-300">
+                <h3 className="font-medium text-danger-text">
                   Are you sure you want to delete &ldquo;{profile.name}&rdquo;?
                 </h3>
                 <p className="mt-1 text-sm text-surface-400">
@@ -60,12 +60,7 @@ export function ProfileDeleteDialog({ open, profile, onClose }: ProfileDeleteDia
             <Button variant="ghost" onClick={onClose} disabled={deleteProfile.isPending}>
               Cancel
             </Button>
-            <Button
-              variant="filled"
-              onClick={handleConfirm}
-              loading={deleteProfile.isPending}
-              className="bg-red-600 hover:bg-red-500"
-            >
+            <Button variant="danger" onClick={handleConfirm} loading={deleteProfile.isPending}>
               Delete Profile
             </Button>
           </Dialog.Footer>

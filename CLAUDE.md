@@ -4,18 +4,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This file is the primary guidance document for the ltk-manager codebase.
 
-Frontend conventions live in `src/CLAUDE.md` and load when working under `src/`.
+Guidance is scoped so backend work does not carry the frontend's:
+
+- `src/CLAUDE.md` - React/TypeScript conventions, loads when working under `src/`.
+- `src/styles/CLAUDE.md` - how to author the design tokens, loads only in that directory.
+- The `design-system` skill - which token to reach for in a component. Loaded on demand, so it
+  costs nothing while you are in `src-tauri/`.
 
 ## Commands
 
-All commands run from the repo root; see `package.json` scripts for the full list.
+All commands run from the repo root. See `package.json` scripts for the full list.
 
 ```bash
 # Verbose backend logging
 RUST_LOG=ltk_manager=trace,tauri=info pnpm tauri dev
 ```
 
-`pnpm generate:licenses` requires `cargo-about` on PATH; its config is `about.toml`.
+`pnpm generate:licenses` requires `cargo-about` on PATH, and its config is `about.toml`.
 
 ## Editing Rules
 
@@ -26,6 +31,21 @@ RUST_LOG=ltk_manager=trace,tauri=info pnpm tauri dev
 Avoid trivially descriptive comments. Only comment non-obvious business logic, workarounds, edge cases, or "why" decisions. Document all public Rust APIs with `///` doc comments.
 
 **No redundant comments.** Do not add inline comments that restate what the code already expresses. If the code is descriptive enough (clear variable names, well-known patterns like temp-file-then-rename, obvious API calls), leave it uncommented. This applies to AI-generated code and suggestions too - strip narration comments before committing.
+
+**No semicolons splicing sentences,** in comments, doc comments, or markdown. They read as
+compressed notes rather than prose. Use a full stop when the halves are two thoughts, or a comma
+plus `and` / `so` / `but` when the second half follows from the first:
+
+```
+Bad   Dark is the default; light is [data-theme="light"] on <html>.
+Good  Dark is the default. Light is [data-theme="light"] on <html>.
+
+Bad   Wallpaper costs the muted rungs contrast; lift them.
+Good  Wallpaper costs the muted rungs contrast, so lift them.
+```
+
+A bulleted list of fragments takes no terminal punctuation at all. A bullet that is a complete
+sentence ends with a full stop, like any other sentence.
 
 ## Backend (Rust) - `src-tauri/src/`
 
@@ -53,7 +73,7 @@ and "the client didn't answer" is not a failure worth showing a user. Only launc
 
 `patcher/` owns patcher lifecycle (start/stop/status) and thread management with an
 `Arc<AtomicBool>` stop flag. `patcher/injector.rs` spawns and supervises the external
-`cslol-host.exe` injection host over a stdin/stdout line protocol (`patcher/host.rs`); the
+`cslol-host.exe` injection host over a stdin/stdout line protocol (`patcher/host.rs`). The
 overlay/prefix dir is sent via a `config prefix` command, **not** as an argv. The host internally
 drives `cslol-inj.exe`, and with `--elevate` (auto-enabled when League runs as admin) it bridges to
 a high-integrity worker via UAC.

@@ -31,10 +31,10 @@ export function DeleteLayerDialog({
           </Dialog.Header>
 
           <Dialog.Body>
-            <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-              <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+            <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
+              <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
               <div>
-                <h3 className="font-medium text-red-300">
+                <h3 className="font-medium text-danger-text">
                   Delete layer &ldquo;{layer.displayName}&rdquo;?
                 </h3>
                 <p className="mt-1 text-sm text-surface-400">
@@ -49,12 +49,7 @@ export function DeleteLayerDialog({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button
-              variant="filled"
-              onClick={onConfirm}
-              loading={isPending}
-              className="bg-red-600 hover:bg-red-500"
-            >
+            <Button variant="danger" onClick={onConfirm} loading={isPending}>
               Delete Layer
             </Button>
           </Dialog.Footer>

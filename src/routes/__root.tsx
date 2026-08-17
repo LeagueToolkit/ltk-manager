@@ -77,14 +77,14 @@ function RootLayout() {
   // Show loading state while checking setup
   if (isCheckingSetup) {
     return (
-      <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-900 via-surface-800 to-surface-900">
+      <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-950 via-surface-900 to-surface-950">
         <Loader2 className="h-6 w-6 animate-spin text-surface-400" />
       </div>
     );
   }
 
   return (
-    <div className="root flex h-screen flex-col bg-surface-900">
+    <div className="root flex h-screen flex-col bg-surface-950">
       <TitleBar appInfo={appInfo} />
       <main className="relative flex-1 overflow-hidden">
         <UpdateNotification />

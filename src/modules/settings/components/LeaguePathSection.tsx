@@ -76,8 +76,8 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
             />
             {settings.leaguePath && (
               <div className="absolute top-1/2 right-3 -translate-y-1/2">
-                {leaguePathValid === true && <CircleCheck className="h-5 w-5 text-green-500" />}
-                {leaguePathValid === false && <CircleAlert className="h-5 w-5 text-red-500" />}
+                {leaguePathValid === true && <CircleCheck className="h-5 w-5 text-success-text" />}
+                {leaguePathValid === false && <CircleAlert className="h-5 w-5 text-danger-text" />}
               </div>
             )}
           </div>
@@ -101,7 +101,7 @@ export function LeaguePathSection({ settings, onSave }: SettingsSectionProps) {
           Auto-detect installation
         </Button>
         {leaguePathValid === false && settings.leaguePath && (
-          <p className="text-sm text-red-400">
+          <p className="text-sm text-danger-text">
             Could not find League of Legends at this path. Make sure it points to the folder
             containing the <code className="rounded bg-surface-700 px-1">Game</code> directory.
           </p>

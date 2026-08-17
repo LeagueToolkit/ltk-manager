@@ -19,7 +19,7 @@ export function LoadingState() {
 export function ErrorState({ error }: { error: AppError }) {
   return (
     <div className="flex h-64 flex-col items-center justify-center text-center">
-      <div className="mb-4 rounded-full bg-red-500/10 p-4">
+      <div className="mb-4 rounded-full bg-danger/10 p-4">
         <span className="text-2xl">⚠️</span>
       </div>
       <h3 className="mb-1 text-lg font-medium text-surface-300">Failed to load projects</h3>

@@ -15,7 +15,7 @@ interface MissingDepsBadgeProps {
  * dependencies that didn't resolve in the most recent overlay build. Clicking it
  * opens the reachable {@link LinkedBinWarningDialog} to review or disable.
  *
- * Passive by design — it never blocks patching (missing linked bins are non-fatal at
+ * Passive by design, so it never blocks patching (missing linked bins are non-fatal at
  * injection). Hidden for disabled mods (they're excluded from the build, so any prior
  * flag is stale) and when the dependency check is turned off in settings.
  */
@@ -44,8 +44,8 @@ export function MissingDepsBadge({ modId, enabled }: MissingDepsBadgeProps) {
       <button
         type="button"
         onClick={openDialog}
-        aria-label={`${count} missing ${count === 1 ? "dependency" : "dependencies"} — click to review`}
-        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-xs leading-tight font-medium text-amber-300 ring-1 ring-amber-500/30 transition-colors ring-inset hover:bg-amber-500/25"
+        aria-label={`${count} missing ${count === 1 ? "dependency" : "dependencies"}, click to review`}
+        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded bg-warning/15 px-2 py-0.5 text-xs leading-tight font-medium text-warning-text ring-1 ring-warning/30 transition-colors ring-inset hover:bg-warning/25"
       >
         <PackageX className="h-3 w-3" />
         {count}

@@ -24,24 +24,24 @@ export interface ToastOptions {
 }
 
 const typeIcons: Record<ToastType, ReactNode> = {
-  success: <CircleCheck className="h-5 w-5 text-green-500" />,
-  error: <CircleX className="h-5 w-5 text-red-500" />,
-  warning: <CircleAlert className="h-5 w-5 text-amber-500" />,
-  info: <Info className="h-5 w-5 text-blue-500" />,
+  success: <CircleCheck className="h-5 w-5 text-success-text" />,
+  error: <CircleX className="h-5 w-5 text-danger-text" />,
+  warning: <CircleAlert className="h-5 w-5 text-warning-text" />,
+  info: <Info className="h-5 w-5 text-info-text" />,
 };
 
 const typeStripeClasses: Record<ToastType, string> = {
-  success: "border-l-green-500",
-  error: "border-l-red-500",
-  warning: "border-l-amber-500",
-  info: "border-l-blue-500",
+  success: "border-l-success",
+  error: "border-l-danger",
+  warning: "border-l-warning",
+  info: "border-l-info",
 };
 
 const typeProgressColors: Record<ToastType, string> = {
-  success: "bg-green-500",
-  error: "bg-red-500",
-  warning: "bg-amber-500",
-  info: "bg-blue-500",
+  success: "bg-success",
+  error: "bg-danger",
+  warning: "bg-warning",
+  info: "bg-info",
 };
 
 function ToastProgressBar({

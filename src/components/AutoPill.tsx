@@ -1,12 +1,13 @@
 import { Sparkles } from "lucide-react";
 import { twMerge } from "tailwind-merge";
 
-type AutoPillTone = "accent" | "emerald" | "sky";
+/** What the pill labels. The hue is the category, so the tone is named for it. */
+export type AutoPillTone = "tag" | "champion" | "map";
 
 const TONE_CLASSES: Record<AutoPillTone, string> = {
-  accent: "border-accent-400/60 bg-accent-500/10 text-accent-300",
-  emerald: "border-emerald-400/60 bg-emerald-500/10 text-emerald-300",
-  sky: "border-sky-400/60 bg-sky-500/10 text-sky-300",
+  tag: "border-accent-400/60 bg-accent-500/10 text-accent-300",
+  champion: "border-cat-champion/60 bg-cat-champion/10 text-cat-champion-text",
+  map: "border-cat-map/60 bg-cat-map/10 text-cat-map-text",
 };
 
 interface AutoPillProps {
@@ -19,12 +20,12 @@ interface AutoPillProps {
 
 /**
  * A dashed-outline pill marking an auto-detected (WAD-footprint-derived)
- * category. Static for display; pass `onClick` to use it as a clickable
+ * category. Static for display. Pass `onClick` to use it as a clickable
  * suggestion chip.
  */
-export function AutoPill({ label, tone = "accent", onClick, className }: AutoPillProps) {
+export function AutoPill({ label, tone = "tag", onClick, className }: AutoPillProps) {
   const classes = twMerge(
-    "inline-flex items-center gap-0.5 rounded border border-dashed px-1.5 py-0.5 text-[10px] leading-tight",
+    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-[10px] leading-tight",
     TONE_CLASSES[tone],
     onClick && "cursor-pointer transition-colors hover:bg-surface-700/40",
     className,

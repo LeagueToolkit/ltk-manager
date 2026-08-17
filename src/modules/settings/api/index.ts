@@ -5,7 +5,7 @@ export { useCheckSetupRequired } from "./useCheckSetupRequired";
 export { useDetectLeagueRunAsAdmin } from "./useDetectLeagueRunAsAdmin";
 export { useSaveSettings } from "./useSaveSettings";
 export { useSettings } from "./useSettings";
-export { ACCENT_PRESETS, useTheme } from "./useTheme";
+export { ACCENT_PRESETS, LTK_PRESET, useTheme } from "./useTheme";
 export {
   type LicenseText,
   type ThirdPartyCrate,

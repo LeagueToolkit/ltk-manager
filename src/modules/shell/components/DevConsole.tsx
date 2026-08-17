@@ -9,9 +9,9 @@ import { isLevelVisible, type LogEntry, useDevConsoleStore } from "@/stores/devC
 const levelColors: Record<string, string> = {
   TRACE: "text-surface-500",
   DEBUG: "text-surface-400",
-  INFO: "text-blue-400",
-  WARN: "text-amber-400",
-  ERROR: "text-red-400",
+  INFO: "text-info-text",
+  WARN: "text-warning-text",
+  ERROR: "text-danger-text",
 };
 
 const LEVEL_OPTIONS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;

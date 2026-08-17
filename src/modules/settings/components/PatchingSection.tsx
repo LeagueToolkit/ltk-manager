@@ -29,7 +29,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <SectionCard title="Patching" icon={<ShieldAlert className="h-5 w-5" />}>
         <div className="space-y-3">
           <label className="flex items-center justify-between gap-4">
@@ -75,7 +75,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               </span>
               <span className="block text-sm text-surface-400">
                 Runs the injection host with administrator privileges. Required when League itself
-                runs as administrator. Leave this off unless mods fail to load — when on, Windows
+                runs as administrator. Leave this off unless mods fail to load. When on, Windows
                 shows a UAC prompt each time the patcher starts (unless LTK Manager is already
                 running as admin).
               </span>
@@ -115,9 +115,9 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           </label>
 
           {!settings.blockScriptsWad && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-              <p className="text-sm text-amber-300">
+            <div className="flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+              <p className="text-sm text-warning-text">
                 Script modding is enabled. Only install mods from sources you trust.
               </p>
             </div>
@@ -152,7 +152,7 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
                 This is a temporary measure to prevent skinhacks from being loaded while third-party
                 mod managers adapt to the new anti-skinhack requirements.{" "}
               </span>
-              <span className="block text-sm font-bold text-amber-400">
+              <span className="block text-sm font-bold text-warning-text">
                 This setting will be removed in a future update once third-party mod managers have
                 adapted to the new anti-skinhack requirements.
               </span>
@@ -164,9 +164,9 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
           </label>
 
           {!settings.enforceSkinhackScan && (
-            <div className="flex items-start gap-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-              <p className="text-sm text-amber-300">
+            <div className="flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+              <p className="text-sm text-warning-text">
                 Anti-skinhack enforcement is off. Mods flagged as skinhacks will be allowed to load.
               </p>
             </div>
@@ -226,8 +226,8 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               </span>
               <span className="block text-sm text-surface-400">
                 Makes the injector and the injected DLL log their internals to the app log file.
-                Turn this on only when gathering a log for a bug report — it is noisy. Takes effect
-                the next time the patcher starts.
+                Turn this on only when gathering a log for a bug report, since it is noisy. Takes
+                effect the next time the patcher starts.
               </span>
             </div>
             <Switch

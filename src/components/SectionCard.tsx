@@ -10,6 +10,11 @@ interface SectionCardProps {
   className?: string;
 }
 
+/**
+ * A titled settings group: the heading sits on the page ground and the panel
+ * below it holds only the rows, so a scan down the page reads as a list of
+ * labelled groups rather than a stack of identical boxes.
+ */
 export function SectionCard({
   title,
   description,
@@ -19,15 +24,10 @@ export function SectionCard({
   className,
 }: SectionCardProps) {
   return (
-    <section
-      className={twMerge(
-        "rounded-xl border border-surface-700/50 bg-surface-900/95 p-5",
-        className,
-      )}
-    >
-      <div className="mb-4 flex items-start justify-between gap-4">
+    <section className={twMerge("space-y-2", className)}>
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-medium text-surface-200">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-surface-100">
             {icon && <span className="text-surface-400">{icon}</span>}
             {title}
           </h3>
@@ -35,7 +35,9 @@ export function SectionCard({
         </div>
         {action}
       </div>
-      {children}
+      <div className="rounded-xl border border-surface-700/50 bg-surface-900/95 p-5">
+        {children}
+      </div>
     </section>
   );
 }

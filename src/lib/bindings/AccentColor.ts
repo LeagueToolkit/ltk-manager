@@ -5,7 +5,9 @@
  */
 export type AccentColor = { 
 /**
- * Preset color name: "blue", "purple", "green", "orange", "pink", "red", "teal"
+ * Preset name: "ltk" (the brand accent), or one of the generated hues
+ * "blue", "purple", "green", "orange", "pink", "red", "teal". `None` is
+ * read as "ltk" by the frontend.
  */
 preset: string | null, 
 /**

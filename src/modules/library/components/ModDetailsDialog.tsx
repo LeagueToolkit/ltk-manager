@@ -138,7 +138,7 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
             {mod.champions.map((champ) => (
               <span
                 key={champ}
-                className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs text-emerald-300"
+                className="rounded-full bg-cat-champion/15 px-2.5 py-0.5 text-xs text-cat-champion-text"
               >
                 {champ}
               </span>
@@ -158,7 +158,7 @@ function ModDetailsContent({ mod }: { mod: InstalledMod }) {
             {mod.maps.map((map) => (
               <span
                 key={map}
-                className="rounded-full bg-sky-500/15 px-2.5 py-0.5 text-xs text-sky-300"
+                className="rounded-full bg-cat-map/15 px-2.5 py-0.5 text-xs text-cat-map-text"
               >
                 {getMapLabel(map)}
               </span>

@@ -59,8 +59,8 @@ export function PackDialog() {
             {packResult ? (
               <div className="space-y-4">
                 <div className="flex flex-col items-center py-4 text-center">
-                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/20">
-                    <Check className="h-8 w-8 text-green-400" />
+                  <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/20">
+                    <Check className="h-8 w-8 text-success-text" />
                   </div>
                   <h3 className="text-lg font-semibold text-surface-100">Package Created</h3>
                   <p className="mt-2 text-sm font-medium text-surface-200">{packResult.fileName}</p>
@@ -80,13 +80,13 @@ export function PackDialog() {
                   <div className="space-y-3">
                     {hasErrors && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-red-400">
+                        <div className="flex items-center gap-2 text-danger-text">
                           <CircleAlert className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {validation.errors.length} error{validation.errors.length !== 1 && "s"}
                           </span>
                         </div>
-                        <ul className="space-y-1 pl-6 text-sm text-red-300">
+                        <ul className="space-y-1 pl-6 text-sm text-danger-text">
                           {validation.errors.map((error, i) => (
                             <li key={i}>• {error}</li>
                           ))}
@@ -96,14 +96,14 @@ export function PackDialog() {
 
                     {hasWarnings && (
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-yellow-400">
+                        <div className="flex items-center gap-2 text-warning-text">
                           <TriangleAlert className="h-4 w-4" />
                           <span className="text-sm font-medium">
                             {validation.warnings.length} warning
                             {validation.warnings.length !== 1 && "s"}
                           </span>
                         </div>
-                        <ul className="space-y-1 pl-6 text-sm text-yellow-300">
+                        <ul className="space-y-1 pl-6 text-sm text-warning-text">
                           {validation.warnings.map((warning, i) => (
                             <li key={i}>• {warning}</li>
                           ))}
@@ -112,7 +112,7 @@ export function PackDialog() {
                     )}
 
                     {validation.valid && !hasWarnings && (
-                      <div className="flex items-center gap-2 text-green-400">
+                      <div className="flex items-center gap-2 text-success-text">
                         <Check className="h-4 w-4" />
                         <span className="text-sm">Project is valid</span>
                       </div>
@@ -140,9 +140,9 @@ export function PackDialog() {
                 </RadioGroup.Root>
 
                 {format === "fantome" && project.layers.length > 1 && (
-                  <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm">
-                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-yellow-400" />
-                    <div className="text-yellow-300">
+                  <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
+                    <div className="text-warning-text">
                       This project has {project.layers.length} layers, but Fantome format only
                       supports the base layer. Other layers will not be included.
                     </div>

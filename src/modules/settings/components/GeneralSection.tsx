@@ -20,7 +20,7 @@ export function GeneralSection({ settings, onSave }: GeneralSectionProps) {
   const [migrationOpen, setMigrationOpen] = useState(false);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <LeaguePathSection settings={settings} onSave={onSave} />
       <LaunchSection settings={settings} onSave={onSave} />
       <MinimizeToTraySection settings={settings} onSave={onSave} />

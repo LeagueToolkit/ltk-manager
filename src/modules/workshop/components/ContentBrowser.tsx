@@ -78,7 +78,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
         )}
 
         {error && (
-          <div className="m-3 rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200">
+          <div className="m-3 rounded-md border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-danger-text">
             Couldn&rsquo;t read the content directory: {error.message}
           </div>
         )}

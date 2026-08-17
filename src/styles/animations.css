@@ -97,9 +97,6 @@
 
 /* ============================================
    Stagger Enter System
-   Parent: .stagger-enter
-   Children animate in sequence with 60ms delay,
-   capped at 7 items.
    ============================================ */
 .stagger-enter > * {
   opacity: 0;
@@ -132,7 +129,6 @@
   --stagger-index: 7;
 }
 
-/* Utility classes for consuming keyframes */
 .animate-fade-in {
   animation: fade-in var(--duration-004) var(--ease-out);
 }

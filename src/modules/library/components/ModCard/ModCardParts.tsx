@@ -9,7 +9,15 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { AutoPill, Dialog, IconButton, Menu, Switch, Tooltip } from "@/components";
+import {
+  AutoPill,
+  type AutoPillTone,
+  Dialog,
+  IconButton,
+  Menu,
+  Switch,
+  Tooltip,
+} from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import { useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
@@ -145,9 +153,11 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
   );
 }
 
+/* Same categorical hues as AutoPill, minus the dashed outline that marks a
+   pill as auto-detected. */
 const DECLARED_PILL_CLASSES = {
-  accent: "bg-accent-500/15 text-accent-400",
-  emerald: "bg-emerald-500/15 text-emerald-400",
+  tag: "bg-accent-500/15 text-accent-400",
+  champion: "bg-cat-champion/15 text-cat-champion-text",
 } as const;
 
 interface DeclaredPill {
@@ -158,7 +168,7 @@ interface DeclaredPill {
 
 interface AutoPillItem {
   label: string;
-  tone: "accent" | "emerald" | "sky";
+  tone: AutoPillTone;
   key: string;
 }
 
@@ -174,23 +184,23 @@ export function ModPills({
   const eff = useModEffectiveCategories(mod);
 
   const declared: DeclaredPill[] = [
-    ...mod.tags.map((t) => ({ label: getTagLabel(t), tone: "accent" as const, key: `tag:${t}` })),
-    ...mod.champions.map((c) => ({ label: c, tone: "emerald" as const, key: `champ:${c}` })),
+    ...mod.tags.map((t) => ({ label: getTagLabel(t), tone: "tag" as const, key: `tag:${t}` })),
+    ...mod.champions.map((c) => ({ label: c, tone: "champion" as const, key: `champ:${c}` })),
   ];
   const auto: AutoPillItem[] = [
     ...eff.derivedTags.map((t) => ({
       label: getTagLabel(t),
-      tone: "accent" as const,
+      tone: "tag" as const,
       key: `auto-tag:${t}`,
     })),
     ...eff.derivedChampions.map((c) => ({
       label: c,
-      tone: "emerald" as const,
+      tone: "champion" as const,
       key: `auto-champ:${c}`,
     })),
     ...eff.derivedMaps.map((m) => ({
       label: getMapLabel(m),
-      tone: "sky" as const,
+      tone: "map" as const,
       key: `auto-map:${m}`,
     })),
   ];

@@ -6,10 +6,10 @@ import { IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { type Notification, useNotificationStore } from "@/stores/notifications";
 
 const typeIcons: Record<ToastType, React.ReactNode> = {
-  success: <CircleCheck className="h-4 w-4 text-green-500" />,
-  error: <CircleX className="h-4 w-4 text-red-500" />,
-  warning: <CircleAlert className="h-4 w-4 text-amber-500" />,
-  info: <Info className="h-4 w-4 text-blue-500" />,
+  success: <CircleCheck className="h-4 w-4 text-success-text" />,
+  error: <CircleX className="h-4 w-4 text-danger-text" />,
+  warning: <CircleAlert className="h-4 w-4 text-warning-text" />,
+  info: <Info className="h-4 w-4 text-info-text" />,
 };
 
 function NotificationItem({
@@ -64,13 +64,15 @@ export function NotificationCenter() {
         }
       }}
     >
+      {/* The rounded cell the titlebar's other action buttons use, rather than a
+          full-height one - see the shape split in TitleBar. */}
       <Popover.Trigger
         aria-label="Notifications"
-        className="relative flex h-full items-center px-3 text-surface-400 transition-colors hover:text-surface-200"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold text-white">
+          <span className="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-500 px-1 text-[10px] font-bold text-brand-on">
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}

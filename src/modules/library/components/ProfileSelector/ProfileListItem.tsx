@@ -88,7 +88,7 @@ export function ProfileListItem({
           size="xs"
           onClick={handleRename}
           disabled={!editName.trim() || renameProfile.isPending}
-          className="text-green-400 hover:text-green-300"
+          className="text-success-text hover:text-success-text"
         />
         <IconButton
           icon={<X className="h-4 w-4" />}
@@ -130,7 +130,7 @@ export function ProfileListItem({
               size="xs"
               onClick={() => onDeleteClick(profile)}
               disabled={isActive}
-              className="hover:text-red-400"
+              className="hover:text-danger-text"
             />
           </Tooltip>
         </>

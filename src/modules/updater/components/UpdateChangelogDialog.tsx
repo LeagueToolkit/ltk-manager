@@ -51,11 +51,11 @@ export function UpdateChangelogDialog() {
 
           <Dialog.Body className="max-h-[60vh] overflow-y-auto">
             {error && (
-              <div className="mb-4 flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-900/20 px-4 py-3">
-                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/20 px-4 py-3">
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-red-200">Update failed</p>
-                  <p className="mt-0.5 text-xs text-red-300">{error}</p>
+                  <p className="text-sm font-medium text-danger-text">Update failed</p>
+                  <p className="mt-0.5 text-xs text-danger-text">{error}</p>
                 </div>
               </div>
             )}
@@ -67,7 +67,7 @@ export function UpdateChangelogDialog() {
                   <div className="flex-1">
                     <p className="text-sm font-medium text-accent-100">Installing update...</p>
                     <p className="text-xs text-accent-300">
-                      {progress}% complete — App will restart automatically
+                      {progress}% complete. App will restart automatically
                     </p>
                   </div>
                 </div>

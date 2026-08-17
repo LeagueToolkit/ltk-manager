@@ -23,7 +23,7 @@ export function ActiveFilterChips() {
         <Chip
           key={`tag:${tag}`}
           label={getTagLabel(tag)}
-          color="brand"
+          color="tag"
           onRemove={() => toggleTag(tag)}
         />
       ))}
@@ -31,7 +31,7 @@ export function ActiveFilterChips() {
         <Chip
           key={`champ:${champ}`}
           label={champ}
-          color="emerald"
+          color="champion"
           onRemove={() => toggleChampion(champ)}
         />
       ))}
@@ -39,7 +39,7 @@ export function ActiveFilterChips() {
         <Chip
           key={`map:${map}`}
           label={getMapLabel(map)}
-          color="sky"
+          color="map"
           onRemove={() => toggleMap(map)}
         />
       ))}
@@ -53,10 +53,11 @@ export function ActiveFilterChips() {
   );
 }
 
+// Same categorical hues as the library's ModPills.
 const COLOR_CLASSES = {
-  brand: "bg-accent-500/15 text-accent-300 border-accent-500/30",
-  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  sky: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+  tag: "bg-accent-500/15 text-accent-300 border-accent-500/30",
+  champion: "bg-cat-champion/15 text-cat-champion-text border-cat-champion/30",
+  map: "bg-cat-map/15 text-cat-map-text border-cat-map/30",
 } as const;
 
 function Chip({
@@ -73,7 +74,10 @@ function Chip({
       className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${COLOR_CLASSES[color]}`}
     >
       {label}
-      <button onClick={onRemove} className="cursor-pointer rounded-full p-0.5 hover:bg-white/10">
+      <button
+        onClick={onRemove}
+        className="cursor-pointer rounded-full p-0.5 hover:bg-surface-50/10"
+      >
         <X className="h-3 w-3" />
       </button>
     </span>

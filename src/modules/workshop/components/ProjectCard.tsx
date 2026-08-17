@@ -79,7 +79,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
       }}
       disabled={stopPatcher.isPending}
       title="Stop test"
-      className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400 transition-colors hover:bg-green-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+      className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
       Testing
       <X className="h-3 w-3 opacity-60 group-hover/pill:opacity-100" />
@@ -87,7 +87,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   );
 
   const listBorderClass = isTestingThis
-    ? "border-green-500/40"
+    ? "border-success/40"
     : selected
       ? "border-accent-500/40"
       : "border-surface-700";
@@ -193,7 +193,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   }
 
   const gridBorderClass = isTestingThis
-    ? "border-green-500/40"
+    ? "border-success/40"
     : selected
       ? "border-accent-500/40"
       : "border-surface-600";
@@ -201,7 +201,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   return (
     <div
       className={twMerge(
-        "group relative cursor-pointer rounded-xl border bg-surface-800 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:shadow-md",
+        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:bg-surface-800/80 hover:shadow-md",
         gridBorderClass,
         isPatcherActive && !isTestingThis && "opacity-50",
       )}
@@ -331,23 +331,23 @@ function renderTestButton({
         loading={isStopping}
         left={
           !isStopping && (
-            <span className="inline-flex h-2 w-2 rounded-full bg-green-500 shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
+            <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
           )
         }
-        className="border-green-500/40 bg-green-500/10 text-green-400 hover:border-green-500/60 hover:bg-green-500/20"
+        className="border-success/40 bg-success/10 text-success-text hover:border-success/60 hover:bg-success/20"
       >
         {isStopping ? "Stopping…" : "Stop Test"}
       </Button>
     ))
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" — stop it first`}>
+      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running — stop it first">
+      <Tooltip content="Patcher is running - stop it first">
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
           Test
         </Button>
@@ -403,17 +403,18 @@ function ProjectPills({
   className?: string;
 }) {
   const pills = [
-    ...project.tags.map((t) => ({ label: getTagLabel(t), color: "brand" as const })),
-    ...project.champions.map((c) => ({ label: c, color: "emerald" as const })),
+    ...project.tags.map((t) => ({ label: getTagLabel(t), color: "tag" as const })),
+    ...project.champions.map((c) => ({ label: c, color: "champion" as const })),
   ];
   if (pills.length === 0) return null;
 
   const visible = pills.slice(0, max);
   const overflow = pills.length - max;
 
+  // Same categorical hues as the library's ModPills.
   const colorClasses = {
-    brand: "bg-accent-500/15 text-accent-400",
-    emerald: "bg-emerald-500/15 text-emerald-400",
+    tag: "bg-accent-500/15 text-accent-400",
+    champion: "bg-cat-champion/15 text-cat-champion-text",
   } as const;
 
   return (

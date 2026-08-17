@@ -53,7 +53,7 @@ export function Settings() {
       <Tabs.Root defaultValue="general" className="flex min-h-0 flex-1 flex-row">
         <Tabs.List
           variant="pills"
-          className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-950/60 p-3"
+          className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-800/40 p-3"
         >
           <Tabs.Tab
             variant="pills"

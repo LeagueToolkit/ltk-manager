@@ -75,7 +75,7 @@ export function Slider({
           <BaseSlider.Thumb
             aria-label={ariaLabel ?? label}
             className={twMerge(
-              "absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-md",
+              "absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-on shadow-md",
               "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
               "data-[dragging]:scale-110",
               "transition-[transform,box-shadow]",

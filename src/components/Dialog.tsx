@@ -51,7 +51,7 @@ export const DialogBackdrop = forwardRef<HTMLDivElement, DialogBackdropProps>(
       <BaseDialog.Backdrop
         ref={ref}
         className={twMerge(
-          "fixed inset-0 z-40 bg-black/60 backdrop-blur-sm",
+          "fixed inset-0 z-40 bg-scrim backdrop-blur-sm",
           "transition-opacity duration-200",
           "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
           className,

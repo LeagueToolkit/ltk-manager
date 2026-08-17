@@ -5,10 +5,10 @@ import { match } from "ts-pattern";
 import type { Severity } from "@/lib/tauri";
 
 const styles: Record<Severity, { bg: string; text: string; label: string }> = {
-  ok: { bg: "bg-green-950/40 border-green-800/60", text: "text-green-300", label: "OK" },
-  info: { bg: "bg-blue-950/40 border-blue-800/60", text: "text-blue-300", label: "INFO" },
-  warn: { bg: "bg-amber-950/40 border-amber-800/60", text: "text-amber-300", label: "WARN" },
-  bad: { bg: "bg-red-950/40 border-red-800/60", text: "text-red-300", label: "BAD" },
+  ok: { bg: "border-success/40 bg-success/10", text: "text-success-text", label: "OK" },
+  info: { bg: "border-info/40 bg-info/10", text: "text-info-text", label: "INFO" },
+  warn: { bg: "border-warning/40 bg-warning/10", text: "text-warning-text", label: "WARN" },
+  bad: { bg: "border-danger/40 bg-danger/10", text: "text-danger-text", label: "BAD" },
 };
 
 export function SeverityBadge({ severity }: { severity: Severity }) {

@@ -159,7 +159,7 @@ export function PlayButton({ disabled = false }: PlayButtonProps) {
           disabled={disabled || stopping}
           left={
             !stopping && (
-              <span className="inline-flex h-3 w-3 rounded-full bg-green-500 shadow-[0_0_5px_1px_rgba(74,222,128,0.5)]" />
+              <span className="inline-flex h-3 w-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
             )
           }
         >

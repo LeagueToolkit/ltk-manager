@@ -30,7 +30,7 @@ function classifyStatus(status: string): FailureKind {
 
 /**
  * Choose which failure kind drives the dialog's copy. A skinhack is the most
- * serious and always wins; a uniform burst uses its single kind; a mix of
+ * serious and always wins. A uniform burst uses its single kind, and a mix of
  * different non-skinhack causes falls back to the generic copy so we never show
  * one cause's fix for a different cause's failure.
  */
@@ -54,7 +54,7 @@ const KIND_CONFIG: Record<FailureKind, KindConfig> = {
     title: "Skinhack detected",
     icon: ShieldAlert,
     tone: "red",
-    lead: "The patcher's safety scan found a skinhack — an official Riot skin ported onto a base champion — among your enabled mods. To avoid crashing your game, the patcher was stopped and no mods were applied this session.",
+    lead: "The patcher's safety scan found a skinhack (an official Riot skin ported onto a base champion) among your enabled mods. To avoid crashing your game, the patcher was stopped and no mods were applied this session.",
     fix: "Remove or disable the offending mod(s), then start the patcher again.",
   },
   missingBin: {
@@ -68,7 +68,7 @@ const KIND_CONFIG: Record<FailureKind, KindConfig> = {
     title: "A mod file is corrupt",
     icon: PackageX,
     tone: "amber",
-    lead: "A modded WAD couldn't be read — it's corrupt or built for an unsupported version — so no mods were applied this session.",
+    lead: "A modded WAD couldn't be read (it's corrupt or built for an unsupported version), so no mods were applied this session.",
     fix: "Re-import the offending mod(s), then start the patcher again.",
   },
   outOfMemory: {
@@ -89,18 +89,18 @@ const KIND_CONFIG: Record<FailureKind, KindConfig> = {
 
 const TONE = {
   red: {
-    badge: "bg-red-500/15 text-red-400",
-    wad: "bg-red-500/10 text-red-300",
-    close: "text-red-400 hover:bg-red-500/15 hover:text-red-300",
+    badge: "bg-danger/15 text-danger-text",
+    wad: "bg-danger/10 text-danger-text",
+    close: "text-danger-text hover:bg-danger/15 hover:text-danger-text",
   },
   amber: {
-    badge: "bg-amber-500/15 text-amber-400",
-    wad: "bg-amber-500/10 text-amber-300",
-    close: "text-amber-400 hover:bg-amber-500/15 hover:text-amber-300",
+    badge: "bg-warning/15 text-warning-text",
+    wad: "bg-warning/10 text-warning-text",
+    close: "text-warning-text hover:bg-warning/15 hover:text-warning-text",
   },
 };
 
-/** Strip the WAD extension for a readable label — `Ahri.wad.client` → `Ahri`. */
+/** Strip the WAD extension for a readable label, so `Ahri.wad.client` → `Ahri`. */
 function wadLabel(wad: string): string {
   return wad.replace(/\.wad(\.client|\.server)?$/i, "");
 }
@@ -111,7 +111,7 @@ function wadLabel(wad: string): string {
  * memory), so the DLL refused to load any mods and the patcher was auto-stopped.
  * The body pins the failure to the offending library mod(s) so the user knows
  * exactly what to fix. (Missing linked bins are non-fatal at injection and are
- * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`; the
+ * surfaced separately via the mod-card badges and `LinkedBinWarningDialog`, so the
  * `missingBin` kind here is a defensive fallback.)
  */
 export function WadScanFailedDialog() {
@@ -151,7 +151,7 @@ function WadScanFailedContent({
       stopPatcher.mutate(undefined, {
         onError: (error) => {
           // The injector may have already auto-stopped the thread by the time the
-          // user clicks; a "not running" rejection here is a no-op, not a failure.
+          // user clicks. A "not running" rejection here is a no-op, not a failure.
           console.error("Failed to stop patcher:", error.message);
         },
       });
@@ -160,7 +160,7 @@ function WadScanFailedContent({
   };
 
   const handleCopyDetails = () => {
-    const lines = [`LTK Manager — ${config.title}`];
+    const lines = [`LTK Manager - ${config.title}`];
     if (offenders.length > 0) {
       lines.push("Offending mods:");
       offenders.forEach((o) => lines.push(`  - ${o.displayName} (${o.wads.join(", ")})`));

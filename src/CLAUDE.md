@@ -116,37 +116,23 @@ fine next to a stroked icon, and a hand-traced mark is just a worse copy.
 
 ## Styling
 
-Tailwind CSS v4 via `@tailwindcss/vite`. `src/styles/tailwind.css` is the **single CSS entry point** imported in `main.tsx`.
+Tailwind CSS v4 via `@tailwindcss/vite`. Tokens live in `src/styles/`.
 
-Inter is self-hosted through `@fontsource-variable/inter`, imported at the top of that entry point - a
-packaged build has no network to fetch a webfont from. The family it registers is **`Inter Variable`**,
-which is what `--font-sans` has to name; plain `"Inter"` alone silently falls through to `system-ui`.
-Fonts are not interchangeable here: the system fallback is not metric-compatible, and its asymmetric
-descent leaves text sitting low in its line box, which reads as icons and labels disagreeing about
-where the middle of a button is.
+**Colors are always a token, never a literal.** No raw Tailwind palette color, no hex, no
+`rgb()` in a class or a stylesheet rule - `text-red-400`, `bg-emerald-500/15` and `#22c55e`
+are all wrong. There are no exceptions left in `src/`, so a raw palette color in a diff is a
+regression, not a style preference. The same goes for bare `rounded`, which is Tailwind's own
+hardcoded 4px and bypasses the radius scale.
 
-**Design tokens** use numbered scales defined as CSS custom properties:
-
-| Category   | Pattern            | Example                          |
-| ---------- | ------------------ | -------------------------------- |
-| Spacing    | `--space-{NNN}`    | `--space-004` → 24px (NNN × 6px) |
-| Radius     | `--radius-{NNN}`   | `--radius-003` → 8px             |
-| Icon sizes | `--icon-{NNN}`     | `--icon-003` → 16px              |
-| Shadows    | `--shadow-{name}`  | `--shadow-sm`, `--shadow-glass`  |
-| Z-index    | `--z-{name}`       | `--z-modal`, `--z-toast`         |
-| Duration   | `--duration-{NNN}` | `--duration-004` → 200ms         |
-| Easing     | `--ease-{name}`    | `--ease-spring`                  |
-
-**Color tokens:** `surface-{50..950}` for neutrals, `accent-{50..950}` for the dynamic accent color (HSL-based via `--accent-hue`). Dark theme is default; light theme uses `[data-theme="light"]` attribute on `<html>`.
-
-**Important:** `global.css` must NOT use `@apply` with Tailwind utilities - use raw CSS custom property references instead (e.g., `background-color: var(--surface-900)`).
-
-Density modes are applied via `[data-density]` on `<html>` and affect `--space-*` and `--icon-*` only - never `--radius-*`, `--shadow-*`, `--z-*`, or colors.
+**Load the `design-system` skill before any styling or visual work** - which token to reach
+for, how the surface rungs stack, what the `-text` status variants are for, and how a choice
+behaves in light mode. Editing the stylesheets themselves is `src/styles/CLAUDE.md`.
 
 ## Text Selection
 
 This is a desktop app, not a web page - selectable-by-default is the browser's assumption, not ours.
-Chrome gets `select-none`; selection is reserved for text a user would want to take somewhere else.
+Chrome gets `select-none`. Selection is reserved for text a user would want to take
+somewhere else.
 
 The test is **whose text it is**. Text the app wrote about itself is chrome. Text that came from the
 user, their disk, or the backend is data.

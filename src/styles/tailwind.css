@@ -1,14 +1,14 @@
-/* Self-hosted: the app has no network in a packaged build, and a fallback to
-   system-ui is not metric-compatible - Segoe UI's descent leaves text sitting
-   low in its line box, which shows up as icons and labels disagreeing about
-   where the middle of a button is. */
-@import "@fontsource-variable/inter";
+/* Self-hosted: a packaged build has no network, and system-ui is not
+   metric-compatible with these faces. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";
 
 @theme {
-  /* Surface colors - reference CSS custom properties for theme switching */
+  /* Surfaces */
   --color-surface-50: var(--surface-50);
   --color-surface-100: var(--surface-100);
   --color-surface-200: var(--surface-200);
@@ -21,7 +21,7 @@
   --color-surface-900: var(--surface-900);
   --color-surface-950: var(--surface-950);
 
-  /* Accent colors - dynamic based on accent-hue */
+  /* Accent */
   --color-accent-50: var(--accent-50);
   --color-accent-100: var(--accent-100);
   --color-accent-200: var(--accent-200);
@@ -33,7 +33,32 @@
   --color-accent-800: var(--accent-800);
   --color-accent-900: var(--accent-900);
 
-  /* Spacing tokens (NNN × 6px) */
+  /* Brand */
+  --color-brand-blue: var(--ltk-blue);
+  --color-brand-violet: var(--ltk-violet);
+  --color-brand-on: var(--ltk-on-brand);
+
+  /* State */
+  --color-success: var(--ltk-success);
+  --color-success-text: var(--ltk-success-text);
+  --color-warning: var(--ltk-warning);
+  --color-warning-text: var(--ltk-warning-text);
+  --color-danger: var(--ltk-danger);
+  --color-danger-text: var(--ltk-danger-text);
+  --color-danger-strong: var(--ltk-danger-strong);
+  --color-info: var(--ltk-info);
+  --color-info-text: var(--ltk-info-text);
+  --color-required: var(--ltk-required);
+
+  /* Mod category pills */
+  --color-cat-champion: var(--ltk-cat-champion);
+  --color-cat-champion-text: var(--ltk-cat-champion-text);
+  --color-cat-map: var(--ltk-cat-map);
+  --color-cat-map-text: var(--ltk-cat-map-text);
+
+  --color-scrim: var(--ltk-glass-scrim-fill);
+
+  /* Spacing */
   --spacing-1: var(--space-001);
   --spacing-2: var(--space-002);
   --spacing-3: var(--space-003);
@@ -47,7 +72,7 @@
   --spacing-11: var(--space-011);
   --spacing-12: var(--space-012);
 
-  /* Radius tokens */
+  /* Radius */
   --radius-sm: var(--radius-001);
   --radius-md: var(--radius-002);
   --radius-lg: var(--radius-003);
@@ -55,23 +80,25 @@
   --radius-2xl: var(--radius-005);
   --radius-full: var(--radius-006);
 
-  /* Shadow tokens */
+  /* Elevation */
+  --shadow-xs: var(--shadow-xs);
   --shadow-sm: var(--shadow-sm);
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
   --shadow-glass: var(--shadow-glass);
 
-  /* Z-index tokens */
+  /* Z-index */
   --z-index-dropdown: var(--z-dropdown);
   --z-index-modal: var(--z-modal);
   --z-index-toast: var(--z-toast);
   --z-index-notification: var(--z-notification);
 
-  /* Fonts */
-  /* "Inter Variable" is the family name fontsource registers; plain "Inter"
-     stays ahead of the system stack for anyone who has it installed. */
-  --font-sans: "Inter Variable", "Inter", system-ui, sans-serif;
-  --font-display: "Beaufort for LOL", "Inter Variable", "Inter", system-ui, sans-serif;
+  /* Fonts. Fontsource registers the "* Variable" family names. */
+  --font-sans: "Geist Variable", "Geist", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 
   /* Animations */
   --animate-fade-in: fade-in 0.2s ease-out;
@@ -80,8 +107,7 @@
   --animate-toast-slide-in: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   --animate-toast-slide-out: toast-slide-out 0.35s cubic-bezier(0.4, 0, 0.2, 1);
   --animate-shimmer: shimmer 1.5s ease-in-out infinite;
-  /* Reuses the shimmer keyframe, run fast and linear so it reads as a highlight
-     shooting past rather than the slow sweep on skeletons. Its resting frame is
-     off-screen right, so reduce-motion leaves a plain accent border. */
+  /* Reuses the shimmer keyframe. Its resting frame is off-screen right, so
+     reduce-motion leaves a plain border. */
   --animate-border-shimmer: shimmer 1.2s linear infinite;
 }

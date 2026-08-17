@@ -105,7 +105,7 @@ export interface MenuItemProps extends Omit<BaseMenu.Item.Props, "className"> {
 
 const itemVariantClasses: Record<MenuItemVariant, string> = {
   default: "text-surface-200 data-[highlighted]:bg-surface-600",
-  danger: "text-red-400 data-[highlighted]:bg-surface-600 data-[highlighted]:text-red-300",
+  danger: "text-danger-text data-[highlighted]:bg-surface-600 data-[highlighted]:text-danger",
 };
 
 export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(

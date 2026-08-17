@@ -65,7 +65,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
         )}
         {...props}
       >
-        <BaseCheckbox.Indicator className="flex items-center justify-center text-white">
+        <BaseCheckbox.Indicator className="flex items-center justify-center text-brand-on">
           <CheckboxIcon size={size} />
         </BaseCheckbox.Indicator>
       </BaseCheckbox.Root>

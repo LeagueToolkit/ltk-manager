@@ -92,10 +92,10 @@ export function BulkDeleteDialog() {
           <Dialog.Body>
             {phase === "confirm" && (
               <div className="space-y-4">
-                <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
-                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+                <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
+                  <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
                   <div>
-                    <h3 className="font-medium text-red-300">
+                    <h3 className="font-medium text-danger-text">
                       Are you sure you want to delete {projects.length} projects?
                     </h3>
                     <p className="mt-1 text-sm text-surface-400">
@@ -147,16 +147,16 @@ export function BulkDeleteDialog() {
                     {results.map((r, i) => (
                       <li key={i} className="flex items-center gap-2">
                         {r.outcome.ok ? (
-                          <Check className="h-4 w-4 shrink-0 text-green-400" />
+                          <Check className="h-4 w-4 shrink-0 text-success-text" />
                         ) : (
-                          <X className="h-4 w-4 shrink-0 text-red-400" />
+                          <X className="h-4 w-4 shrink-0 text-danger-text" />
                         )}
-                        <span className={r.outcome.ok ? "text-surface-300" : "text-red-300"}>
+                        <span className={r.outcome.ok ? "text-surface-300" : "text-danger-text"}>
                           {r.displayName}
                         </span>
                         {!r.outcome.ok && (
-                          <span className="truncate text-xs text-red-400/70">
-                            — {r.outcome.error}
+                          <span className="truncate text-xs text-danger-text/70">
+                            - {r.outcome.error}
                           </span>
                         )}
                       </li>
@@ -173,11 +173,7 @@ export function BulkDeleteDialog() {
                 <Button variant="ghost" onClick={handleClose}>
                   Cancel
                 </Button>
-                <Button
-                  variant="filled"
-                  onClick={handleDelete}
-                  className="bg-red-600 hover:bg-red-500"
-                >
+                <Button variant="danger" onClick={handleDelete}>
                   Delete {projects.length} {projects.length === 1 ? "Project" : "Projects"}
                 </Button>
               </>

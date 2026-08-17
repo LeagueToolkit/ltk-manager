@@ -38,7 +38,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
+        "border-accent-500/40 bg-surface-900 shadow-[0_0_10px_-4px] shadow-accent-500/20 hover:-translate-y-px",
     )
     .otherwise(
       () =>
@@ -71,7 +71,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
           <h3 className="truncate font-medium text-surface-100">{mod.displayName}</h3>
           {isFlagged && (
             <Tooltip content={skinhackReason}>
-              <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
+              <ShieldAlert className="h-4 w-4 shrink-0 text-danger-text" />
             </Tooltip>
           )}
         </div>

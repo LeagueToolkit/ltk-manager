@@ -36,7 +36,7 @@ export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(
       >
         <BaseSwitch.Thumb
           className={twMerge(
-            "absolute rounded-full bg-white transition-transform",
+            "absolute rounded-full bg-brand-on transition-transform",
             thumbClasses[size],
           )}
         />

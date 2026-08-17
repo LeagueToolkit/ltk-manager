@@ -8,7 +8,7 @@ export type HintIconVariant = "info" | "warning";
 
 const variantStyles: Record<HintIconVariant, string> = {
   info: "text-surface-400 hover:text-surface-200",
-  warning: "text-amber-400 hover:text-amber-300",
+  warning: "text-warning-text hover:text-warning",
 };
 
 const defaultIcons: Record<HintIconVariant, LucideIcon> = {
@@ -19,7 +19,7 @@ const defaultIcons: Record<HintIconVariant, LucideIcon> = {
 export interface HintIconProps {
   /** Text or nodes shown in the tooltip on hover/focus. */
   content: ReactNode;
-  /** Visual treatment. `info` is muted; `warning` is amber. Defaults to `info`. */
+  /** Visual treatment. `info` is muted and `warning` is amber. Defaults to `info`. */
   variant?: HintIconVariant;
   /** Override the icon. Defaults to the variant's icon. */
   icon?: LucideIcon;
@@ -33,7 +33,7 @@ export interface HintIconProps {
 
 /**
  * A small icon that reveals explanatory text in a tooltip on hover or focus.
- * Rendered as a focusable button so it's keyboard-accessible; safe to place
+ * Rendered as a focusable button so it's keyboard-accessible, and safe to place
  * inside a `<label>` since labels ignore clicks on interactive descendants.
  */
 export function HintIcon({

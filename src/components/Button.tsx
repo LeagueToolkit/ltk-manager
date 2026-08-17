@@ -4,7 +4,14 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-export type ButtonVariant = "default" | "filled" | "light" | "outline" | "ghost" | "transparent";
+export type ButtonVariant =
+  | "default"
+  | "filled"
+  | "danger"
+  | "light"
+  | "outline"
+  | "ghost"
+  | "transparent";
 
 export type ButtonSize = "xs" | "sm" | "md" | "lg" | "xl";
 
@@ -53,7 +60,8 @@ const compactIconOnlySizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "bg-surface-700 text-surface-100 hover:bg-surface-600 active:bg-surface-800",
-  filled: "bg-accent-600 text-white hover:bg-accent-500 active:bg-accent-700",
+  filled: "bg-accent-600 text-brand-on hover:bg-accent-500 active:bg-accent-700",
+  danger: "bg-danger-strong text-brand-on hover:bg-danger active:brightness-90",
   light: "bg-accent-600/15 text-accent-400 hover:bg-accent-600/25 active:bg-accent-600/35",
   outline:
     "bg-transparent text-surface-200 border border-surface-600 hover:bg-surface-800 active:bg-surface-700",

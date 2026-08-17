@@ -38,11 +38,11 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-800 shadow-[0_0_12px_-6px] shadow-accent-500/25 hover:-translate-y-px hover:shadow-[0_0_14px_-5px,0_4px_6px_-1px] hover:shadow-accent-500/30",
+        "border-accent-500/40 bg-surface-900 shadow-[0_0_12px_-6px] shadow-accent-500/25 hover:-translate-y-px hover:shadow-[0_0_14px_-5px,0_4px_6px_-1px] hover:shadow-accent-500/30",
     )
     .otherwise(
       () =>
-        "border-surface-600 bg-surface-800 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-700/80 hover:shadow-md",
+        "border-surface-600 bg-surface-900 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-800/80 hover:shadow-md",
     );
 
   return (
@@ -75,8 +75,8 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
 
       {isFlagged && (
         <Tooltip content={skinhackReason}>
-          <div className="absolute top-2 left-2 z-10 rounded-md bg-red-500/90 p-1">
-            <ShieldAlert className="h-4 w-4 text-white" />
+          <div className="absolute top-2 left-2 z-10 rounded-md bg-danger/90 p-1">
+            <ShieldAlert className="h-4 w-4 text-brand-on" />
           </div>
         </Tooltip>
       )}
@@ -86,7 +86,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
       <div className="flex flex-1 flex-col p-3">
         <div className="mb-1 flex items-center gap-1">
           <h3 className="line-clamp-1 text-sm font-medium text-surface-100">{mod.displayName}</h3>
-          {isFlagged && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-red-500" />}
+          {isFlagged && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
         </div>
 
         <div className="mb-1 flex min-h-5 items-center gap-1">

@@ -12,9 +12,9 @@ import { usePatcherStatus } from "../api/usePatcherStatus";
 /**
  * Reachable review dialog for mods whose property-bins reference linked dependencies
  * that didn't resolve in the most recent overlay build. Opened from a mod card's
- * `MissingDepsBadge` or the post-start warning toast — never as a pre-patch gate
+ * `MissingDepsBadge` or the post-start warning toast, never as a pre-patch gate
  * (missing linked bins are non-fatal at injection). Lets the user disable the
- * offending mod(s); if the patcher is running, the change applies on the next reload.
+ * offending mod(s). If the patcher is running, the change applies on the next reload.
  * Mounted globally.
  */
 export function LinkedBinWarningDialog() {
@@ -41,7 +41,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(offenders.map((o) => o.modId)),
   );
-  // Detail is collapsed by default; auto-open the list when there's only one mod.
+  // Detail is collapsed by default. Auto-open the list when there's only one mod.
   const [expanded, setExpanded] = useState<Set<string>>(() =>
     offenders.length === 1 ? new Set([offenders[0].modId]) : new Set(),
   );
@@ -85,7 +85,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
       toast.warning(
         selectedCount === 1 ? "Mod disabled" : "Mods disabled",
         patcherRunning
-          ? `${selectedCount} mod${selectedCount === 1 ? "" : "s"} disabled — reload the patcher to apply.`
+          ? `${selectedCount} mod${selectedCount === 1 ? "" : "s"} disabled. Reload the patcher to apply.`
           : `${selectedCount} mod${selectedCount === 1 ? "" : "s"} with missing dependencies won't be loaded.`,
       );
       onClose();
@@ -103,7 +103,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
           <Dialog.Overlay size="sm">
             <Dialog.Header>
               <Dialog.Title className="flex items-center gap-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-green-500/15 text-green-400">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success-text">
                   <PackageCheck className="h-4 w-4" />
                 </span>
                 No missing dependencies
@@ -137,7 +137,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
         <Dialog.Overlay size="lg">
           <Dialog.Header>
             <Dialog.Title className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
                 <PackageX className="h-4 w-4" />
               </span>
               {title}
@@ -196,7 +196,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
                                 {displayNameFor(offender)}
                               </span>
                             </label>
-                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 tabular-nums">
+                            <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text tabular-nums">
                               {count} missing
                             </span>
                             {count > 0 && (

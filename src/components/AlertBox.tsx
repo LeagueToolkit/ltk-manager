@@ -14,26 +14,29 @@ export interface AlertBoxProps {
   className?: string;
 }
 
+/* The status token tinting its own border and fill, as the wiki's asides do.
+   The icon takes the -text variant: a base-amber glyph on a pale amber fill is
+   near-invisible in light mode. */
 const variantStyles: Record<AlertBoxVariant, { border: string; bg: string; icon: string }> = {
   info: {
-    border: "border-blue-800/50",
-    bg: "bg-blue-950/30",
-    icon: "text-blue-400",
+    border: "border-info/30",
+    bg: "bg-info/8",
+    icon: "text-info-text",
   },
   success: {
-    border: "border-green-800/50",
-    bg: "bg-green-950/30",
-    icon: "text-green-400",
+    border: "border-success/30",
+    bg: "bg-success/8",
+    icon: "text-success-text",
   },
   warning: {
-    border: "border-amber-800/50",
-    bg: "bg-amber-950/30",
-    icon: "text-amber-400",
+    border: "border-warning/30",
+    bg: "bg-warning/8",
+    icon: "text-warning-text",
   },
   error: {
-    border: "border-red-800/50",
-    bg: "bg-red-950/30",
-    icon: "text-red-400",
+    border: "border-danger/30",
+    bg: "bg-danger/8",
+    icon: "text-danger-text",
   },
 };
 
