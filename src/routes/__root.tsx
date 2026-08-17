@@ -28,6 +28,7 @@ function RootLayout() {
   const { data: setupRequired, isLoading: isCheckingSetup } = useCheckSetupRequired();
 
   const zoomLevel = useDisplayStore((s) => s.zoomLevel);
+  const cornerStyle = useDisplayStore((s) => s.cornerStyle);
   const isReducedMotion = useReducedMotion();
 
   useDevLogStream();
@@ -50,6 +51,10 @@ function RootLayout() {
   useEffect(() => {
     document.documentElement.style.setProperty("--zoom-scale", String(zoomLevel / 100));
   }, [zoomLevel]);
+
+  useEffect(() => {
+    document.documentElement.dataset.corners = cornerStyle;
+  }, [cornerStyle]);
 
   useEffect(() => {
     document.documentElement.dataset.reduceMotion = String(isReducedMotion);

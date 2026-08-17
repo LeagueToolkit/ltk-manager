@@ -41,10 +41,12 @@ export interface ModCardView {
   isSelected: boolean;
   inSelectedState: boolean;
   inEnabledState: boolean;
+  isInteractive: boolean;
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
+  onCardKeyDown: (e: React.KeyboardEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
   onCopyId: () => void;
@@ -118,17 +120,27 @@ export function useModCardController({
     moveModToFolder.mutate({ modId: mod.id, folderId: ROOT_FOLDER_ID });
   }
 
-  function handleCardClick(e: React.MouseEvent) {
-    if ((e.target as HTMLElement).closest("[data-no-toggle]")) {
-      return;
-    }
+  /** The grid card has no toggle of its own, so the card itself is the control. */
+  function activateCard(shiftKey: boolean) {
     if (selectMode) {
-      if (e.shiftKey) selectRangeTo(mod.id);
+      if (shiftKey) selectRangeTo(mod.id);
       else toggleSelection(mod.id);
       return;
     }
     if (disabled) return;
     handleToggle(mod.id, !mod.enabled);
+  }
+
+  function handleCardClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
+    activateCard(e.shiftKey);
+  }
+
+  function handleCardKeyDown(e: React.KeyboardEvent) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
+    e.preventDefault();
+    activateCard(e.shiftKey);
   }
 
   const inSelectedState = selectMode && isSelected;
@@ -153,10 +165,12 @@ export function useModCardController({
     isSelected,
     inSelectedState,
     inEnabledState,
+    isInteractive,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick: handleCardClick,
+    onCardKeyDown: handleCardKeyDown,
     onToggle: handleToggle,
     onUninstall: handleUninstall,
     onCopyId: handleCopyId,

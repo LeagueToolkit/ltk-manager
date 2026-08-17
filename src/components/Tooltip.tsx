@@ -143,6 +143,8 @@ export interface TooltipProps {
   align?: "start" | "center" | "end";
   sideOffset?: number;
   showArrow?: boolean;
+  /** Hover delay in ms before opening. Base UI's own default is 600. */
+  delay?: number;
 }
 
 export function Tooltip({
@@ -152,10 +154,11 @@ export function Tooltip({
   align = "center",
   sideOffset = 8,
   showArrow = true,
+  delay,
 }: TooltipProps) {
   return (
     <BaseTooltip.Root>
-      <BaseTooltip.Trigger render={children} />
+      <BaseTooltip.Trigger delay={delay} render={children} />
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50">
           <BaseTooltip.Popup

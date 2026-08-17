@@ -28,8 +28,9 @@ type CardVariant = "grid" | "list";
 
 const THUMBNAIL_VARIANTS: Record<CardVariant, { container: string; placeholder: string }> = {
   grid: {
+    /* No radius of its own, the card clips it. */
     container:
-      "relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-700 to-surface-800",
+      "relative aspect-video overflow-hidden bg-linear-to-br from-surface-700 to-surface-800",
     placeholder: "text-4xl font-bold text-surface-400",
   },
   list: {
@@ -63,22 +64,16 @@ export function ModCardThumbnail({
   );
 }
 
-const GRID_SWITCH_CLASS =
-  "shadow-lg data-[unchecked]:bg-surface-600/80 data-[unchecked]:backdrop-blur-sm";
-
-export function ModCardToggle({ variant, view }: { variant: CardVariant; view: ModCardView }) {
+/** The list row's toggle. A grid card has none, since the card itself is the control. */
+export function ModCardToggle({ view }: { view: ModCardView }) {
   const { mod } = view;
-  const isGrid = variant === "grid";
-  const switchSize = isGrid ? "sm" : undefined;
-  const switchClassName = isGrid ? GRID_SWITCH_CLASS : undefined;
 
   return (
     <Switch
-      size={switchSize}
       disabled={view.interactionsDisabled}
       checked={mod.enabled}
       onCheckedChange={(checked) => view.onToggle(mod.id, checked)}
-      className={switchClassName}
+      aria-label={`${mod.enabled ? "Disable" : "Enable"} ${mod.displayName}`}
     />
   );
 }

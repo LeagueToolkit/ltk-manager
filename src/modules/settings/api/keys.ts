@@ -5,5 +5,6 @@ export const settingsKeys = {
   appInfo: () => [...settingsKeys.all, "appInfo"] as const,
   availableWads: () => [...settingsKeys.all, "availableWads"] as const,
   leagueRunAsAdmin: () => [...settingsKeys.all, "leagueRunAsAdmin"] as const,
+  leaguePathValid: (path: string) => [...settingsKeys.all, "leaguePathValid", path] as const,
   thirdPartyLicenses: () => [...settingsKeys.all, "thirdPartyLicenses"] as const,
 };

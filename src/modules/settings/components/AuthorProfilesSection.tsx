@@ -1,4 +1,4 @@
-import { Plus, Star, Trash2, Users } from "lucide-react";
+import { PlusIcon, StarIcon, TrashIcon, UsersThreeIcon } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 import { useDebounceCallback } from "usehooks-ts";
 
@@ -74,19 +74,25 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
   return (
     <SectionCard
       title="Author Profiles"
-      icon={<Users className="h-5 w-5" />}
+      icon={<UsersThreeIcon className="h-5 w-5" />}
       description="Saved author identities you can reuse across projects."
       action={
         <Button
           variant="outline"
           size="sm"
-          left={<Plus className="h-4 w-4" />}
+          left={<PlusIcon weight="bold" className="h-4 w-4" />}
           onClick={addProfile}
         >
           Add Profile
         </Button>
       }
     >
+      {localProfiles.length === 0 && (
+        <p className="text-sm text-surface-400">
+          No profiles yet. Add one to fill in a project&apos;s author without retyping it.
+        </p>
+      )}
+
       {localProfiles.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1 text-xs font-medium text-surface-400">
@@ -99,13 +105,10 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
           {localProfiles.map((profile) => (
             <div key={profile.id} className="flex items-center gap-2">
               <IconButton
-                icon={
-                  <Star
-                    className={`h-4 w-4 ${defaultId === profile.id ? "fill-brand-400 text-brand-400" : ""}`}
-                  />
-                }
+                icon={<DefaultStar active={defaultId === profile.id} />}
                 variant="ghost"
                 size="sm"
+                aria-label="Toggle default profile"
                 onClick={() => toggleDefault(profile.id)}
               />
               <Field.Control
@@ -113,19 +116,20 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
                 onChange={(e) => updateProfile(profile.id, "name", e.target.value)}
                 onBlur={(e) => flushProfile(profile.id, "name", e.target.value)}
                 placeholder="Author name"
-                className="flex-1"
+                className="min-w-0 flex-1"
               />
               <Field.Control
                 value={profile.role ?? ""}
                 onChange={(e) => updateProfile(profile.id, "role", e.target.value)}
                 onBlur={(e) => flushProfile(profile.id, "role", e.target.value)}
                 placeholder="e.g. 3D Artist"
-                className="w-40"
+                className="w-40 shrink-0"
               />
               <IconButton
-                icon={<Trash2 className="h-4 w-4" />}
+                icon={<TrashIcon weight="bold" className="h-4 w-4" />}
                 variant="ghost"
                 size="sm"
+                aria-label="Remove profile"
                 onClick={() => removeProfile(profile.id)}
               />
             </div>
@@ -134,4 +138,9 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
       )}
     </SectionCard>
   );
+}
+
+function DefaultStar({ active }: { active: boolean }) {
+  if (active) return <StarIcon weight="fill" className="h-4 w-4 text-accent-400" />;
+  return <StarIcon weight="bold" className="h-4 w-4" />;
 }

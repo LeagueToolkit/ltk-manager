@@ -1,7 +1,6 @@
-import { open } from "@tauri-apps/plugin-dialog";
-import { Image, X } from "lucide-react";
+import { ImageIcon } from "@phosphor-icons/react";
 
-import { Field, IconButton, Tooltip } from "@/components";
+import { PathField } from "@/components";
 import type { Settings } from "@/lib/tauri";
 
 import { useDebouncedSlider } from "./useDebouncedSlider";
@@ -11,71 +10,35 @@ interface BackdropImagePickerProps {
   onSave: (settings: Settings) => void;
 }
 
+const IMAGE_FILTERS = [
+  { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
+];
+
 export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerProps) {
   const [localBlur, handleBlurChange] = useDebouncedSlider(settings.backdropBlur ?? 40, (blur) => {
     onSave({ ...settings, backdropBlur: blur });
   });
 
-  async function handleBrowse() {
-    try {
-      const selected = await open({
-        title: "Select Background Image",
-        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] }],
-      });
-
-      if (selected) {
-        onSave({ ...settings, backdropImage: selected as string });
-      }
-    } catch (error) {
-      console.error("Failed to browse:", error);
-    }
-  }
-
-  function handleClear() {
-    onSave({ ...settings, backdropImage: null });
-  }
-
   return (
     <div className="space-y-3">
-      <span className="block text-sm font-medium text-surface-400">Background Image</span>
-      <div className="flex gap-2">
-        <Field.Control
-          type="text"
-          value={settings.backdropImage || ""}
-          readOnly
-          placeholder="No image selected"
-          className="flex-1"
-        />
-        <Tooltip content="Browse image">
-          <IconButton
-            icon={<Image className="h-5 w-5" />}
-            variant="outline"
-            size="lg"
-            onClick={handleBrowse}
-          />
-        </Tooltip>
-        {settings.backdropImage && (
-          <Tooltip content="Clear image">
-            <IconButton
-              icon={<X className="h-5 w-5" />}
-              variant="outline"
-              size="lg"
-              onClick={handleClear}
-            />
-          </Tooltip>
-        )}
-      </div>
-      <p className="text-sm text-surface-500">
-        Set a background image for the app. The UI will render with a frosted glass effect over the
-        image.
-      </p>
+      <PathField
+        pick="file"
+        filters={IMAGE_FILTERS}
+        label="Background Image"
+        value={settings.backdropImage}
+        onSelect={(path) => onSave({ ...settings, backdropImage: path })}
+        onClear={() => onSave({ ...settings, backdropImage: null })}
+        placeholder="No image selected"
+        dialogTitle="Select Background Image"
+        browseIcon={<ImageIcon weight="bold" className="h-5 w-5" />}
+        description="Set a background image for the app. The UI will render with a frosted glass effect over the image."
+      />
 
-      {/* Blur slider — only visible when a backdrop image is set */}
       {settings.backdropImage && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-surface-500">Blur Amount</span>
-            <span className="text-xs text-surface-400">{localBlur}px</span>
+            <span className="text-xs text-surface-400">Blur Amount</span>
+            <span className="text-xs text-surface-300">{localBlur}px</span>
           </div>
           <input
             type="range"

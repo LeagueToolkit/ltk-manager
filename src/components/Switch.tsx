@@ -2,46 +2,37 @@ import { Switch as BaseSwitch } from "@base-ui/react/switch";
 import { forwardRef } from "react";
 import { twMerge } from "tailwind-merge";
 
-export type SwitchSize = "sm" | "md";
-
 export interface SwitchProps extends Omit<BaseSwitch.Root.Props, "className"> {
-  size?: SwitchSize;
   className?: string;
 }
 
-const trackClasses: Record<SwitchSize, string> = {
-  sm: "h-5 w-9",
-  md: "h-6 w-11",
-};
+const trackClass = "h-5 w-9";
+const thumbClass = "top-1 left-1 h-3 w-3 data-[checked]:translate-x-4";
 
-const thumbClasses: Record<SwitchSize, string> = {
-  sm: "top-0.5 left-0.5 h-4 w-4 data-[checked]:translate-x-4",
-  md: "top-1 left-1 h-4 w-4 data-[checked]:translate-x-5",
-};
-
-export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(
-  ({ size = "md", className, ...props }, ref) => {
-    return (
-      <BaseSwitch.Root
-        ref={ref}
+export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(({ className, ...props }, ref) => {
+  return (
+    <BaseSwitch.Root
+      ref={ref}
+      className={twMerge(
+        "relative inline-flex shrink-0 cursor-pointer rounded-md transition-colors",
+        "bg-surface-700 data-[checked]:bg-accent-500",
+        "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
+        "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+        trackClass,
+        className,
+      )}
+      {...props}
+    >
+      {/* The knob inverts with the theme on purpose: DS-INVARIANT. The scale is
+            optical, not a size change: DS-POLARITY. */}
+      <BaseSwitch.Thumb
         className={twMerge(
-          "relative inline-flex shrink-0 cursor-pointer rounded-full transition-colors",
-          "bg-surface-700 data-[checked]:bg-accent-500",
-          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
-          "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
-          trackClasses[size],
-          className,
+          "absolute rounded-md transition",
+          "bg-surface-400 data-[checked]:scale-110 data-[checked]:bg-surface-900",
+          thumbClass,
         )}
-        {...props}
-      >
-        <BaseSwitch.Thumb
-          className={twMerge(
-            "absolute rounded-full bg-brand-on transition-transform",
-            thumbClasses[size],
-          )}
-        />
-      </BaseSwitch.Root>
-    );
-  },
-);
+      />
+    </BaseSwitch.Root>
+  );
+});
 Switch.displayName = "Switch";

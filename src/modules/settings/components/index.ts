@@ -1,16 +1,7 @@
 export { AboutSection } from "./AboutSection";
 export { AppearanceSection } from "./AppearanceSection";
-export { AuthorProfilesSection } from "./AuthorProfilesSection";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
-export { LaunchSection } from "./LaunchSection";
-export { LeaguePathSection } from "./LeaguePathSection";
 export { LibrarySection } from "./LibrarySection";
-export { LicensesDialog } from "./LicensesDialog";
-export { MinimizeToTraySection } from "./MinimizeToTraySection";
-export { ModStorageSection } from "./ModStorageSection";
 export { PatchingSection } from "./PatchingSection";
-export { TrustedDomainsSection } from "./TrustedDomainsSection";
-export { WadBlocklistEditor } from "./WadBlocklistEditor";
-export { WatcherSection } from "./WatcherSection";
 export { WorkshopSection } from "./WorkshopSection";

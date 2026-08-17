@@ -77,6 +77,10 @@ light block softens them, because those depths read as smudges on a near-white s
 Density is `[data-density]` on `<html>` and may only touch `--space-*` and `--icon-*` -
 never `--radius-*`, `--shadow-*`, `--z-*`, or colours.
 
+`[data-corners]` is the one exception, and it is the only thing allowed to move
+`--radius-*`. It is a setting of its own rather than a side effect of density, and it
+leaves `--radius-006` alone because a pill is geometry.
+
 ## The accent ramp has two sources
 
 `--accent-{50..900}` is fed either by the literal `:root[data-accent="ltk"]` block or by

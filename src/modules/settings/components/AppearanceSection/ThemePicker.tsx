@@ -1,5 +1,13 @@
-import { Button } from "@/components";
+import { SegmentedControl } from "@/components";
 import type { Settings } from "@/lib/tauri";
+
+type Theme = "system" | "dark" | "light";
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "system", label: "System" },
+  { value: "dark", label: "Dark" },
+  { value: "light", label: "Light" },
+];
 
 interface ThemePickerProps {
   settings: Settings;
@@ -8,21 +16,10 @@ interface ThemePickerProps {
 
 export function ThemePicker({ settings, onSave }: ThemePickerProps) {
   return (
-    <div className="space-y-3">
-      <span className="block text-sm font-medium text-surface-400">Theme</span>
-      <div className="flex gap-2">
-        {(["system", "dark", "light"] as const).map((theme) => (
-          <Button
-            key={theme}
-            variant={settings.theme === theme ? "filled" : "default"}
-            size="sm"
-            onClick={() => onSave({ ...settings, theme })}
-            className="capitalize"
-          >
-            {theme}
-          </Button>
-        ))}
-      </div>
-    </div>
+    <SegmentedControl
+      options={THEMES}
+      value={(settings.theme ?? "system") as Theme}
+      onChange={(theme) => onSave({ ...settings, theme })}
+    />
   );
 }

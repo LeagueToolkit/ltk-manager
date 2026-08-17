@@ -235,6 +235,23 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+/* The one axis a user may bend the radius scale on. 006 stays a pill either way. */
+[data-corners="sharp"] {
+  --radius-001: 0px;
+  --radius-002: 0px;
+  --radius-003: 2px;
+  --radius-004: 3px;
+  --radius-005: 4px;
+}
+
+[data-corners="round"] {
+  --radius-001: 4px;
+  --radius-002: 8px;
+  --radius-003: 12px;
+  --radius-004: 16px;
+  --radius-005: 22px;
+}
+
 [data-theme="light"] {
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
@@ -303,6 +320,14 @@ body {
 
 .root {
   isolation: isolate;
+}
+
+/* Browsers give buttons the arrow cursor, and Tailwind's preflight does not override it. */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+label:has(> input[type="checkbox"]),
+summary {
+  cursor: pointer;
 }
 
 /* Ligatures off: readers copy what they see. */

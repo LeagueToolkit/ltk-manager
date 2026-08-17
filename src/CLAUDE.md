@@ -82,8 +82,9 @@ Uses `@tanstack/react-form` with Zod validation via `useAppForm()`. Field compon
 
 ## Icons
 
-All icons come from `@phosphor-icons/react`, imported by PascalCase name. Standard spinner is
-`<SpinnerGap className="animate-spin" />`.
+All icons come from `@phosphor-icons/react`, imported by PascalCase name **with the `Icon` suffix** -
+`GearIcon`, `TrashIcon`, `XIcon`. The bare `Gear` spelling still exports, but it is a deprecated
+alias and TypeScript flags it. Standard spinner is `<SpinnerGapIcon className="animate-spin" />`.
 
 `lucide-react` is still installed because most of the app still imports it, and it stays until those
 call sites are converted. **Write no new lucide imports** - a file being touched for something else
@@ -91,11 +92,15 @@ is a fine moment to convert the icons in it.
 
 Phosphor names things by shape rather than by role, so the lucide name is rarely the phosphor name:
 `ChevronDown` is `CaretDown`, `Search` is `MagnifyingGlass`, `Settings` is `Gear`, `Trash2` is
-`Trash`, `Loader2` is `SpinnerGap`. Look the name up rather than guessing.
+`Trash`, `Loader2` is `SpinnerGap`, `CircleCheck` is `CheckCircle`, `CircleAlert` is
+`WarningCircle`. There is no `Radar`. Look the name up rather than guessing.
 
 Phosphor's `regular` weight is lighter than lucide's 2px stroke, so a converted icon reads thinner
 beside one that has not been converted yet. Pass `weight="bold"` where an icon carries an action -
 buttons, toolbar controls - and leave `regular` for decorative and section-header icons.
+
+Icons inside a control are sized against the control, not the body text. A 16px glyph disappears
+in a 32px field, where 20px is right.
 
 Riot's own marks are the exception, since neither icon set carries them. They live as inline-SVG
 components in `src/components/icons/`, lifted from the League and Riot Client asset sets:
@@ -127,6 +132,59 @@ hardcoded 4px and bypasses the radius scale.
 **Load the `design-system` skill before any styling or visual work** - which token to reach
 for, how the surface rungs stack, what the `-text` status variants are for, and how a choice
 behaves in light mode. Editing the stylesheets themselves is `src/styles/CLAUDE.md`.
+
+**Do not explain a style in a comment.** Borders, overlap, stacking and hover fills are
+primitive CSS that any reader follows from the classes. Where a rule from the design system
+drove the choice, cite its `DS-*` code and stop. The rare comment that earns its place names
+an outside constraint the classes cannot show, such as a layout gap the value must fit
+inside.
+
+## UI Copy
+
+**A description says what the thing is for, not what it is.** A reader arrives at a
+settings card, a field or a dialog to change something, so name the options rather than
+define the subject. Definitions belong in a hint, if anywhere.
+
+```
+Bad   The layered filesystem the patcher builds from your enabled mods.
+Good  Options for the layered filesystem that the patcher uses
+```
+
+**Do not list what is inside.** The rows under a description enumerate themselves, so
+summarising them writes the section twice. Name the subject and stop.
+
+```
+Bad   Options for where installed mods live and how they are catalogued
+Good  Options for your mod library
+```
+
+**Lead with what changes, not with the app doing it.** The row already implies "this
+setting", so the subject is the thing the reader owns rather than the verb the app runs.
+
+```
+Bad   Verifies modded archives as the game loads them.
+Good  Archives get verified on demand when mounting.
+```
+
+**Never define by contrast.** A switch already carries its other state, so naming the
+alternative doubles the length and adds nothing.
+
+```
+Bad   Archives get verified on demand when mounting, not all of them up front.
+Good  Archives get verified on demand when mounting.
+```
+
+**Use the domain's word.** These readers mod League, so `mount`, `locale`, `overlay` and
+`WAD` land better than a plain-English paraphrase of them.
+
+```
+Bad   as the game loads them
+Good  when mounting
+```
+
+A description written this way is often a fragment, and a fragment takes no full stop.
+Copy that is a complete sentence, such as a field's helper text or an error, ends with
+one as usual.
 
 ## Text Selection
 

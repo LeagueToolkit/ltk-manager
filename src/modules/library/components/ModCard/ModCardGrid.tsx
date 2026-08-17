@@ -7,13 +7,7 @@ import { Checkbox, Tooltip } from "@/components";
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
 import { WadCountBadge } from "../WadCountBadge";
-import {
-  ModCardMenu,
-  ModCardThumbnail,
-  ModCardToggle,
-  ModPills,
-  SkinhackInfoDialog,
-} from "./ModCardParts";
+import { ModCardMenu, ModCardThumbnail, ModPills, SkinhackInfoDialog } from "./ModCardParts";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardGrid({ view }: { view: ModCardView }) {
@@ -27,18 +21,21 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     isSelected,
     inSelectedState,
     inEnabledState,
+    isInteractive,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick,
+    onCardKeyDown,
   } = view;
 
+  /* The glow has to die inside the grid's 16px gutter or it lands on the next card. */
   const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
-    .with({ isSelected: true }, () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60")
+    .with({ isSelected: true }, () => "border-accent-400 bg-surface-800 ring-2 ring-accent-400")
     .with(
       { isEnabled: true },
       () =>
-        "border-accent-500/40 bg-surface-900 shadow-[0_0_12px_-6px] shadow-accent-500/25 hover:-translate-y-px hover:shadow-[0_0_14px_-5px,0_4px_6px_-1px] hover:shadow-accent-500/30",
+        "border-accent-500 bg-surface-900 ring-1 ring-accent-500 shadow-[0_0_14px_1px] shadow-accent-500/30 hover:-translate-y-px hover:shadow-[0_0_16px_2px,0_4px_8px_-2px] hover:shadow-accent-500/40",
     )
     .otherwise(
       () =>
@@ -48,8 +45,14 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
   return (
     <div
       onClick={onCardClick}
+      onKeyDown={onCardKeyDown}
+      role="button"
+      tabIndex={isInteractive ? 0 : -1}
+      aria-pressed={selectMode ? isSelected : mod.enabled}
+      aria-label={mod.displayName}
       className={twMerge(
-        "group relative flex h-full flex-col rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+        "group relative flex h-full flex-col overflow-hidden rounded-xl border transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out",
+        "focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none",
         cursorClass,
         stateClass,
       )}
@@ -65,14 +68,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           />
         </div>
       )}
-      <div
-        className="absolute top-2 right-2 z-10"
-        data-no-toggle
-        onClick={(e) => e.stopPropagation()}
-      >
-        <ModCardToggle variant="grid" view={view} />
-      </div>
-
       {isFlagged && (
         <Tooltip content={skinhackReason}>
           <div className="absolute top-2 left-2 z-10 rounded-md bg-danger/90 p-1">

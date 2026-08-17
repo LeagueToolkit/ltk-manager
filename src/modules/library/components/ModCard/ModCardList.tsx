@@ -91,7 +91,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
       </div>
 
       <div data-no-toggle onClick={(e) => e.stopPropagation()}>
-        <ModCardToggle variant="list" view={view} />
+        <ModCardToggle view={view} />
       </div>
 
       <div data-no-toggle onClick={(e) => e.stopPropagation()}>

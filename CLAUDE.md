@@ -32,6 +32,11 @@ Avoid trivially descriptive comments. Only comment non-obvious business logic, w
 
 **No redundant comments.** Do not add inline comments that restate what the code already expresses. If the code is descriptive enough (clear variable names, well-known patterns like temp-file-then-rename, obvious API calls), leave it uncommented. This applies to AI-generated code and suggestions too - strip narration comments before committing.
 
+**Cite a rule, do not restate it.** Code written to satisfy a documented design rule
+names that rule by its code and stops - `/* Duotone rather than fill: DS-ICON-WEIGHT. */`,
+not a paragraph reproducing the reasoning. `DS-*` codes are defined in the `design-system`
+skill. Add a code there before citing a new one.
+
 **No semicolons splicing sentences,** in comments, doc comments, or markdown. They read as
 compressed notes rather than prose. Use a full stop when the halves are two thoughts, or a comma
 plus `and` / `so` / `but` when the second half follows from the first:
