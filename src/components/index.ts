@@ -7,6 +7,7 @@ export * from "./Combobox";
 export * from "./ContextMenu";
 export * from "./DataTable";
 export * from "./Dialog";
+export * from "./EmptyState";
 export * from "./ExternalLink";
 export * from "./FormField";
 export * from "./HintIcon";

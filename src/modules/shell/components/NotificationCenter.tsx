@@ -2,7 +2,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Bell, CircleAlert, CircleCheck, CircleX, Info, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
-import { IconButton, Popover, type ToastType, Tooltip } from "@/components";
+import { EmptyState, IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { type Notification, useNotificationStore } from "@/stores/notifications";
 
 const typeIcons: Record<ToastType, React.ReactNode> = {
@@ -99,9 +99,7 @@ export function NotificationCenter() {
 
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
-                <p className="px-3 py-6 text-center text-sm text-surface-500">
-                  No notifications yet
-                </p>
+                <EmptyState size="sm" title="No notifications yet" />
               ) : (
                 notifications.map((notification) => (
                   <NotificationItem

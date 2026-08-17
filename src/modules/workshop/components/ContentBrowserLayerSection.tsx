@@ -9,7 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-import { Button, IconButton, Menu, Tooltip } from "@/components";
+import { Button, EmptyState, IconButton, Menu, Tooltip } from "@/components";
 import { api, type LayerContent } from "@/lib/tauri";
 import { formatBytes } from "@/utils";
 
@@ -140,11 +140,10 @@ export function ContentBrowserLayerSection({
 
 function LayerEmptyState() {
   return (
-    <div className="px-3 py-5 text-center">
-      <p className="text-xs text-surface-400">
-        No files yet. Extract game files from an existing mod or the game client, then drop them
-        into this folder.
-      </p>
-    </div>
+    <EmptyState
+      size="sm"
+      title="No files yet"
+      description="Extract game files from an existing mod or the game client, then drop them into this folder."
+    />
   );
 }

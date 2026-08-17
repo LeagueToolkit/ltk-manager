@@ -1,16 +1,14 @@
 import {
   BooksIcon,
   GearIcon,
-  HammerIcon,
   InfoIcon,
   KeyboardIcon,
   PaletteIcon,
   SpinnerGapIcon,
-  SyringeIcon,
 } from "@phosphor-icons/react";
 import { getRouteApi } from "@tanstack/react-router";
 
-import { Tabs } from "@/components";
+import { LootIcon, PatcherIcon, Tabs } from "@/components";
 import {
   AboutSection,
   AppearanceSection,
@@ -32,8 +30,8 @@ const tabClass =
 const TABS = [
   { value: "general", label: "General", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
   { value: "library", label: "Library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
-  { value: "workshop", label: "Workshop", icon: <HammerIcon className="h-5 w-5 shrink-0" /> },
-  { value: "patching", label: "Patching", icon: <SyringeIcon className="h-5 w-5 shrink-0" /> },
+  { value: "workshop", label: "Workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
+  { value: "patching", label: "Patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
   { value: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
   { value: "appearance", label: "Appearance", icon: <PaletteIcon className="h-5 w-5 shrink-0" /> },
   { value: "about", label: "About", icon: <InfoIcon className="h-5 w-5 shrink-0" /> },

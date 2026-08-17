@@ -1,7 +1,13 @@
 import { Tags } from "lucide-react";
 import { useMemo } from "react";
 
-import { FormField, MultiSelect, type MultiSelectOption, SectionCard } from "@/components";
+import {
+  ChampionIcon,
+  Field,
+  MultiSelect,
+  type MultiSelectOption,
+  SectionCard,
+} from "@/components";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
 
 interface CategorizationSectionProps {
@@ -59,15 +65,18 @@ export function CategorizationSection({
             placeholder="Search maps..."
           />
         </div>
-        <div className="sm:col-span-2">
-          <FormField
-            label="Champions"
-            description="Comma-separated champion names."
+        <Field.Root className="sm:col-span-2">
+          <Field.Label className="flex items-center gap-1.5">
+            <ChampionIcon className="h-4 w-4 text-surface-400" />
+            Champions
+          </Field.Label>
+          <Field.Control
             value={championsText}
             onChange={(e) => onChampionsChange(e.target.value)}
             placeholder="Aatrox, Ahri, Zed..."
           />
-        </div>
+          <Field.Description>Comma-separated champion names.</Field.Description>
+        </Field.Root>
       </div>
     </SectionCard>
   );

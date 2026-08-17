@@ -2,7 +2,7 @@ import { PlusIcon, StarIcon, TrashIcon, UsersThreeIcon } from "@phosphor-icons/r
 import { useRef, useState } from "react";
 import { useDebounceCallback } from "usehooks-ts";
 
-import { Button, Field, IconButton, SectionCard } from "@/components";
+import { Button, EmptyState, Field, IconButton, SectionCard } from "@/components";
 import type { AuthorProfile, Settings } from "@/lib/tauri";
 
 interface AuthorProfilesSectionProps {
@@ -88,9 +88,11 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
       }
     >
       {localProfiles.length === 0 && (
-        <p className="text-sm text-surface-400">
-          No profiles yet. Add one to fill in a project&apos;s author without retyping it.
-        </p>
+        <EmptyState
+          size="sm"
+          title="No profiles yet"
+          description="Add your author profile, and use it by default."
+        />
       )}
 
       {localProfiles.length > 0 && (

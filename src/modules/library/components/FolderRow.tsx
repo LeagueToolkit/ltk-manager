@@ -2,7 +2,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { useMemo } from "react";
 
-import { Button, Checkbox } from "@/components";
+import { Button, Checkbox, EmptyState } from "@/components";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { useFolderToggle } from "@/modules/library/api";
 import { useLibraryViewStore } from "@/stores/libraryView";
@@ -66,9 +66,11 @@ export function FolderRow({
           <div className="mr-2.5 w-px shrink-0 bg-surface-600" />
           <div className="min-w-0 flex-1 py-1 pr-1">
             {mods.length === 0 ? (
-              <p className="py-3 text-center text-sm text-surface-500">
-                No mods in this folder. Drag mods here to organize them.
-              </p>
+              <EmptyState
+                size="sm"
+                title="No mods in this folder"
+                description="Drag mods here to organize them."
+              />
             ) : dndDisabled ? (
               <div className="flex flex-col gap-2">
                 {mods.map((mod) => (

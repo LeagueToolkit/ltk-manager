@@ -1,7 +1,7 @@
 import { Filter, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Checkbox, IconButton, Popover, Separator, Tooltip } from "@/components";
+import { Checkbox, EmptyState, IconButton, Popover, Separator, Tooltip } from "@/components";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
 import { useHasActiveWorkshopFilters, useWorkshopFilterStore } from "@/stores";
 
@@ -146,7 +146,7 @@ export function WorkshopFilterPopover({ filterOptions }: WorkshopFilterPopoverPr
                           />
                         ))}
                         {filteredChampions.length === 0 && (
-                          <p className="py-1 text-xs text-surface-500">No champions found</p>
+                          <EmptyState size="xs" title="No champions found" />
                         )}
                       </div>
                     </div>

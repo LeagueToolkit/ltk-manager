@@ -98,6 +98,12 @@ export function useLibraryContent({
     if (isLoading) return { type: "loading" };
     if (hasError) return { type: "error" };
 
+    // Searching and filtering hide the folders, so a zero-mod result is empty
+    // even when the library has folders to fall back on.
+    if (isFlatMode && filteredMods.length === 0) {
+      return { type: "empty", hasSearch: isSearching, hasFilters: hasActiveFilters };
+    }
+
     if (filteredMods.length === 0 && orderedUserFolders.length === 0) {
       return { type: "empty", hasSearch: isSearching, hasFilters: hasActiveFilters };
     }

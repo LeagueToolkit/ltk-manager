@@ -1,20 +1,11 @@
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import {
-  Accessibility,
-  FolderOpen,
-  Hammer,
-  Minus,
-  Settings,
-  Square,
-  Stethoscope,
-  X,
-} from "lucide-react";
+import { Accessibility, FolderOpen, Minus, Settings, Square, Stethoscope, X } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { IconButton, MaskIcon, Separator, Tooltip, useToast } from "@/components";
+import { IconButton, LootIcon, MaskIcon, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { ProfileSelector } from "@/modules/library";
@@ -23,7 +14,7 @@ import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
   { to: "/", label: "Library", icon: MaskIcon, exact: true },
-  { to: "/workshop", label: "Workshop", icon: Hammer, exact: false },
+  { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
 
 /* Two nav shapes, split by what the target is rather than by where it sits.
@@ -160,19 +151,24 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
     >
       {/* Left: App icon, title, version, and navigation */}
       <div className="flex h-full items-center" data-tauri-drag-region>
-        <div className="flex items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
-          <img src="/icon.svg" alt="LTK" className="h-5 w-5" data-tauri-drag-region />
-          <span
-            className="font-display text-sm font-bold tracking-tight text-accent-400"
-            data-tauri-drag-region
-          >
-            {title}
-          </span>
-          {version && (
-            <span className="text-xs text-surface-500" data-tauri-drag-region>
-              v{version}
+        <div className="flex shrink-0 items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
+          <img src="/icon.svg" alt="LTK" className="h-5 w-5 shrink-0" data-tauri-drag-region />
+          <div className="flex flex-col" data-tauri-drag-region>
+            <span
+              className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"
+              data-tauri-drag-region
+            >
+              {title}
             </span>
-          )}
+            {version && (
+              <span
+                className="text-[10px] leading-none whitespace-nowrap text-surface-500"
+                data-tauri-drag-region
+              >
+                v{version}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Navigation tabs */}

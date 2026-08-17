@@ -1,8 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Download, FolderOpen, Hammer, Plus, Search, Settings } from "lucide-react";
+import { Download, FolderOpen, Hammer, Plus, Settings } from "lucide-react";
 
-import { Button } from "@/components";
+import { Button, EmptyState } from "@/components";
 import type { AppError } from "@/lib/tauri";
 import { useWorkshopDialogsStore } from "@/stores";
 
@@ -72,32 +72,28 @@ export function NoProjectsState() {
   }
 
   return (
-    <div className="flex h-64 flex-col items-center justify-center text-center">
-      <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-2xl">
-        <Hammer className="h-10 w-10 text-surface-600" />
-      </div>
-      <h3 className="mb-1 text-lg font-medium text-surface-300">No projects yet</h3>
-      <p className="mb-4 text-surface-500">
-        Create a new project or import an existing mod package
-      </p>
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={handleImport} left={<Download className="h-4 w-4" />}>
-          Import
-        </Button>
-        <Button variant="filled" onClick={openNewProjectDialog} left={<Plus className="h-4 w-4" />}>
-          New Project
-        </Button>
-      </div>
-    </div>
+    <EmptyState
+      icon={<Hammer className="h-16 w-16" />}
+      title="No projects yet"
+      description="Create a new project or import an existing mod package"
+      action={
+        <>
+          <Button variant="outline" onClick={handleImport} left={<Download className="h-4 w-4" />}>
+            Import
+          </Button>
+          <Button
+            variant="filled"
+            onClick={openNewProjectDialog}
+            left={<Plus className="h-4 w-4" />}
+          >
+            New Project
+          </Button>
+        </>
+      }
+    />
   );
 }
 
 export function NoSearchResultsState() {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center text-center">
-      <Search className="mb-4 h-12 w-12 text-surface-600" />
-      <h3 className="mb-1 text-lg font-medium text-surface-300">No projects found</h3>
-      <p className="text-surface-500">Try adjusting your search query</p>
-    </div>
-  );
+  return <EmptyState title="No projects found" description="Try adjusting your search query" />;
 }

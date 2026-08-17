@@ -2,7 +2,15 @@ import { type CellContext, createColumnHelper, type FilterFn } from "@tanstack/r
 import { Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 
-import { Button, DataTable, DataTableColumnHeader, Field, IconButton, Tooltip } from "@/components";
+import {
+  Button,
+  DataTable,
+  DataTableColumnHeader,
+  EmptyState,
+  Field,
+  IconButton,
+  Tooltip,
+} from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
 
 import type { OverrideEntry, OverrideEntryField } from "../types";
@@ -171,14 +179,15 @@ export function StringOverridesTable({
       globalFilterFn={globalFilterFn}
       scrollClassName="max-h-112"
       emptyState={
-        <div className="flex flex-col items-center gap-2 px-6 py-8 text-center">
-          <p className="text-sm text-surface-400">
-            No overrides match &ldquo;{filter.trim()}&rdquo;.
-          </p>
-          <Button variant="ghost" size="sm" onClick={onClearFilter}>
-            Clear filter
-          </Button>
-        </div>
+        <EmptyState
+          size="sm"
+          title={`No overrides match "${filter.trim()}"`}
+          action={
+            <Button variant="ghost" size="sm" onClick={onClearFilter}>
+              Clear filter
+            </Button>
+          }
+        />
       }
     />
   );

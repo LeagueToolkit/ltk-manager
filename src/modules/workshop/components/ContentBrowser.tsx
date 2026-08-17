@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Spinner } from "@/components";
+import { EmptyState, Spinner } from "@/components";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 
 import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../api";
@@ -95,9 +95,11 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
         )}
 
         {data && contentLayers.length === 0 && (
-          <div className="m-3 rounded-md border border-dashed border-surface-700 px-4 py-6 text-center text-sm text-surface-400">
-            No layer folders found on disk. Add a layer from the list on the left.
-          </div>
+          <EmptyState
+            size="sm"
+            title="No layer folders on disk"
+            description="Add a layer from the list on the left."
+          />
         )}
       </div>
 
