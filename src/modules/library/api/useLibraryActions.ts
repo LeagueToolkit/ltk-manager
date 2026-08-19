@@ -5,6 +5,7 @@ import { useToast } from "@/components";
 import { api, type BulkInstallResult, type InstalledMod, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
+import { MOD_ARCHIVE_EXTENSIONS } from "./modArchive";
 import { useBulkInstallMods } from "./useBulkInstallMods";
 import { useInstallMod } from "./useInstallMod";
 import { useInstallProgress } from "./useInstallProgress";
@@ -24,10 +25,14 @@ export function useLibraryActions() {
   const [importResult, setImportResult] = useState<BulkInstallResult | null>(null);
   const { progress: installProgress, reset: resetInstallProgress } = useInstallProgress();
 
-  async function handleInstallMod() {
+  async function handleImportMods() {
     const files = await open({
       multiple: true,
-      filters: [{ name: "Mod Package", extensions: ["modpkg", "fantome"] }],
+      filters: [
+        { name: "Mod Archives", extensions: [...MOD_ARCHIVE_EXTENSIONS] },
+        { name: "Modpkg", extensions: ["modpkg"] },
+        { name: "Fantome", extensions: ["fantome", "zip"] },
+      ],
     });
 
     if (!files) return;
@@ -158,7 +163,7 @@ export function useLibraryActions() {
     installMod,
     bulkInstallMods,
     toggleMod,
-    handleInstallMod,
+    handleImportMods,
     handleBulkInstallFiles,
     handleToggleMod,
     handleSetEnabledForMods,

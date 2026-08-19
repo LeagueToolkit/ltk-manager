@@ -58,7 +58,7 @@ function mockBackend(phases: PatcherPhase[], route: LaunchRoute = "EXISTING_CLIE
         const phase = remaining.length > 1 ? remaining.shift()! : remaining[0];
         return Promise.resolve({
           ok: true,
-          value: { running: phase !== "idle", overlayPrefix: null, phase },
+          value: { running: phase !== "idle", phase, session: null },
         });
       }
       case "launch_league":

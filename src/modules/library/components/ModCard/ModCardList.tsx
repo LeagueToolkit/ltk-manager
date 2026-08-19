@@ -42,7 +42,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
     )
     .otherwise(
       () =>
-        "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-surface-600 hover:bg-surface-800/80 hover:shadow-md",
+        "border-surface-700 bg-surface-900 hover:-translate-y-px hover:border-accent-hover hover:bg-surface-800/80 hover:shadow-md",
     );
 
   return (

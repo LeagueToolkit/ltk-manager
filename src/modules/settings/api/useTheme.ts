@@ -1,6 +1,8 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 
+import { oklchHueFromHsl } from "@/lib/color";
+
 import { useSettings } from "./useSettings";
 
 /**
@@ -23,6 +25,18 @@ const ACCENT_PRESETS: Record<string, number> = {
   red: 4,
   teal: 174,
 };
+
+/** The hue behind the brand ramp, which has no preset entry to read one from. */
+const BRAND_HUE = 223;
+
+/**
+ * Degrees the surface ramp sits ahead of the accent, in OKLCH.
+ *
+ * It is the brand's own spacing, so the brand accent reproduces the authored
+ * `--surface-hue` and every other accent keeps the same relationship to its
+ * surfaces.
+ */
+const SURFACE_HUE_OFFSET = 12.5;
 
 /**
  * Hook to apply theme and accent color to the document.
@@ -66,22 +80,20 @@ export function useTheme() {
 
     // A custom hue always wins. Otherwise an unrecognised or absent preset
     // falls back to the brand, which is what a fresh install gets.
-    if (accentColor.customHue != null) {
-      root.setAttribute("data-accent", "hue");
-      root.style.setProperty("--accent-hue", String(accentColor.customHue));
-      return;
-    }
-
-    const hue = accentColor.preset ? ACCENT_PRESETS[accentColor.preset] : undefined;
+    const hue =
+      accentColor.customHue ??
+      (accentColor.preset ? ACCENT_PRESETS[accentColor.preset] : undefined);
 
     if (hue == null) {
       root.setAttribute("data-accent", LTK_PRESET);
       root.style.removeProperty("--accent-hue");
-      return;
+    } else {
+      root.setAttribute("data-accent", "hue");
+      root.style.setProperty("--accent-hue", String(hue));
     }
 
-    root.setAttribute("data-accent", "hue");
-    root.style.setProperty("--accent-hue", String(hue));
+    const surfaceHue = (oklchHueFromHsl(hue ?? BRAND_HUE) + SURFACE_HUE_OFFSET) % 360;
+    root.style.setProperty("--surface-hue", surfaceHue.toFixed(1));
   }, [accentColor]);
 
   useEffect(() => {
@@ -100,4 +112,4 @@ export function useTheme() {
   }, [backdropImage, backdropBlur]);
 }
 
-export { ACCENT_PRESETS, LTK_PRESET };
+export { ACCENT_PRESETS, BRAND_HUE, LTK_PRESET };

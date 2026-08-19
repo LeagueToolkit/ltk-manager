@@ -8,6 +8,7 @@ import { Button, Checkbox, IconButton, Menu, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
+import { useSettings } from "@/modules/settings";
 import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
 
 import { useProjectThumbnail } from "../api/useProjectThumbnail";
@@ -96,7 +97,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
     return (
       <div
         className={twMerge(
-          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-600 hover:shadow-md",
+          "group flex cursor-pointer items-center gap-4 rounded-lg border bg-surface-900 p-4 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:shadow-md",
           listBorderClass,
           isPatcherActive && !isTestingThis && "opacity-50",
         )}
@@ -201,7 +202,7 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
   return (
     <div
       className={twMerge(
-        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:bg-surface-800/80 hover:shadow-md",
+        "group relative cursor-pointer rounded-xl border bg-surface-900 transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:bg-surface-800/80 hover:shadow-md",
         gridBorderClass,
         isPatcherActive && !isTestingThis && "opacity-50",
       )}
@@ -239,8 +240,8 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
 
       <div className="flex items-start gap-1 p-3">
         <div className="min-w-0 flex-1">
-          <h3 className="mb-1 text-sm font-medium text-surface-100">
-            <span className="line-clamp-1">{project.displayName}</span>
+          <h3 className="mb-1 truncate text-sm font-medium text-surface-100">
+            {project.displayName}
           </h3>
           <ProjectPills project={project} max={3} className="mb-1" />
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
@@ -402,11 +403,14 @@ function ProjectPills({
   max: number;
   className?: string;
 }) {
+  const { data: settings } = useSettings();
+
   const pills = [
     ...project.tags.map((t) => ({ label: getTagLabel(t), color: "tag" as const })),
     ...project.champions.map((c) => ({ label: c, color: "champion" as const })),
   ];
   if (pills.length === 0) return null;
+  if (settings && !settings.showModTags) return null;
 
   const visible = pills.slice(0, max);
   const overflow = pills.length - max;

@@ -7,8 +7,7 @@ import { useLibraryFilterStore } from "@/stores";
 import { useEffectiveCategories } from "./useEffectiveCategories";
 
 export function useFilteredMods(mods: InstalledMod[], searchQuery: string): InstalledMod[] {
-  const { selectedTags, selectedChampions, selectedMaps, showOnlyEnabled, sort } =
-    useLibraryFilterStore();
+  const { selectedTags, selectedChampions, selectedMaps, sort } = useLibraryFilterStore();
   const effective = useEffectiveCategories(mods);
 
   return useMemo(() => {
@@ -19,10 +18,6 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
       result = result.filter(
         (mod) => mod.displayName.toLowerCase().includes(q) || mod.name.toLowerCase().includes(q),
       );
-    }
-
-    if (showOnlyEnabled) {
-      result = result.filter((mod) => mod.enabled);
     }
 
     // Match against declared OR footprint-derived values via effective categories.
@@ -43,14 +38,5 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
     }
 
     return sortMods(result, sort);
-  }, [
-    mods,
-    searchQuery,
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    showOnlyEnabled,
-    sort,
-    effective,
-  ]);
+  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, sort, effective]);
 }

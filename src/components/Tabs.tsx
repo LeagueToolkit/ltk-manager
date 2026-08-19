@@ -3,7 +3,7 @@ import { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-export type TabsVariant = "default" | "pills";
+export type TabsVariant = "default" | "pills" | "plain";
 
 // Root
 export interface TabsRootProps extends Omit<BaseTabs.Root.Props, "className"> {
@@ -29,6 +29,7 @@ export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
     const variantClasses = match(variant)
       .with("default", () => "border-b border-surface-700 gap-0 overflow-x-auto")
       .with("pills", () => "bg-surface-800 rounded-lg p-1 gap-1")
+      .with("plain", () => "")
       .exhaustive();
 
     return (
@@ -54,7 +55,7 @@ export interface TabsTabProps extends Omit<BaseTabs.Tab.Props, "className"> {
 export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
   ({ variant = "default", className, children, ...props }, ref) => {
     const baseClasses =
-      "relative shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
+      "relative inline-flex shrink-0 items-center whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
 
     const variantClasses = match(variant)
       .with(
@@ -67,6 +68,8 @@ export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
         () =>
           "rounded-md text-surface-400 hover:text-surface-200 data-[active]:bg-accent-500/10 data-[active]:text-accent-400",
       )
+      /* Nothing of its own: the call site draws the whole tab. */
+      .with("plain", () => "")
       .exhaustive();
 
     return (

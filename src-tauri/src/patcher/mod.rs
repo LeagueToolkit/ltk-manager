@@ -13,8 +13,8 @@
 pub mod thread;
 
 pub use ltk_manager_core::patcher::{
-    host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherStateInner,
-    PatcherThread, SessionParams, StoredPatcherConfig,
+    host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherSession,
+    PatcherStateInner, PatcherThread, SessionOrigin, SessionParams, StoredPatcherConfig,
 };
 
 use std::sync::atomic::Ordering;

@@ -21,6 +21,7 @@ import {
 import type { InstalledMod } from "@/lib/tauri";
 import { useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
+import { useSettings } from "@/modules/settings";
 
 import type { ModCardView } from "./useModCardController";
 
@@ -177,6 +178,7 @@ export function ModPills({
   className?: string;
 }) {
   const eff = useModEffectiveCategories(mod);
+  const { data: settings } = useSettings();
 
   const declared: DeclaredPill[] = [
     ...mod.tags.map((t) => ({ label: getTagLabel(t), tone: "tag" as const, key: `tag:${t}` })),
@@ -202,6 +204,7 @@ export function ModPills({
 
   const total = declared.length + auto.length;
   if (total === 0) return null;
+  if (settings && !settings.showModTags) return null;
 
   // Declared pills get first claim on the budget so they never collapse before
   // the lower-confidence auto pills.

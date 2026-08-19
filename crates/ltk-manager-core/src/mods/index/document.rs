@@ -188,7 +188,7 @@ impl ModArchiveFormat {
     pub(crate) fn from_extension(ext: &str) -> Option<Self> {
         match ext.to_ascii_lowercase().as_str() {
             "modpkg" => Some(Self::Modpkg),
-            "fantome" => Some(Self::Fantome),
+            "fantome" | "zip" => Some(Self::Fantome),
             _ => None,
         }
     }
@@ -437,6 +437,23 @@ mod tests {
     fn mod_archive_format_extension() {
         assert_eq!(ModArchiveFormat::Fantome.extension(), "fantome");
         assert_eq!(ModArchiveFormat::Modpkg.extension(), "modpkg");
+    }
+
+    #[test]
+    fn mod_archive_format_from_extension() {
+        assert_eq!(
+            ModArchiveFormat::from_extension("modpkg"),
+            Some(ModArchiveFormat::Modpkg)
+        );
+        assert_eq!(
+            ModArchiveFormat::from_extension("FANTOME"),
+            Some(ModArchiveFormat::Fantome)
+        );
+        assert_eq!(
+            ModArchiveFormat::from_extension("zip"),
+            Some(ModArchiveFormat::Fantome)
+        );
+        assert_eq!(ModArchiveFormat::from_extension("rar"), None);
     }
 
     #[test]

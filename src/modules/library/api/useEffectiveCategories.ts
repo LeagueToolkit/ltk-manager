@@ -6,6 +6,12 @@ import { useSettings } from "@/modules/settings";
 
 import { useAllModWadReports } from "./useModWadReport";
 
+/** Whether a mod's footprint may contribute categories. */
+function useDerivedCategoriesEnabled(): boolean {
+  const { data: settings } = useSettings();
+  return settings?.autoCategorizationEnabled ?? true;
+}
+
 /**
  * Join each mod with its (sparse) WAD-footprint report to produce its
  * "effective" categories — declared metadata unioned with values derived from
@@ -17,16 +23,18 @@ import { useAllModWadReports } from "./useModWadReport";
  */
 export function useEffectiveCategories(mods: InstalledMod[]): Map<string, EffectiveCategories> {
   const { data: reports } = useAllModWadReports();
-  const { data: settings } = useSettings();
-  const autoEnabled = settings?.autoCategorizationEnabled ?? true;
+  const derivedEnabled = useDerivedCategoriesEnabled();
 
   return useMemo(() => {
     const map = new Map<string, EffectiveCategories>();
     for (const mod of mods) {
-      map.set(mod.id, computeEffectiveCategories(mod, autoEnabled ? reports?.[mod.id] : undefined));
+      map.set(
+        mod.id,
+        computeEffectiveCategories(mod, derivedEnabled ? reports?.[mod.id] : undefined),
+      );
     }
     return map;
-  }, [mods, reports, autoEnabled]);
+  }, [mods, reports, derivedEnabled]);
 }
 
 /**
@@ -35,11 +43,10 @@ export function useEffectiveCategories(mods: InstalledMod[]): Map<string, Effect
  */
 export function useModEffectiveCategories(mod: InstalledMod): EffectiveCategories {
   const { data: reports } = useAllModWadReports();
-  const { data: settings } = useSettings();
-  const autoEnabled = settings?.autoCategorizationEnabled ?? true;
+  const derivedEnabled = useDerivedCategoriesEnabled();
 
   return useMemo(
-    () => computeEffectiveCategories(mod, autoEnabled ? reports?.[mod.id] : undefined),
-    [mod, reports, autoEnabled],
+    () => computeEffectiveCategories(mod, derivedEnabled ? reports?.[mod.id] : undefined),
+    [mod, reports, derivedEnabled],
   );
 }

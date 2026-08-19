@@ -1,17 +1,40 @@
-import { CheckCheck, CheckSquare, Grid3X3, List, Plus, Search, X } from "lucide-react";
+import {
+  DownloadSimpleIcon,
+  GridFourIcon,
+  ListIcon,
+  MagnifyingGlassIcon,
+} from "@phosphor-icons/react";
 
-import { Button, IconButton, Kbd, Tooltip } from "@/components";
+import {
+  Button,
+  Field,
+  FieldAffix,
+  fieldAffixButtonClass,
+  Kbd,
+  SegmentedControl,
+  type SegmentedOption,
+  Separator,
+  Toolbar,
+  ToolbarRow,
+  Tooltip,
+} from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import type { FilterOptions } from "@/modules/library/api";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
-import { useLibrarySelectionStore } from "@/stores";
 
 import { ActiveFilterChips } from "./ActiveFilterChips";
-import { AnalyzeUncategorizedButton } from "./AnalyzeUncategorizedButton";
+import { AnalyzeUncategorizedAction } from "./AnalyzeUncategorizedAction";
 import { FilterPopover } from "./FilterPopover";
 import { PlayButton } from "./PlayButton";
-import { SortDropdown } from "./SortDropdown";
+import { ProfileSelector } from "./ProfileSelector";
+import { SelectionButton } from "./SelectionButton";
+import { ViewOptionsPopover } from "./ViewOptionsPopover";
+
+const VIEW_OPTIONS: SegmentedOption<"grid" | "list">[] = [
+  { value: "grid", label: <GridFourIcon weight="bold" className="h-4 w-4" />, name: "Grid view" },
+  { value: "list", label: <ListIcon weight="bold" className="h-4 w-4" />, name: "List view" },
+];
 
 interface LibraryToolbarProps {
   searchQuery: string;
@@ -33,122 +56,74 @@ export function LibraryToolbar({
   visibleMods,
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
-  const enterSelectMode = useLibrarySelectionStore((s) => s.enterSelectMode);
-  const exitSelectMode = useLibrarySelectionStore((s) => s.exitSelectMode);
-  const visibleEnabledCount = visibleMods.reduce((n, m) => n + (m.enabled ? 1 : 0), 0);
-  const canEnableAll = visibleMods.length > 0 && visibleEnabledCount < visibleMods.length;
-  const canDisableAll = visibleEnabledCount > 0;
-  const bulkDisabled = isPatcherActive || isLoading || actions.toggleMod.isPending;
+  const isInstalling = actions.installMod.isPending || actions.bulkInstallMods.isPending;
+  const importLabel = isInstalling ? "Importing..." : "Import";
 
   return (
-    <div className="border-b border-surface-600 bg-surface-800/50 px-4 py-3" data-tauri-drag-region>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        {/* Search */}
-        <div className="relative min-w-[180px] flex-1">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
-          <input
+    <Toolbar>
+      <ToolbarRow>
+        <div className="relative flex min-w-[180px] flex-1 items-center">
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-500" />
+          <Field.Control
             type="text"
             placeholder="Search mods..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-8 w-full rounded-lg border border-surface-600 bg-surface-800 pr-4 pl-10 text-sm text-surface-100 transition-colors duration-150 placeholder:text-surface-500 focus-visible:border-accent-500 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-0 focus-visible:outline-none"
+            className="pr-10 pl-9"
           />
+          <FieldAffix>
+            <FilterPopover filterOptions={filterOptions} className={fieldAffixButtonClass} />
+          </FieldAffix>
         </div>
 
-        <FilterPopover filterOptions={filterOptions} />
+        <ProfileSelector />
 
-        <SortDropdown />
+        <SelectionButton
+          actions={actions}
+          visibleMods={visibleMods}
+          disabled={isPatcherActive || isLoading}
+        />
 
-        {/* View toggle */}
-        <div className="flex items-center gap-1">
-          <Tooltip content="Grid view">
-            <IconButton
-              icon={<Grid3X3 className="h-4 w-4" />}
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("grid")}
-            />
-          </Tooltip>
-          <Tooltip content="List view">
-            <IconButton
-              icon={<List className="h-4 w-4" />}
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-            />
-          </Tooltip>
-        </div>
+        <AnalyzeUncategorizedAction disabled={isPatcherActive || isLoading} />
 
-        {/* Bulk toggle */}
-        <div className="flex items-center gap-1">
-          <Tooltip content="Enable every mod matching the current search/filters">
-            <IconButton
-              icon={<CheckCheck className="h-4 w-4" />}
-              variant="ghost"
-              size="sm"
-              onClick={() => actions.handleSetEnabledForMods(visibleMods, true)}
-              disabled={bulkDisabled || !canEnableAll}
-              aria-label="Enable all visible mods"
-            />
-          </Tooltip>
-          <Tooltip content="Disable every mod matching the current search/filters">
-            <IconButton
-              icon={<X className="h-4 w-4" />}
-              variant="ghost"
-              size="sm"
-              onClick={() => actions.handleSetEnabledForMods(visibleMods, false)}
-              disabled={bulkDisabled || !canDisableAll}
-              aria-label="Disable all visible mods"
-            />
-          </Tooltip>
-          <AnalyzeUncategorizedButton disabled={isPatcherActive || isLoading} />
-        </div>
+        <SegmentedControl
+          options={VIEW_OPTIONS}
+          value={viewMode}
+          onChange={setViewMode}
+          action={<ViewOptionsPopover />}
+        />
 
-        {/* Select mode toggle */}
-        <Tooltip
-          content={
-            selectMode
-              ? "Exit select mode"
-              : "Select mods to bulk-uninstall (combine with search/filters to narrow down)"
-          }
-        >
-          <Button
-            variant={selectMode ? "filled" : "outline"}
-            size="sm"
-            onClick={selectMode ? exitSelectMode : enterSelectMode}
-            disabled={isPatcherActive || isLoading}
-            left={<CheckSquare className="h-4 w-4" />}
+        <Separator orientation="vertical" />
+
+        <div className="flex items-center gap-5">
+          <Tooltip
+            content={
+              <>
+                Import mods <Kbd shortcut="Ctrl+I" />
+              </>
+            }
           >
-            Select
-          </Button>
-        </Tooltip>
+            <Button
+              variant="light"
+              size="sm"
+              onClick={actions.handleImportMods}
+              loading={isInstalling}
+              disabled={isPatcherActive}
+              aria-label="Import mods"
+              left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+              /* Narrow windows wrap the toolbar onto a second row, so the label
+                 drops and the button squares off to its icon. */
+              className="max-lg:w-8 max-lg:gap-0 max-lg:px-0"
+            >
+              <span className="max-lg:hidden">{importLabel}</span>
+            </Button>
+          </Tooltip>
 
-        {/* Actions */}
-        <Tooltip
-          content={
-            <>
-              Add mod <Kbd shortcut="Ctrl+I" />
-            </>
-          }
-        >
-          <Button
-            variant="filled"
-            size="sm"
-            onClick={actions.handleInstallMod}
-            loading={actions.installMod.isPending || actions.bulkInstallMods.isPending}
-            disabled={isPatcherActive}
-            left={<Plus className="h-4 w-4" />}
-          >
-            {actions.installMod.isPending || actions.bulkInstallMods.isPending
-              ? "Installing..."
-              : "Add Mod"}
-          </Button>
-        </Tooltip>
+          <PlayButton disabled={isInstalling} />
+        </div>
+      </ToolbarRow>
 
-        <PlayButton disabled={actions.installMod.isPending || actions.bulkInstallMods.isPending} />
-      </div>
       <ActiveFilterChips />
-    </div>
+    </Toolbar>
   );
 }

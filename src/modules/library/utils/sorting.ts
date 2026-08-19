@@ -1,6 +1,14 @@
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import type { SortConfig } from "@/stores/libraryFilter";
 
+/** Alphabetically first champion of a mod, or null when it names none. */
+function championKey(mod: InstalledMod): string | null {
+  if (mod.champions.length === 0) return null;
+  return mod.champions.reduce((first, champion) =>
+    champion.localeCompare(first) < 0 ? champion : first,
+  );
+}
+
 export function sortMods(mods: InstalledMod[], sort: SortConfig): InstalledMod[] {
   if (sort.field === "priority") return mods;
 
@@ -11,6 +19,18 @@ export function sortMods(mods: InstalledMod[], sort: SortConfig): InstalledMod[]
     switch (sort.field) {
       case "name":
         return dir * a.displayName.localeCompare(b.displayName);
+      case "champion": {
+        const championA = championKey(a);
+        const championB = championKey(b);
+        // Champion-less mods sink to the bottom either way round.
+        if (championA === null || championB === null) {
+          if (championA !== championB) return championA === null ? 1 : -1;
+          return a.displayName.localeCompare(b.displayName);
+        }
+        const byChampion = championA.localeCompare(championB);
+        if (byChampion !== 0) return dir * byChampion;
+        return a.displayName.localeCompare(b.displayName);
+      }
       case "installedAt":
         return dir * (new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime());
       case "enabled":

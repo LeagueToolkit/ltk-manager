@@ -1,11 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { EmptyState, Spinner } from "@/components";
+import { Button, EmptyState, Spinner } from "@/components";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
+import { EditorSurface } from "@/modules/editor";
+import { useLayerPanelOpen, useLayerPanelSide, useSetLayerPanelOpen } from "@/stores";
 
 import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../api";
-import { ContentBrowserLayerRail } from "./ContentBrowserLayerRail";
-import { ContentBrowserLayerSection } from "./ContentBrowserLayerSection";
+import { detailsDocument, filesDocument, layerTitle, useContentEditors } from "../documents";
+import {
+  useActivateDocument,
+  useActiveDocumentId,
+  useCloseDocument,
+  useDirtyDocumentIds,
+  useOpenDocument,
+  useOpenDocuments,
+  useReorderDocuments,
+  useSelectedLayerName,
+} from "../state";
+import { isProjectUnconfigured } from "../utils/project";
+import { ContentLayoutPopover } from "./ContentLayoutPopover";
+import { ContentSidebar } from "./ContentSidebar";
 import { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 
 interface ContentBrowserProps {
@@ -14,33 +28,43 @@ interface ContentBrowserProps {
 
 export function ContentBrowser({ project }: ContentBrowserProps) {
   const projectPath = project.path;
-  const { data, error, isLoading, isFetching, refetch } = useProjectContentTree(projectPath);
+  const { data, error, isLoading } = useProjectContentTree(projectPath);
 
-  const [selectedLayerName, setSelectedLayerName] = useState<string>(
-    () => project.layers[0]?.name ?? "base",
-  );
+  const layerPanelSide = useLayerPanelSide();
+  const layerPanelOpen = useLayerPanelOpen();
+  const setLayerPanelOpen = useSetLayerPanelOpen();
+
+  const documents = useOpenDocuments();
+  const activeId = useActiveDocumentId();
+  const openDocument = useOpenDocument();
+  const activateDocument = useActivateDocument();
+  const closeDocument = useCloseDocument();
+  const reorderDocuments = useReorderDocuments();
+  const dirtyIds = useDirtyDocumentIds();
+  const selectedLayerName = useSelectedLayerName();
+  const editors = useContentEditors();
 
   const contentLayers = useMemo<readonly LayerContent[]>(() => data?.layers ?? [], [data]);
 
-  const selectedLayer = useMemo<LayerContent | null>(() => {
-    const match = contentLayers.find((l) => l.name === selectedLayerName);
-    if (match) return match;
-    return contentLayers[0] ?? null;
-  }, [contentLayers, selectedLayerName]);
+  const selectedLayer = contentLayers.find((layer) => layer.name === selectedLayerName) ?? null;
+  const selectedLayerDisplayName = selectedLayerName ? layerTitle(project, selectedLayerName) : "";
 
+  /* Something opens on the first visit, so the pane is never blank for someone
+     who has not opened anything yet. A project nobody has filled in gets its
+     details, which is the work a fresh one needs. Closing every tab is left alone. */
+  const bootstrapped = useRef(false);
   useEffect(() => {
-    // Keep selection in sync with what the content scan actually returned,
-    // so renames/deletes elsewhere don't leave a dangling highlight.
-    if (selectedLayer && selectedLayer.name !== selectedLayerName) {
-      setSelectedLayerName(selectedLayer.name);
-    }
-  }, [selectedLayer, selectedLayerName]);
+    if (bootstrapped.current || documents.length > 0) return;
+    bootstrapped.current = true;
 
-  const selectedLayerDisplayName = useMemo(() => {
-    if (!selectedLayer) return "";
-    const layerMeta = project.layers.find((l) => l.name === selectedLayer.name);
-    return layerMeta?.displayName ?? selectedLayer.name;
-  }, [project.layers, selectedLayer]);
+    if (isProjectUnconfigured(project)) {
+      openDocument(detailsDocument());
+      return;
+    }
+
+    const first = project.layers[0];
+    if (first) openDocument(filesDocument(first.name));
+  }, [documents.length, project, openDocument]);
 
   const addFilesToLayer = useAddFilesToLayer();
 
@@ -60,50 +84,101 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const isDragOver = useLayerFileDrop(handleDrop);
   const showDropOverlay = isDragOver && selectedLayer !== null;
 
-  return (
-    <div className="relative flex h-full min-h-0">
-      <ContentBrowserLayerRail
-        project={project}
-        contentLayers={contentLayers}
-        selectedLayerName={selectedLayerName}
-        onSelect={setSelectedLayerName}
+  /* Keyed panes rather than flex-row-reverse, so the reading order follows the
+     layout and a side switch reorders the two instead of remounting them. */
+  const sidebar = layerPanelOpen && (
+    <ContentSidebar
+      key="sidebar"
+      project={project}
+      contentLayers={contentLayers}
+      selectedLayer={selectedLayer}
+      selectedLayerName={selectedLayerName}
+      selectedLayerDisplayName={selectedLayerDisplayName}
+      onSelect={(layerName) => openDocument(filesDocument(layerName))}
+    />
+  );
+
+  const surface = (
+    <div
+      key="surface"
+      data-ui="ContentBrowser:surface"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-xl"
+    >
+      {isLoading && (
+        <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
+          <Spinner size="sm" />
+          Scanning project…
+        </div>
+      )}
+
+      {error && (
+        <div className="m-3 rounded-md border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-danger-text">
+          Couldn&rsquo;t read the content directory: {error.message}
+        </div>
+      )}
+
+      <EditorSurface
+        documents={documents}
+        activeId={activeId}
+        registry={editors}
+        dirtyIds={dirtyIds}
+        onActivate={activateDocument}
+        onClose={closeDocument}
+        onReorder={reorderDocuments}
+        actions={<ContentLayoutPopover />}
+        empty={
+          <NothingOpenState
+            hasLayers={project.layers.length > 0}
+            sidebarOpen={layerPanelOpen}
+            onShowSidebar={() => setLayerPanelOpen(true)}
+          />
+        }
       />
+    </div>
+  );
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-900/95">
-        {isLoading && (
-          <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
-            <Spinner size="sm" />
-            Scanning project…
-          </div>
-        )}
+  const panes = layerPanelSide === "right" ? [surface, sidebar] : [sidebar, surface];
 
-        {error && (
-          <div className="m-3 rounded-md border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-danger-text">
-            Couldn&rsquo;t read the content directory: {error.message}
-          </div>
-        )}
-
-        {selectedLayer && (
-          <ContentBrowserLayerSection
-            key={selectedLayer.name}
-            projectPath={projectPath}
-            layer={selectedLayer}
-            layerDisplayName={selectedLayerDisplayName}
-            isRefreshing={isFetching}
-            onRefresh={() => refetch()}
-          />
-        )}
-
-        {data && contentLayers.length === 0 && (
-          <EmptyState
-            size="sm"
-            title="No layer folders on disk"
-            description="Add a layer from the list on the left."
-          />
-        )}
-      </div>
-
+  return (
+    <div data-ui="ContentBrowser" className="relative flex h-full min-h-0 gap-1.5 rounded-xl p-1.5">
+      {panes}
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
     </div>
+  );
+}
+
+interface NothingOpenStateProps {
+  hasLayers: boolean;
+  sidebarOpen: boolean;
+  onShowSidebar: () => void;
+}
+
+function NothingOpenState({ hasLayers, sidebarOpen, onShowSidebar }: NothingOpenStateProps) {
+  const action = !sidebarOpen && (
+    <Button variant="outline" size="sm" onClick={onShowSidebar}>
+      Show sidebar
+    </Button>
+  );
+
+  if (!hasLayers) {
+    return (
+      <EmptyState
+        size="sm"
+        className="h-full"
+        title="No layers yet"
+        description="Add a layer from the sidebar"
+        action={action}
+      />
+    );
+  }
+
+  return (
+    <EmptyState
+      size="sm"
+      className="h-full"
+      title="Nothing open"
+      description="Pick a layer or a locale from the sidebar"
+      action={action}
+    />
   );
 }

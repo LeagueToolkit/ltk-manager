@@ -6,7 +6,7 @@
    Brand Palette
    ============================================ */
 
-/* The logo colours. */
+/* The logo colors. */
 :root {
   --ltk-blue: #4b7dfa;
   --ltk-violet: #7d4bfa;
@@ -17,7 +17,7 @@
    Status Palette
    ============================================ */
 
-/* State colours, for components that derive their look from state. */
+/* State colors, for components that derive their look from state. */
 :root {
   --ltk-success: #22c55e;
   --ltk-warning: #f59e0b;
@@ -32,11 +32,21 @@
   --ltk-danger-strong: #dc2626;
   --ltk-required: #f193a9;
 
-  /* Colours for mod category pills. */
+  /* Colors for mod category pills. */
   --ltk-cat-champion: #34d399;
   --ltk-cat-map: #38bdf8;
   --ltk-cat-champion-text: var(--ltk-cat-champion);
   --ltk-cat-map-text: var(--ltk-cat-map);
+
+  /* Colors for the kinds of document an editor tab can hold. */
+  --ltk-doc-details: #a78bfa;
+  --ltk-doc-base: #fbbf24;
+  --ltk-doc-layer: #38bdf8;
+  --ltk-doc-strings: #34d399;
+  --ltk-doc-details-text: var(--ltk-doc-details);
+  --ltk-doc-base-text: var(--ltk-doc-base);
+  --ltk-doc-layer-text: var(--ltk-doc-layer);
+  --ltk-doc-strings-text: var(--ltk-doc-strings);
 }
 
 [data-theme="light"] {
@@ -47,6 +57,10 @@
   --ltk-required: #ad3a58;
   --ltk-cat-champion-text: color-mix(in srgb, var(--ltk-cat-champion) 50%, black);
   --ltk-cat-map-text: color-mix(in srgb, var(--ltk-cat-map) 50%, black);
+  --ltk-doc-details-text: color-mix(in srgb, var(--ltk-doc-details) 50%, black);
+  --ltk-doc-base-text: color-mix(in srgb, var(--ltk-doc-base) 50%, black);
+  --ltk-doc-layer-text: color-mix(in srgb, var(--ltk-doc-layer) 50%, black);
+  --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
 }
 
 /* ============================================
@@ -133,37 +147,62 @@
   --accent-900: #e8f0ff;
 }
 
+/* The accent, dimmed toward the border rung. Resolves against whichever
+   ramp and theme won above. */
+:root {
+  --accent-hover: color-mix(in srgb, var(--accent-500) 55%, var(--surface-600));
+}
+
 /* ============================================
    Surfaces
    ============================================ */
 
-/* Neutrals. 950 is the page ground, and every other surface layers up from it. */
+/* Neutrals. 950 is the page ground, and every other surface layers up from it.
+   Lightness is fixed per rung. Two axes move, both written by the app: the hue
+   the accent hands down, and a scale over every rung's authored chroma at once.
+   At 0 the ramp is grey and no accent bleeds into the neutrals.
+
+   The chroma written on each rung is the brand ramp's own, measured off a
+   blue-violet hue where OKLCH under-reports how colorful a surface looks.
+   Rotated onto a warm hue it reads as a tinted panel rather than a neutral, so
+   the default scale pulls every rung back inside one JND of grey. Keep this in
+   step with the store's default or the first paint flashes the wrong ramp. */
 :root {
-  --surface-950: #0c0d18;
-  --surface-900: #14152a;
-  --surface-800: #1e2035;
-  --surface-700: #25283c;
-  --surface-600: #33364a;
-  --surface-500: #4e536a;
-  --surface-400: #8189a6;
-  --surface-300: #aeb4ca;
-  --surface-200: #d3d7e4;
-  --surface-100: #f0f2f8;
-  --surface-50: #ffffff;
+  --surface-hue: 276;
+  --surface-tint: 0.3;
+
+  --surface-950: oklch(16.4% calc(0.023 * var(--surface-tint)) var(--surface-hue));
+  --surface-900: oklch(20.7% calc(0.041 * var(--surface-tint)) var(--surface-hue));
+  --surface-800: oklch(25.2% calc(0.04 * var(--surface-tint)) var(--surface-hue));
+  --surface-700: oklch(28.3% calc(0.037 * var(--surface-tint)) var(--surface-hue));
+  --surface-600: oklch(32.9% calc(0.055 * var(--surface-tint)) var(--surface-hue));
+  --surface-500: oklch(43.1% calc(0.058 * var(--surface-tint)) var(--surface-hue));
+  --surface-400: oklch(63.4% calc(0.045 * var(--surface-tint)) var(--surface-hue));
+  --surface-300: oklch(77.2% calc(0.032 * var(--surface-tint)) var(--surface-hue));
+  --surface-200: oklch(88% calc(0.018 * var(--surface-tint)) var(--surface-hue));
+  --surface-100: oklch(96.1% calc(0.008 * var(--surface-tint)) var(--surface-hue));
+  --surface-50: oklch(100% 0 var(--surface-hue));
+}
+
+/* The fill a control with no surface of its own draws on hover and on press. */
+:root {
+  --surface-veil-soft: color-mix(in srgb, var(--surface-100) 6%, transparent);
+  --surface-veil: color-mix(in srgb, var(--surface-100) 12%, transparent);
+  --surface-veil-strong: color-mix(in srgb, var(--surface-100) 20%, transparent);
 }
 
 [data-theme="light"] {
-  --surface-950: #fafbfc;
-  --surface-900: #f0f2f5;
-  --surface-800: #e0e3ea;
-  --surface-700: #d2d6e0;
-  --surface-600: #c4c8d4;
-  --surface-500: #8b8fa3;
-  --surface-400: #676b80;
-  --surface-300: #4f5366;
-  --surface-200: #33364a;
-  --surface-100: #1a1c2e;
-  --surface-50: #0c0d18;
+  --surface-950: oklch(98.8% calc(0.002 * var(--surface-tint)) var(--surface-hue));
+  --surface-900: oklch(96% calc(0.005 * var(--surface-tint)) var(--surface-hue));
+  --surface-800: oklch(91.6% calc(0.01 * var(--surface-tint)) var(--surface-hue));
+  --surface-700: oklch(87.6% calc(0.014 * var(--surface-tint)) var(--surface-hue));
+  --surface-600: oklch(82.8% calc(0.024 * var(--surface-tint)) var(--surface-hue));
+  --surface-500: oklch(64.5% calc(0.041 * var(--surface-tint)) var(--surface-hue));
+  --surface-400: oklch(53.2% calc(0.033 * var(--surface-tint)) var(--surface-hue));
+  --surface-300: oklch(44.6% calc(0.032 * var(--surface-tint)) var(--surface-hue));
+  --surface-200: oklch(33.9% calc(0.035 * var(--surface-tint)) var(--surface-hue));
+  --surface-100: oklch(23.4% calc(0.035 * var(--surface-tint)) var(--surface-hue));
+  --surface-50: oklch(16.4% calc(0.023 * var(--surface-tint)) var(--surface-hue));
 }
 
 /* ============================================
@@ -188,11 +227,11 @@
   --space-012: calc(12 * 4.5px * var(--zoom-scale));
 
   /* Corner radius. 006 is a pill, not a rung on the scale. */
-  --radius-001: 2px;
-  --radius-002: 4px;
-  --radius-003: 6px;
-  --radius-004: 9px;
-  --radius-005: 13px;
+  --radius-001: 3px;
+  --radius-002: 6px;
+  --radius-003: 9px;
+  --radius-004: 12px;
+  --radius-005: 18px;
   --radius-006: 9999px;
 
   /* Icon sizes */
@@ -207,10 +246,10 @@
   /* Elevation, dark-first. Light mode softens it below. */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.6);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.4), 0 1px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 3px 8px -2px rgb(0 0 0 / 0.4), 0 1px 12px -4px rgb(0 0 0 / 0.4);
+  --shadow-xl: 0 4px 12px -3px rgb(0 0 0 / 0.5), 0 2px 20px -6px rgb(0 0 0 / 0.5);
+  --shadow-2xl: 0 8px 28px -8px rgb(0 0 0 / 0.6);
   --shadow-glass: 0 8px 32px rgb(0 0 0 / 0.3);
 
   /* Z-index layers */
@@ -232,33 +271,33 @@
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.34, 1.18, 0.64, 1);
 }
 
 /* The one axis a user may bend the radius scale on. 006 stays a pill either way. */
 [data-corners="sharp"] {
   --radius-001: 0px;
   --radius-002: 0px;
-  --radius-003: 2px;
-  --radius-004: 3px;
-  --radius-005: 4px;
+  --radius-003: 0px;
+  --radius-004: 0px;
+  --radius-005: 0px;
 }
 
 [data-corners="round"] {
-  --radius-001: 4px;
-  --radius-002: 8px;
-  --radius-003: 12px;
-  --radius-004: 16px;
-  --radius-005: 22px;
+  --radius-001: 5px;
+  --radius-002: 10px;
+  --radius-003: 15px;
+  --radius-004: 20px;
+  --radius-005: 28px;
 }
 
 [data-theme="light"] {
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.1), 0 1px 6px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 3px 8px -2px rgb(0 0 0 / 0.1), 0 1px 12px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 4px 12px -3px rgb(0 0 0 / 0.1), 0 2px 20px -6px rgb(0 0 0 / 0.1);
+  --shadow-2xl: 0 8px 28px -8px rgb(0 0 0 / 0.25);
   --shadow-glass: 0 8px 32px rgb(0 0 0 / 0.12);
 }
 
@@ -356,8 +395,8 @@ samp {
    Zoom-Scaled Card Widths
    ============================================ */
 :root {
-  --card-min-w: calc(180px * var(--zoom-scale, 1));
-  --card-max-w: calc(240px * var(--zoom-scale, 1));
+  --card-min-w: calc(180px * var(--zoom-scale, 1) * var(--card-scale, 1));
+  --card-max-w: calc(240px * var(--zoom-scale, 1) * var(--card-scale, 1));
 }
 
 /* ============================================
@@ -370,6 +409,15 @@ samp {
   animation-duration: 0.01ms !important;
   animation-delay: 0ms !important;
   transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ============================================
+   Scroll Behaviour
+   Applied via [data-scroll-mode] attribute on <html>
+   ============================================ */
+[data-scroll-mode] * {
+  scroll-behavior: smooth;
 }
 
 /* ============================================
@@ -475,8 +523,8 @@ samp {
 
 /* Wallpaper costs the muted rungs contrast, so lift them. */
 .backdrop-active:not([data-theme="light"]) {
-  --surface-400: #9ba2bb;
-  --surface-500: #6b7189;
+  --surface-400: oklch(71.5% calc(0.037 * var(--surface-tint)) var(--surface-hue));
+  --surface-500: oklch(55.2% calc(0.038 * var(--surface-tint)) var(--surface-hue));
 }
 
 .backdrop-active[data-theme="light"] main {

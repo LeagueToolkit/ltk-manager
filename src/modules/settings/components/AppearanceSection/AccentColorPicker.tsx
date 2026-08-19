@@ -1,11 +1,8 @@
 import { Popover, Tooltip } from "@/components";
 import type { Settings } from "@/lib/tauri";
 
-import { ACCENT_PRESETS, LTK_PRESET } from "../../api";
+import { ACCENT_PRESETS, BRAND_HUE, LTK_PRESET } from "../../api";
 import { useDebouncedSlider } from "./useDebouncedSlider";
-
-/** Hue the custom slider opens on when the brand preset is active. */
-const BRAND_HUE = 223;
 
 const HUE_WHEEL = `conic-gradient(
   hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%),

@@ -24,7 +24,7 @@ export const Kbd = forwardRef<HTMLElement, KbdProps>(
         {keys.map((key, i) => (
           <kbd
             key={i}
-            className="inline-flex items-center justify-center rounded border border-b-2 border-surface-600 border-b-surface-500 bg-surface-800 px-1 font-mono leading-none text-surface-400"
+            className="inline-flex items-center justify-center rounded-sm border border-b-2 border-surface-600 border-b-surface-500 bg-surface-700 px-1 font-mono leading-none text-surface-300"
           >
             {key}
           </kbd>

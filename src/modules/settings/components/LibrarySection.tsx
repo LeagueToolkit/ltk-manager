@@ -47,6 +47,18 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
+          title="Show footprint"
+          description="Shows the cache footprint of each mod in the library."
+          hint="Opens the full list of patched WADs"
+          control={
+            <Switch
+              checked={settings.showWadFootprint}
+              onCheckedChange={(checked) => onSave({ ...settings, showWadFootprint: checked })}
+            />
+          }
+        />
+
+        <SettingRow
           title={
             <>
               Watch for external changes
@@ -65,10 +77,13 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
 
         <Separator className="my-0" />
 
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium text-surface-200">Trusted mod providers</span>
-          <TrustedDomainsEditor settings={settings} onSave={onSave} />
-        </div>
+        <SettingRow
+          kind="action"
+          layout="stacked"
+          title="Trusted mod providers"
+          description="One-click links only install from these domains. Remove all of them to allow any source."
+          control={<TrustedDomainsEditor settings={settings} onSave={onSave} />}
+        />
       </div>
     </SectionCard>
   );

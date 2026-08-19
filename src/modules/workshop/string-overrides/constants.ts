@@ -1,3 +1,5 @@
+export const DEFAULT_LOCALE = "default";
+
 export const LOCALES = [
   { value: "default", label: "Default (All Locales)" },
   { value: "en_us", label: "English (US)" },

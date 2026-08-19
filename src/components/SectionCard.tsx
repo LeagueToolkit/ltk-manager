@@ -8,6 +8,8 @@ interface SectionCardProps {
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** Re-grounds the panel, for a card that sits on something other than the page. */
+  panelClassName?: string;
 }
 
 /**
@@ -22,6 +24,7 @@ export function SectionCard({
   action,
   children,
   className,
+  panelClassName,
 }: SectionCardProps) {
   return (
     <section className={twMerge("space-y-2", className)}>
@@ -35,7 +38,12 @@ export function SectionCard({
         </div>
         {action}
       </div>
-      <div className="rounded-xl border border-surface-700/50 bg-surface-900/95 p-5">
+      <div
+        className={twMerge(
+          "rounded-xl border border-surface-700/50 bg-surface-900/95 p-5",
+          panelClassName,
+        )}
+      >
         {children}
       </div>
     </section>

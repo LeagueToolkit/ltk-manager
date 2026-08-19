@@ -1,4 +1,3 @@
-export { LayerOverrideBadge } from "./LayerOverrideBadge";
 export { StringKeyField } from "./StringKeyField";
 export { StringOverridesEmptyState } from "./StringOverridesEmptyState";
 export { StringOverridesHelpPopover } from "./StringOverridesHelpPopover";

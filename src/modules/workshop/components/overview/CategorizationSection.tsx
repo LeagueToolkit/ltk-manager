@@ -41,6 +41,7 @@ export function CategorizationSection({
       title="Categorization"
       icon={<Tags className="h-4 w-4" />}
       description="Help users find your mod by adding tags, maps, and champions."
+      panelClassName="bg-surface-800"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">

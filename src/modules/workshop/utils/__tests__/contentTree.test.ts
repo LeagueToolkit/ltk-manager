@@ -6,9 +6,11 @@ import {
   allDirPaths,
   buildContentTree,
   buildDirFileCounts,
+  buildLayerWads,
   type DirNode,
   type FileNode,
   flattenTree,
+  nodeCovers,
 } from "../contentTree";
 
 function entry(relativePath: string, sizeBytes = 0): ContentEntry {
@@ -32,7 +34,7 @@ describe("buildContentTree", () => {
   });
 
   it("nests files under intermediate directories", () => {
-    const tree = buildContentTree([entry("assets/textures/skin.dds")]);
+    const tree = buildContentTree([entry("assets/textures/skin.dds"), entry("assets/meta.json")]);
     expect(tree).toHaveLength(1);
 
     const assets = tree[0] as DirNode;
@@ -83,18 +85,84 @@ describe("buildContentTree", () => {
   });
 });
 
-describe("flattenTree", () => {
-  it("returns only top-level rows when nothing is expanded", () => {
-    const tree = buildContentTree([entry("a/file.bin"), entry("b/nested/x.bin"), entry("c.bin")]);
-    const rows = flattenTree(tree, new Set());
-    expect(rows.map((r) => r.node.name)).toEqual(["a", "b", "c.bin"]);
-    expect(rows.every((r) => r.depth === 0)).toBe(true);
+describe("buildContentTree folding", () => {
+  it("folds a run of directories that each hold only the next one", () => {
+    const tree = buildContentTree([entry("a/b/c/deep.bin")]);
+    expect(tree).toHaveLength(1);
+
+    const folded = tree[0] as DirNode;
+    expect(folded.name).toBe("a/b/c");
+    expect(folded.path).toBe("a/b/c");
+    expect(folded.children.map((child) => child.name)).toEqual(["deep.bin"]);
   });
 
-  it("includes children of expanded directories and carries depth", () => {
+  it("names the folder holding the files as the last segment of the group", () => {
+    const tree = buildContentTree([
+      entry("Aatrox.wad.client/data/characters/aatrox/skin0.bin"),
+      entry("Aatrox.wad.client/data/characters/aatrox/skin1.bin"),
+    ]);
+
+    const folded = tree[0] as DirNode;
+    expect(folded.name).toBe("Aatrox.wad.client/data/characters/aatrox");
+    expect(folded.path).toBe("Aatrox.wad.client/data/characters/aatrox");
+    expect(folded.children.map((child) => child.name)).toEqual(["skin0.bin", "skin1.bin"]);
+  });
+
+  it("stops folding at the directory that holds a file of its own", () => {
+    const tree = buildContentTree([entry("a/b/c/deep.bin"), entry("a/b/loose.bin")]);
+    const ab = tree[0] as DirNode;
+    expect(ab.name).toBe("a/b");
+    expect(ab.path).toBe("a/b");
+    expect(ab.children.map((child) => child.name)).toEqual(["c", "loose.bin"]);
+  });
+
+  it("stops folding at the directory that holds two directories", () => {
+    const tree = buildContentTree([entry("a/b/x.bin"), entry("a/c/y.bin")]);
+    const a = tree[0] as DirNode;
+    expect(a.name).toBe("a");
+    expect(a.children.map((child) => child.name)).toEqual(["b", "c"]);
+  });
+
+  it("folds each branch of a fork on its own", () => {
+    const tree = buildContentTree([entry("a/b/one/x.bin"), entry("a/c/two/y.bin")]);
+    const a = tree[0] as DirNode;
+    expect(a.children.map((child) => child.name)).toEqual(["b/one", "c/two"]);
+    expect((a.children[0] as DirNode).path).toBe("a/b/one");
+  });
+
+  it("counts a folded run against the path it kept", () => {
+    const tree = buildContentTree([entry("a/b/c/one.bin"), entry("a/b/c/two.bin")]);
+    const counts = buildDirFileCounts(tree);
+    expect(counts.get("a/b/c")).toBe(2);
+    expect(counts.has("a")).toBe(false);
+  });
+});
+
+describe("nodeCovers", () => {
+  it("matches a folded row by any directory on its run", () => {
+    const tree = buildContentTree([entry("Aatrox.wad.client/data/skin.bin")]);
+    const folded = tree[0] as DirNode;
+
+    expect(nodeCovers(folded, "Aatrox.wad.client")).toBe(true);
+    expect(nodeCovers(folded, "Aatrox.wad.client/data")).toBe(true);
+    expect(nodeCovers(folded, "Aatrox.wad")).toBe(false);
+    expect(nodeCovers(folded, "Ahri.wad.client")).toBe(false);
+  });
+
+  it("matches a file by its relative path", () => {
+    const tree = buildContentTree([entry("a/b/skin.bin")]);
+    const folded = tree[0] as DirNode;
+    const file = folded.children[0] as FileNode;
+
+    expect(nodeCovers(file, "a/b/skin.bin")).toBe(true);
+    expect(nodeCovers(file, "a/b")).toBe(false);
+  });
+});
+
+describe("flattenTree", () => {
+  it("expands everything when nothing is collapsed", () => {
     const tree = buildContentTree([entry("a/file.bin"), entry("a/sub/deep.bin")]);
-    const expanded = allDirPaths(tree); // fully expanded
-    const rows = flattenTree(tree, expanded);
+    const rows = flattenTree(tree, new Set());
     expect(rows.map((r) => `${r.depth}:${r.node.name}`)).toEqual([
       "0:a",
       "1:sub",
@@ -103,11 +171,40 @@ describe("flattenTree", () => {
     ]);
   });
 
-  it("stops descending past collapsed directories", () => {
+  it("returns only top-level rows when every directory is collapsed", () => {
+    const tree = buildContentTree([entry("a/file.bin"), entry("b/nested/x.bin"), entry("c.bin")]);
+    const rows = flattenTree(tree, allDirPaths(tree));
+    expect(rows.map((r) => r.node.name)).toEqual(["a", "b/nested", "c.bin"]);
+    expect(rows.every((r) => r.depth === 0)).toBe(true);
+  });
+
+  it("stops descending past a collapsed directory", () => {
     const tree = buildContentTree([entry("a/sub/deep.bin"), entry("a/top.bin")]);
-    // expand only `a`, not `a/sub`
-    const rows = flattenTree(tree, new Set(["a"]));
+    // `a` stays open, `a/sub` is shut
+    const rows = flattenTree(tree, new Set(["a/sub"]));
     expect(rows.map((r) => `${r.depth}:${r.node.name}`)).toEqual(["0:a", "1:sub", "1:top.bin"]);
+  });
+
+  /* The bug this shape exists to prevent: a rescan that adds a directory used
+     to render it shut, because it was missing from a set seeded once. */
+  it("renders a directory the scan has only just found as expanded", () => {
+    const collapsed = new Set<string>();
+    const before = buildContentTree([entry("a/one.bin")]);
+    expect(flattenTree(before, collapsed).map((r) => r.node.name)).toEqual(["a", "one.bin"]);
+
+    const after = buildContentTree([entry("a/one.bin"), entry("b/two.bin")]);
+    expect(flattenTree(after, collapsed).map((r) => r.node.name)).toEqual([
+      "a",
+      "one.bin",
+      "b",
+      "two.bin",
+    ]);
+  });
+
+  it("ignores a collapsed path that the tree no longer holds", () => {
+    const tree = buildContentTree([entry("a/one.bin")]);
+    const rows = flattenTree(tree, new Set(["gone", "also/gone"]));
+    expect(rows.map((r) => r.node.name)).toEqual(["a", "one.bin"]);
   });
 });
 
@@ -115,7 +212,7 @@ describe("allDirPaths", () => {
   it("collects every directory path", () => {
     const tree = buildContentTree([entry("a/x.bin"), entry("b/nested/y.bin"), entry("c.bin")]);
     const paths = allDirPaths(tree);
-    expect(paths).toEqual(new Set(["a", "b", "b/nested"]));
+    expect(paths).toEqual(new Set(["a", "b/nested"]));
   });
 });
 
@@ -137,5 +234,43 @@ describe("buildDirFileCounts", () => {
 
   it("returns an empty map for an empty tree", () => {
     expect(buildDirFileCounts([])).toEqual(new Map());
+  });
+});
+
+describe("buildLayerWads", () => {
+  it("returns nothing for an empty layer", () => {
+    expect(buildLayerWads([])).toEqual([]);
+  });
+
+  it("rolls a WAD folder up into one row", () => {
+    const wads = buildLayerWads([
+      entry("Aatrox.wad.client/data/one.bin", 100),
+      entry("Aatrox.wad.client/data/two.bin", 50),
+      entry("Ahri.wad.client/data/three.bin", 25),
+    ]);
+
+    expect(wads).toEqual([
+      {
+        path: "Aatrox.wad.client",
+        name: "Aatrox.wad.client",
+        kind: "wad",
+        fileCount: 2,
+        sizeBytes: 150,
+      },
+      {
+        path: "Ahri.wad.client",
+        name: "Ahri.wad.client",
+        kind: "wad",
+        fileCount: 1,
+        sizeBytes: 25,
+      },
+    ]);
+  });
+
+  it("keeps a loose root file as its own row", () => {
+    const wads = buildLayerWads([entry("readme.md", 12)]);
+    expect(wads).toEqual([
+      { path: "readme.md", name: "readme.md", kind: "file", fileCount: 1, sizeBytes: 12 },
+    ]);
   });
 });

@@ -58,7 +58,7 @@ function mockBackend({
           ok: true,
           value: {
             running: patcherRunning,
-            overlayPrefix: null,
+            session: null,
             phase: patcherRunning ? "patching" : "idle",
           },
         });

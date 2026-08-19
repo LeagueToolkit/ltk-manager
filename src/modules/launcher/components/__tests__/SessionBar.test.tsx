@@ -31,7 +31,7 @@ function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning
     if (cmd === "get_patcher_status") {
       return Promise.resolve({
         ok: true,
-        value: { running: phase !== "idle", overlayPrefix: null, phase },
+        value: { running: phase !== "idle", phase, session: null },
       });
     }
     if (cmd === "get_platform_support") {

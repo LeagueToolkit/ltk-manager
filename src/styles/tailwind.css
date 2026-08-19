@@ -20,6 +20,9 @@
   --color-surface-800: var(--surface-800);
   --color-surface-900: var(--surface-900);
   --color-surface-950: var(--surface-950);
+  --color-surface-veil-soft: var(--surface-veil-soft);
+  --color-surface-veil: var(--surface-veil);
+  --color-surface-veil-strong: var(--surface-veil-strong);
 
   /* Accent */
   --color-accent-50: var(--accent-50);
@@ -32,6 +35,7 @@
   --color-accent-700: var(--accent-700);
   --color-accent-800: var(--accent-800);
   --color-accent-900: var(--accent-900);
+  --color-accent-hover: var(--accent-hover);
 
   /* Brand */
   --color-brand-blue: var(--ltk-blue);
@@ -55,6 +59,14 @@
   --color-cat-champion-text: var(--ltk-cat-champion-text);
   --color-cat-map: var(--ltk-cat-map);
   --color-cat-map-text: var(--ltk-cat-map-text);
+  --color-doc-details: var(--ltk-doc-details);
+  --color-doc-details-text: var(--ltk-doc-details-text);
+  --color-doc-base: var(--ltk-doc-base);
+  --color-doc-base-text: var(--ltk-doc-base-text);
+  --color-doc-layer: var(--ltk-doc-layer);
+  --color-doc-layer-text: var(--ltk-doc-layer-text);
+  --color-doc-strings: var(--ltk-doc-strings);
+  --color-doc-strings-text: var(--ltk-doc-strings-text);
 
   --color-scrim: var(--ltk-glass-scrim-fill);
 

@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, Popover, TooltipPrimitives as Tooltip, useToast } from "@/components";
@@ -42,14 +42,19 @@ export function ProfileSelector() {
                     <Button
                       variant="default"
                       size="sm"
-                      className="group"
+                      /* Fixed, so switching to a longer-named profile doesn't
+                         shove the rest of the toolbar sideways. */
+                      className="group w-36 justify-between"
                       right={
-                        <ChevronDown className="h-4 w-4 text-surface-400 transition-transform group-data-popup-open:rotate-180" />
+                        <CaretDownIcon
+                          weight="bold"
+                          className="h-4 w-4 text-surface-400 transition-transform group-data-popup-open:rotate-180"
+                        />
                       }
                     />
                   }
                 >
-                  {activeProfile?.name || "Default"}
+                  <span className="min-w-0 truncate">{activeProfile?.name || "Default"}</span>
                 </Popover.Trigger>
               }
             />

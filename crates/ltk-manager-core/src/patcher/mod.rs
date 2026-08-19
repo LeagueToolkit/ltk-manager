@@ -10,5 +10,7 @@ pub mod thread;
 pub use elevation::should_elevate;
 pub use error::{InjectionStage, PatcherError};
 pub use events::PatcherEvents;
-pub use state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+pub use state::{
+    PatcherPhase, PatcherSession, PatcherStateInner, SessionOrigin, StoredPatcherConfig,
+};
 pub use thread::{PatcherThread, SessionParams};

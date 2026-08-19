@@ -4,6 +4,7 @@ import { useMemo } from "react";
 
 import { Button, IconButton, Popover, Skeleton, Tooltip } from "@/components";
 import { useAnalyzeModWads, useModWadReport } from "@/modules/library";
+import { useSettings } from "@/modules/settings";
 
 interface WadCountBadgeProps {
   modId: string;
@@ -82,9 +83,12 @@ function shortWadName(path: string): string {
  */
 export function WadCountBadge({ modId }: WadCountBadgeProps) {
   const { data: report, isLoading } = useModWadReport(modId);
+  const { data: settings } = useSettings();
   const analyze = useAnalyzeModWads();
 
   const groups = useMemo(() => (report ? groupWadsByCategory(report.affectedWads) : []), [report]);
+
+  if (!settings?.showWadFootprint) return null;
 
   if (isLoading) {
     return <Skeleton width={36} height={24} rounded />;

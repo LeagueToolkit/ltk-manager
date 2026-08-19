@@ -3,8 +3,8 @@ use crate::mods::{LinkedBinOffenderInfo, LinkedBinState, ModLibraryState};
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
-    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherState, PatcherThread,
-    SessionParams, StoredPatcherConfig,
+    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherSession, PatcherState,
+    PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::SettingsState;
 use serde::{Deserialize, Serialize};
@@ -39,10 +39,10 @@ pub struct PatcherConfig {
 pub struct PatcherStatus {
     /// Whether the patcher is currently running.
     pub running: bool,
-    /// Overlay prefix the running session was started with. `null` while idle.
-    pub overlay_prefix: Option<String>,
     /// Current phase of the patcher lifecycle.
     pub phase: PatcherPhase,
+    /// The session in flight. `null` while idle.
+    pub session: Option<PatcherSession>,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -150,12 +150,12 @@ pub(crate) fn start_patcher_inner(
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
-    // Decides which tray icon set this session drives (workshop vs library).
-    let is_workshop = config
-        .workshop_projects
-        .as_ref()
-        .map(|v| !v.is_empty())
-        .unwrap_or(false);
+    let stored_config = StoredPatcherConfig {
+        flags: config.flags,
+        workshop_projects: config.workshop_projects.clone(),
+    };
+    // Decides which tray icon set this session drives.
+    let is_workshop = stored_config.origin().is_workshop();
 
     let workshop_paths: Vec<PathBuf> = config
         .workshop_projects
@@ -197,10 +197,7 @@ pub(crate) fn start_patcher_inner(
         events,
         state.handle(),
         host_state.handle(),
-        StoredPatcherConfig {
-            flags: config.flags,
-            workshop_projects: config.workshop_projects,
-        },
+        stored_config,
         SessionParams {
             injector_exe,
             config: config_snapshot,
@@ -273,18 +270,17 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> AppResult<PatcherSta
                 "Patcher thread dead but phase was {:?}, resetting to Idle",
                 patcher_state.phase
             );
-            patcher_state.phase = PatcherPhase::Idle;
-            patcher_state.overlay_prefix = None;
+            patcher_state.end_session();
         }
 
         PatcherStatus {
             running,
-            overlay_prefix: if running {
-                patcher_state.overlay_prefix.clone()
+            phase: patcher_state.phase,
+            session: if running {
+                patcher_state.session.clone()
             } else {
                 None
             },
-            phase: patcher_state.phase,
         }
     })
 }

@@ -19,6 +19,7 @@ export { useRemoveProjectThumbnail } from "./useRemoveProjectThumbnail";
 export { useRenameProject } from "./useRenameProject";
 export { useSaveProjectConfig } from "./useSaveProjectConfig";
 export { useSaveStringOverrides } from "./useSaveStringOverrides";
+export { useSessionProjectNames } from "./useSessionProjectNames";
 export { useSetProjectThumbnail } from "./useSetProjectThumbnail";
 export { useStringKeySearch } from "./useStringKeySearch";
 export { useTestProjects } from "./useTestProject";

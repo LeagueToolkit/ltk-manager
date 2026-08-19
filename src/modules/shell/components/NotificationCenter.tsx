@@ -65,10 +65,12 @@ export function NotificationCenter() {
       }}
     >
       {/* The rounded cell the titlebar's other action buttons use, rather than a
-          full-height one - see the shape split in TitleBar. */}
+          full-height one - see the shape split in TitleBar. The hover lift is
+          TitleBar's iconLiftClass, repeated rather than imported back into a
+          file TitleBar itself imports. */}
       <Popover.Trigger
         aria-label="Notifications"
-        className="relative flex h-8 w-8 items-center justify-center rounded-md text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
+        className="relative flex h-full w-9 shrink-0 items-center justify-center text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200 [&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110"
       >
         <Bell className="h-4 w-4" />
         {unreadCount > 0 && (

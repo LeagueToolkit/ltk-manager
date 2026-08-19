@@ -59,7 +59,7 @@ export function Library({ folderId }: LibraryProps = {}) {
     setOrderedIds(visibleMods.map((m) => m.id));
   }, [visibleMods, setOrderedIds]);
 
-  useHotkeys("ctrl+i", () => actions.handleInstallMod(), {
+  useHotkeys("ctrl+i", () => actions.handleImportMods(), {
     preventDefault: true,
     enabled: !isPatcherActive,
   });

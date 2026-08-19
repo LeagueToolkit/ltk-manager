@@ -1,8 +1,9 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
-import { ArrowLeft, FolderTree, Globe, Package } from "lucide-react";
+import { ArrowLeftIcon } from "@phosphor-icons/react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 
-import { Button, NavTabs } from "@/components";
+import { Button, Toolbar } from "@/components";
 import {
+  ContentBrowser,
   DeleteConfirmDialog,
   LoadingState,
   PackDialog,
@@ -12,14 +13,14 @@ import {
 } from "@/modules/workshop";
 
 export const Route = createFileRoute("/workshop/$projectName")({
-  component: ProjectDetailLayout,
+  component: ProjectDetail,
 });
 
-function ProjectDetailLayout() {
+function ProjectDetail() {
   const { projectName } = Route.useParams();
 
   const { data: projects, isLoading } = useWorkshopProjects();
-  const project = projects?.find((p) => p.name === projectName);
+  const project = projects?.find((candidate) => candidate.name === projectName);
 
   if (isLoading) {
     return <LoadingState />;
@@ -30,7 +31,7 @@ function ProjectDetailLayout() {
       <div className="flex h-full flex-col items-center justify-center gap-4">
         <p className="text-surface-400">Project not found: {projectName}</p>
         <Link to="/workshop">
-          <Button variant="outline" left={<ArrowLeft className="h-4 w-4" />}>
+          <Button variant="outline" left={<ArrowLeftIcon className="h-4 w-4" />}>
             Back to Workshop
           </Button>
         </Link>
@@ -38,38 +39,20 @@ function ProjectDetailLayout() {
     );
   }
 
-  const tabIconClass = "h-3.5 w-3.5";
-  const tabs = [
-    {
-      to: "/workshop/$projectName",
-      params: { projectName },
-      label: "Overview",
-      icon: <Package className={tabIconClass} />,
-      exact: true,
-    },
-    {
-      to: "/workshop/$projectName/content",
-      params: { projectName },
-      label: "Content",
-      icon: <FolderTree className={tabIconClass} />,
-    },
-    {
-      to: "/workshop/$projectName/strings",
-      params: { projectName },
-      label: "Strings",
-      icon: <Globe className={tabIconClass} />,
-    },
-  ];
-
   return (
     <ProjectProvider project={project}>
-      <div className="flex h-full flex-col">
-        <ProjectHeader project={project} />
+      <div data-ui="ProjectDetail" className="flex h-full flex-col">
+        <Toolbar className="border-surface-700/50">
+          <ProjectHeader project={project} />
+        </Toolbar>
 
-        <NavTabs tabs={tabs} />
-
-        <div className="flex-1 overflow-auto">
-          <Outlet />
+        {/* The fold is one surface, so the editor and its sidebar share a frame and
+            round together against the ground: DS-GROUND. */}
+        <div
+          data-ui="ProjectDetail:fold"
+          className="min-h-0 flex-1 overflow-hidden rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
+        >
+          <ContentBrowser project={project} />
         </div>
       </div>
 

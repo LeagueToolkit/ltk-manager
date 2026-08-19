@@ -1,3 +1,5 @@
+import Mark from "@/assets/icons/game/LeagueIcon.svg?react";
+
 interface LeagueIconProps {
   className?: string;
 }
@@ -6,13 +8,9 @@ interface LeagueIconProps {
  * The League of Legends "L" mark, as the Riot Client draws it.
  *
  * Riot ships it at a fixed gold (#C89B3C) behind 80% opacity; both are dropped
- * here so it inherits text colour and sits at the same weight as the lucide
+ * here so it inherits text color and sits at the same weight as the lucide
  * icons it shares a menu with.
  */
 export function LeagueIcon({ className }: LeagueIconProps) {
-  return (
-    <svg viewBox="0 0 39 40" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M20.6 3.9299C28.7722 4.93275 35.0999 11.7605 35.0999 20.0341C35.0999 23.0343 34.2631 25.8423 32.8114 28.2575H32.1282H28.4307C29.2846 27.2714 29.9763 26.1766 30.4972 24.9815C31.1718 23.4188 31.5134 21.7473 31.5134 20.0341C31.5134 18.3125 31.1718 16.6495 30.4972 15.0867C29.8397 13.574 28.9089 12.2118 27.7134 11.0418C26.5178 9.87183 25.1259 8.95254 23.5803 8.3174C22.6239 7.91625 21.6248 7.64047 20.6 7.48168V3.9299ZM7.95316 32.528V27.4218C7.3981 26.6613 6.92843 25.8423 6.55269 24.9815C5.87808 23.4188 5.5365 21.7473 5.5365 20.0341C5.5365 18.3125 5.87808 16.6495 6.55269 15.0867C6.92843 14.2175 7.3981 13.3985 7.95316 12.6464V7.53183C4.28121 10.507 1.94995 15.0031 1.94995 20.0341C1.94995 25.0651 4.28121 29.5529 7.95316 32.528ZM18.1236 2.45068H8.61923L10.4381 6.08604V33.9571L8.64485 37.5507H30.1812L32.1453 30.6811H18.1236V2.45068Z" />
-    </svg>
-  );
+  return <Mark className={className} />;
 }

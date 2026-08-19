@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components";
-import type { StringKeySuggestion } from "@/lib/tauri";
+import type { StringKeySuggestion, WorkshopProject } from "@/lib/tauri";
 
 import { useSaveStringOverrides } from "../../api/useSaveStringOverrides";
 import { useProjectContext } from "../../components/ProjectContext";
-import { LOCALES } from "../constants";
 import type { OverrideEntry, OverrideEntryField } from "../types";
 
 function validateEntries(entries: OverrideEntry[]): Record<string, string> {
@@ -26,17 +25,25 @@ function validateEntries(entries: OverrideEntry[]): Record<string, string> {
   return errors;
 }
 
+function savedOverridesOf(
+  project: WorkshopProject,
+  layerName: string,
+  locale: string,
+): Record<string, string> {
+  const layer = project.layers.find((candidate) => candidate.name === layerName);
+  return layer?.stringOverrides?.[locale] ?? {};
+}
+
 /**
- * All state and behavior for the string-overrides editor: layer/locale
- * selection, the editable entry list with filtering and validation, and
- * saving back to the project.
+ * The editable override list for one layer and locale, and saving it back.
+ *
+ * The draft is reloaded when the layer or locale changes, not when the
+ * project object does, so a background refetch cannot swallow unsaved edits.
  */
-export function useStringOverridesEditor() {
+export function useStringOverridesEditor(layerName: string, locale: string) {
   const project = useProjectContext();
   const toast = useToast();
 
-  const [selectedLayer, setSelectedLayer] = useState<string>("base");
-  const [selectedLocale, setSelectedLocale] = useState<string>("default");
   const [entries, setEntries] = useState<OverrideEntry[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,33 +55,22 @@ export function useStringOverridesEditor() {
 
   const saveOverrides = useSaveStringOverrides();
 
-  const currentLayer = project.layers.find((l) => l.name === selectedLayer);
+  const projectRef = useRef(project);
+  useEffect(() => {
+    projectRef.current = project;
+  });
 
   function toEntries(localeOverrides: Record<string, string>): OverrideEntry[] {
     return Object.entries(localeOverrides).map(([key, value]) => ({ id: makeId(), key, value }));
   }
 
-  // Reset selected layer when project changes
   useEffect(() => {
-    if (project.layers.length) {
-      setSelectedLayer(project.layers[0].name);
-      setSelectedLocale("default");
-    }
-  }, [project.path, project.layers]);
-
-  // Reset entries when layer/locale changes
-  useEffect(() => {
-    if (!currentLayer) {
-      setEntries([]);
-      return;
-    }
-
-    setEntries(toEntries(currentLayer.stringOverrides?.[selectedLocale] ?? {}));
+    setEntries(toEntries(savedOverridesOf(projectRef.current, layerName, locale)));
     setHasChanges(false);
     setErrors({});
     setFilter("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLayer, selectedLocale, project.path]);
+  }, [layerName, locale, project.path]);
 
   function addEntry() {
     const id = makeId();
@@ -124,13 +120,14 @@ export function useStringOverridesEditor() {
   }
 
   function discard() {
-    setEntries(toEntries(currentLayer?.stringOverrides?.[selectedLocale] ?? {}));
+    setEntries(toEntries(savedOverridesOf(projectRef.current, layerName, locale)));
     setHasChanges(false);
     setErrors({});
   }
 
   function save() {
-    if (!currentLayer) return;
+    const layer = project.layers.find((candidate) => candidate.name === layerName);
+    if (!layer) return;
 
     const validationErrors = validateEntries(entries);
     setErrors(validationErrors);
@@ -150,20 +147,18 @@ export function useStringOverridesEditor() {
       }
     }
 
-    const allOverrides: Record<string, Record<string, string>> = {
-      ...currentLayer.stringOverrides,
-    };
+    const allOverrides: Record<string, Record<string, string>> = { ...layer.stringOverrides };
 
     if (Object.keys(localeOverrides).length > 0) {
-      allOverrides[selectedLocale] = localeOverrides;
+      allOverrides[locale] = localeOverrides;
     } else {
-      delete allOverrides[selectedLocale];
+      delete allOverrides[locale];
     }
 
     saveOverrides.mutate(
       {
         projectPath: project.path,
-        layerName: selectedLayer,
+        layerName,
         stringOverrides: allOverrides,
       },
       {
@@ -175,22 +170,7 @@ export function useStringOverridesEditor() {
     );
   }
 
-  const localeOptions = LOCALES.map((locale) => {
-    const count = Object.keys(currentLayer?.stringOverrides?.[locale.value] ?? {}).length;
-
-    return {
-      value: locale.value,
-      label: count > 0 ? `${locale.label} · ${count}` : locale.label,
-    };
-  });
-
   return {
-    layers: project.layers,
-    selectedLayer,
-    setSelectedLayer,
-    selectedLocale,
-    setSelectedLocale,
-    localeOptions,
     entries,
     filter,
     setFilter,

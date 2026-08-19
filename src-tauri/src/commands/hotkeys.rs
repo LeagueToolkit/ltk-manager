@@ -5,7 +5,7 @@ use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, SettingsState};
 use std::path::Path;
 use std::process::Command;
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 use super::patcher::{start_patcher_inner, PatcherConfig};
 
@@ -37,8 +37,6 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     kill_league_process();
     std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let workshop_projects = config.workshop_projects.clone();
-
     let patcher_config = PatcherConfig {
         flags: config.flags,
         workshop_projects: config.workshop_projects,
@@ -60,8 +58,6 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         std::thread::spawn(move || try_lcu_reconnect(&path));
     }
 
-    // Emit workshop project paths so frontend can re-sync testing state
-    let _ = app_handle.emit("hotkey-reload-complete", workshop_projects);
     Ok(())
 }
 

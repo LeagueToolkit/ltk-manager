@@ -1,4 +1,4 @@
-import { AlertTriangle, Plus, Upload } from "lucide-react";
+import { DownloadSimpleIcon, WarningIcon } from "@phosphor-icons/react";
 
 import { Button, EmptyState, Skeleton } from "@/components";
 import type { AppError } from "@/lib/tauri";
@@ -27,7 +27,7 @@ export function LibraryErrorState({ error }: { error: AppError }) {
     return (
       <div className="flex h-64 flex-col items-center justify-center text-center">
         <div className="mb-4 rounded-full bg-warning/10 p-4">
-          <AlertTriangle className="h-8 w-8 text-warning-text" />
+          <WarningIcon weight="bold" className="h-8 w-8 text-warning-text" />
         </div>
         <h3 className="mb-1 text-lg font-medium text-surface-300">
           Mod library requires a newer version
@@ -68,16 +68,16 @@ export function LibraryEmptyState({ hasSearch, hasFilters }: LibraryEmptyStatePr
 
   return (
     <EmptyState
-      icon={<Upload className="h-16 w-16" />}
+      icon={<DownloadSimpleIcon className="h-16 w-16" />}
       title="No mods installed"
-      description="Get started by adding your first mod"
+      description="Get started by importing your first mod"
       action={
         <Button
           variant="filled"
-          onClick={actions.handleInstallMod}
-          left={<Plus className="h-4 w-4" />}
+          onClick={actions.handleImportMods}
+          left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
         >
-          Add Mod
+          Import Mods
         </Button>
       }
     />

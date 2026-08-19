@@ -16,9 +16,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkshopIndexRouteImport } from './routes/workshop/index'
 import { Route as WorkshopProjectNameRouteImport } from './routes/workshop/$projectName'
 import { Route as FolderFolderIdRouteImport } from './routes/folder.$folderId'
-import { Route as WorkshopProjectNameIndexRouteImport } from './routes/workshop/$projectName/index'
-import { Route as WorkshopProjectNameStringsRouteImport } from './routes/workshop/$projectName/strings'
-import { Route as WorkshopProjectNameContentRouteImport } from './routes/workshop/$projectName/content'
 
 const WorkshopRoute = WorkshopRouteImport.update({
   id: '/workshop',
@@ -55,24 +52,6 @@ const FolderFolderIdRoute = FolderFolderIdRouteImport.update({
   path: '/folder/$folderId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WorkshopProjectNameIndexRoute =
-  WorkshopProjectNameIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => WorkshopProjectNameRoute,
-  } as any)
-const WorkshopProjectNameStringsRoute =
-  WorkshopProjectNameStringsRouteImport.update({
-    id: '/strings',
-    path: '/strings',
-    getParentRoute: () => WorkshopProjectNameRoute,
-  } as any)
-const WorkshopProjectNameContentRoute =
-  WorkshopProjectNameContentRouteImport.update({
-    id: '/content',
-    path: '/content',
-    getParentRoute: () => WorkshopProjectNameRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,21 +59,16 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
   '/folder/$folderId': typeof FolderFolderIdRoute
-  '/workshop/$projectName': typeof WorkshopProjectNameRouteWithChildren
+  '/workshop/$projectName': typeof WorkshopProjectNameRoute
   '/workshop/': typeof WorkshopIndexRoute
-  '/workshop/$projectName/content': typeof WorkshopProjectNameContentRoute
-  '/workshop/$projectName/strings': typeof WorkshopProjectNameStringsRoute
-  '/workshop/$projectName/': typeof WorkshopProjectNameIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
   '/settings': typeof SettingsRoute
   '/folder/$folderId': typeof FolderFolderIdRoute
+  '/workshop/$projectName': typeof WorkshopProjectNameRoute
   '/workshop': typeof WorkshopIndexRoute
-  '/workshop/$projectName/content': typeof WorkshopProjectNameContentRoute
-  '/workshop/$projectName/strings': typeof WorkshopProjectNameStringsRoute
-  '/workshop/$projectName': typeof WorkshopProjectNameIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -103,11 +77,8 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
   '/folder/$folderId': typeof FolderFolderIdRoute
-  '/workshop/$projectName': typeof WorkshopProjectNameRouteWithChildren
+  '/workshop/$projectName': typeof WorkshopProjectNameRoute
   '/workshop/': typeof WorkshopIndexRoute
-  '/workshop/$projectName/content': typeof WorkshopProjectNameContentRoute
-  '/workshop/$projectName/strings': typeof WorkshopProjectNameStringsRoute
-  '/workshop/$projectName/': typeof WorkshopProjectNameIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,19 +90,14 @@ export interface FileRouteTypes {
     | '/folder/$folderId'
     | '/workshop/$projectName'
     | '/workshop/'
-    | '/workshop/$projectName/content'
-    | '/workshop/$projectName/strings'
-    | '/workshop/$projectName/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/diagnostics'
     | '/settings'
     | '/folder/$folderId'
-    | '/workshop'
-    | '/workshop/$projectName/content'
-    | '/workshop/$projectName/strings'
     | '/workshop/$projectName'
+    | '/workshop'
   id:
     | '__root__'
     | '/'
@@ -141,9 +107,6 @@ export interface FileRouteTypes {
     | '/folder/$folderId'
     | '/workshop/$projectName'
     | '/workshop/'
-    | '/workshop/$projectName/content'
-    | '/workshop/$projectName/strings'
-    | '/workshop/$projectName/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -205,52 +168,16 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FolderFolderIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/workshop/$projectName/': {
-      id: '/workshop/$projectName/'
-      path: '/'
-      fullPath: '/workshop/$projectName/'
-      preLoaderRoute: typeof WorkshopProjectNameIndexRouteImport
-      parentRoute: typeof WorkshopProjectNameRoute
-    }
-    '/workshop/$projectName/strings': {
-      id: '/workshop/$projectName/strings'
-      path: '/strings'
-      fullPath: '/workshop/$projectName/strings'
-      preLoaderRoute: typeof WorkshopProjectNameStringsRouteImport
-      parentRoute: typeof WorkshopProjectNameRoute
-    }
-    '/workshop/$projectName/content': {
-      id: '/workshop/$projectName/content'
-      path: '/content'
-      fullPath: '/workshop/$projectName/content'
-      preLoaderRoute: typeof WorkshopProjectNameContentRouteImport
-      parentRoute: typeof WorkshopProjectNameRoute
-    }
   }
 }
 
-interface WorkshopProjectNameRouteChildren {
-  WorkshopProjectNameContentRoute: typeof WorkshopProjectNameContentRoute
-  WorkshopProjectNameStringsRoute: typeof WorkshopProjectNameStringsRoute
-  WorkshopProjectNameIndexRoute: typeof WorkshopProjectNameIndexRoute
-}
-
-const WorkshopProjectNameRouteChildren: WorkshopProjectNameRouteChildren = {
-  WorkshopProjectNameContentRoute: WorkshopProjectNameContentRoute,
-  WorkshopProjectNameStringsRoute: WorkshopProjectNameStringsRoute,
-  WorkshopProjectNameIndexRoute: WorkshopProjectNameIndexRoute,
-}
-
-const WorkshopProjectNameRouteWithChildren =
-  WorkshopProjectNameRoute._addFileChildren(WorkshopProjectNameRouteChildren)
-
 interface WorkshopRouteChildren {
-  WorkshopProjectNameRoute: typeof WorkshopProjectNameRouteWithChildren
+  WorkshopProjectNameRoute: typeof WorkshopProjectNameRoute
   WorkshopIndexRoute: typeof WorkshopIndexRoute
 }
 
 const WorkshopRouteChildren: WorkshopRouteChildren = {
-  WorkshopProjectNameRoute: WorkshopProjectNameRouteWithChildren,
+  WorkshopProjectNameRoute: WorkshopProjectNameRoute,
   WorkshopIndexRoute: WorkshopIndexRoute,
 }
 

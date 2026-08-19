@@ -8,7 +8,7 @@ you are in here.
 
 | File             | Owns                                                                                                                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `global.css`     | Every value: palette, brand pair, state colours, surfaces, scales, glass tiers, gradients                                  |
+| `global.css`     | Every value: palette, brand pair, state colors, surfaces, scales, glass tiers, gradients                                   |
 | `tailwind.css`   | Nothing of its own - the entry point, the font imports, and a `@theme` block aliasing `global.css` into Tailwind utilities |
 | `animations.css` | Keyframes and the stagger utility                                                                                          |
 
@@ -24,9 +24,9 @@ LoL Meta Wiki. Their `custom.css` is what to diff against when the brand moves.
 A comment on a token group says _what the group is_, in one line:
 
 ```css
-/* The logo colours. */
-/* State colours, for components that derive their look from state. */
-/* Colours for mod category pills. */
+/* The logo colors. */
+/* State colors, for components that derive their look from state. */
+/* Colors for mod category pills. */
 ```
 
 That is the whole budget. **Never write, in CSS:**
@@ -50,7 +50,7 @@ Numbered scales are the convention:
 | Category   | Pattern            | Example                            |
 | ---------- | ------------------ | ---------------------------------- |
 | Spacing    | `--space-{NNN}`    | `--space-004` → 18px (NNN × 4.5px) |
-| Radius     | `--radius-{NNN}`   | `--radius-003` → 6px               |
+| Radius     | `--radius-{NNN}`   | `--radius-003` → 9px               |
 | Icon sizes | `--icon-{NNN}`     | `--icon-003` → 12px                |
 | Shadows    | `--shadow-{name}`  | `--shadow-sm`, `--shadow-glass`    |
 | Z-index    | `--z-{name}`       | `--z-modal`, `--z-toast`           |
@@ -58,7 +58,7 @@ Numbered scales are the convention:
 | Easing     | `--ease-{name}`    | `--ease-spring`                    |
 
 A new token is defined in `global.css` and aliased in the `@theme` block, or Tailwind
-cannot see it. Colour tokens carrying an LTK value are `--ltk-*`, and the app's own scales
+cannot see it. Color tokens carrying an LTK value are `--ltk-*`, and the app's own scales
 are unprefixed (`--surface-*`, `--accent-*`).
 
 **No `@apply`.** Reference the custom properties directly:
@@ -67,7 +67,7 @@ are unprefixed (`--surface-*`, `--accent-*`).
 ## Theme mechanics
 
 Dark is the bare `:root`. Light overrides land in a `[data-theme="light"]` block, set by
-`useTheme`. A colour that flips is defined once and aliased - never as a pair of literals
+`useTheme`. A color that flips is defined once and aliased - never as a pair of literals
 in two places. Rung numbers encode **role, not luminance**, so both scales invert
 wholesale between the themes.
 
@@ -75,11 +75,28 @@ Elevation is dark-first: `--shadow-*` carries depths tuned for the dark theme an
 light block softens them, because those depths read as smudges on a near-white surface.
 
 Density is `[data-density]` on `<html>` and may only touch `--space-*` and `--icon-*` -
-never `--radius-*`, `--shadow-*`, `--z-*`, or colours.
+never `--radius-*`, `--shadow-*`, `--z-*`, or colors.
 
 `[data-corners]` is the one exception, and it is the only thing allowed to move
 `--radius-*`. It is a setting of its own rather than a side effect of density, and it
 leaves `--radius-006` alone because a pill is geometry.
+
+## Surfaces are one hue with fixed curves
+
+`--surface-{50..950}` is `oklch()` over a per-rung lightness and chroma, sharing a single
+`--surface-hue` that `useTheme` sets from the accent. Both themes spell out their own
+curves and read the same hue, so a rung keeps its contrast whatever the accent is.
+
+Every chroma is written `calc(<authored> * var(--surface-tint))`, the scale the Appearance
+panel's Surface tint slider sets, so one control moves the whole ramp between the authored
+tint and a plain grey. Lightness never takes the scale - contrast has to hold at every
+setting.
+
+Author a new rung by measuring the color you want in OKLCH and writing its lightness and
+scaled chroma, never a hex literal - a literal is the one thing that cannot follow the
+accent. `--surface-50` carries zero chroma so the dark theme's white stays white, and
+needs no scale. Any other block that moves a rung, such as the backdrop lift, writes
+`oklch()` against the same hue and the same scale.
 
 ## The accent ramp has two sources
 

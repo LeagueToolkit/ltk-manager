@@ -62,7 +62,7 @@ impl PatcherThread {
         }
 
         patcher_state.stop_flag.store(false, Ordering::SeqCst);
-        patcher_state.phase = PatcherPhase::Building;
+        patcher_state.begin_session(stored_config.origin());
         patcher_state.last_config = Some(stored_config);
 
         // Announced under the same lock so the session's failure path (which
@@ -154,7 +154,7 @@ impl PatcherThread {
     /// Run one injection session via the core orchestration, blocking until the
     /// game exits or the caller stops, then reset state.
     fn run_session(&self, overlay_prefix: String) {
-        self.set_phase(PatcherPhase::Patching, Some(overlay_prefix.clone()));
+        self.enter_patching(overlay_prefix.clone());
 
         let host_config = HostConfig {
             prefix: overlay_prefix,
@@ -192,18 +192,23 @@ impl PatcherThread {
         tracing::info!("Patcher thread exiting");
     }
 
-    /// Reset phase and overlay prefix. Runs on every thread exit path.
-    fn reset_to_idle(&self) {
-        self.set_phase(PatcherPhase::Idle, None);
+    /// Move the session to patching against the overlay the build produced.
+    ///
+    /// Records the transition, then announces it - in that order, so an
+    /// embedder that reads the shared state from its listener never sees the
+    /// old value.
+    fn enter_patching(&self, overlay_prefix: String) {
+        if let Ok(mut s) = self.state.lock() {
+            s.enter_patching(overlay_prefix);
+        }
+        self.events.phase_changed(PatcherPhase::Patching);
     }
 
-    /// Record the phase, then announce it - in that order, so an embedder that
-    /// reads the shared state from its listener never sees the old value.
-    fn set_phase(&self, phase: PatcherPhase, overlay_prefix: Option<String>) {
+    /// Close the session. Runs on every thread exit path.
+    fn reset_to_idle(&self) {
         if let Ok(mut s) = self.state.lock() {
-            s.phase = phase;
-            s.overlay_prefix = overlay_prefix;
+            s.end_session();
         }
-        self.events.phase_changed(phase);
+        self.events.phase_changed(PatcherPhase::Idle);
     }
 }

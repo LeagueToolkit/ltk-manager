@@ -1,10 +1,12 @@
 export const WELL_KNOWN_TAGS = [
   "league-of-legends",
+  "classic",
   "tft",
   "champion-skin",
   "map-skin",
   "ward-skin",
   "emote",
+  "recall",
   "summoner-icon",
   "companion",
   "ui",
@@ -18,15 +20,17 @@ export const WELL_KNOWN_TAGS = [
   "misc",
 ];
 
-export const WELL_KNOWN_MAPS = ["summoners-rift", "aram", "teamfight-tactics", "arena", "swarm"];
+export const WELL_KNOWN_MAPS = ["summoners-rift", "aram", "arena"];
 
 const TAG_LABELS: Record<string, string> = {
   "league-of-legends": "League of Legends",
+  classic: "Classic",
   tft: "TFT",
   "champion-skin": "Champion Skin",
   "map-skin": "Map Skin",
   "ward-skin": "Ward Skin",
   emote: "Emote",
+  recall: "Recall",
   "summoner-icon": "Summoner Icon",
   companion: "Companion",
   ui: "UI",
@@ -43,9 +47,7 @@ const TAG_LABELS: Record<string, string> = {
 const MAP_LABELS: Record<string, string> = {
   "summoners-rift": "Summoner's Rift",
   aram: "ARAM",
-  "teamfight-tactics": "Teamfight Tactics",
   arena: "Arena",
-  swarm: "Swarm",
 };
 
 function kebabToTitleCase(s: string): string {

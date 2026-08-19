@@ -1,3 +1,5 @@
+import Mark from "@/assets/icons/game/RiotIcon.svg?react";
+
 interface RiotIconProps {
   className?: string;
 }
@@ -13,13 +15,5 @@ interface RiotIconProps {
  * app, and prefer `LeagueIcon` wherever the point is the game.
  */
 export function RiotIcon({ className }: RiotIconProps) {
-  return (
-    <svg viewBox="0 0 36 36" fill="currentColor" aria-hidden="true" className={className}>
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M17.6357 25.9152L18.8342 29.003L28.6994 31.4529L29.1948 26.5094L17.6357 25.9152ZM5.40002 13.0579L21.6096 5.4007L31.0945 7.70851L29.4019 24.5968H24.5928L23.6927 12.2947L23.1854 12.452L22.3278 24.5968H18.6908L16.953 14.3852L16.4458 14.5426L16.573 24.5968H13.1377L11.1496 16.1854L10.6422 16.3428L11.2133 24.5968H7.90694L5.40002 13.0579Z"
-      />
-    </svg>
-  );
+  return <Mark className={className} />;
 }

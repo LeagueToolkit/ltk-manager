@@ -167,7 +167,7 @@ export function NewProjectDialog() {
                     <button
                       type="button"
                       onClick={handlePickThumbnail}
-                      className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-700/30 transition-colors hover:border-surface-400 hover:bg-surface-700/50"
+                      className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-700/30 transition-colors hover:border-accent-hover hover:bg-surface-700/50"
                     >
                       <ImagePlus className="h-8 w-8 text-surface-400" />
                       <span className="text-xs text-surface-400">Add Thumbnail</span>

@@ -144,6 +144,8 @@ interface StringOverridesTableProps {
   onUpdateEntry: (id: string, field: OverrideEntryField, value: string) => void;
   onPickSuggestion: (id: string, suggestion: StringKeySuggestion) => void;
   onRemoveEntry: (id: string) => void;
+  className?: string;
+  scrollClassName?: string;
 }
 
 export function StringOverridesTable({
@@ -156,6 +158,8 @@ export function StringOverridesTable({
   onUpdateEntry,
   onPickSuggestion,
   onRemoveEntry,
+  className,
+  scrollClassName,
 }: StringOverridesTableProps) {
   const meta = useMemo<StringOverridesTableMeta>(
     () => ({
@@ -177,7 +181,8 @@ export function StringOverridesTable({
       meta={meta}
       globalFilter={filter}
       globalFilterFn={globalFilterFn}
-      scrollClassName="max-h-112"
+      className={className}
+      scrollClassName={scrollClassName}
       emptyState={
         <EmptyState
           size="sm"

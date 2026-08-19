@@ -8,6 +8,9 @@ import { AccentColorPicker } from "./AccentColorPicker";
 import { BackdropImagePicker } from "./BackdropImagePicker";
 import { CornerStylePicker } from "./CornerStylePicker";
 import { ReduceMotionPicker } from "./ReduceMotionPicker";
+import { ResetAppearanceButton } from "./ResetAppearanceButton";
+import { ScrollModePicker } from "./ScrollModePicker";
+import { SurfaceTintPicker } from "./SurfaceTintPicker";
 import { ThemePicker } from "./ThemePicker";
 import { ZoomLevelPicker } from "./ZoomLevelPicker";
 
@@ -22,6 +25,7 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
       title="Appearance"
       icon={<PaletteIcon className="h-5 w-5" />}
       description="Options for how the app looks"
+      action={<ResetAppearanceButton settings={settings} onSave={onSave} />}
     >
       <div className="flex flex-col gap-3">
         <SettingRow
@@ -33,8 +37,17 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
         <SettingRow
           kind="action"
           title="Accent color"
-          hint="The last swatch opens a hue slider for a colour of your own."
+          hint="The last swatch opens a hue slider for a color of your own."
           control={<AccentColorPicker settings={settings} onSave={onSave} />}
+        />
+
+        <SettingRow
+          kind="action"
+          title="Surface tint"
+          description="How much of the accent color carries into panels and backgrounds."
+          hint="At 0% every surface is a neutral grey and only the accent itself holds color."
+          controlClassName="w-72 shrink"
+          control={<SurfaceTintPicker />}
         />
 
         <SettingRow
@@ -56,6 +69,13 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           title="Reduce motion"
           hint="System follows your OS preference. On disables animations, off always animates."
           control={<ReduceMotionPicker />}
+        />
+
+        <SettingRow
+          kind="action"
+          title="Scrolling"
+          hint="Spring rubber-bands when a list is pushed past its end."
+          control={<ScrollModePicker />}
         />
 
         <Separator className="my-0" />

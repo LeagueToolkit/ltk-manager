@@ -79,7 +79,24 @@ trustedDomains: Array<string>,
 /**
  * Whether the library file watcher is enabled. Default: false.
  */
-watcherEnabled: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfileId: string | null, 
+watcherEnabled: boolean, 
+/**
+ * Whether a mod card shows its category pills.
+ *
+ * The tags, champions and maps a mod declares, plus whatever
+ * categorization derived. Display only, and on by default, since the pills
+ * are how a crowded grid stays readable. Filtering is unaffected either way.
+ */
+showModTags: boolean, 
+/**
+ * Whether a mod card shows its WAD footprint badge.
+ *
+ * Display only. The footprint is still analyzed and still feeds
+ * `Config::auto_categorization_enabled`, so hiding the badge costs no
+ * categories. Default: false, since the WAD count means nothing to most
+ * people installing a skin.
+ */
+showWadFootprint: boolean, authorProfiles: Array<AuthorProfile>, defaultAuthorProfileId: string | null, 
 /**
  * Whether the user has dismissed the HDD-performance warning. Once true,
  * we suppress the warning on subsequent patcher starts. Reset by toggling

@@ -73,7 +73,7 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
       <BaseContextMenu.Popup
         ref={ref}
         className={twMerge(
-          "w-44 rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
@@ -100,8 +100,9 @@ export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "
 }
 
 const itemVariantClasses: Record<ContextMenuItemVariant, string> = {
-  default: "text-surface-200 data-[highlighted]:bg-surface-600",
-  danger: "text-danger-text data-[highlighted]:bg-surface-600 data-[highlighted]:text-danger",
+  default: "text-surface-200 data-[highlighted]:bg-surface-veil data-[highlighted]:text-surface-50",
+  /* The highlight is a fill because the label is already at its own shade: DS-TEXT. */
+  danger: "text-danger-text data-[highlighted]:bg-danger/15",
 };
 
 export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
@@ -110,7 +111,10 @@ export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
       <BaseContextMenu.Item
         ref={ref}
         className={twMerge(
-          "flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
+          "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm outline-none select-none",
+          // Base UI stops a disabled item responding but leaves it looking
+          // identical to a live one, so it needs its own resting color.
+          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
           itemVariantClasses[variant],
           className,
         )}
@@ -138,7 +142,7 @@ export const ContextMenuSeparator = forwardRef<HTMLDivElement, ContextMenuSepara
     return (
       <BaseContextMenu.Separator
         ref={ref}
-        className={twMerge("my-1 border-t border-surface-600", className)}
+        className={twMerge("-mx-1 my-1 border-t border-surface-700", className)}
         {...props}
       />
     );

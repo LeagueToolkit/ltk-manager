@@ -4,6 +4,7 @@ import { Progress } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { LaunchProgress, OverlayProgress } from "@/lib/tauri";
 import { useOverlayProgress, usePatcherStatus } from "@/modules/patcher";
+import { useSessionProjectNames } from "@/modules/workshop";
 import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
 
 import { useLaunchAvailability, useLaunchProgress } from "../api";
@@ -110,7 +111,7 @@ export function SessionBar() {
   const launchProgress = useLaunchProgress();
   const { data: availability } = useLaunchAvailability();
   const playStep = usePlaySessionStore((s) => s.step);
-  const testingProjects = usePatcherSessionStore((s) => s.testingProjects);
+  const sessionProjects = useSessionProjectNames();
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const { data: platform } = usePlatformSupport();
 
@@ -160,9 +161,9 @@ export function SessionBar() {
         <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
         <span className="font-medium text-success-text">Patcher running</span>
         <span className="text-surface-400">Your mods will be applied when League starts.</span>
-        {testingProjects.length > 0 && (
+        {sessionProjects.length > 0 && (
           <span className="ml-auto rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
-            {describeTestingProjects(testingProjects)}
+            {describeTestingProjects(sessionProjects)}
           </span>
         )}
       </RestingLine>
@@ -206,7 +207,7 @@ export function SessionBar() {
     launchProgress,
   );
 
-  const testLabel = describeTestingProjects(testingProjects);
+  const testLabel = describeTestingProjects(sessionProjects);
 
   // Tied to the steps rather than to `launching`, so the shimmer dies the moment
   // the last one settles instead of running on a bar with nothing left to do.
@@ -262,9 +263,9 @@ function idleHint(leagueRunning: boolean): string {
   return "Start the patcher to apply your mods.";
 }
 
-function describeTestingProjects(projects: { displayName: string }[]): string | null {
-  if (projects.length === 1) return `Testing ${projects[0].displayName}`;
-  if (projects.length > 1) return `Testing ${projects.length} projects`;
+function describeTestingProjects(names: string[]): string | null {
+  if (names.length === 1) return `Testing ${names[0]}`;
+  if (names.length > 1) return `Testing ${names.length} projects`;
   return null;
 }
 

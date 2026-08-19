@@ -102,15 +102,31 @@ buttons, toolbar controls - and leave `regular` for decorative and section-heade
 Icons inside a control are sized against the control, not the body text. A 16px glyph disappears
 in a 32px field, where 20px is right.
 
-Riot's own marks are the exception, since neither icon set carries them. They live as inline-SVG
-components in `src/components/icons/`, lifted from the League and Riot Client asset sets:
-`LeagueIcon`, `RiotIcon`, `TftIcon`, and the cosmetics family `MaskIcon` / `ThreeMasksIcon` /
-`EvolutionIcon`. That folder has its own barrel, re-exported by `src/components/index.ts` - call
-sites still import from `@/components`.
+Riot's own marks are the exception, since neither icon set carries them. They live in
+`src/components/icons/`, lifted from the League and Riot Client asset sets: `LeagueIcon`,
+`RiotIcon`, `TftIcon`, and the cosmetics family `MaskIcon` / `ThreeMasksIcon` / `EvolutionIcon` /
+`BattleBoostIcon` / `MaskCheckIcon` / `ChampionCheckIcon`. That folder has its own barrel,
+re-exported by `src/components/index.ts` - call sites still import from `@/components`.
+
+Each mark is a pair. The artwork is an `.svg` under `src/assets/icons/`, so any viewer can preview
+it, and `src/components/icons/Name.tsx` imports that through `vite-plugin-svgr` and is where the doc
+comment explaining the mark lives.
+
+Where the `.svg` sits says who drew it. Anything lifted from Riot goes in `assets/icons/game/`, and
+the root is for marks that are ours - the patcher crystal, the poro empty states. A new mark
+traced off a client asset belongs in `game/` even when the feature using it is ours.
+
+```tsx
+import Mark from "@/assets/icons/game/MaskIcon.svg?react";
+
+export function MaskIcon({ className }: MaskIconProps) {
+  return <Mark className={className} />;
+}
+```
 
 Keep the path data untouched, and change only what stops it behaving like an icon: swap the client's
-hardcoded fill (League gold `#C89B3C`, parchment `#F0E6D2`) for `currentColor`, drop any wrapping
-`opacity`, and take `className` so the call site sets the size.
+hardcoded fill (League gold `#C89B3C`, parchment `#F0E6D2`) for `currentColor` and drop any wrapping
+`opacity`. The wrapper takes `className` so the call site sets the size.
 
 Check the artwork's bounds against its `viewBox` too. The client pads these for its own layout, so a
 mark can sit at half the height of its box and read a size smaller than the icons beside it - crop
@@ -118,6 +134,34 @@ the `viewBox` to the artwork rather than compensating with a bigger `className` 
 (`MaskIcon` is the example).
 Redrawing the paths to match the icon set's stroke weight is not worth it - at 16px the fill reads
 fine next to a stroked icon, and a hand-traced mark is just a worse copy.
+
+Some of these marks ship only as small bitmaps. Trace nothing: build them by placing the paths the
+folder already holds and drawing whatever the bitmap adds on top, the way `MaskCheckIcon` reuses
+`MaskIcon`'s silhouette twice under a fresh check. The bitmaps separate overlapping shapes with a
+dark outline, which a single-color mark on an unknown background cannot borrow - knock the channel
+out instead, with an `<svg>` `<mask>`.
+
+A mask needs an id, and an id in a static file repeats once the same icon is on screen twice. That
+is safe only because every copy defines the same mask under that name, so whichever one a reference
+resolves to draws the same thing. Name the id for its own file (`maskCheckChannel`, not `channel`)
+so two different marks never share one, and if a mask ever has to vary per instance, it stops being
+a static file and goes back to a component with `useId`.
+
+## Debug IDs
+
+Key structural elements carry `data-ui`, so an element picked in devtools names the
+code that drew it. The value is `Component` for a component's own root and
+`Component:part` for a landmark inside it - `ContentSidebar`,
+`ContentSidebar:project-row`, `EditorTabs:tab`. The half before the colon is a real
+exported symbol, so it resolves with a symbol search.
+
+This is for the regions someone inspects while working on a screen, not for every
+node. A list gets one on its container rather than on each item, unless the item is
+the thing being debugged - the content tree rows carry one, because they are.
+
+Interpolate when one component draws a family of them:
+``data-ui={`SidePanel:${section.id}`}``. Never read `data-ui` from code. It is a
+label for a human, and a selector built on it turns a debugging aid into a contract.
 
 ## Styling
 
@@ -218,3 +262,15 @@ established pattern here (`CheckRow` for the fix command, `useModCardController`
 ## Reduce Motion
 
 Three-option system applied via `[data-reduce-motion]` on `<html>`: System Default (follows OS `prefers-reduced-motion`), On, Off. Use `useReducedMotion()` from `@/hooks` for component-level checks.
+
+## Scrolling
+
+Two-option system applied via `[data-scroll-mode]` on `<html>`: Smooth and Spring. Both ease a
+scroll the app asks for - `scrollIntoView`, an anchor, a log pane pinning itself to the bottom -
+and Spring adds the rubber-band overscroll from `useOverscrollSpring()`, a wheel handler of our
+own because Chromium has no bounce to turn on. Reduce motion outranks the setting and returns
+every scroll to instant.
+
+CSS `scroll-behavior: auto` is deliberately not offered as a third option. The property never
+reaches the wheel, which the browser animates either way, so it would read to a user as a
+setting that does nothing.

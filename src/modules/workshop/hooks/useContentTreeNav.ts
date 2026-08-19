@@ -5,7 +5,8 @@ import type { FlatTreeRow } from "../utils/contentTree";
 
 interface UseContentTreeNavParams {
   rows: readonly FlatTreeRow[];
-  expanded: ReadonlySet<string>;
+  /** Directories the user shut. Anything absent is open. */
+  collapsed: ReadonlySet<string>;
   onToggle: (path: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
@@ -27,7 +28,7 @@ interface UseContentTreeNavReturn {
  */
 export function useContentTreeNav({
   rows,
-  expanded,
+  collapsed,
   onToggle,
   virtualizer,
   scrollElementRef,
@@ -77,12 +78,12 @@ export function useContentTreeNav({
         case "ArrowRight":
           if (row.node.type === "dir") {
             e.preventDefault();
-            if (!expanded.has(row.node.path)) onToggle(row.node.path);
+            if (collapsed.has(row.node.path)) onToggle(row.node.path);
             else moveFocus(focusedIndex + 1);
           }
           return;
         case "ArrowLeft":
-          if (row.node.type === "dir" && expanded.has(row.node.path)) {
+          if (row.node.type === "dir" && !collapsed.has(row.node.path)) {
             e.preventDefault();
             onToggle(row.node.path);
           } else if (row.depth > 0) {
@@ -97,7 +98,7 @@ export function useContentTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, expanded, onToggle, moveFocus],
+    [rows, focusedIndex, collapsed, onToggle, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

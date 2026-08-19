@@ -23,6 +23,7 @@ export function AuthorsSection({
       title="Authors"
       icon={<Users className="h-4 w-4" />}
       description="People who contributed to this mod."
+      panelClassName="bg-surface-800"
       action={
         <Button
           variant="outline"

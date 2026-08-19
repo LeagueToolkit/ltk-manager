@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { XIcon } from "@phosphor-icons/react";
 
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
@@ -18,7 +18,7 @@ export function ActiveFilterChips() {
   if (!hasActive) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-2">
+    <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
       {[...selectedTags].map((tag) => (
         <Chip
           key={`tag:${tag}`}
@@ -78,7 +78,7 @@ function Chip({
         onClick={onRemove}
         className="cursor-pointer rounded-full p-0.5 hover:bg-surface-50/10"
       >
-        <X className="h-3 w-3" />
+        <XIcon weight="bold" className="h-3 w-3" />
       </button>
     </span>
   );

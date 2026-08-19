@@ -77,7 +77,7 @@ export const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
       <BaseMenu.Popup
         ref={ref}
         className={twMerge(
-          "w-44 rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
@@ -104,8 +104,9 @@ export interface MenuItemProps extends Omit<BaseMenu.Item.Props, "className"> {
 }
 
 const itemVariantClasses: Record<MenuItemVariant, string> = {
-  default: "text-surface-200 data-[highlighted]:bg-surface-600",
-  danger: "text-danger-text data-[highlighted]:bg-surface-600 data-[highlighted]:text-danger",
+  default: "text-surface-200 data-[highlighted]:bg-surface-veil data-[highlighted]:text-surface-50",
+  /* The highlight is a fill because the label is already at its own shade: DS-TEXT. */
+  danger: "text-danger-text data-[highlighted]:bg-danger/15",
 };
 
 export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
@@ -114,9 +115,9 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
       <BaseMenu.Item
         ref={ref}
         className={twMerge(
-          "flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
+          "flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm outline-none select-none",
           // Base UI stops a disabled item responding but leaves it looking
-          // identical to a live one, so it needs its own resting colour.
+          // identical to a live one, so it needs its own resting color.
           "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
           itemVariantClasses[variant],
           className,
@@ -142,7 +143,7 @@ export const MenuSeparator = forwardRef<HTMLDivElement, MenuSeparatorProps>(
     return (
       <BaseMenu.Separator
         ref={ref}
-        className={twMerge("my-1 border-t border-surface-600", className)}
+        className={twMerge("-mx-1 my-1 border-t border-surface-700", className)}
         {...props}
       />
     );
@@ -178,7 +179,10 @@ export const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
     return (
       <BaseMenu.GroupLabel
         ref={ref}
-        className={twMerge("px-3 py-1.5 text-xs font-medium text-surface-500", className)}
+        className={twMerge(
+          "px-2 py-1 text-[11px] font-medium tracking-wide text-surface-400 uppercase",
+          className,
+        )}
         {...props}
       >
         {children}

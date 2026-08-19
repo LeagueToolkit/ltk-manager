@@ -39,7 +39,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     )
     .otherwise(
       () =>
-        "border-surface-600 bg-surface-900 hover:-translate-y-px hover:border-surface-400 hover:bg-surface-800/80 hover:shadow-md",
+        "border-surface-600 bg-surface-900 hover:-translate-y-px hover:border-accent-hover hover:bg-surface-800/80 hover:shadow-md",
     );
 
   return (
@@ -80,7 +80,9 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
 
       <div className="flex flex-1 flex-col p-3">
         <div className="mb-1 flex items-center gap-1">
-          <h3 className="line-clamp-1 text-sm font-medium text-surface-100">{mod.displayName}</h3>
+          <h3 className="min-w-0 truncate text-sm font-medium text-surface-100">
+            {mod.displayName}
+          </h3>
           {isFlagged && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
         </div>
 

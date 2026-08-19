@@ -10,6 +10,8 @@ export * from "./patcherSession";
 export * from "./playSession";
 export * from "./updater";
 export * from "./workshopDialogs";
+export * from "./workshopEditor";
 export * from "./workshopFilter";
+export * from "./workshopLayout";
 export * from "./workshopSelection";
 export * from "./workshopView";

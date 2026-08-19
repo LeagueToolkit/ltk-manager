@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton } from "./Button";
+import { FieldAffix, fieldAffixButtonClass } from "./FieldAffix";
 import { Field } from "./FormField";
 import { Tooltip } from "./Tooltip";
 
@@ -13,8 +14,13 @@ export type PathPick = "directory" | "file";
 /** Outcome of the caller's own check on the current path. */
 export type PathValidity = "valid" | "invalid";
 
+/** How much of the path the input shows. The whole path is still what is picked. */
+export type PathDisplay = "full" | "name";
+
 interface PathFieldBaseProps {
-  label: ReactNode;
+  /** Omit inside a row that already names the field, and pass `aria-label` instead. */
+  label?: ReactNode;
+  "aria-label"?: string;
   value: string | null | undefined;
   /** Receives the chosen path. Not called when the picker is dismissed. */
   onSelect: (path: string) => void;
@@ -25,6 +31,7 @@ interface PathFieldBaseProps {
   /** Message below the field. */
   error?: ReactNode;
   validity?: PathValidity;
+  display?: PathDisplay;
   /** Adds a clear button while there is a value. */
   onClear?: () => void;
   /** Controls placed outside the input, after it. */
@@ -47,8 +54,11 @@ const validityIcon: Record<PathValidity, ReactNode> = {
   invalid: <WarningCircleIcon weight="bold" className="h-5 w-5 text-danger-text" />,
 };
 
-const inBoxButtonClass =
-  "h-full w-8 shrink-0 rounded-none text-surface-300 hover:bg-surface-600 hover:text-surface-100 active:bg-surface-500";
+/** Last segment of a path, under either separator. */
+function basename(path: string): string {
+  const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  return cut === -1 ? path : path.slice(cut + 1);
+}
 
 /** Keeps the path clear of the controls sitting inside the input. */
 function trailingPadding(hasValidity: boolean, hasClear: boolean): string {
@@ -60,6 +70,7 @@ function trailingPadding(hasValidity: boolean, hasClear: boolean): string {
 /** A read-only path input with a native picker on the button inside it. */
 export function PathField({
   label,
+  "aria-label": ariaLabel,
   value,
   onSelect,
   placeholder,
@@ -67,6 +78,7 @@ export function PathField({
   description,
   error,
   validity,
+  display = "full",
   onClear,
   actions,
   browseIcon,
@@ -91,22 +103,25 @@ export function PathField({
   }
 
   const hint = browseHint[pick];
+  const shown = value && display === "name" ? basename(value) : (value ?? "");
   const icon = browseIcon ?? <FolderOpenIcon weight="bold" className="h-5 w-5" />;
   const canClear = !!onClear && !!value;
 
   return (
     <Field.Root className={className}>
-      <Field.Label>{label}</Field.Label>
+      {label && <Field.Label>{label}</Field.Label>}
       <div className="flex items-center gap-2">
         <div className="relative flex min-w-0 flex-1 items-center">
           <Field.Control
             type="text"
-            value={value ?? ""}
+            value={shown}
             readOnly
+            aria-label={ariaLabel}
+            title={shown === value ? undefined : (value ?? undefined)}
             placeholder={placeholder}
             className={twMerge("font-mono", trailingPadding(!!validity, canClear))}
           />
-          <div className="absolute inset-y-px right-px flex items-stretch overflow-hidden rounded-r-md">
+          <FieldAffix>
             {validity && (
               <span className="pointer-events-none flex w-8 items-center justify-center">
                 {validityIcon[validity]}
@@ -121,7 +136,7 @@ export function PathField({
                   compact
                   aria-label="Clear"
                   onClick={onClear}
-                  className={inBoxButtonClass}
+                  className={fieldAffixButtonClass}
                 />
               </Tooltip>
             )}
@@ -133,10 +148,10 @@ export function PathField({
                 compact
                 aria-label={hint}
                 onClick={handleBrowse}
-                className={inBoxButtonClass}
+                className={fieldAffixButtonClass}
               />
             </Tooltip>
-          </div>
+          </FieldAffix>
         </div>
         {actions}
       </div>

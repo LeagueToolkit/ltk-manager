@@ -1,4 +1,5 @@
 import { ChevronRight, Folder as FolderIconDefault, FolderOpen } from "lucide-react";
+import { memo } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Tooltip } from "@/components";
@@ -10,8 +11,11 @@ import { describeFileKind } from "../utils/fileKindIcon";
 /** Shared row styling. Kept as string constants so the hover/selected variants
  * cascade cleanly in Tailwind 4 — selected-hover has to beat plain hover, so
  * it appears later in the class string. */
+/* The tree is set in JetBrains Mono, which carries more ink per row than the sans
+   the rest of the app uses, so the same rung reads brighter here. The name settles
+   a little under it and the hover still climbs to a full rung. */
 const ROW_BASE_CLASSES =
-  "flex items-center gap-1.5 pr-3 select-none text-surface-200 outline-none transition-colors duration-100";
+  "flex items-center gap-1 pr-3 select-none text-surface-200/90 outline-none transition-colors duration-100";
 const ROW_STATE_CLASSES =
   "hover:bg-surface-700/70 hover:text-surface-100 " +
   "aria-selected:bg-accent-500/15 aria-selected:text-accent-100 " +
@@ -25,13 +29,13 @@ interface TreeRowProps {
   isSelected: boolean;
   dirFileCount: number;
   onToggle: (path: string) => void;
-  onSelect: () => void;
+  onSelect: (index: number) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
 }
 
-export function TreeRow({
+function TreeRowInner({
   node,
   depth,
   isExpanded,
@@ -72,23 +76,31 @@ export function TreeRow({
   );
 }
 
-/** One 14px-wide column per ancestor level, each drawing a 1px vertical guide
- * on its left edge. Since every row in the virtual window draws its own rails
- * at the same left offsets, the lines appear continuous. */
+const RAIL_CLASSES = "w-[10px] shrink-0 self-stretch";
+
+/** One column per ancestor level, each drawing a 1px vertical guide on its left
+ * edge. Since every row in the virtual window draws its own rails at the same
+ * left offsets, the lines appear continuous.
+ *
+ * The first column stays blank. A root entry's guide would sit against the
+ * pane's own edge and read as a second border running down it. */
 function IndentRails({ depth }: { depth: number }) {
   if (depth === 0) return null;
   return (
     <>
-      {Array.from({ length: depth }).map((_, i) => (
+      <span aria-hidden="true" className={RAIL_CLASSES} />
+      {Array.from({ length: depth - 1 }).map((_, i) => (
         <span
           key={i}
           aria-hidden="true"
-          className="w-[14px] shrink-0 self-stretch border-l border-surface-700"
+          className={twMerge(RAIL_CLASSES, "border-l border-surface-700/60")}
         />
       ))}
     </>
   );
 }
+
+export const TreeRow = memo(TreeRowInner);
 
 interface DirRowProps {
   node: DirNode;
@@ -97,7 +109,7 @@ interface DirRowProps {
   isSelected: boolean;
   fileCount: number;
   onToggle: (path: string) => void;
-  onSelect: () => void;
+  onSelect: (index: number) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -124,14 +136,15 @@ function DirRow({
       aria-expanded={isExpanded}
       aria-level={depth + 1}
       aria-selected={isSelected}
+      data-ui="ContentTreeRow:dir"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
       onClick={() => {
-        onSelect();
+        onSelect(rowIndex);
         onToggle(node.path);
       }}
-      onContextMenu={onSelect}
-      onFocus={onSelect}
+      onContextMenu={() => onSelect(rowIndex)}
+      onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
       className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
@@ -150,7 +163,7 @@ function DirRow({
         strokeWidth={1.75}
       />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[11px] text-surface-500 tabular-nums">
+      <span className="ml-auto shrink-0 text-[10px] text-surface-500 tabular-nums">
         {fileCount}
       </span>
     </button>
@@ -161,7 +174,7 @@ interface FileRowProps {
   node: FileNode;
   depth: number;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (index: number) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -176,13 +189,14 @@ function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex
       role="treeitem"
       aria-level={depth + 1}
       aria-selected={isSelected}
+      data-ui="ContentTreeRow:file"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={onSelect}
-      onContextMenu={onSelect}
-      onFocus={onSelect}
+      onClick={() => onSelect(rowIndex)}
+      onContextMenu={() => onSelect(rowIndex)}
+      onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge("cursor-default", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
+      className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
       <IndentRails depth={depth} />
       {/* Reserve chevron slot on files so file and dir names stay column-aligned. */}
@@ -197,7 +211,7 @@ function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex
         </span>
       </Tooltip>
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 font-mono text-[11px] text-surface-400 tabular-nums">
+      <span className="ml-auto shrink-0 font-mono text-[10px] text-surface-400 tabular-nums">
         {formatBytes(Number(node.entry.sizeBytes))}
       </span>
     </div>

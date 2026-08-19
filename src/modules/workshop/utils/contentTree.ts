@@ -4,6 +4,7 @@ export type ContentTreeNode = DirNode | FileNode;
 
 export interface DirNode {
   readonly type: "dir";
+  /** The directory's own name, or every segment of a folded chain joined by "/". */
   readonly name: string;
   /** Path relative to the layer root, POSIX-style, no trailing slash. */
   readonly path: string;
@@ -23,6 +24,10 @@ export interface FileNode {
  * already sorts by relative path, so the tree inherits that ordering. Within a
  * single directory, children are then sorted directories-first, each group
  * alphabetically, to match typical file-tree expectations.
+ *
+ * A run of directories that each hold nothing but the next one folds into a
+ * single row naming the whole run, the way an editor's explorer does. Those
+ * rows carry no information of their own and cost one indent level each.
  */
 export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeNode[] {
   const root: DirNode = { type: "dir", name: "", path: "", children: [] };
@@ -53,7 +58,46 @@ export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeN
   }
 
   sortRecursive(root);
-  return root.children;
+  return foldChains(root.children);
+}
+
+/** The one directory a node holds, when it holds nothing else at all. */
+function onlyChildDir(dir: DirNode): DirNode | undefined {
+  if (dir.children.length !== 1) return undefined;
+  const only = dir.children[0]!;
+  if (only.type !== "dir") return undefined;
+  return only;
+}
+
+/* The folded row takes the deepest path of its run, so expanding it, counting its
+   files and revealing it in Explorer all address the directory that holds them. */
+function foldChains(nodes: readonly ContentTreeNode[]): ContentTreeNode[] {
+  return nodes.map((node) => {
+    if (node.type !== "dir") return node;
+
+    let deepest = node;
+    let name = node.name;
+
+    let only = onlyChildDir(deepest);
+    while (only) {
+      deepest = only;
+      name = `${name}/${only.name}`;
+      only = onlyChildDir(deepest);
+    }
+
+    return { type: "dir", name, path: deepest.path, children: foldChains(deepest.children) };
+  });
+}
+
+/**
+ * Whether a row stands for `path`, directly or as part of the run it folded.
+ *
+ * A folded row carries only the deepest path of its run, so a request to reveal
+ * any directory above that has no row of its own to land on.
+ */
+export function nodeCovers(node: ContentTreeNode, path: string): boolean {
+  if (node.type === "file") return node.entry.relativePath === path;
+  return node.path === path || node.path.startsWith(`${path}/`);
 }
 
 function sortRecursive(dir: DirNode): void {
@@ -75,21 +119,26 @@ export interface FlatTreeRow {
 
 /**
  * Walk a tree and produce the linear list of rows that should currently be
- * rendered, respecting expand/collapse state. A directory is always included;
- * its children are only included when its path is in `expanded`.
+ * rendered, respecting expand/collapse state. A directory is always included.
+ * Its children are included unless its path is in `collapsed`.
+ *
+ * The set names what is shut rather than what is open, so a directory the scan
+ * has only just found renders expanded like the rest. A set of open paths would
+ * have to be reconciled against every refetch to reach the same result, and a
+ * stale entry in this one costs nothing because it names a path that is gone.
  *
  * Feeds `@tanstack/react-virtual` so we only render what's visible regardless
  * of how many files the project contains.
  */
 export function flattenTree(
   tree: readonly ContentTreeNode[],
-  expanded: ReadonlySet<string>,
+  collapsed: ReadonlySet<string>,
 ): FlatTreeRow[] {
   const out: FlatTreeRow[] = [];
   const walk = (nodes: readonly ContentTreeNode[], depth: number): void => {
     for (const node of nodes) {
       out.push({ node, depth });
-      if (node.type === "dir" && expanded.has(node.path)) {
+      if (node.type === "dir" && !collapsed.has(node.path)) {
         walk(node.children, depth + 1);
       }
     }
@@ -99,8 +148,10 @@ export function flattenTree(
 }
 
 /**
- * Collect the paths of every directory node in a tree — useful for seeding
- * the expanded-set so the tree renders fully expanded by default.
+ * Collect the paths of every directory node in a tree.
+ *
+ * This is the collapsed-set that shuts every directory at once, and the inverse
+ * of the empty set that opens them all.
  */
 export function allDirPaths(tree: readonly ContentTreeNode[]): Set<string> {
   const set = new Set<string>();
@@ -137,4 +188,49 @@ export function buildDirFileCounts(tree: readonly ContentTreeNode[]): Map<string
   };
   walk(tree);
   return counts;
+}
+
+export interface LayerWad {
+  /** Matches a tree node's path, so the tree can find what to scroll to. */
+  readonly path: string;
+  readonly name: string;
+  readonly kind: "wad" | "file";
+  readonly fileCount: number;
+  readonly sizeBytes: number;
+}
+
+/**
+ * Summarise a layer by its top level - one row per WAD, plus any loose file.
+ *
+ * Sizes come back as numbers rather than the entries' `bigint`, which is what
+ * `formatBytes` and a sort comparator both want.
+ */
+export function buildLayerWads(entries: readonly ContentEntry[]): LayerWad[] {
+  const roots = new Map<
+    string,
+    { name: string; kind: "wad" | "file"; count: number; size: number }
+  >();
+
+  for (const entry of entries) {
+    const segments = entry.relativePath.split("/").filter((s) => s.length > 0);
+    const name = segments[0];
+    if (!name) continue;
+
+    const existing = roots.get(name);
+    const size = Number(entry.sizeBytes);
+    if (existing) {
+      existing.count += 1;
+      existing.size += size;
+    } else {
+      roots.set(name, { name, kind: segments.length > 1 ? "wad" : "file", count: 1, size });
+    }
+  }
+
+  return [...roots.values()].map((root) => ({
+    path: root.name,
+    name: root.name,
+    kind: root.kind,
+    fileCount: root.count,
+    sizeBytes: root.size,
+  }));
 }

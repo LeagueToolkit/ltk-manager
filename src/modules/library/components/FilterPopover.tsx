@@ -1,15 +1,36 @@
-import { Filter, Search, X } from "lucide-react";
+import {
+  ArrowsDownUpIcon,
+  FunnelIcon,
+  MapTrifoldIcon,
+  TagIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
-import { Checkbox, EmptyState, IconButton, Popover, Separator, Tooltip } from "@/components";
+import {
+  Button,
+  ChampionIcon,
+  EmptyState,
+  Field,
+  FilterColumn,
+  FilterOption,
+  FilterSection,
+  IconButton,
+  Popover,
+  Tooltip,
+} from "@/components";
 import type { FilterOptions } from "@/modules/library/api";
 import {
+  getMapIcon,
   getMapLabel,
+  getTagIcon,
   getTagLabel,
   WELL_KNOWN_MAPS,
   WELL_KNOWN_TAGS,
-} from "@/modules/library/utils/labels";
+} from "@/modules/library/utils";
 import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
+
+import { SortDirectionToggle, SortOptions } from "./SortOptions";
 
 function mergeUnique(wellKnown: string[], fromMods: string[]): string[] {
   const seen = new Set(wellKnown);
@@ -25,9 +46,11 @@ function mergeUnique(wellKnown: string[], fromMods: string[]): string[] {
 
 interface FilterPopoverProps {
   filterOptions: FilterOptions;
+  /** Merged onto the trigger, so the caller can seat it inside a field. */
+  className?: string;
 }
 
-export function FilterPopover({ filterOptions }: FilterPopoverProps) {
+export function FilterPopover({ filterOptions, className }: FilterPopoverProps) {
   const {
     selectedTags,
     selectedChampions,
@@ -36,11 +59,10 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
     toggleChampion,
     toggleMap,
     clearFilters,
-    showOnlyEnabled,
-    setShowOnlyEnabled,
   } = useLibraryFilterStore();
   const hasActive = useHasActiveFilters();
   const [champSearch, setChampSearch] = useState("");
+  const hasChampions = filterOptions.champions.length > 0;
 
   const tags = useMemo(
     () => mergeUnique(WELL_KNOWN_TAGS, filterOptions.tags),
@@ -59,13 +81,13 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
 
   return (
     <Popover.Root>
-      <Tooltip content="Filter mods">
+      <Tooltip content="Sort and filter mods">
         <Popover.Trigger
           render={
             <IconButton
               icon={
                 <div className="relative">
-                  <Filter className="h-4 w-4" />
+                  <FunnelIcon weight="bold" className="h-4 w-4" />
                   {hasActive && (
                     <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-500" />
                   )}
@@ -73,139 +95,103 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
               }
               variant="ghost"
               size="sm"
+              aria-label="Sort and filter mods"
+              className={className}
             />
           }
         />
       </Tooltip>
       <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={8}>
-          <Popover.Popup className="w-80 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <Popover.Title className="text-sm font-semibold text-surface-100">
-                Filters
-              </Popover.Title>
-              {hasActive && (
-                <button
-                  onClick={clearFilters}
-                  className="flex cursor-pointer items-center gap-1 text-xs text-surface-400 hover:text-surface-200"
-                >
-                  <X className="h-3 w-3" />
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex flex-col gap-1.5 pb-1">
-                <Checkbox
-                  size="sm"
-                  label="Show only enabled"
-                  checked={showOnlyEnabled}
-                  onCheckedChange={setShowOnlyEnabled}
-                />
-              </div>
-
-              <Separator />
-
-              <FilterSection title="Tags">
-                <div className="flex flex-wrap gap-1.5">
-                  {tags.map((tag) => (
-                    <TogglePill
-                      key={tag}
-                      label={getTagLabel(tag)}
-                      active={selectedTags.has(tag)}
-                      onClick={() => toggleTag(tag)}
-                    />
-                  ))}
-                </div>
+        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
+          {/* A rung under the DS-GROUND default for floating UI, so it reads apart
+              from the surface-800 toolbar it drops out of. */}
+          <Popover.Popup
+            aria-label="Sort and filter"
+            className="w-[38rem] overflow-hidden bg-surface-900 p-0 select-none"
+          >
+            <div className="max-h-[min(32rem,70vh)] divide-y divide-surface-600/50 overflow-y-auto">
+              <FilterSection
+                title="Sort by"
+                icon={<ArrowsDownUpIcon className="h-3.5 w-3.5" />}
+                action={<SortDirectionToggle />}
+              >
+                <SortOptions />
               </FilterSection>
 
-              <Separator />
-
-              <FilterSection title="Maps">
-                <div className="flex flex-wrap gap-1.5">
-                  {maps.map((map) => (
-                    <TogglePill
-                      key={map}
-                      label={getMapLabel(map)}
-                      active={selectedMaps.has(map)}
-                      onClick={() => toggleMap(map)}
-                    />
-                  ))}
-                </div>
-              </FilterSection>
-
-              {filterOptions.champions.length > 0 && (
-                <>
-                  <Separator />
-                  <FilterSection title="Champions">
-                    {filterOptions.champions.length > 6 && (
-                      <div className="relative mb-2">
-                        <Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-surface-500" />
-                        <input
+              <div className="flex divide-x divide-surface-600/50">
+                {hasChampions && (
+                  <FilterColumn
+                    className="w-44 flex-none"
+                    head={
+                      <div className="relative flex items-center">
+                        <ChampionIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-400" />
+                        <Field.Control
                           type="text"
-                          placeholder="Search champions..."
+                          placeholder="Champions"
                           value={champSearch}
                           onChange={(e) => setChampSearch(e.target.value)}
-                          className="w-full rounded-md border border-surface-600 bg-surface-800 py-1.5 pr-3 pl-8 text-xs text-surface-100 placeholder:text-surface-500 focus-visible:border-accent-500 focus-visible:outline-none"
+                          className="h-8 rounded-none border-0 border-b border-surface-600/50 bg-surface-950/40 pr-3 pl-9 text-xs select-text hover:border-accent-hover focus:border-accent-500 focus:ring-0"
                         />
                       </div>
+                    }
+                  >
+                    {filteredChampions.map((champ) => (
+                      <FilterOption
+                        key={champ}
+                        label={champ}
+                        checked={selectedChampions.has(champ)}
+                        onToggle={() => toggleChampion(champ)}
+                      />
+                    ))}
+                    {filteredChampions.length === 0 && (
+                      <EmptyState size="xs" title="No champions found" />
                     )}
-                    <div className="max-h-[140px] overflow-y-auto">
-                      <div className="flex flex-col gap-1.5">
-                        {filteredChampions.map((champ) => (
-                          <Checkbox
-                            key={champ}
-                            size="sm"
-                            label={champ}
-                            checked={selectedChampions.has(champ)}
-                            onCheckedChange={() => toggleChampion(champ)}
-                          />
-                        ))}
-                        {filteredChampions.length === 0 && (
-                          <EmptyState size="xs" title="No champions found" />
-                        )}
-                      </div>
-                    </div>
-                  </FilterSection>
-                </>
-              )}
+                  </FilterColumn>
+                )}
+
+                <FilterColumn title="Tags" icon={<TagIcon className="h-3.5 w-3.5" />}>
+                  {tags.map((tag) => (
+                    <FilterOption
+                      key={tag}
+                      label={getTagLabel(tag)}
+                      icon={getTagIcon(tag)}
+                      checked={selectedTags.has(tag)}
+                      onToggle={() => toggleTag(tag)}
+                    />
+                  ))}
+                </FilterColumn>
+
+                <FilterColumn title="Maps" icon={<MapTrifoldIcon className="h-3.5 w-3.5" />}>
+                  {maps.map((map) => (
+                    <FilterOption
+                      key={map}
+                      label={getMapLabel(map)}
+                      icon={getMapIcon(map)}
+                      checked={selectedMaps.has(map)}
+                      onToggle={() => toggleMap(map)}
+                    />
+                  ))}
+                </FilterColumn>
+              </div>
             </div>
+
+            {hasActive && (
+              <div className="flex justify-end border-t border-surface-600/50 px-3 py-2">
+                <Button
+                  variant="transparent"
+                  size="sm"
+                  compact
+                  onClick={clearFilters}
+                  left={<XIcon weight="bold" className="h-3.5 w-3.5" />}
+                  className="font-normal"
+                >
+                  Clear filters
+                </Button>
+              </div>
+            )}
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
-  );
-}
-
-function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h4 className="mb-2 text-xs font-medium tracking-wide text-surface-500 uppercase">{title}</h4>
-      {children}
-    </div>
-  );
-}
-
-function TogglePill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-        active
-          ? "border-accent-500/50 bg-accent-500/20 text-accent-300 hover:bg-accent-500/30"
-          : "border-surface-600 bg-surface-800 text-surface-400 hover:border-surface-500 hover:text-surface-200"
-      }`}
-    >
-      {label}
-    </button>
   );
 }

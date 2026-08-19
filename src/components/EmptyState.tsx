@@ -23,20 +23,20 @@ const SIZES: Record<EmptyStateSize, { root: string; icon: string; title: string;
   xs: {
     root: "gap-1 py-3",
     icon: "text-surface-600",
-    title: "text-xs font-medium text-surface-400",
-    body: "max-w-xs text-xs text-surface-500",
+    title: "text-xs font-medium text-surface-300",
+    body: "max-w-xs text-xs text-surface-400",
   },
   sm: {
     root: "gap-1.5 py-4",
     icon: "mb-1 text-surface-600",
-    title: "text-sm font-medium text-surface-400",
-    body: "max-w-sm text-sm text-surface-500",
+    title: "text-sm font-medium text-surface-300",
+    body: "max-w-sm text-sm text-surface-400",
   },
   md: {
     root: "h-64 gap-1",
     icon: "mb-3 text-surface-600",
-    title: "text-lg font-medium text-surface-400",
-    body: "max-w-md text-surface-500",
+    title: "text-lg font-medium text-surface-300",
+    body: "max-w-md text-surface-400",
   },
 };
 

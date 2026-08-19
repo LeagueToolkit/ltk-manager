@@ -5,17 +5,22 @@ import { Accessibility, FolderOpen, Minus, Settings, Square, Stethoscope, X } fr
 import { type ComponentType, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { IconButton, LootIcon, MaskIcon, Separator, Tooltip, useToast } from "@/components";
+import { CollectionIcon, IconButton, LootIcon, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
-import { ProfileSelector } from "@/modules/library";
 
 import { NotificationCenter } from "./NotificationCenter";
 
 const navItems = [
-  { to: "/", label: "Library", icon: MaskIcon, exact: true },
+  { to: "/", label: "Mods", icon: CollectionIcon, exact: true },
   { to: "/workshop", label: "Workshop", icon: LootIcon, exact: false },
 ] as const;
+
+/* One motion for every target in the bar: the cell holds its size and the glyph
+   inside it grows, so nothing beside it shifts. Nav and action cells only - the
+   window controls keep the platform's dead-flat shape: DS-SHAPE. */
+const iconLiftClass =
+  "[&_svg]:transition-transform [&_svg]:duration-150 [&_svg]:ease-out hover:[&_svg]:scale-110";
 
 /* Two nav shapes, split by what the target is rather than by where it sits.
    A page tab fills the strip and carries a bottom bar, which only reads under a
@@ -26,29 +31,32 @@ const navItems = [
    Hover on both is the flat ghost-button fill. The wiki's brand-gradient row
    wash is not used here: it fades to transparent across the row, and on a cell
    this narrow it cuts off mid-fade at the trailing edge. */
-const tabBaseClass =
-  "relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700";
+const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
 const tabActiveClass = "text-accent-400";
 const tabInactiveClass = "text-surface-400 hover:text-surface-200";
 
-const iconNavBase = "flex h-8 w-8 items-center justify-center rounded-md transition-colors";
+/* Every action cell runs the bar's full height and sits flush with its
+   neighbours, so the bar's own height is the only thing setting their size. */
+const actionCellClass = `h-full w-9 shrink-0 rounded-none ${iconLiftClass}`;
+const iconNavBase = `flex h-full w-9 shrink-0 items-center justify-center transition-colors ${iconLiftClass}`;
 const iconNavActive = "bg-accent-500/15 text-accent-300";
 const iconNavInactive = "text-surface-400 hover:bg-surface-700 hover:text-surface-200";
 
 /* Window controls are OS chrome, so they take the platform's shape: full-height
    square cells running flush to the window's corner, not the app's rounded
    buttons. Their hover is the plain ghost fill, like every other button in the
-   bar. Minimize and maximize carry no colour - neither is a warning or a
+   bar. Minimize and maximize carry no color - neither is a warning or a
    success, and the saturated fills they used to flash read far louder than
    anything else in the app. Close keeps a signal, but as a tinted wash and a red
    glyph, the shape the status palette takes everywhere else. */
 const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
 
-/* The brand ramp rather than a flat accent bar, so the tab strip reads as the
-   same chrome as the wiki's nav. */
+/* A ramp rather than a flat bar, so the tab strip reads as the same chrome as
+   the wiki's nav. Drawn from the accent rather than the fixed brand pair, which
+   cannot follow the accent the user picked. */
 function ActiveIndicator() {
   return (
-    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-brand-blue to-brand-violet" />
+    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-accent-500 to-accent-400" />
   );
 }
 
@@ -144,7 +152,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   return (
     <header
       className={twMerge(
-        "title-bar flex h-10 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-950 select-none",
+        "title-bar flex h-9 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-900 select-none",
         isMacOS && "pl-20",
       )}
       data-tauri-drag-region
@@ -172,20 +180,16 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
         </div>
 
         {/* Navigation tabs */}
-        <nav className="flex h-full items-center gap-1">
+        <nav className="flex h-full items-center">
           {navItems.map((item) => (
             <NavLink key={item.to} {...item} />
           ))}
         </nav>
-
-        <Separator orientation="vertical" />
-
-        <ProfileSelector />
       </div>
 
       {/* Right: Notifications, Settings, and window controls */}
       <div className="flex h-full items-center">
-        <div className="flex items-center gap-1">
+        <div className="flex h-full items-center">
           <Tooltip content="Open storage directory">
             <IconButton
               icon={<FolderOpen className="h-4 w-4" />}
@@ -193,7 +197,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
               size="sm"
               onClick={handleOpenStorageDirectory}
               aria-label="Open storage directory"
-              className="text-surface-400 hover:text-surface-200"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
             />
           </Tooltip>
 
@@ -206,7 +210,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
               size="sm"
               onClick={() => open(bugReportUrl)}
               aria-label="Report a Bug"
-              className="text-surface-400 hover:text-surface-200"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
             />
           </Tooltip>
 
@@ -217,7 +221,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
               size="sm"
               onClick={() => open("https://discord.gg/yhzDVRyQex")}
               aria-label="Join our Discord"
-              className="text-surface-400 hover:text-surface-200"
+              className={twMerge(actionCellClass, "text-surface-400 hover:text-surface-200")}
             />
           </Tooltip>
 
@@ -245,7 +249,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
         {!isMacOS && (
           <>
-            <Separator orientation="vertical" />
+            <Separator orientation="vertical" className="mx-0 h-full" />
 
             <div className="flex h-full">
               <IconButton
@@ -271,7 +275,10 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 className={windowControlClass}
               />
               <IconButton
-                icon={<X className="h-3.5 w-3.5" />}
+                /* Lucide's X is inset to half its viewBox, so it needs a box two rungs
+                   above its neighbours' to draw a cross their size, then a lighter stroke
+                   to come back to their weight at that box. */
+                icon={<X className="h-5 w-5" strokeWidth={1.25} />}
                 variant="ghost"
                 size="sm"
                 onClick={handleClose}

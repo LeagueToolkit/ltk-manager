@@ -4,6 +4,8 @@ import type { WorkshopProject } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { usePatcherSessionStore } from "@/stores";
 
+import { useSessionProjectNames } from "./useSessionProjectNames";
+
 export type WorkshopTestState =
   | { kind: "idle" }
   | { kind: "building-this" }
@@ -13,34 +15,46 @@ export type WorkshopTestState =
   | { kind: "building-library" }
   | { kind: "running-library" };
 
+function describe(names: string[]): string {
+  if (names.length === 1) return names[0];
+  return `${names.length} projects`;
+}
+
+/**
+ * What the patcher is doing, from the point of view of one workshop project.
+ *
+ * The session in flight is the source of truth, so this survives a reload: the
+ * store only covers the gap between the click and the first status poll, where
+ * there is no session to read yet.
+ */
 export function useWorkshopTestState(project?: WorkshopProject): WorkshopTestState {
   const { data: status } = usePatcherStatus();
   const testingProjects = usePatcherSessionStore((s) => s.testingProjects);
+  const sessionProjects = useSessionProjectNames();
 
   return useMemo<WorkshopTestState>(() => {
-    const running = status?.running ?? false;
-    const building = status?.phase === "building";
-    const pendingTest = !running && !building && testingProjects.length > 0;
+    const session = status?.session ?? null;
+    const inBuildPhase = status?.phase === "building";
 
-    if (!running && !building && !pendingTest) return { kind: "idle" };
+    if (!session) {
+      if (testingProjects.length === 0) return { kind: "idle" };
 
-    const inBuildPhase = building || pendingTest;
+      const isThis = project ? testingProjects.some((p) => p.path === project.path) : false;
+      if (isThis) return { kind: "building-this" };
+      return { kind: "building-other", otherLabel: describe(sessionProjects) };
+    }
 
-    const isThis = project ? testingProjects.some((p) => p.path === project.path) : false;
-    if (isThis) {
+    if (session.origin.kind === "library") {
+      return inBuildPhase ? { kind: "building-library" } : { kind: "running-library" };
+    }
+
+    if (project && session.origin.projects.includes(project.path)) {
       return inBuildPhase ? { kind: "building-this" } : { kind: "running-this" };
     }
 
-    if (testingProjects.length > 0) {
-      const otherLabel =
-        testingProjects.length === 1
-          ? testingProjects[0].displayName
-          : `${testingProjects.length} projects`;
-      return inBuildPhase
-        ? { kind: "building-other", otherLabel }
-        : { kind: "running-other", otherLabel };
-    }
-
-    return inBuildPhase ? { kind: "building-library" } : { kind: "running-library" };
-  }, [status, project, testingProjects]);
+    const otherLabel = describe(sessionProjects);
+    return inBuildPhase
+      ? { kind: "building-other", otherLabel }
+      : { kind: "running-other", otherLabel };
+  }, [status, project, testingProjects, sessionProjects]);
 }

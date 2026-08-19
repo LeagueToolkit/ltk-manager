@@ -26,7 +26,7 @@ export function DragDropOverlay({ visible }: DragDropOverlayProps) {
             <Upload className="h-16 w-16 text-accent-500" />
             <div className="text-center">
               <p className="text-lg font-medium text-surface-100">Drop to install</p>
-              <p className="text-sm text-surface-400">.modpkg or .fantome files</p>
+              <p className="text-sm text-surface-400">.modpkg, .fantome or .zip files</p>
             </div>
           </motion.div>
         </motion.div>

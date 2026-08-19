@@ -25,7 +25,7 @@ export function FolderCard({ folder, mods }: FolderCardProps) {
       <Link
         to="/folder/$folderId"
         params={{ folderId: folder.id }}
-        className="group relative flex h-full w-full cursor-pointer flex-col rounded-xl border border-surface-600 bg-surface-900 text-left no-underline transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-px hover:border-surface-400 hover:shadow-md"
+        className="group relative flex h-full w-full cursor-pointer flex-col rounded-xl border border-surface-600 bg-surface-900 text-left no-underline transition-[transform,box-shadow,border-color] duration-150 ease-out hover:-translate-y-px hover:border-accent-hover hover:shadow-md"
       >
         {mods.length > 0 && (
           <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>

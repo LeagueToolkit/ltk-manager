@@ -1,5 +1,5 @@
 import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
-import { Check, Minus } from "lucide-react";
+import { CheckIcon, MinusIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -30,16 +30,25 @@ const labelSizeClasses: Record<CheckboxSize, string> = {
   lg: "text-base",
 };
 
+/* A dark mark on a bright fill reads lighter (DS-POLARITY) and bold is already
+   phosphor's heaviest, so the filled path is stroked in its own color to fatten
+   it. The width is in the icon's 256-unit viewBox, not pixels. */
+const MARK_STROKE = 16;
+
 function CheckboxIcon({ size }: { size: CheckboxSize }) {
   return (
     <>
-      <Check
+      <CheckIcon
+        weight="bold"
+        stroke="currentColor"
+        strokeWidth={MARK_STROKE}
         className={twMerge(iconSizeClasses[size], "hidden group-data-[checked]:block")}
-        strokeWidth={3}
       />
-      <Minus
+      <MinusIcon
+        weight="bold"
+        stroke="currentColor"
+        strokeWidth={MARK_STROKE}
         className={twMerge(iconSizeClasses[size], "hidden group-data-[indeterminate]:block")}
-        strokeWidth={3}
       />
     </>
   );
@@ -52,20 +61,22 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
         ref={ref}
         disabled={disabled}
         className={twMerge(
-          "group inline-flex shrink-0 cursor-pointer items-center justify-center rounded border transition-colors",
+          "group inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors",
           sizeClasses[size],
           "border-surface-600 bg-surface-800",
           "hover:border-surface-500 hover:bg-surface-700",
           "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
-          "data-[checked]:border-accent-600 data-[checked]:bg-accent-600",
-          "data-[checked]:hover:border-accent-500 data-[checked]:hover:bg-accent-500",
-          "data-[indeterminate]:border-accent-600 data-[indeterminate]:bg-accent-600",
+          "data-[checked]:border-accent-500 data-[checked]:bg-accent-500",
+          "data-[checked]:hover:border-accent-400 data-[checked]:hover:bg-accent-400",
+          "data-[indeterminate]:border-accent-500 data-[indeterminate]:bg-accent-500",
           "disabled:cursor-not-allowed disabled:opacity-50",
           !label && className,
         )}
         {...props}
       >
-        <BaseCheckbox.Indicator className="flex items-center justify-center text-brand-on">
+        {/* The mark inverts with the theme on purpose, as the switch knob does:
+            DS-INVARIANT. */}
+        <BaseCheckbox.Indicator className="flex items-center justify-center text-surface-900">
           <CheckboxIcon size={size} />
         </BaseCheckbox.Indicator>
       </BaseCheckbox.Root>
@@ -84,7 +95,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
         )}
       >
         {checkbox}
-        <div className="flex flex-col">
+        <div className="flex min-w-0 flex-col">
           <span className={twMerge("text-surface-100", labelSizeClasses[size])}>{label}</span>
           {description && <span className="mt-0.5 text-xs text-surface-400">{description}</span>}
         </div>
