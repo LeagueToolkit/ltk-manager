@@ -2,8 +2,8 @@ import { InfoIcon, PackageIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
-import { Button, Field, PlayerTitleIcon, SectionCard, Tooltip } from "@/components";
-import type { EditorDocumentProps } from "@/modules/editor";
+import { Button, Field, SectionCard, Tooltip } from "@/components";
+import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
 import { useSettings } from "@/modules/settings";
 
 import { AuthorsSection } from "../components/overview/AuthorsSection";
@@ -57,34 +57,23 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
 
   return (
     <div data-ui="DetailsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <div
-        data-ui="DetailsDocument:band"
-        className="flex min-h-9 items-center justify-between gap-3 border-surface-700/50 pr-1.5 pl-3"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <PlayerTitleIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-          <span className="text-sm font-medium text-surface-200">Mod details</span>
-          <span className="truncate font-mono text-xs text-surface-400">{project.name}</span>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          {hasChanges && (
-            <Button variant="ghost" size="sm" compact onClick={editor.discard}>
-              Discard
-            </Button>
-          )}
-          <Button
-            variant="filled"
-            size="sm"
-            compact
-            onClick={editor.save}
-            disabled={!hasChanges || !editor.canSave}
-            loading={editor.isSaving}
-          >
-            Save
+      <DocumentActions active={active}>
+        {hasChanges && (
+          <Button variant="ghost" size="xs" compact onClick={editor.discard}>
+            Discard
           </Button>
-        </div>
-      </div>
+        )}
+        <Button
+          variant="filled"
+          size="xs"
+          compact
+          onClick={editor.save}
+          disabled={!hasChanges || !editor.canSave}
+          loading={editor.isSaving}
+        >
+          Save
+        </Button>
+      </DocumentActions>
 
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl space-y-5 p-5">

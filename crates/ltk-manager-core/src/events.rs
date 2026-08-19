@@ -113,6 +113,16 @@ pub struct FantomeImportProgress {
     pub total: u32,
 }
 
+/// Progress of a hashtable sync, one event per release asset download.
+#[derive(Clone, Debug, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HashtableSyncProgress {
+    /// Release asset filename being fetched, e.g. `manifest.json`.
+    pub file: String,
+}
+
 /// Stage of a git repository import.
 #[derive(Clone, Debug, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -193,6 +203,8 @@ declare_events! {
     GitImportProgress(GitImportProgress) => "git-import-progress",
     /// A League launch request advanced.
     LaunchProgress(LaunchProgress) => "launch-progress",
+    /// A hashtable sync asked for a release asset.
+    HashtableSyncProgress(HashtableSyncProgress) => "hashtable-sync-progress",
 }
 
 #[cfg(test)]
@@ -264,6 +276,13 @@ mod tests {
         assert_eq!(
             BackendEvent::LaunchProgress(LaunchProgress::at(LaunchStage::Resolving)).name(),
             "launch-progress"
+        );
+        assert_eq!(
+            BackendEvent::HashtableSyncProgress(HashtableSyncProgress {
+                file: "manifest.json".to_string(),
+            })
+            .name(),
+            "hashtable-sync-progress"
         );
     }
 

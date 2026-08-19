@@ -10,6 +10,7 @@ use camino::Utf8PathBuf;
 use std::path::PathBuf;
 use thiserror::Error;
 
+use crate::hashtables::HashtableError;
 use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
 use crate::workshop::WorkshopError;
@@ -88,6 +89,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Workshop(#[from] WorkshopError),
+
+    #[error(transparent)]
+    Hashtable(#[from] HashtableError),
 }
 
 impl From<ltk_mod_project::ModProjectError> for AppError {

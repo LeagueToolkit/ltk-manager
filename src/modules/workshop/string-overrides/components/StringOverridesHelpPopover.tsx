@@ -1,14 +1,24 @@
 import { HelpCircle } from "lucide-react";
 
-import { ExternalLink, Popover } from "@/components";
+import { ExternalLink, IconButton, Popover, Tooltip } from "@/components";
 
+/** The guide to overrides, as a glyph sized for the tab strip it sits in. */
 export function StringOverridesHelpPopover() {
   return (
     <Popover.Root>
-      <Popover.Trigger className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200">
-        <HelpCircle className="h-4 w-4" />
-        How it works
-      </Popover.Trigger>
+      <Tooltip content="How it works">
+        <Popover.Trigger
+          render={
+            <IconButton
+              icon={<HelpCircle className="h-4 w-4" />}
+              variant="ghost"
+              size="xs"
+              compact
+              aria-label="How overrides are applied"
+            />
+          }
+        />
+      </Tooltip>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="end" sideOffset={8} className="z-50">
           <Popover.Popup className="w-96 space-y-2 rounded-xl border border-surface-600 bg-surface-800 p-4 text-sm text-surface-300 shadow-xl">

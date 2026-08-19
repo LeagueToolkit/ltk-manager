@@ -37,7 +37,7 @@ export function SplitLayout({ node, onLayoutChanged, renderLeaf }: SplitLayoutPr
     >
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
-          {index > 0 && <Seam orientation={orientation} />}
+          {index > 0 && <Seam orientation={orientation} variant="divider" />}
           <Panel id={child.id} minSize={120} className="flex h-full w-full flex-col">
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
@@ -50,23 +50,51 @@ export function SplitLayout({ node, onLayoutChanged, renderLeaf }: SplitLayoutPr
   );
 }
 
+export interface SeamProps {
+  orientation: "horizontal" | "vertical";
+  /**
+   * `gap` holds two islands apart and shows its rail while it is hovered.
+   * `divider` is the edge between two panes of one island, and always shows.
+   */
+  variant?: "gap" | "divider";
+}
+
 /**
- * A 6px transparent grab area matching the gap it replaces, with a centred 2px
- * rail. SidePanel's ResizeHandle draws the same control, so the two read as one.
+ * The boundary between two panels, and the control that drags it.
+ *
+ * A `gap` is a 6px transparent grab area matching the space it replaces, with a
+ * centred 2px rail. SidePanel's ResizeHandle draws the same control, so the two
+ * read as one. A `divider` draws the panel edge itself, which is why it is a
+ * pixel wide and never hides: the library grows any separator under 10px into a
+ * hit target of that size, so it still grabs like the wider one.
  */
-export function Seam({ orientation }: { orientation: "horizontal" | "vertical" }) {
+export function Seam({ orientation, variant = "gap" }: SeamProps) {
+  const horizontal = orientation === "horizontal";
+
+  if (variant === "divider") {
+    return (
+      <Separator
+        className={twMerge(
+          "shrink-0 bg-surface-700 transition-colors outline-none",
+          "hover:bg-accent-500/60 focus-visible:bg-accent-500",
+          horizontal ? "w-px" : "h-px",
+        )}
+      />
+    );
+  }
+
   return (
     <Separator
       className={twMerge(
         "group/seam relative shrink-0 outline-none",
-        orientation === "horizontal" ? "w-1.5" : "h-1.5",
+        horizontal ? "w-1.5" : "h-1.5",
       )}
     >
       <span
         aria-hidden="true"
         className={twMerge(
           "absolute transition-colors group-hover/seam:bg-accent-500/60 group-focus-visible/seam:bg-accent-500",
-          orientation === "horizontal"
+          horizontal
             ? "inset-y-0 left-1/2 w-0.5 -translate-x-1/2"
             : "inset-x-0 top-1/2 h-0.5 -translate-y-1/2",
         )}

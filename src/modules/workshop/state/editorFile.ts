@@ -1,6 +1,8 @@
 /* The layout sub-barrel rather than the module barrel, for the same reason
    `@/stores/workshopEditor` does: the full barrel pulls the editor's
    components, whose imports circle back into workshop state. */
+import { z } from "zod";
+
 import { findLeaf, type LayoutNode, leaves, singleLeaf } from "@/modules/editor/layout";
 
 import type { ContentDocument } from "../documents";
@@ -115,33 +117,43 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
   };
 }
 
+/* Tab entries stay unchecked here: `dropUnknownTabs` filters them one by one,
+   so one bad entry costs a tab rather than the whole layout. */
+const layoutNodeSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.object({ kind: z.literal("leaf"), id: z.string(), tabs: z.array(z.unknown()) }),
+    z.object({
+      kind: z.literal("split"),
+      id: z.string(),
+      dir: z.enum(["row", "col"]),
+      children: z.array(layoutNodeSchema).nonempty(),
+    }),
+  ]),
+);
+
+const contentDocumentSchema = z.discriminatedUnion("kind", [
+  z.object({ id: z.string(), kind: z.literal("details") }),
+  z.object({ id: z.string(), kind: z.literal("files"), layerName: z.string() }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("strings"),
+    layerName: z.string(),
+    locale: z.string(),
+  }),
+  z.object({ id: z.string(), kind: z.literal("game") }),
+  z.object({ id: z.string(), kind: z.literal("game-wads") }),
+  z.object({ id: z.string(), kind: z.literal("game-wad"), wadName: z.string() }),
+]) satisfies z.ZodType<ContentDocument>;
+
+/* `.success` rather than `.data`: parsing would strip fields the schema does
+   not know and clone the object, and the sanitised state keeps the original
+   references so identity comparisons downstream still hold. */
 function isLayoutNode(value: unknown): value is LayoutNode {
-  if (typeof value !== "object" || value === null) return false;
-  const node = value as { kind?: unknown; id?: unknown; tabs?: unknown; children?: unknown };
-  if (typeof node.id !== "string") return false;
-  if (node.kind === "leaf") return Array.isArray(node.tabs);
-  if (node.kind === "split") {
-    const dir = (value as { dir?: unknown }).dir;
-    return (
-      (dir === "row" || dir === "col") &&
-      Array.isArray(node.children) &&
-      node.children.length > 0 &&
-      node.children.every(isLayoutNode)
-    );
-  }
-  return false;
+  return layoutNodeSchema.safeParse(value).success;
 }
 
 function isContentDocument(value: unknown): value is ContentDocument {
-  if (typeof value !== "object" || value === null) return false;
-  const doc = value as { id?: unknown; kind?: unknown; layerName?: unknown; locale?: unknown };
-  if (typeof doc.id !== "string") return false;
-  if (doc.kind === "details") return true;
-  if (doc.kind === "files") return typeof doc.layerName === "string";
-  if (doc.kind === "strings") {
-    return typeof doc.layerName === "string" && typeof doc.locale === "string";
-  }
-  return false;
+  return contentDocumentSchema.safeParse(value).success;
 }
 
 /** Filter every strip to documents the entry holds, keeping untouched nodes' identity. */

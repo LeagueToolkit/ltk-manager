@@ -5,6 +5,11 @@ export {
   detailsDocument,
   documentLayerName,
   filesDocument,
+  GAME_DOCUMENT_ID,
+  GAME_WADS_DOCUMENT_ID,
+  gameDocument,
+  gameWadDocument,
+  gameWadsDocument,
   layerTitle,
   stringsDocument,
 } from "./contentDocument";

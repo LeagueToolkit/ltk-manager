@@ -43,10 +43,12 @@
   --ltk-doc-base: #fbbf24;
   --ltk-doc-layer: #38bdf8;
   --ltk-doc-strings: #34d399;
+  --ltk-doc-game: #fb7185;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
   --ltk-doc-strings-text: var(--ltk-doc-strings);
+  --ltk-doc-game-text: var(--ltk-doc-game);
 }
 
 [data-theme="light"] {
@@ -61,6 +63,7 @@
   --ltk-doc-base-text: color-mix(in srgb, var(--ltk-doc-base) 50%, black);
   --ltk-doc-layer-text: color-mix(in srgb, var(--ltk-doc-layer) 50%, black);
   --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
+  --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
 }
 
 /* ============================================

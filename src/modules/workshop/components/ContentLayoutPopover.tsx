@@ -39,8 +39,7 @@ export function ContentLayoutPopover() {
             <IconButton
               icon={<SidebarSimpleIcon weight="bold" className="h-4 w-4" />}
               variant="ghost"
-              size="xs"
-              compact
+              size="sm"
               aria-label="Layout options"
             />
           }

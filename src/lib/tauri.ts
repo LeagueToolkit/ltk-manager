@@ -11,6 +11,12 @@ import type {
   DiagnosticReport,
   EditModMetadataArgs,
   FantomePeekResult,
+  GameDirListing,
+  GameIndexStats,
+  GameWadEntry,
+  GameWadSummary,
+  HashtableCacheStatus,
+  HashtableSyncReport,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -174,6 +180,20 @@ export const api = {
   reorderFolderMods: (folderId: string, modIds: string[]) =>
     invokeResult<void>("reorder_folder_mods", { folderId, modIds }),
   reorderFolders: (folderOrder: string[]) => invokeResult<void>("reorder_folders", { folderOrder }),
+
+  // Hashtables
+  getHashtableCacheStatus: () => invokeResult<HashtableCacheStatus>("get_hashtable_cache_status"),
+  syncHashtables: (force: boolean) =>
+    invokeResult<HashtableSyncReport>("sync_hashtables", { force }),
+
+  // Game WADs
+  getGameWads: () => invokeResult<GameWadSummary[]>("get_game_wads"),
+  readGameWad: (wadName: string) => invokeResult<GameWadEntry[]>("read_game_wad", { wadName }),
+
+  // Game index
+  getGameIndex: () => invokeResult<GameIndexStats>("get_game_index"),
+  readGameDir: (path: string) => invokeResult<GameDirListing>("read_game_dir", { path }),
+  refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
 
   // Deep Link
   deepLinkInstallMod: (

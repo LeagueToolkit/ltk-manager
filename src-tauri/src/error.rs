@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use ltk_manager_core::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
+use ltk_manager_core::hashtables::HashtableError;
 use ltk_manager_core::launcher::LauncherError;
 
 /// Error codes that can be communicated across the IPC boundary.
@@ -67,6 +68,14 @@ pub enum ErrorCode {
     LaunchRefused,
     /// The launch failed for a reason with no specific remedy.
     LaunchFailed,
+    /// No platform directory for the hashtable cache could be resolved.
+    HashtableCacheDirUnavailable,
+    /// The hashtable cache manifest exists but is unreadable or corrupt.
+    HashtableManifestInvalid,
+    /// Another process is already syncing the hashtable cache.
+    HashtableSyncLocked,
+    /// A hashtable sync failed while downloading or installing tables.
+    HashtableSyncFailed,
 }
 
 /// Structured error response sent over IPC.
@@ -268,6 +277,18 @@ impl From<AppError> for AppErrorResponse {
                 response.context = serde_json::to_value(&workshop_err).ok();
                 response
             }
+
+            AppError::Hashtable(hashtable_err) => {
+                let code = match &hashtable_err {
+                    HashtableError::NoCacheDir(_) => ErrorCode::HashtableCacheDirUnavailable,
+                    HashtableError::Manifest(_) => ErrorCode::HashtableManifestInvalid,
+                    HashtableError::SyncLocked => ErrorCode::HashtableSyncLocked,
+                    HashtableError::Http(_) | HashtableError::Sync(_) => {
+                        ErrorCode::HashtableSyncFailed
+                    }
+                };
+                AppErrorResponse::new(code, hashtable_err.to_string())
+            }
         }
     }
 }
@@ -306,6 +327,17 @@ mod tests {
             serde_json::to_string(&ErrorCode::Patcher).unwrap(),
             "\"PATCHER\""
         );
+        assert_eq!(
+            serde_json::to_string(&ErrorCode::HashtableSyncLocked).unwrap(),
+            "\"HASHTABLE_SYNC_LOCKED\""
+        );
+    }
+
+    #[test]
+    fn hashtable_sync_locked_gets_its_own_code() {
+        let resp: AppErrorResponse = AppError::Hashtable(HashtableError::SyncLocked).into();
+        assert_eq!(resp.code, ErrorCode::HashtableSyncLocked);
+        assert!(resp.message.contains("already syncing"));
     }
 
     #[test]
@@ -335,6 +367,10 @@ mod tests {
             ErrorCode::RiotClientUnreachable,
             ErrorCode::LaunchRefused,
             ErrorCode::LaunchFailed,
+            ErrorCode::HashtableCacheDirUnavailable,
+            ErrorCode::HashtableManifestInvalid,
+            ErrorCode::HashtableSyncLocked,
+            ErrorCode::HashtableSyncFailed,
         ] {
             let json = serde_json::to_string(&code).unwrap();
             let deserialized: ErrorCode = serde_json::from_str(&json).unwrap();

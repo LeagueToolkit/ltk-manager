@@ -7,6 +7,11 @@ resolver = "2"
 # crate so `ltk-manager-core` and `src-tauri` can never drift onto two revs.
 ritoclient-api = { git = "https://github.com/Crauzer/ritoclient", rev = "eb6bf7a8f5c11ca30d698caa4f3e736fb9b57ac2" }
 
+# Pinned to a rev until they ship on crates.io. Both crates must come from the
+# same rev: `ltk_mimir_cache` hands back `ltk_hashdb` types.
+ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
+ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
+
 ltk_fantome = "0.6.0"
 ltk_file = { version = "0.2.8", features = ["serde"] }
 ltk_mod_project = "0.5.0"

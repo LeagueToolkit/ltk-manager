@@ -161,6 +161,16 @@ fn main() {
             commands::add_files_to_layer,
             commands::get_project_editor_state,
             commands::save_project_editor_state,
+            // Hashtables
+            commands::get_hashtable_cache_status,
+            commands::sync_hashtables,
+            // Game WADs
+            commands::get_game_wads,
+            commands::read_game_wad,
+            // Game index
+            commands::get_game_index,
+            commands::read_game_dir,
+            commands::refresh_game_index,
             // Deep Link
             commands::deep_link_install_mod,
             // for dynamic icons

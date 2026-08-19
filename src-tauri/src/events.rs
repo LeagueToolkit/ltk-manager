@@ -28,6 +28,7 @@ impl EventSink for TauriEventSink {
             BackendEvent::FantomeImportProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::GitImportProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LaunchProgress(progress) => self.app_handle.emit(name, progress),
+            BackendEvent::HashtableSyncProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LinkedBinsUpdated
             | BackendEvent::WadReportsUpdated
             | BackendEvent::LibraryChanged => self.app_handle.emit(name, ()),

@@ -65,10 +65,7 @@ export function EditorTabs({
     <Tabs.Root
       value={activeId}
       onValueChange={(value) => onActivate(String(value))}
-      className={twMerge(
-        "h-9 shrink-0 flex-row items-center gap-1.5 rounded-t-xl border-x border-t border-surface-700 px-2 select-none",
-        className,
-      )}
+      className={twMerge("h-9 shrink-0 flex-row items-center gap-1.5 px-2 select-none", className)}
     >
       <Tabs.List variant="plain" className="min-w-0 flex-1 gap-1.5 overflow-x-auto">
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>

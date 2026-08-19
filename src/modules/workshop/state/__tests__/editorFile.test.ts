@@ -3,7 +3,13 @@
    layout sub-barrel first evaluates its components mid-barrel, which reaches
    `@/stores` before `tree` has bound its exports. */
 import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
-import { detailsDocument, filesDocument } from "@/modules/workshop";
+import {
+  detailsDocument,
+  filesDocument,
+  gameDocument,
+  gameWadDocument,
+  gameWadsDocument,
+} from "@/modules/workshop";
 
 import {
   parseEditorFile,
@@ -140,6 +146,26 @@ describe("editorFile", () => {
 
       expect(Object.keys(state?.documents ?? {})).toEqual(["details"]);
       expect(findLeaf(state!.layout, state!.activeLeafId)?.tabs).toEqual(["details"]);
+    });
+
+    it("keeps game browser documents", () => {
+      const list = gameWadsDocument();
+      const scoped = gameWadDocument("Aatrox.wad.client");
+      const layout = singleLeaf(["game", list.id, scoped.id], scoped.id);
+
+      const state = sanitizeEditorState({
+        documents: { game: gameDocument(), [list.id]: list, [scoped.id]: scoped },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: null,
+      });
+
+      expect(Object.keys(state?.documents ?? {})).toEqual(["game", list.id, scoped.id]);
+      expect(findLeaf(state!.layout, state!.activeLeafId)?.tabs).toEqual([
+        "game",
+        list.id,
+        scoped.id,
+      ]);
     });
 
     it("completes an entry that lost fields rather than crashing on it", () => {

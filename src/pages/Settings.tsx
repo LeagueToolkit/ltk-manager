@@ -1,5 +1,6 @@
 import {
   BooksIcon,
+  DatabaseIcon,
   GearIcon,
   InfoIcon,
   KeyboardIcon,
@@ -12,6 +13,7 @@ import { LootIcon, PatcherIcon, Tabs } from "@/components";
 import {
   AboutSection,
   AppearanceSection,
+  CacheSection,
   GeneralSection,
   HotkeySection,
   LibrarySection,
@@ -32,6 +34,7 @@ const TABS = [
   { value: "library", label: "Library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
   { value: "workshop", label: "Workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
   { value: "patching", label: "Patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
+  { value: "cache", label: "Cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
   { value: "hotkeys", label: "Hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
   { value: "appearance", label: "Appearance", icon: <PaletteIcon className="h-5 w-5 shrink-0" /> },
   { value: "about", label: "About", icon: <InfoIcon className="h-5 w-5 shrink-0" /> },
@@ -97,6 +100,10 @@ export function Settings() {
 
           <Tabs.Panel value="patching" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
             <PatchingSection settings={settings} onSave={saveSettings} />
+          </Tabs.Panel>
+
+          <Tabs.Panel value="cache" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+            <CacheSection />
           </Tabs.Panel>
 
           <Tabs.Panel value="hotkeys" className="mx-auto max-w-5xl px-6 pt-4 pb-6">

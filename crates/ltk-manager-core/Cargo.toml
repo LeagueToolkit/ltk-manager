@@ -16,6 +16,8 @@ ritoclient-api = { workspace = true }
 
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
+ltk_hashdb = { workspace = true }
+ltk_mimir_cache = { workspace = true }
 ltk_modpkg = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_overlay = { workspace = true }

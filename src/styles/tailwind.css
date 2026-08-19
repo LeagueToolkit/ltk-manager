@@ -68,6 +68,8 @@
   --color-doc-layer-text: var(--ltk-doc-layer-text);
   --color-doc-strings: var(--ltk-doc-strings);
   --color-doc-strings-text: var(--ltk-doc-strings-text);
+  --color-doc-game: var(--ltk-doc-game);
+  --color-doc-game-text: var(--ltk-doc-game-text);
 
   --color-scrim: var(--ltk-glass-scrim-fill);
 

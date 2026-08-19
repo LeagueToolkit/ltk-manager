@@ -1,11 +1,12 @@
-import { TranslateIcon } from "@phosphor-icons/react";
+import { FileArchiveIcon, FilesIcon, TranslateIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
-import { PlayerTitleIcon } from "@/components";
+import { LeagueIcon, PlayerTitleIcon } from "@/components";
 import type { EditorRegistry } from "@/modules/editor";
 
 import { LayerGlyph } from "../components/LayerGlyph";
 import { useProjectContext } from "../components/ProjectContext";
+import { GameDocument, GameWadDocument, GameWadsDocument, wadBasename } from "../gameBrowser";
 import { type ContentDocument, layerTitle } from "./contentDocument";
 import { DetailsDocument } from "./DetailsDocument";
 import { FilesDocument } from "./FilesDocument";
@@ -34,6 +35,21 @@ export function useContentEditors(): EditorRegistry<ContentDocument> {
           context: layerTitle(project, document.layerName),
         }),
         component: StringsDocument,
+      },
+      game: {
+        icon: () => <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+        label: () => ({ title: "Game index" }),
+        component: GameDocument,
+      },
+      "game-wads": {
+        icon: () => <FilesIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+        label: () => ({ title: "Game WADs" }),
+        component: GameWadsDocument,
+      },
+      "game-wad": {
+        icon: () => <FileArchiveIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+        label: (document) => ({ title: wadBasename(document.wadName) }),
+        component: GameWadDocument,
       },
     }),
     [project],

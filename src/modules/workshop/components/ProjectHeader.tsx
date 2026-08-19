@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { IconButton, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 
+import { ContentLayoutPopover } from "./ContentLayoutPopover";
 import { ProjectActions } from "./ProjectActions";
 
 interface ProjectHeaderProps {
@@ -30,6 +31,9 @@ export function ProjectHeader({ project }: ProjectHeaderProps) {
           v{project.version}
         </span>
       </div>
+
+      {/* Layout is view-level, so it sits here once rather than in every leaf's tab strip. */}
+      <ContentLayoutPopover />
 
       <ProjectActions project={project} />
     </div>

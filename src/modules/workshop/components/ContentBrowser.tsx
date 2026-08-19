@@ -155,7 +155,9 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const surface = (
     <div
       data-ui="ContentBrowser:surface"
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-xl"
+      /* DS-GROUND: the grid is one island, so the frame is the surface's and not
+         each leaf's. A split then shows one divider where two leaves meet. */
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-xl border border-surface-700"
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">

@@ -226,6 +226,11 @@
       "text": "BSD 2-Clause License\n\nCopyright (c) 2022-2022, the rav1e contributors\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n- Redistributions of source code must retain the above copyright notice, this\n  list of conditions and the following disclaimer.\n\n- Redistributions in binary form must reproduce the above copyright notice,\n  this list of conditions and the following disclaimer in the documentation\n  and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n"
     },
     {
+      "id": "BSD-2-Clause",
+      "name": "BSD 2-Clause \"Simplified\" License",
+      "text": "Copyright (c) <year> <owner> \n\nRedistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n"
+    },
+    {
       "id": "BSD-3-Clause",
       "name": "BSD 3-Clause \"New\" or \"Revised\" License",
       "text": "BSD 3-Clause License\n\nCopyright (c) 2020, Cloudflare, Inc.\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\n3. Neither the name of the copyright holder nor the names of its\n   contributors may be used to endorse or promote products derived from\n   this software without specific prior written permission.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\"\nAND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE\nIMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE\nFOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL\nDAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR\nSERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER\nCAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,\nOR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE\nOF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n"
@@ -713,7 +718,7 @@
       "version": "1.1.4",
       "url": "https://github.com/BurntSushi/aho-corasick",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -729,7 +734,7 @@
       "version": "0.6.4",
       "url": "https://github.com/sarah-ek/aligned-vec/",
       "licenses": [
-        104
+        105
       ]
     },
     {
@@ -737,7 +742,7 @@
       "version": "2.0.4",
       "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "licenses": [
-        48
+        49
       ]
     },
     {
@@ -745,7 +750,7 @@
       "version": "0.2.4",
       "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "licenses": [
-        52
+        53
       ]
     },
     {
@@ -761,7 +766,7 @@
       "version": "0.3.4",
       "url": "https://github.com/lu-zero/arg_enum_proc_macro",
       "licenses": [
-        89
+        90
       ]
     },
     {
@@ -801,7 +806,7 @@
       "version": "0.5.0",
       "url": "https://github.com/zzzgydi/auto-launch.git",
       "licenses": [
-        105
+        106
       ]
     },
     {
@@ -809,7 +814,7 @@
       "version": "0.14.1",
       "url": "https://github.com/rust-av/av-scenechange",
       "licenses": [
-        96
+        97
       ]
     },
     {
@@ -825,7 +830,7 @@
       "version": "0.8.9",
       "url": "https://github.com/kornelski/avif-serialize",
       "licenses": [
-        45
+        46
       ]
     },
     {
@@ -849,7 +854,7 @@
       "version": "0.14.2",
       "url": "https://github.com/jam1garner/binrw",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -857,7 +862,7 @@
       "version": "0.14.2",
       "url": "https://github.com/jam1garner/binrw",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -921,8 +926,8 @@
       "version": "8.0.4",
       "url": "https://github.com/dropbox/rust-brotli",
       "licenses": [
-        48,
-        61
+        49,
+        62
       ]
     },
     {
@@ -930,7 +935,7 @@
       "version": "5.0.3",
       "url": "https://github.com/dropbox/rust-brotli-decompressor",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -954,7 +959,7 @@
       "version": "1.5.0",
       "url": "https://github.com/BurntSushi/byteorder",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -962,7 +967,7 @@
       "version": "0.1.0",
       "url": "https://github.com/image-rs/byteorder-lite",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -970,7 +975,7 @@
       "version": "1.12.1",
       "url": "https://github.com/tokio-rs/bytes",
       "licenses": [
-        70
+        71
       ]
     },
     {
@@ -1010,7 +1015,7 @@
       "version": "0.19.2",
       "url": "https://github.com/oli-obk/cargo_metadata",
       "licenses": [
-        111
+        112
       ]
     },
     {
@@ -1018,7 +1023,7 @@
       "version": "0.7.3",
       "url": "https://github.com/mdsteele/rust-cfb",
       "licenses": [
-        87
+        88
       ]
     },
     {
@@ -1050,7 +1055,7 @@
       "version": "1.1.0",
       "url": "https://github.com/image-rs/color_quant.git",
       "licenses": [
-        123
+        124
       ]
     },
     {
@@ -1154,7 +1159,7 @@
       "version": "0.36.0",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        133
+        134
       ]
     },
     {
@@ -1162,7 +1167,7 @@
       "version": "0.6.1",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        133
+        134
       ]
     },
     {
@@ -1186,7 +1191,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        88
+        89
       ]
     },
     {
@@ -1194,7 +1199,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        88
+        89
       ]
     },
     {
@@ -1202,7 +1207,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        88
+        89
       ]
     },
     {
@@ -1210,7 +1215,7 @@
       "version": "0.1.12",
       "url": "https://github.com/anatawa12/deflate64-rs",
       "licenses": [
-        113
+        114
       ]
     },
     {
@@ -1234,7 +1239,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        122
+        123
       ]
     },
     {
@@ -1242,7 +1247,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        122
+        123
       ]
     },
     {
@@ -1250,7 +1255,7 @@
       "version": "1.6.2",
       "url": "https://github.com/kornelski/deunicode/",
       "licenses": [
-        47
+        48
       ]
     },
     {
@@ -1262,9 +1267,25 @@
       ]
     },
     {
+      "name": "directories",
+      "version": "5.0.1",
+      "url": "https://github.com/soc/directories-rs",
+      "licenses": [
+        40
+      ]
+    },
+    {
       "name": "dirs",
       "version": "6.0.0",
       "url": "https://github.com/soc/dirs-rs",
+      "licenses": [
+        40
+      ]
+    },
+    {
+      "name": "dirs-sys",
+      "version": "0.4.1",
+      "url": "https://github.com/dirs-dev/dirs-sys-rs",
       "licenses": [
         40
       ]
@@ -1290,7 +1311,7 @@
       "version": "0.27.0",
       "url": "https://github.com/niklak/dom_query",
       "licenses": [
-        106
+        107
       ]
     },
     {
@@ -1299,7 +1320,7 @@
       "url": "https://github.com/rust-windowing/winit",
       "licenses": [
         37,
-        108
+        109
       ]
     },
     {
@@ -1315,7 +1336,7 @@
       "version": "0.3.5",
       "url": "https://github.com/upsuper/dtoa-short",
       "licenses": [
-        132
+        133
       ]
     },
     {
@@ -1348,7 +1369,7 @@
       "url": "https://github.com/hsivonen/encoding_rs",
       "licenses": [
         3,
-        54
+        55
       ]
     },
     {
@@ -1356,7 +1377,7 @@
       "version": "0.4.2",
       "url": "https://github.com/sarah-ek/equator/",
       "licenses": [
-        107
+        108
       ]
     },
     {
@@ -1364,7 +1385,7 @@
       "version": "0.4.2",
       "url": "https://github.com/sarah-ek/equator/",
       "licenses": [
-        107
+        108
       ]
     },
     {
@@ -1388,7 +1409,7 @@
       "version": "1.74.2",
       "url": "https://github.com/johannesvollmer/exrs",
       "licenses": [
-        52
+        53
       ]
     },
     {
@@ -1412,7 +1433,7 @@
       "version": "0.2.7",
       "url": "https://github.com/pdf-rs/fax",
       "licenses": [
-        82
+        83
       ]
     },
     {
@@ -1452,7 +1473,7 @@
       "version": "0.2.0",
       "url": "https://github.com/orlp/foldhash",
       "licenses": [
-        137
+        138
       ]
     },
     {
@@ -1524,7 +1545,7 @@
       "version": "0.14.7",
       "url": "https://github.com/fizyk20/generic-array.git",
       "licenses": [
-        129
+        130
       ]
     },
     {
@@ -1588,7 +1609,7 @@
       "version": "0.4.15",
       "url": "https://github.com/hyperium/h2",
       "licenses": [
-        69
+        70
       ]
     },
     {
@@ -1644,7 +1665,7 @@
       "version": "1.1.0",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
-        79
+        80
       ]
     },
     {
@@ -1652,7 +1673,7 @@
       "version": "0.1.4",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
-        79
+        80
       ]
     },
     {
@@ -1660,7 +1681,7 @@
       "version": "0.1.5",
       "url": "https://github.com/bancek/rust-http-range.git",
       "licenses": [
-        83
+        84
       ]
     },
     {
@@ -1676,7 +1697,7 @@
       "version": "1.10.1",
       "url": "https://github.com/hyperium/hyper",
       "licenses": [
-        64
+        65
       ]
     },
     {
@@ -1700,7 +1721,7 @@
       "version": "0.1.20",
       "url": "https://github.com/hyperium/hyper-util",
       "licenses": [
-        80
+        81
       ]
     },
     {
@@ -1708,7 +1729,7 @@
       "version": "0.5.0",
       "url": "https://github.com/mdsteele/rust-ico",
       "licenses": [
-        90
+        91
       ]
     },
     {
@@ -1716,7 +1737,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1724,7 +1745,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1732,7 +1753,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1740,7 +1761,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1748,7 +1769,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1756,7 +1777,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1764,7 +1785,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1836,7 +1857,7 @@
       "version": "0.19.0",
       "url": "https://github.com/bojand/infer",
       "licenses": [
-        92
+        93
       ]
     },
     {
@@ -1852,7 +1873,7 @@
       "version": "0.1.13",
       "url": "https://github.com/sebcrozet/instant",
       "licenses": [
-        50
+        51
       ]
     },
     {
@@ -1916,7 +1937,7 @@
       "version": "0.5.3",
       "url": "https://github.com/johannesvollmer/lebe",
       "licenses": [
-        51
+        52
       ]
     },
     {
@@ -1932,7 +1953,7 @@
       "version": "0.2.16",
       "url": "https://github.com/rust-lang/compiler-builtins",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -1940,7 +1961,7 @@
       "version": "0.9.6",
       "url": "https://github.com/NoXF/libwebp-sys",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -1948,7 +1969,7 @@
       "version": "0.1.11",
       "url": "https://github.com/qnighy/libwebp-sys2-rs",
       "licenses": [
-        53
+        54
       ]
     },
     {
@@ -1956,7 +1977,7 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -1980,7 +2001,7 @@
       "version": "0.1.5",
       "url": "https://gitlab.com/kornelski/loop9.git",
       "licenses": [
-        131
+        132
       ]
     },
     {
@@ -2015,6 +2036,14 @@
       ]
     },
     {
+      "name": "ltk_hashdb",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/mimir",
+      "licenses": [
+        40
+      ]
+    },
+    {
       "name": "ltk_io_ext",
       "version": "0.2.1",
       "licenses": [
@@ -2024,6 +2053,14 @@
     {
       "name": "ltk_io_ext",
       "version": "0.4.4",
+      "licenses": [
+        40
+      ]
+    },
+    {
+      "name": "ltk_mimir_cache",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/mimir",
       "licenses": [
         40
       ]
@@ -2100,7 +2137,7 @@
       "version": "0.3.0",
       "url": "https://github.com/gendx/lzma-rs",
       "licenses": [
-        84
+        85
       ]
     },
     {
@@ -2124,7 +2161,7 @@
       "version": "0.2.0",
       "url": "https://github.com/hawkw/matchers",
       "licenses": [
-        75
+        76
       ]
     },
     {
@@ -2132,7 +2169,7 @@
       "version": "0.1.1",
       "url": "https://github.com/shssoichiro/maybe-rayon",
       "licenses": [
-        100
+        101
       ]
     },
     {
@@ -2140,7 +2177,7 @@
       "version": "2.8.3",
       "url": "https://github.com/BurntSushi/memchr",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -2164,7 +2201,7 @@
       "version": "0.2.5",
       "url": "https://github.com/jedisct1/rust-minisign-verify",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -2180,7 +2217,7 @@
       "version": "1.2.2",
       "url": "https://github.com/tokio-rs/mio",
       "licenses": [
-        62
+        63
       ]
     },
     {
@@ -2212,7 +2249,7 @@
       "version": "1.0.6",
       "url": "https://github.com/mbrubeck/rust-debug-unreachable",
       "licenses": [
-        67
+        68
       ]
     },
     {
@@ -2228,7 +2265,7 @@
       "version": "8.0.0",
       "url": "https://github.com/rust-bakery/nom",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2236,7 +2273,7 @@
       "version": "0.3.0",
       "url": "https://github.com/lu-zero/noop_proc_macro",
       "licenses": [
-        95
+        96
       ]
     },
     {
@@ -2244,7 +2281,7 @@
       "version": "7.0.0",
       "url": "https://github.com/notify-rs/notify.git",
       "licenses": [
-        56
+        57
       ]
     },
     {
@@ -2276,7 +2313,7 @@
       "version": "0.50.3",
       "url": "https://github.com/nushell/nu-ansi-term",
       "licenses": [
-        128
+        129
       ]
     },
     {
@@ -2380,7 +2417,7 @@
       "version": "5.4.0",
       "url": "https://github.com/Byron/open-rs",
       "licenses": [
-        126
+        127
       ]
     },
     {
@@ -2388,7 +2425,7 @@
       "version": "0.2.0",
       "url": "https://github.com/soc/option-ext.git",
       "licenses": [
-        134
+        135
       ]
     },
     {
@@ -2396,7 +2433,7 @@
       "version": "1.2.3",
       "url": "https://github.com/oconnor663/os_pipe.rs",
       "licenses": [
-        125
+        126
       ]
     },
     {
@@ -2404,7 +2441,7 @@
       "version": "3.5.0",
       "url": "https://github.com/jam1garner/owo-colors",
       "licenses": [
-        99
+        100
       ]
     },
     {
@@ -2468,7 +2505,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        116
+        117
       ]
     },
     {
@@ -2476,7 +2513,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        116
+        117
       ]
     },
     {
@@ -2484,7 +2521,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        116
+        117
       ]
     },
     {
@@ -2492,7 +2529,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        116
+        117
       ]
     },
     {
@@ -2524,7 +2561,7 @@
       "version": "1.10.0",
       "url": "https://github.com/ebarnard/rust-plist/",
       "licenses": [
-        65
+        66
       ]
     },
     {
@@ -2548,7 +2585,7 @@
       "version": "0.1.5",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -2572,7 +2609,7 @@
       "version": "0.1.1",
       "url": "https://github.com/emilio/precomputed-hash",
       "licenses": [
-        85
+        86
       ]
     },
     {
@@ -2620,7 +2657,7 @@
       "version": "0.22.3",
       "url": "https://github.com/sarah-quinones/pulp/",
       "licenses": [
-        101
+        102
       ]
     },
     {
@@ -2628,7 +2665,7 @@
       "version": "0.1.1",
       "url": "https://github.com/sarah-quinones/pulp/",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -2668,7 +2705,7 @@
       "version": "0.41.0",
       "url": "https://github.com/tafia/quick-xml",
       "licenses": [
-        130
+        131
       ]
     },
     {
@@ -2748,7 +2785,7 @@
       "version": "0.13.0",
       "url": "https://github.com/kornelski/cavif-rs",
       "licenses": [
-        46
+        47
       ]
     },
     {
@@ -2756,7 +2793,7 @@
       "version": "11.6.0",
       "url": "https://github.com/gz/rust-cpuid",
       "licenses": [
-        119
+        120
       ]
     },
     {
@@ -2788,7 +2825,7 @@
       "version": "0.5.5",
       "url": "https://github.com/sarah-ek/reborrow/",
       "licenses": [
-        104
+        105
       ]
     },
     {
@@ -2836,7 +2873,7 @@
       "version": "0.16.0",
       "url": "https://github.com/PolyMeilex/rfd",
       "licenses": [
-        103
+        104
       ]
     },
     {
@@ -2844,7 +2881,7 @@
       "version": "0.8.53",
       "url": "https://github.com/kornelski/rust-rgb",
       "licenses": [
-        94
+        95
       ]
     },
     {
@@ -2853,7 +2890,7 @@
       "url": "https://github.com/briansmith/ring",
       "licenses": [
         29,
-        58
+        59
       ]
     },
     {
@@ -2869,7 +2906,7 @@
       "version": "0.8.15",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        86
+        87
       ]
     },
     {
@@ -2877,7 +2914,7 @@
       "version": "1.3.1",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        86
+        87
       ]
     },
     {
@@ -2925,7 +2962,7 @@
       "version": "0.103.13",
       "url": "https://github.com/rustls/webpki",
       "licenses": [
-        59
+        60
       ]
     },
     {
@@ -2957,7 +2994,7 @@
       "version": "1.0.6",
       "url": "https://github.com/BurntSushi/same-file",
       "licenses": [
-        124
+        125
       ]
     },
     {
@@ -2965,7 +3002,7 @@
       "version": "0.1.29",
       "url": "https://github.com/steffengy/schannel-rs",
       "licenses": [
-        68
+        69
       ]
     },
     {
@@ -2973,7 +3010,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        93
+        94
       ]
     },
     {
@@ -2981,7 +3018,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        93
+        94
       ]
     },
     {
@@ -2997,7 +3034,7 @@
       "version": "0.36.1",
       "url": "https://github.com/servo/stylo",
       "licenses": [
-        134
+        135
       ]
     },
     {
@@ -3109,7 +3146,7 @@
       "version": "0.10.0",
       "url": "https://github.com/acatton/serde-yaml-ng",
       "licenses": [
-        60
+        61
       ]
     },
     {
@@ -3157,7 +3194,7 @@
       "version": "0.1.7",
       "url": "https://github.com/hawkw/sharded-slab",
       "licenses": [
-        74
+        75
       ]
     },
     {
@@ -3165,7 +3202,7 @@
       "version": "1.1.1",
       "url": "https://github.com/oconnor663/shared_child.rs",
       "licenses": [
-        125
+        126
       ]
     },
     {
@@ -3181,7 +3218,7 @@
       "version": "0.3.10",
       "url": "https://github.com/mcountryman/simd-adler32",
       "licenses": [
-        110
+        111
       ]
     },
     {
@@ -3189,7 +3226,7 @@
       "version": "0.1.0",
       "url": "https://github.com/lu-zero/simd_helpers",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -3205,7 +3242,7 @@
       "version": "0.4.12",
       "url": "https://github.com/tokio-rs/slab",
       "licenses": [
-        73
+        74
       ]
     },
     {
@@ -3245,7 +3282,7 @@
       "version": "0.9.9",
       "url": "https://github.com/mvdnes/spin-rs.git",
       "licenses": [
-        114
+        115
       ]
     },
     {
@@ -3277,7 +3314,7 @@
       "version": "0.11.1",
       "url": "https://github.com/rapidfuzz/strsim-rs",
       "licenses": [
-        118
+        119
       ]
     },
     {
@@ -3285,7 +3322,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        97
+        98
       ]
     },
     {
@@ -3293,7 +3330,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        97
+        98
       ]
     },
     {
@@ -3301,7 +3338,7 @@
       "version": "2.6.1",
       "url": "https://github.com/dalek-cryptography/subtle",
       "licenses": [
-        49
+        50
       ]
     },
     {
@@ -3341,7 +3378,7 @@
       "version": "0.13.2",
       "url": "https://github.com/mystor/synstructure",
       "licenses": [
-        81
+        82
       ]
     },
     {
@@ -3349,7 +3386,7 @@
       "version": "0.32.1",
       "url": "https://github.com/GuillaumeGomez/sysinfo",
       "licenses": [
-        120
+        121
       ]
     },
     {
@@ -3517,7 +3554,7 @@
       "version": "1.4.1",
       "url": "https://github.com/BurntSushi/termcolor",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -3565,7 +3602,7 @@
       "version": "0.11.3",
       "url": "https://github.com/image-rs/image-tiff",
       "licenses": [
-        91
+        92
       ]
     },
     {
@@ -3597,7 +3634,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -3605,7 +3642,7 @@
       "version": "1.52.3",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        109
+        110
       ]
     },
     {
@@ -3613,7 +3650,7 @@
       "version": "2.7.0",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        98
+        99
       ]
     },
     {
@@ -3621,7 +3658,7 @@
       "version": "0.3.1",
       "url": "https://github.com/tokio-rs/tls",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3637,7 +3674,7 @@
       "version": "0.7.18",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        109
+        110
       ]
     },
     {
@@ -3717,7 +3754,7 @@
       "version": "0.5.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        77
+        78
       ]
     },
     {
@@ -3725,7 +3762,7 @@
       "version": "0.6.11",
       "url": "https://github.com/tower-rs/tower-http",
       "licenses": [
-        78
+        79
       ]
     },
     {
@@ -3733,7 +3770,7 @@
       "version": "0.3.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        77
+        78
       ]
     },
     {
@@ -3741,7 +3778,7 @@
       "version": "0.3.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        77
+        78
       ]
     },
     {
@@ -3749,7 +3786,7 @@
       "version": "0.1.44",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3757,7 +3794,7 @@
       "version": "0.2.5",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3765,7 +3802,7 @@
       "version": "0.1.31",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3773,7 +3810,7 @@
       "version": "0.1.36",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3781,7 +3818,7 @@
       "version": "0.2.0",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3789,7 +3826,7 @@
       "version": "0.3.23",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        76
+        77
       ]
     },
     {
@@ -3805,7 +3842,7 @@
       "version": "0.2.5",
       "url": "https://github.com/seanmonstar/try-lock",
       "licenses": [
-        72
+        73
       ]
     },
     {
@@ -3813,7 +3850,7 @@
       "version": "12.0.1",
       "url": "https://github.com/Aleph-Alpha/ts-rs",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -3821,7 +3858,7 @@
       "version": "12.0.1",
       "url": "https://github.com/Aleph-Alpha/ts-rs",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -3894,7 +3931,7 @@
       "url": "https://github.com/dtolnay/unicode-ident",
       "licenses": [
         40,
-        135
+        136
       ]
     },
     {
@@ -3910,7 +3947,7 @@
       "version": "0.2.11",
       "url": "https://github.com/dtolnay/unsafe-libyaml",
       "licenses": [
-        111
+        112
       ]
     },
     {
@@ -3918,7 +3955,7 @@
       "version": "0.9.0",
       "url": "https://github.com/briansmith/untrusted",
       "licenses": [
-        57
+        58
       ]
     },
     {
@@ -3934,7 +3971,7 @@
       "version": "0.3.0",
       "url": "https://github.com/denoland/rust-urlpattern",
       "licenses": [
-        102
+        103
       ]
     },
     {
@@ -3974,7 +4011,7 @@
       "version": "2.5.0",
       "url": "https://github.com/BurntSushi/walkdir",
       "licenses": [
-        117
+        118
       ]
     },
     {
@@ -3982,7 +4019,7 @@
       "version": "0.3.1",
       "url": "https://github.com/seanmonstar/want",
       "licenses": [
-        71
+        72
       ]
     },
     {
@@ -4014,7 +4051,7 @@
       "version": "0.38.2",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -4022,7 +4059,7 @@
       "version": "0.8.1",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -4030,7 +4067,7 @@
       "version": "0.38.2",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        108
+        109
       ]
     },
     {
@@ -4054,7 +4091,7 @@
       "version": "0.1.11",
       "url": "https://github.com/BurntSushi/winapi-util",
       "licenses": [
-        124
+        125
       ]
     },
     {
@@ -4227,6 +4264,14 @@
     },
     {
       "name": "windows-sys",
+      "version": "0.48.0",
+      "url": "https://github.com/microsoft/windows-rs",
+      "licenses": [
+        4
+      ]
+    },
+    {
+      "name": "windows-sys",
       "version": "0.52.0",
       "url": "https://github.com/microsoft/windows-rs",
       "licenses": [
@@ -4252,6 +4297,14 @@
     {
       "name": "windows-sys",
       "version": "0.61.2",
+      "url": "https://github.com/microsoft/windows-rs",
+      "licenses": [
+        4
+      ]
+    },
+    {
+      "name": "windows-targets",
+      "version": "0.48.5",
       "url": "https://github.com/microsoft/windows-rs",
       "licenses": [
         4
@@ -4291,6 +4344,14 @@
     },
     {
       "name": "windows_x86_64_msvc",
+      "version": "0.48.5",
+      "url": "https://github.com/microsoft/windows-rs",
+      "licenses": [
+        4
+      ]
+    },
+    {
+      "name": "windows_x86_64_msvc",
       "version": "0.52.6",
       "url": "https://github.com/microsoft/windows-rs",
       "licenses": [
@@ -4310,7 +4371,7 @@
       "version": "0.7.15",
       "url": "https://github.com/winnow-rs/winnow",
       "licenses": [
-        112
+        113
       ]
     },
     {
@@ -4318,7 +4379,7 @@
       "version": "1.0.4",
       "url": "https://github.com/winnow-rs/winnow",
       "licenses": [
-        112
+        113
       ]
     },
     {
@@ -4326,7 +4387,7 @@
       "version": "0.10.1",
       "url": "https://github.com/gentoo90/winreg-rs",
       "licenses": [
-        66
+        67
       ]
     },
     {
@@ -4334,7 +4395,7 @@
       "version": "0.6.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4350,7 +4411,7 @@
       "version": "0.8.17",
       "url": "https://github.com/DoumanAsh/xxhash-rust",
       "licenses": [
-        55
+        56
       ]
     },
     {
@@ -4366,7 +4427,7 @@
       "version": "0.8.0",
       "url": "https://github.com/image-rs/y4m.git",
       "licenses": [
-        121
+        122
       ]
     },
     {
@@ -4374,7 +4435,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4382,7 +4443,15 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
+      ]
+    },
+    {
+      "name": "zeekstd",
+      "version": "0.4.0",
+      "url": "https://github.com/rorosen/zeekstd",
+      "licenses": [
+        45
       ]
     },
     {
@@ -4406,7 +4475,7 @@
       "version": "0.1.8",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4414,7 +4483,7 @@
       "version": "0.1.7",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4438,7 +4507,7 @@
       "version": "0.2.4",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4446,7 +4515,7 @@
       "version": "0.11.6",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4454,7 +4523,7 @@
       "version": "0.11.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        136
+        137
       ]
     },
     {
@@ -4462,7 +4531,7 @@
       "version": "2.4.2",
       "url": "https://github.com/zip-rs/zip2.git",
       "licenses": [
-        115
+        116
       ]
     },
     {
@@ -4470,7 +4539,7 @@
       "version": "4.6.1",
       "url": "https://github.com/zip-rs/zip2.git",
       "licenses": [
-        115
+        116
       ]
     },
     {
@@ -4478,7 +4547,7 @@
       "version": "1.0.23",
       "url": "https://github.com/dtolnay/zmij",
       "licenses": [
-        111
+        112
       ]
     },
     {
@@ -4494,7 +4563,7 @@
       "version": "0.13.3",
       "url": "https://github.com/gyscos/zstd-rs",
       "licenses": [
-        127
+        128
       ]
     },
     {

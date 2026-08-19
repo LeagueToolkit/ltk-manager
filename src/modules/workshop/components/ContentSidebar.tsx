@@ -7,6 +7,7 @@ import {
   Checkbox,
   FilterSection,
   IconButton,
+  LeagueIcon,
   PlayerTitleIcon,
   Popover,
   SegmentedControl,
@@ -28,7 +29,7 @@ import {
 
 import { workshopKeys } from "../api/keys";
 import { useProjectActions } from "../api/useProjectActions";
-import { DETAILS_DOCUMENT_ID, detailsDocument } from "../documents";
+import { DETAILS_DOCUMENT_ID, detailsDocument, GAME_DOCUMENT_ID, gameDocument } from "../documents";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
 import { useActiveDocumentId, useOpenDocument } from "../state";
 import { buildLayerWads } from "../utils/contentTree";
@@ -43,6 +44,9 @@ const SORT_OPTIONS = [
   { value: "name" as const, label: "Name" },
   { value: "size" as const, label: "Size" },
 ];
+
+/* The tint a route in the project row takes while its document is the active one. */
+const activeDocumentClass = "bg-accent-500/15 text-accent-100 hover:bg-accent-500/25";
 
 interface ContentSidebarProps {
   project: WorkshopProject;
@@ -65,8 +69,6 @@ export function ContentSidebar({
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const openDocument = useOpenDocument();
-  const activeId = useActiveDocumentId();
   const projectActions = useProjectActions(project);
   const openSections = useOpenSections();
   const toggleSection = useToggleSection();
@@ -180,11 +182,7 @@ export function ContentSidebar({
       /* DS-GROUND: an island inside the fold sits a rung below it. */
       className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-950 select-none"
     >
-      <ProjectRow
-        detailsActive={activeId === DETAILS_DOCUMENT_ID}
-        onOpenDetails={() => openDocument(detailsDocument())}
-        onOpenFolder={projectActions.handleOpenLocation}
-      />
+      <ProjectRow onOpenFolder={projectActions.handleOpenLocation} />
 
       <SidePanel
         sections={sections}
@@ -206,13 +204,14 @@ export function ContentSidebar({
 }
 
 interface ProjectRowProps {
-  detailsActive: boolean;
-  onOpenDetails: () => void;
   onOpenFolder: () => void;
 }
 
-/** The project's own controls, above the explorers that belong to one layer. */
-function ProjectRow({ detailsActive, onOpenDetails, onOpenFolder }: ProjectRowProps) {
+/** The routes that belong to the whole project, above the explorers that belong to one layer. */
+function ProjectRow({ onOpenFolder }: ProjectRowProps) {
+  const openDocument = useOpenDocument();
+  const activeId = useActiveDocumentId();
+
   return (
     <div
       data-ui="ContentSidebar:project-row"
@@ -220,15 +219,25 @@ function ProjectRow({ detailsActive, onOpenDetails, onOpenFolder }: ProjectRowPr
     >
       <Tooltip content="Mod details">
         <IconButton
-          icon={<PlayerTitleIcon className="h-4 w-4" />}
+          icon={<PlayerTitleIcon className="h-6 w-6" />}
           variant="ghost"
           size="sm"
           compact
-          onClick={onOpenDetails}
+          onClick={() => openDocument(detailsDocument())}
           aria-label="Mod details"
-          className={twMerge(
-            detailsActive && "bg-accent-500/15 text-accent-100 hover:bg-accent-500/25",
-          )}
+          className={twMerge(activeId === DETAILS_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content="Game index">
+        <IconButton
+          icon={<LeagueIcon className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={() => openDocument(gameDocument())}
+          aria-label="Game index"
+          className={twMerge(activeId === GAME_DOCUMENT_ID && activeDocumentClass)}
         />
       </Tooltip>
 

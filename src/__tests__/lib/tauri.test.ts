@@ -103,6 +103,38 @@ describe("api", () => {
     });
   });
 
+  describe("hashtables", () => {
+    it("getHashtableCacheStatus invokes get_hashtable_cache_status", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: { dir: "C:/hashes", tables: [] } });
+      const result = await api.getHashtableCacheStatus();
+      expect(mockInvoke).toHaveBeenCalledWith("get_hashtable_cache_status", undefined);
+      expect(result).toEqual({ ok: true, value: { dir: "C:/hashes", tables: [] } });
+    });
+
+    it("syncHashtables invokes with force", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: { upToDate: true, installed: [] } });
+      await api.syncHashtables(true);
+      expect(mockInvoke).toHaveBeenCalledWith("sync_hashtables", { force: true });
+    });
+  });
+
+  describe("game wads", () => {
+    it("getGameWads invokes get_game_wads", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: [] });
+      const result = await api.getGameWads();
+      expect(mockInvoke).toHaveBeenCalledWith("get_game_wads", undefined);
+      expect(result).toEqual({ ok: true, value: [] });
+    });
+
+    it("readGameWad invokes with wadName", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: [] });
+      await api.readGameWad("Champions/Aatrox.wad.client");
+      expect(mockInvoke).toHaveBeenCalledWith("read_game_wad", {
+        wadName: "Champions/Aatrox.wad.client",
+      });
+    });
+  });
+
   describe("patcher", () => {
     it("stopPatcher invokes stop_patcher", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });

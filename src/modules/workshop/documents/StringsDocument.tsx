@@ -1,10 +1,8 @@
-import { TranslateIcon } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
 
 import { Button } from "@/components";
-import type { EditorDocumentProps } from "@/modules/editor";
+import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
 
-import { useProjectContext } from "../components/ProjectContext";
 import { useSetDocumentDirty } from "../state";
 import {
   StringOverridesEmptyState,
@@ -13,14 +11,13 @@ import {
   StringOverridesToolbar,
   useStringOverridesEditor,
 } from "../string-overrides";
-import { type ContentDocumentOf, layerTitle } from "./contentDocument";
+import type { ContentDocumentOf } from "./contentDocument";
 
 /** One layer's string overrides for one locale. */
 export function StringsDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"strings">>) {
-  const project = useProjectContext();
   const locale = document.locale;
   const editor = useStringOverridesEditor(document.layerName, locale);
   const setDocumentDirty = useSetDocumentDirty();
@@ -57,46 +54,32 @@ export function StringsDocument({
   }, [active]);
 
   const count = editor.entries.length;
-  const countLabel = count === 1 ? "1 override" : `${count} overrides`;
 
   return (
     <div data-ui="StringsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <div
-        data-ui="StringsDocument:band"
-        className="flex min-h-9 items-center justify-between gap-3 pr-1.5 pl-3"
-      >
-        <div className="flex min-w-0 items-center gap-2">
-          <TranslateIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-          <span className="font-mono text-sm font-medium text-surface-200">{locale}</span>
-          <span className="truncate text-xs text-surface-400">
-            {layerTitle(project, document.layerName)} · {countLabel}
-          </span>
-        </div>
-
-        <div className="flex shrink-0 items-center gap-1.5">
-          <StringOverridesToolbar
-            filter={editor.filter}
-            onFilterChange={editor.setFilter}
-            onAdd={editor.addEntry}
-          />
-          <StringOverridesHelpPopover />
-          {editor.hasChanges && (
-            <Button variant="ghost" size="sm" compact onClick={editor.discard}>
-              Discard
-            </Button>
-          )}
-          <Button
-            variant="filled"
-            size="sm"
-            compact
-            onClick={editor.save}
-            disabled={!editor.hasChanges}
-            loading={editor.isSaving}
-          >
-            Save
+      <DocumentActions active={active}>
+        <StringOverridesToolbar
+          filter={editor.filter}
+          onFilterChange={editor.setFilter}
+          onAdd={editor.addEntry}
+        />
+        <StringOverridesHelpPopover />
+        {editor.hasChanges && (
+          <Button variant="ghost" size="xs" compact onClick={editor.discard}>
+            Discard
           </Button>
-        </div>
-      </div>
+        )}
+        <Button
+          variant="filled"
+          size="xs"
+          compact
+          onClick={editor.save}
+          disabled={!editor.hasChanges}
+          loading={editor.isSaving}
+        >
+          Save
+        </Button>
+      </DocumentActions>
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         {count === 0 && <StringOverridesEmptyState onAdd={editor.addEntry} />}

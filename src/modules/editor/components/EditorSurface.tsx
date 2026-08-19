@@ -4,6 +4,7 @@ import { twMerge } from "tailwind-merge";
 import { Button, Dialog } from "@/components";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
+import { DocumentActionsSlotContext } from "./DocumentActions";
 import { EditorTabs } from "./EditorTabs";
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
@@ -22,8 +23,6 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onFocus?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
   focused?: boolean;
-  /** Chrome at the strip's trailing edge, for controls no document owns. */
-  actions?: ReactNode;
   /** Shown while nothing is open. */
   empty?: ReactNode;
   className?: string;
@@ -35,6 +34,9 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * Every open document stays mounted and inactive ones are hidden, so
  * scroll position and half-typed edits survive a trip to another tab.
  * Closing one with unsaved edits asks first.
+ *
+ * The strip's trailing edge is a slot the active document fills through
+ * {@link DocumentActions}, rather than chrome this surface is handed.
  */
 export function EditorSurface<D extends EditorDocumentBase>({
   leafId,
@@ -47,11 +49,11 @@ export function EditorSurface<D extends EditorDocumentBase>({
   onSplit,
   onFocus,
   focused,
-  actions,
   empty,
   className,
 }: EditorSurfaceProps<D>) {
   const [pendingClose, setPendingClose] = useState<D | null>(null);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
@@ -108,7 +110,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
       data-ui={`EditorSurface:${leafId}`}
       onPointerDownCapture={onFocus}
       className={twMerge(
-        "rounded-y-xl flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-950",
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-950",
         className,
       )}
     >
@@ -120,33 +122,38 @@ export function EditorSurface<D extends EditorDocumentBase>({
         onClose={requestClose}
         onSplit={onSplit}
         focused={focused}
-        actions={actions}
+        actions={
+          <div
+            ref={setSlot}
+            data-ui="EditorSurface:actions"
+            className="flex items-center gap-1.5"
+          />
+        }
       />
 
-      <div
-        data-ui="EditorSurface:documents"
-        className="relative min-h-0 flex-1 overflow-hidden rounded-b-xl border-x border-b border-surface-700"
-      >
+      <div data-ui="EditorSurface:documents" className="relative min-h-0 flex-1 overflow-hidden">
         {documents.length === 0 && empty}
 
-        {documents.map((document) => {
-          const definition = definitionFor(document);
-          if (!definition) return null;
+        <DocumentActionsSlotContext value={slot}>
+          {documents.map((document) => {
+            const definition = definitionFor(document);
+            if (!definition) return null;
 
-          const Editor = definition.component;
-          const active = document.id === activeId;
+            const Editor = definition.component;
+            const active = document.id === activeId;
 
-          return (
-            <div
-              key={document.id}
-              data-ui={`EditorSurface:document:${document.kind}`}
-              hidden={!active}
-              className="absolute inset-0 flex flex-col"
-            >
-              <Editor document={document} active={active} />
-            </div>
-          );
-        })}
+            return (
+              <div
+                key={document.id}
+                data-ui={`EditorSurface:document:${document.kind}`}
+                hidden={!active}
+                className="absolute inset-0 flex flex-col"
+              >
+                <Editor document={document} active={active} />
+              </div>
+            );
+          })}
+        </DocumentActionsSlotContext>
       </div>
 
       <UnsavedCloseDialog

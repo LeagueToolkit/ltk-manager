@@ -2,7 +2,7 @@ import { Button, EmptyState } from "@/components";
 import { EditorSurface, LeafDropZones, type LeafNode } from "@/modules/editor";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
-import { useContentEditors } from "../documents";
+import { gameDocument, useContentEditors } from "../documents";
 import {
   useActivateDocument,
   useActiveLeafId,
@@ -10,15 +10,11 @@ import {
   useDirtyDocumentIds,
   useFocusLeaf,
   useLeafTabs,
+  useOpenDocument,
   useSplitWithDocument,
 } from "../state";
-import { ContentLayoutPopover } from "./ContentLayoutPopover";
 import { LeafProvider } from "./LeafContext";
 import { useProjectContext } from "./ProjectContext";
-
-/* Built once. The strip memoizes its tabs, and a fresh element here on every
-   render would hand it a changed prop and undo that. */
-const LAYOUT_ACTIONS = <ContentLayoutPopover />;
 
 interface ContentLeafProps {
   leaf: LeafNode;
@@ -49,7 +45,6 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           onSplit={(id, edge) => splitWithDocument(id, leaf.id, edge)}
           onFocus={() => focusLeaf(leaf.id)}
           focused={activeLeafId === leaf.id}
-          actions={LAYOUT_ACTIONS}
           empty={<NothingOpenState />}
         />
       </LeafDropZones>
@@ -62,11 +57,19 @@ function NothingOpenState() {
   const project = useProjectContext();
   const sidebarOpen = useLayerPanelOpen();
   const setLayerPanelOpen = useSetLayerPanelOpen();
+  const openDocument = useOpenDocument();
 
-  const action = !sidebarOpen && (
-    <Button variant="outline" size="sm" onClick={() => setLayerPanelOpen(true)}>
-      Show sidebar
-    </Button>
+  const action = (
+    <>
+      <Button variant="outline" size="sm" onClick={() => openDocument(gameDocument())}>
+        Browse game index
+      </Button>
+      {!sidebarOpen && (
+        <Button variant="outline" size="sm" onClick={() => setLayerPanelOpen(true)}>
+          Show sidebar
+        </Button>
+      )}
+    </>
   );
 
   if (project.layers.length === 0) {
