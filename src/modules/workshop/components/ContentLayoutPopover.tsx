@@ -1,6 +1,7 @@
 import { SidebarSimpleIcon } from "@phosphor-icons/react";
 
 import {
+  Button,
   Checkbox,
   FilterSection,
   IconButton,
@@ -15,6 +16,8 @@ import {
   useSetLayerPanelSide,
 } from "@/stores";
 
+import { useResetLayout } from "../state";
+
 const SIDE_OPTIONS = [
   { value: "left" as const, label: "Left" },
   { value: "right" as const, label: "Right" },
@@ -26,6 +29,7 @@ export function ContentLayoutPopover() {
   const setLayerPanelSide = useSetLayerPanelSide();
   const layerPanelOpen = useLayerPanelOpen();
   const setLayerPanelOpen = useSetLayerPanelOpen();
+  const resetLayout = useResetLayout();
 
   return (
     <Popover.Root>
@@ -66,6 +70,12 @@ export function ContentLayoutPopover() {
                 />
               </FilterSection>
             )}
+
+            <FilterSection>
+              <Button variant="outline" size="sm" className="w-full" onClick={resetLayout}>
+                Reset layout
+              </Button>
+            </FilterSection>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

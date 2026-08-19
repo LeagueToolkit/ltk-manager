@@ -7,6 +7,3 @@ import type { Modifier } from "@dnd-kit/core";
  * and only lets the row wander off its own column.
  */
 export const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
-
-/** Lock a drag to the horizontal axis, for a strip that reorders left to right. */
-export const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });

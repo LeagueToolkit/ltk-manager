@@ -2,6 +2,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { Button, Toolbar } from "@/components";
+import type { WorkshopProject } from "@/lib/tauri";
 import {
   ContentBrowser,
   DeleteConfirmDialog,
@@ -9,6 +10,7 @@ import {
   PackDialog,
   ProjectHeader,
   ProjectProvider,
+  useEditorPersistence,
   useWorkshopProjects,
 } from "@/modules/workshop";
 
@@ -56,7 +58,7 @@ function ProjectDetail() {
               not this one re-pointed. The route reuses this component across a
               change of param, and document ids repeat between projects, so
               without the key a pane carries its scroll and focus over. */}
-          <ContentBrowser key={project.path} project={project} />
+          <HydratedContentBrowser key={project.path} project={project} />
         </div>
       </div>
 
@@ -64,4 +66,14 @@ function ProjectDetail() {
       <DeleteConfirmDialog />
     </ProjectProvider>
   );
+}
+
+/* The editor mounts only once its state is hydrated from `.ltk/editor.json`.
+   Any earlier and ContentBrowser's bootstrap opens its defaults into an empty
+   store, which the arriving hydration then overwrites. */
+function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
+  const ready = useEditorPersistence(project.path);
+
+  if (!ready) return <LoadingState />;
+  return <ContentBrowser project={project} />;
 }

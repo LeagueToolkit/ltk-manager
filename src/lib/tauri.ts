@@ -273,4 +273,9 @@ export const api = {
     }),
   addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
     invokeResult<AddFilesReport>("add_files_to_layer", { projectPath, layerName, sources }),
+  // The editor state file is opaque to the backend, so both sides are strings.
+  getProjectEditorState: (projectPath: string) =>
+    invokeResult<string | null>("get_project_editor_state", { projectPath }),
+  saveProjectEditorState: (projectPath: string, content: string) =>
+    invokeResult<void>("save_project_editor_state", { projectPath, content }),
 };

@@ -7,6 +7,8 @@ import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } fro
 import { EditorTabs } from "./EditorTabs";
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
+  /** The leaf this surface draws, which the strip scopes its drag ids by. */
+  leafId: string;
   documents: readonly D[];
   activeId: string | null;
   registry: EditorRegistry<D>;
@@ -14,8 +16,12 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   dirtyIds: ReadonlySet<string>;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
-  /** Drag to reorder the strip. Absent pins the tabs where they opened. */
-  onReorder?: (ids: string[]) => void;
+  /** The keyboard route to a split, offered from a tab's context menu. */
+  onSplit?: (id: string, edge: "right" | "bottom") => void;
+  /** A pointer landing anywhere in the surface, tab strip or document body. */
+  onFocus?: () => void;
+  /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
+  focused?: boolean;
   /** Chrome at the strip's trailing edge, for controls no document owns. */
   actions?: ReactNode;
   /** Shown while nothing is open. */
@@ -31,13 +37,16 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * Closing one with unsaved edits asks first.
  */
 export function EditorSurface<D extends EditorDocumentBase>({
+  leafId,
   documents,
   activeId,
   registry,
   dirtyIds,
   onActivate,
   onClose,
-  onReorder,
+  onSplit,
+  onFocus,
+  focused,
   actions,
   empty,
   className,
@@ -96,18 +105,21 @@ export function EditorSurface<D extends EditorDocumentBase>({
 
   return (
     <div
-      data-ui="EditorSurface"
+      data-ui={`EditorSurface:${leafId}`}
+      onPointerDownCapture={onFocus}
       className={twMerge(
         "rounded-y-xl flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-950",
         className,
       )}
     >
       <EditorTabs
+        leafId={leafId}
         tabs={tabs}
         activeId={activeId}
         onActivate={onActivate}
         onClose={requestClose}
-        onReorder={onReorder}
+        onSplit={onSplit}
+        focused={focused}
         actions={actions}
       />
 

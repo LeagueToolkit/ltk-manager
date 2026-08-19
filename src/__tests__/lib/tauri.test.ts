@@ -83,6 +83,24 @@ describe("api", () => {
         projectPath: "/path/to/project",
       });
     });
+
+    it("getProjectEditorState invokes with projectPath", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: null });
+      const result = await api.getProjectEditorState("/path/to/project");
+      expect(mockInvoke).toHaveBeenCalledWith("get_project_editor_state", {
+        projectPath: "/path/to/project",
+      });
+      expect(result).toEqual({ ok: true, value: null });
+    });
+
+    it("saveProjectEditorState invokes with projectPath and content", async () => {
+      mockInvoke.mockResolvedValue({ ok: true, value: undefined });
+      await api.saveProjectEditorState("/path/to/project", '{"version":1}');
+      expect(mockInvoke).toHaveBeenCalledWith("save_project_editor_state", {
+        projectPath: "/path/to/project",
+        content: '{"version":1}',
+      });
+    });
   });
 
   describe("patcher", () => {

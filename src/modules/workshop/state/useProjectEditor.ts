@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 
+import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import {
   EMPTY_EDITOR,
   NO_COLLAPSED_DIRS,
@@ -23,14 +25,62 @@ function useProjectPath(): string {
   return useProjectContext().path;
 }
 
-export function useOpenDocuments(): readonly ContentDocument[] {
+export function useLayoutTree(): LayoutNode {
   const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).open);
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).layout);
 }
 
+export function useActiveLeafId(): string {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).activeLeafId);
+}
+
+/** One leaf's tabs resolved to documents, in strip order. */
+export function useLeafTabs(leafId: string): readonly ContentDocument[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => {
+      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+      const leaf = findLeaf(editor.layout, leafId);
+      return (leaf?.tabs ?? []).flatMap((id) => {
+        const document = editor.documents[id];
+        return document ? [document] : [];
+      });
+    }),
+  );
+}
+
+export function useLeafActiveId(leafId: string): string | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    return findLeaf(editor.layout, leafId)?.activeTab ?? null;
+  });
+}
+
+/** Every open document, in depth-first reading order across the leaves. */
+export function useOpenDocuments(): readonly ContentDocument[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    useShallow((s) => {
+      const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+      return leaves(editor.layout)
+        .flatMap((leaf) => leaf.tabs)
+        .flatMap((id) => {
+          const document = editor.documents[id];
+          return document ? [document] : [];
+        });
+    }),
+  );
+}
+
+/** The active tab of the focused leaf, which is what the sidebar highlights. */
 export function useActiveDocumentId(): string | null {
   const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).activeId);
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    return findLeaf(editor.layout, editor.activeLeafId)?.activeTab ?? null;
+  });
 }
 
 export function useDirtyDocumentIds(): ReadonlySet<string> {
@@ -97,14 +147,14 @@ export function useOpenDocument() {
 export function useActivateDocument() {
   const projectPath = useProjectPath();
   return useCallback(
-    (id: string) => {
+    (leafId: string, id: string) => {
       const store = useWorkshopEditorStore.getState();
-      store.activateDocument(projectPath, id);
+      store.activateDocument(projectPath, leafId, id);
 
       /* The panels follow the strip while the tree is still a document. Once it
          is a panel of its own, selection is the sidebar's alone and this goes. */
-      const document = store.byProject[projectPath]?.open.find((candidate) => candidate.id === id);
-      const layerName = document ? documentLayerName(document) : null;
+      const document = store.byProject[projectPath]?.documents[id] ?? null;
+      const layerName = documentLayerName(document);
       if (layerName) store.selectLayer(projectPath, layerName);
     },
     [projectPath],
@@ -114,16 +164,74 @@ export function useActivateDocument() {
 export function useCloseDocument() {
   const projectPath = useProjectPath();
   const closeDocument = useWorkshopEditorStore((s) => s.closeDocument);
-  return useCallback((id: string) => closeDocument(projectPath, id), [closeDocument, projectPath]);
+  return useCallback(
+    (leafId: string, id: string) => closeDocument(projectPath, leafId, id),
+    [closeDocument, projectPath],
+  );
 }
 
 export function useReorderDocuments() {
   const projectPath = useProjectPath();
   const reorderDocuments = useWorkshopEditorStore((s) => s.reorderDocuments);
   return useCallback(
-    (ids: readonly string[]) => reorderDocuments(projectPath, ids),
+    (leafId: string, ids: readonly string[]) => reorderDocuments(projectPath, leafId, ids),
     [reorderDocuments, projectPath],
   );
+}
+
+export function useMoveDocument() {
+  const projectPath = useProjectPath();
+  const moveDocument = useWorkshopEditorStore((s) => s.moveDocument);
+  return useCallback(
+    (documentId: string, toLeafId: string, index?: number) =>
+      moveDocument(projectPath, documentId, toLeafId, index),
+    [moveDocument, projectPath],
+  );
+}
+
+export function useSplitWithDocument() {
+  const projectPath = useProjectPath();
+  const splitWithDocument = useWorkshopEditorStore((s) => s.splitWithDocument);
+  return useCallback(
+    (documentId: string, targetLeafId: string, edge: Edge) =>
+      splitWithDocument(projectPath, documentId, targetLeafId, edge),
+    [splitWithDocument, projectPath],
+  );
+}
+
+export function useFocusLeaf() {
+  const projectPath = useProjectPath();
+  return useCallback(
+    (leafId: string) => {
+      const store = useWorkshopEditorStore.getState();
+      store.focusLeaf(projectPath, leafId);
+
+      /* Focus follows the layer of whatever the leaf shows, the same way an
+         activate does, so the side panels track the surface being worked in. */
+      const editor = store.byProject[projectPath];
+      const activeTab = editor ? findLeaf(editor.layout, leafId)?.activeTab : null;
+      const document = activeTab ? (editor?.documents[activeTab] ?? null) : null;
+      const layerName = documentLayerName(document);
+      if (layerName) store.selectLayer(projectPath, layerName);
+    },
+    [projectPath],
+  );
+}
+
+export function useSetSplitLayout() {
+  const projectPath = useProjectPath();
+  const setSplitLayout = useWorkshopEditorStore((s) => s.setSplitLayout);
+  return useCallback(
+    (splitId: string, layout: Record<string, number>) =>
+      setSplitLayout(projectPath, splitId, layout),
+    [setSplitLayout, projectPath],
+  );
+}
+
+export function useResetLayout() {
+  const projectPath = useProjectPath();
+  const resetLayout = useWorkshopEditorStore((s) => s.resetLayout);
+  return useCallback(() => resetLayout(projectPath), [resetLayout, projectPath]);
 }
 
 export function useSetDocumentDirty() {

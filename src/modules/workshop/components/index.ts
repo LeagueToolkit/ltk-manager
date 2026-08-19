@@ -12,6 +12,7 @@ export {
 export { ImportFantomeDialog } from "./ImportFantomeDialog";
 export { ImportGitRepoDialog } from "./ImportGitRepoDialog";
 export { LayerFileDropOverlay } from "./LayerFileDropOverlay";
+export { LeafProvider, useLeafId } from "./LeafContext";
 export { NewProjectDialog } from "./NewProjectDialog";
 export {
   appendAuthor,

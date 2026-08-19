@@ -1,7 +1,24 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 
-import type { ContentDocument } from "@/modules/workshop";
+/* The layout sub-barrel rather than the module barrel: the full barrel pulls
+   the editor's components, whose imports circle back into `@/stores`, and this
+   module needs `singleLeaf` while it evaluates. */
+import {
+  type Edge,
+  findLeaf,
+  insertTab,
+  type LayoutNode,
+  leafHolding,
+  leaves,
+  mergeToSingleLeaf,
+  moveTab,
+  removeTab,
+  setActiveTab,
+  setSplitLayout as applySplitLayout,
+  singleLeaf,
+  splitLeaf,
+} from "@/modules/editor/layout";
+import type { ContentDocument, PersistedProjectEditor } from "@/modules/workshop";
 
 /** An outline's request that one layer's file tree scroll to an entry. */
 export interface RevealRequest {
@@ -15,14 +32,19 @@ export interface RevealRequest {
 /**
  * Everything the editor holds for one project.
  *
- * `open`, `activeId` and `selectedLayer` persist. The rest is rebuilt each run:
- * a dirty flag belongs to an editor that is currently mounted, and neither the
- * shut directories nor a pending scroll are worth carrying across a restart.
+ * `documents`, `layout`, `activeLeafId` and `selectedLayer` persist, written to
+ * the project's own `.ltk/editor.json` by `useEditorPersistence`. The rest is
+ * rebuilt each run: a dirty flag belongs to an editor that is currently
+ * mounted, and neither the shut directories nor a pending scroll are worth
+ * carrying across a restart.
  */
 export interface ProjectEditor {
-  /** The tab strip, in the order it displays. */
-  open: ContentDocument[];
-  activeId: string | null;
+  /** Every open document, keyed by id. A leaf's tabs are ids into this map. */
+  documents: Record<string, ContentDocument>;
+  /** The split tree of editor groups. A single leaf until the user splits. */
+  layout: LayoutNode;
+  /** The leaf a newly opened document lands in. */
+  activeLeafId: string;
   /**
    * The layer every layer-scoped panel reads.
    *
@@ -42,11 +64,26 @@ export interface ProjectEditor {
 interface WorkshopEditorStore {
   /** Editor state per project path, so switching projects keeps every set. */
   byProject: Record<string, ProjectEditor>;
-  openDocument: (projectPath: string, document: ContentDocument) => void;
-  activateDocument: (projectPath: string, id: string) => void;
-  closeDocument: (projectPath: string, id: string) => void;
-  /** Rewrites the strip's order from a full list of its ids. */
-  reorderDocuments: (projectPath: string, ids: readonly string[]) => void;
+  /** Installs a project's persisted slice, completing it with the memory-only fields. */
+  hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
+  /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
+  openDocument: (projectPath: string, document: ContentDocument, leafId?: string) => void;
+  activateDocument: (projectPath: string, leafId: string, id: string) => void;
+  closeDocument: (projectPath: string, leafId: string, id: string) => void;
+  /** Rewrites one strip's order from a full list of its ids. */
+  reorderDocuments: (projectPath: string, leafId: string, ids: readonly string[]) => void;
+  moveDocument: (projectPath: string, documentId: string, toLeafId: string, index?: number) => void;
+  splitWithDocument: (
+    projectPath: string,
+    documentId: string,
+    targetLeafId: string,
+    edge: Edge,
+  ) => void;
+  focusLeaf: (projectPath: string, leafId: string) => void;
+  /** Writes what `onLayoutChanged` reported for one split. */
+  setSplitLayout: (projectPath: string, splitId: string, layout: Record<string, number>) => void;
+  /** Merges every strip into the focused leaf, in reading order. */
+  resetLayout: (projectPath: string) => void;
   setDocumentDirty: (projectPath: string, id: string, dirty: boolean) => void;
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
@@ -57,9 +94,14 @@ interface WorkshopEditorStore {
   forgetProject: (projectPath: string) => void;
 }
 
+/* Shared by every editor nothing has touched. Safe to share because every tree
+   op copies before it writes. */
+const ROOT = singleLeaf();
+
 export const EMPTY_EDITOR: ProjectEditor = {
-  open: [],
-  activeId: null,
+  documents: {},
+  layout: ROOT,
+  activeLeafId: ROOT.id,
   selectedLayer: null,
   dirty: new Set(),
   collapsed: {},
@@ -68,13 +110,6 @@ export const EMPTY_EDITOR: ProjectEditor = {
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
 export const NO_COLLAPSED_DIRS: ReadonlySet<string> = new Set();
-
-/* Closing the active tab hands focus to its right-hand neighbour, falling back
-   to the left one at the end of the strip. */
-function neighbourOf(open: readonly ContentDocument[], index: number): string | null {
-  const next = open[index + 1] ?? open[index - 1];
-  return next?.id ?? null;
-}
 
 /**
  * Apply a change to one project's editor, or report that nothing moved.
@@ -94,164 +129,222 @@ function updateProject(
   return { byProject: { ...state.byProject, [projectPath]: next } };
 }
 
-/**
- * Complete each stored editor with the fields that never went to storage.
- *
- * Storage holds a third of an editor, and an entry written before this store
- * held a selected layer holds less than that. Filling every one from
- * [`EMPTY_EDITOR`] is what stops a read-back leaving `dirty` or `collapsed`
- * undefined, which the panels call methods on without checking.
+/*
+ * Rewrite one strip in the order a drag settled on. Lives here rather than in
+ * the tree module because it is the one op with a store-shaped guard: a drop
+ * that started before a close lands with a stale list, which would drop
+ * whatever the two disagree about, so a list that is not a permutation of the
+ * strip keeps the strip.
  */
-export function rehydrate(persisted: unknown): Record<string, ProjectEditor> {
-  const stored = (persisted as { byProject?: Record<string, Partial<ProjectEditor>> } | null)
-    ?.byProject;
-
-  const byProject: Record<string, ProjectEditor> = {};
-  for (const [path, editor] of Object.entries(stored ?? {})) {
-    byProject[path] = { ...EMPTY_EDITOR, ...editor };
+function reorderLeafTabs(node: LayoutNode, leafId: string, ids: readonly string[]): LayoutNode {
+  if (node.kind === "leaf") {
+    if (node.id !== leafId) return node;
+    if (ids.length !== node.tabs.length || !ids.every((id) => node.tabs.includes(id))) return node;
+    if (ids.every((id, index) => node.tabs[index] === id)) return node;
+    return { ...node, tabs: [...ids] };
   }
-  return byProject;
+
+  let changed = false;
+  const children = node.children.map((child) => {
+    const next = reorderLeafTabs(child, leafId, ids);
+    if (next !== child) changed = true;
+    return next;
+  });
+  return changed ? { ...node, children } : node;
 }
 
-export const useWorkshopEditorStore = create<WorkshopEditorStore>()(
-  persist(
-    (set) => ({
-      byProject: {},
+export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
+  byProject: {},
 
-      openDocument: (projectPath, document) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => {
-              const known = editor.open.some((open) => open.id === document.id);
-              return {
-                ...editor,
-                open: known ? editor.open : [...editor.open, document],
-                activeId: document.id,
-              };
-            }) ?? state,
-        ),
+  hydrateProject: (projectPath, state) =>
+    set((current) => ({
+      byProject: {
+        ...current.byProject,
+        [projectPath]: {
+          ...EMPTY_EDITOR,
+          documents: state.documents,
+          layout: state.layout,
+          activeLeafId: state.activeLeafId,
+          selectedLayer: state.selectedLayer,
+        },
+      },
+    })),
 
-      activateDocument: (projectPath, id) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) =>
-              editor.activeId === id ? null : { ...editor, activeId: id },
-            ) ?? state,
-        ),
+  openDocument: (projectPath, document, leafId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const holder = leafHolding(editor.layout, document.id);
+          if (holder) {
+            /* Already open: activate where it is and keep the stored
+               document, whose editor may hold state the argument lacks. */
+            const layout = setActiveTab(editor.layout, holder.id, document.id);
+            if (layout === editor.layout && editor.activeLeafId === holder.id) return null;
+            return { ...editor, layout, activeLeafId: holder.id };
+          }
 
-      closeDocument: (projectPath, id) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => {
-              const index = editor.open.findIndex((document) => document.id === id);
-              if (index < 0) return null;
+          const requested = leafId ?? editor.activeLeafId;
+          const target = findLeaf(editor.layout, requested) ?? leaves(editor.layout)[0];
+          return {
+            ...editor,
+            documents: { ...editor.documents, [document.id]: document },
+            layout: insertTab(editor.layout, target.id, document.id),
+            activeLeafId: target.id,
+          };
+        }) ?? state,
+    ),
 
-              const dirty = new Set(editor.dirty);
-              dirty.delete(id);
+  activateDocument: (projectPath, leafId, id) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          if (!findLeaf(editor.layout, leafId)) return null;
+          const layout = setActiveTab(editor.layout, leafId, id);
+          if (layout === editor.layout && editor.activeLeafId === leafId) return null;
+          return { ...editor, layout, activeLeafId: leafId };
+        }) ?? state,
+    ),
 
-              return {
-                ...editor,
-                open: editor.open.filter((document) => document.id !== id),
-                activeId:
-                  editor.activeId === id ? neighbourOf(editor.open, index) : editor.activeId,
-                dirty,
-              };
-            }) ?? state,
-        ),
+  closeDocument: (projectPath, leafId, id) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const layout = removeTab(editor.layout, leafId, id);
+          if (layout === editor.layout) return null;
 
-      reorderDocuments: (projectPath, ids) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => {
-              const byId = new Map(editor.open.map((document) => [document.id, document] as const));
-              const open = ids.flatMap((id) => {
-                const document = byId.get(id);
-                return document ? [document] : [];
-              });
+          const documents = { ...editor.documents };
+          const dirty = new Set(editor.dirty);
+          if (!leafHolding(layout, id)) {
+            delete documents[id];
+            dirty.delete(id);
+          }
 
-              /* A drop that started before a close lands with a stale list, which
-                 would drop whatever the two disagree about. Keep the strip. */
-              if (open.length !== editor.open.length) return null;
-              return { ...editor, open };
-            }) ?? state,
-        ),
+          /* Closing a leaf's last tab prunes it, which can take the
+             focused leaf with it. */
+          const activeLeafId = findLeaf(layout, editor.activeLeafId)
+            ? editor.activeLeafId
+            : leaves(layout)[0].id;
 
-      setDocumentDirty: (projectPath, id, dirty) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => {
-              if (editor.dirty.has(id) === dirty) return null;
+          return { ...editor, documents, layout, activeLeafId, dirty };
+        }) ?? state,
+    ),
 
-              const next = new Set(editor.dirty);
-              if (dirty) next.add(id);
-              else next.delete(id);
-              return { ...editor, dirty: next };
-            }) ?? state,
-        ),
+  reorderDocuments: (projectPath, leafId, ids) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const layout = reorderLeafTabs(editor.layout, leafId, ids);
+          return layout === editor.layout ? null : { ...editor, layout };
+        }) ?? state,
+    ),
 
-      selectLayer: (projectPath, layerName) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) =>
-              editor.selectedLayer === layerName ? null : { ...editor, selectedLayer: layerName },
-            ) ?? state,
-        ),
+  moveDocument: (projectPath, documentId, toLeafId, index) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const layout = moveTab(editor.layout, documentId, toLeafId, index);
+          if (layout === editor.layout) return null;
+          return { ...editor, layout, activeLeafId: toLeafId };
+        }) ?? state,
+    ),
 
-      toggleCollapsed: (projectPath, layerName, path) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => {
-              const next = new Set(editor.collapsed[layerName] ?? NO_COLLAPSED_DIRS);
-              if (next.has(path)) next.delete(path);
-              else next.add(path);
+  splitWithDocument: (projectPath, documentId, targetLeafId, edge) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const split = splitLeaf(editor.layout, targetLeafId, edge, documentId);
+          if (split.tree === editor.layout) return null;
+          return { ...editor, layout: split.tree, activeLeafId: split.leafId };
+        }) ?? state,
+    ),
 
-              return { ...editor, collapsed: { ...editor.collapsed, [layerName]: next } };
-            }) ?? state,
-        ),
+  focusLeaf: (projectPath, leafId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          if (editor.activeLeafId === leafId || !findLeaf(editor.layout, leafId)) return null;
+          return { ...editor, activeLeafId: leafId };
+        }) ?? state,
+    ),
 
-      reveal: (projectPath, layerName, path) =>
-        set(
-          (state) =>
-            updateProject(state, projectPath, (editor) => ({
-              ...editor,
-              reveal: { layerName, path, token: (editor.reveal?.token ?? 0) + 1 },
-            })) ?? state,
-        ),
+  setSplitLayout: (projectPath, splitId, layout) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const next = applySplitLayout(editor.layout, splitId, layout);
+          return next === editor.layout ? null : { ...editor, layout: next };
+        }) ?? state,
+    ),
 
-      moveProject: (fromPath, toPath) =>
-        set((state) => {
-          const current = state.byProject[fromPath];
-          if (!current || fromPath === toPath) return state;
+  resetLayout: (projectPath) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const layout = mergeToSingleLeaf(editor.layout, editor.activeLeafId);
+          if (layout === editor.layout) return null;
+          return { ...editor, layout, activeLeafId: layout.id };
+        }) ?? state,
+    ),
 
-          const byProject = { ...state.byProject };
-          delete byProject[fromPath];
-          byProject[toPath] = current;
-          return { byProject };
-        }),
+  setDocumentDirty: (projectPath, id, dirty) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          if (editor.dirty.has(id) === dirty) return null;
 
-      forgetProject: (projectPath) =>
-        set((state) => {
-          if (!(projectPath in state.byProject)) return state;
+          const next = new Set(editor.dirty);
+          if (dirty) next.add(id);
+          else next.delete(id);
+          return { ...editor, dirty: next };
+        }) ?? state,
+    ),
 
-          const byProject = { ...state.byProject };
-          delete byProject[projectPath];
-          return { byProject };
-        }),
+  selectLayer: (projectPath, layerName) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.selectedLayer === layerName ? null : { ...editor, selectedLayer: layerName },
+        ) ?? state,
+    ),
+
+  toggleCollapsed: (projectPath, layerName, path) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const next = new Set(editor.collapsed[layerName] ?? NO_COLLAPSED_DIRS);
+          if (next.has(path)) next.delete(path);
+          else next.add(path);
+
+          return { ...editor, collapsed: { ...editor.collapsed, [layerName]: next } };
+        }) ?? state,
+    ),
+
+  reveal: (projectPath, layerName, path) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          reveal: { layerName, path, token: (editor.reveal?.token ?? 0) + 1 },
+        })) ?? state,
+    ),
+
+  moveProject: (fromPath, toPath) =>
+    set((state) => {
+      const current = state.byProject[fromPath];
+      if (!current || fromPath === toPath) return state;
+
+      const byProject = { ...state.byProject };
+      delete byProject[fromPath];
+      byProject[toPath] = current;
+      return { byProject };
     }),
-    {
-      /* The key predates the store's own name. Renaming it would read as a
-         first run to everyone and throw away the strip they left open. */
-      name: "ltk-workshop-documents",
-      version: 1,
-      partialize: (state) => ({
-        byProject: Object.fromEntries(
-          Object.entries(state.byProject).map(([path, editor]) => [
-            path,
-            { open: editor.open, activeId: editor.activeId, selectedLayer: editor.selectedLayer },
-          ]),
-        ),
-      }),
-      merge: (persisted, current) => ({ ...current, byProject: rehydrate(persisted) }),
-    },
-  ),
-);
+
+  forgetProject: (projectPath) =>
+    set((state) => {
+      if (!(projectPath in state.byProject)) return state;
+
+      const byProject = { ...state.byProject };
+      delete byProject[projectPath];
+      return { byProject };
+    }),
+}));

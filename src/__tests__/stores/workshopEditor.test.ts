@@ -1,8 +1,16 @@
-import { detailsDocument, filesDocument } from "@/modules/workshop";
-import { EMPTY_EDITOR, rehydrate, useWorkshopEditorStore } from "@/stores/workshopEditor";
+import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
+import {
+  detailsDocument,
+  filesDocument,
+  migrateFromV1,
+  readLegacyEditorSeed,
+} from "@/modules/workshop";
+import { EMPTY_EDITOR, useWorkshopEditorStore } from "@/stores/workshopEditor";
 
 const A = "C:/mods/project-a";
 const B = "C:/mods/project-b";
+
+const ROOT_LEAF = EMPTY_EDITOR.layout.id;
 
 function store() {
   return useWorkshopEditorStore.getState();
@@ -12,11 +20,32 @@ function editorOf(projectPath: string) {
   return store().byProject[projectPath] ?? EMPTY_EDITOR;
 }
 
+function tabsOf(projectPath: string, leafId: string): readonly string[] {
+  return findLeaf(editorOf(projectPath).layout, leafId)?.tabs ?? [];
+}
+
+function activeTabOf(projectPath: string, leafId: string): string | null {
+  return findLeaf(editorOf(projectPath).layout, leafId)?.activeTab ?? null;
+}
+
+/** Every open id in reading order, which is what `useOpenDocuments` resolves. */
+function openIds(projectPath: string): string[] {
+  return leaves(editorOf(projectPath).layout).flatMap((leaf) => leaf.tabs);
+}
+
 /** What `useRevealRequest` reads, without a React render to get at it. */
 function revealFor(projectPath: string, layerName: string) {
   const request = editorOf(projectPath).reveal;
   if (!request || request.layerName !== layerName) return null;
   return request;
+}
+
+/** A two-leaf tree: details left in the root leaf, files right in a fresh one. */
+function splitApart(projectPath: string): string {
+  store().openDocument(projectPath, detailsDocument());
+  store().openDocument(projectPath, filesDocument("base"));
+  store().splitWithDocument(projectPath, "files:base", ROOT_LEAF, "right");
+  return editorOf(projectPath).activeLeafId;
 }
 
 describe("workshopEditor store", () => {
@@ -43,24 +72,118 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("openDocument", () => {
+    it("lands in the focused leaf by default", () => {
+      const rightLeaf = splitApart(A);
+
+      store().openDocument(A, filesDocument("test"));
+
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "files:test"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("files:test");
+    });
+
+    it("activates a reopened document where it is and keeps the stored one", () => {
+      const first = detailsDocument();
+      store().openDocument(A, first);
+      store().openDocument(A, filesDocument("base"));
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+
+      store().openDocument(A, detailsDocument());
+
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+      expect(editorOf(A).documents.details).toBe(first);
+      expect(openIds(A)).toEqual(["details", "files:base"]);
+    });
+
+    it("falls back to the first leaf when the asked-for leaf is gone", () => {
+      store().openDocument(A, detailsDocument(), "leaf-99");
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+    });
+  });
+
   describe("closeDocument", () => {
     it("clears the closed document's dirty flag in its own project", () => {
       store().openDocument(A, detailsDocument());
       store().setDocumentDirty(A, "details", true);
       store().setDocumentDirty(B, "details", true);
 
-      store().closeDocument(A, "details");
+      store().closeDocument(A, ROOT_LEAF, "details");
 
       expect(editorOf(A).dirty.has("details")).toBe(false);
       expect(editorOf(B).dirty.has("details")).toBe(true);
     });
 
-    it("hands the active tab to a neighbour", () => {
+    it("hands the active tab to a neighbour and drops the document", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
-      store().closeDocument(A, "files:base");
+      store().closeDocument(A, ROOT_LEAF, "files:base");
 
-      expect(editorOf(A).activeId).toBe("details");
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("details");
+      expect("files:base" in editorOf(A).documents).toBe(false);
+    });
+
+    it("re-points focus when the pruned tree loses the focused leaf", () => {
+      const rightLeaf = splitApart(A);
+
+      store().closeDocument(A, rightLeaf, "files:base");
+
+      expect(leaves(editorOf(A).layout).map((leaf) => leaf.id)).toEqual([ROOT_LEAF]);
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+      expect("files:base" in editorOf(A).documents).toBe(false);
+    });
+  });
+
+  describe("moveDocument", () => {
+    it("carries the tab to the target leaf and focuses it", () => {
+      const rightLeaf = splitApart(A);
+      store().openDocument(A, filesDocument("test"), ROOT_LEAF);
+
+      store().moveDocument(A, "details", rightLeaf);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["files:test"]);
+      expect(tabsOf(A, rightLeaf)).toEqual(["files:base", "details"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("details");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
+    });
+  });
+
+  describe("splitWithDocument", () => {
+    it("moves the document into a fresh leaf and focuses it", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+
+      const newLeaf = editorOf(A).activeLeafId;
+      expect(newLeaf).not.toBe(ROOT_LEAF);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      expect(tabsOf(A, newLeaf)).toEqual(["files:base"]);
+    });
+
+    it("returns the same state for a leaf that would split into itself", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().splitWithDocument(A, "details", ROOT_LEAF, "right");
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
+  describe("resetLayout", () => {
+    it("merges every strip into the focused leaf in reading order", () => {
+      const rightLeaf = splitApart(A);
+
+      store().resetLayout(A);
+
+      const layout = editorOf(A).layout;
+      expect(layout.kind).toBe("leaf");
+      expect(layout.id).toBe(rightLeaf);
+      expect(openIds(A)).toEqual(["details", "files:base"]);
+      expect(activeTabOf(A, rightLeaf)).toBe("files:base");
+      expect(editorOf(A).activeLeafId).toBe(rightLeaf);
     });
   });
 
@@ -120,18 +243,18 @@ describe("workshopEditor store", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
 
-      store().reorderDocuments(A, ["files:base", "details"]);
+      store().reorderDocuments(A, ROOT_LEAF, ["files:base", "details"]);
 
-      expect(editorOf(A).open.map((d) => d.id)).toEqual(["files:base", "details"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["files:base", "details"]);
     });
 
     it("keeps the strip when the incoming list is stale", () => {
       store().openDocument(A, detailsDocument());
       store().openDocument(A, filesDocument("base"));
 
-      store().reorderDocuments(A, ["files:base"]);
+      store().reorderDocuments(A, ROOT_LEAF, ["files:base"]);
 
-      expect(editorOf(A).open.map((d) => d.id)).toEqual(["details", "files:base"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
     });
   });
 
@@ -149,25 +272,154 @@ describe("workshopEditor store", () => {
     });
   });
 
-  describe("rehydrate", () => {
-    /* What every existing install reads on the first run after this store
-       replaced the two it was split across. */
-    it("completes an entry written before the store held a selected layer", () => {
-      const editor = rehydrate({
-        byProject: { [A]: { open: [detailsDocument()], activeId: "details" } },
-      })[A];
+  describe("migrateFromV1", () => {
+    it("converts a v1 strip into a single leaf carrying its ids", () => {
+      const migrated = migrateFromV1({
+        byProject: {
+          [A]: {
+            open: [detailsDocument(), filesDocument("base")],
+            activeId: "files:base",
+            selectedLayer: "base",
+          },
+        },
+      }).byProject[A];
 
-      expect(editor?.open.map((d) => d.id)).toEqual(["details"]);
-      expect(editor?.activeId).toBe("details");
-      expect(editor?.selectedLayer).toBeNull();
-      expect(editor?.dirty.size).toBe(0);
-      expect(editor?.collapsed).toEqual({});
-      expect(editor?.reveal).toBeNull();
+      expect(Object.keys(migrated?.documents ?? {}).sort()).toEqual(["details", "files:base"]);
+      expect(migrated?.layout.kind).toBe("leaf");
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.tabs).toEqual([
+        "details",
+        "files:base",
+      ]);
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.activeTab).toBe("files:base");
+      expect(migrated?.selectedLayer).toBe("base");
     });
 
-    it("reads back an empty record from nothing stored", () => {
-      expect(rehydrate(null)).toEqual({});
-      expect(rehydrate({})).toEqual({});
+    it("completes an entry written before the store held a selected layer", () => {
+      const migrated = migrateFromV1({
+        byProject: { [A]: { open: [detailsDocument()], activeId: "details" } },
+      }).byProject[A];
+
+      expect(migrated?.selectedLayer).toBeNull();
+      expect(findLeaf(migrated!.layout, migrated!.activeLeafId)?.activeTab).toBe("details");
+    });
+
+    it("hydrates into the store as a whole editor", () => {
+      const migrated = migrateFromV1({
+        byProject: {
+          [A]: { open: [detailsDocument(), filesDocument("base")], activeId: "details" },
+        },
+      }).byProject[A];
+
+      store().hydrateProject(A, migrated);
+
+      const editor = editorOf(A);
+      expect(editor.documents.details?.id).toBe("details");
+      expect(findLeaf(editor.layout, editor.activeLeafId)?.tabs).toEqual(["details", "files:base"]);
+      expect(editor.dirty.size).toBe(0);
+      expect(editor.collapsed).toEqual({});
+      expect(editor.reveal).toBeNull();
+    });
+  });
+
+  describe("hydrateProject", () => {
+    it("installs the persisted slice and fills the memory-only fields", () => {
+      const layout = singleLeaf(["details"], "details");
+
+      store().hydrateProject(A, {
+        documents: { details: detailsDocument() },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: "base",
+      });
+
+      const editor = editorOf(A);
+      expect(findLeaf(editor.layout, editor.activeLeafId)?.tabs).toEqual(["details"]);
+      expect(editor.selectedLayer).toBe("base");
+      expect(editor.dirty.size).toBe(0);
+      expect(editor.collapsed).toEqual({});
+      expect(editor.reveal).toBeNull();
+    });
+
+    it("replaces whatever the project already held", () => {
+      store().openDocument(A, detailsDocument());
+      store().setDocumentDirty(A, "details", true);
+
+      store().hydrateProject(A, EMPTY_EDITOR);
+
+      expect(openIds(A)).toEqual([]);
+      expect(editorOf(A).dirty.size).toBe(0);
+    });
+
+    it("hydrates one project without touching its neighbour", () => {
+      store().openDocument(B, detailsDocument());
+
+      store().hydrateProject(A, EMPTY_EDITOR);
+
+      expect(openIds(B)).toEqual(["details"]);
+    });
+  });
+
+  describe("readLegacyEditorSeed", () => {
+    beforeEach(() => {
+      localStorage.clear();
+    });
+
+    it("reads this project's entry out of a v2 envelope", () => {
+      const layout = singleLeaf(["details"], "details");
+      localStorage.setItem(
+        "ltk-workshop-documents",
+        JSON.stringify({
+          state: {
+            byProject: {
+              [A]: {
+                documents: { details: detailsDocument() },
+                layout,
+                activeLeafId: layout.id,
+                selectedLayer: "base",
+              },
+            },
+          },
+          version: 2,
+        }),
+      );
+
+      const seed = readLegacyEditorSeed(A);
+
+      expect(seed?.selectedLayer).toBe("base");
+      expect(findLeaf(seed!.layout, seed!.activeLeafId)?.tabs).toEqual(["details"]);
+      expect(readLegacyEditorSeed(B)).toBeNull();
+    });
+
+    it("carries a v1 envelope through migrateFromV1", () => {
+      localStorage.setItem(
+        "ltk-workshop-documents",
+        JSON.stringify({
+          state: {
+            byProject: {
+              [A]: {
+                open: [detailsDocument(), filesDocument("base")],
+                activeId: "files:base",
+                selectedLayer: "base",
+              },
+            },
+          },
+          version: 1,
+        }),
+      );
+
+      const seed = readLegacyEditorSeed(A);
+
+      const leaf = findLeaf(seed!.layout, seed!.activeLeafId);
+      expect(leaf?.tabs).toEqual(["details", "files:base"]);
+      expect(leaf?.activeTab).toBe("files:base");
+      expect(seed?.selectedLayer).toBe("base");
+    });
+
+    it("reads nothing from an empty or unparseable storage", () => {
+      expect(readLegacyEditorSeed(A)).toBeNull();
+
+      localStorage.setItem("ltk-workshop-documents", "not json");
+      expect(readLegacyEditorSeed(A)).toBeNull();
     });
   });
 

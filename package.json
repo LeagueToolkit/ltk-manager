@@ -67,6 +67,7 @@
     "react-dom": "^19.2.5",
     "react-hotkeys-hook": "^5.2.4",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "4.12.3",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "ts-pattern": "^5.9.0",

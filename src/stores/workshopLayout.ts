@@ -12,12 +12,15 @@ interface WorkshopLayoutStore {
   openSections: Record<string, boolean>;
   /** Body height per explorer section, in px, once a boundary has been dragged. */
   sectionHeights: Record<string, number>;
+  /** Sidebar and surface shares of the browser, keyed by panel id. Null until the sash moves. */
+  browserSplit: Record<string, number> | null;
   showLayerStats: boolean;
   wadSort: WadSort;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
   toggleSection: (id: string, open: boolean) => void;
   setSectionHeight: (id: string, height: number) => void;
+  setBrowserSplit: (browserSplit: Record<string, number>) => void;
   setShowLayerStats: (showLayerStats: boolean) => void;
   setWadSort: (wadSort: WadSort) => void;
 }
@@ -29,6 +32,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       layerPanelOpen: true,
       openSections: {},
       sectionHeights: {},
+      browserSplit: null,
       showLayerStats: true,
       wadSort: "name",
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
@@ -37,6 +41,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         set((state) => ({ openSections: { ...state.openSections, [id]: open } })),
       setSectionHeight: (id, height) =>
         set((state) => ({ sectionHeights: { ...state.sectionHeights, [id]: height } })),
+      setBrowserSplit: (browserSplit) => set({ browserSplit }),
       setShowLayerStats: (showLayerStats) => set({ showLayerStats }),
       setWadSort: (wadSort) => set({ wadSort }),
     }),
@@ -53,6 +58,8 @@ export const useOpenSections = () => useWorkshopLayoutStore((s) => s.openSection
 export const useToggleSection = () => useWorkshopLayoutStore((s) => s.toggleSection);
 export const useSectionHeights = () => useWorkshopLayoutStore((s) => s.sectionHeights);
 export const useSetSectionHeight = () => useWorkshopLayoutStore((s) => s.setSectionHeight);
+export const useBrowserSplit = () => useWorkshopLayoutStore((s) => s.browserSplit);
+export const useSetBrowserSplit = () => useWorkshopLayoutStore((s) => s.setBrowserSplit);
 export const useShowLayerStats = () => useWorkshopLayoutStore((s) => s.showLayerStats);
 export const useSetShowLayerStats = () => useWorkshopLayoutStore((s) => s.setShowLayerStats);
 export const useWadSort = () => useWorkshopLayoutStore((s) => s.wadSort);

@@ -93,6 +93,7 @@ windows-sys = { workspace = true, features = [
 [dev-dependencies]
 assert_matches = { workspace = true }
 filetime = "0.2"
+tempfile = { workspace = true }
 
 [features]
 default = ["custom-protocol"]
