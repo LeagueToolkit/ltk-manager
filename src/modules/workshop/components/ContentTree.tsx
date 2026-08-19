@@ -17,6 +17,7 @@ import {
 } from "../utils/contentTree";
 import { ContentTreeContextMenu } from "./ContentTreeContextMenu";
 import { TreeRow } from "./ContentTreeRow";
+import { useProjectContext } from "./ProjectContext";
 
 /** Fixed row height (px). Used by the virtualizer so we can precompute row
  * positions without per-row measurement. */
@@ -24,11 +25,11 @@ const ROW_HEIGHT = 24;
 
 interface ContentTreeProps {
   entries: readonly ContentEntry[];
-  projectPath: string;
   layerName: string;
 }
 
-export function ContentTree({ entries, projectPath, layerName }: ContentTreeProps) {
+export function ContentTree({ entries, layerName }: ContentTreeProps) {
+  const projectPath = useProjectContext().path;
   const tree = useMemo(() => buildContentTree(entries), [entries]);
   const dirFileCounts = useMemo(() => buildDirFileCounts(tree), [tree]);
   /* What the user shut, not what is open. A rescan that adds a directory finds

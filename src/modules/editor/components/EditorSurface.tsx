@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Button, Dialog } from "@/components";
@@ -46,34 +46,47 @@ export function EditorSurface<D extends EditorDocumentBase>({
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
-  function definitionFor(document: D): EditorDocumentDefinition<D> | undefined {
-    const definition = registry[document.kind as D["kind"]];
-    return definition as unknown as EditorDocumentDefinition<D> | undefined;
-  }
+  const definitionFor = useCallback(
+    (document: D): EditorDocumentDefinition<D> | undefined => {
+      const definition = registry[document.kind as D["kind"]];
+      return definition as unknown as EditorDocumentDefinition<D> | undefined;
+    },
+    [registry],
+  );
 
-  const tabs = documents.flatMap((document) => {
-    const definition = definitionFor(document);
-    if (!definition) return [];
+  /* Each tab carries a freshly built icon element, so deriving these inline
+     handed the strip a new object per tab on every render of this component -
+     a dialog opening was enough to repaint every tab. */
+  const tabs = useMemo(
+    () =>
+      documents.flatMap((document) => {
+        const definition = definitionFor(document);
+        if (!definition) return [];
 
-    return [
-      {
-        id: document.id,
-        ...definition.label(document),
-        icon: definition.icon(document),
-        dirty: dirtyIds.has(document.id),
-      },
-    ];
-  });
+        return [
+          {
+            id: document.id,
+            ...definition.label(document),
+            icon: definition.icon(document),
+            dirty: dirtyIds.has(document.id),
+          },
+        ];
+      }),
+    [documents, definitionFor, dirtyIds],
+  );
 
-  function requestClose(id: string) {
-    const document = documents.find((candidate) => candidate.id === id);
-    if (document && dirtyIds.has(id)) {
-      setPendingClose(document);
-      return;
-    }
+  const requestClose = useCallback(
+    (id: string) => {
+      const document = documents.find((candidate) => candidate.id === id);
+      if (document && dirtyIds.has(id)) {
+        setPendingClose(document);
+        return;
+      }
 
-    onClose(id);
-  }
+      onClose(id);
+    },
+    [documents, dirtyIds, onClose],
+  );
 
   function confirmClose() {
     if (!pendingClose) return;

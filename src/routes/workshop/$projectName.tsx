@@ -52,7 +52,11 @@ function ProjectDetail() {
           data-ui="ProjectDetail:fold"
           className="min-h-0 flex-1 overflow-hidden rounded-t-xl border border-b-0 border-surface-700/50 bg-surface-900"
         >
-          <ContentBrowser project={project} />
+          {/* The editor holds one project, so another one is a fresh editor and
+              not this one re-pointed. The route reuses this component across a
+              change of param, and document ids repeat between projects, so
+              without the key a pane carries its scroll and focus over. */}
+          <ContentBrowser key={project.path} project={project} />
         </div>
       </div>
 

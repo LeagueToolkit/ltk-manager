@@ -14,7 +14,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { XIcon } from "@phosphor-icons/react";
-import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import {
+  type CSSProperties,
+  memo,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tabs } from "@/components";
@@ -115,7 +120,12 @@ interface SortableTabProps {
   onClose: (id: string) => void;
 }
 
-function SortableTab({ tab, active, sortable, onClose }: SortableTabProps) {
+const SortableTab = memo(function SortableTab({
+  tab,
+  active,
+  sortable,
+  onClose,
+}: SortableTabProps) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: tab.id,
     disabled: !sortable,
@@ -182,7 +192,7 @@ function SortableTab({ tab, active, sortable, onClose }: SortableTabProps) {
       />
     </div>
   );
-}
+});
 
 function CloseGlyph({ dirty }: { dirty?: boolean }) {
   if (!dirty) return <XIcon weight="bold" className="h-3 w-3" />;

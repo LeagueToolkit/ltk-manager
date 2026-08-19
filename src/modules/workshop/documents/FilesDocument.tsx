@@ -111,7 +111,7 @@ export function FilesDocument({ document }: EditorDocumentProps<ContentDocumentO
         </div>
       </div>
 
-      <FilesBody layer={layer} projectPath={project.path} layerName={layerName} />
+      <FilesBody layer={layer} layerName={layerName} />
     </div>
   );
 }
@@ -137,11 +137,10 @@ function LayerStats({ layer }: { layer: LayerContent | null }) {
 
 interface FilesBodyProps {
   layer: LayerContent | null;
-  projectPath: string;
   layerName: string;
 }
 
-function FilesBody({ layer, projectPath, layerName }: FilesBodyProps) {
+function FilesBody({ layer, layerName }: FilesBodyProps) {
   if (!layer) {
     return (
       <EmptyState
@@ -162,5 +161,5 @@ function FilesBody({ layer, projectPath, layerName }: FilesBodyProps) {
     );
   }
 
-  return <ContentTree entries={layer.entries} projectPath={projectPath} layerName={layerName} />;
+  return <ContentTree entries={layer.entries} layerName={layerName} />;
 }

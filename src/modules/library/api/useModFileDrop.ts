@@ -1,10 +1,19 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { isModArchive } from "./modArchive";
 
 export function useModFileDrop(onDrop: (filePaths: string[]) => void) {
   const [isDragOver, setIsDragOver] = useState(false);
+
+  /* Subscribe once and read the callback through a ref. Both halves of the
+     subscription cross IPC and neither is synchronous, so re-subscribing on a
+     new callback identity can leave two listeners live and import one drop
+     twice. */
+  const handler = useRef(onDrop);
+  useEffect(() => {
+    handler.current = onDrop;
+  });
 
   useEffect(() => {
     const currentWindow = getCurrentWindow();
@@ -18,7 +27,7 @@ export function useModFileDrop(onDrop: (filePaths: string[]) => void) {
         const validPaths = paths.filter(isModArchive);
 
         if (validPaths.length > 0) {
-          onDrop(validPaths);
+          handler.current(validPaths);
         }
       } else if (eventType === "leave" || eventType === "cancel") {
         setIsDragOver(false);
@@ -28,7 +37,7 @@ export function useModFileDrop(onDrop: (filePaths: string[]) => void) {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [onDrop]);
+  }, []);
 
   return isDragOver;
 }

@@ -22,6 +22,10 @@ import { ContentLayoutPopover } from "./ContentLayoutPopover";
 import { ContentSidebar } from "./ContentSidebar";
 import { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 
+/* Built once. The strip memoizes its tabs, and a fresh element here on every
+   render would hand it a changed prop and undo that. */
+const LAYOUT_ACTIONS = <ContentLayoutPopover />;
+
 interface ContentBrowserProps {
   project: WorkshopProject;
 }
@@ -52,10 +56,15 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   /* Something opens on the first visit, so the pane is never blank for someone
      who has not opened anything yet. A project nobody has filled in gets its
      details, which is the work a fresh one needs. Closing every tab is left alone. */
-  const bootstrapped = useRef(false);
+  /* Marked on the first pass whether or not it opened anything. Marking it only
+     when it opened let a user who closed every tab trip it again, which reopens
+     one. The project is named rather than flagged, so this holds even without
+     the key the route mounts this under. */
+  const bootstrappedFor = useRef<string | null>(null);
   useEffect(() => {
-    if (bootstrapped.current || documents.length > 0) return;
-    bootstrapped.current = true;
+    if (bootstrappedFor.current === projectPath) return;
+    bootstrappedFor.current = projectPath;
+    if (documents.length > 0) return;
 
     if (isProjectUnconfigured(project)) {
       openDocument(detailsDocument());
@@ -64,7 +73,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
 
     const first = project.layers[0];
     if (first) openDocument(filesDocument(first.name));
-  }, [documents.length, project, openDocument]);
+  }, [documents.length, project, projectPath, openDocument]);
 
   const addFilesToLayer = useAddFilesToLayer();
 
@@ -125,7 +134,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
         onActivate={activateDocument}
         onClose={closeDocument}
         onReorder={reorderDocuments}
-        actions={<ContentLayoutPopover />}
+        actions={LAYOUT_ACTIONS}
         empty={
           <NothingOpenState
             hasLayers={project.layers.length > 0}

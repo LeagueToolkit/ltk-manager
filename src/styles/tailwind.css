@@ -36,6 +36,7 @@
   --color-accent-800: var(--accent-800);
   --color-accent-900: var(--accent-900);
   --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--ltk-on-accent);
 
   /* Brand */
   --color-brand-blue: var(--ltk-blue);

@@ -153,6 +153,13 @@
   --accent-hover: color-mix(in srgb, var(--accent-500) 55%, var(--surface-600));
 }
 
+/* The ink an accent fill carries, aliased per accent by `useTheme`. */
+:root {
+  --ltk-on-accent-light: #ffffff;
+  --ltk-on-accent-dark: #0d1117;
+  --ltk-on-accent: var(--ltk-on-accent-light);
+}
+
 /* ============================================
    Surfaces
    ============================================ */

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import {
   EMPTY_EDITOR,
@@ -51,8 +51,11 @@ export function useSelectedLayerName(): string | null {
     (s) => (s.byProject[project.path] ?? EMPTY_EDITOR).selectedLayer,
   );
 
-  if (selected && project.layers.some((layer) => layer.name === selected)) return selected;
-  return project.layers[0]?.name ?? null;
+  const layers = project.layers;
+  return useMemo(() => {
+    if (selected && layers.some((layer) => layer.name === selected)) return selected;
+    return layers[0]?.name ?? null;
+  }, [layers, selected]);
 }
 
 export function useCollapsedDirs(layerName: string): ReadonlySet<string> {

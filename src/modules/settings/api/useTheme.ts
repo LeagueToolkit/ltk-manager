@@ -1,7 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useEffect } from "react";
 
-import { oklchHueFromHsl } from "@/lib/color";
+import { contrastRatio, hslToRgb, oklchHueFromHsl, relativeLuminance } from "@/lib/color";
 
 import { useSettings } from "./useSettings";
 
@@ -37,6 +37,29 @@ const BRAND_HUE = 223;
  * surfaces.
  */
 const SURFACE_HUE_OFFSET = 12.5;
+
+/** `--accent-saturation`, which the generated ramp holds across every rung. */
+const ACCENT_SATURATION = 100;
+
+/**
+ * `--accent-l-600`, the rung a filled control rests at.
+ *
+ * Both themes author it at the same lightness, so one reading answers for both.
+ */
+const ACCENT_FILL_LIGHTNESS = 40;
+
+/**
+ * Whether an accent's fill wants dark ink on it rather than the usual white.
+ *
+ * HSL lightness is not perceptual, so one authored rung covers a huge range of
+ * real brightness: `hsl(223 100% 40%)` is a deep blue that carries white at
+ * better than 5:1, while `hsl(174 100% 40%)` is a bright teal that drops it
+ * near 2:1. Reading the luminance is what tells the two apart.
+ */
+export function prefersDarkInk(hue: number): boolean {
+  const luminance = relativeLuminance(hslToRgb(hue, ACCENT_SATURATION, ACCENT_FILL_LIGHTNESS));
+  return contrastRatio(luminance, 0) > contrastRatio(luminance, 1);
+}
 
 /**
  * Hook to apply theme and accent color to the document.
@@ -94,6 +117,14 @@ export function useTheme() {
 
     const surfaceHue = (oklchHueFromHsl(hue ?? BRAND_HUE) + SURFACE_HUE_OFFSET) % 360;
     root.style.setProperty("--surface-hue", surfaceHue.toFixed(1));
+
+    /* The brand ramp spells its own fill out, and that literal is dark in both
+       themes, so only a generated accent can reach the ink the other way. */
+    if (hue != null && prefersDarkInk(hue)) {
+      root.style.setProperty("--ltk-on-accent", "var(--ltk-on-accent-dark)");
+    } else {
+      root.style.removeProperty("--ltk-on-accent");
+    }
   }, [accentColor]);
 
   useEffect(() => {

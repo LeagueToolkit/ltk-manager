@@ -124,7 +124,7 @@ export function ContentSidebar({
           </SectionSettings>
           <Tooltip content="Add layer">
             <IconButton
-              icon={<PlusIcon weight="bold" className="h-4 w-4" />}
+              icon={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
               variant="ghost"
               size="xs"
               compact
@@ -222,12 +222,11 @@ function ProjectRow({ detailsActive, onOpenDetails, onOpenFolder }: ProjectRowPr
         <IconButton
           icon={<PlayerTitleIcon className="h-4 w-4" />}
           variant="ghost"
-          size="xs"
+          size="sm"
           compact
           onClick={onOpenDetails}
           aria-label="Mod details"
           className={twMerge(
-            "h-5 w-5",
             detailsActive && "bg-accent-500/15 text-accent-100 hover:bg-accent-500/25",
           )}
         />
@@ -237,11 +236,10 @@ function ProjectRow({ detailsActive, onOpenDetails, onOpenFolder }: ProjectRowPr
         <IconButton
           icon={<FolderOpenIcon className="h-4 w-4" />}
           variant="ghost"
-          size="xs"
+          size="sm"
           compact
           onClick={onOpenFolder}
           aria-label="Open project folder"
-          className="h-5 w-5"
         />
       </Tooltip>
 
@@ -251,11 +249,11 @@ function ProjectRow({ detailsActive, onOpenDetails, onOpenFolder }: ProjectRowPr
         <IconButton
           icon={<GitBranchIcon className="h-4 w-4" />}
           variant="ghost"
-          size="xs"
+          size="sm"
           compact
           aria-disabled="true"
           aria-label="Source control"
-          className="h-5 w-5 cursor-default text-surface-500 hover:bg-surface-veil-soft active:bg-surface-veil-soft"
+          className="cursor-default text-surface-500 hover:bg-surface-veil-soft active:bg-surface-veil-soft"
         />
       </Tooltip>
     </div>
@@ -302,7 +300,7 @@ function SectionSettings({ label, children }: SectionSettingsProps) {
         <Popover.Trigger
           render={
             <IconButton
-              icon={<GearSixIcon className="h-4 w-4" />}
+              icon={<GearSixIcon className="h-3.5 w-3.5" />}
               variant="ghost"
               size="xs"
               compact

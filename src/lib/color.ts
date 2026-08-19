@@ -47,3 +47,29 @@ export function oklchHueFromHsl(hue: number): number {
 
   return ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
 }
+
+/** The sRGB channels of an `hsl()` color, each in 0..1. */
+export function hslToRgb(
+  hue: number,
+  saturation: number,
+  lightness: number,
+): [number, number, number] {
+  const s = saturation / 100;
+  const l = lightness / 100;
+
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const floor = l - chroma / 2;
+
+  const [red, green, blue] = fullySaturated(hue);
+  return [red * chroma + floor, green * chroma + floor, blue * chroma + floor];
+}
+
+/** The WCAG relative luminance of sRGB channels given in 0..1. */
+export function relativeLuminance([red, green, blue]: readonly [number, number, number]): number {
+  return 0.2126 * srgbToLinear(red) + 0.7152 * srgbToLinear(green) + 0.0722 * srgbToLinear(blue);
+}
+
+/** The WCAG contrast ratio between two relative luminances, from 1 to 21. */
+export function contrastRatio(one: number, other: number): number {
+  return (Math.max(one, other) + 0.05) / (Math.min(one, other) + 0.05);
+}

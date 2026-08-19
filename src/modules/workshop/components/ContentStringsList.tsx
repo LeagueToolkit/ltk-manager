@@ -109,7 +109,7 @@ export function AddLocaleMenu({ layerName, overrides }: AddLocaleMenuProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<PlusIcon weight="bold" className="h-4 w-4" />}
+              icon={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
               variant="ghost"
               size="xs"
               compact

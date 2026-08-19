@@ -60,7 +60,7 @@ const compactIconOnlySizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   default: "bg-surface-700 text-surface-100 hover:bg-surface-600 active:bg-surface-800",
-  filled: "bg-accent-600 text-brand-on hover:bg-accent-500 active:bg-accent-700",
+  filled: "bg-accent-600 text-on-accent hover:bg-accent-500 active:bg-accent-700",
   danger: "bg-danger-strong text-brand-on hover:bg-danger active:brightness-90",
   light: "bg-accent-500/25 text-accent-300 hover:bg-accent-500/35 active:bg-accent-500/45",
   outline:

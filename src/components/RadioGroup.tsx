@@ -125,7 +125,7 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
             "group-data-[checked]:border-accent-600 group-data-[checked]:bg-accent-600",
           )}
         >
-          <span className="hidden h-2 w-2 rounded-full bg-brand-on group-data-[checked]:block" />
+          <span className="hidden h-2 w-2 rounded-full bg-on-accent group-data-[checked]:block" />
         </Radio.Indicator>
         {(label || description) && (
           <div className="flex flex-col">
