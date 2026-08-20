@@ -64,11 +64,6 @@ windows-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
-# `intel-tex` is what encodes a BC3 fixture, and the tests are the only thing
-# that encodes a texture at all. Resolver 2 keeps a dev-only feature out of the
-# normal build, so the shipped binary carries no encoder.
-ltk_texture = { workspace = true, features = ["intel-tex"] }
-
 assert_matches = { workspace = true }
 filetime = { workspace = true }
 xxhash-rust = { workspace = true }
