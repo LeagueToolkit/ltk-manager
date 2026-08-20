@@ -13,6 +13,7 @@ mod log_layer;
 mod logging;
 mod mods;
 pub mod patcher;
+mod protocol;
 mod setup;
 mod state;
 mod tray;
@@ -58,6 +59,15 @@ fn main() {
     );
 
     builder
+        /* The preview's pixels come this way rather than over IPC, so an
+        `<img>` draws them with the webview's own decoder. */
+        .register_asynchronous_uri_scheme_protocol(protocol::SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            // A decode is tens of milliseconds, and this handler is the main thread.
+            tauri::async_runtime::spawn_blocking(move || {
+                responder.respond(protocol::serve(&app, &request));
+            });
+        })
         .manage(logging_guards)
         .setup(setup::run)
         .invoke_handler(tauri::generate_handler![
@@ -171,6 +181,8 @@ fn main() {
             commands::get_game_index,
             commands::read_game_dir,
             commands::refresh_game_index,
+            // Asset preview
+            commands::read_asset_info,
             // Deep Link
             commands::deep_link_install_mod,
             // for dynamic icons

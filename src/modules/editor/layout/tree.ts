@@ -110,6 +110,30 @@ export function insertTab(
 }
 
 /**
+ * Swaps one tab for another where it already sits, and activates it.
+ *
+ * In place, because a replacement that removed and re-inserted would send the
+ * tab to the end of the strip and move it under a pointer that is about to
+ * click again. Returns the tree unchanged when the leaf does not hold `fromId`,
+ * or already holds `toId`.
+ */
+export function replaceTab(
+  tree: LayoutNode,
+  leafId: string,
+  fromId: string,
+  toId: string,
+): LayoutNode {
+  return updateLeaf(tree, leafId, (leaf) => {
+    const index = leaf.tabs.indexOf(fromId);
+    if (index < 0 || leaf.tabs.includes(toId)) return leaf;
+
+    const tabs = [...leaf.tabs];
+    tabs[index] = toId;
+    return { ...leaf, tabs, activeTab: toId };
+  });
+}
+
+/**
  * Drops the tab, then prunes.
  *
  * Closing the active tab hands focus to its right-hand neighbour, falling back
@@ -155,6 +179,32 @@ export function moveTab(
 }
 
 /**
+ * Open an empty group against one edge of a leaf, and name it.
+ *
+ * Whatever fills it goes in with {@link insertTab}, which is what separates
+ * this from {@link splitLeaf}: that one carries an open tab across, and a group
+ * opened here holds nothing yet. Returns the target's own id when the tree does
+ * not hold it, so a caller can insert either way.
+ */
+export function splitEmpty(
+  tree: LayoutNode,
+  targetLeafId: string,
+  edge: Edge,
+): { tree: LayoutNode; leafId: string } {
+  if (!findLeaf(tree, targetLeafId)) return { tree, leafId: targetLeafId };
+
+  const dir = edge === "left" || edge === "right" ? "row" : "col";
+  const before = edge === "left" || edge === "top";
+  const next = maxIdNumber(tree) + 1;
+  const newLeaf: LeafNode = { kind: "leaf", id: `leaf-${next}`, tabs: [], activeTab: null };
+
+  return {
+    tree: insertBeside(tree, targetLeafId, newLeaf, dir, before, `split-${next + 1}`),
+    leafId: newLeaf.id,
+  };
+}
+
+/**
  * Split a leaf on one edge, moving the document into the fresh leaf beside it.
  *
  * Returns the fresh leaf's id so the caller can focus it, and the target's own
@@ -173,18 +223,9 @@ export function splitLeaf(
     return { tree, leafId: targetLeafId };
   }
 
-  const dir = edge === "left" || edge === "right" ? "row" : "col";
-  const before = edge === "left" || edge === "top";
-  const next = maxIdNumber(tree) + 1;
-  const newLeaf: LeafNode = {
-    kind: "leaf",
-    id: `leaf-${next}`,
-    tabs: [documentId],
-    activeTab: documentId,
-  };
-
-  const inserted = insertBeside(tree, targetLeafId, newLeaf, dir, before, `split-${next + 1}`);
-  return { tree: removeTab(inserted, source.id, documentId), leafId: newLeaf.id };
+  const split = splitEmpty(tree, targetLeafId, edge);
+  const filled = insertTab(split.tree, split.leafId, documentId);
+  return { tree: removeTab(filled, source.id, documentId), leafId: split.leafId };
 }
 
 /*

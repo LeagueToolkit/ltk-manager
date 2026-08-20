@@ -22,6 +22,7 @@ ltk_modpkg = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_overlay = { workspace = true }
 ltk_rst = { workspace = true }
+ltk_texture = { workspace = true }
 ltk_wad = { workspace = true }
 
 camino = { workspace = true }
@@ -29,6 +30,7 @@ chrono = { workspace = true }
 flate2 = { workspace = true }
 image = { workspace = true }
 indexmap = { workspace = true }
+lru = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 semver = { workspace = true }
@@ -62,6 +64,11 @@ windows-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+# `intel-tex` is what encodes a BC3 fixture, and the tests are the only thing
+# that encodes a texture at all. Resolver 2 keeps a dev-only feature out of the
+# normal build, so the shipped binary carries no encoder.
+ltk_texture = { workspace = true, features = ["intel-tex"] }
+
 assert_matches = { workspace = true }
 filetime = { workspace = true }
 xxhash-rust = { workspace = true }

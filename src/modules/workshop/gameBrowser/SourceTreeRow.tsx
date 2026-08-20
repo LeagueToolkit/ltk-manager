@@ -31,6 +31,8 @@ interface SourceTreeRowProps {
   isSelected: boolean;
   onToggle: (node: SourceDirNode) => void;
   onSelect: (index: number) => void;
+  /** A double click on a file row, or its Open menu item. */
+  onOpen?: (node: SourceFileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -125,7 +127,16 @@ interface FileRowProps extends SourceTreeRowProps {
   node: SourceFileNode;
 }
 
-function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex }: FileRowProps) {
+function FileRow({
+  node,
+  depth,
+  isSelected,
+  onSelect,
+  onOpen,
+  height,
+  rowIndex,
+  tabIndex,
+}: FileRowProps) {
   const path = node.entry.path;
   const descriptor = describeFileKind(path === null ? "unknown" : fileKindFromPath(path));
   const Icon = descriptor.icon;
@@ -139,6 +150,8 @@ function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
       onClick={() => onSelect(rowIndex)}
+      onDoubleClick={() => onOpen?.(node)}
+      onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
       className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}

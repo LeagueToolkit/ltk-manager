@@ -1,15 +1,23 @@
-import { CopyIcon, FolderOpenIcon, PathIcon } from "@phosphor-icons/react";
+import {
+  ArrowBendDoubleUpRightIcon,
+  CopyIcon,
+  FolderOpenIcon,
+  TabsIcon,
+} from "@phosphor-icons/react";
 
-import { ContextMenu, useToast } from "@/components";
+import { ContextMenu } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
 import { api } from "@/lib/tauri";
 
-import type { ContentTreeNode } from "../utils/contentTree";
+import type { ContentTreeNode, FileNode } from "../utils/contentTree";
 
 interface ContentTreeContextMenuProps {
   /** The row the menu was opened on. Absent while it has never been opened. */
   node: ContentTreeNode | null;
   projectPath: string;
   layerName: string;
+  /** Opens a file row, the way a double click on it would. */
+  onOpen?: (node: FileNode) => void;
 }
 
 /**
@@ -22,40 +30,40 @@ export function ContentTreeContextMenu({
   node,
   projectPath,
   layerName,
+  onOpen,
 }: ContentTreeContextMenuProps) {
-  const toast = useToast();
+  const copy = useCopyToClipboard();
 
   if (!node) return null;
 
   const relativePath = node.type === "dir" ? node.path : node.entry.relativePath;
   const absolutePath = `${projectPath}/content/${layerName}/${relativePath}`;
-
-  async function copy(text: string, label: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.toast({ title: `Copied ${label}`, type: "success", timeout: 1500 });
-    } catch {
-      toast.toast({
-        title: `Couldn't copy ${label} to clipboard`,
-        type: "error",
-        timeout: 2500,
-      });
-    }
-  }
+  const file = node.type === "file" ? node : null;
 
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner>
         <ContextMenu.Popup className="w-52">
+          {file && onOpen && (
+            <>
+              <ContextMenu.Item
+                icon={<TabsIcon className="h-4 w-4" />}
+                onClick={() => onOpen(file)}
+              >
+                Open
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
           <ContextMenu.Item
             icon={<CopyIcon className="h-4 w-4" />}
-            onClick={() => copy(node.name, "name")}
+            onClick={() => void copy(node.name, "name")}
           >
             Copy Name
           </ContextMenu.Item>
           <ContextMenu.Item
-            icon={<PathIcon className="h-4 w-4" />}
-            onClick={() => copy(relativePath, "path")}
+            icon={<ArrowBendDoubleUpRightIcon className="h-4 w-4" />}
+            onClick={() => void copy(relativePath, "relative path")}
           >
             Copy Relative Path
           </ContextMenu.Item>

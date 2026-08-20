@@ -53,6 +53,8 @@ export function migrateFromV1(persisted: unknown): {
       layout,
       activeLeafId: layout.id,
       selectedLayer: editor.selectedLayer ?? null,
+      // The old store had no ephemeral tab, so every migrated one is permanent.
+      previewId: null,
     };
   }
   return { byProject };
@@ -91,19 +93,21 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     layout: editor.layout,
     activeLeafId: editor.activeLeafId,
     selectedLayer: editor.selectedLayer,
+    previewId: editor.previewId,
   };
 }
 
 /* Field-by-field identity is what separates a persisted change from a
    memory-only one: toggling a dirty flag makes a fresh editor object but keeps
-   these four references, and the tree ops keep them for a no-op action. */
+   these references, and the tree ops keep them for a no-op action. */
 function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor | null): boolean {
   if (a === null || b === null) return a === b;
   return (
     a.documents === b.documents &&
     a.layout === b.layout &&
     a.activeLeafId === b.activeLeafId &&
-    a.selectedLayer === b.selectedLayer
+    a.selectedLayer === b.selectedLayer &&
+    a.previewId === b.previewId
   );
 }
 

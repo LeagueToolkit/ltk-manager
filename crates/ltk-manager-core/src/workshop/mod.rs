@@ -3,7 +3,7 @@ mod layers;
 mod packing;
 mod projects;
 
-pub use content::ContentTree;
+pub use content::{ContentTree, WorkshopFileKind};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};

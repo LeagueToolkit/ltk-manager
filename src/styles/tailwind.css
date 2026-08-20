@@ -42,6 +42,7 @@
   --color-brand-blue: var(--ltk-blue);
   --color-brand-violet: var(--ltk-violet);
   --color-brand-on: var(--ltk-on-brand);
+  --color-riot-red: var(--ltk-riot-red);
 
   /* State */
   --color-success: var(--ltk-success);

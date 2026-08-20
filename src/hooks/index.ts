@@ -1,7 +1,9 @@
 export { useAutoStartPatcher } from "./useAutoStartPatcher";
 export { useClickOutside } from "./useClickOutside";
+export { useCopyToClipboard } from "./useCopyToClipboard";
 export { useDebouncedValue } from "./useDebouncedValue";
 export { useHddWarning } from "./useHddWarning";
+export { useHorizontalWheel } from "./useHorizontalWheel";
 export { useOverscrollSpring } from "./useOverscrollSpring";
 export { usePlatformSupport } from "./usePlatformSupport";
 export { usePrevious } from "./usePrevious";

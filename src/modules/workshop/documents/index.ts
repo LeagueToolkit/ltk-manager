@@ -11,6 +11,7 @@ export {
   gameWadDocument,
   gameWadsDocument,
   layerTitle,
+  previewDocument,
   stringsDocument,
 } from "./contentDocument";
 export { DetailsDocument } from "./DetailsDocument";

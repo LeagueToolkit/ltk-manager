@@ -30,6 +30,8 @@ interface TreeRowProps {
   dirFileCount: number;
   onToggle: (path: string) => void;
   onSelect: (index: number) => void;
+  /** A double click on a file row, or its Open menu item. */
+  onOpen?: (node: FileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
@@ -43,6 +45,7 @@ function TreeRowInner({
   dirFileCount,
   onToggle,
   onSelect,
+  onOpen,
   height,
   rowIndex,
   tabIndex,
@@ -69,6 +72,7 @@ function TreeRowInner({
       depth={depth}
       isSelected={isSelected}
       onSelect={onSelect}
+      onOpen={onOpen}
       height={height}
       rowIndex={rowIndex}
       tabIndex={tabIndex}
@@ -175,12 +179,22 @@ interface FileRowProps {
   depth: number;
   isSelected: boolean;
   onSelect: (index: number) => void;
+  onOpen?: (node: FileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
 }
 
-function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex }: FileRowProps) {
+function FileRow({
+  node,
+  depth,
+  isSelected,
+  onSelect,
+  onOpen,
+  height,
+  rowIndex,
+  tabIndex,
+}: FileRowProps) {
   const descriptor = describeFileKind(node.entry.kind);
   const Icon = descriptor.icon;
 
@@ -193,6 +207,7 @@ function FileRow({ node, depth, isSelected, onSelect, height, rowIndex, tabIndex
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
       onClick={() => onSelect(rowIndex)}
+      onDoubleClick={() => onOpen?.(node)}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}

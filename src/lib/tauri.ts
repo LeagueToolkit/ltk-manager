@@ -4,6 +4,8 @@ import type {
   AddFilesReport,
   AppError,
   AppInfo,
+  AssetInfo,
+  AssetRef,
   BulkInstallResult,
   ContentTree,
   CreateProjectArgs,
@@ -194,6 +196,9 @@ export const api = {
   getGameIndex: () => invokeResult<GameIndexStats>("get_game_index"),
   readGameDir: (path: string) => invokeResult<GameDirListing>("read_game_dir", { path }),
   refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
+
+  // Asset preview
+  readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
 
   // Deep Link
   deepLinkInstallMod: (

@@ -3,7 +3,14 @@
    components, whose imports circle back into workshop state. */
 import { z } from "zod";
 
-import { findLeaf, type LayoutNode, leaves, singleLeaf } from "@/modules/editor/layout";
+import type { AssetRef } from "@/lib/tauri";
+import {
+  findLeaf,
+  type LayoutNode,
+  leafHolding,
+  leaves,
+  singleLeaf,
+} from "@/modules/editor/layout";
 
 import type { ContentDocument } from "../documents";
 
@@ -13,6 +20,8 @@ export interface PersistedProjectEditor {
   layout: LayoutNode;
   activeLeafId: string;
   selectedLayer: string | null;
+  /** The ephemeral tab, or null when the strip holds none. */
+  previewId: string | null;
 }
 
 /** What `parseEditorFile` made of a `.ltk/editor.json`'s content. */
@@ -23,7 +32,11 @@ export type EditorFileParseResult =
 
 /* Bump when the file's shape changes, and give the outgoing shape a case in
    `parseEditorFile`'s migration switch. Versioned apart from the old browser
-   storage store, whose numbering the file does not inherit. */
+   storage store, whose numbering the file does not inherit.
+
+   A field this build adds and an older one ignores is not a shape change. A
+   bump would make every older build read this build's files as `newer` and
+   refuse to write them at all, which costs more than the field is worth. */
 const EDITOR_FILE_VERSION = 1;
 
 /**
@@ -40,6 +53,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       layout: state.layout,
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
+      previewId: state.previewId,
     },
     null,
     2,
@@ -109,13 +123,35 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
       ? entry.activeLeafId
       : leaves(layout)[0].id;
 
+  /* A preview tab whose document did not survive the sanitize is no longer
+     ephemeral - it is gone - so the role goes with it. */
+  const previewId =
+    typeof entry.previewId === "string" && leafHolding(layout, entry.previewId)
+      ? entry.previewId
+      : null;
+
   return {
     documents,
     layout,
     activeLeafId,
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
+    previewId,
   };
 }
+
+/* Every field of a reference reaches the backend, which checks each one against
+   the root it belongs to. The shape check here is only so a mis-shaped entry
+   costs its tab rather than the render. */
+const assetRefSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("layer"),
+    project: z.string(),
+    layer: z.string(),
+    path: z.string(),
+  }),
+  z.object({ kind: z.literal("gameChunk"), wad: z.string(), pathHash: z.string() }),
+  z.object({ kind: z.literal("file"), path: z.string() }),
+]) satisfies z.ZodType<AssetRef>;
 
 /* Tab entries stay unchecked here: `dropUnknownTabs` filters them one by one,
    so one bad entry costs a tab rather than the whole layout. */
@@ -143,6 +179,16 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("game") }),
   z.object({ id: z.string(), kind: z.literal("game-wads") }),
   z.object({ id: z.string(), kind: z.literal("game-wad"), wadName: z.string() }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("preview"),
+    asset: assetRefSchema,
+    title: z.string(),
+    context: z.string().optional(),
+    /* Optional so a file written before this field existed still mounts its
+       preview tabs, per the version note above. */
+    path: z.string().optional(),
+  }),
 ]) satisfies z.ZodType<ContentDocument>;
 
 /* `.success` rather than `.data`: parsing would strip fields the schema does

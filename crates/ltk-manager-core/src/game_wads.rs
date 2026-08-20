@@ -1,16 +1,21 @@
 //! Read-only browsing of the game's WAD archives under `DATA/FINAL`.
 
+use std::fmt;
 use std::fs;
 use std::io::BufReader;
+use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
+use lru::LruCache;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::Wad;
 use serde::Serialize;
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::utils::game::GameDir;
+use crate::utils::path::resolve_within;
 
 /// One WAD archive in a game install.
 #[derive(Debug, Clone, Serialize)]
@@ -170,26 +175,136 @@ impl GameArchives {
     }
 
     /// Join `wad_name` under `DATA/FINAL`, rejecting anything that escapes it.
-    fn archive_path(&self, wad_name: &str) -> AppResult<PathBuf> {
-        let relative = Path::new(wad_name);
-        let plain = relative
-            .components()
-            .all(|c| matches!(c, Component::Normal(_)));
-        if relative.is_absolute() || !plain {
-            return Err(AppError::InvalidPath(format!(
-                "WAD name escapes DATA/FINAL: {wad_name}"
-            )));
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::InvalidPath`] when the name is absolute, or
+    /// climbs out of `DATA/FINAL`, and with an I/O error when neither it nor
+    /// the directory it sits in can be resolved.
+    pub fn archive_path(&self, wad_name: &str) -> AppResult<PathBuf> {
+        resolve_within(&self.final_dir, wad_name)
+    }
+}
+
+/// One mounted archive, shared by every reader the cache handed it to.
+///
+/// The mount carries its own lock rather than sitting under the cache's. A
+/// chunk read seeks and decompresses, so holding the cache across one would
+/// queue every other archive's readers behind a single slow file.
+type MountedWad = Arc<Mutex<Wad<BufReader<fs::File>>>>;
+
+/// How many archives stay mounted at once.
+///
+/// A mount holds an open handle and the archive's whole chunk table, so the
+/// cache trades memory for not re-reading that table. Four covers what a modder
+/// moves between while working - a champion, its VFX, `UI` and one more - and
+/// bounds the resident tables at the same time.
+const MOUNT_CAPACITY: NonZeroUsize = NonZeroUsize::new(4).unwrap();
+
+/// A bounded cache of mounted WAD archives.
+///
+/// [`Wad::mount`] reads an archive's chunk table end to end, which a browser
+/// opening one preview after another out of the same archive would otherwise
+/// pay on every chunk. Keyed on the resolved archive path, so pointing the app
+/// at another install cannot serve a chunk out of the old one's mount.
+///
+/// Least-recently-used eviction is what bounds it. Releasing a mount with the
+/// tab that wanted it would need the webview to report every close, and would
+/// still drop the archive the next tab is about to ask for.
+pub struct WadCache {
+    mounted: Mutex<LruCache<PathBuf, MountedWad>>,
+}
+
+impl Default for WadCache {
+    fn default() -> Self {
+        Self::new(MOUNT_CAPACITY)
+    }
+}
+
+impl fmt::Debug for WadCache {
+    /// Reports how many archives are mounted, a mount being a file handle and a
+    /// chunk table rather than anything worth printing.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut out = f.debug_struct("WadCache");
+        match self.mounted.lock() {
+            Ok(cache) => out.field("mounted", &cache.len()).finish(),
+            Err(_) => out.finish_non_exhaustive(),
+        }
+    }
+}
+
+impl WadCache {
+    /// A cache that keeps `capacity` archives mounted.
+    #[must_use]
+    pub fn new(capacity: NonZeroUsize) -> Self {
+        Self {
+            mounted: Mutex::new(LruCache::new(capacity)),
+        }
+    }
+
+    /// Read one chunk of one archive, decompressed, mounting it if it is not.
+    ///
+    /// `wad_name` is a `DATA/FINAL`-relative name as returned by
+    /// [`GameArchives::list`], and `path_hash` names one of its chunks.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes
+    /// `DATA/FINAL` or when the archive holds no such chunk, with I/O or WAD
+    /// errors when the archive cannot be read, and with
+    /// [`AppError::MutexLockFailed`] when a previous holder of a lock panicked.
+    pub fn read_chunk(
+        &self,
+        archives: &GameArchives,
+        wad_name: &str,
+        path_hash: u64,
+    ) -> AppResult<Vec<u8>> {
+        let mounted = self.mount(archives.archive_path(wad_name)?)?;
+        let mut wad = mounted.lock().mutex_err()?;
+
+        let chunk = *wad.chunks().get(path_hash).ok_or_else(|| {
+            AppError::InvalidPath(format!("No chunk {path_hash:016x} in {wad_name}"))
+        })?;
+        Ok(wad.load_chunk_decompressed(&chunk)?.into_vec())
+    }
+
+    /// How many archives are mounted right now.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn mounted(&self) -> AppResult<usize> {
+        Ok(self.mounted.lock().mutex_err()?.len())
+    }
+
+    /// Unmount everything, so the next read opens the archive again.
+    ///
+    /// # Errors
+    ///
+    /// Fails when a previous holder of the lock panicked.
+    pub fn clear(&self) -> AppResult<()> {
+        self.mounted.lock().mutex_err()?.clear();
+        Ok(())
+    }
+
+    /// The mount for `path`, opening the archive when the cache lacks one.
+    ///
+    /// The cache lock is dropped before the file is opened, so two callers
+    /// racing for one archive can both mount it. That costs a duplicate read
+    /// and settles on whichever landed last, which is cheaper than holding the
+    /// whole cache across an open.
+    fn mount(&self, path: PathBuf) -> AppResult<MountedWad> {
+        if let Some(mounted) = self.mounted.lock().mutex_err()?.get(&path) {
+            return Ok(Arc::clone(mounted));
         }
 
-        // Canonicalize to also catch escapes through symlinks and junctions.
-        let root = self.final_dir.canonicalize()?;
-        let path = self.final_dir.join(relative).canonicalize()?;
-        if !path.starts_with(&root) {
-            return Err(AppError::InvalidPath(format!(
-                "WAD name escapes DATA/FINAL: {wad_name}"
-            )));
-        }
-        Ok(path)
+        let wad = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
+        let mounted = Arc::new(Mutex::new(wad));
+        self.mounted
+            .lock()
+            .mutex_err()?
+            .put(path, Arc::clone(&mounted));
+        Ok(mounted)
     }
 }
 
@@ -287,6 +402,125 @@ mod tests {
             .read("Missing.wad.client", &LayeredHashDb::new())
             .unwrap_err();
         assert!(matches!(err, AppError::Io(_)));
+    }
+
+    #[test]
+    fn read_chunk_returns_the_chunk_data() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path());
+        build_test_wad(
+            &dir.join("Champions").join("Aatrox.wad.client"),
+            &["assets/known.bin"],
+        );
+        let archives = GameArchives::at(tmp.path());
+
+        let data = WadCache::default()
+            .read_chunk(
+                &archives,
+                "Champions/Aatrox.wad.client",
+                xxh64(b"assets/known.bin", 0),
+            )
+            .unwrap();
+
+        assert_eq!(data, [0xAA; 64]);
+    }
+
+    #[test]
+    fn read_chunk_of_a_hash_the_archive_lacks_is_an_invalid_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path());
+        build_test_wad(
+            &dir.join("Champions").join("Aatrox.wad.client"),
+            &["assets/known.bin"],
+        );
+
+        let err = WadCache::default()
+            .read_chunk(
+                &GameArchives::at(tmp.path()),
+                "Champions/Aatrox.wad.client",
+                1,
+            )
+            .unwrap_err();
+
+        assert!(matches!(err, AppError::InvalidPath(_)));
+    }
+
+    #[test]
+    fn read_chunk_rejects_names_that_escape_final_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        final_dir(tmp.path());
+        let archives = GameArchives::at(tmp.path());
+        let cache = WadCache::default();
+
+        let err = cache
+            .read_chunk(&archives, "../evil.wad.client", 1)
+            .unwrap_err();
+
+        assert!(matches!(err, AppError::InvalidPath(_)));
+        assert_eq!(
+            cache.mounted().unwrap(),
+            0,
+            "a rejected name mounts nothing"
+        );
+    }
+
+    #[test]
+    fn every_chunk_of_one_archive_shares_a_single_mount() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path());
+        build_test_wad(
+            &dir.join("Champions").join("Aatrox.wad.client"),
+            &["assets/first.bin", "assets/second.bin"],
+        );
+        let archives = GameArchives::at(tmp.path());
+        let cache = WadCache::default();
+
+        for path in [b"assets/first.bin".as_slice(), b"assets/second.bin"] {
+            cache
+                .read_chunk(&archives, "Champions/Aatrox.wad.client", xxh64(path, 0))
+                .unwrap();
+        }
+
+        assert_eq!(cache.mounted().unwrap(), 1);
+    }
+
+    #[test]
+    fn an_archive_past_the_capacity_pushes_the_oldest_one_out() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path());
+        let names = ["One.wad.client", "Two.wad.client", "Three.wad.client"];
+        for name in names {
+            build_test_wad(&dir.join(name), &["assets/known.bin"]);
+        }
+        let archives = GameArchives::at(tmp.path());
+        let cache = WadCache::new(NonZeroUsize::new(2).unwrap());
+
+        for name in names {
+            cache
+                .read_chunk(&archives, name, xxh64(b"assets/known.bin", 0))
+                .unwrap();
+        }
+
+        assert_eq!(cache.mounted().unwrap(), 2);
+    }
+
+    #[test]
+    fn clearing_unmounts_everything() {
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = final_dir(tmp.path());
+        build_test_wad(&dir.join("One.wad.client"), &["assets/known.bin"]);
+        let cache = WadCache::default();
+        cache
+            .read_chunk(
+                &GameArchives::at(tmp.path()),
+                "One.wad.client",
+                xxh64(b"assets/known.bin", 0),
+            )
+            .unwrap();
+
+        cache.clear().unwrap();
+
+        assert_eq!(cache.mounted().unwrap(), 0);
     }
 
     #[test]

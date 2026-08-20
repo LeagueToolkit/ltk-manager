@@ -76,6 +76,8 @@ pub enum ErrorCode {
     HashtableSyncLocked,
     /// A hashtable sync failed while downloading or installing tables.
     HashtableSyncFailed,
+    /// An asset could not be previewed. The message says why.
+    Preview,
 }
 
 /// Structured error response sent over IPC.
@@ -289,6 +291,10 @@ impl From<AppError> for AppErrorResponse {
                 };
                 AppErrorResponse::new(code, hashtable_err.to_string())
             }
+
+            AppError::Preview(preview_err) => {
+                AppErrorResponse::new(ErrorCode::Preview, preview_err.to_string())
+            }
         }
     }
 }
@@ -371,6 +377,7 @@ mod tests {
             ErrorCode::HashtableManifestInvalid,
             ErrorCode::HashtableSyncLocked,
             ErrorCode::HashtableSyncFailed,
+            ErrorCode::Preview,
         ] {
             let json = serde_json::to_string(&code).unwrap();
             let deserialized: ErrorCode = serde_json::from_str(&json).unwrap();

@@ -13,6 +13,11 @@
   --ltk-on-brand: #ffffff;
 }
 
+/* Riot's own mark color. */
+:root {
+  --ltk-riot-red: #ff2345;
+}
+
 /* ============================================
    Status Palette
    ============================================ */
@@ -244,6 +249,9 @@
   --radius-005: 18px;
   --radius-006: 9999px;
 
+  /* Scrollbar thickness. */
+  --scrollbar-size: 8px;
+
   /* Icon sizes */
   --icon-001: calc(9px * var(--zoom-scale));
   --icon-002: calc(10.5px * var(--zoom-scale));
@@ -299,6 +307,14 @@
   --radius-003: 15px;
   --radius-004: 20px;
   --radius-005: 28px;
+}
+
+[data-scrollbars="thin"] {
+  --scrollbar-size: 6px;
+}
+
+[data-scrollbars="wide"] {
+  --scrollbar-size: 12px;
 }
 
 [data-theme="light"] {
@@ -370,14 +386,16 @@ samp {
     "liga" 0;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--surface-600) transparent;
+/* Nothing here may set `scrollbar-width` or `scrollbar-color`. Chromium drops
+   every ::-webkit-scrollbar rule for an element that carries either one and
+   draws the platform scrollbar instead, arrow buttons and all. */
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+::-webkit-scrollbar-button {
+  display: none;
 }
 
 ::-webkit-scrollbar-track {
@@ -395,6 +413,12 @@ samp {
 
 ::-webkit-scrollbar-corner {
   background-color: transparent;
+}
+
+/* A strip only as tall as one row of content has no height to lend a track, so
+   this one keeps its own size whatever the setting asks of the rest. */
+.hairline-scrollbars {
+  --scrollbar-size: 4px;
 }
 
 ::selection {

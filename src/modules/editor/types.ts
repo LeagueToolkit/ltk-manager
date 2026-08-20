@@ -10,6 +10,8 @@ export interface EditorTabLabel {
   title: string;
   /** Dim text after the title, saying where the document lives. */
   context?: string;
+  /** What the tab's Copy path writes. Absent for a document no path addresses. */
+  path?: string;
 }
 
 export interface EditorDocumentProps<D extends EditorDocumentBase> {

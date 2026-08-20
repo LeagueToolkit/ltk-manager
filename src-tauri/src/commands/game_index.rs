@@ -3,7 +3,7 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::game_index::{GameDirListing, GameIndex, GameIndexState, GameIndexStats};
-use ltk_manager_core::game_wads::GameArchives;
+use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::HashtableCache;
 use tauri::{AppHandle, Manager};
 
@@ -29,9 +29,17 @@ pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<Gam
 }
 
 /// Drop the built index, so the next read walks the install again.
+///
+/// Unmounts the cached archives with it. Asking for a fresh index is the one
+/// signal the app gets that the install changed under it, and a mount taken
+/// before a patch would keep answering from the chunk table it read then.
 #[tauri::command]
 pub async fn refresh_game_index(app_handle: AppHandle) -> IpcResult<()> {
-    app_handle.state::<GameIndexState>().clear().into()
+    app_handle
+        .state::<GameIndexState>()
+        .clear()
+        .and_then(|()| app_handle.state::<WadCache>().clear())
+        .into()
 }
 
 /// Run `read` against the index, building it when this is the first call.

@@ -15,4 +15,11 @@ path: string | null,
 /**
  * Uncompressed chunk size.
  */
-sizeBytes: bigint, };
+sizeBytes: bigint, 
+/**
+ * The `DATA/FINAL`-relative archive the chunk was read from.
+ *
+ * The fold drops every copy of a chunk after the first, so this names the
+ * archive that copy came from and not every archive that carries it.
+ */
+wad: string, };

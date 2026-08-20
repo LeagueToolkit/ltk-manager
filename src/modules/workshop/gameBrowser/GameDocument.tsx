@@ -11,6 +11,7 @@ import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBro
 import { buildIndexTree, holdsOnlyUnknown, type SourceDirNode, toggled } from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
 import { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
+import { useSourcePreview } from "./useSourcePreview";
 
 /** The root game browser: every archive of the installed game, folded into one tree. */
 export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
@@ -87,6 +88,7 @@ function GameIndexTree() {
   /* Opt-in, where the scoped browser opts out: a whole-game tree is too large
      to hold at once, so a directory is read when it is first opened. */
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const openFile = useSourcePreview();
 
   const root = useGameDir("");
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
@@ -121,6 +123,7 @@ function GameIndexTree() {
         ariaLabel="Game files"
         isExpanded={isExpanded}
         onToggle={handleToggle}
+        onOpen={openFile}
       />
     </>
   );

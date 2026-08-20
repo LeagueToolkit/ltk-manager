@@ -53,6 +53,11 @@ pub struct GameFileEntry {
     pub path: Option<String>,
     /// Uncompressed chunk size.
     pub size_bytes: u64,
+    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    ///
+    /// The fold drops every copy of a chunk after the first, so this names the
+    /// archive that copy came from and not every archive that carries it.
+    pub wad: String,
 }
 
 /// What a built index holds.
@@ -83,7 +88,8 @@ pub struct GameIndex {
     dirs: Vec<Dir>,
     /// Chunks no hash table names, which have no directory to sit in.
     unknown: Vec<File>,
-    archives: u32,
+    /// Archive names, in merge order. A file's `wad` indexes this.
+    wads: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -100,6 +106,8 @@ struct File {
     name: String,
     path_hash: u64,
     size_bytes: u64,
+    /// Index into [`GameIndex::wads`].
+    wad: u32,
 }
 
 impl GameIndex {
@@ -118,17 +126,18 @@ impl GameIndex {
         let mut index = Self {
             dirs: vec![Dir::default()],
             unknown: Vec::new(),
-            archives: wads.len() as u32,
+            wads: wads.iter().map(|wad| wad.name.clone()).collect(),
         };
 
         /* By hash rather than by path: an unnamed chunk has no path to compare,
         and the hash is what makes two archives' copies the same file. */
         let mut seen: HashSet<u64> = HashSet::new();
 
-        for wad in &wads {
+        for (ordinal, wad) in wads.iter().enumerate() {
+            let ordinal = ordinal as u32;
             let read = archives.for_each_chunk(&wad.name, resolver, |path_hash, path, size| {
                 if seen.insert(path_hash) {
-                    index.insert(path_hash, path, size);
+                    index.insert(path_hash, path, size, ordinal);
                 }
             });
             if let Err(e) = read {
@@ -148,7 +157,11 @@ impl GameIndex {
         if path == UNKNOWN_DIR {
             return Some(GameDirListing {
                 dirs: Vec::new(),
-                files: self.unknown.iter().map(File::unnamed_entry).collect(),
+                files: self
+                    .unknown
+                    .iter()
+                    .map(|file| file.unnamed_entry(self.wad_name(file)))
+                    .collect(),
             });
         }
 
@@ -173,26 +186,34 @@ impl GameIndex {
 
         Some(GameDirListing {
             dirs,
-            files: dir.files.iter().map(|file| file.entry(path)).collect(),
+            files: dir
+                .files
+                .iter()
+                .map(|file| file.entry(path, self.wad_name(file)))
+                .collect(),
         })
     }
 
     /// What the index holds, for a caller that reports its size.
     pub fn stats(&self) -> GameIndexStats {
         GameIndexStats {
-            archives: self.archives,
+            archives: self.wads.len() as u32,
             files: self.dirs[0].file_count + self.unknown.len() as u32,
             dirs: (self.dirs.len() - 1) as u32,
         }
     }
 
     /// Add one chunk under its resolved path, or to the unnamed group.
-    fn insert(&mut self, path_hash: u64, path: Option<&str>, size_bytes: u64) {
+    ///
+    /// `wad` is the ordinal of the archive the chunk was read from, which
+    /// indexes [`Self::wads`].
+    fn insert(&mut self, path_hash: u64, path: Option<&str>, size_bytes: u64, wad: u32) {
         let Some(path) = path else {
             self.unknown.push(File {
                 name: format!("{path_hash:016x}"),
                 path_hash,
                 size_bytes,
+                wad,
             });
             return;
         };
@@ -223,7 +244,18 @@ impl GameIndex {
             name: name.to_owned(),
             path_hash,
             size_bytes,
+            wad,
         });
+    }
+
+    /// The archive a file was read from.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the file's ordinal is not one this index handed out, which
+    /// is a bug in the build rather than a condition a caller can hit.
+    fn wad_name(&self, file: &File) -> &str {
+        &self.wads[file.wad as usize]
     }
 
     /// Sort each directory's files and fill in its recursive file count.
@@ -330,7 +362,7 @@ impl GameIndexState {
 
 impl File {
     /// The wire shape, with the path this file's directory gives it.
-    fn entry(&self, dir: &str) -> GameFileEntry {
+    fn entry(&self, dir: &str, wad: &str) -> GameFileEntry {
         let path = if dir.is_empty() {
             self.name.clone()
         } else {
@@ -340,15 +372,17 @@ impl File {
             path_hash: format!("{:016x}", self.path_hash),
             path: Some(path),
             size_bytes: self.size_bytes,
+            wad: wad.to_owned(),
         }
     }
 
     /// The wire shape of a chunk no hash table names, which has no path.
-    fn unnamed_entry(&self) -> GameFileEntry {
+    fn unnamed_entry(&self, wad: &str) -> GameFileEntry {
         GameFileEntry {
             path_hash: format!("{:016x}", self.path_hash),
             path: None,
             size_bytes: self.size_bytes,
+            wad: wad.to_owned(),
         }
     }
 }
@@ -451,10 +485,49 @@ mod tests {
 
         let index = build(game.path(), &["assets/shared.bin"]);
 
-        assert_eq!(index.read_dir("assets").unwrap().files.len(), 1);
+        let files = index.read_dir("assets").unwrap().files;
+        assert_eq!(files.len(), 1);
+        assert_eq!(
+            files[0].wad, "A.wad.client",
+            "the copy that survives the fold names the archive it came from"
+        );
         let stats = index.stats();
         assert_eq!(stats.archives, 3);
         assert_eq!(stats.files, 1);
+    }
+
+    #[test]
+    fn every_file_names_the_archive_it_came_from() {
+        let game = game_with(&[
+            ("A.wad.client", &["assets/one.bin"]),
+            ("Champions/B.wad.client", &["assets/two.bin"]),
+        ]);
+
+        let index = build(game.path(), &["assets/one.bin", "assets/two.bin"]);
+
+        let files = index.read_dir("assets").unwrap().files;
+        let wads: Vec<(&str, &str)> = files
+            .iter()
+            .map(|file| (file.path.as_deref().unwrap(), file.wad.as_str()))
+            .collect();
+        assert_eq!(
+            wads,
+            [
+                ("assets/one.bin", "A.wad.client"),
+                ("assets/two.bin", "Champions/B.wad.client"),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_unnamed_chunk_names_its_archive_too() {
+        let game = game_with(&[("A.wad.client", &["assets/hidden.bin"])]);
+
+        let index = build(game.path(), &[]);
+
+        let files = index.read_dir(UNKNOWN_DIR).unwrap().files;
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].wad, "A.wad.client");
     }
 
     #[test]

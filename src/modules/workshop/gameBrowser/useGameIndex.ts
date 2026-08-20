@@ -22,6 +22,7 @@ function toSourceListing(listing: GameDirListing): SourceDirListing {
       pathHash: file.pathHash,
       path: file.path,
       sizeBytes: Number(file.sizeBytes),
+      wad: file.wad,
     })),
   };
 }

@@ -74,6 +74,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(wad_reports);
     app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
     app.manage(ltk_manager_core::game_index::GameIndexState::default());
+    app.manage(ltk_manager_core::game_wads::WadCache::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(hotkey_manager);

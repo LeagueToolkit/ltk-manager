@@ -1,13 +1,15 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
-import type { FlatTreeRow } from "../utils/contentTree";
+import type { FileNode, FlatTreeRow } from "../utils/contentTree";
 
 interface UseContentTreeNavParams {
   rows: readonly FlatTreeRow[];
   /** Directories the user shut. Anything absent is open. */
   collapsed: ReadonlySet<string>;
   onToggle: (path: string) => void;
+  /** The keyboard route to what a double click on a file row does. */
+  onOpen?: (node: FileNode) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -30,6 +32,7 @@ export function useContentTreeNav({
   rows,
   collapsed,
   onToggle,
+  onOpen,
   virtualizer,
   scrollElementRef,
 }: UseContentTreeNavParams): UseContentTreeNavReturn {
@@ -59,6 +62,17 @@ export function useContentTreeNav({
       const row = rows[focusedIndex];
       if (!row) return;
       switch (e.key) {
+        /* Enter opens, the way a double click does. A user who found a file
+           by name meant to open it. */
+        case "Enter":
+          if (row.node.type === "file") {
+            e.preventDefault();
+            onOpen?.(row.node);
+          } else {
+            e.preventDefault();
+            onToggle(row.node.path);
+          }
+          return;
         case "ArrowDown":
           e.preventDefault();
           moveFocus(focusedIndex + 1);
@@ -98,7 +112,7 @@ export function useContentTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, collapsed, onToggle, moveFocus],
+    [rows, focusedIndex, collapsed, onToggle, onOpen, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

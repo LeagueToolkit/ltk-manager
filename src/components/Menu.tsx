@@ -124,7 +124,7 @@ export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
         )}
         {...props}
       >
-        {icon && <span className="h-4 w-4 shrink-0">{icon}</span>}
+        {icon && <span className="h-4 w-4 shrink-0 opacity-70">{icon}</span>}
         <span className="flex-1">{children}</span>
         {shortcut && <Kbd shortcut={shortcut} />}
       </BaseMenu.Item>

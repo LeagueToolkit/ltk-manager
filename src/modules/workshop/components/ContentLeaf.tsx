@@ -11,6 +11,8 @@ import {
   useFocusLeaf,
   useLeafTabs,
   useOpenDocument,
+  usePreviewDocumentId,
+  usePromoteDocument,
   useSplitWithDocument,
 } from "../state";
 import { LeafProvider } from "./LeafContext";
@@ -30,6 +32,8 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const splitWithDocument = useSplitWithDocument();
   const focusLeaf = useFocusLeaf();
   const activeLeafId = useActiveLeafId();
+  const previewId = usePreviewDocumentId();
+  const promoteDocument = usePromoteDocument();
 
   return (
     <LeafProvider leafId={leaf.id}>
@@ -40,7 +44,9 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           activeId={leaf.activeTab}
           registry={editors}
           dirtyIds={dirtyIds}
+          previewId={previewId}
           onActivate={(id) => activateDocument(leaf.id, id)}
+          onPromote={promoteDocument}
           onClose={(id) => closeDocument(leaf.id, id)}
           onSplit={(id, edge) => splitWithDocument(id, leaf.id, edge)}
           onFocus={() => focusLeaf(leaf.id)}

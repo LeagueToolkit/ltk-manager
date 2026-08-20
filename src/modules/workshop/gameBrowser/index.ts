@@ -8,4 +8,5 @@ export { SourceTree } from "./SourceTree";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
 export { useGameWadEntries } from "./useGameWadEntries";
 export { GAME_STALE_MS, gameKeys, useGameWads } from "./useGameWads";
+export { type OpenSourceFile, useSourcePreview } from "./useSourcePreview";
 export { useSourceTreeNav } from "./useSourceTreeNav";

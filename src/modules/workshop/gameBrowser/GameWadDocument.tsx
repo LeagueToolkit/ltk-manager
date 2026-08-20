@@ -17,6 +17,7 @@ import {
 import { SourceTree } from "./SourceTree";
 import { useGameWadEntries } from "./useGameWadEntries";
 import { useGameWads } from "./useGameWads";
+import { useSourcePreview } from "./useSourcePreview";
 
 /** One game archive's file tree, without the archive level the tab already names. */
 export function GameWadDocument({
@@ -74,6 +75,7 @@ function GameWadBody({ wadName }: { wadName: string }) {
   const entriesQuery = useGameWadEntries(summary?.name ?? null);
   const entries = entriesQuery.data;
 
+  const openFile = useSourcePreview();
   const [shutDirs, setShutDirs] = useState<ReadonlySet<string>>(new Set());
 
   const tree = useMemo(() => buildSourceTree(entries ?? []), [entries]);
@@ -106,6 +108,7 @@ function GameWadBody({ wadName }: { wadName: string }) {
         ariaLabel={`Files of ${summary.name}`}
         isExpanded={isExpanded}
         onToggle={handleToggle}
+        onOpen={openFile}
       />
     </>
   );

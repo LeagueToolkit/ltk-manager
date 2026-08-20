@@ -21,11 +21,16 @@ let hashCounter = 0;
 
 function known(path: string, sizeBytes = 0): SourceEntry {
   hashCounter += 1;
-  return { pathHash: hashCounter.toString(16).padStart(16, "0"), path, sizeBytes };
+  return {
+    pathHash: hashCounter.toString(16).padStart(16, "0"),
+    path,
+    sizeBytes,
+    wad: "Test.wad.client",
+  };
 }
 
 function unknown(pathHash: string, sizeBytes = 0): SourceEntry {
-  return { pathHash, path: null, sizeBytes };
+  return { pathHash, path: null, sizeBytes, wad: "Test.wad.client" };
 }
 
 /* A loading node carries no name, so the assertions name it by its type. */

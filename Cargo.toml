@@ -18,6 +18,7 @@ ltk_mod_project = "0.5.0"
 ltk_modpkg = { version = "0.6.0", features = ["project"] }
 ltk_overlay = "0.5.2"
 ltk_rst = "0.2.0"
+ltk_texture = "0.6.0"
 ltk_wad = "0.2.12"
 
 camino = "1.2"
@@ -25,6 +26,7 @@ chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
 image = "0.25.2"
 indexmap = { version = "2", features = ["serde"] }
+lru = "0.18"
 regex = "1"
 reqwest = { version = "0.12", features = ["blocking"] }
 semver = "1.0"

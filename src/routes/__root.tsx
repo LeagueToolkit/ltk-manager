@@ -37,6 +37,7 @@ function RootLayout() {
   const surfaceTint = useDisplayStore((s) => s.surfaceTint);
   const cardScale = useDisplayStore((s) => s.cardScale);
   const scrollMode = useDisplayStore((s) => s.scrollMode);
+  const scrollbarSize = useDisplayStore((s) => s.scrollbarSize);
   const isReducedMotion = useReducedMotion();
 
   useDevLogStream();
@@ -80,6 +81,10 @@ function RootLayout() {
   useEffect(() => {
     document.documentElement.dataset.scrollMode = scrollMode;
   }, [scrollMode]);
+
+  useEffect(() => {
+    document.documentElement.dataset.scrollbars = scrollbarSize;
+  }, [scrollbarSize]);
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });

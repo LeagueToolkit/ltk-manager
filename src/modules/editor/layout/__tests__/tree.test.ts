@@ -8,6 +8,7 @@ import {
   mergeToSingleLeaf,
   moveTab,
   removeTab,
+  replaceTab,
   setActiveTab,
   setSplitLayout,
   singleLeaf,
@@ -132,6 +133,41 @@ describe("insertTab", () => {
   it("returns the same tree for an unknown leaf", () => {
     const tree = singleLeaf(["files:base"]);
     expect(insertTab(tree, "leaf-9", "files:skin0")).toBe(tree);
+  });
+});
+
+describe("replaceTab", () => {
+  it("swaps the tab where it sits and activates it", () => {
+    const tree = leaf("leaf-1", ["a", "b", "c"], "a");
+
+    const next = asLeaf(replaceTab(tree, "leaf-1", "b", "d"));
+
+    expect(next.tabs).toEqual(["a", "d", "c"]);
+    expect(next.activeTab).toBe("d");
+  });
+
+  it("keeps the tree when the leaf does not hold the outgoing tab", () => {
+    const tree = leaf("leaf-1", ["a"], "a");
+
+    expect(replaceTab(tree, "leaf-1", "b", "c")).toBe(tree);
+  });
+
+  /* The incoming tab is already on screen, so a swap would drop one of the two
+     and leave the strip holding a document it no longer shows. */
+  it("keeps the tree when the leaf already holds the incoming tab", () => {
+    const tree = leaf("leaf-1", ["a", "b"], "a");
+
+    expect(replaceTab(tree, "leaf-1", "a", "b")).toBe(tree);
+  });
+
+  it("leaves every untouched node's identity alone", () => {
+    const next = asSplit(replaceTab(nested, "leaf-4", "strings:base:en_US", "preview:x"));
+
+    expect(next.children[0]).toBe(nested.children[0]);
+    expect(next.children[2]).toBe(nested.children[2]);
+    expect(asLeaf(asSplit(next.children[1]!).children[1]!)).toBe(
+      asSplit(nested.children[1]!).children[1],
+    );
   });
 });
 

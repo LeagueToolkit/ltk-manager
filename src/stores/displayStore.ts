@@ -6,11 +6,13 @@ type ReduceMotion = "system" | "on" | "off";
 type CornerStyle = "sharp" | "default" | "round";
 type CardScale = 70 | 80 | 90 | 100 | 110 | 120 | 130;
 type ScrollMode = "smooth" | "spring";
+type ScrollbarSize = "thin" | "default" | "wide";
 
 interface DisplayStore {
   zoomLevel: ZoomLevel;
   reduceMotion: ReduceMotion;
   scrollMode: ScrollMode;
+  scrollbarSize: ScrollbarSize;
   cornerStyle: CornerStyle;
   /** Percent of each surface rung's authored chroma, so 0 is a neutral grey ramp. */
   surfaceTint: number;
@@ -18,6 +20,7 @@ interface DisplayStore {
   setZoomLevel: (zoomLevel: ZoomLevel) => void;
   setReduceMotion: (reduceMotion: ReduceMotion) => void;
   setScrollMode: (scrollMode: ScrollMode) => void;
+  setScrollbarSize: (scrollbarSize: ScrollbarSize) => void;
   setCornerStyle: (cornerStyle: CornerStyle) => void;
   setSurfaceTint: (surfaceTint: number) => void;
   setCardScale: (cardScale: CardScale) => void;
@@ -32,9 +35,10 @@ const APPEARANCE_DEFAULTS = {
   cornerStyle: "default",
   surfaceTint: 30,
   scrollMode: "smooth",
+  scrollbarSize: "default",
 } satisfies Pick<
   DisplayStore,
-  "zoomLevel" | "reduceMotion" | "cornerStyle" | "surfaceTint" | "scrollMode"
+  "zoomLevel" | "reduceMotion" | "cornerStyle" | "surfaceTint" | "scrollMode" | "scrollbarSize"
 >;
 
 const APPEARANCE_KEYS = Object.keys(APPEARANCE_DEFAULTS) as (keyof typeof APPEARANCE_DEFAULTS)[];
@@ -57,6 +61,7 @@ export const useDisplayStore = create<DisplayStore>()(
       setZoomLevel: (zoomLevel) => set({ zoomLevel }),
       setReduceMotion: (reduceMotion) => set({ reduceMotion }),
       setScrollMode: (scrollMode) => set({ scrollMode }),
+      setScrollbarSize: (scrollbarSize) => set({ scrollbarSize }),
       setCornerStyle: (cornerStyle) => set({ cornerStyle }),
       setSurfaceTint: (surfaceTint) => set({ surfaceTint }),
       setCardScale: (cardScale) => set({ cardScale }),
@@ -126,13 +131,15 @@ export const useDisplayStore = create<DisplayStore>()(
 );
 
 export { VALID_CARD_SCALES, VALID_ZOOM_LEVELS };
-export type { CardScale, CornerStyle, ScrollMode, ZoomLevel };
+export type { CardScale, CornerStyle, ScrollbarSize, ScrollMode, ZoomLevel };
 export const useZoomLevel = () => useDisplayStore((s) => s.zoomLevel);
 export const useSetZoomLevel = () => useDisplayStore((s) => s.setZoomLevel);
 export const useReduceMotion = () => useDisplayStore((s) => s.reduceMotion);
 export const useSetReduceMotion = () => useDisplayStore((s) => s.setReduceMotion);
 export const useScrollMode = () => useDisplayStore((s) => s.scrollMode);
 export const useSetScrollMode = () => useDisplayStore((s) => s.setScrollMode);
+export const useScrollbarSize = () => useDisplayStore((s) => s.scrollbarSize);
+export const useSetScrollbarSize = () => useDisplayStore((s) => s.setScrollbarSize);
 export const useCornerStyle = () => useDisplayStore((s) => s.cornerStyle);
 export const useSetCornerStyle = () => useDisplayStore((s) => s.setCornerStyle);
 export const useSurfaceTint = () => useDisplayStore((s) => s.surfaceTint);

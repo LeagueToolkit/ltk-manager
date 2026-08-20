@@ -13,9 +13,11 @@ import {
   mergeToSingleLeaf,
   moveTab,
   removeTab,
+  replaceTab,
   setActiveTab,
   setSplitLayout as applySplitLayout,
   singleLeaf,
+  splitEmpty,
   splitLeaf,
 } from "@/modules/editor/layout";
 import type { ContentDocument, PersistedProjectEditor } from "@/modules/workshop";
@@ -53,6 +55,14 @@ export interface ProjectEditor {
    * strip is empty or the active tab belongs to no layer.
    */
   selectedLayer: string | null;
+  /**
+   * The one ephemeral tab, which the next open replaces.
+   *
+   * Null unless the user asked for the `replace` tab mode. One per project
+   * rather than per leaf, so a preview opened from a second editor group
+   * replaces the first group's rather than joining it.
+   */
+  previewId: string | null;
   /** Ids with unsaved edits. Editors report their own. */
   dirty: ReadonlySet<string>;
   /** Directories the user shut, per layer name. Anything absent is open. */
@@ -68,6 +78,10 @@ interface WorkshopEditorStore {
   hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
   /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
   openDocument: (projectPath: string, document: ContentDocument, leafId?: string) => void;
+  /** Opens as the ephemeral tab, replacing whichever one holds that role. */
+  openPreview: (projectPath: string, document: ContentDocument, leafId?: string) => void;
+  /** Makes a document permanent, which is what a double click asks for. */
+  promoteDocument: (projectPath: string, id: string) => void;
   activateDocument: (projectPath: string, leafId: string, id: string) => void;
   closeDocument: (projectPath: string, leafId: string, id: string) => void;
   /** Rewrites one strip's order from a full list of its ids. */
@@ -103,6 +117,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   layout: ROOT,
   activeLeafId: ROOT.id,
   selectedLayer: null,
+  previewId: null,
   dirty: new Set(),
   collapsed: {},
   reveal: null,
@@ -127,6 +142,39 @@ function updateProject(
   const next = change(current);
   if (next === null || next === current) return null;
   return { byProject: { ...state.byProject, [projectPath]: next } };
+}
+
+/**
+ * The group a document opens into, with the layout that holds it.
+ *
+ * An explicit `leafId` wins, and anything that is not a preview lands in the
+ * focused group. Previews gather in one group beside whoever asked for them, so
+ * a browser keeps its own group and a walk through a tree never pushes it off
+ * screen. The first preview splits that group off, and every later one joins
+ * the group it left behind.
+ */
+function openGroup(
+  editor: ProjectEditor,
+  document: ContentDocument,
+  leafId?: string,
+): { layout: LayoutNode; leafId: string } {
+  const focused =
+    findLeaf(editor.layout, leafId ?? editor.activeLeafId) ?? leaves(editor.layout)[0];
+  if (leafId !== undefined || document.kind !== "preview") {
+    return { layout: editor.layout, leafId: focused.id };
+  }
+
+  const previews = leaves(editor.layout).find((leaf) =>
+    leaf.tabs.some((id) => editor.documents[id]?.kind === "preview"),
+  );
+  if (previews) return { layout: editor.layout, leafId: previews.id };
+
+  /* An empty group has nothing to sit beside, so it takes the preview rather
+     than splitting into two with one of them showing nothing. */
+  if (focused.tabs.length === 0) return { layout: editor.layout, leafId: focused.id };
+
+  const split = splitEmpty(editor.layout, focused.id, "right");
+  return { layout: split.tree, leafId: split.leafId };
 }
 
 /*
@@ -166,6 +214,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
           layout: state.layout,
           activeLeafId: state.activeLeafId,
           selectedLayer: state.selectedLayer,
+          previewId: state.previewId,
         },
       },
     })),
@@ -177,21 +226,78 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
           const holder = leafHolding(editor.layout, document.id);
           if (holder) {
             /* Already open: activate where it is and keep the stored
-               document, whose editor may hold state the argument lacks. */
+               document, whose editor may hold state the argument lacks. An
+               open that lands on the preview promotes it, which is what makes
+               "open it properly" one gesture rather than two. */
+            const layout = setActiveTab(editor.layout, holder.id, document.id);
+            const previewId = editor.previewId === document.id ? null : editor.previewId;
+            if (
+              layout === editor.layout &&
+              editor.activeLeafId === holder.id &&
+              previewId === editor.previewId
+            ) {
+              return null;
+            }
+            return { ...editor, layout, activeLeafId: holder.id, previewId };
+          }
+
+          const group = openGroup(editor, document, leafId);
+          return {
+            ...editor,
+            documents: { ...editor.documents, [document.id]: document },
+            layout: insertTab(group.layout, group.leafId, document.id),
+            activeLeafId: group.leafId,
+          };
+        }) ?? state,
+    ),
+
+  openPreview: (projectPath, document, leafId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          /* Already on screen: activate it and leave its role alone, so
+             asking for the same file twice does not churn the tree. */
+          const holder = leafHolding(editor.layout, document.id);
+          if (holder) {
             const layout = setActiveTab(editor.layout, holder.id, document.id);
             if (layout === editor.layout && editor.activeLeafId === holder.id) return null;
             return { ...editor, layout, activeLeafId: holder.id };
           }
 
-          const requested = leafId ?? editor.activeLeafId;
-          const target = findLeaf(editor.layout, requested) ?? leaves(editor.layout)[0];
+          const documents = { ...editor.documents, [document.id]: document };
+          const previous = editor.previewId ? leafHolding(editor.layout, editor.previewId) : null;
+
+          if (previous && editor.previewId) {
+            const layout = replaceTab(editor.layout, previous.id, editor.previewId, document.id);
+            if (layout !== editor.layout) {
+              delete documents[editor.previewId];
+              return {
+                ...editor,
+                documents,
+                layout,
+                activeLeafId: previous.id,
+                previewId: document.id,
+              };
+            }
+          }
+
+          const group = openGroup(editor, document, leafId);
           return {
             ...editor,
-            documents: { ...editor.documents, [document.id]: document },
-            layout: insertTab(editor.layout, target.id, document.id),
-            activeLeafId: target.id,
+            documents,
+            layout: insertTab(group.layout, group.leafId, document.id),
+            activeLeafId: group.leafId,
+            previewId: document.id,
           };
         }) ?? state,
+    ),
+
+  promoteDocument: (projectPath, id) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.previewId === id ? { ...editor, previewId: null } : null,
+        ) ?? state,
     ),
 
   activateDocument: (projectPath, leafId, id) =>
@@ -218,6 +324,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
             delete documents[id];
             dirty.delete(id);
           }
+          const previewId = editor.previewId === id ? null : editor.previewId;
 
           /* Closing a leaf's last tab prunes it, which can take the
              focused leaf with it. */
@@ -225,7 +332,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set) => ({
             ? editor.activeLeafId
             : leaves(layout)[0].id;
 
-          return { ...editor, documents, layout, activeLeafId, dirty };
+          return { ...editor, documents, layout, activeLeafId, dirty, previewId };
         }) ?? state,
     ),
 

@@ -17,6 +17,25 @@ describe("displayStore", () => {
     it("has reduceMotion 'system' by default", () => {
       expect(useDisplayStore.getState().reduceMotion).toBe("system");
     });
+
+    it("has scrollbarSize 'default' by default", () => {
+      expect(useDisplayStore.getState().scrollbarSize).toBe("default");
+    });
+  });
+
+  describe("setScrollbarSize", () => {
+    it("thins every scrollbar", () => {
+      useDisplayStore.getState().setScrollbarSize("thin");
+      expect(useDisplayStore.getState().scrollbarSize).toBe("thin");
+    });
+
+    /* A reset covers it, so it belongs to the Appearance panel rather than
+       being a stray preference the button leaves behind. */
+    it("comes back on a reset", () => {
+      useDisplayStore.getState().setScrollbarSize("wide");
+      useDisplayStore.getState().resetAppearance();
+      expect(useDisplayStore.getState().scrollbarSize).toBe("default");
+    });
   });
 
   describe("setZoomLevel", () => {

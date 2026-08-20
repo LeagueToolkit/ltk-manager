@@ -6,7 +6,7 @@ import { twMerge } from "tailwind-merge";
 import { Button, EmptyState, Field, IconButton } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
-import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { formatBytes } from "@/utils";
 
 import { type ContentDocumentOf, gameWadDocument } from "../documents/contentDocument";
@@ -39,10 +39,9 @@ export function GameWadsDocument({ active }: EditorDocumentProps<ContentDocument
 
   return (
     <div data-ui="GameWadsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
-      <DocumentActions active={active}>
-        <ArchiveCount total={wads.data?.length ?? 0} shown={matches.length} />
-        <FilterField value={filter} onChange={setFilter} />
-      </DocumentActions>
+      <DocumentToolbar active={active}>
+        <FilterField value={filter} onChange={setFilter} total={wads.data?.length ?? 0} />
+      </DocumentToolbar>
 
       <ArchiveList
         wads={matches}
@@ -53,34 +52,29 @@ export function GameWadsDocument({ active }: EditorDocumentProps<ContentDocument
   );
 }
 
-interface ArchiveCountProps {
-  total: number;
-  shown: number;
-}
-
-function ArchiveCount({ total, shown }: ArchiveCountProps) {
-  if (total === 0) return null;
-
-  const label = shown === total ? `${total} archives` : `${shown} of ${total}`;
-  return <span className="text-xs text-surface-400 select-none">{label}</span>;
-}
-
 interface FilterFieldProps {
   value: string;
   onChange: (value: string) => void;
+  /** How many the install holds, which the placeholder reports. */
+  total: number;
 }
 
-function FilterField({ value, onChange }: FilterFieldProps) {
+function FilterField({ value, onChange, total }: FilterFieldProps) {
+  /* The count rides the placeholder rather than a label of its own, so the row
+     is the one control it looks like. Nothing is lost while filtering: what a
+     filter left is the list itself. */
+  const placeholder = total > 0 ? `Search ${total} WADs` : "Search WADs";
+
   return (
-    <Field.Root className="relative w-52">
+    <Field.Root className="relative min-w-0 flex-1">
       <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
       <Field.Control
         type="text"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        placeholder="Filter archives…"
-        aria-label="Filter archives"
-        className="h-7 pr-7 pl-7 text-xs"
+        placeholder={placeholder}
+        aria-label="Search WADs"
+        className="h-6 pr-7 pl-7 text-xs"
       />
       {value && (
         <IconButton
@@ -90,7 +84,7 @@ function FilterField({ value, onChange }: FilterFieldProps) {
           compact
           onClick={() => onChange("")}
           aria-label="Clear filter"
-          className="absolute top-1/2 right-1 h-5 w-5 -translate-y-1/2"
+          className="absolute top-1/2 right-1 h-4 w-4 -translate-y-1/2"
         />
       )}
     </Field.Root>
@@ -178,8 +172,12 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
                   document.id === activeId ? "text-accent-400" : "text-surface-400",
                 )}
               />
-              <span className="shrink-0 truncate">{wadBasename(wad.name)}</span>
-              {directory && <span className="min-w-0 truncate text-surface-500">{directory}</span>}
+              {/* One span, so the whole thing reads and truncates as the path
+                  it is rather than as a name with a note after it. */}
+              <span className="min-w-0 truncate">
+                {directory && <span className="text-surface-400">{directory}/</span>}
+                {wadBasename(wad.name)}
+              </span>
               <span className="ml-auto shrink-0 text-[10px] text-surface-400 tabular-nums">
                 {formatBytes(Number(wad.sizeBytes))}
               </span>

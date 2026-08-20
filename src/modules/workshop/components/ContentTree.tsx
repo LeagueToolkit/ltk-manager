@@ -1,17 +1,24 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { ContentEntry } from "@/lib/tauri";
 
+import { previewDocument } from "../documents/contentDocument";
 import { useContentTreeNav } from "../hooks";
-import { useCollapsedDirs, useRevealRequest, useToggleCollapsed } from "../state";
+import {
+  useCollapsedDirs,
+  useOpenDocumentTab,
+  useRevealRequest,
+  useToggleCollapsed,
+} from "../state";
 import {
   buildContentTree,
   buildDirFileCounts,
   type ContentTreeNode,
+  type FileNode,
   flattenTree,
   nodeCovers,
 } from "../utils/contentTree";
@@ -43,6 +50,20 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
   const toggle = useToggleCollapsed(layerName);
   const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
 
+  const openTab = useOpenDocumentTab();
+  const openFile = useCallback(
+    (node: FileNode) =>
+      openTab(
+        previewDocument({
+          kind: "layer",
+          project: projectPath,
+          layer: layerName,
+          path: node.entry.relativePath,
+        }),
+      ),
+    [openTab, projectPath, layerName],
+  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -57,6 +78,7 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
     rows,
     collapsed,
     onToggle: toggle,
+    onOpen: openFile,
     virtualizer,
     scrollElementRef: scrollRef,
   });
@@ -128,6 +150,7 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
                   }
                   onToggle={toggle}
                   onSelect={setFocusedIndex}
+                  onOpen={openFile}
                   height={ROW_HEIGHT}
                   rowIndex={virtualRow.index}
                   tabIndex={isSelected ? 0 : -1}
@@ -138,7 +161,12 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
         </div>
       </ContextMenu.Trigger>
 
-      <ContentTreeContextMenu node={menuNode} projectPath={projectPath} layerName={layerName} />
+      <ContentTreeContextMenu
+        node={menuNode}
+        projectPath={projectPath}
+        layerName={layerName}
+        onOpen={openFile}
+      />
     </ContextMenu.Root>
   );
 }

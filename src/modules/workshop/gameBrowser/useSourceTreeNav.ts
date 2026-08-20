@@ -1,7 +1,7 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
-import type { SourceDirNode, SourceRow, SourceTreeNode } from "./sourceIndex";
+import type { SourceDirNode, SourceFileNode, SourceRow, SourceTreeNode } from "./sourceIndex";
 
 function expandable(node: SourceTreeNode): node is SourceDirNode {
   return node.type === "dir";
@@ -11,6 +11,8 @@ interface UseSourceTreeNavParams {
   rows: readonly SourceRow[];
   isExpanded: (node: SourceDirNode) => boolean;
   onToggle: (node: SourceDirNode) => void;
+  /** The keyboard route to what a double click on a file row does. */
+  onOpen?: (node: SourceFileNode) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -31,6 +33,7 @@ export function useSourceTreeNav({
   rows,
   isExpanded,
   onToggle,
+  onOpen,
   virtualizer,
   scrollElementRef,
 }: UseSourceTreeNavParams): UseSourceTreeNavReturn {
@@ -61,6 +64,17 @@ export function useSourceTreeNav({
       if (!row) return;
       const node = row.node;
       switch (e.key) {
+        /* Enter opens, the way a double click does. A keyboard user who asked
+           for a file by name meant to open it. */
+        case "Enter":
+          if (node.type === "file") {
+            e.preventDefault();
+            onOpen?.(node);
+          } else if (expandable(node)) {
+            e.preventDefault();
+            onToggle(node);
+          }
+          return;
         case "ArrowDown":
           e.preventDefault();
           moveFocus(focusedIndex + 1);
@@ -100,7 +114,7 @@ export function useSourceTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, isExpanded, onToggle, moveFocus],
+    [rows, focusedIndex, isExpanded, onToggle, onOpen, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

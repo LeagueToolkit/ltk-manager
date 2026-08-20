@@ -14,6 +14,13 @@ export interface SourceEntry {
   /** Resolved path with forward slashes, or null when no hash table names it. */
   readonly path: string | null;
   readonly sizeBytes: number;
+  /**
+   * The `DATA/FINAL`-relative archive holding the chunk.
+   *
+   * What a read of the bytes needs, since the folded index merges its archives
+   * away and a row carries no other route back to one.
+   */
+  readonly wad: string;
 }
 
 /** One subdirectory of a lazily-read index, as its parent listing names it. */

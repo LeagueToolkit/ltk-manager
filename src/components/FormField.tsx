@@ -99,7 +99,7 @@ export const FieldControl = forwardRef<HTMLInputElement, FieldControlProps>(
       <BaseField.Control
         ref={ref}
         className={twMerge(
-          "h-8 w-full rounded-lg border px-4 py-1 text-sm transition-colors",
+          "h-8 w-full rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
           "border-surface-500 hover:border-accent-hover",
           "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
@@ -199,7 +199,7 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
           id={fieldId}
           name={name}
           className={twMerge(
-            "w-full rounded-lg border px-4 py-2.5 text-sm transition-colors",
+            "w-full rounded-md border px-4 py-2.5 text-sm transition-colors",
             "bg-surface-700 text-surface-50 placeholder:text-surface-400",
             "border-surface-500 hover:border-accent-hover",
             "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",

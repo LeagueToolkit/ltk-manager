@@ -60,7 +60,7 @@ export function MultiSelect({
       {variant === "compact" ? (
         <Combobox.Trigger
           className={twMerge(
-            "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors",
+            "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-accent-hover",
             "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
@@ -79,7 +79,7 @@ export function MultiSelect({
       ) : (
         <Combobox.Trigger
           className={twMerge(
-            "flex min-h-[42px] w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors",
+            "flex min-h-[42px] w-full items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-accent-hover",
             "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",

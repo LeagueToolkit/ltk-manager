@@ -6,6 +6,7 @@ import {
   EMPTY_EDITOR,
   NO_COLLAPSED_DIRS,
   type RevealRequest,
+  useTabOpenMode,
   useWorkshopEditorStore,
 } from "@/stores";
 
@@ -83,6 +84,12 @@ export function useActiveDocumentId(): string | null {
   });
 }
 
+/** The ephemeral tab, which draws in italic and the next open replaces. */
+export function usePreviewDocumentId(): string | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).previewId);
+}
+
 export function useDirtyDocumentIds(): ReadonlySet<string> {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).dirty);
@@ -141,6 +148,56 @@ export function useOpenDocument() {
       if (layerName) store.selectLayer(projectPath, layerName);
     },
     [projectPath],
+  );
+}
+
+/**
+ * Opens a document as the ephemeral tab, in place of whichever one holds that
+ * role.
+ *
+ * What the `replace` tab mode calls. {@link useOpenDocumentTab} picks between
+ * this and a permanent open, and is what a tree row actually wires up.
+ */
+export function useOpenPreview() {
+  const projectPath = useProjectPath();
+  return useCallback(
+    (document: ContentDocument) => {
+      const store = useWorkshopEditorStore.getState();
+      store.openPreview(projectPath, document);
+
+      const layerName = documentLayerName(document);
+      if (layerName) store.selectLayer(projectPath, layerName);
+    },
+    [projectPath],
+  );
+}
+
+/**
+ * Opens a document the way the user asked tabs to open.
+ *
+ * What a tree row wires up. `append` gives the document its own tab and
+ * `replace` reuses the ephemeral one, and either way a document that is
+ * already open activates where it sits rather than opening twice.
+ */
+export function useOpenDocumentTab() {
+  const mode = useTabOpenMode();
+  const openPreview = useOpenPreview();
+  const openDocument = useOpenDocument();
+  return useCallback(
+    (document: ContentDocument) => {
+      if (mode === "replace") openPreview(document);
+      else openDocument(document);
+    },
+    [mode, openPreview, openDocument],
+  );
+}
+
+export function usePromoteDocument() {
+  const projectPath = useProjectPath();
+  const promoteDocument = useWorkshopEditorStore((s) => s.promoteDocument);
+  return useCallback(
+    (id: string) => promoteDocument(projectPath, id),
+    [promoteDocument, projectPath],
   );
 }
 

@@ -9,6 +9,7 @@ import { BackdropImagePicker } from "./BackdropImagePicker";
 import { CornerStylePicker } from "./CornerStylePicker";
 import { ReduceMotionPicker } from "./ReduceMotionPicker";
 import { ResetAppearanceButton } from "./ResetAppearanceButton";
+import { ScrollbarSizePicker } from "./ScrollbarSizePicker";
 import { ScrollModePicker } from "./ScrollModePicker";
 import { SurfaceTintPicker } from "./SurfaceTintPicker";
 import { ThemePicker } from "./ThemePicker";
@@ -76,6 +77,13 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
           title="Scrolling"
           hint="Spring rubber-bands when a list is pushed past its end."
           control={<ScrollModePicker />}
+        />
+
+        <SettingRow
+          kind="action"
+          title="Scrollbars"
+          description="How thick every scrollbar draws."
+          control={<ScrollbarSizePicker />}
         />
 
         <Separator className="my-0" />

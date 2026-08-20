@@ -13,6 +13,7 @@ use thiserror::Error;
 use crate::hashtables::HashtableError;
 use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
+use crate::preview::PreviewError;
 use crate::workshop::WorkshopError;
 
 /// Internal application error type with rich error information.
@@ -92,6 +93,9 @@ pub enum AppError {
 
     #[error(transparent)]
     Hashtable(#[from] HashtableError),
+
+    #[error(transparent)]
+    Preview(#[from] PreviewError),
 }
 
 impl From<ltk_mod_project::ModProjectError> for AppError {

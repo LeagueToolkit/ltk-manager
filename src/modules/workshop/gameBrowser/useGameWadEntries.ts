@@ -7,12 +7,14 @@ import type { SourceEntry } from "./sourceIndex";
 import { GAME_STALE_MS, gameKeys } from "./useGameWads";
 
 /* The tree speaks plain numbers, so the wire format's bigint stays behind
-   this adapter. */
-function toSourceEntries(entries: GameWadEntry[]): SourceEntry[] {
+   this adapter. A scoped read names one archive, so its entries take the
+   archive from the request rather than from a field the chunk list lacks. */
+function toSourceEntries(entries: GameWadEntry[], wad: string): SourceEntry[] {
   return entries.map((entry) => ({
     pathHash: entry.pathHash,
     path: entry.path,
     sizeBytes: Number(entry.sizeBytes),
+    wad,
   }));
 }
 
@@ -21,7 +23,7 @@ export function gameWadEntriesOptions(wadName: string | null) {
     queryKey: gameKeys.wad(wadName ?? ""),
     queryFn: wadName ? queryFnWithArgs(api.readGameWad, wadName) : skipToken,
     staleTime: GAME_STALE_MS,
-    select: toSourceEntries,
+    select: (entries) => toSourceEntries(entries, wadName ?? ""),
   });
 }
 

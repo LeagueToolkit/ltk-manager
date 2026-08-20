@@ -9,6 +9,7 @@ import {
   gameDocument,
   gameWadDocument,
   gameWadsDocument,
+  previewDocument,
 } from "@/modules/workshop";
 
 import {
@@ -25,6 +26,7 @@ function twoDocumentState(): PersistedProjectEditor {
     layout,
     activeLeafId: layout.id,
     selectedLayer: "base",
+    previewId: null,
   };
 }
 
@@ -72,6 +74,7 @@ describe("editorFile", () => {
       if (parsed.kind !== "ok") return;
       expect(findLeaf(parsed.state.layout, parsed.state.activeLeafId)?.tabs).toEqual(["details"]);
       expect(parsed.state.documents.details?.id).toBe("details");
+      expect(parsed.state.previewId).toBeNull();
     });
 
     it("reports a version above this build as newer", () => {
@@ -166,6 +169,45 @@ describe("editorFile", () => {
         list.id,
         scoped.id,
       ]);
+    });
+
+    it("keeps a preview document and the tab holding it", () => {
+      const preview = previewDocument({
+        kind: "layer",
+        project: "C:/mods/skin",
+        layer: "base",
+        path: "assets/icon.tex",
+      });
+      const layout = singleLeaf([preview.id], preview.id);
+
+      const state = sanitizeEditorState({
+        documents: { [preview.id]: preview },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: "base",
+        previewId: preview.id,
+      });
+
+      expect(state?.documents[preview.id]).toEqual(preview);
+      expect(state?.previewId).toBe(preview.id);
+    });
+
+    /* A file this build wrote before the field existed, and one whose preview
+       document did not survive the sanitize. Neither is an ephemeral tab any
+       more, so neither keeps the role. */
+    it("drops a preview id that no open tab holds", () => {
+      const layout = singleLeaf(["details"], "details");
+      const entry = {
+        documents: { details: detailsDocument() },
+        layout,
+        activeLeafId: layout.id,
+        selectedLayer: null,
+      };
+
+      expect(sanitizeEditorState(entry)?.previewId).toBeNull();
+      expect(
+        sanitizeEditorState({ ...entry, previewId: "preview:layer:base:gone.tex" })?.previewId,
+      ).toBeNull();
     });
 
     it("completes an entry that lost fields rather than crashing on it", () => {

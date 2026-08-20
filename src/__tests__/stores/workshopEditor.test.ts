@@ -3,6 +3,7 @@ import {
   detailsDocument,
   filesDocument,
   migrateFromV1,
+  previewDocument,
   readLegacyEditorSeed,
 } from "@/modules/workshop";
 import { EMPTY_EDITOR, useWorkshopEditorStore } from "@/stores/workshopEditor";
@@ -100,6 +101,154 @@ describe("workshopEditor store", () => {
 
       expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
       expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+    });
+  });
+
+  describe("openPreview", () => {
+    /** A layer file, which is what a click in the file tree opens. */
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /* The root leaf is empty, so there is nothing to sit beside and splitting
+       would leave one of the two groups showing nothing. */
+    it("opens as the ephemeral tab and records it", () => {
+      const document = preview("icon.tex");
+
+      store().openPreview(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(editorOf(A).previewId).toBe(document.id);
+    });
+
+    /* Removing and re-inserting would send the tab to the end of the strip and
+       move it under a pointer that is about to click again. */
+    it("replaces the previous preview where it sits", () => {
+      store().openDocument(A, detailsDocument());
+      store().openPreview(A, preview("first.tex"));
+      const previews = editorOf(A).activeLeafId;
+      store().openDocument(A, filesDocument("base"));
+      const second = preview("second.tex");
+
+      store().openPreview(A, second);
+
+      expect(tabsOf(A, previews)).toEqual([second.id, "files:base"]);
+      expect(editorOf(A).previewId).toBe(second.id);
+      expect(editorOf(A).documents["preview:layer:base:first.tex"]).toBeUndefined();
+    });
+
+    it("activates a document that is already open and leaves its role alone", () => {
+      store().openDocument(A, detailsDocument());
+      const document = preview("icon.tex");
+      store().openPreview(A, document);
+      const previews = editorOf(A).activeLeafId;
+      store().activateDocument(A, ROOT_LEAF, "details");
+
+      store().openPreview(A, document);
+
+      expect(tabsOf(A, previews)).toEqual([document.id]);
+      expect(activeTabOf(A, previews)).toBe(document.id);
+      expect(editorOf(A).previewId).toBe(document.id);
+    });
+
+    /* One preview across the whole project, so a click in a second group
+       replaces the first group's rather than leaving two on screen. */
+    it("replaces a preview held by another leaf", () => {
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const other = splitApart(A);
+      const second = preview("second.tex");
+
+      store().openPreview(A, second, other);
+
+      expect(openIds(A)).not.toContain(first.id);
+      expect(openIds(A)).toContain(second.id);
+      expect(editorOf(A).previewId).toBe(second.id);
+    });
+  });
+
+  describe("where a preview opens", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /* A browser keeps its own group, so a walk through its tree never pushes
+       the tree itself off screen. */
+    it("splits a group off the one that asked, rather than joining it", () => {
+      store().openDocument(A, detailsDocument());
+      const document = preview("icon.tex");
+
+      store().openDocument(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details"]);
+      const previews = editorOf(A).activeLeafId;
+      expect(previews).not.toBe(ROOT_LEAF);
+      expect(tabsOf(A, previews)).toEqual([document.id]);
+    });
+
+    it("joins the group a preview already sits in", () => {
+      store().openDocument(A, detailsDocument());
+      const first = preview("first.tex");
+      store().openDocument(A, first);
+      const previews = editorOf(A).activeLeafId;
+      const second = preview("second.tex");
+
+      store().openDocument(A, second);
+
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
+      expect(tabsOf(A, previews)).toEqual([first.id, second.id]);
+    });
+
+    /* Everything else opens where the focus is, so the sidebar's own documents
+       do not scatter across the grid. */
+    it("leaves a document that is not a preview in the focused group", () => {
+      store().openDocument(A, detailsDocument());
+
+      store().openDocument(A, filesDocument("base"));
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "files:base"]);
+    });
+
+    it("honours a group the caller named", () => {
+      const other = splitApart(A);
+
+      store().openDocument(A, preview("icon.tex"), other);
+
+      expect(leaves(editorOf(A).layout)).toHaveLength(2);
+      expect(tabsOf(A, other)).toContain("preview:layer:base:icon.tex");
+    });
+  });
+
+  describe("promoteDocument", () => {
+    it("gives up the ephemeral role and keeps the tab", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+
+      store().promoteDocument(A, document.id);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(editorOf(A).previewId).toBeNull();
+    });
+
+    it("returns the same state for a document that is not the preview", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().promoteDocument(A, "details");
+
+      expect(store().byProject).toBe(before);
+    });
+
+    /* What a context menu's open does: one gesture rather than a click and a
+       double click on the tab it just opened. */
+    it("is what a permanent open of the current preview does", () => {
+      const document = previewDocument({ kind: "file", path: "C:/loose/icon.tex" });
+      store().openPreview(A, document);
+
+      store().openDocument(A, document);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([document.id]);
+      expect(editorOf(A).previewId).toBeNull();
     });
   });
 
@@ -330,6 +479,7 @@ describe("workshopEditor store", () => {
         layout,
         activeLeafId: layout.id,
         selectedLayer: "base",
+        previewId: null,
       });
 
       const editor = editorOf(A);
