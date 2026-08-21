@@ -40,6 +40,8 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     fullWadScan: false,
     disableCrashReporting: true,
     hideRiotClientOnLaunch: true,
+    readGameLog: true,
+    keepIncidents: 50,
     ...overrides,
   };
 }

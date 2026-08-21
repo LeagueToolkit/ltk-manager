@@ -7,6 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crate::config::Config;
+use crate::diagnostics::incident::SessionFailure;
+use crate::diagnostics::store::IncidentStore;
 use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
 use crate::overlay::OverlayBuild;
@@ -14,7 +16,9 @@ use crate::overlay::OverlayBuild;
 use super::error::PatcherError;
 use super::events::PatcherEvents;
 use super::host::{HostConfig, HostLogLevel, PatcherHost};
-use super::session::{self, SessionError};
+use super::pipeline::IncidentPipeline;
+use super::recorder::GameRecorder;
+use super::session::{self, SessionError, SessionObserver};
 use super::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// Per-session inputs for [`PatcherThread::start`], resolved by the caller
@@ -26,11 +30,14 @@ pub struct SessionParams {
     pub workshop_paths: Vec<PathBuf>,
     pub host_flags: u32,
     pub should_elevate: bool,
+    /// Where the session's incidents are written.
+    pub incident_store: Arc<IncidentStore>,
 }
 
 /// Inputs moved into the background patcher thread.
 pub struct PatcherThread {
     events: Arc<dyn PatcherEvents>,
+    observer: Arc<SessionObserver>,
     state: Arc<Mutex<PatcherStateInner>>,
     host: Arc<Mutex<Option<PatcherHost>>>,
     stop_flag: Arc<AtomicBool>,
@@ -61,8 +68,9 @@ impl PatcherThread {
             return Err(PatcherError::AlreadyRunning.into());
         }
 
+        let origin = stored_config.origin();
         patcher_state.stop_flag.store(false, Ordering::SeqCst);
-        patcher_state.begin_session(stored_config.origin());
+        patcher_state.begin_session(origin.clone());
         patcher_state.last_config = Some(stored_config);
 
         // Announced under the same lock so the session's failure path (which
@@ -77,9 +85,24 @@ impl PatcherThread {
             workshop_paths,
             host_flags,
             should_elevate,
+            incident_store,
         } = params;
+        let pipeline = Arc::new(IncidentPipeline::new(
+            config.clone(),
+            host_flags,
+            library.clone(),
+            workshop_paths.clone(),
+            incident_store,
+            Arc::clone(&events),
+        ));
+        let observer = Arc::new(SessionObserver::new(
+            Arc::clone(&events),
+            GameRecorder::new(origin, should_elevate),
+            pipeline,
+        ));
         let session = Self {
             events,
+            observer,
             state: Arc::clone(state),
             host: Arc::clone(host),
             stop_flag: Arc::clone(&patcher_state.stop_flag),
@@ -111,6 +134,9 @@ impl PatcherThread {
             Ok(build) => build,
             Err(e) => {
                 tracing::error!(error = ?e, "Overlay build failed");
+                self.observer.session_failed(SessionFailure::Build {
+                    message: e.to_string(),
+                });
                 self.events.error(e);
                 self.reset_to_idle();
                 return None;
@@ -172,11 +198,14 @@ impl PatcherThread {
             self.should_elevate,
             &host_config,
             &self.stop_flag,
-            Arc::clone(&self.events),
+            Arc::clone(&self.observer),
         );
 
         match result {
-            Ok(()) => tracing::info!("Injector stopped"),
+            Ok(()) => {
+                tracing::info!("Injector stopped");
+                self.observer.session_stopped();
+            }
             Err(e) => {
                 match &e {
                     SessionError::Host(err) => {
@@ -184,7 +213,14 @@ impl PatcherThread {
                     }
                     SessionError::Injector(err) => tracing::error!("Injector error: {}", err),
                 }
-                self.events.error(AppError::from(PatcherError::from(e)));
+                let error = PatcherError::from(e);
+                if let PatcherError::InjectionFailed { stage, message } = &error {
+                    self.observer.session_failed(SessionFailure::Injection {
+                        stage: *stage,
+                        message: message.clone(),
+                    });
+                }
+                self.events.error(AppError::from(error));
             }
         }
 

@@ -1,0 +1,48 @@
+000000.000| ALWAYS| Logging started at 2026-07-02T19:41:03.118
+000000.001| ALWAYS|   CFG| CrashHandler(Sentry)
+000000.160| ALWAYS|   CFG| Command Line:  "0.0.0.0 0 AAAA 0" "-Product=LoL" "-PlayerID=0" "-GameID=0" "-PlayerNameMode=ALIAS" "-LNPBlob=AAAA" "-GameBaseDir=C:\Riot Games\League of Legends" "-Region=EUW" "-PlatformID=EUW1" "-Locale=en_US" "-SkipBuild" "-EnableCrashpad=false" "-RiotClientPort=0" "-RiotClientAuthToken=AAAA" 
+000000.540| ALWAYS| Live Profiling enabled. Will overwrite old RPD.
+000000.541| ALWAYS|   CFG| Build Version: Version 16.13.791.2201 (Jun 24 2026/11:02:48) [PUBLIC] <Releases/16.13> ChangeList: 7912201
+000000.550| ALWAYS|   CFG| Content Version: 16.13.7912201+branch.releases-16-13.content.release
+000000.612| ALWAYS| LCURemotingClient: Initializing on port 0
+000000.615| ALWAYS| LCURemotingClient: Connected to app process.
+000000.616| ALWAYS|  FLOW| Initializing Renderer
+000000.616| ALWAYS| r3dRenderLayer::Init enter
+000000.616| ALWAYS| r3dRenderLayer::Init() exit successfully
+000000.616| ALWAYS| rr3dRenderLayer::InitDevice(XRes = 2560, YRes = 1440, BPP = 32) PresentMode: Windowed enter
+000000.616| ALWAYS| rr3dRenderLayer::InitDevice: Creating X3D device
+000000.640| ALWAYS| DXGI version: 1.6
+000000.640| ALWAYS| Detected Adapter 'NVIDIA GeForce RTX 3070'
+000001.290| ALWAYS| DX11 feature level: 11.1
+000001.340| ALWAYS| Using X3D Platform: DX11
+000001.402| ALWAYS|  STRT| GameClientApplicationSessionID: STRT
+000001.511| ALWAYS|  FLOW| Requesting State Transition: Pushing Patching State Stack Empty
+000001.640| ALWAYS|  FLOW| Requesting State Transition: Pushing GameSession Current Topmost State: LoLCommon
+000001.641| ALWAYS| GameStartData::GameID=0
+000001.642| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(0) ServerAddress(0.0.0.0:0) SummonerID(0)
+000001.642| ALWAYS|  CONN| Connecting to address (0.0.0.0) port (0)
+000001.830| ALWAYS|  CONN| Game Server Connection Established after 0.188 seconds, 0 retries
+000002.301| ALWAYS|  FLOW| Loading Started
+000003.290| ALWAYS|  LOAD| LOADING: Begin Game Object Update
+000003.292| ALWAYS|  LOAD| LOADING: End Game Object Update
+000003.670| ALWAYS|  LOAD| SEJ-1A4F7C20
+000003.681| ALWAYS|  LOAD| SEJ-3B8E0D91
+000003.681| ALWAYS|  LOAD| SEJ-5C2A6F38
+000003.682| ALWAYS|  LOAD| SEJ-7D9B14EE
+000003.684| ALWAYS|  LOAD| SEJ-2E60A8C7
+000003.684| ALWAYS|  LOAD| SEJ-9F31B5D0
+000003.720| ALWAYS|  LOAD| SEJ-4A7C2E89
+000003.720| ALWAYS|  LOAD| SEJ-6B0D93F1
+000003.720| ALWAYS|  LOAD| SEJ-8C5E1A4B
+000003.810| ALWAYS|  LOAD| SEJ-7A6C39E2
+000003.815| ALWAYS|  LOAD| SEJ-1D2F86A3
+000004.090| ALWAYS|  LOAD| SEJ-3E9A0C57
+000004.093| ALWAYS|  LOAD| SEJ-5F4B27D8
+000004.093| ALWAYS|  FLOW| Loading Ended
+000004.097| ALWAYS|  FLOW| Data Load Complete
+000004.098| ALWAYS|  FLOW| Start Main Loop
+000004.380| ALWAYS|  FLOW| Switching Game State from GAMESTATE_SPAWN to GAMESTATE_GAMELOOP for reason Received Game Start Packet.
+000056.778|  ERROR| Error: "ALE-D0D00009" - Result: DXGI_ERROR_INVALID_CALL.
+000056.778|  ERROR| Error: "ALE-D0D00009" - Result: DXGI_ERROR_INVALID_CALL.
+000056.779|  ERROR| Error: "ALE-D0D00009" - Result: DXGI_ERROR_INVALID_CALL.
+000056.779|  ERROR| Error: "ALE-D0D00009" - Result: DXGI_ERROR_INVALID_CALL.

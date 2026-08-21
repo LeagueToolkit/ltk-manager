@@ -1,8 +1,9 @@
-import { ShieldAlert } from "lucide-react";
+import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
+import { SuspectBadge } from "@/modules/diagnostics";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";
@@ -71,7 +72,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
       {isFlagged && (
         <Tooltip content={skinhackReason}>
           <div className="absolute top-2 left-2 z-10 rounded-md bg-danger/90 p-1">
-            <ShieldAlert className="h-4 w-4 text-brand-on" />
+            <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
           </div>
         </Tooltip>
       )}
@@ -83,7 +84,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           <h3 className="min-w-0 truncate text-sm font-medium text-surface-100">
             {mod.displayName}
           </h3>
-          {isFlagged && <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
+          {isFlagged && <ShieldWarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
         </div>
 
         <div className="mb-1 flex min-h-5 items-center gap-1">
@@ -94,6 +95,9 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           </span>
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
+          </span>
+          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
+            <SuspectBadge modId={mod.id} enabled={mod.enabled} />
           </span>
         </div>
 

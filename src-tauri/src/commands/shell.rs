@@ -9,7 +9,7 @@ pub async fn reveal_in_explorer(path: String) -> IpcResult<()> {
     reveal_in_explorer_inner(&path).into()
 }
 
-fn reveal_in_explorer_inner(path: &str) -> AppResult<()> {
+pub(crate) fn reveal_in_explorer_inner(path: &str) -> AppResult<()> {
     let path = PathBuf::from(path);
 
     // Get the parent directory if it's a file

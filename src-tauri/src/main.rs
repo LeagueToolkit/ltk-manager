@@ -142,6 +142,12 @@ fn main() {
             // Diagnostics
             commands::run_diagnostics,
             commands::open_elevated_terminal,
+            commands::list_incidents,
+            commands::dismiss_incident,
+            commands::reveal_game_log,
+            commands::incident_report,
+            commands::incident_token,
+            commands::decode_incident_token,
             // Workshop
             commands::get_workshop_projects,
             commands::create_workshop_project,

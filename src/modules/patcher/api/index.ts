@@ -4,7 +4,12 @@ export { useClearTestingProjectsOnIdle } from "./useClearTestingProjectsOnIdle";
 export { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 export { useHotkeyEvents } from "./useHotkeyEvents";
 export { useOverlayProgress } from "./useOverlayProgress";
-export { usePatcherError } from "./usePatcherError";
+export {
+  classifyPatcherError,
+  patcherFailureTab,
+  patcherFailureTitle,
+  usePatcherError,
+} from "./usePatcherError";
 export { usePatcherStatus } from "./usePatcherStatus";
 export { useRebuildOverlay } from "./useRebuildOverlay";
 export { useStartPatcher } from "./useStartPatcher";

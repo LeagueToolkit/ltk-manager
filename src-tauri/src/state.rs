@@ -1,9 +1,10 @@
 use crate::error::{AppResult, MutexResultExt};
 use ltk_manager_core::config::Config;
+use ltk_manager_core::diagnostics::store::IncidentStore;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use ts_rs::TS;
 
@@ -73,6 +74,9 @@ pub fn persist_settings(app_handle: &AppHandle, settings: &Settings) -> Result<(
 
 /// Application settings state.
 pub struct SettingsState(pub Mutex<Settings>);
+
+/// Tauri-managed handle to the incident store, under `<app_data_dir>/incidents`.
+pub struct IncidentStoreState(pub Arc<IncidentStore>);
 
 impl SettingsState {
     pub fn new(app_handle: &AppHandle) -> Self {

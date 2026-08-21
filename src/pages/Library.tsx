@@ -16,7 +16,6 @@ import {
 } from "@/modules/library";
 import { MigrationBanner, MigrationWizardDialog } from "@/modules/migration";
 import {
-  PatcherEventListeners,
   PatcherUnsupported,
   useGuardedStartPatcher,
   usePatcherStatus,
@@ -119,7 +118,6 @@ export function Library({ folderId }: LibraryProps = {}) {
         filterOptions={filterOptions}
         visibleMods={visibleMods}
       />
-      <PatcherEventListeners />
       {/* Its own positioning context so the floating selection bar rides above
           the mod list rather than the session bar below it. */}
       <div className="relative flex min-h-0 flex-1 flex-col">

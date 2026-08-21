@@ -16,6 +16,10 @@ fn default_wad_blocklist() -> Vec<WadBlocklistEntry> {
     vec![]
 }
 
+fn default_keep_incidents() -> u32 {
+    50
+}
+
 /// A single entry in the WAD blocklist.
 ///
 /// `Exact` matches a literal filename (case-insensitively). `Regex` matches
@@ -148,6 +152,18 @@ pub struct Config {
     /// icon at any point. Default: true.
     #[serde(default = "default_true")]
     pub hide_riot_client_on_launch: bool,
+    /// Whether to read League's own game log after a game ends, for the
+    /// verdict on a game that went wrong. Turns the reader off. An incident
+    /// still records the ending, the game's boundaries and what the DLL said,
+    /// and with this off the manager opens nothing under the League install.
+    /// Default: true.
+    #[serde(default = "default_true")]
+    pub read_game_log: bool,
+    /// How many incidents the app data directory keeps, under 1MB together.
+    /// The oldest goes first, and a dismissed one before an undismissed one
+    /// of the same age. Default: 50.
+    #[serde(default = "default_keep_incidents")]
+    pub keep_incidents: u32,
 }
 
 impl Default for Config {
@@ -168,6 +184,8 @@ impl Default for Config {
             full_wad_scan: false,
             disable_crash_reporting: true,
             hide_riot_client_on_launch: true,
+            read_game_log: true,
+            keep_incidents: default_keep_incidents(),
         }
     }
 }
@@ -194,6 +212,8 @@ mod tests {
         assert!(!config.full_wad_scan);
         assert!(config.disable_crash_reporting);
         assert!(config.hide_riot_client_on_launch);
+        assert!(config.read_game_log);
+        assert_eq!(config.keep_incidents, 50);
     }
 
     #[test]
@@ -217,6 +237,20 @@ mod tests {
         let config: Config =
             serde_json::from_str(r#"{ "hideRiotClientOnLaunch": false }"#).unwrap();
         assert!(!config.hide_riot_client_on_launch);
+    }
+
+    /// The reader is on for an install whose settings predate it, and a user
+    /// who turned it off stays off.
+    #[test]
+    fn reading_the_game_log_defaults_on_and_can_be_turned_off() {
+        let config: Config = serde_json::from_str(r#"{ "patchTft": true }"#).unwrap();
+        assert!(config.read_game_log);
+        assert_eq!(config.keep_incidents, 50);
+
+        let config: Config =
+            serde_json::from_str(r#"{ "readGameLog": false, "keepIncidents": 10 }"#).unwrap();
+        assert!(!config.read_game_log);
+        assert_eq!(config.keep_incidents, 10);
     }
 
     #[test]

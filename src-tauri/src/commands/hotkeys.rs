@@ -2,7 +2,7 @@ use crate::error::{AppError, AppResult, IpcResult, MutexResultExt};
 use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
-use crate::state::{persist_settings, SettingsState};
+use crate::state::{persist_settings, IncidentStoreState, SettingsState};
 use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
@@ -17,6 +17,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let host_state = app_handle.state::<PatcherHostState>();
     let settings_state = app_handle.state::<SettingsState>();
     let library_state = app_handle.state::<ModLibraryState>();
+    let incidents_state = app_handle.state::<IncidentStoreState>();
 
     // Get the last config before stopping
     let last_config = patcher_state.with(|ps| ps.last_config.clone())?;
@@ -50,6 +51,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         &host_state,
         &settings_state,
         &library_state,
+        &incidents_state,
     )?;
 
     // Best-effort LCU reconnect (in background - retries take time)

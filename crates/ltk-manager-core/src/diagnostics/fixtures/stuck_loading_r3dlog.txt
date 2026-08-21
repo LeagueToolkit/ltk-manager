@@ -1,0 +1,26 @@
+000000.000| ALWAYS| Logging started at 2026-08-09T18:02:44.731
+000000.001| ALWAYS|   CFG| CrashHandler(Sentry)
+000000.149| ALWAYS|   CFG| Command Line:  "0.0.0.0 0 AAAA 0" "-Product=LoL" "-PlayerID=0" "-GameID=0" "-PlayerNameMode=ALIAS" "-LNPBlob=AAAA" "-GameBaseDir=C:\Riot Games\League of Legends" "-Region=EUW" "-PlatformID=EUW1" "-Locale=en_US" "-SkipBuild" "-RiotClientPort=0" "-RiotClientAuthToken=AAAA" 
+000000.530| ALWAYS| Live Profiling enabled. Will overwrite old RPD.
+000000.531| ALWAYS|   CFG| Build Version: Version 16.16.804.9184 (Aug 10 2026/16:10:32) [PUBLIC] <Releases/16.16> ChangeList: 8049184
+000000.541| ALWAYS|   CFG| Content Version: 16.16.8049184+branch.releases-16-16.content.release
+000000.605| ALWAYS| LCURemotingClient: Initializing on port 0
+000000.608| ALWAYS| LCURemotingClient: Connected to app process.
+000000.609| ALWAYS|  FLOW| Initializing Renderer
+000000.609| ALWAYS| r3dRenderLayer::Init enter
+000000.609| ALWAYS| r3dRenderLayer::Init() exit successfully
+000001.391| ALWAYS|  STRT| GameClientApplicationSessionID: STRT
+000001.499| ALWAYS|  FLOW| Requesting State Transition: Pushing Patching State Stack Empty
+000001.627| ALWAYS| GameStartData::GameID=0
+000001.628| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(0) ServerAddress(0.0.0.0:0) SummonerID(0)
+000001.628| ALWAYS|  CONN| Connecting to address (0.0.0.0) port (0)
+000001.819| ALWAYS|  CONN| Game Server Connection Established after 0.191 seconds, 0 retries
+000002.288| ALWAYS|  FLOW| Loading Started
+000003.277| ALWAYS|  LOAD| LOADING: Begin Game Object Update
+000003.279| ALWAYS|  LOAD| LOADING: End Game Object Update
+000003.651| ALWAYS|  LOAD| SEJ-1A4F7C20
+000003.660| ALWAYS|  LOAD| SEJ-3B8E0D91
+000003.660| ALWAYS|  LOAD| SEJ-5C2A6F38
+000003.661| ALWAYS|  LOAD| SEJ-7D9B14EE
+000003.664| ALWAYS|  LOAD| SEJ-2E60A8C7
+000003.664| ALWAYS|  LOAD| SEJ-9F31B5D0

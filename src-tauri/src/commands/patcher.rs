@@ -6,7 +6,7 @@ use crate::patcher::{
     PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherSession, PatcherState,
     PatcherThread, SessionParams, StoredPatcherConfig,
 };
-use crate::state::SettingsState;
+use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_core::utils::client_settings::LeagueClientSettings;
 use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
@@ -121,6 +121,7 @@ pub fn start_patcher(
     host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
     library: State<ModLibraryState>,
+    incidents: State<IncidentStoreState>,
 ) -> IpcResult<()> {
     let result = start_patcher_inner(
         config,
@@ -129,6 +130,7 @@ pub fn start_patcher(
         &host_state,
         &settings,
         &library,
+        &incidents,
     );
     if let Err(ref e) = result {
         tracing::error!(error = ?e, "Start patcher failed");
@@ -143,6 +145,7 @@ pub(crate) fn start_patcher_inner(
     host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
     library: &State<ModLibraryState>,
+    incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
@@ -208,6 +211,14 @@ pub(crate) fn start_patcher_inner(
 
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));
+    // The cap is a setting, so the session's store reads it as a snapshot.
+    let incident_store = Arc::new(
+        incidents
+            .0
+            .as_ref()
+            .clone()
+            .with_keep(config_snapshot.keep_incidents as usize),
+    );
 
     PatcherThread::start(
         events,
@@ -221,6 +232,7 @@ pub(crate) fn start_patcher_inner(
             workshop_paths,
             host_flags,
             should_elevate,
+            incident_store,
         },
     )
 }

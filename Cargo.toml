@@ -46,5 +46,8 @@ windows-sys = "0.59"
 xxhash-rust = { version = "0.8.15", features = ["xxh3", "xxh64"] }
 zip = "2.2.0"
 
+rmp-serde = "1"
+base64 = "0.22"
+
 assert_matches = "1.5"
 filetime = "0.2"

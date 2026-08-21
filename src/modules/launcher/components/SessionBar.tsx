@@ -1,11 +1,38 @@
-import { AlertCircle, Check, Loader2 } from "lucide-react";
+import {
+  CheckIcon,
+  InfoIcon,
+  SpinnerGapIcon,
+  WarningCircleIcon,
+  WarningIcon,
+  XIcon,
+} from "@phosphor-icons/react";
+import { useNavigate } from "@tanstack/react-router";
+import { type ReactNode, useEffect } from "react";
 
-import { Progress } from "@/components";
+import { Button, IconButton, Progress } from "@/components";
 import { usePlatformSupport } from "@/hooks";
-import type { LaunchProgress, OverlayProgress } from "@/lib/tauri";
-import { useOverlayProgress, usePatcherStatus } from "@/modules/patcher";
+import type {
+  Confidence,
+  Incident,
+  LaunchProgress,
+  OverlayProgress,
+  VerdictKind,
+} from "@/lib/tauri";
+import { isInformational, useDismissIncident } from "@/modules/diagnostics";
+import {
+  patcherFailureTab,
+  patcherFailureTitle,
+  useOverlayProgress,
+  usePatcherStatus,
+} from "@/modules/patcher";
 import { useSessionProjectNames } from "@/modules/workshop";
-import { usePatcherSessionStore, usePlaySessionStore } from "@/stores";
+import {
+  type PatcherFailure,
+  useIncidentLineStore,
+  usePatcherFailureStore,
+  usePatcherSessionStore,
+  usePlaySessionStore,
+} from "@/stores";
 
 import { useLaunchAvailability, useLaunchProgress } from "../api";
 
@@ -61,9 +88,11 @@ const labelClasses: Record<StepState, string> = {
 };
 
 function StepDot({ state }: { state: StepState }) {
-  if (state === "active") return <Loader2 className="h-3.5 w-3.5 animate-spin text-accent-500" />;
-  if (state === "done") return <Check className="h-3.5 w-3.5 text-success-text" />;
-  if (state === "failed") return <AlertCircle className="h-3.5 w-3.5 text-danger-text" />;
+  if (state === "active") {
+    return <SpinnerGapIcon className="h-3.5 w-3.5 animate-spin text-accent-500" />;
+  }
+  if (state === "done") return <CheckIcon className="h-3.5 w-3.5 text-success-text" />;
+  if (state === "failed") return <WarningCircleIcon className="h-3.5 w-3.5 text-danger-text" />;
   return <span className={`h-3.5 w-3.5 rounded-full ${dotClasses[state]}`} />;
 }
 
@@ -85,11 +114,155 @@ function BorderShimmer() {
   );
 }
 
-function RestingLine({ children }: { children: React.ReactNode }) {
+function RestingLine({
+  part,
+  detail,
+  children,
+}: {
+  part?: string;
+  /** A second line under the first. Always the backend's words, so it stays selectable. */
+  detail?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <div className="shrink-0 border-t border-surface-800 bg-surface-950 px-4 py-1.5 select-none">
+    <div
+      data-ui={part ? `SessionBar:${part}` : undefined}
+      className="shrink-0 border-t border-surface-800 bg-surface-950 px-4 py-1.5 select-none"
+    >
       <div className="flex items-center gap-2 text-sm">{children}</div>
+      {detail && (
+        <p className="mt-0.5 ml-5.5 truncate text-xs text-surface-500 select-text">{detail}</p>
+      )}
     </div>
+  );
+}
+
+function Middot() {
+  return (
+    <span aria-hidden className="text-surface-600">
+      ·
+    </span>
+  );
+}
+
+function VerdictGlyph({ kind }: { kind: VerdictKind }) {
+  /* DS-TEXT. */
+  if (isInformational(kind)) {
+    return <InfoIcon className="h-3.5 w-3.5 shrink-0 text-info-text" weight="fill" />;
+  }
+  return <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" weight="fill" />;
+}
+
+function ConfidenceChip({ confidence }: { confidence: Confidence }) {
+  /* DS-RADIUS: a tag. */
+  return (
+    <span className="shrink-0 rounded-sm bg-danger/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-danger-text uppercase ring-1 ring-danger/30 ring-inset">
+      {confidence}
+    </span>
+  );
+}
+
+function LineActions({
+  label,
+  onAction,
+  onDismiss,
+}: {
+  label: string;
+  onAction: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="ml-auto flex shrink-0 items-center gap-1">
+      <Button variant="ghost" size="xs" compact onClick={onAction}>
+        {label}
+      </Button>
+      <IconButton
+        icon={<XIcon className="h-3.5 w-3.5" weight="bold" />}
+        variant="ghost"
+        size="xs"
+        compact
+        onClick={onDismiss}
+        aria-label="Dismiss"
+      />
+    </div>
+  );
+}
+
+/**
+ * The verdict on the last game that went wrong, in the idle line's place.
+ *
+ * It holds the bar until the user closes it, a build takes the bar back, or the
+ * next game attaches. The incident itself waits on the Games tab.
+ */
+function VerdictLine({ incident }: { incident: Incident }) {
+  const navigate = useNavigate();
+  const dismiss = useDismissIncident();
+  const clearFailure = usePatcherFailureStore((s) => s.clear);
+  const { verdict, suspects } = incident;
+  const [suspect] = suspects;
+
+  function handleDismiss() {
+    dismiss.mutate(incident.id);
+    // The failed start this incident classified would otherwise surface from under it.
+    clearFailure();
+  }
+
+  return (
+    <RestingLine part="verdict">
+      <VerdictGlyph kind={verdict.kind} />
+      <span className="shrink-0 font-medium text-surface-300">League closed</span>
+      <Middot />
+      <span className="shrink-0 text-surface-200">{verdict.title}</span>
+      {verdict.subject && (
+        <>
+          <Middot />
+          <span className="truncate font-mono text-xs text-surface-300 select-text">
+            {verdict.subject}
+          </span>
+        </>
+      )}
+      {suspect && (
+        <>
+          <Middot />
+          <span className="truncate text-surface-300 select-text">{suspect.displayName}</span>
+          {suspects.length > 1 && (
+            <span className="shrink-0 text-xs text-surface-500">+{suspects.length - 1}</span>
+          )}
+        </>
+      )}
+      {verdict.confidence && <ConfidenceChip confidence={verdict.confidence} />}
+      <LineActions
+        label="Details"
+        onAction={() =>
+          navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })
+        }
+        onDismiss={handleDismiss}
+      />
+    </RestingLine>
+  );
+}
+
+/**
+ * A start that failed, in the idle line's place rather than a toast that only
+ * the Library page would have shown. The action goes where the stage's remedy
+ * is, and the next build clears it.
+ */
+function FailureLine({ failure }: { failure: PatcherFailure }) {
+  const navigate = useNavigate();
+  const clear = usePatcherFailureStore((s) => s.clear);
+
+  return (
+    <RestingLine part="failure" detail={failure.message}>
+      <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" weight="fill" />
+      <span className="font-medium text-danger-text">{patcherFailureTitle(failure.stage)}</span>
+      <LineActions
+        label="Diagnostics"
+        onAction={() =>
+          navigate({ to: "/diagnostics", search: { tab: patcherFailureTab(failure.stage) } })
+        }
+        onDismiss={clear}
+      />
+    </RestingLine>
   );
 }
 
@@ -113,6 +286,9 @@ export function SessionBar() {
   const playStep = usePlaySessionStore((s) => s.step);
   const sessionProjects = useSessionProjectNames();
   const stopping = usePatcherSessionStore((s) => s.stopping);
+  const incident = useIncidentLineStore((s) => s.incident);
+  const failure = usePatcherFailureStore((s) => s.failure);
+  const clearFailure = usePatcherFailureStore((s) => s.clear);
   const { data: platform } = usePlatformSupport();
 
   const patcherAvailable = platform?.patcherAvailable ?? true;
@@ -120,24 +296,16 @@ export function SessionBar() {
   const isBuilding = phase === "building";
   const patcherUp = phase === "patching";
 
+  // A build that starts is the user trying again, and the start that failed
+  // before it is history.
+  useEffect(() => {
+    if (phase !== "idle") clearFailure();
+  }, [phase, clearFailure]);
+
   // The launch half is only part of this session when it was asked for. A bare
   // Ctrl+P start must not grow a step the user never requested.
   const launching = playStep === "launching" || launchProgress !== null;
   const showsLaunch = playStep !== "idle" || launchProgress !== null;
-
-  if (phase === "idle" && !showsLaunch) {
-    // Where the patcher cannot run, "idle" is a permanent fact rather than a
-    // state the user can act on, and `PatcherUnsupported` already explains why.
-    if (!patcherAvailable) return null;
-
-    return (
-      <RestingLine>
-        <span className="inline-flex h-2 w-2 shrink-0 rounded-full border border-surface-600" />
-        <span className="font-medium text-surface-300">Patcher idle</span>
-        <span className="text-surface-500">{idleHint(availability?.leagueRunning ?? false)}</span>
-      </RestingLine>
-    );
-  }
 
   // The stop is signalled instantly but unwinds over seconds, and "Patcher
   // running / your mods will be applied" is the wrong thing to say for those
@@ -145,9 +313,28 @@ export function SessionBar() {
   if (stopping) {
     return (
       <RestingLine>
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-surface-400" />
+        <SpinnerGapIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-surface-400" />
         <span className="font-medium text-surface-300">Stopping patcher</span>
         <span className="text-surface-500">Waiting for the injector to shut down...</span>
+      </RestingLine>
+    );
+  }
+
+  if (phase === "idle" && !showsLaunch) {
+    // Where the patcher cannot run, "idle" is a permanent fact rather than a
+    // state the user can act on, and `PatcherUnsupported` already explains why.
+    if (!patcherAvailable) return null;
+
+    // The incident is the classified record of a failure, so it outranks the
+    // raw start failure that preceded it.
+    if (incident) return <VerdictLine incident={incident} />;
+    if (failure) return <FailureLine failure={failure} />;
+
+    return (
+      <RestingLine>
+        <span className="inline-flex h-2 w-2 shrink-0 rounded-full border border-surface-600" />
+        <span className="font-medium text-surface-300">Patcher idle</span>
+        <span className="text-surface-500">{idleHint(availability?.leagueRunning ?? false)}</span>
       </RestingLine>
     );
   }

@@ -1,6 +1,6 @@
+import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -11,10 +11,12 @@ import {
   useSurfaceLinkedBinWarning,
 } from "@/hooks";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
+import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import { SessionBar } from "@/modules/launcher";
 import { useLibraryWatcher } from "@/modules/library";
 import {
   LinkedBinWarningDialog,
+  PatcherEventListeners,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
   WadScanFailedDialog,
@@ -47,6 +49,8 @@ function RootLayout() {
   useSurfaceLinkedBinWarning();
   useClearTestingProjectsOnIdle();
   useClearStoppingOnIdle();
+  useIncidentListeners();
+  useCleanGameWatch();
   useOverscrollSpring();
 
   const update = useUpdaterUpdate();
@@ -88,6 +92,9 @@ function RootLayout() {
 
   useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
   useHotkeys("ctrl+2", () => navigate({ to: "/workshop" }), { preventDefault: true });
+  useHotkeys("ctrl+d", () => navigate({ to: "/diagnostics", search: { tab: "games" } }), {
+    preventDefault: true,
+  });
   useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
   useHotkeys(
     "ctrl+f",
@@ -109,7 +116,7 @@ function RootLayout() {
   if (isCheckingSetup) {
     return (
       <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-950 via-surface-900 to-surface-950">
-        <Loader2 className="h-6 w-6 animate-spin text-surface-400" />
+        <SpinnerGapIcon className="h-6 w-6 animate-spin text-surface-400" />
       </div>
     );
   }
@@ -124,6 +131,7 @@ function RootLayout() {
         </div>
       </main>
       <SessionBar />
+      <PatcherEventListeners />
       <ProtocolInstallDialog />
       <WadScanFailedDialog />
       <LinkedBinWarningDialog />

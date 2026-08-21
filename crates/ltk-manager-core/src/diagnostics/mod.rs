@@ -1,19 +1,29 @@
-//! Diagnostics module - system health checks for troubleshooting patcher issues.
+//! Diagnostics: the system checks, and League diagnostics for the game.
 //!
-//! Each check is a pure function that returns a [`Check`]; the report is the
-//! ordered list of all checks. Phase 1 is read-only; fixes (registry edits,
-//! service stops) are deferred to a later phase via shown commands the user
-//! runs in an elevated terminal.
+//! The system checks are pure functions that each return a [`Check`], and the
+//! report is the ordered list of them. They are read-only, and fixes are shown
+//! as commands the user runs in an elevated terminal.
+//!
+//! League diagnostics is the minute after a game goes wrong while the patcher
+//! runs. The [`game_log`] reader turns the game's own log into facts, the
+//! [`log_codes`] table names what it can, the [`incident`] classifier reaches a
+//! verdict, the [`store`] keeps it, and [`token`] folds it into one string.
 
 use serde::Serialize;
 use std::path::PathBuf;
 
 mod compat_flags;
+pub mod game_log;
+pub mod incident;
 mod library_index;
+pub mod log_codes;
 mod patcher_dll;
 mod paths;
 pub(crate) mod processes;
+pub mod report;
 mod storage_medium;
+pub mod store;
+pub mod token;
 mod windows;
 
 #[cfg(target_os = "windows")]

@@ -24,6 +24,8 @@ import type {
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
+  Incident,
+  IncidentToken,
   InstalledMod,
   LaunchAvailability,
   LaunchOutcome,
@@ -226,6 +228,13 @@ export const api = {
   runDiagnostics: () => invokeResult<DiagnosticReport>("run_diagnostics"),
   openElevatedTerminal: (withBanner: boolean) =>
     invokeResult<void>("open_elevated_terminal", { withBanner }),
+  listIncidents: () => invokeResult<Incident[]>("list_incidents"),
+  dismissIncident: (id: string) => invokeResult<void>("dismiss_incident", { id }),
+  revealGameLog: (id: string) => invokeResult<void>("reveal_game_log", { id }),
+  incidentReport: (id: string) => invokeResult<string>("incident_report", { id }),
+  incidentToken: (id: string) => invokeResult<string>("incident_token", { id }),
+  decodeIncidentToken: (token: string) =>
+    invokeResult<IncidentToken>("decode_incident_token", { token }),
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),

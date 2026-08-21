@@ -1,0 +1,103 @@
+code	kind	evidence	meaning
+ALE-1892F739	info	inferred	The game was started with a flag that crashes it on purpose
+ALE-1892F740	info	inferred	The game was started with a flag that crashes it on purpose
+ALE-18967991	wad_mount	inferred	An archive could not be mounted, because a file is missing
+ALE-18967992	wad_mount	inferred	An archive could not be mounted, because it would not open
+ALE-18967993	wad_mount	inferred	An archive could not be mounted, because it is corrupt
+ALE-18967994	wad_mount	inferred	An archive could not be mounted, because its contents are inconsistent
+ALE-237894B0	device	inferred	The display's video mode could not be read
+ALE-3A1FF4F0	device	inferred	The renderer could not be initialized
+ALE-45BA47AC	info	inferred	The fountain's AFK warning was shown
+ALE-546D9FE7	memory	inferred	A memory allocation failed
+ALE-658B1021	info	inferred	The frame-rate cap's timer could not be created
+ALE-71BBD00F	memory	confirmed	The graphics device ran out of memory
+ALE-73059C30	info	confirmed	A network packet arrived before the team list was ready
+ALE-73059C31	info	confirmed	A network packet arrived before the team list was ready
+ALE-73059C32	info	confirmed	A network packet arrived before the team list was ready
+ALE-73059C33	info	confirmed	A network packet arrived before the team list was ready
+ALE-74656d53	info	confirmed	The audio engine's monitor was missing when audio started
+ALE-7E1AB9B6	info	inferred	TFT companion data was invalid
+ALE-89b0dee7	wad_mount	confirmed	An archive holds an invalid sub-chunk
+ALE-8SDFH23F	teardown	confirmed	The game session ended the way it should
+ALE-9B39AA45	missing_data	confirmed	A file the game needed is in no mounted archive
+ALE-9D171D1D	wad_mount	inferred	An archive's chunk failed verification
+ALE-B0F01678	info	inferred	The system configuration file could not be loaded
+ALE-BC11AC3C	info	inferred	The command line named a product the game does not know
+ALE-1234567890	device	inferred	The graphics device could not be reset
+ALE-3112372	device	inferred	The graphics device hung
+ALE-3112373	device	inferred	The graphics device was removed
+ALE-3112374	device	inferred	The graphics device was reset
+ALE-3112375	device	inferred	The graphics driver reported an internal error
+ALE-3112376	device	inferred	The graphics driver rejected a call
+ALE-3112378	device	inferred	The graphics device was lost with an unexpected error
+ALE-D0D00002	info	inferred	A constant buffer could not be created
+ALE-D0D00003	info	confirmed	A data buffer could not be created
+ALE-D0D00004	info	inferred	A data buffer the renderer needed is missing
+ALE-D0D00005	info	inferred	A data buffer the renderer needed is missing
+ALE-D0D00007	info	inferred	The game window gained focus
+ALE-D0D00008	info	inferred	The game window lost focus
+ALE-D0D00009	info	inferred	A vertex buffer could not be created
+ALE-D0D00010	info	inferred	A vertex buffer could not be created
+ALE-D0D00014	info	inferred	A vertex buffer could not be created
+ALE-D0D00018	info	inferred	A vertex buffer could not be created
+ALE-D0D00019	info	inferred	A vertex buffer could not be created
+ALE-D0D00020	texture	confirmed	A texture could not be created
+ALE-D0D00021	texture	confirmed	A 3D texture could not be created
+ALE-D0D00022	texture	confirmed	A cube-map texture could not be created
+ALE-D0D00023	texture	inferred	A framebuffer surface could not be created, because its format is unknown
+ALE-D0D00024	device	inferred	The graphics device reported an error
+ALE-D0D00026	device	inferred	The graphics device reported an error
+ALE-D0D00027	device	inferred	The graphics device reported an error
+ALE-D0D00028	device	inferred	The graphics device was removed
+ALE-D0D00029	device	inferred	The graphics device was removed
+ALE-D0D00030	device	inferred	The graphics device was removed
+ALE-D0D00031	device	inferred	The graphics card reported an error
+ALE-D0D00032	device	inferred	The graphics card reported an error
+ALE-D0D00033	device	inferred	No graphics adapter was found
+ALE-D0D00034	info	inferred	The graphics adapter was detected
+ALE-D0D00038	device	inferred	The graphics runtime could not be initialized
+ALE-D0D00039	device	inferred	The graphics runtime could not be initialized
+ALE-D0D0003A	info	inferred	Fullscreen waits until the window is in the foreground
+ALE-D0D00043	info	inferred	Tearing support is enabled
+ALE-D0D00044	info	inferred	Tearing support is enabled
+ALE-D0D00045	info	inferred	Tearing support is enabled
+ALE-D0D00046	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00047	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00048	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00049	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00050	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00051	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00052	info	inferred	Soft depth effects are not supported on this device
+ALE-D0D00053	info	inferred	The shader compiler could not be loaded
+ALE-D0D00054	device	inferred	The graphics runtime denied access
+ALE-D0D00055	device	inferred	The graphics runtime denied access
+ALE-D0D00056	device	inferred	The graphics runtime denied access
+ALE-D0D00057	info	inferred	The shader compiler could not be loaded
+ALE-D0D00059	info	inferred	A shared graphics resource could not be created
+ALE-D0D00060	info	inferred	A shared graphics resource could not be created
+ALE-D0D00061	info	inferred	A shared graphics resource could not be created
+ALE-D0D00062	info	inferred	A shared graphics resource could not be created
+ALE-D0D00063	info	inferred	A constant buffer could not be created
+ALE-D0D00064	info	confirmed	A graphics buffer could not be created
+ALE-D0D00065	info	confirmed	A graphics buffer could not be created
+ALE-D0D00066	info	inferred	A constant buffer could not be created
+ALE-D0D00067	info	inferred	A graphics query could not be created
+ALE-D0D00068	info	inferred	An index buffer could not be created
+ALE-D0D09035	info	inferred	Fullscreen waits until the window is in the foreground
+ALE-D0D09036	info	inferred	The graphics feature level was reported
+SEJ-1A4F7C20	load_step:41	confirmed	Loading step 41, the crowd-control table
+SEJ-3B8E0D91	load_step:42	confirmed	Loading step 42
+SEJ-5C2A6F38	load_step:44	confirmed	Loading step 44
+SEJ-7D9B14EE	load_step:46	confirmed	Loading step 46, the fog of war
+SEJ-2E60A8C7	load_step:49	confirmed	Loading step 49
+SEJ-9F31B5D0	load_step:52	confirmed	Loading step 52, mounting the champions' archives
+SEJ-4A7C2E89	load_step:53	confirmed	Loading step 53, the solid-color shaders
+SEJ-6B0D93F1	load_step:55	confirmed	Loading step 55
+SEJ-8C5E1A4B	load_step:59	confirmed	Loading step 59
+SEJ-7A6C39E2	load_step:60	confirmed	Loading step 60, draining the asset loader
+SEJ-1D2F86A3	load_step:61	confirmed	Loading step 61, the render queue
+SEJ-3E9A0C57	load_step:62	confirmed	Loading step 62, the environment's cube-map array
+SEJ-5F4B27D8	load_step:63	confirmed	Loading step 63, spawning the team bases
+SEJ-95FD3BC3	info	confirmed	A very slow frame update was recorded
+SEJ-AB67B010	info	inferred	The spawn packet arrived
+SEJ-C35EAED6	info	inferred	A call to the League client failed

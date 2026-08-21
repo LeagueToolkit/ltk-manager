@@ -1,0 +1,173 @@
+000000.000| ALWAYS| Logging started at 2026-08-17T07:26:15.487
+000000.001| ALWAYS|   CFG| CrashHandler(Sentry)
+000000.173| ALWAYS|   CFG| Command Line:  "0.0.0.0 0 AAAA 0" "-Product=LoL" "-PlayerID=0" "-GameID=0" "-PlayerNameMode=ALIAS" "-LNPBlob=AAAA" "-GameBaseDir=C:\Riot Games\League of Legends" "-Region=EUW" "-PlatformID=EUW1" "-Locale=en_US" "-SkipBuild" "-EnableCrashpad=true" "-DisableCrashUploading" "-RiotClientPort=0" "-RiotClientAuthToken=AAAA" 
+000000.557| ALWAYS| Live Profiling enabled. Will overwrite old RPD.
+000000.558| ALWAYS|   CFG| Build Version: Version 16.16.804.9184 (Aug 10 2026/16:10:32) [PUBLIC] <Releases/16.16> ChangeList: 8049184
+000000.568| ALWAYS|   CFG| Content Version: 16.16.8049184+branch.releases-16-16.content.release
+000000.632| ALWAYS| LCURemotingClient: Initializing on port 0
+000000.635| ALWAYS| LCURemotingClient: Connected to app process.
+000000.636| ALWAYS|  FLOW| Initializing Renderer
+000000.636| ALWAYS| r3dRenderLayer::Init enter
+000000.636| ALWAYS| r3dRenderLayer::Init() exit successfully
+000000.636| ALWAYS| rr3dRenderLayer::InitDevice(XRes = 3440, YRes = 1440, BPP = 32) PresentMode: Windowed enter
+000000.636| ALWAYS| rr3dRenderLayer::InitDevice: Creating X3D device
+000000.659| ALWAYS| DXGI version: 1.6
+000000.659| ALWAYS| Detected Adapter 'NVIDIA GeForce RTX 4070 SUPER'
+000000.663| ALWAYS| DXGI: Tearing support enabled.
+000001.315| ALWAYS| DX11 feature level: 11.1
+000001.362| ALWAYS| Using X3D Platform: DX11
+000001.365| ALWAYS| X3D: Focus Gained
+000001.365| ALWAYS| r3dRenderLayer::RecreateOwnedResources
+000001.365| ALWAYS| r3dRenderLayer::InitResources exit successfully
+000001.431| ALWAYS|  STRT| GameClientApplicationSessionID: STRT
+000001.522| ALWAYS| AudioManagerWwise: Wwise Version v2022.1.13 initialized.
+000001.539| ALWAYS|  FLOW| Requesting State Transition: Pushing Patching State Stack Empty
+000001.539| ALWAYS|  FLOW| Completed  State Transition: Pushing Bootstrap Current Topmost State: Bootstrap
+000001.545| ALWAYS|  FLOW| Starting   State Transition: Pushing Patching Current Topmost State: Bootstrap
+000001.545| ALWAYS|  FLOW| Completed  State Transition: Pushing Patching Current Topmost State: Patching
+000001.546| ALWAYS|  FLOW| Requesting State Transition: Changing from Patching to LoLCommon Current Topmost State: Patching
+000001.563| ALWAYS|  FLOW| Starting   State Transition: Changing from Patching to LoLCommon Current Topmost State: Patching
+000001.640| ALWAYS| LCURemotingClient: Initializing on port 0
+000001.643| ALWAYS| LCURemotingClient: Connected to app process.
+000001.647| ALWAYS| LCUVoiceChatClient: Disabling voice, channel not available at startup
+000001.662| ALWAYS|  FLOW| Completed  State Transition: Changing from Patching to LoLCommon Current Topmost State: LoLCommon
+000001.663| ALWAYS|  FLOW| Requesting State Transition: Pushing GameSession Current Topmost State: LoLCommon
+000001.663| ALWAYS| LCUVoiceChatClient: Parental controls voice restriction updated: unrestricted
+000001.663| ALWAYS|  FLOW| Starting   State Transition: Pushing GameSession Current Topmost State: LoLCommon
+000001.663| ALWAYS| GameStartData::GameID=0
+000001.664| ALWAYS| Client Clock Synchronization Started
+000001.664| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(0) ServerAddress(0.0.0.0:0) SummonerID(0)
+000001.664| ALWAYS|  CONN| Connecting to address (0.0.0.0) port (0)
+000001.664| ALWAYS| LCURemotingClient: Initializing on port 0
+000001.667| ALWAYS| LCURemotingClient: Connected to app process.
+000001.668| ALWAYS|  FLOW| Completed  State Transition: Pushing GameSession Current Topmost State: GameSession
+000001.759| ALWAYS|  CONN| Hard Connect at LocalSimTime(0.000)
+000001.759| ALWAYS|   CLK| Replica[0] Scale negative delay correction: 0.000120
+000001.759| ALWAYS|   CLK| Replica[0]: Scale(1.00) LocalTime(0.000) SegmentStartTime(0.000) LocalOffset(1.213) Snap
+000001.759| ALWAYS|   CLK| Replica[0] Pause negative delay correction: 0.000140
+000001.759| ALWAYS|   CLK| Replica[0]: Command(Pause) LocalTime(0.000) SegmentStartTime(0.000) LocalOffset(1.213) Snap
+000001.759| ALWAYS|   CLK| Replica[1] Scale negative delay correction: 0.000150
+000001.759| ALWAYS|   CLK| Replica[1]: Scale(1.00) LocalTime(0.000) SegmentStartTime(2.972) LocalOffset(1.213) Snap
+000001.759| ALWAYS|   CLK| Replica[1] Pause negative delay correction: 0.000159
+000001.759| ALWAYS|   CLK| Replica[1]: Command(Unpause) LocalTime(2.972) SegmentStartTime(2.972) LocalOffset(1.213) Snap
+000001.819| ALWAYS|  CONN| Game Info Received: Initial Connection
+000001.819| ALWAYS|  FLOW| GameSession Connecting to Segment GameSessionGameplay
+000001.819| ALWAYS| GameStartInfo GPP match Id = 00000000-0000-0000-0000-000000000000, mapskin = Default
+000001.819| ALWAYS|   CFG| MultiplayerSettings Encryption=true Compression=true MinimumSizeToCompressPayloadThreshold=0 CompressionLevel=3 Logging=false Wireless=false Redundancy=false Threshold=0 Resends=20 Timeout=8 TimeoutDisplay=3 MinLatency=0.000 
+000001.861| ALWAYS|  CONN| Session Info: Received ServerSimTime(0.000) MyPreviousDisconnectCount(0)
+000001.861| ALWAYS|  ROST| CONNECTION READY | TeamOrder 0) 'Player#EUW' **LOCAL** - Champion(Aatrox) SkinID(0) TeamBuilderRole(NONE) PUUID(00000000-0000-0000-0000-000000000000) ConnectionState(Connected)
+000001.861| ALWAYS|  CONN| Game Server Connection Established after 0.196 seconds, 0 retries
+000001.861| ALWAYS|  FLOW| Requesting State Transition: Pushing Gameplay Current Topmost State: GameSession
+000001.861| ALWAYS|  FLOW| Starting   State Transition: Pushing Gameplay Current Topmost State: GameSession
+000001.867| ALWAYS| LCUChatClientAsync: Chat session is "loaded".
+000002.018| ALWAYS|   CFG| MultiplayerSettings Encryption=true Compression=true MinimumSizeToCompressPayloadThreshold=0 CompressionLevel=3 Logging=false Wireless=false Redundancy=false Threshold=0 Resends=20 Timeout=8 TimeoutDisplay=3 MinLatency=0.000 
+000002.147| ALWAYS| Set focus to app
+000002.147| ALWAYS|   CFG| OS Version: 11  Professional, 26200, CPU: AMD Ryzen 7 9800X3D 8-Core Processor (Family: 0x1a Model: 0x44 Stepping: 0x00) : 16 Logical Cores, Instruction Set Level 7, Physical memory: 68719476736, Display info: NVIDIA GeForce RTX 4070 SUPER 4293918720 32.0.15.9649, Driver: 32.0.15.9649
+000002.158| ALWAYS|  FLOW| Completed  State Transition: Pushing Gameplay Current Topmost State: Gameplay
+000002.160| ALWAYS|  FLOW| Requesting State Transition: Pushing LoadingScreen Current Topmost State: Gameplay
+000002.160| ALWAYS|  FLOW| Starting   State Transition: Pushing LoadingScreen Current Topmost State: Gameplay
+000002.323| ALWAYS|  FLOW| Completed  State Transition: Pushing LoadingScreen Current Topmost State: LoadingScreen
+000002.324| ALWAYS|  FLOW| Loading Started
+000002.370| ALWAYS| LCUChatClientAsync: Parental controls chat restriction updated: unrestricted
+000003.275| ALWAYS| Successfully received v3 muted players list: 
+000003.312| ALWAYS|  LOAD| LOADING: Begin Game Object Update
+000003.314| ALWAYS|  LOAD| LOADING: End Game Object Update
+000003.664| ALWAYS| LoadGlobalEffects
+000003.690| ALWAYS| LoadGlobalEffects Finished
+000003.691| ALWAYS|  LOAD| SEJ-1A4F7C20
+000003.700| ALWAYS|  LOAD| SEJ-3B8E0D91
+000003.700| ALWAYS|  LOAD| SEJ-5C2A6F38
+000003.700| ALWAYS|  LOAD| SEJ-7D9B14EE
+000003.703| ALWAYS|  LOAD| SEJ-2E60A8C7
+000003.703| ALWAYS|  LOAD| SEJ-9F31B5D0
+000003.741| ALWAYS|  LOAD| SEJ-4A7C2E89
+000003.741| ALWAYS|  LOAD| SEJ-6B0D93F1
+000003.741| ALWAYS|  LOAD| SEJ-8C5E1A4B
+000003.835| ALWAYS|  LOAD| SEJ-7A6C39E2
+000003.841| ALWAYS|  LOAD| SEJ-1D2F86A3
+000004.108| ALWAYS|  LOAD| SEJ-3E9A0C57
+000004.111| ALWAYS|  LOAD| SEJ-5F4B27D8
+000004.111| ALWAYS|  FLOW| Loading Ended
+000004.115| ALWAYS|  FLOW| Data Load Complete
+000004.116| ALWAYS|  FLOW| Start Main Loop
+000004.156| ALWAYS| Client Clock: InitialSync->Converging after 2.492 seconds. Offset(1.237896) Outliers(1) Delay(0.032342) DelayVariance(0.000006)
+000004.160| ALWAYS|   CLK| Replica[0]: Scale(1.00) LocalTime(0.000) SegmentStartTime(0.000) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[0]: Command(Pause) LocalTime(0.021) SegmentStartTime(0.000) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[1]: Scale(1.00) LocalTime(5.374) SegmentStartTime(5.377) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[1]: Command(Unpause) LocalTime(5.398) SegmentStartTime(5.377) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[0]: Scale(1.00) LocalTime(0.021) SegmentStartTime(0.000) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[0]: Command(Pause) LocalTime(0.021) SegmentStartTime(0.000) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[1]: Scale(1.00) LocalTime(5.398) SegmentStartTime(5.377) LocalOffset(1.238) Snap
+000004.160| ALWAYS|   CLK| Replica[1]: Command(Unpause) LocalTime(5.398) SegmentStartTime(5.377) LocalOffset(1.238) Snap
+000004.160| ALWAYS|  FLOW| GameSession Connecting to Segment GameSessionGameplay
+000004.160| ALWAYS|  FLOW| Switching Game State from GAMESTATE_PREGAME to GAMESTATE_SPAWN for reason Received StartSpawn packet.
+000004.231| ALWAYS|  FLOW| Spawning completed
+000004.231| ALWAYS|  FLOW| SEJ-BC89AC41
+000004.231| ALWAYS|  FLOW| SEJ-6671BCAD
+000004.406| ALWAYS|   CLK| Replica[0]: Command(Unpause) LocalTime(0.021) SegmentStartTime(0.000) LocalOffset(1.238) Interpolate
+000004.406| ALWAYS|  FLOW| Switching Game State from GAMESTATE_SPAWN to GAMESTATE_GAMELOOP for reason Received Game Start Packet.
+000004.408| ALWAYS|  FLOW| Requesting State Transition: Popping LoadingScreen Current Topmost State: LoadingScreen
+000004.409|  ERROR| >>> BuffHashMap::HashToName - Match not found for hash 074fd631
+000004.409| ALWAYS|  FLOW| SEJ-8711AB1A 0.0208664
+000004.437| ALWAYS|  FLOW| SEJ-9651ACAB
+000004.437| ALWAYS|  FLOW| SEJ-B2890C00
+000004.450| ALWAYS| GAMESTATE_GAMELOOP UpdateVis
+000004.453| ALWAYS| GAMESTATE_GAMELOOP AudioUpdate
+000004.453| ALWAYS| GAMESTATE_GAMELOOP EndRender & EndFrame
+000004.454| ALWAYS|  FLOW| SEJ-891ACC45
+000004.455| ALWAYS|  FLOW| Starting   State Transition: Popping LoadingScreen Current Topmost State: LoadingScreen
+000004.482| ALWAYS|  FLOW| Completed  State Transition: Popping LoadingScreen Current Topmost State: Gameplay
+000007.963| ALWAYS|  FLOW| Switching Game State from GAMESTATE_GAMELOOP to GAMESTATE_PRE_EXIT for reason Quit Game Confirmed
+000007.964| ALWAYS|  CONN| Requesting disconnect (19)
+000007.967| ALWAYS|  CONN| Disconnected:  Reason(19) Remote(0) LocalSimTime(3.66077) SessionDisconnectCount(1)
+000007.967| ALWAYS|  FLOW| Switching Game State from GAMESTATE_PRE_EXIT to GAMESTATE_EXIT for reason PreExit Game State is Complete.
+000007.972| ALWAYS|  FLOW| Finished Main Loop
+000007.972| ALWAYS| =================== Perf Stats (all in ms) =========================
+000007.972| ALWAYS| Average Frame Time:    4.33
+000007.972| ALWAYS| Average FPS:           230.96 fps
+000007.972| ALWAYS| StdDev Frame Time:     1.81
+000007.972| ALWAYS| Max Frame Time:        45.07
+000007.972| ALWAYS| Ave GPU Frame Time:    0.71
+000007.972| ALWAYS| StdDev GPU Frame Time: 0.35
+000007.972| ALWAYS| Max GPU Frame Time:    3.61
+000007.972| ALWAYS| GPU Time Histogram:    [1,744,51,16,0,0,0,0,0,0,0,0,0,0]
+000007.972| ALWAYS| Histogram Buckets:     [0.0,1.0,2.0,5.0,7.5,10.0,18.0,35.0,50.0,75.0,100.0,500.0,1000.0,340282346638528859811704183484516925440.0]
+000007.972| ALWAYS| Frame Time Histogram:  [0,0,0,805,2,1,2,1,1,0,0,0,0,0]
+000007.972| ALWAYS| Max Gfx Mem Allocated = 0.000 MiB
+000007.972| ALWAYS| Max Memory = 773.535 / 1640.809 MiB (Active/Used)
+000008.134| ALWAYS|  FLOW| LCU Game End Status: GAMEFLOW_EVENT.GAME_COMPLETED Result: 200: SUCCESS
+000008.177| ALWAYS|  FLOW| Requesting State Transition: Popping Gameplay Current Topmost State: Gameplay
+000008.177| ALWAYS|  FLOW| Starting   State Transition: Popping Gameplay Current Topmost State: Gameplay
+000008.299| ALWAYS|  FLOW| Completed  State Transition: Popping Gameplay Current Topmost State: GameSession
+000008.300| ALWAYS|  FLOW| Exiting Application
+000008.300| ALWAYS|  FLOW| Requesting State Transition: Popping GameSession Current Topmost State: GameSession
+000008.300| ALWAYS|  FLOW| Starting   State Transition: Popping GameSession Current Topmost State: GameSession
+000008.323| ALWAYS|  FLOW| ALE-8SDFH23F
+000008.328| ALWAYS|  FLOW| Requesting State Transition: Popping LoLCommon Current Topmost State: LoLCommon
+000008.328| ALWAYS|  FLOW| Completed  State Transition: Popping GameSession Current Topmost State: LoLCommon
+000008.329| ALWAYS|  FLOW| Starting   State Transition: Popping LoLCommon Current Topmost State: LoLCommon
+000008.339| ALWAYS|  FLOW| Requesting State Transition: Popping Bootstrap Current Topmost State: Bootstrap
+000008.339| ALWAYS|  FLOW| Completed  State Transition: Popping LoLCommon Current Topmost State: Bootstrap
+000008.341| ALWAYS|  FLOW| Starting   State Transition: Popping Bootstrap Current Topmost State: Bootstrap
+000008.342| ALWAYS| AudioManagerWwise::Finit
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Shutdown before finalization
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.346|   WARN| SafeShutdownFinalizer: Not shutdown safely
+000008.352| ALWAYS|  FLOW| Destroying the renderer
+000008.352| ALWAYS| r3dRenderLayer::Close() enter
+000008.543| ALWAYS| r3dRenderLayer::Close() exit

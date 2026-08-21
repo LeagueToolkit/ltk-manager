@@ -6,8 +6,9 @@ use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
 use crate::mods::{LinkedBinState, ModLibrary, ModLibraryState, WadReportState};
 use crate::patcher::{PatcherHostState, PatcherState};
-use crate::state::SettingsState;
+use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{Workshop, WorkshopState};
+use ltk_manager_core::diagnostics::store::IncidentStore;
 use ltk_manager_core::events::EventSink;
 use std::sync::Arc;
 
@@ -40,6 +41,18 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         .clone()
         .or_else(|| default_storage_dir.clone());
     let wad_reports = Arc::new(WadReportState::new(storage_dir.as_deref()));
+    let incidents_dir = match &default_storage_dir {
+        Some(dir) => dir.join("incidents"),
+        None => {
+            tracing::warn!("No app data directory, keeping incidents under the temp directory");
+            std::env::temp_dir()
+                .join("dev.leaguetoolkit.manager")
+                .join("incidents")
+        }
+    };
+    let incident_store = IncidentStoreState(Arc::new(
+        IncidentStore::new(incidents_dir).with_keep(settings.config.keep_incidents as usize),
+    ));
     let linked_bins = Arc::new(LinkedBinState::default());
 
     let mod_library = ModLibraryState(ModLibrary::new(
@@ -69,6 +82,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
+    app.manage(incident_store);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
     app.manage(wad_reports);

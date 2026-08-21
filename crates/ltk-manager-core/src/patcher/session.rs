@@ -11,9 +11,15 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 
+use chrono::Utc;
+
+use crate::diagnostics::incident::SessionFailure;
+
 use super::events::PatcherEvents;
 use super::host::{HostConfig, HostError, HostLine, PatcherHost};
 use super::injector::{Injector, InjectorError, InjectorEvent};
+use super::pipeline::IncidentPipeline;
+use super::recorder::GameRecorder;
 
 /// Fatal error from one injection session.
 #[derive(Debug, thiserror::Error)]
@@ -24,6 +30,76 @@ pub enum SessionError {
     /// The injection session itself failed.
     #[error(transparent)]
     Injector(#[from] InjectorError),
+}
+
+/// Where a session's events go: the embedder, and the game record.
+///
+/// One per session, shared between the injector's callback and the thread
+/// that owns the session, so a failure after the event loop returns still
+/// reaches the record.
+pub struct SessionObserver {
+    events: Arc<dyn PatcherEvents>,
+    recorder: Mutex<GameRecorder>,
+    pipeline: Arc<IncidentPipeline>,
+}
+
+impl SessionObserver {
+    pub fn new(
+        events: Arc<dyn PatcherEvents>,
+        recorder: GameRecorder,
+        pipeline: Arc<IncidentPipeline>,
+    ) -> Self {
+        Self {
+            events,
+            recorder: Mutex::new(recorder),
+            pipeline,
+        }
+    }
+
+    /// Routes one injector event to the embedder and the game record, and
+    /// hands a closed record to the pipeline.
+    pub fn observe(&self, event: InjectorEvent) {
+        match &event {
+            InjectorEvent::WadScanFailed { failures } => {
+                self.events.wad_scan_failed(failures.clone());
+            }
+            InjectorEvent::GameAttached { pid } => self.events.game_attached(*pid),
+            InjectorEvent::Overlay { outcome, .. } => self.events.game_overlay(*outcome),
+            InjectorEvent::GameExited => self.events.game_exited(),
+            _ => {}
+        }
+        let closed = self
+            .recorder
+            .lock()
+            .map(|mut recorder| recorder.observe(&event, Utc::now()));
+        match closed {
+            Ok(Some(record)) => self.pipeline.spawn(record),
+            Ok(None) => {}
+            Err(_) => tracing::warn!("Game recorder lock poisoned, event dropped"),
+        }
+    }
+
+    /// The session failed, in the build or at the host. The record, with any
+    /// open game folded in, goes to the pipeline.
+    pub fn session_failed(&self, failure: SessionFailure) {
+        let Ok(mut recorder) = self.recorder.lock() else {
+            tracing::warn!("Game recorder lock poisoned, failure not recorded");
+            return;
+        };
+        let record = recorder.session_failed(failure, Utc::now());
+        self.pipeline.spawn(record);
+    }
+
+    /// The session ended by request. A game still running is dropped unless
+    /// the scan rejected an archive, which is recorded.
+    pub fn session_stopped(&self) {
+        let Ok(mut recorder) = self.recorder.lock() else {
+            return;
+        };
+        if let Some(record) = recorder.session_stopped(Utc::now()) {
+            self.pipeline.spawn(record);
+        }
+    }
 }
 
 /// Ensure the overlay prefix ends with a path separator, as the host's
@@ -49,16 +125,14 @@ pub fn run_injection_session(
     elevate: bool,
     config: &HostConfig,
     stop_flag: &AtomicBool,
-    events: Arc<dyn PatcherEvents>,
+    observer: Arc<SessionObserver>,
 ) -> Result<(), SessionError> {
     let host_lines = ensure_host_started(host, injector_exe, elevate, config)?;
 
     // Blocks until the game closes or the patcher is stopped.
     let (result, host_lines) = Injector::new()
         .with_elevate(elevate)
-        .on_event(move |event| match event {
-            InjectorEvent::WadScanFailed { failures } => events.wad_scan_failed(failures),
-        })
+        .on_event(move |event| observer.observe(event))
         .run_session(host_lines, host, stop_flag);
 
     // Hand the event stream back to the host so the next session reuses it -

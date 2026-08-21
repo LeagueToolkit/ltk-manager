@@ -1,13 +1,22 @@
+import {
+  FolderOpenIcon,
+  GearIcon,
+  MinusIcon,
+  PersonArmsSpreadIcon,
+  SquareIcon,
+  StethoscopeIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-shell";
-import { Accessibility, FolderOpen, Minus, Settings, Square, Stethoscope, X } from "lucide-react";
 import { type ComponentType, useEffect, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { CollectionIcon, IconButton, LootIcon, Separator, Tooltip, useToast } from "@/components";
 import { usePlatformSupport } from "@/hooks";
-import { api, type AppInfo, unwrap } from "@/lib/tauri";
+import { api, type AppInfo, unwrap, type VerdictKind } from "@/lib/tauri";
+import { isInformational, useLatestIncident, useLatestIncidentToken } from "@/modules/diagnostics";
 
 import { NotificationCenter } from "./NotificationCenter";
 
@@ -89,14 +98,32 @@ function NavLink({
   );
 }
 
-function buildBugReportUrl(appInfo: AppInfo | undefined): string {
-  const base = "https://github.com/LeagueToolkit/ltk-manager/issues/new?template=bug_report.yml";
-  if (!appInfo) return base;
+/**
+ * A verdict that reports facts without blaming anything is information. One
+ * that names a failure is a warning, and the dot says which is waiting.
+ */
+const incidentDotClass: Record<"informational" | "failure", string> = {
+  informational: "bg-warning",
+  failure: "bg-danger",
+};
 
-  const params = new URLSearchParams();
-  params.set("template", "bug_report.yml");
-  params.set("version", appInfo.version);
-  params.set("os", `${appInfo.os} ${appInfo.arch}`);
+function incidentDotKind(kind: VerdictKind) {
+  return isInformational(kind) ? "informational" : "failure";
+}
+
+function diagnosticsTooltip(pending: number): string {
+  if (pending === 0) return "Diagnostics";
+  if (pending === 1) return "Diagnostics · 1 incident to review";
+  return `Diagnostics · ${pending} incidents to review`;
+}
+
+function buildBugReportUrl(appInfo: AppInfo | undefined, diagnosticToken: string | null): string {
+  const params = new URLSearchParams({ template: "bug_report.yml" });
+  if (appInfo) {
+    params.set("version", appInfo.version);
+    params.set("os", `${appInfo.os} ${appInfo.arch}`);
+  }
+  if (diagnosticToken) params.set("diagnostic", diagnosticToken);
 
   return `https://github.com/LeagueToolkit/ltk-manager/issues/new?${params.toString()}`;
 }
@@ -109,9 +136,12 @@ interface TitleBarProps {
 export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const { data: platform } = usePlatformSupport();
   const isMacOS = platform?.os === "macos";
+  const { latest, data: incidents } = useLatestIncident();
+  const diagnosticToken = useLatestIncidentToken();
+  const pendingIncidents = incidents?.filter((incident) => !incident.dismissed).length ?? 0;
 
   const version = appInfo?.version;
-  const bugReportUrl = buildBugReportUrl(appInfo);
+  const bugReportUrl = buildBugReportUrl(appInfo, diagnosticToken);
   const [isMaximized, setIsMaximized] = useState(false);
   const appWindow = getCurrentWindow();
   const toast = useToast();
@@ -192,7 +222,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
         <div className="flex h-full items-center">
           <Tooltip content="Open storage directory">
             <IconButton
-              icon={<FolderOpen className="h-4 w-4" />}
+              icon={<FolderOpenIcon className="h-4 w-4" />}
               variant="ghost"
               size="sm"
               onClick={handleOpenStorageDirectory}
@@ -205,7 +235,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
           <Tooltip content="Report a Bug">
             <IconButton
-              icon={<Accessibility className="h-5 w-5" />}
+              icon={<PersonArmsSpreadIcon className="h-5 w-5" />}
               variant="ghost"
               size="sm"
               onClick={() => open(bugReportUrl)}
@@ -225,14 +255,26 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             />
           </Tooltip>
 
-          <Tooltip content="Diagnostics">
+          <Tooltip content={diagnosticsTooltip(pendingIncidents)}>
             <Link
               to="/diagnostics"
               activeProps={{ className: twMerge(iconNavBase, iconNavActive) }}
               inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
-              aria-label="Diagnostics"
+              aria-label={diagnosticsTooltip(pendingIncidents)}
+              data-ui="TitleBar:diagnostics"
             >
-              <Stethoscope className="h-4 w-4" />
+              <span className="relative">
+                <StethoscopeIcon className="h-4 w-4" />
+                {latest && (
+                  <span
+                    aria-hidden
+                    className={twMerge(
+                      "absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full",
+                      incidentDotClass[incidentDotKind(latest.verdict.kind)],
+                    )}
+                  />
+                )}
+              </span>
             </Link>
           </Tooltip>
 
@@ -243,7 +285,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             inactiveProps={{ className: twMerge(iconNavBase, iconNavInactive) }}
             aria-label="Settings"
           >
-            <Settings className="h-4 w-4" />
+            <GearIcon className="h-4 w-4" />
           </Link>
         </div>
 
@@ -253,7 +295,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
             <div className="flex h-full">
               <IconButton
-                icon={<Minus className="h-3.5 w-3.5" />}
+                icon={<MinusIcon className="h-3.5 w-3.5" />}
                 variant="ghost"
                 size="sm"
                 onClick={handleMinimize}
@@ -265,7 +307,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                   isMaximized ? (
                     <OverlappingSquares className="h-3 w-3" />
                   ) : (
-                    <Square className="h-3 w-3" />
+                    <SquareIcon className="h-3 w-3" />
                   )
                 }
                 variant="ghost"
@@ -275,10 +317,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 className={windowControlClass}
               />
               <IconButton
-                /* Lucide's X is inset to half its viewBox, so it needs a box two rungs
-                   above its neighbours' to draw a cross their size, then a lighter stroke
-                   to come back to their weight at that box. */
-                icon={<X className="h-5 w-5" strokeWidth={1.25} />}
+                icon={<XIcon className="h-4 w-4" />}
                 variant="ghost"
                 size="sm"
                 onClick={handleClose}

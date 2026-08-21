@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::thread::JoinHandle;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// Current phase of the patcher lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -38,7 +38,7 @@ impl StoredPatcherConfig {
 }
 
 /// What a patching session was started for, and what it covers.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase", tag = "kind")]

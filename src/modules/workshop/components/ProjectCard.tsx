@@ -6,6 +6,7 @@ import { match } from "ts-pattern";
 
 import { Button, Checkbox, IconButton, Menu, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
+import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
@@ -135,7 +136,10 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           <p className="truncate text-sm text-surface-500">
             v{project.version} • {project.authors.map((a) => a.name).join(", ") || "Unknown author"}
           </p>
-          <ProjectPills project={project} max={3} />
+          <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
+            <ProjectPills project={project} max={3} />
+            <SuspectBadge projectPath={project.path} />
+          </div>
         </div>
 
         {isTestingThis && stopPill}
@@ -243,7 +247,10 @@ export function ProjectCard({ project, viewMode, onEdit }: ProjectCardProps) {
           <h3 className="mb-1 truncate text-sm font-medium text-surface-100">
             {project.displayName}
           </h3>
-          <ProjectPills project={project} max={3} className="mb-1" />
+          <div className="mb-1 flex flex-wrap items-center gap-1.5 empty:hidden">
+            <ProjectPills project={project} max={3} />
+            <SuspectBadge projectPath={project.path} />
+          </div>
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
             <span>v{project.version}</span>
             <span>•</span>

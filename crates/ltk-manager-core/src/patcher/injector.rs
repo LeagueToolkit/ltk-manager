@@ -9,7 +9,12 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayOutcome};
+
+use super::dll_lines::{self, DllLine, host_status};
 use super::host::{self, HOST_EXE_NAME, HostError, HostEvent, HostLine, HostState, PatcherHost};
+
+pub use super::dll_lines::parse_wad_scan_failure;
 
 /// Re-export the executable name that `commands/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
@@ -25,17 +30,48 @@ pub enum InjectorError {
 /// Notable conditions the injector surfaces to the host application while a
 /// session is running. Keeps the injector free of any Tauri/UI dependency: the
 /// command layer supplies a callback that translates these into UI events.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InjectorEvent {
+    /// The host is scanning for a game, at the start of the session or after
+    /// the last game's window went away.
+    Scanning,
+    /// The host hooked a game's thread. The first sign of a game.
+    GameFound,
+    /// The DLL acked the host's config. `pid` is read from the first `dll`
+    /// record after the ack, and is `None` when none came in time.
+    GameAttached { pid: Option<u64> },
+    /// What the DLL said about the overlay after it attached. `detail` is the
+    /// archive and reason for a disabled overlay, the hook that failed, or the
+    /// build timestamp the DLL refused.
+    Overlay {
+        outcome: OverlayOutcome,
+        detail: Option<String>,
+    },
+    /// The overlay hook served an archive, named by its last path segment.
+    WadRedirected { wad: String },
+    /// The lazy scan skipped one archive, and the game runs without it.
+    WadSkipped { wad: String, why: String },
+    /// What kind of game the DLL read from the command line.
+    Launch(LaunchKind),
+    /// The game process ended. The last sign of a game, and not of the session.
+    GameExited,
     /// One or more archives failed the injected DLL's integrity scan, so no mods
     /// were applied this session. The DLL aborts on the first failure, so we
     /// auto-stop the patcher and surface the failures instead of silently doing
     /// nothing.
     WadScanFailed { failures: Vec<WadScanFailure> },
+    /// A line with no typed event of its own, kept for the evidence timeline:
+    /// the host's other status lines, and the DLL's notable records.
+    Line {
+        source: EvidenceSource,
+        /// The host's own clock, in seconds since it started.
+        at_host: String,
+        text: String,
+    },
 }
 
 /// A single archive that failed the injected DLL's integrity scan.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WadScanFailure {
     /// The archive (e.g. `TahmKench.wad.client`), if we could parse the name.
     pub wad: Option<String>,
@@ -71,6 +107,11 @@ impl SessionControl for Arc<Mutex<Option<PatcherHost>>> {
 /// reporting them together. They arrive as a burst during the game's load scan,
 /// so a short window captures every offending archive.
 const WAD_FAILURE_COLLECT_WINDOW: Duration = Duration::from_millis(750);
+
+/// How long after `status injected` to wait for a `dll` record to name the
+/// game's pid before reporting the attach without one. The DLL logs `init in
+/// process` at once, so this only runs out when it logs nothing at all.
+const ATTACH_PID_WINDOW: Duration = Duration::from_secs(1);
 
 /// Drives one patching session against an already-running [`PatcherHost`].
 ///
@@ -159,6 +200,10 @@ impl Injector {
                 stop_flag.store(true, Ordering::SeqCst);
             }
 
+            if state.take_expired_attach() {
+                self.emit_event(InjectorEvent::GameAttached { pid: None });
+            }
+
             if stop_flag.load(Ordering::SeqCst) {
                 tracing::info!("Stop requested, sending stop to host");
                 control.stop_session();
@@ -201,10 +246,10 @@ impl Injector {
         match host::parse_event(line) {
             Some(HostEvent::Ok { message, .. }) => tracing::debug!("[ltk-host] ok: {}", message),
             Some(HostEvent::Status {
+                timestamp,
                 state: host_state,
                 message,
-                ..
-            }) => self.handle_status(host_state, message)?,
+            }) => self.handle_status(host_state, timestamp, message, state)?,
             Some(HostEvent::Error { message, .. }) => {
                 // A protocol-level error (e.g. an unrecognized command) is not
                 // necessarily fatal to an in-progress injection - the host reports
@@ -214,39 +259,144 @@ impl Injector {
                 state.last_error = Some(message);
             }
             Some(HostEvent::DllLog {
+                timestamp,
                 pid,
                 tid,
                 level,
                 message,
-                ..
             }) => {
                 tracing::info!("[ltk-dll pid={} tid={} {}] {}", pid, tid, level, message);
-                state.record_wad_failure(&message);
+                self.handle_dll_record(pid, &timestamp, &level, &message, state);
             }
             None => tracing::trace!("[ltk-host] unparsed: {}", line),
         }
         Ok(())
     }
 
-    /// Log an injection-lifecycle transition. Only `Failed` ends the session; a
-    /// game `Exited` keeps the loop alive so the host re-scans for the next game.
-    fn handle_status(&self, state: HostState, message: String) -> Result<(), InjectorError> {
+    /// Log an injection-lifecycle transition and type the game's boundaries.
+    /// Only `Failed` ends the session; a game `Exited` keeps the loop alive so
+    /// the host re-scans for the next game.
+    fn handle_status(
+        &self,
+        state: HostState,
+        timestamp: String,
+        message: String,
+        session: &mut SessionState,
+    ) -> Result<(), InjectorError> {
         match state {
-            HostState::Injecting => tracing::info!("[ltk-host] injecting: {}", message),
-            HostState::Injected => tracing::info!("[ltk-host] injected: {}", message),
-            HostState::Waiting => tracing::info!("[ltk-host] waiting: {}", message),
+            HostState::Injecting => {
+                tracing::info!("[ltk-host] injecting: {}", message);
+                match message.as_str() {
+                    host_status::SCANNING_FOR_GAME => {
+                        self.flush_attach(session);
+                        self.emit_event(InjectorEvent::Scanning);
+                    }
+                    host_status::GAME_FOUND => self.emit_event(InjectorEvent::GameFound),
+                    _ => self.emit_host_line(timestamp, message),
+                }
+            }
+            HostState::Injected => {
+                tracing::info!("[ltk-host] injected: {}", message);
+                session.await_attach_pid();
+            }
+            HostState::Waiting => {
+                tracing::info!("[ltk-host] waiting: {}", message);
+                self.emit_host_line(timestamp, message);
+            }
             HostState::Exited => {
                 tracing::info!(
                     "[ltk-host] game exited: {}; awaiting next instance",
                     message
                 );
+                self.flush_attach(session);
+                self.emit_event(InjectorEvent::GameExited);
             }
             HostState::Failed => {
                 tracing::error!("[ltk-host] failed: {}", message);
+                self.flush_attach(session);
+                self.emit_host_line(timestamp, format!("failed: {message}"));
                 return Err(InjectorError::Failed(message));
             }
         }
         Ok(())
+    }
+
+    /// Fold one DLL record into the session: the scan-failure batch, the pid
+    /// an attach was waiting for, and the typed line it carries.
+    fn handle_dll_record(
+        &self,
+        pid: u64,
+        timestamp: &str,
+        level: &str,
+        message: &str,
+        session: &mut SessionState,
+    ) {
+        session.record_wad_failure(message);
+        if session.take_awaiting_attach() {
+            self.emit_event(InjectorEvent::GameAttached { pid: Some(pid) });
+        }
+
+        let Some(line) = DllLine::parse(message) else {
+            if level.eq_ignore_ascii_case("error") {
+                self.emit_dll_line(timestamp, message);
+            }
+            return;
+        };
+
+        let event = match line {
+            DllLine::ScanFailed(_) => return,
+            DllLine::InitDone => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::Live,
+                detail: None,
+            },
+            DllLine::JoinedTooLate => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::TooLate,
+                detail: None,
+            },
+            DllLine::EndOfLife { build } => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::EndOfLife,
+                detail: Some(build),
+            },
+            DllLine::OverlayDisabled { wad, why } => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::Disabled,
+                detail: Some(format!("{wad}: {why}")),
+            },
+            DllLine::HookFailed { hook } => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::HookFailed,
+                detail: Some(hook),
+            },
+            DllLine::Redirected { wad } => {
+                self.emit_event(InjectorEvent::WadRedirected { wad });
+                return;
+            }
+            DllLine::WadSkipped { wad, why } => InjectorEvent::WadSkipped { wad, why },
+            DllLine::Launch(kind) => InjectorEvent::Launch(kind),
+        };
+        self.emit_event(event);
+        self.emit_dll_line(timestamp, message);
+    }
+
+    /// Report an attach the DLL never put a pid to.
+    fn flush_attach(&self, session: &mut SessionState) {
+        if session.take_awaiting_attach() {
+            self.emit_event(InjectorEvent::GameAttached { pid: None });
+        }
+    }
+
+    fn emit_host_line(&self, at_host: String, text: String) {
+        self.emit_event(InjectorEvent::Line {
+            source: EvidenceSource::Host,
+            at_host,
+            text,
+        });
+    }
+
+    fn emit_dll_line(&self, at_host: &str, message: &str) {
+        self.emit_event(InjectorEvent::Line {
+            source: EvidenceSource::Dll,
+            at_host: at_host.to_string(),
+            text: dll_lines::strip_target(message).to_string(),
+        });
     }
 
     /// Build the error returned when the host process disappears without us
@@ -279,6 +429,9 @@ struct SessionState {
     failures: Vec<WadScanFailure>,
     collect_deadline: Option<Instant>,
     reported: bool,
+    /// Set at `status injected`, and cleared when a `dll` record names the pid,
+    /// a later status line ends the wait, or the window runs out.
+    attach_deadline: Option<Instant>,
 }
 
 impl SessionState {
@@ -316,43 +469,26 @@ impl SessionState {
         self.reported = true;
         Some(std::mem::take(&mut self.failures))
     }
-}
 
-/// Send `stop` to the persistent host to tear down the current injection
-/// session, leaving the process alive for reuse.
-/// Parse a "WAD scan failed" line, e.g.
-/// `error: WAD scan failed status with c0000229 for Ahri.wad.client`. Returns
-/// `None` for non-failures, including the `warn:`-level line the DLL emits when
-/// the scan is opted out (`OPT_OUT_AH_V1`) and keeps injecting. `wad` is present
-/// when named; `status` falls back to `"unknown"`. The frontend classifies it.
-// TODO: we shouldnt be making the patcher stop abruptly since it can cause crashes
-fn parse_wad_scan_failure(message: &str) -> Option<WadScanFailure> {
-    if !message.contains("WAD scan failed") {
-        return None;
-    }
-    if message.trim_start().starts_with("warn:") {
-        return None;
+    fn await_attach_pid(&mut self) {
+        self.attach_deadline = Some(Instant::now() + ATTACH_PID_WINDOW);
     }
 
-    let status = message
-        .split_once("status with ")
-        .map(|(_, rest)| first_token(rest))
-        .filter(|s| !s.is_empty())
-        .unwrap_or("unknown")
-        .to_string();
+    /// Whether an attach is waiting for its pid. Clears the wait.
+    fn take_awaiting_attach(&mut self) -> bool {
+        self.attach_deadline.take().is_some()
+    }
 
-    let wad = message
-        .rsplit_once(" for ")
-        .map(|(_, rest)| rest.trim())
-        .filter(|s| !s.is_empty())
-        .map(str::to_string);
-
-    Some(WadScanFailure { wad, status })
-}
-
-/// First whitespace-delimited token of `s` (empty string if none).
-fn first_token(s: &str) -> &str {
-    s.split_whitespace().next().unwrap_or("")
+    /// Whether an attach waited for its pid past the window. Clears the wait.
+    fn take_expired_attach(&mut self) -> bool {
+        match self.attach_deadline {
+            Some(deadline) if Instant::now() >= deadline => {
+                self.attach_deadline = None;
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -453,6 +589,26 @@ mod tests {
         fn emitted(&self) -> Vec<InjectorEvent> {
             self.events.lock().unwrap().clone()
         }
+
+        /// The scan-failure batches among the emitted events.
+        fn scan_failures(&self) -> Vec<Vec<WadScanFailure>> {
+            self.emitted()
+                .into_iter()
+                .filter_map(|e| match e {
+                    InjectorEvent::WadScanFailed { failures } => Some(failures),
+                    _ => None,
+                })
+                .collect()
+        }
+
+        /// The emitted events with the timeline lines filtered out, which is the
+        /// sequence a recorder's state machine runs on.
+        fn typed(&self) -> Vec<InjectorEvent> {
+            self.emitted()
+                .into_iter()
+                .filter(|e| !matches!(e, InjectorEvent::Line { .. }))
+                .collect()
+        }
     }
 
     #[test]
@@ -548,10 +704,9 @@ mod tests {
 
         assert!(harness.run().is_ok(), "auto-stop is a clean end");
 
-        let events = harness.emitted();
-        assert_eq!(events.len(), 1, "failures must arrive as one batch");
-        let InjectorEvent::WadScanFailed { failures } = &events[0];
-        let wads: Vec<_> = failures.iter().filter_map(|f| f.wad.as_deref()).collect();
+        let batches = harness.scan_failures();
+        assert_eq!(batches.len(), 1, "failures must arrive as one batch");
+        let wads: Vec<_> = batches[0].iter().filter_map(|f| f.wad.as_deref()).collect();
         assert!(wads.contains(&"Ahri.wad.client"), "got: {wads:?}");
         assert!(wads.contains(&"Ashe.wad.client"), "got: {wads:?}");
         assert!(
@@ -569,9 +724,8 @@ mod tests {
 
         assert!(harness.run().is_ok());
 
-        let events = harness.emitted();
-        let InjectorEvent::WadScanFailed { failures } = &events[0];
-        assert_eq!(failures.len(), 1, "same (wad, status) reported once");
+        let batches = harness.scan_failures();
+        assert_eq!(batches[0].len(), 1, "same (wad, status) reported once");
     }
 
     #[test]
@@ -586,87 +740,210 @@ mod tests {
     }
 
     #[test]
-    fn detects_wad_scan_failure_with_wad_and_status() {
-        let msg = "error: WAD scan failed status with c0000229 for Ahri.wad.client";
-        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
-        assert_eq!(failure.wad.as_deref(), Some("Ahri.wad.client"));
-        assert_eq!(failure.status, "c0000229");
+    fn game_boundaries_are_typed_events() {
+        let mut harness = Harness::new(false);
+        harness.send("status 0.1000000 injecting scanning for game");
+        harness.send("status 1.0000000 injecting game found");
+        harness.send("status 9.0000000 exited dll detached");
+        harness.send("status 9.1000000 injecting scanning for game");
+        harness.close();
+
+        let _ = harness.run();
+
+        assert_eq!(
+            harness.typed(),
+            [
+                InjectorEvent::Scanning,
+                InjectorEvent::GameFound,
+                InjectorEvent::GameExited,
+                InjectorEvent::Scanning,
+            ]
+        );
     }
 
+    /// The status line carries no pid, so the attach waits for the first `dll`
+    /// record, which carries it on every line.
     #[test]
-    fn ignores_warn_level_scan_line_from_opt_out() {
-        // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
-        // keeps injecting - it must not be reported as a fatal scan failure.
-        assert!(
-            parse_wad_scan_failure(
-                "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
-            )
-            .is_none()
+    fn attach_takes_its_pid_from_the_first_dll_record() {
+        let mut harness = Harness::new(false);
+        harness.send("status 1.0000000 injecting game found");
+        harness.send("status 2.0000000 injected dll attached");
+        harness.send("status 2.0000001 waiting game exit");
+        harness.send("dll 2.1000000 4321 1 INFO ltk_patcher_dll::entry: init in process");
+        harness.send("dll 2.2000000 4321 1 INFO ltk_patcher_dll::entry: init done");
+        harness.close();
+
+        let _ = harness.run();
+
+        assert_eq!(
+            harness.typed(),
+            [
+                InjectorEvent::GameFound,
+                InjectorEvent::GameAttached { pid: Some(4321) },
+                InjectorEvent::Overlay {
+                    outcome: OverlayOutcome::Live,
+                    detail: None,
+                },
+            ]
         );
     }
 
     #[test]
-    fn ignores_scanning_info_line() {
-        assert!(parse_wad_scan_failure("info: Scanning champion Ahri.wad.client").is_none());
-    }
+    fn attach_without_a_dll_record_reports_no_pid_before_the_exit() {
+        let mut harness = Harness::new(false);
+        harness.send("status 2.0000000 injected dll attached");
+        harness.send("status 9.0000000 exited dll detached");
+        harness.close();
 
-    #[test]
-    fn ignores_wad_log_hash_dump() {
-        assert!(
-            parse_wad_scan_failure("error: AH WAD Log:  9fed2719bffb7d50 51df2d746a6b6791")
-                .is_none()
+        let _ = harness.run();
+
+        assert_eq!(
+            harness.typed(),
+            [
+                InjectorEvent::GameAttached { pid: None },
+                InjectorEvent::GameExited,
+            ]
         );
     }
 
     #[test]
-    fn falls_back_when_status_and_wad_missing() {
-        let failure = parse_wad_scan_failure("error: WAD scan failed").expect("detected");
-        assert_eq!(failure.wad, None);
-        assert_eq!(failure.status, "unknown");
+    fn attach_without_a_dll_record_reports_no_pid_once_the_window_runs_out() {
+        let harness = Harness::new(false);
+        harness.send("status 2.0000000 injected dll attached");
+        let stop_flag = Arc::clone(&harness.stop_flag);
+        std::thread::spawn(move || {
+            std::thread::sleep(ATTACH_PID_WINDOW + Duration::from_millis(400));
+            stop_flag.store(true, Ordering::SeqCst);
+        });
+
+        assert!(harness.run().is_ok());
+
+        assert_eq!(harness.typed(), [InjectorEvent::GameAttached { pid: None }]);
     }
 
     #[test]
-    fn falls_back_to_unknown_status_but_keeps_wad() {
-        let failure =
-            parse_wad_scan_failure("error: WAD scan failed for Kayn.wad.client").expect("detected");
-        assert_eq!(failure.wad.as_deref(), Some("Kayn.wad.client"));
-        assert_eq!(failure.status, "unknown");
+    fn dll_init_lines_set_the_overlay_outcome() {
+        let cases = [
+            (
+                "ltk_patcher_dll::entry: joined too late, not overlaying",
+                OverlayOutcome::TooLate,
+                None,
+            ),
+            (
+                "ltk_patcher_dll::entry: end of life reached, please update: 0x68a1b2c3",
+                OverlayOutcome::EndOfLife,
+                Some("0x68a1b2c3"),
+            ),
+            (
+                "ltk_patcher_dll::entry: failed to install overlay hook",
+                OverlayOutcome::HookFailed,
+                Some("overlay"),
+            ),
+            (
+                "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: mount modded wad: bad magic",
+                OverlayOutcome::Disabled,
+                Some("briar.wad.client: mount modded wad: bad magic"),
+            ),
+        ];
+        for (message, outcome, detail) in cases {
+            let mut harness = Harness::new(false);
+            harness.send(&dll_line("ERROR", message));
+            harness.close();
+
+            let _ = harness.run();
+
+            assert_eq!(
+                harness.typed(),
+                [InjectorEvent::Overlay {
+                    outcome,
+                    detail: detail.map(str::to_string),
+                }],
+                "for {message}"
+            );
+        }
     }
 
     #[test]
-    fn parses_arbitrary_status_code() {
-        // The parser stays status-agnostic - any hex code parses the same way and
-        // the frontend classifies it. c0000225 is no longer emitted at runtime
-        // (linked bins are validated pre-flight); kept here to prove that.
-        let failure = parse_wad_scan_failure(
-            "error: WAD scan failed status with c0000225 for TahmKench.wad.client",
-        )
-        .expect("parseable scan failure");
-        assert_eq!(failure.wad.as_deref(), Some("TahmKench.wad.client"));
-        assert_eq!(failure.status, "c0000225");
+    fn redirects_skips_and_launches_are_typed() {
+        let mut harness = Harness::new(false);
+        harness.send(&dll_line(
+            "INFO",
+            "ltk_patcher_dll::verify: replay (.rofl) launch; anti-hack scan will not block",
+        ));
+        harness.send(&dll_line(
+            "INFO",
+            "ltk_patcher_dll::hooks::fsov::imp_windows_iat: redirected wad: DATA/FINAL/Champions/Aatrox.wad.client",
+        ));
+        harness.send(&dll_line(
+            "ERROR",
+            "ltk_patcher_dll::verify: lazy verification failed, not overlaying: wad DATA/FINAL/Champions/Ahri.wad.client: open modded file: not found",
+        ));
+        harness.close();
+
+        let _ = harness.run();
+
+        assert_eq!(
+            harness.typed(),
+            [
+                InjectorEvent::Launch(LaunchKind::Replay),
+                InjectorEvent::WadRedirected {
+                    wad: "Aatrox.wad.client".to_string()
+                },
+                InjectorEvent::WadSkipped {
+                    wad: "Ahri.wad.client".to_string(),
+                    why: "open modded file: not found".to_string(),
+                },
+            ]
+        );
     }
 
+    /// The status lines with no typed event, and the DLL's notable records, go
+    /// to the timeline. A redirect does not: it is typed, and there are many.
     #[test]
-    fn detects_wad_scan_failure_from_ltk_patcher_dll_target() {
-        // The message reaching us is the DLL record text after the level field
-        // (`host::parse_event` strips the level), which the new DLL prefixes with
-        // its `tracing` target. The parser keys off `WAD scan failed`, so the
-        // target prefix is irrelevant.
-        let msg =
-            "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client";
-        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
-        assert_eq!(failure.wad.as_deref(), Some("briar.wad.client"));
-        assert_eq!(failure.status, "c0000229");
-    }
+    fn timeline_lines_carry_the_host_clock_and_the_text_after_the_target() {
+        let mut harness = Harness::new(false);
+        harness.send("status 2.5000000 waiting game exit");
+        harness.send(&dll_line(
+            "INFO",
+            "ltk_patcher_dll::hooks::fsov::imp_windows_iat: redirected wad: DATA/FINAL/Champions/Aatrox.wad.client",
+        ));
+        harness.send(&dll_line(
+            "ERROR",
+            "ltk_patcher_dll::verify: AH init failed:00",
+        ));
+        harness.send(&dll_line(
+            "INFO",
+            "ltk_patcher_dll::verify: overlay verified 4 wad(s)",
+        ));
+        harness.send(&dll_line("INFO", "ltk_patcher_dll::entry: init done"));
+        harness.close();
 
-    #[test]
-    fn ignores_overlay_verification_failed_line() {
-        // The DLL logs a second ERROR right after the scan failure, summarizing
-        // the disabled overlay. It must not be mistaken for a separate failure
-        // (it lacks the `WAD scan failed` phrase), or briar would be counted twice.
-        assert!(parse_wad_scan_failure(
-            "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: anti-hack scan blocked (c0000229): 21a1ca943ae71cbc a9d31e88e92e4715"
-        )
-        .is_none());
+        let _ = harness.run();
+
+        let lines: Vec<_> = harness
+            .emitted()
+            .into_iter()
+            .filter(|e| matches!(e, InjectorEvent::Line { .. }))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                InjectorEvent::Line {
+                    source: EvidenceSource::Host,
+                    at_host: "2.5000000".to_string(),
+                    text: "game exit".to_string(),
+                },
+                InjectorEvent::Line {
+                    source: EvidenceSource::Dll,
+                    at_host: "1.0000000".to_string(),
+                    text: "AH init failed:00".to_string(),
+                },
+                InjectorEvent::Line {
+                    source: EvidenceSource::Dll,
+                    at_host: "1.0000000".to_string(),
+                    text: "init done".to_string(),
+                },
+            ]
+        );
     }
 }

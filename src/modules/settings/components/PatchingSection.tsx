@@ -4,8 +4,18 @@ import {
   ShieldWarningIcon,
   StackIcon,
 } from "@phosphor-icons/react";
+import { type KeyboardEvent, useEffect, useState } from "react";
 
-import { AlertBox, Button, SectionCard, Separator, Switch, TftIcon, useToast } from "@/components";
+import {
+  AlertBox,
+  Button,
+  FieldControl,
+  SectionCard,
+  Separator,
+  Switch,
+  TftIcon,
+  useToast,
+} from "@/components";
 import type { Settings } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -168,6 +178,30 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
               />
             }
           />
+
+          <SettingRow
+            title="Read League's game log after a game"
+            description="League's r3dlog, read once a game ends, for the codes a verdict rests on"
+            hint="Turn this off to keep the manager from opening anything under the League install. An incident still records how the game ended, and the archives the patcher saw."
+            control={
+              <Switch
+                checked={settings.readGameLog}
+                onCheckedChange={(checked) => onSave({ ...settings, readGameLog: checked })}
+              />
+            }
+          />
+
+          <SettingRow
+            title="Keep incidents"
+            description="How many games that went wrong stay on the Games tab"
+            hint="The newest are kept, under 1 MB together, and the oldest goes first."
+            control={
+              <KeepIncidentsField
+                value={settings.keepIncidents}
+                onCommit={(keepIncidents) => onSave({ ...settings, keepIncidents })}
+              />
+            }
+          />
         </div>
       </SectionCard>
 
@@ -219,5 +253,59 @@ export function PatchingSection({ settings, onSave }: PatchingSectionProps) {
         </div>
       </SectionCard>
     </SettingsGrid>
+  );
+}
+
+const MIN_KEPT_INCIDENTS = 1;
+const MAX_KEPT_INCIDENTS = 200;
+
+interface KeepIncidentsFieldProps {
+  value: number;
+  onCommit: (value: number) => void;
+}
+
+/**
+ * A count that commits on blur or Enter, clamped to the store's range.
+ *
+ * A keystroke is not a save, because typing `150` would otherwise write `1`
+ * and `15` on the way there.
+ */
+function KeepIncidentsField({ value, onCommit }: KeepIncidentsFieldProps) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const parsed = draft.trim() === "" ? Number.NaN : Math.round(Number(draft));
+    if (!Number.isFinite(parsed)) {
+      setDraft(String(value));
+      return;
+    }
+    const next = Math.min(MAX_KEPT_INCIDENTS, Math.max(MIN_KEPT_INCIDENTS, parsed));
+    setDraft(String(next));
+    if (next !== value) onCommit(next);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") event.currentTarget.blur();
+    if (event.key === "Escape") setDraft(String(value));
+  }
+
+  return (
+    <FieldControl
+      type="number"
+      inputMode="numeric"
+      min={MIN_KEPT_INCIDENTS}
+      max={MAX_KEPT_INCIDENTS}
+      step={1}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={handleKeyDown}
+      aria-label="Keep incidents"
+      className="w-20 px-2.5 text-right tabular-nums"
+    />
   );
 }

@@ -194,4 +194,18 @@ disableCrashReporting: boolean,
  * `hide_for_play_session` re-asserts the hide. Reversible from the tray
  * icon at any point. Default: true.
  */
-hideRiotClientOnLaunch: boolean, };
+hideRiotClientOnLaunch: boolean, 
+/**
+ * Whether to read League's own game log after a game ends, for the
+ * verdict on a game that went wrong. Turns the reader off. An incident
+ * still records the ending, the game's boundaries and what the DLL said,
+ * and with this off the manager opens nothing under the League install.
+ * Default: true.
+ */
+readGameLog: boolean, 
+/**
+ * How many incidents the app data directory keeps, under 1MB together.
+ * The oldest goes first, and a dismissed one before an undismissed one
+ * of the same age. Default: 50.
+ */
+keepIncidents: number, };

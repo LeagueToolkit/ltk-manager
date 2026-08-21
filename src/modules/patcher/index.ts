@@ -1,4 +1,6 @@
 export {
+  patcherFailureTab,
+  patcherFailureTitle,
   patcherKeys,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,

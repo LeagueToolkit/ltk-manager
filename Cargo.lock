@@ -2932,6 +2932,7 @@ name = "ltk-manager-core"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
+ "base64 0.22.1",
  "camino",
  "chrono",
  "filetime",
@@ -2952,6 +2953,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "ritoclient-api",
+ "rmp-serde",
  "semver",
  "serde",
  "serde_json",
