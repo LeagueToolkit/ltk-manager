@@ -26,6 +26,7 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
     skipped: [],
     launch: "match",
     scan: "eager",
+    scanStatus: null,
     game: {
       version: "16.16.804.9184",
       contentVersion: "16.16.1",

@@ -26,7 +26,6 @@ import {
   useRevealGameLog,
 } from "../api";
 import { formatDuration, formatOrigin, projectNameFromPath } from "../utils/incident";
-import { ConfidenceChip } from "./ConfidenceChip";
 import { EvidenceTimeline } from "./EvidenceTimeline";
 import { VerdictCard } from "./VerdictCard";
 
@@ -97,7 +96,6 @@ function SuspectRow({ suspect }: { suspect: Suspect }) {
         </span>
         <span className="block truncate text-xs text-surface-400">{suspect.because}</span>
       </span>
-      <ConfidenceChip confidence={suspect.confidence} />
       <SuspectAction suspect={suspect} />
     </li>
   );

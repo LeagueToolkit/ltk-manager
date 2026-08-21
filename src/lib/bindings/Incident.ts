@@ -5,6 +5,7 @@ import type { GameInfo } from "./GameInfo";
 import type { LaunchKind } from "./LaunchKind";
 import type { OverlayOutcome } from "./OverlayOutcome";
 import type { ScanMode } from "./ScanMode";
+import type { ScanStatus } from "./ScanStatus";
 import type { SessionOrigin } from "./SessionOrigin";
 import type { SkippedArchive } from "./SkippedArchive";
 import type { Suspect } from "./Suspect";
@@ -33,7 +34,11 @@ injected: boolean, overlay: OverlayOutcome,
 /**
  * The archives the DLL served from the overlay, by their last path segment.
  */
-redirected: Array<string>, skipped: Array<SkippedArchive>, launch: LaunchKind, scan: ScanMode | null, game: GameInfo | null, ending: Ending, verdict: Verdict, evidence: Array<Evidence>, suspects: Array<Suspect>, 
+redirected: Array<string>, skipped: Array<SkippedArchive>, launch: LaunchKind, scan: ScanMode | null, 
+/**
+ * What the integrity scan reported, when it rejected an archive.
+ */
+scanStatus: ScanStatus | null, game: GameInfo | null, ending: Ending, verdict: Verdict, evidence: Array<Evidence>, suspects: Array<Suspect>, 
 /**
  * The user has seen it and closed the line.
  */

@@ -10,6 +10,15 @@ export function isInformational(kind: VerdictKind): boolean {
   return kind === "unmodded" || kind === "ended-without-reason";
 }
 
+/**
+ * The game rejected an archive for carrying a Riot skin ported onto a base
+ * champion. The status alone is not enough: another failure can outrank the
+ * rejection and win the verdict, and the art belongs to the verdict.
+ */
+export function isSkinhackRejection(incident: Incident): boolean {
+  return incident.verdict.kind === "archive-rejected" && incident.scanStatus === "skinhack";
+}
+
 /** The line under a row's title: the subject where there is one, else the first suspect. */
 export function subjectLine(incident: Incident): string | null {
   return incident.verdict.subject ?? incident.suspects[0]?.displayName ?? null;

@@ -54,6 +54,10 @@
   --ltk-doc-layer-text: var(--ltk-doc-layer);
   --ltk-doc-strings-text: var(--ltk-doc-strings);
   --ltk-doc-game-text: var(--ltk-doc-game);
+
+  /* Void hue for skinhack detection. */
+  --ltk-void: #c084fc;
+  --ltk-void-text: var(--ltk-void);
 }
 
 [data-theme="light"] {
@@ -69,6 +73,7 @@
   --ltk-doc-layer-text: color-mix(in srgb, var(--ltk-doc-layer) 50%, black);
   --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
   --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
+  --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
 }
 
 /* ============================================

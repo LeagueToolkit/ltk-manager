@@ -224,6 +224,8 @@ pub struct Incident {
     pub skipped: Vec<SkippedArchive>,
     pub launch: LaunchKind,
     pub scan: Option<ScanMode>,
+    /// What the integrity scan reported, when it rejected an archive.
+    pub scan_status: Option<ScanStatus>,
     pub game: Option<GameInfo>,
     pub ending: Ending,
     pub verdict: Verdict,
@@ -606,6 +608,25 @@ impl fmt::Display for EvidenceSource {
 }
 
 impl Incident {
+    /// Recover [`Self::scan_status`] from the evidence of a stored incident
+    /// that predates the field, so a history survives the upgrade.
+    ///
+    /// Only when every recorded rejection names the same status. A game whose
+    /// archives failed for different reasons stays `None` rather than reporting
+    /// a status the verdict may not be about.
+    pub(super) fn backfill_scan_status(&mut self) {
+        if self.scan_status.is_some() {
+            return;
+        }
+
+        let mut recorded = self
+            .evidence
+            .iter()
+            .filter_map(|row| ScanStatus::from_evidence_line(&row.line));
+        let first = recorded.next();
+        self.scan_status = first.filter(|status| recorded.all(|other| other == *status));
+    }
+
     /// Every archive the verdict's subject or a suspect's reason names.
     pub fn archives(&self) -> Vec<String> {
         let mut archives: Vec<String> = Vec::new();
@@ -775,13 +796,25 @@ impl PathHome {
 }
 
 /// The status the scan reported, as `WadScanFailedDialog` classifies it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ScanStatus {
+///
+/// Carried on the [`Incident`] so a consumer can tell one rejection from
+/// another without reading [`Verdict::cause`] as prose.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "kebab-case")]
+pub enum ScanStatus {
+    /// An official Riot skin ported onto a base champion.
     Skinhack,
+    /// A linked `.bin` the archive needs is absent.
     MissingBin,
+    /// Unreadable, or built for an unsupported version.
     Corrupt,
+    /// The game ran out of memory mid-scan.
     OutOfMemory,
+    /// A skin with a mesh missing, which reads as an incomplete mod.
     BaseSkin,
+    /// A status this build does not know.
     Unknown,
 }
 
@@ -796,6 +829,18 @@ impl ScanStatus {
             "base_skin" => Self::BaseSkin,
             _ => Self::Unknown,
         }
+    }
+
+    /// The status a recorded rejection line names, for a line that is one.
+    ///
+    /// The recorder writes `scan rejected <archive>, status <code>`, which is
+    /// how an incident stored before [`Incident::scan_status`] existed still
+    /// knows what the scan said.
+    fn from_evidence_line(line: &str) -> Option<Self> {
+        let (_, status) = line
+            .strip_prefix("scan rejected ")?
+            .rsplit_once(", status ")?;
+        Some(Self::parse(status))
     }
 
     fn cause(self, archive: &str, status: &str) -> String {
@@ -861,6 +906,10 @@ impl GameRecord {
             skipped: self.skipped.clone(),
             launch: self.launch,
             scan: self.scan,
+            scan_status: self
+                .scan_failures
+                .first()
+                .map(|failure| ScanStatus::parse(&failure.status)),
             game: self.log.as_ref().map(|log| GameInfo {
                 version: log.build_version.clone().unwrap_or_default(),
                 content_version: log.content_version.clone().unwrap_or_default(),
@@ -1754,6 +1803,7 @@ mod tests {
             Some("Aatrox.wad.client")
         );
         assert!(incident.verdict.cause.contains("skinhack"));
+        assert_eq!(incident.scan_status, Some(ScanStatus::Skinhack));
         assert_eq!(names(&incident), ["Aatrox Justicar"]);
         assert_eq!(
             incident.suspects[0].because,
@@ -1765,6 +1815,7 @@ mod tests {
         let incident = classify(&record, &no_path).unwrap();
         assert!(incident.verdict.cause.contains("incomplete mod"));
         assert!(!incident.verdict.cause.contains("skinhack"));
+        assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
     }
 
     #[test]
@@ -2418,6 +2469,7 @@ pub(crate) mod fixtures {
             skipped: Vec::new(),
             launch: LaunchKind::Match,
             scan: Some(ScanMode::Eager),
+            scan_status: None,
             game: Some(GameInfo {
                 version: "16.16.804.9184".to_string(),
                 content_version: "16.16.1".to_string(),

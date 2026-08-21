@@ -91,6 +91,7 @@ export type { Profile } from "./Profile";
 export type { ProfileSlug } from "./ProfileSlug";
 export type { SaveProjectConfigArgs } from "./SaveProjectConfigArgs";
 export type { ScanMode } from "./ScanMode";
+export type { ScanStatus } from "./ScanStatus";
 export type { SessionOrigin } from "./SessionOrigin";
 export type { Settings } from "./Settings";
 export type { Severity } from "./Severity";

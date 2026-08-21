@@ -91,7 +91,11 @@ impl IncidentStore {
     pub fn get(&self, id: &str) -> AppResult<Option<Incident>> {
         let path = self.path_of(id)?;
         match fs::read(&path) {
-            Ok(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
+            Ok(bytes) => {
+                let mut incident: Incident = serde_json::from_slice(&bytes)?;
+                incident.backfill_scan_status();
+                Ok(Some(incident))
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(error) => Err(error.into()),
         }
@@ -130,7 +134,9 @@ impl IncidentStore {
     }
 
     fn read(path: &Path) -> AppResult<Incident> {
-        Ok(serde_json::from_slice(&fs::read(path)?)?)
+        let mut incident: Incident = serde_json::from_slice(&fs::read(path)?)?;
+        incident.backfill_scan_status();
+        Ok(incident)
     }
 
     fn files(&self) -> AppResult<Vec<PathBuf>> {
@@ -244,7 +250,7 @@ fn ended_at_of(text: &str) -> DateTime<Utc> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::incident::fixtures;
+    use crate::diagnostics::incident::{ScanStatus, fixtures};
 
     fn store(keep: usize) -> (tempfile::TempDir, IncidentStore) {
         let dir = tempfile::tempdir().unwrap();
@@ -360,6 +366,50 @@ mod tests {
             .record(&fixtures::incident("only", "2026-08-21T10:00:00+00:00"))
             .unwrap();
         assert_eq!(ids(&store), ["only"]);
+    }
+
+    /// A file written before `scanStatus` existed still names the status in
+    /// the DLL's own rejection line, so a history keeps working after an
+    /// upgrade instead of only the games played since.
+    #[test]
+    fn a_stored_incident_recovers_the_scan_status_it_predates() {
+        let (_dir, store) = store(50);
+        let mut incident = fixtures::incident("old", "2026-08-21T10:00:00+00:00");
+        incident.scan_status = None;
+        incident.evidence[0].line = "scan rejected graves.wad.client, status c0000229".to_string();
+        store.record(&incident).unwrap();
+
+        let mut stored = serde_json::from_slice::<serde_json::Value>(
+            &fs::read(store.dir().join("old.json")).unwrap(),
+        )
+        .unwrap();
+        stored.as_object_mut().unwrap().remove("scanStatus");
+        fs::write(
+            store.dir().join("old.json"),
+            serde_json::to_vec(&stored).unwrap(),
+        )
+        .unwrap();
+
+        let read = store.get("old").unwrap().unwrap();
+        assert_eq!(read.scan_status, Some(ScanStatus::Skinhack));
+        assert_eq!(
+            store.list().unwrap()[0].scan_status,
+            Some(ScanStatus::Skinhack)
+        );
+    }
+
+    /// Two archives rejected for different reasons cannot say which one the
+    /// verdict is about, so the recovery declines rather than guessing.
+    #[test]
+    fn a_recovery_declines_when_the_rejections_disagree() {
+        let mut incident = fixtures::incident("mixed", "2026-08-21T10:00:00+00:00");
+        incident.scan_status = None;
+        incident.evidence[0].line = "scan rejected graves.wad.client, status c0000229".to_string();
+        incident.evidence[1].line = "scan rejected ahri.wad.client, status c000003e".to_string();
+
+        incident.backfill_scan_status();
+
+        assert_eq!(incident.scan_status, None);
     }
 
     #[test]

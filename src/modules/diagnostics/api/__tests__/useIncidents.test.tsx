@@ -28,6 +28,7 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
     skipped: [],
     launch: "match",
     scan: "eager",
+    scanStatus: null,
     game: null,
     ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     verdict: {

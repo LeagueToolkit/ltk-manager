@@ -2,9 +2,9 @@ import {
   FolderOpenIcon,
   GearIcon,
   MinusIcon,
-  PersonArmsSpreadIcon,
   SquareIcon,
   StethoscopeIcon,
+  WheelchairIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
@@ -235,7 +235,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
           <Tooltip content="Report a Bug">
             <IconButton
-              icon={<PersonArmsSpreadIcon className="h-5 w-5" />}
+              icon={<WheelchairIcon weight="bold" className="h-5 w-5" />}
               variant="ghost"
               size="sm"
               onClick={() => open(bugReportUrl)}
