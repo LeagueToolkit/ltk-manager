@@ -633,8 +633,9 @@ fn an_unknown_code_keeps_its_id_and_nothing_else() {
 #[test]
 fn the_id_is_the_log_stamp_when_there_is_a_log() {
     let mut record = crashed(modded_game());
+    // Forward slashes: Windows accepts them, and `\` is not a separator on the CI host.
     record.log_path = Some(PathBuf::from(
-        r"C:\Riot Games\League of Legends\Logs\GameLogs\2026-08-21T21-14-02\2026-08-21T21-14-02_r3dlog.txt",
+        "C:/Riot Games/League of Legends/Logs/GameLogs/2026-08-21T21-14-02/2026-08-21T21-14-02_r3dlog.txt",
     ));
     record.log = Some(log_with(Vec::new()));
     let incident = classify(&record, &no_path).unwrap();
