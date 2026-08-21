@@ -15,15 +15,19 @@ use serde::{Deserialize, Serialize};
 
 const TABLE: &str = include_str!("log_codes.tsv");
 
-/// How firm a row's reading is. The confidence ceiling of any verdict on it.
+/// How firm a row's reading is, which is a claim about this table and no more.
+///
+/// It hedges the one sentence that reads the code and nothing else. What a
+/// verdict cost the game is a fact the manager observed, so the mark never
+/// grades it - see [`Consequence`](super::incident::Consequence).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum EvidenceMark {
-    /// The reading is a fact, and a verdict may state it as one.
+    /// The reading is a fact, and the sentence states it as one.
     Confirmed,
-    /// The reading is probable. A verdict on it is a lead, and reads as one.
+    /// The reading is probable, and the sentence says `probably`.
     Inferred,
 }
 

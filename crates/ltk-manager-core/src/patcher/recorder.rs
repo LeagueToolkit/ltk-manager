@@ -103,11 +103,7 @@ impl GameRecorder {
                 let record = self.open_or_attach(now);
                 record.scan_failures.extend(failures.iter().cloned());
                 for failure in failures {
-                    let text = match &failure.wad {
-                        Some(wad) => format!("scan rejected {wad}, status {}", failure.status),
-                        None => format!("scan rejected an archive, status {}", failure.status),
-                    };
-                    self.push_line(EvidenceSource::Dll, &text, now);
+                    self.push_line(EvidenceSource::Dll, &failure.evidence_line(), now);
                 }
                 None
             }
@@ -211,6 +207,7 @@ impl GameRecorder {
 mod tests {
     use super::*;
     use crate::diagnostics::incident::{LaunchKind, OverlayOutcome};
+    use crate::error::ErrorKind;
     use crate::patcher::InjectionStage;
     use crate::patcher::injector::WadScanFailure;
     use chrono::TimeZone;
@@ -431,6 +428,7 @@ mod tests {
 
         let record = recorder.session_failed(
             SessionFailure::Build {
+                kind: ErrorKind::Other,
                 message: "Overlay build failed: bad wad".to_string(),
             },
             at(1),
@@ -444,6 +442,7 @@ mod tests {
         assert_eq!(
             record.failure,
             Some(SessionFailure::Build {
+                kind: ErrorKind::Other,
                 message: "Overlay build failed: bad wad".to_string()
             })
         );

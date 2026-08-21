@@ -3,7 +3,6 @@
 use std::fmt::Write;
 
 use super::incident::{EvidenceSource, Incident};
-use super::log_codes::EvidenceMark;
 use crate::patcher::SessionOrigin;
 
 impl Incident {
@@ -33,14 +32,11 @@ impl Incident {
         }
         out.push('\n');
 
-        match self.verdict.confidence {
-            Some(confidence) => {
-                let _ = writeln!(out, "Verdict: {} ({confidence})", self.verdict.title);
-            }
-            None => {
-                let _ = writeln!(out, "Verdict: {}", self.verdict.title);
-            }
-        }
+        let _ = writeln!(
+            out,
+            "Verdict: {} ({})",
+            self.verdict.title, self.verdict.consequence
+        );
         out.push_str(&self.verdict.cause);
         out.push('\n');
         if let Some(subject) = &self.verdict.subject {
@@ -61,11 +57,7 @@ impl Incident {
         if !self.suspects.is_empty() {
             out.push_str("\nSuspects:\n");
             for suspect in &self.suspects {
-                let _ = writeln!(
-                    out,
-                    "  - {} - {} ({})",
-                    suspect.display_name, suspect.because, suspect.confidence
-                );
+                let _ = writeln!(out, "  - {} - {}", suspect.display_name, suspect.because);
             }
         }
         if !self.verdict.hints.is_empty() {
@@ -87,13 +79,9 @@ impl Incident {
         for row in &self.evidence {
             let _ = writeln!(out, "  {:<7}  {:<7} {}", row.at, row.source, row.message());
             if let Some(code) = &row.code
-                && let (Some(meaning), Some(mark)) = (&code.meaning, code.mark)
+                && let Some(meaning) = &code.meaning
             {
-                let word = match mark {
-                    EvidenceMark::Confirmed => "confirmed",
-                    EvidenceMark::Inferred => "probably",
-                };
-                let _ = writeln!(out, "           {word}: {meaning}");
+                let _ = writeln!(out, "           {meaning}");
             }
         }
 
@@ -189,19 +177,19 @@ mod tests {
             "# LTK Manager - League diagnostics\n",
             "Incident: 2026-08-21T21-14-02 · LTK Manager v1.14.0 · League 16.16.804.9184\n",
             "Token: LTK1-abc\n",
-            "\nVerdict: Missing data (likely)\n",
-            "League stopped a read it could not finish.",
-            "Path: aatrox_skin12_tx_cm.dds\n",
+            "\nVerdict: Missing Game Data (the game stopped)\n",
+            "League failed to read a file.",
+            "Path: assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds\n",
             "Archive: Aatrox.wad.client\n",
-            "\nSuspects:\n  - Aatrox Justicar - writes Aatrox.wad.client, which holds the path (likely)\n",
+            "\nSuspects:\n  - Aatrox Justicar - writes Aatrox.wad.client, which holds the path\n",
             "\nHints:\n  - ",
-            "\nEnding: Interrupt, exit code -1073741819, crashpad ran\n",
+            "\nEnding: Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION, crashpad ran\n",
             "Origin: library, 4 archives redirected\n",
             "Game log: found, 2 coded lines, 1 error line\n",
             "\nEvidence:\n",
-            "  00:12.4  client  Interrupt, exit code -1073741819\n",
+            "  00:12.4  client  Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION\n",
             "  00:12.3  game    ALE-9B39AA45 FATAL ERROR. Missing data: 0x1a2b3c4d5e6f7081\n",
-            "           confirmed: A file the game needed is in no mounted archive\n",
+            "           A file the game needed is in no mounted archive\n",
             "  00:00.0  dll     redirected Aatrox.wad.client",
             "\nLast lines of the game log:\n",
             "  000012.301| ALWAYS|  LOAD| SEJ-9F31B5D0\n",
@@ -229,12 +217,11 @@ mod tests {
         let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
         incident.game = None;
         incident.evidence.clear();
-        incident.verdict.confidence = None;
         incident.ending = Default::default();
         let text = incident.report_text("v1.14.0", None);
         assert!(text.contains("· League unknown\n"));
         assert!(!text.contains("Token:"));
-        assert!(text.contains("\nVerdict: Missing data\n"));
+        assert!(text.contains("\nVerdict: Missing Game Data (the game stopped)\n"));
         assert!(text.contains("Ending: no reason recorded\n"));
         assert!(text.contains("Game log: not found\n"));
         assert!(text.contains("Evidence:\n  none\n"));

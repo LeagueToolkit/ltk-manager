@@ -1,7 +1,7 @@
 import { ArrowClockwiseIcon, ClipboardTextIcon, StethoscopeIcon } from "@phosphor-icons/react";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 
-import { AlertBox, Button, Spinner, Tabs, useToast } from "@/components";
+import { AlertBox, Button, Separator, Spinner, Tabs, useToast } from "@/components";
 import type { DiagnosticReport } from "@/lib/tauri";
 import { DiagnosticsReportView, GamesTab, useDiagnostics } from "@/modules/diagnostics";
 
@@ -57,12 +57,15 @@ export function Diagnostics() {
         onValueChange={(next) => setTab(next as DiagnosticsTab)}
         className="flex min-h-0 flex-1 flex-col"
       >
-        <header className="px-6 pt-6 select-none">
-          <h1 className="flex items-center gap-2 text-xl font-semibold text-surface-100">
-            <StethoscopeIcon className="h-5 w-5 text-accent-400" />
+        {/* The tab strip is the page's only chrome, so the title shares its row
+            rather than standing over it in a band of its own. */}
+        <header className="flex shrink-0 items-center border-b border-surface-700/50 px-4 select-none">
+          <h1 className="flex shrink-0 items-center gap-2 text-sm font-semibold text-surface-200">
+            <StethoscopeIcon className="h-4 w-4 text-accent-400" />
             Diagnostics
           </h1>
-          <Tabs.List className="mt-3">
+          <Separator orientation="vertical" className="mx-2 h-4" />
+          <Tabs.List className="border-b-0">
             <Tabs.Tab value="games">Games</Tabs.Tab>
             <Tabs.Tab value="system">System</Tabs.Tab>
           </Tabs.List>
@@ -93,7 +96,7 @@ function SystemTab() {
   }
 
   return (
-    <div data-ui="SystemTab" className="mx-auto max-w-4xl space-y-6 p-6">
+    <div data-ui="SystemTab" className="mx-auto w-full max-w-5xl space-y-6 p-6">
       <header className="flex items-start justify-between gap-4 select-none">
         <div>
           <p className="text-sm text-surface-400">

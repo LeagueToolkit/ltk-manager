@@ -54,7 +54,7 @@ describe("IncidentDetail", () => {
   });
 
   /// The suspect row is where a player acts, so it carries the name, the
-  /// reason, its own confidence, and the one action that answers it.
+  /// reason it is named, and the one action that answers it.
   it("renders a library suspect with its reason and a Disable action", async () => {
     mockBackend();
     renderWithApp(<IncidentDetail incident={createMockIncident()} />);
@@ -106,7 +106,6 @@ describe("IncidentDetail", () => {
           projectPath: "C:\\mods\\aatrox-justicar",
           displayName: "Aatrox Justicar",
           because: "writes Aatrox.wad.client, which holds the path",
-          confidence: "likely",
         },
       ],
     });
@@ -120,33 +119,28 @@ describe("IncidentDetail", () => {
     });
   });
 
-  /// A confirmed row reads as a fact, and the mark says so in front of it.
-  it("draws a coded evidence line with its confirmed meaning", () => {
+  it("draws a coded evidence line with its meaning", () => {
     mockBackend();
     renderWithApp(<IncidentDetail incident={createMockIncident()} />);
 
     expect(
       screen.getByText("ALE-9B39AA45 FATAL ERROR. Missing data: 0x1a2b3c4d5e6f7081"),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText("confirmed · A file the game needed is in no mounted archive"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("A file the game needed is in no mounted archive")).toBeInTheDocument();
   });
 
-  it("dims an inferred reading as probably, and shows an unknown code alone", () => {
+  /// The mark says how firmly the manager reads the code, which is a claim
+  /// about its own table, so a reading reads the same whichever mark it has.
+  it("reads a row the same whatever its evidence mark, and shows an unknown code alone", () => {
     mockBackend();
+    const meaning = "An archive could not be mounted, because it is corrupt";
     const incident = createMockIncident({
       evidence: [
         {
           at: "00:09.1",
           source: "game",
           line: "ALE-18967993",
-          code: {
-            id: "ALE-18967993",
-            kind: "wad_mount",
-            meaning: "An archive could not be mounted, because it is corrupt",
-            mark: "inferred",
-          },
+          code: { id: "ALE-18967993", kind: "wad_mount", meaning, mark: "inferred" },
         },
         {
           at: "00:09.2",
@@ -158,10 +152,35 @@ describe("IncidentDetail", () => {
     });
     renderWithApp(<IncidentDetail incident={incident} />);
 
-    expect(
-      screen.getByText("probably · An archive could not be mounted, because it is corrupt"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(meaning)).toBeInTheDocument();
+    expect(screen.queryByText(/probably|confirmed/)).not.toBeInTheDocument();
     expect(screen.getAllByText("SEJ-0000ZZZZ")).toHaveLength(2);
+  });
+
+  /// A hint is one of several, so it reads as a list rather than as a run of
+  /// sentences. The marker is decoration and stays out of a copied selection.
+  it("marks each hint as a list row", () => {
+    mockBackend();
+    renderWithApp(
+      <IncidentDetail
+        incident={createMockIncident({
+          verdict: {
+            ...createMockIncident().verdict,
+            hints: ["First hint.", "Second hint."],
+          },
+        })}
+      />,
+    );
+
+    const rows = screen
+      .getAllByRole("listitem")
+      .filter((row) => /hint\.$/.test(row.textContent ?? ""));
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      const marker = row.querySelector("[aria-hidden]");
+      expect(marker?.textContent).toBe("•");
+      expect(marker?.className).toContain("select-none");
+    }
   });
 
   it("lines up the facts: version, length, origin, and whether a log was found", () => {

@@ -62,6 +62,37 @@ pub const LAUNCH_REPLAY: &str = "replay (.rofl)";
 /// The kind before [`LAUNCH_SUFFIX`] for a PBE launch.
 pub const LAUNCH_PBE: &str = "PBE";
 
+/// The level the DLL wrote one record at.
+///
+/// The host forwards it as its own column of the `dll` event, spelled the way
+/// `tracing` renders it, so a reader takes the level from there instead of
+/// matching a prefix inside the message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum DllLevel {
+    /// The DLL failed at something. The only level a blocking record carries.
+    Error,
+    /// Something the DLL noted and carried on from, an opted-out scan included.
+    Warn,
+    /// Anything quieter, which no verdict rests on.
+    Other,
+}
+
+impl DllLevel {
+    /// The level a `dll` event named, or [`Other`](Self::Other) for the rest.
+    ///
+    /// Case-insensitive: the host writes `ERROR`, and older builds wrote the
+    /// level into the message as `error: `.
+    pub fn parse(level: &str) -> Self {
+        if level.eq_ignore_ascii_case("error") {
+            Self::Error
+        } else if level.eq_ignore_ascii_case("warn") {
+            Self::Warn
+        } else {
+            Self::Other
+        }
+    }
+}
+
 /// What one DLL record says about the game.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DllLine {
@@ -85,8 +116,13 @@ pub enum DllLine {
     },
     /// The overlay hook served an archive, named by its last path segment.
     Redirected { wad: String },
-    /// The anti-hack scan rejected an archive.
-    ScanFailed(WadScanFailure),
+    /// The anti-hack scan reported on an archive.
+    ///
+    /// Carries nothing: what the scan said is read by
+    /// [`parse_wad_scan_failure`], which collects the failures as a set. This
+    /// variant exists so a scan record is not mistaken for one the manager
+    /// keeps no line from.
+    ScanFailed,
     /// A game where the scan does not block.
     Launch(LaunchKind),
 }
@@ -94,11 +130,12 @@ pub enum DllLine {
 impl DllLine {
     /// Reads one DLL record, with or without its `<target>: ` prefix.
     ///
-    /// `None` for a record that says nothing the manager keeps, including the
-    /// `warn:`-level scan line an opted-out scan writes.
+    /// `None` for a record that says nothing the manager keeps. The level is
+    /// not consulted: every phrase here names its own kind, and whether a scan
+    /// record blocked is [`parse_wad_scan_failure`]'s question.
     pub fn parse(message: &str) -> Option<Self> {
-        if let Some(failure) = parse_wad_scan_failure(message) {
-            return Some(Self::ScanFailed(failure));
+        if message.contains(WAD_SCAN_FAILED) {
+            return Some(Self::ScanFailed);
         }
 
         let text = strip_target(message).trim();
@@ -185,16 +222,15 @@ fn split_wad_and_why(text: &str) -> (String, String) {
     (last_segment(wad).to_string(), why.trim().to_string())
 }
 
-/// Parse a "WAD scan failed" line, e.g.
-/// `error: WAD scan failed status with c0000229 for Ahri.wad.client`. Returns
-/// `None` for non-failures, including the `warn:`-level line the DLL emits when
-/// the scan is opted out (`OPT_OUT_AH_V1`) and keeps injecting. `wad` is present
-/// when named; `status` falls back to `"unknown"`. The frontend classifies it.
-pub fn parse_wad_scan_failure(message: &str) -> Option<WadScanFailure> {
-    if !message.contains(WAD_SCAN_FAILED) {
-        return None;
-    }
-    if message.trim_start().starts_with("warn:") {
+/// The archive a blocking scan record names, e.g.
+/// `WAD scan failed status with c0000229 for Ahri.wad.client`.
+///
+/// `None` unless the DLL wrote the record at [`DllLevel::Error`], which is what
+/// separates a rejection from the line an opted-out scan (`OPT_OUT_AH_V1`)
+/// writes before it keeps injecting. `wad` is present when named, and `status`
+/// falls back to `"unknown"`. The caller classifies the status.
+pub fn parse_wad_scan_failure(level: DllLevel, message: &str) -> Option<WadScanFailure> {
+    if level != DllLevel::Error || !message.contains(WAD_SCAN_FAILED) {
         return None;
     }
 
@@ -331,35 +367,30 @@ mod tests {
     }
 
     #[test]
-    fn scan_failure_is_typed_with_its_status() {
-        let line = format!("{TARGET}WAD scan failed status with c0000229 for briar.wad.client");
-        assert_eq!(
-            DllLine::parse(&line),
-            Some(DllLine::ScanFailed(WadScanFailure {
-                wad: Some("briar.wad.client".to_string()),
-                status: "c0000229".to_string(),
-            }))
-        );
+    fn a_scan_record_is_read_whatever_its_status() {
+        for status in ["c0000229", "base_skin"] {
+            let line = format!("{TARGET}WAD scan failed status with {status} for briar.wad.client");
+            assert_eq!(DllLine::parse(&line), Some(DllLine::ScanFailed));
+        }
+    }
+
+    /// The phrase says which line this is and the level says whether it blocked,
+    /// so an opted-out scan is still a scan record and still names no failure.
+    #[test]
+    fn an_opted_out_scan_record_names_no_failure() {
+        let line = "WAD scan failed status with c0000229 for Ahri.wad.client";
+        assert_eq!(DllLine::parse(line), Some(DllLine::ScanFailed));
+        assert_eq!(parse_wad_scan_failure(DllLevel::Warn, line), None);
+        assert!(parse_wad_scan_failure(DllLevel::Error, line).is_some());
     }
 
     #[test]
-    fn base_skin_status_parses_like_a_code() {
-        let line = format!("{TARGET}WAD scan failed status with base_skin for Ahri.wad.client");
-        assert_eq!(
-            DllLine::parse(&line),
-            Some(DllLine::ScanFailed(WadScanFailure {
-                wad: Some("Ahri.wad.client".to_string()),
-                status: "base_skin".to_string(),
-            }))
-        );
-    }
-
-    #[test]
-    fn warn_level_scan_line_is_ignored() {
-        assert_eq!(
-            DllLine::parse("warn: WAD scan failed status with c0000229 for Ahri.wad.client"),
-            None
-        );
+    fn a_level_is_read_however_the_host_spells_it() {
+        assert_eq!(DllLevel::parse("ERROR"), DllLevel::Error);
+        assert_eq!(DllLevel::parse("error"), DllLevel::Error);
+        assert_eq!(DllLevel::parse("WARN"), DllLevel::Warn);
+        assert_eq!(DllLevel::parse("INFO"), DllLevel::Other);
+        assert_eq!(DllLevel::parse(""), DllLevel::Other);
     }
 
     #[test]
@@ -411,47 +442,44 @@ mod tests {
     #[test]
     fn detects_wad_scan_failure_with_wad_and_status() {
         let msg = "error: WAD scan failed status with c0000229 for Ahri.wad.client";
-        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
+        let failure = parse_wad_scan_failure(DllLevel::Error, msg).expect("should detect failure");
         assert_eq!(failure.wad.as_deref(), Some("Ahri.wad.client"));
         assert_eq!(failure.status, "c0000229");
     }
 
     #[test]
-    fn ignores_warn_level_scan_line_from_opt_out() {
-        // With OPT_OUT_AH_V1 set, the DLL logs the same text at warn level and
-        // keeps injecting - it must not be reported as a fatal scan failure.
+    fn ignores_scanning_info_line() {
+        assert!(
+            parse_wad_scan_failure(DllLevel::Other, "Scanning champion Ahri.wad.client").is_none()
+        );
+    }
+
+    #[test]
+    fn ignores_wad_log_hash_dump() {
         assert!(
             parse_wad_scan_failure(
-                "warn: WAD scan failed status with c0000229 for Ahri.wad.client"
+                DllLevel::Error,
+                "error: AH WAD Log:  9fed2719bffb7d50 51df2d746a6b6791"
             )
             .is_none()
         );
     }
 
     #[test]
-    fn ignores_scanning_info_line() {
-        assert!(parse_wad_scan_failure("info: Scanning champion Ahri.wad.client").is_none());
-    }
-
-    #[test]
-    fn ignores_wad_log_hash_dump() {
-        assert!(
-            parse_wad_scan_failure("error: AH WAD Log:  9fed2719bffb7d50 51df2d746a6b6791")
-                .is_none()
-        );
-    }
-
-    #[test]
     fn falls_back_when_status_and_wad_missing() {
-        let failure = parse_wad_scan_failure("error: WAD scan failed").expect("detected");
+        let failure =
+            parse_wad_scan_failure(DllLevel::Error, "error: WAD scan failed").expect("detected");
         assert_eq!(failure.wad, None);
         assert_eq!(failure.status, "unknown");
     }
 
     #[test]
     fn falls_back_to_unknown_status_but_keeps_wad() {
-        let failure =
-            parse_wad_scan_failure("error: WAD scan failed for Kayn.wad.client").expect("detected");
+        let failure = parse_wad_scan_failure(
+            DllLevel::Error,
+            "error: WAD scan failed for Kayn.wad.client",
+        )
+        .expect("detected");
         assert_eq!(failure.wad.as_deref(), Some("Kayn.wad.client"));
         assert_eq!(failure.status, "unknown");
     }
@@ -462,6 +490,7 @@ mod tests {
         // the frontend classifies it. c0000225 is no longer emitted at runtime
         // (linked bins are validated pre-flight); kept here to prove that.
         let failure = parse_wad_scan_failure(
+            DllLevel::Error,
             "error: WAD scan failed status with c0000225 for TahmKench.wad.client",
         )
         .expect("parseable scan failure");
@@ -477,7 +506,7 @@ mod tests {
         // target prefix is irrelevant.
         let msg =
             "ltk_patcher_dll::verify: WAD scan failed status with c0000229 for briar.wad.client";
-        let failure = parse_wad_scan_failure(msg).expect("should detect failure");
+        let failure = parse_wad_scan_failure(DllLevel::Error, msg).expect("should detect failure");
         assert_eq!(failure.wad.as_deref(), Some("briar.wad.client"));
         assert_eq!(failure.status, "c0000229");
     }
@@ -487,8 +516,7 @@ mod tests {
         // The DLL logs a second ERROR right after the scan failure, summarizing
         // the disabled overlay. It must not be mistaken for a separate failure
         // (it lacks the `WAD scan failed` phrase), or briar would be counted twice.
-        assert!(parse_wad_scan_failure(
-            "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: anti-hack scan blocked (c0000229): 21a1ca943ae71cbc a9d31e88e92e4715"
+        assert!(parse_wad_scan_failure(DllLevel::Error, "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: anti-hack scan blocked (c0000229): 21a1ca943ae71cbc a9d31e88e92e4715"
         )
         .is_none());
     }

@@ -69,7 +69,6 @@ pub struct IncidentToken {
     pub manager: [u16; 3],
     pub game: Option<[u16; 4]>,
     pub verdict: u8,
-    pub confidence: Option<u8>,
     pub overlay: u8,
     pub scan: Option<u8>,
     pub launch: u8,
@@ -164,7 +163,6 @@ impl IncidentToken {
                 .filter(|game| !game.version.is_empty())
                 .map(|game| version_numbers(&game.version)),
             verdict: verdict.kind.code(),
-            confidence: verdict.confidence.map(|confidence| confidence.code()),
             overlay: incident.overlay.code(),
             scan: incident.scan.map(|scan| scan.code()),
             launch: incident.launch.code(),
@@ -280,8 +278,7 @@ struct Wire {
     game: Option<[u16; 4]>,
     #[serde(rename = "v", skip_serializing_if = "is_default")]
     verdict: u8,
-    #[serde(rename = "c", skip_serializing_if = "Option::is_none")]
-    confidence: Option<u8>,
+    // "c" held a confidence, which no longer exists. The key is retired, not reused.
     #[serde(rename = "o", skip_serializing_if = "is_default")]
     overlay: u8,
     #[serde(rename = "s", skip_serializing_if = "Option::is_none")]
@@ -387,7 +384,6 @@ impl From<&IncidentToken> for Wire {
             manager: token.manager,
             game: token.game,
             verdict: token.verdict,
-            confidence: token.confidence,
             overlay: token.overlay,
             scan: token.scan,
             launch: token.launch,
@@ -428,7 +424,6 @@ impl From<Wire> for IncidentToken {
             manager: wire.manager,
             game: wire.game,
             verdict: wire.verdict,
-            confidence: wire.confidence,
             overlay: wire.overlay,
             scan: wire.scan,
             launch: wire.launch,
@@ -495,7 +490,7 @@ mod tests {
     /// Pinned so a script can be checked against it. The deflate bytes come
     /// from the `flate2` backend in the lock file, so a backend change moves
     /// this string while every older token still decodes.
-    const VECTOR: &str = "LTK1-AYEAfv_eABWhdM4Bxou6oW2TAQ4AoWeUEBDNAyTNI-ChdgahYwKhbwGhcwGhbAGhacOhcgKheNLAAAAFoWvDoWQMoUORrEFMRS05QjM5QUE0NaFwNKFozxorPE1eb3CBoWGRpkFhdHJveKFTka9BYXRyb3ggSnVzdGljYXKhUgShRQShZQE";
+    const VECTOR: &str = "LTK1-AX4Agf_eABShdM4Bxou6oW2TAQ4AoWeUEBDNAyTNI-ChdgahbwGhcwGhbAGhacOhcgKheNLAAAAFoWvDoWQMoUORrEFMRS05QjM5QUE0NaFwNKFozxorPE1eb3CBoWGRpkFhdHJveKFTka9BYXRyb3ggSnVzdGljYXKhUgShRQShZQE";
 
     #[test]
     fn the_sample_reads_the_incident() {
@@ -504,7 +499,6 @@ mod tests {
         assert_eq!(token.manager, [1, 14, 0]);
         assert_eq!(token.game, Some([16, 16, 804, 9184]));
         assert_eq!(token.verdict, VerdictKind::MissingData.code());
-        assert_eq!(token.confidence, Some(2));
         assert_eq!(token.overlay, 1);
         assert_eq!(token.scan, Some(1));
         assert_eq!(token.launch, 1);
@@ -539,7 +533,6 @@ mod tests {
             manager: [1, 2, 3],
             game: Some([4, 5, 6, 7]),
             verdict: 11,
-            confidence: Some(1),
             overlay: 5,
             scan: Some(2),
             launch: 4,

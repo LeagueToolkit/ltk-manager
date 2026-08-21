@@ -15,10 +15,11 @@ const yesterday = createMockIncident({
   endedAt: onDay(1, 22, 40),
   verdict: {
     kind: "ended-without-reason",
-    title: "Ended without a reason",
+    title: "Unexplained Game Exit",
     cause: "League closed, and left no reason the manager can read.",
     subject: null,
-    confidence: null,
+    consequence: "game-stopped",
+    titleOverride: null,
     hints: [],
   },
   suspects: [],
@@ -28,10 +29,11 @@ const older = createMockIncident({
   endedAt: onDay(5, 19, 2),
   verdict: {
     kind: "stuck-loading",
-    title: "Stuck loading",
+    title: "Loading Screen Stall",
     cause: "League stopped at loading step 52 of 64.",
     subject: "step 52 of 64",
-    confidence: "likely",
+    consequence: "game-hung",
+    titleOverride: null,
     hints: [],
   },
   dismissed: true,
@@ -53,8 +55,8 @@ describe("IncidentList", () => {
     expect(dated).not.toMatch(/Today|Yesterday/);
     expect(dated).toMatch(/\d/);
 
-    expect(within(groups[0]).getByText("Missing data")).toBeInTheDocument();
-    expect(within(groups[2]).getByText("Stuck loading")).toBeInTheDocument();
+    expect(within(groups[0]).getByText("Missing Game Data")).toBeInTheDocument();
+    expect(within(groups[2]).getByText("Loading Screen Stall")).toBeInTheDocument();
   });
 
   /// The line under the title is the subject where the verdict has one, and
@@ -100,5 +102,44 @@ describe("IncidentList", () => {
     render(<IncidentList incidents={incidents} selectedId="today" onSelect={() => {}} />);
 
     expect(screen.getAllByRole("option")).toHaveLength(3);
+  });
+
+  /// Two incidents with the same title are told apart by where the game came
+  /// from and how long it ran, without opening either.
+  it("carries the subject, the origin and the duration on a row", () => {
+    const incident = createMockIncident({
+      id: "context",
+      startedAt: onDay(0, 21, 10),
+      endedAt: onDay(0, 21, 14),
+    });
+    render(<IncidentList incidents={[incident]} selectedId="context" onSelect={() => {}} />);
+
+    const row = screen.getByRole("option");
+    expect(within(row).getByText("aatrox_skin12_tx_cm.dds")).toBeInTheDocument();
+    expect(within(row).getByText("Library · 4 min")).toBeInTheDocument();
+  });
+
+  /// The rail is a record, not a set of cards. The consequence reads on the
+  /// detail page, where one of them is on screen rather than every one at once.
+  it("draws no consequence chip", () => {
+    render(<IncidentList incidents={incidents} selectedId="today" onSelect={() => {}} />);
+
+    expect(screen.queryByText(/No mod ran|Game stopped|Game hung|Archive dropped/)).toBeNull();
+  });
+
+  it("names a dismissed row as dismissed rather than only dimming it", () => {
+    render(<IncidentList incidents={incidents} selectedId="today" onSelect={() => {}} />);
+
+    const dismissed = screen.getAllByRole("option")[2];
+    expect(within(dismissed).getByText(/dismissed/)).toBeInTheDocument();
+  });
+
+  /// A day that scrolls past its own heading stops saying which day it is.
+  it("heads each day with its label and how many it holds", () => {
+    render(<IncidentList incidents={incidents} selectedId="today" onSelect={() => {}} />);
+
+    const groups = screen.getAllByRole("group");
+    expect(within(groups[0]).getByText("Today")).toBeInTheDocument();
+    expect(within(groups[0]).getByText("1")).toBeInTheDocument();
   });
 });

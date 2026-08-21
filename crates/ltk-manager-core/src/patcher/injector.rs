@@ -14,7 +14,7 @@ use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayOutcome};
 use super::dll_lines::{self, DllLine, host_status};
 use super::host::{self, HOST_EXE_NAME, HostError, HostEvent, HostLine, HostState, PatcherHost};
 
-pub use super::dll_lines::parse_wad_scan_failure;
+pub use super::dll_lines::{DllLevel, parse_wad_scan_failure};
 
 /// Re-export the executable name that `commands/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
@@ -76,9 +76,22 @@ pub struct WadScanFailure {
     /// The archive (e.g. `TahmKench.wad.client`), if we could parse the name.
     pub wad: Option<String>,
     /// The NTSTATUS-style code the scan reported (e.g. `c0000229` skinhack,
-    /// `c000003e` parse error). Callers classify it; the injector stays
+    /// `c000003e` parse error). Callers classify it, and the injector stays
     /// status-agnostic.
     pub status: String,
+}
+
+impl WadScanFailure {
+    /// The line this rejection writes into an incident's evidence.
+    ///
+    /// The writing half of a phrase `ScanStatus::from_evidence_line` reads back,
+    /// which is how an incident stored before `Incident::scan_status` existed
+    /// still knows what the scan said. A round trip over the two is asserted in
+    /// `diagnostics::incident`, so neither half may be reworded alone.
+    pub fn evidence_line(&self) -> String {
+        let archive = self.wad.as_deref().unwrap_or("an archive");
+        format!("scan rejected {archive}, status {}", self.status)
+    }
 }
 
 type EventCallback = Box<dyn Fn(InjectorEvent) + Send>;
@@ -331,20 +344,21 @@ impl Injector {
         message: &str,
         session: &mut SessionState,
     ) {
-        session.record_wad_failure(message);
+        let level = DllLevel::parse(level);
+        session.record_wad_failure(level, message);
         if session.take_awaiting_attach() {
             self.emit_event(InjectorEvent::GameAttached { pid: Some(pid) });
         }
 
         let Some(line) = DllLine::parse(message) else {
-            if level.eq_ignore_ascii_case("error") {
+            if level == DllLevel::Error {
                 self.emit_dll_line(timestamp, message);
             }
             return;
         };
 
         let event = match line {
-            DllLine::ScanFailed(_) => return,
+            DllLine::ScanFailed => return,
             DllLine::InitDone => InjectorEvent::Overlay {
                 outcome: OverlayOutcome::Live,
                 detail: None,
@@ -438,11 +452,11 @@ impl SessionState {
     /// Fold a DLL log line into the failure set: parse it, de-duplicate by
     /// (wad, status), and arm the collection window on the first hit. Non-failure
     /// lines and anything after finalization are ignored.
-    fn record_wad_failure(&mut self, message: &str) {
+    fn record_wad_failure(&mut self, level: DllLevel, message: &str) {
         if self.reported {
             return;
         }
-        let Some(failure) = parse_wad_scan_failure(message) else {
+        let Some(failure) = parse_wad_scan_failure(level, message) else {
             return;
         };
         let dup = self.failures.iter().any(|f| {

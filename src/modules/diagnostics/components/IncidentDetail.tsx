@@ -43,7 +43,7 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
   const { verdict } = incident;
 
   return (
-    <div data-ui="IncidentDetail" className="flex flex-col gap-5 select-none">
+    <div data-ui="IncidentDetail" className="flex flex-col gap-5">
       <VerdictCard incident={incident} />
 
       {incident.suspects.length > 0 && (
@@ -58,9 +58,17 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
 
       {verdict.hints.length > 0 && (
         <DetailSection title="Hints">
-          <ul className="flex flex-col gap-1 text-sm leading-relaxed text-surface-300">
+          {/* The marker is drawn rather than list-disc, whose li stops being a
+              list-item once flex blockifies it, and sibling spacing is the
+              layout's gap: DS-GAP. */}
+          <ul className="flex flex-col gap-1.5 text-sm leading-relaxed text-surface-300">
             {verdict.hints.map((hint) => (
-              <li key={hint}>{hint}</li>
+              <li key={hint} className="flex gap-2">
+                <span aria-hidden className="shrink-0 text-surface-500 select-none">
+                  •
+                </span>
+                <span className="min-w-0 flex-1">{hint}</span>
+              </li>
             ))}
           </ul>
         </DetailSection>
@@ -79,7 +87,7 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-[10px] font-semibold tracking-wider text-surface-500 uppercase">
+      <h3 className="text-[10px] font-semibold tracking-wider text-surface-500 uppercase select-none">
         {title}
       </h3>
       {children}
@@ -91,7 +99,7 @@ function SuspectRow({ suspect }: { suspect: Suspect }) {
   return (
     <li data-ui="IncidentDetail:suspect" className="flex items-center gap-3 px-3 py-2">
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-surface-100 select-text">
+        <span className="block truncate text-sm font-medium text-surface-100">
           {suspect.displayName}
         </span>
         <span className="block truncate text-xs text-surface-400">{suspect.because}</span>
@@ -188,7 +196,7 @@ function FactsLine({ incident }: { incident: Incident }) {
   ].filter((fact): fact is string => !!fact);
 
   return (
-    <p data-ui="IncidentDetail:facts" className="font-mono text-xs text-surface-400 select-text">
+    <p data-ui="IncidentDetail:facts" className="font-mono text-xs text-surface-400">
       {facts.join(" · ")}
     </p>
   );
@@ -265,7 +273,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
   );
 
   return (
-    <div data-ui="IncidentDetail:actions" className="flex flex-wrap items-center gap-2">
+    <div data-ui="IncidentDetail:actions" className="flex flex-wrap items-center gap-2 select-none">
       <Button
         variant="outline"
         size="sm"

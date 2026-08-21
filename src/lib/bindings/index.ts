@@ -11,7 +11,7 @@ export type { Category } from "./Category";
 export type { Check } from "./Check";
 export type { CheckDetail } from "./CheckDetail";
 export type { CodeSighting } from "./CodeSighting";
-export type { Confidence } from "./Confidence";
+export type { Consequence } from "./Consequence";
 export type { ContentEntry } from "./ContentEntry";
 export type { ContentTree } from "./ContentTree";
 export type { CreateProjectArgs } from "./CreateProjectArgs";

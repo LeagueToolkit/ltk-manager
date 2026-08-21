@@ -135,6 +135,7 @@ impl PatcherThread {
             Err(e) => {
                 tracing::error!(error = ?e, "Overlay build failed");
                 self.observer.session_failed(SessionFailure::Build {
+                    kind: e.kind(),
                     message: e.to_string(),
                 });
                 self.events.error(e);

@@ -1,5 +1,5 @@
 export { CheckRow } from "./CheckRow";
-export { ConfidenceChip } from "./ConfidenceChip";
+export { ConsequenceChip } from "./ConsequenceChip";
 export { DiagnosticsReportView } from "./DiagnosticsReport";
 export { EvidenceTimeline } from "./EvidenceTimeline";
 export { GamesTab } from "./GamesTab";

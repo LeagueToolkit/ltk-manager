@@ -13,8 +13,10 @@ use chrono::{DateTime, Local, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::game_log::{CodeSighting, GameLogFacts};
+use super::exit_status;
+use super::game_log::{CodeSighting, GameLogFacts, Record};
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
+use crate::error::ErrorKind;
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::{InjectionStage, SessionOrigin};
 
@@ -103,9 +105,17 @@ pub struct Ending {
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum VerdictKind {
+    /// The DLL never attached, which is the common startup failure.
     PatcherDidNotRun,
+    /// The overlay could not be built, so there was nothing to inject.
+    OverlayBuildFailed,
+    /// The injection host never came up.
+    InjectionHostFailed,
     PatcherOutOfDate,
     ArchiveRejected,
+    /// The scan rejected an archive for a Riot skin ported onto a base
+    /// champion, which is the rejection a player has a word for.
+    SkinhackDetected,
     OverlayDisabled,
     Unmodded,
     MissingData,
@@ -118,36 +128,125 @@ pub enum VerdictKind {
     EndedWithoutReason,
 }
 
-/// How sure the manager is. The evidence mark of the code sets the ceiling.
+/// What a verdict cost the player, which is a fact whatever the manager makes
+/// of the line that reported it.
+///
+/// The axis that replaced a confidence word. How firmly a log code can be read
+/// is a claim about the manager's own table and belongs to the sentence that
+/// reads the code, not stamped over what happened to the game.
+///
+/// Ordered by how much the game lost, worst last.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
-#[serde(rename_all = "lowercase")]
-pub enum Confidence {
-    /// The code is an inferred row, or the verdict is a heuristic over the log.
-    Lead,
-    /// The code is confirmed, and the mod is inferred from what the DLL redirected.
-    Likely,
-    /// The code is confirmed, and its reading names the failure.
-    Confirmed,
+#[serde(rename_all = "kebab-case")]
+pub enum Consequence {
+    /// The overlay served the game without one archive, and the rest applied.
+    ArchiveDropped,
+    /// No mod reached the game.
+    OverlayOff,
+    /// The game stopped making progress and never reached play.
+    GameHung,
+    /// The game did not survive.
+    GameStopped,
+}
+
+impl Consequence {
+    /// A stable number for the token. Never renumber a variant.
+    pub fn code(self) -> u8 {
+        match self {
+            Self::ArchiveDropped => 1,
+            Self::OverlayOff => 2,
+            Self::GameHung => 3,
+            Self::GameStopped => 4,
+        }
+    }
+
+    /// The consequence for a token's number, or `None` for one this build does
+    /// not know.
+    pub fn from_code(code: u8) -> Option<Self> {
+        Some(match code {
+            1 => Self::ArchiveDropped,
+            2 => Self::OverlayOff,
+            3 => Self::GameHung,
+            4 => Self::GameStopped,
+            _ => return None,
+        })
+    }
+}
+
+impl fmt::Display for Consequence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(match self {
+            Self::ArchiveDropped => "one archive dropped",
+            Self::OverlayOff => "no mod ran",
+            Self::GameHung => "the game hung",
+            Self::GameStopped => "the game stopped",
+        })
+    }
 }
 
 /// What the manager concluded from one game.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", from = "StoredVerdict")]
 pub struct Verdict {
     pub kind: VerdictKind,
+    /// The title as it reads, from [`VerdictKind::title`] unless this verdict
+    /// named its own.
+    ///
+    /// Derived on the way in, so a stored incident cannot keep a title this
+    /// build has stopped using. Renaming a kind renames its history with it.
     pub title: String,
+    /// A title for something the kind's own does not cover, and `None` for
+    /// every verdict the predefined set already describes.
+    pub title_override: Option<String>,
     /// One or two sentences under the title.
     pub cause: String,
     /// The archive, the path's file name, or the step, where there is one.
     pub subject: Option<String>,
-    /// Absent for a verdict that states facts, where a confidence reads as a hedge.
-    pub confidence: Option<Confidence>,
+    /// What the game lost, which [`VerdictKind`] alone decides.
+    ///
+    /// Written out for a reader, and never read back. [`Self::kind`] decides it,
+    /// so reading it from a file would only let a stale one disagree.
+    pub consequence: Consequence,
     /// At most two, one sentence each.
     pub hints: Vec<String>,
+}
+
+/// A verdict as a file holds it, which is every field the kind does not decide.
+///
+/// [`Verdict`] deserializes through this, so an incident stored before
+/// [`Consequence`] existed reads with the consequence its kind has always
+/// implied, and one stored after it cannot carry a consequence that disagrees.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StoredVerdict {
+    kind: VerdictKind,
+    #[serde(default)]
+    title_override: Option<String>,
+    cause: String,
+    subject: Option<String>,
+    #[serde(default)]
+    hints: Vec<String>,
+}
+
+impl From<StoredVerdict> for Verdict {
+    fn from(stored: StoredVerdict) -> Self {
+        Self {
+            consequence: stored.kind.consequence(),
+            title: stored
+                .title_override
+                .clone()
+                .unwrap_or_else(|| stored.kind.title().to_string()),
+            title_override: stored.title_override,
+            kind: stored.kind,
+            cause: stored.cause,
+            subject: stored.subject,
+            hints: stored.hints,
+        }
+    }
 }
 
 /// Where a line of evidence came from.
@@ -199,8 +298,11 @@ pub struct Suspect {
     pub project_path: Option<String>,
     pub display_name: String,
     /// `writes Aatrox.wad.client, which holds the path`
+    ///
+    /// The reason is the whole claim. How direct the link is reads out of what
+    /// it says - holding the path is not the same sentence as having been
+    /// redirected - so no separate word grades it.
     pub because: String,
-    pub confidence: Confidence,
 }
 
 /// The record the manager keeps for one game that went wrong.
@@ -238,13 +340,32 @@ pub struct Incident {
 /// A session that failed before any game ran.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SessionFailure {
-    /// The overlay build failed, with the builder's message.
-    Build { message: String },
+    /// The overlay build failed, with the builder's own words.
+    ///
+    /// `kind` is carried because `message` is [`Display`](std::fmt::Display)
+    /// output and several [`AppError`](crate::error::AppError) variants render
+    /// with no prefix of their own, so a thin inner error leaves nothing at all
+    /// to read. The kind is always there to say what failed.
+    Build { kind: ErrorKind, message: String },
     /// The host did not start, or the DLL did not attach.
     Injection {
         stage: InjectionStage,
         message: String,
     },
+}
+
+impl SessionFailure {
+    /// The failure as one evidence line, naming what failed and how.
+    pub fn line(&self) -> String {
+        match self {
+            Self::Build { kind, message } => {
+                format!("overlay build failed, {kind}: {message}")
+            }
+            Self::Injection { stage, message } => {
+                format!("patcher failed at {stage}: {message}")
+            }
+        }
+    }
 }
 
 /// A line the thread saw, kept for the evidence timeline.
@@ -315,10 +436,6 @@ pub struct ClassifyContext<'a> {
 /// The loading screen's last step, which the `load_step` rows count to.
 pub const LOAD_STEPS: u8 = 64;
 
-/// The cube-map texture code. Right after the step that builds the
-/// environment's cube array, it names a map mod rather than a skin.
-const CUBE_MAP_TEXTURE: &str = "ALE-D0D00022";
-
 /// The loading step that mounts the champions' archives.
 const CHAMPION_STEP: u8 = 52;
 
@@ -333,10 +450,13 @@ mod hint {
     pub const SYSTEM_CHECKS: &str = "Run the System checks on the Diagnostics page.";
     pub const UPDATE_MANAGER: &str = "Update LTK Manager.";
     pub const REBUILD_OVERLAY: &str = "Rebuild the overlay.";
+    pub const TEXTURE_DIMENSIONS: &str = "A modded texture whose width or height is not a multiple of 4 is the common cause, so check the dimensions of any texture you changed.";
     pub const REPAIR_INSTALL: &str =
         "Repair the install in the Riot Client when the rebuild does not help.";
     pub const UPDATE_DRIVER: &str =
         "Update the graphics driver, and check the display settings when the update does not help.";
+    pub const FREE_MEMORY: &str =
+        "Close what else is running, and leave free space on the drive League is installed on.";
     pub const OPEN_PROJECT: &str = "Open the project in the editor.";
     pub const START_FIRST: &str = "Start the patcher before League.";
     pub const SCAN_UP_FRONT: &str = "Turn on Scan every WAD up front, because the DLL scanned archives on demand and the game ended inside its first minute.";
@@ -435,6 +555,9 @@ impl VerdictKind {
             Self::StuckLoading => 11,
             Self::ArchiveSkipped => 12,
             Self::EndedWithoutReason => 13,
+            Self::SkinhackDetected => 14,
+            Self::OverlayBuildFailed => 15,
+            Self::InjectionHostFailed => 16,
         }
     }
 
@@ -454,71 +577,97 @@ impl VerdictKind {
             11 => Self::StuckLoading,
             12 => Self::ArchiveSkipped,
             13 => Self::EndedWithoutReason,
+            14 => Self::SkinhackDetected,
+            15 => Self::OverlayBuildFailed,
+            16 => Self::InjectionHostFailed,
             _ => return None,
         })
     }
-}
 
-impl Confidence {
-    /// A stable number for the token. Never renumber a variant.
-    pub fn code(self) -> u8 {
+    /// The title this kind reads under.
+    ///
+    /// The predefined set. A verdict whose kind does not describe it closely
+    /// enough carries a [`Verdict::title_override`] instead, which is for the
+    /// niche and the new rather than for restating one of these.
+    pub fn title(self) -> &'static str {
         match self {
-            Self::Lead => 1,
-            Self::Likely => 2,
-            Self::Confirmed => 3,
+            Self::PatcherDidNotRun => "DLL Injection Failure",
+            Self::OverlayBuildFailed => "Overlay Build Failure",
+            Self::InjectionHostFailed => "Injection Host Failure",
+            Self::PatcherOutOfDate => "Unsupported Game Build",
+            Self::ArchiveRejected => "Archive Scan Rejection",
+            Self::SkinhackDetected => "Skinhack Detection",
+            Self::OverlayDisabled => "Overlay Verification Failure",
+            Self::Unmodded => "No Mods Applied",
+            Self::MissingData => "Missing Game Data",
+            Self::CorruptArchive => "WAD Mount Failure",
+            Self::TextureFailed => "Texture Creation Failure",
+            Self::OutOfMemory => "Memory Allocation Failure",
+            Self::GraphicsFault => "Graphics Device Failure",
+            Self::StuckLoading => "Loading Screen Stall",
+            Self::ArchiveSkipped => "Archive Verification Skipped",
+            Self::EndedWithoutReason => "Unexplained Game Exit",
         }
     }
 
-    /// The confidence for a token's number, or `None` for one this build does not know.
-    pub fn from_code(code: u8) -> Option<Self> {
-        Some(match code {
-            1 => Self::Lead,
-            2 => Self::Likely,
-            3 => Self::Confirmed,
-            _ => return None,
-        })
-    }
-
-    /// The ceiling rule: a verdict on an inferred row is never more than a lead.
-    pub fn capped_by(self, mark: EvidenceMark) -> Self {
-        match mark {
-            EvidenceMark::Confirmed => self,
-            EvidenceMark::Inferred => Self::Lead,
+    /// What a game with this verdict lost.
+    ///
+    /// Total over the kinds, and the only place the mapping lives, so a new
+    /// kind cannot ship without saying what it costs.
+    pub fn consequence(self) -> Consequence {
+        match self {
+            Self::PatcherDidNotRun
+            | Self::OverlayBuildFailed
+            | Self::InjectionHostFailed
+            | Self::PatcherOutOfDate
+            | Self::ArchiveRejected
+            | Self::SkinhackDetected
+            | Self::OverlayDisabled
+            | Self::Unmodded => Consequence::OverlayOff,
+            Self::MissingData
+            | Self::CorruptArchive
+            | Self::TextureFailed
+            | Self::OutOfMemory
+            | Self::GraphicsFault
+            | Self::EndedWithoutReason => Consequence::GameStopped,
+            Self::StuckLoading => Consequence::GameHung,
+            Self::ArchiveSkipped => Consequence::ArchiveDropped,
         }
-    }
-}
-
-impl fmt::Display for Confidence {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(match self {
-            Self::Lead => "lead",
-            Self::Likely => "likely",
-            Self::Confirmed => "confirmed",
-        })
     }
 }
 
 impl Verdict {
-    /// A verdict with no subject, no confidence and no hints yet.
-    pub fn new(kind: VerdictKind, title: impl Into<String>, cause: impl Into<String>) -> Self {
+    /// A verdict with no subject and no hints yet.
+    ///
+    /// The title and the consequence both come from `kind`, so no caller
+    /// chooses either. [`Self::with_title`] is the way to say something the
+    /// kind's own title does not.
+    pub fn new(kind: VerdictKind, cause: impl Into<String>) -> Self {
         Self {
             kind,
-            title: title.into(),
+            title: kind.title().to_string(),
+            title_override: None,
             cause: cause.into(),
             subject: None,
-            confidence: None,
+            consequence: kind.consequence(),
             hints: Vec::new(),
         }
+    }
+
+    /// Names this verdict something the kind's own title does not cover.
+    ///
+    /// For the niche and the new. Reach for a [`VerdictKind`] instead when the
+    /// same title would fit a second incident.
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        let title = title.into();
+        self.title = title.clone();
+        self.title_override = Some(title);
+        self
     }
 
     /// Names the archive, the path's file name, or the step.
     pub fn with_subject(mut self, subject: impl Into<String>) -> Self {
         self.subject = Some(subject.into());
-        self
-    }
-
-    pub fn with_confidence(mut self, confidence: Confidence) -> Self {
-        self.confidence = Some(confidence);
         self
     }
 
@@ -544,30 +693,21 @@ impl EvidenceCode {
     }
 }
 
-/// `000012.344|  ERROR|  LOAD| ` and the shorter header without a channel.
-static LOG_HEADER: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\d+\.\d+\|\s*(?P<level>[A-Z]+)\|(?:\s*[A-Z]{2,8}\|)?\s*")
-        .expect("a valid header pattern")
-});
-
 static MISSING_HASH: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)missing data:\s*0x([0-9a-f]{1,16})").expect("a valid hash pattern")
 });
 
 impl Evidence {
     /// The line without a game log's time, level and channel columns.
+    ///
+    /// A line no game wrote has no columns to drop, and is returned whole.
     pub fn message(&self) -> &str {
-        match LOG_HEADER.find(&self.line) {
-            Some(header) => &self.line[header.end()..],
-            None => &self.line,
-        }
+        Record::parse(&self.line).map_or(self.line.as_str(), |record| record.message)
     }
 
     /// Whether a game log line was written at the `ERROR` level.
     pub fn is_error_level(&self) -> bool {
-        LOG_HEADER
-            .captures(&self.line)
-            .is_some_and(|header| &header["level"] == "ERROR")
+        Record::parse(&self.line).is_some_and(|record| record.level == "ERROR")
     }
 
     /// The path hash a `missing_data` line carries.
@@ -582,14 +722,18 @@ fn missing_hash_in(text: &str) -> Option<u64> {
 }
 
 impl Ending {
-    /// `Interrupt, exit code -1073741819`, or `None` when the client said nothing.
+    /// `Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION`, or `None` when
+    /// the client said nothing.
+    ///
+    /// The bare number is the reader's only clue to what killed the game, so it
+    /// carries the name Windows gives it. See [`exit_status`](super::exit_status).
     pub fn summary(&self) -> Option<String> {
         let mut parts = Vec::new();
         if let Some(reason) = &self.exit_reason {
             parts.push(reason.clone());
         }
         if let Some(code) = self.exit_code {
-            parts.push(format!("exit code {code}"));
+            parts.push(format!("exit code {}", exit_status::describe(code)));
         }
         (!parts.is_empty()).then(|| parts.join(", "))
     }
@@ -608,6 +752,30 @@ impl fmt::Display for EvidenceSource {
 }
 
 impl Incident {
+    /// Brings a stored incident up to what this build would have written.
+    ///
+    /// Titles and consequences already derive from the kind, so the only thing
+    /// left to move is the kind itself when a later build split one in two.
+    pub(super) fn migrate(&mut self) {
+        self.backfill_scan_status();
+        self.promote_skinhack();
+    }
+
+    /// A rejection the scan called a skinhack is its own kind now.
+    ///
+    /// Without this a stored incident keeps reading as a plain rejection, and
+    /// the list shows the same event under two names.
+    fn promote_skinhack(&mut self) {
+        if self.verdict.kind == VerdictKind::ArchiveRejected
+            && self.scan_status == Some(ScanStatus::Skinhack)
+        {
+            self.verdict.kind = VerdictKind::SkinhackDetected;
+            if self.verdict.title_override.is_none() {
+                self.verdict.title = self.verdict.kind.title().to_string();
+            }
+        }
+    }
+
     /// Recover [`Self::scan_status`] from the evidence of a stored incident
     /// that predates the field, so a history survives the upgrade.
     ///
@@ -700,12 +868,7 @@ impl ClassifyContext<'_> {
     /// Every mod, highest priority first, then every project, that writes an
     /// archive `wants` accepts. The match is on the archive's last path
     /// segment, lowercased, the way `useWadScanOffenders` matches.
-    fn suspects(
-        &self,
-        wants: impl Fn(&str) -> bool,
-        because: Because,
-        confidence: Confidence,
-    ) -> Vec<Suspect> {
+    fn suspects(&self, wants: impl Fn(&str) -> bool, because: Because) -> Vec<Suspect> {
         let hits = |affected: &[String]| -> Vec<String> {
             let mut names: Vec<String> = Vec::new();
             for wad in affected {
@@ -733,7 +896,6 @@ impl ClassifyContext<'_> {
                 project_path: None,
                 display_name: footprint.display_name.clone(),
                 because: because.text(&names),
-                confidence,
             });
         }
         for footprint in self.projects {
@@ -746,25 +908,15 @@ impl ClassifyContext<'_> {
                 project_path: Some(footprint.project_path.clone()),
                 display_name: footprint.display_name.clone(),
                 because: because.text(&names),
-                confidence,
             });
         }
         suspects
     }
 
     /// The writers of the named archives.
-    fn writers_of(
-        &self,
-        archives: &[String],
-        because: Because,
-        confidence: Confidence,
-    ) -> Vec<Suspect> {
+    fn writers_of(&self, archives: &[String], because: Because) -> Vec<Suspect> {
         let wanted: Vec<String> = archives.iter().map(|wad| wad_basename(wad)).collect();
-        self.suspects(
-            |name| wanted.iter().any(|want| want == name),
-            because,
-            confidence,
-        )
+        self.suspects(|name| wanted.iter().any(|want| want == name), because)
     }
 }
 
@@ -833,14 +985,25 @@ impl ScanStatus {
 
     /// The status a recorded rejection line names, for a line that is one.
     ///
-    /// The recorder writes `scan rejected <archive>, status <code>`, which is
-    /// how an incident stored before [`Incident::scan_status`] existed still
-    /// knows what the scan said.
+    /// The reading half of the phrase [`WadScanFailure::evidence_line`] writes,
+    /// which is how an incident stored before [`Incident::scan_status`] existed
+    /// still knows what the scan said.
     fn from_evidence_line(line: &str) -> Option<Self> {
         let (_, status) = line
             .strip_prefix("scan rejected ")?
             .rsplit_once(", status ")?;
         Some(Self::parse(status))
+    }
+
+    /// The verdict kind this status reaches.
+    ///
+    /// A skinhack is its own kind rather than a shade of a rejection, so the
+    /// title, the hue and the token all follow from one field.
+    fn kind(self) -> VerdictKind {
+        match self {
+            Self::Skinhack => VerdictKind::SkinhackDetected,
+            _ => VerdictKind::ArchiveRejected,
+        }
     }
 
     fn cause(self, archive: &str, status: &str) -> String {
@@ -1021,15 +1184,17 @@ impl GameRecord {
             return Some(self.unmodded());
         }
         if let Some(log) = &self.log {
-            if let Some((sighting, row)) = self.first_code_of(|kind| kind == CodeKind::MissingData)
-            {
-                return Some(self.missing_data(ctx, sighting, row));
+            if let Some((sighting, _)) = self.first_code_of(|kind| kind == CodeKind::MissingData) {
+                return Some(self.missing_data(ctx, sighting));
             }
             if let Some((_, row)) = self.first_code_of(|kind| kind == CodeKind::WadMount) {
                 return Some(self.corrupt_archive(ctx, row));
             }
-            if let Some((sighting, row)) = self.first_code_of(|kind| kind == CodeKind::Texture) {
-                return Some(self.texture_failed(ctx, log, sighting, row));
+            if self
+                .first_code_of(|kind| kind == CodeKind::Texture)
+                .is_some()
+            {
+                return Some(self.texture_failed());
             }
             if let Some(row) = self.best_row_of(|kind| kind == CodeKind::Memory) {
                 return Some(self.out_of_memory(row));
@@ -1055,18 +1220,26 @@ impl GameRecord {
 
     fn patcher_did_not_run(&self, failure: &SessionFailure) -> (Verdict, Vec<Suspect>) {
         let verdict = match failure {
-            SessionFailure::Build { message } => Verdict::new(
-                VerdictKind::PatcherDidNotRun,
-                "The overlay build failed",
-                sentence(message),
-            ),
+            // The message is the builder's or the host's own words, which name
+            // a part of the patcher the player has never heard of. Each cause
+            // says what the step was for before quoting it.
+            SessionFailure::Build { kind, message } => Verdict::new(
+                VerdictKind::OverlayBuildFailed,
+                format!(
+                    "Your enabled mods are merged into one overlay before League starts, and that did not finish, so the game ran without them. {}",
+                    failure_detail(*kind, message)
+                ),
+            )
+            .with_hint(hint::REBUILD_OVERLAY),
             SessionFailure::Injection {
                 stage: InjectionStage::Host,
                 message,
             } => Verdict::new(
-                VerdictKind::PatcherDidNotRun,
-                "The injection host did not start",
-                sentence(message),
+                VerdictKind::InjectionHostFailed,
+                format!(
+                    "The overlay was built, but the program that serves it to League never started, so the game ran without it. {}",
+                    capitalized_sentence(message)
+                ),
             )
             .with_hint(hint::SYSTEM_CHECKS),
             SessionFailure::Injection {
@@ -1074,17 +1247,19 @@ impl GameRecord {
                 message,
             } => Verdict::new(
                 VerdictKind::PatcherDidNotRun,
-                "The DLL did not attach to League",
-                sentence(message),
+                format!(
+                    "The overlay was ready and the game started, but the patcher never got into League, so the game ran without it. {}",
+                    capitalized_sentence(message)
+                ),
             )
-            .with_hint(if self.host_elevated {
-                hint::SIGNATURE
-            } else {
-                hint::ELEVATE
-            })
-            .with_hint(hint::SYSTEM_CHECKS),
+                .with_hint(if self.host_elevated {
+                    hint::SIGNATURE
+                } else {
+                    hint::ELEVATE
+                })
+                .with_hint(hint::SYSTEM_CHECKS),
         };
-        (verdict.with_confidence(Confidence::Confirmed), Vec::new())
+        (verdict, Vec::new())
     }
 
     fn patcher_out_of_date(&self) -> (Verdict, Vec<Suspect>) {
@@ -1093,14 +1268,10 @@ impl GameRecord {
             .as_deref()
             .map(|detail| format!(" The game's build is {}.", detail.trim()))
             .unwrap_or_default();
-        let verdict = Verdict::new(
-            VerdictKind::PatcherOutOfDate,
-            "The patcher is out of date",
-            format!(
+        let verdict = Verdict::new(VerdictKind::PatcherOutOfDate, format!(
                 "The patcher does not know this version of League. The DLL refused to patch a build newer than the one it was made for, and the game ran unmodded.{build}"
             ),
         )
-        .with_confidence(Confidence::Confirmed)
         .with_hint(hint::UPDATE_MANAGER);
         (verdict, Vec::new())
     }
@@ -1112,7 +1283,8 @@ impl GameRecord {
             .as_deref()
             .map(last_segment)
             .unwrap_or_else(|| "An archive".to_string());
-        let mut cause = ScanStatus::parse(&first.status).cause(&archive, &first.status);
+        let status = ScanStatus::parse(&first.status);
+        let mut cause = status.cause(&archive, &first.status);
         let others = self.scan_failures.len() - 1;
         if others > 0 {
             cause.push_str(&format!(
@@ -1125,13 +1297,8 @@ impl GameRecord {
             .iter()
             .filter_map(|failure| failure.wad.clone())
             .collect();
-        let suspects = ctx.writers_of(&wads, Because::Rejected, Confidence::Confirmed);
-        let mut verdict = Verdict::new(
-            VerdictKind::ArchiveRejected,
-            "An archive was rejected",
-            cause,
-        )
-        .with_confidence(Confidence::Confirmed);
+        let suspects = ctx.writers_of(&wads, Because::Rejected);
+        let mut verdict = Verdict::new(status.kind(), cause);
         if first.wad.is_some() {
             verdict = verdict.with_subject(archive);
             if self.is_workshop() {
@@ -1149,9 +1316,7 @@ impl GameRecord {
             .unwrap_or_default();
         let mut cause = String::from("The patcher turned the overlay off before the game loaded.");
         let mut verdict =
-            Verdict::new(VerdictKind::OverlayDisabled, "The overlay was disabled", "")
-                .with_confidence(Confidence::Confirmed)
-                .with_hint(hint::REBUILD_OVERLAY);
+            Verdict::new(VerdictKind::OverlayDisabled, "").with_hint(hint::REBUILD_OVERLAY);
         let mut suspects = Vec::new();
         match archive {
             Some(archive) => {
@@ -1162,9 +1327,7 @@ impl GameRecord {
                 }
                 cause.push_str(" The eager scan fails closed, so no mod was in the game.");
                 suspects = ctx.writers_of(
-                    std::slice::from_ref(&archive),
-                    Because::DidNotVerify,
-                    Confidence::Confirmed,
+                    std::slice::from_ref(&archive), Because::DidNotVerify
                 );
                 verdict = verdict.with_subject(archive);
                 if self.is_workshop() {
@@ -1180,7 +1343,7 @@ impl GameRecord {
     }
 
     fn unmodded(&self) -> (Verdict, Vec<Suspect>) {
-        let mut verdict = Verdict::new(VerdictKind::Unmodded, "Unmodded game", "");
+        let mut verdict = Verdict::new(VerdictKind::Unmodded, "");
         let why = match self.overlay {
             _ if !self.injected => {
                 "The DLL never attached, because the patcher was not running or the host never found the game.".to_string()
@@ -1206,41 +1369,30 @@ impl GameRecord {
         &self,
         ctx: &ClassifyContext<'_>,
         sighting: &CodeSighting,
-        row: &CodeRow,
     ) -> (Verdict, Vec<Suspect>) {
         let hash = missing_hash_in(&sighting.line);
         let path = hash.and_then(|hash| (ctx.resolve_hash)(hash));
-        let mut verdict = Verdict::new(VerdictKind::MissingData, "Missing data", "");
-        let mut cause = String::from("League stopped a read it could not finish.");
+        let mut verdict = Verdict::new(VerdictKind::MissingData, "");
+        let mut cause = String::from("League failed to read a file.");
 
-        let (suspects, confidence) = match &path {
+        let suspects = match &path {
             Some(path) => {
-                cause.push_str(&format!(" The file is {path}."));
-                verdict = verdict.with_subject(last_segment(path));
+                // The path is the answer, so it goes in the subject where the
+                // card sets it in mono, not buried in the sentence.
+                verdict = verdict.with_subject(path);
                 let writers = match PathHome::of(path) {
                     PathHome::Champion(champion) => {
                         let archive = format!("{champion}.wad.client");
-                        ctx.suspects(
-                            |name| name == archive,
-                            Because::HoldsThePath,
-                            Confidence::Confirmed,
-                        )
+                        ctx.suspects(|name| name == archive, Because::HoldsThePath)
                     }
-                    PathHome::Map => {
-                        ctx.suspects(is_map_archive, Because::HoldsThePath, Confidence::Confirmed)
-                    }
+                    PathHome::Map => ctx.suspects(is_map_archive, Because::HoldsThePath),
                     PathHome::Unknown => Vec::new(),
                 };
-                match writers.len() {
-                    0 => {
-                        cause.push_str(" No enabled mod writes the archive it lives in, so the mods that were in the game are listed.");
-                        (self.redirected_writers(ctx), Confidence::Lead)
-                    }
-                    1 => (writers, Confidence::Confirmed),
-                    _ => (
-                        with_confidence(writers, Confidence::Likely),
-                        Confidence::Likely,
-                    ),
+                if writers.is_empty() {
+                    cause.push_str(" No enabled mod writes the archive that file lives in, so the mods that were in the game are listed.");
+                    self.redirected_writers(ctx)
+                } else {
+                    writers
                 }
             }
             None => {
@@ -1251,94 +1403,72 @@ impl GameRecord {
                     None => cause.push_str(" The line carries no hash the manager can read."),
                 }
                 cause.push_str(" The mods whose archives were in the game are listed.");
-                (self.redirected_writers(ctx), Confidence::Lead)
+                self.redirected_writers(ctx)
             }
         };
 
         verdict.cause = cause;
-        verdict = verdict
-            .with_confidence(confidence.capped_by(row.mark))
-            .with_hint(if self.is_workshop() {
-                hint::OPEN_PROJECT
-            } else {
-                hint::DISABLE_SUSPECT
-            });
+        verdict = verdict.with_hint(if self.is_workshop() {
+            hint::OPEN_PROJECT
+        } else {
+            hint::DISABLE_SUSPECT
+        });
         (verdict, suspects)
     }
 
     fn corrupt_archive(&self, ctx: &ClassifyContext<'_>, row: &CodeRow) -> (Verdict, Vec<Suspect>) {
-        // The code names no archive, so even a confirmed row cannot say which
-        // mod, and the verdict stops at Likely.
-        let confidence = Confidence::Likely.capped_by(row.mark);
         let verdict = Verdict::new(
             VerdictKind::CorruptArchive,
-            "A corrupt archive",
             format!(
-                "League could not mount an archive. {} The code names no archive, so the mods whose archives were in the game are listed.",
+                "{} The log does not name which WAD, so every mod that was in the game is listed.",
                 reading(row)
             ),
         )
-        .with_confidence(confidence)
         .with_hint(hint::REBUILD_OVERLAY)
         .with_hint(hint::REPAIR_INSTALL);
         (verdict, self.redirected_writers(ctx))
     }
 
-    fn texture_failed(
-        &self,
-        ctx: &ClassifyContext<'_>,
-        log: &GameLogFacts,
-        sighting: &CodeSighting,
-        row: &CodeRow,
-    ) -> (Verdict, Vec<Suspect>) {
-        let after_cube_step = sighting.code == CUBE_MAP_TEXTURE
-            && log.codes.windows(2).any(|pair| {
-                pair[1].code == CUBE_MAP_TEXTURE
-                    && log_codes::lookup(&pair[0].code)
-                        .is_some_and(|row| row.kind == CodeKind::LoadStep(MAP_STEP))
-            });
-        let mut cause = format!(
-            "A texture could not be created, and the crash came after it. {}",
-            reading(row)
-        );
-        let suspects = if after_cube_step {
-            cause.push_str(" The texture was a cubemap of the map, which points at a map mod and away from a champion skin.");
-            self.redirected_writers_where(ctx, is_map_archive)
-        } else {
-            self.redirected_writers(ctx)
-        };
-        let verdict = Verdict::new(VerdictKind::TextureFailed, "A texture failed", cause)
-            .with_confidence(Confidence::Likely.capped_by(row.mark))
-            .with_hint(hint::REBUILD_OVERLAY);
-        (verdict, suspects)
+    /// Names no mod.
+    ///
+    /// Nothing in the log says which texture failed or where it came from, and
+    /// the game's own textures fail this way too, so a list of everything that
+    /// was loaded would only be a list of everything that was loaded.
+    fn texture_failed(&self) -> (Verdict, Vec<Suspect>) {
+        let verdict = Verdict::new(
+            VerdictKind::TextureFailed,
+            "League could not load a texture onto the GPU. An invalid or unexpected texture format, or invalid texture dimensions, can cause this.",
+        )
+        .with_hint(hint::TEXTURE_DIMENSIONS)
+        .with_hint(hint::REBUILD_OVERLAY);
+        (verdict, Vec::new())
     }
 
+    /// An allocation fails for far more reasons than the log names, so the
+    /// cause says only what the manager can act on and never settles on one.
     fn out_of_memory(&self, row: &CodeRow) -> (Verdict, Vec<Suspect>) {
         let count = self.redirected.len();
-        let verdict = Verdict::new(
-            VerdictKind::OutOfMemory,
-            "Out of memory",
-            format!("League ran out of memory. {}", reading(row)),
+        let mut verdict = Verdict::new(VerdictKind::OutOfMemory, format!(
+                "League asked for memory and did not get it. {} An allocation fails for many reasons, and the three worth checking are free RAM, room on the drive for Windows to grow the page file, and a mod whose textures are far larger than what they replace.",
+                reading(row)
+            ),
         )
-        .with_confidence(Confidence::Confirmed.capped_by(row.mark))
-        .with_hint(format!(
-            "A mod with very large textures raises the odds, and {count} modded archive{} {} in this game.",
-            plural(count),
-            if count == 1 { "was" } else { "were" }
-        ));
+        .with_hint(hint::FREE_MEMORY);
+        if count > 0 {
+            verdict = verdict.with_hint(format!(
+                "{count} modded archive{} {} in this game. Disable any that replace textures with much larger ones and play again.",
+                plural(count),
+                if count == 1 { "was" } else { "were" }
+            ));
+        }
         (verdict, Vec::new())
     }
 
     fn graphics_fault(&self, row: &CodeRow) -> (Verdict, Vec<Suspect>) {
         let verdict = Verdict::new(
             VerdictKind::GraphicsFault,
-            "A graphics fault",
-            format!(
-                "The graphics driver stopped responding. {} No mod is named, because a device fault is the driver's.",
-                reading(row)
-            ),
+            format!("The graphics driver stopped responding. {}", reading(row)),
         )
-        .with_confidence(Confidence::Lead.capped_by(row.mark))
         .with_hint(hint::UPDATE_DRIVER);
         (verdict, Vec::new())
     }
@@ -1353,9 +1483,7 @@ impl GameRecord {
             CodeKind::LoadStep(n) => Some(n),
             _ => None,
         });
-        let mark = row.map_or(EvidenceMark::Inferred, |row| row.mark);
-        let mut verdict = Verdict::new(VerdictKind::StuckLoading, "Stuck loading", "")
-            .with_confidence(Confidence::Likely.capped_by(mark));
+        let mut verdict = Verdict::new(VerdictKind::StuckLoading, "");
         let suspects = match number {
             Some(n) => {
                 let work = row
@@ -1383,7 +1511,7 @@ impl GameRecord {
         if self.ran_lazy_and_ended_early() {
             verdict = verdict.with_hint(hint::SCAN_UP_FRONT);
         }
-        (verdict, with_confidence(suspects, Confidence::Likely))
+        (verdict, suspects)
     }
 
     fn archive_skipped(&self, ctx: &ClassifyContext<'_>) -> (Verdict, Vec<Suspect>) {
@@ -1400,12 +1528,10 @@ impl GameRecord {
             sentence(&first.why)
         ));
         let wads: Vec<String> = self.skipped.iter().map(|s| s.wad.clone()).collect();
-        let suspects = ctx.writers_of(&wads, Because::Skipped, Confidence::Confirmed);
-        let mut verdict =
-            Verdict::new(VerdictKind::ArchiveSkipped, "An archive was skipped", cause)
-                .with_subject(archive)
-                .with_confidence(Confidence::Confirmed)
-                .with_hint(hint::REBUILD_OVERLAY);
+        let suspects = ctx.writers_of(&wads, Because::Skipped);
+        let mut verdict = Verdict::new(VerdictKind::ArchiveSkipped, cause)
+            .with_subject(archive)
+            .with_hint(hint::REBUILD_OVERLAY);
         if self.is_workshop() {
             verdict = verdict.with_hint(hint::OPEN_PROJECT);
         }
@@ -1431,11 +1557,7 @@ impl GameRecord {
             )),
             None => cause.push_str(" No game log was read."),
         }
-        let mut verdict = Verdict::new(
-            VerdictKind::EndedWithoutReason,
-            "Ended without a reason",
-            cause,
-        );
+        let mut verdict = Verdict::new(VerdictKind::EndedWithoutReason, cause);
         if self.ran_lazy_and_ended_early() {
             verdict = verdict.with_hint(hint::SCAN_UP_FRONT);
         }
@@ -1443,7 +1565,7 @@ impl GameRecord {
     }
 
     fn redirected_writers(&self, ctx: &ClassifyContext<'_>) -> Vec<Suspect> {
-        ctx.writers_of(&self.redirected, Because::Redirected, Confidence::Lead)
+        ctx.writers_of(&self.redirected, Because::Redirected)
     }
 
     fn redirected_writers_where(
@@ -1457,12 +1579,26 @@ impl GameRecord {
             .filter(|wad| keep(&wad_basename(wad)))
             .cloned()
             .collect();
-        ctx.writers_of(&archives, Because::Redirected, Confidence::Lead)
+        ctx.writers_of(&archives, Because::Redirected)
     }
 
     /// The timeline, the log's codes and the client's word, newest first.
     fn evidence(&self) -> Vec<Evidence> {
         let mut rows: Vec<(f64, Evidence)> = Vec::new();
+        // A session that failed before any game has nothing else to show, and
+        // the kind is the part worth pasting into a report.
+        if let Some(failure) = &self.failure {
+            let secs = self.duration_secs();
+            rows.push((
+                secs,
+                Evidence {
+                    at: clock(secs),
+                    source: EvidenceSource::Patcher,
+                    line: failure.line(),
+                    code: None,
+                },
+            ));
+        }
         for raw in &self.timeline {
             let secs = ((raw.at - self.started_at).num_milliseconds() as f64 / 1000.0).max(0.0);
             rows.push((
@@ -1506,16 +1642,6 @@ impl GameRecord {
     }
 }
 
-fn with_confidence(suspects: Vec<Suspect>, confidence: Confidence) -> Vec<Suspect> {
-    suspects
-        .into_iter()
-        .map(|suspect| Suspect {
-            confidence,
-            ..suspect
-        })
-        .collect()
-}
-
 /// `mm:ss.s` for seconds into the game.
 fn clock(secs: f64) -> String {
     let minutes = (secs / 60.0).floor();
@@ -1539,6 +1665,33 @@ fn reading(row: &CodeRow) -> String {
 }
 
 /// `text` with a full stop, unless it has its own ending.
+/// [`sentence`], capitalized, for a message that opens one of its own.
+///
+/// Only a lowercase ASCII first letter moves, so `DLL` and a path keep the
+/// spelling their writer chose. The colon-joined call sites want the original.
+/// The error's own words, with the kind it was, for the end of a cause.
+///
+/// `IO: Access is denied.`, or the bare kind when the message is empty, which
+/// several [`AppError`](crate::error::AppError) variants leave it.
+fn failure_detail(kind: ErrorKind, message: &str) -> String {
+    let message = capitalized_sentence(message);
+    if message.is_empty() {
+        return format!("{kind}, with no message.");
+    }
+    format!("{kind}: {message}")
+}
+
+fn capitalized_sentence(text: &str) -> String {
+    let text = sentence(text);
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) if first.is_ascii_lowercase() => {
+            format!("{}{}", first.to_ascii_uppercase(), chars.as_str())
+        }
+        _ => text,
+    }
+}
+
 fn sentence(text: &str) -> String {
     let text = text.trim();
     if text.is_empty() || text.ends_with(['.', '!', '?']) {
@@ -1727,13 +1880,23 @@ mod tests {
     fn a_build_failure_is_the_whole_story() {
         let mut record = GameRecord::open(at(0), SessionOrigin::Library);
         record.failure = Some(SessionFailure::Build {
+            kind: ErrorKind::Io,
             message: "Overlay build failed: bad layer".to_string(),
         });
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.kind, VerdictKind::PatcherDidNotRun);
-        assert_eq!(incident.verdict.title, "The overlay build failed");
-        assert_eq!(incident.verdict.cause, "Overlay build failed: bad layer.");
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Confirmed));
+        assert_eq!(incident.verdict.kind, VerdictKind::OverlayBuildFailed);
+        assert!(incident.verdict.cause.contains("merged into one overlay"));
+        // The kind survives the message, so a thin error still says what failed.
+        assert!(
+            incident
+                .verdict
+                .cause
+                .ends_with("IO: Overlay build failed: bad layer.")
+        );
+        assert_eq!(
+            incident.evidence[0].line,
+            "overlay build failed, IO: Overlay build failed: bad layer"
+        );
         assert!(incident.suspects.is_empty());
         assert!(incident.game.is_none());
         assert!(!incident.id.is_empty());
@@ -1747,7 +1910,7 @@ mod tests {
             message: "host stdout closed".to_string(),
         });
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.title, "The injection host did not start");
+        assert_eq!(incident.verdict.kind, VerdictKind::InjectionHostFailed);
         assert_eq!(incident.verdict.hints, [hint::SYSTEM_CHECKS]);
     }
 
@@ -1759,8 +1922,14 @@ mod tests {
             message: "DLL never attached after 60s".to_string(),
         });
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.title, "The DLL did not attach to League");
-        assert_eq!(incident.verdict.cause, "DLL never attached after 60s.");
+        assert_eq!(incident.verdict.kind, VerdictKind::PatcherDidNotRun);
+        assert!(incident.verdict.cause.contains("never got into League"));
+        assert!(
+            incident
+                .verdict
+                .cause
+                .ends_with("DLL never attached after 60s.")
+        );
         assert_eq!(incident.verdict.hints, [hint::ELEVATE, hint::SYSTEM_CHECKS]);
 
         record.host_elevated = true;
@@ -1797,25 +1966,50 @@ mod tests {
             status: "c0000229".to_string(),
         }];
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.kind, VerdictKind::ArchiveRejected);
+        assert_eq!(incident.verdict.kind, VerdictKind::SkinhackDetected);
         assert_eq!(
             incident.verdict.subject.as_deref(),
             Some("Aatrox.wad.client")
         );
         assert!(incident.verdict.cause.contains("skinhack"));
         assert_eq!(incident.scan_status, Some(ScanStatus::Skinhack));
+        // The finding a player recognises, not the machinery that caught it.
+        assert_eq!(incident.verdict.title, "Skinhack Detection");
+        assert_eq!(incident.verdict.title_override, None);
         assert_eq!(names(&incident), ["Aatrox Justicar"]);
         assert_eq!(
             incident.suspects[0].because,
             "writes Aatrox.wad.client, which the scan rejected"
         );
-        assert_eq!(incident.suspects[0].confidence, Confidence::Confirmed);
 
         record.scan_failures[0].status = "base_skin".to_string();
         let incident = classify(&record, &no_path).unwrap();
         assert!(incident.verdict.cause.contains("incomplete mod"));
         assert!(!incident.verdict.cause.contains("skinhack"));
         assert_eq!(incident.scan_status, Some(ScanStatus::BaseSkin));
+        // Only a skinhack reaches its own kind.
+        assert_eq!(incident.verdict.kind, VerdictKind::ArchiveRejected);
+        assert_eq!(incident.verdict.title, "Archive Scan Rejection");
+    }
+
+    /// The two halves of the evidence phrase live in different modules, so only
+    /// a round trip catches one of them being reworded on its own.
+    #[test]
+    fn a_rejection_reads_back_the_status_it_wrote() {
+        for wad in [Some("Aatrox.wad.client".to_string()), None] {
+            for status in ["c0000229", "base_skin", "c000003e", "deadbeef"] {
+                let failure = WadScanFailure {
+                    wad: wad.clone(),
+                    status: status.to_string(),
+                };
+                assert_eq!(
+                    ScanStatus::from_evidence_line(&failure.evidence_line()),
+                    Some(ScanStatus::parse(status)),
+                    "{} does not read back",
+                    failure.evidence_line()
+                );
+            }
+        }
     }
 
     #[test]
@@ -1849,7 +2043,6 @@ mod tests {
         let incident = classify(&record, &no_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::Unmodded);
         assert!(incident.verdict.cause.contains("never attached"));
-        assert_eq!(incident.verdict.confidence, None);
 
         record.injected = true;
         record.overlay = OverlayOutcome::TooLate;
@@ -1877,29 +2070,23 @@ mod tests {
         ]));
         let incident = classify(&record, &aatrox_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::MissingData);
-        assert_eq!(incident.verdict.title, "Missing data");
+        assert_eq!(incident.verdict.title, "Missing Game Data");
+        // The path is the answer, so it is the subject and not a clause.
         assert_eq!(
             incident.verdict.subject.as_deref(),
-            Some("aatrox_skin12_tx_cm.dds")
+            Some("assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds")
         );
-        assert!(
-            incident
-                .verdict
-                .cause
-                .contains("The file is assets/characters/aatrox/")
-        );
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Confirmed));
+        assert!(!incident.verdict.cause.contains("assets/characters"));
         assert_eq!(names(&incident), ["Aatrox Justicar"]);
         assert_eq!(
             incident.suspects[0].because,
             "writes Aatrox.wad.client, which holds the path"
         );
-        assert_eq!(incident.suspects[0].confidence, Confidence::Confirmed);
         assert_eq!(incident.verdict.hints, [hint::DISABLE_SUSPECT]);
     }
 
     #[test]
-    fn missing_data_with_two_writers_is_likely() {
+    fn missing_data_with_two_writers_names_both() {
         let mut record = crashed(modded_game());
         record.log = Some(log_with(vec![missing_data_line()]));
         let mut mods = mods();
@@ -1916,34 +2103,20 @@ mod tests {
                 resolve_hash: &aatrox_path,
             })
             .unwrap();
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Likely));
         assert_eq!(names(&incident), ["Aatrox Other", "Aatrox Justicar"]);
-        assert!(
-            incident
-                .suspects
-                .iter()
-                .all(|s| s.confidence == Confidence::Likely)
-        );
     }
 
     #[test]
-    fn missing_data_without_a_path_lists_the_redirected_writers_as_a_lead() {
+    fn missing_data_without_a_path_lists_the_redirected_writers() {
         let mut record = crashed(modded_game());
         record.log = Some(log_with(vec![missing_data_line()]));
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Lead));
         assert_eq!(incident.verdict.subject, None);
         assert!(incident.verdict.cause.contains("0x1a2b3c4d5e6f7081"));
         assert_eq!(names(&incident), ["Classic Rift", "Aatrox Justicar"]);
         assert_eq!(
             incident.suspects[0].because,
             "writes Map11.wad.client, redirected this game"
-        );
-        assert!(
-            incident
-                .suspects
-                .iter()
-                .all(|s| s.confidence == Confidence::Lead)
         );
     }
 
@@ -1956,12 +2129,11 @@ mod tests {
     }
 
     #[test]
-    fn a_corrupt_archive_is_a_lead_on_an_inferred_row_and_likely_on_a_confirmed_one() {
+    fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
         let mut record = crashed(modded_game());
         record.log = Some(log_with(vec![channel("ALE-18967993", 5.0)]));
         let incident = classify(&record, &no_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::CorruptArchive);
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Lead));
         assert!(
             incident
                 .verdict
@@ -1976,7 +2148,6 @@ mod tests {
 
         record.log = Some(log_with(vec![channel("ALE-89b0dee7", 5.0)]));
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Likely));
         assert!(
             incident
                 .verdict
@@ -1985,50 +2156,50 @@ mod tests {
         );
     }
 
+    /// Nothing in the log says which texture failed or where it came from, and
+    /// the game's own textures fail this way too, so naming a mod would be a
+    /// guess dressed as a finding.
     #[test]
-    fn a_cube_map_right_after_step_62_points_at_the_map() {
-        let texture = sighting(
-            "ALE-D0D00022",
-            9.0,
-            r#"000009.000|  ERROR| Error: "ALE-D0D00022" - Result: E_INVALIDARG."#,
-        );
+    fn a_texture_failure_names_no_mod_whichever_code_reported_it() {
         let mut record = crashed(modded_game());
-        record.log = Some(log_with(vec![
-            channel("SEJ-3E9A0C57", 8.9),
-            texture.clone(),
-        ]));
-        let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.kind, VerdictKind::TextureFailed);
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Likely));
-        assert!(incident.verdict.cause.contains("a cubemap of the map"));
-        assert_eq!(names(&incident), ["Classic Rift"]);
-
-        record.log = Some(log_with(vec![channel("SEJ-9F31B5D0", 8.9), texture]));
-        let incident = classify(&record, &no_path).unwrap();
-        assert!(!incident.verdict.cause.contains("cubemap"));
-        assert_eq!(names(&incident), ["Classic Rift", "Aatrox Justicar"]);
-
-        record.log = Some(log_with(vec![channel("ALE-D0D00023", 9.0)]));
-        let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Lead));
+        for code in ["ALE-D0D00020", "ALE-D0D00022", "ALE-D0D00023"] {
+            record.log = Some(log_with(vec![
+                channel("SEJ-3E9A0C57", 8.9),
+                sighting(
+                    code,
+                    9.0,
+                    &format!(r#"000009.000|  ERROR| Error: "{code}" - Result: E_INVALIDARG."#),
+                ),
+            ]));
+            let incident = classify(&record, &no_path).unwrap();
+            assert_eq!(incident.verdict.kind, VerdictKind::TextureFailed, "{code}");
+            assert!(incident.suspects.is_empty(), "{code} named a mod");
+            assert!(incident.verdict.cause.contains("onto the GPU"), "{code}");
+            assert!(
+                incident.verdict.hints[0].contains("multiple of 4"),
+                "{code} lost the dimensions hint"
+            );
+        }
     }
 
     #[test]
-    fn out_of_memory_is_confirmed_or_a_lead_by_its_code() {
+    fn out_of_memory_reads_the_code_that_named_it() {
         let mut record = crashed(modded_game());
         record.log = Some(log_with(vec![channel("ALE-546D9FE7", 9.0)]));
         let incident = classify(&record, &no_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::OutOfMemory);
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Lead));
         assert!(incident.suspects.is_empty());
-        assert!(incident.verdict.hints[0].contains("4 modded archives were in this game"));
+        assert!(incident.verdict.hints[0].contains("Close what else is running"));
+        assert!(incident.verdict.hints[1].contains("4 modded archives were in this game"));
+        // An allocation has more causes than a mod, and the cause must say so.
+        assert!(incident.verdict.cause.contains("free RAM"));
+        assert!(incident.verdict.cause.contains("page file"));
 
         record.log = Some(log_with(vec![
             channel("ALE-546D9FE7", 9.0),
             channel("ALE-71BBD00F", 9.1),
         ]));
         let incident = classify(&record, &no_path).unwrap();
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Confirmed));
         assert!(
             incident
                 .verdict
@@ -2038,12 +2209,11 @@ mod tests {
     }
 
     #[test]
-    fn a_graphics_fault_is_a_lead_with_no_suspect() {
+    fn a_graphics_fault_names_no_suspect() {
         let mut record = crashed(modded_game());
         record.log = Some(log_with(vec![channel("ALE-3112373", 9.0)]));
         let incident = classify(&record, &no_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::GraphicsFault);
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Lead));
         assert!(incident.suspects.is_empty());
         assert_eq!(incident.verdict.hints, [hint::UPDATE_DRIVER]);
     }
@@ -2066,9 +2236,7 @@ mod tests {
         assert!(incident.verdict.cause.starts_with(
             "League stopped at loading step 52 of 64, mounting the champions' archives."
         ));
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Likely));
         assert_eq!(names(&incident), ["Aatrox Justicar"]);
-        assert_eq!(incident.suspects[0].confidence, Confidence::Likely);
 
         let incident = classify(&stuck_at("SEJ-3E9A0C57"), &no_path).unwrap();
         assert_eq!(names(&incident), ["Classic Rift"]);
@@ -2113,7 +2281,6 @@ mod tests {
             incident.suspects[0].because,
             "writes Ahri.wad.client, which the lazy scan skipped"
         );
-        assert_eq!(incident.verdict.confidence, Some(Confidence::Confirmed));
     }
 
     #[test]
@@ -2125,10 +2292,9 @@ mod tests {
         });
         let incident = classify(&record, &no_path).unwrap();
         assert_eq!(incident.verdict.kind, VerdictKind::EndedWithoutReason);
-        assert_eq!(incident.verdict.confidence, None);
         let cause = &incident.verdict.cause;
         assert!(cause.starts_with("League closed, and left no reason the manager can read."));
-        assert!(cause.contains("Interrupt, exit code -1073741819"));
+        assert!(cause.contains("Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION"));
         assert!(cause.contains("Crashpad ran."));
         assert!(cause.contains("3 error lines"));
         assert_eq!(incident.verdict.hints, [hint::COPY_REPORT]);
@@ -2199,7 +2365,7 @@ mod tests {
         );
         assert_eq!(
             incident.evidence[0].line,
-            "Interrupt, exit code -1073741819"
+            "Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION"
         );
         let code = incident.evidence[1].code.as_ref().unwrap();
         assert_eq!(code.id, "ALE-9B39AA45");
@@ -2340,30 +2506,84 @@ mod tests {
         for scan in [ScanMode::Eager, ScanMode::Lazy] {
             assert_eq!(ScanMode::from_code(scan.code()), Some(scan));
         }
-        for confidence in [Confidence::Lead, Confidence::Likely, Confidence::Confirmed] {
-            assert_eq!(Confidence::from_code(confidence.code()), Some(confidence));
+        for consequence in [
+            Consequence::ArchiveDropped,
+            Consequence::OverlayOff,
+            Consequence::GameHung,
+            Consequence::GameStopped,
+        ] {
+            assert_eq!(
+                Consequence::from_code(consequence.code()),
+                Some(consequence)
+            );
         }
     }
 
+    /// Every kind that turns the overlay off says so, whatever reached the
+    /// manager first. The skinhack rejection is the case this exists for: the
+    /// DLL acted, so the cost is a fact and no reading of a log code enters.
     #[test]
-    fn an_inferred_row_caps_any_confidence_at_a_lead() {
+    fn a_verdict_costs_what_its_kind_costs() {
+        use Consequence::*;
+        use VerdictKind::*;
+
+        for kind in [
+            PatcherDidNotRun,
+            PatcherOutOfDate,
+            ArchiveRejected,
+            OverlayDisabled,
+            Unmodded,
+        ] {
+            assert_eq!(kind.consequence(), OverlayOff, "{kind:?}");
+        }
+        assert_eq!(ArchiveSkipped.consequence(), ArchiveDropped);
+        assert_eq!(StuckLoading.consequence(), GameHung);
+        assert_eq!(MissingData.consequence(), GameStopped);
+        assert_eq!(GraphicsFault.consequence(), GameStopped);
+
+        let verdict = Verdict::new(ArchiveRejected, "");
+        assert_eq!(verdict.consequence, OverlayOff);
+    }
+
+    /// A message quoted after a full stop opens a sentence, and a writer who
+    /// spelled one `DLL` did not mean `Dll`.
+    #[test]
+    fn a_quoted_message_opens_its_sentence() {
         assert_eq!(
-            Confidence::Confirmed.capped_by(EvidenceMark::Inferred),
-            Confidence::Lead
+            capitalized_sentence("a layer wrote no files"),
+            "A layer wrote no files."
         );
         assert_eq!(
-            Confidence::Likely.capped_by(EvidenceMark::Inferred),
-            Confidence::Lead
+            capitalized_sentence("DLL never attached"),
+            "DLL never attached."
         );
-        assert_eq!(
-            Confidence::Confirmed.capped_by(EvidenceMark::Confirmed),
-            Confidence::Confirmed
+        assert_eq!(capitalized_sentence("Already done."), "Already done.");
+        assert_eq!(capitalized_sentence(""), "");
+    }
+
+    /// Several `AppError` variants render with no prefix, so a thin inner error
+    /// leaves the message empty. The kind is what is always there to read.
+    #[test]
+    fn a_failure_with_no_message_still_says_what_failed() {
+        let mut record = GameRecord::open(at(0), SessionOrigin::Library);
+        record.failure = Some(SessionFailure::Build {
+            kind: ErrorKind::Preview,
+            message: String::new(),
+        });
+        let incident = classify(&record, &no_path).unwrap();
+
+        assert!(
+            incident
+                .verdict
+                .cause
+                .ends_with("PREVIEW, with no message.")
         );
+        assert_eq!(incident.evidence[0].line, "overlay build failed, PREVIEW: ");
     }
 
     #[test]
     fn a_verdict_carries_at_most_two_hints() {
-        let verdict = Verdict::new(VerdictKind::Unmodded, "t", "c")
+        let verdict = Verdict::new(VerdictKind::Unmodded, "c")
             .with_hint("one")
             .with_hint("two")
             .with_hint("three");
@@ -2482,14 +2702,21 @@ pub(crate) mod fixtures {
             },
             verdict: Verdict {
                 kind: VerdictKind::MissingData,
-                title: "Missing data".to_string(),
-                cause: "League stopped a read it could not finish. The file is assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds.".to_string(),
-                subject: Some("aatrox_skin12_tx_cm.dds".to_string()),
-                confidence: Some(Confidence::Likely),
+                title: VerdictKind::MissingData.title().to_string(),
+                title_override: None,
+                cause: "League failed to read a file.".to_string(),
+                subject: Some(
+                    "assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds".to_string(),
+                ),
+                consequence: Consequence::GameStopped,
                 hints: vec![hint::DISABLE_SUSPECT.to_string()],
             },
             evidence: vec![
-                plain("00:12.4", EvidenceSource::Client, "Interrupt, exit code -1073741819"),
+                plain(
+                    "00:12.4",
+                    EvidenceSource::Client,
+                    "Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION",
+                ),
                 game_line(
                     "00:12.3",
                     "000012.344|  ERROR| ALE-9B39AA45 FATAL ERROR. Missing data: 0x1a2b3c4d5e6f7081",
@@ -2508,7 +2735,6 @@ pub(crate) mod fixtures {
                 project_path: None,
                 display_name: "Aatrox Justicar".to_string(),
                 because: "writes Aatrox.wad.client, which holds the path".to_string(),
-                confidence: Confidence::Likely,
             }],
             dismissed: false,
         }

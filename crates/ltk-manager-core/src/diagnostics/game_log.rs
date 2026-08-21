@@ -105,18 +105,28 @@ impl GameLogFacts {
 }
 
 /// One line of the log, split into its columns.
+///
+/// The only reader of the `time|LEVEL|CHAN| message` shape. An evidence row
+/// keeps a game line whole, so [`Evidence`](super::incident::Evidence) reads its
+/// columns back through this rather than matching them a second way.
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct Record<'a> {
-    time: f64,
-    level: &'a str,
-    channel: Option<&'a str>,
-    message: &'a str,
+pub struct Record<'a> {
+    /// Seconds into the log.
+    pub time: f64,
+    /// `ALWAYS`, `ERROR`, `WARN` and the rest, as the game writes them.
+    pub level: &'a str,
+    /// The subsystem that wrote the line, which most lines do not name.
+    pub channel: Option<&'a str>,
+    /// What the line says, trimmed, with none of its columns.
+    pub message: &'a str,
 }
 
 impl<'a> Record<'a> {
+    /// Splits one log line into its columns.
+    ///
     /// `None` for anything that is not a record, which is how NUL padding and
     /// a line a crash tore are skipped.
-    fn parse(line: &'a str) -> Option<Self> {
+    pub fn parse(line: &'a str) -> Option<Self> {
         let (time, rest) = line.split_once('|')?;
         let time = time.trim();
         if time.is_empty() || !time.bytes().all(|b| b.is_ascii_digit() || b == b'.') {

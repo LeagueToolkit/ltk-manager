@@ -20,6 +20,16 @@ pub enum InjectionStage {
     Injection,
 }
 
+impl std::fmt::Display for InjectionStage {
+    /// The stage as an evidence line names it.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.pad(match self {
+            Self::Host => "host startup",
+            Self::Injection => "DLL injection",
+        })
+    }
+}
+
 /// Domain errors specific to the patcher.
 ///
 /// Sent over IPC as the `context` payload of an `AppError` with code `PATCHER`.

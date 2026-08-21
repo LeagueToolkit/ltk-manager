@@ -93,7 +93,7 @@ impl IncidentStore {
         match fs::read(&path) {
             Ok(bytes) => {
                 let mut incident: Incident = serde_json::from_slice(&bytes)?;
-                incident.backfill_scan_status();
+                incident.migrate();
                 Ok(Some(incident))
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
@@ -135,7 +135,7 @@ impl IncidentStore {
 
     fn read(path: &Path) -> AppResult<Incident> {
         let mut incident: Incident = serde_json::from_slice(&fs::read(path)?)?;
-        incident.backfill_scan_status();
+        incident.migrate();
         Ok(incident)
     }
 
@@ -250,7 +250,7 @@ fn ended_at_of(text: &str) -> DateTime<Utc> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::incident::{ScanStatus, fixtures};
+    use crate::diagnostics::incident::{Consequence, ScanStatus, Verdict, VerdictKind, fixtures};
 
     fn store(keep: usize) -> (tempfile::TempDir, IncidentStore) {
         let dir = tempfile::tempdir().unwrap();
@@ -398,6 +398,99 @@ mod tests {
         );
     }
 
+    /// A file written before `consequence` existed carries a `confidence` the
+    /// manager no longer has and no consequence at all. It has to read anyway,
+    /// or an upgrade empties the whole history instead of only relabelling it.
+    #[test]
+    fn a_stored_incident_reads_without_the_consequence_it_predates() {
+        let (_dir, store) = store(50);
+        store
+            .record(&fixtures::incident("old", "2026-08-21T10:00:00+00:00"))
+            .unwrap();
+
+        let path = store.dir().join("old.json");
+        let mut stored = serde_json::from_slice::<serde_json::Value>(&fs::read(&path).unwrap())
+            .expect("the file is json");
+        let verdict = stored["verdict"].as_object_mut().unwrap();
+        verdict.remove("consequence");
+        verdict.insert("confidence".to_string(), serde_json::json!("likely"));
+        let suspects = stored["suspects"].as_array_mut().unwrap();
+        for suspect in suspects {
+            suspect
+                .as_object_mut()
+                .unwrap()
+                .insert("confidence".to_string(), serde_json::json!("likely"));
+        }
+        fs::write(&path, serde_json::to_vec(&stored).unwrap()).unwrap();
+
+        let read = store.get("old").unwrap().expect("the old file reads");
+        assert_eq!(read.verdict.kind, VerdictKind::MissingData);
+        assert_eq!(read.verdict.consequence, Consequence::GameStopped);
+        assert_eq!(store.list().unwrap().len(), 1);
+    }
+
+    /// The screen this exists for: a stored rejection the scan called a skinhack
+    /// read as a plain rejection under its old title, so the list showed the
+    /// same event twice under two names.
+    #[test]
+    fn a_stored_skinhack_reads_as_one_whatever_it_was_filed_as() {
+        let (_dir, store) = store(50);
+        let mut incident = fixtures::incident("old", "2026-08-21T10:00:00+00:00");
+        incident.verdict.kind = VerdictKind::ArchiveRejected;
+        incident.verdict.title = "An archive was rejected".to_string();
+        incident.scan_status = Some(ScanStatus::Skinhack);
+        store.record(&incident).unwrap();
+
+        let read = store.get("old").unwrap().expect("the old file reads");
+        assert_eq!(read.verdict.kind, VerdictKind::SkinhackDetected);
+        assert_eq!(read.verdict.title, "Skinhack Detection");
+        assert_eq!(store.list().unwrap()[0].verdict.title, "Skinhack Detection");
+    }
+
+    /// A title from the kind is never stored, so renaming a kind renames every
+    /// incident already on disk with it.
+    #[test]
+    fn a_renamed_kind_renames_its_history() {
+        let (_dir, store) = store(50);
+        let mut incident = fixtures::incident("old", "2026-08-21T10:00:00+00:00");
+        incident.verdict.title = "Missing data".to_string();
+        store.record(&incident).unwrap();
+
+        let read = store.get("old").unwrap().expect("the old file reads");
+        assert_eq!(read.verdict.title, VerdictKind::MissingData.title());
+    }
+
+    /// An override is for what the predefined set does not cover, so it is the
+    /// one title a read does not replace.
+    #[test]
+    fn a_title_a_verdict_named_itself_survives() {
+        let (_dir, store) = store(50);
+        let mut incident = fixtures::incident("odd", "2026-08-21T10:00:00+00:00");
+        incident.verdict.title = "Something New Entirely".to_string();
+        incident.verdict.title_override = Some("Something New Entirely".to_string());
+        store.record(&incident).unwrap();
+
+        let read = store.get("odd").unwrap().expect("the file reads");
+        assert_eq!(read.verdict.title, "Something New Entirely");
+    }
+
+    /// The kind decides the consequence, so a file that disagrees with its own
+    /// kind is corrected on the way in rather than believed.
+    #[test]
+    fn a_stored_consequence_never_outranks_the_kind() {
+        let verdict: Verdict = serde_json::from_value(serde_json::json!({
+            "kind": "archive-skipped",
+            "title": "An archive was skipped",
+            "cause": "",
+            "subject": null,
+            "consequence": "game-stopped",
+            "hints": [],
+        }))
+        .expect("the verdict reads");
+
+        assert_eq!(verdict.consequence, Consequence::ArchiveDropped);
+    }
+
     /// Two archives rejected for different reasons cannot say which one the
     /// verdict is about, so the recovery declines rather than guessing.
     #[test]
@@ -407,7 +500,7 @@ mod tests {
         incident.evidence[0].line = "scan rejected graves.wad.client, status c0000229".to_string();
         incident.evidence[1].line = "scan rejected ahri.wad.client, status c000003e".to_string();
 
-        incident.backfill_scan_status();
+        incident.migrate();
 
         assert_eq!(incident.scan_status, None);
     }

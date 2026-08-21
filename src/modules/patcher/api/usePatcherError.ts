@@ -8,9 +8,9 @@ import { type PatcherFailure, type PatcherFailureStage, usePatcherFailureStore }
 type InjectionFailed = Extract<PatcherError, { kind: "INJECTION_FAILED" }>;
 
 const failureTitles: Record<PatcherFailureStage, string> = {
-  BUILD: "The overlay build failed",
-  HOST: "The injection host did not start",
-  INJECTION: "The DLL did not attach to League",
+  BUILD: "Overlay Build Failure",
+  HOST: "Injection Host Failure",
+  INJECTION: "DLL Injection Failure",
 };
 
 /** The failed-start line's title for a stage, in the words the verdict uses. */

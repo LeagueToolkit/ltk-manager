@@ -8,9 +8,9 @@ import {
   describeEnding,
   formatSeconds,
   TOKEN_VERDICT_TITLES,
-  tokenConfidence,
+  tokenConsequence,
 } from "../utils/incident";
-import { ConfidenceChip } from "./ConfidenceChip";
+import { ConsequenceChip } from "./ConsequenceChip";
 
 const NOT_A_TOKEN = "Not an LTK incident token.";
 
@@ -109,7 +109,7 @@ interface DecodedTokenCardProps {
  */
 export function DecodedTokenCard({ token }: DecodedTokenCardProps) {
   const title = TOKEN_VERDICT_TITLES[token.verdict] ?? `Verdict ${token.verdict}`;
-  const confidence = tokenConfidence(token.confidence);
+  const consequence = tokenConsequence(token.verdict);
   const endedAt = new Date(token.endedAt * 60_000);
 
   const facts = [
@@ -131,7 +131,7 @@ export function DecodedTokenCard({ token }: DecodedTokenCardProps) {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-base font-semibold text-surface-100">{title}</h3>
-        {confidence && <ConfidenceChip confidence={confidence} />}
+        {consequence && <ConsequenceChip consequence={consequence} />}
       </div>
       <p className="font-mono text-xs text-surface-400 select-text">{facts.join(" · ")}</p>
 

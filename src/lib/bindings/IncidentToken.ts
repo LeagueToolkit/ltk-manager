@@ -7,7 +7,7 @@ export type IncidentToken = {
 /**
  * Minutes since the Unix epoch.
  */
-endedAt: number, manager: [number, number, number], game: [number, number, number, number] | null, verdict: number, confidence: number | null, overlay: number, scan: number | null, launch: number, injected: boolean, exitReason: string | null, exitCode: number | null, crashed: boolean | null, durationSecs: number | null, 
+endedAt: number, manager: [number, number, number], game: [number, number, number, number] | null, verdict: number, overlay: number, scan: number | null, launch: number, injected: boolean, exitReason: string | null, exitCode: number | null, crashed: boolean | null, durationSecs: number | null, 
 /**
  * The codes seen, as their own strings, so a token reads against any
  * version of the table.

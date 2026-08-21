@@ -4,7 +4,15 @@ import { match } from "ts-pattern";
 
 import type { Incident } from "@/lib/tauri";
 
-import { dayKey, dayLabel, formatClock, subjectLine } from "../utils/incident";
+import {
+  dayKey,
+  dayLabel,
+  formatClock,
+  formatDuration,
+  formatOrigin,
+  isSkinhackRejection,
+  subjectLine,
+} from "../utils/incident";
 import { VerdictGlyph } from "./VerdictGlyph";
 
 interface IncidentListProps {
@@ -76,25 +84,30 @@ export function IncidentList({ incidents, selectedId, onSelect }: IncidentListPr
       aria-activedescendant={selectedId ? rowId(selectedId) : undefined}
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className="flex flex-col rounded-lg outline-none select-none focus-visible:ring-2 focus-visible:ring-accent-500"
+      className="flex flex-col outline-none select-none focus-visible:ring-1 focus-visible:ring-accent-500/60 focus-visible:ring-inset"
     >
       {groups.map((group) => (
         <div key={group.key} role="group" aria-label={group.label} className="flex flex-col">
-          <div className="px-2 pt-3 pb-1 text-[10px] font-semibold tracking-wider text-surface-500 uppercase">
-            {group.label}
+          {/* A band of its own, so a long day still says which day while it scrolls. */}
+          <div className="sticky top-0 z-10 flex h-6 items-center gap-2 border-y border-surface-800 bg-surface-900 px-3 text-[10px] font-medium tracking-wider text-surface-400 uppercase">
+            <span className="min-w-0 flex-1 truncate">{group.label}</span>
+            <span className="shrink-0 font-mono tabular-nums">{group.incidents.length}</span>
           </div>
-          {group.incidents.map((incident) => (
-            <IncidentRow
-              key={incident.id}
-              incident={incident}
-              selected={incident.id === selectedId}
-              onSelect={onSelect}
-              ref={(element) => {
-                if (element) rows.current.set(incident.id, element);
-                else rows.current.delete(incident.id);
-              }}
-            />
-          ))}
+          {/* Hairlines, not gaps, so the rows read as one table. */}
+          <div className="flex flex-col divide-y divide-surface-800/60">
+            {group.incidents.map((incident) => (
+              <IncidentRow
+                key={incident.id}
+                incident={incident}
+                selected={incident.id === selectedId}
+                onSelect={onSelect}
+                ref={(element) => {
+                  if (element) rows.current.set(incident.id, element);
+                  else rows.current.delete(incident.id);
+                }}
+              />
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -108,8 +121,27 @@ interface IncidentRowProps {
   ref: (element: HTMLButtonElement | null) => void;
 }
 
+/** `Library · 4 min`, and `dismissed` where the player has closed the incident. */
+function metaLine(incident: Incident): string {
+  const parts = [
+    formatOrigin(incident.origin),
+    formatDuration(incident.startedAt, incident.endedAt),
+  ];
+  if (incident.dismissed) parts.push("dismissed");
+  return parts.filter((part): part is string => !!part).join(" · ");
+}
+
+/**
+ * Two lines: the title with the clock beside it, and the facts under it.
+ *
+ * The rail is a record of what happened rather than a set of cards, so the row
+ * is a table row - full bleed, hairline separated, and everything the machine
+ * produced set in mono. The consequence has no chip here. It reads on the
+ * detail page, and thirteen coloured pills down a rail only made the rail loud.
+ */
 function IncidentRow({ incident, selected, onSelect, ref }: IncidentRowProps) {
   const subtitle = subjectLine(incident);
+  const skinhack = isSkinhackRejection(incident);
 
   return (
     <button
@@ -123,21 +155,38 @@ function IncidentRow({ incident, selected, onSelect, ref }: IncidentRowProps) {
       onClick={() => onSelect(incident.id)}
       className={twMerge(
         /* A row owns no surface, so it hovers with the veil: DS-VEIL. */
-        "flex w-full cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+        "flex w-full cursor-pointer items-start gap-2 border-l-2 border-l-transparent px-3 py-1.5 text-left transition-colors outline-none",
         !selected && "hover:bg-surface-veil",
-        selected && "bg-accent-500/15",
-        incident.dismissed && "opacity-60",
+        /* Selection holds the accent, and the bar keeps the row a row: DS-HOVER. */
+        selected && "border-l-accent-500 bg-accent-500/12",
+        incident.dismissed && "opacity-55",
       )}
     >
-      <VerdictGlyph kind={incident.verdict.kind} className="mt-0.5 h-4 w-4 shrink-0" />
-      <span className="mt-px w-10 shrink-0 font-mono text-xs text-surface-400 tabular-nums">
-        {formatClock(incident.endedAt)}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium text-surface-100">
-          {incident.verdict.title}
+      {/* Glyphs take the -text variant: DS-TEXT. */}
+      <VerdictGlyph
+        kind={incident.verdict.kind}
+        className={twMerge("mt-0.5 h-3.5 w-3.5 shrink-0", skinhack && "text-void-text")}
+      />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-baseline gap-2">
+          <span
+            className={twMerge(
+              "min-w-0 flex-1 truncate text-[13px] font-medium text-surface-100",
+              skinhack && "text-void-text",
+            )}
+          >
+            {incident.verdict.title}
+          </span>
+          <span className="shrink-0 font-mono text-[11px] text-surface-500 tabular-nums">
+            {formatClock(incident.endedAt)}
+          </span>
         </span>
-        {subtitle && <span className="block truncate text-xs text-surface-400">{subtitle}</span>}
+        <span className="flex items-baseline gap-2 font-mono text-[11px] text-surface-500">
+          {subtitle && <span className="min-w-0 flex-1 truncate">{subtitle}</span>}
+          <span className={twMerge("shrink-0 truncate", !subtitle && "min-w-0 flex-1")}>
+            {metaLine(incident)}
+          </span>
+        </span>
       </span>
     </button>
   );

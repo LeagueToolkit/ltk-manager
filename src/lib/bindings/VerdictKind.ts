@@ -3,4 +3,4 @@
 /**
  * Which failure the classifier named.
  */
-export type VerdictKind = "patcher-did-not-run" | "patcher-out-of-date" | "archive-rejected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason";
+export type VerdictKind = "patcher-did-not-run" | "overlay-build-failed" | "injection-host-failed" | "patcher-out-of-date" | "archive-rejected" | "skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason";

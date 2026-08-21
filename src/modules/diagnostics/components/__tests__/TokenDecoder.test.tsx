@@ -32,13 +32,17 @@ describe("TokenDecoder", () => {
     await user.click(screen.getByRole("button", { name: "Decode" }));
 
     expect(await screen.findByText("From a token")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Missing data" })).toBeInTheDocument();
-    expect(screen.getByText("Likely")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Missing Game Data" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Game stopped")).toBeInTheDocument();
     expect(screen.getByText("Aatrox Justicar")).toBeInTheDocument();
     expect(screen.getByText("Aatrox.wad.client")).toBeInTheDocument();
     expect(screen.getByText("ALE-9B39AA45")).toBeInTheDocument();
     expect(screen.getByText("SEJ-9F31B5D0")).toBeInTheDocument();
-    expect(screen.getByText("Interrupt, exit code -1073741819, crashpad ran")).toBeInTheDocument();
+    expect(
+      screen.getByText("Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION, crashpad ran"),
+    ).toBeInTheDocument();
     expect(screen.getByText("4 archives redirected, 4 mods enabled")).toBeInTheDocument();
     expect(
       screen.getByText(/LTK Manager v1\.14\.0 · League 16\.16\.804\.9184/),

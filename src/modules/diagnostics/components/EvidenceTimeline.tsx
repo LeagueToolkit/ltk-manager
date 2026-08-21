@@ -7,7 +7,7 @@ interface EvidenceTimelineProps {
 /**
  * The lines the verdict rests on, in the order the backend gives them, each
  * with its source and its time. A coded line carries the table's reading
- * under it, drawn by its evidence mark.
+ * under it.
  */
 export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
   if (evidence.length === 0) {
@@ -22,7 +22,7 @@ export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
       {evidence.map((row, index) => (
         <li
           key={`${row.at}-${row.source}-${index}`}
-          className="grid grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-x-3 px-3 py-2 select-text"
+          className="grid grid-cols-[4.5rem_3.5rem_minmax(0,1fr)] gap-x-3 px-3 py-2"
         >
           <span className="text-surface-400 tabular-nums">{row.at}</span>
           <span className="text-surface-500">{row.source}</span>
@@ -39,16 +39,13 @@ export function EvidenceTimeline({ evidence }: EvidenceTimelineProps) {
 }
 
 /**
- * What the table says about the code. A confirmed row reads as a fact, an
- * inferred one says `probably` and dims, and a code with no row is the code.
+ * What the table says about the code, or the code alone when it has no row.
+ *
+ * The row's evidence mark is not drawn. How firm a reading is says how well
+ * the manager knows its own code table, and stamping that on every line read
+ * as a severity the line does not carry.
  */
 function CodeReading({ code }: { code: EvidenceCode }) {
   if (!code.meaning) return <span className="text-surface-400">{code.id}</span>;
-  if (code.mark === "inferred") {
-    return <span className="text-surface-500">probably · {code.meaning}</span>;
-  }
-  if (code.mark === "confirmed") {
-    return <span className="text-surface-300">confirmed · {code.meaning}</span>;
-  }
   return <span className="text-surface-300">{code.meaning}</span>;
 }

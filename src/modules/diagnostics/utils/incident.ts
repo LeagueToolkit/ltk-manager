@@ -1,4 +1,4 @@
-import type { Confidence, Ending, Incident, SessionOrigin, VerdictKind } from "@/lib/tauri";
+import type { Consequence, Ending, Incident, SessionOrigin, VerdictKind } from "@/lib/tauri";
 
 const DAY_MS = 86_400_000;
 
@@ -11,17 +11,27 @@ export function isInformational(kind: VerdictKind): boolean {
 }
 
 /**
- * The game rejected an archive for carrying a Riot skin ported onto a base
- * champion. The status alone is not enough: another failure can outrank the
- * rejection and win the verdict, and the art belongs to the verdict.
+ * The scan rejected an archive for carrying a Riot skin ported onto a base
+ * champion.
+ *
+ * Its own verdict kind, so this reads one field. A rejection for any other
+ * status stays `archive-rejected` and takes neither the art nor the hue.
  */
 export function isSkinhackRejection(incident: Incident): boolean {
-  return incident.verdict.kind === "archive-rejected" && incident.scanStatus === "skinhack";
+  return incident.verdict.kind === "skinhack-detected";
 }
 
-/** The line under a row's title: the subject where there is one, else the first suspect. */
+/**
+ * The line under a row's title: the subject where there is one, else the first
+ * suspect.
+ *
+ * A subject that is a game path is shortened to its file name. The rail is too
+ * narrow to read one, and the card shows it whole.
+ */
 export function subjectLine(incident: Incident): string | null {
-  return incident.verdict.subject ?? incident.suspects[0]?.displayName ?? null;
+  const subject = incident.verdict.subject;
+  if (subject) return subject.split(/[\\/]/).at(-1) ?? subject;
+  return incident.suspects[0]?.displayName ?? null;
 }
 
 /** `HH:mm` in the user's locale, on a 24-hour clock. */
@@ -82,11 +92,57 @@ export function formatOrigin(origin: SessionOrigin): string {
   return `Testing ${count} projects`;
 }
 
+/**
+ * The `NTSTATUS` names a game crash reaches, mirroring `diagnostics::exit_status`.
+ *
+ * The backend formats the ending for an incident, and this is here for a token,
+ * which carries the bare number and is decoded without asking the backend.
+ */
+const EXIT_STATUS_NAMES: Readonly<Record<number, string>> = {
+  0x40010004: "DBG_TERMINATE_PROCESS",
+  0x80000003: "STATUS_BREAKPOINT",
+  0xc0000005: "STATUS_ACCESS_VIOLATION",
+  0xc0000006: "STATUS_IN_PAGE_ERROR",
+  0xc0000017: "STATUS_NO_MEMORY",
+  0xc000001d: "STATUS_ILLEGAL_INSTRUCTION",
+  0xc0000025: "STATUS_NONCONTINUABLE_EXCEPTION",
+  0xc000008c: "STATUS_ARRAY_BOUNDS_EXCEEDED",
+  0xc000008e: "STATUS_FLOAT_DIVIDE_BY_ZERO",
+  0xc0000090: "STATUS_FLOAT_INVALID_OPERATION",
+  0xc0000094: "STATUS_INTEGER_DIVIDE_BY_ZERO",
+  0xc0000095: "STATUS_INTEGER_OVERFLOW",
+  0xc0000096: "STATUS_PRIVILEGED_INSTRUCTION",
+  0xc000009a: "STATUS_INSUFFICIENT_RESOURCES",
+  0xc00000fd: "STATUS_STACK_OVERFLOW",
+  0xc0000135: "STATUS_DLL_NOT_FOUND",
+  0xc000013a: "STATUS_CONTROL_C_EXIT",
+  0xc0000142: "STATUS_DLL_INIT_FAILED",
+  0xc0000374: "STATUS_HEAP_CORRUPTION",
+  0xc0000409: "STATUS_STACK_BUFFER_OVERRUN",
+  0xc000041d: "STATUS_FATAL_USER_CALLBACK_EXCEPTION",
+  0xc0000602: "STATUS_FAIL_FAST_EXCEPTION",
+};
+
+/**
+ * `0xC0000005 STATUS_ACCESS_VIOLATION`, or what is left without a name.
+ *
+ * A code with the high bit set is an `NTSTATUS` named or not, so it reads as
+ * hex. Anything else is a plain exit code and reads as a number.
+ */
+export function describeExitCode(code: number): string {
+  const bits = code >>> 0;
+  const name = EXIT_STATUS_NAMES[bits];
+  const hex = `0x${bits.toString(16).toUpperCase().padStart(8, "0")}`;
+  if (name) return `${hex} ${name}`;
+  if (code < 0) return hex;
+  return String(code);
+}
+
 /** The client's reason and code, and whether crashpad ran, in one clause. */
 export function describeEnding(ending: Ending): string {
   const parts: string[] = [];
   if (ending.exitReason) parts.push(ending.exitReason);
-  if (ending.exitCode !== null) parts.push(`exit code ${ending.exitCode}`);
+  if (ending.exitCode !== null) parts.push(`exit code ${describeExitCode(ending.exitCode)}`);
   if (ending.crashed === true) parts.push("crashpad ran");
   if (parts.length === 0) return "No reason recorded";
   return parts.join(", ");
@@ -100,29 +156,51 @@ export function projectNameFromPath(path: string): string {
 
 /** The verdict titles by the number the token carries them as. */
 export const TOKEN_VERDICT_TITLES: Readonly<Record<number, string>> = {
-  1: "The patcher did not run",
-  2: "The patcher is out of date",
-  3: "An archive was rejected",
-  4: "The overlay was disabled",
-  5: "Unmodded game",
-  6: "Missing data",
-  7: "A corrupt archive",
-  8: "A texture failed",
-  9: "Out of memory",
-  10: "A graphics fault",
-  11: "Stuck loading",
-  12: "An archive was skipped",
-  13: "Ended without a reason",
+  1: "DLL Injection Failure",
+  2: "Unsupported Game Build",
+  3: "Archive Scan Rejection",
+  4: "Overlay Verification Failure",
+  5: "No Mods Applied",
+  6: "Missing Game Data",
+  7: "Archive Mount Failure",
+  8: "Texture Creation Failure",
+  9: "Memory Allocation Failure",
+  10: "Graphics Device Failure",
+  11: "Loading Screen Stall",
+  12: "Archive Verification Skipped",
+  13: "Unexplained Game Exit",
+  14: "Skinhack Detection",
+  15: "Overlay Build Failure",
+  16: "Injection Host Failure",
 };
 
-const TOKEN_CONFIDENCES: Readonly<Record<number, Confidence>> = {
-  1: "lead",
-  2: "likely",
-  3: "confirmed",
+/**
+ * What each verdict cost, by the number the token carries the verdict as.
+ *
+ * The token has no consequence of its own. `VerdictKind::consequence` in the
+ * backend decides it, so a token only needs to carry the kind, and this mirrors
+ * that mapping for a decoded one.
+ */
+const TOKEN_VERDICT_CONSEQUENCES: Readonly<Record<number, Consequence>> = {
+  1: "overlay-off",
+  2: "overlay-off",
+  3: "overlay-off",
+  4: "overlay-off",
+  5: "overlay-off",
+  6: "game-stopped",
+  7: "game-stopped",
+  8: "game-stopped",
+  9: "game-stopped",
+  10: "game-stopped",
+  11: "game-hung",
+  12: "archive-dropped",
+  13: "game-stopped",
+  14: "overlay-off",
+  15: "overlay-off",
+  16: "overlay-off",
 };
 
-/** The confidence word the token's number stands for, or null for none. */
-export function tokenConfidence(value: number | null): Confidence | null {
-  if (value === null) return null;
-  return TOKEN_CONFIDENCES[value] ?? null;
+/** What the token's verdict number cost, or null for a verdict this build does not know. */
+export function tokenConsequence(verdict: number): Consequence | null {
+  return TOKEN_VERDICT_CONSEQUENCES[verdict] ?? null;
 }

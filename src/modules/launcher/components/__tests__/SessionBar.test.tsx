@@ -110,10 +110,11 @@ const missingData: Incident = {
   ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
   verdict: {
     kind: "missing-data",
-    title: "Missing data",
-    cause: "League stopped a read it could not finish.",
+    title: "Missing Game Data",
+    cause: "League failed to read a file.",
     subject: "Aatrox.wad.client",
-    confidence: "likely",
+    consequence: "game-stopped",
+    titleOverride: null,
     hints: [],
   },
   evidence: [],
@@ -123,14 +124,12 @@ const missingData: Incident = {
       projectPath: null,
       displayName: "Aatrox Justicar",
       because: "writes Aatrox.wad.client, which holds the path",
-      confidence: "likely",
     },
     {
       modId: "classic-rift",
       projectPath: null,
       displayName: "Classic Rift",
       because: "writes Map11.wad.client, redirected this game",
-      confidence: "lead",
     },
   ],
   dismissed: false,
@@ -269,35 +268,36 @@ describe("SessionBar", () => {
       await renderIdleBar();
 
       expect(screen.getByText("League closed")).toBeInTheDocument();
-      expect(screen.getByText("Missing data")).toBeInTheDocument();
+      expect(screen.getByText("Missing Game Data")).toBeInTheDocument();
       expect(screen.getByText("Aatrox.wad.client")).toBeInTheDocument();
       expect(screen.getByText("Aatrox Justicar")).toBeInTheDocument();
       expect(screen.getByText("+1")).toBeInTheDocument();
-      expect(screen.getByText("likely")).toBeInTheDocument();
+      expect(screen.getByText("Game stopped")).toBeInTheDocument();
       expect(screen.queryByText("Patcher idle")).not.toBeInTheDocument();
     });
 
-    /// A verdict that states facts carries no confidence, and the line must not
-    /// invent one.
-    it("skips the confidence chip and the suspect when the verdict has neither", async () => {
+    /// Every verdict costs the player something, so the chip is always there.
+    /// A verdict that blames nothing still must not invent a suspect.
+    it("names what an unmodded game cost, and no suspect", async () => {
       useIncidentLineStore.setState({
         incident: {
           ...missingData,
           suspects: [],
           verdict: {
             kind: "unmodded",
-            title: "Unmodded game",
+            title: "No Mods Applied",
             cause: "No mod was in the game.",
             subject: null,
-            confidence: null,
+            consequence: "overlay-off",
+            titleOverride: null,
             hints: [],
           },
         },
       });
       await renderIdleBar();
 
-      expect(screen.getByText("Unmodded game")).toBeInTheDocument();
-      expect(screen.queryByText(/likely|confirmed|lead/)).not.toBeInTheDocument();
+      expect(screen.getByText("No Mods Applied")).toBeInTheDocument();
+      expect(screen.getByText("No mod ran")).toBeInTheDocument();
       expect(screen.queryByText("Aatrox Justicar")).not.toBeInTheDocument();
     });
 
@@ -344,7 +344,7 @@ describe("SessionBar", () => {
       });
       await renderIdleBar();
 
-      expect(screen.getByText("The injection host did not start")).toBeInTheDocument();
+      expect(screen.getByText("Injection Host Failure")).toBeInTheDocument();
       expect(screen.getByText("cslol-host.exe exited before it was ready")).toBeInTheDocument();
       expect(screen.queryByText("Patcher idle")).not.toBeInTheDocument();
 
@@ -362,7 +362,7 @@ describe("SessionBar", () => {
       });
       await renderIdleBar();
 
-      expect(screen.getByText("The DLL did not attach to League")).toBeInTheDocument();
+      expect(screen.getByText("DLL Injection Failure")).toBeInTheDocument();
 
       await userEvent.click(screen.getByRole("button", { name: "Diagnostics" }));
       expect(mockNavigate).toHaveBeenCalledWith({
@@ -377,7 +377,7 @@ describe("SessionBar", () => {
       });
       await renderIdleBar();
 
-      expect(screen.getByText("The overlay build failed")).toBeInTheDocument();
+      expect(screen.getByText("Overlay Build Failure")).toBeInTheDocument();
       expect(screen.getByText("WAD error: Aatrox.wad.client is truncated")).toBeInTheDocument();
     });
 
@@ -416,7 +416,7 @@ describe("SessionBar", () => {
       await renderIdleBar();
 
       expect(screen.getByText("League closed")).toBeInTheDocument();
-      expect(screen.queryByText("The injection host did not start")).not.toBeInTheDocument();
+      expect(screen.queryByText("Injection Host Failure")).not.toBeInTheDocument();
     });
   });
 });

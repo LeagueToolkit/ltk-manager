@@ -28,7 +28,6 @@ function suspect(overrides?: Partial<Suspect>): Suspect {
     projectPath: null,
     displayName: "Aatrox Justicar",
     because: "writes Aatrox.wad.client, which holds the path",
-    confidence: "likely",
     ...overrides,
   };
 }
@@ -50,10 +49,11 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
     ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     verdict: {
       kind: "missing-data",
-      title: "Missing data",
-      cause: "League stopped a read it could not finish.",
+      title: "Missing Game Data",
+      cause: "League failed to read a file.",
       subject: "Aatrox.wad.client",
-      confidence: "likely",
+      consequence: "game-stopped",
+      titleOverride: null,
       hints: [],
     },
     evidence: [],

@@ -11,14 +11,8 @@ import { type ReactNode, useEffect } from "react";
 
 import { Button, IconButton, Progress } from "@/components";
 import { usePlatformSupport } from "@/hooks";
-import type {
-  Confidence,
-  Incident,
-  LaunchProgress,
-  OverlayProgress,
-  VerdictKind,
-} from "@/lib/tauri";
-import { isInformational, useDismissIncident } from "@/modules/diagnostics";
+import type { Incident, LaunchProgress, OverlayProgress, VerdictKind } from "@/lib/tauri";
+import { ConsequenceChip, isInformational, useDismissIncident } from "@/modules/diagnostics";
 import {
   patcherFailureTab,
   patcherFailureTitle,
@@ -153,15 +147,6 @@ function VerdictGlyph({ kind }: { kind: VerdictKind }) {
   return <WarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" weight="fill" />;
 }
 
-function ConfidenceChip({ confidence }: { confidence: Confidence }) {
-  /* DS-RADIUS: a tag. */
-  return (
-    <span className="shrink-0 rounded-sm bg-danger/10 px-1.5 py-px text-[10px] font-semibold tracking-wide text-danger-text uppercase ring-1 ring-danger/30 ring-inset">
-      {confidence}
-    </span>
-  );
-}
-
 function LineActions({
   label,
   onAction,
@@ -230,7 +215,7 @@ function VerdictLine({ incident }: { incident: Incident }) {
           )}
         </>
       )}
-      {verdict.confidence && <ConfidenceChip confidence={verdict.confidence} />}
+      <ConsequenceChip consequence={verdict.consequence} />
       <LineActions
         label="Details"
         onAction={() =>

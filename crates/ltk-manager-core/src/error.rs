@@ -7,6 +7,8 @@
 //! exist without one dictating the other's vocabulary.
 
 use camino::{Utf8Path, Utf8PathBuf};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -15,6 +17,84 @@ use crate::launcher::LauncherError;
 use crate::patcher::PatcherError;
 use crate::preview::PreviewError;
 use crate::workshop::WorkshopError;
+
+/// Which [`AppError`] a failure was, as a name that outlives its message.
+///
+/// A message is for a reader and can be empty. This is the part a consumer
+/// switches on, so it survives being recorded, stored and read back long after
+/// the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
+/// a CLI could map the same names to exit codes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[non_exhaustive]
+pub enum ErrorKind {
+    Io,
+    Serialization,
+    Modpkg,
+    LeagueNotFound,
+    InvalidPath,
+    ModNotFound,
+    ValidationFailed,
+    InternalState,
+    MutexLockFailed,
+    Other,
+    WorkshopNotConfigured,
+    ProjectNotFound,
+    ProjectAlreadyExists,
+    PackFailed,
+    Fantome,
+    WadError,
+    WadBuilderError,
+    Patcher,
+    Launcher,
+    ZipError,
+    SchemaVersionTooNew,
+    Workshop,
+    Hashtable,
+    Preview,
+}
+
+impl fmt::Display for ErrorKind {
+    /// The variant's own name, which is what a report and an evidence line show.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = serde_json::to_string(self).map_err(|_| fmt::Error)?;
+        f.pad(name.trim_matches('"'))
+    }
+}
+
+impl AppError {
+    /// Which variant this is, without its message.
+    pub fn kind(&self) -> ErrorKind {
+        match self {
+            AppError::Io { .. } => ErrorKind::Io,
+            AppError::Serialization { .. } => ErrorKind::Serialization,
+            AppError::Modpkg { .. } => ErrorKind::Modpkg,
+            AppError::LeagueNotFound => ErrorKind::LeagueNotFound,
+            AppError::InvalidPath { .. } => ErrorKind::InvalidPath,
+            AppError::ModNotFound { .. } => ErrorKind::ModNotFound,
+            AppError::ValidationFailed { .. } => ErrorKind::ValidationFailed,
+            AppError::InternalState { .. } => ErrorKind::InternalState,
+            AppError::MutexLockFailed => ErrorKind::MutexLockFailed,
+            AppError::Other { .. } => ErrorKind::Other,
+            AppError::WorkshopNotConfigured => ErrorKind::WorkshopNotConfigured,
+            AppError::ProjectNotFound { .. } => ErrorKind::ProjectNotFound,
+            AppError::ProjectAlreadyExists { .. } => ErrorKind::ProjectAlreadyExists,
+            AppError::PackFailed { .. } => ErrorKind::PackFailed,
+            AppError::Fantome { .. } => ErrorKind::Fantome,
+            AppError::WadError { .. } => ErrorKind::WadError,
+            AppError::WadBuilderError { .. } => ErrorKind::WadBuilderError,
+            AppError::Patcher { .. } => ErrorKind::Patcher,
+            AppError::Launcher { .. } => ErrorKind::Launcher,
+            AppError::ZipError { .. } => ErrorKind::ZipError,
+            AppError::SchemaVersionTooNew { .. } => ErrorKind::SchemaVersionTooNew,
+            AppError::Workshop { .. } => ErrorKind::Workshop,
+            AppError::Hashtable { .. } => ErrorKind::Hashtable,
+            AppError::Preview { .. } => ErrorKind::Preview,
+        }
+    }
+}
 
 /// Internal application error type with rich error information.
 #[derive(Debug, Error)]

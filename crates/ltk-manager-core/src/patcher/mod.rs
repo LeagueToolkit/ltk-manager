@@ -10,7 +10,7 @@ pub mod session;
 pub mod state;
 pub mod thread;
 
-pub use dll_lines::DllLine;
+pub use dll_lines::{DllLevel, DllLine};
 pub use elevation::should_elevate;
 pub use error::{InjectionStage, PatcherError};
 pub use events::PatcherEvents;

@@ -70,14 +70,16 @@ describe("GamesTab", () => {
     const older = createMockIncident({
       id: "older",
       endedAt: onDay(1, 22, 40),
-      verdict: { ...newest.verdict, title: "Stuck loading", kind: "stuck-loading" },
+      verdict: { ...newest.verdict, title: "Loading Screen Stall", kind: "stuck-loading" },
     });
     mockBackend([newest, older]);
     renderWithApp(<GamesTab />);
 
     const rows = await screen.findAllByRole("option");
     expect(rows[0]).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("heading", { level: 2, name: "Missing data" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Missing Game Data" }),
+    ).toBeInTheDocument();
   });
 
   /// A toast, a badge or the session bar hands over an id in the URL, and the
@@ -87,14 +89,14 @@ describe("GamesTab", () => {
     const older = createMockIncident({
       id: "older",
       endedAt: onDay(1, 22, 40),
-      verdict: { ...newest.verdict, title: "Stuck loading", kind: "stuck-loading" },
+      verdict: { ...newest.verdict, title: "Loading Screen Stall", kind: "stuck-loading" },
     });
     search.incident = "older";
     mockBackend([newest, older]);
     renderWithApp(<GamesTab />);
 
     expect(
-      await screen.findByRole("heading", { level: 2, name: "Stuck loading" }),
+      await screen.findByRole("heading", { level: 2, name: "Loading Screen Stall" }),
     ).toBeInTheDocument();
   });
 
