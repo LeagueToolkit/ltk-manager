@@ -10,8 +10,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use ltk_manager_core::error::{AppError, AppResult, MutexResultExt, Utf8PathExt};
-use ltk_manager_core::hashtables::HashtableError;
-use ltk_manager_core::launcher::LauncherError;
 
 /// Error codes that can be communicated across the IPC boundary.
 /// These are serialized as SCREAMING_SNAKE_CASE for TypeScript consumption.
@@ -59,23 +57,19 @@ pub enum ErrorCode {
     SchemaVersionTooNew,
     /// Workshop domain error. The specific variant is in `context.kind`.
     Workshop,
-    /// No Riot Client owns the configured League installation.
-    RiotClientNotFound,
-    /// A Riot Client is running but did not accept the launch request.
-    RiotClientUnreachable,
-    /// The Riot Client understood the launch request and refused it. The remedy
-    /// is the player's to apply, and `context.riotErrorCode` says which one.
-    LaunchRefused,
-    /// The launch failed for a reason with no specific remedy.
-    LaunchFailed,
-    /// No platform directory for the hashtable cache could be resolved.
-    HashtableCacheDirUnavailable,
-    /// The hashtable cache manifest exists but is unreadable or corrupt.
-    HashtableManifestInvalid,
-    /// Another process is already syncing the hashtable cache.
-    HashtableSyncLocked,
-    /// A hashtable sync failed while downloading or installing tables.
-    HashtableSyncFailed,
+    /// A launch failed. The specific variant is in `context.kind`.
+    ///
+    /// One code, not one per [`LauncherError`] variant. The whole error is
+    /// already serialized into the context, so a code per variant put the same
+    /// discriminant on the wire twice, and lossily: `SpawnFailed` and
+    /// `UnsupportedPlatform` shared one code that the context tells apart.
+    Launcher,
+    /// A hashtable cache operation failed. The message says which and why.
+    ///
+    /// One code, not one per `HashtableError` variant. Unlike the launcher's,
+    /// this error is not `Serialize`, so there is no context to carry the
+    /// variant and the message is where the detail rides.
+    Hashtable,
     /// An asset could not be previewed. The message says why.
     Preview,
 }
@@ -250,15 +244,8 @@ impl From<AppError> for AppErrorResponse {
             // frontend offers a different remedy for each, so collapsing them
             // into one code plus a `kind` would just move the switch.
             AppError::Launcher(launcher_err) => {
-                let code = match launcher_err {
-                    LauncherError::RiotClientNotFound { .. } => ErrorCode::RiotClientNotFound,
-                    LauncherError::RiotClientUnreachable { .. } => ErrorCode::RiotClientUnreachable,
-                    LauncherError::LaunchRefused { .. } => ErrorCode::LaunchRefused,
-                    LauncherError::SpawnFailed { .. } | LauncherError::UnsupportedPlatform => {
-                        ErrorCode::LaunchFailed
-                    }
-                };
-                let mut response = AppErrorResponse::new(code, launcher_err.to_string());
+                let mut response =
+                    AppErrorResponse::new(ErrorCode::Launcher, launcher_err.to_string());
                 response.context = serde_json::to_value(&launcher_err).ok();
                 response
             }
@@ -281,15 +268,7 @@ impl From<AppError> for AppErrorResponse {
             }
 
             AppError::Hashtable(hashtable_err) => {
-                let code = match &hashtable_err {
-                    HashtableError::NoCacheDir(_) => ErrorCode::HashtableCacheDirUnavailable,
-                    HashtableError::Manifest(_) => ErrorCode::HashtableManifestInvalid,
-                    HashtableError::SyncLocked => ErrorCode::HashtableSyncLocked,
-                    HashtableError::Http(_) | HashtableError::Sync(_) => {
-                        ErrorCode::HashtableSyncFailed
-                    }
-                };
-                AppErrorResponse::new(code, hashtable_err.to_string())
+                AppErrorResponse::new(ErrorCode::Hashtable, hashtable_err.to_string())
             }
 
             AppError::Preview(preview_err) => {
@@ -302,6 +281,8 @@ impl From<AppError> for AppErrorResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ltk_manager_core::hashtables::HashtableError;
+    use ltk_manager_core::launcher::LauncherError;
     use ltk_manager_core::patcher::injector::InjectorError;
     use ltk_manager_core::patcher::session::SessionError;
     use ltk_manager_core::patcher::{InjectionStage, PatcherError};
@@ -334,15 +315,18 @@ mod tests {
             "\"PATCHER\""
         );
         assert_eq!(
-            serde_json::to_string(&ErrorCode::HashtableSyncLocked).unwrap(),
-            "\"HASHTABLE_SYNC_LOCKED\""
+            serde_json::to_string(&ErrorCode::Hashtable).unwrap(),
+            "\"HASHTABLE\""
         );
     }
 
+    /// Every hashtable failure shares one code, and the message says which.
+    /// `HashtableError` is not `Serialize`, so the message is the only place
+    /// the detail can ride.
     #[test]
-    fn hashtable_sync_locked_gets_its_own_code() {
+    fn every_hashtable_failure_shares_one_code() {
         let resp: AppErrorResponse = AppError::Hashtable(HashtableError::SyncLocked).into();
-        assert_eq!(resp.code, ErrorCode::HashtableSyncLocked);
+        assert_eq!(resp.code, ErrorCode::Hashtable);
         assert!(resp.message.contains("already syncing"));
     }
 
@@ -369,14 +353,8 @@ mod tests {
             ErrorCode::Zip,
             ErrorCode::SchemaVersionTooNew,
             ErrorCode::Workshop,
-            ErrorCode::RiotClientNotFound,
-            ErrorCode::RiotClientUnreachable,
-            ErrorCode::LaunchRefused,
-            ErrorCode::LaunchFailed,
-            ErrorCode::HashtableCacheDirUnavailable,
-            ErrorCode::HashtableManifestInvalid,
-            ErrorCode::HashtableSyncLocked,
-            ErrorCode::HashtableSyncFailed,
+            ErrorCode::Launcher,
+            ErrorCode::Hashtable,
             ErrorCode::Preview,
         ] {
             let json = serde_json::to_string(&code).unwrap();
@@ -468,35 +446,41 @@ mod tests {
         assert_eq!(context["stage"], "INJECTION");
     }
 
-    /// Each launcher failure has its own remedy in the UI, so each must arrive
-    /// under its own code rather than sharing one with a discriminating field.
+    /// Each launcher failure has its own remedy in the UI, and the context is
+    /// what tells them apart. One code per variant put the discriminant on the
+    /// wire twice, and lossily - two variants shared `LAUNCH_FAILED`, which the
+    /// context distinguishes.
     #[test]
-    fn every_launcher_variant_gets_its_own_code() {
+    fn every_launcher_variant_shares_one_code_and_keeps_its_kind() {
         let cases = [
             (
                 LauncherError::RiotClientNotFound {
                     installs_path: "C:/ProgramData/…/RiotClientInstalls.json".to_string(),
                 },
-                ErrorCode::RiotClientNotFound,
+                "RIOT_CLIENT_NOT_FOUND",
             ),
             (
                 LauncherError::RiotClientUnreachable {
                     reason: "HTTP 404".to_string(),
                 },
-                ErrorCode::RiotClientUnreachable,
+                "RIOT_CLIENT_UNREACHABLE",
             ),
             (
                 LauncherError::SpawnFailed {
                     reason: "access denied".to_string(),
                 },
-                ErrorCode::LaunchFailed,
+                "SPAWN_FAILED",
             ),
-            (LauncherError::UnsupportedPlatform, ErrorCode::LaunchFailed),
+            (LauncherError::UnsupportedPlatform, "UNSUPPORTED_PLATFORM"),
         ];
 
-        for (error, expected) in cases {
+        for (error, expected_kind) in cases {
             let resp: AppErrorResponse = AppError::Launcher(error).into();
-            assert_eq!(resp.code, expected);
+            assert_eq!(resp.code, ErrorCode::Launcher);
+            assert_eq!(
+                resp.context.expect("a launcher context")["kind"],
+                expected_kind
+            );
         }
     }
 
