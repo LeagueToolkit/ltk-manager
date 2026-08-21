@@ -136,7 +136,7 @@ export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
         ref={ref}
         className={twMerge(
           "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl outline-none",
           "animate-fade-in",
           "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
           className,

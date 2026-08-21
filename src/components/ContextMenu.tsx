@@ -73,7 +73,7 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
       <BaseContextMenu.Popup
         ref={ref}
         className={twMerge(
-          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl",
+          "min-w-40 rounded-xl border border-surface-700 bg-surface-800 p-1 shadow-xl outline-none",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",

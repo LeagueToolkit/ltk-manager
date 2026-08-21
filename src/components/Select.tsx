@@ -150,7 +150,7 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
         ref={ref}
         className={twMerge(
           "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl",
+          "rounded-lg border border-surface-600 bg-surface-700 py-1 shadow-xl outline-none",
           "transition-[opacity,transform] duration-150 ease-out",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
