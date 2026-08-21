@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use crate::config::Config;
+use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::SessionFailure;
 use crate::diagnostics::store::IncidentStore;
 use crate::error::{AppError, AppResult, MutexResultExt};
@@ -30,6 +31,7 @@ pub struct SessionParams {
     pub workshop_paths: Vec<PathBuf>,
     pub host_flags: u32,
     pub should_elevate: bool,
+    pub patcher_binaries: PatcherBinaries,
     /// Where the session's incidents are written.
     pub incident_store: Arc<IncidentStore>,
 }
@@ -85,6 +87,7 @@ impl PatcherThread {
             workshop_paths,
             host_flags,
             should_elevate,
+            patcher_binaries,
             incident_store,
         } = params;
         let pipeline = Arc::new(IncidentPipeline::new(
@@ -97,7 +100,7 @@ impl PatcherThread {
         ));
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
-            GameRecorder::new(origin, should_elevate),
+            GameRecorder::new(origin, should_elevate, patcher_binaries),
             pipeline,
         ));
         let session = Self {

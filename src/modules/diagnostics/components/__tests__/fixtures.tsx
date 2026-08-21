@@ -3,7 +3,7 @@ import { render, type RenderOptions } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
 
 import { ToastProvider } from "@/components";
-import type { Incident, IncidentToken } from "@/lib/tauri";
+import type { DecodedIncident, Incident } from "@/lib/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 /** A clock on the given local day, so a fixture lands in the day a test names. */
@@ -21,12 +21,22 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
     endedAt: "2026-08-21T19:14:02Z",
     origin: { kind: "library" },
     injected: true,
+    hostElevated: false,
+    patcher: {
+      dll: { hash: "a150130f1a90dcc2", built: 0x6a8301ab },
+      host: { hash: "cc714b6990a29678", built: 0x6a8301d1 },
+      matchesBundle: true,
+    },
     overlay: "live",
+    overlayDetail: null,
     redirected: ["Aatrox.wad.client", "Map11.wad.client"],
     skipped: [],
+    enabledCount: 2,
     launch: "match",
     scan: "eager",
     scanStatus: null,
+    phase: "loading",
+    failure: null,
     game: {
       version: "16.16.804.9184",
       contentVersion: "16.16.1",
@@ -74,30 +84,47 @@ export function createMockIncident(overrides?: Partial<Incident>): Incident {
   };
 }
 
-export function createMockIncidentToken(overrides?: Partial<IncidentToken>): IncidentToken {
+export function createMockDecodedIncident(overrides?: Partial<DecodedIncident>): DecodedIncident {
   return {
-    endedAt: 29_770_514,
-    manager: [1, 14, 0],
-    game: [16, 16, 804, 9184],
-    verdict: 6,
-    overlay: 0,
-    scan: 0,
-    launch: 0,
+    endedAt: "2026-08-21T19:14:00+00:00",
+    manager: "1.14.0",
+    game: "16.16.804.9184",
+    verdict: "missing-data",
+    verdictCode: 6,
+    title: "Missing Game Data",
+    consequence: "game-stopped",
+    origin: "library",
+    overlay: "live",
+    scan: "eager",
+    launch: "match",
     injected: true,
-    exitReason: "Interrupt",
-    exitCode: -1073741819,
-    crashed: true,
+    hostElevated: false,
+    phase: "loading",
+    ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     durationSecs: 12,
-    codes: ["ALE-9B39AA45", "SEJ-9F31B5D0"],
-    lastLoadStep: null,
+    codes: [
+      {
+        id: "ALE-9B39AA45",
+        kind: "missing_data",
+        meaning: "A file the game needed is in no mounted archive",
+        mark: "confirmed",
+      },
+      { id: "ALE-FFFFFFFF", kind: null, meaning: null, mark: null },
+    ],
+    lastLoadStep: 52,
     missingHash: "1a2b3c4d5e6f7081",
-    archives: ["Aatrox.wad.client"],
+    subject: "Aatrox.wad.client",
     suspects: ["Aatrox Justicar"],
     skipped: [],
     redirectedCount: 4,
     enabledCount: 4,
-    errorLines: 1,
-    hostFailure: null,
+    dll: { hash: "a150130f1a90dcc2", built: "2026-08-17T12:42:19+00:00" },
+    host: { hash: "cc714b6990a29678", built: "2026-08-17T12:42:57+00:00" },
+    patcherOk: true,
+    scanStatus: null,
+    scanStatusCode: null,
+    failure: null,
+    overlayDetail: null,
     ...overrides,
   };
 }

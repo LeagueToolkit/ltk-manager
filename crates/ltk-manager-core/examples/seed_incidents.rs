@@ -21,8 +21,9 @@ use std::path::PathBuf;
 use chrono::{DateTime, Duration, Utc};
 use ltk_manager_core::diagnostics::game_log::GameLogFacts;
 use ltk_manager_core::diagnostics::incident::{
-    ClassifyContext, Ending, EvidenceSource, GameRecord, LaunchKind, ModFootprint, OverlayOutcome,
-    ProjectFootprint, RawEvidence, ScanMode, SessionFailure, SkippedArchive, VerdictKind,
+    ClassifyContext, Ending, EvidenceSource, GameRecord, LaunchKind, ModFootprint, OverlayDetail,
+    OverlayOutcome, ProjectFootprint, RawEvidence, ScanMode, SessionFailure, SkippedArchive,
+    VerdictKind,
 };
 use ltk_manager_core::diagnostics::store::IncidentStore;
 use ltk_manager_core::error::ErrorKind;
@@ -199,14 +200,25 @@ fn base(ended_at: DateTime<Utc>) -> GameRecord {
         launch: LaunchKind::Match,
         scan: Some(ScanMode::Eager),
         host_elevated: false,
+        patcher: ltk_manager_core::diagnostics::binary_id::PatcherBinaries {
+            dll: Some(ltk_manager_core::diagnostics::binary_id::BinaryId {
+                hash: "a150130f1a90dcc2".to_string(),
+                built: Some(0x6A83_01AB),
+            }),
+            host: Some(ltk_manager_core::diagnostics::binary_id::BinaryId {
+                hash: "cc714b6990a29678".to_string(),
+                built: Some(0x6A83_01D1),
+            }),
+            matches_bundle: Some(true),
+        },
         ending: Ending {
             exit_reason: Some("Interrupt".to_string()),
             exit_code: Some(-1073741819),
             crashed: Some(true),
         },
-        log_path: Some(
-            r"C:\Riot Games\League of Legends\Logs\GameLogs\mock\mock_r3dlog.txt".to_string(),
-        ),
+        log_path: Some(PathBuf::from(
+            r"C:\Riot Games\League of Legends\Logs\GameLogs\mock\mock_r3dlog.txt",
+        )),
         log: None,
         timeline: vec![
             line(started_at, EvidenceSource::Host, "game found"),
@@ -312,7 +324,7 @@ fn seeds() -> Vec<Seed> {
         }),
         (VerdictKind::PatcherOutOfDate, |mut r| {
             r.overlay = OverlayOutcome::EndOfLife;
-            r.overlay_detail = Some("0x68a1b2c3".to_string());
+            r.overlay_detail = Some(OverlayDetail::Build("0x68a1b2c3".to_string()));
             r.redirected.clear();
             r
         }),
@@ -348,7 +360,10 @@ fn seeds() -> Vec<Seed> {
         }),
         (VerdictKind::OverlayDisabled, |mut r| {
             r.overlay = OverlayOutcome::Disabled;
-            r.overlay_detail = Some("wad Ahri.wad.client: a chunk did not decompress".to_string());
+            r.overlay_detail = Some(OverlayDetail::Rejected {
+                wad: "Ahri.wad.client".to_string(),
+                why: "a chunk did not decompress".to_string(),
+            });
             r.redirected.clear();
             r
         }),

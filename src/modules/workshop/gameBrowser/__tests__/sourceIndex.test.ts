@@ -11,7 +11,6 @@ import {
   type SourceEntry,
   type SourceFileNode,
   type SourceTreeNode,
-  toggled,
   UNKNOWN_DIR,
   wadBasename,
   wadDirname,
@@ -273,14 +272,5 @@ describe("wadDirname", () => {
 
   it("is empty for an archive at the root", () => {
     expect(wadDirname("UI.wad.client")).toBe("");
-  });
-});
-
-describe("toggled", () => {
-  it("adds an absent value and removes a present one", () => {
-    const once = toggled(new Set(), "a");
-    expect(once.has("a")).toBe(true);
-    const twice = toggled(once, "a");
-    expect(twice.has("a")).toBe(false);
   });
 });

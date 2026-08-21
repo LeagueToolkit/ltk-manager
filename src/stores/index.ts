@@ -1,6 +1,7 @@
 export * from "./deepLink";
 export * from "./devConsole";
 export * from "./displayStore";
+export * from "./gameBrowser";
 export * from "./incidents";
 export * from "./libraryFilter";
 export * from "./librarySelection";

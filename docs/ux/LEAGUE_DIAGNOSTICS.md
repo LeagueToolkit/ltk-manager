@@ -4,6 +4,8 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-08-21 | Carry the patcher binaries' checksums and build dates on the incident   |
+| 2026-08-21 | Reshape the token around what a verdict rests on, and drop deflate      |
 | 2026-08-21 | Land the backend, the Games tab and the surfaces, and update the status |
 | 2026-08-21 | Answer the open questions, and add the incident token                   |
 | 2026-08-21 | Read the host and DLL lines from `ltk-patcher`, and trim the code table |
@@ -455,26 +457,20 @@ saw has no sign and no incident.
 ### What it keeps
 
 ```rust
-/// What one game's log says, without the log.
 pub struct GameLogFacts {
     pub started_at: Option<String>,
     pub build_version: Option<String>,
     pub content_version: Option<String>,
     pub game_base_dir: Option<String>,
-    /// `-EnableCrashpad` against `-DisableCrashUploading`, which picks the DLL's scan.
     pub crash_reporting: Option<bool>,
-    /// Every code seen, in order, with its time.
     pub codes: Vec<CodeSighting>,
-    /// The last `LOAD` marker, which is the step that was running at the end.
     pub last_load_step: Option<CodeSighting>,
     pub loading_ended: bool,
     pub reached_game_loop: bool,
-    /// `ALE-8SDFH23F` and the renderer's close, which a clean end writes.
     pub torn_down: bool,
     pub error_lines: u32,
     pub total_lines: u32,
     pub last_time: f64,
-    /// The last forty lines, and ten around each coded line.
     pub excerpt: Vec<String>,
 }
 ```
@@ -738,17 +734,35 @@ interface Incident {
   origin: SessionOrigin;
   /** Whether the DLL attached to this game. */
   injected: boolean;
+  /** Whether the host ran elevated, which picks the hint for a DLL that never attached. */
+  hostElevated: boolean;
+  /** The patcher binaries this session ran, and whether they are this build's. */
+  patcher: {
+    /** `hash` is the 16-hex SHA-256 prefix, `built` the PE date in unix seconds. */
+    dll?: { hash: string; built: number | null };
+    host?: { hash: string; built: number | null };
+    /** True when both are byte-identical to what this manager build shipped. */
+    matchesBundle?: boolean;
+  };
   /** What the DLL said after it attached. */
   overlay: "live" | "too-late" | "end-of-life" | "disabled" | "hook-failed" | "none";
+  /** The DLL's word on the outcome, for the three outcomes that carry one. */
+  overlayDetail: string | null;
   /** The archives the DLL served from the overlay. */
   redirected: string[];
   /** The archives the lazy scan skipped, each with the DLL's reason. */
   skipped: { wad: string; why: string }[];
+  /** The enabled mods, and the projects under test, the overlay was built from. */
+  enabledCount: number;
   launch: "match" | "replay" | "spectator" | "pbe";
   /** As the DLL decided it, from the flags and the game's command line. */
   scan: "eager" | "lazy" | null;
+  /** How far the game got, as its log says. */
+  phase: "unknown" | "loading" | "in-game" | "torn-down";
   game: { version: string; contentVersion: string; logPath: string } | null;
   ending: { exitReason: string | null; exitCode: number | null; crashed: boolean | null };
+  /** Set when the session failed before any game, which is the whole story. */
+  failure: SessionFailure | null;
   verdict: Verdict;
   evidence: Evidence[];
   suspects: Suspect[];
@@ -974,7 +988,7 @@ its tooltip after a failed test, with `Details` to the Games tab.
 ```
 # LTK Manager - League diagnostics
 Incident: 2026-08-21T21:14:02 · LTK Manager v1.14.0 · League 16.16.804.9184
-Token: LTK1-eNpVjsEKgzAQRH9lyVkwEY3trdBLT4XSexCzNQE1kqQeiv_ejVLow8Ay7DJvpYwJ1B
+Token: DIAG1-eNpVjsEKgzAQRH9lyVkwEY3trdBLT4XSexCzNQE1kqQeiv_ejVLow8Ay7DJvpYwJ1B
 
 Verdict: Missing data (likely)
 League stopped a read it could not finish.
@@ -1012,76 +1026,98 @@ token is the same incident folded into one short string. A player pastes it anyw
 the team unfolds it in their own manager.
 
 ```
-LTK1-eNpVjsEKgzAQRH9lyVkwEY3trdBLT4XSexCzNQE1kqQeiv_ejVLow8Ay7DJvpYwJ1B
+DIAG1-3gAVoXTOAcaLuqFtkwEOAKFnlBAQzQMkzSPgoXYGoU8BoW8BoXMBoWwBoWnDoVABoXICoXjSwAAABaFrw6FkDKFDkaxBTEUtOUIzOUFBNDWhcDShaM8aKzxNXm9wgaF1pkFhdHJveKFTka9BYXRyb3ggSnVzdGljYXKhUgShRQQ
 ```
 
-| Part     | Is                                                                       |
-| -------- | ------------------------------------------------------------------------ |
-| `LTK1`   | The format and its version. A decoder refuses a version it does not know |
-| `-`      | A separator, so a double click in a chat client selects the rest         |
-| The rest | `base64url` with no padding, over a deflated MessagePack record          |
+| Part     | Is                                                                                     |
+| -------- | -------------------------------------------------------------------------------------- |
+| `DIAG`   | The format's name, unrelated to the manager's on purpose                               |
+| `1`      | The format's version. It moves when a key changes its meaning, and never for one added |
+| `-`      | A separator, so a double click in a chat client selects the rest                       |
+| The rest | `base64url` with no padding, over a MessagePack map with one-letter keys               |
 
-The record is the incident with the text taken out. Every field is optional, so a decoder
-reads a token from a newer manager and skips what it does not know.
+The record is the incident with the text taken out, and every field is optional, so a
+decoder reads a token from a newer manager and skips what it does not know. A token whose
+version is newer than the decoder's is refused by name, with `update to read it`, and never
+as `not a token`. The numbers the enums travel as are pinned in a test one by one, so a
+renumbering fails a build and not a reader.
 
 ```rust
-/// The incident, as the token carries it.
 struct IncidentToken {
-    /// Minutes since the epoch. Four bytes, and the second is not needed.
     ended_at: u32,
     manager: [u16; 3],
     game: Option<[u16; 4]>,
     verdict: u8,
+    origin: u8,
     overlay: u8,
     scan: Option<u8>,
     launch: u8,
     injected: bool,
+    host_elevated: bool,
+    phase: u8,
     exit_reason: Option<String>,
-    exit_code: Option<i32>,
+    exit_code: Option<i64>,
     crashed: Option<bool>,
     duration_secs: Option<u32>,
-    /// The codes seen, as their own strings, so a token reads against any version
-    /// of the table and a newer table reads an old token better.
     codes: Vec<String>,
     last_load_step: Option<u8>,
     missing_hash: Option<u64>,
-    /// Archive names, and the suspects' display names cut to 32 characters.
-    archives: Vec<String>,
+    subject: Option<String>,
     suspects: Vec<String>,
-    skipped: Vec<String>,
+    skipped: Vec<(String, String)>,
     redirected_count: u16,
     enabled_count: u16,
-    error_lines: u16,
-    host_failure: Option<String>,
+    dll: Option<BinaryId>,
+    host: Option<BinaryId>,
+    patcher_ok: Option<bool>,
+    scan_status: Option<String>,
+    failure: Option<String>,
+    overlay_detail: Option<String>,
 }
 ```
 
-| Budget                                 |                                                                                  |
-| -------------------------------------- | -------------------------------------------------------------------------------- |
-| A typical incident                     | Under 200 characters                                                             |
-| A bad one, ten codes and four suspects | Under 400                                                                        |
-| The cap                                | 1,000. The encoder drops codes past the tenth and suspects past the fourth first |
-| Encoding, and decoding                 | Under a millisecond                                                              |
+| Budget                                 |                                                                                     |
+| -------------------------------------- | ----------------------------------------------------------------------------------- |
+| A typical incident                     | Under 300 characters                                                                |
+| A bad one, ten codes and four suspects | Under 600                                                                           |
+| A session failure                      | Under 400                                                                           |
+| The cap                                | 1,000. Codes past the tenth and suspects past the fourth go first, then the details |
+| Encoding, and decoding                 | Under a millisecond                                                                 |
 
-`flate2` and `base64` are dependencies already. MessagePack is not, and `rmp-serde` is a
-small one. `serde_json` would carry the same record at about twice the length, and it is the
-fallback if a dependency is not wanted for this.
+There is no compressor. A typical record is 130 bytes of MessagePack, which deflate stores
+rather than shrinks, at five bytes' cost, and only a token with ten near-identical codes
+gained from one. A record that is small because it carries only what the verdict rests on
+does not need one, and a script reads it with a `base64url` decode and a MessagePack parse.
 
 What it leaves out, on purpose: the excerpt, every path on disk, the log's path, and
-anything from the game's command line. The token carries nothing the report does not, and
-less.
+anything from the game's command line. A message the patcher quotes can name a file on
+disk, and the token keeps the file's name and drops the directories above it. The token
+carries nothing the report does not, and less.
+
+**Which patcher ran.** Neither the host nor the DLL reports its own version, so the manager
+reads it off the file at session start: a 16-hex SHA-256 prefix names the exact bytes, and
+the PE header's `TimeDateStamp` is the build date. The manager bakes the checksums of the
+binaries it bundles into its own build, so it can say whether the ones on disk are stock or
+a stale or swapped copy, which is the case the current build's verdicts do not explain. No
+git is involved: the checksum plus the manager's version identify a stock build outright,
+and the checksum and date are the clues for anything else. The System tab shows the DLL's
+checksum and date on the `Patcher DLL present` check, for a support call.
 
 **Where it goes.** The second line of the report text, so a pasted report carries its
 token. The `Report a Bug` URL, as `&diagnostic=<token>`, with a matching field in the issue
 template, so the body a browser would truncate is a line instead of a page. And
 `Copy token` beside `Copy report` in the Games tab.
 
-**Decoding it.** The Games tab has a `Decode a token` action. Paste one, and the tab shows
-it as an incident card marked `From a token`: the verdict, what it cost, the suspects by
-name, and the codes with whatever the local table says about them, and no actions, because
-the mods it names are on another machine. A pasted report decodes the same way, because its
-second line is the token. The decoder lives in the core crate beside the encoder, with a
-test vector, so a script reads a token without the application.
+**Decoding it.** The decoder lives in the core crate beside the encoder, and reads the
+token against this build's tables: the verdict's kind, title and cost, the DLL's outcome,
+each code with the table's reading of it, and the scan status by name. A number this build
+does not know arrives as `null` with the verdict's number beside it, so a token from a
+newer manager reads as far as it can. The Games tab has a `Decode a token` action. Paste
+one, and the tab shows it as an incident card marked `From a token`, with every field the
+token carries and no actions, because the mods it names are on another machine. A pasted
+report or bug-report link decodes the same way, because the core crate finds the token
+inside the text. The test vector is pinned, and so is the set of keys on the wire, so a
+script reads a token without the application and a change to the wire fails a test first.
 
 ### Where the entry points are
 
@@ -1125,7 +1161,7 @@ them.
 | `game_log.rs`   | `ltk-manager-core/src/diagnostics/`     | The reader, pure over `BufRead`, tested on a fixture                                                                  |
 | `log_codes.rs`  | `ltk-manager-core/src/diagnostics/`     | The table, `include_str!` over the TSV, `lookup(&str)`                                                                |
 | `incident.rs`   | `ltk-manager-core/src/diagnostics/`     | `Incident`, `Verdict`, `classify`, pure                                                                               |
-| `token.rs`      | `ltk-manager-core/src/diagnostics/`     | `encode` and `decode` for the incident token, with a test vector                                                      |
+| `token.rs`      | `ltk-manager-core/src/diagnostics/`     | `encode`, `decode`, `find_in` and `resolve` for the incident token, with a pinned vector                              |
 | `dll_lines.rs`  | `patcher/`                              | The DLL's phrases as constants, each with a pointer to the DLL source file                                            |
 | `InjectorEvent` | `patcher/injector.rs`                   | `GameAttached`, `OverlayOutcome`, `WadRedirected`, `WadSkipped`, `GameExited`                                         |
 | `PatcherEvents` | `patcher/events.rs`                     | `game_attached`, `game_overlay`, `game_exited`, `incident_recorded`                                                   |
@@ -1174,7 +1210,7 @@ to keep.
 The report text is built from the incident and not from the log, so nothing the reader
 dropped can reach it. The last-lines excerpt passes through the same redaction as the
 header, because a later line can repeat the command line. The token holds less than the
-report: no excerpt and no path at all.
+report: no excerpt, and a message that named a file on disk keeps the file's name alone.
 
 Nothing is sent anywhere. The one outward route is `Report a Bug`, which opens a browser on
 a prefilled issue that the player reads before submitting, and the token in its URL decodes

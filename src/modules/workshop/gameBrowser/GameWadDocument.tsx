@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import { EmptyState } from "@/components";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentActions, type EditorDocumentProps } from "@/modules/editor";
+import { useShutWadDirs, useToggleWadDir } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
@@ -11,7 +12,6 @@ import {
   buildSourceTree,
   hasOnlyUnknownPaths,
   type SourceDirNode,
-  toggled,
   wadBasename,
 } from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
@@ -76,15 +76,17 @@ function GameWadBody({ wadName }: { wadName: string }) {
   const entries = entriesQuery.data;
 
   const openFile = useSourcePreview();
-  const [shutDirs, setShutDirs] = useState<ReadonlySet<string>>(new Set());
+  const shutDirs = useShutWadDirs(wadName);
+  const toggleWadDir = useToggleWadDir();
 
   const tree = useMemo(() => buildSourceTree(entries ?? []), [entries]);
 
   const isExpanded = useCallback((node: SourceDirNode) => !shutDirs.has(node.id), [shutDirs]);
 
-  const handleToggle = useCallback((node: SourceDirNode) => {
-    setShutDirs((prev) => toggled(prev, node.id));
-  }, []);
+  const handleToggle = useCallback(
+    (node: SourceDirNode) => toggleWadDir(wadName, node.id),
+    [toggleWadDir, wadName],
+  );
 
   if (wads.isPending) return <GameLoadingState />;
   if (wads.isError) return <GameWadsErrorState error={wads.error} />;
@@ -109,6 +111,7 @@ function GameWadBody({ wadName }: { wadName: string }) {
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onOpen={openFile}
+        scrollKey={`game-wad:${wadName}`}
       />
     </>
   );

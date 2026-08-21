@@ -6,6 +6,7 @@
 //! check here is the phase-1 detector; phase 2 will add full handle-owner
 //! enumeration via NtQuerySystemInformation.
 
+use super::binary_id::BinaryId;
 use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
 
 #[cfg(target_os = "windows")]
@@ -23,6 +24,15 @@ pub fn check_dll_present(ctx: &CheckCtx) -> Check {
             if let Ok(meta) = std::fs::metadata(p) {
                 c.details
                     .push(CheckDetail::new("size", meta.len().to_string()));
+            }
+            // The checksum and build date name the exact DLL, so a support
+            // thread can tell a stock binary from a stale or a swapped one.
+            if let Some(id) = BinaryId::of(p) {
+                let built = id.built_date();
+                c.details.push(CheckDetail::new("checksum", id.hash));
+                if let Some(date) = built {
+                    c.details.push(CheckDetail::new("built", date));
+                }
             }
             c
         }

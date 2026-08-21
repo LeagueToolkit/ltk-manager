@@ -1,12 +1,13 @@
 import { FileArchiveIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, Field, IconButton } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { keepScrollTop, keptScrollTop, useSetWadFilter, useWadFilter } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import { type ContentDocumentOf, gameWadDocument } from "../documents/contentDocument";
@@ -19,6 +20,10 @@ import { useGameWads } from "./useGameWads";
    opens into. */
 const ROW_HEIGHT = 24;
 
+/* One list, so one key. What the filter left rides the same scroll, the way it
+   does while the box is typed into. */
+const SCROLL_KEY = "game-wads";
+
 /**
  * Every archive the install holds, as the list the folded tree cannot be.
  *
@@ -27,7 +32,8 @@ const ROW_HEIGHT = 24;
  */
 export function GameWadsDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
   const wads = useGameWads();
-  const [filter, setFilter] = useState("");
+  const filter = useWadFilter();
+  const setFilter = useSetWadFilter();
 
   const matches = useMemo(() => {
     const all = wads.data ?? [];
@@ -104,12 +110,22 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
   const openDocument = useOpenDocument();
   const activeId = useActiveDocumentId();
 
+  const [initialOffset] = useState(() => keptScrollTop(SCROLL_KEY));
+
+  /* The live element rather than one captured at mount, which is null on the
+     renders that answer with a state instead of the list. */
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => keepScrollTop(SCROLL_KEY, scrollRef.current?.scrollTop ?? 0);
+  }, []);
+
   const virtualizer = useVirtualizer({
     count: wads.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 12,
     getItemKey: (index) => wads[index]!.name,
+    initialOffset,
   });
 
   if (query.isPending) return <GameLoadingState />;

@@ -7,6 +7,7 @@
 
 use chrono::{DateTime, Utc};
 
+use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::{
     Ending, EvidenceSource, GameRecord, RawEvidence, SessionFailure, SkippedArchive,
 };
@@ -23,16 +24,19 @@ const TIMELINE_CAP: usize = 256;
 pub struct GameRecorder {
     origin: SessionOrigin,
     host_elevated: bool,
+    patcher: PatcherBinaries,
     open: Option<GameRecord>,
 }
 
 impl GameRecorder {
-    /// A recorder for one session. `host_elevated` is kept on every record,
-    /// because it picks the hint for a DLL that never attached.
-    pub fn new(origin: SessionOrigin, host_elevated: bool) -> Self {
+    /// A recorder for one session. `host_elevated` and `patcher` are kept on
+    /// every record: the first picks the hint for a DLL that never attached,
+    /// and the second says which patcher binaries ran.
+    pub fn new(origin: SessionOrigin, host_elevated: bool, patcher: PatcherBinaries) -> Self {
         Self {
             origin,
             host_elevated,
+            patcher,
             open: None,
         }
     }
@@ -158,6 +162,7 @@ impl GameRecorder {
     fn new_record(&self, now: DateTime<Utc>) -> GameRecord {
         let mut record = GameRecord::open(now, self.origin.clone());
         record.host_elevated = self.host_elevated;
+        record.patcher = self.patcher.clone();
         record
     }
 
@@ -217,7 +222,7 @@ mod tests {
     }
 
     fn recorder() -> GameRecorder {
-        GameRecorder::new(SessionOrigin::Library, false)
+        GameRecorder::new(SessionOrigin::Library, false, PatcherBinaries::default())
     }
 
     fn line(source: EvidenceSource, text: &str) -> InjectorEvent {
@@ -424,6 +429,7 @@ mod tests {
                 projects: vec!["C:\\projects\\skin".to_string()],
             },
             true,
+            PatcherBinaries::default(),
         );
 
         let record = recorder.session_failed(

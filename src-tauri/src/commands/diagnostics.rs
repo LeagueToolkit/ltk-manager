@@ -8,11 +8,10 @@
 
 use crate::commands::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::mods::ModLibraryState;
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, IncidentStoreState, SettingsState};
 use ltk_manager_core::diagnostics::incident::Incident;
-use ltk_manager_core::diagnostics::token::{IncidentToken, PREFIX as TOKEN_PREFIX};
+use ltk_manager_core::diagnostics::token::{DecodedIncident, IncidentToken};
 use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
@@ -20,7 +19,7 @@ use tauri::{AppHandle, Manager, State};
 /// Same lookup chain as `commands::patcher::resolve_resource`, but returns
 /// `None` instead of an error so we can still report the rest of the
 /// diagnostics when the DLL is missing.
-fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
+pub(crate) fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
     if let Ok(dir) = app_handle.path().resource_dir() {
         let p = dir.join(HOOK_DLL_NAME);
         if p.exists() {
@@ -194,69 +193,37 @@ fn reveal_game_log_inner(id: &str, incidents: &State<IncidentStoreState>) -> App
 /// The incident as the text a support thread wants, with its token on the
 /// second line.
 #[tauri::command]
-pub fn incident_report(
-    id: String,
-    incidents: State<IncidentStoreState>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<String> {
-    incident_report_inner(&id, &incidents, &library, &settings).into()
-}
-
-fn incident_report_inner(
-    id: &str,
-    incidents: &State<IncidentStoreState>,
-    library: &State<ModLibraryState>,
-    settings: &State<SettingsState>,
-) -> AppResult<String> {
-    let incident = find_incident(incidents, id)?;
-    let token = token_for(&incident, library, settings)?;
-    Ok(incident.report_text(env!("CARGO_PKG_VERSION"), Some(&token)))
+pub fn incident_report(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
+    find_incident(&incidents, &id)
+        .map(|incident| {
+            let token = incident.token(env!("CARGO_PKG_VERSION"));
+            incident.report_text(env!("CARGO_PKG_VERSION"), Some(&token))
+        })
+        .into()
 }
 
 /// The incident folded into one short string, for a URL or a chat.
 #[tauri::command]
-pub fn incident_token(
-    id: String,
-    incidents: State<IncidentStoreState>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<String> {
-    incident_token_inner(&id, &incidents, &library, &settings).into()
-}
-
-fn incident_token_inner(
-    id: &str,
-    incidents: &State<IncidentStoreState>,
-    library: &State<ModLibraryState>,
-    settings: &State<SettingsState>,
-) -> AppResult<String> {
-    let incident = find_incident(incidents, id)?;
-    token_for(&incident, library, settings)
+pub fn incident_token(id: String, incidents: State<IncidentStoreState>) -> IpcResult<String> {
+    find_incident(&incidents, &id)
+        .map(|incident| incident.token(env!("CARGO_PKG_VERSION")))
+        .into()
 }
 
 /// Reads a token back, from the token alone or from a pasted report or URL
-/// that carries one.
+/// that carries one, against this build's tables.
 #[tauri::command]
-pub fn decode_incident_token(token: String) -> IpcResult<IncidentToken> {
+pub fn decode_incident_token(token: String) -> IpcResult<DecodedIncident> {
     decode_incident_token_inner(&token).into()
 }
 
-fn decode_incident_token_inner(text: &str) -> AppResult<IncidentToken> {
-    let token = extract_token(text).ok_or_else(|| {
-        AppError::ValidationFailed("The text holds no LTK incident token".to_string())
-    })?;
-    IncidentToken::decode(token).map_err(|e| AppError::ValidationFailed(e.to_string()))
-}
-
-/// The first token in `text`: the prefix and the `base64url` run after it.
-fn extract_token(text: &str) -> Option<&str> {
-    let start = text.find(TOKEN_PREFIX)?;
-    let body_start = start + TOKEN_PREFIX.len();
-    let body_len = text[body_start..]
-        .find(|c: char| !(c.is_ascii_alphanumeric() || c == '-' || c == '_'))
-        .unwrap_or(text.len() - body_start);
-    Some(&text[start..body_start + body_len])
+/// The errors read as sentences, because the decoder shows them as they are.
+fn decode_incident_token_inner(text: &str) -> AppResult<DecodedIncident> {
+    let token = IncidentToken::find_in(text)
+        .ok_or_else(|| AppError::Other("The text holds no incident token.".to_string()))?;
+    IncidentToken::decode(token)
+        .map(|token| token.resolve())
+        .map_err(|e| AppError::Other(e.to_string()))
 }
 
 fn find_incident(incidents: &State<IncidentStoreState>, id: &str) -> AppResult<Incident> {
@@ -264,36 +231,4 @@ fn find_incident(incidents: &State<IncidentStoreState>, id: &str) -> AppResult<I
         .0
         .get(id)?
         .ok_or_else(|| AppError::Other(format!("Incident {id} not found")))
-}
-
-/// The token carries the enabled-mod count, which is not on the incident.
-fn token_for(
-    incident: &Incident,
-    library: &State<ModLibraryState>,
-    settings: &State<SettingsState>,
-) -> AppResult<String> {
-    let config = settings.config()?;
-    let enabled = library
-        .0
-        .get_installed_mods(&config)?
-        .iter()
-        .filter(|m| m.enabled)
-        .count();
-    let enabled = u16::try_from(enabled).unwrap_or(u16::MAX);
-    Ok(IncidentToken::from_incident(incident, env!("CARGO_PKG_VERSION"), enabled).encode())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::extract_token;
-
-    #[test]
-    fn a_token_is_found_in_a_report_and_in_a_url() {
-        let report = "# LTK Manager\nIncident: x\nToken: LTK1-eNpVjsEK_gz-AQ\n\nVerdict: y";
-        assert_eq!(extract_token(report), Some("LTK1-eNpVjsEK_gz-AQ"));
-        let url = "https://example.test/issues/new?diagnostic=LTK1-eNpVjsEK&labels=bug";
-        assert_eq!(extract_token(url), Some("LTK1-eNpVjsEK"));
-        assert_eq!(extract_token("LTK1-abc"), Some("LTK1-abc"));
-        assert_eq!(extract_token("nothing here"), None);
-    }
 }

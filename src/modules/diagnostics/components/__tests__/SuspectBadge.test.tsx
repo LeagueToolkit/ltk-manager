@@ -45,6 +45,12 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
     launch: "match",
     scan: "eager",
     scanStatus: null,
+    hostElevated: false,
+    patcher: {},
+    overlayDetail: null,
+    enabledCount: 0,
+    phase: "unknown",
+    failure: null,
     game: null,
     ending: { exitReason: "Interrupt", exitCode: -1073741819, crashed: true },
     verdict: {

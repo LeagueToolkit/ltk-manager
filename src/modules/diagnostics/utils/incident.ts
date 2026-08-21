@@ -1,4 +1,15 @@
-import type { Consequence, Ending, Incident, SessionOrigin, VerdictKind } from "@/lib/tauri";
+import type {
+  Ending,
+  GamePhase,
+  Incident,
+  LaunchKind,
+  OriginKind,
+  OverlayOutcome,
+  ScanMode,
+  ScanStatus,
+  SessionOrigin,
+  VerdictKind,
+} from "@/lib/tauri";
 
 const DAY_MS = 86_400_000;
 
@@ -154,53 +165,56 @@ export function projectNameFromPath(path: string): string {
   return segments[segments.length - 1] ?? path;
 }
 
-/** The verdict titles by the number the token carries them as. */
-export const TOKEN_VERDICT_TITLES: Readonly<Record<number, string>> = {
-  1: "DLL Injection Failure",
-  2: "Unsupported Game Build",
-  3: "Archive Scan Rejection",
-  4: "Overlay Verification Failure",
-  5: "No Mods Applied",
-  6: "Missing Game Data",
-  7: "Archive Mount Failure",
-  8: "Texture Creation Failure",
-  9: "Memory Allocation Failure",
-  10: "Graphics Device Failure",
-  11: "Loading Screen Stall",
-  12: "Archive Verification Skipped",
-  13: "Unexplained Game Exit",
-  14: "Skinhack Detection",
-  15: "Overlay Build Failure",
-  16: "Injection Host Failure",
-};
-
 /**
- * What each verdict cost, by the number the token carries the verdict as.
- *
- * The token has no consequence of its own. `VerdictKind::consequence` in the
- * backend decides it, so a token only needs to carry the kind, and this mirrors
- * that mapping for a decoded one.
+ * The words a decoded token reads under, keyed by the enums the backend
+ * resolves it to, so a variant added there is a compile error here and not
+ * a number with no name.
  */
-const TOKEN_VERDICT_CONSEQUENCES: Readonly<Record<number, Consequence>> = {
-  1: "overlay-off",
-  2: "overlay-off",
-  3: "overlay-off",
-  4: "overlay-off",
-  5: "overlay-off",
-  6: "game-stopped",
-  7: "game-stopped",
-  8: "game-stopped",
-  9: "game-stopped",
-  10: "game-stopped",
-  11: "game-hung",
-  12: "archive-dropped",
-  13: "game-stopped",
-  14: "overlay-off",
-  15: "overlay-off",
-  16: "overlay-off",
+export const OVERLAY_LABELS: Readonly<Record<OverlayOutcome, string>> = {
+  live: "Overlay live",
+  "too-late": "DLL joined too late",
+  "end-of-life": "DLL refused the game build",
+  disabled: "Overlay turned off by the scan",
+  "hook-failed": "A hook did not install",
+  none: "DLL said nothing",
 };
 
-/** What the token's verdict number cost, or null for a verdict this build does not know. */
-export function tokenConsequence(verdict: number): Consequence | null {
-  return TOKEN_VERDICT_CONSEQUENCES[verdict] ?? null;
-}
+export const SCAN_LABELS: Readonly<Record<ScanMode, string>> = {
+  eager: "eager scan",
+  lazy: "lazy scan",
+};
+
+export const LAUNCH_LABELS: Readonly<Record<LaunchKind, string>> = {
+  match: "match",
+  replay: "replay",
+  spectator: "spectator",
+  pbe: "PBE",
+};
+
+export const PHASE_LABELS: Readonly<Record<GamePhase, string>> = {
+  unknown: "no log read",
+  loading: "stopped on the loading screen",
+  "in-game": "reached the game",
+  "torn-down": "ended the way it should",
+};
+
+export const ORIGIN_KIND_LABELS: Readonly<Record<OriginKind, string>> = {
+  library: "Library",
+  workshop: "Workshop test",
+};
+
+export const SCAN_STATUS_LABELS: Readonly<Record<ScanStatus, string>> = {
+  skinhack: "skinhack",
+  "missing-bin": "a linked .bin is missing",
+  corrupt: "corrupt or unsupported",
+  "out-of-memory": "out of memory mid-scan",
+  "base-skin": "base skin with a mesh missing",
+  unknown: "a status this build does not know",
+};
+
+/** What the DLL's detail is about, for the overlay outcomes that carry one. */
+export const OVERLAY_DETAIL_LABELS: Readonly<Partial<Record<OverlayOutcome, string>>> = {
+  "end-of-life": "DLL build",
+  "hook-failed": "Hook",
+  disabled: "Did not verify",
+};

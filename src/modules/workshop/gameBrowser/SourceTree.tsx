@@ -1,9 +1,10 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import { keepScrollTop, keptScrollTop } from "@/stores";
 
 import {
   flattenSourceTree,
@@ -25,13 +26,31 @@ interface SourceTreeProps {
   onToggle: (node: SourceDirNode) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: SourceFileNode) => void;
+  /** Names this tree's scroll to the browser store. Absent starts at the top. */
+  scrollKey?: string;
 }
 
 /** A read-only virtualized tree over source nodes, from any source index. */
-export function SourceTree({ nodes, ariaLabel, isExpanded, onToggle, onOpen }: SourceTreeProps) {
+export function SourceTree({
+  nodes,
+  ariaLabel,
+  isExpanded,
+  onToggle,
+  onOpen,
+  scrollKey,
+}: SourceTreeProps) {
   const rows = useMemo(() => flattenSourceTree(nodes, isExpanded), [nodes, isExpanded]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
+
+  /* The live element rather than one captured at mount, because where it ended
+     up is the whole point of reading it here. */
+  useEffect(() => {
+    if (!scrollKey) return;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => keepScrollTop(scrollKey, scrollRef.current?.scrollTop ?? 0);
+  }, [scrollKey]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -39,6 +58,7 @@ export function SourceTree({ nodes, ariaLabel, isExpanded, onToggle, onOpen }: S
     estimateSize: () => ROW_HEIGHT,
     overscan: 12,
     getItemKey: (index) => rows[index]!.node.id,
+    initialOffset,
   });
 
   const { focusedIndex, setFocusedIndex, handleKeyDown } = useSourceTreeNav({

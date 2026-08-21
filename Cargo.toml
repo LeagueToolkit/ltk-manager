@@ -53,6 +53,7 @@ zip = "2.2.0"
 
 rmp-serde = "1"
 base64 = "0.22"
+sha2 = "0.10"
 
 assert_matches = "1.5"
 filetime = "0.2"

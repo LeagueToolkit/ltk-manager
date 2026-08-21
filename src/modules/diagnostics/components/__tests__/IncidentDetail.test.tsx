@@ -40,7 +40,7 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
       case "incident_report":
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });
       case "incident_token":
-        return Promise.resolve({ ok: true, value: "LTK1-abc" });
+        return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });
     }

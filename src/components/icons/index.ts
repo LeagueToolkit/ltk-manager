@@ -8,6 +8,7 @@ export * from "./CollectionIcon";
 export * from "./EmoteIcon";
 export * from "./EvolutionIcon";
 export * from "./FistbumpIcon";
+export * from "./HextechDrakeDuotoneIcon";
 export * from "./LayerIcon";
 export * from "./LeagueClassicIcon";
 export * from "./LeagueIcon";

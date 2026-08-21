@@ -136,7 +136,7 @@ impl IncidentPipeline {
         match logs.find_game_log(&window) {
             Some(path) => match logs.read_game_log(&path) {
                 Ok(facts) => {
-                    record.log_path = Some(path.display().to_string());
+                    record.log_path = Some(path.clone());
                     record.log = Some(facts);
                 }
                 Err(e) => tracing::warn!("Could not read game log {}: {e}", path.display()),

@@ -1,7 +1,7 @@
 import { Box, File, FileCode2, FileText, Image, PersonStanding, Sun, Volume2 } from "lucide-react";
 import type { ComponentType } from "react";
 
-import { RiotClassicDuotoneIcon } from "@/components";
+import { HextechDrakeDuotoneIcon } from "@/components";
 import type { WorkshopFileKind } from "@/lib/tauri";
 
 export interface FileKindDescriptor {
@@ -40,9 +40,9 @@ export const FILE_KIND_DESCRIPTORS = {
   skeleton: { icon: PersonStanding, label: "Skeleton", tintToken: STRUCTURE_TINT },
 
   // Property data
-  property_bin: { icon: RiotClassicDuotoneIcon, label: "Property Bin", tintToken: BIN_TINT },
+  property_bin: { icon: HextechDrakeDuotoneIcon, label: "Property Bin", tintToken: BIN_TINT },
   property_bin_override: {
-    icon: RiotClassicDuotoneIcon,
+    icon: HextechDrakeDuotoneIcon,
     label: "Property Bin Override",
     tintToken: BIN_TINT,
   },

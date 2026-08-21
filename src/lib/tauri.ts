@@ -10,6 +10,7 @@ import type {
   ContentTree,
   CreateProjectArgs,
   CslolModInfo,
+  DecodedIncident,
   DiagnosticReport,
   EditModMetadataArgs,
   FantomePeekResult,
@@ -25,7 +26,6 @@ import type {
   ImportFantomeArgs,
   ImportGitRepoArgs,
   Incident,
-  IncidentToken,
   InstalledMod,
   LaunchAvailability,
   LaunchOutcome,
@@ -239,7 +239,7 @@ export const api = {
   incidentReport: (id: string) => invokeResult<string>("incident_report", { id }),
   incidentToken: (id: string) => invokeResult<string>("incident_token", { id }),
   decodeIncidentToken: (token: string) =>
-    invokeResult<IncidentToken>("decode_incident_token", { token }),
+    invokeResult<DecodedIncident>("decode_incident_token", { token }),
 
   // Workshop
   getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),

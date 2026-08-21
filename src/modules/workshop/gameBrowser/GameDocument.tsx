@@ -1,10 +1,20 @@
 import { ArrowsClockwiseIcon, FilesIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { EmptyState, Field, IconButton, Spinner, Tooltip } from "@/components";
 import type { GameFindHit, GameFindResult } from "@/lib/tauri";
 import { DocumentActions, DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import {
+  useExpandedGameDirs,
+  useGameSearchPattern,
+  useGameSearchRegex,
+  useSetGameSearchPattern,
+  useSetGameSearchRegex,
+  useShutFindDirs,
+  useToggleFindDir,
+  useToggleGameDir,
+} from "@/stores";
 import { hasErrorCode } from "@/utils/errors";
 
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
@@ -16,7 +26,6 @@ import {
   holdsOnlyUnknown,
   type SourceDirNode,
   type SourceEntry,
-  toggled,
 } from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
 import { useGameFind } from "./useGameFind";
@@ -33,8 +42,7 @@ import { useSourcePreview } from "./useSourcePreview";
  * without losing where the browse had gotten to.
  */
 export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
-  const [pattern, setPattern] = useState("");
-  const [regex, setRegex] = useState(false);
+  const pattern = useGameSearchPattern();
   const bodyRef = useRef<HTMLDivElement>(null);
 
   const searching = pattern.length > 0;
@@ -52,13 +60,7 @@ export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"
       </DocumentActions>
 
       <DocumentToolbar active={active}>
-        <SearchField
-          pattern={pattern}
-          regex={regex}
-          onPatternChange={setPattern}
-          onRegexChange={setRegex}
-          onCommit={() => focusRows(bodyRef.current)}
-        />
+        <SearchField onCommit={() => focusRows(bodyRef.current)} />
       </DocumentToolbar>
 
       {/* Hidden rather than unmounted, so the browse tree's expanded
@@ -66,7 +68,7 @@ export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"
       <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
         <GameIndexTree />
       </div>
-      {searching && <FindResults pattern={pattern} regex={regex} />}
+      {searching && <FindResults />}
     </div>
   );
 }
@@ -147,21 +149,16 @@ function RebuildAction() {
 }
 
 interface SearchFieldProps {
-  pattern: string;
-  regex: boolean;
-  onPatternChange: (pattern: string) => void;
-  onRegexChange: (regex: boolean) => void;
   /** `Enter` or `ArrowDown`, which hand the keyboard to the rows below. */
   onCommit: () => void;
 }
 
-function SearchField({
-  pattern,
-  regex,
-  onPatternChange,
-  onRegexChange,
-  onCommit,
-}: SearchFieldProps) {
+function SearchField({ onCommit }: SearchFieldProps) {
+  const pattern = useGameSearchPattern();
+  const regex = useGameSearchRegex();
+  const onPatternChange = useSetGameSearchPattern();
+  const onRegexChange = useSetGameSearchRegex();
+
   const { data, error, isFetching } = useGameFind(pattern, regex);
   const counted = pattern.length > 0 && data && data.total > 0 && !error;
 
@@ -247,11 +244,6 @@ function countText(result: GameFindResult): string {
   return `${total} ${label}`;
 }
 
-interface FindResultsProps {
-  pattern: string;
-  regex: boolean;
-}
-
 /**
  * The tree the pattern leaves: every matching file under its real directories.
  *
@@ -260,7 +252,9 @@ interface FindResultsProps {
  * tree it stands in for - same rows, same context menu, same keys. Everything
  * starts expanded, because the hits are what the pattern was typed to see.
  */
-function FindResults({ pattern, regex }: FindResultsProps) {
+function FindResults() {
+  const pattern = useGameSearchPattern();
+  const regex = useGameSearchRegex();
   const { data, error, isFetching } = useGameFind(pattern, regex);
   const openFile = useSourcePreview();
 
@@ -268,12 +262,13 @@ function FindResults({ pattern, regex }: FindResultsProps) {
      keystroke. Every other failure replaces the tree, because the fix is not. */
   const patternError = error && hasErrorCode(error, "VALIDATION_FAILED") ? error : null;
 
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const shut = useShutFindDirs();
+  const toggleFindDir = useToggleFindDir();
   const tree = useMemo(() => buildSourceTree((data?.hits ?? []).map(toSourceEntry)), [data]);
-  const isExpanded = useCallback((node: SourceDirNode) => !collapsed.has(node.id), [collapsed]);
+  const isExpanded = useCallback((node: SourceDirNode) => !shut.has(node.id), [shut]);
   const handleToggle = useCallback(
-    (node: SourceDirNode) => setCollapsed((prev) => toggled(prev, node.id)),
-    [],
+    (node: SourceDirNode) => toggleFindDir(node.id),
+    [toggleFindDir],
   );
 
   if (error && !patternError) return <GameWadsErrorState error={error} />;
@@ -308,6 +303,9 @@ function FindResults({ pattern, regex }: FindResultsProps) {
             isExpanded={isExpanded}
             onToggle={handleToggle}
             onOpen={openFile}
+            /* Per pattern, so a fresh search opens at its first hit rather than
+               where the last one was read to. */
+            scrollKey={`game-find:${regex ? "re" : "text"}:${pattern}`}
           />
         </div>
       )}
@@ -328,7 +326,8 @@ function toSourceEntry(hit: GameFindHit): SourceEntry {
 function GameIndexTree() {
   /* Opt-in, where the scoped browser opts out: a whole-game tree is too large
      to hold at once, so a directory is read when it is first opened. */
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
+  const expanded = useExpandedGameDirs();
+  const toggleDir = useToggleGameDir();
   const openFile = useSourcePreview();
 
   const root = useGameDir("");
@@ -344,9 +343,7 @@ function GameIndexTree() {
 
   const isExpanded = useCallback((node: SourceDirNode) => expanded.has(node.id), [expanded]);
 
-  const handleToggle = useCallback((node: SourceDirNode) => {
-    setExpanded((prev) => toggled(prev, node.id));
-  }, []);
+  const handleToggle = useCallback((node: SourceDirNode) => toggleDir(node.id), [toggleDir]);
 
   if (root.isPending) return <GameLoadingState />;
   if (root.isError) return <GameWadsErrorState error={root.error} />;
@@ -365,6 +362,7 @@ function GameIndexTree() {
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onOpen={openFile}
+        scrollKey="game-index"
       />
     </>
   );

@@ -273,11 +273,3 @@ export function wadDirname(name: string): string {
   const slash = name.lastIndexOf("/");
   return slash < 0 ? "" : name.slice(0, slash);
 }
-
-/** The set with `value` flipped, for a tree's expansion state updates. */
-export function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-}

@@ -9,7 +9,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayOutcome};
+use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayDetail, OverlayOutcome};
 
 use super::dll_lines::{self, DllLine, host_status};
 use super::host::{self, HOST_EXE_NAME, HostError, HostEvent, HostLine, HostState, PatcherHost};
@@ -40,12 +40,12 @@ pub enum InjectorEvent {
     /// The DLL acked the host's config. `pid` is read from the first `dll`
     /// record after the ack, and is `None` when none came in time.
     GameAttached { pid: Option<u64> },
-    /// What the DLL said about the overlay after it attached. `detail` is the
-    /// archive and reason for a disabled overlay, the hook that failed, or the
-    /// build timestamp the DLL refused.
+    /// What the DLL said about the overlay after it attached. `detail` carries
+    /// the archive and reason for a disabled overlay, the hook that failed, or
+    /// the build the DLL refused.
     Overlay {
         outcome: OverlayOutcome,
-        detail: Option<String>,
+        detail: Option<OverlayDetail>,
     },
     /// The overlay hook served an archive, named by its last path segment.
     WadRedirected { wad: String },
@@ -369,15 +369,15 @@ impl Injector {
             },
             DllLine::EndOfLife { build } => InjectorEvent::Overlay {
                 outcome: OverlayOutcome::EndOfLife,
-                detail: Some(build),
+                detail: Some(OverlayDetail::Build(build)),
             },
             DllLine::OverlayDisabled { wad, why } => InjectorEvent::Overlay {
                 outcome: OverlayOutcome::Disabled,
-                detail: Some(format!("{wad}: {why}")),
+                detail: Some(OverlayDetail::Rejected { wad, why }),
             },
             DllLine::HookFailed { hook } => InjectorEvent::Overlay {
                 outcome: OverlayOutcome::HookFailed,
-                detail: Some(hook),
+                detail: Some(OverlayDetail::Hook(hook)),
             },
             DllLine::Redirected { wad } => {
                 self.emit_event(InjectorEvent::WadRedirected { wad });
@@ -846,17 +846,20 @@ mod tests {
             (
                 "ltk_patcher_dll::entry: end of life reached, please update: 0x68a1b2c3",
                 OverlayOutcome::EndOfLife,
-                Some("0x68a1b2c3"),
+                Some(OverlayDetail::Build("0x68a1b2c3".to_string())),
             ),
             (
                 "ltk_patcher_dll::entry: failed to install overlay hook",
                 OverlayOutcome::HookFailed,
-                Some("overlay"),
+                Some(OverlayDetail::Hook("overlay".to_string())),
             ),
             (
                 "ltk_patcher_dll::verify: overlay verification failed, disabling overlay: wad data/final/champions/briar.wad.client: mount modded wad: bad magic",
                 OverlayOutcome::Disabled,
-                Some("briar.wad.client: mount modded wad: bad magic"),
+                Some(OverlayDetail::Rejected {
+                    wad: "briar.wad.client".to_string(),
+                    why: "mount modded wad: bad magic".to_string(),
+                }),
             ),
         ];
         for (message, outcome, detail) in cases {
@@ -868,10 +871,7 @@ mod tests {
 
             assert_eq!(
                 harness.typed(),
-                [InjectorEvent::Overlay {
-                    outcome,
-                    detail: detail.map(str::to_string),
-                }],
+                [InjectorEvent::Overlay { outcome, detail }],
                 "for {message}"
             );
         }

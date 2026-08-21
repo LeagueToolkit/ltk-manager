@@ -12,6 +12,7 @@
 use serde::Serialize;
 use std::path::PathBuf;
 
+pub mod binary_id;
 mod compat_flags;
 pub mod exit_status;
 pub mod game_log;

@@ -2,10 +2,13 @@
 import type { Ending } from "./Ending";
 import type { Evidence } from "./Evidence";
 import type { GameInfo } from "./GameInfo";
+import type { GamePhase } from "./GamePhase";
 import type { LaunchKind } from "./LaunchKind";
 import type { OverlayOutcome } from "./OverlayOutcome";
+import type { PatcherBinaries } from "./PatcherBinaries";
 import type { ScanMode } from "./ScanMode";
 import type { ScanStatus } from "./ScanStatus";
+import type { SessionFailure } from "./SessionFailure";
 import type { SessionOrigin } from "./SessionOrigin";
 import type { SkippedArchive } from "./SkippedArchive";
 import type { Suspect } from "./Suspect";
@@ -30,15 +33,11 @@ origin: SessionOrigin,
 /**
  * Whether the DLL attached to this game.
  */
-injected: boolean, overlay: OverlayOutcome, 
+injected: boolean, hostElevated: boolean, patcher: PatcherBinaries, overlay: OverlayOutcome, overlayDetail: string | null, redirected: Array<string>, skipped: Array<SkippedArchive>, enabledCount: number, launch: LaunchKind, scan: ScanMode | null, scanStatus: ScanStatus | null, phase: GamePhase, game: GameInfo | null, ending: Ending, 
 /**
- * The archives the DLL served from the overlay, by their last path segment.
+ * Set when the session failed before any game, which is the whole story.
  */
-redirected: Array<string>, skipped: Array<SkippedArchive>, launch: LaunchKind, scan: ScanMode | null, 
-/**
- * What the integrity scan reported, when it rejected an archive.
- */
-scanStatus: ScanStatus | null, game: GameInfo | null, ending: Ending, verdict: Verdict, evidence: Array<Evidence>, suspects: Array<Suspect>, 
+failure: SessionFailure | null, verdict: Verdict, evidence: Array<Evidence>, suspects: Array<Suspect>, 
 /**
  * The user has seen it and closed the line.
  */

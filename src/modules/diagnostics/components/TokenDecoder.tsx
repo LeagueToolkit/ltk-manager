@@ -1,18 +1,21 @@
 import { type KeyboardEvent, useState } from "react";
 
 import { Button, Dialog, TextareaField } from "@/components";
-import type { IncidentToken } from "@/lib/tauri";
+import type { DecodedIncident } from "@/lib/tauri";
 
 import { useDecodeIncidentToken } from "../api";
 import {
   describeEnding,
   formatSeconds,
-  TOKEN_VERDICT_TITLES,
-  tokenConsequence,
+  LAUNCH_LABELS,
+  ORIGIN_KIND_LABELS,
+  OVERLAY_DETAIL_LABELS,
+  OVERLAY_LABELS,
+  PHASE_LABELS,
+  SCAN_LABELS,
+  SCAN_STATUS_LABELS,
 } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
-
-const NOT_A_TOKEN = "Not an LTK incident token.";
 
 interface TokenDecoderProps {
   open: boolean;
@@ -22,7 +25,8 @@ interface TokenDecoderProps {
 /**
  * The paste box for a token, and the read-only card it unfolds into. A
  * pasted report or bug-report URL decodes the same way, because the backend
- * finds the token inside it.
+ * finds the token inside it, and a refusal shows in the backend's words,
+ * which say whether the paste was no token or one from a newer manager.
  */
 export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
   const [input, setInput] = useState("");
@@ -64,7 +68,7 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
               name="incident-token"
               label="Token"
               description="A token, or a report or bug-report link with one inside"
-              placeholder="LTK1-…"
+              placeholder="DIAG1-…"
               rows={3}
               spellCheck={false}
               value={input}
@@ -74,9 +78,9 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
             />
             <div className="flex items-center justify-between gap-4">
               <span className="flex-1">
-                {decode.isError && (
+                {decode.error && (
                   <p role="alert" className="text-xs text-danger-text">
-                    {NOT_A_TOKEN}
+                    {decode.error.message}
                   </p>
                 )}
               </span>
@@ -90,7 +94,7 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
                 Decode
               </Button>
             </div>
-            {decode.data && <DecodedTokenCard token={decode.data} />}
+            {decode.data && <DecodedTokenCard incident={decode.data} />}
           </Dialog.Body>
         </Dialog.Overlay>
       </Dialog.Portal>
@@ -99,25 +103,59 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
 }
 
 interface DecodedTokenCardProps {
-  token: IncidentToken;
+  incident: DecodedIncident;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string";
 }
 
 /**
  * A token as an incident card, with no actions, because the mods it names
- * are on another machine. Codes show as they are, since the token carries
- * them as strings and the local table is not consulted here.
+ * are on another machine. The backend has already read every number against
+ * its tables, so a value this build does not know arrives as null and the
+ * row for it is left out.
  */
-export function DecodedTokenCard({ token }: DecodedTokenCardProps) {
-  const title = TOKEN_VERDICT_TITLES[token.verdict] ?? `Verdict ${token.verdict}`;
-  const consequence = tokenConsequence(token.verdict);
-  const endedAt = new Date(token.endedAt * 60_000);
-
+export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
   const facts = [
-    `LTK Manager v${token.manager.join(".")}`,
-    token.game && `League ${token.game.join(".")}`,
-    endedAt.toLocaleString(),
-    token.durationSecs !== null && formatSeconds(token.durationSecs),
-  ].filter((fact): fact is string => typeof fact === "string");
+    `LTK Manager v${incident.manager}`,
+    incident.game && `League ${incident.game}`,
+    incident.endedAt && new Date(incident.endedAt).toLocaleString(),
+    incident.durationSecs !== null && formatSeconds(incident.durationSecs),
+    incident.origin && ORIGIN_KIND_LABELS[incident.origin],
+  ].filter(isString);
+
+  const overlay = [
+    !incident.injected && "DLL never attached",
+    incident.injected && incident.overlay && OVERLAY_LABELS[incident.overlay],
+    incident.scan && SCAN_LABELS[incident.scan],
+    incident.launch && LAUNCH_LABELS[incident.launch],
+    incident.hostElevated && "host elevated",
+  ]
+    .filter(isString)
+    .join(", ");
+
+  const binary = (label: string, id: DecodedIncident["dll"]) => {
+    if (!id) return null;
+    const date = id.built ? new Date(id.built).toLocaleDateString() : null;
+    return `${label} ${id.hash}${date ? ` (${date})` : ""}`;
+  };
+  const patcher = [
+    binary("dll", incident.dll),
+    binary("host", incident.host),
+    incident.patcherOk === true && "stock",
+    incident.patcherOk === false && "not this build's",
+  ]
+    .filter(isString)
+    .join(", ");
+
+  const detailLabel = (incident.overlay && OVERLAY_DETAIL_LABELS[incident.overlay]) ?? "Detail";
+  const loading =
+    incident.lastLoadStep === null
+      ? null
+      : incident.phase === "loading"
+        ? `Stopped at step ${incident.lastLoadStep} of 64`
+        : `Last step ${incident.lastLoadStep} of 64`;
 
   return (
     <section
@@ -130,38 +168,57 @@ export function DecodedTokenCard({ token }: DecodedTokenCardProps) {
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-base font-semibold text-surface-100">{title}</h3>
-        {consequence && <ConsequenceChip consequence={consequence} />}
+        <h3 className="text-base font-semibold text-surface-100">{incident.title}</h3>
+        {incident.consequence && <ConsequenceChip consequence={incident.consequence} />}
       </div>
       <p className="font-mono text-xs text-surface-400 select-text">{facts.join(" · ")}</p>
 
       <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs select-text">
-        <Fact label="Ending" value={describeEnding(token)} />
-        {token.suspects.length > 0 && <Fact label="Suspects" value={token.suspects.join(", ")} />}
-        {token.archives.length > 0 && <Fact label="Archives" value={token.archives.join(", ")} />}
-        {token.skipped.length > 0 && <Fact label="Skipped" value={token.skipped.join(", ")} />}
-        {token.lastLoadStep !== null && (
-          <Fact label="Loading" value={`Stopped at step ${token.lastLoadStep} of 64`} />
-        )}
-        {token.missingHash && <Fact label="Missing hash" value={`0x${token.missingHash}`} />}
+        {overlay && <Fact label="Overlay" value={overlay} />}
         <Fact
-          label="Overlay"
-          value={`${token.redirectedCount} archives redirected, ${token.enabledCount} mods enabled`}
+          label="Mods"
+          value={`${incident.redirectedCount} archives redirected, ${incident.enabledCount} mods enabled`}
         />
-        {token.errorLines > 0 && (
-          <Fact label="Game log" value={`${token.errorLines} error lines`} />
+        {patcher && <Fact label="Patcher" value={patcher} />}
+        {incident.phase && incident.phase !== "unknown" && (
+          <Fact label="Game" value={PHASE_LABELS[incident.phase]} />
         )}
-        {token.hostFailure && <Fact label="Host" value={token.hostFailure} />}
+        <Fact label="Ending" value={describeEnding(incident.ending)} />
+        {incident.failure && <Fact label="Failure" value={incident.failure} />}
+        {incident.overlayDetail && <Fact label={detailLabel} value={incident.overlayDetail} />}
+        {incident.scanStatus && (
+          <Fact
+            label="Scan"
+            value={`${SCAN_STATUS_LABELS[incident.scanStatus]} (${incident.scanStatusCode ?? "no code"})`}
+          />
+        )}
+        {incident.subject && <Fact label="Archive" value={incident.subject} />}
+        {incident.suspects.length > 0 && (
+          <Fact label="Suspects" value={incident.suspects.join(", ")} />
+        )}
+        {incident.skipped.length > 0 && (
+          <Fact
+            label="Skipped"
+            value={incident.skipped
+              .map((skipped) => (skipped.why ? `${skipped.wad} (${skipped.why})` : skipped.wad))
+              .join(", ")}
+          />
+        )}
+        {loading && <Fact label="Loading" value={loading} />}
+        {incident.missingHash && <Fact label="Missing hash" value={`0x${incident.missingHash}`} />}
       </dl>
 
-      {token.codes.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5">
-          {token.codes.map((code) => (
-            <li
-              key={code}
-              className="rounded-sm border border-surface-600 bg-surface-800 px-1.5 py-0.5 font-mono text-[10px] text-surface-300 select-text"
-            >
-              {code}
+      {incident.codes.length > 0 && (
+        <ul
+          data-ui="DecodedTokenCard:codes"
+          className="flex flex-col gap-1 font-mono text-xs select-text"
+        >
+          {incident.codes.map((code) => (
+            <li key={code.id} className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-3">
+              <span className="text-surface-400">{code.id}</span>
+              <span className="break-words text-surface-300">
+                {code.meaning ?? "No reading in this build's table"}
+              </span>
             </li>
           ))}
         </ul>

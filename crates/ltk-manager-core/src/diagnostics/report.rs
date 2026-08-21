@@ -2,7 +2,7 @@
 
 use std::fmt::Write;
 
-use super::incident::{EvidenceSource, Incident};
+use super::incident::{EvidenceSource, GamePhase, Incident};
 use crate::patcher::SessionOrigin;
 
 impl Incident {
@@ -70,6 +70,9 @@ impl Incident {
         out.push('\n');
         let _ = writeln!(out, "Ending: {}", self.ending_line());
         let _ = writeln!(out, "Origin: {}", self.origin_line());
+        if let Some(line) = self.patcher_line() {
+            let _ = writeln!(out, "Patcher: {line}");
+        }
         let _ = writeln!(out, "Game log: {}", self.game_log_line());
 
         out.push_str("\nEvidence:\n");
@@ -119,13 +122,8 @@ impl Incident {
     }
 
     fn origin_line(&self) -> String {
-        let redirected = format!(
-            "{} archive{} redirected",
-            self.redirected.len(),
-            if self.redirected.len() == 1 { "" } else { "s" }
-        );
-        match &self.origin {
-            SessionOrigin::Library => format!("library, {redirected}"),
+        let what = match &self.origin {
+            SessionOrigin::Library => "library".to_string(),
             SessionOrigin::Workshop { projects } => {
                 let names: Vec<&str> = projects
                     .iter()
@@ -136,9 +134,46 @@ impl Incident {
                             .unwrap_or(path)
                     })
                     .collect();
-                format!("workshop test of {}, {redirected}", names.join(", "))
+                format!("workshop test of {}", names.join(", "))
             }
+        };
+        let mut line = format!(
+            "{what}, {} archive{} redirected, {} mod{} enabled",
+            self.redirected.len(),
+            if self.redirected.len() == 1 { "" } else { "s" },
+            self.enabled_count,
+            if self.enabled_count == 1 { "" } else { "s" }
+        );
+        if self.host_elevated {
+            line.push_str(", host elevated");
         }
+        line
+    }
+
+    /// `dll a150130f1a90 built 2026-08-17, host … , stock`, or `None` when no
+    /// binary was identified.
+    fn patcher_line(&self) -> Option<String> {
+        if self.patcher.is_empty() {
+            return None;
+        }
+        let part = |label: &str, id: Option<&super::binary_id::BinaryId>| match id {
+            None => format!("{label} not read"),
+            Some(id) => match id.built_date() {
+                Some(date) => format!("{label} {} built {date}", id.hash),
+                None => format!("{label} {}", id.hash),
+            },
+        };
+        let mut line = format!(
+            "{}, {}",
+            part("dll", self.patcher.dll.as_ref()),
+            part("host", self.patcher.host.as_ref())
+        );
+        match self.patcher.matches_bundle {
+            Some(true) => line.push_str(", stock"),
+            Some(false) => line.push_str(", MODIFIED or not this build's"),
+            None => {}
+        }
+        Some(line)
     }
 
     fn game_log_line(&self) -> String {
@@ -151,12 +186,19 @@ impl Incident {
             .filter(|row| row.source == EvidenceSource::Game)
             .collect();
         let errors = game_rows.iter().filter(|row| row.is_error_level()).count();
-        format!(
+        let mut line = format!(
             "found, {} coded line{}, {errors} error line{}",
             game_rows.len(),
             if game_rows.len() == 1 { "" } else { "s" },
             if errors == 1 { "" } else { "s" }
-        )
+        );
+        match self.phase {
+            GamePhase::Unknown => {}
+            GamePhase::Loading => line.push_str(", stopped loading"),
+            GamePhase::InGame => line.push_str(", reached the game"),
+            GamePhase::TornDown => line.push_str(", torn down"),
+        }
+        line
     }
 }
 
@@ -167,7 +209,7 @@ mod tests {
 
     fn report() -> String {
         fixtures::incident("2026-08-21T21-14-02", "2026-08-21T21:14:02+00:00")
-            .report_text("1.14.0", Some("LTK1-abc"))
+            .report_text("1.14.0", Some("DIAG1-abc"))
     }
 
     #[test]
@@ -176,7 +218,7 @@ mod tests {
         let sections = [
             "# LTK Manager - League diagnostics\n",
             "Incident: 2026-08-21T21-14-02 · LTK Manager v1.14.0 · League 16.16.804.9184\n",
-            "Token: LTK1-abc\n",
+            "Token: DIAG1-abc\n",
             "\nVerdict: Missing Game Data (the game stopped)\n",
             "League failed to read a file.",
             "Path: assets/characters/aatrox/skins/skin12/aatrox_skin12_tx_cm.dds\n",
@@ -184,8 +226,9 @@ mod tests {
             "\nSuspects:\n  - Aatrox Justicar - writes Aatrox.wad.client, which holds the path\n",
             "\nHints:\n  - ",
             "\nEnding: Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION, crashpad ran\n",
-            "Origin: library, 4 archives redirected\n",
-            "Game log: found, 2 coded lines, 1 error line\n",
+            "Origin: library, 4 archives redirected, 4 mods enabled\n",
+            "Patcher: dll a150130f1a90dcc2 built 2026-08-17, host cc714b6990a29678 built 2026-08-17, stock\n",
+            "Game log: found, 2 coded lines, 1 error line, stopped loading\n",
             "\nEvidence:\n",
             "  00:12.4  client  Interrupt, exit code 0xC0000005 STATUS_ACCESS_VIOLATION\n",
             "  00:12.3  game    ALE-9B39AA45 FATAL ERROR. Missing data: 0x1a2b3c4d5e6f7081\n",
@@ -235,7 +278,34 @@ mod tests {
             projects: vec![r"C:\workshop\aatrox-justicar".to_string()],
         };
         let text = incident.report_text("1.14.0", None);
-        assert!(text.contains("Origin: workshop test of aatrox-justicar, 4 archives redirected\n"));
+        assert!(text.contains(
+            "Origin: workshop test of aatrox-justicar, 4 archives redirected, 4 mods enabled\n"
+        ));
+    }
+
+    #[test]
+    fn the_origin_line_says_when_the_host_was_elevated() {
+        let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
+        incident.host_elevated = true;
+        incident.enabled_count = 1;
+        let text = incident.report_text("1.14.0", None);
+        assert!(
+            text.contains("Origin: library, 4 archives redirected, 1 mod enabled, host elevated\n")
+        );
+    }
+
+    #[test]
+    fn the_game_log_line_says_how_far_the_game_got() {
+        let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
+        for (phase, ending) in [
+            (GamePhase::Unknown, "1 error line\n"),
+            (GamePhase::InGame, "1 error line, reached the game\n"),
+            (GamePhase::TornDown, "1 error line, torn down\n"),
+        ] {
+            incident.phase = phase;
+            let text = incident.report_text("1.14.0", None);
+            assert!(text.contains(ending), "{phase:?}: {text}");
+        }
     }
 
     #[test]
