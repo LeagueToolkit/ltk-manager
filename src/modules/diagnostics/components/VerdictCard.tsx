@@ -43,7 +43,9 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           className="m-1 h-40 w-40 shrink-0 self-center select-none"
         />
       )}
-      <div className="min-w-0 flex-1 px-2 py-4">
+      {/* The art supplies the left inset when it is there, so only a card
+          without it needs padding of its own on that side. */}
+      <div className={twMerge("min-w-0 flex-1 px-2 py-4", !skinhack && "p-4")}>
         <div className="flex flex-wrap items-center gap-2">
           {/* Glyphs take the -text variant: DS-TEXT. */}
           <VerdictGlyph
