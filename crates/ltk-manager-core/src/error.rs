@@ -6,8 +6,8 @@
 //! to exit codes and stderr. Keeping that mapping out of core is what lets both
 //! exist without one dictating the other's vocabulary.
 
-use camino::Utf8PathBuf;
-use std::path::PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 use crate::hashtables::HashtableError;
@@ -100,16 +100,13 @@ pub enum AppError {
 
 impl From<ltk_mod_project::ModProjectError> for AppError {
     fn from(error: ltk_mod_project::ModProjectError) -> Self {
+        use ltk_mod_project::ModProjectError;
+
         match error {
-            ltk_mod_project::ModProjectError::ConfigNotFound(path) => {
-                AppError::ProjectNotFound(path.display().to_string())
-            }
-            ltk_mod_project::ModProjectError::Io(e) => AppError::Io(e),
-            ltk_mod_project::ModProjectError::Json(e) => AppError::Serialization(e),
-            ltk_mod_project::ModProjectError::Toml(e) => AppError::Other(e.to_string()),
-            ltk_mod_project::ModProjectError::UnsupportedExtension(ext) => {
-                AppError::Other(format!("Unsupported config file extension: {}", ext))
-            }
+            ModProjectError::ConfigNotFound(path) => AppError::ProjectNotFound(path.into_string()),
+            ModProjectError::Io { source, .. } => AppError::Io(source),
+            ModProjectError::Json { source, .. } => AppError::Serialization(source),
+            other => AppError::Other(other.to_string()),
         }
     }
 }
@@ -139,6 +136,19 @@ impl Utf8PathExt for PathBuf {
     fn try_into_utf8(self, label: &str) -> AppResult<Utf8PathBuf> {
         Utf8PathBuf::from_path_buf(self)
             .map_err(|p| AppError::InvalidPath(format!("Non-UTF-8 {label}: {}", p.display())))
+    }
+}
+
+/// The borrowing counterpart to [`Utf8PathExt`], for the many `&Path` values
+/// the workshop still holds while the mod-project crates speak camino.
+pub trait Utf8PathRefExt {
+    fn try_as_utf8(&self, label: &str) -> AppResult<&Utf8Path>;
+}
+
+impl Utf8PathRefExt for Path {
+    fn try_as_utf8(&self, label: &str) -> AppResult<&Utf8Path> {
+        Utf8Path::from_path(self)
+            .ok_or_else(|| AppError::InvalidPath(format!("Non-UTF-8 {label}: {}", self.display())))
     }
 }
 

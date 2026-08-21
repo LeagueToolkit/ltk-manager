@@ -567,7 +567,9 @@ mod tests {
     }
 
     fn load_layers(dir: &std::path::Path) -> Vec<ModProjectLayer> {
-        ltk_mod_project::ModProject::load(dir).unwrap().layers
+        ltk_mod_project::ModProject::load(Utf8Path::from_path(dir).unwrap())
+            .unwrap()
+            .layers
     }
 
     #[test]

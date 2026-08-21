@@ -227,6 +227,7 @@ mod tests {
             author: "Author".to_string(),
             version: "1.0.0".to_string(),
             description: "Description".to_string(),
+            license: None,
             tags: Vec::new(),
             champions: Vec::new(),
             maps: Vec::new(),

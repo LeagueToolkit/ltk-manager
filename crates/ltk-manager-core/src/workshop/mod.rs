@@ -6,7 +6,7 @@ mod projects;
 pub use content::{ContentTree, WorkshopFileKind};
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::events::EventSink;
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
@@ -93,7 +93,7 @@ impl ProjectDir {
 
     /// Read the project's authoring config.
     pub(crate) fn config(&self) -> AppResult<ModProject> {
-        Ok(ModProject::load(&self.0)?)
+        Ok(ModProject::load(self.0.try_as_utf8("project directory")?)?)
     }
 
     /// Write `config` back over the project's `mod.config.json`.
@@ -331,7 +331,7 @@ pub(crate) fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopPro
     let config_path = find_config_file(project_dir)
         .ok_or_else(|| AppError::ProjectNotFound(project_dir.display().to_string()))?;
 
-    let mod_project = ModProject::load_from_file(&config_path)?;
+    let mod_project = ModProject::load_from_file(config_path.try_as_utf8("project config")?)?;
 
     let metadata = fs::metadata(&config_path)?;
     let last_modified = metadata

@@ -12,14 +12,19 @@ ritoclient-api = { git = "https://github.com/Crauzer/ritoclient", rev = "eb6bf7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "c3282dfc0f7a03675bddda434b3202b05fe4a6a7" }
 
-ltk_fantome = "0.6.0"
-ltk_file = { version = "0.2.8", features = ["serde"] }
-ltk_mod_project = "0.5.0"
-ltk_modpkg = { version = "0.6.0", features = ["project"] }
-ltk_overlay = "0.5.2"
-ltk_rst = "0.2.0"
+# Pinned to a rev until they ship on crates.io. Every league-mod crate must come
+# from the same rev: `ltk_overlay` hands back `ltk_mod_project`, `ltk_modpkg`
+# and `ltk_fantome` types, so a crates.io copy of any of them would be a
+# distinct crate to the compiler.
+ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
+ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5", features = ["modpkg", "fantome"] }
+ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
+ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
+
+ltk_file = { version = "0.2.10", features = ["serde"] }
+ltk_rst = "0.2.1"
 ltk_texture = "0.6.0"
-ltk_wad = "0.2.12"
+ltk_wad = "0.3.1"
 
 camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }

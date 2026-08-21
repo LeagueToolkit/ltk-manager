@@ -47,10 +47,10 @@ pub fn inspect_modpkg_file(file_path: &str) -> AppResult<ModpkgInfo> {
     let mut total_size: u64 = 0;
 
     // Count content chunks (exclude meta folder paths for file_count/size)
-    for ((path_hash, _layer_hash), chunk) in &modpkg.chunks {
+    for (key, chunk) in modpkg.chunks() {
         let path = modpkg
-            .chunk_paths
-            .get(path_hash)
+            .chunk_paths()
+            .get(&key.path)
             .map(String::as_str)
             .unwrap_or("");
         if path.starts_with("_meta_/") {
@@ -62,22 +62,22 @@ pub fn inspect_modpkg_file(file_path: &str) -> AppResult<ModpkgInfo> {
 
     // Layer counts: derive from header layer list.
     let mut layer_counts: BTreeMap<String, u64> = BTreeMap::new();
-    for (path_hash, layer_hash) in modpkg.chunks.keys() {
+    for key in modpkg.chunks().keys() {
         let path = modpkg
-            .chunk_paths
-            .get(path_hash)
+            .chunk_paths()
+            .get(&key.path)
             .map(String::as_str)
             .unwrap_or("");
         if path.starts_with("_meta_/") {
             continue;
         }
-        if let Some(layer) = modpkg.layers.get(layer_hash) {
+        if let Some(layer) = modpkg.layers().get(&key.layer) {
             *layer_counts.entry(layer.name.clone()).or_insert(0) += 1;
         }
     }
 
     let mut layers = Vec::new();
-    for layer in modpkg.layers.values() {
+    for layer in modpkg.layers().values() {
         let count = layer_counts.get(&layer.name).copied().unwrap_or(0);
         let desc = metadata
             .layers

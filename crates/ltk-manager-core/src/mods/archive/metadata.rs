@@ -202,7 +202,7 @@ pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> 
 
     // Use header layers as source of truth, preserving string overrides from metadata.
     let mut layers: Vec<ModProjectLayer> = modpkg
-        .layers
+        .layers()
         .values()
         .map(|l| {
             let meta_layer = metadata.layers.iter().find(|ml| ml.name == l.name);
@@ -347,6 +347,7 @@ mod tests {
             author: "Author".to_string(),
             version: "1.0.0".to_string(),
             description: "Description".to_string(),
+            license: None,
             tags: Vec::new(),
             champions: Vec::new(),
             maps: Vec::new(),
@@ -547,6 +548,7 @@ mod tests {
                 author: "Author".to_string(),
                 version: "2.0.0".to_string(),
                 description: "Has BOM".to_string(),
+                license: None,
                 tags: Vec::new(),
                 champions: Vec::new(),
                 maps: Vec::new(),

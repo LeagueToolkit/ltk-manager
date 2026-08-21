@@ -4,8 +4,11 @@ use super::{
 };
 use crate::error::{AppError, AppResult};
 use camino::Utf8PathBuf;
-use ltk_mod_project::ModProject;
+use ltk_mod_project::fantome::FantomeFormat;
+use ltk_mod_project::modpkg::ModpkgFormat;
+use ltk_mod_project::{ModProject, PackageFormat, ProjectPacker};
 use std::fs;
+use std::io::BufWriter;
 use std::path::PathBuf;
 
 impl ProjectDir {
@@ -89,7 +92,7 @@ impl Workshop {
         let project_path_utf8 = Utf8PathBuf::try_from(project_path.clone())
             .map_err(|_| AppError::InvalidPath("Project path is not valid UTF-8".to_string()))?;
 
-        let mut mod_project = ModProject::load(&project_path)?;
+        let mut mod_project = ModProject::load(&project_path_utf8)?;
 
         // Resolve thumbnail path so packers (fantome/modpkg) can include it
         if mod_project.thumbnail.is_none() {
@@ -111,15 +114,13 @@ impl Workshop {
 
         match args.format {
             PackFormat::Modpkg => {
-                let file_name = ltk_modpkg::project::create_file_name(&mod_project, None);
+                let file_name = mod_project.package_file_name(None, PackageFormat::Modpkg);
                 let output_path = output_dir.join(&file_name);
+                let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                ltk_modpkg::project::pack_from_project_with_config(
-                    &project_path_utf8,
-                    &output_path,
-                    &mod_project,
-                )
-                .map_err(|e| AppError::PackFailed(e.to_string()))?;
+                ProjectPacker::new(mod_project, project_path_utf8)
+                    .pack(ModpkgFormat::new(writer))
+                    .map_err(|e| AppError::PackFailed(e.to_string()))?;
 
                 Ok(PackResult {
                     output_path: output_path.to_string(),
@@ -128,13 +129,12 @@ impl Workshop {
                 })
             }
             PackFormat::Fantome => {
-                let file_name = ltk_fantome::create_file_name(&mod_project, None);
+                let file_name = mod_project.package_file_name(None, PackageFormat::Fantome);
                 let output_path = output_dir.join(&file_name);
+                let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                let file = fs::File::create(output_path.as_std_path())?;
-                let writer = std::io::BufWriter::new(file);
-
-                ltk_fantome::pack_to_fantome(writer, &mod_project, project_path_utf8.as_std_path())
+                ProjectPacker::new(mod_project, project_path_utf8)
+                    .pack(FantomeFormat::new(writer))
                     .map_err(|e| AppError::PackFailed(e.to_string()))?;
 
                 Ok(PackResult {

@@ -197,6 +197,7 @@ mod tests {
             author: author.to_string(),
             version: "1.0.0".to_string(),
             description: "Desc".to_string(),
+            license: None,
             tags: Vec::new(),
             champions: Vec::new(),
             maps: Vec::new(),

@@ -42,7 +42,7 @@ impl ModLibrary {
             let archive_path = entry.archive_path(storage_dir);
             let modpkg = Modpkg::mount_from_reader(File::open(&archive_path)?)
                 .map_err(|e| AppError::Other(format!("Failed to mount modpkg: {}", e)))?;
-            let paths: Vec<String> = modpkg.chunk_paths.values().cloned().collect();
+            let paths: Vec<String> = modpkg.chunk_paths().values().cloned().collect();
             Ok((!paths.is_empty()).then_some(paths))
         })
     }
