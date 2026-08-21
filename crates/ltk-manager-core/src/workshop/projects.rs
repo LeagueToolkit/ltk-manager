@@ -8,6 +8,7 @@ use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
+use crate::hashtables::WadPathResolver;
 use ltk_mod_project::{
     ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, default_layers,
 };
@@ -19,7 +20,7 @@ use std::path::PathBuf;
 use zip::ZipArchive;
 
 use camino::Utf8Path;
-use ltk_wad::{HexPathResolver, WadExtractor};
+use ltk_wad::{PathResolver, WadExtractor};
 
 impl Workshop {
     /// Get all workshop projects from the configured workshop directory.
@@ -271,6 +272,7 @@ impl Workshop {
             let base_dir = project_dir.join("content").join("base");
             fs::create_dir_all(&base_dir)?;
 
+            let resolver = WadPathResolver::discover();
             for (idx, wad_name) in wad_names.iter().enumerate() {
                 self.emit_fantome_progress(
                     FantomeImportStage::Extracting,
@@ -278,7 +280,7 @@ impl Workshop {
                     idx as u32,
                     total_wads,
                 );
-                extract_fantome_wad(&mut archive, wad_name, &base_dir)?;
+                extract_fantome_wad(&mut archive, wad_name, &base_dir, &resolver)?;
             }
 
             self.emit_fantome_progress(
@@ -683,6 +685,7 @@ fn extract_fantome_wad<R: Read + Seek>(
     archive: &mut ZipArchive<R>,
     wad_name: &str,
     base_dir: &std::path::Path,
+    resolver: &impl PathResolver,
 ) -> AppResult<()> {
     let dir_prefix = format!("WAD/{}/", wad_name);
     let packed_path = format!("WAD/{}", wad_name);
@@ -743,8 +746,7 @@ fn extract_fantome_wad<R: Read + Seek>(
             let wad_dir = base_dir.join(wad_name);
             fs::create_dir_all(&wad_dir)?;
 
-            let resolver = HexPathResolver;
-            let extractor = WadExtractor::new(&resolver);
+            let extractor = WadExtractor::new(resolver);
             extractor.extract_all(
                 &mut wad,
                 Utf8Path::from_path(&wad_dir).ok_or_else(|| {

@@ -3,10 +3,12 @@ use super::{
     is_valid_project_name,
 };
 use crate::error::{AppError, AppResult};
+use crate::hashtables::WadPathResolver;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
-use ltk_wad::{HexPathResolver, Wad, WadExtractor};
+use ltk_wad::{PathResolver, Wad, WadExtractor};
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
@@ -266,15 +268,14 @@ fn is_wad_entry(name: &str) -> bool {
     lower.ends_with(".wad.client") || lower.ends_with(".wad") || lower.ends_with(".wad.mobile")
 }
 
-/// Extract a packed WAD file into `dst` using hex-named paths (no hashtable).
-fn extract_wad_into_dir(src: &Path, dst: &Path) -> AppResult<()> {
+/// Extract a packed WAD file into `dst`, naming chunks through `resolver`.
+fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) -> AppResult<()> {
     fs::create_dir_all(dst)?;
 
     let file = fs::File::open(src)?;
     let mut wad = Wad::mount(BufReader::new(file))?;
 
-    let resolver = HexPathResolver;
-    let extractor = WadExtractor::new(&resolver);
+    let extractor = WadExtractor::new(resolver);
     let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
         AppError::Other(format!(
             "WAD output path is not valid UTF-8: {}",
@@ -313,9 +314,12 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> AppResult<()> {
 
 impl ProjectDir {
     /// Add files or directories (`.wad`, `.wad.client`, `.wad.mobile`) into a layer's content
-    /// directory. Packed WAD files are extracted into a same-named directory using hex-named
-    /// paths (no hashtable); directory sources are copied as-is. If any source conflicts with
-    /// an existing entry, no source is imported.
+    /// directory.
+    ///
+    /// Packed WAD files are extracted into a same-named directory, with chunk
+    /// paths named from the shared mimir hashtables and anything they do not
+    /// know left under its hex name. Directory sources are copied as-is. If
+    /// any source conflicts with an existing entry, no source is imported.
     pub fn add_files_to_layer(
         &self,
         layer_name: &str,
@@ -369,6 +373,7 @@ impl ProjectDir {
             return Err(WorkshopError::LayerFileConflict { conflicts }.into());
         }
 
+        let resolver: OnceCell<WadPathResolver> = OnceCell::new();
         let mut added: Vec<String> = Vec::with_capacity(prepared.len());
         for (src, basename) in prepared {
             let dest = layer_dir.join(&basename);
@@ -384,7 +389,7 @@ impl ProjectDir {
 
             let was_packed = src.is_file();
             let result = if was_packed {
-                extract_wad_into_dir(&src, &temp)
+                extract_wad_into_dir(&src, &temp, resolver.get_or_init(WadPathResolver::discover))
             } else {
                 copy_dir_recursive(&src, &temp)
             };
@@ -797,6 +802,49 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+    }
+
+    #[test]
+    fn extract_wad_into_dir_names_chunks_the_tables_know() {
+        let path = "assets/characters/aatrox/aatrox.bin";
+        let src_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("Aatrox.wad.client");
+        build_test_wad(&src, &[path]);
+
+        let mut db = crate::hashtables::LayeredHashDb::new();
+        db.insert(xxhash_rust::xxh64::xxh64(path.as_bytes(), 0), path);
+
+        let dst = tempfile::tempdir().unwrap();
+        extract_wad_into_dir(&src, dst.path(), &WadPathResolver::new(db)).unwrap();
+
+        assert!(
+            dst.path().join(path).is_file(),
+            "expected the chunk at its named path, found {:?}",
+            fs::read_dir(dst.path()).unwrap().flatten().count()
+        );
+    }
+
+    #[test]
+    fn extract_wad_into_dir_falls_back_to_hex_names() {
+        let path = "assets/characters/aatrox/aatrox.bin";
+        let src_dir = tempfile::tempdir().unwrap();
+        let src = src_dir.path().join("Aatrox.wad.client");
+        build_test_wad(&src, &[path]);
+
+        let dst = tempfile::tempdir().unwrap();
+        let empty = WadPathResolver::new(crate::hashtables::LayeredHashDb::new());
+        extract_wad_into_dir(&src, dst.path(), &empty).unwrap();
+
+        let hex = format!("{:016x}", xxhash_rust::xxh64::xxh64(path.as_bytes(), 0));
+        let named: Vec<String> = fs::read_dir(dst.path())
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            named.iter().any(|name| name.starts_with(&hex)),
+            "expected a hex-named chunk, got {named:?}"
+        );
     }
 
     #[test]

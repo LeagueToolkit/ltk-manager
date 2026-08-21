@@ -5,12 +5,15 @@
 //! module reports what the cache holds, refreshes it from the published
 //! GitHub release, and opens the WAD path tables for chunk resolution.
 
+use std::borrow::Cow;
+use std::fmt;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use ltk_mimir_cache::{
     HashStore, ManifestError, NoCacheDirError, Table, UpdateError, UpdateOptions, UpdateOutcome,
 };
+use ltk_wad::PathResolver;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -231,6 +234,63 @@ impl HashtableCache {
         }
         db
     }
+
+    /// The same tables as [`wad_tables`](Self::wad_tables), as a resolver.
+    pub fn wad_path_resolver(&self) -> WadPathResolver {
+        WadPathResolver::new(self.wad_tables())
+    }
+}
+
+/// Names WAD chunks from the shared mimir tables when extracting an archive.
+///
+/// A hash no table knows keeps the hex name [`ltk_wad::HexPathResolver`] would
+/// have given it, so extraction resolves what it can and never fails for want
+/// of a table.
+pub struct WadPathResolver {
+    db: LayeredHashDb,
+}
+
+impl WadPathResolver {
+    /// Open the shared cache's WAD tables.
+    ///
+    /// Best-effort: a machine whose cache is missing or never synced resolves
+    /// nothing, and every chunk lands under its hex name.
+    pub fn discover() -> Self {
+        let db = match HashtableCache::discover() {
+            Ok(cache) => cache.wad_tables(),
+            Err(e) => {
+                tracing::warn!("No hashtable cache to name WAD chunks with: {e}");
+                LayeredHashDb::new()
+            }
+        };
+
+        if db.bases().is_empty() {
+            tracing::warn!("No hashtables loaded, WAD chunks will keep their hex names");
+        }
+
+        Self::new(db)
+    }
+
+    /// Resolve through tables the caller already opened.
+    pub fn new(db: LayeredHashDb) -> Self {
+        Self { db }
+    }
+}
+
+impl fmt::Debug for WadPathResolver {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WadPathResolver")
+            .field("tables", &self.db.bases().len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl PathResolver for WadPathResolver {
+    fn resolve(&self, path_hash: u64) -> Cow<'_, str> {
+        self.db
+            .get(path_hash)
+            .unwrap_or_else(|| Cow::Owned(format!("{path_hash:016x}")))
+    }
 }
 
 #[cfg(test)]
@@ -355,5 +415,21 @@ mod tests {
         .unwrap();
         assert_eq!(json["upToDate"], true);
         assert!(json["unknownTables"].is_array());
+    }
+
+    #[test]
+    fn resolver_names_a_hash_a_table_knows() {
+        let path = "assets/characters/aatrox/aatrox.bin";
+        let mut db = LayeredHashDb::new();
+        db.insert(0x1234, path);
+
+        assert_eq!(WadPathResolver::new(db).resolve(0x1234), path);
+    }
+
+    #[test]
+    fn resolver_falls_back_to_the_hex_name() {
+        let resolver = WadPathResolver::new(LayeredHashDb::new());
+
+        assert_eq!(resolver.resolve(0xdead_beef), "00000000deadbeef");
     }
 }
