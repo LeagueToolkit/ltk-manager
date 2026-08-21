@@ -208,6 +208,11 @@ export const api = {
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
 
+  // Ritobin
+  detectRitobinIntegration: () => invokeResult<boolean>("detect_ritobin_integration"),
+  openAssetInRitobin: (asset: AssetRef, name?: string) =>
+    invokeResult<void>("open_asset_in_ritobin", { asset, name }),
+
   // Deep Link
   deepLinkInstallMod: (
     url: string,

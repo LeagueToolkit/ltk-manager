@@ -192,6 +192,9 @@ fn main() {
             commands::find_in_game_index,
             // Asset preview
             commands::read_asset_info,
+            // Ritobin
+            commands::detect_ritobin_integration,
+            commands::open_asset_in_ritobin,
             // Deep Link
             commands::deep_link_install_mod,
             // for dynamic icons

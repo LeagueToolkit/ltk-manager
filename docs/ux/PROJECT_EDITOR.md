@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                     |
 | ---------- | -------------------------------------------------------------------------- |
+| 2026-08-21 | Draw a bin as blocks, and move the preview into its own document           |
 | 2026-08-20 | Match a run of characters and every term, not a subsequence                |
 | 2026-08-20 | Search the whole install from the bar, on a scorer in Rust                 |
 | 2026-08-20 | Build the project bar, its palette and the history arrows                  |
@@ -63,7 +64,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Explorer sorting       | Proposed    | Name, size and kind, and the directories first              |
 | Multi-select and copy  | Proposed    | What makes a copy of many game files worth the trip         |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                 |
-| Bin preview            | Planned     | Ritobin text in a read-only Monaco editor                   |
+| Bin preview            | Planned     | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)    |
 | Mesh preview           | Planned     | A model in a small viewport                                 |
 | Modified time          | Planned     | Needs a time field in the content scan                      |
 | Game archive check     | Planned     | Finds a path that the game never reads. Uses the index      |
@@ -638,12 +639,14 @@ header. That is the lazy resolution the rest of the editor wants as well.
 | Reader               | Wants                                        |
 | -------------------- | -------------------------------------------- |
 | The object index     | Every object header, and no property         |
-| The bin preview      | One object at a time, as the viewport asks   |
+| The bin preview      | Nothing. It parses one file eagerly          |
 | Property bin links   | The objects of one file, to offer as targets |
 | The linked bin check | The dependency list alone                    |
 
-Three of those four read a header and no more, so the eager read is the wrong default for
-every reader the manager has.
+Two of those four read a header and no more, so the eager read is the wrong default for most
+readers the manager has. The [bin editor](BIN_EDITOR.md#the-parse-is-not-the-problem) is the
+exception, and it needs no part of this: one file parses in single-digit milliseconds, so it
+ships on `ltk_meta` as published and takes the lazy read later as an optimisation.
 
 `ltk_meta` is not a dependency of this workspace yet. It is `MIT OR Apache-2.0`, which is the
 workspace's own license, so adding it needs a `pnpm generate:licenses` and nothing else.
@@ -1547,14 +1550,18 @@ already fills it with a layer name. The rule above sets when that field shows.
 
 ### Planned document types
 
-| Document     | Content                                                         |
-| ------------ | --------------------------------------------------------------- |
-| Mesh preview | A model in a small viewport                                     |
-| Bin preview  | The ritobin text of a `.bin` file in a Monaco editor, read-only |
+| Document     | Content                                 |
+| ------------ | --------------------------------------- |
+| Mesh preview | A model in a small viewport             |
+| Bin preview  | A `.bin` as blocks over its parsed tree |
 
-Both join the preview document rather than adding one of their own. A viewer is a variant
-on the backend's `Preview` and an arm of the switch the preview document draws, so neither
-the tab, the document nor the reference behind them changes.
+The bin preview has a document of its own, and [Bin editor](BIN_EDITOR.md) specifies it. It
+reads a bin rather than an image and edits one where the source allows a write, and neither
+fits a variant on `Preview`.
+
+The mesh preview joins the preview document rather than adding one of its own. A viewer is a
+variant on the backend's `Preview` and an arm of the switch the preview document draws, so
+the tab, the document and the reference behind them are unchanged.
 
 ### How a preview reaches the screen
 

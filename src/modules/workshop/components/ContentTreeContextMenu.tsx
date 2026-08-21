@@ -1,5 +1,6 @@
 import {
   ArrowBendDoubleUpRightIcon,
+  ArrowSquareOutIcon,
   CopyIcon,
   FolderOpenIcon,
   TabsIcon,
@@ -9,6 +10,8 @@ import { ContextMenu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { api } from "@/lib/tauri";
 
+import { fileKindFromPath } from "../gameBrowser/fileKind";
+import { isPropertyBin, useOpenInRitobin, useRitobinIntegration } from "../preview";
 import type { ContentTreeNode, FileNode } from "../utils/contentTree";
 
 interface ContentTreeContextMenuProps {
@@ -33,28 +36,44 @@ export function ContentTreeContextMenu({
   onOpen,
 }: ContentTreeContextMenuProps) {
   const copy = useCopyToClipboard();
+  const ritobin = useRitobinIntegration();
+  const openInRitobin = useOpenInRitobin();
 
   if (!node) return null;
 
   const relativePath = node.type === "dir" ? node.path : node.entry.relativePath;
   const absolutePath = `${projectPath}/content/${layerName}/${relativePath}`;
   const file = node.type === "file" ? node : null;
+  const bin = file !== null && isPropertyBin(fileKindFromPath(file.name)) && ritobin.data === true;
 
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner>
         <ContextMenu.Popup className="w-52">
           {file && onOpen && (
-            <>
-              <ContextMenu.Item
-                icon={<TabsIcon className="h-4 w-4" />}
-                onClick={() => onOpen(file)}
-              >
-                Open
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-            </>
+            <ContextMenu.Item icon={<TabsIcon className="h-4 w-4" />} onClick={() => onOpen(file)}>
+              Open
+            </ContextMenu.Item>
           )}
+          {bin && (
+            <ContextMenu.Item
+              icon={<ArrowSquareOutIcon className="h-4 w-4" />}
+              onClick={() =>
+                openInRitobin.mutate({
+                  asset: {
+                    kind: "layer",
+                    project: projectPath,
+                    layer: layerName,
+                    path: relativePath,
+                  },
+                  name: file.name,
+                })
+              }
+            >
+              Open in VS Code
+            </ContextMenu.Item>
+          )}
+          {((file && onOpen) || bin) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<CopyIcon className="h-4 w-4" />}
             onClick={() => void copy(node.name, "name")}

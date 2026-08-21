@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
@@ -94,6 +94,120 @@ impl AssetRef {
             Self::GameChunk { path_hash, .. } => path_hash,
         }
     }
+
+    /// A path on disk that a program outside the app can open.
+    ///
+    /// A layer file and a loose file are files already, so this names them
+    /// where they lie and an editor's save lands back in the project. A chunk
+    /// is inside an archive, so it is copied out to a temporary file. That copy
+    /// is read-only, because nothing carries a save on it back into the archive
+    /// and one that went quietly would read as an edit to the game.
+    ///
+    /// `name` names the copy, and is what a hash table made of the chunk's
+    /// hash. A caller with no name for it passes none, and the copy takes the
+    /// hash the reference carries.
+    ///
+    /// # Errors
+    ///
+    /// Fails for the reasons [`read`](Self::read) does, and when the copy
+    /// cannot be written.
+    pub fn to_disk_path(
+        &self,
+        name: Option<&str>,
+        config: &Config,
+        wads: &WadCache,
+    ) -> AppResult<PathBuf> {
+        match self {
+            Self::Layer {
+                project,
+                layer,
+                path,
+            } => {
+                let root = Path::new(project).join("content");
+                resolve_within(&root, &format!("{layer}/{path}"))
+            }
+            Self::File { path } => Ok(PathBuf::from(path)),
+            Self::GameChunk { wad, path_hash } => {
+                let bytes = self.read(config, wads)?;
+                let path = chunk_copy_path(wad, path_hash, name);
+
+                fs::create_dir_all(path.parent().expect("a copy path has a directory"))?;
+                write_read_only(&path, &bytes)?;
+
+                Ok(path)
+            }
+        }
+    }
+}
+
+/// Characters Windows will not take in a file name.
+const RESERVED: &str = r#"<>:"|?*"#;
+
+/// Where a chunk's copy goes.
+///
+/// One directory per chunk, so opening the same chunk twice reuses the one file
+/// rather than leaving a trail of them, and so two archives that happen to
+/// share a path hash do not land on top of one another.
+fn chunk_copy_path(wad: &str, path_hash: &str, name: Option<&str>) -> PathBuf {
+    let file = name
+        .and_then(safe_file_name)
+        .unwrap_or_else(|| path_hash.to_owned());
+
+    std::env::temp_dir()
+        .join("ltk-manager")
+        .join("chunks")
+        .join(format!("{}-{path_hash}", slug(wad)))
+        .join(file)
+}
+
+/// `name` reduced to something Windows takes as a file name, or `None`.
+///
+/// The name crosses IPC, so it is a caller's claim about the chunk rather than
+/// anything read off disk. What a separator or a reserved character could do to
+/// the path it goes into comes off here.
+fn safe_file_name(name: &str) -> Option<String> {
+    let base = name.rsplit(['/', '\\']).next()?;
+    let cleaned: String = base
+        .chars()
+        .filter(|character| !character.is_control() && !RESERVED.contains(*character))
+        .collect();
+
+    /* Windows drops a trailing dot or space off a name, which would leave one
+    file under two names. */
+    let trimmed = cleaned.trim_end_matches(['.', ' ']).trim_start();
+
+    (!trimmed.is_empty()).then(|| trimmed.to_owned())
+}
+
+/// An archive's name as one directory name.
+fn slug(wad: &str) -> String {
+    wad.chars()
+        .map(|character| match character {
+            character if character.is_ascii_alphanumeric() => character,
+            '.' | '-' | '_' => character,
+            _ => '_',
+        })
+        .collect()
+}
+
+/// Write `bytes` to `path` as a read-only file, replacing one already there.
+///
+/// An editor that refuses the save says so, where one that took it would have
+/// written into a temporary file and looked like it had edited the game.
+fn write_read_only(path: &Path, bytes: &[u8]) -> AppResult<()> {
+    /* Removed rather than cleared of the flag, which on Unix would leave the
+    copy world-writable for as long as the write took. */
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+
+    fs::write(path, bytes)?;
+
+    let mut permissions = fs::metadata(path)?.permissions();
+    permissions.set_readonly(true);
+    fs::set_permissions(path, permissions)?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -188,6 +302,57 @@ mod tests {
         .unwrap_err();
 
         assert!(matches!(err, AppError::InvalidPath(_)));
+    }
+
+    #[test]
+    fn a_layer_file_is_named_where_it_lies() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project = layer_project(tmp.path());
+
+        let path = layer_ref(&project, "base", "assets/icon.tex")
+            .to_disk_path(None, &Config::default(), &WadCache::default())
+            .unwrap();
+
+        assert!(path.ends_with("icon.tex"), "unexpected path: {path:?}");
+        assert_eq!(fs::read(&path).unwrap(), b"TEX\0");
+    }
+
+    #[test]
+    fn a_layer_path_cannot_escape_the_content_directory_to_be_opened() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project = layer_project(tmp.path());
+        fs::write(tmp.path().join("mod.config.json"), b"{}").unwrap();
+
+        let err = layer_ref(&project, "base", "../../mod.config.json")
+            .to_disk_path(None, &Config::default(), &WadCache::default())
+            .unwrap_err();
+
+        assert!(matches!(err, AppError::InvalidPath(_)));
+    }
+
+    /// The name is the frontend's, so a path in it must reach no directory but
+    /// the one the copy belongs in.
+    #[test]
+    fn a_copy_name_keeps_neither_directories_nor_reserved_characters() {
+        let path = chunk_copy_path(
+            "Champions/Aatrox.wad.client",
+            "0123456789abcdef",
+            Some("../../../Aatrox:1.bin"),
+        );
+
+        assert_eq!(path.file_name().unwrap(), "Aatrox1.bin");
+        assert_eq!(
+            path.parent().unwrap().file_name().unwrap(),
+            "Champions_Aatrox.wad.client-0123456789abcdef"
+        );
+    }
+
+    #[test]
+    fn a_copy_nothing_names_takes_the_hash() {
+        for name in [None, Some(""), Some("   "), Some("..")] {
+            let path = chunk_copy_path("UI.wad.client", "0123456789abcdef", name);
+            assert_eq!(path.file_name().unwrap(), "0123456789abcdef", "{name:?}");
+        }
     }
 
     #[test]

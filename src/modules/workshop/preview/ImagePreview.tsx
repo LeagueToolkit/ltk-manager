@@ -15,6 +15,7 @@ import {
 import { formatBytes } from "@/utils";
 
 import { previewUrl } from "./assetRef";
+import { BinPreview, isPropertyBin } from "./BinPreview";
 import { useAssetInfo } from "./useAssetInfo";
 
 /** How far `Ctrl` and the wheel reach, either side of the image's own scale. */
@@ -58,7 +59,9 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
     setPreviewZoom(clamp(from * factor));
   }, []);
 
-  if (failed) return <PreviewUnavailable name={name} info={info.data} error={info.error} />;
+  if (failed) {
+    return <PreviewUnavailable asset={asset} name={name} info={info.data} error={info.error} />;
+  }
 
   return (
     <div data-ui="ImagePreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
@@ -231,6 +234,7 @@ function dimensions(info: AssetInfo | undefined) {
 }
 
 interface PreviewUnavailableProps {
+  asset: AssetRef;
   name: string;
   info: AssetInfo | undefined;
   error: AppError | null;
@@ -242,8 +246,12 @@ interface PreviewUnavailableProps {
  * The `<img>` reports that it failed and never why, so the reason comes from
  * the facts request that ran beside it.
  */
-function PreviewUnavailable({ name, info, error }: PreviewUnavailableProps) {
+function PreviewUnavailable({ asset, name, info, error }: PreviewUnavailableProps) {
   if (info?.kind === "unsupported") {
+    /* A chunk no hash table names reaches the document without an extension,
+       so the bytes are what said it was a bin. */
+    if (isPropertyBin(info.fileKind)) return <BinPreview asset={asset} name={name} />;
+
     return (
       <EmptyState
         size="sm"
