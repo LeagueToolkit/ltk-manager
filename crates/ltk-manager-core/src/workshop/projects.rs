@@ -633,7 +633,7 @@ fn read_fantome_info<R: Read + Seek>(
     }
 
     let info_content = info_content.trim_start_matches('\u{feff}').trim();
-    serde_json::from_str(info_content)
+    crate::mods::parse_fantome_info(info_content)
         .map_err(|e| AppError::Fantome(format!("Failed to parse info.json: {}", e)))
 }
 

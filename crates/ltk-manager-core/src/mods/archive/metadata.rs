@@ -13,9 +13,11 @@ use crate::mods::types::{InstalledMod, ModLayer};
 use crate::workshop::layer::LayersExt;
 use ltk_mod_project::{ModMap, ModProject, ModProjectLayer, ModTag};
 use ltk_modpkg::Modpkg;
+use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
 pub(crate) fn read_installed_mod(
     entry: &LibraryModEntry,
@@ -83,6 +85,36 @@ pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
     serde_json::from_str(&contents).map_err(AppError::from)
 }
 
+pub(crate) fn parse_fantome_info(
+    content: &str,
+) -> Result<ltk_fantome::FantomeInfo, serde_json::Error> {
+    static UNQUOTED_VERSION: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r#"("Version"\s*:\s*)([0-9]+(?:\.[0-9A-Za-z+-]+)+)"?(\s*[,}])"#)
+            .expect("unquoted Fantome version regex must be valid")
+    });
+
+    let normalized = UNQUOTED_VERSION.replace(content, r#"${1}"${2}"${3}"#);
+    let content = normalized.as_ref();
+
+    match serde_json::from_str(content) {
+        Ok(info) => Ok(info),
+        Err(original_error) => {
+            let Ok(mut value) = serde_json::from_str::<serde_json::Value>(content) else {
+                return Err(original_error);
+            };
+            let Some(version) = value.get_mut("Version") else {
+                return Err(original_error);
+            };
+            let serde_json::Value::Number(version_number) = version else {
+                return Err(original_error);
+            };
+
+            *version = serde_json::Value::String(version_number.to_string());
+            serde_json::from_value(value)
+        }
+    }
+}
+
 pub(crate) fn extract_fantome_metadata(file_path: &Path, metadata_dir: &Path) -> AppResult<()> {
     use std::io::Read;
     use zip::ZipArchive;
@@ -122,7 +154,7 @@ pub(crate) fn extract_fantome_metadata(file_path: &Path, metadata_dir: &Path) ->
 
     // Parse metadata
     let info_content = info_content.trim_start_matches('\u{feff}').trim();
-    let info: ltk_fantome::FantomeInfo = serde_json::from_str(info_content)
+    let info = parse_fantome_info(info_content)
         .map_err(|e| AppError::Other(format!("Failed to parse info.json: {}", e)))?;
 
     // Build layers from Fantome info, preserving string overrides
@@ -392,6 +424,40 @@ mod tests {
     fn load_mod_project_missing_file() {
         let dir = tempfile::tempdir().unwrap();
         assert!(load_mod_project(dir.path()).is_err());
+    }
+
+    #[test]
+    fn parse_fantome_info_accepts_unquoted_decimal_version() {
+        let content = r#"{
+            "Name": "Sausage dog Naafiri",
+            "Author": "Author",
+            "Version": 1.1,
+            "Description": "Description",
+            "Tags": [],
+            "Champions": [],
+            "Maps": [],
+            "Layers": {}
+        }"#;
+
+        let info = parse_fantome_info(content).unwrap();
+        assert_eq!(info.version, "1.1");
+    }
+
+    #[test]
+    fn parse_fantome_info_accepts_integer_version() {
+        let content = r#"{
+            "Name": "Test Mod",
+            "Author": "Author",
+            "Version": 2,
+            "Description": "Description",
+            "Tags": [],
+            "Champions": [],
+            "Maps": [],
+            "Layers": {}
+        }"#;
+
+        let info = parse_fantome_info(content).unwrap();
+        assert_eq!(info.version, "2");
     }
 
     #[test]

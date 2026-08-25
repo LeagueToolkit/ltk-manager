@@ -182,7 +182,7 @@ fn read_cslol_info(path: &Path) -> AppResult<ltk_fantome::FantomeInfo> {
     let content = fs::read_to_string(path)?;
     let content = content.trim_start_matches('\u{feff}').trim();
 
-    serde_json::from_str(content).map_err(AppError::Serialization)
+    super::metadata::parse_fantome_info(content).map_err(AppError::Serialization)
 }
 
 #[cfg(test)]
