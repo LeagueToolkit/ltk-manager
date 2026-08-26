@@ -32,6 +32,8 @@ export function ExtractDialog() {
   const setPerArchiveFolder = useExtractDialogStore((s) => s.setPerArchiveFolder);
   const existing = useExtractDialogStore((s) => s.existing);
   const setExisting = useExtractDialogStore((s) => s.setExisting);
+  const recoverNames = useExtractDialogStore((s) => s.recoverNames);
+  const setRecoverNames = useExtractDialogStore((s) => s.setRecoverNames);
   const openWhenDone = useExtractDialogStore((s) => s.openWhenDone);
   const setOpenWhenDone = useExtractDialogStore((s) => s.setOpenWhenDone);
 
@@ -47,7 +49,7 @@ export function ExtractDialog() {
     start({
       targets,
       subject,
-      options: { destination, layout, perArchiveFolder, existing, kinds: null },
+      options: { destination, layout, perArchiveFolder, existing, recoverNames, kinds: null },
       reveal: openWhenDone,
     });
     close();
@@ -111,6 +113,12 @@ export function ExtractDialog() {
               hint="The layout a layer holds, for Add WAD folder"
               checked={perArchiveFolder}
               onChange={setPerArchiveFolder}
+            />
+            <SwitchRow
+              label="Recover names from the archive"
+              hint="Reads every bin for names no hashtable holds, which is slow"
+              checked={recoverNames}
+              onChange={setRecoverNames}
             />
             <SwitchRow
               label="Open the folder when done"

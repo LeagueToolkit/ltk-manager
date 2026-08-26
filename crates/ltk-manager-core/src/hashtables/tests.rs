@@ -360,6 +360,51 @@ fn resolver_names_a_hash_a_table_knows() {
     assert!(resolver.is_known(WadHash(0x1234)));
 }
 
+/// The tables call back in the order they hold the paths and report what they
+/// cannot name last, so the batch has to place each answer by its index rather
+/// than in the order the answers arrive.
+#[test]
+fn resolver_answers_a_batch_against_the_hashes_it_was_asked() {
+    let first = "assets/characters/aatrox/aatrox.bin";
+    let second = "assets/characters/ahri/ahri.bin";
+    let mut db = LayeredHashDb::new();
+    db.insert(0x1234, first);
+    db.insert(0x5678, second);
+    let resolver = WadPathResolver::new(db);
+
+    let resolved = resolver.resolve_all(&[
+        WadHash(0x5678),
+        WadHash(0xdead_beef),
+        WadHash(0x1234),
+        WadHash(0x5678),
+    ]);
+
+    assert_eq!(
+        resolved,
+        [
+            Some(second.to_owned()),
+            None,
+            Some(first.to_owned()),
+            Some(second.to_owned()),
+        ]
+    );
+}
+
+/// The batch and the single lookup name the same paths, which is what the
+/// trait asks of an override.
+#[test]
+fn a_batch_names_what_the_single_lookups_name() {
+    let path = "assets/characters/aatrox/aatrox.bin";
+    let mut db = LayeredHashDb::new();
+    db.insert(0x1234, path);
+    let resolver = WadPathResolver::new(db);
+    let asked = [WadHash(0x1234), WadHash(0xdead_beef)];
+
+    let singly: Vec<Option<String>> = asked.iter().map(|&h| resolver.resolve(h)).collect();
+
+    assert_eq!(resolver.resolve_all(&asked), singly);
+}
+
 /// A hash no table knows names nothing, and the extractor writes that
 /// chunk under its hex hash rather than the resolver inventing one.
 #[test]

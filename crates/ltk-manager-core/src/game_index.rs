@@ -6,6 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex};
 
 use ltk_hashdb::LayeredHashDb;
+use ltk_wad::{WadHash, hex_name};
 use serde::Serialize;
 
 use crate::error::{AppResult, MutexResultExt};
@@ -460,7 +461,7 @@ impl GameIndex {
     /// indexes [`Self::wads`].
     fn insert(&mut self, path_hash: u64, path: Option<&str>, size_bytes: u64, wad: u32) {
         let Some(path) = path else {
-            let name = format!("{path_hash:016x}");
+            let name = hex_name(WadHash(path_hash));
             self.unknown.push(File {
                 mask: letter_mask(&name),
                 name,
@@ -775,7 +776,7 @@ impl Scan<'_> {
             score,
             length: (self.path.len() + file.name.len()) as u32,
             row: GameSearchHit {
-                path_hash: format!("{:016x}", file.path_hash),
+                path_hash: hex_name(WadHash(file.path_hash)),
                 name: file.name.clone(),
                 path: self.path.clone(),
                 wad: self.index.wad_name(file).to_owned(),
@@ -889,7 +890,7 @@ impl FindScan<'_> {
                     split_ranges(&ranges, restore as u32)
                 };
                 self.hits.push(GameFindHit {
-                    path_hash: format!("{:016x}", file.path_hash),
+                    path_hash: hex_name(WadHash(file.path_hash)),
                     path: named.then(|| self.path.clone()),
                     name: file.name.clone(),
                     wad: self.index.wad_name(file).to_owned(),
@@ -1022,7 +1023,7 @@ impl File {
             format!("{dir}/{}", self.name)
         };
         GameFileEntry {
-            path_hash: format!("{:016x}", self.path_hash),
+            path_hash: hex_name(WadHash(self.path_hash)),
             path: Some(path),
             size_bytes: self.size_bytes,
             wad: wad.to_owned(),
@@ -1032,7 +1033,7 @@ impl File {
     /// The wire shape of a chunk no hash table names, which has no path.
     fn unnamed_entry(&self, wad: &str) -> GameFileEntry {
         GameFileEntry {
-            path_hash: format!("{:016x}", self.path_hash),
+            path_hash: hex_name(WadHash(self.path_hash)),
             path: None,
             size_bytes: self.size_bytes,
             wad: wad.to_owned(),

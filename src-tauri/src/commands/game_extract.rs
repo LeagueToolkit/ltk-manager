@@ -2,6 +2,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use tauri::{AppHandle, Manager, State};
 
@@ -121,11 +122,13 @@ pub async fn extract_game_files(
             }));
         }
 
+        let started = Instant::now();
         let summary = job.run(&options, &config, archives, resolver, &events, &cancel)?;
         tracing::info!(
             extracted = summary.extracted,
             skipped = summary.skipped_existing,
             bytes = summary.bytes_written,
+            elapsed_ms = started.elapsed().as_millis(),
             cancelled = summary.cancelled,
             destination = %summary.destination,
             "Extracted game files"

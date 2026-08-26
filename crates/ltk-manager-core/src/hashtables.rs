@@ -5,7 +5,6 @@
 //! module reports what the cache holds, refreshes it from the published
 //! GitHub release, and opens the WAD path tables for chunk resolution.
 
-use std::borrow::Cow;
 use std::fmt;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
@@ -816,11 +815,16 @@ impl WadPathResolver {
 
     /// Name every chunk of one archive in a single pass over the tables.
     ///
-    /// Calls `name` once per entry of `hashes`, in that order, with `None`
-    /// where no table holds one. One call per archive rather than one per
-    /// chunk, so the compressed frames an archive's paths share decompress
-    /// once between them instead of once per name, and a name the caller only
-    /// reads never becomes a `String`.
+    /// Calls `name` once per entry of `hashes`, with `None` where no table
+    /// holds one. One call per archive rather than one per chunk, so the
+    /// compressed frames an archive's paths share decompress once between them
+    /// instead of once per name, and a name the caller only reads never
+    /// becomes a `String`.
+    ///
+    /// The calls arrive in the order the tables hold the paths, which is what
+    /// lets each frame decompress once, and hashes nothing names arrive last.
+    /// The first argument is the hash's index in `hashes`, so a caller that
+    /// needs the order it asked in reads that rather than the call order.
     pub fn resolve_each(&self, hashes: &[WadHash], mut name: impl FnMut(usize, Option<&str>)) {
         let keys: Vec<u64> = hashes.iter().map(|hash| hash.0).collect();
         self.db
@@ -889,18 +893,23 @@ impl WadPathResolverState {
 }
 
 impl PathResolver for WadPathResolver {
-    /// Owned, because the trait's `Cow` has nowhere to keep the decompressed
-    /// frame a [`PathRef`] borrows from.
-    fn resolve(&self, path_hash: WadHash) -> Option<Cow<'_, str>> {
-        self.db
-            .get(path_hash.0)
-            .map(|path| Cow::Owned(path.into_owned()))
+    fn resolve(&self, path_hash: WadHash) -> Option<String> {
+        self.db.get(path_hash.0).map(|path| path.into_owned())
     }
 
-    /// Answered without building the string, which is what the name recovery
-    /// asks once per chunk before it reads a single bin.
+    /// Answered without building the string the chunk's name would need.
     fn is_known(&self, path_hash: WadHash) -> bool {
         self.db.contains(path_hash.0)
+    }
+
+    /// The whole archive in one pass over the tables, through
+    /// [`resolve_each`](Self::resolve_each).
+    fn resolve_all(&self, path_hashes: &[WadHash]) -> Vec<Option<String>> {
+        let mut resolved = vec![None; path_hashes.len()];
+        self.resolve_each(path_hashes, |index, path| {
+            resolved[index] = path.map(String::from);
+        });
+        resolved
     }
 }
 

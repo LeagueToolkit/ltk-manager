@@ -23,6 +23,22 @@ cancelled: boolean,
  */
 recovered: number, 
 /**
+ * Chunks written under a name their resolved path did not give, because a
+ * directory held that name or another chunk claimed it first.
+ */
+renamed: number, 
+/**
+ * Chunks whose resolved path the extraction refused to write, so nothing
+ * landed for them. A hash table naming a path that escapes the output
+ * directory is the usual cause.
+ */
+rejected: number, 
+/**
+ * Chunks another chunk's path claimed first that went unwritten. Zero
+ * under a lossless naming policy, which renames them instead.
+ */
+duplicates: number, 
+/**
  * The folder written into, for the report's **Open folder**.
  */
 destination: string, };

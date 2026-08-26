@@ -146,17 +146,30 @@ export function ExtractRunner() {
       success(`Copied ${files} files into ${req.intoLayer}`, describeResult(summary), {
         notify: true,
       });
-      return;
+    } else {
+      success(
+        `Extracted ${files} files (${formatBytes(Number(summary.bytesWritten))})`,
+        describeResult(summary),
+        {
+          notify: true,
+        },
+      );
     }
 
-    success(
-      `Extracted ${files} files (${formatBytes(Number(summary.bytesWritten))})`,
-      describeResult(summary),
-      {
-        notify: true,
-      },
-    );
-    if (req.reveal) void api.revealInExplorer(summary.destination);
+    /* Rejected and duplicate chunks write nothing at all, so a run reads as
+       complete while files are missing. Renamed ones landed, so they stay in
+       the summary line rather than raise this. */
+    const unwritten = summary.rejected + summary.duplicates;
+    if (unwritten > 0) {
+      warning(
+        `${unwritten.toLocaleString()} files could not be written`,
+        summary.rejected > 0
+          ? "Their paths were refused, so a hashtable is wrong about them"
+          : "Two chunks were named the same path",
+      );
+    }
+
+    if (!req.intoLayer && req.reveal) void api.revealInExplorer(summary.destination);
   }
 
   return null;
@@ -201,6 +214,9 @@ function describeResult(summary: ExtractSummary): string {
     .slice(0, 4)
     .map((entry) => `${entry.count.toLocaleString()} ${describeFileKind(entry.kind).label}`);
 
+  if (summary.renamed > 0) {
+    parts.push(`${summary.renamed.toLocaleString()} renamed`);
+  }
   if (summary.skippedExisting > 0) {
     parts.push(`${summary.skippedExisting.toLocaleString()} skipped`);
   }

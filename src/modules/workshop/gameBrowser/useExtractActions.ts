@@ -54,6 +54,7 @@ export function useExtractActions(): ExtractActions {
   const destination = useExtractDialogStore((s) => s.destination);
   const layout = useExtractDialogStore((s) => s.layout);
   const perArchiveFolder = useExtractDialogStore((s) => s.perArchiveFolder);
+  const recoverNames = useExtractDialogStore((s) => s.recoverNames);
   const existing = useExtractDialogStore((s) => s.existing);
   const openWhenDone = useExtractDialogStore((s) => s.openWhenDone);
 
@@ -80,6 +81,7 @@ export function useExtractActions(): ExtractActions {
             layout: "paths",
             perArchiveFolder: true,
             existing: "skip",
+            recoverNames,
             kinds: null,
           },
           reveal: false,
@@ -98,7 +100,7 @@ export function useExtractActions(): ExtractActions {
       start({
         targets,
         subject,
-        options: { destination, layout, perArchiveFolder, existing, kinds: null },
+        options: { destination, layout, perArchiveFolder, existing, recoverNames, kinds: null },
         reveal: openWhenDone,
       });
     },
@@ -112,6 +114,7 @@ export function useExtractActions(): ExtractActions {
       layout,
       perArchiveFolder,
       existing,
+      recoverNames,
       openWhenDone,
     ],
   );

@@ -20,6 +20,7 @@ interface ExtractDialogStore {
   layout: ExtractLayout;
   perArchiveFolder: boolean;
   existing: ExistingFiles;
+  recoverNames: boolean;
   openWhenDone: boolean;
 
   open: (targets: readonly ExtractTarget[], subject: string) => void;
@@ -28,6 +29,7 @@ interface ExtractDialogStore {
   setLayout: (layout: ExtractLayout) => void;
   setPerArchiveFolder: (perArchiveFolder: boolean) => void;
   setExisting: (existing: ExistingFiles) => void;
+  setRecoverNames: (recoverNames: boolean) => void;
   setOpenWhenDone: (openWhenDone: boolean) => void;
 }
 
@@ -40,6 +42,7 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
       layout: "paths",
       perArchiveFolder: false,
       existing: "skip",
+      recoverNames: false,
       openWhenDone: true,
 
       open: (targets, subject) => set({ targets, subject }),
@@ -48,6 +51,7 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
       setLayout: (layout) => set({ layout }),
       setPerArchiveFolder: (perArchiveFolder) => set({ perArchiveFolder }),
       setExisting: (existing) => set({ existing }),
+      setRecoverNames: (recoverNames) => set({ recoverNames }),
       setOpenWhenDone: (openWhenDone) => set({ openWhenDone }),
     }),
     {
@@ -59,6 +63,7 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
         layout: state.layout,
         perArchiveFolder: state.perArchiveFolder,
         existing: state.existing,
+        recoverNames: state.recoverNames,
         openWhenDone: state.openWhenDone,
       }),
     },

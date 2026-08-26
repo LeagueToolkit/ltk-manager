@@ -7,11 +7,12 @@ use crate::hashtables::WadPathResolver;
 use camino::Utf8Path;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;
-use ltk_wad::{PathResolver, Wad, WadExtractor};
+use ltk_wad::{NamingPolicy, PathResolver, Wad, WadExtractor};
 use std::collections::HashMap;
 use std::fs;
 use std::io::BufReader;
 use std::path::{Component, Path, PathBuf};
+use std::time::Instant;
 
 impl ProjectDir {
     /// Create a new layer.
@@ -274,13 +275,16 @@ fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) ->
     let file = fs::File::open(src)?;
     let mut wad = Wad::mount(BufReader::new(file))?;
 
-    let mut extractor = WadExtractor::new(resolver).with_name_recovery();
+    let mut extractor = WadExtractor::new(resolver)
+        .with_naming_policy(NamingPolicy::Lossless)
+        .with_name_recovery();
     let utf8_dst = Utf8Path::from_path(dst).ok_or_else(|| {
         AppError::Other(format!(
             "WAD output path is not valid UTF-8: {}",
             dst.display()
         ))
     })?;
+    let started = Instant::now();
     let report = extractor.extract_all(&mut wad, utf8_dst)?;
 
     tracing::debug!(
@@ -288,6 +292,10 @@ fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) ->
         extracted = report.extracted,
         recovered = report.recovered.names.len(),
         bins_scanned = report.recovered.bins_scanned,
+        renamed = report.renamed(),
+        rejected = report.rejected(),
+        duplicates = report.duplicates(),
+        elapsed_ms = started.elapsed().as_millis(),
         "Extracted packed WAD into layer"
     );
 

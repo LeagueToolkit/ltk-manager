@@ -17,6 +17,14 @@ destination: string, layout: ExtractLayout,
  */
 perArchiveFolder: boolean, existing: ExistingFiles, 
 /**
+ * Read the archive's own bins for names no hash table holds.
+ *
+ * Off, because a synced cache already names a game archive, and the scan
+ * reads every bin in one to find the handful it does not. Worth its cost
+ * where the cache is missing and the bins are the only names there are.
+ */
+recoverNames: boolean, 
+/**
  * The browser's filter chips. `None` writes every kind.
  */
 kinds: Array<WorkshopFileKind> | null, };

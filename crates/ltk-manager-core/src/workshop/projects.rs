@@ -19,10 +19,11 @@ use std::collections::HashSet;
 use std::fs;
 use std::io::{Cursor, Read, Seek};
 use std::path::PathBuf;
+use std::time::Instant;
 use zip::ZipArchive;
 
 use camino::Utf8Path;
-use ltk_wad::{PathResolver, WadExtractor};
+use ltk_wad::{NamingPolicy, PathResolver, WadExtractor};
 
 impl Workshop {
     /// Get all workshop projects from the configured workshop directory.
@@ -739,7 +740,10 @@ fn extract_fantome_wad<R: Read + Seek>(
             let wad_dir = base_dir.join(wad_name);
             fs::create_dir_all(&wad_dir)?;
 
-            let mut extractor = WadExtractor::new(resolver).with_name_recovery();
+            let mut extractor = WadExtractor::new(resolver)
+                .with_naming_policy(NamingPolicy::Lossless)
+                .with_name_recovery();
+            let started = Instant::now();
             let report = extractor.extract_all(
                 &mut wad,
                 Utf8Path::from_path(&wad_dir).ok_or_else(|| {
@@ -752,6 +756,10 @@ fn extract_fantome_wad<R: Read + Seek>(
                 extracted = report.extracted,
                 recovered = report.recovered.names.len(),
                 bins_scanned = report.recovered.bins_scanned,
+                renamed = report.renamed(),
+                rejected = report.rejected(),
+                duplicates = report.duplicates(),
+                elapsed_ms = started.elapsed().as_millis(),
                 "Extracted packed WAD from fantome archive"
             );
 

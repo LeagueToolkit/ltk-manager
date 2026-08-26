@@ -12,6 +12,12 @@ fn final_dir(root: &Path) -> PathBuf {
 }
 
 fn build_wad(path: &Path, chunk_paths: &[&str]) {
+    build_wad_of(path, chunk_paths, &[0xAA; 64]);
+}
+
+/// A WAD whose every chunk holds `bytes`, for the tests that care what the
+/// kind sniffer makes of them.
+fn build_wad_of(path: &Path, chunk_paths: &[&str], bytes: &[u8]) {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).unwrap();
     }
@@ -22,10 +28,53 @@ fn build_wad(path: &Path, chunk_paths: &[&str]) {
     let mut file = fs::File::create(path).unwrap();
     builder
         .build_to_writer(&mut file, |_path_hash, cursor| {
-            cursor.write_all(&[0xAA; 64])?;
+            cursor.write_all(bytes)?;
             Ok(())
         })
         .unwrap();
+}
+
+/// A WAD whose chunks each hold their own bytes, keyed by the path they were
+/// added under.
+fn build_wad_chunks(path: &Path, chunks: &[(&str, Vec<u8>)]) {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).unwrap();
+    }
+    let mut builder = WadBuilder::default();
+    for (chunk_path, _) in chunks {
+        builder = builder.with_chunk(WadChunkBuilder::default().with_path(*chunk_path));
+    }
+    let mut file = fs::File::create(path).unwrap();
+    builder
+        .build_to_writer(&mut file, |hash, cursor| {
+            let (_, bytes) = chunks
+                .iter()
+                .find(|(chunk_path, _)| WadHash(path_hash(chunk_path)) == hash)
+                .expect("every chunk was built from this list");
+            cursor.write_all(bytes)?;
+            Ok(())
+        })
+        .unwrap();
+}
+
+/// A string as a bin writes it: a little-endian `u16` length, then the bytes.
+fn bin_string(out: &mut Vec<u8>, text: &str) {
+    out.extend_from_slice(&(text.len() as u16).to_le_bytes());
+    out.extend_from_slice(text.as_bytes());
+}
+
+/// Enough of a bin for the name recovery to read paths back out of it.
+///
+/// The recovery parses no structure, so the magic and the length-prefixed
+/// strings are the whole of what it needs.
+fn bin_with(paths: &[&str]) -> Vec<u8> {
+    let mut out = b"PROP".to_vec();
+    out.extend_from_slice(&2u32.to_le_bytes());
+    out.extend_from_slice(&(paths.len() as u32).to_le_bytes());
+    for path in paths {
+        bin_string(&mut out, path);
+    }
+    out
 }
 
 /// The key the `game` table would file this path under, asked of the table
@@ -48,6 +97,7 @@ fn options(destination: &Path) -> ExtractOptions {
         layout: ExtractLayout::Paths,
         per_archive_folder: false,
         existing: ExistingFiles::Skip,
+        recover_names: false,
         kinds: None,
     }
 }
@@ -288,6 +338,45 @@ fn a_chunk_nothing_names_lands_under_its_hex_hash() {
 }
 
 #[test]
+fn a_nameless_chunk_lands_without_the_extension_its_bytes_identify() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out");
+    let dir = final_dir(tmp.path());
+    build_wad_of(
+        &dir.join("Aatrox.wad.client"),
+        &["assets/one.dds"],
+        b"DDS     ",
+    );
+    let archives = GameArchives::at(tmp.path());
+
+    let job = ExtractJob::plan(
+        &[ExtractTarget::Archive {
+            wad: "Aatrox.wad.client".to_owned(),
+        }],
+        None,
+        &GameIndex::build(&archives, &Default::default()).unwrap(),
+        &archives,
+        &names(&[]),
+    )
+    .unwrap();
+    job.run(
+        &options(&out),
+        &Config::default(),
+        &archives,
+        &names(&[]),
+        &NullEventSink,
+        &AtomicBool::new(false),
+    )
+    .unwrap();
+
+    let written: Vec<String> = fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(written, [hash_of("assets/one.dds")]);
+}
+
+#[test]
 fn a_destination_inside_the_install_is_refused() {
     let tmp = tempfile::tempdir().unwrap();
     let dir = final_dir(tmp.path());
@@ -516,4 +605,97 @@ fn a_path_that_does_not_exist_yet_resolves_through_its_parent() {
 
     assert!(is_within(tmp.path(), &tmp.path().join("not/here/yet")));
     assert!(!is_within(&tmp.path().join("a"), &tmp.path().join("b")));
+}
+
+#[test]
+fn a_bin_names_a_chunk_no_hash_table_knows() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out");
+    let dir = final_dir(tmp.path());
+    build_wad_chunks(
+        &dir.join("Aatrox.wad.client"),
+        &[
+            (
+                "assets/data/thing.bin",
+                bin_with(&["assets/found/icon.dds"]),
+            ),
+            ("assets/found/icon.dds", b"DDS     ".to_vec()),
+        ],
+    );
+    let archives = GameArchives::at(tmp.path());
+    /* Only the bin is named, so the chunk it points at is the one the archive
+    has to name for itself. */
+    let resolver = names(&["assets/data/thing.bin"]);
+
+    let job = ExtractJob::plan(
+        &[ExtractTarget::Archive {
+            wad: "Aatrox.wad.client".to_owned(),
+        }],
+        None,
+        &GameIndex::build(&archives, &Default::default()).unwrap(),
+        &archives,
+        &resolver,
+    )
+    .unwrap();
+    let summary = job
+        .run(
+            &ExtractOptions {
+                recover_names: true,
+                ..options(&out)
+            },
+            &Config::default(),
+            &archives,
+            &resolver,
+            &NullEventSink,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+
+    assert_eq!(summary.recovered, 1);
+    assert!(out.join("assets/found/icon.dds").is_file());
+    assert!(!out.join(hash_of("assets/found/icon.dds")).exists());
+}
+
+#[test]
+fn the_bins_are_not_read_for_names_unless_asked() {
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out");
+    let dir = final_dir(tmp.path());
+    build_wad_chunks(
+        &dir.join("Aatrox.wad.client"),
+        &[
+            (
+                "assets/data/thing.bin",
+                bin_with(&["assets/found/icon.dds"]),
+            ),
+            ("assets/found/icon.dds", b"DDS     ".to_vec()),
+        ],
+    );
+    let archives = GameArchives::at(tmp.path());
+    let resolver = names(&["assets/data/thing.bin"]);
+
+    let job = ExtractJob::plan(
+        &[ExtractTarget::Archive {
+            wad: "Aatrox.wad.client".to_owned(),
+        }],
+        None,
+        &GameIndex::build(&archives, &Default::default()).unwrap(),
+        &archives,
+        &resolver,
+    )
+    .unwrap();
+    let summary = job
+        .run(
+            &options(&out),
+            &Config::default(),
+            &archives,
+            &resolver,
+            &NullEventSink,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+
+    assert_eq!(summary.recovered, 0);
+    assert!(out.join(hash_of("assets/found/icon.dds")).is_file());
+    assert!(!out.join("assets/found/icon.dds").exists());
 }

@@ -21,8 +21,8 @@ use std::time::{Duration, Instant};
 use camino::Utf8Path;
 use ltk_file::LeagueFileKind;
 use ltk_wad::{
-    ExistingFilePolicy, ExtractLayout as WadExtractLayout, ExtractReport, Wad, WadExtractor,
-    WadHash,
+    ExistingFilePolicy, ExtractLayout as WadExtractLayout, ExtractReport, NameRecovery,
+    NamingPolicy, PathResolver, RecoveredNames, Wad, WadExtractor, WadHash,
 };
 use serde::{Deserialize, Serialize};
 
@@ -139,6 +139,13 @@ pub struct ExtractOptions {
     pub per_archive_folder: bool,
     #[serde(default)]
     pub existing: ExistingFiles,
+    /// Read the archive's own bins for names no hash table holds.
+    ///
+    /// Off, because a synced cache already names a game archive, and the scan
+    /// reads every bin in one to find the handful it does not. Worth its cost
+    /// where the cache is missing and the bins are the only names there are.
+    #[serde(default)]
+    pub recover_names: bool,
     /// The browser's filter chips. `None` writes every kind.
     #[serde(default)]
     pub kinds: Option<Vec<WorkshopFileKind>>,
@@ -189,6 +196,16 @@ pub struct ExtractSummary {
     pub cancelled: bool,
     /// Names the archives' own bins gave chunks no hash table knew.
     pub recovered: u32,
+    /// Chunks written under a name their resolved path did not give, because a
+    /// directory held that name or another chunk claimed it first.
+    pub renamed: u32,
+    /// Chunks whose resolved path the extraction refused to write, so nothing
+    /// landed for them. A hash table naming a path that escapes the output
+    /// directory is the usual cause.
+    pub rejected: u32,
+    /// Chunks another chunk's path claimed first that went unwritten. Zero
+    /// under a lossless naming policy, which renames them instead.
+    pub duplicates: u32,
     /// The folder written into, for the report's **Open folder**.
     pub destination: String,
 }
@@ -394,6 +411,15 @@ impl ExtractJob {
             let path = archives.archive_path(&work.wad)?;
             let mut archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
 
+            let recovered = if !options.recover_names || work.unnamed.is_empty() {
+                RecoveredNames::default()
+            } else {
+                NameRecovery::new()
+                    .with_cancel_flag(cancel)
+                    .run(&mut archive, resolver)?
+            };
+            let resolver = recovered.over(resolver);
+
             /* Two runs when a kind filter is on and the archive holds chunks
             nothing names. The named ones were filtered by their extension when
             the job was planned, and only the bytes can say what an unnamed one
@@ -407,12 +433,12 @@ impl ExtractJob {
                     &work.wad,
                     None,
                     options,
-                    resolver,
+                    &resolver,
                     events,
                     cancel,
                     &mut state,
                 )?;
-                merge(&mut totals, report);
+                totals.merge(report);
             }
             if !work.unnamed.is_empty() {
                 let report = self.extract_some(
@@ -422,13 +448,14 @@ impl ExtractJob {
                     &work.wad,
                     kinds.as_deref(),
                     options,
-                    resolver,
+                    &resolver,
                     events,
                     cancel,
                     &mut state,
                 )?;
-                merge(&mut totals, report);
+                totals.merge(report);
             }
+            totals.recovered.merge(recovered);
 
             if cancel.load(Ordering::Relaxed) {
                 totals.cancelled = true;
@@ -452,6 +479,9 @@ impl ExtractJob {
             by_kind: by_kind(&totals.by_kind),
             cancelled: totals.cancelled,
             recovered: totals.recovered.len() as u32,
+            renamed: totals.renamed() as u32,
+            rejected: totals.rejected() as u32,
+            duplicates: totals.duplicates() as u32,
             destination: options.destination.clone(),
         })
     }
@@ -466,19 +496,16 @@ impl ExtractJob {
         wad: &str,
         kinds: Option<&[LeagueFileKind]>,
         options: &ExtractOptions,
-        resolver: &WadPathResolver,
+        resolver: &dyn PathResolver,
         events: &dyn EventSink,
         cancel: &AtomicBool,
         state: &mut RunState,
     ) -> AppResult<ExtractReport> {
         let mut extractor = WadExtractor::new(resolver)
             .with_layout(options.layout.into())
+            .with_naming_policy(NamingPolicy::Lossless)
             .with_existing_file_policy(options.existing.into())
             .with_cancel_flag(cancel)
-            /* Left on: it returns before any work when the resolver names every
-            chunk, and it is the whole answer for a machine whose hashtable
-            cache has never been synced. */
-            .with_name_recovery()
             .on_progress(|progress| state.advance(wad, progress, events));
 
         if let Some(kinds) = kinds {
@@ -591,25 +618,6 @@ fn parse_hash(hex: &str) -> AppResult<WadHash> {
 /// folder drops straight onto one.
 fn archive_folder(wad: &str) -> &str {
     wad.rsplit_once('/').map_or(wad, |(_, name)| name)
-}
-
-/// Fold one archive's report into the run's totals.
-///
-/// [`ExtractReport`] is `#[non_exhaustive]`, so the totals are built through
-/// `Default` and added to field by field rather than destructured.
-fn merge(totals: &mut ExtractReport, report: ExtractReport) {
-    totals.extracted += report.extracted;
-    totals.skipped_existing += report.skipped_existing;
-    totals.skipped_by_filter += report.skipped_by_filter;
-    totals.bytes_written += report.bytes_written;
-    totals.missing.extend(report.missing);
-    totals.cancelled |= report.cancelled;
-    for (kind, count) in report.by_kind {
-        *totals.by_kind.entry(kind).or_default() += count;
-    }
-    totals.recovered.names.extend(report.recovered.names);
-    totals.recovered.bins_scanned += report.recovered.bins_scanned;
-    totals.recovered.chunks_sniffed += report.recovered.chunks_sniffed;
 }
 
 /// The by-kind counts as the report shows them, most written first.

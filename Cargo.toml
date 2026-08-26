@@ -13,27 +13,14 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
-# Pinned to a rev until they ship on crates.io. Every league-mod crate must come
-# from the same rev: `ltk_overlay` hands back `ltk_mod_project`, `ltk_modpkg`
-# and `ltk_fantome` types, so a crates.io copy of any of them would be a
-# distinct crate to the compiler.
-ltk_fantome = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
-ltk_mod_project = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5", features = ["modpkg", "fantome"] }
-ltk_modpkg = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
-ltk_overlay = { git = "https://github.com/LeagueToolkit/league-mod", rev = "3533335c1a9aedc951954f0898c854f0041130d5" }
-
-# Pinned to a rev until `ltk_wad` 0.4 ships on crates.io. All three must come
-# from the same rev: the git `ltk_wad` takes `ltk_file` and `ltk_hash` by path,
-# and a `LeagueFileKind` or a `WadHash` out of a git source is a different type
-# to the compiler than the crates.io one of the same version. `ltk_meta` is here
-# rather than on its published 0.6.1 for that reason - it hands back the
-# `WadHash` that a `WadChunkLink` holds, and the game index keys chunks by
-# `ltk_wad`'s. `ltk_overlay` and `ltk_texture` keep the crates.io copy, and
-# nothing hands a file kind across the two.
-ltk_file = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
-ltk_hash = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
-ltk_meta = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f", features = ["serde"] }
-ltk_wad = { git = "https://github.com/LeagueToolkit/league-toolkit", rev = "2beb112ba633712a4dc0e28914231e5117d9ad5f" }
+ltk_fantome = "0.8.0"
+ltk_file = { version = "0.2.11", features = ["serde"] }
+ltk_hash = { version = "0.4.0", features = ["serde"] }
+ltk_meta = { version = "0.6.1", features = ["serde"] }
+ltk_mod_project = { version = "0.7.0", features = ["modpkg", "fantome"] }
+ltk_modpkg = "0.8.0"
+ltk_overlay = "0.7.0"
+ltk_wad = "0.5.2"
 
 ltk_rst = "0.2.1"
 ltk_texture = "0.6.0"
