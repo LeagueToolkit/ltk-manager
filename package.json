@@ -22,6 +22,10 @@
     "generate:licenses": "node scripts/generate-licenses.mjs"
   },
   "lint-staged": {
+    "./Cargo.lock": [
+      "node scripts/generate-licenses.mjs --if-available",
+      "git add public/third-party-licenses.json"
+    ],
     "*.{ts,tsx}": [
       "eslint --fix",
       "prettier --write"

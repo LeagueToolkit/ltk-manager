@@ -94,7 +94,11 @@ jobs:
         with: { node-version: "22" }
       - run: node scripts/generate-licenses.mjs
       - name: Verify committed license manifest is up to date
-        run: git diff --exit-code public/third-party-licenses.json
+        run: |
+          if ! git diff --exit-code public/third-party-licenses.json; then
+            echo "::error file=public/third-party-licenses.json::Stale license manifest. Run 'pnpm generate:licenses' and commit the result."
+            exit 1
+          fi
 
   # release.yml runs on `refs/pull/N/merge`, and a cache written from a pull
   # request ref is readable only by that one pull request. Only the default

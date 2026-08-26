@@ -2,6 +2,10 @@
 // Requires cargo-about (https://github.com/EmbarkStudios/cargo-about):
 //   cargo install cargo-about --locked
 // Configuration (accepted licenses, targets) lives in about.toml.
+//
+// `--if-available` returns without writing when cargo-about is not installed,
+// for the pre-commit hook. The CI job runs without it, so a manifest a hook
+// skipped still fails the pull request that carries it.
 
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -11,6 +15,25 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = join(repoRoot, "public", "third-party-licenses.json");
+
+if (process.argv.includes("--if-available") && !hasCargoAbout()) {
+  console.warn(
+    "cargo-about is not installed, so public/third-party-licenses.json was left as it is.",
+  );
+  console.warn("Install it with `cargo install cargo-about --locked`, or let CI regenerate it.");
+  process.exit(0);
+}
+
+/* Probed rather than inferred from a failed generate, so that a cargo-about
+   that is installed and then fails still stops the commit. */
+function hasCargoAbout() {
+  try {
+    execFileSync("cargo", ["about", "--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // cargo-about refuses to write JSON to stdout under PowerShell, so go through a temp file
 const tempDir = mkdtempSync(join(tmpdir(), "cargo-about-"));
