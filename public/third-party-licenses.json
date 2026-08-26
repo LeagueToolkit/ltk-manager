@@ -2114,7 +2114,7 @@
     },
     {
       "name": "ltk_fantome",
-      "version": "0.6.1",
+      "version": "0.8.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2122,7 +2122,7 @@
     },
     {
       "name": "ltk_file",
-      "version": "0.2.10",
+      "version": "0.2.11",
       "licenses": [
         40
       ]
@@ -2174,7 +2174,7 @@
     },
     {
       "name": "ltk_mod_project",
-      "version": "0.5.0",
+      "version": "0.7.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2182,7 +2182,7 @@
     },
     {
       "name": "ltk_modpkg",
-      "version": "0.6.0",
+      "version": "0.8.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2190,7 +2190,7 @@
     },
     {
       "name": "ltk_overlay",
-      "version": "0.5.2",
+      "version": "0.7.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2219,7 +2219,7 @@
     },
     {
       "name": "ltk_wad",
-      "version": "0.3.1",
+      "version": "0.5.2",
       "licenses": [
         40
       ]
@@ -2722,7 +2722,7 @@
     },
     {
       "name": "proc-macro-crate",
-      "version": "1.3.1",
+      "version": "3.5.0",
       "url": "https://github.com/bkchr/proc-macro-crate",
       "licenses": [
         34
@@ -3803,7 +3803,7 @@
     },
     {
       "name": "toml_edit",
-      "version": "0.19.15",
+      "version": "0.22.27",
       "url": "https://github.com/toml-rs/toml",
       "licenses": [
         12
@@ -3811,7 +3811,7 @@
     },
     {
       "name": "toml_edit",
-      "version": "0.22.27",
+      "version": "0.25.13+spec-1.1.0",
       "url": "https://github.com/toml-rs/toml",
       "licenses": [
         12
@@ -4448,14 +4448,6 @@
       "url": "https://github.com/microsoft/windows-rs",
       "licenses": [
         3
-      ]
-    },
-    {
-      "name": "winnow",
-      "version": "0.5.40",
-      "url": "https://github.com/winnow-rs/winnow",
-      "licenses": [
-        116
       ]
     },
     {
