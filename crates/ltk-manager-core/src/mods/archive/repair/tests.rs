@@ -298,3 +298,46 @@ fn a_refused_property_leaves_the_mod_repairable() {
         ModHealth::Repairable
     );
 }
+
+/// Story: a run called off leaves the mods it never reached with no verdict at
+/// all, so the next sweep picks them up rather than trusting a partial answer.
+#[test]
+fn a_cancelled_run_records_no_verdict_for_the_mods_it_did_not_reach() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    for slug in ["first-mod", "second-mod"] {
+        place_bin_project_mod(storage.path(), slug, &stale_bin());
+    }
+    seed_library(
+        &library,
+        &config,
+        vec![
+            make_slugged_entry("id-1", "first-mod", ModArchiveFormat::Fantome),
+            make_slugged_entry("id-2", "second-mod", ModArchiveFormat::Fantome),
+        ],
+    );
+
+    library.cancel_mod_health_run();
+    let cancelled = library.clone();
+    // Cancelled the moment the run installs its budget, which is before the
+    // first mod is picked up.
+    std::thread::spawn(move || {
+        for _ in 0..200 {
+            cancelled.cancel_mod_health_run();
+            std::thread::yield_now();
+        }
+    });
+
+    let report = library.repair_mods(&config, &["id-1".to_string(), "id-2".to_string()]);
+
+    assert!(
+        report.repaired.is_empty() && report.failed.is_empty(),
+        "a cancelled mod is neither repaired nor failed: {report:?}"
+    );
+    assert_eq!(report.cancelled.len(), 2);
+    assert!(
+        library.mod_health_verdicts(&config).unwrap().is_empty(),
+        "a cancelled run concluded nothing, so it recorded nothing"
+    );
+}

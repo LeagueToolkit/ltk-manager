@@ -96,6 +96,9 @@ pub struct ModLibrary {
     /// What the mod health sweep has to say, kept for the same reason
     /// `layout_migration` is.
     health_sweep: Arc<Mutex<HealthSweepState>>,
+    /// The budget the check or repair now running spends, for a cancel to
+    /// reach. `None` between runs.
+    health_budget: Arc<Mutex<Option<crate::problems::Budget>>>,
     index_lock: Arc<Mutex<()>>,
     /// Serializes the read-modify-write of `mod-health-verdicts.json`.
     ///
@@ -120,6 +123,7 @@ impl Clone for ModLibrary {
             wad_resolver: Arc::clone(&self.wad_resolver),
             layout_migration: Arc::clone(&self.layout_migration),
             health_sweep: Arc::clone(&self.health_sweep),
+            health_budget: Arc::clone(&self.health_budget),
             index_lock: Arc::clone(&self.index_lock),
             verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
@@ -145,6 +149,7 @@ impl ModLibrary {
             wad_resolver,
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
             health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
+            health_budget: Arc::new(Mutex::new(None)),
             index_lock: Arc::new(Mutex::new(())),
             verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
@@ -167,6 +172,40 @@ impl ModLibrary {
 
     pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
         &self.verdict_lock
+    }
+
+    /// Take `budget` as the run now under way, so a cancel can reach it.
+    ///
+    /// A second run started while one is going replaces it. Two library-wide
+    /// health runs at once is not a thing any surface offers, and the newer one
+    /// is the one a user would mean.
+    pub(in crate::mods) fn begin_health_run(
+        &self,
+        budget: crate::problems::Budget,
+    ) -> crate::problems::Budget {
+        if let Ok(mut held) = self.health_budget.lock() {
+            *held = Some(budget.clone());
+        }
+        budget
+    }
+
+    /// Forget the run's budget, so a later cancel cancels nothing.
+    pub(in crate::mods) fn end_health_run(&self) {
+        if let Ok(mut held) = self.health_budget.lock() {
+            *held = None;
+        }
+    }
+
+    /// Call off the check or repair now running, if one is.
+    ///
+    /// Every worker stops at its next file. A mod the run had not finished
+    /// records no verdict, so the next sweep picks it up.
+    pub fn cancel_mod_health_run(&self) {
+        if let Ok(held) = self.health_budget.lock()
+            && let Some(budget) = held.as_ref()
+        {
+            budget.cancel();
+        }
     }
 
     /// Drop what the overlay builder cached about these mods.

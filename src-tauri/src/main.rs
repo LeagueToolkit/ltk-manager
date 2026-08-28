@@ -91,6 +91,7 @@ fn main() {
             commands::repair_mod,
             commands::repair_mods,
             commands::get_mod_health_verdicts,
+            commands::cancel_mod_health_run,
             commands::get_health_sweep,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,

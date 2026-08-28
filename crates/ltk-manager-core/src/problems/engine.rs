@@ -17,6 +17,7 @@ use crate::error::AppResult;
 use crate::workshop::layer;
 use crate::workshop::{ProjectDir, WorkshopFileKind};
 
+use super::budget::Budget;
 use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
 
 /// The directory a project keeps its layers under.
@@ -37,6 +38,7 @@ pub struct ProjectFiles {
     layers: Vec<LayerFiles>,
     build: Option<GameBuild>,
     names: BinNames,
+    budget: Budget,
 }
 
 impl ProjectFiles {
@@ -47,6 +49,15 @@ impl ProjectFiles {
     /// Reports a project whose `content/` directory cannot be read at all. An
     /// unreadable file inside it is skipped and logged, never fatal.
     pub fn read(project_root: &Path, config: &Config) -> AppResult<Self> {
+        Self::within(project_root, config, Budget::repair())
+    }
+
+    /// [`read`](Self::read) under a caller's own budget.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`read`](Self::read).
+    pub fn within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
         let layers = if content_dir.exists() {
             layer::dirs_in(&content_dir)?
@@ -68,6 +79,7 @@ impl ProjectFiles {
             layers,
             build: GameBuild::installed(config),
             names: BinNames::open(),
+            budget,
         })
     }
 
@@ -93,6 +105,15 @@ impl ProjectFiles {
     #[must_use]
     pub fn names(&self) -> &BinNames {
         &self.names
+    }
+
+    /// The memory this run may hold parsed at once, and its cancel flag.
+    ///
+    /// A rule fans its own files out through this rather than over a pool of
+    /// its own, so every rule of every mod in flight spends one allowance.
+    #[must_use]
+    pub fn budget(&self) -> &Budget {
+        &self.budget
     }
 
     /// Every file of every layer that reports `kind`.
@@ -232,6 +253,12 @@ impl<'a> BinHandle<'a> {
         &self.file.path
     }
 
+    /// The bin's size on disk, which is what a budget is spent in.
+    #[must_use]
+    pub fn size_bytes(&self) -> u64 {
+        self.file.size_bytes
+    }
+
     /// Where the bin sits on disk.
     #[must_use]
     pub fn absolute(&self) -> PathBuf {
@@ -267,10 +294,19 @@ pub struct ProjectFile {
 /// be read. A rule that fails is recorded in [`Run::failed`] rather than
 /// failing the run.
 pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
+    analyze_within(project_root, config, Budget::repair())
+}
+
+/// [`analyze`] under a caller's own budget.
+///
+/// # Errors
+///
+/// The same as [`analyze`].
+pub fn analyze_within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Run> {
     let started = Instant::now();
 
     let project = ProjectDir::open(project_root)?;
-    let files = ProjectFiles::read(project.path(), config)?;
+    let files = ProjectFiles::within(project.path(), config, budget)?;
     let at = Utc::now();
 
     let mut report = Report::default();
@@ -305,7 +341,7 @@ pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
 
     let objects = ObjectInfo::catalogue(&problems, files.names());
 
-    tracing::debug!(
+    tracing::trace!(
         "Analyzed {} files of {}: {} problems, {} rule failures, in {:?}",
         files.file_count(),
         project.path().display(),

@@ -6,4 +6,13 @@
  * Its own payload rather than [`HealthSweepProgress`] reused: the two run at
  * different moments and a surface drawing one must not be driven by the other.
  */
-export type ModRepairProgress = { current: number, total: number, modId: string, };
+export type ModRepairProgress = { 
+/**
+ * Mods the run has finished, however they turned out.
+ */
+completed: number, total: number, 
+/**
+ * The mods being repaired right now, by id. Several, because a repair
+ * works on more than one at a time.
+ */
+inFlight: Array<string>, };

@@ -18,6 +18,13 @@ unchanged: Array<string>,
  */
 failed: Array<ModRepairFailure>, 
 /**
+ * Mods the run was called off before it finished, by id.
+ *
+ * Neither repaired nor failed: nothing was concluded about them, and the
+ * next sweep picks them up.
+ */
+cancelled: Array<string>, 
+/**
  * Findings repaired across every mod.
  */
 applied: number, };

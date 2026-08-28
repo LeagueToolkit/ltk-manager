@@ -13,8 +13,9 @@ use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
+use crate::mods::health::cancelled;
 use crate::mods::index::ModStorage;
-use crate::problems::{self, FixReport};
+use crate::problems::{self, Budget, FixReport, budget};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
@@ -35,6 +36,11 @@ pub struct LibraryRepairReport {
     pub unchanged: Vec<String>,
     /// Mods that could not be repaired, and why.
     pub failed: Vec<ModRepairFailure>,
+    /// Mods the run was called off before it finished, by id.
+    ///
+    /// Neither repaired nor failed: nothing was concluded about them, and the
+    /// next sweep picks them up.
+    pub cancelled: Vec<String>,
     /// Findings repaired across every mod.
     pub applied: u32,
 }
@@ -63,6 +69,25 @@ impl ModLibrary {
     /// Fails when the mod is not in the library, has faulted, or is stored as
     /// an archive it does not have or that has no unpacked form.
     pub fn repair_mod(&self, config: &Config, mod_id: &str) -> AppResult<FixReport> {
+        let budget = self.begin_health_run(Budget::repair());
+        let repaired = self.repair_mod_within(config, mod_id, &budget);
+        self.end_health_run();
+        repaired
+    }
+
+    /// [`repair_mod`](Self::repair_mod) under a caller's own budget.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`repair_mod`](Self::repair_mod), plus a run called off
+    /// before this mod was finished.
+    fn repair_mod_within(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        budget: &Budget,
+    ) -> AppResult<FixReport> {
+        let started = std::time::Instant::now();
         let storage_dir = self.storage_dir(config)?;
         let entry = self.with_index(config, |_storage_dir, index| {
             index
@@ -82,7 +107,7 @@ impl ModLibrary {
         let (report, checked) = match entry.storage {
             ModStorage::Project => {
                 let mod_dir = entry.mod_dir(&storage_dir);
-                let run = problems::analyze(&mod_dir, config)?;
+                let run = problems::analyze_within(&mod_dir, config, budget.clone())?;
                 let wanted = run.live_fixable();
                 let resolver = self.wad_resolver();
                 let report =
@@ -96,11 +121,17 @@ impl ModLibrary {
                     .join("mods")
                     .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
                 fs::create_dir_all(&staging)?;
-                let outcome = self.repair_in_staging(config, &staging, &archive);
+                let outcome = self.repair_in_staging(config, &staging, &archive, budget);
                 let _ = fs::remove_dir_all(&staging);
                 outcome?
             }
         };
+
+        // A run called off part way read only some of the mod's bins, so the
+        // verdict it would record is a claim about a check that did not happen.
+        if budget.is_cancelled() {
+            return Err(cancelled(mod_id));
+        }
 
         // The repair just analyzed the mod either way, so the verdict the
         // badge reads is refreshed here rather than by a second scan.
@@ -110,8 +141,20 @@ impl ModLibrary {
 
         if report.applied > 0 {
             self.invalidate_overlay_for(&storage_dir, &[mod_id.to_string()]);
-            tracing::info!("Repaired mod {mod_id}: {} fixes applied", report.applied);
         }
+
+        // Led by the slug, because a uuid in a log is a name nobody can map
+        // back to a mod they installed.
+        tracing::debug!(
+            "{} repaired in {:?}: {} files, {} applied, {} skipped, {} names kept, {} left",
+            entry.slug.as_ref().map_or(mod_id, |slug| slug.as_str()),
+            started.elapsed(),
+            report.files.len(),
+            report.applied,
+            report.skipped,
+            report.names_kept,
+            report.remaining.len()
+        );
 
         Ok(report)
     }
@@ -121,37 +164,60 @@ impl ModLibrary {
     /// One mod that cannot be repaired is recorded and stepped over rather than
     /// ending the run.
     pub fn repair_mods(&self, config: &Config, mod_ids: &[String]) -> LibraryRepairReport {
+        let started = std::time::Instant::now();
+        tracing::info!("Repairing {} mods", mod_ids.len());
+
+        let budget = self.begin_health_run(Budget::repair());
+        let progress = RunProgress::new(mod_ids.len());
+        // Weightless at this level: what a mod costs is what its bins cost, and
+        // the inner pool is what reserves for those. This bound is how many
+        // mods are open at once.
+        let outcomes = budget.map(
+            mod_ids,
+            budget::MODS_AT_ONCE,
+            |_| 0,
+            |mod_id| {
+                progress.begin(mod_id, |at| {
+                    self.events().emit(BackendEvent::ModRepairProgress(at));
+                });
+                let repaired = self.repair_mod_within(config, mod_id, &budget);
+                progress.end(mod_id, |at| {
+                    self.events().emit(BackendEvent::ModRepairProgress(at));
+                });
+                repaired
+            },
+        );
+        self.end_health_run();
+
         let mut report = LibraryRepairReport::default();
-
-        for (i, mod_id) in mod_ids.iter().enumerate() {
-            self.events()
-                .emit(BackendEvent::ModRepairProgress(ModRepairProgress {
-                    current: i + 1,
-                    total: mod_ids.len(),
-                    mod_id: mod_id.clone(),
-                }));
-
-            match self.repair_mod(config, mod_id) {
-                Ok(fixes) if fixes.applied > 0 => {
+        for (mod_id, outcome) in mod_ids.iter().zip(outcomes) {
+            match outcome {
+                Some(Ok(fixes)) if fixes.applied > 0 => {
                     report.applied += fixes.applied;
                     report.repaired.push(mod_id.clone());
                 }
-                Ok(_) => report.unchanged.push(mod_id.clone()),
-                Err(e) => {
+                Some(Ok(_)) => report.unchanged.push(mod_id.clone()),
+                Some(Err(_)) if budget.is_cancelled() => report.cancelled.push(mod_id.clone()),
+                Some(Err(e)) => {
                     tracing::warn!("Could not repair mod {mod_id}: {e}");
                     report.failed.push(ModRepairFailure {
                         mod_id: mod_id.clone(),
                         error: e.to_string(),
                     });
                 }
+                None => report.cancelled.push(mod_id.clone()),
             }
         }
 
         tracing::info!(
-            "Repaired {} of {} mods, {} findings applied",
+            "Repaired {} of {} mods in {:?}: {} findings applied, {} unchanged, {} failed, {} cancelled",
             report.repaired.len(),
             mod_ids.len(),
-            report.applied
+            started.elapsed(),
+            report.applied,
+            report.unchanged.len(),
+            report.failed.len(),
+            report.cancelled.len()
         );
         report
     }
@@ -166,9 +232,10 @@ impl ModLibrary {
         config: &Config,
         staging: &Path,
         archive: &Path,
+        budget: &Budget,
     ) -> AppResult<(FixReport, problems::Run)> {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
-        let run = problems::analyze(staging, config)?;
+        let run = problems::analyze_within(staging, config, budget.clone())?;
         let wanted = run.live_fixable();
         let resolver = self.wad_resolver();
         let report = problems::apply(staging, &run, &wanted, config, Some(resolver.as_ref()))?;
@@ -206,6 +273,62 @@ impl ModLibrary {
             )
             .map_err(|e| AppError::Other(format!("Failed to import fantome archive: {e}")))?;
         Ok(staging_utf8)
+    }
+}
+
+/// How far a run over several mods has got, as its workers report it.
+///
+/// A concurrent run has no single "current mod" to name, so what it reports is
+/// what is finished and what is open right now.
+#[derive(Debug)]
+struct RunProgress {
+    total: usize,
+    completed: std::sync::atomic::AtomicUsize,
+    in_flight: std::sync::Mutex<Vec<String>>,
+}
+
+impl RunProgress {
+    fn new(total: usize) -> Self {
+        Self {
+            total,
+            completed: std::sync::atomic::AtomicUsize::new(0),
+            in_flight: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    /// Report that `mod_id` has been picked up.
+    fn begin(&self, mod_id: &str, emit: impl FnOnce(ModRepairProgress)) {
+        if let Ok(mut open) = self.in_flight.lock() {
+            open.push(mod_id.to_owned());
+        }
+        emit(self.at());
+    }
+
+    /// Report that `mod_id` is done, however it turned out.
+    fn end(&self, mod_id: &str, emit: impl FnOnce(ModRepairProgress)) {
+        self.completed
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if let Ok(mut open) = self.in_flight.lock()
+            && let Some(at) = open.iter().position(|held| held == mod_id)
+        {
+            open.remove(at);
+        }
+        emit(self.at());
+    }
+
+    fn at(&self) -> ModRepairProgress {
+        ModRepairProgress {
+            completed: self
+                .completed
+                .load(std::sync::atomic::Ordering::Relaxed)
+                .min(self.total),
+            total: self.total,
+            in_flight: self
+                .in_flight
+                .lock()
+                .map(|open| open.clone())
+                .unwrap_or_default(),
+        }
     }
 }
 

@@ -44,9 +44,11 @@ export function useHealthSweep(): HealthSweepState | undefined {
   useTauriEvent<HealthSweepProgress>("health-sweep-progress", (progress) => {
     task.current ??= toast.task("Checking your mods");
 
-    const name = mods.find((mod) => mod.id === progress.modId)?.displayName ?? progress.modId;
-    const percent = progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
-    task.current.report(percent, `${progress.current} of ${progress.total} - ${name}`);
+    const [id] = progress.inFlight;
+    const name = id ? (mods.find((mod) => mod.id === id)?.displayName ?? id) : "";
+    const percent = progress.total > 0 ? (progress.completed / progress.total) * 100 : 0;
+    const of = `${progress.completed} of ${progress.total}`;
+    task.current.report(percent, name ? `${of} - ${name}` : of);
   });
 
   useTauriEvent("health-sweep-finished", () => {

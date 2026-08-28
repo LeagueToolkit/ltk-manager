@@ -145,7 +145,7 @@ describe("ModHealthSweepDrawer", () => {
      top of it would cover the list to report on it. */
   it("hosts the running repair where its own button was", () => {
     run.isRepairing = true;
-    run.progress = { current: 7, total: 18, modId: "a" };
+    run.progress = { completed: 7, total: 18, inFlight: ["a"] };
     show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
 
     expect(screen.getByText("Repairing Charizard Smolder")).toBeInTheDocument();
@@ -153,9 +153,26 @@ describe("ModHealthSweepDrawer", () => {
     expect(screen.queryByRole("button", { name: /^Repair \d/ })).not.toBeInTheDocument();
   });
 
+  /* A run reads several mods at once, and the row is one line wide. */
+  it("names one of the mods in flight and counts the rest", () => {
+    run.isRepairing = true;
+    run.progress = { completed: 2, total: 18, inFlight: ["a", "b", "c"] };
+    show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+
+    expect(screen.getByText("Repairing Charizard Smolder and 2 more")).toBeInTheDocument();
+  });
+
+  it("names the run itself while it is between mods", () => {
+    run.isRepairing = true;
+    run.progress = { completed: 18, total: 18, inFlight: [] };
+    show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+
+    expect(screen.getByText("Repairing your mods")).toBeInTheDocument();
+  });
+
   it("names a mod the library has since dropped by its id", () => {
     run.isRepairing = true;
-    run.progress = { current: 1, total: 2, modId: "ghost-id" };
+    run.progress = { completed: 1, total: 2, inFlight: ["ghost-id"] };
     show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
 
     expect(screen.getByText("Repairing ghost-id")).toBeInTheDocument();

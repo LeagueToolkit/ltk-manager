@@ -206,15 +206,17 @@ function RepairSection({ verdicts, run }: { verdicts: ModHealthVerdict[]; run: R
  */
 function RepairProgress({ progress }: { progress: ModRepairProgress }) {
   const { data: mods = [] } = useInstalledMods();
-  const name = mods.find((mod) => mod.id === progress.modId)?.displayName ?? progress.modId;
+  const names = progress.inFlight.map((id) => mods.find((mod) => mod.id === id)?.displayName ?? id);
 
   return (
     <div className="shrink-0 rounded-b-xl border border-accent-500/35 bg-accent-500/15 px-3 py-2 select-none">
-      <Progress.Root value={progress.current} max={progress.total}>
+      <Progress.Root value={progress.completed} max={progress.total}>
         <div className="mb-1.5 flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium text-surface-100">Repairing {name}</span>
+          <span className="truncate text-xs font-medium text-surface-100">
+            {repairingLabel(names)}
+          </span>
           <span className="shrink-0 text-xs text-surface-300 tabular-nums">
-            {progress.current} / {progress.total}
+            {progress.completed} / {progress.total}
           </span>
         </div>
         <Progress.Track size="sm">
@@ -223,6 +225,19 @@ function RepairProgress({ progress }: { progress: ModRepairProgress }) {
       </Progress.Root>
     </div>
   );
+}
+
+/**
+ * What a run working on several mods at once calls itself.
+ *
+ * One name and a count of the rest, rather than a list: the row is one line
+ * wide and three mod names do not fit in it. A run between mods names none.
+ */
+function repairingLabel(names: string[]) {
+  const [first, ...rest] = names;
+  if (!first) return "Repairing your mods";
+  if (rest.length === 0) return `Repairing ${first}`;
+  return `Repairing ${first} and ${rest.length} more`;
 }
 
 /**

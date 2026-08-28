@@ -9,4 +9,4 @@ import type { HealthSweepReport } from "./HealthSweepReport";
  * emitted — the same reason
  * [`LayoutMigrationState`](crate::mods::LayoutMigrationState) is kept.
  */
-export type HealthSweepState = { "status": "pending" } | { "status": "idle" } | { "status": "running", current: number, total: number, } | { "status": "finished", report: HealthSweepReport, };
+export type HealthSweepState = { "status": "pending" } | { "status": "idle" } | { "status": "running", completed: number, total: number, } | { "status": "finished", report: HealthSweepReport, };

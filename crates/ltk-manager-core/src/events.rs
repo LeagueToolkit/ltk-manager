@@ -124,9 +124,12 @@ pub struct LayoutMigrationProgress {
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct HealthSweepProgress {
-    pub current: usize,
+    /// Mods the sweep has finished, however they turned out.
+    pub completed: usize,
     pub total: usize,
-    pub mod_id: String,
+    /// The mods being read right now, by id. Several, because the sweep reads
+    /// more than one at a time.
+    pub in_flight: Vec<String>,
 }
 
 /// Progress of a repair over several mods, emitted per mod.
@@ -138,9 +141,12 @@ pub struct HealthSweepProgress {
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ModRepairProgress {
-    pub current: usize,
+    /// Mods the run has finished, however they turned out.
+    pub completed: usize,
     pub total: usize,
-    pub mod_id: String,
+    /// The mods being repaired right now, by id. Several, because a repair
+    /// works on more than one at a time.
+    pub in_flight: Vec<String>,
 }
 
 /// Stage of a fantome import.

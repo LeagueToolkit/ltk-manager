@@ -16,6 +16,7 @@
 //! them - so a file changed between the run and the fix cannot be written
 //! wrong, and a fix offered twice applies once.
 
+pub mod budget;
 pub mod build;
 mod engine;
 mod fix;
@@ -30,8 +31,9 @@ use chrono::{DateTime, Utc};
 use ltk_hash::BinHash;
 use serde::{Deserialize, Serialize};
 
+pub use budget::Budget;
 pub use build::GameBuild;
-pub use engine::{BinHandle, LayerFiles, ProjectFile, ProjectFiles, analyze};
+pub use engine::{BinHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_within};
 pub use fix::{FileOutcome, FixError, FixReport, FixRun, apply};
 pub use names::BinNames;
 pub use preserve::{Preserved, PreservedNames};

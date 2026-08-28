@@ -245,9 +245,11 @@ fn a_sweep_announces_its_progress_and_its_result_only_when_it_ran() {
     seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
 
     library.sweep_mod_health(&config).unwrap();
+    // One mod is picked up and then finished, so it is reported twice.
     assert_eq!(
         events.names(),
         vec![
+            "health-sweep-progress",
             "health-sweep-progress",
             "mod-health-verdicts-updated",
             "health-sweep-finished",
@@ -255,7 +257,13 @@ fn a_sweep_announces_its_progress_and_its_result_only_when_it_ran() {
     );
     assert_matches!(
         events.events().first().unwrap(),
-        BackendEvent::HealthSweepProgress(progress) if progress.total == 1 && progress.mod_id == "id-1"
+        BackendEvent::HealthSweepProgress(progress)
+            if progress.total == 1 && progress.completed == 0 && progress.in_flight == ["id-1"]
+    );
+    assert_matches!(
+        &events.events()[1],
+        BackendEvent::HealthSweepProgress(progress)
+            if progress.completed == 1 && progress.in_flight.is_empty()
     );
 
     let quiet = Arc::new(RecordingEventSink::default());

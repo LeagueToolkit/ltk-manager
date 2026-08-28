@@ -34,6 +34,7 @@ use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, values};
 
+use crate::problems::budget;
 use crate::problems::names::{self, BinNames};
 use crate::problems::{
     Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Preserved,
@@ -44,6 +45,13 @@ use table::{Conversion, Migration, MigrationTable};
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/property-type");
+
+/// How much of the budget one bin costs, as a multiple of its size on disk.
+///
+/// `ltk_meta` reads a bin into typed nodes, which is several times the bytes it
+/// came from. Deliberately generous: an estimate that is too high costs the run
+/// some concurrency, and one that is too low costs the machine its memory.
+const BIN_EXPANSION: u64 = 8;
 
 /// Repairs the properties Riot changed to `File`.
 #[derive(Debug, Default)]
@@ -111,44 +119,34 @@ impl Rule for BinPropertyType {
             names: project.names(),
         };
 
-        for handle in project.bins() {
-            let bin = match handle.read() {
-                Ok(bin) => bin,
-                Err(e) => {
-                    report.failure(ID, Some(Site::file(handle.layer(), handle.path())), e);
-                    continue;
-                }
-            };
+        // Each bin is read, parsed and checked on its own worker, and only
+        // the findings come back - a `Hit` borrows the parse that made it, and
+        // that parse is what the budget is holding.
+        let handles: Vec<_> = project.bins().collect();
+        let read = project.budget().map(
+            &handles,
+            budget::files_at_once(),
+            |handle| handle.size_bytes().saturating_mul(BIN_EXPANSION),
+            |handle| findings_of(handle, project, lens),
+        );
 
-            for (entry, hit) in check_bin(&bin, lens) {
-                let severity = severity(project.build(), hit.table_build);
-                let fix = (!bin.is_override)
-                    .then(|| preview(hit.migration, hit.value))
-                    .flatten();
-                report.problem(
-                    ID,
-                    severity,
-                    Site::node(
-                        handle.layer(),
-                        handle.path(),
-                        NodeAddress {
-                            entry,
-                            label: hit.address.label(),
-                            path: hit.address.hashes,
-                        },
-                    ),
-                    Detail {
-                        mismatch: Some(mismatch(hit.migration)),
-                        message: note(
-                            hit.migration,
-                            hit.value,
-                            project.build(),
-                            hit.table_build,
-                            &bin,
-                        ),
-                        fix,
-                    },
-                );
+        for (handle, found) in handles.iter().zip(read) {
+            let site = || Site::file(handle.layer(), handle.path());
+            match found {
+                Some(Ok(findings)) => {
+                    for finding in findings {
+                        report.problem(
+                            ID,
+                            finding.severity,
+                            Site::node(handle.layer(), handle.path(), finding.node),
+                            finding.detail,
+                        );
+                    }
+                }
+                Some(Err(e)) => report.failure(ID, Some(site()), e),
+                /* Cancelled before this file was reached. Saying nothing about
+                it is what keeps a partial run from reading as a clean one. */
+                None => report.failure(ID, Some(site()), "The check was cancelled"),
             }
         }
     }
@@ -332,6 +330,59 @@ impl Trail {
     fn hashes(&self) -> String {
         self.address(&BinNames::none()).hashes
     }
+}
+
+/// One finding of one bin, owned so it can outlive the parse that found it.
+struct Finding {
+    node: NodeAddress,
+    severity: Severity,
+    detail: Detail,
+}
+
+/// Read one bin and report everything the tables object to in it.
+fn findings_of(
+    handle: &crate::problems::BinHandle<'_>,
+    project: &ProjectFiles,
+    lens: Lens<'_>,
+) -> Result<Vec<Finding>, String> {
+    let started = std::time::Instant::now();
+    let bin = handle.read()?;
+    let parsed = started.elapsed();
+
+    let found = check_bin(&bin, lens)
+        .into_iter()
+        .map(|(entry, hit)| Finding {
+            node: NodeAddress {
+                entry,
+                label: hit.address.label(),
+                path: hit.address.hashes,
+            },
+            severity: severity(project.build(), hit.table_build),
+            detail: Detail {
+                mismatch: Some(mismatch(hit.migration)),
+                message: note(
+                    hit.migration,
+                    hit.value,
+                    project.build(),
+                    hit.table_build,
+                    &bin,
+                ),
+                fix: (!bin.is_override)
+                    .then(|| preview(hit.migration, hit.value))
+                    .flatten(),
+            },
+        })
+        .collect::<Vec<_>>();
+
+    tracing::trace!(
+        "{}/{}: {} bytes parsed in {parsed:?}, {} findings in {:?}",
+        handle.layer(),
+        handle.path(),
+        handle.size_bytes(),
+        found.len(),
+        started.elapsed() - parsed
+    );
+    Ok(found)
 }
 
 /// The path to one node, written out.

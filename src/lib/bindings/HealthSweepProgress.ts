@@ -7,4 +7,13 @@
  * every mod's name, and looking one up here would mean a `mod.config.json`
  * read per mod on top of the check itself.
  */
-export type HealthSweepProgress = { current: number, total: number, modId: string, };
+export type HealthSweepProgress = { 
+/**
+ * Mods the sweep has finished, however they turned out.
+ */
+completed: number, total: number, 
+/**
+ * The mods being read right now, by id. Several, because the sweep reads
+ * more than one at a time.
+ */
+inFlight: Array<string>, };

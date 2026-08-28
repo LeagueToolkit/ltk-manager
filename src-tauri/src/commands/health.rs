@@ -68,6 +68,17 @@ pub async fn repair_mods(
     .await
 }
 
+/// Call off the check or repair now running, if one is.
+///
+/// A mod the run had not finished records no verdict, so the next sweep picks
+/// it up. Synchronous: it sets a flag the workers read.
+#[tauri::command]
+pub fn cancel_mod_health_run(library: State<ModLibraryState>) -> IpcResult<()> {
+    library.0.cancel_mod_health_run();
+    let result: AppResult<()> = Ok(());
+    result.into()
+}
+
 /// What the mod health sweep has to say for itself this launch.
 #[tauri::command]
 pub fn get_health_sweep(library: State<ModLibraryState>) -> IpcResult<HealthSweepState> {

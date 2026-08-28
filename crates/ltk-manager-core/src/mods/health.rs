@@ -13,7 +13,7 @@ use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModStorage};
-use crate::problems::{self, Counts, GameBuild, Run};
+use crate::problems::{self, Budget, Counts, GameBuild, Run};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -96,6 +96,24 @@ impl ModLibrary {
     /// Fails when the mod is not in the library, has faulted, or its content
     /// cannot be read.
     pub fn check_mod_health(&self, config: &Config, mod_id: &str) -> AppResult<ModHealthVerdict> {
+        self.check_mod_health_within(config, mod_id, &Budget::repair())
+    }
+
+    /// [`check_mod_health`](Self::check_mod_health) under a caller's own budget.
+    ///
+    /// A run called off part way records no verdict at all, so the next sweep
+    /// picks the mod up rather than trusting a check that did not finish.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`check_mod_health`](Self::check_mod_health), plus a run
+    /// that was cancelled before this mod was finished.
+    pub(in crate::mods) fn check_mod_health_within(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        budget: &Budget,
+    ) -> AppResult<ModHealthVerdict> {
         let storage_dir = self.storage_dir(config)?;
         let entry = self.with_index(config, |_storage_dir, index| {
             index
@@ -111,7 +129,10 @@ impl ModLibrary {
             ));
         }
 
-        let run = self.run_over(config, &storage_dir, &entry)?;
+        let run = self.run_over(config, &storage_dir, &entry, budget)?;
+        if budget.is_cancelled() {
+            return Err(cancelled(mod_id));
+        }
         self.record_health_check(config, &storage_dir, mod_id, &run)
     }
 
@@ -203,9 +224,12 @@ impl ModLibrary {
         config: &Config,
         storage_dir: &Path,
         entry: &LibraryModEntry,
+        budget: &Budget,
     ) -> AppResult<Run> {
         match entry.storage {
-            ModStorage::Project => problems::analyze(&entry.mod_dir(storage_dir), config),
+            ModStorage::Project => {
+                problems::analyze_within(&entry.mod_dir(storage_dir), config, budget.clone())
+            }
             ModStorage::Archive => {
                 let archive = entry.convertible_archive(storage_dir)?;
                 let staging = storage_dir
@@ -214,7 +238,7 @@ impl ModLibrary {
                 fs::create_dir_all(&staging)?;
                 let run = self
                     .unpack_for_rules(&staging, &archive)
-                    .and_then(|_| problems::analyze(&staging, config));
+                    .and_then(|_| problems::analyze_within(&staging, config, budget.clone()));
                 let _ = fs::remove_dir_all(&staging);
                 run
             }
@@ -249,6 +273,14 @@ impl ModHealthVerdict {
             basis,
         }
     }
+}
+
+/// The error a mod the run never finished reports.
+///
+/// Its own sentence rather than a silent skip: a caller counting what it asked
+/// for has to be able to tell a mod that was called off from one that failed.
+pub(in crate::mods) fn cancelled(mod_id: &str) -> AppError {
+    AppError::ValidationFailed(format!("The run was cancelled before {mod_id} finished"))
 }
 
 /// On-disk shape of `mod-health-verdicts.json`.

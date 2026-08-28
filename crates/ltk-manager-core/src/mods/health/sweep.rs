@@ -8,6 +8,7 @@ use crate::error::{AppResult, MutexResultExt};
 use crate::events::{BackendEvent, HealthSweepProgress};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
+use crate::problems::{Budget, budget};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::fs;
@@ -50,7 +51,7 @@ pub enum HealthSweepState {
     Idle,
     /// It is working through the mods it owes a check.
     #[serde(rename_all = "camelCase")]
-    Running { current: usize, total: usize },
+    Running { completed: usize, total: usize },
     /// It finished, and this is what the library looks like.
     #[serde(rename_all = "camelCase")]
     Finished { report: HealthSweepReport },
@@ -85,30 +86,41 @@ impl ModLibrary {
         }
 
         tracing::info!("Sweeping mod health: {total} to check, {skipped} already current");
-        let mut checked = 0;
-        for (i, mod_id) in due.iter().enumerate() {
-            self.record_health_sweep(HealthSweepState::Running {
-                current: i + 1,
-                total,
-            });
-            self.events()
-                .emit(BackendEvent::HealthSweepProgress(HealthSweepProgress {
-                    current: i + 1,
-                    total,
-                    mod_id: mod_id.clone(),
-                }));
+        let started = std::time::Instant::now();
 
-            match self.check_mod_health(config, mod_id) {
-                Ok(_) => checked += 1,
-                Err(e) => {
-                    tracing::warn!("Could not check mod {mod_id} during the library sweep: {e}")
+        // The sweep is speculative background work competing with someone
+        // browsing their library, so it takes a smaller share than a repair a
+        // user pressed for.
+        let budget = self.begin_health_run(Budget::sweep());
+        let progress = SweepProgress::new(total);
+        let outcomes = budget.map(
+            &due,
+            budget::SWEEP_MODS_AT_ONCE,
+            |_| 0,
+            |mod_id| {
+                progress.begin(mod_id, self);
+                let checked = self.check_mod_health_within(config, mod_id, &budget);
+                progress.end(mod_id, self);
+                checked
+            },
+        );
+        self.end_health_run();
+
+        let mut checked = 0;
+        for (mod_id, outcome) in due.iter().zip(outcomes) {
+            match outcome {
+                Some(Ok(_)) => checked += 1,
+                Some(Err(e)) if !budget.is_cancelled() => {
+                    tracing::warn!("Could not check mod {mod_id} during the library sweep: {e}");
                 }
+                _ => {}
             }
         }
 
         let report = self.health_report(&storage_dir, basis, checked, skipped);
         tracing::info!(
-            "Swept mod health: {} repairable, {} unrepairable",
+            "Swept mod health in {:?}: {checked} of {total} checked, {} repairable, {} unrepairable",
+            started.elapsed(),
             report.repairable.len(),
             report.unrepairable.len()
         );
@@ -192,6 +204,67 @@ impl ModLibrary {
             repairable: with_health(ModHealth::Repairable),
             unrepairable: with_health(ModHealth::Unrepairable),
         }
+    }
+}
+
+/// How far the sweep has got, as its workers report it.
+///
+/// The same shape as a repair's progress, and its own type because the two run
+/// at different moments: a surface drawing one must not be driven by the other.
+#[derive(Debug)]
+struct SweepProgress {
+    total: usize,
+    completed: std::sync::atomic::AtomicUsize,
+    in_flight: std::sync::Mutex<Vec<String>>,
+}
+
+impl SweepProgress {
+    fn new(total: usize) -> Self {
+        Self {
+            total,
+            completed: std::sync::atomic::AtomicUsize::new(0),
+            in_flight: std::sync::Mutex::new(Vec::new()),
+        }
+    }
+
+    fn begin(&self, mod_id: &str, library: &ModLibrary) {
+        if let Ok(mut open) = self.in_flight.lock() {
+            open.push(mod_id.to_owned());
+        }
+        self.announce(library);
+    }
+
+    fn end(&self, mod_id: &str, library: &ModLibrary) {
+        self.completed
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if let Ok(mut open) = self.in_flight.lock()
+            && let Some(at) = open.iter().position(|held| held == mod_id)
+        {
+            open.remove(at);
+        }
+        self.announce(library);
+    }
+
+    fn announce(&self, library: &ModLibrary) {
+        let completed = self
+            .completed
+            .load(std::sync::atomic::Ordering::Relaxed)
+            .min(self.total);
+        library.record_health_sweep(HealthSweepState::Running {
+            completed,
+            total: self.total,
+        });
+        library
+            .events()
+            .emit(BackendEvent::HealthSweepProgress(HealthSweepProgress {
+                completed,
+                total: self.total,
+                in_flight: self
+                    .in_flight
+                    .lock()
+                    .map(|open| open.clone())
+                    .unwrap_or_default(),
+            }));
     }
 }
 
