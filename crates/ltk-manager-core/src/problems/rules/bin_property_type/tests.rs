@@ -513,7 +513,7 @@ fn fix_all(bin: &Bin) -> (Applied, Bin) {
     let (problems, _) = report.finish();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
-    let mut run = FixRun::open(tmp.path(), vec!["16.17.8087655".to_owned()]).unwrap();
+    let mut run = FixRun::open(tmp.path(), vec!["16.17.8087655".to_owned()], None).unwrap();
     let applied = rule.fix(&borrowed, &mut run).unwrap();
     run.finish().unwrap();
 
@@ -612,7 +612,7 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
-    let mut run = FixRun::open(tmp.path(), Vec::new()).unwrap();
+    let mut run = FixRun::open(tmp.path(), Vec::new(), None).unwrap();
     let applied = rule.fix(&borrowed, &mut run).unwrap();
 
     assert_eq!(applied.applied, 0);

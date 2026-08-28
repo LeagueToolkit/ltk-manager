@@ -18,6 +18,7 @@ ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
 ltk_hash = { workspace = true }
 ltk_hashdb = { workspace = true }
+ltk_hashtable = { workspace = true }
 ltk_meta = { workspace = true }
 ltk_mimir_cache = { workspace = true }
 ltk_modpkg = { workspace = true }

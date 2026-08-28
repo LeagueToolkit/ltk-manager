@@ -188,3 +188,48 @@ fn repairing_an_archived_fantome_rewrites_the_stale_property_in_its_archive() {
         migrated_property(),
     );
 }
+
+/// Every table the project declares, merged the way a reader would see them.
+fn embedded_names(mod_dir: &std::path::Path) -> ltk_hashtable::HashtableSet {
+    let root = camino::Utf8Path::from_path(mod_dir).unwrap();
+    let project = ltk_mod_project::ModProject::load(root).unwrap();
+    ltk_hashtable::HashtableSet::build(project.hashtables.iter().map(|manifest| {
+        let table = ltk_hashtable::Hashtable::from_reader(
+            fs::File::open(root.join(&manifest.path)).unwrap(),
+        )
+        .unwrap();
+        (manifest.to_entry().unwrap(), table)
+    }))
+}
+
+/// Story: a repair hashes a path away, and the mod's own table is what reads
+/// it back. This is what a repair keeping no restore point rests on.
+#[test]
+fn a_repaired_path_reads_back_out_of_the_mods_own_hashtable() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "unpacked-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-1",
+            "unpacked-mod",
+            ModArchiveFormat::Fantome,
+        )],
+    );
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+    assert_eq!(report.applied, 1);
+
+    let mod_dir = storage.path().join("mods").join("unpacked-mod");
+    assert_eq!(
+        embedded_names(&mod_dir).resolve_value(
+            &ltk_hashtable::Category::Game,
+            WadHash::hash_str(STALE_ICON).0
+        ),
+        Some(STALE_ICON),
+        "the repaired path must resolve out of the mod's own hashes/"
+    );
+}

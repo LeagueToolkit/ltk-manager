@@ -1,9 +1,10 @@
 //! Applying the fixes a user chose, and the restore point that reverses them.
 //!
 //! A `File` does not name its path. Once a fix has written the hash, the string
-//! is gone from the file and no reader can derive it back, which is why the
-//! restore point is not optional. Before it writes anything, a fix run copies
-//! every file it is about to touch under `.ltk/restore/<stamp>/`.
+//! is gone from the file and no reader can derive it back, so a run keeps every
+//! path it hashes in the project's own tables first - `preserve`. Before it
+//! writes anything it also copies every file it is about to touch under
+//! `.ltk/restore/<stamp>/`.
 //!
 //! Each file lands through a temp file in its own directory and then a rename.
 //! A run that dies mid-way leaves whole files on both sides of it, and the
@@ -16,11 +17,13 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 
 use chrono::{DateTime, Utc};
+use ltk_wad::PathResolver;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 
+use super::preserve::PreservedNames;
 use super::{ProblemId, Run, rules};
 
 /// The last restore points a project keeps.
@@ -55,7 +58,7 @@ const RUNS_IN_ONE_SECOND: u32 = 16;
 /// restore point happens on the way past rather than as a step a rule could
 /// forget.
 #[derive(Debug)]
-pub struct FixRun {
+pub struct FixRun<'a> {
     project_root: PathBuf,
     at: DateTime<Utc>,
     stamp: String,
@@ -64,16 +67,25 @@ pub struct FixRun {
     /// The files already copied into the restore point, by their source path.
     staged: HashSet<PathBuf>,
     files: Vec<FileOutcome>,
+    kept: PreservedNames<'a>,
 }
 
-impl FixRun {
+impl<'a> FixRun<'a> {
     /// Open a fix run, and make the restore point it will copy into.
+    ///
+    /// `exclusions` names what a reader resolves without the mod's help, in
+    /// practice the community hashtables. A name it already holds is not
+    /// embedded, and `None` embeds every name a fix hashes away.
     ///
     /// # Errors
     ///
     /// Reports a `.ltk/restore/` that cannot be created. Nothing is written
     /// when the restore point could not be made.
-    pub fn open(project_root: &Path, tables: Vec<String>) -> Result<Self, FixError> {
+    pub fn open(
+        project_root: &Path,
+        tables: Vec<String>,
+        exclusions: Option<&'a dyn PathResolver>,
+    ) -> Result<Self, FixError> {
         let at = Utc::now();
         let (stamp, restore_dir) = make_restore_point(
             &restore_root(project_root),
@@ -89,7 +101,16 @@ impl FixRun {
             tables,
             staged: HashSet::new(),
             files: Vec::new(),
+            kept: PreservedNames::open(project_root, exclusions),
         })
+    }
+
+    /// The names this run keeps, for a rule about to hash one away.
+    ///
+    /// A rule asks before it converts, and leaves the property alone where the
+    /// answer is [`Preserved::Collides`](super::preserve::Preserved::Collides).
+    pub fn kept_names(&mut self) -> &mut PreservedNames<'a> {
+        &mut self.kept
     }
 
     /// The bytes of one file, as they are on disk now.
@@ -151,7 +172,7 @@ impl FixRun {
         &self.stamp
     }
 
-    /// Write `run.json` and prune to [`KEPT_RESTORE_POINTS`].
+    /// Write the kept names, `run.json`, and prune to [`KEPT_RESTORE_POINTS`].
     ///
     /// # Errors
     ///
@@ -160,6 +181,20 @@ impl FixRun {
     pub fn finish(self) -> Result<FixReport, FixError> {
         let applied: u32 = self.files.iter().map(|file| file.applied).sum();
         let skipped: u32 = self.files.iter().map(|file| file.skipped).sum();
+
+        // Best-effort, and after the bins: a table that could not be written
+        // costs the mod its names, and refusing the repair over it would leave
+        // the mod broken as well as unnamed.
+        let names_kept = match self.kept.write() {
+            Ok(kept) => kept,
+            Err(error) => {
+                tracing::warn!(
+                    "Repaired {} but could not keep its names: {error}",
+                    self.project_root.display()
+                );
+                0
+            }
+        };
 
         let run = RunFile {
             stamp: self.stamp,
@@ -183,6 +218,7 @@ impl FixRun {
             stamp: run.stamp,
             applied,
             skipped,
+            names_kept: names_kept as u32,
             files: run.files,
             failed: Vec::new(),
         })
@@ -288,6 +324,7 @@ pub fn apply(
     run: &Run,
     problems: &[ProblemId],
     config: &Config,
+    exclusions: Option<&dyn PathResolver>,
 ) -> AppResult<FixReport> {
     let _ = config;
 
@@ -297,7 +334,7 @@ pub fn apply(
         .iter()
         .map(|table| table.build().to_string())
         .collect();
-    let mut fix_run = FixRun::open(project_root, tables).map_err(into_app_error)?;
+    let mut fix_run = FixRun::open(project_root, tables, exclusions).map_err(into_app_error)?;
 
     let mut failed = Vec::new();
     for rule in rules::all() {
@@ -522,6 +559,8 @@ pub struct FixReport {
     pub applied: u32,
     /// Problems the file no longer matched, which the rules left alone.
     pub skipped: u32,
+    /// Paths this run wrote into the mod's own tables before hashing them.
+    pub names_kept: u32,
     pub files: Vec<FileOutcome>,
     /// A file a rule could not finish, and why.
     pub failed: Vec<String>,
@@ -617,8 +656,8 @@ mod tests {
         project_root.join(CONTENT_DIR).join(BASE).join(SKIN)
     }
 
-    fn open(project_root: &Path) -> FixRun {
-        FixRun::open(project_root, vec!["16.17.8087655".to_owned()]).expect("a restore point")
+    fn open(project_root: &Path) -> FixRun<'static> {
+        FixRun::open(project_root, vec!["16.17.8087655".to_owned()], None).expect("a restore point")
     }
 
     fn restore_point(project_root: &Path, stamp: &str) -> PathBuf {

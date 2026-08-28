@@ -8,6 +8,7 @@
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
+use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::problems;
 use ltk_manager_core::problems::{FixReport, FixRunSummary, ProblemId, ProblemsState, UndoReport};
 use std::path::Path;
@@ -69,6 +70,7 @@ pub async fn fix_problems(
             &problems,
             &app_handle.state::<ProblemsState>(),
             &app_handle.state::<SettingsState>(),
+            &app_handle.state::<std::sync::Arc<WadPathResolverState>>(),
         )
     })
     .await
@@ -79,6 +81,7 @@ fn fix_problems_inner(
     chosen: &[ProblemId],
     runs: &ProblemsState,
     settings: &SettingsState,
+    resolvers: &WadPathResolverState,
 ) -> AppResult<FixReport> {
     let root = Path::new(project_path);
     let run = runs.last(root)?.ok_or_else(|| {
@@ -88,7 +91,17 @@ fn fix_problems_inner(
     })?;
     let config = settings.config()?;
 
-    let report = problems::apply(root, &run, chosen, &config);
+    // A path the community tables already name is not embedded in the mod.
+    // Tables that cannot be opened exclude nothing, which costs size and never
+    // correctness, so a fix is not refused over them.
+    let resolver = resolvers.get().ok();
+    let report = problems::apply(
+        root,
+        &run,
+        chosen,
+        &config,
+        resolver.as_deref().map(|resolver| resolver as _),
+    );
 
     runs.invalidate(root)?;
     report
@@ -145,6 +158,7 @@ mod tests {
             &[],
             &ProblemsState::default(),
             &SettingsState::default(),
+            &WadPathResolverState::default(),
         )
         .expect_err("a project the backend never analyzed has no run to fix from");
 

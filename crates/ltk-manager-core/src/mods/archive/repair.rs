@@ -84,7 +84,9 @@ impl ModLibrary {
                 let mod_dir = entry.mod_dir(&storage_dir);
                 let run = problems::analyze(&mod_dir, config)?;
                 let wanted = run.live_fixable();
-                let report = problems::apply(&mod_dir, &run, &wanted, config)?;
+                let resolver = self.wad_resolver();
+                let report =
+                    problems::apply(&mod_dir, &run, &wanted, config, Some(resolver.as_ref()))?;
                 let checked = verified(&mod_dir, run, &wanted, &report, config)?;
                 (report, checked)
             }
@@ -168,7 +170,8 @@ impl ModLibrary {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
         let run = problems::analyze(staging, config)?;
         let wanted = run.live_fixable();
-        let report = problems::apply(staging, &run, &wanted, config)?;
+        let resolver = self.wad_resolver();
+        let report = problems::apply(staging, &run, &wanted, config, Some(resolver.as_ref()))?;
         if report.applied == 0 {
             return Ok((report, run));
         }

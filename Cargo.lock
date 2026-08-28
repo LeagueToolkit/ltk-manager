@@ -2966,6 +2966,7 @@ dependencies = [
  "ltk_file",
  "ltk_hash",
  "ltk_hashdb",
+ "ltk_hashtable",
  "ltk_meta",
  "ltk_mimir_cache",
  "ltk_mod_project",

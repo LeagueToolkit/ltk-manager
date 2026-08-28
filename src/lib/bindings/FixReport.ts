@@ -12,7 +12,11 @@ stamp: string, applied: number,
 /**
  * Problems the file no longer matched, which the rules left alone.
  */
-skipped: number, files: Array<FileOutcome>, 
+skipped: number, 
+/**
+ * Paths this run wrote into the mod's own tables before hashing them.
+ */
+namesKept: number, files: Array<FileOutcome>, 
 /**
  * A file a rule could not finish, and why.
  */

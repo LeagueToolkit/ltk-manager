@@ -36,8 +36,8 @@ use ltk_meta::property::{Kind, NoMeta, values};
 
 use crate::problems::names::{self, BinNames};
 use crate::problems::{
-    Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Problem,
-    ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
+    Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Preserved,
+    PreservedNames, Problem, ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -169,7 +169,7 @@ impl Rule for BinPropertyType {
         }
     }
 
-    fn fix(&self, problems: &[&Problem], run: &mut FixRun) -> Result<Applied, FixError> {
+    fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
         let tables = table::tables();
         /* A repair addresses a node by the hash form, which no table can move. */
         let nothing = BinNames::none();
@@ -217,6 +217,7 @@ impl Rule for BinPropertyType {
                     &Trail::default(),
                     lens,
                     &addressed,
+                    run.kept_names(),
                 );
             }
 
@@ -510,6 +511,7 @@ fn repair(
     trail: &Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
+    kept: &mut PreservedNames<'_>,
 ) -> u32 {
     let mut applied = 0;
 
@@ -524,17 +526,38 @@ fn repair(
 
         if addressed.contains(here.hashes.as_str())
             && let Some((_, migration)) = lookup.hit
+            && keep_names(value, migration, kept)
             && convert(value, migration)
         {
             applied += 1;
         }
 
         if descend_into {
-            applied += repair_into(value, &here, lens, addressed);
+            applied += repair_into(value, &here, lens, addressed, kept);
         }
     }
 
     applied
+}
+
+/// Keep every path this conversion is about to hash away. Reports whether the
+/// conversion may go ahead.
+///
+/// A property is repaired only when every path under it survives the hashing,
+/// because a partly-kept container would leave the mod holding a hash no table
+/// names. Refusing it leaves the property as it is, which the next check still
+/// reports and the badge still calls repairable.
+fn keep_names(
+    value: &PropertyValueEnum,
+    migration: &Migration,
+    kept: &mut PreservedNames<'_>,
+) -> bool {
+    if migration.conversion != Conversion::HashValue {
+        return true;
+    }
+    strings(value)
+        .into_iter()
+        .all(|path| kept.keep(path) == Preserved::Kept)
 }
 
 /// Walk `repair` into whatever object-like nodes `value` holds.
@@ -543,6 +566,7 @@ fn repair_into(
     trail: &Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
+    kept: &mut PreservedNames<'_>,
 ) -> u32 {
     match value {
         PropertyValueEnum::Struct(inner) => repair(
@@ -551,6 +575,7 @@ fn repair_into(
             trail,
             lens,
             addressed,
+            kept,
         ),
         PropertyValueEnum::Embedded(inner) => repair(
             inner.0.class_hash,
@@ -558,10 +583,13 @@ fn repair_into(
             trail,
             lens,
             addressed,
+            kept,
         ),
-        PropertyValueEnum::Container(items) => repair_container(items, trail, lens, addressed),
+        PropertyValueEnum::Container(items) => {
+            repair_container(items, trail, lens, addressed, kept)
+        }
         PropertyValueEnum::UnorderedContainer(items) => {
-            repair_container(&mut items.0, trail, lens, addressed)
+            repair_container(&mut items.0, trail, lens, addressed, kept)
         }
         PropertyValueEnum::Optional(inner) => match inner {
             values::Optional::Struct {
@@ -572,6 +600,7 @@ fn repair_into(
                 &trail.index(0),
                 lens,
                 addressed,
+                kept,
             ),
             values::Optional::Embedded {
                 value: Some(held), ..
@@ -581,10 +610,11 @@ fn repair_into(
                 &trail.index(0),
                 lens,
                 addressed,
+                kept,
             ),
             _ => 0,
         },
-        PropertyValueEnum::Map(map) => repair_map(map, trail, lens, addressed),
+        PropertyValueEnum::Map(map) => repair_map(map, trail, lens, addressed, kept),
         _ => 0,
     }
 }
@@ -601,6 +631,7 @@ fn repair_map(
     trail: &Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
+    kept: &mut PreservedNames<'_>,
 ) -> u32 {
     let key_kind = map.key_kind();
     let value_kind = map.value_kind();
@@ -609,7 +640,7 @@ fn repair_map(
         std::mem::replace(map, values::Map::empty(key_kind, value_kind)).into_entries();
     let mut applied = 0;
     for (key, held) in entries.iter_mut() {
-        applied += repair_into(held, &trail.key(key, lens.names), lens, addressed);
+        applied += repair_into(held, &trail.key(key, lens.names), lens, addressed, kept);
     }
 
     *map = values::Map::new(key_kind, value_kind, entries)
@@ -623,6 +654,7 @@ fn repair_container(
     trail: &Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
+    kept: &mut PreservedNames<'_>,
 ) -> u32 {
     let mut applied = 0;
     match items {
@@ -634,6 +666,7 @@ fn repair_container(
                     &trail.index(index),
                     lens,
                     addressed,
+                    kept,
                 );
             }
         }
@@ -645,6 +678,7 @@ fn repair_container(
                     &trail.index(index),
                     lens,
                     addressed,
+                    kept,
                 );
             }
         }

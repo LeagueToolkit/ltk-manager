@@ -21,6 +21,7 @@ pub mod build;
 mod engine;
 mod fix;
 pub mod names;
+pub mod preserve;
 pub mod rules;
 
 use std::collections::{HashMap, HashSet};
@@ -37,6 +38,7 @@ pub use fix::{
     apply, fix_runs, undo_fix_run,
 };
 pub use names::BinNames;
+pub use preserve::{Preserved, PreservedNames};
 
 /// The stable id a user reads, such as `bin/property-type`.
 ///
@@ -705,11 +707,14 @@ pub trait Rule: Send + Sync {
     /// what the check recorded. A problem whose site no longer matches is
     /// skipped and counted as skipped.
     ///
+    /// A change that destroys a name asks [`FixRun::kept_names`] to keep it
+    /// first, and leaves the property alone where the name cannot be kept.
+    ///
     /// # Errors
     ///
     /// Reports the first file it could not read or write. The restore point
     /// stays, so a partial run is reversible.
-    fn fix(&self, problems: &[&Problem], run: &mut FixRun) -> Result<Applied, FixError>;
+    fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError>;
 }
 
 /// What one rule's fix changed.
