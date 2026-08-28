@@ -13,6 +13,7 @@ import { Button, IconButton, Progress, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, LaunchProgress, OverlayProgress, VerdictKind } from "@/lib/tauri";
 import { ConsequenceChip, isInformational, useDismissIncident } from "@/modules/diagnostics";
+import { ModHealthStatusItem, useModHealthStatus } from "@/modules/library";
 import {
   patcherFailureTab,
   patcherFailureTitle,
@@ -108,8 +109,28 @@ function StepDot({ state }: { state: StepState }) {
 function BorderShimmer() {
   return (
     <span className="pointer-events-none absolute inset-x-0 -top-0.5 h-0.5 overflow-hidden">
-      <span className="absolute inset-0 animate-border-shimmer bg-gradient-to-r from-transparent from-47% via-accent-100 via-50% to-transparent to-53%" />
+      <span className="absolute inset-0 animate-border-shimmer bg-linear-to-r from-transparent from-47% via-accent-100 via-50% to-transparent to-53%" />
     </span>
+  );
+}
+
+/**
+ * The bar itself: its chrome, and the two regions every state fills.
+ *
+ * Per "The status bar item" in docs/ux/MOD_HEALTH.md. The activity region is
+ * whichever line has the news, and it supersedes itself as the session moves.
+ * The items to its right are ambient and answer to nothing the session does, so
+ * they outlive every line that passes underneath them.
+ */
+function Bar({ working, children }: { working?: boolean; children?: ReactNode }) {
+  return (
+    <div
+      className={`relative flex shrink-0 items-stretch bg-surface-950 select-none ${working ? "border-t-2 border-accent-500" : "border-t border-surface-800"} p-1`}
+    >
+      {working && <BorderShimmer />}
+      <div className="min-w-0 flex-1">{children}</div>
+      <ModHealthStatusItem />
+    </div>
   );
 }
 
@@ -124,15 +145,14 @@ function RestingLine({
   children: ReactNode;
 }) {
   return (
-    <div
-      data-ui={part ? `SessionBar:${part}` : undefined}
-      className="shrink-0 border-t border-surface-800 bg-surface-950 px-4 py-1.5 select-none"
-    >
-      <div className="flex items-center gap-2 text-sm">{children}</div>
-      {detail && (
-        <p className="mt-0.5 ml-5.5 truncate text-xs text-surface-500 select-text">{detail}</p>
-      )}
-    </div>
+    <Bar>
+      <div data-ui={part ? `SessionBar:${part}` : undefined} className="px-4 py-1.5">
+        <div className="flex items-center gap-2 text-sm">{children}</div>
+        {detail && (
+          <p className="mt-0.5 ml-5.5 truncate text-xs text-surface-500 select-text">{detail}</p>
+        )}
+      </div>
+    </Bar>
   );
 }
 
@@ -322,6 +342,7 @@ export function SessionBar() {
   const failure = usePatcherFailureStore((s) => s.failure);
   const clearFailure = usePatcherFailureStore((s) => s.clear);
   const { data: platform } = usePlatformSupport();
+  const health = useModHealthStatus();
 
   const patcherAvailable = platform?.patcherAvailable ?? true;
   const phase = patcherStatus?.phase ?? "idle";
@@ -363,7 +384,8 @@ export function SessionBar() {
   if (phase === "idle" && !showsLaunch && session === null) {
     // Where the patcher cannot run, "idle" is a permanent fact rather than a
     // state the user can act on, and `PatcherUnsupported` already explains why.
-    if (!patcherAvailable) return null;
+    // The bar still draws for an item, which answers to none of that.
+    if (!patcherAvailable) return health ? <Bar /> : null;
 
     // The incident is the classified record of a failure, so it outranks the
     // raw start failure that preceded it.
@@ -476,38 +498,40 @@ export function SessionBar() {
   const working = steps.some((step) => step.state === "active");
 
   return (
-    <div className="relative shrink-0 border-t-2 border-accent-500 bg-surface-950 px-4 py-2 select-none">
-      {working && <BorderShimmer />}
+    <Bar working={working}>
+      <div className="px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {steps.map((step) => (
+            <div key={step.key} className="flex items-center gap-1.5">
+              <StepDot state={step.state} />
+              <span className={`text-xs font-medium ${labelClasses[step.state]}`}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+          {testLabel && <Pill>{testLabel}</Pill>}
+        </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        {steps.map((step) => (
-          <div key={step.key} className="flex items-center gap-1.5">
-            <StepDot state={step.state} />
-            <span className={`text-xs font-medium ${labelClasses[step.state]}`}>{step.label}</span>
-          </div>
-        ))}
-        {testLabel && <Pill>{testLabel}</Pill>}
+        <div className="mt-1.5 flex items-center gap-3">
+          <span className="text-sm text-surface-300">{label}</span>
+          <div className="flex-1" />
+          {counter && (
+            <span className="shrink-0 text-sm text-surface-400 tabular-nums">{counter}</span>
+          )}
+          <CancelLaunchButton />
+        </div>
+
+        <div className="mt-1.5">
+          <Progress.Root value={value} className="flex-1">
+            <Progress.Track size="sm">
+              <Progress.Indicator />
+            </Progress.Track>
+          </Progress.Root>
+        </div>
+
+        {detail && <p className="mt-1 truncate text-xs text-surface-500">{detail}</p>}
       </div>
-
-      <div className="mt-1.5 flex items-center gap-3">
-        <span className="text-sm text-surface-300">{label}</span>
-        <div className="flex-1" />
-        {counter && (
-          <span className="shrink-0 text-sm text-surface-400 tabular-nums">{counter}</span>
-        )}
-        <CancelLaunchButton />
-      </div>
-
-      <div className="mt-1.5">
-        <Progress.Root value={value} className="flex-1">
-          <Progress.Track size="sm">
-            <Progress.Indicator />
-          </Progress.Track>
-        </Progress.Root>
-      </div>
-
-      {detail && <p className="mt-1 truncate text-xs text-surface-500">{detail}</p>}
-    </div>
+    </Bar>
   );
 }
 

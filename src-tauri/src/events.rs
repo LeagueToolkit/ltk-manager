@@ -27,6 +27,9 @@ impl EventSink for TauriEventSink {
             BackendEvent::MigrationProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LayoutMigrationProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LayoutMigrationFinished(report) => self.app_handle.emit(name, report),
+            BackendEvent::HealthSweepProgress(progress) => self.app_handle.emit(name, progress),
+            BackendEvent::HealthSweepFinished(report) => self.app_handle.emit(name, report),
+            BackendEvent::ModRepairProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::FantomeImportProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::ModStorageProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::GitImportProgress(progress) => self.app_handle.emit(name, progress),
@@ -39,7 +42,7 @@ impl EventSink for TauriEventSink {
             BackendEvent::ExtractProgress(progress) => self.app_handle.emit(name, progress),
             BackendEvent::LinkedBinsUpdated
             | BackendEvent::WadReportsUpdated
-            | BackendEvent::CheckVerdictsUpdated
+            | BackendEvent::ModHealthVerdictsUpdated
             | BackendEvent::LibraryChanged => self.app_handle.emit(name, ()),
         };
 

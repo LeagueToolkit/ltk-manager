@@ -7,6 +7,8 @@ use crate::config::Config;
 use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
 
+use crate::mods::HealthSweepState;
+
 use super::layout_migration::LayoutMigrationState;
 
 impl ModLibrary {
@@ -20,13 +22,15 @@ impl ModLibrary {
         std::thread::spawn(move || library.maintain(&config));
     }
 
-    /// The three startup passes, in the order their dependencies demand.
+    /// The four startup passes, in the order their dependencies demand.
     ///
-    /// The sweep goes first because startup is the one moment nothing can be
-    /// mid-install, which is what makes clearing another process's staging
-    /// directories safe. The layout migration goes before reconciliation
-    /// because reconciliation refuses to run while a mod is still in the uuid
-    /// layout — it would read one mid-move as an orphan.
+    /// The staging sweep goes first because startup is the one moment nothing
+    /// can be mid-install, which is what makes clearing another process's
+    /// staging directories safe. The layout migration goes before
+    /// reconciliation because reconciliation refuses to run while a mod is
+    /// still in the uuid layout — it would read one mid-move as an orphan. The
+    /// health sweep goes last because it reads every mod's content, and the
+    /// three before it decide where that content is.
     fn maintain(&self, config: &Config) {
         if let Ok(storage_dir) = self.storage_dir(config) {
             super::reconcile::sweep_stale_staging(&storage_dir);
@@ -51,8 +55,18 @@ impl ModLibrary {
             }
         };
 
+        // Announced before the health sweep rather than after it: the sweep
+        // reads every mod and the library view has no reason to wait on that to
+        // draw what the two passes above just changed.
         if migrated || reconciled {
             self.events.emit(BackendEvent::LibraryChanged);
+        }
+
+        if let Err(e) = self.sweep_mod_health(config) {
+            tracing::warn!("Failed to sweep mod health on startup: {}", e);
+            // Whoever is waiting on an answer has to get one, or it waits for
+            // the rest of the session.
+            self.record_health_sweep(HealthSweepState::Idle);
         }
     }
 }

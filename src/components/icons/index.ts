@@ -33,3 +33,4 @@ export * from "./SummonersRiftIcon";
 export * from "./TftIcon";
 export * from "./ThreeMasksIcon";
 export * from "./WardIcon";
+export * from "./WolfIcon";

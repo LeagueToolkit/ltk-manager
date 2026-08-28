@@ -2,6 +2,12 @@
 members = ["src-tauri", "crates/ltk-manager-core"]
 resolver = "2"
 
+# Dependencies only, so our own crates stay debuggable. A debug build parses
+# bins at 18 MB/s against 144 MB/s optimised, and a library repair is almost
+# entirely `ltk_meta` parsing.
+[profile.dev.package."*"]
+opt-level = 3
+
 [workspace.dependencies]
 # Pinned to a rev until it ships on crates.io. Declared here rather than in
 # `ltk-manager-core` so moving the pin is one edit in the place every other

@@ -84,12 +84,22 @@ read. A modder's view of the same rules is the Problems panel, and the split is 
 `docs/ux/MOD_HEALTH.md`.
 
 **Verdict** — what a check concluded: `healthy`, `repairable`, or `unrepairable`, with the counts
-behind it. Remembered per mod in `check-verdicts.json` beside the index. A cache of a
+behind it. Remembered per mod in `mod-health-verdicts.json` beside the index. A cache of a
 computation, not a record — a lost file refills on the next check.
+
+**Basis** — what a check was a claim about: the installed game build, and the manager version the
+rules and their tables shipped in. Recorded on every verdict, and comparing it is how the health
+sweep decides which verdicts are stale.
+
+**Health sweep** — the startup pass that re-checks every mod whose basis moved, and forgets the
+verdicts of mods the library no longer holds. Not the **staging sweep**, which is the same word
+for clearing `mods/.staging-*` and is unrelated. What it found draws as a banner above the
+library.
 
 **Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
 mod, with a restore point. For an `archive` mod: unpack, fix, repack, and the repaired archive
-takes the original's place — see ADR-0005.
+takes the original's place — see ADR-0005. **Repair all** is the banner's one press over every
+repairable mod at once, and nothing is ever repaired without it.
 
 ## The three migrations
 

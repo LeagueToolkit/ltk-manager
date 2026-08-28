@@ -11,6 +11,7 @@
 //! | `index`            | `library.json`: shape, versioning, reconciliation  |
 //! | `archive`          | Mod archives in, out, and read                     |
 //! | `analysis`         | What a mod touches and what that makes it          |
+//! | `health`           | The Problems rules over an installed mod           |
 //! | `organize`         | Folders and profiles                               |
 //! | `types`            | The shapes the frontend sees                       |
 //! | `library`          | Library reads and per-profile mod state            |
@@ -24,7 +25,7 @@
 
 mod analysis;
 mod archive;
-mod check;
+mod health;
 mod index;
 mod library;
 pub(crate) mod long_paths;
@@ -41,7 +42,9 @@ pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
-pub use check::{ModCheckVerdict, ModHealth};
+pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
+pub use health::sweep::{HealthSweepReport, HealthSweepState};
+pub use health::{HealthCheckBasis, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModFault, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
@@ -90,7 +93,16 @@ pub struct ModLibrary {
     /// hear it announced, so the outcome is kept for whoever asks next rather
     /// than only emitted.
     layout_migration: Arc<Mutex<LayoutMigrationState>>,
+    /// What the mod health sweep has to say, kept for the same reason
+    /// `layout_migration` is.
+    health_sweep: Arc<Mutex<HealthSweepState>>,
     index_lock: Arc<Mutex<()>>,
+    /// Serializes the read-modify-write of `mod-health-verdicts.json`.
+    ///
+    /// A startup sweep and an install's background check both record verdicts,
+    /// and each records by rewriting the whole file, so two at once would lose
+    /// whichever landed first.
+    verdict_lock: Arc<Mutex<()>>,
     /// Epoch-millis timestamp of the last `mutate_index` completion.
     /// The file watcher skips events that arrive within [`WATCHER_SUPPRESS_SECS`]
     /// of this timestamp.
@@ -107,7 +119,9 @@ impl Clone for ModLibrary {
             wad_reports: Arc::clone(&self.wad_reports),
             wad_resolver: Arc::clone(&self.wad_resolver),
             layout_migration: Arc::clone(&self.layout_migration),
+            health_sweep: Arc::clone(&self.health_sweep),
             index_lock: Arc::clone(&self.index_lock),
+            verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
         }
     }
@@ -130,7 +144,9 @@ impl ModLibrary {
             wad_reports,
             wad_resolver,
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
+            health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
             index_lock: Arc::new(Mutex::new(())),
+            verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
         }
     }
@@ -147,6 +163,10 @@ impl ModLibrary {
         if let Ok(mut state) = self.layout_migration.lock() {
             *state = outcome;
         }
+    }
+
+    pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
+        &self.verdict_lock
     }
 
     /// Drop what the overlay builder cached about these mods.

@@ -7,8 +7,9 @@ import { match } from "ts-pattern";
 export type ButtonVariant =
   | "default"
   | "filled"
-  | "danger"
+  | "danger" // TODO: `danger` should not be a variant, it should be a color modifier over any of the other ones
   | "light"
+  | "duotone"
   | "outline"
   | "ghost"
   | "transparent";
@@ -63,8 +64,12 @@ const variantClasses: Record<ButtonVariant, string> = {
   filled: "bg-accent-600 text-on-accent hover:bg-accent-500 active:bg-accent-700",
   danger: "bg-danger-strong text-brand-on hover:bg-danger active:brightness-90",
   light: "bg-accent-500/25 text-accent-300 hover:bg-accent-500/35 active:bg-accent-500/45",
+  /* Two tints of one hue: a wash to sit in, and an edge to be found by. */
+  duotone:
+    "bg-accent-500/15 text-accent-400 border border-accent-400/50 hover:bg-accent-500/25 active:bg-accent-500/35",
+  /* Edge and hover both from the veil: DS-VEIL. */
   outline:
-    "bg-transparent text-surface-200 border border-surface-600 hover:bg-surface-800 active:bg-surface-700",
+    "bg-transparent text-surface-200 border border-surface-veil-strong hover:bg-surface-veil active:bg-surface-veil-strong",
   ghost: "bg-transparent text-surface-200 hover:bg-surface-veil active:bg-surface-veil-strong",
   transparent: "bg-transparent text-surface-300 hover:text-surface-100",
 };

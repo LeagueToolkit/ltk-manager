@@ -1,11 +1,12 @@
 //! End-to-end tests at the repair seam: a library holding a fantome whose bin
 //! carries a property type the migration table moves.
 
+use crate::mods::ModHealth;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::test_support::{
     STALE_ICON, healthy_bin, make_slugged_entry, make_test_library, place_bin_archived_fantome,
-    place_bin_project_mod, point_at_installed_build, property_in_unpacked_tree, seed_library,
-    stale_bin,
+    place_bin_project_mod, place_installed_mod, point_at_installed_build,
+    property_in_unpacked_tree, seed_library, stale_bin,
 };
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
@@ -117,6 +118,51 @@ fn a_game_before_the_migration_build_leaves_the_archive_alone() {
 
     assert_eq!(report.applied, 0);
     assert_eq!(fs::read(&archive).unwrap(), before);
+}
+
+/// Story: the one button behind the sweep's banner. Everything repairable is
+/// repaired, and the one mod that cannot be is named rather than fatal.
+#[test]
+fn repairing_many_fixes_what_it_can_and_names_what_it_could_not() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    place_bin_project_mod(storage.path(), "fine-mod", &healthy_bin());
+    place_installed_mod(storage.path(), "packed-mod", ModArchiveFormat::Modpkg, true);
+    seed_library(
+        &library,
+        &config,
+        vec![
+            make_slugged_entry("id-stale", "stale-mod", ModArchiveFormat::Fantome),
+            make_slugged_entry("id-fine", "fine-mod", ModArchiveFormat::Fantome),
+            make_slugged_entry("id-pkg", "packed-mod", ModArchiveFormat::Modpkg),
+        ],
+    );
+
+    let report = library.repair_mods(
+        &config,
+        &[
+            "id-stale".to_string(),
+            "id-fine".to_string(),
+            "id-pkg".to_string(),
+        ],
+    );
+
+    assert_eq!(report.repaired, vec!["id-stale".to_string()]);
+    assert_eq!(report.unchanged, vec!["id-fine".to_string()]);
+    assert_eq!(report.applied, 1);
+    assert_eq!(report.failed.len(), 1);
+    assert_eq!(report.failed[0].mod_id, "id-pkg");
+
+    assert_eq!(
+        property_in_unpacked_tree(storage.path(), "stale-mod"),
+        migrated_property(),
+    );
+    // Each repair records its own verdict, so the badges are current without a
+    // second sweep.
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
+    assert_eq!(verdicts.get("id-stale").unwrap().health, ModHealth::Healthy);
 }
 
 #[test]

@@ -24,7 +24,7 @@ import {
   useToast,
 } from "@/components";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
-import { useCheckMod, useModEffectiveCategories } from "@/modules/library/api";
+import { useCheckModHealth, useModEffectiveCategories } from "@/modules/library/api";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 
@@ -130,13 +130,13 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
 
 export function ModCardMenu({ view }: { view: ModCardView }) {
   const { mod, interactionsDisabled, isFlagged, isInUserFolder, canChangeStorage } = view;
-  const checkMod = useCheckMod();
+  const checkModHealth = useCheckModHealth();
   const toast = useToast();
 
   // The badge only appears when something is wrong, so a clean check needs
   // its own answer here or the click looks ignored.
   function handleCheckHealth() {
-    checkMod.mutate(mod.id, {
+    checkModHealth.mutate(mod.id, {
       onSuccess: (verdict) => {
         if (verdict.health === "healthy") {
           toast.success("No problems found");
@@ -207,7 +207,7 @@ export function ModCardMenu({ view }: { view: ModCardView }) {
             {canChangeStorage && <ModCardStorageSubmenu view={view} />}
             <Menu.Item
               icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />}
-              disabled={checkMod.isPending}
+              disabled={checkModHealth.isPending}
               onClick={handleCheckHealth}
             >
               Check Health

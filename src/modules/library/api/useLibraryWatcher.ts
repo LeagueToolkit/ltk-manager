@@ -8,8 +8,8 @@ import { libraryKeys } from "./keys";
  * Listen for `library-changed` events from the backend file watcher
  * and invalidate all library queries so the UI stays in sync.
  *
- * Also listens for `check-verdicts-updated`, which an install's background
- * health check emits after the library-changed it rode in on.
+ * Also listens for `mod-health-verdicts-updated`, which an install's background
+ * health check and the startup sweep both emit when they finish.
  */
 export function useLibraryWatcher() {
   const queryClient = useQueryClient();
@@ -31,7 +31,7 @@ export function useLibraryWatcher() {
     };
 
     subscribe("library-changed", libraryKeys.all);
-    subscribe("check-verdicts-updated", libraryKeys.checkVerdicts());
+    subscribe("mod-health-verdicts-updated", libraryKeys.modHealthVerdicts());
 
     return () => {
       mounted = false;

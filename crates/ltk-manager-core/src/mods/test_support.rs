@@ -33,10 +33,27 @@ pub(crate) fn make_library_with_events(
     storage_dir: &Path,
     events: Arc<dyn EventSink>,
 ) -> (ModLibrary, Config) {
+    make_library_with(storage_dir, events, "test")
+}
+
+/// [`make_test_library`] reporting an app version of the caller's choosing, for
+/// a test about what a manager release moves.
+pub(crate) fn make_library_with_version(
+    storage_dir: &Path,
+    app_version: &str,
+) -> (ModLibrary, Config) {
+    make_library_with(storage_dir, Arc::new(NullEventSink), app_version)
+}
+
+fn make_library_with(
+    storage_dir: &Path,
+    events: Arc<dyn EventSink>,
+    app_version: &str,
+) -> (ModLibrary, Config) {
     let library = ModLibrary::new(
         events,
         Some(storage_dir.to_path_buf()),
-        "test",
+        app_version,
         Arc::new(LinkedBinState::default()),
         Arc::new(WadReportState::new(Some(storage_dir))),
         Arc::new(WadPathResolverState::preloaded(
@@ -564,11 +581,17 @@ pub(crate) fn place_bin_project_mod(storage_dir: &Path, slug: &str, bin: &ltk_me
 /// Point the config at a game install on the build the shipped table names,
 /// so the rule is live rather than dormant.
 pub(crate) fn point_at_installed_build(config: &mut Config, root: &Path) {
+    point_at_build(config, root, "16.17.8087655");
+}
+
+/// [`point_at_installed_build`] on a build of the caller's choosing, for a test
+/// about what moves when the game patches.
+pub(crate) fn point_at_build(config: &mut Config, root: &Path, version: &str) {
     let league = root.join("league");
     fs::create_dir_all(league.join("Game")).unwrap();
     fs::write(
         league.join("Game").join("content-metadata.json"),
-        r#"{ "version": "16.17.8087655" }"#,
+        format!(r#"{{ "version": "{version}" }}"#),
     )
     .unwrap();
     config.league_path = Some(league);

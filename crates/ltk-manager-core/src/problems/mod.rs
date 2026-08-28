@@ -23,6 +23,7 @@ mod fix;
 pub mod names;
 pub mod rules;
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
@@ -520,11 +521,76 @@ pub struct Run {
 }
 
 impl Run {
-    /// The problems this run holds, keyed the way [`fix_problems`] asks for them.
+    /// The named problems, grouped the way [`apply`] hands them to the rules.
     ///
-    /// [`fix_problems`]: crate::problems::fix::apply
-    pub fn problem(&self, id: &ProblemId) -> Option<&Problem> {
-        self.problems.iter().find(|problem| &problem.id == id)
+    /// Indexed rather than scanned: a repair names every fixable problem of the
+    /// run, and a project holding seven thousand of them is a scan seven
+    /// thousand times over. An id this run does not hold is logged and dropped,
+    /// because a panel goes stale and a row it still draws is a list to narrow
+    /// rather than a call to refuse.
+    ///
+    /// [`apply`]: crate::problems::fix::apply
+    #[must_use]
+    pub fn by_rule<'a>(&'a self, ids: &[ProblemId]) -> HashMap<RuleId, Vec<&'a Problem>> {
+        let held: HashMap<&ProblemId, &Problem> = self
+            .problems
+            .iter()
+            .map(|problem| (&problem.id, problem))
+            .collect();
+
+        let mut chosen: HashMap<RuleId, Vec<&Problem>> = HashMap::new();
+        for id in ids {
+            match held.get(id) {
+                Some(problem) => chosen.entry(problem.rule).or_default().push(problem),
+                None => tracing::debug!("Ignoring a problem this run does not hold: {id}"),
+            }
+        }
+        chosen
+    }
+
+    /// Every problem a one-button repair may apply: fixable, and from a live rule.
+    #[must_use]
+    pub fn live_fixable(&self) -> Vec<ProblemId> {
+        self.live_problems()
+            .filter(|problem| problem.fix.is_some())
+            .map(|problem| problem.id.clone())
+            .collect()
+    }
+
+    /// The same run with `repaired` gone, as it would read if re-run.
+    ///
+    /// What a repair leaves behind, without parsing every bin a second time to
+    /// discover it. Sound only where every named problem was applied, which is
+    /// the caller's to establish - a rule that skipped one leaves it in the
+    /// file, and this run would then claim it gone.
+    #[must_use]
+    pub fn without(&self, repaired: &[ProblemId]) -> Self {
+        let gone: HashSet<&ProblemId> = repaired.iter().collect();
+        let problems: Vec<Problem> = self
+            .problems
+            .iter()
+            .filter(|problem| !gone.contains(&problem.id))
+            .cloned()
+            .collect();
+
+        let named: HashSet<BinHash> = problems
+            .iter()
+            .filter_map(|problem| problem.site.node.as_ref())
+            .map(|node| node.entry)
+            .collect();
+
+        Self {
+            at: self.at,
+            rules: self.rules.clone(),
+            objects: self
+                .objects
+                .iter()
+                .filter(|object| named.contains(&object.entry))
+                .cloned()
+                .collect(),
+            problems,
+            failed: self.failed.clone(),
+        }
     }
 
     /// How many problems the run holds at each severity.
@@ -539,7 +605,7 @@ impl Run {
     /// taken yet. The panel shows them with the fix withheld, and a flow with
     /// no panel has to make the same cut itself.
     pub fn live_problems(&self) -> impl Iterator<Item = &Problem> {
-        let dormant: std::collections::HashSet<RuleId> = self
+        let dormant: HashSet<RuleId> = self
             .rules
             .iter()
             .filter(|rule| !matches!(rule.state, RuleState::Active))

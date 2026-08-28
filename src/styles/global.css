@@ -207,7 +207,8 @@
   --surface-50: oklch(100% 0 var(--surface-hue));
 }
 
-/* The fill a control with no surface of its own draws on hover and on press. */
+/* What a control with no surface of its own draws: its edge, and its hover and
+   press fill. */
 :root {
   --surface-veil-soft: color-mix(in srgb, var(--surface-100) 6%, transparent);
   --surface-veil: color-mix(in srgb, var(--surface-100) 12%, transparent);

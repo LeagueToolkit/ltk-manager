@@ -102,6 +102,51 @@ export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
 );
 DialogOverlay.displayName = "Dialog.Overlay";
 
+// Sheet (a dialog that arrives from an edge rather than the middle)
+export type DialogSheetSide = "left" | "right";
+
+const sheetSideClasses: Record<DialogSheetSide, string> = {
+  left: "inset-y-0 left-0 data-ending-style:-translate-x-full data-starting-style:-translate-x-full",
+  right:
+    "inset-y-0 right-0 data-ending-style:translate-x-full data-starting-style:translate-x-full",
+};
+
+export interface DialogSheetProps extends Omit<BaseDialog.Popup.Props, "className"> {
+  /** Which edge it arrives from, and returns to. */
+  side?: DialogSheetSide;
+  className?: string;
+  children?: ReactNode;
+}
+
+/**
+ * A dialog anchored to an edge, for content the reader works through beside
+ * their page rather than instead of it.
+ *
+ * It slides rather than scales, because a panel the height of the window has no
+ * centre to grow from. Width is the caller's - `Dialog.Overlay`'s size ramp is
+ * about how much text a centred dialog should hold, which is a different
+ * question.
+ */
+export const DialogSheet = forwardRef<HTMLDivElement, DialogSheetProps>(
+  ({ side = "right", className, children, ...props }, ref) => {
+    return (
+      <BaseDialog.Popup
+        ref={ref}
+        className={twMerge(
+          "fixed z-50 flex max-w-full flex-col bg-surface-800 shadow-2xl outline-none",
+          "transition-transform duration-200 ease-out",
+          sheetSideClasses[side],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </BaseDialog.Popup>
+    );
+  },
+);
+DialogSheet.displayName = "Dialog.Sheet";
+
 // Title
 export interface DialogTitleProps extends Omit<BaseDialog.Title.Props, "className"> {
   className?: string;
@@ -249,6 +294,7 @@ export const Dialog = {
   Portal: DialogPortal,
   Backdrop: DialogBackdrop,
   Overlay: DialogOverlay,
+  Sheet: DialogSheet,
   Title: DialogTitle,
   Description: DialogDescription,
   Close: DialogClose,

@@ -3,15 +3,17 @@
 //! The Problems engine speaks to a modder, in findings addressed to a property
 //! inside a file. A mod user gets the same rules summarized to a verdict, per
 //! "The verdict" in docs/ux/MOD_HEALTH.md. Verdicts are remembered in
-//! `check-verdicts.json` beside the library index, so the library view can
+//! `mod-health-verdicts.json` beside the library index, so the library view can
 //! badge every mod without re-scanning any.
 
+pub mod sweep;
+
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, MutexResultExt};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModStorage};
-use crate::problems::{self, Counts, Run};
+use crate::problems::{self, Counts, GameBuild, Run};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -19,14 +21,17 @@ use std::path::Path;
 use uuid::Uuid;
 
 /// Where the library remembers its verdicts, beside `library.json`.
-const CHECK_VERDICTS_FILENAME: &str = "check-verdicts.json";
+const MOD_HEALTH_VERDICTS_FILENAME: &str = "mod-health-verdicts.json";
+
+/// What that file was called before this module was named for mod health.
+pub(in crate::mods) const LEGACY_VERDICTS_FILENAME: &str = "check-verdicts.json";
 
 /// What one check concluded, summarized for a mod user.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
-pub struct ModCheckVerdict {
+pub struct ModHealthVerdict {
     pub mod_id: String,
     pub health: ModHealth,
     /// How many findings a repair would fix.
@@ -35,6 +40,34 @@ pub struct ModCheckVerdict {
     pub counts: Counts,
     /// ISO-8601 timestamp the check ran.
     pub checked_at: String,
+    /// What the check was a claim about, for the sweep to compare against.
+    #[serde(default)]
+    pub basis: HealthCheckBasis,
+}
+
+/// What a check ran against, and therefore what makes an old one stale.
+///
+/// Per "The basis" in docs/ux/MOD_HEALTH.md.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct HealthCheckBasis {
+    /// The installed game build, absent where none could be read.
+    #[cfg_attr(feature = "ts", ts(type = "string | null"))]
+    pub build: Option<GameBuild>,
+    /// The manager version, which is what a migration table ships in.
+    pub manager: String,
+}
+
+impl LibraryModEntry {
+    /// Whether the Problems rules can reach this mod's content at all.
+    ///
+    /// A faulted mod has no content to trust, and a modpkg's only exists inside
+    /// its archive with no unpacked form to run the rules over - ADR-0001.
+    pub(in crate::mods) fn is_checkable(&self) -> bool {
+        self.fault.is_none() && self.format.is_convertible()
+    }
 }
 
 /// The one word a mod's badge says.
@@ -62,7 +95,7 @@ impl ModLibrary {
     ///
     /// Fails when the mod is not in the library, has faulted, or its content
     /// cannot be read.
-    pub fn check_mod(&self, config: &Config, mod_id: &str) -> AppResult<ModCheckVerdict> {
+    pub fn check_mod_health(&self, config: &Config, mod_id: &str) -> AppResult<ModHealthVerdict> {
         let storage_dir = self.storage_dir(config)?;
         let entry = self.with_index(config, |_storage_dir, index| {
             index
@@ -79,34 +112,44 @@ impl ModLibrary {
         }
 
         let run = self.run_over(config, &storage_dir, &entry)?;
-        self.record_check(&storage_dir, mod_id, &run)
+        self.record_health_check(config, &storage_dir, mod_id, &run)
     }
 
     /// Summarize `run` as `mod_id`'s verdict and remember it.
     ///
     /// The seam repair reaches through: it has already analyzed the mod, and
     /// the verdict rides along rather than costing a second scan.
-    pub(in crate::mods) fn record_check(
+    pub(in crate::mods) fn record_health_check(
         &self,
+        config: &Config,
         storage_dir: &Path,
         mod_id: &str,
         run: &Run,
-    ) -> AppResult<ModCheckVerdict> {
-        let verdict = ModCheckVerdict::from_run(mod_id, run);
+    ) -> AppResult<ModHealthVerdict> {
+        let verdict = ModHealthVerdict::from_run(mod_id, run, self.health_check_basis(config));
+        let _lock = self.verdict_lock().lock().mutex_err()?;
         let mut file = VerdictFile::load(storage_dir);
         file.verdicts.insert(mod_id.to_string(), verdict.clone());
         file.save(storage_dir)?;
         Ok(verdict)
     }
 
+    /// What a check running now would be a claim about.
+    pub(in crate::mods) fn health_check_basis(&self, config: &Config) -> HealthCheckBasis {
+        HealthCheckBasis {
+            build: GameBuild::installed(config),
+            manager: self.app_version().to_owned(),
+        }
+    }
+
     /// Check each of `mod_ids`, and report how many verdicts were recorded.
     ///
     /// A mod that cannot be checked is logged and skipped, so one unreadable
     /// mod does not cost the caller the rest.
-    pub fn check_mods(&self, config: &Config, mod_ids: &[String]) -> usize {
+    pub fn check_mods_health(&self, config: &Config, mod_ids: &[String]) -> usize {
         let mut recorded = 0;
         for id in mod_ids {
-            match self.check_mod(config, id) {
+            match self.check_mod_health(config, id) {
                 Ok(_) => recorded += 1,
                 Err(e) => tracing::warn!("Could not check mod {id}: {e}"),
             }
@@ -114,8 +157,8 @@ impl ModLibrary {
         recorded
     }
 
-    /// [`check_mods`](Self::check_mods) on a detached background thread,
-    /// announcing once at the end so the UI refetches.
+    /// [`check_mods_health`](Self::check_mods_health) on a detached background
+    /// thread, announcing once at the end so the UI refetches.
     ///
     /// For the install path: a newly imported mod is checked without asking,
     /// and thirty at once must not make the import wait.
@@ -127,10 +170,10 @@ impl ModLibrary {
         let library = self.clone();
         let config = config.clone();
         std::thread::spawn(move || {
-            if library.check_mods(&config, &mod_ids) > 0 {
+            if library.check_mods_health(&config, &mod_ids) > 0 {
                 library
                     .events()
-                    .emit(crate::events::BackendEvent::CheckVerdictsUpdated);
+                    .emit(crate::events::BackendEvent::ModHealthVerdictsUpdated);
             }
         });
     }
@@ -142,7 +185,10 @@ impl ModLibrary {
     /// # Errors
     ///
     /// Fails when no storage directory is configured.
-    pub fn check_verdicts(&self, config: &Config) -> AppResult<BTreeMap<String, ModCheckVerdict>> {
+    pub fn mod_health_verdicts(
+        &self,
+        config: &Config,
+    ) -> AppResult<BTreeMap<String, ModHealthVerdict>> {
         let storage_dir = self.storage_dir(config)?;
         Ok(VerdictFile::load(&storage_dir).verdicts)
     }
@@ -176,9 +222,9 @@ impl ModLibrary {
     }
 }
 
-impl ModCheckVerdict {
+impl ModHealthVerdict {
     /// Summarize one run the way a mod's badge reads it.
-    fn from_run(mod_id: &str, run: &Run) -> Self {
+    fn from_run(mod_id: &str, run: &Run, basis: HealthCheckBasis) -> Self {
         let counts = Counts::over(run.live_problems());
         let fixable = run
             .live_problems()
@@ -200,16 +246,17 @@ impl ModCheckVerdict {
             fixable,
             counts,
             checked_at: chrono::Utc::now().to_rfc3339(),
+            basis,
         }
     }
 }
 
-/// On-disk shape of `check-verdicts.json`.
+/// On-disk shape of `mod-health-verdicts.json`.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VerdictFile {
     version: u32,
-    verdicts: BTreeMap<String, ModCheckVerdict>,
+    verdicts: BTreeMap<String, ModHealthVerdict>,
 }
 
 impl VerdictFile {
@@ -217,10 +264,10 @@ impl VerdictFile {
     /// unreadable — a lost cache re-fills on the next check, and is not worth
     /// failing a read over.
     fn load(storage_dir: &Path) -> Self {
-        let path = storage_dir.join(CHECK_VERDICTS_FILENAME);
+        let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
         match fs::read_to_string(&path) {
             Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|e| {
-                tracing::warn!("Unreadable {CHECK_VERDICTS_FILENAME}, starting over: {e}");
+                tracing::warn!("Unreadable {MOD_HEALTH_VERDICTS_FILENAME}, starting over: {e}");
                 Self::default()
             }),
             Err(_) => Self::default(),
@@ -228,7 +275,7 @@ impl VerdictFile {
     }
 
     fn save(&self, storage_dir: &Path) -> AppResult<()> {
-        let path = storage_dir.join(CHECK_VERDICTS_FILENAME);
+        let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
         let tmp = path.with_extension("json.tmp");
         fs::write(&tmp, serde_json::to_string_pretty(self)?)?;
         fs::rename(&tmp, &path)?;

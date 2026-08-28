@@ -10,6 +10,7 @@ export * from "./libraryFilter";
 export * from "./librarySelection";
 export * from "./libraryView";
 export * from "./linkedBinGuard";
+export * from "./modHealthDrawer";
 export * from "./notifications";
 export * from "./patcherFailure";
 export * from "./patcherSession";

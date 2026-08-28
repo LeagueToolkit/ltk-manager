@@ -27,7 +27,6 @@
 //! See `docs/ERROR_HANDLING.md` for details.
 
 mod app;
-mod check;
 mod deep_link;
 mod diagnostics;
 mod folders;
@@ -35,6 +34,7 @@ mod game_extract;
 mod game_index;
 mod game_wads;
 mod hashtables;
+mod health;
 pub(crate) mod hotkeys;
 pub(crate) mod launcher;
 mod migration;
@@ -52,7 +52,6 @@ mod strings;
 mod workshop;
 
 pub use app::*;
-pub use check::*;
 pub use deep_link::*;
 pub use diagnostics::*;
 pub use folders::*;
@@ -60,6 +59,7 @@ pub use game_extract::*;
 pub use game_index::*;
 pub use game_wads::*;
 pub use hashtables::*;
+pub use health::*;
 pub use hotkeys::*;
 pub use launcher::*;
 pub use migration::*;

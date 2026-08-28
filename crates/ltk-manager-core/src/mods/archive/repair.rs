@@ -9,6 +9,7 @@
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
@@ -16,10 +17,37 @@ use crate::mods::index::ModStorage;
 use crate::problems::{self, FixReport};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
+use serde::Serialize;
 use std::fs;
 use std::io::BufWriter;
 use std::path::Path;
 use uuid::Uuid;
+
+/// What one repair over several mods became of each of them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct LibraryRepairReport {
+    /// Mods a repair wrote to, by id.
+    pub repaired: Vec<String>,
+    /// Mods the rules found nothing left to apply to, by id.
+    pub unchanged: Vec<String>,
+    /// Mods that could not be repaired, and why.
+    pub failed: Vec<ModRepairFailure>,
+    /// Findings repaired across every mod.
+    pub applied: u32,
+}
+
+/// One mod a repair could not finish, and what stopped it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct ModRepairFailure {
+    pub mod_id: String,
+    pub error: String,
+}
 
 impl ModLibrary {
     /// Repair what a machine can repair in one library mod.
@@ -55,12 +83,9 @@ impl ModLibrary {
             ModStorage::Project => {
                 let mod_dir = entry.mod_dir(&storage_dir);
                 let run = problems::analyze(&mod_dir, config)?;
-                let report = problems::apply(&mod_dir, &run, &live_fixable(&run), config)?;
-                let checked = if report.applied > 0 {
-                    problems::analyze(&mod_dir, config)?
-                } else {
-                    run
-                };
+                let wanted = run.live_fixable();
+                let report = problems::apply(&mod_dir, &run, &wanted, config)?;
+                let checked = verified(&mod_dir, run, &wanted, &report, config)?;
                 (report, checked)
             }
             ModStorage::Archive => {
@@ -77,7 +102,7 @@ impl ModLibrary {
 
         // The repair just analyzed the mod either way, so the verdict the
         // badge reads is refreshed here rather than by a second scan.
-        if let Err(e) = self.record_check(&storage_dir, mod_id, &checked) {
+        if let Err(e) = self.record_health_check(config, &storage_dir, mod_id, &checked) {
             tracing::warn!("Repaired mod {mod_id} but could not store its verdict: {e}");
         }
 
@@ -87,6 +112,46 @@ impl ModLibrary {
         }
 
         Ok(report)
+    }
+
+    /// Repair each of `mod_ids`, and report what became of each.
+    ///
+    /// One mod that cannot be repaired is recorded and stepped over rather than
+    /// ending the run.
+    pub fn repair_mods(&self, config: &Config, mod_ids: &[String]) -> LibraryRepairReport {
+        let mut report = LibraryRepairReport::default();
+
+        for (i, mod_id) in mod_ids.iter().enumerate() {
+            self.events()
+                .emit(BackendEvent::ModRepairProgress(ModRepairProgress {
+                    current: i + 1,
+                    total: mod_ids.len(),
+                    mod_id: mod_id.clone(),
+                }));
+
+            match self.repair_mod(config, mod_id) {
+                Ok(fixes) if fixes.applied > 0 => {
+                    report.applied += fixes.applied;
+                    report.repaired.push(mod_id.clone());
+                }
+                Ok(_) => report.unchanged.push(mod_id.clone()),
+                Err(e) => {
+                    tracing::warn!("Could not repair mod {mod_id}: {e}");
+                    report.failed.push(ModRepairFailure {
+                        mod_id: mod_id.clone(),
+                        error: e.to_string(),
+                    });
+                }
+            }
+        }
+
+        tracing::info!(
+            "Repaired {} of {} mods, {} findings applied",
+            report.repaired.len(),
+            mod_ids.len(),
+            report.applied
+        );
+        report
     }
 
     /// Unpack `archive` into `staging`, fix what the rules find, and put the
@@ -102,7 +167,8 @@ impl ModLibrary {
     ) -> AppResult<(FixReport, problems::Run)> {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
         let run = problems::analyze(staging, config)?;
-        let report = problems::apply(staging, &run, &live_fixable(&run), config)?;
+        let wanted = run.live_fixable();
+        let report = problems::apply(staging, &run, &wanted, config)?;
         if report.applied == 0 {
             return Ok((report, run));
         }
@@ -116,7 +182,7 @@ impl ModLibrary {
 
         swap_in_repacked(&repacked, archive)?;
 
-        let checked = problems::analyze(staging, config)?;
+        let checked = verified(staging, run, &wanted, &report, config)?;
         Ok((report, checked))
     }
 
@@ -140,12 +206,24 @@ impl ModLibrary {
     }
 }
 
-/// The problems a one-button repair may apply: fixable, and from a live rule.
-fn live_fixable(run: &problems::Run) -> Vec<problems::ProblemId> {
-    run.live_problems()
-        .filter(|problem| problem.fix.is_some())
-        .map(|problem| problem.id.clone())
-        .collect()
+/// What the project reads as once `report` has landed, for the verdict.
+///
+/// A repair that applied every problem it named left exactly those gone, so the
+/// run it would produce is derivable and re-parsing every bin to discover it is
+/// a second full analyze for nothing. Anything less than all of them - a rule
+/// that stopped, a file that no longer matched - is re-read, because the
+/// arithmetic cannot say which ones survived.
+fn verified(
+    project_root: &Path,
+    run: problems::Run,
+    wanted: &[problems::ProblemId],
+    report: &FixReport,
+    config: &Config,
+) -> AppResult<problems::Run> {
+    if report.applied as usize == wanted.len() {
+        return Ok(run.without(wanted));
+    }
+    problems::analyze(project_root, config)
 }
 
 /// Put the repacked archive where the original was, keeping the original until

@@ -7,23 +7,27 @@
 
 use super::off_thread;
 use crate::error::{AppResult, IpcResult};
-use crate::mods::{ModCheckVerdict, ModLibrary, ModLibraryState};
+use crate::mods::{ModHealthVerdict, ModLibrary, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
+use ltk_manager_core::mods::{HealthSweepState, LibraryRepairReport};
 use ltk_manager_core::problems::FixReport;
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager, State};
 
 /// Check one mod and return the verdict its badge reads.
 #[tauri::command]
-pub async fn check_mod(mod_id: String, app_handle: AppHandle) -> IpcResult<ModCheckVerdict> {
+pub async fn check_mod_health(
+    mod_id: String,
+    app_handle: AppHandle,
+) -> IpcResult<ModHealthVerdict> {
     let (config, library) = match library_setup(&app_handle, PatcherGuard::Allow) {
         Ok(v) => v,
-        Err(e) => return IpcResult::from(Err::<ModCheckVerdict, _>(e)),
+        Err(e) => return IpcResult::from(Err::<ModHealthVerdict, _>(e)),
     };
 
-    off_thread(move || library.check_mod(&config, &mod_id)).await
+    off_thread(move || library.check_mod_health(&config, &mod_id)).await
 }
 
 /// Repair what a machine can repair in one mod.
@@ -42,15 +46,44 @@ pub async fn repair_mod(mod_id: String, app_handle: AppHandle) -> IpcResult<FixR
     .await
 }
 
+/// Repair what a machine can repair in each of `mod_ids`.
+///
+/// The one button behind the sweep's banner. One mod that cannot be repaired is
+/// recorded in the report rather than failing the call.
+#[tauri::command]
+pub async fn repair_mods(
+    mod_ids: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<LibraryRepairReport> {
+    let (config, library) = match library_setup(&app_handle, PatcherGuard::Reject) {
+        Ok(v) => v,
+        Err(e) => return IpcResult::from(Err::<LibraryRepairReport, _>(e)),
+    };
+
+    off_thread(move || {
+        let report = library.repair_mods(&config, &mod_ids);
+        library.announce_change();
+        Ok(report)
+    })
+    .await
+}
+
+/// What the mod health sweep has to say for itself this launch.
+#[tauri::command]
+pub fn get_health_sweep(library: State<ModLibraryState>) -> IpcResult<HealthSweepState> {
+    let result: AppResult<HealthSweepState> = Ok(library.0.health_sweep_state());
+    result.into()
+}
+
 /// Every verdict the library remembers, by mod id.
 #[tauri::command]
-pub fn get_check_verdicts(
+pub fn get_mod_health_verdicts(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
-) -> IpcResult<BTreeMap<String, ModCheckVerdict>> {
-    let result: AppResult<BTreeMap<String, ModCheckVerdict>> = (|| {
+) -> IpcResult<BTreeMap<String, ModHealthVerdict>> {
+    let result: AppResult<BTreeMap<String, ModHealthVerdict>> = (|| {
         let config = settings.config()?;
-        library.0.check_verdicts(&config)
+        library.0.mod_health_verdicts(&config)
     })();
     result.into()
 }

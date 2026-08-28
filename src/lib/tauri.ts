@@ -29,6 +29,7 @@ import type {
   HashtableCacheStatus,
   HashtableSyncReport,
   HashtableUpdateCheck,
+  HealthSweepState,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -39,8 +40,9 @@ import type {
   LaunchTarget,
   LayoutMigrationState,
   LibraryFolder,
+  LibraryRepairReport,
   LinkedBinOffenderInfo,
-  ModCheckVerdict,
+  ModHealthVerdict,
   ModpkgInfo,
   ModStorage,
   ModWadReport,
@@ -158,9 +160,12 @@ export const api = {
     invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
   getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
   analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
-  checkMod: (modId: string) => invokeResult<ModCheckVerdict>("check_mod", { modId }),
+  checkModHealth: (modId: string) => invokeResult<ModHealthVerdict>("check_mod_health", { modId }),
   repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
-  getCheckVerdicts: () => invokeResult<Record<string, ModCheckVerdict>>("get_check_verdicts"),
+  repairMods: (modIds: string[]) => invokeResult<LibraryRepairReport>("repair_mods", { modIds }),
+  getModHealthVerdicts: () =>
+    invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
+  getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
 
   // Migration
   scanCslolMods: (directory: string) =>

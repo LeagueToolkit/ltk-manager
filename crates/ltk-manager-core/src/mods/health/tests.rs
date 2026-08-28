@@ -26,13 +26,13 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
     let archive = storage.path().join("mods").join("stale-mod.fantome");
     let before = fs::read(&archive).unwrap();
 
-    let verdict = library.check_mod(&config, "id-1").unwrap();
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
 
     assert_eq!(verdict.health, ModHealth::Repairable);
     assert_eq!(verdict.fixable, 1);
     assert_eq!(fs::read(&archive).unwrap(), before, "a check never writes");
 
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap(), &verdict);
 }
 
@@ -52,7 +52,7 @@ fn checking_a_stale_project_mod_reports_it_repairable() {
         )],
     );
 
-    let verdict = library.check_mod(&config, "id-1").unwrap();
+    let verdict = library.check_mod_health(&config, "id-1").unwrap();
 
     assert_eq!(verdict.health, ModHealth::Repairable);
     assert_eq!(verdict.fixable, 1);
@@ -79,10 +79,11 @@ fn checking_many_skips_the_mod_it_cannot_read() {
         ],
     );
 
-    let recorded = library.check_mods(&config, &["id-broken".to_string(), "id-good".to_string()]);
+    let recorded =
+        library.check_mods_health(&config, &["id-broken".to_string(), "id-good".to_string()]);
 
     assert_eq!(recorded, 1);
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(
         verdicts.get("id-good").unwrap().health,
         ModHealth::Repairable
@@ -100,11 +101,11 @@ fn a_repair_refreshes_the_stored_verdict() {
     place_bin_archived_fantome(storage.path(), "stale-mod", &stale_bin());
     seed_library(&library, &config, vec![archived_entry("id-1", "stale-mod")]);
 
-    let checked = library.check_mod(&config, "id-1").unwrap();
+    let checked = library.check_mod_health(&config, "id-1").unwrap();
     assert_eq!(checked.health, ModHealth::Repairable);
 
     library.repair_mod(&config, "id-1").unwrap();
 
-    let verdicts = library.check_verdicts(&config).unwrap();
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap().health, ModHealth::Healthy);
 }

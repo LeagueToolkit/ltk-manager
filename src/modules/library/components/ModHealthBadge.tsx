@@ -1,20 +1,25 @@
-import { ArrowsClockwiseIcon, WarningCircleIcon, WrenchIcon } from "@phosphor-icons/react";
+import {
+  ArrowsClockwiseIcon,
+  PlugsIcon,
+  WarningCircleIcon,
+  WrenchIcon,
+} from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
 
 import { Button, IconButton, Popover, Tooltip } from "@/components";
-import { type ModCheckVerdict } from "@/lib/tauri";
-import { useCheckMod, useCheckVerdict, useRepairMod } from "@/modules/library";
+import { type ModHealthVerdict } from "@/lib/tauri";
+import { useCheckModHealth, useModHealthVerdict, useRepairMod } from "@/modules/library";
 
 interface ModHealthBadgeProps {
   modId: string;
 }
 
-function totalFindings(verdict: ModCheckVerdict): number {
+function totalFindings(verdict: ModHealthVerdict): number {
   const { fatals, errors, warnings, infos } = verdict.counts;
   return fatals + errors + warnings + infos;
 }
 
-function findingsSentence(verdict: ModCheckVerdict): string {
+function findingsSentence(verdict: ModHealthVerdict): string {
   const total = totalFindings(verdict);
   const findings = `finding${total === 1 ? "" : "s"}`;
   if (verdict.health === "repairable") {
@@ -35,15 +40,14 @@ function findingsSentence(verdict: ModCheckVerdict): string {
  * the plain-counts summary, the repair, and a re-check.
  */
 export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
-  const { data: verdict } = useCheckVerdict(modId);
-  const check = useCheckMod();
+  const { data: verdict } = useModHealthVerdict(modId);
+  const check = useCheckModHealth();
   const repair = useRepairMod();
 
   if (!verdict || verdict.health === "healthy") return null;
 
   const repairable = verdict.health === "repairable";
   const PillIcon = repairable ? WrenchIcon : WarningCircleIcon;
-  const shownCount = repairable ? verdict.fixable : totalFindings(verdict);
   const tooltipContent = (
     <div className="max-w-[240px] space-y-1">
       <p className="font-semibold text-surface-100">
@@ -63,19 +67,18 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
       <Tooltip content={tooltipContent}>
         <Popover.Trigger
           render={
-            <Button
+            <IconButton
+              compact
               variant="ghost"
-              size="xs"
+              size="sm"
+              icon={<PillIcon className="h-4 w-4" weight="bold" />}
               aria-label={
                 repairable
                   ? `${verdict.fixable} repairable finding${verdict.fixable === 1 ? "" : "s"}, click to repair`
                   : `${totalFindings(verdict)} unrepairable finding${totalFindings(verdict) === 1 ? "" : "s"}, click for details`
               }
-              className={`h-6 gap-1 rounded-sm px-2 py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${pillClasses}`}
-            >
-              <PillIcon className="h-3 w-3" weight="bold" />
-              {shownCount}
-            </Button>
+              className={`h-6 gap-1 rounded-sm py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${pillClasses}`}
+            />
           }
         />
       </Tooltip>
@@ -115,7 +118,7 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
                   onClick={() => repair.mutate(modId)}
                   className="self-start"
                 >
-                  <WrenchIcon className="h-3 w-3" weight="bold" />
+                  <PlugsIcon className="h-4 w-4" weight="duotone" />
                   Repair
                 </Button>
               )}

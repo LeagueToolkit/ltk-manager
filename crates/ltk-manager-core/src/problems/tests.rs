@@ -187,3 +187,117 @@ fn the_state_holds_one_run_for_each_project() {
     state.invalidate(project).unwrap();
     assert!(state.last(project).unwrap().is_none());
 }
+
+/// A run holding `problems`, with `rules` as the catalogue behind them.
+fn run_of(rules: Vec<RuleInfo>, problems: Vec<Problem>) -> Run {
+    let objects = problems
+        .iter()
+        .filter_map(|problem| problem.site.node.as_ref())
+        .map(|node| ObjectInfo {
+            entry: node.entry,
+            name: format!("Characters/Smolder/Skins/{:08x}", node.entry.0),
+        })
+        .collect();
+    Run {
+        at: Utc::now(),
+        rules,
+        objects,
+        problems,
+        failed: Vec::new(),
+    }
+}
+
+fn active(id: RuleId) -> RuleInfo {
+    RuleInfo {
+        id,
+        title: "Meta property type mismatch".to_owned(),
+        description: "The declared type is not the one the game reads".to_owned(),
+        state: RuleState::Active,
+    }
+}
+
+/// One problem in `path`, repairable when `fix` says so.
+fn problem_at(rule: RuleId, path: &str, fix: Option<FixPreview>) -> Problem {
+    let site = Site::node(
+        "base",
+        "skin0.bin",
+        NodeAddress {
+            entry: BinHash(0x2a1f_3c7d),
+            path: path.to_owned(),
+            label: None,
+        },
+    );
+    Problem {
+        id: ProblemId::new(rule, &site),
+        rule,
+        severity: Severity::Fatal,
+        site,
+        mismatch: None,
+        message: None,
+        fix,
+    }
+}
+
+#[test]
+fn grouping_by_rule_keeps_only_the_ids_the_run_holds() {
+    let rule = RuleId("bin/property-type");
+    let held = problem_at(rule, "iconPath", None);
+    let run = run_of(vec![active(rule)], vec![held.clone()]);
+    let gone = ProblemId("bin/property-type@base:gone.bin#0x2a1f3c7d:iconPath".to_owned());
+
+    let chosen = run.by_rule(&[held.id.clone(), gone]);
+
+    assert_eq!(chosen.len(), 1);
+    assert_eq!(chosen[&rule], vec![&held]);
+}
+
+#[test]
+fn only_a_fixable_problem_of_a_live_rule_is_offered_to_a_repair() {
+    let live = RuleId("bin/property-type");
+    let dormant = RuleId("bin/waiting");
+    let fixable = problem_at(live, "iconPath", Some(FixPreview::default()));
+    let unfixable = problem_at(live, "mAnimationFilePath", None);
+    let waiting = problem_at(dormant, "particlePaths", Some(FixPreview::default()));
+    let run = run_of(
+        vec![
+            active(live),
+            RuleInfo {
+                state: RuleState::Dormant {
+                    waiting: "Patch 16.18".to_owned(),
+                    reason: "Not yet".to_owned(),
+                    detail: None,
+                },
+                ..active(dormant)
+            },
+        ],
+        vec![fixable.clone(), unfixable, waiting],
+    );
+
+    assert_eq!(run.live_fixable(), vec![fixable.id]);
+}
+
+/// Story: a repair that applied everything it named needs no second parse of
+/// every bin to say what the mod looks like now.
+#[test]
+fn subtracting_the_repaired_leaves_what_a_re_run_would_find() {
+    let rule = RuleId("bin/property-type");
+    let repaired = problem_at(rule, "iconPath", Some(FixPreview::default()));
+    let left = problem_at(rule, "mAnimationFilePath", None);
+    let run = run_of(vec![active(rule)], vec![repaired.clone(), left.clone()]);
+
+    let after = run.without(&[repaired.id]);
+
+    assert_eq!(after.problems, vec![left]);
+    assert_eq!(after.rules, run.rules);
+}
+
+/// An object nothing sits in any more is not a name the panel has to draw.
+#[test]
+fn subtracting_the_last_problem_of_an_object_drops_it_from_the_catalogue() {
+    let rule = RuleId("bin/property-type");
+    let only = problem_at(rule, "iconPath", Some(FixPreview::default()));
+    let run = run_of(vec![active(rule)], vec![only.clone()]);
+    assert_eq!(run.objects.len(), 1);
+
+    assert!(run.without(&[only.id]).objects.is_empty());
+}

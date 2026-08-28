@@ -24,7 +24,7 @@ export function useRepairMod() {
       return unwrapForQuery(result);
     },
     onSuccess: (report) => {
-      void queryClient.invalidateQueries({ queryKey: libraryKeys.checkVerdicts() });
+      void queryClient.invalidateQueries({ queryKey: libraryKeys.modHealthVerdicts() });
       if (report.applied > 0) {
         void queryClient.invalidateQueries({ queryKey: libraryKeys.wadReports() });
         toast.success(`Repaired ${report.applied} finding${report.applied === 1 ? "" : "s"}`);

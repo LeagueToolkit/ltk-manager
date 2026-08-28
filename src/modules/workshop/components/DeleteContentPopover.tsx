@@ -1,8 +1,6 @@
 import { WarningIcon } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
-import { Button, Popover } from "@/components";
+import { Button, Popover, Spotlight, type SpotlightAnchor } from "@/components";
 
 import { useDeleteLayerContent } from "../api";
 
@@ -17,18 +15,9 @@ export interface DeleteContentTarget {
   fileCount: number;
 }
 
-/**
- * The row the confirmation points at, looked up rather than held.
- *
- * The tree is virtualized and a pinned row has a second copy of itself, so the
- * element standing for a node is the tree's to answer for, and the answer can
- * change while the popover is open.
- */
-export type ContentRowAnchor = () => HTMLElement | null;
-
 interface DeleteContentPopoverProps {
   target: DeleteContentTarget | null;
-  anchor: ContentRowAnchor;
+  anchor: SpotlightAnchor;
   projectPath: string;
   layerName: string;
   onClose: () => void;
@@ -112,56 +101,6 @@ export function DeleteContentPopover({
       </Popover.Portal>
     </Popover.Root>
   );
-}
-
-/**
- * The scrim, with the anchored row cut out of it.
- *
- * Four strips around the row rather than one sheet over everything: a
- * confirmation that points at a row and then blurs that row away has argued
- * against itself. What the popover claims it is deleting stays legible next to
- * it, and the ring is what keeps the gap in the dim from reading as a seam.
- */
-function Spotlight({ anchor }: { anchor: ContentRowAnchor }) {
-  const rect = useAnchorRect(anchor);
-  const dim = "absolute bg-scrim backdrop-blur-sm";
-
-  if (!rect) return <div className={twMerge(dim, "inset-0")} />;
-
-  return (
-    <>
-      <div className={twMerge(dim, "inset-x-0 top-0")} style={{ height: rect.top }} />
-      <div className={twMerge(dim, "inset-x-0 bottom-0")} style={{ top: rect.bottom }} />
-      <div
-        className={twMerge(dim, "left-0")}
-        style={{ top: rect.top, height: rect.height, width: rect.left }}
-      />
-      <div
-        className={twMerge(dim, "right-0")}
-        style={{ top: rect.top, height: rect.height, left: rect.right }}
-      />
-      <div
-        className="absolute rounded-sm ring-1 ring-accent-500/50"
-        style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }}
-      />
-    </>
-  );
-}
-
-/** The anchored row's box, remeasured when the window moves under it. */
-function useAnchorRect(anchor: ContentRowAnchor): DOMRect | null {
-  const [rect, setRect] = useState<DOMRect | null>(() => anchor()?.getBoundingClientRect() ?? null);
-
-  /* A modal popover locks the page scroll, so a resize is the only thing left
-     that can move the row after this opens. */
-  useEffect(() => {
-    const measure = () => setRect(anchor()?.getBoundingClientRect() ?? null);
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [anchor]);
-
-  return rect;
 }
 
 /**

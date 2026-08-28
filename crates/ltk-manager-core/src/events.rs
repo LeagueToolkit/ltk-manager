@@ -23,6 +23,9 @@ pub use crate::launcher::{
 /// As above, for the payload the layout migration defines beside itself.
 pub use crate::mods::LayoutMigrationReport;
 
+/// As above, for what a mod health sweep concludes.
+pub use crate::mods::HealthSweepReport;
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -109,6 +112,35 @@ pub struct LayoutMigrationProgress {
     pub current: usize,
     pub total: usize,
     pub current_mod: String,
+}
+
+/// Progress of a mod health sweep, emitted per mod.
+///
+/// The mod is named by id rather than by title: the library view already holds
+/// every mod's name, and looking one up here would mean a `mod.config.json`
+/// read per mod on top of the check itself.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct HealthSweepProgress {
+    pub current: usize,
+    pub total: usize,
+    pub mod_id: String,
+}
+
+/// Progress of a repair over several mods, emitted per mod.
+///
+/// Its own payload rather than [`HealthSweepProgress`] reused: the two run at
+/// different moments and a surface drawing one must not be driven by the other.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ModRepairProgress {
+    pub current: usize,
+    pub total: usize,
+    pub mod_id: String,
 }
 
 /// Stage of a fantome import.
@@ -320,7 +352,15 @@ declare_events! {
     /// Per-mod WAD analysis results changed.
     WadReportsUpdated => "wad-reports-updated",
     /// Per-mod health verdicts changed.
-    CheckVerdictsUpdated => "check-verdicts-updated",
+    ModHealthVerdictsUpdated => "mod-health-verdicts-updated",
+    /// A mod health sweep advanced to the next mod.
+    HealthSweepProgress(HealthSweepProgress) => "health-sweep-progress",
+    /// A mod health sweep ended, with what the library now looks like. Emitted
+    /// only for a run that had mods to check, so a library already current
+    /// announces nothing.
+    HealthSweepFinished(HealthSweepReport) => "health-sweep-finished",
+    /// A repair over several mods advanced to the next mod.
+    ModRepairProgress(ModRepairProgress) => "mod-repair-progress",
     /// The library index changed and any cached view of it is stale.
     LibraryChanged => "library-changed",
     /// A bulk install advanced.

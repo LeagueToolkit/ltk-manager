@@ -7,6 +7,7 @@ import {
   ImportProgressDialog,
   LibraryContent,
   LibraryToolbar,
+  ModHealthSweep,
   SelectionActionBar,
   useFilteredMods,
   useFilterOptions,
@@ -129,6 +130,7 @@ export function Library({ folderId }: LibraryProps = {}) {
           folderId={folderId}
         />
         {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
+        <ModHealthSweep />
       </div>
       <ImportProgressDialog
         open={actions.importDialogOpen}

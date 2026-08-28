@@ -9,7 +9,7 @@
 //! A run that dies mid-way leaves whole files on both sides of it, and the
 //! restore point covers the ones it finished.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 
-use super::{Problem, ProblemId, RuleId, Run, rules};
+use super::{ProblemId, Run, rules};
 
 /// The last restore points a project keeps.
 ///
@@ -291,15 +291,7 @@ pub fn apply(
 ) -> AppResult<FixReport> {
     let _ = config;
 
-    let mut chosen: HashMap<RuleId, Vec<&Problem>> = HashMap::new();
-    for id in problems {
-        // A panel goes stale, and a row it still draws is a list to narrow
-        // rather than a call to refuse.
-        match run.problem(id) {
-            Some(problem) => chosen.entry(problem.rule).or_default().push(problem),
-            None => tracing::debug!("Ignoring a problem this run does not hold: {id}"),
-        }
-    }
+    let chosen = run.by_rule(problems);
 
     let tables = rules::bin_property_type::table::tables()
         .iter()
