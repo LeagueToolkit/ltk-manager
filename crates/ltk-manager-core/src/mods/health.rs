@@ -7,6 +7,9 @@
 //! badge every mod without re-scanning any.
 
 pub mod sweep;
+/* A dev-console measurement, and never in a release binary. */
+#[cfg(debug_assertions)]
+pub mod timing;
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, MutexResultExt};

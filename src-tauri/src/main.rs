@@ -91,6 +91,8 @@ fn main() {
             commands::repair_mod,
             commands::repair_mods,
             commands::get_mod_health_verdicts,
+            #[cfg(debug_assertions)]
+            commands::time_mod_health,
             commands::cancel_mod_health_run,
             commands::get_health_sweep,
             commands::inspect_modpkg,

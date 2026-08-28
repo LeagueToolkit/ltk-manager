@@ -68,6 +68,33 @@ pub async fn repair_mods(
     .await
 }
 
+/// Time a health pass over the real library, into the dev console.
+///
+/// Debug builds only, and the trigger for the measurement loop the repair was
+/// tuned in: a synthetic fixture cannot produce the numbers a 25MB mod of real
+/// bins does. `repair` runs the real repair, which rewrites the mods it can fix
+/// and keeps no way back, so the default pass only reads.
+#[cfg(debug_assertions)]
+#[tauri::command]
+pub async fn time_mod_health(
+    repair: bool,
+    app_handle: AppHandle,
+) -> IpcResult<ltk_manager_core::mods::HealthTiming> {
+    let guard = if repair {
+        PatcherGuard::Reject
+    } else {
+        PatcherGuard::Allow
+    };
+    let (config, library) = match library_setup(&app_handle, guard) {
+        Ok(v) => v,
+        Err(e) => {
+            return IpcResult::from(Err::<ltk_manager_core::mods::HealthTiming, _>(e));
+        }
+    };
+
+    off_thread(move || library.time_mod_health(&config, repair)).await
+}
+
 /// Call off the check or repair now running, if one is.
 ///
 /// A mod the run had not finished records no verdict, so the next sweep picks

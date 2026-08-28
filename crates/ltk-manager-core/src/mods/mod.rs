@@ -44,6 +44,8 @@ pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
 pub use health::sweep::{HealthSweepReport, HealthSweepState};
+#[cfg(debug_assertions)]
+pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModFault, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};

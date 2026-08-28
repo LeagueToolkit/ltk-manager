@@ -29,6 +29,7 @@ import type {
   HashtableSyncReport,
   HashtableUpdateCheck,
   HealthSweepState,
+  HealthTiming,
   HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
@@ -164,6 +165,14 @@ export const api = {
   getModHealthVerdicts: () =>
     invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
   getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
+  cancelModHealthRun: () => invokeResult<null>("cancel_mod_health_run"),
+  /**
+   * Time a health pass over the real library, into the dev console.
+   *
+   * Registered only in a debug build. `repair` runs the real repair, which
+   * rewrites the mods it can fix and keeps no way back.
+   */
+  timeModHealth: (repair: boolean) => invokeResult<HealthTiming>("time_mod_health", { repair }),
 
   // Migration
   scanCslolMods: (directory: string) =>
