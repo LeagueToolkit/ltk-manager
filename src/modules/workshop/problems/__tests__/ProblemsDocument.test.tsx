@@ -236,6 +236,7 @@ const FIX_REPORT: FixReport = {
   skipped: 0,
   namesKept: 1,
   tables: ["16.17.8087655"],
+  remaining: [],
   files: [],
   failed: [],
 };

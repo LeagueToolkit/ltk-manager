@@ -87,7 +87,7 @@ impl ModLibrary {
                 let resolver = self.wad_resolver();
                 let report =
                     problems::apply(&mod_dir, &run, &wanted, config, Some(resolver.as_ref()))?;
-                let checked = verified(&mod_dir, run, &wanted, &report, config)?;
+                let checked = verified(run, &wanted, &report);
                 (report, checked)
             }
             ModStorage::Archive => {
@@ -185,7 +185,7 @@ impl ModLibrary {
 
         swap_in_repacked(&repacked, archive)?;
 
-        let checked = verified(staging, run, &wanted, &report, config)?;
+        let checked = verified(run, &wanted, &report);
         Ok((report, checked))
     }
 
@@ -211,22 +211,20 @@ impl ModLibrary {
 
 /// What the project reads as once `report` has landed, for the verdict.
 ///
-/// A repair that applied every problem it named left exactly those gone, so the
-/// run it would produce is derivable and re-parsing every bin to discover it is
-/// a second full analyze for nothing. Anything less than all of them - a rule
-/// that stopped, a file that no longer matched - is re-read, because the
-/// arithmetic cannot say which ones survived.
+/// The rules re-check what they wrote before the bytes leave them, so
+/// [`FixReport::remaining`] is what a second analyze would find and re-parsing
+/// every bin to discover it would be a full pass for nothing.
 fn verified(
-    project_root: &Path,
     run: problems::Run,
     wanted: &[problems::ProblemId],
     report: &FixReport,
-    config: &Config,
-) -> AppResult<problems::Run> {
-    if report.applied as usize == wanted.len() {
-        return Ok(run.without(wanted));
-    }
-    problems::analyze(project_root, config)
+) -> problems::Run {
+    let repaired: Vec<problems::ProblemId> = wanted
+        .iter()
+        .filter(|id| !report.remaining.contains(id))
+        .cloned()
+        .collect();
+    run.without(&repaired)
 }
 
 /// Put the repacked archive where the original was, keeping the original until

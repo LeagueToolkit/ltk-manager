@@ -22,7 +22,7 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 
 use super::preserve::PreservedNames;
-use super::{ProblemId, Run, rules};
+use super::{NodeAddress, ProblemId, RuleId, Run, Site, rules};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
@@ -38,6 +38,8 @@ pub struct FixRun<'a> {
     tables: Vec<String>,
     files: Vec<FileOutcome>,
     kept: PreservedNames<'a>,
+    /// Problems the rule still saw once it had finished writing.
+    left: Vec<ProblemId>,
 }
 
 impl<'a> FixRun<'a> {
@@ -57,7 +59,34 @@ impl<'a> FixRun<'a> {
             tables,
             files: Vec::new(),
             kept: PreservedNames::open(project_root, exclusions),
+            left: Vec::new(),
         }
+    }
+
+    /// Record a problem the rule still saw after it had applied what it could.
+    ///
+    /// The rule re-checks what it wrote, in memory, before the bytes leave it.
+    /// What that check still objects to is what the mod is, so a caller
+    /// summarizing the repair reads this rather than analyzing the project
+    /// again.
+    pub fn left(
+        &mut self,
+        rule: RuleId,
+        layer: &str,
+        path: &str,
+        entry: ltk_hash::BinHash,
+        node: String,
+    ) {
+        let site = Site::node(
+            layer,
+            path,
+            NodeAddress {
+                entry,
+                path: node,
+                label: None,
+            },
+        );
+        self.left.push(ProblemId::new(rule, &site));
     }
 
     /// The names this run keeps, for a rule about to hash one away.
@@ -150,6 +179,7 @@ impl<'a> FixRun<'a> {
             names_kept: names_kept as u32,
             tables: self.tables,
             files: self.files,
+            remaining: self.left,
             failed: Vec::new(),
         })
     }
@@ -294,6 +324,11 @@ pub struct FixReport {
     pub names_kept: u32,
     /// The migration tables the run applied.
     pub tables: Vec<String>,
+    /// The named problems a re-check still saw once the run had written.
+    ///
+    /// Read off the repaired tree in memory rather than by analyzing the
+    /// project a second time. Empty is the ordinary outcome.
+    pub remaining: Vec<ProblemId>,
     pub files: Vec<FileOutcome>,
     /// A file a rule could not finish, and why.
     pub failed: Vec<String>,

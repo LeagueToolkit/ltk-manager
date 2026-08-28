@@ -39,7 +39,6 @@ use crate::problems::{
     Applied, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress, Preserved,
     PreservedNames, Problem, ProjectFiles, Report, Rule, RuleId, Severity, Site, TypeMismatch,
 };
-use crate::workshop::WorkshopFileKind;
 
 use table::{Conversion, Migration, MigrationTable};
 
@@ -112,59 +111,44 @@ impl Rule for BinPropertyType {
             names: project.names(),
         };
 
-        for (layer, file) in project
-            .by_kind(WorkshopFileKind::PropertyBin)
-            .chain(project.by_kind(WorkshopFileKind::PropertyBinOverride))
-        {
-            let site = Site::file(&layer.name, &file.path);
-            let bin = match read_bin(&layer.absolute(file)) {
+        for handle in project.bins() {
+            let bin = match handle.read() {
                 Ok(bin) => bin,
                 Err(e) => {
-                    report.failure(ID, Some(site), e);
+                    report.failure(ID, Some(Site::file(handle.layer(), handle.path())), e);
                     continue;
                 }
             };
 
-            for (entry, object) in &bin.objects {
-                let mut found = Vec::new();
-                walk(
-                    object.class_hash,
-                    &object.properties,
-                    &Trail::default(),
-                    lens,
-                    &mut found,
-                );
-
-                for hit in found {
-                    let severity = severity(project.build(), hit.table_build);
-                    let fix = (!bin.is_override)
-                        .then(|| preview(hit.migration, hit.value))
-                        .flatten();
-                    report.problem(
-                        ID,
-                        severity,
-                        Site::node(
-                            &layer.name,
-                            &file.path,
-                            NodeAddress {
-                                entry: *entry,
-                                label: hit.trail.label(),
-                                path: hit.trail.hashes,
-                            },
-                        ),
-                        Detail {
-                            mismatch: Some(mismatch(hit.migration)),
-                            message: note(
-                                hit.migration,
-                                hit.value,
-                                project.build(),
-                                hit.table_build,
-                                &bin,
-                            ),
-                            fix,
+            for (entry, hit) in check_bin(&bin, lens) {
+                let severity = severity(project.build(), hit.table_build);
+                let fix = (!bin.is_override)
+                    .then(|| preview(hit.migration, hit.value))
+                    .flatten();
+                report.problem(
+                    ID,
+                    severity,
+                    Site::node(
+                        handle.layer(),
+                        handle.path(),
+                        NodeAddress {
+                            entry,
+                            label: hit.address.label(),
+                            path: hit.address.hashes,
                         },
-                    );
-                }
+                    ),
+                    Detail {
+                        mismatch: Some(mismatch(hit.migration)),
+                        message: note(
+                            hit.migration,
+                            hit.value,
+                            project.build(),
+                            hit.table_build,
+                            &bin,
+                        ),
+                        fix,
+                    },
+                );
             }
         }
     }
@@ -201,24 +185,26 @@ impl Rule for BinPropertyType {
                 continue;
             }
 
-            let mut file_applied = 0;
-            for (entry, object) in &mut bin.objects {
-                let addressed: HashSet<&str> = wanted
-                    .iter()
-                    .filter(|address| address.entry == *entry)
-                    .map(|address| address.path.as_str())
-                    .collect();
-                if addressed.is_empty() {
-                    continue;
+            let mut addressed: HashMap<BinHash, HashSet<&str>> = HashMap::new();
+            for address in &wanted {
+                addressed
+                    .entry(address.entry)
+                    .or_default()
+                    .insert(address.path.as_str());
+            }
+
+            let file_applied = fix_bin(&mut bin, &addressed, lens, run.kept_names());
+
+            // The mod as it now is, read off the tree in memory. A genuine
+            // check rather than arithmetic over what the fix claimed, and it
+            // costs a walk rather than a second parse.
+            for (entry, hit) in check_bin(&bin, lens) {
+                if addressed
+                    .get(&entry)
+                    .is_some_and(|paths| paths.contains(hit.address.hashes.as_str()))
+                {
+                    run.left(ID, &layer, &path, entry, hit.address.hashes);
                 }
-                file_applied += repair(
-                    object.class_hash,
-                    &mut object.properties,
-                    &Trail::default(),
-                    lens,
-                    &addressed,
-                    run.kept_names(),
-                );
             }
 
             let file_skipped = wanted.len() as u32 - file_applied;
@@ -243,99 +229,160 @@ impl Rule for BinPropertyType {
     }
 }
 
-/// The path to one node, in the two forms a row and a repair each need.
+/// One step of the path to a node, kept as what it is rather than as text.
+///
+/// A walk descends far more nodes than it reports - a 25MB project is millions
+/// of properties and a handful of hits - so a step costs a hash and a table row
+/// on the way down, and becomes a string only where a hit is found.
+#[derive(Clone)]
+enum Step {
+    /// A property, and the row naming it where a table holds one.
+    Field(BinHash, Option<&'static Migration>),
+    /// One element of a container, or a present optional.
+    Index(usize),
+    /// One entry of a map, subscripted by its key.
+    ///
+    /// Written out on the way down rather than on the way out, because a key
+    /// borrows the map and a repair holds that map through a `&mut`.
+    Key {
+        hashes: String,
+        named: Option<String>,
+    },
+}
+
+/// The path to the node a walk is standing on, pushed and popped as it goes.
+#[derive(Clone, Default)]
+struct Trail(Vec<Step>);
+
+impl Trail {
+    /// Step into a property.
+    fn field(&mut self, field: BinHash, row: Option<&'static Migration>) {
+        self.0.push(Step::Field(field, row));
+    }
+
+    /// Step into one element of a container or a present optional.
+    fn index(&mut self, index: usize) {
+        self.0.push(Step::Index(index));
+    }
+
+    /// Step into one entry of a map, subscripted by its key.
+    fn key(&mut self, key: &PropertyValueEnum, names: &BinNames) {
+        let hashes = format!("{{{}}}", subscript(key));
+        let named = format!("{{{}}}", subscript_named(key, names));
+        let named = (named != hashes).then_some(named);
+        self.0.push(Step::Key { hashes, named });
+    }
+
+    fn back(&mut self) {
+        self.0.pop();
+    }
+
+    /// Write the path out, in the two forms a row and a repair each need.
+    ///
+    /// The hash form takes the migration table's own name where a row carries
+    /// one, because that table ships in the build and so reads the same on
+    /// every machine. Only the label consults the cache.
+    fn address(&self, names: &BinNames) -> Address {
+        let mut hashes = String::new();
+        let mut named = String::new();
+        let mut resolved = false;
+
+        for step in &self.0 {
+            match step {
+                Step::Field(field, row) => {
+                    if !hashes.is_empty() {
+                        hashes.push('.');
+                        named.push('.');
+                    }
+                    let hashed = row
+                        .and_then(|migration| migration.field_name.as_deref())
+                        .map_or_else(|| names::hex(*field), str::to_owned);
+                    let readable = names.field(*field).unwrap_or_else(|| hashed.clone());
+                    resolved |= hashed != readable;
+                    hashes.push_str(&hashed);
+                    named.push_str(&readable);
+                }
+                Step::Index(index) => {
+                    let segment = format!("[{index}]");
+                    hashes.push_str(&segment);
+                    named.push_str(&segment);
+                }
+                Step::Key {
+                    hashes: raw,
+                    named: readable,
+                } => {
+                    hashes.push_str(raw);
+                    named.push_str(readable.as_deref().unwrap_or(raw));
+                    resolved |= readable.is_some();
+                }
+            }
+        }
+
+        Address {
+            hashes,
+            named,
+            resolved,
+        }
+    }
+
+    /// The hash form alone, for a repair matching against what a check recorded.
+    ///
+    /// A repair addresses a node by the hash form, which no table can move, so
+    /// it never pays for the readable one.
+    fn hashes(&self) -> String {
+        self.address(&BinNames::none()).hashes
+    }
+}
+
+/// The path to one node, written out.
 ///
 /// `hashes` is what the file itself holds, and a repair matches on it, so it
 /// never moves with the hash tables. `named` is the same path for reading.
-#[derive(Clone, Default)]
-struct Trail {
+struct Address {
     hashes: String,
     named: String,
     /// Whether a table named anything `hashes` left as a number.
     resolved: bool,
 }
 
-impl Trail {
+impl Address {
     /// The label a row draws, or `None` where it would repeat `hashes`.
     fn label(&self) -> Option<String> {
         self.resolved.then(|| self.named.clone())
-    }
-
-    fn extend(&self, hashes: &str, named: &str, joiner: &str) -> Self {
-        let sep = if self.hashes.is_empty() { "" } else { joiner };
-        Self {
-            hashes: format!("{}{sep}{hashes}", self.hashes),
-            named: format!("{}{sep}{named}", self.named),
-            resolved: self.resolved || hashes != named,
-        }
-    }
-
-    /// Step into a property.
-    ///
-    /// The hash form takes the migration table's own name where a row carries
-    /// one, because that table ships in the build and so reads the same on
-    /// every machine. Only the label consults the cache.
-    fn property(&self, field: BinHash, row: Option<&Migration>, names: &BinNames) -> Self {
-        let hashes = row
-            .and_then(|migration| migration.field_name.as_deref())
-            .map_or_else(|| names::hex(field), str::to_owned);
-        let named = names.field(field).unwrap_or_else(|| hashes.clone());
-        self.extend(&hashes, &named, ".")
-    }
-
-    /// Step into one element of a container or a present optional.
-    fn index(&self, index: usize) -> Self {
-        let segment = format!("[{index}]");
-        Self {
-            hashes: format!("{}{segment}", self.hashes),
-            named: format!("{}{segment}", self.named),
-            resolved: self.resolved,
-        }
-    }
-
-    /// Step into one entry of a map, subscripted by its key.
-    fn key(&self, key: &PropertyValueEnum, names: &BinNames) -> Self {
-        let hashes = format!("{{{}}}", subscript(key));
-        let named = format!("{{{}}}", subscript_named(key, names));
-        Self {
-            hashes: format!("{}{hashes}", self.hashes),
-            named: format!("{}{named}", self.named),
-            resolved: self.resolved || hashes != named,
-        }
     }
 }
 
 /// What the walk reads a bin with: the tables it checks and the names it draws.
 #[derive(Clone, Copy)]
 struct Lens<'a> {
-    tables: &'a [MigrationTable],
+    tables: &'static [MigrationTable],
     names: &'a BinNames,
 }
 
 /// One property a table objects to, and the row that objects.
 struct Hit<'a> {
-    migration: &'a Migration,
+    migration: &'static Migration,
     value: &'a PropertyValueEnum,
     /// Where inside the object it sits.
-    trail: Trail,
+    address: Address,
     table_build: GameBuild,
 }
 
 /// What the tables say about one property, in one pass over them.
-struct Lookup<'a> {
+struct Lookup {
     /// The first row naming this property, which is where its name comes from.
-    named: Option<&'a Migration>,
+    named: Option<&'static Migration>,
     /// The first row whose `from` the value actually matches.
-    hit: Option<(GameBuild, &'a Migration)>,
+    hit: Option<(GameBuild, &'static Migration)>,
 }
 
-impl<'a> Lookup<'a> {
+impl Lookup {
     /// Ask every table about one property.
     ///
     /// One pass rather than two, because this runs for every property of every
     /// node and a 23MB project holds millions of them.
     fn of(
-        tables: &'a [MigrationTable],
+        tables: &'static [MigrationTable],
         class: BinHash,
         field: BinHash,
         value: &PropertyValueEnum,
@@ -367,7 +414,7 @@ impl<'a> Lookup<'a> {
 /// Whether this value can hold an object-like node worth descending into.
 ///
 /// Most properties are leaves no table names, and skipping them here is what
-/// keeps a run from building a path string for every value in the project.
+/// keeps a run from descending every value in the project.
 fn descends(value: &PropertyValueEnum) -> bool {
     match value {
         PropertyValueEnum::Struct(_) | PropertyValueEnum::Embedded(_) => true,
@@ -379,6 +426,26 @@ fn descends(value: &PropertyValueEnum) -> bool {
     }
 }
 
+/// Every property of one bin a table objects to.
+///
+/// The check and the repair's own verification are the same call, so a bin
+/// repaired and then re-read is a tree walk rather than a second parse.
+fn check_bin<'a>(bin: &'a ltk_meta::Bin, lens: Lens<'_>) -> Vec<(BinHash, Hit<'a>)> {
+    let mut found = Vec::new();
+    for (entry, object) in &bin.objects {
+        let mut here = Vec::new();
+        walk(
+            object.class_hash,
+            &object.properties,
+            &mut Trail::default(),
+            lens,
+            &mut here,
+        );
+        found.extend(here.into_iter().map(|hit| (*entry, hit)));
+    }
+    found
+}
+
 /// Find every property of one object-like node a table objects to.
 ///
 /// Recurses into `Struct` and `Embedded` values, and through the containers and
@@ -386,8 +453,8 @@ fn descends(value: &PropertyValueEnum) -> bool {
 fn walk<'a>(
     class: BinHash,
     properties: &'a IndexMap<BinHash, PropertyValueEnum>,
-    trail: &Trail,
-    lens: Lens<'a>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     found: &mut Vec<Hit<'a>>,
 ) {
     for (field, value) in properties {
@@ -397,28 +464,30 @@ fn walk<'a>(
             continue;
         }
 
-        let here = trail.property(*field, lookup.named, lens.names);
+        trail.field(*field, lookup.named);
 
         if let Some((table_build, migration)) = lookup.hit {
             found.push(Hit {
                 migration,
                 value,
-                trail: here.clone(),
+                address: trail.address(lens.names),
                 table_build,
             });
         }
 
         if descend_into {
-            descend(value, &here, lens, found);
+            descend(value, trail, lens, found);
         }
+
+        trail.back();
     }
 }
 
 /// Walk into whatever object-like nodes `value` holds.
 fn descend<'a>(
     value: &'a PropertyValueEnum,
-    trail: &Trail,
-    lens: Lens<'a>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     found: &mut Vec<Hit<'a>>,
 ) {
     match value {
@@ -433,30 +502,27 @@ fn descend<'a>(
             descend_container(&items.0, trail, lens, found);
         }
         /* An `Optional` is indexed rather than descended: BIN_EDITOR.md. */
-        PropertyValueEnum::Optional(inner) => match inner {
-            values::Optional::Struct {
-                value: Some(held), ..
-            } => walk(
-                held.class_hash,
-                &held.properties,
-                &trail.index(0),
-                lens,
-                found,
-            ),
-            values::Optional::Embedded {
-                value: Some(held), ..
-            } => walk(
-                held.0.class_hash,
-                &held.0.properties,
-                &trail.index(0),
-                lens,
-                found,
-            ),
-            _ => {}
-        },
+        PropertyValueEnum::Optional(inner) => {
+            let held = match inner {
+                values::Optional::Struct {
+                    value: Some(held), ..
+                } => Some((held.class_hash, &held.properties)),
+                values::Optional::Embedded {
+                    value: Some(held), ..
+                } => Some((held.0.class_hash, &held.0.properties)),
+                _ => None,
+            };
+            if let Some((class, properties)) = held {
+                trail.index(0);
+                walk(class, properties, trail, lens, found);
+                trail.back();
+            }
+        }
         PropertyValueEnum::Map(map) => {
             for (key, held) in map.entries() {
-                descend(held, &trail.key(key, lens.names), lens, found);
+                trail.key(key, lens.names);
+                descend(held, trail, lens, found);
+                trail.back();
             }
         }
         _ => {}
@@ -465,50 +531,65 @@ fn descend<'a>(
 
 fn descend_container<'a>(
     items: &'a values::Container,
-    trail: &Trail,
-    lens: Lens<'a>,
+    trail: &mut Trail,
+    lens: Lens<'_>,
     found: &mut Vec<Hit<'a>>,
 ) {
-    match items {
-        values::Container::Struct { items, .. } => {
-            for (index, inner) in items.iter().enumerate() {
-                walk(
-                    inner.class_hash,
-                    &inner.properties,
-                    &trail.index(index),
-                    lens,
-                    found,
-                );
-            }
-        }
-        values::Container::Embedded { items, .. } => {
-            for (index, inner) in items.iter().enumerate() {
-                walk(
-                    inner.0.class_hash,
-                    &inner.0.properties,
-                    &trail.index(index),
-                    lens,
-                    found,
-                );
-            }
-        }
-        _ => {}
+    let inners: Vec<(BinHash, &IndexMap<BinHash, PropertyValueEnum>)> = match items {
+        values::Container::Struct { items, .. } => items
+            .iter()
+            .map(|inner| (inner.class_hash, &inner.properties))
+            .collect(),
+        values::Container::Embedded { items, .. } => items
+            .iter()
+            .map(|inner| (inner.0.class_hash, &inner.0.properties))
+            .collect(),
+        _ => return,
+    };
+
+    for (index, (class, properties)) in inners.into_iter().enumerate() {
+        trail.index(index);
+        walk(class, properties, trail, lens, found);
+        trail.back();
     }
 }
 
-/// Convert every addressed property of one object-like node, and count them.
+/// Convert every addressed property of one bin, and count them.
 ///
 /// Re-derives each change from the value in front of it rather than from what
 /// the check recorded, so a property that no longer matches `from` is left
 /// alone and counted as skipped.
 ///
-/// It walks with the same [`Trail`] the check used, under a [`BinNames`] that
-/// names nothing - only the hash form is compared, and building it through one
-/// shared step is what keeps the two passes addressing the same node.
+/// It walks with the same [`Trail`] the check used - only the hash form is
+/// compared, and building it through one shared step is what keeps the two
+/// passes addressing the same node.
+fn fix_bin(
+    bin: &mut ltk_meta::Bin,
+    addressed: &HashMap<BinHash, HashSet<&str>>,
+    lens: Lens<'_>,
+    kept: &mut PreservedNames<'_>,
+) -> u32 {
+    let mut applied = 0;
+    for (entry, object) in &mut bin.objects {
+        let Some(addressed) = addressed.get(entry) else {
+            continue;
+        };
+        applied += repair(
+            object.class_hash,
+            &mut object.properties,
+            &mut Trail::default(),
+            lens,
+            addressed,
+            kept,
+        );
+    }
+    applied
+}
+
 fn repair(
     class: BinHash,
     properties: &mut IndexMap<BinHash, PropertyValueEnum>,
-    trail: &Trail,
+    trail: &mut Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
@@ -522,10 +603,10 @@ fn repair(
             continue;
         }
 
-        let here = trail.property(*field, lookup.named, lens.names);
+        trail.field(*field, lookup.named);
 
-        if addressed.contains(here.hashes.as_str())
-            && let Some((_, migration)) = lookup.hit
+        if let Some((_, migration)) = lookup.hit
+            && addressed.contains(trail.hashes().as_str())
             && keep_names(value, migration, kept)
             && convert(value, migration)
         {
@@ -533,8 +614,10 @@ fn repair(
         }
 
         if descend_into {
-            applied += repair_into(value, &here, lens, addressed, kept);
+            applied += repair_into(value, trail, lens, addressed, kept);
         }
+
+        trail.back();
     }
 
     applied
@@ -563,7 +646,7 @@ fn keep_names(
 /// Walk `repair` into whatever object-like nodes `value` holds.
 fn repair_into(
     value: &mut PropertyValueEnum,
-    trail: &Trail,
+    trail: &mut Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
@@ -591,29 +674,26 @@ fn repair_into(
         PropertyValueEnum::UnorderedContainer(items) => {
             repair_container(&mut items.0, trail, lens, addressed, kept)
         }
-        PropertyValueEnum::Optional(inner) => match inner {
-            values::Optional::Struct {
-                value: Some(held), ..
-            } => repair(
-                held.class_hash,
-                &mut held.properties,
-                &trail.index(0),
-                lens,
-                addressed,
-                kept,
-            ),
-            values::Optional::Embedded {
-                value: Some(held), ..
-            } => repair(
-                held.0.class_hash,
-                &mut held.0.properties,
-                &trail.index(0),
-                lens,
-                addressed,
-                kept,
-            ),
-            _ => 0,
-        },
+        PropertyValueEnum::Optional(inner) => {
+            let held = match inner {
+                values::Optional::Struct {
+                    value: Some(held), ..
+                } => Some((held.class_hash, &mut held.properties)),
+                values::Optional::Embedded {
+                    value: Some(held), ..
+                } => Some((held.0.class_hash, &mut held.0.properties)),
+                _ => None,
+            };
+            match held {
+                Some((class, properties)) => {
+                    trail.index(0);
+                    let applied = repair(class, properties, trail, lens, addressed, kept);
+                    trail.back();
+                    applied
+                }
+                None => 0,
+            }
+        }
         PropertyValueEnum::Map(map) => repair_map(map, trail, lens, addressed, kept),
         _ => 0,
     }
@@ -628,7 +708,7 @@ fn repair_into(
 /// cannot be rejected.
 fn repair_map(
     map: &mut values::Map,
-    trail: &Trail,
+    trail: &mut Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
@@ -640,7 +720,9 @@ fn repair_map(
         std::mem::replace(map, values::Map::empty(key_kind, value_kind)).into_entries();
     let mut applied = 0;
     for (key, held) in entries.iter_mut() {
-        applied += repair_into(held, &trail.key(key, lens.names), lens, addressed, kept);
+        trail.key(key, lens.names);
+        applied += repair_into(held, trail, lens, addressed, kept);
+        trail.back();
     }
 
     *map = values::Map::new(key_kind, value_kind, entries)
@@ -651,7 +733,7 @@ fn repair_map(
 /// Walk `repair` into the object-like items a container holds.
 fn repair_container(
     items: &mut values::Container,
-    trail: &Trail,
+    trail: &mut Trail,
     lens: Lens<'_>,
     addressed: &HashSet<&str>,
     kept: &mut PreservedNames<'_>,
@@ -660,26 +742,30 @@ fn repair_container(
     match items {
         values::Container::Struct { items, .. } => {
             for (index, inner) in items.iter_mut().enumerate() {
+                trail.index(index);
                 applied += repair(
                     inner.class_hash,
                     &mut inner.properties,
-                    &trail.index(index),
+                    trail,
                     lens,
                     addressed,
                     kept,
                 );
+                trail.back();
             }
         }
         values::Container::Embedded { items, .. } => {
             for (index, inner) in items.iter_mut().enumerate() {
+                trail.index(index);
                 applied += repair(
                     inner.0.class_hash,
                     &mut inner.0.properties,
-                    &trail.index(index),
+                    trail,
                     lens,
                     addressed,
                     kept,
                 );
+                trail.back();
             }
         }
         _ => {}
@@ -1075,9 +1161,13 @@ fn group_by_file<'a>(problems: &[&'a Problem]) -> Vec<((String, String), Vec<&'a
 
 /// Read one property bin off disk.
 ///
+/// The check goes through [`BinHandle::read`] instead. This is for a test that
+/// holds a path, and for the fix, which reads through the run.
+///
 /// # Errors
 ///
 /// Reports the file it could not open or parse, as one sentence for the panel.
+#[cfg(test)]
 fn read_bin(path: &std::path::Path) -> Result<ltk_meta::Bin, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
     read_bin_bytes(&bytes)

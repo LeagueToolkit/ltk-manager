@@ -31,7 +31,7 @@ use ltk_hash::BinHash;
 use serde::{Deserialize, Serialize};
 
 pub use build::GameBuild;
-pub use engine::{LayerFiles, ProjectFile, ProjectFiles, analyze};
+pub use engine::{BinHandle, LayerFiles, ProjectFile, ProjectFiles, analyze};
 pub use fix::{FileOutcome, FixError, FixReport, FixRun, apply};
 pub use names::BinNames;
 pub use preserve::{Preserved, PreservedNames};

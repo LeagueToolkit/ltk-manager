@@ -226,3 +226,75 @@ fn a_repaired_path_reads_back_out_of_the_mods_own_hashtable() {
         "the repaired path must resolve out of the mod's own hashes/"
     );
 }
+
+/// Story: a property whose path the mod's own table already keys to another
+/// name is left alone, and the mod is still reported as needing repair.
+///
+/// The verdict comes from re-checking the repaired tree in memory, so a refusal
+/// has to survive into it rather than being lost to arithmetic over counts.
+#[test]
+fn a_refused_property_leaves_the_mod_repairable() {
+    use ltk_hashtable::{Algorithm, Category, Key, KeyWidth};
+
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "unpacked-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-1",
+            "unpacked-mod",
+            ModArchiveFormat::Fantome,
+        )],
+    );
+
+    // A table narrow enough for two names to share a key, holding a different
+    // name on the one the repair would need. Sixty-four bits makes this
+    // unreachable, which is the whole reason the guard is staged this way.
+    let narrow = KeyWidth::new(8).unwrap();
+    let claimed = Key::of(STALE_ICON, &Algorithm::Xxh64, narrow).unwrap();
+    let twin = (0..)
+        .map(|n| format!("ASSETS/twin{n}.dds"))
+        .find(|name| Key::of(name, &Algorithm::Xxh64, narrow) == Some(claimed))
+        .expect("eight bits is 256 keys");
+
+    let mod_dir = storage.path().join("mods").join("unpacked-mod");
+    let root = camino::Utf8Path::from_path(&mod_dir).unwrap();
+    let mut project = ltk_mod_project::ModProject::load(root).unwrap();
+    project.hashtables = vec![ltk_mod_project::ModProjectHashtable {
+        path: "hashes/game.hashes.txt".to_owned(),
+        category: Category::Game,
+        algorithm: Algorithm::Xxh64,
+        bits: narrow.bits(),
+    }];
+    fs::create_dir_all(mod_dir.join("hashes")).unwrap();
+    fs::write(mod_dir.join("hashes/game.hashes.txt"), format!("{twin}\n")).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        project
+            .to_config_string(ltk_mod_project::ConfigFormat::Json)
+            .unwrap(),
+    )
+    .unwrap();
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 0);
+    assert_eq!(report.skipped, 1);
+    assert_eq!(
+        report.remaining.len(),
+        1,
+        "the refused property is still there"
+    );
+    assert_eq!(
+        library
+            .mod_health_verdicts(&config)
+            .unwrap()
+            .get("id-1")
+            .unwrap()
+            .health,
+        ModHealth::Repairable
+    );
+}

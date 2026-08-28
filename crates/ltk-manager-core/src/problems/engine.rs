@@ -109,6 +109,17 @@ impl ProjectFiles {
         })
     }
 
+    /// Every property bin of every layer, override bins included.
+    ///
+    /// The seam a bin rule reads through: it names the files and hands back a
+    /// handle rather than the bytes, so the day `ltk_meta` can read a bin
+    /// lazily, [`BinHandle::read`] is the only thing that changes.
+    pub fn bins(&self) -> impl Iterator<Item = BinHandle<'_>> {
+        self.by_kind(WorkshopFileKind::PropertyBin)
+            .chain(self.by_kind(WorkshopFileKind::PropertyBinOverride))
+            .map(|(layer, file)| BinHandle { layer, file })
+    }
+
     /// How many files the whole project holds.
     fn file_count(&self) -> usize {
         self.layers.iter().map(|layer| layer.files.len()).sum()
@@ -194,6 +205,48 @@ impl LayerFiles {
     pub fn absolute(&self, file: &ProjectFile) -> PathBuf {
         self.root
             .join(file.path.replace('/', std::path::MAIN_SEPARATOR_STR))
+    }
+}
+
+/// One property bin of one layer, not yet read.
+///
+/// Names where the bin is and opens it on demand. A rule holds one per file and
+/// parses at most once, which is what keeps a check and the repair that follows
+/// it to a single read.
+#[derive(Debug, Clone, Copy)]
+pub struct BinHandle<'a> {
+    layer: &'a LayerFiles,
+    file: &'a ProjectFile,
+}
+
+impl<'a> BinHandle<'a> {
+    /// The layer this bin sits in, such as `base`.
+    #[must_use]
+    pub fn layer(&self) -> &'a str {
+        &self.layer.name
+    }
+
+    /// The bin's path, POSIX-style and relative to the layer root.
+    #[must_use]
+    pub fn path(&self) -> &'a str {
+        &self.file.path
+    }
+
+    /// Where the bin sits on disk.
+    #[must_use]
+    pub fn absolute(&self) -> PathBuf {
+        self.layer.absolute(self.file)
+    }
+
+    /// Parse the bin.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open or parse, as one sentence a panel
+    /// can draw.
+    pub fn read(&self) -> Result<ltk_meta::Bin, String> {
+        let bytes = std::fs::read(self.absolute()).map_err(|e| e.to_string())?;
+        ltk_meta::Bin::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
     }
 }
 
