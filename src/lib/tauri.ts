@@ -19,7 +19,6 @@ import type {
   ExtractTarget,
   FantomePeekResult,
   FixReport,
-  FixRunSummary,
   GameDirListing,
   GameFindResult,
   GameIndexStats,
@@ -59,7 +58,6 @@ import type {
   Settings,
   StorageMedium,
   StringKeySearchResult,
-  UndoReport,
   ValidationResult,
   WorkshopFileKind,
   WorkshopLayerInfo,
@@ -326,9 +324,6 @@ export const api = {
   analyzeProject: (projectPath: string) => invokeResult<Run>("analyze_project", { projectPath }),
   fixProblems: (projectPath: string, problems: ProblemId[]) =>
     invokeResult<FixReport>("fix_problems", { projectPath, problems }),
-  undoFixRun: (projectPath: string, stamp: string) =>
-    invokeResult<UndoReport>("undo_fix_run", { projectPath, stamp }),
-  fixRuns: (projectPath: string) => invokeResult<FixRunSummary[]>("fix_runs", { projectPath }),
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
     invokeResult<WorkshopProject>("set_project_thumbnail", { projectPath, imagePath }),
   removeProjectThumbnail: (projectPath: string) =>

@@ -4,11 +4,7 @@ import type { FileOutcome } from "./FileOutcome";
 /**
  * What one fix run applied, skipped and wrote.
  */
-export type FixReport = { 
-/**
- * The restore point this run wrote, which Undo names.
- */
-stamp: string, applied: number, 
+export type FixReport = { applied: number, 
 /**
  * Problems the file no longer matched, which the rules left alone.
  */
@@ -16,7 +12,11 @@ skipped: number,
 /**
  * Paths this run wrote into the mod's own tables before hashing them.
  */
-namesKept: number, files: Array<FileOutcome>, 
+namesKept: number, 
+/**
+ * The migration tables the run applied.
+ */
+tables: Array<string>, files: Array<FileOutcome>, 
 /**
  * A file a rule could not finish, and why.
  */

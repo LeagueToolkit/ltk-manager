@@ -8,5 +8,4 @@ export const workshopKeys = {
   layerInfo: (path: string) => [...workshopKeys.project(path), "layerInfo"] as const,
   contentTree: (path: string) => [...workshopKeys.project(path), "contentTree"] as const,
   problems: (path: string) => [...workshopKeys.project(path), "problems"] as const,
-  fixRuns: (path: string) => [...workshopKeys.project(path), "fixRuns"] as const,
 };

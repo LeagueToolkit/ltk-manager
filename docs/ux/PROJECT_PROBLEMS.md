@@ -4,6 +4,7 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point       |
 | 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md             |
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed                 |
 | 2026-08-24 | Give the forward-looking switch a row, and drop the notice        |
@@ -12,7 +13,6 @@
 | 2026-08-22 | Wait for the build a table names, and let a modder ask anyway     |
 | 2026-08-22 | Group by object, open as a tab, and let a run carry its own words |
 | 2026-08-22 | Run on open, fix every layer, and keep three restore points       |
-| 2026-08-22 | Propose the problems model, and the bin retype rule that fills it |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -52,7 +52,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
 | The migration table  | Available | 395 rows, `include_str!` into the core crate                           |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
-| The restore point    | Available | `.ltk/restore/<stamp>/`, and one Undo for a whole run                  |
+| Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
 | The problems tab     | Available | A document of the editor surface, and not a side panel                 |
 | The run's own words  | Available | A rule's title and an object's path, sent once for a run               |
 | Grouping by object   | Available | A file's findings sit under the bin object that holds them             |
@@ -138,8 +138,8 @@ the project's .bin files
    └───┬────┘
        │ the ones a user applies
        ▼
-   ┌────────┐      .ltk/restore/<stamp>/
-   │  fix   │ ────▶  a copy of each file, before
+   ┌────────┐      hashes/game.hashes.txt
+   │  fix   │ ────▶  every path it is about to hash
    └───┬────┘
        ▼
   one write for each file
@@ -174,9 +174,9 @@ pub trait Rule {
     ///
     /// # Errors
     ///
-    /// Reports the first file it could not read or write. The restore point
-    /// stays, so a partial run is reversible.
-    fn fix(&self, problems: &[&Problem], run: &mut FixRun) -> Result<Applied, FixError>;
+    /// Reports the first file it could not read or write. What the run had
+    /// already written stays written, and a second run picks up the rest.
+    fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError>;
 }
 ```
 
@@ -827,60 +827,39 @@ That falls out of [A problem is a description](#a-problem), and it buys three th
 - A fix run offered twice applies once, because the second pass matches `to` and skips
 - The panel does not have to invalidate itself against a file watcher to stay correct
 
-### The restore point
+### Preserving the names
 
 **A `File` does not name its path.** Once a fix has written the hash, the string is gone from
 the file, and no reader can derive it back. That is the reason this step is not optional.
 
-Before it writes anything, a fix run copies every file it is about to touch.
+Before it converts a property, a fix run writes every path under it into the mod's own
+`game` hashtable - `hashes/game.hashes.txt`, declared in `hashtables` in the project config.
 
 ```
-.ltk/
-  editor.json
-  restore/
-    .gitignore                                    holds `*`
-    2026-08-22T14-03-11Z/
-      run.json
-      content/base/data/characters/smolder/skins/skin0.bin
-      content/base/data/characters/smolder/smolder_skins_skin0.bin
-      content/high-res/data/characters/smolder/skins/skin0.bin
+mod.config.json                                   gains a `hashtables` entry
+hashes/
+  game.hashes.txt                                 the paths this repair hashed away
+content/base/data/characters/smolder/skins/skin0.bin
 ```
 
-The copies sit under the project-relative path they came from, so a restore is a copy back and
-never a lookup. `run.json` names what happened.
+The merge is additive. A table gains names and never loses one, a second repair declares no
+second table, and a repair offered twice writes nothing the second time.
 
-```json
-{
-  "stamp": "2026-08-22T14-03-11Z",
-  "manager": "1.4.2",
-  "tables": ["16.17.8087655"],
-  "files": [{ "layer": "base", "path": "data/…/skin0.bin", "applied": 14, "skipped": 0 }]
-}
-```
+Two names are left out. One the community tables already resolve is not embedded, because the
+reader that would consult the mod's table can already answer from its own. One whose key another
+name already claims is refused, and the rule then leaves that property alone rather than hashing
+it - the check still reports it and the mod stays repairable. The `game` category keys at the
+full 64 bits, so that second case is a guard rather than something a real mod reaches.
 
-`.ltk/restore/.gitignore` holds `*`, so a restore point never reaches a commit. That answers
-half of the project editor's [open question](PROJECT_EDITOR.md#open-questions) about whether
-`.ltk` belongs in version control - a layout is a work habit worth committing, and a binary
-copy of a bin is not.
-
-The last three runs are kept. A fourth prunes the oldest. Three is what a user reaches back
-through by hand, and a run of a 60MB project is 60MB on disk, so a fourth buys a depth nobody
-walks at a price every project pays.
+There is no restore point and no Undo. See
+[ADR-0006](../adr/0006-a-repair-preserves-names-instead-of-keeping-a-restore-point.md) for why
+losslessness replaced reversibility.
 
 ### The write
 
 Each file lands through a temp file in its own directory and then a rename, which is the
 pattern `.ltk/editor.json` already uses. A run that dies mid-way leaves whole files on both
-sides of it, and the restore point covers the ones it finished.
-
-### Undo
-
-One Undo reverses a whole fix run. It copies each file of the restore point back over its
-source and drops the directory. It is a run and not a problem, because a user thinking "that
-was wrong" is thinking about the click they made and not about the 312 rows behind it.
-
-An Undo does not re-run the rules. The panel's list is a fact about files that just changed, so
-an Undo marks the run stale and the next run refills it.
+sides of it, and the ones it finished read the same as if it had finished.
 
 ### What a fix never does
 
@@ -888,7 +867,7 @@ an Undo marks the run stale and the next run refills it.
 - It never writes outside the project's own `content/` directories
 - It never changes a property the table does not name
 - It never applies a change the file no longer matches
-- It never writes when the restore point could not be made
+- It never hashes a path it could not first write into the mod's own table
 
 ## The commands
 
@@ -896,19 +875,13 @@ an Undo marks the run stale and the next run refills it.
 /// Run every rule over one project.
 fn analyze_project(project_path: String) -> Run;
 
-/// Apply the fixes of the named problems, and write a restore point first.
+/// Apply the fixes of the named problems.
 fn fix_problems(project_path: String, problems: Vec<ProblemId>) -> FixReport;
-
-/// Reverse one fix run.
-fn undo_fix_run(project_path: String, stamp: String) -> UndoReport;
-
-/// The restore points a project holds, newest first.
-fn fix_runs(project_path: String) -> Vec<FixRunSummary>;
 ```
 
 `fix_problems` takes the ids a user chose rather than a scope word, so Fix on a row, Fix on a
 group and Fix on the panel are the same call with a different list. A `FixReport` names what
-applied, what skipped and why, and the stamp that Undo needs.
+applied, what skipped and why, and how many names it kept.
 
 ## The surfaces
 
@@ -1028,7 +1001,7 @@ is [MOD_HEALTH.md](MOD_HEALTH.md).
 1. The model, the engine, the table and the rule, in `ltk-manager-core`, with tests over
    crafted bins for each of the four conversions and for each of the four match cases
 2. The panel, read-only. A run, a list, and a reveal
-3. The preview, the fix, the restore point and Undo
+3. The preview, the fix, and the names the fix preserves
 4. The count in the project bar
 5. The three checks that exist today, moved onto rules and stripped of their own shapes
 6. A second rule, which is what proves the model was generic
@@ -1054,8 +1027,8 @@ yet. It is `MIT OR Apache-2.0`, which is the workspace's own license, so adding 
 | Where does the migration table live?           | In the build, as an `include_str!` in the core crate |
 | What does a run read?                          | The project's own `.bin` files, in every layer       |
 | Which parser reads them?                       | `ltk_meta`, eagerly. A project holds tens of files   |
-| What protects a file that a fix wrote?         | A restore point under `.ltk/restore/`, and one Undo  |
-| Can a fix be derived back out of the file?     | No. A `File` is a hash, and it does not name a path  |
+| What protects a file that a fix wrote?         | Nothing. The path it hashed is kept, not the file    |
+| Can a fix be derived back out of the file?     | Yes, out of the mod's own `hashes/game.hashes.txt`   |
 | What is the feature called?                    | Problems, because `diagnostics` names the launch one |
 | How does the manager know the game's build?    | `Game/content-metadata.json`, in one read            |
 | Does a stale problem apply?                    | No. A rule re-checks the file before it writes       |
@@ -1069,7 +1042,7 @@ yet. It is `MIT OR Apache-2.0`, which is the workspace's own license, so adding 
 | When does a run happen?                        | When a project opens, and a user asks for nothing    |
 | Do two rules share one parse of a `.bin`?      | No. Each rule reads its own, and sharing waits       |
 | How far does Fix on the panel reach?           | Every layer, because a mod is every layer it ships   |
-| How many restore points are kept?              | Three. A fourth prunes the oldest                    |
+| Is a repair reversible?                        | No. It is lossless instead - ADR-0006                |
 | Does an uncovered game build draw a note?      | No. An absent table knows nothing to report          |
 | Does the table stay in the build?              | Yes. The mimir cache is the escalation, unmeasured   |
 | Can a modder name a hash the tables lack?      | Not here. The row prints the hash, and that is all   |

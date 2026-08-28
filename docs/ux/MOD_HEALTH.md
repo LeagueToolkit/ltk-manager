@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-08-28 | A repair preserves names rather than keeping a restore point |
 | 2026-08-28 | One drawer title, and three lines under it for three states  |
 | 2026-08-28 | The drawer becomes a focused sheet over a dimmed page        |
 | 2026-08-28 | An unfixable row says so, and the header says where to go    |
@@ -13,7 +14,6 @@
 | 2026-08-28 | The status bar item is a light cell, led by its glyph        |
 | 2026-08-28 | Mod health moves into the status bar as a filled item        |
 | 2026-08-28 | The item names a count, and the drawer folds in the ask      |
-| 2026-08-28 | A corner notice and a side drawer replace the banner         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -106,13 +106,19 @@ project, wherever the mod keeps its content:
 
 | Storage   | Check                              | Repair                                         |
 | --------- | ---------------------------------- | ---------------------------------------------- |
-| `project` | Analyze the mod's own tree         | Fix in the tree, with a restore point          |
+| `project` | Analyze the mod's own tree         | Fix in the tree                                |
 | `archive` | Unpack to staging, analyze, delete | Unpack, fix, repack, swap the archive in place |
 
-A project-storage repair is the project editor's fix run on the mod's directory, so it leaves
-the same `.ltk/restore/` point and is undone the same way. An archive-storage repair replaces
-the archive with the repacked result and keeps no copy of the original - see ADR-0005. Either
-way a repair that applied nothing leaves the mod untouched, byte for byte.
+A project-storage repair is the project editor's fix run on the mod's directory. An
+archive-storage repair replaces the archive with the repacked result and keeps no copy of the
+original - see ADR-0005. Either way a repair that applied nothing leaves the mod untouched, byte
+for byte.
+
+**What a repair promises is losslessness, not reversal.** Neither storage keeps a way back. What
+both keep is the mod's own `hashes/game.hashes.txt`: every path a fix hashes away is written
+there first, so a repaired mod still names what it holds - see
+[ADR-0006](../adr/0006-a-repair-preserves-names-instead-of-keeping-a-restore-point.md). A user
+who wants the mod as it was reinstalls it.
 
 A repair records the mod's fresh verdict itself, so the badge updates without a second scan.
 Any repair that wrote also flushes the next overlay build, so the fix reaches the game without

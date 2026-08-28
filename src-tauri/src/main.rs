@@ -185,8 +185,6 @@ fn main() {
             // Problems
             commands::analyze_project,
             commands::fix_problems,
-            commands::undo_fix_run,
-            commands::fix_runs,
             // Hashtables
             commands::get_hashtable_cache_status,
             commands::check_hashtable_updates,

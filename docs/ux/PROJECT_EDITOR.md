@@ -102,7 +102,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Layer diff             | Proposed    | Compares one path across two layers                                |
 | Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md) |
 | Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
-| Fix restore point      | Planned     | `.ltk/restore/`, and one Undo for a whole fix run                  |
+| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`        |
 | Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
 
 ## Scope

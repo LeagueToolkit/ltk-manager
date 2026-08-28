@@ -97,9 +97,16 @@ for clearing `mods/.staging-*` and is unrelated. What it found draws as a banner
 library.
 
 **Repair** — applying every fix the live rules derive for one mod. In the tree for a `project`
-mod, with a restore point. For an `archive` mod: unpack, fix, repack, and the repaired archive
-takes the original's place — see ADR-0005. **Repair all** is the banner's one press over every
-repairable mod at once, and nothing is ever repaired without it.
+mod. For an `archive` mod: unpack, fix, repack, and the repaired archive takes the original's
+place — see ADR-0005. Neither is reversible, and both are lossless: see **Preserved names**.
+**Repair all** is the banner's one press over every repairable mod at once, and nothing is ever
+repaired without it.
+
+**Preserved names** — the paths a repair writes into the mod's own `hashes/game.hashes.txt`
+before it hashes them into `File` properties, so the mod still names what it holds. Additive and
+idempotent, and it excludes what the community hashtables already resolve. It is what replaced
+the restore point and Undo — see ADR-0006. Not the same as the **harvest** at import, which
+recovers names off an incoming archive rather than keeping ones a write is about to destroy.
 
 ## The three migrations
 

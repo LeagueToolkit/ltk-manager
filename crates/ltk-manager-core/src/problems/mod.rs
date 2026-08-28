@@ -7,9 +7,8 @@
 //!
 //! The model here is generic on purpose. A rule is the only thing that knows a
 //! format, so there is no shared apply step: "replace a value" means nothing
-//! without the format that holds it. What the model owns is the preview, the
-//! address and the restore point, because those are the parts a user reads and
-//! the parts a repair has to be reversible through.
+//! without the format that holds it. What the model owns is the preview and the
+//! address, because those are the parts a user reads.
 //!
 //! A problem is a description and never a plan. It says what is wrong and what
 //! a repair would look like, and it does not carry the steps of that repair.
@@ -33,10 +32,7 @@ use serde::{Deserialize, Serialize};
 
 pub use build::GameBuild;
 pub use engine::{LayerFiles, ProjectFile, ProjectFiles, analyze};
-pub use fix::{
-    FileOutcome, FixError, FixReport, FixRun, FixRunSummary, KEPT_RESTORE_POINTS, UndoReport,
-    apply, fix_runs, undo_fix_run,
-};
+pub use fix::{FileOutcome, FixError, FixReport, FixRun, apply};
 pub use names::BinNames;
 pub use preserve::{Preserved, PreservedNames};
 
@@ -712,8 +708,8 @@ pub trait Rule: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Reports the first file it could not read or write. The restore point
-    /// stays, so a partial run is reversible.
+    /// Reports the first file it could not read or write. What the run had
+    /// already written stays written, and a second run picks up the rest.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError>;
 }
 
@@ -754,8 +750,8 @@ impl ProblemsState {
 
     /// Drop the run of `project`, so the next read re-runs the rules.
     ///
-    /// A fix run and an Undo both leave the list stale: it is a fact about
-    /// files that have just changed.
+    /// A fix run leaves the list stale: it is a fact about files that have
+    /// just changed.
     pub fn invalidate(&self, project: &Path) -> crate::error::AppResult<()> {
         use crate::error::MutexResultExt as _;
         self.0.lock().mutex_err()?.remove(project);

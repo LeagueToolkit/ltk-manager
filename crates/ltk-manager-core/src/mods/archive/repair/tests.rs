@@ -81,17 +81,10 @@ fn a_project_storage_mod_is_repaired_in_its_tree() {
         property_in_unpacked_tree(storage.path(), "unpacked-mod"),
         migrated_property(),
     );
-
-    // The tree makes the repair undoable, so the restore point the report
-    // names must actually be there.
-    let restore = storage
-        .path()
-        .join("mods")
-        .join("unpacked-mod")
-        .join(".ltk")
-        .join("restore")
-        .join(&report.stamp);
-    assert!(restore.is_dir());
+    assert!(
+        !storage.path().join("mods/unpacked-mod/.ltk").exists(),
+        "a repair keeps no restore point - ADR-0006"
+    );
 }
 
 /// Story: a repair is never applied for a game patch the user is not on yet.

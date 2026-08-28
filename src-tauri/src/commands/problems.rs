@@ -10,7 +10,7 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::problems;
-use ltk_manager_core::problems::{FixReport, FixRunSummary, ProblemId, ProblemsState, UndoReport};
+use ltk_manager_core::problems::{FixReport, ProblemId, ProblemsState};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
 
@@ -105,46 +105,6 @@ fn fix_problems_inner(
 
     runs.invalidate(root)?;
     report
-}
-
-/// Reverse one fix run.
-///
-/// # Errors
-///
-/// Reports a stamp the project holds no restore point for.
-#[tauri::command]
-pub async fn undo_fix_run(
-    project_path: String,
-    stamp: String,
-    app_handle: AppHandle,
-) -> IpcResult<UndoReport> {
-    off_thread(move || {
-        undo_fix_run_inner(&project_path, &stamp, &app_handle.state::<ProblemsState>())
-    })
-    .await
-}
-
-fn undo_fix_run_inner(
-    project_path: &str,
-    stamp: &str,
-    runs: &ProblemsState,
-) -> AppResult<UndoReport> {
-    let root = Path::new(project_path);
-
-    let report = problems::undo_fix_run(root, stamp);
-    runs.invalidate(root)?;
-    report
-}
-
-/// The restore points a project holds, newest first.
-///
-/// # Errors
-///
-/// Reports a restore directory that exists and cannot be read. A project with
-/// none reports an empty list.
-#[tauri::command]
-pub async fn fix_runs(project_path: String) -> IpcResult<Vec<FixRunSummary>> {
-    off_thread(move || problems::fix_runs(Path::new(&project_path))).await
 }
 
 #[cfg(test)]

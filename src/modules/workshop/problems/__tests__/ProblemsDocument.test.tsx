@@ -232,10 +232,10 @@ function crowdedRun(): Run {
 }
 
 const FIX_REPORT: FixReport = {
-  stamp: "20260821-211402",
   applied: 1,
   skipped: 0,
   namesKept: 1,
+  tables: ["16.17.8087655"],
   files: [],
   failed: [],
 };

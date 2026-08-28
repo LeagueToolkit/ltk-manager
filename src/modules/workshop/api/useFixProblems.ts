@@ -40,7 +40,6 @@ export function useFixProblems() {
     },
     onSuccess: (report, { projectPath, label }) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.problems(projectPath) });
-      queryClient.invalidateQueries({ queryKey: workshopKeys.fixRuns(projectPath) });
       // A fix rewrote files, so the tree's sizes are stale too.
       queryClient.invalidateQueries({ queryKey: workshopKeys.contentTree(projectPath) });
 
