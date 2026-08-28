@@ -16,9 +16,13 @@ import { toneOf } from "./modHealthNotice";
 export function ModHealthStatusItem() {
   const status = useModHealthStatus();
   const shown = useModHealthDrawerStore((s) => s.open);
+  const hosted = useModHealthDrawerStore((s) => s.hosted);
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
   const close = useModHealthDrawerStore((s) => s.close);
-  if (!status) return null;
+
+  // The bar spans the app and the drawer is the library's, so away from it this
+  // cell would be a press that does nothing.
+  if (!status || !hosted) return null;
 
   const repairable = status.repairable.length;
   const tone = toneOf(repairable);

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-08-28 | The cell follows the library, and a run can be called off    |
 | 2026-08-28 | The footer press repairs what a patch carries, all behind it |
 | 2026-08-28 | A repair preserves names rather than keeping a restore point |
 | 2026-08-28 | One drawer title, and three lines under it for three states  |
@@ -13,7 +14,6 @@
 | 2026-08-28 | The drawer opens itself, and Play asks before a broken patch |
 | 2026-08-28 | A drawer row repairs its own mod, and counts problems        |
 | 2026-08-28 | The status bar item is a light cell, led by its glyph        |
-| 2026-08-28 | Mod health moves into the status bar as a filled item        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -49,6 +49,7 @@ This table holds every major feature of Mod health. A status word has one meanin
 | Check Health, by hand | Available | In the card menu, answered by a toast                        |
 | The library sweep     | Available | Every mod whose basis moved, at startup, skipping the rest   |
 | The status bar item   | Available | A light cell at the right of the bar, and its drawer         |
+| Stopping a run        | Available | An ✕ beside the progress. What was written stays written     |
 | Repair all            | Available | Behind the footer's caret. The press repairs what is enabled |
 | The launch ask        | Available | Play confirms under itself when a broken mod is enabled      |
 | Verdict pruning       | Available | A sweep forgets the verdicts of mods the library dropped     |
@@ -181,6 +182,12 @@ grows for the life of the library and an uninstalled mod's verdict outlives it f
 What the library's mod health amounts to is one cell at the right of the status bar, and the
 drawer it opens. Those two are the whole of what a mod user has to understand.
 
+**The cell follows the library.** The status bar spans the app and the drawer is the library's, so
+away from a library page the cell draws nothing rather than becoming a press that opens nothing.
+The library page reports itself, so the cell can never offer a drawer no page is there to mount.
+The launch ask is the exception that has to cross: its controls are in that same app-wide bar, so
+"Repair first" goes to the library and the drawer takes the request when it mounts.
+
 ```
 [ search ]  [ filters ]     ░░░░░░░░╭─────────────────────────╮
                             ░░░░░░░░│ 🐺 Detected issues    ✕ │
@@ -262,6 +269,11 @@ the same press asked for twice.
 **Nothing is repaired without the press.** An archive repair keeps no copy of the original
 (ADR-0005), so a rewrite of every mod in the library is not a thing to do to somebody who did not
 ask. The press is what makes it theirs.
+
+**A run can be called off, and what it wrote stays written.** The ✕ beside the progress stops
+every worker at its next file - a repair is not a transaction, and the mods it finished are
+repaired. A mod it had started and not finished forgets its verdict, so the next sweep owes it a
+check rather than trusting one that did not happen.
 
 **The run is drawn where the press was, not over it.** A repair of a whole library takes long
 enough to need reporting, and the drawer is already naming every mod it is working through - so a
@@ -383,6 +395,8 @@ would look ignored. "No problems found" is the answer.
 | Does one broken mod stop a batch check?          | No. It is logged, skipped, and has no verdict      |
 | Does a repair disturb the mod's setup?           | No. Id, slug, profiles and layers all stay         |
 | Can the patcher run during a repair?             | No. A check yes - it only reads                    |
+| Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why              |
+| Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is    |
 | Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks   |
 
 ## Open questions

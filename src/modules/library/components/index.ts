@@ -32,6 +32,7 @@ export * from "./ModHealthLaunchGuard";
 export * from "./ModHealthStatusItem";
 export * from "./ModHealthSweep";
 export * from "./ModHealthSweepDrawer";
+export * from "./ModHealthSweepListener";
 export * from "./PlayButton";
 export * from "./ProfileSelector";
 export * from "./RemoveFromFolderZone";

@@ -12,6 +12,15 @@ interface ModHealthDrawerStore {
   announced: boolean;
   /** Whether something asked for a repair the drawer has not started yet. */
   repairRequested: boolean;
+  /**
+   * Whether a drawer is mounted for the trigger to open.
+   *
+   * Mod health is a library surface, and the cell that opens it sits in the
+   * app-wide status bar. Reported by the host rather than matched on the route,
+   * so a cell can never offer a drawer no page is there to mount.
+   */
+  hosted: boolean;
+  setHosted: (hosted: boolean) => void;
   openDrawer: () => void;
   /**
    * Open the drawer and have it repair what the next game would carry.
@@ -47,6 +56,8 @@ export const useModHealthDrawerStore = create<ModHealthDrawerStore>((set) => ({
   width: DEFAULT_WIDTH,
   announced: false,
   repairRequested: false,
+  hosted: false,
+  setHosted: (hosted) => set({ hosted }),
   openDrawer: () => set({ open: true }),
   requestRepair: () => set({ open: true, repairRequested: true }),
   takeRepairRequest: () => set({ repairRequested: false }),

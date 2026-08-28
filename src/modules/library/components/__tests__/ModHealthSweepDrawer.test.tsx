@@ -14,6 +14,7 @@ import { installedMod, verdict } from "./modHealthFixtures";
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const useInstalledMods = vi.fn<() => { data: ReturnType<typeof installedMod>[] }>();
 const repairOne = vi.fn();
+const cancelRun = vi.fn();
 const onClose = vi.fn();
 
 vi.mock("../../api", () => ({
@@ -21,6 +22,7 @@ vi.mock("../../api", () => ({
   useInstalledMods: () => useInstalledMods(),
   useRepairMod: () => ({ mutate: repairOne, isPending: false }),
   useRepairMods: () => run,
+  useCancelModHealthRun: () => ({ mutate: cancelRun, isPending: false }),
   /* The real hook over the two mocked ones, so a test that switches a mod off
      exercises the split the drawer actually draws. */
   useRepairTargets: () => {
@@ -237,6 +239,24 @@ describe("ModHealthSweepDrawer", () => {
     await user.click(screen.getByRole("button", { name: /Repair 1 enabled mod/ }));
 
     expect(run.repair).toHaveBeenCalledWith(["a"]);
+  });
+
+  /* A repair over a whole library takes long enough that a reader may want it
+     to stop, and the run is reported here, so this is where the stop belongs. */
+  it("offers a stop while the repair runs", async () => {
+    const user = userEvent.setup();
+    run.progress = { completed: 3, total: 18, inFlight: ["a"] };
+    show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+
+    await user.click(screen.getByRole("button", { name: "Stop the repair" }));
+
+    expect(cancelRun).toHaveBeenCalledOnce();
+  });
+
+  it("offers no stop while nothing is running", () => {
+    show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+
+    expect(screen.queryByRole("button", { name: "Stop the repair" })).not.toBeInTheDocument();
   });
 
   it("closes on Escape", async () => {

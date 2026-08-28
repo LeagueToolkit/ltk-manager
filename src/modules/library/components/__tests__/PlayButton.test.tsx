@@ -32,6 +32,8 @@ interface BackendOptions {
   /** Reported by every `get_patcher_status` call, so a session never ends. */
   patcherRunning?: boolean;
   stopFails?: boolean;
+  /** Whether the one enabled mod comes back with a repairable verdict. */
+  brokenMods?: boolean;
 }
 
 function mockBackend({
@@ -40,6 +42,7 @@ function mockBackend({
   launchMode = "classic",
   patcherRunning = false,
   stopFails = false,
+  brokenMods = false,
 }: BackendOptions = {}) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
@@ -54,6 +57,22 @@ function mockBackend({
         return Promise.resolve({
           ok: true,
           value: enabledMods ? [createMockInstalledMod({ enabled: true })] : [],
+        });
+      case "get_mod_health_verdicts":
+        return Promise.resolve({
+          ok: true,
+          value: brokenMods
+            ? {
+                [createMockInstalledMod({ enabled: true }).id]: {
+                  modId: createMockInstalledMod({ enabled: true }).id,
+                  health: "repairable",
+                  fixable: 3,
+                  counts: { fatals: 3, errors: 0, warnings: 0, infos: 0 },
+                  checkedAt: "2026-08-28T10:00:00Z",
+                  basis: { build: null, manager: "test" },
+                },
+              }
+            : {},
         });
       case "get_patcher_status":
         return Promise.resolve({
@@ -210,5 +229,31 @@ describe("PlayButton", () => {
 
     await screen.findByRole("button", { name: "Start Patcher" });
     expect(screen.queryByRole("button", { name: "More launch options" })).not.toBeInTheDocument();
+  });
+
+  /* A launch without the patcher carries no mods, so warning about broken ones
+     would teach the reader to press through the warning that matters. */
+  it("does not ask about broken mods for a launch that carries none", async () => {
+    const user = userEvent.setup();
+    mockBackend({ launchMode: "modern", brokenMods: true });
+    render(<PlayButton />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: "More launch options" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Launch League only/ }));
+
+    await waitFor(() => expect(invokedCommands()).toContain("launch_league"));
+    expect(screen.queryByText(/Launch with/)).not.toBeInTheDocument();
+  });
+
+  /* The same list, and the press that does carry them still asks. */
+  it("still asks about broken mods for the play that carries them", async () => {
+    const user = userEvent.setup();
+    mockBackend({ launchMode: "modern", brokenMods: true });
+    render(<PlayButton />, { wrapper });
+
+    await user.click(await screen.findByRole("button", { name: /^Play/ }));
+
+    expect(await screen.findByText(/Launch with 1 broken mod/)).toBeInTheDocument();
+    expect(invokedCommands()).not.toContain("launch_league");
   });
 });

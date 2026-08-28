@@ -21,6 +21,7 @@ import { useModHealthDrawerStore } from "@/stores";
 import {
   type RepairRun,
   useBrokenMods,
+  useCancelModHealthRun,
   useInstalledMods,
   useRepairMod,
   useRepairMods,
@@ -281,18 +282,31 @@ function RepairSection({ run }: { run: RepairRun }) {
  */
 function RepairProgress({ progress }: { progress: ModRepairProgress }) {
   const { data: mods = [] } = useInstalledMods();
+  const cancel = useCancelModHealthRun();
   const names = progress.inFlight.map((id) => mods.find((mod) => mod.id === id)?.displayName ?? id);
 
   return (
     <div className="shrink-0 rounded-b-xl border border-accent-500/35 bg-accent-500/15 px-3 py-2 select-none">
       <Progress.Root value={progress.completed} max={progress.total}>
-        <div className="mb-1.5 flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium text-surface-100">
+        <div className="mb-1.5 flex items-baseline gap-2">
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-surface-100">
             {repairingLabel(names)}
           </span>
           <span className="shrink-0 text-xs text-surface-300 tabular-nums">
             {progress.completed} / {progress.total}
           </span>
+          {/* A mod already written stays written, so this stops the run rather
+              than undoing it. What it did not reach keeps its own verdict. */}
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            icon={<XIcon className="h-3.5 w-3.5" weight="bold" />}
+            onClick={() => cancel.mutate()}
+            disabled={cancel.isPending}
+            aria-label="Stop the repair"
+            className="-my-1 h-5 w-5 shrink-0"
+          />
         </div>
         <Progress.Track size="sm">
           <Progress.Indicator />

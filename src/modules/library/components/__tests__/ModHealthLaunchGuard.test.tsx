@@ -18,6 +18,9 @@ vi.mock("../../api", () => ({
   useBrokenEnabledMods: () => useBrokenEnabledMods(),
 }));
 
+const navigate = vi.fn();
+vi.mock("@tanstack/react-router", () => ({ useNavigate: () => navigate }));
+
 const fromTheMenu = vi.fn();
 
 /** The button and one menu entry, which is the shape the toolbar puts them in. */
@@ -113,6 +116,18 @@ describe("ModHealthLaunchGuard", () => {
     expect(drawer.open).toBe(true);
     expect(drawer.repairRequested).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  /* The controls are in the app-wide bar and the drawer is the library's, so
+     the way out has to go there or the request is taken by nobody. */
+  it("goes to the library so the drawer has somewhere to mount", async () => {
+    const user = userEvent.setup();
+    show([verdict("a", "repairable")]);
+
+    await user.click(press());
+    await user.click(screen.getByRole("button", { name: "Repair first" }));
+
+    expect(navigate).toHaveBeenCalledWith({ to: "/" });
   });
 
   /* Nothing here can be repaired, so the press only shows the list - asking for

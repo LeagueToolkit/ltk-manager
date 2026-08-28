@@ -21,14 +21,26 @@ export function ModHealthSweep() {
   const announce = useModHealthDrawerStore((s) => s.announce);
   const close = useModHealthDrawerStore((s) => s.close);
   const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const setHosted = useModHealthDrawerStore((s) => s.setHosted);
+
+  // Select mode is one the user is holding open, and a panel over the grid they
+  // are picking from would fight it.
+  const hosting = status !== null && !selectMode;
 
   useEffect(() => {
     if (status) announce();
   }, [status, announce]);
 
-  // Select mode is one the user is holding open, and a panel over the grid they
-  // are picking from would fight it.
-  if (status === null || selectMode) return null;
+  // Unconditional: this is where a drawer can be mounted, which is what the
+  // cell needs to know. Whether one is showing right now is `open`, and select
+  // mode withholding it does not make the cell a dead press - it holds the
+  // count either way, and the drawer comes back when the mode ends.
+  useEffect(() => {
+    setHosted(true);
+    return () => setHosted(false);
+  }, [setHosted]);
+
+  if (!hosting) return null;
 
   return <ModHealthSweepDrawer open={open} onClose={close} />;
 }

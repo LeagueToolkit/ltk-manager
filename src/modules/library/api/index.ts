@@ -7,6 +7,7 @@ export { useBrokenMods } from "./useBrokenMods";
 export { useBulkInstallMods } from "./useBulkInstallMods";
 export type { BulkUninstallResult } from "./useBulkUninstallMods";
 export { useBulkUninstallMods } from "./useBulkUninstallMods";
+export { useCancelModHealthRun } from "./useCancelModHealthRun";
 export { useCheckModHealth } from "./useCheckModHealth";
 export { useCreateProfile } from "./useCreateProfile";
 export { useDeleteProfile } from "./useDeleteProfile";

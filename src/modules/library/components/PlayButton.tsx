@@ -230,10 +230,12 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup className="w-64">
+                {/* Unguarded: this starts the game without the patcher, so
+                    it carries no mods for the ask to be about. */}
                 <LaunchMenuItem
                   label="Launch League"
                   leagueRunning={leagueRunning}
-                  onClick={() => ask(launchOnly)}
+                  onClick={launchOnly}
                   disabled={!canLaunch || isBusy}
                 />
                 <StopLeagueMenuItem />
@@ -309,10 +311,11 @@ function LaunchControls({ ask, disabled }: LaunchControlsProps) {
                   Start patcher only
                 </Menu.Item>
               )}
+              {/* Unguarded, for the reason the other one is. */}
               <LaunchMenuItem
                 label="Launch League only"
                 leagueRunning={leagueRunning}
-                onClick={() => ask(launchOnly)}
+                onClick={launchOnly}
                 disabled={!canLaunch}
               />
               <StopLeagueMenuItem />

@@ -1,4 +1,5 @@
 import { PlugsIcon, WarningCircleIcon } from "@phosphor-icons/react";
+import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
 
 import { Button, Popover } from "@/components";
@@ -30,6 +31,7 @@ export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
   const broken = useBrokenEnabledMods();
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
   const requestRepair = useModHealthDrawerStore((s) => s.requestRepair);
+  const navigate = useNavigate();
   const anchor = useRef<HTMLDivElement>(null);
   const [held, setHeld] = useState<(() => void) | null>(null);
 
@@ -50,6 +52,10 @@ export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
 
   function showTheList() {
     setHeld(null);
+    /* The launch controls are in the app-wide status bar and the drawer is the
+       library's, so the way out goes there first. The request outlives the
+       navigation, and the drawer takes it when it mounts. */
+    void navigate({ to: "/" });
     /* "Repair first" repairs. Opening the list and leaving the reader to find
        the button again is the same press asked for twice, and the drawer comes
        up either way so the run has somewhere to report. */

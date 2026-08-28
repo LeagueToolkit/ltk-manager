@@ -155,6 +155,18 @@ describe("ModHealthSweep", () => {
     expect(drawer()).not.toBeInTheDocument();
   });
 
+  /* Mod health is a library surface and the bar spans the app, so away from a
+     library page the cell would be a press that opens nothing. */
+  it("says nothing where no library page is there to host the drawer", () => {
+    useBrokenMods.mockReturnValue({
+      repairable: [verdict("a", "repairable")],
+      unrepairable: [],
+    });
+    render(<ModHealthStatusItem />);
+
+    expect(item()).not.toBeInTheDocument();
+  });
+
   it("takes the drawer off the grid in select mode, and leaves the cell", () => {
     useLibrarySelectionStore.setState({ selectMode: true });
     useModHealthDrawerStore.setState({ open: true });
