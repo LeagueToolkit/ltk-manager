@@ -191,9 +191,15 @@ impl ModLibrary {
         budget
     }
 
-    /// Forget the run's budget, so a later cancel cancels nothing.
-    pub(in crate::mods) fn end_health_run(&self) {
-        if let Ok(mut held) = self.health_budget.lock() {
+    /// Forget `budget`, so a later cancel cancels nothing.
+    ///
+    /// Only where it is still the run that is installed. A second run that
+    /// replaced it is still going, and clearing its handle would leave its
+    /// cancel reaching nothing.
+    pub(in crate::mods) fn end_health_run(&self, budget: &crate::problems::Budget) {
+        if let Ok(mut held) = self.health_budget.lock()
+            && held.as_ref().is_some_and(|running| running.is(budget))
+        {
             *held = None;
         }
     }

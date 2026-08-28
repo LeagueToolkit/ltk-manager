@@ -75,9 +75,10 @@ impl Budget {
     /// Wait until `bytes` are free, and hold them until the guard drops.
     ///
     /// A job larger than the whole budget waits for the run to be otherwise
-    /// idle and then runs alone.
+    /// idle and then runs alone. `None` where the run was called off while this
+    /// one was waiting, which is a job that must not start.
     #[must_use]
-    pub fn reserve(&self, bytes: u64) -> Reservation<'_> {
+    pub fn reserve(&self, bytes: u64) -> Option<Reservation<'_>> {
         let want = bytes.min(self.bytes.total);
         let mut held = self
             .bytes
@@ -85,6 +86,11 @@ impl Budget {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         while *held < want {
+            // Re-read inside the loop: a cancel notifies but frees nothing, so
+            // a worker that only re-checked the byte count would park forever.
+            if self.is_cancelled() {
+                return None;
+            }
             held = self
                 .bytes
                 .released
@@ -92,10 +98,16 @@ impl Budget {
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
         *held -= want;
-        Reservation {
+        Some(Reservation {
             in_flight: &self.bytes,
             bytes: want,
-        }
+        })
+    }
+
+    /// Whether this and `other` are handles on the same run.
+    #[must_use]
+    pub fn is(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.bytes, &other.bytes)
     }
 
     /// Call the run off. Every worker stops at its next file.
@@ -148,7 +160,9 @@ impl Budget {
                             return;
                         }
                         let item = &work[index];
-                        let held = self.reserve(weight(item));
+                        let Some(held) = self.reserve(weight(item)) else {
+                            return;
+                        };
                         let answer = job(item);
                         drop(held);
                         *done[index]

@@ -58,11 +58,11 @@ pub struct ModRepairFailure {
 impl ModLibrary {
     /// Repair what a machine can repair in one library mod.
     ///
-    /// A Project-storage mod is repaired in its own tree, which leaves a
-    /// restore point behind. An Archive-storage mod has no tree to write to,
-    /// so its archive is unpacked into staging, fixed there, repacked, and
-    /// swapped back in place. Either way, a mod with nothing to fix is left
-    /// untouched.
+    /// A Project-storage mod is repaired in its own tree. An Archive-storage
+    /// mod has no tree to write to, so its archive is unpacked into staging,
+    /// fixed there, repacked, and swapped back in place. Either way, a mod with
+    /// nothing to fix is left untouched, and neither is reversible - what a
+    /// repair keeps is the names it hashed away, per ADR-0006.
     ///
     /// # Errors
     ///
@@ -112,7 +112,7 @@ impl ModLibrary {
                 let resolver = self.wad_resolver();
                 let report =
                     problems::apply(&mod_dir, &run, &wanted, config, Some(resolver.as_ref()))?;
-                let checked = verified(run, &wanted, &report);
+                let checked = verified(&mod_dir, run, &wanted, &report, config)?;
                 (report, checked)
             }
             ModStorage::Archive => {
@@ -129,7 +129,10 @@ impl ModLibrary {
 
         // A run called off part way read only some of the mod's bins, so the
         // verdict it would record is a claim about a check that did not happen.
+        // The stored one is no better - the repair has already written - so it
+        // goes, and the next sweep owes this mod a check.
         if budget.is_cancelled() {
+            self.forget_health_check(&storage_dir, mod_id);
             return Err(cancelled(mod_id));
         }
 
@@ -184,28 +187,35 @@ impl ModLibrary {
                 progress.end(mod_id, |at| {
                     self.events().emit(BackendEvent::ModRepairProgress(at));
                 });
-                repaired
+                // Classified here rather than after the run: a mod that failed
+                // on its own at second one is not a mod the cancel at second
+                // thirty stopped, and filing it under `cancelled` would lose it.
+                match repaired {
+                    Ok(report) => ModOutcome::Done(report),
+                    Err(_) if budget.is_cancelled() => ModOutcome::Cancelled,
+                    Err(e) => ModOutcome::Failed(e.to_string()),
+                }
             },
         );
-        self.end_health_run();
+        self.end_health_run(&budget);
 
         let mut report = LibraryRepairReport::default();
         for (mod_id, outcome) in mod_ids.iter().zip(outcomes) {
             match outcome {
-                Some(Ok(fixes)) if fixes.applied > 0 => {
+                Some(ModOutcome::Done(fixes)) if fixes.applied > 0 => {
                     report.applied += fixes.applied;
                     report.repaired.push(mod_id.clone());
                 }
-                Some(Ok(_)) => report.unchanged.push(mod_id.clone()),
-                Some(Err(_)) if budget.is_cancelled() => report.cancelled.push(mod_id.clone()),
-                Some(Err(e)) => {
-                    tracing::warn!("Could not repair mod {mod_id}: {e}");
+                Some(ModOutcome::Done(_)) => report.unchanged.push(mod_id.clone()),
+                Some(ModOutcome::Failed(error)) => {
+                    tracing::warn!("Could not repair mod {mod_id}: {error}");
                     report.failed.push(ModRepairFailure {
                         mod_id: mod_id.clone(),
-                        error: e.to_string(),
+                        error,
                     });
                 }
-                None => report.cancelled.push(mod_id.clone()),
+                /* Cancelled while this mod ran, or before it was picked up. */
+                Some(ModOutcome::Cancelled) | None => report.cancelled.push(mod_id.clone()),
             }
         }
 
@@ -252,7 +262,7 @@ impl ModLibrary {
 
         swap_in_repacked(&repacked, archive)?;
 
-        let checked = verified(run, &wanted, &report);
+        let checked = verified(staging, run, &wanted, &report, config)?;
         Ok((report, checked))
     }
 
@@ -274,6 +284,18 @@ impl ModLibrary {
             .map_err(|e| AppError::Other(format!("Failed to import fantome archive: {e}")))?;
         Ok(staging_utf8)
     }
+}
+
+/// What one mod of a library-wide repair became.
+///
+/// Its own type rather than a `Result`, because "called off" is neither a
+/// success nor a failure and the run has to keep the three apart.
+#[derive(Debug)]
+enum ModOutcome {
+    Done(FixReport),
+    /// The run was called off before this mod finished.
+    Cancelled,
+    Failed(String),
 }
 
 /// How far a run over several mods has got, as its workers report it.
@@ -335,19 +357,30 @@ impl RunProgress {
 /// What the project reads as once `report` has landed, for the verdict.
 ///
 /// The rules re-check what they wrote before the bytes leave them, so
-/// [`FixReport::remaining`] is what a second analyze would find and re-parsing
+/// [`FixReport::remaining`] is what a second analyze would find, and re-parsing
 /// every bin to discover it would be a full pass for nothing.
+///
+/// A rule that stopped is the exception. It never reached the files after the
+/// one it stopped on, so their problems are neither applied nor reported as
+/// left, and subtracting them would call a mod healthy that was never touched.
+/// That run re-reads the project rather than deriving anything.
 fn verified(
+    project_root: &Path,
     run: problems::Run,
     wanted: &[problems::ProblemId],
     report: &FixReport,
-) -> problems::Run {
+    config: &Config,
+) -> AppResult<problems::Run> {
+    if !report.failed.is_empty() {
+        return problems::analyze(project_root, config);
+    }
+
     let repaired: Vec<problems::ProblemId> = wanted
         .iter()
         .filter(|id| !report.remaining.contains(id))
         .cloned()
         .collect();
-    run.without(&repaired)
+    Ok(run.without(&repaired))
 }
 
 /// Put the repacked archive where the original was, keeping the original until

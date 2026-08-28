@@ -586,22 +586,24 @@ fn descend_container<'a>(
     lens: Lens<'_>,
     found: &mut Vec<Hit<'a>>,
 ) {
-    let inners: Vec<(BinHash, &IndexMap<BinHash, PropertyValueEnum>)> = match items {
-        values::Container::Struct { items, .. } => items
-            .iter()
-            .map(|inner| (inner.class_hash, &inner.properties))
-            .collect(),
-        values::Container::Embedded { items, .. } => items
-            .iter()
-            .map(|inner| (inner.0.class_hash, &inner.0.properties))
-            .collect(),
-        _ => return,
-    };
-
-    for (index, (class, properties)) in inners.into_iter().enumerate() {
-        trail.index(index);
-        walk(class, properties, trail, lens, found);
-        trail.back();
+    // Two loops rather than one over a collected list: this runs for every
+    // container node of every bin, and the list would be an allocation each.
+    match items {
+        values::Container::Struct { items, .. } => {
+            for (index, inner) in items.iter().enumerate() {
+                trail.index(index);
+                walk(inner.class_hash, &inner.properties, trail, lens, found);
+                trail.back();
+            }
+        }
+        values::Container::Embedded { items, .. } => {
+            for (index, inner) in items.iter().enumerate() {
+                trail.index(index);
+                walk(inner.0.class_hash, &inner.0.properties, trail, lens, found);
+                trail.back();
+            }
+        }
+        _ => {}
     }
 }
 

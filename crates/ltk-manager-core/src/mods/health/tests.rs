@@ -109,3 +109,47 @@ fn a_repair_refreshes_the_stored_verdict() {
     let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(verdicts.get("id-1").unwrap().health, ModHealth::Healthy);
 }
+
+/// Story: a repair that wrote and was then called off leaves a verdict about
+/// content that has since changed. The sweep compares only the basis, so a
+/// stale verdict would stand until the game patches - it has to go instead.
+#[test]
+fn forgetting_a_verdict_makes_the_sweep_owe_that_mod_a_check() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    crate::mods::test_support::place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-1",
+            "stale-mod",
+            ModArchiveFormat::Fantome,
+        )],
+    );
+    library.check_mod_health(&config, "id-1").unwrap();
+    assert!(
+        library
+            .mod_health_verdicts(&config)
+            .unwrap()
+            .contains_key("id-1")
+    );
+
+    library.forget_health_check(&library.storage_dir(&config).unwrap(), "id-1");
+
+    assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+}
+
+/// Forgetting a mod nothing remembers writes nothing, so a cancel over a mod
+/// the run never got to does not rewrite the whole file.
+#[test]
+fn forgetting_a_verdict_that_is_not_held_writes_nothing() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let storage_dir = library.storage_dir(&config).unwrap();
+
+    library.forget_health_check(&storage_dir, "never-checked");
+
+    assert!(!storage_dir.join("mod-health-verdicts.json").exists());
+}

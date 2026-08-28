@@ -95,7 +95,7 @@ impl ModLibrary {
                 (at.elapsed(), outcome.unwrap_or_else(|e| e.to_string()))
             },
         );
-        self.end_health_run();
+        self.end_health_run(&budget);
 
         let mut mods: Vec<ModTiming> = due
             .iter()

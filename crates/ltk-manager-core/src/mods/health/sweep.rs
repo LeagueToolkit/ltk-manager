@@ -104,7 +104,7 @@ impl ModLibrary {
                 checked
             },
         );
-        self.end_health_run();
+        self.end_health_run(&budget);
 
         let mut checked = 0;
         for (mod_id, outcome) in due.iter().zip(outcomes) {

@@ -277,8 +277,9 @@ pub fn apply(
         let Some(problems) = chosen.get(&rule.id()) else {
             continue;
         };
-        // A rule that stops does not take the others with it, and the restore
-        // point covers whatever the run had written by then.
+        // A rule that stops does not take the others with it. What it had
+        // already written stays written, and `FixReport::failed` is what tells
+        // a caller its `remaining` does not cover the whole run.
         if let Err(error) = rule.fix(problems, &mut fix_run) {
             failed.push(error.to_string());
         }

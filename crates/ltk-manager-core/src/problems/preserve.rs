@@ -160,9 +160,11 @@ impl<'a> PreservedNames<'a> {
         let mut project = ModProject::load(root)
             .map_err(|e| AppError::Other(format!("Could not read the mod project: {e}")))?;
 
+        let mut declared = false;
         let manifest = match game_manifest(&project.hashtables) {
             Some(manifest) => manifest.clone(),
             None => {
+                declared = true;
                 let (algorithm, width) = &self.shape;
                 let manifest = ModProjectHashtable {
                     path: free_table_path(&project.hashtables),
@@ -189,16 +191,21 @@ impl<'a> PreservedNames<'a> {
         merged.write_to(&mut file)?;
         std::io::Write::flush(&mut file)?;
 
-        // Written back in the format it was read in, so a TOML project does
-        // not gain a second config the loader would then prefer.
-        let format = ConfigFormat::ALL
-            .into_iter()
-            .find(|format| root.join(format.file_name()).exists())
-            .unwrap_or(ConfigFormat::Json);
-        let config = project
-            .to_config_string(format)
-            .map_err(|e| AppError::Other(format!("Could not write the mod project: {e}")))?;
-        std::fs::write(root.join(format.file_name()).as_std_path(), config)?;
+        // Only where the manifest gained an entry. A project already declaring
+        // its table needs no config write, and reserializing one costs it
+        // anything `ModProject` does not round-trip.
+        if declared {
+            // Written back in the format it was read in, so a TOML project does
+            // not gain a second config the loader would then prefer.
+            let format = ConfigFormat::ALL
+                .into_iter()
+                .find(|format| root.join(format.file_name()).exists())
+                .unwrap_or(ConfigFormat::Json);
+            let config = project
+                .to_config_string(format)
+                .map_err(|e| AppError::Other(format!("Could not write the mod project: {e}")))?;
+            std::fs::write(root.join(format.file_name()).as_std_path(), config)?;
+        }
 
         Ok(self.fresh.len())
     }

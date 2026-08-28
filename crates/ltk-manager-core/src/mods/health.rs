@@ -158,6 +158,25 @@ impl ModLibrary {
         Ok(verdict)
     }
 
+    /// Forget `mod_id`'s verdict, so the next sweep owes it a check.
+    ///
+    /// What a run that wrote to a mod and was then called off leaves behind: the
+    /// stored verdict describes content that has since changed, and the sweep
+    /// compares only the basis, so a stale verdict would otherwise stand until
+    /// the game patches.
+    pub(in crate::mods) fn forget_health_check(&self, storage_dir: &Path, mod_id: &str) {
+        let Ok(_lock) = self.verdict_lock().lock() else {
+            return;
+        };
+        let mut file = VerdictFile::load(storage_dir);
+        if file.verdicts.remove(mod_id).is_none() {
+            return;
+        }
+        if let Err(e) = file.save(storage_dir) {
+            tracing::warn!("Could not drop the stale verdict of {mod_id}: {e}");
+        }
+    }
+
     /// What a check running now would be a claim about.
     pub(in crate::mods) fn health_check_basis(&self, config: &Config) -> HealthCheckBasis {
         HealthCheckBasis {

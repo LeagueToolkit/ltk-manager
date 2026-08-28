@@ -341,3 +341,60 @@ fn a_cancelled_run_records_no_verdict_for_the_mods_it_did_not_reach() {
         "a cancelled run concluded nothing, so it recorded nothing"
     );
 }
+
+/// Story: a rule that stopped never reached the files after the one it stopped
+/// on, so their problems are neither applied nor reported as left. Deriving the
+/// verdict from that would call a mod healthy that was never written to.
+///
+/// Staged with a read-only bin: the fix converts it in memory, the re-check
+/// therefore finds nothing left, and only the write fails.
+#[test]
+fn a_repair_a_rule_stopped_does_not_report_the_mod_healthy() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "locked-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-1",
+            "locked-mod",
+            ModArchiveFormat::Fantome,
+        )],
+    );
+
+    let bin = storage
+        .path()
+        .join("mods")
+        .join("locked-mod")
+        .join("content")
+        .join("base")
+        .join("Aatrox.wad.client")
+        .join("data/skin0.bin");
+    let mut readonly = fs::metadata(&bin).unwrap().permissions();
+    readonly.set_readonly(true);
+    fs::set_permissions(&bin, readonly).unwrap();
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 0);
+    assert!(!report.failed.is_empty(), "the write could not land");
+    assert_eq!(
+        library
+            .mod_health_verdicts(&config)
+            .unwrap()
+            .get("id-1")
+            .unwrap()
+            .health,
+        ModHealth::Repairable,
+        "nothing was written, so nothing was repaired"
+    );
+
+    // Cleared so the temp directory can be removed. On Unix this widens the
+    // mode, which is why clippy objects and why the expectation says so here.
+    let mut writable = fs::metadata(&bin).unwrap().permissions();
+    #[expect(clippy::permissions_set_readonly_false, reason = "a temp fixture")]
+    writable.set_readonly(false);
+    fs::set_permissions(&bin, writable).unwrap();
+}
