@@ -82,12 +82,14 @@ impl ModLibrary {
             crate::problems::budget::MODS_AT_ONCE,
             |_| 0,
             |(mod_id, _)| {
+                // Through the `_within` pair, so every mod of the pass spends
+                // the one budget the pass is measuring.
                 let at = Instant::now();
                 let outcome = if repair {
-                    self.repair_mod(config, mod_id)
+                    self.repair_mod_within(config, mod_id, &budget)
                         .map(|report| format!("{} applied", report.applied))
                 } else {
-                    self.check_mod_health(config, mod_id)
+                    self.check_mod_health_within(config, mod_id, &budget)
                         .map(|verdict| format!("{:?}", verdict.health))
                 };
                 (at.elapsed(), outcome.unwrap_or_else(|e| e.to_string()))

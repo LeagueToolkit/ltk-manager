@@ -69,10 +69,10 @@ impl ModLibrary {
     /// Fails when the mod is not in the library, has faulted, or is stored as
     /// an archive it does not have or that has no unpacked form.
     pub fn repair_mod(&self, config: &Config, mod_id: &str) -> AppResult<FixReport> {
-        let budget = self.begin_health_run(Budget::repair());
-        let repaired = self.repair_mod_within(config, mod_id, &budget);
-        self.end_health_run();
-        repaired
+        /* A budget of its own, and not the run's: one mod from a row can be
+        pressed while the startup sweep is going, and taking the run's handle
+        would leave the sweep's cancel reaching nothing. */
+        self.repair_mod_within(config, mod_id, &Budget::repair())
     }
 
     /// [`repair_mod`](Self::repair_mod) under a caller's own budget.
@@ -81,7 +81,7 @@ impl ModLibrary {
     ///
     /// The same as [`repair_mod`](Self::repair_mod), plus a run called off
     /// before this mod was finished.
-    fn repair_mod_within(
+    pub(in crate::mods) fn repair_mod_within(
         &self,
         config: &Config,
         mod_id: &str,
