@@ -45,6 +45,7 @@ export { useReorderMods } from "./useReorderMods";
 export { useRepairMod } from "./useRepairMod";
 export type { RepairRun } from "./useRepairMods";
 export { useRepairMods } from "./useRepairMods";
+export { type RepairTargets, useRepairTargets } from "./useRepairTargets";
 export { useRootModDnd } from "./useRootModDnd";
 export { useSetModLayers } from "./useSetModLayers";
 export { useSetModStorage } from "./useSetModStorage";

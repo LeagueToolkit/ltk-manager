@@ -10,7 +10,19 @@ interface ModHealthDrawerStore {
   width: number;
   /** Whether this run has already opened the drawer without being asked. */
   announced: boolean;
+  /** Whether something asked for a repair the drawer has not started yet. */
+  repairRequested: boolean;
   openDrawer: () => void;
+  /**
+   * Open the drawer and have it repair what the next game would carry.
+   *
+   * The launch guard's way in. The run itself is the drawer's, because the hook
+   * behind it carries the progress subscription and is mounted exactly once, so
+   * what crosses is the request rather than the press.
+   */
+  requestRepair: () => void;
+  /** Take the pending request, so the drawer starts it once. */
+  takeRepairRequest: () => void;
   setWidth: (width: number) => void;
   /**
    * Open the drawer unprompted, at most once for the life of the app.
@@ -34,8 +46,11 @@ export const useModHealthDrawerStore = create<ModHealthDrawerStore>((set) => ({
   open: false,
   width: DEFAULT_WIDTH,
   announced: false,
+  repairRequested: false,
   openDrawer: () => set({ open: true }),
+  requestRepair: () => set({ open: true, repairRequested: true }),
+  takeRepairRequest: () => set({ repairRequested: false }),
   setWidth: (width) => set({ width }),
   announce: () => set((state) => (state.announced ? state : { open: true, announced: true })),
-  close: () => set({ open: false }),
+  close: () => set({ open: false, repairRequested: false }),
 }));

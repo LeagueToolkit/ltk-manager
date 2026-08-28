@@ -26,6 +26,10 @@ vi.mock("../../api", () => ({
   useRepairMod: () => ({ mutate: vi.fn(), isPending: false }),
   useRepairMods: () => ({ repair: repairMutate, isRepairing: false, progress: null }),
   useInstalledMods: () => ({ data: [installedMod("a", "Charizard Smolder")] }),
+  useRepairTargets: () => {
+    const all = useBrokenMods().repairable;
+    return { enabled: all, all };
+  },
 }));
 
 /** The bar's cell and the library's drawer, which is how they meet in the app. */

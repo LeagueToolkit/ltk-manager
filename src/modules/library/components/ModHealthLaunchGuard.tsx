@@ -29,8 +29,11 @@ interface ModHealthLaunchGuardProps {
 export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
   const broken = useBrokenEnabledMods();
   const openDrawer = useModHealthDrawerStore((s) => s.openDrawer);
+  const requestRepair = useModHealthDrawerStore((s) => s.requestRepair);
   const anchor = useRef<HTMLDivElement>(null);
   const [held, setHeld] = useState<(() => void) | null>(null);
+
+  const repairable = broken.filter((verdict) => verdict.health === "repairable").length;
 
   const ask: GuardedLaunch = (launch) => {
     if (broken.length === 0) {
@@ -47,10 +50,15 @@ export function ModHealthLaunchGuard({ children }: ModHealthLaunchGuardProps) {
 
   function showTheList() {
     setHeld(null);
+    /* "Repair first" repairs. Opening the list and leaving the reader to find
+       the button again is the same press asked for twice, and the drawer comes
+       up either way so the run has somewhere to report. */
+    if (repairable > 0) {
+      requestRepair();
+      return;
+    }
     openDrawer();
   }
-
-  const repairable = broken.filter((verdict) => verdict.health === "repairable").length;
 
   return (
     <div ref={anchor} className="inline-flex">

@@ -21,6 +21,17 @@ vi.mock("../../api", () => ({
   useInstalledMods: () => useInstalledMods(),
   useRepairMod: () => ({ mutate: repairOne, isPending: false }),
   useRepairMods: () => run,
+  /* The real hook over the two mocked ones, so a test that switches a mod off
+     exercises the split the drawer actually draws. */
+  useRepairTargets: () => {
+    const all = useBrokenMods().repairable;
+    const on = new Set(
+      useInstalledMods()
+        .data.filter((mod) => mod.enabled)
+        .map((mod) => mod.id),
+    );
+    return { enabled: all.filter((verdict) => on.has(verdict.modId)), all };
+  },
 }));
 
 let run: { repair: () => void; isRepairing: boolean; progress: ModRepairProgress | null };
@@ -176,6 +187,56 @@ describe("ModHealthSweepDrawer", () => {
     show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
 
     expect(screen.getByText("Repairing ghost-id")).toBeInTheDocument();
+  });
+
+  /* Every broken mod is switched on, so the two presses would do the same thing
+     and a caret would only ask the reader to find that out. */
+  it("draws one plain press when nothing broken is switched off", () => {
+    show({ repairable: [verdict("a", "repairable")], unrepairable: [] });
+
+    expect(screen.getByRole("button", { name: /Repair 1 mod/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More repair options" })).not.toBeInTheDocument();
+  });
+
+  /* A disabled mod reaches no overlay, so the press offers the work the next
+     game needs and the library stays behind the caret. */
+  it("splits the press when a broken mod is switched off", async () => {
+    const user = userEvent.setup();
+    useInstalledMods.mockReturnValue({
+      data: [
+        installedMod("a", "Charizard Smolder"),
+        { ...installedMod("b", "Old Ashe Rework"), enabled: false },
+      ],
+    });
+    show({
+      repairable: [verdict("a", "repairable"), verdict("b", "repairable")],
+      unrepairable: [],
+    });
+
+    expect(screen.getByRole("button", { name: /Repair 1 enabled mod/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More repair options" }));
+    await user.click(screen.getByRole("menuitem", { name: "Repair all 2" }));
+
+    expect(run.repair).toHaveBeenCalledWith(["a", "b"]);
+  });
+
+  it("repairs only what is switched on from the press itself", async () => {
+    const user = userEvent.setup();
+    useInstalledMods.mockReturnValue({
+      data: [
+        installedMod("a", "Charizard Smolder"),
+        { ...installedMod("b", "Old Ashe Rework"), enabled: false },
+      ],
+    });
+    show({
+      repairable: [verdict("a", "repairable"), verdict("b", "repairable")],
+      unrepairable: [],
+    });
+
+    await user.click(screen.getByRole("button", { name: /Repair 1 enabled mod/ }));
+
+    expect(run.repair).toHaveBeenCalledWith(["a"]);
   });
 
   it("closes on Escape", async () => {

@@ -1,12 +1,20 @@
-import { PlugsIcon, WarningCircleIcon, WrenchIcon, XIcon } from "@phosphor-icons/react";
+import {
+  CaretUpIcon,
+  PlugsIcon,
+  StackIcon,
+  WarningCircleIcon,
+  WrenchIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  useEffect,
   useRef,
 } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Button, Dialog, IconButton, Progress, WolfIcon } from "@/components";
+import { Button, ButtonGroup, Dialog, IconButton, Menu, Progress, WolfIcon } from "@/components";
 import { type ModHealthVerdict, type ModRepairProgress } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
 
@@ -16,6 +24,7 @@ import {
   useInstalledMods,
   useRepairMod,
   useRepairMods,
+  useRepairTargets,
 } from "../api";
 import { HEADLINE, type SweepTone, toneOf } from "./modHealthNotice";
 
@@ -45,10 +54,21 @@ const KEY_STEP = 16;
 export function ModHealthSweepDrawer({ open, onClose }: ModHealthSweepDrawerProps) {
   const { repairable, unrepairable } = useBrokenMods();
   const repair = useRepairMods();
+  const { enabled } = useRepairTargets();
+  const requested = useModHealthDrawerStore((s) => s.repairRequested);
+  const takeRequest = useModHealthDrawerStore((s) => s.takeRepairRequest);
   const width = useModHealthDrawerStore((s) => s.width);
   const setWidth = useModHealthDrawerStore((s) => s.setWidth);
   const panel = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  /* The launch guard's "Repair first" opens the drawer and asks for the run in
+     one press, and the run is this component's to start. */
+  useEffect(() => {
+    if (!requested || repair.isRepairing) return;
+    takeRequest();
+    if (enabled.length > 0) repair.repair(enabled.map((verdict) => verdict.modId));
+  }, [requested, enabled, repair, takeRequest]);
 
   function resize(next: number) {
     const ceiling = Math.max(MIN_WIDTH, window.innerWidth - GRID_KEPT);
@@ -134,7 +154,7 @@ export function ModHealthSweepDrawer({ open, onClose }: ModHealthSweepDrawerProp
             ))}
           </ul>
 
-          {fixable && <RepairSection verdicts={repairable} run={repair} />}
+          {fixable && <RepairSection run={repair} />}
 
           {/* Last, so the tab order is the list and its presses before the one
               control that only changes the shape of the panel. */}
@@ -180,21 +200,76 @@ function DrawerMark({ fixable, tone }: { fixable: boolean; tone: SweepTone }) {
  *
  * The run is held by the drawer rather than here, because the hook behind it
  * carries the progress subscription and has to be mounted exactly once.
+ *
+ * Splits when some of the broken mods are switched off, per "Repair all" in
+ * docs/ux/MOD_HEALTH.md. The press repairs what the next game will carry, and
+ * the whole library is the deliberate second choice behind the caret.
  */
-function RepairSection({ verdicts, run }: { verdicts: ModHealthVerdict[]; run: RepairRun }) {
+function RepairSection({ run }: { run: RepairRun }) {
+  const { enabled, all } = useRepairTargets();
+
   if (run.progress) return <RepairProgress progress={run.progress} />;
 
+  const start = (verdicts: ModHealthVerdict[]) =>
+    run.repair(verdicts.map((verdict) => verdict.modId));
+
+  /* Nothing is switched off, so the two presses would do the same thing and a
+     caret would only ask the reader to find that out. */
+  if (enabled.length === all.length) {
+    return (
+      <Button
+        compact
+        variant="duotone"
+        className="w-full rounded-t-none rounded-b-xl font-bold"
+        loading={run.isRepairing}
+        onClick={() => start(all)}
+      >
+        <PlugsIcon className="h-5 w-5 text-lg" weight="duotone" />
+        Repair {plural(all.length, "mod")}
+      </Button>
+    );
+  }
+
   return (
-    <Button
-      compact
-      variant="duotone"
-      className="w-full rounded-t-none rounded-b-xl font-bold"
-      loading={run.isRepairing}
-      onClick={() => run.repair(verdicts.map((verdict) => verdict.modId))}
-    >
-      <PlugsIcon className="h-5 w-5 text-lg" weight="duotone" />
-      Repair {plural(verdicts.length, "mod")}
-    </Button>
+    <ButtonGroup className="w-full">
+      <Button
+        compact
+        variant="duotone"
+        className="flex-1 rounded-t-none rounded-bl-xl font-bold"
+        loading={run.isRepairing}
+        disabled={enabled.length === 0}
+        onClick={() => start(enabled)}
+      >
+        <PlugsIcon className="h-5 w-5 text-lg" weight="duotone" />
+        Repair {plural(enabled.length, "enabled mod")}
+      </Button>
+      <Menu.Root>
+        <Menu.Trigger
+          render={
+            <IconButton
+              icon={<CaretUpIcon weight="bold" className="h-4 w-4" />}
+              variant="duotone"
+              compact
+              aria-label="More repair options"
+              className="w-auto rounded-t-none rounded-br-xl px-2"
+              disabled={run.isRepairing}
+            />
+          }
+        />
+        <Menu.Portal>
+          <Menu.Positioner side="top" align="end">
+            <Menu.Popup className="w-56">
+              <Menu.Item
+                icon={<StackIcon weight="duotone" className="h-4 w-4" />}
+                onClick={() => start(all)}
+              >
+                Repair all {all.length}
+              </Menu.Item>
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+    </ButtonGroup>
   );
 }
 

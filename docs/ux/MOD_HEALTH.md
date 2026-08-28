@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-08-28 | The footer press repairs what a patch carries, all behind it |
 | 2026-08-28 | A repair preserves names rather than keeping a restore point |
 | 2026-08-28 | One drawer title, and three lines under it for three states  |
 | 2026-08-28 | The drawer becomes a focused sheet over a dimmed page        |
@@ -13,7 +14,6 @@
 | 2026-08-28 | A drawer row repairs its own mod, and counts problems        |
 | 2026-08-28 | The status bar item is a light cell, led by its glyph        |
 | 2026-08-28 | Mod health moves into the status bar as a filled item        |
-| 2026-08-28 | The item names a count, and the drawer folds in the ask      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -49,7 +49,7 @@ This table holds every major feature of Mod health. A status word has one meanin
 | Check Health, by hand | Available | In the card menu, answered by a toast                        |
 | The library sweep     | Available | Every mod whose basis moved, at startup, skipping the rest   |
 | The status bar item   | Available | A light cell at the right of the bar, and its drawer         |
-| Repair all            | Available | `repair_mods`, one press for every repairable mod            |
+| Repair all            | Available | Behind the footer's caret. The press repairs what is enabled |
 | The launch ask        | Available | Play confirms under itself when a broken mod is enabled      |
 | Verdict pruning       | Available | A sweep forgets the verdicts of mods the library dropped     |
 | The full findings     | Planned   | Behind a disclosure, for the user who wants the detail       |
@@ -193,7 +193,7 @@ drawer it opens. Those two are the whole of what a mod user has to understand.
   ▓   ▓   ▓   ▓   ▓         ░░░░░░░░│ ⚠  Old Ashe Rework      │
                             ░░░░░░░░│    4 unfixable problems │
   ▓   ▓   ▓   ▓   ▓         ░░░░░░░░├─────────────────────────┤
-                            ░░░░░░░░│ [ ⏻ Repair 3 mods     ] │
+                            ░░░░░░░░│ [ ⏻ Repair 2 enabled ▲] │
   ▓   ▓   ▓   ▓   ▓         ░░░░░░░░╰─────────────────────────╯
 ─────────────────────────────────────────────────────────────
   ○ Patcher idle   Start the patcher…        █ 🔧 19 repairs █
@@ -245,10 +245,19 @@ what is wrong instead of waiting to be asked. Once for the life of the app, whet
 just ran, and a reader who closes it has answered: it does not come back when the next verdict
 lands. Everything after that is the cell, which is where a reader who wants it knows to look.
 
-**Repair all is one press for the whole library.** It repairs each repairable mod in turn, and a
-mod that cannot be repaired is recorded rather than stopping the rest. That is the answer to "do
-it for me" that this feature owes: a user who has never heard of a bin property type still gets
-their mods working.
+**The press repairs what the next game carries. Repair all is behind the caret.** A disabled mod
+reaches no overlay, so repairing it is work the game does not need - and it is still the reader's
+mod, so the library-wide run stays one press away rather than gone. The footer is a split button
+in `PlayButton`'s idiom, and it collapses to one plain button when every broken mod is switched on,
+because two presses that do the same thing is a question nobody asked.
+
+Either scope repairs each mod it names, and a mod that cannot be repaired is recorded rather than
+stopping the rest. That is the answer to "do it for me" that this feature owes: a user who has
+never heard of a bin property type still gets their mods working.
+
+**"Repair first" repairs.** The launch guard's way out starts the enabled-only run and opens the
+drawer for it to report in. Opening the list and leaving the reader to find the button again is
+the same press asked for twice.
 
 **Nothing is repaired without the press.** An archive repair keeps no copy of the original
 (ADR-0005), so a rewrite of every mod in the library is not a thing to do to somebody who did not
@@ -361,7 +370,7 @@ would look ignored. "No problems found" is the answer.
 | ------------------------------------------------ | -------------------------------------------------- |
 | Where do verdicts live?                          | `mod-health-verdicts.json`, a map beside the index |
 | What makes a stored verdict stale?               | Its basis: the game build and the manager version  |
-| Does the manager repair a mod on its own?        | No. Repair all is one press, and it is the user's  |
+| Does the manager repair a mod on its own?        | No. Every run is a press, and it is the user's     |
 | Does the item draw when nothing was re-checked?  | Yes. It answers to the verdicts, not to the sweep  |
 | Where does the item sit?                         | A cell at the right of the status bar              |
 | Can a reader dismiss it?                         | No. It leaves when nothing is wrong any more       |

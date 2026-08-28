@@ -39,7 +39,7 @@ const press = () => screen.getByRole("button", { name: "Play" });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useModHealthDrawerStore.setState({ open: false, announced: false });
+  useModHealthDrawerStore.setState({ open: false, announced: false, repairRequested: false });
 });
 
 describe("ModHealthLaunchGuard", () => {
@@ -100,16 +100,33 @@ describe("ModHealthLaunchGuard", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
-  /* The way out is the drawer, which is the only surface that repairs. */
-  it("opens the drawer instead of launching", async () => {
+  /* "Repair first" repairs. Opening the list and leaving the reader to find the
+     button again is the same press asked for twice. */
+  it("starts the repair and opens the drawer to report it", async () => {
     const user = userEvent.setup();
     show([verdict("a", "repairable")]);
 
     await user.click(press());
     await user.click(screen.getByRole("button", { name: "Repair first" }));
 
-    expect(useModHealthDrawerStore.getState().open).toBe(true);
+    const drawer = useModHealthDrawerStore.getState();
+    expect(drawer.open).toBe(true);
+    expect(drawer.repairRequested).toBe(true);
     expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  /* Nothing here can be repaired, so the press only shows the list - asking for
+     a run with nothing to do would report a repair that never happened. */
+  it("asks for no repair when none can reach them", async () => {
+    const user = userEvent.setup();
+    show([verdict("b", "unrepairable")]);
+
+    await user.click(press());
+    await user.click(screen.getByRole("button", { name: "Show me" }));
+
+    const drawer = useModHealthDrawerStore.getState();
+    expect(drawer.open).toBe(true);
+    expect(drawer.repairRequested).toBe(false);
   });
 
   /* Nothing can be repaired, so the button that offers a repair would lie. */
