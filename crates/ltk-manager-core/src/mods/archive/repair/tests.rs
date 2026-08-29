@@ -12,6 +12,14 @@ use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
 use std::fs;
+use std::path::Path;
+
+/// Hold a path against writes, or let it go again.
+fn hold(path: &Path, held: bool) {
+    let mut perms = fs::metadata(path).unwrap().permissions();
+    perms.set_readonly(held);
+    fs::set_permissions(path, perms).unwrap();
+}
 
 fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
     LibraryModEntry {
@@ -372,11 +380,12 @@ fn a_repair_a_rule_stopped_does_not_report_the_mod_healthy() {
         .join("base")
         .join("Aatrox.wad.client")
         .join("data/skin0.bin");
-    let mut readonly = fs::metadata(&bin).unwrap().permissions();
-    readonly.set_readonly(true);
-    fs::set_permissions(&bin, readonly).unwrap();
-
+    let data_dir = bin.parent().unwrap().to_path_buf();
+    hold(&bin, true);
+    hold(&data_dir, true);
     let report = library.repair_mod(&config, "id-1").unwrap();
+    hold(&data_dir, false);
+    hold(&bin, false);
 
     assert_eq!(report.applied, 0);
     assert!(!report.failed.is_empty(), "the write could not land");
@@ -390,11 +399,4 @@ fn a_repair_a_rule_stopped_does_not_report_the_mod_healthy() {
         ModHealth::Repairable,
         "nothing was written, so nothing was repaired"
     );
-
-    // Cleared so the temp directory can be removed. On Unix this widens the
-    // mode, which is why clippy objects and why the expectation says so here.
-    let mut writable = fs::metadata(&bin).unwrap().permissions();
-    #[expect(clippy::permissions_set_readonly_false, reason = "a temp fixture")]
-    writable.set_readonly(false);
-    fs::set_permissions(&bin, writable).unwrap();
 }
