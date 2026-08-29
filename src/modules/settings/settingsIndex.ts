@@ -54,7 +54,6 @@ const INDEX = [
     key: "autoCategorizationEnabled",
     title: "Automatically categorize mods",
   },
-  { id: "library.showWadFootprint", key: "showWadFootprint", title: "Show footprint" },
   { id: "library.watcherEnabled", key: "watcherEnabled", title: "Watch for external changes" },
   { id: "library.trustedDomains", key: "trustedDomains", title: "Trusted mod providers" },
 

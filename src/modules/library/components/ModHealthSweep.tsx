@@ -3,10 +3,10 @@ import { useEffect } from "react";
 import { useLibrarySelectionStore, useModHealthDrawerStore } from "@/stores";
 
 import { useModHealthStatus } from "../api";
-import { ModHealthSweepDrawer } from "./ModHealthSweepDrawer";
+import { ModHealthSweepDialog } from "./ModHealthSweepDialog";
 
 /**
- * The mod health drawer, mounted where it can cover the grid it reports on.
+ * The mod health panel, mounted where it can cover the grid it reports on.
  *
  * Per "The status bar item and the drawer" in docs/ux/MOD_HEALTH.md. What opens
  * it is a status bar cell in the app shell, so the two meet at
@@ -42,5 +42,5 @@ export function ModHealthSweep() {
 
   if (!hosting) return null;
 
-  return <ModHealthSweepDrawer open={open} onClose={close} />;
+  return <ModHealthSweepDialog open={open} onClose={close} />;
 }

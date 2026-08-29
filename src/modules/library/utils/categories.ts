@@ -12,6 +12,15 @@ export interface EffectiveCategories {
   derivedTags: string[];
   derivedChampions: string[];
   derivedMaps: string[];
+  /**
+   * The derived champion the mod puts the most content into, of
+   * [`derivedChampions`].
+   *
+   * For a surface with room for one champion rather than every champion a mod
+   * touches. `null` when the analysis predates the weighting, or when a
+   * declared champion has already claimed the one the report named.
+   */
+  primaryDerivedChampion: string | null;
 }
 
 /**
@@ -61,6 +70,11 @@ export function computeEffectiveCategories(
   const champions = mergeCategory(mod.champions, report?.derived.champions);
   const maps = mergeCategory(mod.maps, report?.derived.maps);
 
+  // A declared champion outranks a derived one, so the primary is only the
+  // primary while it is still one of the pills the report contributed.
+  const primary = report?.derived.primaryChampion ?? null;
+  const primaryDerivedChampion = champions.derivedOnly.includes(primary ?? "") ? primary : null;
+
   return {
     tags: tags.merged,
     champions: champions.merged,
@@ -68,5 +82,6 @@ export function computeEffectiveCategories(
     derivedTags: tags.derivedOnly,
     derivedChampions: champions.derivedOnly,
     derivedMaps: maps.derivedOnly,
+    primaryDerivedChampion,
   };
 }

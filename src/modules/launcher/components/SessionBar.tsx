@@ -97,10 +97,7 @@ function StepDot({ state }: { state: StepState }) {
 }
 
 /**
- * A highlight running the length of the bar's top border.
- *
- * `-top-0.5` backs it out of the padding box onto the 2px border itself, so the
- * shimmer travels along the accent line rather than inside the bar.
+ * A highlight running the length of the working line.
  *
  * The travelling element spans the full width - it is the gradient's stops that
  * keep the lit band narrow, which is what lets the stock `shimmer` keyframe
@@ -108,7 +105,7 @@ function StepDot({ state }: { state: StepState }) {
  */
 function BorderShimmer() {
   return (
-    <span className="pointer-events-none absolute inset-x-0 -top-0.5 h-0.5 overflow-hidden">
+    <span className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden">
       <span className="absolute inset-0 animate-border-shimmer bg-linear-to-r from-transparent from-47% via-accent-100 via-50% to-transparent to-53%" />
     </span>
   );
@@ -124,9 +121,10 @@ function BorderShimmer() {
  */
 function Bar({ working, children }: { working?: boolean; children?: ReactNode }) {
   return (
-    <div
-      className={`relative flex shrink-0 items-stretch bg-surface-950 select-none ${working ? "border-t-2 border-accent-500" : "border-t border-surface-800"} p-1`}
-    >
+    <div className="relative flex shrink-0 items-stretch bg-surface-950 px-2 py-1 select-none">
+      {working && (
+        <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-accent-500" />
+      )}
       {working && <BorderShimmer />}
       <div className="min-w-0 flex-1">{children}</div>
       <ModHealthStatusItem />
@@ -140,16 +138,15 @@ function RestingLine({
   children,
 }: {
   part?: string;
-  /** A second line under the first. Always the backend's words, so it stays selectable. */
   detail?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <Bar>
-      <div data-ui={part ? `SessionBar:${part}` : undefined} className="px-4 py-1.5">
-        <div className="flex items-center gap-2 text-sm">{children}</div>
+      <div data-ui={part ? `SessionBar:${part}` : undefined} className="px-3 py-1">
+        <div className="flex h-5 items-center gap-2 text-row">{children}</div>
         {detail && (
-          <p className="mt-0.5 ml-5.5 truncate text-xs text-surface-500 select-text">{detail}</p>
+          <p className="mt-0.5 ml-5.5 truncate text-meta text-surface-500 select-text">{detail}</p>
         )}
       </div>
     </Bar>
@@ -191,16 +188,17 @@ function LineActions({
 }) {
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
-      <Button variant="ghost" size="xs" compact onClick={onAction}>
+      <Button variant="ghost" size="xs" compact onClick={onAction} className="h-5">
         {label}
       </Button>
       <IconButton
-        icon={<XIcon className="h-3.5 w-3.5" weight="bold" />}
+        icon={<XIcon className="h-3 w-3" weight="bold" />}
         variant="ghost"
         size="xs"
         compact
         onClick={onDismiss}
         aria-label="Dismiss"
+        className="h-5 w-5"
       />
     </div>
   );
@@ -308,7 +306,13 @@ function CancelLaunchButton() {
 
   return (
     <Tooltip content="Stop waiting for the Riot Client. A request it already took still starts a game.">
-      <Button variant="ghost" size="xs" onClick={() => cancelLaunch.mutate()} disabled={cancelling}>
+      <Button
+        variant="ghost"
+        size="xs"
+        compact
+        onClick={() => cancelLaunch.mutate()}
+        disabled={cancelling}
+      >
         {cancelLabel(cancelling)}
       </Button>
     </Tooltip>
@@ -499,7 +503,7 @@ export function SessionBar() {
 
   return (
     <Bar working={working}>
-      <div className="px-4 py-2">
+      <div className="px-3 py-1.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {steps.map((step) => (
             <div key={step.key} className="flex items-center gap-1.5">
@@ -512,16 +516,16 @@ export function SessionBar() {
           {testLabel && <Pill>{testLabel}</Pill>}
         </div>
 
-        <div className="mt-1.5 flex items-center gap-3">
-          <span className="text-sm text-surface-300">{label}</span>
+        <div className="mt-1 flex items-center gap-3">
+          <span className="text-row text-surface-300">{label}</span>
           <div className="flex-1" />
           {counter && (
-            <span className="shrink-0 text-sm text-surface-400 tabular-nums">{counter}</span>
+            <span className="shrink-0 text-row text-surface-400 tabular-nums">{counter}</span>
           )}
           <CancelLaunchButton />
         </div>
 
-        <div className="mt-1.5">
+        <div className="mt-1">
           <Progress.Root value={value} className="flex-1">
             <Progress.Track size="sm">
               <Progress.Indicator />
@@ -529,7 +533,7 @@ export function SessionBar() {
           </Progress.Root>
         </div>
 
-        {detail && <p className="mt-1 truncate text-xs text-surface-500">{detail}</p>}
+        {detail && <p className="mt-1 truncate text-meta text-surface-500">{detail}</p>}
       </div>
     </Bar>
   );

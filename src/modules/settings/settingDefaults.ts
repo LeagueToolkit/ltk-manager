@@ -90,7 +90,6 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
 
   retainModArchives: onOff,
   autoCategorizationEnabled: onOff,
-  showWadFootprint: onOff,
   watcherEnabled: onOff,
 
   applyStringOverridesToAllLocales: onOff,

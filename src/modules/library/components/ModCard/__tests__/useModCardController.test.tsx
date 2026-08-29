@@ -62,6 +62,9 @@ const faulted = {
 beforeEach(() => {
   vi.clearAllMocks();
   setModStorage.isPending = false;
+  // The store is a shared object rather than a fresh mock, so a test that turns
+  // select mode on has to hand it back.
+  selectionState.selectMode = false;
   mockInvoke.mockResolvedValue({ ok: true, value: null });
 });
 
@@ -170,5 +173,30 @@ describe("useModCardController reveal", () => {
     expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
       path: "/storage/quarantine/broken-mod",
     });
+  });
+});
+
+/* A mod that failed to convert is parked, not gone: its files sit in quarantine
+   and its entry stays in the library. The menu is the only way to either of
+   those, so being unusable cannot be what closes it. */
+describe("useModCardController quarantine", () => {
+  it("keeps the menu open to a mod that cannot be used", () => {
+    const result = mount(createMockInstalledMod({ id: "a", fault: faulted }));
+
+    expect(result.current.interactionsDisabled).toBe(true);
+    expect(result.current.menuDisabled).toBe(false);
+  });
+
+  it("closes the menu in select mode, which is a mode over the whole grid", () => {
+    selectionState.selectMode = true;
+    const result = mount(createMockInstalledMod({ id: "a", fault: faulted }));
+
+    expect(result.current.menuDisabled).toBe(true);
+  });
+
+  it("leaves a healthy mod's menu open", () => {
+    const result = mount(createMockInstalledMod({ id: "a" }));
+
+    expect(result.current.menuDisabled).toBe(false);
   });
 });

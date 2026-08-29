@@ -1,19 +1,18 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { BrokenMods } from "@/modules/library";
-import { useModHealthDrawerStore } from "@/stores";
 
-import { ModHealthSweepDrawer } from "../ModHealthSweepDrawer";
+import { ModHealthSweepDialog } from "../ModHealthSweepDialog";
 import { installedMod, verdict } from "./modHealthFixtures";
 
 const useBrokenMods = vi.fn<() => BrokenMods>();
 const onClose = vi.fn();
 
-/* The panel inside the sheet is `ModHealthSweepPanel`'s to test, so these mocks
+/* The panel inside the dialog is `ModHealthSweepPanel`'s to test, so these mocks
    only have to keep it drawing something. */
 vi.mock("../../api", () => ({
   useBrokenMods: () => useBrokenMods(),
@@ -29,16 +28,14 @@ vi.mock("../../api", () => ({
 
 function show() {
   useBrokenMods.mockReturnValue({ repairable: [verdict("a", "repairable")], unrepairable: [] });
-  render(<ModHealthSweepDrawer open onClose={onClose} />);
+  render(<ModHealthSweepDialog open onClose={onClose} />);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // The width outlives a close, so it outlives a test too.
-  useModHealthDrawerStore.setState({ width: 380 });
 });
 
-describe("ModHealthSweepDrawer", () => {
+describe("ModHealthSweepDialog", () => {
   it("draws what the sweep found", () => {
     show();
 
@@ -46,26 +43,21 @@ describe("ModHealthSweepDrawer", () => {
     expect(screen.getByText("Charizard Smolder")).toBeInTheDocument();
   });
 
-  it("widens from its own edge, and gives the width back", () => {
+  /* It is placed rather than anchored, so the edge the sheet was dragged from is
+     not there to drag. */
+  it("has no edge to resize", () => {
     show();
-    const panel = screen.getByRole("dialog", { name: "What the check found" });
-    const handle = screen.getByRole("separator");
-    const start = panel.style.width;
 
-    fireEvent.keyDown(handle, { key: "ArrowLeft" });
-    const wider = panel.style.width;
-    fireEvent.keyDown(handle, { key: "ArrowRight" });
-
-    expect(wider).not.toBe(start);
-    expect(panel.style.width).toBe(start);
+    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
   });
 
-  /* The handle is the one control that changes nothing but the panel's shape, so
-     opening on it lights a bar down the edge and says nothing about why. */
-  it("does not open focused on the resize handle", () => {
+  /* A list this long opens saying what to read, not how to leave. */
+  it("does not open focused on a way out", () => {
     show();
 
-    expect(screen.getByRole("separator")).not.toHaveFocus();
+    for (const way of screen.getAllByRole("button", { name: "Close" })) {
+      expect(way).not.toHaveFocus();
+    }
   });
 
   it("closes on Escape", async () => {

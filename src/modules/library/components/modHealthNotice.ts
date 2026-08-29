@@ -4,9 +4,20 @@
  */
 
 export interface SweepTone {
+  /**
+   * The header's tint, thinning out across the row.
+   *
+   * It fades rather than filling, so the tone reads as a wash off the glyph
+   * that names it instead of a banner boxed around the title.
+   */
   wash: string;
-  /** The edge a washed section of the drawer draws itself with. */
-  edge: string;
+  /**
+   * The rule under the header, which fades out with the wash above it.
+   *
+   * A background rather than a border, because a border cannot be a gradient
+   * without giving up the radius the panel is cut with.
+   */
+  rule: string;
   /** The badge behind the glyph that names the finding. */
   chip: string;
   /**
@@ -26,16 +37,16 @@ export interface SweepTone {
 }
 
 const WARNING: SweepTone = {
-  wash: "bg-warning/12",
-  edge: "border-warning/35",
+  wash: "bg-linear-to-r from-warning/15 to-warning/0",
+  rule: "bg-linear-to-r from-warning/50 to-warning/0",
   chip: "text-warning-text",
   cell: "bg-warning/15 text-warning-text hover:bg-warning/25 active:bg-warning/35 border border-warning/35",
   held: "bg-warning/35 hover:bg-warning/45",
 };
 
 const DANGER: SweepTone = {
-  wash: "bg-danger/12",
-  edge: "border-danger/35",
+  wash: "bg-linear-to-r from-danger/15 to-danger/0",
+  rule: "bg-linear-to-r from-danger/50 to-danger/0",
   chip: "text-danger-text",
   cell: "bg-danger/15 text-danger-text hover:bg-danger/25 active:bg-danger/35 border border-danger/35",
   held: "bg-danger/35 hover:bg-danger/45",

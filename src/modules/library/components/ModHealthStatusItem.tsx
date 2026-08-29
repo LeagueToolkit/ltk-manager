@@ -45,9 +45,9 @@ export function ModHealthStatusItem() {
         aria-expanded={shown}
         /* Its own height, because the bar's is whatever the activity line needs -
            a stepper mid-build would stretch this into a panel. */
-        className={`mr-2 h-7 shrink-0 gap-1.5 self-center rounded-sm px-2.5 text-xs tabular-nums ${tone.cell} ${shown ? tone.held : ""}`}
+        className={`mr-1.5 h-6 shrink-0 gap-1 self-center rounded-sm px-2 text-row tabular-nums ${tone.cell} ${shown ? tone.held : ""}`}
       >
-        <ItemIcon className="h-4.5 w-4.5 shrink-0" weight="bold" />
+        <ItemIcon className="h-4 w-4 shrink-0" weight="bold" />
         {label(repairable, status.unrepairable.length)}
       </Button>
     </Tooltip>

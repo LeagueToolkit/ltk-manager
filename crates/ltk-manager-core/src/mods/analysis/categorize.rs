@@ -19,7 +19,7 @@
 
 use super::wad_reports::ModWadReport;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Categories derived from a mod's contents. Each list is de-duplicated and
 /// sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
@@ -32,6 +32,15 @@ pub struct DerivedCategorization {
     pub champions: Vec<String>,
     pub maps: Vec<String>,
     pub tags: Vec<String>,
+    /// The champion the mod contributes most content to, of [`Self::champions`].
+    ///
+    /// Weighted by chunk paths on the precise path and by per-WAD override
+    /// counts on the coarse one, so a mod that edits one champion and spills a
+    /// little into two others names the one it is actually a skin for. `None`
+    /// for a report analysed before this was recorded, and for a mod with no
+    /// champions at all.
+    #[serde(default)]
+    pub primary_champion: Option<String>,
 }
 
 impl DerivedCategorization {
@@ -171,14 +180,15 @@ fn dedup_normalized(values: BTreeSet<String>) -> Vec<String> {
 /// de-duplication and ordering happen in exactly one place.
 #[derive(Default)]
 struct CategoryAccumulator {
-    champions: BTreeSet<String>,
+    /// Each champion against the weight of what the mod puts into it.
+    champions: BTreeMap<String, u32>,
     maps: BTreeSet<String>,
     tags: BTreeSet<String>,
 }
 
 impl CategoryAccumulator {
-    fn add_champion(&mut self, display_name: String) {
-        self.champions.insert(display_name);
+    fn add_champion(&mut self, display_name: String, weight: u32) {
+        *self.champions.entry(display_name).or_default() += weight;
     }
 
     fn add_map(&mut self, slug: &str) {
@@ -198,10 +208,23 @@ impl CategoryAccumulator {
     }
 
     fn finish(self) -> DerivedCategorization {
+        // A `BTreeMap` iterates by name, and only a strictly greater weight
+        // displaces the leader, so an all-square set resolves to its first name
+        // rather than to whichever one hashing happened to reach last.
+        let primary_champion = self
+            .champions
+            .iter()
+            .fold(None::<(&String, u32)>, |best, (name, &weight)| match best {
+                Some((_, leading)) if weight <= leading => best,
+                _ => Some((name, weight)),
+            })
+            .map(|(name, _)| name.clone());
+
         DerivedCategorization {
-            champions: dedup_normalized(self.champions),
+            champions: dedup_normalized(self.champions.into_keys().collect()),
             maps: dedup_normalized(self.maps),
             tags: dedup_normalized(self.tags),
+            primary_champion,
         }
     }
 }
@@ -318,7 +341,7 @@ impl DerivedCategorization {
         for path in chunk_paths {
             match ChunkPath::parse(path).classify(roster) {
                 ChunkClass::Champion(name) => {
-                    acc.add_champion(name);
+                    acc.add_champion(name, 1);
                     acc.add_tag(Tag::ChampionSkin);
                 }
                 ChunkClass::Ward => acc.add_tag(Tag::WardSkin),
@@ -436,7 +459,10 @@ impl DerivedCategorization {
                 "champions" => {
                     champion_max = champion_max.max(overrides);
                     if let Some(name) = path.champion_name() {
-                        acc.add_champion(champion_display_name(&name));
+                        // A floor of one, so the read-time fallback - which has
+                        // no counts - still weighs every champion equally
+                        // rather than weighing them all at nothing.
+                        acc.add_champion(champion_display_name(&name), overrides.max(1));
                     }
                 }
                 "maps" => {
@@ -508,6 +534,58 @@ mod tests {
     fn derive_precise(paths: &[&str]) -> DerivedCategorization {
         let paths: Vec<String> = paths.iter().map(|s| s.to_string()).collect();
         DerivedCategorization::from_chunk_paths(&paths, &roster())
+    }
+
+    // --- The primary champion ---
+
+    /// Story: a Kayn skin spilling a few chunks into Shyvana and Rhaast is a
+    /// Kayn skin, and the surface that shows one champion should show that one.
+    #[test]
+    fn precise_primary_champion_is_the_one_with_the_most_chunks() {
+        let derived = derive_precise(&[
+            "characters/aatrox/skins/skin01/x.bin",
+            "characters/aatrox/skins/skin01/y.bin",
+            "characters/aatrox/skins/skin01/z.bin",
+            "characters/ahri/skins/skin01/x.bin",
+        ]);
+
+        assert_eq!(derived.primary_champion.as_deref(), Some("Aatrox"));
+        assert_eq!(derived.champions, vec!["Aatrox", "Ahri"]);
+    }
+
+    #[test]
+    fn coarse_primary_champion_is_the_one_with_the_most_overrides() {
+        let derived = derive_coarse_with_counts(
+            &[
+                "DATA/FINAL/Champions/Aatrox.wad.client",
+                "DATA/FINAL/Champions/Ahri.wad.client",
+            ],
+            &[
+                ("DATA/FINAL/Champions/Aatrox.wad.client", 2),
+                ("DATA/FINAL/Champions/Ahri.wad.client", 40),
+            ],
+        );
+
+        assert_eq!(derived.primary_champion.as_deref(), Some("Ahri"));
+    }
+
+    /// The read-time fallback carries no counts, so every champion weighs the
+    /// same and the pick has to be the same on every read rather than arbitrary.
+    #[test]
+    fn a_tie_resolves_to_the_first_champion_by_name() {
+        let derived = derive_coarse(&[
+            "DATA/FINAL/Champions/Ahri.wad.client",
+            "DATA/FINAL/Champions/Aatrox.wad.client",
+        ]);
+
+        assert_eq!(derived.primary_champion.as_deref(), Some("Aatrox"));
+    }
+
+    #[test]
+    fn a_mod_with_no_champions_names_none() {
+        let derived = derive_precise(&["ux/summonericons/icon.dds"]);
+
+        assert_eq!(derived.primary_champion, None);
     }
 
     // --- Coarse (WAD-footprint) path ---

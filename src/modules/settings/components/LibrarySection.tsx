@@ -67,18 +67,6 @@ export function LibrarySection({ settings, onSave }: LibrarySectionProps) {
         />
 
         <SettingRow
-          setting="showWadFootprint"
-          description="Shows the cache footprint of each mod in the library."
-          hint="Opens the full list of patched WADs"
-          control={
-            <Switch
-              checked={settings.showWadFootprint}
-              onCheckedChange={(checked) => onSave({ ...settings, showWadFootprint: checked })}
-            />
-          }
-        />
-
-        <SettingRow
           setting="watcherEnabled"
           badge={<ExperimentalChip />}
           description="Mods added or removed outside the app show up in the library."

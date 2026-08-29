@@ -46,7 +46,7 @@ export function WorkshopViewControls() {
         options={VIEW_OPTIONS}
         value={viewMode}
         onChange={setViewMode}
-        action={<ViewOptionsPopover includeWadFootprint={false} />}
+        action={<ViewOptionsPopover />}
       />
     </>
   );

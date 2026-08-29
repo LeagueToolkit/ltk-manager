@@ -4,16 +4,16 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-08-28 | The footer answers the dialog, whether or not it can repair  |
+| 2026-08-28 | The press leads with the run that does something             |
+| 2026-08-28 | The tone fades off the mark, and the press takes a footer    |
+| 2026-08-28 | The panel moves to the middle of the page, over the blur     |
 | 2026-08-28 | The cell follows the library, and a run can be called off    |
 | 2026-08-28 | The footer press repairs what a patch carries, all behind it |
 | 2026-08-28 | A repair preserves names rather than keeping a restore point |
 | 2026-08-28 | One drawer title, and three lines under it for three states  |
 | 2026-08-28 | The drawer becomes a focused sheet over a dimmed page        |
 | 2026-08-28 | An unfixable row says so, and the header says where to go    |
-| 2026-08-28 | The repair reports itself in the drawer, not over it         |
-| 2026-08-28 | The drawer opens itself, and Play asks before a broken patch |
-| 2026-08-28 | A drawer row repairs its own mod, and counts problems        |
-| 2026-08-28 | The status bar item is a light cell, led by its glyph        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -130,7 +130,7 @@ no unpacked form to run the rules over - the same boundary as ADR-0001.
 
 ## The badge
 
-The badge sits on the mod card beside the WAD footprint and missing-dependency badges, and it
+The badge sits on the mod card beside the missing-dependency badge, and it
 draws only when something is wrong. A healthy mod shows nothing, and so does a mod never
 checked - a badge on every card would bury the few that matter.
 
@@ -189,19 +189,20 @@ The launch ask is the exception that has to cross: its controls are in that same
 "Repair first" goes to the library and the drawer takes the request when it mounts.
 
 ```
-[ search ]  [ filters ]     ░░░░░░░░╭─────────────────────────╮
-                            ░░░░░░░░│ 🐺 Detected issues    ✕ │
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░│    with mods            │
-                            ░░░░░░░░│    Repairing is         │
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░│    recommended, though… │
-                            ░░░░░░░░├─────────────────────────┤
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░│ 🔧 Charizard  [⏻ Repair]│
-                            ░░░░░░░░│    3 problems           │
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░│ ⚠  Old Ashe Rework      │
-                            ░░░░░░░░│    4 unfixable problems │
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░├─────────────────────────┤
-                            ░░░░░░░░│ [ ⏻ Repair 2 enabled ▲] │
-  ▓   ▓   ▓   ▓   ▓         ░░░░░░░░╰─────────────────────────╯
+[ search ]  [ filters ]  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+                         ░░░░░░╭─────────────────────────╮░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│ 🐺 Detected issues    ✕ │░░░░
+                         ░░░░░░│    with mods            │░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    Repairing is         │░░░░
+                         ░░░░░░│    recommended, though… │░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░├─────────────────────────┤░░░░
+                         ░░░░░░│ 🔧 Charizard  [⏻ Repair]│░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    3 problems           │░░░░
+                         ░░░░░░│ ⚠  Old Ashe Rework      │░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│    4 unfixable problems │░░░░
+                         ░░░░░░├─────────────────────────┤░░░░
+  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░│          [⏻ Repair 2 ▲] │░░░░
+                         ░░░░░░╰─────────────────────────╯░░░░
 ─────────────────────────────────────────────────────────────
   ○ Patcher idle   Start the patcher…        █ 🔧 19 repairs █
 ```
@@ -230,12 +231,16 @@ leaves when the library is clean. There is no dismiss and no dismissed-for-this-
 which is also why it no longer waits for a sweep to have just run: a launch that checked nothing
 still says what the library is carrying.
 
-**The drawer is a sheet over a dimmed page, not a panel floating inside one.** It was the second
-for a while and the list was hard to read: a panel drawn in the same surfaces as the grid, at the
-same brightness, in the corner where a toast also lands. A scrim behind it settles all of that at
-once - the drawer is the only lit thing on screen, and the cards stop competing with the list
-about them. It arrives from the right edge, which is where the sheet lives rather than where its
-trigger happens to be.
+**It is a dialog in the middle of a dimmed page, not a panel floating inside one.** It was the
+second for a while and the list was hard to read: a panel drawn in the same surfaces as the grid,
+at the same brightness, in the corner where a toast also lands. A scrim and a blur behind it settle
+all of that at once - the panel is the only lit thing on screen, and the cards stop competing with
+the list about them. The middle is then the only placing that owes nothing to where the trigger
+happened to be, and a reader who was sent here by a launch has their eye there already.
+
+**The sheet down the right edge is kept, and is not what opens.** Both draw one panel, so the two
+are a placing apart and cannot say different things about the same library. The sheet is the one
+that can be resized, because an edge is a thing to drag and a centred dialog has no such edge.
 
 **It takes focus while it is open.** A list of twenty mods with a press on each is read, not
 glanced at, so Tab belongs inside it, Escape closes it, and a click on the dimmed page behind it
@@ -252,11 +257,28 @@ what is wrong instead of waiting to be asked. Once for the life of the app, whet
 just ran, and a reader who closes it has answered: it does not come back when the next verdict
 lands. Everything after that is the cell, which is where a reader who wants it knows to look.
 
+**The press sits where a dialog's confirm sits.** Bottom right of a footer band of its own, at the
+size every other dialog in the app confirms at. It was the panel's whole bottom edge for a while,
+which made the list look like a thing wrapped around a button rather than a finding with an action
+under it - and a panel that is a dialog everywhere else should not have one control that is a
+banner.
+
+**The footer is there whether or not anything can be repaired.** A library no repair can reach
+still has a dialog to answer, and drawing the band only when there was a run to start left that
+list ending on an edge, with the ✕ in the corner as the whole of the way out. The dismissal takes
+the confirm seat itself when it is the only press, and stands as the quiet half of the pair when a
+repair is on offer.
+
 **The press repairs what the next game carries. Repair all is behind the caret.** A disabled mod
 reaches no overlay, so repairing it is work the game does not need - and it is still the reader's
 mod, so the library-wide run stays one press away rather than gone. The footer is a split button
 in `PlayButton`'s idiom, and it collapses to one plain button when every broken mod is switched on,
 because two presses that do the same thing is a question nobody asked.
+
+**It collapses at the other end too.** With nothing broken switched on there is no next-game work
+to lead with, and splitting there offered "Repair 0 enabled mods" as the recommendation while the
+only run that did anything sat behind the caret. The press becomes Repair all, which is the whole
+of what is on offer.
 
 Either scope repairs each mod it names, and a mod that cannot be repaired is recorded rather than
 stopping the rest. That is the answer to "do it for me" that this feature owes: a user who has
@@ -276,9 +298,11 @@ repaired. A mod it had started and not finished forgets its verdict, so the next
 check rather than trusting one that did not happen.
 
 **The run is drawn where the press was, not over it.** A repair of a whole library takes long
-enough to need reporting, and the drawer is already naming every mod it is working through - so a
-toast would cover the list in order to report on it. The button's own seat becomes the progress
-while the run lasts, and goes back to being the button when it ends. The outcome stays a toast: by
+enough to need reporting, and the panel is already naming every mod it is working through - so a
+toast would cover the list in order to report on it. The footer becomes the progress while the run
+lasts, and goes back to holding the button when it ends. The bar spans that band rather than
+sitting where the button sat, because a progress bar reports a whole run and has no reason to be
+the width of one press. The outcome stays a toast: by
 then the drawer has usually emptied itself and gone.
 
 **The drawer holds the whole finding.** A header that says what to do, a row per mod, and the one
@@ -338,6 +362,13 @@ Where no repair can reach any of them it says so, and offers only the look.
 pointer near a button to hang an ask under. It stays the way out for somebody who already knows
 what their library is carrying.
 
+**The tone fades off the mark rather than boxing the header.** The wash and the rule under it are
+a gradient out of the glyph that names the finding, so the header is amber where the wolf is and
+plain surface by the time it reaches the close button. Boxed, it read as a banner stuck on top of
+the panel - a second rim inside the panel's own, in a hue that then had to stop somewhere. Fading
+gives it no edge to stop at. The rule is a background rather than a border, because a border cannot
+be a gradient without giving up the radius the panel is cut with.
+
 **The title says what was found, and the line under it says which errand.** "Detected issues with
 mods" is the same in every state, because the reader's next question is not what happened but what
 they are meant to do - and that has three answers, not one. All fixable is "**repairing is
@@ -345,13 +376,13 @@ recommended**", none fixable is "look for updated versions", and a mixed list na
 whose first row is a paragraph about itself has spent its best line on framing, so this is one
 line and it is the ask.
 
-**Its inner edge is the handle.** The drawer's own border resizes it, the gesture the editor's side
-panels already answer to. It stops before it has eaten the whole window, and the width it is left
-at outlives the close - reopening gives back the panel the reader shaped.
+**The sheet's inner edge is its handle.** That form's own border resizes it, the gesture the
+editor's side panels already answer to. It stops before it has eaten the whole window, and the
+width it is left at outlives the close - reopening gives back the panel the reader shaped.
 
-**The handle is last in the tab order and never the first thing focused.** It is the one control
-that changes nothing but the shape of the panel, and a drawer that opens with a lit bar down its
-edge has spent its first impression on the least of what it does.
+**Neither form opens focused on its own chrome.** The sheet's first tab stop is that handle, the
+dialog's is Close, and both are the least of what the panel does. Focus starts on the panel itself,
+so the first impression is the list rather than the way out of it.
 
 **Its counts come from the live verdicts, not from the sweep's report.** A repair refreshes each
 mod's verdict as it goes, so both surfaces empty themselves as the press lands rather than
@@ -397,6 +428,7 @@ would look ignored. "No problems found" is the answer.
 | Can the patcher run during a repair?             | No. A check yes - it only reads                    |
 | Does stopping a run put the repaired mods back?  | No. It stops the run. ADR-0006 is why              |
 | Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is    |
+| Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred         |
 | Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks   |
 
 ## Open questions

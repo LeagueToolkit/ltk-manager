@@ -27,6 +27,8 @@ export * from "./RiotIcon";
 export * from "./RitobinIcon";
 export * from "./ScuttleIcon";
 export * from "./SearchEmptyPoroIcon";
+export * from "./ShockedPoroDuotoneIcon";
+export * from "./ShockedPoroIcon";
 export * from "./SkinIcon";
 export * from "./SleepingPoroIcon";
 export * from "./SummonersRiftIcon";

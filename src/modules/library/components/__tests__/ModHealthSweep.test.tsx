@@ -90,7 +90,7 @@ describe("ModHealthSweep", () => {
     await user.click(screen.getByRole("button", { name: "1 repair" }));
     expect(drawer()).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getAllByRole("button", { name: "Close" })[0]);
     expect(drawer()).not.toBeInTheDocument();
   });
 
@@ -149,7 +149,7 @@ describe("ModHealthSweep", () => {
     useModHealthDrawerStore.setState({ announced: false });
     show({ repairable: [verdict("a", "repairable")] });
 
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getAllByRole("button", { name: "Close" })[0]);
     useModHealthDrawerStore.getState().announce();
 
     expect(drawer()).not.toBeInTheDocument();

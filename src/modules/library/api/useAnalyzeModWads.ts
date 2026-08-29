@@ -11,6 +11,9 @@ import { libraryKeys } from "./keys";
  * Force a fresh WAD footprint analysis for a single mod without running the
  * full patcher. The result is written into the WAD-report cache and the
  * matching query is updated in place.
+ *
+ * Success is silent, because the surface that asks for an analysis is the one
+ * that renders the report it returns.
  */
 export function useAnalyzeModWads() {
   const queryClient = useQueryClient();
@@ -22,11 +25,9 @@ export function useAnalyzeModWads() {
       return unwrapForQuery(result);
     },
     onSuccess: (report) => {
-      // Patch the shared batch cache so the badge updates immediately.
       queryClient.setQueryData<Record<string, ModWadReport>>(libraryKeys.wadReports(), (old) =>
         old ? { ...old, [report.modId]: report } : { [report.modId]: report },
       );
-      toast.success(`Analyzed: affects ${report.wadCount} WAD${report.wadCount === 1 ? "" : "s"}`);
     },
     onError: (error) => {
       if (hasErrorCode(error, "LEAGUE_NOT_FOUND")) {

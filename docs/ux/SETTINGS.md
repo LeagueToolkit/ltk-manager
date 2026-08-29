@@ -803,11 +803,11 @@ It draws behind the rail like the tray card's, and resetting the image clears it
 The card already draws these three clusters with two separators. The groups are the labels those
 separators do not carry.
 
-| Group       | Rows                                                                      |
-| ----------- | ------------------------------------------------------------------------- |
-| Storage     | Storage location, Keep mod archives                                       |
-| Cataloguing | Automatically categorize mods, Show footprint, Watch for external changes |
-| Installing  | Trusted mod providers                                                     |
+| Group       | Rows                                                      |
+| ----------- | --------------------------------------------------------- |
+| Storage     | Storage location, Keep mod archives                       |
+| Cataloguing | Automatically categorize mods, Watch for external changes |
+| Installing  | Trusted mod providers                                     |
 
 ### General
 

@@ -5,4 +5,14 @@
  * sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
  * well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
  */
-export type DerivedCategorization = { champions: Array<string>, maps: Array<string>, tags: Array<string>, };
+export type DerivedCategorization = { champions: Array<string>, maps: Array<string>, tags: Array<string>, 
+/**
+ * The champion the mod contributes most content to, of [`Self::champions`].
+ *
+ * Weighted by chunk paths on the precise path and by per-WAD override
+ * counts on the coarse one, so a mod that edits one champion and spills a
+ * little into two others names the one it is actually a skin for. `None`
+ * for a report analysed before this was recorded, and for a mod with no
+ * champions at all.
+ */
+primaryChampion: string | null, };

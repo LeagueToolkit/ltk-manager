@@ -490,6 +490,14 @@ samp {
 }
 
 /* ============================================
+   Lit Placeholder
+   ============================================ */
+:root {
+  /* The letter on a card with no art, while its mod is on. */
+  --placeholder-lit: color-mix(in oklab, var(--accent-400) 35%, var(--surface-400));
+}
+
+/* ============================================
    Zoom-Scaled Card Widths
    ============================================ */
 :root {
@@ -535,6 +543,37 @@ samp {
   background: linear-gradient(to top, var(--surface-950), transparent);
   pointer-events: none;
   z-index: 1;
+}
+
+/* ============================================
+   Lit Edge Utility
+   ============================================ */
+
+/* Registered so it can be transitioned, which a bare custom property cannot be.
+   The edge's own two are deliberately not, and so land in one frame. */
+@property --edge-lit-fill {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: transparent;
+}
+
+/* Layered, because the three defaults below are meant to be answered by a
+   utility, and an unlayered rule outranks every layer Tailwind emits. */
+@layer components {
+  .edge-lit {
+    --edge-lit-color: var(--accent-500);
+    --edge-lit-fill: var(--surface-900);
+    --edge-lit-reach: 0%;
+    border-color: transparent;
+    background-image:
+      linear-gradient(var(--edge-lit-fill), var(--edge-lit-fill)),
+      linear-gradient(to bottom, var(--edge-lit-color), transparent var(--edge-lit-reach)),
+      linear-gradient(var(--surface-600), var(--surface-600));
+    /* Only the first layer is clipped to the padding box, so the two under it
+       are left showing in the border alone. */
+    background-origin: border-box;
+    background-clip: padding-box, border-box, border-box;
+  }
 }
 
 [data-tauri-drag-region] {

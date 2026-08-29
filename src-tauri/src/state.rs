@@ -243,14 +243,6 @@ pub struct Settings {
     /// are how a crowded grid stays readable. Filtering is unaffected either way.
     #[serde(default = "default_true")]
     pub show_mod_tags: bool,
-    /// Whether a mod card shows its WAD footprint badge.
-    ///
-    /// Display only. The footprint is still analyzed and still feeds
-    /// `Config::auto_categorization_enabled`, so hiding the badge costs no
-    /// categories. Default: false, since the WAD count means nothing to most
-    /// people installing a skin.
-    #[serde(default)]
-    pub show_wad_footprint: bool,
     #[serde(default)]
     pub author_profiles: Vec<AuthorProfile>,
     #[serde(default)]
@@ -286,7 +278,6 @@ impl Default for Settings {
             trusted_domains: default_trusted_domains(),
             watcher_enabled: false,
             show_mod_tags: true,
-            show_wad_footprint: false,
             author_profiles: vec![],
             default_author_profile_id: None,
             has_seen_hdd_warning: false,
@@ -318,7 +309,6 @@ mod tests {
         assert!(settings.config.wad_blocklist.is_empty());
         assert!(settings.config.auto_categorization_enabled);
         assert!(settings.show_mod_tags);
-        assert!(!settings.show_wad_footprint);
         assert!(settings.config.enforce_skinhack_scan);
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);

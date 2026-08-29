@@ -8,13 +8,8 @@ const SCALE_MARKS = VALID_CARD_SCALES.map((value) => ({ value }));
 const MIN_SCALE = VALID_CARD_SCALES[0];
 const MAX_SCALE = VALID_CARD_SCALES[VALID_CARD_SCALES.length - 1];
 
-interface ViewOptionsPopoverProps {
-  /** The footprint badge is a library card element, so the workshop opts out. */
-  includeWadFootprint?: boolean;
-}
-
 /** Card size and what a card shows, behind the view toggle's caret. */
-export function ViewOptionsPopover({ includeWadFootprint = true }: ViewOptionsPopoverProps = {}) {
+export function ViewOptionsPopover() {
   const { data: settings } = useSettings();
   const saveSettings = useSaveSettings();
   const cardScale = useCardScale();
@@ -60,26 +55,14 @@ export function ViewOptionsPopover({ includeWadFootprint = true }: ViewOptionsPo
             </FilterSection>
 
             <FilterSection title="Card display">
-              <div className="flex flex-col gap-2">
-                <Checkbox
-                  size="sm"
-                  label="Tags"
-                  checked={settings.showModTags}
-                  onCheckedChange={(checked) =>
-                    saveSettings.mutate({ ...settings, showModTags: checked })
-                  }
-                />
-                {includeWadFootprint && (
-                  <Checkbox
-                    size="sm"
-                    label="WAD footprint"
-                    checked={settings.showWadFootprint}
-                    onCheckedChange={(checked) =>
-                      saveSettings.mutate({ ...settings, showWadFootprint: checked })
-                    }
-                  />
-                )}
-              </div>
+              <Checkbox
+                size="sm"
+                label="Tags"
+                checked={settings.showModTags}
+                onCheckedChange={(checked) =>
+                  saveSettings.mutate({ ...settings, showModTags: checked })
+                }
+              />
             </FilterSection>
           </Popover.Popup>
         </Popover.Positioner>

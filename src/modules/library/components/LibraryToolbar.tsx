@@ -69,7 +69,7 @@ export function LibraryToolbar({
   return (
     <Toolbar>
       <ToolbarRow>
-        <div className="relative flex min-w-[180px] flex-1 items-center">
+        <div className="relative flex min-w-45 flex-1 items-center">
           <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-500" />
           <Field.Control
             ref={searchRef}

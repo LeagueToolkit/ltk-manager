@@ -63,6 +63,8 @@
   --color-info-text: var(--ltk-info-text);
   --color-required: var(--ltk-required);
 
+  --color-placeholder-lit: var(--placeholder-lit);
+
   /* Mod category pills */
   --color-cat-champion: var(--ltk-cat-champion);
   --color-cat-champion-text: var(--ltk-cat-champion-text);

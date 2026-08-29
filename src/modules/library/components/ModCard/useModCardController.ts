@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
@@ -45,16 +46,31 @@ export interface ModCardView {
   storageChangePending: boolean;
   disabled: boolean;
   interactionsDisabled: boolean;
+  /**
+   * Whether the card's menu is closed to the reader.
+   *
+   * Narrower than [`interactionsDisabled`], which also covers a mod that cannot
+   * be switched on. A quarantined mod cannot be switched on and never will be,
+   * so if that closed its menu too there would be no way left to reveal what
+   * quarantine is holding or to drop the entry.
+   */
+  menuDisabled: boolean;
   isInUserFolder: boolean;
   isMultiLayer: boolean;
   selectMode: boolean;
   isSelected: boolean;
   inSelectedState: boolean;
   inEnabledState: boolean;
+  /** Whether the mod cannot be used at all, which is not the same as being off. */
+  blocked: boolean;
   isInteractive: boolean;
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
+  faultInfoOpen: boolean;
+  setFaultInfoOpen: (open: boolean) => void;
+  wadFootprintOpen: boolean;
+  setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onCardKeyDown: (e: React.KeyboardEvent) => void;
   onToggle: (modId: string, enabled: boolean) => void;
@@ -97,9 +113,14 @@ export function useModCardController({
   } = useSkinhackFlag(mod);
 
   const faultReason = mod.fault?.error ?? null;
+  const [faultInfoOpen, setFaultInfoOpen] = useState(false);
+  const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const patcherRunning = patcherStatus?.running ?? false;
   const disabled = isFlagged || faultReason !== null || patcherRunning;
   const interactionsDisabled = disabled || selectMode;
+  // Select mode is a mode over the whole grid, and a patcher run owns the
+  // library. Being unusable is neither, and is the state most in need of a menu.
+  const menuDisabled = patcherRunning || selectMode;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
@@ -192,16 +213,22 @@ export function useModCardController({
     storageChangePending: setModStorage.isPending,
     disabled,
     interactionsDisabled,
+    menuDisabled,
     isInUserFolder,
     isMultiLayer,
     selectMode,
     isSelected,
     inSelectedState,
     inEnabledState,
+    blocked,
     isInteractive,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
+    faultInfoOpen,
+    setFaultInfoOpen,
+    wadFootprintOpen,
+    setWadFootprintOpen,
     onCardClick: handleCardClick,
     onCardKeyDown: handleCardKeyDown,
     onToggle: handleToggle,

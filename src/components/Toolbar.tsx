@@ -21,7 +21,7 @@ export function ToolbarRow({ children, className, "data-ui": dataUi }: ToolbarPr
   return (
     <div
       className={twMerge(
-        "box-content flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2 px-2 py-1",
+        "box-content flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2 px-2 py-2",
         className,
       )}
       data-ui={dataUi}
