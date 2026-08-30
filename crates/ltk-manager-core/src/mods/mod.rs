@@ -52,6 +52,7 @@ pub use index::document::{ModArchiveFormat, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
 
+use crate::config::Config;
 use crate::events::EventSink;
 use crate::hashtables::WadPathResolverState;
 use std::path::PathBuf;
@@ -69,6 +70,9 @@ pub const WATCHER_SUPPRESS_SECS: i64 = 10;
 /// concurrent reads/writes from clobbering each other.
 /// The [`Config`](crate::config::Config) is passed per-call since it
 /// can change at runtime.
+/// The one game index a library holds, and the install it was built over.
+type GameContentCache = Arc<Mutex<Option<(PathBuf, Arc<crate::problems::InstalledContent>)>>>;
+
 pub struct ModLibrary {
     /// Notification channel, in place of emitting through a Tauri handle.
     events: Arc<dyn EventSink>,
@@ -93,6 +97,12 @@ pub struct ModLibrary {
     /// Names for the chunks of a packed WAD, so an imported fantome lands under
     /// real paths instead of hex. Best-effort: with no tables it names nothing.
     wad_resolver: Arc<WadPathResolverState>,
+    /// What the installed game holds, for the rules that ask it a question.
+    ///
+    /// Kept rather than built per run: the index is a walk of every archive's
+    /// table of contents, and a sweep would otherwise pay for one a mod. Keyed
+    /// on the configured install so moving it in Settings rebuilds.
+    game_content: GameContentCache,
     /// What the layout migration has to say, for as long as this process lives.
     ///
     /// The run starts with the app and can be over before a webview exists to
@@ -128,6 +138,7 @@ impl Clone for ModLibrary {
             checksum_mismatches: Arc::clone(&self.checksum_mismatches),
             wad_reports: Arc::clone(&self.wad_reports),
             wad_resolver: Arc::clone(&self.wad_resolver),
+            game_content: Arc::clone(&self.game_content),
             layout_migration: Arc::clone(&self.layout_migration),
             health_sweep: Arc::clone(&self.health_sweep),
             health_budget: Arc::clone(&self.health_budget),
@@ -156,6 +167,7 @@ impl ModLibrary {
             checksum_mismatches,
             wad_reports,
             wad_resolver,
+            game_content: Arc::new(Mutex::new(None)),
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
             health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
             health_budget: Arc::new(Mutex::new(None)),
@@ -284,6 +296,26 @@ impl ModLibrary {
                 ))
             }
         }
+    }
+
+    /// What the installed game holds, shared by every run this library starts.
+    ///
+    /// `None` on a machine with no install configured, which is what makes a
+    /// rule asking about the install say so rather than guess. The index behind
+    /// it is built the first time a rule actually asks, so a library of mods
+    /// that ask nothing pays nothing.
+    pub fn game_content(&self, config: &Config) -> Option<Arc<dyn crate::problems::GameContent>> {
+        let league = config.league_path.clone()?;
+
+        let mut held = self.game_content.lock().ok()?;
+        if held.as_ref().is_none_or(|(at, _)| at != &league) {
+            *held = Some((
+                league,
+                Arc::new(crate::problems::InstalledContent::resolve(config)?),
+            ));
+        }
+        held.as_ref()
+            .map(|(_, content)| Arc::clone(content) as Arc<dyn crate::problems::GameContent>)
     }
 
     /// Epoch-millis timestamp of the last index mutation, for watchers that

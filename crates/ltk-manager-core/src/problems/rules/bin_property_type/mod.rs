@@ -53,13 +53,6 @@ use table::{Conversion, Migration, MigrationTable};
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/property-type");
 
-/// How much of the budget one bin costs, as a multiple of its size on disk.
-///
-/// `ltk_meta` reads a bin into typed nodes, which is several times the bytes it
-/// came from. Deliberately generous: an estimate that is too high costs the run
-/// some concurrency, and one that is too low costs the machine its memory.
-const BIN_EXPANSION: u64 = 8;
-
 /// Repairs the properties Riot changed to `File`.
 #[derive(Debug, Default)]
 pub struct BinPropertyType;
@@ -137,7 +130,7 @@ impl Rule for BinPropertyType {
         let read = project.budget().map(
             &handles,
             budget::files_at_once(),
-            |handle| handle.size_bytes().saturating_mul(BIN_EXPANSION),
+            |handle| handle.size_bytes().saturating_mul(budget::BIN_EXPANSION),
             |handle| findings_of(handle, project, lens),
         );
 
@@ -355,12 +348,12 @@ struct Finding {
 
 /// Read one bin and report everything the tables object to in it.
 fn findings_of(
-    handle: &crate::problems::BinHandle<'_>,
+    handle: &crate::problems::FileHandle<'_>,
     project: &ProjectFiles,
     lens: Lens<'_>,
 ) -> Result<Vec<Finding>, String> {
     let started = std::time::Instant::now();
-    let bin = handle.read()?;
+    let bin = handle.bin()?;
     let parsed = started.elapsed();
 
     let found = check_bin(&bin, lens)
@@ -1346,7 +1339,7 @@ fn group_by_file<'a>(problems: &[&'a Problem]) -> Vec<((String, String), Vec<&'a
 
 /// Read one property bin off disk.
 ///
-/// The check goes through [`BinHandle::read`] instead. This is for a test that
+/// The check goes through [`FileHandle::bin`] instead. This is for a test that
 /// holds a path, and for the fix, which reads through the run.
 ///
 /// # Errors

@@ -383,14 +383,18 @@ impl ModLibrary {
         budget: &Budget,
     ) -> AppResult<Run> {
         match entry.storage {
-            ModStorage::Project => {
-                problems::analyze_within(&entry.mod_dir(storage_dir), config, budget.clone())
-            }
+            ModStorage::Project => problems::analyze_within(
+                &entry.mod_dir(storage_dir),
+                config,
+                budget.clone(),
+                self.game_content(config),
+            ),
             ModStorage::Archive => problems::analyze_archive(
                 &entry.convertible_archive(storage_dir)?,
                 config,
                 budget.clone(),
                 self.wad_resolver().as_ref(),
+                self.game_content(config),
             ),
         }
     }

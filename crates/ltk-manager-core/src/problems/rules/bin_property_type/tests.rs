@@ -63,7 +63,7 @@ fn project_on(bin: &Bin, installed: Option<GameBuild>) -> (tempfile::TempDir, Pr
         config.league_path = Some(league);
     }
 
-    let files = ProjectFiles::read(tmp.path(), &config).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &config, None).unwrap();
     (tmp, files)
 }
 
@@ -755,14 +755,20 @@ fn fix_all(bin: &Bin) -> (Applied, Bin) {
     let file = dir.join("skin0.bin");
     std::fs::write(&file, bytes_of(bin)).unwrap();
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let mut report = Report::default();
     let rule = BinPropertyType::new();
     rule.check(&files, &mut report);
     let (problems, _) = report.finish();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
-    let mut run = FixRun::open(tmp.path(), vec!["16.17.8087655".to_owned()], None);
+    let mut run = FixRun::open(
+        tmp.path(),
+        vec!["16.17.8087655".to_owned()],
+        None,
+        Config::default(),
+        None,
+    );
     let applied = rule.fix(&borrowed, &mut run).unwrap();
     run.finish().unwrap();
 
@@ -814,13 +820,19 @@ fn a_fix_rehashes_a_hash_the_mods_own_table_names() {
     let file = dir.join("skin0.bin");
     std::fs::write(&file, bytes_of(&bin)).unwrap();
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
     assert!(problems[0].fix.is_some(), "a named hash is repairable");
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
-    let mut run = FixRun::open(tmp.path(), vec!["16.17.8087655".to_owned()], None);
+    let mut run = FixRun::open(
+        tmp.path(),
+        vec!["16.17.8087655".to_owned()],
+        None,
+        Config::default(),
+        None,
+    );
     let applied = BinPropertyType::new().fix(&borrowed, &mut run).unwrap();
     run.finish().unwrap();
     assert_eq!(applied.applied, 1);
@@ -918,7 +930,7 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     let file = dir.join("skin0.bin");
     std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, text(ICON)))).unwrap();
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let mut report = Report::default();
     let rule = BinPropertyType::new();
     rule.check(&files, &mut report);
@@ -927,7 +939,7 @@ fn a_problem_the_file_no_longer_matches_is_counted_as_skipped() {
     std::fs::write(&file, bytes_of(&bin_with(ICON_AVATAR, values::I32::new(7)))).unwrap();
 
     let borrowed: Vec<&Problem> = problems.iter().collect();
-    let mut run = FixRun::open(tmp.path(), Vec::new(), None);
+    let mut run = FixRun::open(tmp.path(), Vec::new(), None, Config::default(), None);
     let applied = rule.fix(&borrowed, &mut run).unwrap();
 
     assert_eq!(applied.applied, 0);
@@ -946,7 +958,7 @@ fn a_file_that_is_not_a_bin_is_a_failure_and_not_a_panic() {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("broken.bin"), b"not a bin at all").unwrap();
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let mut report = Report::default();
     BinPropertyType::new().check(&files, &mut report);
     let (problems, failed) = report.finish();

@@ -22,7 +22,13 @@ fn source(project_root: &Path) -> PathBuf {
 }
 
 fn open(project_root: &Path) -> FixRun<'static> {
-    FixRun::open(project_root, vec!["16.17.8087655".to_owned()], None)
+    FixRun::open(
+        project_root,
+        vec!["16.17.8087655".to_owned()],
+        None,
+        Config::default(),
+        None,
+    )
 }
 
 #[test]
@@ -135,6 +141,7 @@ fn a_skipped_file_is_recorded_and_never_written() {
             path: SKIN.to_owned(),
             applied: 0,
             skipped: 3,
+            change: FileChange::Written,
         }]
     );
     assert_eq!(report.applied, 0);

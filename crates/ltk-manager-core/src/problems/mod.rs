@@ -20,6 +20,7 @@ pub mod budget;
 pub mod build;
 mod engine;
 mod fix;
+pub mod game;
 pub mod names;
 pub mod preserve;
 pub mod rules;
@@ -34,9 +35,11 @@ use serde::{Deserialize, Serialize};
 pub use budget::Budget;
 pub use build::GameBuild;
 pub use engine::{
-    BinHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_archive, analyze_within,
+    ChunkInfo, FileHandle, LayerFiles, ProjectFile, ProjectFiles, analyze, analyze_archive,
+    analyze_within,
 };
-pub use fix::{FileOutcome, FixError, FixReport, FixRun, apply};
+pub use fix::{FileChange, FileOutcome, FixError, FixReport, FixRun, apply};
+pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
 pub use preserve::{Preserved, PreservedNames};
 

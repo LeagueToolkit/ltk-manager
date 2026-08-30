@@ -6,7 +6,7 @@
 //! staged project again re-encodes every chunk the mod holds.
 
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
-use crate::problems::FixReport;
+use crate::problems::{FileChange, FixReport};
 use camino::Utf8Path;
 use ltk_fantome::{ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta};
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
@@ -41,12 +41,22 @@ impl RepairEdit {
     /// # Errors
     ///
     /// Reports a repaired file or the archive's metadata that could not be
-    /// read, and a fix the Fantome format has no place for. Every one of those
-    /// leaves the repack as the way to write the repair.
+    /// read, a fix the Fantome format has no place for, and a repair that
+    /// deleted a file, which a delta of chunk and entry writes has no shape
+    /// for. Every one of those leaves the repack as the way to write the
+    /// repair, and a repack packs the staged tree - which is the tree the
+    /// deletion already happened in.
     pub(super) fn read(staging: &Path, archive: &Utf8Path, report: &FixReport) -> AppResult<Self> {
         let mut delta = ArchiveDelta::new();
 
         for file in &report.files {
+            if file.change == FileChange::Removed {
+                return Err(AppError::Other(format!(
+                    "A Fantome archive edit has no way to remove {}/{}",
+                    file.layer, file.path
+                )));
+            }
+
             // A file a rule read and left alone was never written, so its bytes
             // are the archive's own and re-encoding them would change the mod.
             if file.applied == 0 {

@@ -10,6 +10,7 @@ use crate::mods::test_support::{
     place_bin_project_mod, place_installed_mod, point_at_build, point_at_installed_build,
     seed_library, stale_bin,
 };
+use crate::problems::Counts;
 use assert_matches::assert_matches;
 use std::fs;
 use std::sync::Arc;
@@ -139,6 +140,41 @@ fn a_manager_release_makes_every_verdict_due_again() {
 
     assert_eq!(report.checked, 1);
     assert_eq!(report.skipped, 0);
+}
+
+/// Story: the release that adds a rule lands, and a library of healthy badges
+/// taken by the old rule set does not keep them.
+///
+/// The mechanism is the basis, and the badge is what makes it worth pinning
+/// separately: a sweep that re-checked and then left the stored verdict alone
+/// would satisfy the count above and still show the user the wrong word.
+#[test]
+fn a_verdict_taken_by_an_older_rule_set_loses_its_badge_on_the_next_sweep() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "stale-mod")]);
+    library.sweep_mod_health(&config).unwrap();
+
+    // The library as the previous release left it: checked, and checked by
+    // rules that had nothing to say about this mod.
+    let mut file = VerdictFile::load(storage.path());
+    for verdict in file.verdicts.values_mut() {
+        verdict.health = ModHealth::Healthy;
+        verdict.counts = Counts::default();
+        verdict.fixable = 0;
+        verdict.rules.clear();
+        verdict.basis.manager = "the release before".to_owned();
+    }
+    file.save(storage.path()).unwrap();
+
+    let report = library.sweep_mod_health(&config).unwrap();
+
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.repairable, vec!["id-1".to_string()]);
+    let held = VerdictFile::load(storage.path());
+    assert_eq!(held.verdicts["id-1"].health, ModHealth::Repairable);
 }
 
 /// Story: the user syncs the hashtables in Settings, and the badges refresh

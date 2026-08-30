@@ -7,7 +7,7 @@
 //!
 //! Where those files are is [`LayerFiles`]'s business alone. A project's are a
 //! directory, and an archive's are the archive - read where it lies, never
-//! unpacked. Everything above [`BinHandle::read`] is written once for both.
+//! unpacked. Everything above [`LayerSource`] is written once for both.
 
 mod archive;
 
@@ -17,7 +17,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use ltk_file::LeagueFileKind;
-use ltk_wad::{PathResolver, WadHash, is_hex_chunk_path};
+use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
 use crate::config::Config;
@@ -28,6 +28,7 @@ use crate::workshop::{ProjectDir, WorkshopFileKind};
 use archive::ArchiveFiles;
 
 use super::budget::Budget;
+use super::game::GameContent;
 use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
 
 /// The directory a project keeps its layers under.
@@ -39,9 +40,13 @@ const CONTENT_DIR: &str = "content";
 /// is the one cost worth paying exactly once. Reading a file's bytes is each
 /// rule's own business.
 ///
-/// The installed build and the hash tables ride here too. A rule needs all
-/// three to decide what it has to say, and each of them costs the same
-/// whichever rule reads it.
+/// The installed build, the hash tables and the installed game's content ride
+/// here too. A rule needs all of them to decide what it has to say, and each
+/// costs the same whichever rule reads it.
+///
+/// The build and the names are read from the project. The game is handed in,
+/// because it is an index over a whole install and building one per mod would
+/// make a sweep pay for it once a mod.
 #[derive(Debug)]
 pub struct ProjectFiles {
     root: PathBuf,
@@ -49,17 +54,26 @@ pub struct ProjectFiles {
     build: Option<GameBuild>,
     names: BinNames,
     budget: Budget,
+    game: Option<Arc<dyn GameContent>>,
 }
 
 impl ProjectFiles {
     /// Walk `project_root`'s content directory, in every layer.
     ///
+    /// `game` is what the installed game holds, for the rules that ask it a
+    /// question. `None` is a machine with no install, and a rule that needs one
+    /// says so rather than guessing.
+    ///
     /// # Errors
     ///
     /// Reports a project whose `content/` directory cannot be read at all. An
     /// unreadable file inside it is skipped and logged, never fatal.
-    pub fn read(project_root: &Path, config: &Config) -> AppResult<Self> {
-        Self::within(project_root, config, Budget::repair())
+    pub fn read(
+        project_root: &Path,
+        config: &Config,
+        game: Option<Arc<dyn GameContent>>,
+    ) -> AppResult<Self> {
+        Self::within(project_root, config, Budget::repair(), game)
     }
 
     /// [`read`](Self::read) under a caller's own budget.
@@ -67,7 +81,12 @@ impl ProjectFiles {
     /// # Errors
     ///
     /// The same as [`read`](Self::read).
-    pub fn within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Self> {
+    pub fn within(
+        project_root: &Path,
+        config: &Config,
+        budget: Budget,
+        game: Option<Arc<dyn GameContent>>,
+    ) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
         let layers = if content_dir.exists() {
             layer::dirs_in(&content_dir)?
@@ -90,6 +109,7 @@ impl ProjectFiles {
             build: GameBuild::installed(config),
             names: BinNames::open(project_root),
             budget,
+            game,
         })
     }
 
@@ -114,6 +134,7 @@ impl ProjectFiles {
         config: &Config,
         budget: Budget,
         resolver: &dyn PathResolver,
+        game: Option<Arc<dyn GameContent>>,
     ) -> AppResult<Self> {
         let scan = ArchiveFiles::scan(archive, resolver)?;
 
@@ -123,6 +144,7 @@ impl ProjectFiles {
             build: GameBuild::installed(config),
             names: BinNames::with_declared(scan.tables),
             budget,
+            game,
         })
     }
 
@@ -144,6 +166,15 @@ impl ProjectFiles {
         self.build
     }
 
+    /// What the installed game holds, where there is an install to ask.
+    ///
+    /// `None` on a machine with no game, which is the honest answer to a
+    /// question about the install rather than a reason to guess at one.
+    #[must_use]
+    pub fn game(&self) -> Option<&dyn GameContent> {
+        self.game.as_deref()
+    }
+
     /// The names a row can give the hashes a bin holds.
     #[must_use]
     pub fn names(&self) -> &BinNames {
@@ -159,29 +190,29 @@ impl ProjectFiles {
         &self.budget
     }
 
-    /// Every file of every layer that reports `kind`.
-    pub fn by_kind(
-        &self,
-        kind: WorkshopFileKind,
-    ) -> impl Iterator<Item = (&LayerFiles, &ProjectFile)> {
-        self.layers.iter().flat_map(move |layer| {
+    /// Every file of every layer, as something a rule can read.
+    ///
+    /// The seam a rule reads through: it names the files and hands back a
+    /// handle rather than the bytes, so which layer source is underneath is
+    /// [`FileHandle`]'s business and never a rule's.
+    pub fn files(&self) -> impl Iterator<Item = FileHandle<'_>> {
+        self.layers.iter().flat_map(|layer| {
             layer
                 .files
                 .iter()
-                .filter(move |file| file.kind == kind)
-                .map(move |file| (layer, file))
+                .map(move |file| FileHandle { layer, file })
         })
     }
 
+    /// Every file of every layer that reports `kind`.
+    pub fn of_kind(&self, kind: WorkshopFileKind) -> impl Iterator<Item = FileHandle<'_>> {
+        self.files().filter(move |handle| handle.kind() == kind)
+    }
+
     /// Every property bin of every layer, override bins included.
-    ///
-    /// The seam a bin rule reads through: it names the files and hands back a
-    /// handle rather than the bytes, so the day `ltk_meta` can read a bin
-    /// lazily, [`BinHandle::read`] is the only thing that changes.
-    pub fn bins(&self) -> impl Iterator<Item = BinHandle<'_>> {
-        self.by_kind(WorkshopFileKind::PropertyBin)
-            .chain(self.by_kind(WorkshopFileKind::PropertyBinOverride))
-            .map(|(layer, file)| BinHandle { layer, file })
+    pub fn bins(&self) -> impl Iterator<Item = FileHandle<'_>> {
+        self.of_kind(WorkshopFileKind::PropertyBin)
+            .chain(self.of_kind(WorkshopFileKind::PropertyBinOverride))
     }
 
     /// How many files the whole project holds.
@@ -220,6 +251,30 @@ impl LayerSource {
             Self::Archive(archive) => archive.read(file),
         }
     }
+
+    /// At most `limit` bytes from the start of one of the layer's files.
+    ///
+    /// A file shorter than `limit` answers with what it has. An archive-backed
+    /// file decompresses only the prefix, which is what keeps a rule judging
+    /// from a header off the whole of a chunk.
+    fn head(&self, file: &ProjectFile, limit: usize) -> Result<Vec<u8>, String> {
+        match self {
+            Self::Directory(root) => {
+                let at = absolute(root, file);
+                let mut bytes = Vec::new();
+                std::fs::File::open(&at)
+                    .and_then(|opened| {
+                        std::io::Read::read_to_end(
+                            &mut std::io::Read::take(opened, limit as u64),
+                            &mut bytes,
+                        )
+                    })
+                    .map_err(|e| format!("{}: {e}", at.display()))?;
+                Ok(bytes)
+            }
+            Self::Archive(archive) => archive.head(file, limit),
+        }
+    }
 }
 
 /// Where `file` sits under a directory layer's `root`.
@@ -230,10 +285,11 @@ fn absolute(root: &Path, file: &ProjectFile) -> PathBuf {
 /// What one file of a tree is, by its extension or by its first bytes.
 ///
 /// An extension is what names a file, so it decides wherever there is one to
-/// read. The exception is the bare hex an unpack writes a chunk as when nothing
-/// named it: that name says only which chunk, never what, so the file is opened
-/// for the eight bytes that do say - a bin the tables could not name is still a
-/// bin the rules have to read.
+/// read, which leaves a file whose extension disagrees with its content read as
+/// what it claims to be. The exception is the bare hex an unpack writes a chunk
+/// as when nothing named it: that name says only which chunk, never what, so
+/// the file is opened for the eight bytes that do say - a bin the tables could
+/// not name is still a bin the rules have to read.
 ///
 /// `at` is where the file is, and `relative` the path a site names it by.
 fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
@@ -323,7 +379,7 @@ impl LayerFiles {
     /// Where one of this layer's files is on disk, for a layer on disk.
     ///
     /// `None` for a layer read out of an archive, whose files have no path of
-    /// their own - which is what [`BinHandle::read`] exists to spare a rule
+    /// their own - which is what [`FileHandle::bytes`] exists to spare a rule
     /// having to know.
     #[must_use]
     pub fn absolute(&self, file: &ProjectFile) -> Option<PathBuf> {
@@ -334,37 +390,51 @@ impl LayerFiles {
     }
 }
 
-/// One property bin of one layer, not yet read.
+/// One file of one layer, not yet read.
 ///
-/// Names where the bin is and opens it on demand. A rule holds one per file and
-/// parses at most once, which is what keeps a check and the repair that follows
-/// it to a single read.
+/// Names where the file is and opens it on demand. A rule holds one per file
+/// and reads at most once, which is what keeps a check and the repair that
+/// follows it to a single read.
 #[derive(Debug, Clone, Copy)]
-pub struct BinHandle<'a> {
+pub struct FileHandle<'a> {
     layer: &'a LayerFiles,
     file: &'a ProjectFile,
 }
 
-impl<'a> BinHandle<'a> {
-    /// The layer this bin sits in, such as `base`.
+impl<'a> FileHandle<'a> {
+    /// The layer this file sits in, such as `base`.
     #[must_use]
     pub fn layer(&self) -> &'a str {
         &self.layer.name
     }
 
-    /// The bin's path, POSIX-style and relative to the layer root.
+    /// The file's path, POSIX-style and relative to the layer root.
     #[must_use]
     pub fn path(&self) -> &'a str {
         &self.file.path
     }
 
-    /// The bin's size on disk, which is what a budget is spent in.
+    /// What the file is, by its extension or by its first bytes.
+    #[must_use]
+    pub fn kind(&self) -> WorkshopFileKind {
+        self.file.kind
+    }
+
+    /// The file's size unpacked, which is what a budget is spent in.
     #[must_use]
     pub fn size_bytes(&self) -> u64 {
         self.file.size_bytes
     }
 
-    /// Where the bin sits on disk, where it sits on disk at all.
+    /// What the packed WAD holding this file records about it.
+    ///
+    /// See [`ProjectFile::chunk`] for the `None`.
+    #[must_use]
+    pub fn chunk(&self) -> Option<&'a ChunkInfo> {
+        self.file.chunk.as_ref()
+    }
+
+    /// Where the file sits on disk, where it sits on disk at all.
     ///
     /// See [`LayerFiles::absolute`] for the `None`.
     #[must_use]
@@ -372,14 +442,35 @@ impl<'a> BinHandle<'a> {
         self.layer.absolute(self.file)
     }
 
-    /// Parse the bin.
+    /// At most `limit` bytes from the start of the file.
+    ///
+    /// A file shorter than `limit` answers with what it has, because a rule
+    /// judging from a header has nothing to require of the rest.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open, as one sentence a panel can draw.
+    pub fn head(&self, limit: usize) -> Result<Vec<u8>, String> {
+        self.layer.source.head(self.file, limit)
+    }
+
+    /// The whole file.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not open, as one sentence a panel can draw.
+    pub fn bytes(&self) -> Result<Vec<u8>, String> {
+        self.layer.source.read(self.file)
+    }
+
+    /// Parse the file as a property bin.
     ///
     /// # Errors
     ///
     /// Reports the file it could not open or parse, as one sentence a panel
     /// can draw.
-    pub fn read(&self) -> Result<ltk_meta::Bin, String> {
-        let bytes = self.layer.source.read(self.file)?;
+    pub fn bin(&self) -> Result<ltk_meta::Bin, String> {
+        let bytes = self.bytes()?;
         ltk_meta::Bin::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
     }
 }
@@ -391,12 +482,48 @@ pub struct ProjectFile {
     pub path: String,
     pub kind: WorkshopFileKind,
     pub size_bytes: u64,
-    /// The chunk of a packed WAD this file is, where that is where it lives.
+    /// What the packed WAD holding this file records about it, where a packed
+    /// WAD is where it lives.
     ///
-    /// A chunk is addressed by hash, and its path is only what a hashtable
-    /// made of that hash - so the hash cannot be read back out of the path,
-    /// and a chunk no table names has no path to read it out of at all.
-    pub chunk: Option<WadHash>,
+    /// Absent for a file of a directory layer and for an archive's loose
+    /// entries. That absence is a normal state rather than an error: it is the
+    /// one difference between the two layer sources a rule can see.
+    pub chunk: Option<ChunkInfo>,
+}
+
+/// What a packed WAD's table of contents records about one chunk.
+///
+/// Read off the table the scan already walks, so a rule about how a mod was
+/// packed costs no decompression at all.
+///
+/// The hash rides here rather than beside it, because it is a fact about the
+/// chunk like the rest of them and because two `Option`s that must always agree
+/// is an invariant an interface cannot state. A chunk is addressed by hash, and
+/// its path is only what a hashtable made of that hash - so the hash cannot be
+/// read back out of the path, and a chunk no table names has no path to read it
+/// out of at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChunkInfo {
+    pub hash: WadHash,
+    pub compression: WadChunkCompression,
+    /// What the chunk occupies inside the WAD.
+    pub compressed_size: u64,
+    /// What it occupies once decompressed, which is [`ProjectFile::size_bytes`].
+    pub uncompressed_size: u64,
+    /// The checksum the WAD stores for the chunk.
+    pub checksum: u64,
+}
+
+impl From<&WadChunk> for ChunkInfo {
+    fn from(chunk: &WadChunk) -> Self {
+        Self {
+            hash: chunk.path_hash,
+            compression: chunk.compression_type,
+            compressed_size: chunk.compressed_size as u64,
+            uncompressed_size: chunk.uncompressed_size as u64,
+            checksum: chunk.checksum,
+        }
+    }
 }
 
 /// Run every rule over one project.
@@ -406,8 +533,12 @@ pub struct ProjectFile {
 /// Reports a project that cannot be opened or whose content directory cannot
 /// be read. A rule that fails is recorded in [`Run::failed`] rather than
 /// failing the run.
-pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
-    analyze_within(project_root, config, Budget::repair())
+pub fn analyze(
+    project_root: &Path,
+    config: &Config,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<Run> {
+    analyze_within(project_root, config, Budget::repair(), game)
 }
 
 /// [`analyze`] under a caller's own budget.
@@ -415,9 +546,14 @@ pub fn analyze(project_root: &Path, config: &Config) -> AppResult<Run> {
 /// # Errors
 ///
 /// The same as [`analyze`].
-pub fn analyze_within(project_root: &Path, config: &Config, budget: Budget) -> AppResult<Run> {
+pub fn analyze_within(
+    project_root: &Path,
+    config: &Config,
+    budget: Budget,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<Run> {
     let project = ProjectDir::open(project_root)?;
-    Ok(ProjectFiles::within(project.path(), config, budget)?.checked())
+    Ok(ProjectFiles::within(project.path(), config, budget, game)?.checked())
 }
 
 /// One pass of every rule over a fantome archive, read where it lies.
@@ -437,8 +573,9 @@ pub fn analyze_archive(
     config: &Config,
     budget: Budget,
     resolver: &dyn PathResolver,
+    game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<Run> {
-    Ok(ProjectFiles::in_archive(archive, config, budget, resolver)?.checked())
+    Ok(ProjectFiles::in_archive(archive, config, budget, resolver, game)?.checked())
 }
 
 impl ProjectFiles {

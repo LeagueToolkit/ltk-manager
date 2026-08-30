@@ -14,6 +14,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 
 use ltk_wad::PathResolver;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 
+use super::game::GameContent;
 use super::preserve::PreservedNames;
 use super::{NodeAddress, ProblemId, RuleId, Run, Site, rules};
 
@@ -40,6 +42,8 @@ pub struct FixRun<'a> {
     kept: PreservedNames<'a>,
     /// Problems the rule still saw once it had finished writing.
     left: Vec<ProblemId>,
+    config: Config,
+    game: Option<Arc<dyn GameContent>>,
 }
 
 impl<'a> FixRun<'a> {
@@ -48,11 +52,17 @@ impl<'a> FixRun<'a> {
     /// `exclusions` names what a reader resolves without the mod's help, in
     /// practice the community hashtables. A name it already holds is not
     /// embedded, and `None` embeds every name a fix hashes away.
+    ///
+    /// `config` and `game` are what a rule re-derives against, because a repair
+    /// derives its changes again rather than replaying what a check recorded,
+    /// and one of them is a question about the installed game.
     #[must_use]
     pub fn open(
         project_root: &Path,
         tables: Vec<String>,
         exclusions: Option<&'a dyn PathResolver>,
+        config: Config,
+        game: Option<Arc<dyn GameContent>>,
     ) -> Self {
         Self {
             project_root: project_root.to_path_buf(),
@@ -60,6 +70,8 @@ impl<'a> FixRun<'a> {
             files: Vec::new(),
             kept: PreservedNames::open(project_root, exclusions),
             left: Vec::new(),
+            config,
+            game,
         }
     }
 
@@ -93,6 +105,21 @@ impl<'a> FixRun<'a> {
     #[must_use]
     pub fn project_root(&self) -> &Path {
         &self.project_root
+    }
+
+    /// The settings this run was started under.
+    #[must_use]
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// What the installed game holds, where there is an install to ask.
+    ///
+    /// See [`ProjectFiles::game`](crate::problems::ProjectFiles::game) for the
+    /// `None`.
+    #[must_use]
+    pub fn game(&self) -> Option<Arc<dyn GameContent>> {
+        self.game.clone()
     }
 
     /// The names this run keeps, for a rule about to hash one away.
@@ -146,13 +173,29 @@ impl<'a> FixRun<'a> {
             return Err(file_error(layer, path, error));
         }
 
-        self.record(layer, path, applied, skipped);
+        self.record(layer, path, applied, skipped, FileChange::Written);
+        Ok(())
+    }
+
+    /// Delete one of the project's files.
+    ///
+    /// Through the same [`resolve`](Self::resolve) a write goes through, so a
+    /// removal cannot leave its layer either.
+    ///
+    /// # Errors
+    ///
+    /// Reports a file that could not be deleted, or a path that escapes the
+    /// layer.
+    pub fn remove(&mut self, layer: &str, path: &str, applied: u32) -> Result<(), FixError> {
+        let target = self.resolve(layer, path)?;
+        fs::remove_file(&target).map_err(|error| file_error(layer, path, error))?;
+        self.record(layer, path, applied, 0, FileChange::Removed);
         Ok(())
     }
 
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
-        self.record(layer, path, 0, skipped);
+        self.record(layer, path, 0, skipped, FileChange::Written);
     }
 
     /// Write the kept names and report what the run did.
@@ -232,7 +275,7 @@ impl<'a> FixRun<'a> {
     ///
     /// One row for each file, so a rule that comes back to a file twice still
     /// reads as the one file it changed.
-    fn record(&mut self, layer: &str, path: &str, applied: u32, skipped: u32) {
+    fn record(&mut self, layer: &str, path: &str, applied: u32, skipped: u32, change: FileChange) {
         if let Some(outcome) = self
             .files
             .iter_mut()
@@ -240,6 +283,11 @@ impl<'a> FixRun<'a> {
         {
             outcome.applied += applied;
             outcome.skipped += skipped;
+            // A removal is the last thing that can happen to a file, so it is
+            // what the row says however it was reached.
+            if change == FileChange::Removed {
+                outcome.change = FileChange::Removed;
+            }
             return;
         }
 
@@ -248,6 +296,7 @@ impl<'a> FixRun<'a> {
             path: path.to_owned(),
             applied,
             skipped,
+            change,
         });
     }
 }
@@ -267,16 +316,15 @@ pub fn apply(
     problems: &[ProblemId],
     config: &Config,
     exclusions: Option<&dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<FixReport> {
-    let _ = config;
-
     let chosen = run.by_rule(problems);
 
     let tables = rules::bin_property_type::table::tables()
         .iter()
         .map(|table| table.build().to_string())
         .collect();
-    let mut fix_run = FixRun::open(project_root, tables, exclusions);
+    let mut fix_run = FixRun::open(project_root, tables, exclusions, config.clone(), game);
 
     let mut failed = Vec::new();
     for rule in rules::all() {
@@ -352,6 +400,27 @@ pub struct FileOutcome {
     pub path: String,
     pub applied: u32,
     pub skipped: u32,
+    /// Whether the file is still there.
+    ///
+    /// Defaulted for a report recorded before a repair could delete anything,
+    /// which is every report written before this field existed.
+    #[serde(default)]
+    pub change: FileChange,
+}
+
+/// What one fix run did to a file, as against how much of it.
+///
+/// The counts beside this say how much a rule changed. This says whether the
+/// file survived, which is what an archive edit has to know before it can state
+/// the repair as a chunk write.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum FileChange {
+    #[default]
+    Written,
+    Removed,
 }
 
 /// What stopped a fix.

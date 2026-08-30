@@ -32,7 +32,7 @@ use zip::{CompressionMethod, ZipArchive};
 use crate::error::{AppError, AppResult};
 use crate::workshop::WorkshopFileKind;
 
-use super::{LayerFiles, ProjectFile};
+use super::{ChunkInfo, LayerFiles, ProjectFile};
 
 /// The layer every fantome's content lands in, packed or loose.
 ///
@@ -139,9 +139,26 @@ impl ArchiveFiles {
     ///
     /// Reports the file it could not read, as one sentence a panel can draw.
     pub(super) fn read(&self, file: &ProjectFile) -> Result<Vec<u8>, String> {
-        match file.chunk {
-            Some(hash) => self.read_chunk(&file.path, hash),
-            None => self.read_entry(&file.path),
+        self.bytes_of(file, None)
+    }
+
+    /// At most `limit` bytes from the start of one file the scan listed.
+    ///
+    /// A packed chunk is decompressed only that far, which is the whole point:
+    /// a rule that judges a 44MB chunk from its header pays for its header.
+    ///
+    /// # Errors
+    ///
+    /// Reports the file it could not read, as one sentence a panel can draw.
+    pub(super) fn head(&self, file: &ProjectFile, limit: usize) -> Result<Vec<u8>, String> {
+        self.bytes_of(file, Some(limit))
+    }
+
+    /// One file the scan listed, whole for `None` and bounded otherwise.
+    fn bytes_of(&self, file: &ProjectFile, limit: Option<usize>) -> Result<Vec<u8>, String> {
+        match &file.chunk {
+            Some(chunk) => self.read_chunk(&file.path, chunk.hash, limit),
+            None => self.read_entry(&file.path, limit),
         }
         .map_err(|e| format!("{}: {e}", self.archive.display()))
     }
@@ -224,7 +241,7 @@ impl ArchiveFiles {
     }
 
     /// One chunk of the packed WAD the first segment of `path` names.
-    fn read_chunk(&self, path: &str, hash: WadHash) -> AppResult<Vec<u8>> {
+    fn read_chunk(&self, path: &str, hash: WadHash, limit: Option<usize>) -> AppResult<Vec<u8>> {
         let wad_name = path.split('/').next().unwrap_or(path);
 
         if let Some(bytes) = self.inflated.get(&wad_name.to_ascii_lowercase()) {
@@ -232,6 +249,7 @@ impl ArchiveFiles {
                 &mut mounted(Cursor::new(Arc::clone(bytes)))?,
                 wad_name,
                 hash,
+                limit,
             );
         }
 
@@ -241,7 +259,7 @@ impl ArchiveFiles {
             .mount_packed_wad(wad_name)
             .map_err(|e| AppError::Fantome(e.to_string()))?
             .ok_or_else(|| AppError::Fantome(format!("{wad_name} is no longer packed")))?;
-        chunk_of(&mut wad, wad_name, hash)
+        chunk_of(&mut wad, wad_name, hash, limit)
     }
 
     /// One loose entry, found the same way the scan placed it.
@@ -249,7 +267,7 @@ impl ArchiveFiles {
     /// Through [`layer_path`] rather than by rebuilding a prefix, so an entry
     /// is read back under whatever casing and whichever of the two prefixes
     /// the archive spelled it with.
-    fn read_entry(&self, path: &str) -> AppResult<Vec<u8>> {
+    fn read_entry(&self, path: &str, limit: Option<usize>) -> AppResult<Vec<u8>> {
         let mut zip = open_zip(&self.archive)?;
         let name = zip
             .file_names()
@@ -257,8 +275,17 @@ impl ArchiveFiles {
             .map(str::to_owned)
             .ok_or_else(|| AppError::Fantome(format!("{path} is no longer in the archive")))?;
 
+        let entry = zip.by_name(&name)?;
         let mut bytes = Vec::new();
-        std::io::Read::read_to_end(&mut zip.by_name(&name)?, &mut bytes)?;
+        match limit {
+            Some(limit) => std::io::Read::read_to_end(
+                &mut std::io::Read::take(entry, limit as u64),
+                &mut bytes,
+            ),
+            None => {
+                std::io::Read::read_to_end(&mut std::io::Read::take(entry, u64::MAX), &mut bytes)
+            }
+        }?;
         Ok(bytes)
     }
 }
@@ -317,25 +344,55 @@ fn scan_wad<S: std::io::Read + std::io::Seek>(
             kind,
             path: format!("{wad_name}/{path}"),
             size_bytes: chunk.uncompressed_size as u64,
-            chunk: Some(chunk.path_hash),
+            chunk: Some(ChunkInfo::from(chunk)),
         });
     }
 
     Ok(files)
 }
 
-/// Raw bytes the sniff reads from a chunk first.
+/// Raw bytes a bounded read takes from a chunk first.
 ///
 /// The first block of nearly every chunk fits, and one whose block does not
-/// gets a second read of [`SNIFF_RAW_BYTES`]. Both are `ltk_wad`'s own numbers:
+/// gets a second read of [`HEAD_MAX_RAW`]. Both are `ltk_wad`'s own numbers:
 /// its name recovery makes the same read over the same chunks.
-const SNIFF_FIRST_BYTES: usize = 16 * 1024;
+const HEAD_FIRST_RAW: usize = 16 * 1024;
 
-/// Most raw bytes the sniff reads from one chunk.
+/// Most raw bytes a bounded read takes from one chunk.
 ///
 /// A zstd block decodes to at most 128 KiB and an incompressible block is no
 /// larger than that, so this always holds the first block and its headers.
-const SNIFF_RAW_BYTES: usize = 256 * 1024;
+const HEAD_MAX_RAW: usize = 256 * 1024;
+
+/// At most `want` bytes from the start of `chunk`, decompressing no further.
+///
+/// The one place the escalation is written. The scan calls it with the WAD it
+/// is already walking and a rule calls it through
+/// [`ArchiveFiles::head`](ArchiveFiles::head), which remounts - so it takes a
+/// mounted WAD rather than knowing how to find one.
+///
+/// A chunk holding fewer than `want` bytes answers with what it holds, and so
+/// does one whose first block will not decode past that.
+fn chunk_head<S: std::io::Read + std::io::Seek>(
+    wad: &mut Wad<S>,
+    chunk: &WadChunk,
+    decoder: &mut ChunkDecoder,
+    want: usize,
+) -> Result<Vec<u8>, ltk_wad::WadError> {
+    let want = want.min(chunk.uncompressed_size);
+    let ceiling = HEAD_MAX_RAW.max(want);
+    let mut raw_limit = HEAD_FIRST_RAW.max(want);
+    loop {
+        let raw = wad.load_chunk_raw_prefix(chunk, raw_limit)?;
+        /* The prefix cut the first block short, and the chunk holds more. */
+        let cut_short = raw.len() == raw_limit && raw_limit < ceiling;
+        match decoder.decompress_chunk_prefix(&raw, chunk, wad.subchunk_toc(), want) {
+            Ok(head) if head.len() >= want || !cut_short => return Ok(head),
+            Err(e) if !cut_short => return Err(e),
+            _ => raw_limit = ceiling,
+        }
+    }
+}
 
 /// What a chunk no table names is, from as little of it as decodes.
 ///
@@ -349,19 +406,11 @@ fn sniffed_kind<S: std::io::Read + std::io::Seek>(
     decoder: &mut ChunkDecoder,
 ) -> WorkshopFileKind {
     let wanted = MAX_MAGIC_SIZE.min(chunk.uncompressed_size);
-    let mut limit = SNIFF_FIRST_BYTES;
-    loop {
-        let Ok(raw) = wad.load_chunk_raw_prefix(chunk, limit) else {
-            return WorkshopFileKind::Unknown;
-        };
-        match decoder.decompress_chunk_prefix(&raw, chunk, wad.subchunk_toc(), MAX_MAGIC_SIZE) {
-            Ok(head) if head.len() >= wanted => {
-                return WorkshopFileKind::from(LeagueFileKind::identify_from_bytes(&head));
-            }
-            /* The prefix cut the first block short, and the chunk holds more. */
-            _ if raw.len() == limit && limit < SNIFF_RAW_BYTES => limit = SNIFF_RAW_BYTES,
-            _ => return WorkshopFileKind::Unknown,
+    match chunk_head(wad, chunk, decoder, MAX_MAGIC_SIZE) {
+        Ok(head) if head.len() >= wanted => {
+            WorkshopFileKind::from(LeagueFileKind::identify_from_bytes(&head))
         }
+        _ => WorkshopFileKind::Unknown,
     }
 }
 
@@ -388,19 +437,22 @@ impl PathResolver for Chained<'_> {
     }
 }
 
-/// The decompressed bytes of one chunk of `wad`.
+/// The decompressed bytes of one chunk of `wad`, whole or bounded.
 fn chunk_of<S: std::io::Read + std::io::Seek>(
     wad: &mut Wad<S>,
     wad_name: &str,
     hash: WadHash,
+    limit: Option<usize>,
 ) -> AppResult<Vec<u8>> {
     let chunk = *wad
         .chunks()
         .get(hash)
         .ok_or_else(|| AppError::Fantome(format!("{wad_name} holds no chunk {hash}")))?;
-    wad.load_chunk_decompressed(&chunk)
-        .map(Vec::from)
-        .map_err(|e| AppError::Fantome(e.to_string()))
+    match limit {
+        Some(limit) => chunk_head(wad, &chunk, &mut ChunkDecoder::new(), limit),
+        None => wad.load_chunk_decompressed(&chunk).map(Vec::from),
+    }
+    .map_err(|e| AppError::Fantome(e.to_string()))
 }
 
 /// Where the entry named `entry_name` lands inside the layer, or `None` for

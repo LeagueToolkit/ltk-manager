@@ -33,7 +33,7 @@ fn every_layer_on_disk_is_read_with_base_first() {
         );
     }
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let names: Vec<&str> = files
         .layers()
         .iter()
@@ -54,7 +54,7 @@ fn a_dot_directory_under_content_is_not_a_layer() {
         b"ref",
     );
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     assert_eq!(files.layers().len(), 1);
     assert_eq!(files.layers()[0].name, "base");
 }
@@ -67,7 +67,7 @@ fn a_dot_file_inside_a_layer_is_skipped() {
     touch(&base.join(".hidden.bin"), b"bin");
     touch(&base.join(".tools").join("b.bin"), b"bin");
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
 }
 
@@ -86,7 +86,7 @@ fn a_path_is_posix_style_and_relative_to_the_layer_root() {
         b"bin",
     );
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     assert_eq!(
         paths(&layer(&files, "base")),
         ["Smolder.wad.client/data/characters/x.bin"]
@@ -100,7 +100,7 @@ fn a_kind_comes_from_the_extension() {
     touch(&base.join("skin0.bin"), b"bin");
     touch(&base.join("notes.txt"), b"hello");
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let base = layer(&files, "base");
     assert_eq!(paths(&base), ["notes.txt", "skin0.bin"]);
     assert_ne!(base.files[0].kind, WorkshopFileKind::PropertyBin);
@@ -119,7 +119,7 @@ fn a_hex_named_file_in_a_tree_is_a_bin_when_its_first_bytes_are_one() {
         &bin_bytes(&crate::mods::test_support::stale_bin()),
     );
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
     let base = layer(&files, "base");
     assert_eq!(paths(&base), ["Aatrox.wad.client/32fa9b1e0c4d5a67"]);
@@ -137,7 +137,7 @@ fn a_hex_named_file_that_is_not_a_bin_is_left_unknown() {
         b"not a league file at all",
     );
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
     assert_eq!(
         layer(&files, "base").files[0].kind,
@@ -154,7 +154,7 @@ fn a_named_file_is_not_sniffed() {
     let base = tmp.path().join(CONTENT_DIR).join("base");
     touch(&base.join("data").join("skin0.bin"), b"not really a bin");
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
     assert_eq!(
         layer(&files, "base").files[0].kind,
@@ -165,27 +165,93 @@ fn a_named_file_is_not_sniffed() {
 #[test]
 fn a_project_with_no_content_directory_reports_no_layers() {
     let tmp = tempfile::tempdir().unwrap();
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
     assert!(files.layers().is_empty());
     assert_eq!(files.root(), tmp.path());
 }
 
 #[test]
-fn by_kind_pairs_each_matching_file_with_its_layer() {
+fn of_kind_names_each_matching_file_with_its_layer() {
     let tmp = tempfile::tempdir().unwrap();
     let content = tmp.path().join(CONTENT_DIR);
     touch(&content.join("base").join("skin0.bin"), b"bin");
     touch(&content.join("base").join("notes.txt"), b"hello");
     touch(&content.join("chroma").join("skin1.bin"), b"bin");
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let found: Vec<(&str, &str)> = files
-        .by_kind(WorkshopFileKind::PropertyBin)
-        .map(|(layer, file)| (layer.name.as_str(), file.path.as_str()))
+        .of_kind(WorkshopFileKind::PropertyBin)
+        .map(|handle| (handle.layer(), handle.path()))
         .collect();
 
     assert_eq!(found, [("base", "skin0.bin"), ("chroma", "skin1.bin")]);
+}
+
+/// Every file, not only the kinds a rule already had an accessor for.
+#[test]
+fn files_names_every_file_of_every_layer() {
+    let tmp = tempfile::tempdir().unwrap();
+    let content = tmp.path().join(CONTENT_DIR);
+    touch(&content.join("base").join("skin0.bin"), b"bin");
+    touch(&content.join("base").join("notes.txt"), b"hello");
+    touch(&content.join("chroma").join("audio.bnk"), b"BKHD");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    let found: Vec<(&str, &str)> = files
+        .files()
+        .map(|handle| (handle.layer(), handle.path()))
+        .collect();
+
+    assert_eq!(
+        found,
+        [
+            ("base", "notes.txt"),
+            ("base", "skin0.bin"),
+            ("chroma", "audio.bnk"),
+        ]
+    );
+}
+
+#[test]
+fn a_head_reads_the_first_bytes_of_a_file_on_disk() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(
+        &base.join("notes.txt"),
+        b"the first bytes and then the rest",
+    );
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    let handle = files.files().next().unwrap();
+
+    assert_eq!(handle.head(9).unwrap(), b"the first");
+}
+
+/// A rule judging from a header has nothing to require of the rest, so a file
+/// with less than the bound is a normal answer rather than a failure.
+#[test]
+fn a_head_of_a_short_file_on_disk_answers_with_what_there_is() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("notes.txt"), b"short");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    let handle = files.files().next().unwrap();
+
+    assert_eq!(handle.head(8192).unwrap(), b"short");
+}
+
+/// A directory layer's files are files, so nothing records a chunk for them.
+#[test]
+fn a_file_on_disk_carries_no_chunk_info() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("skin0.bin"), b"bin");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+
+    assert_eq!(files.files().next().unwrap().chunk(), None);
 }
 
 #[test]
@@ -200,7 +266,7 @@ fn an_absolute_path_rebuilds_a_file_a_rule_can_open() {
         b"bin",
     );
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     let base = layer(&files, "base");
     let absolute = base.absolute(&base.files[0]).expect("a layer on disk");
 
@@ -210,7 +276,7 @@ fn an_absolute_path_rebuilds_a_file_a_rule_can_open() {
 #[test]
 fn a_config_with_no_league_path_names_no_build() {
     let tmp = tempfile::tempdir().unwrap();
-    let files = ProjectFiles::read(tmp.path(), &Config::default()).unwrap();
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
 
     assert_eq!(files.build(), None);
 }
@@ -221,7 +287,7 @@ fn analyzing_a_directory_that_is_not_a_project_is_an_error() {
     let missing = tmp.path().join("charizard-smolder-x");
 
     assert_matches::assert_matches!(
-        analyze(&missing, &Config::default()),
+        analyze(&missing, &Config::default(), None),
         Err(crate::error::AppError::ProjectNotFound(_))
     );
 }
@@ -234,7 +300,7 @@ fn analyzing_a_project_with_nothing_to_report_finds_nothing() {
         b"hello",
     );
 
-    let run = analyze(tmp.path(), &Config::default()).unwrap();
+    let run = analyze(tmp.path(), &Config::default(), None).unwrap();
     assert!(run.problems.is_empty());
     assert!(run.failed.is_empty());
 }
@@ -250,7 +316,7 @@ fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
         b"hello",
     );
 
-    let run = analyze(tmp.path(), &Config::default()).unwrap();
+    let run = analyze(tmp.path(), &Config::default(), None).unwrap();
     assert!(!run.rules.is_empty());
     assert!(run.rules.iter().all(|info| info.state == RuleState::Active));
 }
@@ -281,7 +347,7 @@ fn project_on_an_older_game() -> (tempfile::TempDir, Config) {
 fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
     let (tmp, config) = project_on_an_older_game();
 
-    let run = analyze(tmp.path(), &config).unwrap();
+    let run = analyze(tmp.path(), &config, None).unwrap();
     let dormant: Vec<_> = run
         .rules
         .iter()
@@ -332,7 +398,14 @@ mod archive {
     }
 
     fn files_in(archive: &Path, resolver: &dyn ltk_wad::PathResolver) -> ProjectFiles {
-        ProjectFiles::in_archive(archive, &Config::default(), Budget::repair(), resolver).unwrap()
+        ProjectFiles::in_archive(
+            archive,
+            &Config::default(),
+            Budget::repair(),
+            resolver,
+            None,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -374,7 +447,7 @@ mod archive {
         let handle = files.bins().next().expect("the packed WAD holds one bin");
         assert_eq!(handle.layer(), "base");
         assert_eq!(handle.path(), BIN_IN_LAYER);
-        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+        assert_eq!(bin_bytes(&handle.bin().unwrap()), bin_bytes(&stale_bin()));
     }
 
     /// A deflated entry cannot be seeked into, so it is inflated whole first.
@@ -388,7 +461,7 @@ mod archive {
 
         let handle = files.bins().next().expect("the packed WAD holds one bin");
         assert_eq!(handle.path(), BIN_IN_LAYER);
-        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+        assert_eq!(bin_bytes(&handle.bin().unwrap()), bin_bytes(&stale_bin()));
     }
 
     #[test]
@@ -401,7 +474,7 @@ mod archive {
 
         let handle = files.bins().next().expect("the archive holds one bin");
         assert_eq!(handle.path(), BIN_IN_LAYER);
-        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+        assert_eq!(bin_bytes(&handle.bin().unwrap()), bin_bytes(&stale_bin()));
     }
 
     /// A chunk nothing names is listed under its bare hash, which is what the
@@ -418,7 +491,7 @@ mod archive {
         let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
 
         let tree = unpacked(&archive, &tmp.path().join("staging"));
-        let from_tree = ProjectFiles::read(&tree, &Config::default()).unwrap();
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
         let from_archive = files_in(&archive, &resolver_naming(&[]));
 
         let in_archive = layer(&from_archive, "base");
@@ -446,7 +519,7 @@ mod archive {
         let files = files_in(&archive, &resolver_naming(&[]));
 
         let handle = files.bins().next().expect("the nameless chunk is a bin");
-        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+        assert_eq!(bin_bytes(&handle.bin().unwrap()), bin_bytes(&stale_bin()));
     }
 
     /// A deflated WAD is inflated whole and read out of memory, so the sniff
@@ -510,7 +583,7 @@ mod archive {
 
         let handle = files.bins().next().expect("the archive holds one bin");
         assert_eq!(handle.path(), "raw/data/skin0.bin");
-        assert_eq!(bin_bytes(&handle.read().unwrap()), bin_bytes(&stale_bin()));
+        assert_eq!(bin_bytes(&handle.bin().unwrap()), bin_bytes(&stale_bin()));
     }
 
     /// Story: the check that used to unpack a gigabyte reports what the
@@ -524,11 +597,11 @@ mod archive {
         let project = tmp.path().join("project");
         crate::mods::test_support::place_bin_project_mod(&project, "mod", &stale_bin());
         let from_tree =
-            analyze(&project.join("mods").join("mod"), &config).expect("the tree analyzes");
+            analyze(&project.join("mods").join("mod"), &config, None).expect("the tree analyzes");
 
         let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
         let from_archive =
-            analyze_archive(&archive, &config, Budget::repair(), &naming_the_bin()).unwrap();
+            analyze_archive(&archive, &config, Budget::repair(), &naming_the_bin(), None).unwrap();
 
         let sites = |run: &Run| -> Vec<(String, String)> {
             run.live_problems()
@@ -577,7 +650,7 @@ mod archive {
         crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, RECOVERED_TEXTURE);
 
         let tree = unpacked(&archive, &tmp.path().join("staging"));
-        let from_tree = ProjectFiles::read(&tree, &Config::default()).unwrap();
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
         let from_archive = files_in(&archive, &ltk_wad::NoResolver);
 
         let in_archive = layer(&from_archive, "base");
@@ -638,12 +711,123 @@ mod archive {
             &Config::default(),
             Budget::repair(),
             &ltk_wad::NoResolver,
+            None,
         );
 
         assert!(
             refused.is_err(),
             "a manifest naming an absent table was accepted"
         );
+    }
+
+    /// What the WAD records about a chunk is what a rule about how a mod was
+    /// packed reads, and reading it costs the table of contents alone.
+    #[test]
+    fn a_packed_chunk_carries_what_the_wad_records_about_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packed(tmp.path(), &bin, CompressionMethod::Stored);
+
+        let files = files_in(&archive, &naming_the_bin());
+        let handle = files.bins().next().expect("the packed WAD holds one bin");
+        let chunk = handle.chunk().expect("a packed chunk records itself");
+
+        assert_eq!(chunk.hash, ltk_wad::WadHash::from(STALE_BIN_IN_WAD));
+        assert_eq!(chunk.uncompressed_size, handle.size_bytes());
+        assert_eq!(chunk.uncompressed_size, bin_bytes(&bin).len() as u64);
+        assert!(chunk.compressed_size > 0);
+    }
+
+    /// The one difference between the layer sources a rule can see, and its
+    /// absence is a normal state rather than an error.
+    #[test]
+    fn a_loose_entry_carries_no_chunk_info() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("loose.fantome");
+        make_bin_fantome_zip(&archive, "Loose", &stale_bin());
+
+        let files = files_in(&archive, &naming_the_bin());
+
+        assert_eq!(files.bins().next().unwrap().chunk(), None);
+    }
+
+    #[test]
+    fn a_head_of_a_packed_chunk_reads_its_first_bytes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packed(tmp.path(), &bin, CompressionMethod::Stored);
+
+        let files = files_in(&archive, &naming_the_bin());
+        let handle = files.bins().next().unwrap();
+
+        assert_eq!(handle.head(9).unwrap(), bin_bytes(&bin)[..9]);
+    }
+
+    #[test]
+    fn a_head_of_a_packed_chunk_shorter_than_the_bound_answers_with_what_there_is() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packed(tmp.path(), &bin, CompressionMethod::Stored);
+
+        let files = files_in(&archive, &naming_the_bin());
+        let handle = files.bins().next().unwrap();
+
+        assert_eq!(handle.head(8192).unwrap(), bin_bytes(&bin));
+    }
+
+    #[test]
+    fn a_head_of_a_loose_entry_reads_its_first_bytes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("loose.fantome");
+        let bin = stale_bin();
+        make_bin_fantome_zip(&archive, "Loose", &bin);
+
+        let files = files_in(&archive, &naming_the_bin());
+        let handle = files.bins().next().unwrap();
+
+        assert_eq!(handle.head(9).unwrap(), bin_bytes(&bin)[..9]);
+        assert_eq!(handle.head(8192).unwrap(), bin_bytes(&bin));
+    }
+
+    /// Story: a rule reads the same header whichever way the mod is stored.
+    ///
+    /// The property the seam exists to guarantee, and the one the old
+    /// layer-and-file pair would have broken silently: it handed back a path
+    /// for a directory layer and nothing at all for an archive.
+    #[test]
+    fn a_head_reads_the_same_bytes_from_a_tree_and_from_an_archive() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
+
+        let tree = unpacked(&archive, &tmp.path().join("staging"));
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
+        let from_archive = files_in(&archive, &resolver_naming(&[]));
+
+        let in_tree = from_tree.bins().next().unwrap().head(9).unwrap();
+        let in_archive = from_archive.bins().next().unwrap().head(9).unwrap();
+        assert_eq!(in_archive, in_tree);
+    }
+
+    /// The escalation: 16 KB of this chunk decodes to nothing at all, because a
+    /// compressed block reads whole or not at all, so the read comes back for
+    /// more rather than answering short.
+    #[test]
+    fn a_head_of_a_chunk_whose_first_block_was_cut_short_reads_it_anyway() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("large-block.fantome");
+        let bytes = crate::mods::test_support::make_large_block_chunk_fantome_zip(&archive);
+
+        let files = files_in(
+            &archive,
+            &resolver_naming(&[crate::mods::test_support::LARGE_BLOCK_CHUNK_PATH]),
+        );
+        let handle = files.files().next().expect("the WAD holds one chunk");
+
+        assert!(
+            handle.chunk().unwrap().compressed_size > 16 * 1024,
+            "the fixture has to be larger than the first raw read"
+        );
+        assert_eq!(handle.head(16).unwrap(), bytes[..16]);
     }
 
     /// A check never leaves anything behind, which is now true because it

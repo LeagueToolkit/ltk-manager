@@ -4,10 +4,11 @@
 use crate::mods::ModHealth;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::test_support::{
-    STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming, make_slugged_entry,
-    make_test_library, make_unpacked_entry, place_bin_archived_fantome, place_bin_project_mod,
-    place_installed_mod, place_packed_fantome_with_raw, point_at_installed_build,
-    property_in_unpacked_tree, seed_library, stale_bin,
+    SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming,
+    make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
+    place_bin_project_mod, place_game_wad, place_installed_mod,
+    place_packed_chunks_archived_fantome, place_packed_fantome_with_raw, point_at_installed_build,
+    property_in_unpacked_tree, resolver_naming, seed_library, silent_audio_bank, stale_bin,
 };
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
@@ -28,6 +29,63 @@ fn archived_entry(id: &str, slug: &str) -> LibraryModEntry {
 
 fn migrated_property() -> PropertyValueEnum {
     PropertyValueEnum::WadChunkLink(values::WadChunkLink::new(WadHash::hash_str(STALE_ICON)))
+}
+
+/// Story: a mod whose events bank the game silently drops is repaired by
+/// deleting it, and an archive-storage mod is repaired inside its archive.
+///
+/// The path it takes is the repack, because no archive delta can state a
+/// deletion - and a repack packs the staged tree, which is the tree the
+/// deletion already happened in.
+#[test]
+fn a_removed_bank_is_gone_from_the_repaired_archive() {
+    const OTHER: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_audio.bnk";
+
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_library_naming(storage.path(), &[SILENT_BANK_IN_WAD, OTHER]);
+    point_at_installed_build(&mut config, storage.path());
+    place_game_wad(
+        storage.path(),
+        "Aatrox.wad.client",
+        &[(SILENT_BANK_IN_WAD, b"the bank the game ships")],
+    );
+    place_packed_chunks_archived_fantome(
+        storage.path(),
+        "silent-mod",
+        &[
+            (SILENT_BANK_IN_WAD, &silent_audio_bank()),
+            (OTHER, b"the media bank, which the reader takes"),
+        ],
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "silent-mod")],
+    );
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert!(report.failed.is_empty(), "{:?}", report.failed);
+    let removed = report
+        .files
+        .iter()
+        .find(|file| file.path.ends_with("ashe_sfx_events.bnk"))
+        .expect("the bank is in the report");
+    assert_eq!(removed.change, crate::problems::FileChange::Removed);
+
+    let archive = storage.path().join("mods").join("silent-mod.fantome");
+    let left = crate::problems::ProjectFiles::in_archive(
+        &archive,
+        &config,
+        crate::problems::Budget::repair(),
+        &resolver_naming(&[SILENT_BANK_IN_WAD, OTHER]),
+        None,
+    )
+    .unwrap();
+    let paths: Vec<String> = left.files().map(|file| file.path().to_owned()).collect();
+
+    assert_eq!(paths, [format!("Aatrox.wad.client/{OTHER}")]);
 }
 
 #[test]

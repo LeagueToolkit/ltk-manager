@@ -492,6 +492,69 @@ pub(crate) fn make_long_chunk_fantome_zip(path: &Path) {
     zip.finish().unwrap();
 }
 
+/// Where the incompressible chunk sits inside its WAD.
+pub(crate) const LARGE_BLOCK_CHUNK_PATH: &str = "data/characters/ashe/blob.bin";
+
+/// An archive whose one packed WAD holds a chunk no first prefix read can
+/// decode a byte of.
+///
+/// A bounded read takes 16 KB of a chunk raw first. A compressed block cannot
+/// be decoded until all of it has been read, and this chunk compresses to one
+/// several times that size, so the first read comes back with nothing and the
+/// larger second read is what answers. The bytes returned are what the chunk
+/// holds.
+pub(crate) fn make_large_block_chunk_fantome_zip(path: &Path) -> Vec<u8> {
+    let bytes = half_entropy_bytes(256 * 1024);
+
+    let mut out = std::io::Cursor::new(Vec::new());
+    ltk_wad::WadBuilder::default()
+        .with_chunk(
+            ltk_wad::WadChunkBuilder::default()
+                .with_path(LARGE_BLOCK_CHUNK_PATH)
+                .with_force_compression(ltk_wad::WadChunkCompression::Zstd),
+        )
+        .build_to_writer(&mut out, |_, cursor| {
+            cursor.write_all(&bytes)?;
+            Ok(())
+        })
+        .unwrap();
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info("Large Block Mod"))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file("WAD/Ashe.wad.client", options).unwrap();
+    zip.write_all(&out.into_inner()).unwrap();
+
+    zip.finish().unwrap();
+    bytes
+}
+
+/// Bytes a compressor halves and no more, from a seed rather than from the
+/// machine so that two runs of a test read the same chunk.
+///
+/// Four bits of entropy each: enough that zstd writes a compressed block rather
+/// than storing them raw, and little enough that the block stays large.
+fn half_entropy_bytes(len: usize) -> Vec<u8> {
+    let mut state = 0x2545_f491_4f6c_dd1d_u64;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state as u8) & 0x0f
+        })
+        .collect()
+}
+
 /// An archive holding a loose WAD file beside a dot-file the directory walk
 /// would skip.
 ///
@@ -702,6 +765,120 @@ pub(crate) fn make_packed_bin_fantome_zip(
     .unwrap();
     zip.write_all(&packed).unwrap();
     zip.finish().unwrap();
+}
+
+/// A fantome archive whose one packed WAD holds `bytes` under `chunk_path`.
+///
+/// The shape of [`make_packed_bin_fantome_zip`] with no opinion about what the
+/// chunk is, for a rule about a file that is not a bin.
+pub(crate) fn make_packed_chunk_fantome_zip(
+    path: &Path,
+    name: &str,
+    chunk_path: &str,
+    bytes: &[u8],
+) {
+    let packed = build_packed_wad(&[(chunk_path, bytes)]);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file("WAD/Aatrox.wad.client", options).unwrap();
+    zip.write_all(&packed).unwrap();
+    zip.finish().unwrap();
+}
+
+/// A fantome archive whose one packed WAD holds each of `chunks`.
+pub(crate) fn make_packed_chunks_fantome_zip(path: &Path, name: &str, chunks: &[(&str, &[u8])]) {
+    let packed = build_packed_wad(chunks);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    zip.start_file("WAD/Aatrox.wad.client", options).unwrap();
+    zip.write_all(&packed).unwrap();
+    zip.finish().unwrap();
+}
+
+/// An archive-storage fantome in the slug layout whose packed WAD holds
+/// `chunks`.
+pub(crate) fn place_packed_chunks_archived_fantome(
+    storage_dir: &Path,
+    slug: &str,
+    chunks: &[(&str, &[u8])],
+) {
+    let mods_dir = storage_dir.join("mods");
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+    make_packed_chunks_fantome_zip(&mods_dir.join(format!("{slug}.fantome")), slug, chunks);
+}
+
+/// Put an archive holding `chunks` into the installed game the config points
+/// at, for a rule that asks what the install holds.
+///
+/// `root` is the same directory [`point_at_build`] was given, so the two agree
+/// about where the install is.
+pub(crate) fn place_game_wad(root: &Path, wad_name: &str, chunks: &[(&str, &[u8])]) {
+    let final_dir = root.join("league").join("Game").join("DATA").join("FINAL");
+    fs::create_dir_all(&final_dir).unwrap();
+    fs::write(final_dir.join(wad_name), build_packed_wad(chunks)).unwrap();
+}
+
+/// Where the silent-bank fixture sits inside its WAD.
+pub(crate) const SILENT_BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_events.bnk";
+
+/// A Wwise bank at `version` holding `chunks`, each an id and a body length.
+///
+/// The bodies are zeroes, because what decides whether the game's reader takes
+/// a bank is its version and which chunks it carries rather than what is in
+/// them.
+pub(crate) fn audio_bank(version: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
+    let mut header = Vec::new();
+    header.extend_from_slice(&version.to_le_bytes());
+    header.extend_from_slice(&0u32.to_le_bytes());
+    header.extend_from_slice(&0u32.to_le_bytes());
+    header.extend_from_slice(&0u32.to_le_bytes());
+
+    let mut out = Vec::new();
+    out.extend_from_slice(b"BKHD");
+    out.extend_from_slice(&(header.len() as u32).to_le_bytes());
+    out.extend_from_slice(&header);
+
+    for (id, length) in chunks {
+        out.extend_from_slice(*id);
+        out.extend_from_slice(&(*length as u32).to_le_bytes());
+        out.resize(out.len() + length, 0);
+    }
+    out
+}
+
+/// The bank the game drops without a word: an older format version carrying
+/// the objects that hold its events, which the reader takes only at the
+/// current one.
+pub(crate) fn silent_audio_bank() -> Vec<u8> {
+    audio_bank(134, &[(b"HIRC", 64)])
 }
 
 /// An archive-storage fantome in the slug layout: a metadata-only mod

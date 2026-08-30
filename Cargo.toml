@@ -31,7 +31,7 @@ ltk_overlay = "0.9.5"
 ltk_wad = "0.5.4"
 
 ltk_rst = "0.2.1"
-ltk_texture = "0.6.0"
+ltk_texture = { version = "0.6.0", features = ["intel-tex"] }
 
 camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }

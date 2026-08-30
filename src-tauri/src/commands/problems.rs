@@ -7,6 +7,7 @@
 
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
+use crate::mods::ModLibraryState;
 use crate::state::SettingsState;
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::problems;
@@ -31,6 +32,7 @@ pub async fn analyze_project(
             &project_path,
             &app_handle.state::<ProblemsState>(),
             &app_handle.state::<SettingsState>(),
+            &app_handle.state::<ModLibraryState>(),
         )
     })
     .await
@@ -40,11 +42,12 @@ fn analyze_project_inner(
     project_path: &str,
     runs: &ProblemsState,
     settings: &SettingsState,
+    library: &ModLibraryState,
 ) -> AppResult<problems::Run> {
     let root = Path::new(project_path);
     let config = settings.config()?;
 
-    let run = problems::analyze(root, &config)?;
+    let run = problems::analyze(root, &config, library.0.game_content(&config))?;
     runs.record(root, run.clone())?;
     Ok(run)
 }
@@ -71,6 +74,7 @@ pub async fn fix_problems(
             &app_handle.state::<ProblemsState>(),
             &app_handle.state::<SettingsState>(),
             &app_handle.state::<std::sync::Arc<WadPathResolverState>>(),
+            &app_handle.state::<ModLibraryState>(),
         )
     })
     .await
@@ -82,6 +86,7 @@ fn fix_problems_inner(
     runs: &ProblemsState,
     settings: &SettingsState,
     resolvers: &WadPathResolverState,
+    library: &ModLibraryState,
 ) -> AppResult<FixReport> {
     let root = Path::new(project_path);
     let run = runs.last(root)?.ok_or_else(|| {
@@ -101,6 +106,7 @@ fn fix_problems_inner(
         chosen,
         &config,
         resolver.as_deref().map(|resolver| resolver as _),
+        library.0.game_content(&config),
     );
 
     runs.invalidate(root)?;
@@ -110,6 +116,21 @@ fn fix_problems_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    /// A library that announces nothing and stores nothing, for a test that
+    /// fails before it reaches either.
+    fn library() -> ModLibraryState {
+        ModLibraryState(ltk_manager_core::mods::ModLibrary::new(
+            Arc::new(ltk_manager_core::events::NullEventSink),
+            None,
+            "0.0.0",
+            Arc::default(),
+            Arc::default(),
+            Arc::new(ltk_manager_core::mods::WadReportState::new(None)),
+            Arc::default(),
+        ))
+    }
 
     #[test]
     fn a_fix_without_a_recorded_run_is_a_validation_error() {
@@ -119,6 +140,7 @@ mod tests {
             &ProblemsState::default(),
             &SettingsState::default(),
             &WadPathResolverState::default(),
+            &library(),
         )
         .expect_err("a project the backend never analyzed has no run to fix from");
 

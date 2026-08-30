@@ -53,6 +53,9 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Bins found by magic  | Available | A chunk or hex file no table names is typed by its first bytes         |
 | Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
 | The migration table  | Available | 395 rows, `include_str!` into the core crate                           |
+| Texture size rule    | Available | `tex/block-alignment`. The one confirmed crash, and it repairs         |
+| Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
+| Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
 | The problems tab     | Available | A document of the editor surface, and not a side panel                 |

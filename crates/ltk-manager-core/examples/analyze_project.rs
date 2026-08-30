@@ -22,7 +22,7 @@ fn main() {
     };
 
     let started = std::time::Instant::now();
-    let run = match analyze(std::path::Path::new(&project), &config) {
+    let run = match analyze(std::path::Path::new(&project), &config, None) {
         Ok(run) => run,
         Err(e) => {
             eprintln!("{project}: {e}");

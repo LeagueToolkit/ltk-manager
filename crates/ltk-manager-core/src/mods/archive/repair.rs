@@ -116,12 +116,19 @@ impl ModLibrary {
         let (report, checked) = match entry.storage {
             ModStorage::Project => {
                 let mod_dir = entry.mod_dir(&storage_dir);
-                let run = problems::analyze_within(&mod_dir, config, budget.clone())?;
+                let game = self.game_content(config);
+                let run = problems::analyze_within(&mod_dir, config, budget.clone(), game.clone())?;
                 let wanted = run.live_fixable();
                 let resolver = self.wad_resolver();
-                let report =
-                    problems::apply(&mod_dir, &run, &wanted, config, Some(resolver.as_ref()))?;
-                let checked = verified(&mod_dir, run, &wanted, &report, config)?;
+                let report = problems::apply(
+                    &mod_dir,
+                    &run,
+                    &wanted,
+                    config,
+                    Some(resolver.as_ref()),
+                    game.clone(),
+                )?;
+                let checked = verified(&mod_dir, run, &wanted, &report, config, game)?;
                 (report, checked)
             }
             ModStorage::Archive => {
@@ -269,17 +276,25 @@ impl ModLibrary {
         budget: &Budget,
     ) -> AppResult<(FixReport, problems::Run)> {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
-        let run = problems::analyze_within(staging, config, budget.clone())?;
+        let game = self.game_content(config);
+        let run = problems::analyze_within(staging, config, budget.clone(), game.clone())?;
         let wanted = run.live_fixable();
         let resolver = self.wad_resolver();
-        let report = problems::apply(staging, &run, &wanted, config, Some(resolver.as_ref()))?;
+        let report = problems::apply(
+            staging,
+            &run,
+            &wanted,
+            config,
+            Some(resolver.as_ref()),
+            game.clone(),
+        )?;
         if report.applied == 0 {
             return Ok((report, run));
         }
 
         write_repaired(staging, &staging_utf8, archive, &report)?;
 
-        let checked = verified(staging, run, &wanted, &report, config)?;
+        let checked = verified(staging, run, &wanted, &report, config, game)?;
         Ok((report, checked))
     }
 
@@ -388,9 +403,10 @@ fn verified(
     wanted: &[problems::ProblemId],
     report: &FixReport,
     config: &Config,
+    game: Option<std::sync::Arc<dyn problems::GameContent>>,
 ) -> AppResult<problems::Run> {
     if !report.failed.is_empty() {
-        return problems::analyze(project_root, config);
+        return problems::analyze(project_root, config, game);
     }
 
     let repaired: Vec<problems::ProblemId> = wanted

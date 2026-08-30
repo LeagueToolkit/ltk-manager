@@ -25,6 +25,13 @@ pub const REPAIR_BUDGET: u64 = 512 * 1024 * 1024;
 /// rather than what a repair would.
 pub const SWEEP_BUDGET: u64 = REPAIR_BUDGET / 4;
 
+/// How much of the budget one bin costs, as a multiple of its size on disk.
+///
+/// `ltk_meta` reads a bin into typed nodes, which is several times the bytes it
+/// came from. Deliberately generous: an estimate that is too high costs the run
+/// some concurrency, and one that is too low costs the machine its memory.
+pub const BIN_EXPANSION: u64 = 8;
+
 /// How many mods a run reads at once.
 ///
 /// Two rather than one core per mod: the inner pool is what fills the cores,
