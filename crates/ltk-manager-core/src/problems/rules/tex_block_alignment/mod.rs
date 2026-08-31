@@ -17,6 +17,13 @@
 //! texture coordinates are normalized and an image that stops covering its
 //! surface slides against the mesh it is painted on. It is the first repair the
 //! manager ships that loses fidelity - see ADR-0011.
+//!
+//! **The rule reads `.tex` and nothing else.** What a `.tex` can be beyond a
+//! plain 2D image is a volume, which its `depth` field is what declares. It
+//! cannot usefully be a cubemap: the game has no direct support for one in this
+//! container and asserts on the format, so a cubemap ships as a `.dds` in Bc1
+//! carrying `DDSCAPS2_CUBEMAP`. That is a separate file kind, no rule scans it,
+//! and the format constraint on it is unchecked.
 
 use std::io::Cursor;
 
@@ -145,8 +152,10 @@ struct Ragged {
     format: Format,
     /// The blocks the format stores pixels in.
     block: (u32, u32),
-    /// Whether the file is the plain 2D texture the repair knows how to write.
-    plain: bool,
+    /// The z-slices the header declares, which is what makes a `.tex` a volume.
+    depth: u8,
+    /// What the header calls itself, which the repair can only write one of.
+    resource_type: ResourceType,
 }
 
 impl Ragged {
@@ -168,15 +177,23 @@ impl Ragged {
             height,
             format: tex.format,
             block,
-            plain: tex.resource_type == ResourceType::Texture && tex.depth <= 1,
+            depth: tex.depth,
+            resource_type: tex.resource_type,
         })
     }
 
     /// The size a repair would resample to, or why there is no repair.
     fn repair(&self) -> Result<(u32, u32), String> {
-        if !self.plain {
-            return Err(String::from(
-                "This is a cubemap or a volume texture, and the manager can only write a plain one back",
+        if self.depth > 1 {
+            return Err(format!(
+                "This is a volume texture of {} slices, and the manager can only write a plain 2D one back",
+                self.depth
+            ));
+        }
+        if self.resource_type != ResourceType::Texture {
+            return Err(format!(
+                "The header calls this a {:?} rather than a plain 2D texture, and the manager can only write a plain one back",
+                self.resource_type
             ));
         }
         if EncodeFormat::try_from(self.format).is_err() {

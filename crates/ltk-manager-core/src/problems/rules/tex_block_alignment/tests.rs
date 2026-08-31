@@ -19,6 +19,9 @@ const FORMAT_BYTE: usize = 9;
 /// The byte the resource type sits at, for the same reason.
 const RESOURCE_TYPE_BYTE: usize = 10;
 
+/// The byte the z-slice count sits at, which is what makes a `.tex` a volume.
+const DEPTH_BYTE: usize = 8;
+
 fn bc3() -> EncodeFormat {
     EncodeFormat::Bc3 {
         weigh_colour_by_alpha: false,
@@ -230,4 +233,20 @@ fn a_second_fix_over_a_repaired_texture_skips_it() {
             skipped: 1
         }
     );
+}
+
+/// Story: a volume texture is a real thing a `.tex` can be, declared by its
+/// depth rather than by its resource type, and resampling one would have to
+/// decide what happens to the z-slices. It is reported and left alone.
+#[test]
+fn a_volume_texture_is_reported_with_no_fix() {
+    let mut bytes = tex_bytes(RAGGED, bc3());
+    bytes[DEPTH_BYTE] = 4;
+
+    let problems = found(&bytes);
+
+    assert_eq!(problems.len(), 1);
+    assert_eq!(problems[0].fix, None);
+    let message = problems[0].message.as_deref().unwrap_or_default();
+    assert!(message.contains("volume texture of 4 slices"), "{message}");
 }
