@@ -3,8 +3,8 @@
 //! A `File` does not name its path. Once a fix has written the hash, the string
 //! is gone from the file and no reader can derive it back, so a run keeps every
 //! path it hashes in the project's own tables first - `preserve`. That is what
-//! makes a repair lossless, and it is why there is no restore point: see
-//! ADR-0006.
+//! makes a repair keep every name, and it is why there is no restore point:
+//! see ADR-0006. Fidelity is a separate promise, and a per-rule one - ADR-0011.
 //!
 //! Each file lands through a temp file in its own directory and then a rename.
 //! A run that dies mid-way leaves whole files on both sides of it, and the ones

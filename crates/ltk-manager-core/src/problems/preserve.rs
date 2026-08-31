@@ -4,8 +4,8 @@
 //! has written the hash the string is gone from the bin, and nothing can
 //! derive it back - which is why a repair writes every path it hashes into the
 //! project's own `hashes/` table first, under [`Category::Game`]. The mod then
-//! carries what it needs to be read, and the repair is lossless rather than
-//! reversible.
+//! carries what it needs to be read, which is what a repair promises in place
+//! of reversibility.
 //!
 //! A name the community tables already resolve is not embedded. It costs size
 //! and buys nothing: the reader that would consult the mod's table can already
