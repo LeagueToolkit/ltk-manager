@@ -71,7 +71,17 @@ pub const WATCHER_SUPPRESS_SECS: i64 = 10;
 /// The [`Config`](crate::config::Config) is passed per-call since it
 /// can change at runtime.
 /// The one game index a library holds, and the install it was built over.
-type GameContentCache = Arc<Mutex<Option<(PathBuf, Arc<crate::problems::InstalledContent>)>>>;
+type GameContentCache = Arc<Mutex<Option<(GameStamp, Arc<crate::problems::InstalledContent>)>>>;
+
+/// What an installed-game index was read from, and what makes it stale.
+///
+/// The path alone does not answer the second, because a patch replaces the
+/// content under it without moving it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GameStamp {
+    league: PathBuf,
+    build: Option<crate::problems::GameBuild>,
+}
 
 pub struct ModLibrary {
     /// Notification channel, in place of emitting through a Tauri handle.
@@ -305,12 +315,15 @@ impl ModLibrary {
     /// it is built the first time a rule actually asks, so a library of mods
     /// that ask nothing pays nothing.
     pub fn game_content(&self, config: &Config) -> Option<Arc<dyn crate::problems::GameContent>> {
-        let league = config.league_path.clone()?;
+        let stamp = GameStamp {
+            league: config.league_path.clone()?,
+            build: crate::problems::GameBuild::installed(config),
+        };
 
         let mut held = self.game_content.lock().ok()?;
-        if held.as_ref().is_none_or(|(at, _)| at != &league) {
+        if held.as_ref().is_none_or(|(at, _)| at != &stamp) {
             *held = Some((
-                league,
+                stamp,
                 Arc::new(crate::problems::InstalledContent::resolve(config)?),
             ));
         }
