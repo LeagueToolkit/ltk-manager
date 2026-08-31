@@ -1,20 +1,11 @@
-//! The installed game as content a rule can ask about.
+//! Installed game content, for a rule to compare a mod against.
 //!
-//! A run already carries three facts about the world outside the mod - the
-//! installed build, the hash tables and the budget - and none of them reaches a
-//! byte of the game. A rule that has to know whether removing a file leaves a
-//! request unanswered needs one that does.
-//!
-//! The interface is two questions, and both are asked to *compare against* the
-//! install rather than to take parts out of it. Reading it for parts is a
-//! different decision again, recorded where it is made rather than assumed
-//! here.
+//! Compare against, never take parts out of. Reading the install for parts is a
+//! separate decision, recorded where it is made.
 //!
 //! **The hash tables are not this.** Mimir's tables are a superset across
-//! patches, so a path Riot removed two patches ago is a path they still name.
-//! Being wrong in that direction means deleting a file whose backing is gone,
-//! which is the crash the question exists to avoid. The answer has to come from
-//! the install.
+//! patches, so they still name a path Riot removed. Trusting them here deletes
+//! a file whose backing is gone.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,33 +16,29 @@ use ltk_wad::{Wad, WadHash};
 use crate::config::Config;
 use crate::game_wads::{GameArchives, WadCache};
 
-/// What the installed game holds, for a rule that has to ask.
+/// What the installed game holds.
 ///
-/// A run takes one of these rather than building one, so a sweep over a library
-/// asks one index rather than building a new one for every mod.
+/// Taken by a run rather than built by one, so a library sweep shares one
+/// index.
 pub trait GameContent: std::fmt::Debug + Send + Sync {
-    /// Whether an archive of the install holds this chunk.
+    /// Whether any installed archive holds this chunk.
     fn holds(&self, path: WadHash) -> bool;
 
-    /// The chunk's bytes, decompressed, or `None` where no archive holds it.
+    /// The chunk's decompressed bytes, or `None` where no archive holds it.
     ///
-    /// For a rule comparing what a mod ships against what it overrides. What a
-    /// rule does with the answer is its own business, and reading the install
-    /// for parts to graft into a repair is not this.
+    /// For comparing what a mod ships against what it overrides. Not a parts
+    /// source for a repair.
     ///
     /// # Errors
     ///
-    /// Reports an archive that would not mount, or a chunk that would not
-    /// decompress, as one sentence a panel can draw.
+    /// An archive that would not mount, or a chunk that would not decompress,
+    /// as one sentence a panel can draw.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String>;
 }
 
-/// The installed game's archives, indexed by chunk hash the first time a rule
-/// asks.
+/// The installed game's archives, indexed by chunk hash on first use.
 ///
-/// Built lazily because most runs never ask: a walk of every archive's table of
-/// contents costs seconds, and a mod that ships nothing worth asking about
-/// should pay none of them.
+/// Lazy because most runs never ask, and the walk costs seconds.
 #[derive(Debug)]
 pub struct InstalledContent {
     archives: GameArchives,
@@ -59,31 +46,30 @@ pub struct InstalledContent {
     mounts: WadCache,
 }
 
-/// Which archive of the install holds each chunk.
+/// Which installed archive holds each chunk.
 ///
-/// The names sit apart from the map because an install holds a few hundred
-/// archives and a few hundred thousand chunks, so naming each chunk's archive
-/// by its own string would store those few hundred names over and over.
+/// Names sit apart from the map: a few hundred archives against a few hundred
+/// thousand chunks, so a string per chunk would store each name over and
+/// over.
 #[derive(Debug, Default)]
 struct HeldChunks {
-    /// Every archive the walk read, in the order it listed them.
+    /// Every archive the walk read, in walk order.
     names: Vec<String>,
-    /// Which of those holds each chunk, as an index into `names`.
+    /// Each chunk's archive, as an index into `names`.
     ///
-    /// A path more than one archive holds keeps the last walked. Two copies
-    /// that differ at all is a defect of its own rather than a choice to make
-    /// here.
+    /// A path in more than one archive keeps the last walked. Two copies that
+    /// differ is a defect of its own, not a choice made here.
     at: HashMap<WadHash, usize>,
 }
 
 impl InstalledContent {
-    /// The install `config` points at, or `None` where it points at none.
+    /// The install `config` points at, or `None` for no install.
     #[must_use]
     pub fn resolve(config: &Config) -> Option<Self> {
         GameArchives::resolve(config).ok().map(Self::over)
     }
 
-    /// An already-resolved set of archives.
+    /// An index over already-resolved archives.
     #[must_use]
     pub fn over(archives: GameArchives) -> Self {
         Self {
@@ -99,13 +85,12 @@ impl InstalledContent {
         Self::over(GameArchives::at(game_dir))
     }
 
-    /// Which archive holds each chunk of the install, walked once.
+    /// Every chunk's archive, walked once.
     ///
-    /// Only the tables of contents are read, so an install of hundreds of
-    /// gigabytes costs the few megabytes its chunk tables come to. An archive
-    /// that will not mount is logged and skipped, because one damaged archive
-    /// is no reason to answer nothing about the rest - the cost of skipping one
-    /// is a removal refused, which is the safe direction.
+    /// Tables of contents only, so hundreds of gigabytes cost the few megabytes
+    /// their chunk tables come to. An archive that will not mount is logged and
+    /// skipped: skipping one costs a removal refused, which is the safe
+    /// direction.
     fn index(&self) -> &HeldChunks {
         self.held.get_or_init(|| {
             let started = std::time::Instant::now();
@@ -142,7 +127,7 @@ impl InstalledContent {
         })
     }
 
-    /// The chunk hashes one archive's table of contents lists.
+    /// The chunk hashes in one archive's table of contents.
     fn hashes_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<WadHash>> {
         let path = self.archives.archive_path(wad_name)?;
         let file = std::io::BufReader::new(std::fs::File::open(&path)?);
@@ -161,8 +146,9 @@ impl GameContent for InstalledContent {
         self.index().at.contains_key(&path)
     }
 
-    /// Read through a mount the cache keeps, so a rule reading a mod's worth of
-    /// chunks out of one archive parses its table of contents once.
+    /// Read through a cached mount.
+    ///
+    /// One table of contents parse per archive, not per chunk.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String> {
         let held = self.index();
         let Some(name) = held.at.get(&path).and_then(|at| held.names.get(*at)) else {
@@ -176,11 +162,10 @@ impl GameContent for InstalledContent {
     }
 }
 
-/// An install holding exactly the chunks a test built it with.
+/// An install holding exactly the chunks a test gave it.
 ///
-/// The second adapter, and what makes [`GameContent`] a seam rather than a
-/// layer: a unit test cannot depend on a League install, and every rule is
-/// tested through the analysis entry point.
+/// The second adapter, which is what makes [`GameContent`] a seam: a unit test
+/// cannot depend on a League install.
 #[cfg(test)]
 #[derive(Debug, Default)]
 pub(crate) struct FakeContent(HashMap<WadHash, Vec<u8>>);
@@ -197,7 +182,7 @@ impl FakeContent {
         Self::of(entries.iter().copied())
     }
 
-    /// A machine whose install holds nothing at all.
+    /// An install holding nothing.
     pub(crate) fn empty() -> std::sync::Arc<dyn GameContent> {
         Self::of(std::iter::empty())
     }
