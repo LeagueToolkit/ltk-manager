@@ -63,6 +63,51 @@ Good  Wallpaper costs the muted rungs contrast, so lift them.
 A bulleted list of fragments takes no terminal punctuation at all. A bullet that is a complete
 sentence ends with a full stop, like any other sentence.
 
+## Commits and PRs
+
+One conventional-commit subject line. No body, no trailers, no `Co-Authored-By`. A PR is that same
+subject as its title and an empty body. Never commit or push unasked.
+
+**A subject names the change, it does not describe it.** A plain verb and a domain noun phrase,
+roughly three to six words, in the codebase's own vocabulary. No contrastive clause, no mechanism,
+no narrative verb, and drop articles that carry nothing.
+
+```
+Bad   fix(Problems): tell a volume texture from a resource type the repair cannot write
+Good  fix(Problems): warn on unwritable texture resource type
+
+Bad   feat(mods): edit a removal into the archive instead of repacking it
+Good  feat(mods): support delta target dropping
+
+Bad   fix(mods): rebuild the installed game index when the game build changes
+Good  fix(mods): key game content cache on build
+```
+
+### The same shape everywhere, on different vocabulary
+
+A title is a terse noun phrase wherever one is written, and what changes between them is only which
+words are common ground with the reader. Terseness is not a concession to `git log`.
+
+| What                | Common ground with the reader                |
+| ------------------- | -------------------------------------------- |
+| Commit and PR title | the codebase's own vocabulary                |
+| Issue title         | the same, and the rule id where there is one |
+| Rule title, UI copy | whatever the product itself documents        |
+
+**The test for a word is whether the product teaches it, not whether it sounds technical.**
+`Meta property type mismatch` is a good user-facing title: `meta` is a word a mod user meets in the
+tooling and at <https://meta-wiki.leaguetoolkit.dev/>, so it is shared vocabulary, and the phrase
+is four nouns with nothing else in it. A relative clause is what makes a title read badly, not a
+domain word - `Texture size the format cannot hold` is worse than `Block-unaligned texture size`
+for that reason alone.
+
+Two things keep their own shape. An **ADR title** is a declarative sentence, because the title is
+the decision - `A repair rewrites the archive in place`. A **test name** stays narrative, because
+it is read one at a time and is the only sentence saying what the case is.
+
+A rule's `description` is a sentence by contract - one for a reader who has not met the state. It
+is the title that is a noun phrase.
+
 ## Log Files
 
 - **Windows:** `%APPDATA%\dev.leaguetoolkit.manager\logs\ltk-manager.log`

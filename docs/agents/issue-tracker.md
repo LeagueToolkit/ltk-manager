@@ -14,6 +14,9 @@ CLI for all operations.
 
 Infer the repo from `git remote -v`. `gh` does this automatically when run inside a clone.
 
+A PR title is the conventional-commit subject of the change and its body stays empty. See
+"Commits and PRs" in the root `CLAUDE.md` for the register a subject is written in.
+
 New issues opened by humans go through `.github/ISSUE_TEMPLATE/` (`bug_report.yml`,
 `feature_request.yml`). Issues an agent files with `gh issue create` bypass those forms, so write a
 body that carries the same information the matching template asks for.
