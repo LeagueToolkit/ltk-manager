@@ -9,7 +9,9 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 [features]
 # Derive `ts_rs::TS` on core types so the Tauri shell can export bindings for
 # types that cross IPC (e.g. `Config` flattened into `Settings`).
-ts = ["dep:ts-rs"]
+# The `ts-rs` impl features belong with the derive rather than with the shell
+# that consumes it, so this crate builds and tests on its own.
+ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl"]
 
 [dependencies]
 ritoclient = { workspace = true }
