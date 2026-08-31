@@ -7,8 +7,9 @@ use crate::mods::test_support::{
     SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming,
     make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
     place_bin_project_mod, place_game_wad, place_installed_mod,
-    place_packed_chunks_archived_fantome, place_packed_fantome_with_raw, point_at_installed_build,
-    property_in_unpacked_tree, resolver_naming, seed_library, silent_audio_bank, stale_bin,
+    place_packed_chunks_archived_fantome, place_packed_chunks_fantome_with_raw,
+    place_packed_fantome_with_raw, point_at_installed_build, property_in_unpacked_tree,
+    resolver_naming, seed_library, silent_audio_bank, stale_bin,
 };
 use ltk_hash::{Hash as _, WadHash};
 use ltk_meta::PropertyValueEnum;
@@ -86,6 +87,52 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
     let paths: Vec<String> = left.files().map(|file| file.path().to_owned()).collect();
 
     assert_eq!(paths, [format!("Aatrox.wad.client/{OTHER}")]);
+}
+
+/// Story: the repair that deletes a bank edits the archive, as the repair that
+/// writes one does.
+///
+/// The `RAW/` entry is the tell, on the same terms as
+/// `repairing_a_packed_fantome_edits_it_and_leaves_the_rest_alone`: a repack
+/// drops it where an edit raw-copies it.
+#[test]
+fn a_removal_edits_the_archive_and_leaves_the_rest_alone() {
+    const OTHER: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_audio.bnk";
+
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_library_naming(storage.path(), &[SILENT_BANK_IN_WAD, OTHER]);
+    point_at_installed_build(&mut config, storage.path());
+    place_game_wad(
+        storage.path(),
+        "Aatrox.wad.client",
+        &[(SILENT_BANK_IN_WAD, b"the bank the game ships")],
+    );
+    place_packed_chunks_fantome_with_raw(
+        storage.path(),
+        "silent-mod",
+        &[
+            (SILENT_BANK_IN_WAD, &silent_audio_bank()),
+            (OTHER, b"the media bank, which the reader takes"),
+        ],
+        ("config.ini", b"kept"),
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "silent-mod")],
+    );
+    let archive = storage.path().join("mods").join("silent-mod.fantome");
+
+    let report = library.repair_mod(&config, "id-1").unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert!(report.failed.is_empty(), "{:?}", report.failed);
+
+    let names = entry_names(&archive);
+    assert!(
+        names.iter().any(|name| name == "RAW/config.ini"),
+        "an edit raw-copies what it did not name: {names:?}"
+    );
 }
 
 #[test]

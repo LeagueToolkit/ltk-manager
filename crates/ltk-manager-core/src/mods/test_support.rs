@@ -855,9 +855,21 @@ pub(crate) const SILENT_BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sf
 /// a bank is its version and which chunks it carries rather than what is in
 /// them.
 pub(crate) fn audio_bank(version: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
+    audio_bank_with_id(version, BUILT_BANK_ID, chunks)
+}
+
+/// The id a bank the Wwise toolchain built carries.
+///
+/// Any value but zero. What a fixture needs is a bank `audio/bank-id` has
+/// nothing to say about, so the number itself means nothing.
+pub(crate) const BUILT_BANK_ID: u32 = 0x3921_0873;
+
+/// [`audio_bank`] carrying an id of the caller's choosing, for a rule about the
+/// id rather than about the version.
+pub(crate) fn audio_bank_with_id(version: u32, id: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
     let mut header = Vec::new();
     header.extend_from_slice(&version.to_le_bytes());
-    header.extend_from_slice(&0u32.to_le_bytes());
+    header.extend_from_slice(&id.to_le_bytes());
     header.extend_from_slice(&0u32.to_le_bytes());
     header.extend_from_slice(&0u32.to_le_bytes());
 
@@ -920,15 +932,11 @@ pub(crate) fn place_packed_bin_archived_fantome(
     );
 }
 
-/// [`place_packed_bin_archived_fantome`] carrying a `RAW/` entry beside its WAD.
-///
-/// Fantome packs the base layer's WAD directories and nothing else, so the
-/// entry is content a repack drops and an edit raw-copies - which is how a test
-/// tells the two apart.
-pub(crate) fn place_packed_fantome_with_raw(
+/// [`place_packed_fantome_with_raw`] holding `chunks` rather than one bin.
+pub(crate) fn place_packed_chunks_fantome_with_raw(
     storage_dir: &Path,
     slug: &str,
-    bin: &ltk_meta::Bin,
+    chunks: &[(&str, &[u8])],
     raw: (&str, &[u8]),
 ) {
     let mods_dir = storage_dir.join("mods");
@@ -940,7 +948,7 @@ pub(crate) fn place_packed_fantome_with_raw(
     )
     .unwrap();
 
-    let packed = build_packed_wad(&[(STALE_BIN_IN_WAD, &bin_bytes(bin))]);
+    let packed = build_packed_wad(chunks);
     let file = fs::File::create(mods_dir.join(format!("{slug}.fantome"))).unwrap();
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default();
@@ -964,6 +972,25 @@ pub(crate) fn place_packed_fantome_with_raw(
     .unwrap();
     zip.write_all(&packed).unwrap();
     zip.finish().unwrap();
+}
+
+/// [`place_packed_bin_archived_fantome`] carrying a `RAW/` entry beside its WAD.
+///
+/// Fantome packs the base layer's WAD directories and nothing else, so the
+/// entry is content a repack drops and an edit raw-copies - which is how a test
+/// tells the two apart.
+pub(crate) fn place_packed_fantome_with_raw(
+    storage_dir: &Path,
+    slug: &str,
+    bin: &ltk_meta::Bin,
+    raw: (&str, &[u8]),
+) {
+    place_packed_chunks_fantome_with_raw(
+        storage_dir,
+        slug,
+        &[(STALE_BIN_IN_WAD, &bin_bytes(bin))],
+        raw,
+    );
 }
 
 /// A Project-storage fantome: `bin` sits in the unpacked tree, and no archive

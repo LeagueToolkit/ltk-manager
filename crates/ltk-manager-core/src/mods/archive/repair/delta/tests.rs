@@ -97,11 +97,10 @@ fn a_table_declared_elsewhere_maps_nowhere() {
     assert_eq!(archive_table_path("hashes/"), None);
 }
 
-/// A repair that deleted a file cannot be stated as a delta of chunk and entry
-/// writes, so it is refused before anything is written - and the repack that
-/// answers instead packs the staged tree, which is where the deletion happened.
+/// A repair that deleted a file states the deletion as a delta, and reads no
+/// bytes for it - the staged tree no longer holds any.
 #[test]
-fn a_removal_is_refused_rather_than_written_as_an_edit() {
+fn a_removal_is_written_as_an_edit() {
     let report = crate::problems::FixReport {
         applied: 1,
         skipped: 0,
@@ -120,10 +119,7 @@ fn a_removal_is_refused_rather_than_written_as_an_edit() {
 
     let tmp = tempfile::tempdir().unwrap();
     let archive = camino::Utf8Path::new("mod.fantome");
-    let refused = RepairEdit::read(tmp.path(), archive, &report);
+    let edit = RepairEdit::read(tmp.path(), archive, &report);
 
-    assert!(
-        refused.is_err(),
-        "a removal was accepted as an archive edit"
-    );
+    assert!(edit.is_ok(), "{:?}", edit.err());
 }

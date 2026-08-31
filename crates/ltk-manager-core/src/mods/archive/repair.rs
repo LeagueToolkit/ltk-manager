@@ -437,10 +437,12 @@ fn write_repaired(
     match edited {
         Ok(written) => {
             tracing::debug!(
-                "Edited {archive_utf8}: {} chunks across {} WADs, {} entries",
-                written.chunks_replaced,
+                "Edited {archive_utf8} across {} WADs: {} chunks and {} entries written, {} chunks and {} entries removed",
                 written.wads_rebased,
-                written.entries_replaced
+                written.chunks_replaced,
+                written.entries_replaced,
+                written.chunks_removed,
+                written.entries_removed
             );
             Ok(())
         }
