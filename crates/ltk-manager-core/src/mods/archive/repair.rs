@@ -405,7 +405,14 @@ fn verified(
     config: &Config,
     game: Option<std::sync::Arc<dyn problems::GameContent>>,
 ) -> AppResult<problems::Run> {
-    if !report.failed.is_empty() {
+    // A rule that skips records a count against the file and not a
+    // `ProblemId`, because `FixRun::left` takes a bin node address a file-level
+    // finding has none of. So `remaining` names bin properties and nothing
+    // else, and `audio/bank-version` refusing at fix time - its guard re-reads
+    // the install, which may answer differently than it did at check time -
+    // would subtract as repaired. Re-read the mod whenever anything was
+    // skipped, rather than guessing which kind of skip it was.
+    if !report.failed.is_empty() || report.skipped > 0 {
         return problems::analyze(project_root, config, game);
     }
 
