@@ -53,8 +53,6 @@
 
 mod requests;
 
-use ltk_hash::{Hash as _, WadHash};
-
 use crate::problems::budget;
 use crate::problems::game::GameContent;
 use crate::problems::{
@@ -64,14 +62,6 @@ use crate::problems::{
 use crate::workshop::WorkshopFileKind;
 
 use requests::BankRequests;
-
-/// The suffix naming a layer directory that is one of the mod's WADs.
-///
-/// A file under one is a chunk the game addresses by hash, which is the only
-/// shape this repair can reason about. Anything else - a `RAW/` entry, say -
-/// reaches the game another way, and what would answer for it is a different
-/// question.
-const WAD_DIR_SUFFIX: &str = ".wad.client";
 
 /// The diagnostics code a request nothing can answer is recorded under.
 const UNANSWERED_CODE: &str = "ALE-9B39AA45";
@@ -267,7 +257,7 @@ fn removable(
     game: Option<&dyn GameContent>,
     asked: &BankRequests,
 ) -> Result<Removed, String> {
-    let Some(chunk) = chunk_hash(handle) else {
+    let Some(chunk) = handle.wad_hash() else {
         return Err(String::from(
             "This file is not inside one of the mod's WADs, so the manager cannot tell what would answer for it once it is gone.",
         ));
@@ -309,32 +299,6 @@ impl Removed {
             Self::NobodyAsks => "Removed. Nothing in the mod asks for this file",
         }
     }
-}
-
-/// The hash the WAD holding this file addresses it by.
-///
-/// `None` for a file that is not inside one of the mod's WADs, which is a file
-/// no bank unit could be asking for by chunk path either.
-fn chunk_hash(handle: &FileHandle<'_>) -> Option<WadHash> {
-    if let Some(chunk) = handle.chunk() {
-        return Some(chunk.hash);
-    }
-
-    let (wad, inside) = handle.path().split_once('/')?;
-    if !wad.to_ascii_lowercase().ends_with(WAD_DIR_SUFFIX) {
-        return None;
-    }
-
-    // An unpack writes a chunk no table named as the hex of its hash, which is
-    // the hash itself rather than a path to hash.
-    let relative = camino::Utf8Path::new(inside);
-    if ltk_wad::is_hex_chunk_path(relative) {
-        return relative
-            .file_stem()
-            .and_then(|hex| u64::from_str_radix(hex, 16).ok())
-            .map(WadHash);
-    }
-    Some(WadHash::hash_str(inside))
 }
 
 /// What the reader will refuse about one bank, or `None` for one it loads.

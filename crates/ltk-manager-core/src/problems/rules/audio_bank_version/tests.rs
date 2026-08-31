@@ -1,7 +1,6 @@
 //! Unit tests for what the reader would refuse, for the two refusals that keep
 //! the rule from firing on banks that load, and for the guard on its removal.
 
-use std::collections::HashSet;
 use std::sync::Arc;
 
 use ltk_hash::BinHash;
@@ -11,6 +10,7 @@ use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use super::*;
 use crate::config::Config;
 use crate::mods::test_support::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
+use crate::problems::game::FakeContent;
 use crate::problems::{Budget, ProjectFiles};
 
 /// The bank's path inside the WAD, which is what a bank unit names it by.
@@ -41,26 +41,6 @@ const UNIT: BinHash = BinHash(0xa441_6515);
 const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
-
-/// An install holding exactly the chunks it was built with.
-#[derive(Debug, Default)]
-struct FakeGame(HashSet<WadHash>);
-
-impl FakeGame {
-    fn holding(paths: &[&str]) -> Arc<dyn GameContent> {
-        Arc::new(Self(paths.iter().copied().map(WadHash::hash_str).collect()))
-    }
-
-    fn empty() -> Arc<dyn GameContent> {
-        Arc::new(Self::default())
-    }
-}
-
-impl GameContent for FakeGame {
-    fn holds(&self, path: WadHash) -> bool {
-        self.0.contains(&path)
-    }
-}
 
 /// A bank at `version` carrying `chunks`, each an id and a body length.
 fn bank(version: u32, chunks: &[(ChunkId, usize)]) -> Vec<u8> {
@@ -342,7 +322,7 @@ fn a_bank_the_install_holds_is_offered_for_removal() {
     let (_tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeGame::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::holding(&[BANK_IN_WAD])),
     );
 
     let problems = found_in(&files);
@@ -355,7 +335,7 @@ fn a_bank_the_install_holds_is_offered_for_removal() {
 /// something asks and nothing would answer, which trades silence for a crash.
 #[test]
 fn a_bank_a_unit_asks_for_that_the_install_lacks_is_refused() {
-    let (_tmp, files) = project_with(&silent_bank(), &[BANK_IN_WAD], Some(FakeGame::empty()));
+    let (_tmp, files) = project_with(&silent_bank(), &[BANK_IN_WAD], Some(FakeContent::empty()));
 
     let problems = found_in(&files);
     assert_eq!(problems[0].fix, None);
@@ -367,7 +347,7 @@ fn a_bank_a_unit_asks_for_that_the_install_lacks_is_refused() {
 /// whatever the install holds.
 #[test]
 fn a_bank_nothing_asks_for_is_offered_for_removal() {
-    let (_tmp, files) = project_with(&silent_bank(), &[], Some(FakeGame::empty()));
+    let (_tmp, files) = project_with(&silent_bank(), &[], Some(FakeContent::empty()));
 
     let problems = found_in(&files);
     let fix = problems[0].fix.as_ref().expect("nobody asks for it");
@@ -381,7 +361,7 @@ fn a_unit_asking_for_something_else_does_not_hold_the_bank_back() {
     let (_tmp, files) = project_with(
         &silent_bank(),
         &["assets/sounds/wwise2016/sfx/somebody_else.bnk"],
-        Some(FakeGame::empty()),
+        Some(FakeContent::empty()),
     );
 
     assert!(found_in(&files)[0].fix.is_some());
@@ -407,7 +387,7 @@ fn fix_run(root: &std::path::Path, game: Option<Arc<dyn GameContent>>) -> FixRun
 
 #[test]
 fn the_repair_deletes_the_bank_and_leaves_the_rest_alone() {
-    let game = FakeGame::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::holding(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[BANK_IN_WAD], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
@@ -447,12 +427,12 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
     let (tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeGame::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::holding(&[BANK_IN_WAD])),
     );
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
 
-    let mut run = fix_run(tmp.path(), Some(FakeGame::empty()));
+    let mut run = fix_run(tmp.path(), Some(FakeContent::empty()));
     let applied = AudioBankVersion::new().fix(&chosen, &mut run).unwrap();
     run.finish().unwrap();
 
@@ -476,7 +456,7 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
 /// to judge at all.
 #[test]
 fn a_second_repair_over_a_removed_bank_skips_it() {
-    let game = FakeGame::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::holding(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();

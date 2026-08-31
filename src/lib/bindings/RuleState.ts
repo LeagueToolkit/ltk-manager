@@ -7,6 +7,10 @@
  * a modder wants to see what is coming. What it does not do is claim the mod
  * is broken today: the panel draws those findings muted and leaves them out
  * of the count in the project bar, and this is what tells it which they are.
+ *
+ * A rule that compares the mod against the installed game and finds no install
+ * to compare with reports the same way, and reports nothing at all. A rule that
+ * said nothing without saying why would read as a rule that found nothing.
  */
 export type RuleState = { "kind": "active" } | { "kind": "dormant", 
 /**

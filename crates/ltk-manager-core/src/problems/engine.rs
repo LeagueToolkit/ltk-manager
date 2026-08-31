@@ -17,6 +17,7 @@ use std::time::Instant;
 
 use chrono::Utc;
 use ltk_file::LeagueFileKind;
+use ltk_hash::Hash as _;
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
@@ -33,6 +34,13 @@ use super::{BinNames, GameBuild, ObjectInfo, Report, RuleState, Run};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
+
+/// The suffix naming a layer directory that is one of the mod's WADs.
+///
+/// A file under one is a chunk the game addresses by hash, whether the mod is
+/// stored as a tree or as an archive. Anything else - a `RAW/` entry, say -
+/// reaches the game another way and has no chunk hash at all.
+const WAD_DIR_SUFFIX: &str = ".wad.client";
 
 /// The files of one project, and what else a run hands every rule.
 ///
@@ -432,6 +440,38 @@ impl<'a> FileHandle<'a> {
     #[must_use]
     pub fn chunk(&self) -> Option<&'a ChunkInfo> {
         self.file.chunk.as_ref()
+    }
+
+    /// The hash the WAD holding this file addresses it by.
+    ///
+    /// Read off the chunk where a packed WAD is where the file lives, and
+    /// derived from the path otherwise - so a mod unpacked into a tree answers
+    /// the same hash as the archive it came from, which is what lets a rule ask
+    /// the installed game about either.
+    ///
+    /// `None` for a file that is not inside one of the mod's WADs, which is a
+    /// file the game addresses no other way.
+    #[must_use]
+    pub fn wad_hash(&self) -> Option<WadHash> {
+        if let Some(chunk) = self.chunk() {
+            return Some(chunk.hash);
+        }
+
+        let (wad, inside) = self.path().split_once('/')?;
+        if !wad.to_ascii_lowercase().ends_with(WAD_DIR_SUFFIX) {
+            return None;
+        }
+
+        // An unpack writes a chunk no table named as the hex of its hash, which
+        // is the hash itself rather than a path to hash.
+        let relative = camino::Utf8Path::new(inside);
+        if is_hex_chunk_path(relative) {
+            return relative
+                .file_stem()
+                .and_then(|hex| u64::from_str_radix(hex, 16).ok())
+                .map(WadHash);
+        }
+        Some(WadHash::hash_str(inside))
     }
 
     /// Where the file sits on disk, where it sits on disk at all.

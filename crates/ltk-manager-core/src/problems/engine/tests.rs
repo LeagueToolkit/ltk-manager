@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::mods::test_support::bin_bytes;
+use crate::problems::game::FakeContent;
 use std::fs;
 
 /// Write `contents` to `path`, creating every directory above it.
@@ -308,6 +309,9 @@ fn analyzing_a_project_with_nothing_to_report_finds_nothing() {
 /// A run over a project with nothing to gate on lists every rule as
 /// speaking, which is what a panel needs to tell a clean project from a
 /// quiet one.
+///
+/// An install is handed in because having one is part of "nothing to gate on":
+/// a rule that reads the game is gated on a machine that has it.
 #[test]
 fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
     let tmp = tempfile::tempdir().unwrap();
@@ -316,7 +320,7 @@ fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
         b"hello",
     );
 
-    let run = analyze(tmp.path(), &Config::default(), None).unwrap();
+    let run = analyze(tmp.path(), &Config::default(), Some(FakeContent::empty())).unwrap();
     assert!(!run.rules.is_empty());
     assert!(run.rules.iter().all(|info| info.state == RuleState::Active));
 }
@@ -347,7 +351,7 @@ fn project_on_an_older_game() -> (tempfile::TempDir, Config) {
 fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
     let (tmp, config) = project_on_an_older_game();
 
-    let run = analyze(tmp.path(), &config, None).unwrap();
+    let run = analyze(tmp.path(), &config, Some(FakeContent::empty())).unwrap();
     let dormant: Vec<_> = run
         .rules
         .iter()
