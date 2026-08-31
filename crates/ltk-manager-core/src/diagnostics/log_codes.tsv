@@ -1,10 +1,10 @@
 code	kind	evidence	meaning
 ALE-1892F739	info	inferred	The game was started with a flag that crashes it on purpose
 ALE-1892F740	info	inferred	The game was started with a flag that crashes it on purpose
-ALE-18967991	wad_mount	inferred	An archive could not be mounted, because a file is missing
-ALE-18967992	wad_mount	inferred	An archive could not be mounted, because it would not open
-ALE-18967993	wad_mount	inferred	An archive could not be mounted, because it is corrupt
-ALE-18967994	wad_mount	inferred	An archive could not be mounted, because its contents are inconsistent
+ALE-18967991	wad_mount	confirmed	An archive could not be mounted, because a file is missing
+ALE-18967992	wad_mount	confirmed	An archive could not be mounted, because it would not open
+ALE-18967993	wad_mount	confirmed	An archive could not be mounted, because it is corrupt
+ALE-18967994	wad_mount	confirmed	An archive could not be mounted, because it is inconsistent with another mounted archive
 ALE-237894B0	device	inferred	The display's video mode could not be read
 ALE-3A1FF4F0	device	inferred	The renderer could not be initialized
 ALE-45BA47AC	info	inferred	The fountain's AFK warning was shown

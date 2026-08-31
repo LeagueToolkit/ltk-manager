@@ -163,9 +163,9 @@ mod tests {
         assert_eq!(missing.kind, CodeKind::MissingData);
         assert_eq!(missing.mark, EvidenceMark::Confirmed);
 
-        let corrupt = lookup("ALE-18967993").expect("a wad-mount row");
-        assert_eq!(corrupt.kind, CodeKind::WadMount);
-        assert_eq!(corrupt.mark, EvidenceMark::Inferred);
+        let unverified = lookup("ALE-9D171D1D").expect("a wad-mount row");
+        assert_eq!(unverified.kind, CodeKind::WadMount);
+        assert_eq!(unverified.mark, EvidenceMark::Inferred);
     }
 
     #[test]

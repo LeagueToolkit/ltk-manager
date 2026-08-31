@@ -512,7 +512,7 @@ fn a_corrupt_archive_reads_its_row_and_lists_the_redirected_writers() {
         incident
             .verdict
             .cause
-            .contains("Probably an archive could not be mounted, because it is corrupt.")
+            .contains("An archive could not be mounted, because it is corrupt.")
     );
     assert_eq!(names(&incident), ["Classic Rift", "Aatrox Justicar"]);
     assert_eq!(
