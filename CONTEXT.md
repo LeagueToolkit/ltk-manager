@@ -36,6 +36,10 @@ and the Creator Workshop's two import dialogs are three call sites over one impl
 inside the fantome backend, so a second importer beside it is a second copy of those bugs — the
 workshop had one per format until they were collapsed onto this.
 
+**Ritobin** — our own text syntax for a `.bin`, and the format the manager opens one in for
+editing. A ritobin file is source rather than content: the game reads only the compiled form, so a
+ritobin file packaged into a shipped mod is build residue the author left in.
+
 **Slug** — a mod's directory name under `<storage>/mods/`, derived from the project's `name` (never
 its `display_name`), assigned once at install and never re-derived. **Id** is the mod's identity, a
 UUID, and it is what profiles, folders and reports refer to. Two mods can want the same slug; the
@@ -87,10 +91,21 @@ behind it. Remembered per mod in `mod-health-verdicts.json` beside the index. A 
 computation, not a record — a lost file refills on the next check. There is no fourth word: a mod
 the manager could not judge is **unchecked** instead.
 
+The three words say what a **repair** can do, and nothing about how badly the mod is hurt.
+`unrepairable` covers both a mod the game will refuse to load and one that plays with an effect
+missing, because neither carries a fix. Severity is the other axis, it rides in the counts, and a
+surface that draws a verdict reads both.
+
 **Unchecked** — a mod carrying no verdict, which draws no badge and says nothing. Never checked,
 checked by a build whose stored shape has since been discarded, or declined because the hashtable
 cache was empty. A verdict is a claim, and an unchecked mod is a claim about nothing — the state
 ADR-0009 chose over a fourth verdict word.
+
+**Dormant** — a rule that ran, found everything it finds, and claims none of it, because
+something it needs is not on this machine. Two states put a rule to sleep: an installed game older
+than the patch the rule describes, and no installed game to read at all. Either way its findings
+draw dimmed and count towards nothing, so a **verdict** is a claim only about the rules that were
+awake. Not **unchecked**, which is the whole mod saying nothing.
 
 **Basis** — what a check was a claim about: the installed game build, the manager version the rules
 and their tables shipped in, and the **generation** of the hashtable cache the run read. Recorded
@@ -112,9 +127,18 @@ unrelated. What it found draws as a banner above the library.
 mod. For an `archive` mod: unpack, fix, and edit the fixed files back into the archive where it
 lies, so a repair costs what changed rather than everything the mod holds. An archive that cannot
 be edited is repacked whole instead, which is the same outcome by a slower road — see ADR-0005.
-Neither is reversible, and both are lossless: see **Preserved names**.
+Neither is reversible. Neither destroys a **name**, which is what preserved names guarantee, but a
+repair may lose fidelity where the defect admits no in-place correction — see ADR-0011.
 **Repair all** is the banner's one press over every repairable mod at once, and nothing is ever
-repaired without it.
+repaired without it. Not every defect is a repair's to fix: where the correction needs content only
+the installed game has, the overlay **merge**s at build time and the mod is left as it is — see
+ADR-0012.
+
+**Compensated** — a defect the overlay **merge** corrects while it builds, so the mod on disk
+keeps it forever and the game never sees it. Not **repaired**: nothing is written, no press exists,
+and the mod carries the defect again under any other manager. Not healthy either, because the mod
+really is defective. So a rule offering no fix is now two different statements — nothing can correct
+this, and a repair is the wrong instrument for this — and no **verdict** word tells them apart.
 
 **Preserved names** — the paths a repair writes into the mod's own `hashes/game.hashes.txt`
 before it hashes them into `File` properties, so the mod still names what it holds. Additive and
@@ -145,7 +169,33 @@ and never by its provenance: an unpacked mod project through `FsModContent`, a m
 A mod entry's `format` records where it came from and only picks between the two packed readers.
 
 **Layer** — a named slice of a mod's content that a profile can turn on independently. `base` is
-always on.
+always on. Not what a **merge** does to a chunk, which is a different relationship with the same
+everyday word.
+
+**Merge** — building a mod's chunk over the game's copy of it rather than in place of it, so the
+game's content survives wherever the mod says nothing. A value replaces, a map combines key by key,
+and an object combines field by field. It happens while the overlay is built and is never written
+into the mod, so it is not a **repair** and costs the mod nothing — see ADR-0012.
+_Avoid_: layer, patch, override
 
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active
 profile is what the overlay is built from.
+
+**Mount error** — why the game refused an archive it was mounting. There are four, and the manager
+takes the game's word for each rather than coining its own, so a health finding and a diagnostics
+code name one state:
+
+- **Missing** — the archive was not where the game looked for it.
+- **Unable to open** — the archive was there, and the game could not open it.
+- **Corrupt** — the archive opened, and its own contents do not hold together.
+- **Inconsistent** — two archives the game mounted disagree about the bytes behind one path.
+
+**Inconsistent** is the one an overlay could create, because routing can put a single path into
+several archives. It crashes the game and flags the install for repair, though that repair finds
+nothing to fix, because an overlay leaves the game's own files untouched. No rule carries the name:
+the build routes every copy of a path by that path's own hash and fans a shared chunk out to all of
+its holders, so the state is one the build prevents rather than one a check finds. **Corrupt**
+names no rule either, and for the same reason: each of the three defects that would have sat under
+it was measured at zero, and each is a state the build should assert over the archives it just
+wrote rather than one a pass over a library should hunt for. So the naming rule now has no
+instance, which does not make it wrong — see ADR-0010.
