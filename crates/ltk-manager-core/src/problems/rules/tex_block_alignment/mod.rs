@@ -64,7 +64,7 @@ impl Rule for TexBlockAlignment {
     }
 
     fn title(&self) -> &'static str {
-        "Texture size the format cannot hold"
+        "Block-unaligned texture size"
     }
 
     fn description(&self) -> &'static str {

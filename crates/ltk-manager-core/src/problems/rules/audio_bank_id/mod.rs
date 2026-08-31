@@ -56,7 +56,7 @@ impl Rule for AudioBankId {
     }
 
     fn title(&self) -> &'static str {
-        "Audio bank with no id of its own"
+        "Unset soundbank id"
     }
 
     fn description(&self) -> &'static str {

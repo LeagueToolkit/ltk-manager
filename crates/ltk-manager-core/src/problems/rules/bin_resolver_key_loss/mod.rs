@@ -72,7 +72,7 @@ impl Rule for BinResolverKeyLoss {
     }
 
     fn title(&self) -> &'static str {
-        "Resolver holding far less than the game's"
+        "Resource resolver key loss"
     }
 
     fn description(&self) -> &'static str {

@@ -133,7 +133,7 @@ impl Rule for AudioBankVersion {
     }
 
     fn title(&self) -> &'static str {
-        "Audio bank the game will not load"
+        "Unsupported audio bank version"
     }
 
     fn description(&self) -> &'static str {
