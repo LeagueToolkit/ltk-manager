@@ -39,6 +39,7 @@ src-tauri/src/lib/bindings/
 # AI local settings
 .claude/
 .mcp.json
+.scratch/
 
 # Windows
 nul
