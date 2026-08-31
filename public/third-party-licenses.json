@@ -2130,7 +2130,7 @@
     },
     {
       "name": "ltk_fantome",
-      "version": "0.10.0",
+      "version": "0.11.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2198,7 +2198,7 @@
     },
     {
       "name": "ltk_mod_project",
-      "version": "0.9.0",
+      "version": "0.9.1",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
@@ -2214,7 +2214,7 @@
     },
     {
       "name": "ltk_overlay",
-      "version": "0.9.5",
+      "version": "0.9.6",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         40
