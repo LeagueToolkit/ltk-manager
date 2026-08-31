@@ -10,8 +10,12 @@ use crate::error::{AppResult, MutexResultExt};
 use serde::Serialize;
 use std::sync::Mutex;
 
-/// One library mod whose property-bins reference linked dependencies that don't
-/// resolve against the overlay WADs they land in.
+/// One library mod whose property-bins reference linked dependencies no archive
+/// the game mounts can answer.
+///
+/// The lookup is across every mounted archive rather than inside the one the
+/// declaring bin came from, so what the check tests is presence anywhere in the
+/// built overlay bar the archives the user blocked.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
