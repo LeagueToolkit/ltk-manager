@@ -23,9 +23,13 @@ const NO_ROWS: readonly BinRow[] = [];
 /** What the enclosing tree read for its value rows. A row outside one draws its class alone. */
 export const ValueMarksContext = createContext<ReadonlyMap<string, ValueMark>>(NO_MARKS);
 
-/** What the row under `key` draws after its class, or undefined while nothing has answered. */
-export function useValueMark(key: string): ValueMark | undefined {
-  return use(ValueMarksContext).get(key);
+/**
+ * What the row under `key` draws after its class, or undefined while nothing has
+ * answered. A cell holding no row asks for none.
+ */
+export function useValueMark(key: string | undefined): ValueMark | undefined {
+  const marks = use(ValueMarksContext);
+  return key === undefined ? undefined : marks.get(key);
 }
 
 /**

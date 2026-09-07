@@ -220,7 +220,8 @@ describe("ClassView", () => {
 
     const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
     expect(reads).toHaveLength(2);
-    expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: Object.keys(ELEMENTS).sort() });
+    const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
+    expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
     expect(reads[1]?.[1]).toMatchObject({ entry: ENTRY, paths: [SAMPLER_PATH, PARAM_PATH].sort() });
   });
 

@@ -343,7 +343,7 @@ function StructValue({ value, node, rowKey: key }: StructValueProps) {
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. Nothing until it lands, which
  * keeps the row one line rather than a placeholder that shifts.
  */
-function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
+export function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
   if (mark?.constant == null) return null;
   if (mark.family === "color") {
     const rgba = channels(mark.constant);

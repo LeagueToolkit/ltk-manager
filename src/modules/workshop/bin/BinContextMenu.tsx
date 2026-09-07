@@ -60,7 +60,7 @@ export function BinContextMenu({
   const findReferences = useFindReferences();
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
-  const mark = useValueMark(line?.kind === "row" ? line.key : "");
+  const mark = useValueMark(line?.kind === "row" ? line.key : undefined);
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
 

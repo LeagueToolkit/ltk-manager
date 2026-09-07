@@ -4,6 +4,7 @@
 
 | Date       | Change                                                   |
 | ---------- | -------------------------------------------------------- |
+| 2026-09-07 | Lay a skin and a particle system out                     |
 | 2026-09-07 | Name a project's own chunks                              |
 | 2026-09-07 | Lay a material out beside the tree                       |
 | 2026-09-07 | Read several nodes in one call, and draw a value family  |
@@ -13,7 +14,6 @@
 | 2026-09-07 | Send a class's fields to the meta wiki                   |
 | 2026-09-07 | Start the value column at one x whatever the depth       |
 | 2026-09-07 | Name an element by its class, and hue a bin's type words |
-| 2026-09-07 | Draw an optional's leaf on the option's own row          |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -886,10 +886,18 @@ A layout is data, keyed on the class hash, with each subclass listed by hand bec
 carries no inheritance. It names its fields by name, and a frontend FNV-1a turns each into the
 row's hash at module load, checked by a test over known pairs.
 
-A section names one widget or none. `sampler-table`, `param-table` and `switch-list` each read
-the fields of one class. `tree` is [the tree](#the-blocks) rooted at the section's own fields,
-which is what a nested structure with no table shape takes. A section that names no widget draws
-each of its fields in the cell that row would draw.
+A section names one widget or none, and a widget reads the fields of one class: `sampler-table`,
+`param-table` and `switch-list` for the material, `icons`, `mesh`, `override-table` and
+`effect-table` for the skin, `emitter-table` for the particle system. `fields` draws the
+sub-fields a section names under the row it placed, which is what a one-field embed such as
+`skinAnimationProperties` takes. `tree` is [the tree](#the-blocks) rooted at the section's own
+fields, which is what a nested structure with no table shape takes. A section that names no
+widget draws each of its fields in the cell that row would draw.
+
+A widget also declares how far under its own fields it reads, one step per level, and a step
+names which of a level's rows carry on down. So the material override table reaches
+`skinMeshProperties.materialOverride` and the elements under it without the mesh's other fields
+costing a call of their own.
 
 ```ts
 export const materialLayout: ClassLayout = {
@@ -928,8 +936,13 @@ The depth-zero rows arrive with the open. A nested row arrives through
 [the projected read](#the-projected-read), one call per level with the paths of a section
 batched under the call's cap. A table section costs two levels, the containers the layout placed
 and then the elements of each, and every table section of one layout shares those two calls. A
-tree section reads nothing until a reader expands it. A material's macros and techniques take
-the tree, which holds the whole material at two calls whatever its techniques nest to.
+table under a nested field costs three, which is as deep as a layout reads. A tree section reads
+nothing until a reader expands it. A material's macros and techniques take the tree, which holds
+the whole material at two calls whatever its techniques nest to.
+
+A widget that joins a second object reads it through the same handle, because a read names the
+entry it walks. Only an object another file declares costs an open of its own, which is what the
+skin's VFX table does to reach its resolver.
 
 A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
 `string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
@@ -952,8 +965,8 @@ reachable through Properties, which is the whole object.
 | `VfxSystemDefinitionData`                           | Identity, Emitters as a table with a row per emitter, Audio, Other                          |
 | `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                         |
 
-`StaticMaterialDef` is the registered layout, with the value rows beside it. Skin and VFX follow
-in that order, and the animation graph table after them.
+The material, the skin and the particle system are the registered layouts, with the value rows
+beside them. The animation graph table follows.
 
 A layout draws no Used by. Reverse references are the walk's, and Find all references on the
 kebab is the affordance until it ships. The preview slot on the skin layout waits on a renderer,

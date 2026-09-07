@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { AppError, BinRow } from "@/lib/tauri";
 
+import { nameHash } from "../binHash";
 import {
   ancestorKeys,
   canExpand,
   childCount,
+  entryKeyHash,
   fieldHash,
   flattenRows,
   isUnder,
@@ -184,6 +186,23 @@ describe("fieldHash", () => {
     expect(fieldHash("9c4e1b02")).toBe("0x9c4e1b02");
     expect(fieldHash("0000000b[1].1a2b3c4d")).toBe("0x1a2b3c4d");
     expect(fieldHash('0000000b{"weapon"}.deadbeef')).toBe("0xdeadbeef");
+  });
+});
+
+describe("entryKeyHash", () => {
+  it("takes the hex of a key no table names", () => {
+    expect(entryKeyHash({ name: "0xAABBCCDD", unnamed: true })).toBe("0xaabbccdd");
+  });
+
+  it("hashes the name a table gave a key back to what the key held", () => {
+    expect(entryKeyHash({ name: '"Smolder_Base_Idle"', unnamed: false })).toBe(
+      nameHash("Smolder_Base_Idle"),
+    );
+  });
+
+  it("answers nothing for a key that is no hash", () => {
+    expect(entryKeyHash({ name: "3", unnamed: false })).toBeNull();
+    expect(entryKeyHash({ name: "not hex", unnamed: true })).toBeNull();
   });
 });
 

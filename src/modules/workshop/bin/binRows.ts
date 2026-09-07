@@ -1,5 +1,7 @@
 import type { AppError, BinRow, BinRows, BinValue } from "@/lib/tauri";
 
+import { nameHash } from "./binHash";
+
 /** How many rows one children call answers. A longer container asks again. */
 export const PAGE_SIZE = 500;
 
@@ -36,6 +38,23 @@ export function isUnder(parent: string, key: string): boolean {
 /** The hash of the field a property row's path ends in, `0x` and eight hex digits. */
 export function fieldHash(path: string): string {
   return `0x${path.slice(-8)}`;
+}
+
+/**
+ * The hash a map entry's key holds, or null for a key that is no hash.
+ *
+ * An entry whose key no table names is drawn as its own hex. A named one is drawn as
+ * the name, in the JSON literal the backend writes, which hashes back to the same
+ * value the key held.
+ */
+export function entryKeyHash(row: Pick<BinRow, "name" | "unnamed">): string | null {
+  if (row.unnamed) return /^0x[0-9a-f]{8}$/i.test(row.name) ? row.name.toLowerCase() : null;
+  if (!row.name.startsWith('"')) return null;
+  try {
+    return nameHash(JSON.parse(row.name) as string);
+  } catch {
+    return null;
+  }
 }
 
 /** Whether rows can sit under this one. */

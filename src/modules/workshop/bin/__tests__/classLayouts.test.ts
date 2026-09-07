@@ -3,13 +3,30 @@ import { describe, expect, it } from "vitest";
 import type { BinRow, BinValue } from "@/lib/tauri";
 
 import { nameHash } from "../binHash";
-import { classLayout, materialLayout, placeRows } from "../classLayouts";
+import {
+  classLayout,
+  descentOf,
+  levelRequests,
+  materialLayout,
+  MAX_LEVELS,
+  placeRows,
+  type SectionWidget,
+  skinLayout,
+  vfxLayout,
+} from "../classLayouts";
+
+const ENTRY = "0x2a1f3c7d";
 
 /** A depth-zero property row of the material, whose wire path is the field's hash. */
 function field(name: string, value: BinValue = { type: "string", value: "" }): BinRow {
+  return row(nameHash(name).slice(2), name, value);
+}
+
+/** One row of the object, addressed by its own wire path. */
+function row(path: string, name: string, value: BinValue): BinRow {
   return {
-    entry: "0x2a1f3c7d",
-    path: nameHash(name).slice(2),
+    entry: ENTRY,
+    path,
     label: name,
     node: "property",
     name,
@@ -21,11 +38,45 @@ function field(name: string, value: BinValue = { type: "string", value: "" }): B
 }
 
 const list = (len: number): BinValue => ({ type: "container", len, itemKind: "embed" });
+const embed = (className: string, len: number): BinValue => ({
+  type: "struct",
+  classHash: nameHash(className),
+  class: className,
+  len,
+});
 
 describe("classLayout", () => {
-  it("opens a material in its own layout and every other class in none", () => {
+  it("opens each registered class in its own layout, and every other class in none", () => {
     expect(classLayout(nameHash("StaticMaterialDef"))).toBe(materialLayout);
-    expect(classLayout(nameHash("SkinCharacterDataProperties"))).toBeUndefined();
+    expect(classLayout(nameHash("SkinCharacterDataProperties"))).toBe(skinLayout);
+    expect(classLayout(nameHash("VfxSystemDefinitionData"))).toBe(vfxLayout);
+    expect(classLayout(nameHash("AnimationGraphData"))).toBeUndefined();
+  });
+
+  it("opens the TFT skin in the skin layout, which the schema does not say derives it", () => {
+    expect(classLayout(nameHash("TftSkinCharacterDataProperties"))).toBe(skinLayout);
+  });
+});
+
+describe("descentOf", () => {
+  const widgets: SectionWidget[] = [
+    "sampler-table",
+    "param-table",
+    "switch-list",
+    "tree",
+    "fields",
+    "icons",
+    "mesh",
+    "override-table",
+    "effect-table",
+    "emitter-table",
+  ];
+
+  it("keeps every widget inside the levels the view reads", () => {
+    for (const widget of widgets) {
+      expect(descentOf(widget).length).toBeLessThanOrEqual(MAX_LEVELS);
+    }
+    expect(descentOf(undefined)).toEqual([]);
   });
 });
 
@@ -88,5 +139,84 @@ describe("placeRows", () => {
       "tree",
       "tree",
     ]);
+  });
+});
+
+describe("placeRows over a skin", () => {
+  const roots = [
+    field("championSkinName"),
+    field("skinMeshProperties", embed("SkinMeshDataProperties", 38)),
+    field("idleParticlesEffects", list(2)),
+    field("mResourceResolver", { type: "objectLink", hash: "0x11223344", name: null }),
+    field("healthBarData", embed("CharacterHealthBarDataRecord", 4)),
+  ];
+
+  it("places the mesh row in both the sections that draw a part of it", () => {
+    const placed = placeRows(roots, skinLayout);
+    const mesh = placed.filter((section) =>
+      section.rows.some((row) => row.name === "skinMeshProperties"),
+    );
+
+    expect(mesh.map((section) => section.widget)).toEqual(["mesh", "override-table"]);
+  });
+
+  it("leaves a field no section names to Other, the mesh included once it is placed", () => {
+    const placed = placeRows(roots, skinLayout);
+
+    expect(placed.at(-1)?.rows.map((row) => row.name)).toEqual(["healthBarData"]);
+  });
+
+  it("names the fields a section draws under the row it placed", () => {
+    const placed = placeRows(roots, skinLayout);
+    const animation = placed.find((section) => section.title() === "Animation");
+
+    expect(animation?.under).toEqual(["animationGraphData"]);
+  });
+});
+
+describe("levelRequests", () => {
+  const roots = [
+    field("skinMeshProperties", embed("SkinMeshDataProperties", 38)),
+    field("idleParticlesEffects", list(2)),
+  ];
+  const placed = placeRows(roots, skinLayout);
+  const meshKey = `${ENTRY}:${nameHash("skinMeshProperties").slice(2)}`;
+  const effectsKey = `${ENTRY}:${nameHash("idleParticlesEffects").slice(2)}`;
+
+  it("asks for every placed row of a widget section, and for none of a tree", () => {
+    expect(
+      levelRequests(placed, new Map(), 0)
+        .map((request) => request.key)
+        .sort(),
+    ).toEqual([effectsKey, meshKey, meshKey].sort());
+  });
+
+  it("carries only the field a section named into the level under it", () => {
+    const under = row(
+      `${nameHash("skinMeshProperties").slice(2)}.${nameHash("materialOverride").slice(2)}`,
+      "materialOverride",
+      list(1),
+    );
+    const other = row(
+      `${nameHash("skinMeshProperties").slice(2)}.${nameHash("texture").slice(2)}`,
+      "texture",
+      { type: "string", value: "" },
+    );
+    const pages = new Map([[meshKey, { rows: [under, other], total: 2 }]]);
+
+    expect(levelRequests(placed, pages, 1).map((request) => request.key)).toEqual([
+      `${ENTRY}:${under.path}`,
+    ]);
+  });
+
+  it("asks for nothing under a row that holds none", () => {
+    const empty = row(
+      `${nameHash("skinMeshProperties").slice(2)}.${nameHash("materialOverride").slice(2)}`,
+      "materialOverride",
+      list(0),
+    );
+    const pages = new Map([[meshKey, { rows: [empty], total: 1 }]]);
+
+    expect(levelRequests(placed, pages, 1)).toEqual([]);
   });
 });

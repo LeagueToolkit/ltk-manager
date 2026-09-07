@@ -1,39 +1,61 @@
-import { CaretRightIcon, WarningCircleIcon } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, useMemo, useState } from "react";
+import { CaretRightIcon } from "@phosphor-icons/react";
+import { type MouseEvent as ReactMouseEvent, type ReactNode, useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 import { Checkbox, ContextMenu, Readout } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
-import { fileKindFromPath } from "../gameBrowser/fileKind";
-import type { OpenIntent } from "../palette/types";
-import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
+import { nameHash } from "./binHash";
 import { RowValue } from "./BinRow";
-import { childCount, fieldHash, rowKey, type RowLine } from "./binRows";
+import { rowKey, type RowLine } from "./binRows";
 import { BinTree } from "./BinTree";
-import { type ClassLayout, NAMED, type PlacedSection, placeRows, SAMPLER } from "./classLayouts";
-import { chunkPath, decideFileLink } from "./linkDecision";
-import { TextureSwatch } from "./TextureSwatch";
-import { type ReadRequest, useBinRead } from "./useBinRead";
+import {
+  Cell,
+  elementsOf,
+  FieldRow,
+  fieldsIn,
+  type FieldsOf,
+  fieldsOf,
+  type LayoutPages,
+  None,
+  TableRows,
+  TextCell,
+  TextureTile,
+  type ViewContext,
+  type WidgetProps,
+} from "./ClassCells";
+import {
+  type ClassLayout,
+  levelRequests,
+  NAMED,
+  type PlacedSection,
+  placeRows,
+  readsOwnMarks,
+  SAMPLER,
+  type SectionWidget,
+} from "./classLayouts";
+import { EffectTable, IconRow, MeshCard, OverrideTable } from "./SkinSections";
+import { useBinRead } from "./useBinRead";
 import {
   LinkAssetContext,
   LinkOpenContext,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
-  useLayerCopy,
-  useLinkTargets,
   useWarmLinkOpen,
 } from "./useLinkTargets";
 import { useValueMarks, ValueMarksContext } from "./useValueMarks";
+import { EmitterTable } from "./VfxSections";
 
 /** The most rows a tree section shows before it scrolls, so no section owns the page. */
 const TREE_ROWS = 12;
 
 /** The room a mode field takes, so a column of them lines its digits up. */
 const MODE_WIDTH = "w-8";
+
+const NO_PAGES: LayoutPages = new Map();
 
 interface ClassViewProps {
   /** The open's id, which every read carries. */
@@ -71,31 +93,30 @@ export function ClassView({
   onShowInProperties,
 }: ClassViewProps) {
   const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
-  const read = useLayoutRead(document, placed);
+  const pages = useLayoutRead(document, placed);
+  const view = useMemo<ViewContext>(
+    () => ({ document, asset, classHash, objectName, onNotOpen }),
+    [document, asset, classHash, objectName, onNotOpen],
+  );
 
   /* The roots and everything the read answered, each checked as one group. A tree
      section runs its own checks, because it is a tree. */
   const groups = useMemo<RowGroup[]>(
     () => [
       { key: "", rows: roots },
-      ...[...read.elements].map(([key, page]) => ({ key, rows: page.rows })),
-      ...[...read.fields].map(([key, page]) => ({ key, rows: page.rows })),
+      ...[...pages].map(([key, page]) => ({ key, rows: page.rows })),
     ],
-    [roots, read],
+    [roots, pages],
   );
   const linkTargets = useCheckLinkTargets(document, groups);
   const linkOpen = useWarmLinkOpen(linkTargets);
 
-  /* Every row a cell was drawn for: what the menu is aimed at, and what the marks read. */
-  const byKey = useMemo(() => cellRows(placed, read), [placed, read]);
-  const marks = useValueMarks(
-    document,
-    useMemo(() => [...byKey.values()], [byKey]),
-  );
+  const held = useMemo(() => cellRows(placed, pages), [placed, pages]);
+  const marks = useValueMarks(document, held.marks);
   const [menuLine, setMenuLine] = useState<RowLine | null>(null);
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
     const cell = (event.target as HTMLElement).closest<HTMLElement>("[data-row-key]");
-    const row = cell?.dataset.rowKey === undefined ? undefined : byKey.get(cell.dataset.rowKey);
+    const row = cell?.dataset.rowKey === undefined ? undefined : held.menu.get(cell.dataset.rowKey);
     setMenuLine(row === undefined ? null : cellLine(row, classHash));
   }
 
@@ -111,16 +132,7 @@ export function ClassView({
                 onContextMenu={handleContextMenu}
               >
                 {placed.map((section, at) => (
-                  <Section
-                    key={at}
-                    section={section}
-                    read={read}
-                    document={document}
-                    asset={asset}
-                    classHash={classHash}
-                    objectName={objectName}
-                    onNotOpen={onNotOpen}
-                  />
+                  <Section key={at} section={section} pages={pages} view={view} />
                 ))}
               </ContextMenu.Trigger>
 
@@ -137,61 +149,45 @@ export function ClassView({
   );
 }
 
-/** What the layout read under its table sections: their elements, and each element's fields. */
-interface LayoutRead {
-  /** The rows under a section's field, by that field row's key. */
-  readonly elements: ReadonlyMap<string, BinRows>;
-  /** The rows under one element, by that element row's key. */
-  readonly fields: ReadonlyMap<string, BinRows>;
-}
-
 /**
- * The two levels a layout's tables read, through the projected read.
+ * The levels a layout's widgets read, through the projected read.
  *
  * "What a layout reads" in docs/ux/BIN_EDITOR.md. The depth-zero rows arrive with the
- * open, so a material costs the containers and then their elements, two calls. A tree
- * section reads nothing until a reader expands it.
+ * open, so a material costs the containers and then their elements, two calls. A level
+ * asks out of what the levels above it answered, and a tree section reads nothing until
+ * a reader expands it.
  */
-function useLayoutRead(document: BinDocumentId, placed: readonly PlacedSection[]): LayoutRead {
-  const wanted = useMemo<ReadRequest[]>(() => {
-    const requests: ReadRequest[] = [];
-    for (const section of placed) {
-      if (section.widget === undefined || section.widget === "tree") continue;
-      for (const row of section.rows) {
-        requests.push({ key: rowKey(row), rows: childCount(row) });
-      }
-    }
-    return requests;
-  }, [placed]);
-  const elements = useBinRead(document, wanted);
+function useLayoutRead(document: BinDocumentId, placed: readonly PlacedSection[]): LayoutPages {
+  const first = useBinRead(
+    document,
+    useMemo(() => levelRequests(placed, NO_PAGES, 0), [placed]),
+  );
+  const second = useBinRead(
+    document,
+    useMemo(() => levelRequests(placed, first, 1), [placed, first]),
+  );
+  const above = useMemo(() => joined(first, second), [first, second]);
+  const third = useBinRead(
+    document,
+    useMemo(() => levelRequests(placed, above, 2), [placed, above]),
+  );
+  return useMemo(() => joined(above, third), [above, third]);
+}
 
-  const under = useMemo<ReadRequest[]>(() => {
-    const requests: ReadRequest[] = [];
-    for (const page of elements.values()) {
-      for (const row of page.rows) {
-        if (row.value.type !== "struct") continue;
-        requests.push({ key: rowKey(row), rows: row.value.len });
-      }
-    }
-    return requests;
-  }, [elements]);
-  const fields = useBinRead(document, under);
-
-  return useMemo(() => ({ elements, fields }), [elements, fields]);
+/** Two levels' answers as one map, which is how a level reads what the ones above it got. */
+function joined(above: LayoutPages, level: LayoutPages): LayoutPages {
+  if (level.size === 0) return above;
+  return new Map([...above, ...level]);
 }
 
 interface SectionProps {
   section: PlacedSection;
-  read: LayoutRead;
-  document: BinDocumentId;
-  asset: AssetRef;
-  classHash: string;
-  objectName: (entry: string) => string;
-  onNotOpen: () => void;
+  pages: LayoutPages;
+  view: ViewContext;
 }
 
 /** One section: its header, and the fields it placed. */
-function Section({ section, read, ...rest }: SectionProps) {
+function Section({ section, pages, view }: SectionProps) {
   const [open, setOpen] = useState(true);
   const title = section.title();
 
@@ -213,123 +209,99 @@ function Section({ section, read, ...rest }: SectionProps) {
       )}
       {open && section.rows.length > 0 && (
         <div className="pl-3 font-mono text-mono-row">
-          <SectionBody section={section} read={read} title={title} {...rest} />
+          <SectionBody section={section} pages={pages} view={view} title={title} />
         </div>
       )}
     </section>
   );
 }
 
-type SectionBodyProps = Omit<SectionProps, "section"> & {
-  section: PlacedSection;
-  title: string;
+/** What each widget draws for the section that names it. */
+const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => ReactNode> = {
+  "sampler-table": SamplerTable,
+  "param-table": ParamTable,
+  "switch-list": SwitchList,
+  fields: NamedFields,
+  icons: IconRow,
+  mesh: MeshCard,
+  "override-table": OverrideTable,
+  "effect-table": EffectTable,
+  "emitter-table": EmitterTable,
 };
 
-function SectionBody({
-  section,
-  read,
-  document,
-  asset,
-  classHash,
-  objectName,
-  onNotOpen,
-  title,
-}: SectionBodyProps) {
+function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {
   if (section.widget === "tree") {
     return (
       <div className="flex flex-col rounded-md border border-surface-700/50">
         <BinTree
-          document={document}
-          asset={asset}
+          document={view.document}
+          asset={view.asset}
           roots={section.rows}
-          rootOwner={classHash}
+          rootOwner={view.classHash}
           label={title}
           maxRows={TREE_ROWS}
           initialExpanded={section.other ? undefined : section.rows.map(rowKey)}
-          objectName={objectName}
-          onNotOpen={onNotOpen}
+          objectName={view.objectName}
+          onNotOpen={view.onNotOpen}
         />
       </div>
     );
   }
 
-  return (
-    <div className="flex flex-col">
-      {section.rows.map((row) => (
-        <Placed key={rowKey(row)} row={row} widget={section.widget} read={read} />
-      ))}
-    </div>
-  );
-}
-
-interface PlacedProps {
-  row: BinRow;
-  widget: PlacedSection["widget"];
-  read: LayoutRead;
-}
-
-/** What each widget draws for one element of the container its section placed. */
-const TABLE_ROWS: Partial<Record<NonNullable<PlacedSection["widget"]>, TableProps["draw"]>> = {
-  "sampler-table": (fields) => <Sampler fields={fields} />,
-  "param-table": (fields) => <Param fields={fields} />,
-  "switch-list": (fields) => <Switch fields={fields} />,
-};
-
-/** One placed field: the widget its section names, or the cell the row itself draws. */
-function Placed({ row, widget, read }: PlacedProps) {
-  const draw = widget === undefined ? undefined : TABLE_ROWS[widget];
-  if (draw !== undefined) {
-    return <Table rows={read.elements.get(rowKey(row))?.rows ?? []} read={read} draw={draw} />;
-  }
-
-  return (
-    /* DS-VEIL, DS-RADIUS */
-    <div
-      className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
-      data-row-key={rowKey(row)}
-    >
-      <span className="w-40 shrink-0 truncate text-surface-200">{row.name}</span>
-      <RowValue row={row} />
-    </div>
-  );
-}
-
-interface TableProps {
-  rows: readonly BinRow[];
-  read: LayoutRead;
-  draw: (fields: FieldsOf) => React.ReactNode;
-}
-
-/** A row per element, each drawn from the fields the second level answered for it. */
-function Table({ rows, read, draw }: TableProps) {
-  if (rows.length === 0) {
+  if (section.widget === undefined) {
     return (
-      <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>
+      <div className="flex flex-col">
+        {section.rows.map((row) => (
+          <FieldRow key={rowKey(row)} row={row} />
+        ))}
+      </div>
     );
   }
 
+  const Widget = WIDGETS[section.widget];
+  return <Widget section={section} pages={pages} view={view} />;
+}
+
+/** The fields the section names under the one row it placed, each on a line of its own. */
+function NamedFields({ section, pages }: WidgetProps) {
+  const byField = fieldsIn(elementsOf(section.rows, pages));
+  const drawn = section.under
+    .map((name) => byField(nameHash(name)))
+    .filter((row): row is BinRow => row !== undefined);
+
+  if (drawn.length === 0) return <None />;
   return (
     <div className="flex flex-col">
-      {rows.map((element) => (
-        <div
-          key={rowKey(element)}
-          data-row-key={rowKey(element)}
-          /* DS-VEIL, DS-RADIUS */
-          className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
-        >
-          {draw(fieldsOf(read.fields.get(rowKey(element))))}
-        </div>
+      {drawn.map((row) => (
+        <FieldRow key={rowKey(row)} row={row} />
       ))}
     </div>
   );
 }
 
-/** One element's fields, by field hash, as the read answered them. */
-type FieldsOf = (hash: string) => BinRow | undefined;
+/** A row per element, each drawn from the fields the level under it answered. */
+function ElementTable({
+  section,
+  pages,
+  draw,
+}: WidgetProps & { draw: (fields: FieldsOf) => ReactNode }) {
+  return (
+    <TableRows rows={elementsOf(section.rows, pages)}>
+      {(element) => draw(fieldsOf(pages.get(rowKey(element))))}
+    </TableRows>
+  );
+}
 
-function fieldsOf(page: BinRows | undefined): FieldsOf {
-  const byField = new Map((page?.rows ?? []).map((row) => [fieldHash(row.path), row]));
-  return (hash) => byField.get(hash);
+function SamplerTable(props: WidgetProps) {
+  return <ElementTable {...props} draw={(fields) => <Sampler fields={fields} />} />;
+}
+
+function ParamTable(props: WidgetProps) {
+  return <ElementTable {...props} draw={(fields) => <Param fields={fields} />} />;
+}
+
+function SwitchList(props: WidgetProps) {
+  return <ElementTable {...props} draw={(fields) => <Switch fields={fields} />} />;
 }
 
 /** The sampler's texture as a tile, its name, its path as a chip, and its modes. */
@@ -342,9 +314,7 @@ function Sampler({ fields }: { fields: FieldsOf }) {
       <TextureTile row={texture} />
       <span className="flex min-w-0 flex-1 flex-col">
         {/* DS-WEIGHT-TIER */}
-        <Cell row={named} className="truncate font-medium text-surface-100">
-          {textOf(named)}
-        </Cell>
+        <TextCell row={named} className="font-medium text-surface-100" />
         <Cell row={texture} className="flex min-w-0 items-center gap-2">
           {texture && <RowValue row={texture} />}
         </Cell>
@@ -385,9 +355,7 @@ function Param({ fields }: { fields: FieldsOf }) {
   const value = fields(NAMED.value);
   return (
     <>
-      <Cell row={named} className="w-48 shrink-0 truncate text-surface-200">
-        {textOf(named)}
-      </Cell>
+      <TextCell row={named} className="w-48 shrink-0 text-surface-200" />
       <Cell row={value} className="flex min-w-0 flex-1">
         {value && <RowValue row={value} />}
       </Cell>
@@ -409,110 +377,44 @@ function Switch({ fields }: { fields: FieldsOf }) {
           tabIndex={-1}
         />
       </Cell>
-      <Cell row={named} className="min-w-0 truncate text-surface-200">
-        {textOf(named)}
-      </Cell>
+      <TextCell row={named} className="min-w-0 text-surface-200" />
     </>
   );
 }
 
-/**
- * One cell of a table, tagged with the row it draws.
- *
- * The tag is what the view's one menu is aimed at, so a right-click on a sampler's
- * path offers that path's own actions rather than the element's.
- */
-function Cell({
-  row,
-  className,
-  children,
-}: {
-  row: BinRow | undefined;
-  className: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <span className={className} data-row-key={row === undefined ? undefined : rowKey(row)}>
-      {children}
-    </span>
-  );
+/** What the view holds a row for: the menu it aims, and the marks it reads. */
+interface ViewRows {
+  /** Every row a cell was drawn for, by key, which is what the menu is aimed at. */
+  readonly menu: ReadonlyMap<string, BinRow>;
+  /** The rows the view reads a value mark for, which a widget of its own is left out of. */
+  readonly marks: readonly BinRow[];
 }
 
-/** The sampler's texture at 48px, for a `file` and for a string that resolves. */
-function TextureTile({ row }: { row: BinRow | undefined }) {
-  const targets = useLinkTargets();
-  const path = texturePath(row);
-  const layer = useLayerCopy(path);
-  const open = useOpenDocumentAs();
-  const decision = decideFileLink(path, targets, layer);
+/** Every row the layout drew a cell for, and which of them the view marks itself. */
+function cellRows(placed: readonly PlacedSection[], pages: LayoutPages): ViewRows {
+  const menu = new Map<string, BinRow>();
+  const marks: BinRow[] = [];
 
-  const fileKind = path === null ? "unknown" : fileKindFromPath(path);
-  if (decision.kind === "missing") return <EmptyTile missing />;
-  if (decision.kind !== "chip" || path === null || !isTexture(fileKind)) return <EmptyTile />;
-  return (
-    <TextureSwatch
-      asset={decision.document.asset}
-      path={path}
-      fileKind={fileKind}
-      layerTitle={layer?.title}
-      size="tile"
-      onOpen={(intent: OpenIntent) => open(decision.document, intent)}
-    />
-  );
-}
-
-/**
- * The tile a sampler keeps when its texture does not draw, so one left edge holds.
- *
- * A missing chunk marks the tile. The row's own path carries what the mark means.
- */
-function EmptyTile({ missing = false }: { missing?: boolean }) {
-  return (
-    <span
-      /* DS-VEIL, DS-RADIUS */
-      className={twMerge(
-        "flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-surface-veil-strong bg-surface-veil-soft",
-        missing && "border-warning/30",
-      )}
-      aria-hidden
-    >
-      {missing && <WarningCircleIcon weight="bold" className="h-4 w-4 text-warning-text" />}
-    </span>
-  );
-}
-
-/** The chunk path a texture field names, whether it crosses as a `file` or as a string. */
-function texturePath(row: BinRow | undefined): string | null {
-  if (row?.value.type === "wadChunkLink") return row.value.path;
-  if (row?.value.type === "string") return chunkPath(row.value.value);
-  return null;
-}
-
-function isTexture(kind: ReturnType<typeof fileKindFromPath>): boolean {
-  return kind === "texture" || kind === "texture_dds";
-}
-
-/** A field's value where it is a string, which is what a table's name column draws. */
-function textOf(row: BinRow | undefined): string | undefined {
-  return row?.value.type === "string" ? row.value.value : undefined;
-}
-
-/** Every row a cell was drawn for, by key, which is what the menu is aimed at. */
-function cellRows(placed: readonly PlacedSection[], read: LayoutRead): ReadonlyMap<string, BinRow> {
-  const rows = new Map<string, BinRow>();
   for (const section of placed) {
     if (section.widget === "tree") continue;
-    for (const row of section.rows) {
-      rows.set(rowKey(row), row);
-      for (const element of read.elements.get(rowKey(row))?.rows ?? []) {
-        rows.set(rowKey(element), element);
-        for (const field of read.fields.get(rowKey(element))?.rows ?? []) {
-          rows.set(rowKey(field), field);
-        }
-      }
+    const own = readsOwnMarks(section.widget);
+    for (const row of walk(section.rows, pages)) {
+      menu.set(rowKey(row), row);
+      if (!own) marks.push(row);
     }
   }
-  return rows;
+  return { menu, marks };
+}
+
+/** `rows` and everything the read answered under them, however deep it went. */
+function walk(rows: readonly BinRow[], pages: LayoutPages): BinRow[] {
+  const out: BinRow[] = [];
+  for (const row of rows) {
+    out.push(row);
+    const page = pages.get(rowKey(row));
+    if (page) out.push(...walk(page.rows, pages));
+  }
+  return out;
 }
 
 /** A cell as the row menu reads one. Its depth and its expansion are the tree's, not a cell's. */
