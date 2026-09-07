@@ -44,6 +44,8 @@ export interface ValueMark {
   readonly constant: BinValue | null;
   /** A colour's stops, in the dynamics' own order. Empty where it has none. */
   readonly stops: readonly ColorStop[];
+  /** The row's `dynamics` points at a curve, so the constant is not the whole value. */
+  readonly curve: boolean;
 }
 
 /** The first level: every family row in view, whose children are its constant and its curve. */
@@ -101,6 +103,7 @@ export function valueMarks(
       family,
       constant: under(page, CONSTANT)?.value ?? null,
       stops: family === "color" ? colorStops(page, dynamics, stops) : [],
+      curve: under(page, DYNAMICS)?.value.type === "struct",
     });
   }
   return marks;

@@ -420,6 +420,7 @@ describe("a value family's row", () => {
         { time: 0, rgba: [1, 0, 0, 1] },
         { time: 1, rgba: [0, 0, 1, 1] },
       ],
+      curve: true,
     });
 
     expect(screen.getByText("ValueColor")).toBeInTheDocument();
@@ -431,25 +432,32 @@ describe("a value family's row", () => {
       family: "color",
       constant: { type: "vector", values: [1, 1, 1, 1] },
       stops: [],
+      curve: false,
     });
 
     expect(screen.queryByLabelText(/colour stop/)).toBeNull();
   });
 
   it("draws a float's and a vector's constant in the field a leaf row draws", () => {
-    renderMarked({ family: "scalar", constant: { type: "float", value: 2.5 }, stops: [] });
+    renderMarked({
+      family: "scalar",
+      constant: { type: "float", value: 2.5 },
+      stops: [],
+      curve: false,
+    });
     expect(screen.getByDisplayValue("2.5")).toHaveAttribute("readonly");
 
     renderMarked({
       family: "vector",
       constant: { type: "vector", values: [0, 1.5, 0] },
       stops: [],
+      curve: false,
     });
     expect(screen.getByDisplayValue("1.5")).toHaveAttribute("readonly");
   });
 
   it("draws nothing extra before the read lands", () => {
-    renderMarked({ family: "color", constant: null, stops: [] });
+    renderMarked({ family: "color", constant: null, stops: [], curve: false });
 
     expect(screen.queryByLabelText(/colour stop/)).toBeNull();
   });

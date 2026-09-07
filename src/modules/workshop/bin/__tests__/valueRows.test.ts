@@ -147,6 +147,7 @@ describe("valueMarks", () => {
       { time: 0, rgba: [1, 0, 0, 1] },
       { time: 2, rgba: [0, 0, 1, 0] },
     ]);
+    expect(mark?.curve).toBe(true);
   });
 
   it("carries a scalar's constant and no stops", () => {
@@ -155,6 +156,7 @@ describe("valueMarks", () => {
     expect(mark?.family).toBe("scalar");
     expect(mark?.constant).toEqual({ type: "float", value: 2.5 });
     expect(mark?.stops).toEqual([]);
+    expect(mark?.curve).toBe(false);
   });
 
   it("carries a null constant while nothing has answered", () => {
@@ -164,6 +166,7 @@ describe("valueMarks", () => {
       family: "color",
       constant: null,
       stops: [],
+      curve: false,
     });
   });
 });
@@ -199,19 +202,29 @@ describe("colorHex and gradientCss", () => {
 
 describe("markText", () => {
   it("copies a colour as its bytes and a scalar and a vector as they draw", () => {
-    expect(markText({ family: "color", constant: vec4(1, 0.5, 0, 1), stops: [] })).toBe(
-      "#FF8000FF",
-    );
-    expect(markText({ family: "scalar", constant: { type: "float", value: 2.5 }, stops: [] })).toBe(
-      "2.5",
-    );
     expect(
-      markText({ family: "vector", constant: { type: "vector", values: [0, 1.5, 0] }, stops: [] }),
+      markText({ family: "color", constant: vec4(1, 0.5, 0, 1), stops: [], curve: false }),
+    ).toBe("#FF8000FF");
+    expect(
+      markText({
+        family: "scalar",
+        constant: { type: "float", value: 2.5 },
+        stops: [],
+        curve: false,
+      }),
+    ).toBe("2.5");
+    expect(
+      markText({
+        family: "vector",
+        constant: { type: "vector", values: [0, 1.5, 0] },
+        stops: [],
+        curve: false,
+      }),
     ).toBe("0, 1.5, 0");
   });
 
   it("copies nothing before the read lands", () => {
     expect(markText(undefined)).toBeNull();
-    expect(markText({ family: "color", constant: null, stops: [] })).toBeNull();
+    expect(markText({ family: "color", constant: null, stops: [], curve: false })).toBeNull();
   });
 });
