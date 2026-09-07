@@ -1,4 +1,4 @@
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -447,6 +447,7 @@ function TextureTile({ row }: { row: BinRow | undefined }) {
   const decision = decideFileLink(path, targets, layer);
 
   const fileKind = path === null ? "unknown" : fileKindFromPath(path);
+  if (decision.kind === "missing") return <EmptyTile missing />;
   if (decision.kind !== "chip" || path === null || !isTexture(fileKind)) return <EmptyTile />;
   return (
     <TextureSwatch
@@ -460,13 +461,23 @@ function TextureTile({ row }: { row: BinRow | undefined }) {
   );
 }
 
-function EmptyTile() {
+/**
+ * The tile a sampler keeps when its texture does not draw, so one left edge holds.
+ *
+ * A missing chunk marks the tile. The row's own path carries what the mark means.
+ */
+function EmptyTile({ missing = false }: { missing?: boolean }) {
   return (
-    /* DS-VEIL, DS-RADIUS */
     <span
-      className="h-12 w-12 shrink-0 rounded-sm border border-surface-veil-strong bg-surface-veil-soft"
+      /* DS-VEIL, DS-RADIUS */
+      className={twMerge(
+        "flex h-12 w-12 shrink-0 items-center justify-center rounded-sm border border-surface-veil-strong bg-surface-veil-soft",
+        missing && "border-warning/30",
+      )}
       aria-hidden
-    />
+    >
+      {missing && <WarningCircleIcon weight="bold" className="h-4 w-4 text-warning-text" />}
+    </span>
   );
 }
 

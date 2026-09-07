@@ -1,7 +1,8 @@
+import { WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Code, Popover, Readout } from "@/components";
+import { Code, Popover, Readout, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 
@@ -91,7 +92,7 @@ export function FileChip({ hash, path }: FileChipProps) {
   const decision = decideFileLink(path, targets, layer);
 
   if (path === null) return <Hex>{hash}</Hex>;
-  if (decision.kind !== "chip") return <Text>{path}</Text>;
+  if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"}>{path}</Text>;
   return (
     <ChunkChip
       document={decision.document}
@@ -120,6 +121,7 @@ export function StringValue({ text }: StringValueProps) {
   const open = useOpenDocumentAs();
   const decision = decideStringLink(text, targets, () => layer);
 
+  if (decision.kind === "missing") return <Text missing>{path ?? text}</Text>;
   if (decision.kind !== "chip") return <Readout value={text} className="flex-1 text-surface-100" />;
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
@@ -257,8 +259,30 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
   );
 }
 
-function Text({ children }: { children: ReactNode }) {
-  return <span className="truncate text-surface-200 select-text">{children}</span>;
+/**
+ * A path drawn as text, marked where nothing on this machine holds the chunk.
+ *
+ * "A chunk nothing holds" in docs/ux/BIN_EDITOR.md. One component draws both, so the
+ * check answering marks the row it already drew instead of replacing it.
+ */
+function Text({ children, missing = false }: { children: ReactNode; missing?: boolean }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        className={twMerge(
+          "truncate select-text",
+          missing ? "text-surface-300" : "text-surface-200",
+        )}
+      >
+        {children}
+      </span>
+      {missing && (
+        <Tooltip content={m.workshop_bin_missing_chunk_description()}>
+          <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-warning-text" />
+        </Tooltip>
+      )}
+    </span>
+  );
 }
 
 function Hex({ children }: { children: ReactNode }) {

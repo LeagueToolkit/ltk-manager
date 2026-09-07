@@ -24,7 +24,7 @@ import {
 import { useOpenDocumentAs } from "../state";
 import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
-import { chunkPath, decideLink, type LinkDecision } from "./linkDecision";
+import { chunkPath, decideLink, type LinkDecision, type MissingChunk } from "./linkDecision";
 import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
 import { markText } from "./valueRows";
@@ -203,7 +203,7 @@ export function BinContextMenu({
 /** What Open link does for a row, or null where the row's value opens nothing. */
 function linkOpener(
   value: BinValue,
-  link: LinkDecision | null,
+  link: LinkDecision | MissingChunk | null,
   open: (document: ContentDocument, intent: OpenIntent) => void,
   wantOpen: (hash: string, intent: OpenIntent) => void,
 ): ((intent: OpenIntent) => void) | null {

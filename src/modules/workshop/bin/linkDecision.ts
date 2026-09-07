@@ -31,9 +31,15 @@ export type LinkDecision =
       readonly kind: "text";
     };
 
+/** A path that resolved and that nothing on this machine holds. */
+export interface MissingChunk {
+  readonly kind: "missing";
+}
+
 /** A `file` link's decision, whose chip opens a preview. */
 export type FileLinkDecision =
   | Exclude<LinkDecision, { kind: "chip" }>
+  | MissingChunk
   | {
       readonly kind: "chip";
       readonly document: ContentDocumentOf<"preview">;
@@ -48,6 +54,7 @@ export interface LayerCopy {
 }
 
 const TEXT = { kind: "text" } as const satisfies LinkDecision;
+const MISSING = { kind: "missing" } as const satisfies MissingChunk;
 const WARM = { kind: "warm" } as const satisfies LinkDecision;
 const PENDING = { kind: "pending" } as const satisfies LinkDecision;
 
@@ -89,7 +96,8 @@ export function decideHash(hash: string, targets: LinkTargets): LinkDecision {
  * What a `WadChunkLink` draws as.
  *
  * The layer's copy answers first and the install's second, and the chip carries the
- * side that answered. A path nothing resolves, and one neither side holds, is text.
+ * side that answered. A path nothing resolves is text. A path both sides lack is
+ * missing, which is a chunk the file names and nothing on this machine holds.
  */
 export function decideFileLink(
   path: string | null,
@@ -105,7 +113,7 @@ export function decideFileLink(
     const asset = { kind: "gameChunk", wad: located.wad, pathHash: located.pathHash } as const;
     return { kind: "chip", document: previewDocument(asset, path), side: assetContext(asset) };
   }
-  return targets.pending ? PENDING : TEXT;
+  return targets.pending ? PENDING : MISSING;
 }
 
 /**
@@ -134,11 +142,14 @@ export function decideStringLink(
   text: string,
   targets: LinkTargets,
   layer: (path: string) => LayerCopy | null,
-): LinkDecision {
+): LinkDecision | MissingChunk {
   const path = chunkPath(text);
   if (path !== null) {
     const chunk = decideFileLink(path, targets, layer(path));
     if (chunk.kind === "chip") return chunk;
+    /* A path-shaped string the index also declares is that object, not a lost chunk. */
+    const declared = decideHash(nameHash(text), targets);
+    return declared.kind === "chip" ? declared : chunk;
   }
   return decideHash(nameHash(text), targets);
 }
@@ -148,7 +159,7 @@ export function decideLink(
   value: BinValue,
   targets: LinkTargets,
   layer: (path: string) => LayerCopy | null,
-): LinkDecision | null {
+): LinkDecision | MissingChunk | null {
   switch (value.type) {
     case "objectLink":
       return decideObjectLink(value.hash, targets);

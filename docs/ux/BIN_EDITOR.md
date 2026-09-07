@@ -4,6 +4,7 @@
 
 | Date       | Change                                                   |
 | ---------- | -------------------------------------------------------- |
+| 2026-09-07 | Name a project's own chunks                              |
 | 2026-09-07 | Lay a material out beside the tree                       |
 | 2026-09-07 | Read several nodes in one call, and draw a value family  |
 | 2026-09-07 | Link a string that names a thing                         |
@@ -13,7 +14,6 @@
 | 2026-09-07 | Start the value column at one x whatever the depth       |
 | 2026-09-07 | Name an element by its class, and hue a bin's type words |
 | 2026-09-07 | Draw an optional's leaf on the option's own row          |
-| 2026-09-07 | Draw a value in the field it will be edited in           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -731,6 +731,26 @@ A path is resolved and drawn lowercased, which is the one spelling the resolver,
 copy and the preview all answer under, and an author's own capitals are not it. The hash is
 the game's FNV-1a over the lowercased string, which the class views reuse. A string joins the
 hashes and the paths its row group already sends, so neither shape costs a call of its own.
+
+### A project names its own chunks
+
+The shared tables are a crawl of the retail game, so a path a mod author invents is in none of
+them. A project's own content names those, and a bin opened out of a layer reads both: every
+file of every layer at its path inside its archive, and every table the project's manifest
+declares. The project answers first, and only a hash it does not name reaches the shared tables.
+
+The scan runs once with the parse and is held with the open document, so a file added while a
+document is open is named the next time it opens.
+
+### A chunk nothing holds
+
+A `file` whose path resolved and whose chunk neither a layer nor the install holds draws that
+path with a warning mark. The path is what the file asks for, and the mark is that nothing
+answers it. A hash no table names keeps its hex and no mark, because an unnamed chunk says
+nothing about whether it is there.
+
+A layer's copy is found at the file's path inside its archive, which is the layer entry's own
+path without its leading archive directory. The document's own layer answers first.
 
 A miss never builds the object index. A `link` a reader clicks says they want the target, and
 a string that happens to hash to nothing says nothing at all, so an absent index leaves every

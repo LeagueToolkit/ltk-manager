@@ -302,6 +302,9 @@ export function useCheckLinkTargets(
   }, [declaredResults, locatedResults, project, targets, tree]);
 }
 
+/** What a layer directory holding an archive's chunks is named. */
+const WAD_DIR_SUFFIX = ".wad.client";
+
 /** The tree's asset, for the layer side of a `file` link. Null outside a tree. */
 export const LinkAssetContext = createContext<AssetRef | null>(null);
 
@@ -318,15 +321,41 @@ export function useLayerCopy(path: string | null): LayerCopy | null {
 
   return useMemo(() => {
     if (path === null || asset?.kind !== "layer" || !data) return null;
-    const layer = data.layers.find((candidate) => candidate.name === asset.layer);
     const wanted = path.toLowerCase();
-    const entry = layer?.entries.find(
-      (candidate) => candidate.relativePath.toLowerCase() === wanted,
-    );
-    if (!layer || !entry) return null;
-    return {
-      asset: { kind: "layer", project: project.path, layer: layer.name, path: entry.relativePath },
-      title: layerTitle(project, layer.name),
-    };
+
+    /* The document's own layer answers first, and any other layer after it. */
+    const ordered = [
+      ...data.layers.filter((candidate) => candidate.name === asset.layer),
+      ...data.layers.filter((candidate) => candidate.name !== asset.layer),
+    ];
+    for (const layer of ordered) {
+      const entry = layer.entries.find(
+        (candidate) => entryChunkPath(candidate.relativePath)?.toLowerCase() === wanted,
+      );
+      if (entry === undefined) continue;
+      return {
+        asset: {
+          kind: "layer",
+          project: project.path,
+          layer: layer.name,
+          path: entry.relativePath,
+        },
+        title: layerTitle(project, layer.name),
+      };
+    }
+    return null;
   }, [asset, data, path, project]);
+}
+
+/**
+ * The chunk path a layer's file holds, or null for a file outside an archive directory.
+ *
+ * A layer entry is addressed from the layer root, so its first segment is the archive
+ * directory. What a `file` value addresses is everything after that.
+ */
+export function entryChunkPath(relativePath: string): string | null {
+  const cut = relativePath.indexOf("/");
+  if (cut < 0) return null;
+  if (!relativePath.slice(0, cut).toLowerCase().endsWith(WAD_DIR_SUFFIX)) return null;
+  return relativePath.slice(cut + 1);
 }

@@ -11,6 +11,7 @@ import { createTestQueryClient } from "@/test/utils";
 
 import { nameHash } from "../binHash";
 import {
+  entryChunkPath,
   joinDeclarations,
   layerDeclarations,
   linkHashes,
@@ -197,5 +198,23 @@ describe("layerDeclarations and joinDeclarations", () => {
     ]);
     expect(joined.get("0x00000009")?.declarations.map((d) => d.file)).toEqual(["data/aatrox.bin"]);
     expect(joinDeclarations(joined, layers)).toEqual(joined);
+  });
+});
+
+describe("entryChunkPath", () => {
+  /* A layer entry is addressed from the layer root, and a `file` value is not. */
+  it("drops the archive directory a layer entry is addressed under", () => {
+    expect(entryChunkPath("Smolder.wad.client/assets/characters/smolder/tx_cm.tex")).toBe(
+      "assets/characters/smolder/tx_cm.tex",
+    );
+  });
+
+  it("keeps the author's own casing, which the caller folds", () => {
+    expect(entryChunkPath("Smolder.WAD.client/ASSETS/Foo.tex")).toBe("ASSETS/Foo.tex");
+  });
+
+  it("is null for a file that sits outside an archive directory", () => {
+    expect(entryChunkPath("README.md")).toBeNull();
+    expect(entryChunkPath("meta/info.json")).toBeNull();
   });
 });

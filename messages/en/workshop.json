@@ -95,6 +95,7 @@
   "workshop_bin_matrix_label": "4×4 matrix",
   "workshop_bin_meta_wiki_action": "Open on the meta wiki",
   "workshop_bin_mismatch_label": "Type mismatch",
+  "workshop_bin_missing_chunk_description": "No layer of this project and no archive of the install holds this file",
   "workshop_bin_mode_properties_label": "Properties",
   "workshop_bin_more_label": "{loaded} of {total}",
   "workshop_bin_name_label": "name",

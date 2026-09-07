@@ -146,9 +146,14 @@ describe("decideFileLink", () => {
     });
   });
 
-  it("is text where neither side holds the path, and pending while the check runs", () => {
-    expect(decideFileLink(path, targets(), null).kind).toBe("text");
+  it("is missing where neither side holds the path, and pending while the check runs", () => {
+    expect(decideFileLink(path, targets(), null).kind).toBe("missing");
     expect(decideFileLink(path, targets({ pending: true }), null).kind).toBe("pending");
+  });
+
+  /* A hash no table names says nothing about whether the chunk is there. */
+  it("is text for a path no table resolved, rather than missing", () => {
+    expect(decideFileLink(null, targets(), null).kind).toBe("text");
   });
 });
 
@@ -218,9 +223,9 @@ describe("decideStringLink", () => {
     expect(decision.document.kind).toBe("preview");
   });
 
-  it("is text where neither side answers", () => {
+  it("is text where neither side answers, and missing where a path names no chunk", () => {
     expect(decideStringLink(named, targets({ index: ready }), () => null).kind).toBe("text");
-    expect(decideStringLink(path, targets({ index: ready }), () => null).kind).toBe("text");
+    expect(decideStringLink(path, targets({ index: ready }), () => null).kind).toBe("missing");
   });
 
   /* A string is not a link the reader asked to follow, so a miss never builds the index. */
