@@ -89,6 +89,8 @@ export default tseslint.config(
               "target",
               // A key combination the Kbd splits on "+", not a sentence.
               "shortcut",
+              // A resizable panel's share of its group, written as a percentage.
+              "maxSize",
             ],
           },
           callees: {

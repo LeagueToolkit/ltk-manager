@@ -67,6 +67,16 @@
   --ltk-bin-class-text: var(--ltk-bin-class);
   --ltk-bin-kind-text: var(--ltk-bin-kind);
 
+  /* Colors for the channels of one curve, in the order a value holds them. */
+  --ltk-channel-1: #f87171;
+  --ltk-channel-2: #4ade80;
+  --ltk-channel-3: #60a5fa;
+  --ltk-channel-4: #cbd5e1;
+  --ltk-channel-1-text: var(--ltk-channel-1);
+  --ltk-channel-2-text: var(--ltk-channel-2);
+  --ltk-channel-3-text: var(--ltk-channel-3);
+  --ltk-channel-4-text: var(--ltk-channel-4);
+
   /* Void hue for skinhack detection. */
   --ltk-void: #c084fc;
   --ltk-void-text: var(--ltk-void);
@@ -90,6 +100,10 @@
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
+  --ltk-channel-1-text: color-mix(in srgb, var(--ltk-channel-1) 55%, black);
+  --ltk-channel-2-text: color-mix(in srgb, var(--ltk-channel-2) 55%, black);
+  --ltk-channel-3-text: color-mix(in srgb, var(--ltk-channel-3) 55%, black);
+  --ltk-channel-4-text: color-mix(in srgb, var(--ltk-channel-4) 55%, black);
 }
 
 /* ============================================

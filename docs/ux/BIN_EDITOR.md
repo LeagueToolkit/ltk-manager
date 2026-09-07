@@ -4,6 +4,7 @@
 
 | Date       | Change                                                  |
 | ---------- | ------------------------------------------------------- |
+| 2026-09-08 | Decide the curve panel                                  |
 | 2026-09-07 | Frame a particle system as a shell of panes             |
 | 2026-09-07 | Fold a value family into the row a layout draws it in   |
 | 2026-09-07 | Draw an emitter as a card of its groups                 |
@@ -13,7 +14,6 @@
 | 2026-09-07 | Read several nodes in one call, and draw a value family |
 | 2026-09-07 | Link a string that names a thing                        |
 | 2026-09-07 | Decide the class views                                  |
-| 2026-09-07 | Measure the name column, and date a card by patch       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -63,8 +63,8 @@ This table holds every major feature of the bin editor. A status word has one me
 | String links          | Available   | A string naming a chunk or an object, as the chip its kind draws |
 | Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
 | Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
-| Curve panel           | Planned     | A value family's dynamics, in a dock under the object tab        |
-| Particle system shell | Planned     | Strip, inspector, curve and preview in panes. ADR-0031           |
+| Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032    |
+| Particle system shell | In progress | Four panes under a crumb, per ADR-0031. Pane sizes next          |
 | In-document search    | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
@@ -541,13 +541,15 @@ The rule is keyed on the class and the field, the way ritobin-lsp issue 55 state
 holds in the generic tree and in every layout, except that a layout drops the class this row
 draws first, per [a value family in a layout](#a-value-family-in-a-layout). The nodes a row wants are read per visible page
 through [the projected read](#the-projected-read), on scroll settle, and the row draws them when
-they land. A curve over the dynamics is the curve widget's, later, and the lints the issue names
-are Problems rules.
+they land. The tree draws the mark and never a sparkline, because it scrolls a thousand rows and
+a sparkline is two more read levels each. What the curve holds is
+[the curve panel](#the-curve-panel), and the lints the issue names are Problems rules.
 
-Three levels answer a colour: the row's own children, the dynamics one of them points at, and
-the dynamics' two lists. Each level's rows carry how long the next is, so a level batches under
-the read's cap rather than guessing at it. A float, a vector and a colour with no dynamics stop
-at the first level.
+Three levels answer a curve: the row's own children, the dynamics one of them points at, and the
+dynamics' two lists. Each level's rows carry how long the next is, so a level batches under the
+read's cap rather than guessing at it. A surface says which families it wants those levels for. A
+colour asks for them wherever it draws, since its band is its keys. Every other family asks only
+where a sparkline draws one. A value with no dynamics stops at the first level whatever asked.
 
 The strip takes the width one vector component takes, so a column mixing colours, floats and
 vectors keeps its readouts under each other. Its stops are placed over the curve's own span
@@ -943,8 +945,12 @@ nobody put. The tree keeps the class, because there the class is what the row is
 
 Where the row's `dynamics` points at a curve the cell takes a mark, since the constant alone
 would read as the whole value. The first level of the value read answers `constantValue` and
-`dynamics` together, so the mark costs no call of its own. What the curve holds is Properties'
-until a panel draws it.
+`dynamics` together, so the mark costs no call of its own.
+
+The emitter panel is the one layout surface that draws the shape rather than the mark: each of
+its rows takes a sparkline of the curve beside its constant, per
+[the curve panel](#the-curve-panel). Every other cell of every other layout keeps the mark, and
+so does a panel row whose keys the read has not answered yet.
 
 ### What a layout reads
 
@@ -1063,6 +1069,81 @@ narrow window or with both sidebars open.
 
 The strip marks the squares' colours and the open group's rows, and no other value family, because
 an emitter carries far more of them than a card ever draws at once.
+
+## The curve panel
+
+A value family's `dynamics` is a column of keys: a `times` list, a `values` list of the family's
+own width, and a `probabilityTables` list beside them. ADR-0032 draws it, and the four
+`VfxAnimated*` classes share their field hashes, so one widget over `(times, values[channel])`
+reads a float, a vector and a colour alike.
+
+### The dock
+
+The curve draws in a dock under the object tab, collapsed until a mark targets it and open from
+then on for the life of the tab. A popover would close on the first click into another cell, which
+is the click a reader tuning a value makes most.
+
+```
++-----------------------------------------------------------------+
+|  Glow [0]  .  rate                                               |
+|  complexEmitterDefinitionData[0].rate                            |
+|  [ Graph ] [ Probability ] [ Table ]              [X] [Y] [Z]    |
+|   12 +                    ___----                               |
+|      |          ___---                                          |
+|    3 +-----                                                     |
+|      0.00                                       1.00            |
++-----------------------------------------------------------------+
+```
+
+The dock holds its target until another mark replaces it, so a reader walks the emitter strip
+comparing every emitter's numbers against one open curve. There is one dock in the app: a mark on
+a bin file tab's row opens the object tab with the dock already targeted, the way Show in
+properties switches the mode.
+
+The caption is the label chain, with the wire path on a line under it. The chain is what the
+reader clicked, which the surface it was clicked on names: an emitter and its index in the panel,
+and the property path in the tree. The path is what a bug report needs.
+
+A mark and a sparkline both aim the dock, and so does Show curve on the row menu of a value that
+has dynamics. A value without one is offered neither.
+
+### The three tabs
+
+**Graph** plots the keys. The time axis fits the curve's own first and last key, because a file
+holds key times outside the 0 to 1 both of Riot's editors plot. A vector draws a line per channel,
+X red, Y green and Z blue as Riot draws them, with chips that mute one. A colour draws its
+gradient band over the same axis with each stop marked, and the channel lines behind it only when
+a chip asks, because a modder reads a colour curve as the ramp a particle runs through rather than
+as four numbers.
+
+A curve of one key draws flat across the box. It is a value that animates to nothing, which reads
+as a line held at its own level and not as a mark in the corner of an empty plot.
+
+**Table** is the keys as rows, a time and a channel per column, which is the form an edit takes.
+
+**Probability** is `probabilityTables` for the channel the graph's chips chose. Where a table
+holds no keys its `singleValue` draws in place of a plot. What the game samples from a probability
+table is not documented, so the tab draws the lists it finds and claims nothing about them.
+
+### Where a curve is drawn small
+
+The emitter panel's own rows draw a sparkline beside the constant, which is the first place a
+reader sees the shape of a `ValueFloat` without leaving the panel. It carries no axis and no
+number, because it answers whether a value moves rather than what it is worth. Its channels share
+one colour at that size, where the graph tells them apart.
+
+Every other surface keeps the mark. Two more read levels for the eight rows a group shows is
+bounded, and the same rule over the emitter table's four value columns is 240 curves on one
+screen. A panel the table has folded away reads none of them, because what is not drawn is not
+read.
+
+A curve of one key draws no sparkline, since a single key is the constant the row already draws.
+
+### What has no curve
+
+A value whose `dynamics` is null draws no mark, and its row menu offers no curve. Adding one is a
+write that sets a null pointer to a class, which nothing in the editor does yet, so the menu
+promises nothing it cannot do.
 
 ## Editing
 

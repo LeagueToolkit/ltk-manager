@@ -6,6 +6,7 @@ import { nameHash } from "../binHash";
 import {
   classLayout,
   descentOf,
+  frameOf,
   levelRequests,
   materialLayout,
   MAX_LEVELS,
@@ -55,6 +56,17 @@ describe("classLayout", () => {
 
   it("opens the TFT skin in the skin layout, which the schema does not say derives it", () => {
     expect(classLayout(nameHash("TftSkinCharacterDataProperties"))).toBe(skinLayout);
+  });
+});
+
+describe("frameOf", () => {
+  it("gives a layout that names no frame the stack", () => {
+    expect(frameOf(materialLayout)).toBe("stack");
+    expect(frameOf(skinLayout)).toBe("stack");
+  });
+
+  it("gives the particle system the shell it declares", () => {
+    expect(frameOf(vfxLayout)).toBe("shell");
   });
 });
 

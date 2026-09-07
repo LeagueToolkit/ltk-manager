@@ -30,6 +30,15 @@ export type Select = "all" | readonly string[];
 /** The levels a widget reads under the fields its section places, one `Select` each. */
 export type Descent = readonly Select[];
 
+/**
+ * How a view arranges the sections a layout places.
+ *
+ * "The shell" in docs/ux/BIN_EDITOR.md. The stack is one scrolling column, which every
+ * class a modder opens to read wants. A shell is the two columns a class a modder tunes
+ * wants, and is the frame ADR-0031 added.
+ */
+export type LayoutFrame = "stack" | "shell";
+
 /** One section of a layout: what it is called, what it places, and how it draws it. */
 export interface LayoutSection {
   readonly title: () => string;
@@ -45,7 +54,14 @@ export interface LayoutSection {
 export interface ClassLayout {
   /** The word the mode's segment carries. */
   readonly title: () => string;
+  /** The frame it draws in. Absent for the stack, which is what a layout gets by default. */
+  readonly frame?: LayoutFrame;
   readonly sections: readonly LayoutSection[];
+}
+
+/** The frame `layout` draws in, which is the stack unless it names another. */
+export function frameOf(layout: ClassLayout): LayoutFrame {
+  return layout.frame ?? "stack";
 }
 
 /**
@@ -119,10 +135,12 @@ export const skinLayout: ClassLayout = {
  * The particle system, which is a list of emitters of 139 fields each.
  *
  * The two emitter lists are one table, because a reader looks for an emitter by name
- * rather than by which of the two holds it.
+ * rather than by which of the two holds it. It is the one layout that declares a shell,
+ * per ADR-0031, because a particle system is tuned rather than read.
  */
 export const vfxLayout: ClassLayout = {
   title: m.workshop_bin_layout_vfx_label,
+  frame: "shell",
   sections: [
     {
       title: m.workshop_bin_section_identity_label,

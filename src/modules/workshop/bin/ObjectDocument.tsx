@@ -6,13 +6,14 @@ import {
   MagnifyingGlassIcon,
   PathIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Group, Panel } from "react-resizable-panels";
 
 import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, Seam } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
@@ -27,8 +28,10 @@ import { clickIntent } from "../state";
 import { Dot } from "./BinDocument";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
-import { classLayout } from "./classLayouts";
+import { classLayout, type LayoutFrame } from "./classLayouts";
 import { ClassView } from "./ClassView";
+import { CurveSurface } from "./CurveSurface";
+import { type CurveDock, CurveDockContext, type CurveTarget } from "./curveTarget";
 import { OtherDeclarations } from "./OtherDeclarations";
 import { useBinDocument } from "./useBinDocument";
 import { useShowInFile } from "./useShowInFile";
@@ -96,11 +99,18 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
 
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
+  const [frame, setFrame] = useState<LayoutFrame>("stack");
+  const [target, setTarget] = useState<CurveTarget | null>(null);
+  const dock = useMemo<CurveDock>(() => ({ target, aim: setTarget }), [target]);
 
   const showInProperties = useCallback((key: string) => {
     setMode("properties");
     setReveal({ key, token: Date.now() });
   }, []);
+
+  /* A shell holds the curve in a pane of its own (ADR-0031), so the dock is what every
+     other frame and Properties get, and no tab draws the surface twice. */
+  const docked = target !== null && (mode === "properties" || frame === "stack");
 
   return (
     <div data-ui="ObjectDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
@@ -134,30 +144,58 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
         </Button>
         <HeaderMenu object={object} />
       </DocumentToolbar>
-      {layout && mode === "layout" && (
-        <ClassView
-          document={handle.document}
-          asset={asset}
-          roots={handle.rows}
-          classHash={object.classHash}
-          layout={layout}
-          objectName={objectName}
-          onNotOpen={reopen}
-          onShowInProperties={showInProperties}
-        />
-      )}
-      {mode === "properties" && (
-        <BinTree
-          document={handle.document}
-          asset={asset}
-          roots={handle.rows}
-          rootOwner={object.classHash}
-          label={object.name}
-          reveal={reveal}
-          objectName={objectName}
-          onNotOpen={reopen}
-        />
-      )}
+      <CurveDockContext value={dock}>
+        <Group
+          /* The library reads its layout at mount, so a docking remounts the group. */
+          key={docked ? "view+curve" : "view"}
+          id="object"
+          orientation="vertical"
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
+            {layout && mode === "layout" && (
+              <ClassView
+                document={handle.document}
+                asset={asset}
+                roots={handle.rows}
+                classHash={object.classHash}
+                layout={layout}
+                objectName={objectName}
+                onNotOpen={reopen}
+                onShowInProperties={showInProperties}
+                onFrame={setFrame}
+              />
+            )}
+            {mode === "properties" && (
+              <BinTree
+                document={handle.document}
+                asset={asset}
+                roots={handle.rows}
+                rootOwner={object.classHash}
+                label={object.name}
+                reveal={reveal}
+                objectName={objectName}
+                onNotOpen={reopen}
+              />
+            )}
+          </Panel>
+          {docked && (
+            <>
+              <Seam orientation="vertical" variant="divider" />
+              <Panel
+                id="curve"
+                defaultSize={220}
+                minSize={140}
+                maxSize="60%"
+                /* DS-GROUND: a band over the page, as every other pane of the tab is. */
+                className="flex min-h-0 w-full flex-col bg-surface-900 p-2"
+              >
+                <CurveSurface document={handle.document} />
+              </Panel>
+            </>
+          )}
+        </Group>
+      </CurveDockContext>
     </div>
   );
 }

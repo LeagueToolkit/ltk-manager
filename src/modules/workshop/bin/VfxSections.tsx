@@ -1,8 +1,8 @@
-import { CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { CaretDownIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
+import { createContext, type ReactNode, use, useCallback, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { SegmentedControl } from "@/components";
+import { Menu, SegmentedControl } from "@/components";
 import { useHorizontalWheel } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
@@ -29,10 +29,18 @@ import {
   ValueCell,
   type WidgetProps,
 } from "./ClassCells";
-import type { PlacedSection } from "./classLayouts";
+import type { LayoutFrame, PlacedSection } from "./classLayouts";
+import { CurveChainContext } from "./curveTarget";
 import { CARD, type EmitterGroup, GROUP_TITLE, type GroupedRows, groupRows } from "./emitterGroups";
 import { useValueMark, useValueMarks, ValueMarksContext } from "./useValueMarks";
-import { channels, colorCss, type ColorStop, gradientCss } from "./valueRows";
+import {
+  channels,
+  colorCss,
+  type ColorStop,
+  colorStops,
+  type CurveRead,
+  gradientCss,
+} from "./valueRows";
 
 /** The second list, whose cards are marked, since one strip holds both. */
 const SIMPLE_LIST = nameHash("simpleEmitterDefinitionData");
@@ -43,35 +51,17 @@ const CARD_WIDTH = "w-40";
 /** The room the panel's name column takes, which the longest emitter field fits in. */
 const PANEL_NAME = "w-56";
 
+/** The same column in a shell, narrowed to what a vector’s three components leave it. */
+export const INSPECTOR_NAME = "w-48";
+
 /** The panel scrolls past this, so a group of thirty fields owns no more of the page. */
 const PANEL_HEIGHT = "max-h-72";
 
-/**
- * The Emitters section, as a strip of cards or as the table of columns.
- *
- * "The emitter strip" in docs/ux/BIN_EDITOR.md.
- */
-export function Emitters({ section, pages, view }: WidgetProps) {
-  const [mode, setMode] = useState<"cards" | "table">("cards");
+/** Which of the two readings of the emitter lists is drawn. */
+export type EmitterMode = "cards" | "table";
 
-  return (
-    <div className="flex flex-col gap-1.5">
-      <SegmentedControl
-        size="xs"
-        className="self-end font-sans"
-        aria-label={m.workshop_bin_emitter_view_label()}
-        value={mode}
-        onChange={setMode}
-        options={[
-          { value: "cards", label: m.workshop_bin_emitter_view_cards_label() },
-          { value: "table", label: m.workshop_bin_emitter_view_table_label() },
-        ]}
-      />
-      {mode === "cards" && <EmitterStrip section={section} pages={pages} view={view} />}
-      {mode === "table" && <EmitterTable section={section} pages={pages} view={view} />}
-    </div>
-  );
-}
+/** What the inspector draws, which is the crumb segment last aimed at. */
+export type InspectorTarget = "system" | "emitter" | "group";
 
 /** One emitter of one of the two lists, with the groups its own fields fall into. */
 interface EmitterCardData {
@@ -88,6 +78,190 @@ interface EmitterCardData {
 interface Chosen {
   readonly key: string;
   readonly group: EmitterGroup;
+}
+
+/**
+ * The reading, the open card, and the rows the strip marks.
+ *
+ * The frame holds it rather than the section, because a stack draws the panel under the
+ * strip and a shell draws it in the column beside, so a fall from one to the other
+ * remounts the section and would lose the reader's place with it.
+ */
+export interface EmitterChoice {
+  readonly cards: readonly EmitterCardData[];
+  readonly card: EmitterCardData | undefined;
+  readonly group: GroupedRows | undefined;
+  readonly open: Chosen | null;
+  readonly target: InspectorTarget;
+  /** The groups the inspector draws: every one the card sets, or the open one alone. */
+  readonly shown: readonly GroupedRows[];
+  /** Draw one of the crumb segments, which is what clicking that segment does. */
+  readonly aim: (target: InspectorTarget) => void;
+  /** Open a card, which its name row does and which aims the crumb middle segment. */
+  readonly chooseCard: (key: string) => void;
+  /** Open one group of a card, which a chip does and which aims the last segment. */
+  readonly chooseGroup: (chosen: Chosen) => void;
+  readonly mode: EmitterMode;
+  readonly setMode: (mode: EmitterMode) => void;
+  /** The squares colours and the rows the inspector draws, the only families it marks. */
+  readonly marked: readonly BinRow[];
+  /** What those rows are read for, which is a sparkline only where one group draws. */
+  readonly read: CurveRead;
+}
+
+const NO_CARDS: readonly EmitterCardData[] = [];
+const NO_GROUPS: readonly GroupedRows[] = [];
+const NO_MARKED: readonly BinRow[] = [];
+
+const NO_EMITTERS: EmitterChoice = {
+  cards: NO_CARDS,
+  card: undefined,
+  group: undefined,
+  open: null,
+  target: "group",
+  shown: NO_GROUPS,
+  aim: () => {},
+  chooseCard: () => {},
+  chooseGroup: () => {},
+  mode: "cards",
+  setMode: () => {},
+  marked: NO_MARKED,
+  read: "bands",
+};
+
+/** What the frame chose, which both halves of the section read wherever it drew them. */
+export const EmitterChoiceContext = createContext<EmitterChoice>(NO_EMITTERS);
+
+/** What the frame chose, for the half of the section reading it. */
+export function useEmitters(): EmitterChoice {
+  return use(EmitterChoiceContext);
+}
+
+/** The section's own state, for the frame to hold above the two ways it draws it. */
+export function useEmitterChoice(
+  placed: readonly PlacedSection[],
+  pages: LayoutPages,
+  frame: LayoutFrame,
+): EmitterChoice {
+  const cards = useMemo(() => {
+    const section = placed.find((each) => each.widget === "emitters");
+    return section === undefined ? NO_CARDS : cardsOf(section, pages);
+  }, [placed, pages]);
+  const [chosen, setChosen] = useState<Chosen | null>(null);
+  const [target, setTarget] = useState<InspectorTarget>("group");
+  const [mode, setMode] = useState<EmitterMode>("cards");
+
+  const open = useMemo(() => openOf(chosen, cards), [chosen, cards]);
+  const card = cards.find((each) => each.key === open?.key);
+  const group = card?.groups.find((each) => each.group === open?.group);
+
+  const chooseGroup = useCallback((next: Chosen) => {
+    setChosen(next);
+    setTarget("group");
+  }, []);
+  const chooseCard = useCallback(
+    (key: string) => {
+      const first = cards.find((each) => each.key === key)?.groups[0];
+      if (first === undefined) return;
+      setChosen({ key, group: first.group });
+      setTarget("emitter");
+    },
+    [cards],
+  );
+
+  /* A stack draws the panel under the strip, so its table takes the panel's place. A
+     shell draws it in the column beside, where a table takes neither. */
+  const drawn = frame === "shell" || mode === "cards";
+  const shown = useMemo(
+    () => (drawn ? shownGroups(target, card, group) : NO_GROUPS),
+    [drawn, target, card, group],
+  );
+  const marked = useMemo(
+    () => [
+      ...cards.flatMap((each) => {
+        const colour = each.fields(CARD.colour);
+        return colour === undefined ? [] : [colour];
+      }),
+      ...shown.flatMap((each) => each.rows),
+    ],
+    [cards, shown],
+  );
+
+  /* One group is the eight-odd rows two more read levels are bounded for. Every group of
+     an emitter is a hundred and forty, which is the scan the mark alone answers. */
+  const read: CurveRead = drawn && target === "group" ? "sparklines" : "bands";
+
+  return useMemo(
+    () => ({
+      cards,
+      card,
+      group,
+      open,
+      target,
+      shown,
+      aim: setTarget,
+      chooseCard,
+      chooseGroup,
+      mode,
+      setMode,
+      marked,
+      read,
+    }),
+    [cards, card, group, open, target, shown, chooseCard, chooseGroup, mode, marked, read],
+  );
+}
+
+/** The groups one target draws, which is what the inspector holds and what it marks. */
+function shownGroups(
+  target: InspectorTarget,
+  card: EmitterCardData | undefined,
+  group: GroupedRows | undefined,
+): readonly GroupedRows[] {
+  if (target === "system" || card === undefined) return NO_GROUPS;
+  if (target === "emitter") return card.groups;
+  return group === undefined ? NO_GROUPS : [group];
+}
+
+/**
+ * The Emitters section, as a strip of cards or as the table of columns.
+ *
+ * "The emitter strip" in docs/ux/BIN_EDITOR.md. A stack draws the panel under the strip.
+ * A shell draws it in the inspector column, so this half stops at the strip.
+ */
+export function Emitters({ section, pages, view }: WidgetProps) {
+  const { mode } = useEmitters();
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <EmitterModes />
+      {mode === "cards" && (
+        <div className="flex flex-col gap-1.5">
+          <EmitterStrip />
+          {view.frame === "stack" && <EmitterPanel className={PANEL_HEIGHT} />}
+        </div>
+      )}
+      {mode === "table" && <EmitterTable section={section} pages={pages} view={view} />}
+    </div>
+  );
+}
+
+/** The control that picks the reading, which either frame draws over the strip. */
+function EmitterModes() {
+  const { mode, setMode } = useEmitters();
+
+  return (
+    <SegmentedControl
+      size="xs"
+      className="self-end font-sans"
+      aria-label={m.workshop_bin_emitter_view_label()}
+      value={mode}
+      onChange={setMode}
+      options={[
+        { value: "cards", label: m.workshop_bin_emitter_view_cards_label() },
+        { value: "table", label: m.workshop_bin_emitter_view_table_label() },
+      ]}
+    />
+  );
 }
 
 function cardsOf(section: PlacedSection, pages: LayoutPages): EmitterCardData[] {
@@ -108,47 +282,25 @@ function cardsOf(section: PlacedSection, pages: LayoutPages): EmitterCardData[] 
   });
 }
 
-/** Every emitter as a card, and the chosen card's chosen group under them. */
-function EmitterStrip({ section, pages, view }: WidgetProps) {
+/** Every emitter as a card, in the one strip that scrolls sideways. */
+function EmitterStrip() {
+  const { cards, open } = useEmitters();
   const strip = useRef<HTMLDivElement>(null);
   useHorizontalWheel(strip);
-  const cards = useMemo(() => cardsOf(section, pages), [section, pages]);
-  const [chosen, setChosen] = useState<Chosen | null>(null);
-  const open = openOf(chosen, cards);
-  const card = cards.find((each) => each.key === open?.key);
-  const group = card?.groups.find((each) => each.group === open?.group);
-
-  const drawn = useMemo(
-    () => [
-      ...cards.flatMap((each) => {
-        const colour = each.fields(CARD.colour);
-        return colour === undefined ? [] : [colour];
-      }),
-      ...(group?.rows ?? []),
-    ],
-    [cards, group],
-  );
-  const marks = useValueMarks(view.document, drawn);
 
   if (cards.length === 0) return <None />;
   return (
-    <ValueMarksContext value={marks}>
-      <div className="flex flex-col gap-1.5">
-        <div ref={strip} className="overflow-x-auto scrollbar-sm">
-          <div className="flex items-start gap-1.5 pb-1">
-            {cards.map((each) => (
-              <EmitterCard
-                key={each.key}
-                card={each}
-                open={open?.key === each.key ? open.group : null}
-                onChoose={setChosen}
-              />
-            ))}
-          </div>
-        </div>
-        <EmitterPanel card={card} group={group} />
+    <div ref={strip} className="overflow-x-auto scrollbar-sm">
+      <div className="flex items-start gap-1.5 pb-1">
+        {cards.map((each) => (
+          <EmitterCard
+            key={each.key}
+            card={each}
+            open={open?.key === each.key ? open.group : null}
+          />
+        ))}
       </div>
-    </ValueMarksContext>
+    </div>
   );
 }
 
@@ -162,15 +314,8 @@ function openOf(chosen: Chosen | null, cards: readonly EmitterCardData[]): Chose
 }
 
 /** A card: what the emitter is called, what it looks like, and what it sets. */
-function EmitterCard({
-  card,
-  open,
-  onChoose,
-}: {
-  card: EmitterCardData;
-  open: EmitterGroup | null;
-  onChoose: (chosen: Chosen) => void;
-}) {
+function EmitterCard({ card, open }: { card: EmitterCardData; open: EmitterGroup | null }) {
+  const { target, chooseCard, chooseGroup } = useEmitters();
   const name = card.fields(CARD.name);
   const disabled = card.fields(CARD.disabled);
   const off = disabled?.value.type === "bool" && disabled.value.value;
@@ -179,17 +324,25 @@ function EmitterCard({
     <div
       data-ui="EmitterCard"
       data-row-key={card.key}
-      /* DS-RADIUS, DS-HOVER, DS-VEIL */
+      /* DS-GROUND, DS-RADIUS, DS-HOVER, DS-VEIL */
       className={twMerge(
-        "flex shrink-0 flex-col gap-1 rounded-lg border p-1.5",
+        "flex shrink-0 flex-col gap-1 rounded-lg border bg-surface-800 p-1.5",
         CARD_WIDTH,
         open === null
-          ? "border-surface-veil-strong bg-surface-900 hover:border-accent-hover"
-          : "border-accent-500/60 bg-surface-800",
+          ? "border-surface-veil-strong hover:border-accent-hover"
+          : "border-accent-500/60 bg-surface-700",
         off && "opacity-60",
       )}
     >
-      <span className="flex items-center gap-1">
+      <button
+        type="button"
+        /* DS-RADIUS, DS-VEIL */
+        className={twMerge(
+          "flex cursor-pointer items-center gap-1 rounded-sm px-0.5 text-left hover:bg-surface-veil",
+          open !== null && target === "emitter" && "bg-accent-500/15",
+        )}
+        onClick={() => chooseCard(card.key)}
+      >
         {off && (
           <EyeSlashIcon
             weight="bold"
@@ -203,7 +356,7 @@ function EmitterCard({
           {nameOf(card)}
         </Cell>
         <span className="shrink-0 text-meta text-surface-500">[{card.index}]</span>
-      </span>
+      </button>
       <CardSquare card={card} />
       {card.simple && (
         <span className="text-meta text-surface-500">{m.workshop_bin_emitter_simple_label()}</span>
@@ -217,11 +370,11 @@ function EmitterCard({
             /* DS-RADIUS, DS-VEIL */
             className={twMerge(
               "cursor-pointer truncate rounded-sm px-1 py-px text-left",
-              open === each.group
+              open === each.group && target === "group"
                 ? "bg-accent-500/15 text-accent-300"
                 : "text-surface-400 hover:bg-surface-veil hover:text-surface-200",
             )}
-            onClick={() => onChoose({ key: card.key, group: each.group })}
+            onClick={() => chooseGroup({ key: card.key, group: each.group })}
           >
             {GROUP_TITLE[each.group]()}
           </button>
@@ -240,7 +393,7 @@ function CardSquare({ card }: { card: EmitterCardData }) {
 
   if (texturePath(texture) !== null) return <TextureTile row={texture} size="card" />;
   if (colour !== undefined && rgba !== null) {
-    return <ColourSquare row={colour} rgba={rgba} stops={mark?.stops ?? []} />;
+    return <ColourSquare row={colour} rgba={rgba} stops={colorStops(mark?.keys ?? [])} />;
   }
   return <EmptyTile size="card" />;
 }
@@ -271,36 +424,156 @@ function ColourSquare({
   );
 }
 
-/** The open group's fields, each on a line of its own. */
-function EmitterPanel({
-  card,
-  group,
+/**
+ * The fields the inspector is aimed at, each on a line of its own.
+ *
+ * The host gives it its height and its name column: a stack caps the height so no group
+ * owns the page, and a shell hands it the column and narrows the names to fit a vector.
+ */
+export function EmitterPanel({
+  className,
+  nameWidth = PANEL_NAME,
 }: {
-  card: EmitterCardData | undefined;
-  group: GroupedRows | undefined;
+  className?: string;
+  nameWidth?: string;
 }) {
+  const { card, shown } = useEmitters();
+
   return (
-    /* DS-RADIUS, DS-SCROLLBAR */
+    /* DS-GROUND, DS-RADIUS, DS-SCROLLBAR */
     <div
+      data-ui="EmitterPanel"
       className={twMerge(
-        "flex flex-col gap-0.5 overflow-y-auto rounded-md border border-surface-700/50 p-1.5 scrollbar-md",
-        PANEL_HEIGHT,
+        "flex flex-col gap-0.5 overflow-y-auto rounded-md border border-surface-700/50 bg-surface-900 p-1.5 scrollbar-md",
+        className,
       )}
     >
-      {card !== undefined && group !== undefined && (
+      <CurveChainContext value={card === undefined ? "" : `${nameOf(card)} [${card.index}]`}>
+        {shown.map((each) => (
+          <div key={each.group} className="flex flex-col gap-0.5">
+            {shown.length > 1 && (
+              <span className="px-1.5 pt-1 font-sans text-xs font-medium tracking-wide text-surface-400 uppercase">
+                {GROUP_TITLE[each.group]()}
+              </span>
+            )}
+            {each.rows.map((row) => (
+              <FieldRow key={rowKey(row)} row={row} width={nameWidth} />
+            ))}
+          </div>
+        ))}
+      </CurveChainContext>
+    </div>
+  );
+}
+
+/**
+ * System, emitter and group, each a segment aiming the inspector at what it names.
+ *
+ * "The shell" in docs/ux/BIN_EDITOR.md.
+ */
+export function ShellCrumb({ system }: { system: string }) {
+  const { target, aim, card, group } = useEmitters();
+
+  return (
+    <nav
+      data-ui="ShellCrumb"
+      aria-label={m.workshop_bin_shell_crumb_label()}
+      className="flex min-w-0 items-center gap-1 px-1 text-meta"
+    >
+      <CrumbSegment on={target === "system"} onClick={() => aim("system")}>
+        {system}
+      </CrumbSegment>
+      {card !== undefined && (
         <>
-          <span className="flex items-center gap-1 px-1.5 text-meta text-surface-400">
-            <span className="min-w-0 truncate text-surface-200">{nameOf(card)}</span>
+          <CrumbCaret />
+          <CrumbSegment on={target === "emitter"} onClick={() => aim("emitter")}>
+            <span className="min-w-0 truncate">{nameOf(card)}</span>
             <span className="shrink-0 text-surface-500">[{card.index}]</span>
-            <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0" />
-            <span>{GROUP_TITLE[group.group]()}</span>
-          </span>
-          {group.rows.map((row) => (
-            <FieldRow key={rowKey(row)} row={row} width={PANEL_NAME} />
-          ))}
+          </CrumbSegment>
+          {group !== undefined && (
+            <>
+              <CrumbCaret />
+              <GroupSegment card={card} group={group} on={target === "group"} />
+            </>
+          )}
         </>
       )}
-    </div>
+    </nav>
+  );
+}
+
+function CrumbCaret() {
+  return <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-500" />;
+}
+
+function CrumbSegment({
+  on,
+  onClick,
+  children,
+}: {
+  on: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      /* DS-RADIUS, DS-VEIL */
+      className={twMerge(
+        "flex min-w-0 cursor-pointer items-center gap-1 truncate rounded-sm px-1 py-0.5",
+        on ? "bg-accent-500/15 text-accent-300" : "text-surface-400 hover:bg-surface-veil",
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** The last segment, which is a menu of the groups the emitter sets. */
+function GroupSegment({
+  card,
+  group,
+  on,
+}: {
+  card: EmitterCardData;
+  group: GroupedRows;
+  on: boolean;
+}) {
+  const { chooseGroup } = useEmitters();
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <button
+            type="button"
+            /* DS-RADIUS, DS-VEIL */
+            className={twMerge(
+              "flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5",
+              on ? "bg-accent-500/15 text-accent-300" : "text-surface-400 hover:bg-surface-veil",
+            )}
+          >
+            {GROUP_TITLE[group.group]()}
+            <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0" />
+          </button>
+        }
+      />
+      <Menu.Portal>
+        <Menu.Positioner align="start" sideOffset={4}>
+          <Menu.Popup className="w-40">
+            {card.groups.map((each) => (
+              <Menu.Item
+                key={each.group}
+                onClick={() => chooseGroup({ key: card.key, group: each.group })}
+              >
+                {GROUP_TITLE[each.group]()}
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }
 

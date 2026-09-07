@@ -6,6 +6,7 @@ import {
   MagnifyingGlassIcon,
   PathIcon,
   TreeStructureIcon,
+  WaveSineIcon,
 } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
@@ -24,6 +25,7 @@ import {
 import { useOpenDocumentAs } from "../state";
 import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
+import { useCurveDock } from "./curveTarget";
 import { chunkPath, decideLink, type LinkDecision, type MissingChunk } from "./linkDecision";
 import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
@@ -61,6 +63,7 @@ export function BinContextMenu({
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
   const mark = useValueMark(line?.kind === "row" ? line.key : undefined);
+  const { aim } = useCurveDock();
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
 
@@ -139,7 +142,17 @@ export function BinContextMenu({
               {m.workshop_bin_show_in_properties_action()}
             </ContextMenu.Item>
           )}
-          {(object || struct !== null || onShowInProperties) && <ContextMenu.Separator />}
+          {mark?.curve === true && (
+            <ContextMenu.Item
+              icon={<WaveSineIcon />}
+              onClick={() => aim({ row, chain: row.label })}
+            >
+              {m.workshop_bin_show_curve_action()}
+            </ContextMenu.Item>
+          )}
+          {(object || struct !== null || onShowInProperties || mark?.curve === true) && (
+            <ContextMenu.Separator />
+          )}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

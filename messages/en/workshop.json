@@ -33,6 +33,18 @@
   "workshop_bin_copy_path_action": "Copy path",
   "workshop_bin_copy_value_action": "Copy value",
   "workshop_bin_copy_value_hash_action": "Copy value hash",
+  "workshop_bin_curve_keys_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} curve key",
+        "countPlural=other": "{count} curve keys"
+      }
+    }
+  ],
+  "workshop_bin_curve_pane_empty": "No value targeted",
+  "workshop_bin_curve_pane_label": "Curve",
   "workshop_bin_declarations_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -55,7 +67,6 @@
       }
     }
   ],
-  "workshop_bin_empty_label": "empty",
   "workshop_bin_emitter_colour_label": "Birth colour",
   "workshop_bin_emitter_disabled_label": "Disabled",
   "workshop_bin_emitter_group_birth_label": "Birth",
@@ -71,6 +82,7 @@
   "workshop_bin_emitter_view_cards_label": "Cards",
   "workshop_bin_emitter_view_label": "How the emitters draw",
   "workshop_bin_emitter_view_table_label": "Table",
+  "workshop_bin_empty_label": "empty",
   "workshop_bin_entries_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -172,6 +184,8 @@
   ],
   "workshop_bin_path_label": "path",
   "workshop_bin_present_label": "present",
+  "workshop_bin_preview_pane_empty": "No renderer yet",
+  "workshop_bin_preview_pane_label": "Particle preview",
   "workshop_bin_properties_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -200,6 +214,8 @@
   "workshop_bin_section_switches_label": "Switches",
   "workshop_bin_section_techniques_label": "Techniques",
   "workshop_bin_section_vfx_label": "VFX",
+  "workshop_bin_shell_crumb_label": "What the inspector draws",
+  "workshop_bin_show_curve_action": "Show curve",
   "workshop_bin_show_in_file_action": "Show in file",
   "workshop_bin_show_in_properties_action": "Show in properties",
   "workshop_bin_texture_container_format_label": "{container} · {format}",

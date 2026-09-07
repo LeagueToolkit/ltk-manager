@@ -29,7 +29,7 @@ import { DeclaredLine, FieldCard } from "./FieldCard";
 import { rowTag } from "./kindTag";
 import { FileChip, ObjectChip, StringValue } from "./LinkChip";
 import { useValueMark } from "./useValueMarks";
-import { channels, type ValueMark } from "./valueRows";
+import { channels, colorStops, type ValueMark } from "./valueRows";
 
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
@@ -348,7 +348,7 @@ export function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
   if (mark.family === "color") {
     const rgba = channels(mark.constant);
     if (rgba === null) return null;
-    return <ColorMark constant={rgba} stops={mark.stops} />;
+    return <ColorMark constant={rgba} stops={colorStops(mark.keys)} />;
   }
   if (mark.constant.type === "float") {
     return <Readout value={String(mark.constant.value)} className={SCALAR_WIDTH} />;

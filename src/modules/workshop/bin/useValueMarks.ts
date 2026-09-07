@@ -7,6 +7,7 @@ import { rowKey } from "./binRows";
 import { useBinRead } from "./useBinRead";
 import {
   constantRequests,
+  type CurveRead,
   dynamicsRequests,
   stopRequests,
   valueFamily,
@@ -33,7 +34,7 @@ export function useValueMark(key: string | undefined): ValueMark | undefined {
 }
 
 /**
- * The constant, and the stops, of every value-family row in `rows`.
+ * The constant, and the curve keys `read` asks for, of every value-family row in `rows`.
  *
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. Three levels of the projected
  * read answer it: the row's own children, the curve one of them points at, and the
@@ -43,13 +44,14 @@ export function useValueMark(key: string | undefined): ValueMark | undefined {
 export function useValueMarks(
   document: BinDocumentId,
   rows: readonly BinRow[],
+  read: CurveRead = "bands",
 ): ReadonlyMap<string, ValueMark> {
   const settled = useSettled(rows);
   const constants = useBinRead(
     document,
     useMemo(() => constantRequests(settled), [settled]),
   );
-  const dynamics = useBinRead(document, dynamicsRequests(settled, constants));
+  const dynamics = useBinRead(document, dynamicsRequests(settled, constants, read));
   const stops = useBinRead(document, stopRequests(dynamics));
 
   return useMemo(

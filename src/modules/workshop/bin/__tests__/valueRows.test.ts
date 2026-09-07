@@ -6,10 +6,12 @@ import { nameHash } from "../binHash";
 import {
   channels,
   colorHex,
+  colorStops,
   constantRequests,
   dynamicsRequests,
   gradientCss,
   markText,
+  sparkKeys,
   stopRequests,
   valueFamily,
   valueMarks,
@@ -20,7 +22,9 @@ const ENTRY = "0x2a1f3c7d";
 /** The emitter's `birthColor`, whose wire path is the field's own hash. */
 const COLOR_PATH = "0aaaaaaa";
 const FLOAT_PATH = "0bbbbbbb";
+const CURVE_PATH = "0ccccccc";
 const DYNAMICS_PATH = `${COLOR_PATH}.bc037de7`;
+const CURVE_DYNAMICS = `${CURVE_PATH}.bc037de7`;
 
 function row(path: string, value: BinValue, name = path): BinRow {
   return {
@@ -49,7 +53,8 @@ function vec4(r: number, g: number, b: number, a: number): BinValue {
 }
 
 const colorRow = row(COLOR_PATH, struct("ValueColor", 2), "birthColor");
-const floatRow = row(FLOAT_PATH, struct("ValueFloat", 2), "rate");
+const floatRow = row(FLOAT_PATH, struct("ValueFloat", 2), "period");
+const curveRow = row(CURVE_PATH, struct("ValueFloat", 2), "rate");
 
 /** The first level's answer for the colour row: its constant, and a curve. */
 const CONSTANTS = new Map<string, BinRows>([
@@ -67,6 +72,13 @@ const CONSTANTS = new Map<string, BinRows>([
       row(`${FLOAT_PATH}.bc037de7`, { type: "null" }),
     ]),
   ],
+  [
+    `${ENTRY}:${CURVE_PATH}`,
+    page([
+      row(`${CURVE_PATH}.b4b427aa`, { type: "float", value: 1 }),
+      row(CURVE_DYNAMICS, struct("VfxAnimatedFloatVariableData", 3)),
+    ]),
+  ],
 ]);
 
 const DYNAMICS = new Map<string, BinRows>([
@@ -75,6 +87,13 @@ const DYNAMICS = new Map<string, BinRows>([
     page([
       row(`${DYNAMICS_PATH}.5d68eeb5`, { type: "container", len: 2, itemKind: "f32" }),
       row(`${DYNAMICS_PATH}.34474c3b`, { type: "container", len: 2, itemKind: "vec4" }),
+    ]),
+  ],
+  [
+    `${ENTRY}:${CURVE_DYNAMICS}`,
+    page([
+      row(`${CURVE_DYNAMICS}.5d68eeb5`, { type: "container", len: 2, itemKind: "f32" }),
+      row(`${CURVE_DYNAMICS}.34474c3b`, { type: "container", len: 2, itemKind: "f32" }),
     ]),
   ],
 ]);
@@ -92,6 +111,20 @@ const STOPS = new Map<string, BinRows>([
     page([
       row(`${DYNAMICS_PATH}.34474c3b[0]`, vec4(1, 0, 0, 1)),
       row(`${DYNAMICS_PATH}.34474c3b[1]`, vec4(0, 0, 1, 0)),
+    ]),
+  ],
+  [
+    `${ENTRY}:${CURVE_DYNAMICS}.5d68eeb5`,
+    page([
+      row(`${CURVE_DYNAMICS}.5d68eeb5[0]`, { type: "float", value: 0 }),
+      row(`${CURVE_DYNAMICS}.5d68eeb5[1]`, { type: "float", value: 1 }),
+    ]),
+  ],
+  [
+    `${ENTRY}:${CURVE_DYNAMICS}.34474c3b`,
+    page([
+      row(`${CURVE_DYNAMICS}.34474c3b[0]`, { type: "float", value: 4 }),
+      row(`${CURVE_DYNAMICS}.34474c3b[1]`, { type: "float", value: 9 }),
     ]),
   ],
 ]);
@@ -118,44 +151,63 @@ describe("the three levels", () => {
     ]);
   });
 
-  it("asks for the curve of a colour that has one, and for nothing else", () => {
-    expect(dynamicsRequests([colorRow, floatRow], CONSTANTS)).toEqual([
+  it("asks a band for the curve of a colour alone", () => {
+    expect(dynamicsRequests([colorRow, floatRow, curveRow], CONSTANTS, "bands")).toEqual([
       { key: `${ENTRY}:${DYNAMICS_PATH}`, rows: 3 },
     ]);
   });
 
+  it("asks a sparkline for every family's curve", () => {
+    expect(dynamicsRequests([colorRow, floatRow, curveRow], CONSTANTS, "sparklines")).toEqual([
+      { key: `${ENTRY}:${DYNAMICS_PATH}`, rows: 3 },
+      { key: `${ENTRY}:${CURVE_DYNAMICS}`, rows: 3 },
+    ]);
+  });
+
   it("asks for nothing before the level above answers", () => {
-    expect(dynamicsRequests([colorRow], new Map())).toEqual([]);
+    expect(dynamicsRequests([colorRow], new Map(), "sparklines")).toEqual([]);
     expect(stopRequests(new Map())).toEqual([]);
   });
 
-  it("asks for the curve's two lists last", () => {
+  it("asks for the two lists of every curve the level above answered", () => {
     expect(stopRequests(DYNAMICS)).toEqual([
       { key: `${ENTRY}:${DYNAMICS_PATH}.5d68eeb5`, rows: 2 },
       { key: `${ENTRY}:${DYNAMICS_PATH}.34474c3b`, rows: 2 },
+      { key: `${ENTRY}:${CURVE_DYNAMICS}.5d68eeb5`, rows: 2 },
+      { key: `${ENTRY}:${CURVE_DYNAMICS}.34474c3b`, rows: 2 },
     ]);
   });
 });
 
 describe("valueMarks", () => {
-  it("carries a colour's constant and its stops, paired by index", () => {
+  it("carries a colour's constant and its keys, paired by index", () => {
     const mark = valueMarks([colorRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${COLOR_PATH}`);
 
     expect(mark?.family).toBe("color");
     expect(channels(mark?.constant ?? undefined)).toEqual([1, 0.5, 0, 1]);
-    expect(mark?.stops).toEqual([
-      { time: 0, rgba: [1, 0, 0, 1] },
-      { time: 2, rgba: [0, 0, 1, 0] },
+    expect(mark?.keys).toEqual([
+      { time: 0, values: [1, 0, 0, 1] },
+      { time: 2, values: [0, 0, 1, 0] },
     ]);
     expect(mark?.curve).toBe(true);
   });
 
-  it("carries a scalar's constant and no stops", () => {
+  it("carries a scalar's keys, one channel to each", () => {
+    const mark = valueMarks([curveRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${CURVE_PATH}`);
+
+    expect(mark?.family).toBe("scalar");
+    expect(mark?.keys).toEqual([
+      { time: 0, values: [4] },
+      { time: 1, values: [9] },
+    ]);
+  });
+
+  it("carries a scalar's constant and no keys where it has no curve", () => {
     const mark = valueMarks([floatRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${FLOAT_PATH}`);
 
     expect(mark?.family).toBe("scalar");
     expect(mark?.constant).toEqual({ type: "float", value: 2.5 });
-    expect(mark?.stops).toEqual([]);
+    expect(mark?.keys).toEqual([]);
     expect(mark?.curve).toBe(false);
   });
 
@@ -165,9 +217,27 @@ describe("valueMarks", () => {
     expect(mark.get(`${ENTRY}:${COLOR_PATH}`)).toEqual({
       family: "color",
       constant: null,
-      stops: [],
+      keys: [],
       curve: false,
     });
+  });
+});
+
+describe("colorStops and sparkKeys", () => {
+  it("paints a four-channel key as a stop, and skips a key of another width", () => {
+    expect(
+      colorStops([
+        { time: 0, values: [1, 0, 0, 1] },
+        { time: 1, values: [0.5] },
+      ]),
+    ).toEqual([{ time: 0, rgba: [1, 0, 0, 1] }]);
+  });
+
+  it("gives a colour no sparkline, because its own band draws the same keys", () => {
+    const keys = [{ time: 0, values: [1, 0, 0, 1] }];
+
+    expect(sparkKeys({ family: "color", constant: null, keys, curve: true })).toEqual([]);
+    expect(sparkKeys({ family: "scalar", constant: null, keys, curve: true })).toBe(keys);
   });
 });
 
@@ -203,13 +273,13 @@ describe("colorHex and gradientCss", () => {
 describe("markText", () => {
   it("copies a colour as its bytes and a scalar and a vector as they draw", () => {
     expect(
-      markText({ family: "color", constant: vec4(1, 0.5, 0, 1), stops: [], curve: false }),
+      markText({ family: "color", constant: vec4(1, 0.5, 0, 1), keys: [], curve: false }),
     ).toBe("#FF8000FF");
     expect(
       markText({
         family: "scalar",
         constant: { type: "float", value: 2.5 },
-        stops: [],
+        keys: [],
         curve: false,
       }),
     ).toBe("2.5");
@@ -217,7 +287,7 @@ describe("markText", () => {
       markText({
         family: "vector",
         constant: { type: "vector", values: [0, 1.5, 0] },
-        stops: [],
+        keys: [],
         curve: false,
       }),
     ).toBe("0, 1.5, 0");
@@ -225,6 +295,6 @@ describe("markText", () => {
 
   it("copies nothing before the read lands", () => {
     expect(markText(undefined)).toBeNull();
-    expect(markText({ family: "color", constant: null, stops: [], curve: false })).toBeNull();
+    expect(markText({ family: "color", constant: null, keys: [], curve: false })).toBeNull();
   });
 });

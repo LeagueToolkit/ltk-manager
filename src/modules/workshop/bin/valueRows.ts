@@ -37,16 +37,34 @@ export interface ColorStop {
   readonly rgba: readonly [number, number, number, number];
 }
 
+/** One key of a curve: when it lands, and what each channel is worth there. */
+export interface CurveKey {
+  readonly time: number;
+  /** One per channel: one for a scalar, two or three for a vector, four for a colour. */
+  readonly values: readonly number[];
+}
+
+/**
+ * What a surface reads a curve for.
+ *
+ * A colour band is the keys of a colour and of nothing else, which is what every surface
+ * drawing a row already pays for. A sparkline is every family's keys, two more read levels
+ * that only a surface drawing a handful of rows at a time can afford.
+ */
+export type CurveRead = "bands" | "sparklines";
+
 /** What a value-family row draws after its class, as far as the read has answered. */
 export interface ValueMark {
   readonly family: ValueFamily;
   /** The row's `constantValue`. Null until the first level answers. */
   readonly constant: BinValue | null;
-  /** A colour's stops, in the dynamics' own order. Empty where it has none. */
-  readonly stops: readonly ColorStop[];
+  /** The curve's keys, in its own order. Empty until the read asks for them. */
+  readonly keys: readonly CurveKey[];
   /** The row's `dynamics` points at a curve, so the constant is not the whole value. */
   readonly curve: boolean;
 }
+
+const NO_KEYS: readonly CurveKey[] = [];
 
 /** The first level: every family row in view, whose children are its constant and its curve. */
 export function constantRequests(rows: readonly BinRow[]): ReadRequest[] {
@@ -58,14 +76,17 @@ export function constantRequests(rows: readonly BinRow[]): ReadRequest[] {
   return wanted;
 }
 
-/** The second level: the curve of every colour row whose first level answered one. */
+/** The second level: the curve of every row whose first level answered one and `read` wants. */
 export function dynamicsRequests(
   rows: readonly BinRow[],
   constants: ReadonlyMap<string, BinRows>,
+  read: CurveRead,
 ): ReadRequest[] {
   const wanted: ReadRequest[] = [];
   for (const row of rows) {
-    if (valueFamily(row.value) !== "color") continue;
+    const family = valueFamily(row.value);
+    if (family === null) continue;
+    if (read === "bands" && family !== "color") continue;
     const curve = under(constants.get(rowKey(row)), DYNAMICS);
     if (curve?.value.type !== "struct" || curve.value.len === 0) continue;
     wanted.push({ key: `${curve.entry}:${curve.path}`, rows: curve.value.len });
@@ -102,7 +123,7 @@ export function valueMarks(
     marks.set(key, {
       family,
       constant: under(page, CONSTANT)?.value ?? null,
-      stops: family === "color" ? colorStops(page, dynamics, stops) : [],
+      keys: curveKeys(page, dynamics, stops),
       curve: under(page, DYNAMICS)?.value.type === "struct",
     });
   }
@@ -126,30 +147,55 @@ function list(
 }
 
 /**
- * The stops of the colour whose first level is `page`.
+ * The keys of the curve whose first level is `page`.
  *
- * The two lists are written in step, so a stop is one index of each, and a list longer
+ * The two lists are written in step, so a key is one index of each, and a list longer
  * than the other contributes nothing past where they agree.
  */
-function colorStops(
+function curveKeys(
   page: BinRows | undefined,
   dynamics: ReadonlyMap<string, BinRows>,
   stops: ReadonlyMap<string, BinRows>,
-): ColorStop[] {
+): CurveKey[] {
   const curve = under(page, DYNAMICS);
   if (curve === null) return [];
   const curvePage = dynamics.get(`${curve.entry}:${curve.path}`);
   const times = list(curvePage, TIMES, stops);
   const values = list(curvePage, VALUES, stops);
 
-  const out: ColorStop[] = [];
+  const out: CurveKey[] = [];
   for (let at = 0; at < Math.min(times.length, values.length); at += 1) {
     const time = times[at]?.value;
-    const rgba = channels(values[at]?.value);
-    if (time?.type !== "float" || time.value === null || rgba === null) continue;
-    out.push({ time: time.value, rgba });
+    const held = components(values[at]?.value);
+    if (time?.type !== "float" || time.value === null || held === null) continue;
+    out.push({ time: time.value, values: held });
   }
   return out;
+}
+
+/** A key's value as its channels, or null for one JSON could not carry whole. */
+function components(value: BinValue | undefined): number[] | null {
+  if (value?.type === "float") return value.value === null ? null : [value.value];
+  if (value?.type !== "vector") return null;
+  const held = value.values.filter((component) => component !== null);
+  return held.length === value.values.length ? held : null;
+}
+
+/** The keys of a colour as the stops its band paints, which is four channels each. */
+export function colorStops(keys: readonly CurveKey[]): ColorStop[] {
+  const out: ColorStop[] = [];
+  for (const key of keys) {
+    const [r, g, b, a] = key.values;
+    if (r === undefined || g === undefined || b === undefined || a === undefined) continue;
+    out.push({ time: key.time, rgba: [r, g, b, a] });
+  }
+  return out;
+}
+
+/** The keys a row draws as a sparkline, which a colour has none of because its band draws them. */
+export function sparkKeys(mark: ValueMark | undefined): readonly CurveKey[] {
+  if (mark === undefined || mark.family === "color") return NO_KEYS;
+  return mark.keys;
 }
 
 /**

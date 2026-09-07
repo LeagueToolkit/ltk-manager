@@ -280,19 +280,29 @@ What it changes in `docs/ux/BIN_EDITOR.md`: "A value family on its row" gains th
 section "The curve panel" under "The object tab" holds 5.2 to 5.4, and "What an edit is" gains
 the batch and the set of a pointer.
 
-## 6. Open questions for the maintainer
+## 6. Questions, and what was decided
 
-1. **Glyph or sparkline.** 5.1 draws a glyph at no cost. A sparkline reads two more levels per
-   visible row. Is the emitter table's scan worth those calls?
-2. **Batch or Set curve.** 5.5 prefers a batch, because an add is two writes on any pair of
-   lists, not only these. Agreed?
-3. **The caption.** The label chain as Syrup, or the wire path as RiotEditor?
-4. **The file tab.** Does Show curve on a file tab's row open the object tab, or does the file
-   tab hold a dock of its own?
-5. **`d3-array` or nothing.** Ticks at 0, 0.25, 0.5, 0.75 and 1 on a fixed axis need no
-   library. The value axis fits its keys and does.
-6. **Probability.** Undocumented. Draw the lists as a second curve and stop, or leave the tab
-   out until a modder asks?
-7. **Channel colours.** Riot's red, green and blue, or ramps off the accent?
-8. **Add curve on null.** Offer it, which waits on the set of a pointer, or draw nothing on
-   such a row until then?
+Answered over four rounds on 2026-09-07 and recorded as ADR-0032 and "The curve panel" in
+`docs/ux/BIN_EDITOR.md`.
+
+1. **Glyph or sparkline.** _Both, by surface._ The emitter panel's own rows draw a sparkline,
+   because one group is eight-odd rows and two more levels over eight rows is bounded. Every
+   other surface keeps the glyph. The same rule over the emitter table's four value columns is
+   240 curves on one screen, and the generic tree scrolls a thousand rows.
+2. **Batch or Set curve.** _A batch._ An add is two writes on a pair of lists, which is the shape
+   of any paired-list edit rather than of this one. It waits on editing, which is Proposed.
+3. **The caption.** _Both, on two lines._ The label chain is what the reader clicked. The wire
+   path under it is what a bug report needs.
+4. **The file tab.** _The object tab, and there is one dock in the app._ A mark on a file tab's
+   row opens the object tab with the dock already targeted, the way Show in properties switches
+   the mode.
+5. **`d3-array` or nothing.** _Nothing._ The time axis fits the curve's own first and last key,
+   which is a min, a max and a division. No plotting dependency is added.
+6. **Probability.** _Draw it, and claim nothing._ The tab plots `probabilityTables` for the
+   channel the graph's chips chose, and draws `singleValue` in place of a plot where a table
+   holds no keys. What the game samples from one stays undocumented.
+7. **Channel colours.** _Riot's red, green and blue,_ in the graph. A sparkline is too small to
+   tell three lines apart, so its channels share one colour.
+8. **Add curve on null.** _Draw nothing._ A value whose `dynamics` is null draws no mark and its
+   row menu offers no curve, because setting a null pointer to a class is a write nothing in the
+   editor makes yet.
