@@ -70,6 +70,8 @@ const CUSTOM_MATERIAL = `${GLOW}.${at("CustomMaterial")}`;
 const BIRTH_COLOR = `${GLOW}.${at("birthColor")}`;
 const DYNAMICS = `${BIRTH_COLOR}.${at("dynamics")}`;
 const VELOCITY = `${GLOW}.${at("velocity")}`;
+const SPARKS_COLOR = `${SPARKS}.${at("birthColor")}`;
+const RATE = `${GLOW}.${at("rate")}`;
 
 const ROOTS: BinRow[] = [
   field("particleName", { type: "string", value: "Smolder_Base_Idle" }),
@@ -80,10 +82,10 @@ const ROOTS: BinRow[] = [
 ];
 
 /** One emitter's own fields, named as the table's columns want them. */
-function emitter(path: string, name: string, extra: BinRow[] = []): BinRows {
+function emitter(path: string, name: string, extra: BinRow[] = [], off = false): BinRows {
   return page([
     row(`${path}.${at("emitterName")}`, "emitterName", { type: "string", value: name }),
-    row(`${path}.${at("disabled")}`, "disabled", { type: "bool", value: false }),
+    row(`${path}.${at("disabled")}`, "disabled", { type: "bool", value: off }),
     row(`${path}.${at("lifetime")}`, "lifetime", { type: "float", value: 2 }),
     row(`${path}.${at("blendMode")}`, "blendMode", { type: "integer", text: "1" }),
     ...extra,
@@ -93,7 +95,7 @@ function emitter(path: string, name: string, extra: BinRow[] = []): BinRows {
 const PAGES: Record<string, BinRows> = {
   [COMPLEX]: page([
     row(GLOW, "[0]", embed("VfxEmitterDefinitionData", 6), "element"),
-    row(SPARKS, "[1]", embed("VfxEmitterDefinitionData", 4), "element"),
+    row(SPARKS, "[1]", embed("VfxEmitterDefinitionData", 5), "element"),
   ]),
   [SIMPLE]: page([row(TRAIL, "[0]", embed("VfxEmitterDefinitionData", 4), "element")]),
   [GLOW]: emitter(GLOW, "Glow", [
@@ -102,9 +104,20 @@ const PAGES: Record<string, BinRows> = {
     row(CUSTOM_MATERIAL, "CustomMaterial", embed("VfxMaterialDefinitionData", 2)),
     row(BIRTH_COLOR, "birthColor", embed("ValueColor", 2)),
     row(VELOCITY, "velocity", embed("ValueVector3", 2)),
+    row(RATE, "rate", embed("ValueFloat", 2)),
   ]),
-  [SPARKS]: emitter(SPARKS, "Sparks"),
-  [TRAIL]: emitter(TRAIL, "Trail"),
+  [RATE]: page([
+    row(`${RATE}.${at("constantValue")}`, "constantValue", { type: "float", value: 3 }),
+    row(`${RATE}.${at("dynamics")}`, "dynamics", embed("VfxAnimatedFloatVariableData", 2)),
+  ]),
+  [SPARKS]: emitter(SPARKS, "Sparks", [row(SPARKS_COLOR, "birthColor", embed("ValueColor", 1))]),
+  [TRAIL]: emitter(TRAIL, "Trail", [], true),
+  [SPARKS_COLOR]: page([
+    row(`${SPARKS_COLOR}.${at("constantValue")}`, "constantValue", {
+      type: "vector",
+      values: [0, 1, 0, 1],
+    }),
+  ]),
   [CUSTOM_MATERIAL]: page([
     row(`${CUSTOM_MATERIAL}.${at("Material")}`, "Material", {
       type: "objectLink",
@@ -223,6 +236,11 @@ beforeEach(() => {
   });
 });
 
+/** The strip is what a system opens on, so a table case asks for the table first. */
+async function showTable(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole("button", { name: "Table" }));
+}
+
 describe("ClassView over a particle system", () => {
   it("draws every section of the layout, in its order", () => {
     renderSystem();
@@ -232,59 +250,92 @@ describe("ClassView over a particle system", () => {
     }
   });
 
-  it("draws both emitter lists as one table", async () => {
+  it("draws a card per emitter of both lists", async () => {
     renderSystem();
 
-    expect(await screen.findByText("Glow")).toBeInTheDocument();
+    expect(await screen.findAllByText("Glow")).not.toHaveLength(0);
     expect(screen.getByText("Sparks")).toBeInTheDocument();
     expect(screen.getByText("Trail")).toBeInTheDocument();
   });
 
-  it("names each column by the field it draws", () => {
+  it("marks a card off the second list, and carries each index", async () => {
     renderSystem();
 
-    expect(screen.getByText("emitterName")).toBeInTheDocument();
-    expect(screen.getByText("birthColor")).toBeInTheDocument();
-    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
+    await screen.findByText("Trail");
+    expect(screen.getByText("simple")).toBeInTheDocument();
+    expect(screen.getByText("[1]")).toBeInTheDocument();
+  });
+
+  it("lists the groups an emitter sets, and no others", async () => {
+    renderSystem();
+
+    await screen.findAllByText("Glow");
+    for (const group of ["Emission", "Birth", "Position", "Texture", "Render", "Material"]) {
+      expect(screen.getAllByText(group).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByText("Scale")).not.toBeInTheDocument();
+    expect(screen.queryByText("Effects")).not.toBeInTheDocument();
+  });
+
+  it("opens on the first emitter's first group", async () => {
+    renderSystem();
+
+    expect(await screen.findByText("lifetime")).toBeInTheDocument();
+  });
+
+  it("draws a value family as its own constant, not as the class holding it", async () => {
+    renderSystem();
+
+    expect(await screen.findByDisplayValue("3")).toBeInTheDocument();
+    expect(screen.queryByText("ValueFloat")).not.toBeInTheDocument();
+  });
+
+  it("marks a value a curve carries the rest of", async () => {
+    renderSystem();
+
+    expect(await screen.findByRole("img", { name: "Animated" })).toBeInTheDocument();
+  });
+
+  it("draws the group a chip chooses", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Position" }));
+
+    expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
+  });
+
+  it("dims an emitter its own field disables", async () => {
+    renderSystem();
+
+    expect(await screen.findByLabelText("Disabled")).toBeInTheDocument();
+  });
+
+  it("draws the birth colour in the square of an emitter with no texture", async () => {
+    renderSystem();
+
+    expect(await screen.findByRole("img", { name: "Birth colour" })).toBeInTheDocument();
   });
 
   it("reads both containers in one call, and their elements in the next", async () => {
     renderSystem();
 
-    await screen.findByText("Glow");
+    await screen.findAllByText("Glow");
     const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
 
     expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: [COMPLEX, SIMPLE].sort() });
     expect(reads[1]?.[1]).toMatchObject({ entry: ENTRY, paths: [GLOW, SPARKS, TRAIL].sort() });
   });
 
-  it("draws the class of a pointer field, which is what the row draws", async () => {
+  it("marks the squares and the open group, and no other value family", async () => {
     renderSystem();
 
-    expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
-  });
-
-  it("draws the chip of the material under the emitter's own material", async () => {
-    renderSystem();
-
-    expect(await screen.findByText(MATERIAL_PATH)).toBeInTheDocument();
-  });
-
-  it("draws a colour's swatch and strip, as the value rows draw them", async () => {
-    renderSystem();
-
-    expect(await screen.findByLabelText("2 colour stops")).toBeInTheDocument();
-  });
-
-  it("marks the columns it draws, and no other value family of the emitter", async () => {
-    renderSystem();
-
-    await screen.findByLabelText("2 colour stops");
+    await screen.findByRole("img", { name: "Birth colour" });
     const asked = mockInvoke.mock.calls
       .filter(([command]) => command === "bin_read")
       .flatMap(([, args]) => (args as { paths: string[] }).paths);
 
-    expect(asked).toContain(BIRTH_COLOR);
+    expect(asked).toContain(SPARKS_COLOR);
     expect(asked).not.toContain(VELOCITY);
   });
 
@@ -292,10 +343,43 @@ describe("ClassView over a particle system", () => {
     const onShowInProperties = renderSystem();
     const user = userEvent.setup();
 
-    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText("Glow") });
+    const [cell] = await screen.findAllByText("Glow");
+    await user.pointer({ keys: "[MouseRight]", target: cell as HTMLElement });
     await user.click(await screen.findByRole("menuitem", { name: "Show in properties" }));
 
     expect(onShowInProperties).toHaveBeenCalledWith(`${ENTRY}:${GLOW}.${at("emitterName")}`);
+  });
+});
+
+describe("The emitter table", () => {
+  it("names each column by the field it draws", async () => {
+    renderSystem();
+    await showTable(userEvent.setup());
+
+    expect(screen.getByText("emitterName")).toBeInTheDocument();
+    expect(screen.getByText("birthColor")).toBeInTheDocument();
+    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
+  });
+
+  it("draws the class of a pointer field, which is what the row draws", async () => {
+    renderSystem();
+    await showTable(userEvent.setup());
+
+    expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
+  });
+
+  it("draws the chip of the material under the emitter's own material", async () => {
+    renderSystem();
+    await showTable(userEvent.setup());
+
+    expect(await screen.findByText(MATERIAL_PATH)).toBeInTheDocument();
+  });
+
+  it("draws a colour's swatch and strip, as the value rows draw them", async () => {
+    renderSystem();
+    await showTable(userEvent.setup());
+
+    expect(await screen.findByLabelText("2 colour stops")).toBeInTheDocument();
   });
 });
 
@@ -347,7 +431,7 @@ describe("ClassView over sixty emitters", () => {
 
   it("reads every emitter, in batches none of which passes the cap", async () => {
     renderMany();
-    await screen.findByText("Emitter0");
+    await screen.findAllByText("Emitter0");
 
     const asked = mockInvoke.mock.calls
       .filter(([command]) => command === "bin_read")

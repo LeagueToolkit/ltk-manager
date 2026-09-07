@@ -1,4 +1,4 @@
-import { WarningCircleIcon } from "@phosphor-icons/react";
+import { WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -8,7 +8,7 @@ import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
-import { RowValue } from "./BinRow";
+import { RowValue, ValueMarkCell } from "./BinRow";
 import { fieldHash, rowKey } from "./binRows";
 import type { PlacedSection } from "./classLayouts";
 import { chunkPath, decideFileLink } from "./linkDecision";
@@ -22,6 +22,8 @@ import {
   useLayerCopy,
   useLinkTargets,
 } from "./useLinkTargets";
+import { useValueMark } from "./useValueMarks";
+import { valueFamily } from "./valueRows";
 
 /** What the levels of a layout's read answered, by the key of the row each sits under. */
 export type LayoutPages = ReadonlyMap<string, BinRows>;
@@ -168,24 +170,51 @@ export function TableRows({
 }
 
 /** One field on a line of its own: its name, and the cell its row draws. */
-export function FieldRow({ row }: { row: BinRow }) {
+export function FieldRow({ row, width = "w-40" }: { row: BinRow; width?: string }) {
+  const family = valueFamily(row.value);
+
   return (
     /* DS-VEIL, DS-RADIUS */
     <div
       className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
       data-row-key={rowKey(row)}
     >
-      <span className="w-40 shrink-0 truncate text-surface-200">{row.name}</span>
-      <RowValue row={row} />
+      <span className={twMerge("shrink-0 truncate text-surface-200", width)}>{row.name}</span>
+      {family === null && <RowValue row={row} />}
+      {family !== null && <ValueCell row={row} />}
     </div>
   );
 }
 
-/** How big a texture cell is drawn: a sampler's own tile, or a swatch in a table row. */
-export type TileSize = "tile" | "row";
+/**
+ * A value family's constant, and a mark where a curve carries the rest of it.
+ *
+ * "A value family in a layout" in docs/ux/BIN_EDITOR.md.
+ */
+export function ValueCell({ row }: { row: BinRow }) {
+  const mark = useValueMark(rowKey(row));
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <ValueMarkCell mark={mark} />
+      {mark?.curve === true && (
+        <WaveSineIcon
+          weight="bold"
+          role="img"
+          aria-label={m.workshop_bin_value_curve_label()}
+          className="h-3.5 w-3.5 shrink-0 text-surface-400"
+        />
+      )}
+    </span>
+  );
+}
+
+/** How big a texture cell is drawn: an emitter card's square, a tile, or a row swatch. */
+export type TileSize = "card" | "tile" | "row";
 
 /** The room each size takes, and the mark that fits in it. */
 const EMPTY_BOX: Record<TileSize, { box: string; mark: string }> = {
+  card: { box: "aspect-square w-full", mark: "h-5 w-5" },
   tile: { box: "h-12 w-12", mark: "h-4 w-4" },
   row: { box: "h-5 w-5", mark: "h-3 w-3" },
 };

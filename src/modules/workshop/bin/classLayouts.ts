@@ -22,7 +22,7 @@ export type SectionWidget =
   | "mesh"
   | "override-table"
   | "effect-table"
-  | "emitter-table";
+  | "emitters";
 
 /** Which of a level's answered rows the level under it reads, by field name. */
 export type Select = "all" | readonly string[];
@@ -138,7 +138,7 @@ export const vfxLayout: ClassLayout = {
     {
       title: m.workshop_bin_section_emitters_label,
       fields: ["complexEmitterDefinitionData", "simpleEmitterDefinitionData"],
-      as: "emitter-table",
+      as: "emitters",
     },
     {
       title: m.workshop_bin_section_audio_label,
@@ -244,7 +244,7 @@ const DESCENT: Record<SectionWidget, Descent> = {
   "switch-list": ["all", "all"],
   "effect-table": ["all", "all"],
   "override-table": [["materialOverride"], "all", "all"],
-  "emitter-table": ["all", ["CustomMaterial"], "all"],
+  emitters: ["all", ["CustomMaterial"], "all"],
 };
 
 /** How far under its own fields a section's widget reads. Nothing, without one. */
@@ -262,7 +262,7 @@ export const MAX_LEVELS = 3;
  * row its levels answered would ask for one on each of an emitter's own hundred-odd
  * fields, which is a read per field of a table that draws four.
  */
-const OWN_MARKS: ReadonlySet<SectionWidget> = new Set<SectionWidget>(["emitter-table"]);
+const OWN_MARKS: ReadonlySet<SectionWidget> = new Set<SectionWidget>(["emitters"]);
 
 /** Whether a section's widget reads its own value marks. */
 export function readsOwnMarks(widget: SectionWidget | undefined): boolean {

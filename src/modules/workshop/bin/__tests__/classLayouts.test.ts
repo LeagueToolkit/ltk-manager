@@ -69,7 +69,7 @@ describe("descentOf", () => {
     "mesh",
     "override-table",
     "effect-table",
-    "emitter-table",
+    "emitters",
   ];
 
   it("keeps every widget inside the levels the view reads", () => {

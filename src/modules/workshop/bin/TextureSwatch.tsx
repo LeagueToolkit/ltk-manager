@@ -20,10 +20,14 @@ export const SWATCH_WIDTH = 32;
 /** The `w` a tile asks for: the mipmap that covers 48px, and reads on a 2x display. */
 export const TILE_WIDTH = 96;
 
+/** The `w` a card's square asks for: the mipmap that covers its 148px, at 2x. */
+export const SQUARE_WIDTH = 320;
+
 /** How big the swatch is drawn, and which mipmap that asks for. */
 const SIZES = {
   row: { box: "h-5 w-5", width: SWATCH_WIDTH },
   tile: { box: "h-12 w-12", width: TILE_WIDTH },
+  card: { box: "aspect-square w-full", width: SQUARE_WIDTH },
 } as const;
 
 /** The `w` the hover card asks for, and the card's own width. */
@@ -40,7 +44,7 @@ interface TextureSwatchProps {
   fileKind: WorkshopFileKind;
   /** The layer's title, for the card of a layer's copy. */
   layerTitle?: string;
-  /** The room it takes: a row's own height, or the 48px tile a sampler table draws. */
+  /** The room it takes: a row's height, a sampler's 48px tile, or a card's own square. */
   size?: keyof typeof SIZES;
   onOpen: (intent: OpenIntent) => void;
 }

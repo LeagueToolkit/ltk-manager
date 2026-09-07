@@ -4,6 +4,8 @@
 
 | Date       | Change                                                   |
 | ---------- | -------------------------------------------------------- |
+| 2026-09-07 | Fold a value family into the row a layout draws it in    |
+| 2026-09-07 | Draw an emitter as a card of its groups                  |
 | 2026-09-07 | Lay a skin and a particle system out                     |
 | 2026-09-07 | Name a project's own chunks                              |
 | 2026-09-07 | Lay a material out beside the tree                       |
@@ -536,7 +538,8 @@ alone. The other three draw the constant in the field a scalar or a vector row d
 ```
 
 The rule is keyed on the class and the field, the way ritobin-lsp issue 55 states it, and it
-holds in the generic tree and in every layout. The nodes a row wants are read per visible page
+holds in the generic tree and in every layout, except that a layout drops the class this row
+draws first, per [a value family in a layout](#a-value-family-in-a-layout). The nodes a row wants are read per visible page
 through [the projected read](#the-projected-read), on scroll settle, and the row draws them when
 they land. A curve over the dynamics is the curve widget's, later, and the lints the issue names
 are Problems rules.
@@ -888,7 +891,7 @@ row's hash at module load, checked by a test over known pairs.
 
 A section names one widget or none, and a widget reads the fields of one class: `sampler-table`,
 `param-table` and `switch-list` for the material, `icons`, `mesh`, `override-table` and
-`effect-table` for the skin, `emitter-table` for the particle system. `fields` draws the
+`effect-table` for the skin, `emitters` for the particle system. `fields` draws the
 sub-fields a section names under the row it placed, which is what a one-field embed such as
 `skinAnimationProperties` takes. `tree` is [the tree](#the-blocks) rooted at the section's own
 fields, which is what a nested structure with no table shape takes. A section that names no
@@ -930,6 +933,19 @@ the mode and reveals the row in the tree, expanding the ancestors of a nested ke
 no keyboard model of its own until editing gives it one, and its read-only fields take no focus,
 per [The value kinds](#the-value-kinds).
 
+### A value family in a layout
+
+A `ValueFloat`, `ValueVector2`, `ValueVector3` or `ValueColor` row draws its constant alone
+wherever a layout draws it, without the class [the tree](#a-value-family-on-its-row) names beside
+it. The wrapper is how the game stores an animatable number, and the layout is where a reader
+asks what the number is, so a cell that spends its width on `ValueFloat` has answered a question
+nobody put. The tree keeps the class, because there the class is what the row is.
+
+Where the row's `dynamics` points at a curve the cell takes a mark, since the constant alone
+would read as the whole value. The first level of the value read answers `constantValue` and
+`dynamics` together, so the mark costs no call of its own. What the curve holds is Properties'
+until a panel draws it.
+
 ### What a layout reads
 
 The depth-zero rows arrive with the open. A nested row arrives through
@@ -962,7 +978,7 @@ reachable through Properties, which is the whole object.
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `StaticMaterialDef`                                 | Identity, Samplers as tiles, Params, Switches, Macros and Techniques as nested trees, Other |
 | `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other |
-| `VfxSystemDefinitionData`                           | Identity, Emitters as a table with a row per emitter, Audio, Other                          |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                          |
 | `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                         |
 
 The material, the skin and the particle system are the registered layouts, with the value rows
@@ -971,6 +987,41 @@ beside them. The animation graph table follows.
 A layout draws no Used by. Reverse references are the walk's, and Find all references on the
 kebab is the affordance until it ships. The preview slot on the skin layout waits on a renderer,
 which is frontend WebGL and its own ADR.
+
+### The emitter strip
+
+Both of Riot's particle editors draw a system as a row of emitter cards, and the Emitters section
+draws the same: one card per element of `complexEmitterDefinitionData` and
+`simpleEmitterDefinitionData`, in one strip that scrolls sideways, a card off the second list
+marked as simple. A card carries the emitter's name, its index in its own list, a square, and one
+chip per group of fields it sets. A `disabled` emitter dims and takes a struck eye.
+
+The square is the texture the emitter draws, and where it names none, the constant of its
+`birthColor` as a swatch or as the band its stops make. An emitter with neither takes the tile a
+missing texture takes.
+
+A chip opens the group under the strip, one group at a time, each field in the cell its own row
+draws. The strip opens on the first emitter's first group, because the read has answered every
+field by then and an empty panel says nothing. Reading an emitter whole is Properties, which is
+the whole object.
+
+The groups are Birth, Position, Render, Scale and Texture, the components both of Riot's editors
+draw, and Emission, Colour, Material and Effects for what the class carries and those five do not
+hold. Which fields each holds is a table written by hand, so a field the schema adds falls to
+Other and is on screen the day it appears rather than landing in a group by accident. Birth is
+the value a particle starts with and every other group is what it does over its life, which is
+the line that puts `birthScale0` under Birth and `scale0` under Scale.
+
+A card and a table are two readings of one list, and a control on the section switches them. The
+strip says what one emitter is. The table compares a field down every emitter of the system,
+which is what a modder tuning a timing reads. Both move sideways, and both take a plain wheel, so
+the emitters past the edge are reachable without holding shift.
+
+The panel scrolls past a dozen rows rather than growing, because a Position or a Render group runs
+to thirty fields and no section owns the page.
+
+The strip marks the squares' colours and the open group's rows, and no other value family, because
+an emitter carries far more of them than a card ever draws at once.
 
 ## Editing
 

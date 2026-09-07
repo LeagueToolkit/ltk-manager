@@ -47,7 +47,7 @@ import {
   useWarmLinkOpen,
 } from "./useLinkTargets";
 import { useValueMarks, ValueMarksContext } from "./useValueMarks";
-import { EmitterTable } from "./VfxSections";
+import { Emitters } from "./VfxSections";
 
 /** The most rows a tree section shows before it scrolls, so no section owns the page. */
 const TREE_ROWS = 12;
@@ -226,7 +226,7 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   mesh: MeshCard,
   "override-table": OverrideTable,
   "effect-table": EffectTable,
-  "emitter-table": EmitterTable,
+  emitters: Emitters,
 };
 
 function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {
