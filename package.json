@@ -2,7 +2,7 @@
   "name": "ltk-manager-ui",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
