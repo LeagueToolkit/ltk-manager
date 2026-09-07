@@ -76,7 +76,8 @@ stay open where the switch is closed.
 **The checkbox is the way in without the modifier.** It draws on the card under the pointer, and
 on every card while the selection is non-empty. A press on it adds or removes that one card. The
 grid draws it in the card's top-left corner, over the art, and the list draws it at the head of
-the row. It is laid out at all times and only faded, so no row reflows as a pointer crosses it.
+the row. Neither reflows as a pointer crosses it - a row holds its place at all times, and a card
+draws it over the corner with the marks sliding aside.
 
 **There is no marquee.** A drag over the grid is already how a mod is reordered, and one press
 cannot mean both. Ctrl-click and shift-click reach every set a rubber band would.

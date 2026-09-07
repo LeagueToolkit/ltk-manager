@@ -71,10 +71,15 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
      would file a broken mod under a state the reader chose. */
   const dimClass = !inEnabledState && !isSelected && !blocked ? "opacity-60 saturate-50" : "";
 
-  /* Faded rather than absent, so tabbing to it still reaches a control. */
+  /* Faded rather than absent, so tabbing to it still reaches a control. It is
+     out of the corner's flow and the marks slide off it instead, or a card with
+     nothing picked would hold 24px of nothing open beside its badges. */
   const checkboxClass = hasSelection
     ? ""
-    : "opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 focus-within:opacity-100";
+    : "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100";
+  const marksShift = hasSelection
+    ? "translate-x-6"
+    : "group-hover:translate-x-6 group-focus-within:translate-x-6";
 
   /* The card is the context menu's trigger rather than a child of it, so the
      grid keeps sizing the element it always did. */
@@ -102,8 +107,12 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <ModCardContextMenu view={view} card={card}>
       {/* One corner rather than four absolutes at the same coordinates, which
           stacked whenever a mod was in more than one of these states. */}
-      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1">
-        <span data-no-toggle onClick={(e) => e.stopPropagation()} className={checkboxClass}>
+      <div className="absolute top-1.5 left-1.5 z-10">
+        <span
+          data-no-toggle
+          onClick={(e) => e.stopPropagation()}
+          className={twMerge("absolute top-0 left-0", checkboxClass)}
+        >
           <Checkbox
             size="md"
             checked={isSelected}
@@ -112,24 +121,31 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             className="shadow-lg backdrop-blur-sm"
           />
         </span>
-        {isFlagged && (
-          <Tooltip content={skinhackReason}>
-            <div className="rounded-md bg-danger/90 p-1">
-              <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
-            </div>
-          </Tooltip>
-        )}
-        {/* A ground under the marks' own fill, so they read over cover art:
-            DS-GLASS. `empty:hidden` keeps a mod with neither from spending a
-            gap on the marks it does not draw. */}
-        <span
-          data-no-toggle
-          onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
+        <div
+          className={twMerge(
+            "flex items-center gap-1 transition-transform duration-150 ease-out",
+            marksShift,
+          )}
         >
-          <ModHealthBadge modId={mod.id} />
-          <SuspectBadge modId={mod.id} enabled={mod.enabled} />
-        </span>
+          {isFlagged && (
+            <Tooltip content={skinhackReason}>
+              <div className="rounded-md bg-danger/90 p-1">
+                <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
+              </div>
+            </Tooltip>
+          )}
+          {/* A ground under the marks' own fill, so they read over cover art:
+              DS-GLASS. `empty:hidden` keeps a mod with neither from spending a
+              gap on the marks it does not draw. */}
+          <span
+            data-no-toggle
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
+          >
+            <ModHealthBadge modId={mod.id} />
+            <SuspectBadge modId={mod.id} enabled={mod.enabled} />
+          </span>
+        </div>
       </div>
 
       {/* Over the art rather than in the footer, which is the row it was making
