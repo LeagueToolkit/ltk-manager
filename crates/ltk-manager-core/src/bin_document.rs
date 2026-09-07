@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Write as _};
 use std::io::Cursor;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use lru::LruCache;
@@ -26,6 +27,7 @@ use crate::preview::AssetRef;
 use crate::problems::names::hex;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
+use crate::workshop::LayerChunks;
 
 /// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
 pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
@@ -85,6 +87,8 @@ struct Store {
 /// One parsed asset, and how many ids hold it.
 struct Held {
     document: BinDocument,
+    /// The chunk paths this asset's project names, scanned once with the parse.
+    chunks: Arc<LayerChunks>,
     holders: usize,
 }
 
@@ -153,6 +157,8 @@ impl BinDocuments {
         }
 
         let document = BinDocument::parse(&bytes()?)?;
+        /* Scanned beside the parse, and outside the lock, because both read the disk. */
+        let chunks = LayerChunks::of(&asset);
 
         let mut store = self.inner.lock();
         match store.held.get_mut(&asset) {
@@ -160,6 +166,7 @@ impl BinDocuments {
             None => {
                 let held = Held {
                     document,
+                    chunks: Arc::new(chunks),
                     holders: 1,
                 };
                 if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
@@ -188,6 +195,20 @@ impl BinDocuments {
             .and_then(|asset| held.get(asset))
             .ok_or(BinDocumentError::NotOpen(id))?;
         read(&held.document)
+    }
+
+    /// The chunk names the project behind `id`'s asset holds.
+    ///
+    /// Empty for a closed id and for an asset outside a project, which names nothing of
+    /// its own. "A project names its own chunks" in docs/ux/BIN_EDITOR.md.
+    #[must_use]
+    pub fn chunks_of(&self, id: BinDocumentId) -> Arc<LayerChunks> {
+        let mut store = self.inner.lock();
+        let Store { ids, held, .. } = &mut *store;
+        ids.get(&id).and_then(|asset| held.get(asset)).map_or_else(
+            || Arc::new(LayerChunks::default()),
+            |held| Arc::clone(&held.chunks),
+        )
     }
 
     /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
@@ -900,6 +921,62 @@ pub trait RowNames {
     fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
     /// The paths of chunks, out of the WAD tables.
     fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str));
+}
+
+/// A project's own chunk names over another source's.
+///
+/// The shared tables are a crawl of the retail game. A path a mod author invents is in
+/// none of them, and the project holding that path is what names it.
+#[derive(Debug)]
+pub struct ProjectNames<'a, N> {
+    inner: &'a N,
+    chunks: &'a crate::workshop::LayerChunks,
+}
+
+impl<'a, N> ProjectNames<'a, N> {
+    /// `chunks` answers a chunk first, and `inner` answers the rest.
+    pub fn new(inner: &'a N, chunks: &'a crate::workshop::LayerChunks) -> Self {
+        Self { inner, chunks }
+    }
+}
+
+impl<N: RowNames> RowNames for ProjectNames<'_, N> {
+    fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_entry(hashes, visit);
+    }
+
+    fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_class(hashes, visit);
+    }
+
+    fn for_each_field(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_field(hashes, visit);
+    }
+
+    fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_value(hashes, visit);
+    }
+
+    /// The project answers first, and only what it does not name reaches the tables.
+    fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        let mut residue = Vec::new();
+        let mut at_of = Vec::new();
+        for (at, hash) in hashes.iter().enumerate() {
+            match self.chunks.get(*hash) {
+                Some(path) => visit(at, path),
+                None => {
+                    residue.push(*hash);
+                    at_of.push(at);
+                }
+            }
+        }
+        if residue.is_empty() {
+            return;
+        }
+        self.inner.for_each_chunk(&residue, &mut |at, path| {
+            visit(at_of[at], path);
+        });
+    }
 }
 
 /// Names nothing. Every hash draws as hex.

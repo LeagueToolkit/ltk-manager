@@ -9,7 +9,9 @@ use std::sync::Arc;
 use super::off_thread;
 use crate::error::{AppError, IpcResult};
 use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocumentHandle, BinDocumentId, BinDocuments, BinRows};
+use ltk_manager_core::bin_document::{
+    BinDocumentHandle, BinDocumentId, BinDocuments, BinRows, ProjectNames,
+};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
 use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema};
@@ -50,7 +52,9 @@ pub async fn bin_open(
 
         let bin = app_handle.state::<BinHashTablesState>().get();
         let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let names = CacheNames::new(&bin, &wad);
+        let cache = CacheNames::new(&bin, &wad);
+        let chunks = store.chunks_of(document);
+        let names = ProjectNames::new(&cache, &chunks);
         let schema = entry.map(|_| installed_schema(&app_handle));
         store.read(document, |open| {
             let (rows, object) = match (entry, &schema) {
@@ -92,7 +96,9 @@ pub async fn bin_children(
             .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
         let bin = app_handle.state::<BinHashTablesState>().get();
         let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let names = CacheNames::new(&bin, &wad);
+        let cache = CacheNames::new(&bin, &wad);
+        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
+        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.children(entry, &path, offset, limit, &names, Some(schema.at(build)))?)
@@ -120,7 +126,9 @@ pub async fn bin_read(
             .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
         let bin = app_handle.state::<BinHashTablesState>().get();
         let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let names = CacheNames::new(&bin, &wad);
+        let cache = CacheNames::new(&bin, &wad);
+        let chunks = app_handle.state::<BinDocuments>().chunks_of(document);
+        let names = ProjectNames::new(&cache, &chunks);
         let (schema, build) = installed_schema(&app_handle);
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.children_each(entry, &paths, &names, Some(schema.at(build)))?)
