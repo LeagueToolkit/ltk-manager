@@ -69,8 +69,8 @@ and the field, in the generic tree, and not a class view.
   lacks draws nothing.
 - **Negative:** the frontend carries an FNV-1a that has to agree with the backend's. A test over
   known pairs is the guard.
-- **Negative:** a per-page `bin_read` is one more call per scroll settle on a bin holding colour
-  rows.
+- **Negative:** a per-page `bin_read` costs a call per level on a bin holding colour rows, three
+  of them for a `ValueColor`, on each scroll settle.
 - **Neutral:** the renderer, and the mesh preview a skin view would carry, are not decided here.
   The skin layout leaves a slot, and the renderer is its own ADR.
 - **Neutral:** issue 55's lints are Problems rules, and reverse references wait on the walk.

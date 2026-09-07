@@ -1,5 +1,5 @@
 import { useQueries, type UseQueryOptions } from "@tanstack/react-query";
-import { createContext, use, useMemo } from "react";
+import { createContext, use, useEffect, useMemo, useState } from "react";
 
 import {
   api,
@@ -19,11 +19,12 @@ import { unwrapForQuery } from "@/utils/query";
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { useOptionalProjectContext, useProjectContext } from "../components/ProjectContext";
 import { layerTitle } from "../documents/contentDocument";
-import { BUILDING_POLL_MS, gameKeys } from "../gameBrowser";
+import { BUILDING_POLL_MS, gameKeys, useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
 import { assetKey } from "../preview/assetRef";
+import { useOpenDocumentAs } from "../state";
 import { nameHash } from "./binHash";
-import { chunkPath, type LayerCopy } from "./linkDecision";
+import { chunkPath, decideObjectLink, type LayerCopy } from "./linkDecision";
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -73,6 +74,47 @@ export const LinkOpenContext = createContext<LinkOpen>(NO_LINK_OPEN);
 
 export function useLinkOpen(): LinkOpen {
   return use(LinkOpenContext);
+}
+
+/**
+ * The warm-and-open a surface of link chips provides to the chips and menus under it.
+ *
+ * A link clicked while the index is absent: the build runs, and the click lands on the
+ * answer. A target the answer lacks is forgotten.
+ */
+export function useWarmLinkOpen(targets: LinkTargets): LinkOpen {
+  const warm = useWarmObjectIndex();
+  const open = useOpenDocumentAs();
+  const [wanting, setWanting] = useState<ReadonlyMap<string, OpenIntent>>(() => new Map());
+
+  const warmMutate = warm.mutate;
+  const linkOpen = useMemo<LinkOpen>(
+    () => ({
+      wantOpen: (hash, intent) => {
+        setWanting((current) => new Map(current).set(hash, intent));
+        warmMutate();
+      },
+      wanting: new Set(wanting.keys()),
+    }),
+    [wanting, warmMutate],
+  );
+
+  useEffect(() => {
+    if (targets.index?.status !== "ready" && targets.index?.status !== "failed") return;
+    const settled = [...wanting].filter(([hash, intent]) => {
+      const decision = decideObjectLink(hash, targets);
+      if (decision.kind === "chip") open(decision.document, intent);
+      return decision.kind !== "pending" && decision.kind !== "warm";
+    });
+    if (settled.length === 0) return;
+    setWanting((current) => {
+      const next = new Map(current);
+      for (const [hash] of settled) next.delete(hash);
+      return next;
+    });
+  }, [targets, open, wanting]);
+
+  return linkOpen;
 }
 
 export const linkKeys = {

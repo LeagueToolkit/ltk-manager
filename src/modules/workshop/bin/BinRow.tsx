@@ -429,7 +429,7 @@ function ColorValue({ value }: { value: Extract<BinValue, { type: "color" }> }) 
   const { r, g, b, a } = value;
   return (
     <span className="flex min-w-0 items-center gap-3">
-      {/* DS-TOKEN: the swatch is the value. */}
+      {/* DS-TOKEN */}
       <span
         className="h-3.5 w-3.5 shrink-0 rounded-sm border border-surface-veil-strong"
         style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, ${a / 255})` }}

@@ -736,6 +736,10 @@ A miss never builds the object index. A `link` a reader clicks says they want th
 a string that happens to hash to nothing says nothing at all, so an absent index leaves every
 string as text rather than as a page of chips that would each warm it.
 
+Copy value hash on a resolved string offers the object hash the string was resolved under. A
+string that resolved as a chunk carries none, because the hash a chunk answers to is the
+resolver's over the path rather than a value the row holds.
+
 ## Classes
 
 A class name appears on the object block, on the object tab's header, on a `pointer` and an

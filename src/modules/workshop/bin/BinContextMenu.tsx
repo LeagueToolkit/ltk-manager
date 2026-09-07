@@ -65,7 +65,6 @@ export function BinContextMenu({
   const layer = useLayerCopy(layerPath(row?.value ?? null));
 
   if (row === null || line?.kind !== "row") return null;
-  const showInProperties = onShowInProperties;
   const object = row.node === "object";
   const property = row.node === "property";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
@@ -132,15 +131,15 @@ export function BinContextMenu({
               {m.workshop_references_find_class_action()}
             </ContextMenu.Item>
           )}
-          {showInProperties && (
+          {onShowInProperties && (
             <ContextMenu.Item
               icon={<TreeStructureIcon />}
-              onClick={() => showInProperties(line.key)}
+              onClick={() => onShowInProperties(line.key)}
             >
               {m.workshop_bin_show_in_properties_action()}
             </ContextMenu.Item>
           )}
-          {(object || struct !== null || showInProperties) && <ContextMenu.Separator />}
+          {(object || struct !== null || onShowInProperties) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

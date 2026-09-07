@@ -19,18 +19,21 @@ import { TextureSwatch } from "./TextureSwatch";
 import { type ReadRequest, useBinRead } from "./useBinRead";
 import {
   LinkAssetContext,
+  LinkOpenContext,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
   useLayerCopy,
   useLinkTargets,
+  useWarmLinkOpen,
 } from "./useLinkTargets";
+import { useValueMarks, ValueMarksContext } from "./useValueMarks";
 
 /** The most rows a tree section shows before it scrolls, so no section owns the page. */
 const TREE_ROWS = 12;
 
 /** The room a mode field takes, so a column of them lines its digits up. */
-const MODE_WIDTH = "w-12";
+const MODE_WIDTH = "w-8";
 
 interface ClassViewProps {
   /** The open's id, which every read carries. */
@@ -81,9 +84,14 @@ export function ClassView({
     [roots, read],
   );
   const linkTargets = useCheckLinkTargets(document, groups);
+  const linkOpen = useWarmLinkOpen(linkTargets);
 
-  /* One menu for the whole view, pointed at the cell the event came from. */
+  /* Every row a cell was drawn for: what the menu is aimed at, and what the marks read. */
   const byKey = useMemo(() => cellRows(placed, read), [placed, read]);
+  const marks = useValueMarks(
+    document,
+    useMemo(() => [...byKey.values()], [byKey]),
+  );
   const [menuLine, setMenuLine] = useState<RowLine | null>(null);
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
     const cell = (event.target as HTMLElement).closest<HTMLElement>("[data-row-key]");
@@ -94,32 +102,36 @@ export function ClassView({
   return (
     <LinkAssetContext value={asset}>
       <LinkTargetsContext value={linkTargets}>
-        <ContextMenu.Root>
-          <ContextMenu.Trigger
-            data-ui="ClassView"
-            className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 select-none"
-            onContextMenu={handleContextMenu}
-          >
-            {placed.map((section, at) => (
-              <Section
-                key={at}
-                section={section}
-                read={read}
-                document={document}
-                asset={asset}
-                classHash={classHash}
-                objectName={objectName}
-                onNotOpen={onNotOpen}
-              />
-            ))}
-          </ContextMenu.Trigger>
+        <LinkOpenContext value={linkOpen}>
+          <ValueMarksContext value={marks}>
+            <ContextMenu.Root>
+              <ContextMenu.Trigger
+                data-ui="ClassView"
+                className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 scrollbar-md select-none"
+                onContextMenu={handleContextMenu}
+              >
+                {placed.map((section, at) => (
+                  <Section
+                    key={at}
+                    section={section}
+                    read={read}
+                    document={document}
+                    asset={asset}
+                    classHash={classHash}
+                    objectName={objectName}
+                    onNotOpen={onNotOpen}
+                  />
+                ))}
+              </ContextMenu.Trigger>
 
-          <BinContextMenu
-            line={menuLine}
-            objectName={objectName}
-            onShowInProperties={onShowInProperties}
-          />
-        </ContextMenu.Root>
+              <BinContextMenu
+                line={menuLine}
+                objectName={objectName}
+                onShowInProperties={onShowInProperties}
+              />
+            </ContextMenu.Root>
+          </ValueMarksContext>
+        </LinkOpenContext>
       </LinkTargetsContext>
     </LinkAssetContext>
   );
@@ -178,18 +190,13 @@ interface SectionProps {
   onNotOpen: () => void;
 }
 
-/**
- * One section: its header, and the fields it placed.
- *
- * An empty section keeps its header over a muted None, so a reader tells an empty list
- * from a field the class lacks and every object of one class has one section order.
- */
+/** One section: its header, and the fields it placed. */
 function Section({ section, read, ...rest }: SectionProps) {
   const [open, setOpen] = useState(true);
   const title = section.title();
 
   return (
-    <section data-ui="ClassView:section" className="flex flex-col gap-2">
+    <section data-ui="ClassView:section" className="flex flex-col gap-1">
       <button
         type="button"
         className="flex cursor-pointer items-center gap-1 text-left text-surface-400 hover:text-surface-200"
@@ -200,12 +207,12 @@ function Section({ section, read, ...rest }: SectionProps) {
         <span className="text-xs font-medium tracking-wide uppercase">{title}</span>
       </button>
       {open && section.rows.length === 0 && (
-        <span className="pl-4 text-row text-surface-400">
+        <span className="pl-3 text-meta text-surface-400">
           {m.workshop_bin_section_none_empty()}
         </span>
       )}
       {open && section.rows.length > 0 && (
-        <div className="pl-4">
+        <div className="pl-3 font-mono text-mono-row">
           <SectionBody section={section} read={read} title={title} {...rest} />
         </div>
       )}
@@ -230,7 +237,7 @@ function SectionBody({
 }: SectionBodyProps) {
   if (section.widget === "tree") {
     return (
-      <div className="flex flex-col rounded-lg border border-surface-700/50">
+      <div className="flex flex-col rounded-md border border-surface-700/50">
         <BinTree
           document={document}
           asset={asset}
@@ -238,7 +245,6 @@ function SectionBody({
           rootOwner={classHash}
           label={title}
           maxRows={TREE_ROWS}
-          /* A named section opens what it names. Other stays shut, as in Properties. */
           initialExpanded={section.other ? undefined : section.rows.map(rowKey)}
           objectName={objectName}
           onNotOpen={onNotOpen}
@@ -248,7 +254,7 @@ function SectionBody({
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col">
       {section.rows.map((row) => (
         <Placed key={rowKey(row)} row={row} widget={section.widget} read={read} />
       ))}
@@ -262,23 +268,27 @@ interface PlacedProps {
   read: LayoutRead;
 }
 
+/** What each widget draws for one element of the container its section placed. */
+const TABLE_ROWS: Partial<Record<NonNullable<PlacedSection["widget"]>, TableProps["draw"]>> = {
+  "sampler-table": (fields) => <Sampler fields={fields} />,
+  "param-table": (fields) => <Param fields={fields} />,
+  "switch-list": (fields) => <Switch fields={fields} />,
+};
+
 /** One placed field: the widget its section names, or the cell the row itself draws. */
 function Placed({ row, widget, read }: PlacedProps) {
-  const elements = read.elements.get(rowKey(row))?.rows ?? [];
-
-  if (widget === "sampler-table") {
-    return <Table rows={elements} read={read} draw={(fields) => <Sampler fields={fields} />} />;
-  }
-  if (widget === "param-table") {
-    return <Table rows={elements} read={read} draw={(fields) => <Param fields={fields} />} />;
-  }
-  if (widget === "switch-list") {
-    return <Table rows={elements} read={read} draw={(fields) => <Switch fields={fields} />} />;
+  const draw = widget === undefined ? undefined : TABLE_ROWS[widget];
+  if (draw !== undefined) {
+    return <Table rows={read.elements.get(rowKey(row))?.rows ?? []} read={read} draw={draw} />;
   }
 
   return (
-    <div className="flex min-h-6 items-center gap-3" data-row-key={rowKey(row)}>
-      <span className="w-40 shrink-0 truncate text-row text-surface-200">{row.name}</span>
+    /* DS-VEIL, DS-RADIUS */
+    <div
+      className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
+      data-row-key={rowKey(row)}
+    >
+      <span className="w-40 shrink-0 truncate text-surface-200">{row.name}</span>
       <RowValue row={row} />
     </div>
   );
@@ -293,17 +303,19 @@ interface TableProps {
 /** A row per element, each drawn from the fields the second level answered for it. */
 function Table({ rows, read, draw }: TableProps) {
   if (rows.length === 0) {
-    return <span className="text-row text-surface-400">{m.workshop_bin_section_none_empty()}</span>;
+    return (
+      <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col">
       {rows.map((element) => (
         <div
           key={rowKey(element)}
           data-row-key={rowKey(element)}
           /* DS-VEIL, DS-RADIUS */
-          className="flex items-center gap-3 rounded-md px-2 py-1 hover:bg-surface-veil"
+          className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
         >
           {draw(fieldsOf(read.fields.get(rowKey(element))))}
         </div>
@@ -328,11 +340,12 @@ function Sampler({ fields }: { fields: FieldsOf }) {
   return (
     <>
       <TextureTile row={texture} />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <Cell row={named} className="truncate text-row text-surface-100">
+      <span className="flex min-w-0 flex-1 flex-col">
+        {/* DS-WEIGHT-TIER */}
+        <Cell row={named} className="truncate font-medium text-surface-100">
           {textOf(named)}
         </Cell>
-        <Cell row={texture} className="flex min-w-0 items-center gap-3">
+        <Cell row={texture} className="flex min-w-0 items-center gap-2">
           {texture && <RowValue row={texture} />}
         </Cell>
       </span>
@@ -341,12 +354,7 @@ function Sampler({ fields }: { fields: FieldsOf }) {
   );
 }
 
-/**
- * The sampler's address and filter modes, each under its field's own letter.
- *
- * The schema declares them as `u32` and names no constants, so the numbers are what a
- * reader gets until something does.
- */
+/** The sampler's address and filter modes, each under its field's own letter. */
 function Modes({ fields }: { fields: FieldsOf }) {
   const modes: [label: string, hash: string][] = [
     ["U", SAMPLER.addressU],
@@ -357,7 +365,7 @@ function Modes({ fields }: { fields: FieldsOf }) {
   ];
 
   return (
-    <span className="flex shrink-0 items-center gap-1.5">
+    <span className="flex shrink-0 items-center gap-1">
       {modes.map(([label, hash]) => {
         const mode = fields(hash);
         if (mode?.value.type !== "integer") return null;
@@ -377,7 +385,7 @@ function Param({ fields }: { fields: FieldsOf }) {
   const value = fields(NAMED.value);
   return (
     <>
-      <Cell row={named} className="w-56 shrink-0 truncate text-row text-surface-100">
+      <Cell row={named} className="w-48 shrink-0 truncate text-surface-200">
         {textOf(named)}
       </Cell>
       <Cell row={value} className="flex min-w-0 flex-1">
@@ -401,7 +409,7 @@ function Switch({ fields }: { fields: FieldsOf }) {
           tabIndex={-1}
         />
       </Cell>
-      <Cell row={named} className="min-w-0 truncate text-row text-surface-100">
+      <Cell row={named} className="min-w-0 truncate text-surface-200">
         {textOf(named)}
       </Cell>
     </>
@@ -430,12 +438,7 @@ function Cell({
   );
 }
 
-/**
- * The sampler's texture at 48px, for a `file` and for a string that resolves.
- *
- * A path neither side holds, and one naming something that is not a texture, draws the
- * empty tile: the table's rows keep one left edge whatever each sampler points at.
- */
+/** The sampler's texture at 48px, for a `file` and for a string that resolves. */
 function TextureTile({ row }: { row: BinRow | undefined }) {
   const targets = useLinkTargets();
   const path = texturePath(row);

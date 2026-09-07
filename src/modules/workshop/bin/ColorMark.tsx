@@ -41,7 +41,7 @@ export function ColorMark({ constant, stops }: ColorMarkProps) {
 function Swatch({ rgba }: { rgba: ColorStop["rgba"] }) {
   return (
     <span
-      /* DS-TOKEN: the checkerboard is the preview's, over surface rungs. */
+      /* DS-TOKEN */
       className={`h-3.5 w-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:6px_6px]`}
       aria-hidden
     >
