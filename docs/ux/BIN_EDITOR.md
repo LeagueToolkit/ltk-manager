@@ -63,8 +63,9 @@ This table holds every major feature of the bin editor. A status word has one me
 | Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card    |
 | Find all references  | In progress | The objects of a class from the index. The walk for the rest     |
 | String links         | Available   | A string naming a chunk or an object, as the chip its kind draws |
-| Value rows           | Available   | A `ValueColor`'s swatch and gradient on its collapsed row        |
+| Value rows           | Available   | Every family's constant, and a mark where a curve carries more   |
 | Class views          | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
+| Curve panel          | Planned     | A value family's dynamics, in a dock under the object tab        |
 | In-document search   | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                            |
