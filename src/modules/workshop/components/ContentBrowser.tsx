@@ -198,7 +198,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       : [sidebarPanel, seam, surfacePanel];
 
   return (
-    <div data-ui="ContentBrowser" className="relative flex h-full min-h-0 rounded-xl p-1.5">
+    <div data-ui="ContentBrowser" className="relative flex h-full min-h-0 rounded-xl px-1.5 pb-1.5">
       {/* Keyed by side because defaultLayout is read at mount alone. A flip
           remounts the Group, and the id-keyed sizes reapply in the new order. */}
       {layerPanelOpen && (

@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { type ReactNode, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { type ReactNode, useMemo, useState } from "react";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
@@ -15,6 +15,7 @@ import { ProjectProvider } from "../../components/ProjectContext";
 import { nameHash } from "../binHash";
 import { vfxLayout } from "../classLayouts";
 import { ClassView } from "../ClassView";
+import { CurveDockContext, type CurveTarget } from "../curveTarget";
 import { READ_ROW_CAP } from "../useBinRead";
 
 const ENTRY = "0x3c4d5e6f";
@@ -72,6 +73,9 @@ const DYNAMICS = `${BIRTH_COLOR}.${at("dynamics")}`;
 const VELOCITY = `${GLOW}.${at("velocity")}`;
 const SPARKS_COLOR = `${SPARKS}.${at("birthColor")}`;
 const RATE = `${GLOW}.${at("rate")}`;
+const RATE_CURVE = `${RATE}.${at("dynamics")}`;
+const RATE_TIMES = `${RATE_CURVE}.${at("times")}`;
+const RATE_VALUES = `${RATE_CURVE}.${at("values")}`;
 
 const ROOTS: BinRow[] = [
   field("particleName", { type: "string", value: "Smolder_Base_Idle" }),
@@ -108,7 +112,19 @@ const PAGES: Record<string, BinRows> = {
   ]),
   [RATE]: page([
     row(`${RATE}.${at("constantValue")}`, "constantValue", { type: "float", value: 3 }),
-    row(`${RATE}.${at("dynamics")}`, "dynamics", embed("VfxAnimatedFloatVariableData", 2)),
+    row(RATE_CURVE, "dynamics", embed("VfxAnimatedFloatVariableData", 2)),
+  ]),
+  [RATE_CURVE]: page([
+    row(RATE_TIMES, "times", { type: "container", len: 2, itemKind: "f32" }),
+    row(RATE_VALUES, "values", { type: "container", len: 2, itemKind: "f32" }),
+  ]),
+  [RATE_TIMES]: page([
+    row(`${RATE_TIMES}[0]`, "[0]", { type: "float", value: 0 }, "element"),
+    row(`${RATE_TIMES}[1]`, "[1]", { type: "float", value: 1 }, "element"),
+  ]),
+  [RATE_VALUES]: page([
+    row(`${RATE_VALUES}[0]`, "[0]", { type: "float", value: 3 }, "element"),
+    row(`${RATE_VALUES}[1]`, "[1]", { type: "float", value: 12 }, "element"),
   ]),
   [SPARKS]: emitter(SPARKS, "Sparks", [row(SPARKS_COLOR, "birthColor", embed("ValueColor", 1))]),
   [TRAIL]: emitter(TRAIL, "Trail", [], true),
@@ -185,12 +201,66 @@ const PROJECT: WorkshopProject = {
   lastModified: "2026-08-21T21:14:02Z",
 };
 
+/** A pane a shell fits in, and one that falls back to the stack. */
+const WIDE = 1200;
+const NARROW = 700;
+
+/** What the object pane measures, which happy-dom runs no layout to answer. */
+let paneWidth = 0;
+
+/** Every live observer of it, since happy-dom's own watches nothing. */
+const OBSERVERS = new Set<(entries: ResizeObserverEntry[]) => void>();
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => paneWidth,
+  });
+  globalThis.ResizeObserver = class {
+    private readonly notify: (entries: ResizeObserverEntry[]) => void;
+
+    constructor(notify: (entries: ResizeObserverEntry[]) => void) {
+      this.notify = notify;
+      OBSERVERS.add(notify);
+    }
+
+    observe() {}
+    unobserve() {}
+
+    disconnect() {
+      OBSERVERS.delete(this.notify);
+    }
+  } as unknown as typeof ResizeObserver;
+});
+
+/**
+ * The pane at a new width, which the frame hears about only through an observer.
+ *
+ * The entries are empty, since the frame measures the element rather than the entry and
+ * the virtualizer under the tree falls back to a rect of its own when they are.
+ */
+async function resizeTo(width: number) {
+  paneWidth = width;
+  await act(async () => {
+    for (const notify of OBSERVERS) notify([]);
+  });
+}
+
+/** The dock the object tab holds, which a test rendering the view alone stands in for. */
+function WithDock({ children }: { children: ReactNode }) {
+  const [target, setTarget] = useState<CurveTarget | null>(null);
+  const dock = useMemo(() => ({ target, aim: setTarget }), [target]);
+  return <CurveDockContext value={dock}>{children}</CurveDockContext>;
+}
+
 function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(() => createTestQueryClient());
   return (
     <QueryClientProvider client={client}>
       <ProjectProvider project={PROJECT}>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <WithDock>{children}</WithDock>
+        </ToastProvider>
       </ProjectProvider>
     </QueryClientProvider>
   );
@@ -214,6 +284,7 @@ function renderSystem(onShowInProperties = vi.fn()) {
 }
 
 beforeEach(() => {
+  paneWidth = 0;
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_read") {
@@ -290,8 +361,18 @@ describe("ClassView over a particle system", () => {
     expect(screen.queryByText("ValueFloat")).not.toBeInTheDocument();
   });
 
-  it("marks a value a curve carries the rest of", async () => {
+  it("draws a sparkline of the curve a panel row's dynamics points at", async () => {
     renderSystem();
+
+    expect(await screen.findByLabelText("2 curve keys")).toBeInTheDocument();
+  });
+
+  it("marks a value whose curve the panel has not read", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    const [birth] = await screen.findAllByRole("button", { name: "Birth" });
+    await user.click(birth as HTMLElement);
 
     expect(await screen.findByRole("img", { name: "Animated" })).toBeInTheDocument();
   });
@@ -337,6 +418,7 @@ describe("ClassView over a particle system", () => {
 
     expect(asked).toContain(SPARKS_COLOR);
     expect(asked).not.toContain(VELOCITY);
+    expect(asked).toContain(RATE_TIMES);
   });
 
   it("sends a cell its own key, whose ancestors open the emitter in the tree", async () => {
@@ -380,6 +462,160 @@ describe("The emitter table", () => {
     await showTable(userEvent.setup());
 
     expect(await screen.findByLabelText("2 colour stops")).toBeInTheDocument();
+  });
+});
+
+describe("The shell frame", () => {
+  beforeEach(() => {
+    paneWidth = WIDE;
+  });
+
+  /** The crumb, which is the one place a shell aims the inspector from. */
+  const crumb = () => within(screen.getByRole("navigation", { name: "What the inspector draws" }));
+
+  it("names the system, the open emitter and its group", async () => {
+    renderSystem();
+    await screen.findByText("lifetime");
+
+    expect(crumb().getByRole("button", { name: "Smolder_Base_Idle" })).toBeInTheDocument();
+    expect(crumb().getByRole("button", { name: /Glow/ })).toBeInTheDocument();
+    expect(crumb().getByRole("button", { name: "Emission" })).toBeInTheDocument();
+  });
+
+  it("draws the system's own sections from the crumb's first segment", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+    expect(screen.queryByRole("button", { name: "Identity" })).not.toBeInTheDocument();
+
+    await user.click(crumb().getByRole("button", { name: "Smolder_Base_Idle" }));
+
+    for (const title of ["Identity", "Audio", "Other"]) {
+      expect(await screen.findByRole("button", { name: title })).toBeInTheDocument();
+    }
+  });
+
+  it("draws every group the emitter sets from the crumb's second segment", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await user.click(crumb().getByRole("button", { name: /Glow/ }));
+
+    expect(await screen.findByText("lifetime")).toBeInTheDocument();
+    expect(screen.getByText("SpawnShape")).toBeInTheDocument();
+    expect(screen.getByText("texture")).toBeInTheDocument();
+  });
+
+  it("opens a menu of that emitter's groups on the crumb's last segment", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await user.click(crumb().getByRole("button", { name: "Emission" }));
+
+    expect(await screen.findByRole("menuitem", { name: "Position" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Scale" })).not.toBeInTheDocument();
+  });
+
+  it("aims the crumb at the emitter when a card names itself", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+    const [card] = await screen.findAllByRole("button", { name: /Sparks/ });
+
+    await user.click(card as HTMLElement);
+
+    expect(crumb().getByRole("button", { name: /Sparks/ })).toBeInTheDocument();
+    expect(await screen.findByText("blendMode")).toBeInTheDocument();
+  });
+
+  it("holds a place for the curve and the preview before either draws", async () => {
+    renderSystem();
+    await screen.findByText("lifetime");
+
+    expect(screen.getByText("Curve")).toBeInTheDocument();
+    expect(screen.getByText("No value targeted")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Particle preview" })).toBeInTheDocument();
+  });
+
+  it("draws the curve of the row a sparkline targets, named by its chain and its path", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Show curve" }));
+
+    expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
+    expect(screen.getByText(RATE)).toBeInTheDocument();
+    expect(screen.queryByText("No value targeted")).not.toBeInTheDocument();
+  });
+
+  it("keeps the pane on its target when another group is chosen", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Show curve" }));
+    await screen.findByText("Glow [0] . rate");
+
+    await user.click(screen.getByRole("button", { name: "Position" }));
+
+    expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
+    expect(screen.getByText("Glow [0] . rate")).toBeInTheDocument();
+  });
+
+  it("offers Show curve on a row with dynamics and on no row without", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText("rate") });
+    expect(await screen.findByRole("menuitem", { name: "Show curve" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await user.pointer({ keys: "[MouseRight]", target: screen.getByText("lifetime") });
+
+    expect(screen.queryByRole("menuitem", { name: "Show curve" })).not.toBeInTheDocument();
+  });
+
+  it("sends a cell of the inspector its own key, for the tree to reveal", async () => {
+    const onShowInProperties = renderSystem();
+    const user = userEvent.setup();
+    const cell = await screen.findByText("lifetime");
+
+    await user.pointer({ keys: "[MouseRight]", target: cell });
+    await user.click(await screen.findByRole("menuitem", { name: "Show in properties" }));
+
+    expect(onShowInProperties).toHaveBeenCalledWith(`${ENTRY}:${GLOW}.${at("lifetime")}`);
+  });
+
+  it("draws the group a chip chooses in the inspector", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Position" }));
+
+    expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
+  });
+
+  it("draws the panel under the strip once the pane is too narrow for a shell", async () => {
+    paneWidth = NARROW;
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await user.click(screen.getByRole("button", { name: "Emitters" }));
+
+    expect(screen.queryByText("lifetime")).not.toBeInTheDocument();
+  });
+
+  it("keeps the open emitter and its group when the pane narrows to the stack", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Position" }));
+    await screen.findByText("VfxShapeSphere");
+
+    await resizeTo(NARROW);
+
+    expect(screen.getByText("VfxShapeSphere")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 });
 

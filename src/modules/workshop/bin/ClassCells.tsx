@@ -10,8 +10,10 @@ import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
 import { RowValue, ValueMarkCell } from "./BinRow";
 import { fieldHash, rowKey } from "./binRows";
-import type { PlacedSection } from "./classLayouts";
+import type { LayoutFrame, PlacedSection } from "./classLayouts";
+import { useCurveChain, useCurveDock } from "./curveTarget";
 import { chunkPath, decideFileLink } from "./linkDecision";
+import { Sparkline } from "./Sparkline";
 import { TextureSwatch } from "./TextureSwatch";
 import {
   joinDeclarations,
@@ -23,7 +25,7 @@ import {
   useLinkTargets,
 } from "./useLinkTargets";
 import { useValueMark } from "./useValueMarks";
-import { valueFamily } from "./valueRows";
+import { sparkKeys, valueFamily } from "./valueRows";
 
 /** What the levels of a layout's read answered, by the key of the row each sits under. */
 export type LayoutPages = ReadonlyMap<string, BinRows>;
@@ -40,6 +42,8 @@ export interface ViewContext {
   readonly objectName: (entry: string) => string;
   /** The backend holds no document with this id. The caller reopens it. */
   readonly onNotOpen: () => void;
+  /** The frame it is drawn in, which a widget with two halves reads to place them. */
+  readonly frame: LayoutFrame;
 }
 
 /** What one section's widget is given: what it placed, what the read answered, and the open. */
@@ -187,23 +191,43 @@ export function FieldRow({ row, width = "w-40" }: { row: BinRow; width?: string 
 }
 
 /**
- * A value family's constant, and a mark where a curve carries the rest of it.
+ * A value family's constant, and what carries the rest of it where a curve does.
  *
- * "A value family in a layout" in docs/ux/BIN_EDITOR.md.
+ * "A value family in a layout" in docs/ux/BIN_EDITOR.md. The shape where the read
+ * answered the keys, and the mark where it read only that there are some.
  */
 export function ValueCell({ row }: { row: BinRow }) {
   const mark = useValueMark(rowKey(row));
+  const keys = sparkKeys(mark);
+  const { aim } = useCurveDock();
+  const chain = useCurveChain(row.name);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
       <ValueMarkCell mark={mark} />
       {mark?.curve === true && (
-        <WaveSineIcon
-          weight="bold"
-          role="img"
-          aria-label={m.workshop_bin_value_curve_label()}
-          className="h-3.5 w-3.5 shrink-0 text-surface-400"
-        />
+        <button
+          type="button"
+          aria-label={m.workshop_bin_show_curve_action()}
+          /* DS-RADIUS, DS-VEIL */
+          className="flex cursor-pointer items-center rounded-sm px-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-200"
+          onClick={() => aim({ row, chain })}
+        >
+          {keys.length > 0 && (
+            <Sparkline
+              keys={keys}
+              label={m.workshop_bin_curve_keys_label({ count: keys.length })}
+            />
+          )}
+          {keys.length === 0 && (
+            <WaveSineIcon
+              weight="bold"
+              role="img"
+              aria-label={m.workshop_bin_value_curve_label()}
+              className="h-3.5 w-3.5 shrink-0"
+            />
+          )}
+        </button>
       )}
     </span>
   );

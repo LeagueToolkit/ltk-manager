@@ -84,6 +84,14 @@
   --color-doc-game-text: var(--ltk-doc-game-text);
   --color-doc-problems: var(--ltk-doc-problems);
   --color-doc-problems-text: var(--ltk-doc-problems-text);
+  --color-channel-1: var(--ltk-channel-1);
+  --color-channel-1-text: var(--ltk-channel-1-text);
+  --color-channel-2: var(--ltk-channel-2);
+  --color-channel-2-text: var(--ltk-channel-2-text);
+  --color-channel-3: var(--ltk-channel-3);
+  --color-channel-3-text: var(--ltk-channel-3-text);
+  --color-channel-4: var(--ltk-channel-4);
+  --color-channel-4-text: var(--ltk-channel-4-text);
 
   /* Folder */
   --color-folder: var(--ltk-folder);
