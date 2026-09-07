@@ -12,6 +12,7 @@ import {
   NoSearchResultsState,
   PackDialog,
   ProjectGrid,
+  RenameProjectDialog,
   useFilteredProjects,
   useWorkshopProjects,
   useWorkshopTestState,
@@ -64,6 +65,7 @@ function WorkshopIndex() {
       <PackDialog />
       <BulkPackDialog />
       <DeleteConfirmDialog />
+      <RenameProjectDialog />
       <BulkDeleteDialog />
     </>
   );

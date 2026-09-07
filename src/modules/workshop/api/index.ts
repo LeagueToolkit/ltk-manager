@@ -19,6 +19,8 @@ export { useProjectActions } from "./useProjectActions";
 export { projectContentTreeOptions, useProjectContentTree } from "./useProjectContentTree";
 export { type ProjectImports, useProjectImports } from "./useProjectImports";
 export { projectProblemsOptions, useProjectProblems } from "./useProjectProblems";
+export type { ProjectSelectionActions } from "./useProjectSelectionActions";
+export { useProjectSelectionActions } from "./useProjectSelectionActions";
 export { projectThumbnailOptions, useProjectThumbnail } from "./useProjectThumbnail";
 export { useRemoveProjectThumbnail } from "./useRemoveProjectThumbnail";
 export { useRenameProject } from "./useRenameProject";

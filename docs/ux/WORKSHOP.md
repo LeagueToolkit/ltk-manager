@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
+| 2026-09-07 | Put one menu on the card's right click and its kebab, and add Rename      |
 | 2026-08-24 | Fold the one-shell implementation plan into this document                 |
 | 2026-08-24 | Give the grid a roving tab stop, and hand the keyboard to it from the bar |
 | 2026-08-24 | Bring the grid's trailing group down to the size of a project's           |
@@ -54,6 +55,8 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Test from the grid        | Available | The same state machine a project's own Test runs               |
 | Import a project          | Available | Fantome, Modpkg and a Git repository, on the split button      |
 | `Ctrl+F` ownership        | Available | The bar claims it over the grid, and each box claims its own   |
+| The card's one menu       | Available | The same six on the right click as on the kebab                |
+| Rename a project          | Available | A dialog over the slug, on the menu and on `F2`                |
 | Grid selection model      | Proposed  | One model for the grid and the project, so Test and Pack merge |
 | Game rows over the grid   | Proposed  | Absent today. A game row has no editor to open into there      |
 | The library as a document | Proposed  | Variant B, below. Tabs would carry their own project           |
@@ -314,8 +317,22 @@ The card sits at `surface-900` on the fold's ground and answers the pointer by l
 rather than by rising off the page, DS-GROUND. A grid of cards that each translate and cast a
 shadow reads as tiles floating over the surface rather than as what the surface holds.
 
-The overflow holds Edit, Test, Pack, Open Location and Delete. A card testing right now carries a
-**Testing** pill that ends the run, and in list mode its Test reads Stop Test.
+**One menu, two ways in.** The card's right click opens what its kebab opens, so nothing it
+offers is reachable only by finding a button that is not drawn. The list holds Edit, Test or Stop
+Test, Pack, Rename, Open Location and Delete, in grid mode and in list mode alike. A card testing
+right now carries a **Testing** pill that ends the run, and in list mode its Test reads Stop Test.
+
+**A right click over the selection reads over the selection.** Test N, Pack N, Delete N and Clear
+selection, the same set the selection button's caret draws. A right click outside the selection
+selects that card alone first and opens the card's own menu, the rule every file manager obeys and
+the one the explorers follow in "Selection" of [Project editor](PROJECT_EDITOR.md). A selection of
+one is the exception: the card and the pick are the same target there, so the card's own menu
+opens, which is the only place Rename is drawn.
+
+**Rename is the card's, and it edits the slug.** A one-field dialog over the folder name on disk,
+on the menu and on `F2` from a focused card. A card shows the display name, so an edit in place
+there would rewrite a slug under a different word - the project overview is where the two are
+drawn together, and its own inline edit stays.
 
 ### The keyboard
 
@@ -329,6 +346,7 @@ the card's own controls - the checkbox, Pack, the overflow - keep their own stop
 | `↑` `↓`         | One row, or one card in list mode                       |
 | `Home` `End`    | The first card and the last                             |
 | `Enter` `Space` | Opens the focused card, the way a click does            |
+| `F2`            | Renames the focused card, over its slug                 |
 
 **The columns are measured rather than configured.** The grid wraps on `auto-fill` against a card
 width the zoom and the card scale both move, so nothing in the code knows how many columns are on
@@ -351,6 +369,11 @@ Test stands on the button whether or not anything is selected - it is the action
 the grid for - disabled until something is, and in the same green a project's own header gives
 it, so one action reads the same from either surface. Pack and Delete are what a selection is
 for, so they arrive with one rather than standing disabled beside it.
+
+**The picks are spent as Test is pressed.** The run answers over the grid and there is nothing
+left to press again, and a menu that closes on the press would otherwise carry a completion
+callback down with it - the caret and a selected card's right click draw the same four commands
+from the same place, so neither can end up spending the picks when the other does not.
 
 The grid runs the same test state machine a project does. Named with no project its "other" is
 simply the session the grid started, and the button walks idle → Building… → Stop Test the way a

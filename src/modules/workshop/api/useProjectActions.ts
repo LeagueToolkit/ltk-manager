@@ -16,6 +16,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
   const testProjects = useTestProjects();
   const openPackDialog = useWorkshopDialogsStore((s) => s.openPackDialog);
   const openDeleteDialog = useWorkshopDialogsStore((s) => s.openDeleteDialog);
+  const openRenameDialog = useWorkshopDialogsStore((s) => s.openRenameDialog);
 
   const testMutate = testProjects.mutate;
   const handleTestProject = useCallback(() => {
@@ -34,6 +35,10 @@ export function useProjectActions(project: WorkshopProject | undefined) {
     if (project) openDeleteDialog(project);
   }, [openDeleteDialog, project]);
 
+  const handleOpenRenameDialog = useCallback(() => {
+    if (project) openRenameDialog(project);
+  }, [openRenameDialog, project]);
+
   const handleOpenLocation = useCallback(async () => {
     if (!project) return;
     try {
@@ -50,6 +55,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       handleTestProject,
       handleOpenPackDialog,
       handleOpenDeleteDialog,
+      handleOpenRenameDialog,
       handleOpenLocation,
     }),
     [
@@ -57,6 +63,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       handleTestProject,
       handleOpenPackDialog,
       handleOpenDeleteDialog,
+      handleOpenRenameDialog,
       handleOpenLocation,
     ],
   );

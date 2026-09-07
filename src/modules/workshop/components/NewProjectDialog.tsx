@@ -13,17 +13,11 @@ import { toSlug } from "@/utils";
 
 import { useCreateProject } from "../api/useCreateProject";
 import { useSetProjectThumbnail } from "../api/useSetProjectThumbnail";
+import { projectSlugSchema } from "../utils/projectSlug";
 
 const projectSchema = z.object({
   displayName: z.string().min(1, "Display name is required"),
-  name: z
-    .string()
-    .min(1, "Project name is required")
-    .regex(/^[a-z0-9-]+$/, "Must be lowercase letters, numbers, and hyphens only")
-    .refine(
-      (val) => !val.startsWith("-") && !val.endsWith("-"),
-      "Cannot start or end with a hyphen",
-    ),
+  name: projectSlugSchema,
   description: z.string(),
   authorName: z.string(),
 });
