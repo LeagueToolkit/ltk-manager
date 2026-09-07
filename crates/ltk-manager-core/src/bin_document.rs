@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Write as _};
 use std::io::Cursor;
 use std::num::NonZeroUsize;
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use lru::LruCache;
@@ -26,6 +27,7 @@ use crate::preview::AssetRef;
 use crate::problems::names::hex;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
+use crate::workshop::LayerChunks;
 
 /// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
 pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
@@ -61,6 +63,10 @@ pub enum BinDocumentError {
     /// No node of the document has this address.
     #[error("no node at {address}")]
     NodeNotFound { address: String },
+
+    /// A projected read reached more rows than one call answers.
+    #[error("a projected read of {rows} rows is over the cap of {cap}")]
+    ReadTooWide { rows: usize, cap: usize },
 }
 
 /// The open documents, one tree per asset, bounded, evicting the least recently used.
@@ -81,6 +87,8 @@ struct Store {
 /// One parsed asset, and how many ids hold it.
 struct Held {
     document: BinDocument,
+    /// The chunk paths this asset's project names, scanned once with the parse.
+    chunks: Arc<LayerChunks>,
     holders: usize,
 }
 
@@ -149,6 +157,8 @@ impl BinDocuments {
         }
 
         let document = BinDocument::parse(&bytes()?)?;
+        /* Scanned beside the parse, and outside the lock, because both read the disk. */
+        let chunks = LayerChunks::of(&asset);
 
         let mut store = self.inner.lock();
         match store.held.get_mut(&asset) {
@@ -156,6 +166,7 @@ impl BinDocuments {
             None => {
                 let held = Held {
                     document,
+                    chunks: Arc::new(chunks),
                     holders: 1,
                 };
                 if let Some((evicted, _)) = store.held.push(asset.clone(), held) {
@@ -184,6 +195,20 @@ impl BinDocuments {
             .and_then(|asset| held.get(asset))
             .ok_or(BinDocumentError::NotOpen(id))?;
         read(&held.document)
+    }
+
+    /// The chunk names the project behind `id`'s asset holds.
+    ///
+    /// Empty for a closed id and for an asset outside a project, which names nothing of
+    /// its own. "A project names its own chunks" in docs/ux/BIN_EDITOR.md.
+    #[must_use]
+    pub fn chunks_of(&self, id: BinDocumentId) -> Arc<LayerChunks> {
+        let mut store = self.inner.lock();
+        let Store { ids, held, .. } = &mut *store;
+        ids.get(&id).and_then(|asset| held.get(asset)).map_or_else(
+            || Arc::new(LayerChunks::default()),
+            |held| Arc::clone(&held.chunks),
+        )
     }
 
     /// The asset under one id, or `None` where `id` is closed or its asset was evicted.
@@ -432,7 +457,75 @@ impl BinDocument {
 
         Ok(BinRows { rows, total })
     }
+
+    /// The rows under each of several nodes, one page each, in the order asked.
+    ///
+    /// The projected read of ADR-0026, which a layout and a value row use in place of
+    /// one call per node. A path reaching nothing answers an empty page, because a
+    /// layout names fields an object of its class need not hold.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
+    /// document, and with [`BinDocumentError::ReadTooWide`] when the paths together
+    /// reach more than [`READ_ROW_CAP`] rows.
+    pub fn children_each(
+        &self,
+        entry: BinHash,
+        paths: &[String],
+        names: &dyn RowNames,
+        schema: Option<SchemaAt<'_>>,
+    ) -> Result<Vec<BinRows>, BinDocumentError> {
+        let object =
+            self.file
+                .objects()
+                .get(&entry)
+                .ok_or_else(|| BinDocumentError::NodeNotFound {
+                    address: format!("{}:", hex(entry)),
+                })?;
+
+        /* Counted before a row is built, so a call over the cap costs a walk rather
+        than the whole answer it is about to be refused. */
+        let mut rows = 0;
+        for path in paths {
+            let Some(steps) = parse_steps(path) else {
+                continue;
+            };
+            let Some((node, _)) = descend(object, &steps) else {
+                continue;
+            };
+            rows += children_of(node).len().min(READ_PAGE);
+        }
+        if rows > READ_ROW_CAP {
+            return Err(BinDocumentError::ReadTooWide {
+                rows,
+                cap: READ_ROW_CAP,
+            });
+        }
+
+        paths
+            .iter()
+            .map(
+                |path| match self.children(entry, path, 0, READ_PAGE, names, schema) {
+                    Err(BinDocumentError::NodeNotFound { .. }) => Ok(BinRows {
+                        rows: Vec::new(),
+                        total: 0,
+                    }),
+                    answer => answer,
+                },
+            )
+            .collect()
+    }
 }
+
+/// How many rows one path of a projected read answers, the frontend's `PAGE_SIZE`.
+const READ_PAGE: usize = 500;
+
+/// How many rows one projected read answers, past which it is refused.
+///
+/// Four pages. A layout batches its paths under it rather than reading a whole file in
+/// one call, which is what keeps the answer a payload a viewport draws.
+pub const READ_ROW_CAP: usize = 4 * READ_PAGE;
 
 /// Which kind of bin file a document holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -828,6 +921,62 @@ pub trait RowNames {
     fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str));
     /// The paths of chunks, out of the WAD tables.
     fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str));
+}
+
+/// A project's own chunk names over another source's.
+///
+/// The shared tables are a crawl of the retail game. A path a mod author invents is in
+/// none of them, and the project holding that path is what names it.
+#[derive(Debug)]
+pub struct ProjectNames<'a, N> {
+    inner: &'a N,
+    chunks: &'a crate::workshop::LayerChunks,
+}
+
+impl<'a, N> ProjectNames<'a, N> {
+    /// `chunks` answers a chunk first, and `inner` answers the rest.
+    pub fn new(inner: &'a N, chunks: &'a crate::workshop::LayerChunks) -> Self {
+        Self { inner, chunks }
+    }
+}
+
+impl<N: RowNames> RowNames for ProjectNames<'_, N> {
+    fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_entry(hashes, visit);
+    }
+
+    fn for_each_class(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_class(hashes, visit);
+    }
+
+    fn for_each_field(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_field(hashes, visit);
+    }
+
+    fn for_each_value(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        self.inner.for_each_value(hashes, visit);
+    }
+
+    /// The project answers first, and only what it does not name reaches the tables.
+    fn for_each_chunk(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        let mut residue = Vec::new();
+        let mut at_of = Vec::new();
+        for (at, hash) in hashes.iter().enumerate() {
+            match self.chunks.get(*hash) {
+                Some(path) => visit(at, path),
+                None => {
+                    residue.push(*hash);
+                    at_of.push(at);
+                }
+            }
+        }
+        if residue.is_empty() {
+            return;
+        }
+        self.inner.for_each_chunk(&residue, &mut |at, path| {
+            visit(at_of[at], path);
+        });
+    }
 }
 
 /// Names nothing. Every hash draws as hex.

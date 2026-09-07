@@ -1,5 +1,7 @@
 import type { AppError, BinRow, BinRows, BinValue } from "@/lib/tauri";
 
+import { nameHash } from "./binHash";
+
 /** How many rows one children call answers. A longer container asks again. */
 export const PAGE_SIZE = 500;
 
@@ -38,9 +40,94 @@ export function fieldHash(path: string): string {
   return `0x${path.slice(-8)}`;
 }
 
+/**
+ * The hash a map entry's key holds, or null for a key that is no hash.
+ *
+ * An entry whose key no table names is drawn as its own hex. A named one is drawn as
+ * the name, in the JSON literal the backend writes, which hashes back to the same
+ * value the key held.
+ */
+export function entryKeyHash(row: Pick<BinRow, "name" | "unnamed">): string | null {
+  if (row.unnamed) return /^0x[0-9a-f]{8}$/i.test(row.name) ? row.name.toLowerCase() : null;
+  if (!row.name.startsWith('"')) return null;
+  try {
+    return nameHash(JSON.parse(row.name) as string);
+  } catch {
+    return null;
+  }
+}
+
 /** Whether rows can sit under this one. */
 export function canExpand(row: BinRow): boolean {
   return holdsChildren(row.value);
+}
+
+/** How many rows sit under `row`, which is what reading it costs. */
+export function childCount(row: BinRow): number {
+  const { value } = row;
+  switch (value.type) {
+    case "struct":
+    case "container":
+    case "map":
+      return value.len;
+    case "optional":
+      return value.present ? 1 : 0;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Every key on the way down to `key`, the object's own first and `key` itself last.
+ *
+ * A reveal opens each of them, so a row nested under a container is on screen once
+ * every level has answered. A path this cannot read answers what it reached.
+ */
+export function ancestorKeys(key: string): string[] {
+  const [entry, path] = splitKey(key);
+  const keys = [`${entry}:`];
+  let at = 0;
+  while (at < path.length) {
+    const end = segmentEnd(path, at);
+    if (end === null) break;
+    at = end;
+    keys.push(`${entry}:${path.slice(0, at)}`);
+  }
+  if (keys.at(-1) !== key) keys.push(key);
+  return keys;
+}
+
+/** Where the segment starting at `at` ends, or null for a path this cannot read. */
+function segmentEnd(path: string, at: number): number | null {
+  if (path[at] === "[") {
+    const close = path.indexOf("]", at);
+    return close < 0 ? null : close + 1;
+  }
+  if (path[at] === "{") return keyEnd(path, at + 1);
+
+  /* A field is eight hex digits, and every one but the first opens with a dot. */
+  const start = path[at] === "." ? at + 1 : at;
+  return start + 8 <= path.length ? start + 8 : null;
+}
+
+/** Where the map key starting at `at` ends, quoted or bare, as the backend writes one. */
+function keyEnd(path: string, at: number): number | null {
+  if (path[at] !== '"') {
+    const close = path.indexOf("}", at);
+    return close < 0 ? null : close + 1;
+  }
+  let escaped = false;
+  for (let scan = at + 1; scan < path.length; scan += 1) {
+    if (path[scan] === "\\" && !escaped) {
+      escaped = true;
+      continue;
+    }
+    if (path[scan] === '"' && !escaped) {
+      return path[scan + 1] === "}" ? scan + 2 : null;
+    }
+    escaped = false;
+  }
+  return null;
 }
 
 /** The class the rows under `row` are properties of. Null under a container, a map and a leaf. */

@@ -6,9 +6,9 @@ import {
   MagnifyingGlassIcon,
   PathIcon,
 } from "@phosphor-icons/react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
-import { Button, IconButton, Menu, Spinner } from "@/components";
+import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
@@ -25,8 +25,10 @@ import {
 } from "../references/useFindReferences";
 import { clickIntent } from "../state";
 import { Dot } from "./BinDocument";
-import { BinTree } from "./BinTree";
+import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
+import { classLayout } from "./classLayouts";
+import { ClassView } from "./ClassView";
 import { OtherDeclarations } from "./OtherDeclarations";
 import { useBinDocument } from "./useBinDocument";
 import { useShowInFile } from "./useShowInFile";
@@ -90,6 +92,15 @@ interface OpenObjectProps {
 function OpenObject({ asset, objectPath, file, handle, object, active, reopen }: OpenObjectProps) {
   const showInFile = useShowInFile();
   const objectName = useCallback(() => object.name, [object.name]);
+  const layout = classLayout(object.classHash);
+
+  const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
+  const [reveal, setReveal] = useState<TreeReveal | null>(null);
+
+  const showInProperties = useCallback((key: string) => {
+    setMode("properties");
+    setReveal({ key, token: Date.now() });
+  }, []);
 
   return (
     <div data-ui="ObjectDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
@@ -101,6 +112,18 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
           <Dot />
           <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
         </span>
+        {layout && (
+          <SegmentedControl
+            size="xs"
+            aria-label={m.workshop_bin_view_mode_label()}
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "layout", label: layout.title() },
+              { value: "properties", label: m.workshop_bin_mode_properties_label() },
+            ]}
+          />
+        )}
         <Button
           variant="ghost"
           size="xs"
@@ -111,18 +134,36 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
         </Button>
         <HeaderMenu object={object} />
       </DocumentToolbar>
-      <BinTree
-        document={handle.document}
-        asset={asset}
-        roots={handle.rows}
-        rootOwner={object.classHash}
-        label={object.name}
-        objectName={objectName}
-        onNotOpen={reopen}
-      />
+      {layout && mode === "layout" && (
+        <ClassView
+          document={handle.document}
+          asset={asset}
+          roots={handle.rows}
+          classHash={object.classHash}
+          layout={layout}
+          objectName={objectName}
+          onNotOpen={reopen}
+          onShowInProperties={showInProperties}
+        />
+      )}
+      {mode === "properties" && (
+        <BinTree
+          document={handle.document}
+          asset={asset}
+          roots={handle.rows}
+          rootOwner={object.classHash}
+          label={object.name}
+          reveal={reveal}
+          objectName={objectName}
+          onNotOpen={reopen}
+        />
+      )}
     </div>
   );
 }
+
+/** Which way the tab draws its object: its class's layout, or the tree. */
+type Mode = "layout" | "properties";
 
 /** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
 function HeaderMenu({ object }: { object: BinObjectHeader }) {

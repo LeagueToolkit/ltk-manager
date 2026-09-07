@@ -1,9 +1,11 @@
+mod chunk_names;
 mod content;
 pub mod layer;
 mod layers;
 mod packing;
 mod projects;
 
+pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
 
 use crate::config::Config;

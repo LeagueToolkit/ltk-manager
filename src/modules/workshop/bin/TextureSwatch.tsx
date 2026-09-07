@@ -17,6 +17,19 @@ import { KindBadge } from "./KindBadge";
 /** The `w` a row swatch asks for: the mipmap that covers 20px, and reads on a 2x display. */
 export const SWATCH_WIDTH = 32;
 
+/** The `w` a tile asks for: the mipmap that covers 48px, and reads on a 2x display. */
+export const TILE_WIDTH = 96;
+
+/** The `w` a card's square asks for: the mipmap that covers its 148px, at 2x. */
+export const SQUARE_WIDTH = 320;
+
+/** How big the swatch is drawn, and which mipmap that asks for. */
+const SIZES = {
+  row: { box: "h-5 w-5", width: SWATCH_WIDTH },
+  tile: { box: "h-12 w-12", width: TILE_WIDTH },
+  card: { box: "aspect-square w-full", width: SQUARE_WIDTH },
+} as const;
+
 /** The `w` the hover card asks for, and the card's own width. */
 export const CARD_WIDTH = 256;
 
@@ -31,6 +44,8 @@ interface TextureSwatchProps {
   fileKind: WorkshopFileKind;
   /** The layer's title, for the card of a layer's copy. */
   layerTitle?: string;
+  /** The room it takes: a row's height, a sampler's 48px tile, or a card's own square. */
+  size?: keyof typeof SIZES;
   onOpen: (intent: OpenIntent) => void;
 }
 
@@ -41,9 +56,16 @@ interface TextureSwatchProps {
  * The swatch opens the preview as the chip does, and a hover opens the card. A
  * texture the protocol cannot draw falls back to its kind badge.
  */
-export function TextureSwatch({ asset, path, fileKind, layerTitle, onOpen }: TextureSwatchProps) {
+export function TextureSwatch({
+  asset,
+  path,
+  fileKind,
+  layerTitle,
+  size = "row",
+  onOpen,
+}: TextureSwatchProps) {
   const [failed, setFailed] = useState(false);
-  const slot = useImageSlot(previewUrl(asset, SWATCH_WIDTH), {
+  const slot = useImageSlot(previewUrl(asset, SIZES[size].width), {
     lane: "tile",
     archive: assetArchive(asset),
   });
@@ -56,7 +78,10 @@ export function TextureSwatch({ asset, path, fileKind, layerTitle, onOpen }: Tex
       data-ui="TextureSwatch"
       aria-label={m.workshop_bin_texture_swatch_label()}
       /* DS-VEIL, DS-HOVER */
-      className="h-5 w-5 shrink-0 cursor-pointer overflow-hidden rounded-sm border border-surface-veil-strong bg-surface-veil-soft hover:border-accent-hover"
+      className={twMerge(
+        "shrink-0 cursor-pointer overflow-hidden rounded-sm border border-surface-veil-strong bg-surface-veil-soft hover:border-accent-hover",
+        SIZES[size].box,
+      )}
       onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         onOpen(clickIntent(event));

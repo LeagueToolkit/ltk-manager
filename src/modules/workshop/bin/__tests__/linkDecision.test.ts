@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { BinValue, DeclaredObject, GameFileEntry, ObjectIndexStatus } from "@/lib/tauri";
 
-import { decideFileLink, decideHash, decideLink, decideObjectLink } from "../linkDecision";
+import { nameHash } from "../binHash";
+import {
+  chunkPath,
+  decideFileLink,
+  decideHash,
+  decideLink,
+  decideObjectLink,
+  decideStringLink,
+} from "../linkDecision";
 import type { LinkTargets } from "../useLinkTargets";
 
 const HASH = "0x2a1f3c7d";
@@ -138,9 +146,93 @@ describe("decideFileLink", () => {
     });
   });
 
-  it("is text where neither side holds the path, and pending while the check runs", () => {
-    expect(decideFileLink(path, targets(), null).kind).toBe("text");
+  it("is missing where neither side holds the path, and pending while the check runs", () => {
+    expect(decideFileLink(path, targets(), null).kind).toBe("missing");
     expect(decideFileLink(path, targets({ pending: true }), null).kind).toBe("pending");
+  });
+
+  /* A hash no table names says nothing about whether the chunk is there. */
+  it("is text for a path no table resolved, rather than missing", () => {
+    expect(decideFileLink(null, targets(), null).kind).toBe("text");
+  });
+});
+
+describe("chunkPath", () => {
+  it("takes an assets or a data path with an extension, whatever its case", () => {
+    expect(chunkPath("ASSETS/Characters/Aatrox/Aatrox.dds")).toBe(
+      "assets/characters/aatrox/aatrox.dds",
+    );
+    expect(chunkPath("DATA/Characters/Aatrox/Aatrox.bin")).toBe(
+      "data/characters/aatrox/aatrox.bin",
+    );
+  });
+
+  it("takes nothing under another root", () => {
+    expect(chunkPath("Characters/Aatrox/Aatrox.dds")).toBeNull();
+    expect(chunkPath("Justicar Aatrox")).toBeNull();
+  });
+
+  it("takes nothing without an extension on the last segment", () => {
+    expect(chunkPath("assets/characters/aatrox")).toBeNull();
+    expect(chunkPath("assets/characters.old/aatrox")).toBeNull();
+    expect(chunkPath("assets/characters/aatrox.")).toBeNull();
+    expect(chunkPath("assets/characters/.dds")).toBeNull();
+  });
+});
+
+describe("decideStringLink", () => {
+  const path = "assets/characters/aatrox/aatrox.tex";
+  /* The object the index declares under the FNV-1a of the string below. */
+  const named = "Characters/Aatrox/Skins/Skin0/Resources";
+  const namedHash = nameHash(named);
+
+  it("opens the chunk a path resolves to", () => {
+    const decision = decideStringLink(
+      "ASSETS/Characters/Aatrox/Aatrox.tex",
+      targets({ located: new Map([[path, LOCATED]]) }),
+      () => null,
+    );
+
+    expect(decision.kind).toBe("chip");
+    if (decision.kind !== "chip") return;
+    expect(decision.document).toMatchObject({ kind: "preview", title: "aatrox.tex" });
+  });
+
+  it("opens the object its hash declares", () => {
+    const decision = decideStringLink(
+      named,
+      targets({ index: ready, declared: new Map([[namedHash, DECLARED]]) }),
+      () => null,
+    );
+
+    expect(decision.kind).toBe("chip");
+    if (decision.kind !== "chip") return;
+    expect(decision.document).toMatchObject({ kind: "object", objectHash: namedHash });
+  });
+
+  it("takes the chunk where both sides answer", () => {
+    const both = targets({
+      index: ready,
+      declared: new Map([[nameHash(path), DECLARED]]),
+      located: new Map([[path, LOCATED]]),
+    });
+
+    const decision = decideStringLink(path, both, () => null);
+    expect(decision.kind).toBe("chip");
+    if (decision.kind !== "chip") return;
+    expect(decision.document.kind).toBe("preview");
+  });
+
+  it("is text where neither side answers, and missing where a path names no chunk", () => {
+    expect(decideStringLink(named, targets({ index: ready }), () => null).kind).toBe("text");
+    expect(decideStringLink(path, targets({ index: ready }), () => null).kind).toBe("missing");
+  });
+
+  /* A string is not a link the reader asked to follow, so a miss never builds the index. */
+  it("never warms the index", () => {
+    expect(decideStringLink(named, targets({ index: { status: "absent" } }), () => null).kind).toBe(
+      "text",
+    );
   });
 });
 
@@ -155,11 +247,13 @@ describe("decideLink", () => {
     const link: BinValue = { type: "objectLink", hash: HASH, name: null };
     const hash: BinValue = { type: "hash", hash: HASH, name: null };
     const file: BinValue = { type: "wadChunkLink", hash: "00cc", path: LOCATED.path };
-    const text: BinValue = { type: "string", value: "Justicar Aatrox" };
+    const text: BinValue = { type: "string", value: LOCATED.path ?? "" };
+    const number: BinValue = { type: "float", value: 1 };
 
     expect(decideLink(link, checked, () => null)?.kind).toBe("chip");
     expect(decideLink(hash, checked, () => null)?.kind).toBe("chip");
     expect(decideLink(file, checked, () => null)?.kind).toBe("chip");
-    expect(decideLink(text, checked, () => null)).toBeNull();
+    expect(decideLink(text, checked, () => null)?.kind).toBe("chip");
+    expect(decideLink(number, checked, () => null)).toBeNull();
   });
 });

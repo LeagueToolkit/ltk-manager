@@ -19,13 +19,17 @@ import {
   fieldHash,
   INDENT,
   MAX_INDENT_DEPTH,
+  rowKey,
   type RowLine,
   type VisibleRow,
 } from "./binRows";
 import { ClassCard } from "./ClassCard";
+import { ColorMark } from "./ColorMark";
 import { DeclaredLine, FieldCard } from "./FieldCard";
 import { rowTag } from "./kindTag";
-import { FileChip, ObjectChip } from "./LinkChip";
+import { FileChip, ObjectChip, StringValue } from "./LinkChip";
+import { useValueMark } from "./useValueMarks";
+import { channels, type ValueMark } from "./valueRows";
 
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
@@ -73,7 +77,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       onClick={() => expandable && onToggle(line.key)}
     >
       <NameCell line={line} expandable={expandable} expanded={expanded} loading={loading} />
-      <ValueCell row={row} />
+      <RowValue row={row} />
       {error && (
         <Tooltip content={errorSummary(error)}>
           <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />
@@ -243,10 +247,14 @@ function KindTag({ row }: { row: BinRow }) {
 /* DS-KIND-HUE, DS-TEXT */
 const TAG_CLASSES = "text-bin-kind-text";
 
-function ValueCell({ row }: { row: BinRow }) {
+/**
+ * The cell a row's value draws, which is what a class view places where its layout
+ * names no widget of its own.
+ */
+export function RowValue({ row }: { row: BinRow }) {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <Value value={row.value} node={row.node} />
+      <Value value={row.value} node={row.node} rowKey={rowKey(row)} />
     </span>
   );
 }
@@ -255,9 +263,11 @@ interface ValueProps {
   value: BinValue;
   /** Where the row sits, which decides what the name cell already drew. */
   node: RowNode;
+  /** The row's own key, which a value the projected read answers for reads its mark under. */
+  rowKey: string;
 }
 
-function Value({ value, node }: ValueProps) {
+function Value({ value, node, rowKey: key }: ValueProps) {
   switch (value.type) {
     case "none":
       return <Dim>{m.workshop_bin_none_label()}</Dim>;
@@ -274,7 +284,7 @@ function Value({ value, node }: ValueProps) {
     case "color":
       return <ColorValue value={value} />;
     case "string":
-      return <Readout value={value.value} className="flex-1 text-surface-100" />;
+      return <StringValue text={value.value} />;
     case "hash":
       return <ObjectChip hash={value.hash} name={value.name} kind="hash" />;
     case "wadChunkLink":
@@ -288,7 +298,7 @@ function Value({ value, node }: ValueProps) {
       if (value.len === 0) return <Dim>{m.workshop_bin_empty_label()}</Dim>;
       return <Dim>{m.workshop_bin_entries_label({ count: value.len })}</Dim>;
     case "struct":
-      return <StructValue value={value} node={node} />;
+      return <StructValue value={value} node={node} rowKey={key} />;
     case "null":
       return <Dim>{m.workshop_bin_null_label()}</Dim>;
     case "optional":
@@ -302,20 +312,51 @@ function Value({ value, node }: ValueProps) {
 interface StructValueProps {
   value: Extract<BinValue, { type: "struct" }>;
   node: RowNode;
+  rowKey: string;
 }
 
-function StructValue({ value, node }: StructValueProps) {
+function StructValue({ value, node, rowKey: key }: StructValueProps) {
+  const mark = useValueMark(key);
+
   /* An element names its class beside its index, so the value column would write it twice. */
   if (node === "element") {
-    return <Dim>{m.workshop_bin_properties_label({ count: value.len })}</Dim>;
+    return (
+      <>
+        {mark === undefined && <Dim>{m.workshop_bin_properties_label({ count: value.len })}</Dim>}
+        <ValueMarkCell mark={mark} />
+      </>
+    );
   }
 
   return (
     <>
       <ClassCard classHash={value.classHash} name={value.class} />
+      <ValueMarkCell mark={mark} />
       {node === "object" && <span className="ml-auto text-meta text-surface-400">{value.len}</span>}
     </>
   );
+}
+
+/**
+ * The constant a value-family row draws beside its class, once the read lands.
+ *
+ * "A value family on its row" in docs/ux/BIN_EDITOR.md. Nothing until it lands, which
+ * keeps the row one line rather than a placeholder that shifts.
+ */
+export function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
+  if (mark?.constant == null) return null;
+  if (mark.family === "color") {
+    const rgba = channels(mark.constant);
+    if (rgba === null) return null;
+    return <ColorMark constant={rgba} stops={mark.stops} />;
+  }
+  if (mark.constant.type === "float") {
+    return <Readout value={String(mark.constant.value)} className={SCALAR_WIDTH} />;
+  }
+  if (mark.constant.type === "vector") {
+    return <Components labels={AXES} values={mark.constant.values} width={COMPONENT_WIDTH} />;
+  }
+  return null;
 }
 
 interface ComponentsProps {
@@ -388,7 +429,7 @@ function ColorValue({ value }: { value: Extract<BinValue, { type: "color" }> }) 
   const { r, g, b, a } = value;
   return (
     <span className="flex min-w-0 items-center gap-3">
-      {/* DS-TOKEN: the swatch is the value. */}
+      {/* DS-TOKEN */}
       <span
         className="h-3.5 w-3.5 shrink-0 rounded-sm border border-surface-veil-strong"
         style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, ${a / 255})` }}

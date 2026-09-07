@@ -8,18 +8,18 @@ import {
   useRef,
   useState,
 } from "react";
+import { twMerge } from "tailwind-merge";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
-import { useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
 import { stirImages } from "../preview/useImageSlot";
-import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
 import {
+  ancestorKeys,
   flattenRows,
   isUnder,
   nameColumns,
@@ -29,16 +29,16 @@ import {
   type VisibleRow,
 } from "./binRows";
 import { rowTag } from "./kindTag";
-import { decideObjectLink } from "./linkDecision";
 import { type ChildrenRequest, useBinChildren } from "./useBinDocument";
 import {
   LinkAssetContext,
-  type LinkOpen,
   LinkOpenContext,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
+  useWarmLinkOpen,
 } from "./useLinkTargets";
+import { useValueMarks, ValueMarksContext } from "./useValueMarks";
 
 /** A row the tree is asked to expand, focus and scroll to. A new token scrolls again. */
 export interface TreeReveal {
@@ -59,6 +59,13 @@ interface BinTreeProps {
   label: string;
   /** The keys open at mount. */
   initialExpanded?: readonly string[];
+  /**
+   * The most rows the scroller shows before it scrolls.
+   *
+   * Unset, the tree fills its parent, which is what a whole pane of rows wants. A
+   * class view's section sets one, so a section of three rows is three rows tall.
+   */
+  maxRows?: number;
   reveal?: TreeReveal | null;
   /** The name of the object an entry hash addresses, for the path a row copies. */
   objectName: (entry: string) => string;
@@ -84,6 +91,7 @@ export function BinTree({
   rootOwner,
   label,
   initialExpanded = NO_KEYS,
+  maxRows,
   reveal = null,
   objectName,
   onNotOpen,
@@ -123,36 +131,7 @@ export function BinTree({
   );
   const linkTargets = useCheckLinkTargets(document, groups);
 
-  /* A link clicked while the index is absent: the build runs, and the click lands on
-     the answer. A target the answer lacks is forgotten. */
-  const warm = useWarmObjectIndex();
-  const open = useOpenDocumentAs();
-  const [wanting, setWanting] = useState<ReadonlyMap<string, OpenIntent>>(() => new Map());
-  const warmMutate = warm.mutate;
-  const linkOpen = useMemo<LinkOpen>(
-    () => ({
-      wantOpen: (hash, intent) => {
-        setWanting((current) => new Map(current).set(hash, intent));
-        warmMutate();
-      },
-      wanting: new Set(wanting.keys()),
-    }),
-    [wanting, warmMutate],
-  );
-  useEffect(() => {
-    if (linkTargets.index?.status !== "ready" && linkTargets.index?.status !== "failed") return;
-    const settled = [...wanting].filter(([hash, intent]) => {
-      const decision = decideObjectLink(hash, linkTargets);
-      if (decision.kind === "chip") open(decision.document, intent);
-      return decision.kind !== "pending" && decision.kind !== "warm";
-    });
-    if (settled.length === 0) return;
-    setWanting((current) => {
-      const next = new Map(current);
-      for (const [hash] of settled) next.delete(hash);
-      return next;
-    });
-  }, [linkTargets, open, wanting]);
+  const linkOpen = useWarmLinkOpen(linkTargets);
 
   const toggle = useCallback((key: string) => {
     setFocused(null);
@@ -189,6 +168,17 @@ export function BinTree({
 
   const virtualItems = virtualizer.getVirtualItems();
 
+  /* The viewport's own rows, which is the page a value row's read is scoped to. */
+  const inView = useMemo(
+    () =>
+      virtualItems.flatMap((item) => {
+        const line = visible[item.index];
+        return line?.kind === "row" ? [line.row] : [];
+      }),
+    [virtualItems, visible],
+  );
+  const marks = useValueMarks(document, inView);
+
   /* A node's next page is asked for while the line under its rows is on screen. */
   useEffect(() => {
     for (const item of virtualItems) {
@@ -197,10 +187,15 @@ export function BinTree({
     }
   }, [virtualItems, visible, requestMore]);
 
-  /* A request for a row that is not a root is left alone. */
+  /* Every level down to the row opens, so a nested key is on screen once each of them
+     answers. A request for a row this tree does not hold is left alone. */
   useEffect(() => {
-    if (reveal === null || !roots.some((row) => rowKey(row) === reveal.key)) return;
-    setExpanded((current) => (current.has(reveal.key) ? current : toggled(current, reveal.key)));
+    if (reveal === null) return;
+    const ancestors = ancestorKeys(reveal.key).filter((key) =>
+      roots.some((row) => isUnder(rowKey(row), key)),
+    );
+    if (ancestors.length === 0) return;
+    setExpanded((current) => new Set([...current, ...ancestors]));
     setFocused(reveal.key);
     setScrollTo(reveal);
   }, [reveal, roots]);
@@ -227,47 +222,57 @@ export function BinTree({
     <LinkAssetContext value={asset}>
       <LinkTargetsContext value={linkTargets}>
         <LinkOpenContext value={linkOpen}>
-          <ContextMenu.Root>
-            <ContextMenu.Trigger
-              ref={scrollRef}
-              role="tree"
-              aria-label={label}
-              className="min-h-0 flex-1 overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none"
-              style={{ "--bin-name-cols": nameCols } as CSSProperties}
-              onContextMenu={handleContextMenu}
-              onScroll={stirImages}
-              {...NO_OVERSCROLL}
-            >
-              <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-                {virtualItems.map((item) => {
-                  const line = visible[item.index];
-                  if (!line) return null;
-                  return (
-                    <div
-                      key={item.key}
-                      ref={virtualizer.measureElement}
-                      data-index={item.index}
-                      className="absolute top-0 left-0 w-full"
-                      style={{ transform: `translateY(${item.start}px)` }}
-                    >
-                      {line.kind === "row" && (
-                        <BinRowLine
-                          line={line}
-                          focused={line.key === focused}
-                          error={loaded.get(line.key)?.error}
-                          onToggle={toggle}
-                          onOpenObject={onOpenObject}
-                        />
-                      )}
-                      {line.kind === "more" && <MoreRow line={line} />}
-                    </div>
-                  );
-                })}
-              </div>
-            </ContextMenu.Trigger>
+          <ValueMarksContext value={marks}>
+            <ContextMenu.Root>
+              <ContextMenu.Trigger
+                ref={scrollRef}
+                role="tree"
+                aria-label={label}
+                className={twMerge(
+                  "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
+                  maxRows === undefined && "min-h-0 flex-1",
+                )}
+                style={
+                  {
+                    "--bin-name-cols": nameCols,
+                    maxHeight: maxRows === undefined ? undefined : zoomed(ROW_HEIGHT) * maxRows + 8,
+                  } as CSSProperties
+                }
+                onContextMenu={handleContextMenu}
+                onScroll={stirImages}
+                {...NO_OVERSCROLL}
+              >
+                <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+                  {virtualItems.map((item) => {
+                    const line = visible[item.index];
+                    if (!line) return null;
+                    return (
+                      <div
+                        key={item.key}
+                        ref={virtualizer.measureElement}
+                        data-index={item.index}
+                        className="absolute top-0 left-0 w-full"
+                        style={{ transform: `translateY(${item.start}px)` }}
+                      >
+                        {line.kind === "row" && (
+                          <BinRowLine
+                            line={line}
+                            focused={line.key === focused}
+                            error={loaded.get(line.key)?.error}
+                            onToggle={toggle}
+                            onOpenObject={onOpenObject}
+                          />
+                        )}
+                        {line.kind === "more" && <MoreRow line={line} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ContextMenu.Trigger>
 
-            <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-          </ContextMenu.Root>
+              <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+            </ContextMenu.Root>
+          </ValueMarksContext>
         </LinkOpenContext>
       </LinkTargetsContext>
     </LinkAssetContext>

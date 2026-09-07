@@ -19,6 +19,15 @@ export const commands = {
 	 *  schema declares for its field at the install's build.
 	 */
 	binChildren: (document: BinDocumentId, entry: string, path: string, offset: number, limit: number) => __TAURI_INVOKE<({ ok: true; value: BinRows }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_children", { document, entry, path, offset, limit }),
+	/**
+	 *  The rows under each of several nodes of an open document, in the order asked.
+	 * 
+	 *  The projected read of "The projected read" in docs/ux/BIN_EDITOR.md, which a class
+	 *  layout and a value row use in place of one [`bin_children`] call per node. Each path
+	 *  answers one page, a path reaching nothing answers an empty one, and a call past the
+	 *  row cap is refused so the caller batches.
+	 */
+	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
 	/**  Drop one id. Its asset leaves the store with its last id. */
 	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
 	/**
@@ -154,6 +163,8 @@ export type AppErrorResponse =
 { code: "BIN_NOT_OPEN" } | 
 /**  No node of the open bin has the address. */
 { code: "BIN_NODE_NOT_FOUND"; address: string } | 
+/**  A projected read asked for more rows than one call answers. */
+{ code: "BIN_READ_TOO_WIDE"; rows: number; cap: number } | 
 /**
  *  An overlay build or analysis failed.
  * 

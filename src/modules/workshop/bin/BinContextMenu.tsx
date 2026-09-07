@@ -22,9 +22,12 @@ import {
   useFindReferences,
 } from "../references/useFindReferences";
 import { useOpenDocumentAs } from "../state";
+import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
-import { decideLink, type LinkDecision } from "./linkDecision";
-import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
+import { chunkPath, decideLink, type LinkDecision, type MissingChunk } from "./linkDecision";
+import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
+import { useValueMark } from "./useValueMarks";
+import { markText } from "./valueRows";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -33,6 +36,8 @@ interface BinContextMenuProps {
   objectName: (entry: string) => string;
   /** Open the object a row declares. Absent where no row is an object. */
   onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
+  /** Switch the tab to Properties and reveal the row there. Absent outside a class view. */
+  onShowInProperties?: (key: string) => void;
 }
 
 /**
@@ -43,24 +48,30 @@ interface BinContextMenuProps {
  * address of ADR-0027 as a person reads it: the object's path and the property path joined
  * on a colon, and the object's path alone for an object row.
  */
-export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
+export function BinContextMenu({
+  line,
+  objectName,
+  onOpenObject,
+  onShowInProperties,
+}: BinContextMenuProps) {
   const copy = useCopyToClipboard();
   const open = useOpenDocumentAs();
   const revealInObjects = useRevealInObjects();
   const findReferences = useFindReferences();
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
+  const mark = useValueMark(line?.kind === "row" ? line.key : undefined);
   const row = line?.kind === "row" ? line.row : null;
-  const layer = useLayerCopy(row?.value.type === "wadChunkLink" ? row.value.path : null);
+  const layer = useLayerCopy(layerPath(row?.value ?? null));
 
-  if (row === null) return null;
+  if (row === null || line?.kind !== "row") return null;
   const object = row.node === "object";
   const property = row.node === "property";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
   const struct = row.value.type === "struct" ? row.value : null;
   const structName = struct?.class ?? null;
-  const valueText = readableValue(row.value);
-  const valueHash = linkedValueHash(row.value);
+  const valueText = readableValue(row.value) ?? markText(mark);
+  const valueHash = linkedValueHash(row.value, targets);
   const link = decideLink(row.value, targets, () => layer);
   const openLink = linkOpener(row.value, link, open, wantOpen);
 
@@ -120,7 +131,15 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
               {m.workshop_references_find_class_action()}
             </ContextMenu.Item>
           )}
-          {(object || struct !== null) && <ContextMenu.Separator />}
+          {onShowInProperties && (
+            <ContextMenu.Item
+              icon={<TreeStructureIcon />}
+              onClick={() => onShowInProperties(line.key)}
+            >
+              {m.workshop_bin_show_in_properties_action()}
+            </ContextMenu.Item>
+          )}
+          {(object || struct !== null || onShowInProperties) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}
@@ -184,7 +203,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
 /** What Open link does for a row, or null where the row's value opens nothing. */
 function linkOpener(
   value: BinValue,
-  link: LinkDecision | null,
+  link: LinkDecision | MissingChunk | null,
   open: (document: ContentDocument, intent: OpenIntent) => void,
   wantOpen: (hash: string, intent: OpenIntent) => void,
 ): ((intent: OpenIntent) => void) | null {
@@ -195,13 +214,29 @@ function linkOpener(
   return null;
 }
 
-/** The hash behind a link value, whether or not a table names it. */
-function linkedValueHash(value: BinValue): string | null {
+/** The chunk path a row's value resolves a layer's copy under, or null where it names none. */
+function layerPath(value: BinValue | null): string | null {
+  if (value?.type === "wadChunkLink") return value.path;
+  if (value?.type === "string") return chunkPath(value.value);
+  return null;
+}
+
+/**
+ * The hash behind a link value, whether or not a table names it.
+ *
+ * A `string` carries none of its own, so it offers the object hash it was resolved
+ * under and nothing where it resolved to no object.
+ */
+function linkedValueHash(value: BinValue, targets: LinkTargets): string | null {
   switch (value.type) {
     case "hash":
     case "objectLink":
     case "wadChunkLink":
       return value.hash;
+    case "string": {
+      const hash = nameHash(value.value);
+      return targets.declared.has(hash) ? hash : null;
+    }
     default:
       return null;
   }

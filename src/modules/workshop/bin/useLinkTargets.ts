@@ -1,5 +1,5 @@
 import { useQueries, type UseQueryOptions } from "@tanstack/react-query";
-import { createContext, use, useMemo } from "react";
+import { createContext, use, useEffect, useMemo, useState } from "react";
 
 import {
   api,
@@ -19,10 +19,12 @@ import { unwrapForQuery } from "@/utils/query";
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { useOptionalProjectContext, useProjectContext } from "../components/ProjectContext";
 import { layerTitle } from "../documents/contentDocument";
-import { BUILDING_POLL_MS, gameKeys } from "../gameBrowser";
+import { BUILDING_POLL_MS, gameKeys, useWarmObjectIndex } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
 import { assetKey } from "../preview/assetRef";
-import type { LayerCopy } from "./linkDecision";
+import { useOpenDocumentAs } from "../state";
+import { nameHash } from "./binHash";
+import { chunkPath, decideObjectLink, type LayerCopy } from "./linkDecision";
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -74,6 +76,47 @@ export function useLinkOpen(): LinkOpen {
   return use(LinkOpenContext);
 }
 
+/**
+ * The warm-and-open a surface of link chips provides to the chips and menus under it.
+ *
+ * A link clicked while the index is absent: the build runs, and the click lands on the
+ * answer. A target the answer lacks is forgotten.
+ */
+export function useWarmLinkOpen(targets: LinkTargets): LinkOpen {
+  const warm = useWarmObjectIndex();
+  const open = useOpenDocumentAs();
+  const [wanting, setWanting] = useState<ReadonlyMap<string, OpenIntent>>(() => new Map());
+
+  const warmMutate = warm.mutate;
+  const linkOpen = useMemo<LinkOpen>(
+    () => ({
+      wantOpen: (hash, intent) => {
+        setWanting((current) => new Map(current).set(hash, intent));
+        warmMutate();
+      },
+      wanting: new Set(wanting.keys()),
+    }),
+    [wanting, warmMutate],
+  );
+
+  useEffect(() => {
+    if (targets.index?.status !== "ready" && targets.index?.status !== "failed") return;
+    const settled = [...wanting].filter(([hash, intent]) => {
+      const decision = decideObjectLink(hash, targets);
+      if (decision.kind === "chip") open(decision.document, intent);
+      return decision.kind !== "pending" && decision.kind !== "warm";
+    });
+    if (settled.length === 0) return;
+    setWanting((current) => {
+      const next = new Map(current);
+      for (const [hash] of settled) next.delete(hash);
+      return next;
+    });
+  }, [targets, open, wanting]);
+
+  return linkOpen;
+}
+
 export const linkKeys = {
   declared: (document: BinDocumentId, key: string, hashes: readonly string[]) =>
     [...gameKeys.objectSearches, "links", document, key, hashes] as const,
@@ -81,20 +124,30 @@ export const linkKeys = {
     [...gameKeys.dirs, "files", key, paths] as const,
 };
 
-/** The object hashes a group's `link` and `hash` values name, sorted, each once. */
+/**
+ * The object hashes a group's values name, sorted, each once.
+ *
+ * A `link` and a `hash` carry theirs. A `string` is hashed as an object path, so a
+ * string that names one resolves in the same call rather than in one of its own.
+ */
 export function linkHashes(rows: readonly BinRow[]): string[] {
   const hashes = new Set<string>();
   for (const { value } of rows) {
     if (value.type === "objectLink" || value.type === "hash") hashes.add(value.hash);
+    if (value.type === "string") hashes.add(nameHash(value.value));
   }
   return [...hashes].sort();
 }
 
-/** The chunk paths a group's `file` values resolve to, sorted, each once. */
+/** The chunk paths a group's `file` values and its path-shaped strings name, sorted, each once. */
 export function linkPaths(rows: readonly BinRow[]): string[] {
   const paths = new Set<string>();
   for (const { value } of rows) {
     if (value.type === "wadChunkLink" && value.path !== null) paths.add(value.path);
+    if (value.type === "string") {
+      const path = chunkPath(value.value);
+      if (path !== null) paths.add(path);
+    }
   }
   return [...paths].sort();
 }
@@ -249,6 +302,9 @@ export function useCheckLinkTargets(
   }, [declaredResults, locatedResults, project, targets, tree]);
 }
 
+/** What a layer directory holding an archive's chunks is named. */
+const WAD_DIR_SUFFIX = ".wad.client";
+
 /** The tree's asset, for the layer side of a `file` link. Null outside a tree. */
 export const LinkAssetContext = createContext<AssetRef | null>(null);
 
@@ -265,15 +321,41 @@ export function useLayerCopy(path: string | null): LayerCopy | null {
 
   return useMemo(() => {
     if (path === null || asset?.kind !== "layer" || !data) return null;
-    const layer = data.layers.find((candidate) => candidate.name === asset.layer);
     const wanted = path.toLowerCase();
-    const entry = layer?.entries.find(
-      (candidate) => candidate.relativePath.toLowerCase() === wanted,
-    );
-    if (!layer || !entry) return null;
-    return {
-      asset: { kind: "layer", project: project.path, layer: layer.name, path: entry.relativePath },
-      title: layerTitle(project, layer.name),
-    };
+
+    /* The document's own layer answers first, and any other layer after it. */
+    const ordered = [
+      ...data.layers.filter((candidate) => candidate.name === asset.layer),
+      ...data.layers.filter((candidate) => candidate.name !== asset.layer),
+    ];
+    for (const layer of ordered) {
+      const entry = layer.entries.find(
+        (candidate) => entryChunkPath(candidate.relativePath)?.toLowerCase() === wanted,
+      );
+      if (entry === undefined) continue;
+      return {
+        asset: {
+          kind: "layer",
+          project: project.path,
+          layer: layer.name,
+          path: entry.relativePath,
+        },
+        title: layerTitle(project, layer.name),
+      };
+    }
+    return null;
   }, [asset, data, path, project]);
+}
+
+/**
+ * The chunk path a layer's file holds, or null for a file outside an archive directory.
+ *
+ * A layer entry is addressed from the layer root, so its first segment is the archive
+ * directory. What a `file` value addresses is everything after that.
+ */
+export function entryChunkPath(relativePath: string): string | null {
+  const cut = relativePath.indexOf("/");
+  if (cut < 0) return null;
+  if (!relativePath.slice(0, cut).toLowerCase().endsWith(WAD_DIR_SUFFIX)) return null;
+  return relativePath.slice(cut + 1);
 }

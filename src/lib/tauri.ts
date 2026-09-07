@@ -364,6 +364,8 @@ export const api = {
     offset: number,
     limit: number,
   ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+  binRead: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
+    commands.binRead(document, entry, [...paths]).then(toResult),
   binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
   classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
 

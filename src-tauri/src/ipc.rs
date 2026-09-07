@@ -31,6 +31,7 @@ migrated![
     // Bin editor
     bin_open,
     bin_children,
+    bin_read,
     bin_close,
     class_schema,
     // Diagnostics
