@@ -4,16 +4,16 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-07 | The panel names a selection, and select mode is retired      |
 | 2026-09-04 | The list ends in a line the informative findings fold under  |
 | 2026-09-03 | An archive repair reads the archive where it lies            |
 | 2026-09-02 | A press about one mod opens the panel on that mod            |
-| 2026-09-02 | Select mode no longer withholds the panel from a press       |
+| 2026-09-02 | A pick no longer withholds the panel from a press            |
 | 2026-09-02 | The library is checked by hand, over all of it or a pick     |
 | 2026-09-02 | The announcement is spent on the findings, not on the launch |
 | 2026-09-02 | Severity decides the hue, and the verdict decides the words  |
 | 2026-09-01 | A rule's own severity comes from the build, not the store    |
 | 2026-09-01 | The count is a count, and the repair's reach is words beside |
-| 2026-09-01 | The basis names the meta schema, and its sync makes it due   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -475,9 +475,9 @@ a panel this size.
 **It still reflows nothing.** A panel that pushed the cards aside would move the one somebody was
 reaching for.
 
-**Select mode does not withhold it.** The panel did step aside for that mode while it was a sheet
-over the grid, which was a sheet fighting the cards a reader was picking from. A centred dialog
-covers the grid whatever mode is up, so all the rule did by then was leave "Show me" and the
+**A selection does not withhold it.** The panel did step aside for a reader picking mods while it
+was a sheet over the grid, which was a sheet fighting the cards being picked from. A centred
+dialog covers the grid whatever is picked, so all the rule did by then was leave "Show me" and the
 selection's own Check health pressing nothing at all - and a press that draws nothing is the one
 thing every control here owes an answer to. Escape and Ctrl+A belong to the panel while it is
 showing, so leaving it does not also drop the selection underneath.
@@ -756,7 +756,7 @@ count in a toast names those findings without showing them.
 | Does every unhealthy library open the drawer?    | No. A library the game still loads announces itself as a toast      |
 | Does the same library announce itself twice?     | No. The announcement is spent on the findings, not on the run       |
 | Does a pressed check skip a current verdict?     | No. A press takes them again, which is what a press is for          |
-| Does select mode withhold the panel?             | No. Every press that opens it is answered, whatever mode is up      |
+| Does a selection withhold the panel?             | No. Every press that opens it is answered, whatever is picked       |
 | Can the panel list a mod with nothing wrong?     | Yes, for the one press that asked about it. It leaves with it       |
 | Can it list every such mod at once?              | Yes, behind the `Info` line the list ends in. That outlives a close |
 | Does revealing them change what the panel says?  | No. The title, the hue and the repair read the faults alone         |

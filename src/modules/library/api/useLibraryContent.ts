@@ -58,9 +58,10 @@ export function useLibraryContent({
     cleanupStaleFolders(validIds);
   }, [folders, cleanupStaleFolders]);
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const isSearching = searchQuery.length > 0;
-  const dndDisabled = isSearching || isPatcherActive || hasActiveFilters || selectMode;
+  // A drag and a pick compete for the same press, so one is off while the other is up.
+  const dndDisabled = isSearching || isPatcherActive || hasActiveFilters || hasSelection;
   const isFlatMode = isSearching || hasActiveFilters;
 
   const folderMap = useMemo(() => {
@@ -144,7 +145,7 @@ export function useLibraryContent({
   return {
     viewMode,
     dndDisabled,
-    selectMode,
+    hasSelection,
     contentView,
     detailsMod,
     setDetailsMod,

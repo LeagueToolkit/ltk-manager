@@ -26,18 +26,19 @@ export function ModCardList({ view }: { view: ModCardView }) {
     isFlagged,
     skinhackReason,
     isMultiLayer,
-    selectMode,
+    hasSelection,
     isSelected,
-    inSelectedState,
     inEnabledState,
     blocked,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick,
+    onCardContextMenu,
+    onSelectionToggle,
   } = view;
 
-  const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+  const stateClass = match({ isSelected, isEnabled: inEnabledState })
     .with({ isSelected: true }, () => "border-accent-500 bg-surface-800 ring-2 ring-accent-400/60")
     /* The same three answers the row below gives a pointer. Enabled had only
        the 1px lift, which is nothing to see once it eases instead of jumping,
@@ -58,15 +59,21 @@ export function ModCardList({ view }: { view: ModCardView }) {
 
      A blocked mod is dimmed by `cursorClass` already, and being unusable is not
      the same as being switched off. */
-  const dimClass = !inEnabledState && !inSelectedState && !blocked ? "opacity-75 saturate-75" : "";
+  const dimClass = !inEnabledState && !isSelected && !blocked ? "opacity-75 saturate-75" : "";
+
+  /* Laid out at all times, so the row does not reflow as a pointer crosses it. */
+  const checkboxClass = hasSelection
+    ? ""
+    : "opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 focus-within:opacity-100";
 
   /* The card is the trigger rather than a child of it, so the list keeps
      laying out the element it always did. */
   const row = (
     <div
       onClick={onCardClick}
+      onContextMenu={onCardContextMenu}
       className={twMerge(
-        "flex items-center gap-4 rounded-lg border p-4 transition-[translate,box-shadow,background-color,border-color,opacity,filter] duration-150 ease-out",
+        "group flex items-center gap-4 rounded-lg border p-4 transition-[translate,box-shadow,background-color,border-color,opacity,filter] duration-150 ease-out",
         "hover:opacity-100 hover:saturate-100",
         dimClass,
         cursorClass,
@@ -77,16 +84,18 @@ export function ModCardList({ view }: { view: ModCardView }) {
 
   return (
     <ModCardContextMenu view={view} card={row}>
-      {selectMode && (
-        <div className="pointer-events-none shrink-0">
-          <Checkbox
-            size="md"
-            checked={isSelected}
-            tabIndex={-1}
-            aria-label={`Select ${mod.displayName}`}
-          />
-        </div>
-      )}
+      <span
+        data-no-toggle
+        onClick={(e) => e.stopPropagation()}
+        className={twMerge("flex shrink-0 items-center", checkboxClass)}
+      >
+        <Checkbox
+          size="md"
+          checked={isSelected}
+          onCheckedChange={onSelectionToggle}
+          aria-label={`Select ${mod.displayName}`}
+        />
+      </span>
       <ModCardThumbnail
         variant="list"
         thumbnailUrl={thumbnailUrl}
@@ -108,7 +117,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
             v{mod.version} • {mod.authors.join(", ") || "Unknown author"}
           </p>
           <ModPills mod={mod} max={3} />
-          {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
+          {isMultiLayer && <LayerPopover mod={mod} disabled={view.disabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>

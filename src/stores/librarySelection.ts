@@ -1,17 +1,15 @@
 import { create } from "zustand";
 
 interface LibrarySelectionStore {
-  selectMode: boolean;
   selectedIds: Set<string>;
   /** Visual order of the currently selectable mod ids, used to resolve shift-click ranges. */
   orderedIds: string[];
-  /** Id of the last mod toggled without shift — the anchor for range selection. */
+  /** Id of the last mod picked without shift — the anchor for range selection. */
   anchorId: string | null;
-  enterSelectMode: () => void;
-  exitSelectMode: () => void;
   setOrderedIds: (ids: string[]) => void;
   toggle: (id: string) => void;
   selectRangeTo: (id: string) => void;
+  selectOnly: (id: string) => void;
   addMany: (ids: string[]) => void;
   removeMany: (ids: string[]) => void;
   setSelection: (ids: Iterable<string>) => void;
@@ -19,12 +17,9 @@ interface LibrarySelectionStore {
 }
 
 export const useLibrarySelectionStore = create<LibrarySelectionStore>()((set) => ({
-  selectMode: false,
   selectedIds: new Set(),
   orderedIds: [],
   anchorId: null,
-  enterSelectMode: () => set({ selectMode: true }),
-  exitSelectMode: () => set({ selectMode: false, selectedIds: new Set(), anchorId: null }),
   setOrderedIds: (ids) =>
     set((state) => (sameOrder(state.orderedIds, ids) ? state : { orderedIds: ids })),
   toggle: (id) =>
@@ -48,6 +43,7 @@ export const useLibrarySelectionStore = create<LibrarySelectionStore>()((set) =>
       for (let i = start; i <= end; i++) next.add(orderedIds[i]);
       return { selectedIds: next, anchorId: id };
     }),
+  selectOnly: (id) => set({ selectedIds: new Set([id]), anchorId: id }),
   addMany: (ids) =>
     set((state) => {
       const next = new Set(state.selectedIds);

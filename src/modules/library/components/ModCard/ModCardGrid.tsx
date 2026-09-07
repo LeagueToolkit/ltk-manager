@@ -25,9 +25,8 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     isFlagged,
     skinhackReason,
     isMultiLayer,
-    selectMode,
+    hasSelection,
     isSelected,
-    inSelectedState,
     inEnabledState,
     blocked,
     isInteractive,
@@ -36,17 +35,19 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     setSkinhackInfoOpen,
     onCardClick,
     onCardKeyDown,
+    onCardContextMenu,
+    onSelectionToggle,
   } = view;
 
-  /* Every state below select mode is `edge-lit`, and what separates them is how
-     far the light reaches down the border. The edge is the state, so it lands
-     in one frame and only the lift and the fill under it ease - a grid is
-     toggled by the handful, and anything that travels turns that into a queue
-     of animations to sit through.
+  /* Every state below picked is `edge-lit`, and what separates them is how far
+     the light reaches down the border. The edge is the state, so it lands in
+     one frame and only the lift and the fill under it ease - a grid is toggled
+     by the handful, and anything that travels turns that into a queue of
+     animations to sit through.
 
      Enabled takes no ring and no glow on top: an unbroken accent line outside
      the fade, or a halo under it, both put back the box the fade opens up. */
-  const stateClass = match({ isSelected: inSelectedState, isEnabled: inEnabledState })
+  const stateClass = match({ isSelected, isEnabled: inEnabledState })
     .with({ isSelected: true }, () => "border-accent-400 bg-surface-800 ring-2 ring-accent-400")
     .with(
       { isEnabled: true },
@@ -68,7 +69,17 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
      A blocked mod is not off - it cannot be used at all - and `cursorClass`
      already dims it. Dimming it again as though it were merely switched off
      would file a broken mod under a state the reader chose. */
-  const dimClass = !inEnabledState && !inSelectedState && !blocked ? "opacity-60 saturate-50" : "";
+  const dimClass = !inEnabledState && !isSelected && !blocked ? "opacity-60 saturate-50" : "";
+
+  /* Faded rather than absent, so tabbing to it still reaches a control. It is
+     out of the corner's flow and the marks slide off it instead, or a card with
+     nothing picked would hold 24px of nothing open beside its badges. */
+  const checkboxClass = hasSelection
+    ? ""
+    : "opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100";
+  const marksShift = hasSelection
+    ? "translate-x-6"
+    : "group-hover:translate-x-6 group-focus-within:translate-x-6";
 
   /* The card is the context menu's trigger rather than a child of it, so the
      grid keeps sizing the element it always did. */
@@ -76,9 +87,10 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <div
       onClick={onCardClick}
       onKeyDown={onCardKeyDown}
+      onContextMenu={onCardContextMenu}
       role="button"
       tabIndex={isInteractive ? 0 : -1}
-      aria-pressed={selectMode ? isSelected : mod.enabled}
+      aria-pressed={mod.enabled}
       aria-label={mod.displayName}
       className={twMerge(
         "group relative flex h-full flex-col overflow-hidden rounded-xl border-2 transition-[translate,box-shadow,background-color,border-color,opacity,filter,--edge-lit-fill] duration-150 ease-out select-none",
@@ -95,36 +107,45 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <ModCardContextMenu view={view} card={card}>
       {/* One corner rather than four absolutes at the same coordinates, which
           stacked whenever a mod was in more than one of these states. */}
-      <div className="absolute top-1.5 left-1.5 z-10 flex items-center gap-1">
-        {selectMode && (
-          <div className="pointer-events-none">
-            <Checkbox
-              size="md"
-              checked={isSelected}
-              tabIndex={-1}
-              aria-label={`Select ${mod.displayName}`}
-              className="shadow-lg backdrop-blur-sm"
-            />
-          </div>
-        )}
-        {isFlagged && (
-          <Tooltip content={skinhackReason}>
-            <div className="rounded-md bg-danger/90 p-1">
-              <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
-            </div>
-          </Tooltip>
-        )}
-        {/* A ground under the marks' own fill, so they read over cover art:
-            DS-GLASS. `empty:hidden` keeps a mod with neither from spending a
-            gap on the marks it does not draw. */}
+      <div className="absolute top-1.5 left-1.5 z-10">
         <span
           data-no-toggle
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
+          className={twMerge("absolute top-0 left-0", checkboxClass)}
         >
-          <ModHealthBadge modId={mod.id} />
-          <SuspectBadge modId={mod.id} enabled={mod.enabled} />
+          <Checkbox
+            size="md"
+            checked={isSelected}
+            onCheckedChange={onSelectionToggle}
+            aria-label={`Select ${mod.displayName}`}
+            className="shadow-lg backdrop-blur-sm"
+          />
         </span>
+        <div
+          className={twMerge(
+            "flex items-center gap-1 transition-transform duration-150 ease-out",
+            marksShift,
+          )}
+        >
+          {isFlagged && (
+            <Tooltip content={skinhackReason}>
+              <div className="rounded-md bg-danger/90 p-1">
+                <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
+              </div>
+            </Tooltip>
+          )}
+          {/* A ground under the marks' own fill, so they read over cover art:
+              DS-GLASS. `empty:hidden` keeps a mod with neither from spending a
+              gap on the marks it does not draw. */}
+          <span
+            data-no-toggle
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 rounded-sm bg-scrim/50 backdrop-blur-sm empty:hidden"
+          >
+            <ModHealthBadge modId={mod.id} />
+            <SuspectBadge modId={mod.id} enabled={mod.enabled} />
+          </span>
+        </div>
       </div>
 
       {/* Over the art rather than in the footer, which is the row it was making
@@ -173,7 +194,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
             than hanging each set under a title of its own length. */}
         <div className="mt-auto flex items-center gap-1">
           <ModPills mod={mod} max={3} />
-          {isMultiLayer && <LayerPopover mod={mod} disabled={view.interactionsDisabled} />}
+          {isMultiLayer && <LayerPopover mod={mod} disabled={view.disabled} />}
           <span data-no-toggle onClick={(e) => e.stopPropagation()}>
             <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
           </span>

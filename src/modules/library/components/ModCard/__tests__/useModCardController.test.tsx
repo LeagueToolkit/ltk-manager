@@ -10,6 +10,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { useModCardController } from "../useModCardController";
 
 const toast = { toast: vi.fn(), success: vi.fn(), error: vi.fn(), task: vi.fn() };
+const skinhackFlag = { isFlagged: false, reason: "", infoOpen: false, setInfoOpen: vi.fn() };
 const setModStorage = { mutate: vi.fn(), isPending: false };
 const noopMutation = { mutate: vi.fn(), isPending: false };
 
@@ -20,12 +21,7 @@ vi.mock("@/modules/library/api", () => ({
   useSetModStorage: () => setModStorage,
   useToggleMod: () => noopMutation,
   useUninstallMod: () => noopMutation,
-  useSkinhackFlag: () => ({
-    isFlagged: false,
-    reason: "",
-    infoOpen: false,
-    setInfoOpen: vi.fn(),
-  }),
+  useSkinhackFlag: () => skinhackFlag,
 }));
 
 vi.mock("@/modules/library/api/useModThumbnail", () => ({
@@ -39,10 +35,10 @@ vi.mock("@/modules/patcher", () => ({
 /* The store is a zustand selector hook, so it has to answer whatever selector
    the controller hands it rather than a fixed object. */
 const selectionState = {
-  selectMode: false,
   selectedIds: new Set<string>(),
   toggle: vi.fn(),
   selectRangeTo: vi.fn(),
+  selectOnly: vi.fn(),
 };
 vi.mock("@/stores", () => ({
   useLibrarySelectionStore: (selector: (state: typeof selectionState) => unknown) =>
@@ -53,12 +49,24 @@ function mount(mod: InstalledMod) {
   return renderHook(() => useModCardController({ mod, viewMode: "grid" })).result;
 }
 
+/** A card click carrying whichever modifiers a gesture is made of. */
+function click(modifiers: Partial<Record<"ctrlKey" | "metaKey" | "shiftKey", boolean>> = {}) {
+  return {
+    ctrlKey: false,
+    metaKey: false,
+    shiftKey: false,
+    ...modifiers,
+    target: document.createElement("div"),
+  } as unknown as React.MouseEvent;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   setModStorage.isPending = false;
-  // The store is a shared object rather than a fresh mock, so a test that turns
-  // select mode on has to hand it back.
-  selectionState.selectMode = false;
+  skinhackFlag.isFlagged = false;
+  // The store is a shared object rather than a fresh mock, so a test that picks
+  // a mod has to hand it back.
+  selectionState.selectedIds = new Set<string>();
   mockInvoke.mockResolvedValue({ ok: true, value: null });
 });
 
@@ -169,16 +177,89 @@ describe("useModCardController reveal", () => {
 /* The menu is the only way to act on a mod that cannot be switched on, so
    being unusable cannot be what closes it. */
 describe("useModCardController menu", () => {
-  it("closes the menu in select mode, which is a mode over the whole grid", () => {
-    selectionState.selectMode = true;
-    const result = mount(createMockInstalledMod({ id: "a" }));
-
-    expect(result.current.menuDisabled).toBe(true);
-  });
-
   it("leaves a healthy mod's menu open", () => {
     const result = mount(createMockInstalledMod({ id: "a" }));
 
     expect(result.current.menuDisabled).toBe(false);
+  });
+
+  it("leaves the menu open while a selection exists", () => {
+    selectionState.selectedIds = new Set(["b"]);
+    const result = mount(createMockInstalledMod({ id: "a" }));
+
+    expect(result.current.menuDisabled).toBe(false);
+  });
+});
+
+describe("useModCardController gestures", () => {
+  it("switches the mod on a bare press", () => {
+    const view = mount(createMockInstalledMod({ id: "a", enabled: false }));
+
+    act(() => view.current.onCardClick(click()));
+
+    expect(noopMutation.mutate).toHaveBeenCalledWith(
+      { modId: "a", enabled: true },
+      expect.anything(),
+    );
+    expect(selectionState.toggle).not.toHaveBeenCalled();
+  });
+
+  it("picks the mod on ctrl-click, and leaves it switched as it was", () => {
+    const view = mount(createMockInstalledMod({ id: "a", enabled: false }));
+
+    act(() => view.current.onCardClick(click({ ctrlKey: true })));
+
+    expect(selectionState.toggle).toHaveBeenCalledWith("a");
+    expect(noopMutation.mutate).not.toHaveBeenCalled();
+  });
+
+  it("picks the mod on meta-click, for the same reason", () => {
+    const view = mount(createMockInstalledMod({ id: "a" }));
+
+    act(() => view.current.onCardClick(click({ metaKey: true })));
+
+    expect(selectionState.toggle).toHaveBeenCalledWith("a");
+  });
+
+  it("ranges from the anchor on shift-click", () => {
+    const view = mount(createMockInstalledMod({ id: "a" }));
+
+    act(() => view.current.onCardClick(click({ shiftKey: true })));
+
+    expect(selectionState.selectRangeTo).toHaveBeenCalledWith("a");
+    expect(noopMutation.mutate).not.toHaveBeenCalled();
+  });
+
+  /* Uninstalling it is the reason to reach for the checkbox on a blocked mod,
+     so a pick is open where the switch is not. */
+  it("picks a mod that cannot be switched on", () => {
+    skinhackFlag.isFlagged = true;
+    const view = mount(createMockInstalledMod({ id: "a" }));
+
+    act(() => view.current.onCardClick(click({ ctrlKey: true })));
+
+    expect(selectionState.toggle).toHaveBeenCalledWith("a");
+  });
+});
+
+describe("useModCardController right click", () => {
+  it("collapses the pick onto a card outside the selection, and opens its own menu", () => {
+    selectionState.selectedIds = new Set(["b"]);
+    const view = mount(createMockInstalledMod({ id: "a" }));
+
+    act(() => view.current.onCardContextMenu());
+
+    expect(selectionState.selectOnly).toHaveBeenCalledWith("a");
+    expect(view.current.menuScope).toBe("card");
+  });
+
+  it("opens what the selection carries over a card inside it", () => {
+    selectionState.selectedIds = new Set(["a", "b"]);
+    const view = mount(createMockInstalledMod({ id: "a" }));
+
+    act(() => view.current.onCardContextMenu());
+
+    expect(selectionState.selectOnly).not.toHaveBeenCalled();
+    expect(view.current.menuScope).toBe("selection");
   });
 });

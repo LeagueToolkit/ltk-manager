@@ -42,6 +42,7 @@ export * from "./ProfileSelector";
 export * from "./RemoveFromFolderZone";
 export * from "./SelectionActionBar";
 export * from "./SelectionButton";
+export * from "./SelectionMenuItems";
 export * from "./SortableFolderCard";
 export * from "./SortableFolderRow";
 export * from "./SortableModCard";
