@@ -18,7 +18,7 @@ import { WorkshopActions, WorkshopViewControls } from "./WorkshopControls";
  */
 export function WorkshopHeader() {
   return (
-    <ToolbarRow data-ui="WorkshopHeader" className="select-none">
+    <ToolbarRow data-ui="WorkshopHeader" className="py-1 select-none">
       <HistorySlot />
       <BarSlot />
       <TrailingSlots />
