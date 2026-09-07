@@ -37,14 +37,18 @@ export interface ClassLayout {
  * shader without a widget per level and without a read per technique.
  */
 export const materialLayout: ClassLayout = {
-  title: m.workshop_bin_layout_material,
+  title: m.workshop_bin_layout_material_label,
   sections: [
-    { title: m.workshop_bin_section_identity, fields: ["name", "type"] },
-    { title: m.workshop_bin_section_samplers, fields: ["samplerValues"], as: "sampler-table" },
-    { title: m.workshop_bin_section_params, fields: ["paramValues"], as: "param-table" },
-    { title: m.workshop_bin_section_switches, fields: ["switches"], as: "switch-list" },
-    { title: m.workshop_bin_section_macros, fields: ["shaderMacros"], as: "tree" },
-    { title: m.workshop_bin_section_techniques, fields: ["techniques"], as: "tree" },
+    { title: m.workshop_bin_section_identity_label, fields: ["name", "type"] },
+    {
+      title: m.workshop_bin_section_samplers_label,
+      fields: ["samplerValues"],
+      as: "sampler-table",
+    },
+    { title: m.workshop_bin_section_params_label, fields: ["paramValues"], as: "param-table" },
+    { title: m.workshop_bin_section_switches_label, fields: ["switches"], as: "switch-list" },
+    { title: m.workshop_bin_section_macros_label, fields: ["shaderMacros"], as: "tree" },
+    { title: m.workshop_bin_section_techniques_label, fields: ["techniques"], as: "tree" },
   ],
 };
 
@@ -102,7 +106,7 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
   }
 
   placed.push({
-    title: m.workshop_bin_section_other,
+    title: m.workshop_bin_section_other_label,
     widget: "tree",
     rows: roots.filter((row) => !taken.has(fieldHash(row.path))),
     other: true,

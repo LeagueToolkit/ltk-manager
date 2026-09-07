@@ -94,8 +94,6 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
   const objectName = useCallback(() => object.name, [object.name]);
   const layout = classLayout(object.classHash);
 
-  /* The layout opens first where the class has one, and the choice lives as long as
-     the tab does, per "A mode of the object tab" in docs/ux/BIN_EDITOR.md. */
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
 
@@ -122,7 +120,7 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
             onChange={setMode}
             options={[
               { value: "layout", label: layout.title() },
-              { value: "properties", label: m.workshop_bin_mode_properties() },
+              { value: "properties", label: m.workshop_bin_mode_properties_label() },
             ]}
           />
         )}
