@@ -17,6 +17,11 @@ import { useLibrarySelectionStore } from "@/stores";
 
 const ROOT_FOLDER_ID = "root";
 
+/** Which commands a card's right click opens: its own, or the selection's. */
+export type MenuScope = "card" | "selection";
+
+type Modifiers = Pick<React.MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">;
+
 export interface ModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
@@ -44,22 +49,24 @@ export interface ModCardView {
    */
   canChangeStorage: boolean;
   storageChangePending: boolean;
+  /** Whether the mod cannot be switched, because it is blocked or the patcher owns the library. */
   disabled: boolean;
-  interactionsDisabled: boolean;
   /**
    * Whether the card's menu is closed to the reader.
    *
-   * Narrower than [`interactionsDisabled`], which also covers a mod that
-   * cannot be switched on. A blocked mod still needs its menu, or there would
-   * be no way left to act on it.
+   * Narrower than [`disabled`], which also covers a mod that cannot be switched
+   * on. A blocked mod still needs its menu, or there would be no way left to
+   * act on it.
    */
   menuDisabled: boolean;
   isInUserFolder: boolean;
   isMultiLayer: boolean;
-  selectMode: boolean;
+  /** Whether anything at all is picked, which is what draws every card's checkbox. */
+  hasSelection: boolean;
   isSelected: boolean;
-  inSelectedState: boolean;
   inEnabledState: boolean;
+  /** Which commands the right click landed on, decided before the pick moved under it. */
+  menuScope: MenuScope;
   /** Whether the mod cannot be used at all, which is not the same as being off. */
   blocked: boolean;
   isInteractive: boolean;
@@ -70,6 +77,8 @@ export interface ModCardView {
   setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onCardKeyDown: (e: React.KeyboardEvent) => void;
+  onCardContextMenu: () => void;
+  onSelectionToggle: () => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
   onSetStorage: (storage: ModStorage) => void;
@@ -97,10 +106,12 @@ export function useModCardController({
   const setModStorage = useSetModStorage();
   const { data: patcherStatus } = usePatcherStatus();
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
   const toggleSelection = useLibrarySelectionStore((s) => s.toggle);
   const selectRangeTo = useLibrarySelectionStore((s) => s.selectRangeTo);
+  const selectOnly = useLibrarySelectionStore((s) => s.selectOnly);
+  const [menuScope, setMenuScope] = useState<MenuScope>("card");
 
   const {
     isFlagged,
@@ -112,10 +123,9 @@ export function useModCardController({
   const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const patcherRunning = patcherStatus?.running ?? false;
   const disabled = isFlagged || patcherRunning;
-  const interactionsDisabled = disabled || selectMode;
-  // Select mode is a mode over the whole grid, and a patcher run owns the
-  // library. Being unusable is neither, and is the state most in need of a menu.
-  const menuDisabled = patcherRunning || selectMode;
+  // A patcher run owns the library. Being unusable is not the same thing, and is
+  // the state most in need of a menu.
+  const menuDisabled = patcherRunning;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
@@ -165,11 +175,19 @@ export function useModCardController({
     moveModToFolder.mutate({ modId: mod.id, folderId: ROOT_FOLDER_ID });
   }
 
-  /** The grid card has no toggle of its own, so the card itself is the control. */
-  function activateCard(shiftKey: boolean) {
-    if (selectMode) {
-      if (shiftKey) selectRangeTo(mod.id);
-      else toggleSelection(mod.id);
+  /**
+   * The card's own gesture: a modifier picks, and a bare press switches the mod.
+   *
+   * Selecting is open to a mod that cannot be switched on, because uninstalling
+   * it is the reason to reach for the checkbox in the first place.
+   */
+  function activateCard(e: Modifiers) {
+    if (e.shiftKey) {
+      selectRangeTo(mod.id);
+      return;
+    }
+    if (e.ctrlKey || e.metaKey) {
+      toggleSelection(mod.id);
       return;
     }
     if (disabled) return;
@@ -178,20 +196,30 @@ export function useModCardController({
 
   function handleCardClick(e: React.MouseEvent) {
     if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
-    activateCard(e.shiftKey);
+    activateCard(e);
   }
 
   function handleCardKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "Enter" && e.key !== " ") return;
     if ((e.target as HTMLElement).closest("[data-no-toggle]")) return;
     e.preventDefault();
-    activateCard(e.shiftKey);
+    activateCard(e);
+  }
+
+  /* Read before the pick moves, so a right click that collapses the selection
+     onto this card still opens the card's own commands. */
+  function handleCardContextMenu() {
+    if (isSelected) {
+      setMenuScope("selection");
+      return;
+    }
+    setMenuScope("card");
+    selectOnly(mod.id);
   }
 
   const blocked = isFlagged;
-  const inSelectedState = selectMode && isSelected;
   const inEnabledState = mod.enabled && !blocked;
-  const isInteractive = !blocked && (selectMode || !disabled);
+  const isInteractive = !blocked && !disabled;
 
   const cursorClass = match({ blocked, isInteractive })
     .with({ blocked: true }, () => "cursor-default opacity-50")
@@ -206,14 +234,13 @@ export function useModCardController({
     canChangeStorage,
     storageChangePending: setModStorage.isPending,
     disabled,
-    interactionsDisabled,
     menuDisabled,
     isInUserFolder,
     isMultiLayer,
-    selectMode,
+    hasSelection,
     isSelected,
-    inSelectedState,
     inEnabledState,
+    menuScope,
     blocked,
     isInteractive,
     cursorClass,
@@ -223,6 +250,8 @@ export function useModCardController({
     setWadFootprintOpen,
     onCardClick: handleCardClick,
     onCardKeyDown: handleCardKeyDown,
+    onCardContextMenu: handleCardContextMenu,
+    onSelectionToggle: () => toggleSelection(mod.id),
     onToggle: handleToggle,
     onUninstall: handleUninstall,
     onSetStorage: handleSetStorage,

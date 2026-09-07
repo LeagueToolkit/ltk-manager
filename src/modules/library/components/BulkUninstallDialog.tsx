@@ -1,26 +1,71 @@
-import { TriangleAlert } from "lucide-react";
+import { WarningIcon } from "@phosphor-icons/react";
 
-import { Button, Dialog } from "@/components";
-import type { InstalledMod } from "@/lib/tauri";
-
-interface BulkUninstallDialogProps {
-  open: boolean;
-  mods: InstalledMod[];
-  isPending: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}
+import { Button, Dialog, useToast } from "@/components";
+import { useBulkUninstallMods } from "@/modules/library/api";
+import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
 
 const PREVIEW_LIMIT = 5;
 
-export function BulkUninstallDialog({
-  open,
-  mods,
-  isPending,
-  onClose,
-  onConfirm,
-}: BulkUninstallDialogProps) {
+/**
+ * The confirmation a bulk uninstall is asked through, and the run behind it.
+ *
+ * The mods are the store's own list rather than the live selection, because the
+ * optimistic cache update empties that selection mid-run and would blank the
+ * preview under the reader.
+ */
+export function BulkUninstallDialog() {
+  const mods = useLibraryDialogsStore((s) => s.bulkUninstallMods);
+  const close = useLibraryDialogsStore((s) => s.closeBulkUninstallDialog);
+  const clearSelection = useLibrarySelectionStore((s) => s.clear);
+  const setSelection = useLibrarySelectionStore((s) => s.setSelection);
+  const bulkUninstall = useBulkUninstallMods();
+  const toast = useToast();
+
+  const open = mods.length > 0;
+  const isPending = bulkUninstall.isPending;
   const count = mods.length;
+
+  function onClose() {
+    if (isPending) return;
+    close();
+  }
+
+  /* The failures stay picked, so the reader keeps the set they still have to
+     deal with and can press again over exactly that. */
+  async function onConfirm() {
+    const ids = mods.map((m) => m.id);
+    if (ids.length === 0) return;
+
+    try {
+      const result = await bulkUninstall.mutateAsync(ids);
+      close();
+
+      if (result.failed.length === 0) {
+        toast.success(
+          "Mods uninstalled",
+          `${result.succeeded.length} mod${result.succeeded.length === 1 ? "" : "s"} removed`,
+        );
+        clearSelection();
+        return;
+      }
+
+      if (result.succeeded.length === 0) {
+        toast.error(
+          "Uninstall failed",
+          `All ${result.failed.length} mod${result.failed.length === 1 ? "" : "s"} failed to uninstall`,
+        );
+      } else {
+        toast.warning(
+          "Uninstall completed with errors",
+          `${result.succeeded.length} removed, ${result.failed.length} failed`,
+        );
+      }
+      setSelection(result.failed.map((f) => f.id));
+    } catch (error: unknown) {
+      toast.error("Uninstall failed", error instanceof Error ? error.message : String(error));
+    }
+  }
+
   const preview = mods.slice(0, PREVIEW_LIMIT);
   const overflow = Math.max(0, count - PREVIEW_LIMIT);
 
@@ -38,7 +83,7 @@ export function BulkUninstallDialog({
 
           <Dialog.Body>
             <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
-              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
+              <WarningIcon weight="bold" className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
               <div className="min-w-0">
                 <h3 className="font-medium text-danger-text">
                   This will permanently delete the selected mod files from disk.

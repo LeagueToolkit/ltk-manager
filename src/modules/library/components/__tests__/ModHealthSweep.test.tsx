@@ -47,7 +47,7 @@ const FLAGGED_LINE = "Some of your mods contain non-fatal issues which are not r
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useLibrarySelectionStore.setState({ selectMode: false });
+  useLibrarySelectionStore.setState({ selectedIds: new Set() });
   // Past the unprompted open, which is the state the drawer spends its life in.
   useModHealthDrawerStore.setState({ open: false, announced: true, announcedFor: null });
 });
@@ -285,19 +285,19 @@ describe("ModHealthSweep", () => {
   });
 
   /* Story: the reader pressed Show me from a toast while picking mods, and the
-     panel was withheld because the mode was open. A press has to be answered
+     panel was withheld because a selection was up. A press has to be answered
      wherever it was made. */
-  it("still opens in select mode, where a press asked for it", () => {
-    useLibrarySelectionStore.setState({ selectMode: true });
+  it("still opens under a selection, where a press asked for it", () => {
+    useLibrarySelectionStore.setState({ selectedIds: new Set(["a"]) });
     useModHealthDrawerStore.setState({ open: true });
     show({ repairable: [verdict("a", "repairable")] });
 
     expect(drawer()).toBeInTheDocument();
   });
 
-  /* The bar's own cell is nowhere near the grid, so the mode never took it. */
+  /* The bar's own cell is nowhere near the grid, so a selection never takes it. */
   it("keeps the cell while the reader is picking mods", () => {
-    useLibrarySelectionStore.setState({ selectMode: true });
+    useLibrarySelectionStore.setState({ selectedIds: new Set(["a"]) });
     show({ repairable: [verdict("a", "repairable")] });
 
     expect(item()).toBeInTheDocument();

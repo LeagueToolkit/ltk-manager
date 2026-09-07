@@ -29,7 +29,7 @@ export function LibraryContent({
   const {
     viewMode,
     dndDisabled,
-    selectMode,
+    hasSelection,
     contentView,
     detailsMod,
     setDetailsMod,
@@ -60,8 +60,8 @@ export function LibraryContent({
   const stagger = isList && !staggeredRef.current ? " stagger-enter" : "";
   if (isList) staggeredRef.current = true;
 
-  // Extra bottom padding in select mode so the floating action bar never covers the last row.
-  const scrollClass = selectMode
+  // Extra bottom padding while the bar is up, so it never covers the last row.
+  const scrollClass = hasSelection
     ? "flex-1 overflow-auto px-6 pt-6 pb-28"
     : "flex-1 overflow-auto p-6";
 

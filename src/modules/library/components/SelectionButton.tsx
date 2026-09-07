@@ -1,9 +1,11 @@
 import { CaretDownIcon, ChecksIcon, CheckSquareIcon, ProhibitIcon } from "@phosphor-icons/react";
+import { useHotkeys } from "react-hotkeys-hook";
 
-import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { ButtonGroup, IconButton, Kbd, Menu, Tooltip } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import type { useLibraryActions } from "@/modules/library/api";
 import { useLibrarySelectionStore } from "@/stores";
+import { isOverlayOpen } from "@/utils";
 
 interface SelectionButtonProps {
   actions: ReturnType<typeof useLibraryActions>;
@@ -14,29 +16,60 @@ interface SelectionButtonProps {
 
 const activeClass = "border-accent-500/40 bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
 
-/** Enters select mode on click, and holds the bulk actions on its caret. */
+/**
+ * Selects every visible mod on click, and holds the all-visible actions on its caret.
+ *
+ * Per "The toolbar button" in `docs/ux/LIBRARY.md`.
+ */
 export function SelectionButton({ actions, visibleMods, disabled }: SelectionButtonProps) {
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
-  const enterSelectMode = useLibrarySelectionStore((s) => s.enterSelectMode);
-  const exitSelectMode = useLibrarySelectionStore((s) => s.exitSelectMode);
+  const selectedIds = useLibrarySelectionStore((s) => s.selectedIds);
+  const addMany = useLibrarySelectionStore((s) => s.addMany);
+  const clear = useLibrarySelectionStore((s) => s.clear);
 
+  const hasSelection = selectedIds.size > 0;
   const enabledCount = visibleMods.reduce((n, m) => n + (m.enabled ? 1 : 0), 0);
   const bulkDisabled = disabled || actions.toggleMod.isPending;
   const canEnableAll = visibleMods.length > 0 && enabledCount < visibleMods.length;
   const canDisableAll = enabledCount > 0;
 
+  const visibleIds = visibleMods.map((m) => m.id);
+  // A selection survives a filter change, so an empty result still has something to clear.
+  const clearsOnClick = visibleIds.every((id) => selectedIds.has(id));
+
+  function handleToggleAll() {
+    if (clearsOnClick) {
+      clear();
+      return;
+    }
+    addMany(visibleIds);
+  }
+
+  /* The health panel owns Ctrl+A while it is showing: "It takes focus while it
+     is open" in docs/ux/MOD_HEALTH.md. So does every other overlay, for the
+     same reason. */
+  useHotkeys("ctrl+a, meta+a", () => !isOverlayOpen() && handleToggleAll(), {
+    preventDefault: true,
+    enabled: !disabled,
+  });
+
   return (
     <ButtonGroup>
-      <Tooltip content={selectMode ? "Done selecting" : "Pick individual mods to bulk-uninstall"}>
+      <Tooltip
+        content={
+          <>
+            {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
+          </>
+        }
+      >
         <IconButton
           icon={<CheckSquareIcon weight="bold" className="h-4 w-4" />}
           variant="outline"
           size="sm"
           disabled={disabled}
-          aria-pressed={selectMode}
-          aria-label={selectMode ? "Done selecting" : "Select mods"}
-          onClick={selectMode ? exitSelectMode : enterSelectMode}
-          className={selectMode ? activeClass : undefined}
+          aria-pressed={hasSelection}
+          aria-label={clearsOnClick ? "Clear selection" : "Select all mods"}
+          onClick={handleToggleAll}
+          className={hasSelection ? activeClass : undefined}
         />
       </Tooltip>
       <Menu.Root>

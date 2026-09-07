@@ -43,7 +43,7 @@ function show(contentView: ContentView) {
   useLibraryContent.mockReturnValue({
     viewMode: "grid",
     dndDisabled: false,
-    selectMode: false,
+    hasSelection: false,
     contentView,
     detailsMod: null,
     setDetailsMod: vi.fn(),

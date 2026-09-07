@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { useToast } from "@/components";
 import { errorSummary } from "@/i18n";
-import { api, type BulkInstallResult, type InstalledMod, unwrap } from "@/lib/tauri";
+import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
 import { MOD_ARCHIVE_EXTENSIONS } from "./modArchive";
@@ -11,6 +11,7 @@ import { useBulkInstallMods } from "./useBulkInstallMods";
 import { useInstallMod } from "./useInstallMod";
 import { useInstallProgress } from "./useInstallProgress";
 import { useReorderMods } from "./useReorderMods";
+import { useSetModsEnabled } from "./useSetModsEnabled";
 import { useToggleMod } from "./useToggleMod";
 import { useUninstallMod } from "./useUninstallMod";
 
@@ -20,6 +21,7 @@ export function useLibraryActions() {
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
   const reorderMods = useReorderMods();
+  const { setEnabled } = useSetModsEnabled();
   const toast = useToast();
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -119,22 +121,6 @@ export function useLibraryActions() {
     );
   }
 
-  function handleSetEnabledForMods(mods: InstalledMod[], enabled: boolean) {
-    const targets = mods.filter((m) => m.enabled !== enabled);
-    if (targets.length === 0) return;
-
-    for (const mod of targets) {
-      toggleMod.mutate(
-        { modId: mod.id, enabled },
-        {
-          onError: (error) => {
-            console.error("Failed to toggle mod:", error);
-          },
-        },
-      );
-    }
-  }
-
   function handleUninstallMod(modId: string) {
     uninstallMod.mutate(modId, {
       onError: (error) => {
@@ -167,7 +153,7 @@ export function useLibraryActions() {
     handleImportMods,
     handleBulkInstallFiles,
     handleToggleMod,
-    handleSetEnabledForMods,
+    handleSetEnabledForMods: setEnabled,
     handleUninstallMod,
     handleReorder,
     handleOpenStorageDirectory,

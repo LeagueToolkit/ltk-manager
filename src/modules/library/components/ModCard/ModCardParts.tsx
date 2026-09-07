@@ -39,6 +39,7 @@ import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 
+import { SelectionMenuItems } from "../SelectionMenuItems";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -122,7 +123,7 @@ export function ModCardToggle({ view }: { view: ModCardView }) {
 
   return (
     <Switch
-      disabled={view.interactionsDisabled}
+      disabled={view.disabled}
       checked={mod.enabled}
       onCheckedChange={(checked) => view.onToggle(mod.id, checked)}
       aria-label={`${mod.enabled ? "Disable" : "Enable"} ${mod.displayName}`}
@@ -215,6 +216,10 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
 /**
  * The card's menu on its right click, over the whole card rather than a target.
  *
+ * A press inside the selection opens what the selection carries, and a press
+ * outside it collapses the pick onto this card and opens the card's own. Per
+ * "What a right click opens" in `docs/ux/LIBRARY.md`.
+ *
  * Renders the card itself through `render`, so the trigger is the card and the
  * grid keeps the child it was sizing.
  */
@@ -235,7 +240,8 @@ export function ModCardContextMenu({
       <ContextMenu.Portal>
         <ContextMenu.Positioner>
           <ContextMenu.Popup>
-            <ModCardMenuItems view={view} />
+            {view.menuScope === "selection" && <SelectionMenuItems />}
+            {view.menuScope === "card" && <ModCardMenuItems view={view} />}
           </ContextMenu.Popup>
         </ContextMenu.Positioner>
       </ContextMenu.Portal>

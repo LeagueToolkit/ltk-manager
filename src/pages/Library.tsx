@@ -2,21 +2,22 @@ import { useEffect, useState } from "react";
 
 import { usePlatformSupport } from "@/hooks";
 import {
+  BulkUninstallDialog,
   DragDropOverlay,
   ImportProgressDialog,
   LibraryContent,
   LibraryToolbar,
   ModHealthSweep,
   SelectionActionBar,
-  useFilteredMods,
   useFilterOptions,
   useInstalledMods,
   useLibraryActions,
   useLibraryHotkeys,
   useModFileDrop,
+  useVisibleMods,
 } from "@/modules/library";
 import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
-import { useLibrarySelectionStore } from "@/stores";
+import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
 
 interface LibraryProps {
   folderId?: string;
@@ -37,13 +38,24 @@ export function Library({ folderId }: LibraryProps = {}) {
   const isPatcherActive = patcherStatus?.running ?? false;
 
   const filterOptions = useFilterOptions(mods);
-  const visibleMods = useFilteredMods(mods, searchQuery);
+  const visibleMods = useVisibleMods(mods, searchQuery, folderId);
 
-  const selectMode = useLibrarySelectionStore((s) => s.selectMode);
+  const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const setOrderedIds = useLibrarySelectionStore((s) => s.setOrderedIds);
   useEffect(() => {
     setOrderedIds(visibleMods.map((m) => m.id));
   }, [visibleMods, setOrderedIds]);
+
+  /* A selection carried off this page would let Uninstall N act on mods the
+     reader can no longer see, and a confirmation left standing would come back
+     over a list that has moved on. */
+  useEffect(
+    () => () => {
+      useLibrarySelectionStore.getState().clear();
+      useLibraryDialogsStore.getState().closeBulkUninstallDialog();
+    },
+    [],
+  );
 
   return (
     <div className="relative flex h-full flex-col">
@@ -70,9 +82,10 @@ export function Library({ folderId }: LibraryProps = {}) {
           error={error}
           folderId={folderId}
         />
-        {selectMode && <SelectionActionBar visibleMods={visibleMods} />}
+        {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
         <ModHealthSweep />
       </div>
+      <BulkUninstallDialog />
       <ImportProgressDialog
         open={actions.importDialogOpen}
         onClose={actions.handleCloseImportDialog}
