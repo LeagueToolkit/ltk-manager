@@ -10,7 +10,8 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
-import { FileChip } from "../LinkChip";
+import { nameHash } from "../binHash";
+import { FileChip, StringValue } from "../LinkChip";
 import { type LinkTargets, LinkTargetsContext } from "../useLinkTargets";
 
 const PROJECT: WorkshopProject = {
@@ -111,5 +112,61 @@ describe("FileChip", () => {
     await waitFor(() => {
       expect(screen.getByRole("img", { name: "Skeleton" })).toBeInTheDocument();
     });
+  });
+});
+
+describe("StringValue", () => {
+  function renderString(text: string, links: LinkTargets) {
+    mockInvoke.mockImplementation(() => Promise.resolve({ ok: false, error: { code: "UNKNOWN" } }));
+    render(
+      <Providers links={links}>
+        <StringValue text={text} />
+      </Providers>,
+    );
+  }
+
+  it("draws the chip and the swatch a file draws for a path the install holds", () => {
+    renderString(
+      "ASSETS/Characters/Aatrox/Aatrox.tex",
+      targets(["assets/characters/aatrox/aatrox.tex"]),
+    );
+
+    expect(screen.getByText("assets/characters/aatrox/aatrox.tex")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Texture preview" })).toBeInTheDocument();
+  });
+
+  it("draws the object chip for a string the index declares an object under", () => {
+    const path = "Characters/Aatrox/Skins/Skin0/Resources";
+    const links: LinkTargets = {
+      index: { status: "ready" },
+      declared: new Map([
+        [
+          nameHash(path),
+          {
+            path,
+            declarations: [
+              {
+                asset: { kind: "gameChunk", wad: "Champions/Aatrox.wad.client", pathHash: "00aa" },
+                file: "data/characters/aatrox/skins/skin0.bin",
+                classHash: "0x9b67e9f6",
+                class: "SkinCharacterDataProperties",
+              },
+            ],
+          },
+        ],
+      ]),
+      located: new Map(),
+      pending: false,
+    };
+
+    renderString(path, links);
+    expect(screen.getByRole("button", { name: path })).toBeInTheDocument();
+  });
+
+  it("draws the field for a string that names nothing", () => {
+    renderString("Justicar Aatrox", targets([]));
+
+    expect(screen.getByDisplayValue("Justicar Aatrox")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });

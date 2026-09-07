@@ -1,18 +1,25 @@
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Code, Popover } from "@/components";
+import { Code, Popover, Readout } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 
-import { declaringFileContext } from "../documents/contentDocument";
+import { type ContentDocumentOf, declaringFileContext } from "../documents/contentDocument";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
 import { useAssetInfo } from "../preview/useAssetInfo";
 import { clickIntent, useOpenDocumentAs } from "../state";
+import { nameHash } from "./binHash";
 import { fileLinkMark } from "./fileLinkMark";
 import { KindBadge } from "./KindBadge";
-import { decideFileLink, decideHash, decideObjectLink } from "./linkDecision";
+import {
+  chunkPath,
+  decideFileLink,
+  decideHash,
+  decideObjectLink,
+  decideStringLink,
+} from "./linkDecision";
 import { TextureSwatch } from "./TextureSwatch";
 import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
@@ -81,21 +88,74 @@ interface FileChipProps {
 export function FileChip({ hash, path }: FileChipProps) {
   const targets = useLinkTargets();
   const layer = useLayerCopy(path);
-  const open = useOpenDocumentAs();
   const decision = decideFileLink(path, targets, layer);
 
   if (path === null) return <Hex>{hash}</Hex>;
   if (decision.kind !== "chip") return <Text>{path}</Text>;
+  return (
+    <ChunkChip
+      document={decision.document}
+      path={path}
+      side={decision.side}
+      layerTitle={layer?.title}
+    />
+  );
+}
+
+interface StringValueProps {
+  /** The string as the file holds it, which is what a miss draws and what a hit hashes. */
+  text: string;
+}
+
+/**
+ * A `string` as the chip the thing it names draws, per "A string that names a thing" in
+ * docs/ux/BIN_EDITOR.md.
+ *
+ * A miss on both sides is the field the string draws when it names nothing.
+ */
+export function StringValue({ text }: StringValueProps) {
+  const targets = useLinkTargets();
+  const path = chunkPath(text);
+  const layer = useLayerCopy(path);
+  const open = useOpenDocumentAs();
+  const decision = decideStringLink(text, targets, () => layer);
+
+  if (decision.kind !== "chip") return <Readout value={text} className="flex-1 text-surface-100" />;
   const { document } = decision;
+  if (document.kind === "preview" && path !== null) {
+    return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;
+  }
+
+  const hash = nameHash(text);
+  const declared = targets.declared.get(hash);
+  return (
+    <LinkChip
+      label={declared?.path ?? text}
+      card={declared && <TargetCard hash={hash} declared={declared} />}
+      onOpen={(intent) => open(document, intent)}
+    />
+  );
+}
+
+interface ChunkChipProps {
+  document: ContentDocumentOf<"preview">;
+  /** The chunk's path as the tables name it, which is the chip's label. */
+  path: string;
+  /** The word the chip carries: the layer's title, or the archive's name. */
+  side?: string;
+  layerTitle?: string;
+}
+
+/** A resolved chunk: its chip, its swatch or badge, and the side that answered. */
+function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
+  const open = useOpenDocumentAs();
   const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
       <LinkChip label={path} onOpen={onOpen} />
-      <FileMark asset={document.asset} path={path} layerTitle={layer?.title} onOpen={onOpen} />
-      {decision.side !== undefined && (
-        <span className="shrink-0 text-meta text-surface-400">{decision.side}</span>
-      )}
+      <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
+      {side !== undefined && <span className="shrink-0 text-meta text-surface-400">{side}</span>}
     </span>
   );
 }

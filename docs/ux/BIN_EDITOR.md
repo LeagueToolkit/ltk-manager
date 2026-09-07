@@ -4,7 +4,8 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
-| 2026-09-07 | Decide the class views, and link a string that names a thing   |
+| 2026-09-07 | Link a string that names a thing                               |
+| 2026-09-07 | Decide the class views                                         |
 | 2026-09-07 | Measure the name column, and date a card by patch              |
 | 2026-09-07 | Send a class's fields to the meta wiki                         |
 | 2026-09-07 | Start the value column at one x whatever the depth             |
@@ -60,7 +61,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | WAD chunk links      | Available   | A chip that opens the chunk in a preview tab                     |
 | Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card    |
 | Find all references  | In progress | The objects of a class from the index. The walk for the rest     |
-| String links         | Planned     | A string naming a chunk or an object, as the chip its kind draws |
+| String links         | Available   | A string naming a chunk or an object, as the chip its kind draws |
 | Value rows           | Planned     | A `ValueColor`'s swatch and gradient on its collapsed row        |
 | Class views          | Planned     | A complete layout beside Properties, keyed on class. ADR-0030    |
 | In-document search   | Planned     | The bar's `@` scope over the open rows                           |
@@ -704,6 +705,15 @@ name while it runs. Two shapes of string resolve here, and a miss on both draws 
 A string that answers on both sides takes the chunk. So an emitter's `texture`, a skin's
 `simpleSkin` and `skeleton`, a clip's `mAnimationFilePath` and a system's `particlePath` are
 chips in every bin, in the tree and in every layout.
+
+A path is resolved and drawn lowercased, which is the one spelling the resolver, the layer's
+copy and the preview all answer under, and an author's own capitals are not it. The hash is
+the game's FNV-1a over the lowercased string, which the class views reuse. A string joins the
+hashes and the paths its row group already sends, so neither shape costs a call of its own.
+
+A miss never builds the object index. A `link` a reader clicks says they want the target, and
+a string that happens to hash to nothing says nothing at all, so an absent index leaves every
+string as text rather than as a page of chips that would each warm it.
 
 ## Classes
 

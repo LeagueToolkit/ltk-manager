@@ -7,6 +7,7 @@ import {
   previewDocument,
 } from "../documents/contentDocument";
 import { assetContext } from "../preview/assetRef";
+import { nameHash } from "./binHash";
 import type { LinkTargets } from "./useLinkTargets";
 
 /** How a link value draws, and what its chip opens. "Links" in docs/ux/BIN_EDITOR.md. */
@@ -107,6 +108,41 @@ export function decideFileLink(
   return targets.pending ? PENDING : TEXT;
 }
 
+/**
+ * The chunk path a `string` names, or null where it names none.
+ *
+ * An `ASSETS/` or `DATA/` prefix in any case, and an extension. Lowercased as the
+ * tables spell it, which is the one spelling the resolver, the layer and the preview
+ * all answer under.
+ */
+export function chunkPath(text: string): string | null {
+  const path = text.toLowerCase();
+  if (!path.startsWith("assets/") && !path.startsWith("data/")) return null;
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const dot = name.lastIndexOf(".");
+  if (dot < 1 || dot === name.length - 1) return null;
+  return path;
+}
+
+/**
+ * What a `string` draws as, per "A string that names a thing" in docs/ux/BIN_EDITOR.md.
+ *
+ * A path the resolver holds takes the chunk, and any other string takes the object its
+ * hash declares. One that answers on both sides takes the chunk.
+ */
+export function decideStringLink(
+  text: string,
+  targets: LinkTargets,
+  layer: (path: string) => LayerCopy | null,
+): LinkDecision {
+  const path = chunkPath(text);
+  if (path !== null) {
+    const chunk = decideFileLink(path, targets, layer(path));
+    if (chunk.kind === "chip") return chunk;
+  }
+  return decideHash(nameHash(text), targets);
+}
+
 /** The decision for any row value, or null for a value that is no link. */
 export function decideLink(
   value: BinValue,
@@ -120,6 +156,8 @@ export function decideLink(
       return decideHash(value.hash, targets);
     case "wadChunkLink":
       return decideFileLink(value.path, targets, value.path === null ? null : layer(value.path));
+    case "string":
+      return decideStringLink(value.value, targets, layer);
     default:
       return null;
   }

@@ -25,7 +25,7 @@ import {
 import { ClassCard } from "./ClassCard";
 import { DeclaredLine, FieldCard } from "./FieldCard";
 import { rowTag } from "./kindTag";
-import { FileChip, ObjectChip } from "./LinkChip";
+import { FileChip, ObjectChip, StringValue } from "./LinkChip";
 
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
@@ -274,7 +274,7 @@ function Value({ value, node }: ValueProps) {
     case "color":
       return <ColorValue value={value} />;
     case "string":
-      return <Readout value={value.value} className="flex-1 text-surface-100" />;
+      return <StringValue text={value.value} />;
     case "hash":
       return <ObjectChip hash={value.hash} name={value.name} kind="hash" />;
     case "wadChunkLink":

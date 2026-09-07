@@ -9,6 +9,7 @@ import type { BinRow, ContentTree, DeclaredObjects, GameFileEntry } from "@/lib/
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { nameHash } from "../binHash";
 import {
   joinDeclarations,
   layerDeclarations,
@@ -41,12 +42,22 @@ const ROOTS: readonly BinRow[] = [
   row("0000000d", { type: "string", value: "text" }),
   row("0000000e", { type: "wadChunkLink", hash: "00cc", path: "assets/aatrox.tex" }),
   row("0000000f", { type: "wadChunkLink", hash: "00dd", path: null }),
+  row("00000010", { type: "string", value: "ASSETS/Characters/Aatrox/Aatrox.dds" }),
 ];
 
 describe("linkHashes and linkPaths", () => {
   it("collect a group's link and hash targets, sorted and each once", () => {
-    expect(linkHashes(ROOTS)).toEqual(["0x00000001", "0x00000002"]);
-    expect(linkPaths(ROOTS)).toEqual(["assets/aatrox.tex"]);
+    expect(linkHashes(ROOTS)).toEqual(
+      [
+        "0x00000001",
+        "0x00000002",
+        nameHash("text"),
+        nameHash("ASSETS/Characters/Aatrox/Aatrox.dds"),
+      ].sort(),
+    );
+    expect(linkPaths(ROOTS)).toEqual(
+      ["assets/aatrox.tex", "assets/characters/aatrox/aatrox.dds"].sort(),
+    );
   });
 });
 
@@ -101,12 +112,12 @@ describe("useCheckLinkTargets", () => {
       ([command]) => command === "declared_objects",
     );
     expect(declaredCalls).toEqual([
-      ["declared_objects", { objectHashes: ["0x00000001", "0x00000002"], document: 7 }],
+      ["declared_objects", { objectHashes: linkHashes(ROOTS), document: 7 }],
     ]);
     const locatedCalls = mockInvoke.mock.calls.filter(
       ([command]) => command === "locate_game_files",
     );
-    expect(locatedCalls).toEqual([["locate_game_files", { paths: ["assets/aatrox.tex"] }]]);
+    expect(locatedCalls).toEqual([["locate_game_files", { paths: linkPaths(ROOTS) }]]);
 
     expect(result.current.index).toEqual({ status: "ready" });
     expect(result.current.declared.get("0x00000002")?.path).toBe("Characters/Aatrox");
@@ -117,9 +128,7 @@ describe("useCheckLinkTargets", () => {
   });
 
   it("makes no call for a group holding no target", () => {
-    const groups: RowGroup[] = [
-      { key: "", rows: [row("0000000d", { type: "string", value: "x" })] },
-    ];
+    const groups: RowGroup[] = [{ key: "", rows: [row("0000000d", { type: "float", value: 1 })] }];
     const { result } = renderHook(() => useCheckLinkTargets(7, groups), { wrapper: Providers });
 
     expect(result.current.pending).toBe(false);

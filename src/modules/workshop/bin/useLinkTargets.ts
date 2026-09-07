@@ -22,7 +22,8 @@ import { layerTitle } from "../documents/contentDocument";
 import { BUILDING_POLL_MS, gameKeys } from "../gameBrowser";
 import type { OpenIntent } from "../palette/types";
 import { assetKey } from "../preview/assetRef";
-import type { LayerCopy } from "./linkDecision";
+import { nameHash } from "./binHash";
+import { chunkPath, type LayerCopy } from "./linkDecision";
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -81,20 +82,30 @@ export const linkKeys = {
     [...gameKeys.dirs, "files", key, paths] as const,
 };
 
-/** The object hashes a group's `link` and `hash` values name, sorted, each once. */
+/**
+ * The object hashes a group's values name, sorted, each once.
+ *
+ * A `link` and a `hash` carry theirs. A `string` is hashed as an object path, so a
+ * string that names one resolves in the same call rather than in one of its own.
+ */
 export function linkHashes(rows: readonly BinRow[]): string[] {
   const hashes = new Set<string>();
   for (const { value } of rows) {
     if (value.type === "objectLink" || value.type === "hash") hashes.add(value.hash);
+    if (value.type === "string") hashes.add(nameHash(value.value));
   }
   return [...hashes].sort();
 }
 
-/** The chunk paths a group's `file` values resolve to, sorted, each once. */
+/** The chunk paths a group's `file` values and its path-shaped strings name, sorted, each once. */
 export function linkPaths(rows: readonly BinRow[]): string[] {
   const paths = new Set<string>();
   for (const { value } of rows) {
     if (value.type === "wadChunkLink" && value.path !== null) paths.add(value.path);
+    if (value.type === "string") {
+      const path = chunkPath(value.value);
+      if (path !== null) paths.add(path);
+    }
   }
   return [...paths].sort();
 }

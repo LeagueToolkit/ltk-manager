@@ -22,9 +22,10 @@ import {
   useFindReferences,
 } from "../references/useFindReferences";
 import { useOpenDocumentAs } from "../state";
+import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
-import { decideLink, type LinkDecision } from "./linkDecision";
-import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
+import { chunkPath, decideLink, type LinkDecision } from "./linkDecision";
+import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -51,7 +52,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
   const row = line?.kind === "row" ? line.row : null;
-  const layer = useLayerCopy(row?.value.type === "wadChunkLink" ? row.value.path : null);
+  const layer = useLayerCopy(layerPath(row?.value ?? null));
 
   if (row === null) return null;
   const object = row.node === "object";
@@ -60,7 +61,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const struct = row.value.type === "struct" ? row.value : null;
   const structName = struct?.class ?? null;
   const valueText = readableValue(row.value);
-  const valueHash = linkedValueHash(row.value);
+  const valueHash = linkedValueHash(row.value, targets);
   const link = decideLink(row.value, targets, () => layer);
   const openLink = linkOpener(row.value, link, open, wantOpen);
 
@@ -195,13 +196,29 @@ function linkOpener(
   return null;
 }
 
-/** The hash behind a link value, whether or not a table names it. */
-function linkedValueHash(value: BinValue): string | null {
+/** The chunk path a row's value resolves a layer's copy under, or null where it names none. */
+function layerPath(value: BinValue | null): string | null {
+  if (value?.type === "wadChunkLink") return value.path;
+  if (value?.type === "string") return chunkPath(value.value);
+  return null;
+}
+
+/**
+ * The hash behind a link value, whether or not a table names it.
+ *
+ * A `string` carries none of its own, so it offers the object hash it was resolved
+ * under and nothing where it resolved to no object.
+ */
+function linkedValueHash(value: BinValue, targets: LinkTargets): string | null {
   switch (value.type) {
     case "hash":
     case "objectLink":
     case "wadChunkLink":
       return value.hash;
+    case "string": {
+      const hash = nameHash(value.value);
+      return targets.declared.has(hash) ? hash : null;
+    }
     default:
       return null;
   }
