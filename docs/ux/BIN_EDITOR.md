@@ -2,20 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                   |
-| ---------- | -------------------------------------------------------- |
-| 2026-09-07 | Fold a value family into the row a layout draws it in    |
-| 2026-09-07 | Draw an emitter as a card of its groups                  |
-| 2026-09-07 | Lay a skin and a particle system out                     |
-| 2026-09-07 | Name a project's own chunks                              |
-| 2026-09-07 | Lay a material out beside the tree                       |
-| 2026-09-07 | Read several nodes in one call, and draw a value family  |
-| 2026-09-07 | Link a string that names a thing                         |
-| 2026-09-07 | Decide the class views                                   |
-| 2026-09-07 | Measure the name column, and date a card by patch        |
-| 2026-09-07 | Send a class's fields to the meta wiki                   |
-| 2026-09-07 | Start the value column at one x whatever the depth       |
-| 2026-09-07 | Name an element by its class, and hue a bin's type words |
+| Date       | Change                                                  |
+| ---------- | ------------------------------------------------------- |
+| 2026-09-07 | Frame a particle system as a shell of panes             |
+| 2026-09-07 | Fold a value family into the row a layout draws it in   |
+| 2026-09-07 | Draw an emitter as a card of its groups                 |
+| 2026-09-07 | Lay a skin and a particle system out                    |
+| 2026-09-07 | Name a project's own chunks                             |
+| 2026-09-07 | Lay a material out beside the tree                      |
+| 2026-09-07 | Read several nodes in one call, and draw a value family |
+| 2026-09-07 | Link a string that names a thing                        |
+| 2026-09-07 | Decide the class views                                  |
+| 2026-09-07 | Measure the name column, and date a card by patch       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -45,37 +43,38 @@ This table holds every major feature of the bin editor. A status word has one me
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature              | Status      | Note                                                             |
-| -------------------- | ----------- | ---------------------------------------------------------------- |
-| VS Code handoff      | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`      |
-| Object list          | Available   | The objects of one file, collapsed, with their classes           |
-| Property rows        | Available   | Every leaf kind, drawn read-only                                 |
-| Container rows       | Available   | The eight complex kinds, expandable                              |
-| Hash names           | Available   | The four mimir bin tables, through `bin_tables()`                |
-| Property paths       | Available   | The game's path syntax, as the address and as Copy path          |
-| Open at object       | Available   | A `$` hit opens the declaring file scrolled to its object        |
-| Type tags            | Available   | Every row's kind after its name, in ritobin's words              |
-| Class cards          | Available   | A class or a field on hover, from the meta schema                |
-| Object tab           | Available   | One declaration as a document. ADR-0028                          |
-| Object links         | Available   | A chip that opens the object tab, resolved through the index     |
-| Hash links           | Available   | A `hash` the index declares, opening the same way                |
-| WAD chunk links      | Available   | A chip that opens the chunk in a preview tab                     |
-| Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card    |
-| Find all references  | In progress | The objects of a class from the index. The walk for the rest     |
-| String links         | Available   | A string naming a chunk or an object, as the chip its kind draws |
-| Value rows           | Available   | Every family's constant, and a mark where a curve carries more   |
-| Class views          | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
-| Curve panel          | Planned     | A value family's dynamics, in a dock under the object tab        |
-| In-document search   | Planned     | The bar's `@` scope over the open rows                           |
-| Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit        |
-| Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                            |
-| Autosave             | Proposed    | The strings editor's debounce and save state                     |
-| Undo                 | Proposed    | An inverse-patch stack per document                              |
-| Schema-aware editing | Proposed    | The meta dump, for a field's declared type and its subclasses    |
-| Copy into a layer    | Proposed    | The route from a read-only game chunk to an editable copy        |
-| Ritobin text view    | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
-| Patch bin records    | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only         |
-| Patch authoring      | Proposed    | An edit written as a patch record rather than a rewrite          |
+| Feature               | Status      | Note                                                             |
+| --------------------- | ----------- | ---------------------------------------------------------------- |
+| VS Code handoff       | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`      |
+| Object list           | Available   | The objects of one file, collapsed, with their classes           |
+| Property rows         | Available   | Every leaf kind, drawn read-only                                 |
+| Container rows        | Available   | The eight complex kinds, expandable                              |
+| Hash names            | Available   | The four mimir bin tables, through `bin_tables()`                |
+| Property paths        | Available   | The game's path syntax, as the address and as Copy path          |
+| Open at object        | Available   | A `$` hit opens the declaring file scrolled to its object        |
+| Type tags             | Available   | Every row's kind after its name, in ritobin's words              |
+| Class cards           | Available   | A class or a field on hover, from the meta schema                |
+| Object tab            | Available   | One declaration as a document. ADR-0028                          |
+| Object links          | Available   | A chip that opens the object tab, resolved through the index     |
+| Hash links            | Available   | A `hash` the index declares, opening the same way                |
+| WAD chunk links       | Available   | A chip that opens the chunk in a preview tab                     |
+| Texture swatch        | Available   | A `file` link to a texture, at row height and on a hover card    |
+| Find all references   | In progress | The objects of a class from the index. The walk for the rest     |
+| String links          | Available   | A string naming a chunk or an object, as the chip its kind draws |
+| Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
+| Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
+| Curve panel           | Planned     | A value family's dynamics, in a dock under the object tab        |
+| Particle system shell | Planned     | Strip, inspector, curve and preview in panes. ADR-0031           |
+| In-document search    | Planned     | The bar's `@` scope over the open rows                           |
+| Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
+| Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
+| Autosave              | Proposed    | The strings editor's debounce and save state                     |
+| Undo                  | Proposed    | An inverse-patch stack per document                              |
+| Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
+| Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
+| Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
+| Patch bin records     | Planned     | `BinOverride` reads them. Drawn by nothing, so read-only         |
+| Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
 
 ## Scope
 
@@ -1020,6 +1019,47 @@ the emitters past the edge are reachable without holding shift.
 
 The panel scrolls past a dozen rows rather than growing, because a Position or a Render group runs
 to thirty fields and no section owns the page.
+
+### The shell
+
+A layout declares the frame it draws in, and the frame is the stack of sections unless it says
+otherwise. `VfxSystemDefinitionData` declares a shell, per ADR-0031, because a particle system is
+tuned rather than read: a change to one emitter's `rate` is judged against that emitter's curve,
+its other fields and, once a renderer exists, against the particles themselves. A scrolling column
+holds two of those in view at best.
+
+```
++-----------------------------------------------------------------+
+| VfxSystemDefinitionData  8 properties   [System|Table|Properties]|
++-----------------------------------------------------------------+
+| Smolder_Base_BA_mis  >  Glow_Variant1 [0]  >  Emission           |
++---------------------------+-------------------------------------+
+| [card][CARD][card] --->   |  rate              1        ~       |
+|                           |  lifetime          0.055            |
++---------------------------+  period            1                |
+| Curve   Glow . rate       |  isSingleParticle  [x]              |
+|  1.0 +--+                 +-------------------------------------+
+|  0.0 +---+--------+       |  [ no renderer yet ]                |
++---------------------------+-------------------------------------+
+```
+
+The breadcrumb names system, emitter and group, and each of its segments is a target the inspector
+draws. The system's segment draws Identity, Audio and Other, which is where a shell keeps the
+sections a stack lists down the page. The emitter's segment draws every group it sets, and the
+group's segment opens a menu of them. Selecting a card rewrites the crumb, and a chip on a card
+moves its last segment.
+
+Table takes the shell's whole width and folds the inspector away, because thirteen columns down
+sixty emitters answer without one beside them.
+
+The curve pane holds its place and draws a muted line until a mark targets it, where the dock in a
+stack is absent until then: a pane that appears on a click moves every pane around it. The preview
+pane is empty, and what fills it is a renderer of its own.
+
+Pane sizes are the reader's, remembered on the class hash across tabs and sessions, because the
+proportions belong to the kind of work rather than to the file. Below the width a strip, an
+inspector and a curve all need, the same layout draws as the stack, so nothing is out of reach on a
+narrow window or with both sidebars open.
 
 The strip marks the squares' colours and the open group's rows, and no other value family, because
 an emitter carries far more of them than a card ever draws at once.
