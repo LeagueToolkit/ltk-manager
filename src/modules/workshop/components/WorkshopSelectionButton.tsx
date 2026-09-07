@@ -1,21 +1,15 @@
-import {
-  CaretDownIcon,
-  CheckSquareIcon,
-  PackageIcon,
-  PlayIcon,
-  TrashIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+import { CaretDownIcon, CheckSquareIcon, PlayIcon } from "@phosphor-icons/react";
 import { match } from "ts-pattern";
 
 import { Button, ButtonGroup, IconButton, Kbd, Menu, Tooltip } from "@/components";
 import { useActiveProfile } from "@/modules/library";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
+import { useWorkshopSelectionStore } from "@/stores";
 
 import { useFilteredProjects } from "../api/useFilteredProjects";
-import { useTestProjects } from "../api/useTestProject";
+import { useProjectSelectionActions } from "../api/useProjectSelectionActions";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
 import { testTint } from "./actionTints";
+import { ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 import { BuildingTestButton, StopTestButton } from "./testSessionButtons";
 
 const activeClass = "border-accent-500/40 bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
@@ -31,9 +25,7 @@ export function WorkshopSelectionButton() {
   const clear = useWorkshopSelectionStore((s) => s.clear);
 
   const filteredProjects = useFilteredProjects();
-  const openBulkDeleteDialog = useWorkshopDialogsStore((s) => s.openBulkDeleteDialog);
-  const openBulkPackDialog = useWorkshopDialogsStore((s) => s.openBulkPackDialog);
-  const testProjects = useTestProjects();
+  const actions = useProjectSelectionActions();
   const testState = useWorkshopTestState();
   const { data: activeProfile } = useActiveProfile();
 
@@ -53,40 +45,12 @@ export function WorkshopSelectionButton() {
       } over the ${activeProfile?.name ?? "Default"} profile`
     : "Select projects to test them in game";
 
-  function getSelectedProjects() {
-    return filteredProjects.filter((p) => selectedPaths.has(p.path));
-  }
-
   function handleToggleAll() {
     if (clearsOnClick) {
       clear();
       return;
     }
     selectAll(filteredProjects.map((p) => p.path));
-  }
-
-  function handleDelete() {
-    const selected = getSelectedProjects();
-    if (selected.length === 0) return;
-    openBulkDeleteDialog(selected);
-  }
-
-  function handlePack() {
-    const selected = getSelectedProjects();
-    if (selected.length === 0) return;
-    openBulkPackDialog(selected);
-  }
-
-  function handleTest() {
-    const selected = getSelectedProjects();
-    if (selected.length === 0) return;
-    testProjects.mutate(
-      { projects: selected.map((p) => ({ path: p.path, displayName: p.displayName })) },
-      {
-        onSuccess: () => clear(),
-        onError: (err) => console.error("Failed to test projects:", err),
-      },
-    );
   }
 
   /* Named with no project, so `useWorkshopTestState`'s "other" is simply the
@@ -99,9 +63,9 @@ export function WorkshopSelectionButton() {
           variant="ghost"
           size="sm"
           left={<PlayIcon weight="bold" className="h-4 w-4" />}
-          loading={testProjects.isPending}
-          disabled={!hasSelection}
-          onClick={handleTest}
+          loading={actions.testPending}
+          disabled={!actions.canTest}
+          onClick={actions.test}
           className={testTint}
         >
           Test
@@ -163,26 +127,7 @@ export function WorkshopSelectionButton() {
           <Menu.Portal>
             <Menu.Positioner>
               <Menu.Popup className="w-56">
-                <Menu.Group>
-                  <Menu.GroupLabel>{`${selectedCount} selected`}</Menu.GroupLabel>
-                  <Menu.Item
-                    icon={<PackageIcon weight="bold" className="h-4 w-4" />}
-                    onClick={handlePack}
-                  >
-                    Pack
-                  </Menu.Item>
-                  <Menu.Item
-                    icon={<TrashIcon weight="bold" className="h-4 w-4" />}
-                    variant="danger"
-                    onClick={handleDelete}
-                  >
-                    Delete
-                  </Menu.Item>
-                  <Menu.Separator />
-                  <Menu.Item icon={<XIcon weight="bold" className="h-4 w-4" />} onClick={clear}>
-                    Clear selection
-                  </Menu.Item>
-                </Menu.Group>
+                <ProjectSelectionMenuItems />
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>

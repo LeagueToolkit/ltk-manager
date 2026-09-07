@@ -111,7 +111,7 @@ export function StringKeyField({
       </Combobox.Root>
       {/* Without `match`, Base UI only shows errors for native ValidityState
           failures — ours come from external validation. */}
-      {error && <Field.Error match>{error}</Field.Error>}
+      {error && <Field.Error>{error}</Field.Error>}
     </Field.Root>
   );
 }

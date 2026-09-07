@@ -1,20 +1,20 @@
-import { invoke } from "@tauri-apps/api/core";
-import { EllipsisVertical, FolderOpen, Package, Pencil, Play, Trash2, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { EllipsisVertical, Package, Play, X } from "lucide-react";
+import { type KeyboardEvent, type ReactElement, type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
-import { Button, Checkbox, IconButton, Menu, Tooltip } from "@/components";
+import { Button, Checkbox, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore, type ViewMode } from "@/stores";
+import { useWorkshopSelectionStore, type ViewMode } from "@/stores";
 
+import { useProjectActions } from "../api/useProjectActions";
 import { useProjectThumbnail } from "../api/useProjectThumbnail";
-import { useTestProjects } from "../api/useTestProject";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
+import { ProjectCardMenuItems, ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 
 interface ProjectCardProps {
   project: WorkshopProject;
@@ -23,6 +23,9 @@ interface ProjectCardProps {
   /** The grid's roving stop, so `0` on the one card the tab order reaches. */
   tabIndex: number;
 }
+
+/** Which commands a card's right click opens: its own, or the selection's. */
+type MenuScope = "card" | "selection";
 
 /* Accent-500 rather than the dimmed one the pointer gets: DS-HOVER. */
 const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none";
@@ -34,49 +37,54 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
   const { data: thumbnailUrl } = useProjectThumbnail(project.path, project.thumbnailPath);
 
   const selected = useWorkshopSelectionStore((s) => s.selectedPaths.has(project.path));
+  const selectedCount = useWorkshopSelectionStore((s) => s.selectedPaths.size);
   const toggle = useWorkshopSelectionStore((s) => s.toggle);
+  const selectOnly = useWorkshopSelectionStore((s) => s.selectOnly);
+  const [menuScope, setMenuScope] = useState<MenuScope>("card");
 
   const testState = useWorkshopTestState(project);
   const stopPatcher = useStopPatcher();
-  const testProjects = useTestProjects();
+  const actions = useProjectActions(project);
 
   const isPatcherActive = testState.kind !== "idle";
   const isTestingThis = testState.kind === "building-this" || testState.kind === "running-this";
-
-  const openPackDialog = useWorkshopDialogsStore((s) => s.openPackDialog);
-  const openDeleteDialog = useWorkshopDialogsStore((s) => s.openDeleteDialog);
-
-  function handleTest() {
-    testProjects.mutate(
-      { projects: [{ path: project.path, displayName: project.displayName }] },
-      { onError: (err) => console.error("Failed to test project:", err) },
-    );
-  }
 
   function handleStop() {
     stopPatcher.mutate();
   }
 
-  async function handleOpenLocation() {
-    try {
-      await invoke("reveal_in_explorer", { path: project.path });
-    } catch (error) {
-      console.error("Failed to open location:", error);
+  /**
+   * Which commands this press opens, decided before the pick moves under it.
+   *
+   * One picked card and this card are the same target, so its own menu is what
+   * opens there - the richer of the two, and the only way to reach Rename.
+   */
+  function handleContextMenu() {
+    if (selected && selectedCount > 1) {
+      setMenuScope("selection");
+      return;
     }
+    setMenuScope("card");
+    /* A session holds the files it was started over, and that set is not the
+       user's to rewrite until it ends: "Selection, and a running session". */
+    if (selected || isPatcherActive) return;
+    selectOnly(project.path);
+  }
+
+  /* The kebab's popup is a descendant in the React tree, so its keys reach the
+     card unless the press landed on the card itself. */
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "F2" || event.target !== event.currentTarget) return;
+    event.preventDefault();
+    actions.handleOpenRenameDialog();
   }
 
   const testButton = renderTestButton({
     testState,
-    onTest: handleTest,
+    onTest: actions.handleTestProject,
     onStop: handleStop,
     isStopping: stopPatcher.isPending,
-    isTesting: testProjects.isPending,
-  });
-
-  const testMenuItem = renderTestMenuItem({
-    testState,
-    onTest: handleTest,
-    onStop: handleStop,
+    isTesting: actions.isTesting,
   });
 
   const stopPill = (
@@ -95,14 +103,37 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
     </button>
   );
 
-  const listBorderClass = isTestingThis
-    ? "border-success/40"
-    : selected
-      ? "border-accent-500/40"
-      : "border-surface-700";
+  const kebab = (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <IconButton
+            icon={<EllipsisVertical className="h-4 w-4" />}
+            variant="ghost"
+            size={viewMode === "list" ? "sm" : "md"}
+            compact={viewMode === "grid"}
+            aria-label={`More options for ${project.displayName}`}
+          />
+        }
+      />
+      <Menu.Portal>
+        <Menu.Positioner>
+          <Menu.Popup>
+            <ProjectCardMenuItems project={project} onEdit={onEdit} />
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
 
   if (viewMode === "list") {
-    return (
+    const listBorderClass = isTestingThis
+      ? "border-success/40"
+      : selected
+        ? "border-accent-500/40"
+        : "border-surface-700";
+
+    const row = (
       <div
         role="button"
         tabIndex={tabIndex}
@@ -114,7 +145,13 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
           isPatcherActive && !isTestingThis && "opacity-50",
         )}
         onClick={() => onEdit(project)}
-      >
+        onContextMenu={handleContextMenu}
+        onKeyDown={handleKeyDown}
+      />
+    );
+
+    return (
+      <ProjectCardContextMenu card={row} scope={menuScope} project={project} onEdit={onEdit}>
         <div onClick={(e) => e.stopPropagation()}>
           <Checkbox
             size="md"
@@ -161,50 +198,13 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             variant="outline"
             size="sm"
             left={<Package className="h-4 w-4" />}
-            onClick={() => openPackDialog(project)}
+            onClick={actions.handleOpenPackDialog}
           >
             Pack
           </Button>
-          <Menu.Root>
-            <Menu.Trigger
-              render={
-                <IconButton
-                  icon={<EllipsisVertical className="h-4 w-4" />}
-                  variant="ghost"
-                  size="sm"
-                />
-              }
-            />
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={() => onEdit(project)}>
-                    Edit Project
-                  </Menu.Item>
-                  {testMenuItem}
-                  <Menu.Item
-                    icon={<Package className="h-4 w-4" />}
-                    onClick={() => openPackDialog(project)}
-                  >
-                    Pack
-                  </Menu.Item>
-                  <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
-                    Open Location
-                  </Menu.Item>
-                  <Menu.Separator />
-                  <Menu.Item
-                    icon={<Trash2 className="h-4 w-4" />}
-                    variant="danger"
-                    onClick={() => openDeleteDialog(project)}
-                  >
-                    Delete
-                  </Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
+          {kebab}
         </div>
-      </div>
+      </ProjectCardContextMenu>
     );
   }
 
@@ -214,7 +214,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
       ? "border-accent-500/40"
       : "border-surface-600";
 
-  return (
+  const card = (
     <div
       role="button"
       tabIndex={tabIndex}
@@ -226,7 +226,13 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
         isPatcherActive && !isTestingThis && "opacity-50",
       )}
       onClick={() => onEdit(project)}
-    >
+      onContextMenu={handleContextMenu}
+      onKeyDown={handleKeyDown}
+    />
+  );
+
+  return (
+    <ProjectCardContextMenu card={card} scope={menuScope} project={project} onEdit={onEdit}>
       <div
         className={twMerge(
           "absolute top-0 left-0 z-10 p-2",
@@ -275,42 +281,47 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             {isTestingThis && stopPill}
           </div>
         </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <Menu.Root>
-            <Menu.Trigger
-              render={<IconButton icon={<EllipsisVertical />} variant="ghost" size="md" compact />}
-            />
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item icon={<Pencil className="h-4 w-4" />} onClick={() => onEdit(project)}>
-                    Edit Project
-                  </Menu.Item>
-                  {testMenuItem}
-                  <Menu.Item
-                    icon={<Package className="h-4 w-4" />}
-                    onClick={() => openPackDialog(project)}
-                  >
-                    Pack
-                  </Menu.Item>
-                  <Menu.Item icon={<FolderOpen className="h-4 w-4" />} onClick={handleOpenLocation}>
-                    Open Location
-                  </Menu.Item>
-                  <Menu.Separator />
-                  <Menu.Item
-                    icon={<Trash2 className="h-4 w-4" />}
-                    variant="danger"
-                    onClick={() => openDeleteDialog(project)}
-                  >
-                    Delete
-                  </Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
-          </Menu.Root>
-        </div>
+        <div onClick={(e) => e.stopPropagation()}>{kebab}</div>
       </div>
-    </div>
+    </ProjectCardContextMenu>
+  );
+}
+
+/**
+ * The card's menu on its right click, over the whole card rather than a target.
+ *
+ * A press inside the selection opens what the selection carries, and a press
+ * outside it collapses the pick onto this card and opens the card's own. Per
+ * "The card" in `docs/ux/WORKSHOP.md`.
+ *
+ * Renders the card itself through `render`, so the trigger is the card and the
+ * grid keeps addressing its cards by their position among its children.
+ */
+function ProjectCardContextMenu({
+  card,
+  scope,
+  project,
+  onEdit,
+  children,
+}: {
+  card: ReactElement;
+  scope: MenuScope;
+  project: WorkshopProject;
+  onEdit: (project: WorkshopProject) => void;
+  children: ReactNode;
+}) {
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger render={card}>{children}</ContextMenu.Trigger>
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner>
+          <ContextMenu.Popup>
+            {scope === "selection" && <ProjectSelectionMenuItems />}
+            {scope === "card" && <ProjectCardMenuItems project={project} onEdit={onEdit} />}
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    </ContextMenu.Root>
   );
 }
 
@@ -376,43 +387,6 @@ function renderTestButton({
         </Button>
       </Tooltip>
     ))
-    .exhaustive();
-}
-
-interface TestMenuItemArgs {
-  testState: ReturnType<typeof useWorkshopTestState>;
-  onTest: () => void;
-  onStop: () => void;
-}
-
-function renderTestMenuItem({ testState, onTest, onStop }: TestMenuItemArgs): ReactNode {
-  return match(testState)
-    .with({ kind: "idle" }, () => (
-      <Menu.Item icon={<Play className="h-4 w-4" />} onClick={onTest}>
-        Test
-      </Menu.Item>
-    ))
-    .with({ kind: "building-this" }, () => (
-      <Menu.Item icon={<Play className="h-4 w-4" />} disabled>
-        Building…
-      </Menu.Item>
-    ))
-    .with({ kind: "running-this" }, () => (
-      <Menu.Item icon={<Play className="h-4 w-4" />} onClick={onStop}>
-        Stop Test
-      </Menu.Item>
-    ))
-    .with(
-      { kind: "building-other" },
-      { kind: "running-other" },
-      { kind: "building-library" },
-      { kind: "running-library" },
-      () => (
-        <Menu.Item icon={<Play className="h-4 w-4" />} disabled>
-          Test
-        </Menu.Item>
-      ),
-    )
     .exhaustive();
 }
 

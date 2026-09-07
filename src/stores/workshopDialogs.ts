@@ -6,6 +6,7 @@ import type { FantomePeekResult, WorkshopProject } from "@/lib/tauri";
 interface WorkshopDialogsStore {
   packProject: WorkshopProject | null;
   deleteProject: WorkshopProject | null;
+  renameProject: WorkshopProject | null;
   newProjectOpen: boolean;
   fantomeImport: { peekResult: FantomePeekResult; filePath: string } | null;
   gitImportOpen: boolean;
@@ -17,6 +18,8 @@ interface WorkshopDialogsStore {
   closePackDialog: () => void;
   openDeleteDialog: (project: WorkshopProject) => void;
   closeDeleteDialog: () => void;
+  openRenameDialog: (project: WorkshopProject) => void;
+  closeRenameDialog: () => void;
   openNewProjectDialog: () => void;
   closeNewProjectDialog: () => void;
   openFantomeImportDialog: (peekResult: FantomePeekResult, filePath: string) => void;
@@ -35,6 +38,7 @@ export const useWorkshopDialogsStore = create<WorkshopDialogsStore>()(
     (set) => ({
       packProject: null,
       deleteProject: null,
+      renameProject: null,
       newProjectOpen: false,
       fantomeImport: null,
       gitImportOpen: false,
@@ -46,6 +50,8 @@ export const useWorkshopDialogsStore = create<WorkshopDialogsStore>()(
       closePackDialog: () => set({ packProject: null }),
       openDeleteDialog: (project) => set({ deleteProject: project }),
       closeDeleteDialog: () => set({ deleteProject: null }),
+      openRenameDialog: (project) => set({ renameProject: project }),
+      closeRenameDialog: () => set({ renameProject: null }),
       openNewProjectDialog: () => set({ newProjectOpen: true }),
       closeNewProjectDialog: () => set({ newProjectOpen: false }),
       openFantomeImportDialog: (peekResult, filePath) =>

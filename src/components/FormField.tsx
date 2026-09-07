@@ -69,11 +69,15 @@ export interface FieldErrorProps extends Omit<BaseField.Error.Props, "className"
   children?: ReactNode;
 }
 
+/* `match` defaults on because every call site here decides for itself whether to
+   draw the message. Base UI otherwise reads the control's own `ValidityState`,
+   which nothing in this app writes, so the error rendered nothing at all. */
 export const FieldError = forwardRef<HTMLParagraphElement, FieldErrorProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, match = true, ...props }, ref) => {
     return (
       <BaseField.Error
         ref={ref}
+        match={match}
         className={twMerge("text-xs text-danger-text", className)}
         {...props}
       >
