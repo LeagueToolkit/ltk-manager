@@ -85,18 +85,18 @@ ALE-D0D00067	info	inferred	A graphics query could not be created
 ALE-D0D00068	info	inferred	An index buffer could not be created
 ALE-D0D09035	info	inferred	Fullscreen waits until the window is in the foreground
 ALE-D0D09036	info	inferred	The graphics feature level was reported
-SEJ-1A4F7C20	load_step:41	confirmed	Loading step 41, the crowd-control table
-SEJ-3B8E0D91	load_step:42	confirmed	Loading step 42
+SEJ-1A4F7C20	load_step:41	confirmed	Loading step 41, building the crowd-control table
+SEJ-3B8E0D91	load_step:42	confirmed	Loading step 42, loading the spell range indicators
 SEJ-5C2A6F38	load_step:44	confirmed	Loading step 44
-SEJ-7D9B14EE	load_step:46	confirmed	Loading step 46, the fog of war
-SEJ-2E60A8C7	load_step:49	confirmed	Loading step 49
+SEJ-7D9B14EE	load_step:46	confirmed	Loading step 46, starting the fog of war
+SEJ-2E60A8C7	load_step:49	confirmed	Loading step 49, preloading the legacy particle files
 SEJ-9F31B5D0	load_step:52	confirmed	Loading step 52, mounting the champions' archives
-SEJ-4A7C2E89	load_step:53	confirmed	Loading step 53, the solid-color shaders
+SEJ-4A7C2E89	load_step:53	confirmed	Loading step 53, loading the solid-color shaders
 SEJ-6B0D93F1	load_step:55	confirmed	Loading step 55
-SEJ-8C5E1A4B	load_step:59	confirmed	Loading step 59
+SEJ-8C5E1A4B	load_step:59	confirmed	Loading step 59, loading the global resources
 SEJ-7A6C39E2	load_step:60	confirmed	Loading step 60, draining the asset loader
-SEJ-1D2F86A3	load_step:61	confirmed	Loading step 61, the render queue
-SEJ-3E9A0C57	load_step:62	confirmed	Loading step 62, the environment's cube-map array
+SEJ-1D2F86A3	load_step:61	confirmed	Loading step 61, pumping the render queue
+SEJ-3E9A0C57	load_step:62	confirmed	Loading step 62, building the environment's cube-map array
 SEJ-5F4B27D8	load_step:63	confirmed	Loading step 63, spawning the team bases
 SEJ-95FD3BC3	info	confirmed	A very slow frame update was recorded
 SEJ-AB67B010	info	inferred	The spawn packet arrived

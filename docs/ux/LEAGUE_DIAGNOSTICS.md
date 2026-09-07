@@ -402,6 +402,11 @@ whose reading is not such a sentence has no row, or a row that says only what ki
 as `SEJ-5C2A6F38` does with "Loading step 44", because the step number is what the Stuck
 loading verdict wants and nothing else about the step is a player's business.
 
+A load step's meaning takes one shape, `Loading step N` and an optional comma and gerund
+clause. Stuck loading keeps everything after that first comma and reads it into its own
+sentence, so a clause in any other shape lands as `League stopped at loading step 46 of 64,
+the fog of war.`
+
 A code with no row shows as the code. That is the same fallback a code newer than the table
 gets, so leaving a row out costs nothing.
 
