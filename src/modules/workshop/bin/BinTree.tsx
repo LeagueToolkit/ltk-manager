@@ -39,6 +39,7 @@ import {
   type RowGroup,
   useCheckLinkTargets,
 } from "./useLinkTargets";
+import { useValueMarks, ValueMarksContext } from "./useValueMarks";
 
 /** A row the tree is asked to expand, focus and scroll to. A new token scrolls again. */
 export interface TreeReveal {
@@ -189,6 +190,17 @@ export function BinTree({
 
   const virtualItems = virtualizer.getVirtualItems();
 
+  /* The viewport's own rows, which is the page a value row's read is scoped to. */
+  const inView = useMemo(
+    () =>
+      virtualItems.flatMap((item) => {
+        const line = visible[item.index];
+        return line?.kind === "row" ? [line.row] : [];
+      }),
+    [virtualItems, visible],
+  );
+  const marks = useValueMarks(document, inView);
+
   /* A node's next page is asked for while the line under its rows is on screen. */
   useEffect(() => {
     for (const item of virtualItems) {
@@ -227,47 +239,49 @@ export function BinTree({
     <LinkAssetContext value={asset}>
       <LinkTargetsContext value={linkTargets}>
         <LinkOpenContext value={linkOpen}>
-          <ContextMenu.Root>
-            <ContextMenu.Trigger
-              ref={scrollRef}
-              role="tree"
-              aria-label={label}
-              className="min-h-0 flex-1 overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none"
-              style={{ "--bin-name-cols": nameCols } as CSSProperties}
-              onContextMenu={handleContextMenu}
-              onScroll={stirImages}
-              {...NO_OVERSCROLL}
-            >
-              <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-                {virtualItems.map((item) => {
-                  const line = visible[item.index];
-                  if (!line) return null;
-                  return (
-                    <div
-                      key={item.key}
-                      ref={virtualizer.measureElement}
-                      data-index={item.index}
-                      className="absolute top-0 left-0 w-full"
-                      style={{ transform: `translateY(${item.start}px)` }}
-                    >
-                      {line.kind === "row" && (
-                        <BinRowLine
-                          line={line}
-                          focused={line.key === focused}
-                          error={loaded.get(line.key)?.error}
-                          onToggle={toggle}
-                          onOpenObject={onOpenObject}
-                        />
-                      )}
-                      {line.kind === "more" && <MoreRow line={line} />}
-                    </div>
-                  );
-                })}
-              </div>
-            </ContextMenu.Trigger>
+          <ValueMarksContext value={marks}>
+            <ContextMenu.Root>
+              <ContextMenu.Trigger
+                ref={scrollRef}
+                role="tree"
+                aria-label={label}
+                className="min-h-0 flex-1 overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none"
+                style={{ "--bin-name-cols": nameCols } as CSSProperties}
+                onContextMenu={handleContextMenu}
+                onScroll={stirImages}
+                {...NO_OVERSCROLL}
+              >
+                <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+                  {virtualItems.map((item) => {
+                    const line = visible[item.index];
+                    if (!line) return null;
+                    return (
+                      <div
+                        key={item.key}
+                        ref={virtualizer.measureElement}
+                        data-index={item.index}
+                        className="absolute top-0 left-0 w-full"
+                        style={{ transform: `translateY(${item.start}px)` }}
+                      >
+                        {line.kind === "row" && (
+                          <BinRowLine
+                            line={line}
+                            focused={line.key === focused}
+                            error={loaded.get(line.key)?.error}
+                            onToggle={toggle}
+                            onOpenObject={onOpenObject}
+                          />
+                        )}
+                        {line.kind === "more" && <MoreRow line={line} />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </ContextMenu.Trigger>
 
-            <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-          </ContextMenu.Root>
+              <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+            </ContextMenu.Root>
+          </ValueMarksContext>
         </LinkOpenContext>
       </LinkTargetsContext>
     </LinkAssetContext>

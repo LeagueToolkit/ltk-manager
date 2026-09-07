@@ -4,6 +4,7 @@
 
 | Date       | Change                                                         |
 | ---------- | -------------------------------------------------------------- |
+| 2026-09-07 | Read several nodes in one call, and draw a value family        |
 | 2026-09-07 | Link a string that names a thing                               |
 | 2026-09-07 | Decide the class views                                         |
 | 2026-09-07 | Measure the name column, and date a card by patch              |
@@ -62,7 +63,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Texture swatch       | Available   | A `file` link to a texture, at row height and on a hover card    |
 | Find all references  | In progress | The objects of a class from the index. The walk for the rest     |
 | String links         | Available   | A string naming a chunk or an object, as the chip its kind draws |
-| Value rows           | Planned     | A `ValueColor`'s swatch and gradient on its collapsed row        |
+| Value rows           | Available   | A `ValueColor`'s swatch and gradient on its collapsed row        |
 | Class views          | Planned     | A complete layout beside Properties, keyed on class. ADR-0030    |
 | In-document search   | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit        |
@@ -335,6 +336,14 @@ Each path answers the page `bin_children` answers, 500 rows, and a call answers 
 most. Past that the call errors and names the cap, and the caller batches. The tree never
 crosses, per ADR-0026, and `bin_children` stays as the one-node form.
 
+A path reaching nothing answers an empty page rather than failing the call, because a layout
+names fields an object of its class need not hold and a caller that has to know first is back
+to a call per node. An entry the file does not declare is still an error.
+
+The cap is counted before a row is built, so a refused call costs a walk. A caller batches on
+the row counts it already holds: a node's own row carries how many rows sit under it, so no
+level of a read guesses.
+
 ### The open document, and its bound
 
 The parsed tree outlives no tab. The frontend opens a document and closes it, and the pair is
@@ -533,6 +542,20 @@ holds in the generic tree and in every layout. The nodes a row wants are read pe
 through [the projected read](#the-projected-read), on scroll settle, and the row draws them when
 they land. A curve over the dynamics is the curve widget's, later, and the lints the issue names
 are Problems rules.
+
+Three levels answer a colour: the row's own children, the dynamics one of them points at, and
+the dynamics' two lists. Each level's rows carry how long the next is, so a level batches under
+the read's cap rather than guessing at it. A float, a vector and a colour with no dynamics stop
+at the first level.
+
+The strip takes the width one vector component takes, so a column mixing colours, floats and
+vectors keeps its readouts under each other. Its stops are placed over the curve's own span
+rather than over its seconds, because a strip of fixed width shows the shape and not the clock.
+A row draws nothing where the read has not landed, rather than a placeholder that would shift
+the line under it.
+
+Copy value on a row of the family takes the constant: a colour as `#RRGGBBAA`, and a float and a
+vector as the row draws them.
 
 ### The header
 

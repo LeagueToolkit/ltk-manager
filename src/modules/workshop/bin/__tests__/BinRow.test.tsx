@@ -12,8 +12,11 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
+import { nameHash } from "../binHash";
 import { BinRowLine } from "../BinRow";
 import type { RowLine } from "../binRows";
+import { ValueMarksContext } from "../useValueMarks";
+import type { ValueMark } from "../valueRows";
 
 const ENTRY = "0x2a1f3c7d";
 const SKIN_CLASS = "0x9b67e9f6";
@@ -388,5 +391,66 @@ describe("the field card", () => {
     const card = await screen.findByRole("tooltip", { name: "0x9c4e1b02" }, HOVER);
 
     expect(within(card).getByText("Not declared at this build")).toBeInTheDocument();
+  });
+});
+
+describe("a value family's row", () => {
+  const KEY = `${ENTRY}:0000000a`;
+
+  function renderMarked(mark: ValueMark) {
+    const marked = line(
+      row({
+        kind: "embed",
+        value: { type: "struct", classHash: nameHash("ValueColor"), class: "ValueColor", len: 2 },
+      }),
+    );
+    return render(
+      <ValueMarksContext value={new Map([[KEY, mark]])}>
+        <BinRowLine line={marked} focused={false} onToggle={() => {}} />
+      </ValueMarksContext>,
+      { wrapper: Providers },
+    );
+  }
+
+  it("draws the swatch and the strip on the collapsed row of a colour with dynamics", () => {
+    renderMarked({
+      family: "color",
+      constant: { type: "vector", values: [1, 0.5, 0, 1] },
+      stops: [
+        { time: 0, rgba: [1, 0, 0, 1] },
+        { time: 1, rgba: [0, 0, 1, 1] },
+      ],
+    });
+
+    expect(screen.getByText("ValueColor")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+  });
+
+  it("draws no strip for a colour with no dynamics", () => {
+    renderMarked({
+      family: "color",
+      constant: { type: "vector", values: [1, 1, 1, 1] },
+      stops: [],
+    });
+
+    expect(screen.queryByLabelText(/colour stop/)).toBeNull();
+  });
+
+  it("draws a float's and a vector's constant in the field a leaf row draws", () => {
+    renderMarked({ family: "scalar", constant: { type: "float", value: 2.5 }, stops: [] });
+    expect(screen.getByDisplayValue("2.5")).toHaveAttribute("readonly");
+
+    renderMarked({
+      family: "vector",
+      constant: { type: "vector", values: [0, 1.5, 0] },
+      stops: [],
+    });
+    expect(screen.getByDisplayValue("1.5")).toHaveAttribute("readonly");
+  });
+
+  it("draws nothing extra before the read lands", () => {
+    renderMarked({ family: "color", constant: null, stops: [] });
+
+    expect(screen.queryByLabelText(/colour stop/)).toBeNull();
   });
 });

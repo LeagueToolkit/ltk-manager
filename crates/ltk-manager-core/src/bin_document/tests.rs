@@ -695,6 +695,96 @@ fn an_address_the_document_does_not_hold_is_an_error() {
     not_found(entry, &format!(".{}", wire("skinClassification")));
 }
 
+/// The rows under each of `paths` of the skin object, named, with no schema.
+fn each(paths: &[&str]) -> Result<Vec<BinRows>, BinDocumentError> {
+    let paths: Vec<String> = paths.iter().map(|path| (*path).to_owned()).collect();
+    document().children_each(
+        h("Characters/Aatrox/Skins/Skin0/Resources"),
+        &paths,
+        &named(),
+        None,
+    )
+}
+
+#[test]
+fn a_projected_read_answers_every_path_in_the_order_asked() {
+    let pages = each(&[
+        &wire("armorMaterial"),
+        &wire("skinMeshProperties"),
+        &wire("parts"),
+    ])
+    .unwrap();
+
+    assert_eq!(pages.len(), 3);
+    assert_eq!(pages[0].total, 3);
+    let indices: Vec<_> = pages[0].rows.iter().map(|row| row.name.as_str()).collect();
+    assert_eq!(indices, ["[0]", "[1]", "[2]"]);
+    assert_eq!(row(&pages[1].rows, "texture").path.len(), 17);
+    assert_eq!(pages[2].total, 1);
+}
+
+#[test]
+fn a_path_that_reaches_nothing_answers_an_empty_page() {
+    let pages = each(&[&wire("nowhere"), "not-a-path", &wire("parts")]).unwrap();
+
+    assert!(pages[0].rows.is_empty());
+    assert_eq!(pages[0].total, 0);
+    assert!(pages[1].rows.is_empty());
+    assert_eq!(pages[2].total, 1);
+}
+
+#[test]
+fn a_projected_read_of_an_object_the_document_lacks_is_an_error() {
+    let error = document()
+        .children_each(h("Characters/Gone"), &[String::new()], &named(), None)
+        .unwrap_err();
+
+    assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn a_projected_read_past_the_row_cap_is_refused_and_names_it() {
+    /* Five lists of 401, so no one path is over its own page and the call is over
+    the cap by five rows. */
+    let list = |name: &str| {
+        (
+            h(name),
+            values::Container::from(vec![values::I32::new(1); 401]),
+        )
+    };
+    let object = BinObject::builder(h("Wide"), h("WideClass"))
+        .property(list("a").0, list("a").1)
+        .property(list("b").0, list("b").1)
+        .property(list("c").0, list("c").1)
+        .property(list("d").0, list("d").1)
+        .property(list("e").0, list("e").1)
+        .build();
+    let bin = Bin::<NoMeta>::builder().object(object).build();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    let document = BinDocument::parse(&out.into_inner()).unwrap();
+
+    let paths: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|f| wire(f)).collect();
+    let error = document
+        .children_each(h("Wide"), &paths, &named(), None)
+        .unwrap_err();
+
+    assert!(matches!(
+        error,
+        BinDocumentError::ReadTooWide {
+            rows: 2005,
+            cap: READ_ROW_CAP
+        }
+    ));
+
+    /* Four of the five fit, which is what the caller batches down to. */
+    assert!(
+        document
+            .children_each(h("Wide"), &paths[..4], &named(), None)
+            .is_ok()
+    );
+}
+
 #[test]
 fn a_wire_path_parses_into_its_steps() {
     assert_eq!(parse_steps(""), Some(Vec::new()));

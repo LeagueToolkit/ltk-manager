@@ -91,6 +91,8 @@ pub enum AppErrorResponse {
     BinNotOpen,
     /// No node of the open bin has the address.
     BinNodeNotFound { address: String },
+    /// A projected read asked for more rows than one call answers.
+    BinReadTooWide { rows: usize, cap: usize },
     /// An overlay build or analysis failed.
     ///
     /// One code with a category, not one per category: `ltk_overlay::Error`
@@ -290,6 +292,9 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::NotOpen(_)) => Self::BinNotOpen,
             AppError::BinDocument(BinDocumentError::NodeNotFound { address }) => {
                 Self::BinNodeNotFound { address }
+            }
+            AppError::BinDocument(BinDocumentError::ReadTooWide { rows, cap }) => {
+                Self::BinReadTooWide { rows, cap }
             }
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),

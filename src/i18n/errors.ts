@@ -71,6 +71,10 @@ export function describeError(error: AppError): ErrorCopy {
     .with({ code: "BIN_NODE_NOT_FOUND" }, ({ address }) => ({
       title: m["error.BIN_NODE_NOT_FOUND.title"]({ address }),
     }))
+    .with({ code: "BIN_READ_TOO_WIDE" }, ({ rows, cap }) => ({
+      title: m["error.BIN_READ_TOO_WIDE.title"](),
+      description: m["error.BIN_READ_TOO_WIDE.description"]({ rows, cap }),
+    }))
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
     .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
       title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),

@@ -101,6 +101,34 @@ pub async fn bin_children(
     .await
 }
 
+/// The rows under each of several nodes of an open document, in the order asked.
+///
+/// The projected read of "The projected read" in docs/ux/BIN_EDITOR.md, which a class
+/// layout and a value row use in place of one [`bin_children`] call per node. Each path
+/// answers one page, a path reaching nothing answers an empty one, and a call past the
+/// row cap is refused so the caller batches.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_read(
+    document: BinDocumentId,
+    entry: String,
+    paths: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<BinRows>> {
+    off_thread(move || {
+        let entry = parse_hash(&entry)
+            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
+        let bin = app_handle.state::<BinHashTablesState>().get();
+        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
+        let names = CacheNames::new(&bin, &wad);
+        let (schema, build) = installed_schema(&app_handle);
+        app_handle.state::<BinDocuments>().read(document, |open| {
+            Ok(open.children_each(entry, &paths, &names, Some(schema.at(build)))?)
+        })
+    })
+    .await
+}
+
 /// One class's fields and their declared kinds at the install's build.
 ///
 /// Read out of the meta schema. `None` for a class the schema does not describe.

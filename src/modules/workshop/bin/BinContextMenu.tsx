@@ -26,6 +26,8 @@ import { nameHash } from "./binHash";
 import { fieldHash, type VisibleRow } from "./binRows";
 import { chunkPath, decideLink, type LinkDecision } from "./linkDecision";
 import { type LinkTargets, useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
+import { useValueMark } from "./useValueMarks";
+import { markText } from "./valueRows";
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -51,6 +53,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const findReferences = useFindReferences();
   const targets = useLinkTargets();
   const { wantOpen } = useLinkOpen();
+  const mark = useValueMark(line?.kind === "row" ? line.key : "");
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
 
@@ -60,7 +63,7 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
   const struct = row.value.type === "struct" ? row.value : null;
   const structName = struct?.class ?? null;
-  const valueText = readableValue(row.value);
+  const valueText = readableValue(row.value) ?? markText(mark);
   const valueHash = linkedValueHash(row.value, targets);
   const link = decideLink(row.value, targets, () => layer);
   const openLink = linkOpener(row.value, link, open, wantOpen);

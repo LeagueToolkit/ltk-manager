@@ -67,6 +67,16 @@
     }
   ],
   "workshop_bin_field_undeclared_label": "Not declared at this build",
+  "workshop_bin_gradient_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} colour stop",
+        "countPlural=other": "{count} colour stops"
+      }
+    }
+  ],
   "workshop_bin_hash_label": "hash",
   "workshop_bin_install_command_label": "Run this from its command palette",
   "workshop_bin_install_extension_label": "Get the *ritobin-lsp extension*",

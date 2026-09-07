@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "error.BIN_NODE_NOT_FOUND.title": "Nothing at {address} in this bin",
   "error.BIN_NOT_OPEN.title": "This bin is no longer open",
+  "error.BIN_READ_TOO_WIDE.description": "The view asked for {rows} rows and one read answers {cap}.",
+  "error.BIN_READ_TOO_WIDE.title": "Too much of this bin at once",
   "error.BIN_UNREADABLE.title": "Not a readable bin",
   "error.FANTOME.title": "Fantome error",
   "error.GITHUB.HTTP.description": "Try again in a moment.",

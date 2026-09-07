@@ -61,6 +61,10 @@ pub enum BinDocumentError {
     /// No node of the document has this address.
     #[error("no node at {address}")]
     NodeNotFound { address: String },
+
+    /// A projected read reached more rows than one call answers.
+    #[error("a projected read of {rows} rows is over the cap of {cap}")]
+    ReadTooWide { rows: usize, cap: usize },
 }
 
 /// The open documents, one tree per asset, bounded, evicting the least recently used.
@@ -432,7 +436,75 @@ impl BinDocument {
 
         Ok(BinRows { rows, total })
     }
+
+    /// The rows under each of several nodes, one page each, in the order asked.
+    ///
+    /// The projected read of ADR-0026, which a layout and a value row use in place of
+    /// one call per node. A path reaching nothing answers an empty page, because a
+    /// layout names fields an object of its class need not hold.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
+    /// document, and with [`BinDocumentError::ReadTooWide`] when the paths together
+    /// reach more than [`READ_ROW_CAP`] rows.
+    pub fn children_each(
+        &self,
+        entry: BinHash,
+        paths: &[String],
+        names: &dyn RowNames,
+        schema: Option<SchemaAt<'_>>,
+    ) -> Result<Vec<BinRows>, BinDocumentError> {
+        let object =
+            self.file
+                .objects()
+                .get(&entry)
+                .ok_or_else(|| BinDocumentError::NodeNotFound {
+                    address: format!("{}:", hex(entry)),
+                })?;
+
+        /* Counted before a row is built, so a call over the cap costs a walk rather
+        than the whole answer it is about to be refused. */
+        let mut rows = 0;
+        for path in paths {
+            let Some(steps) = parse_steps(path) else {
+                continue;
+            };
+            let Some((node, _)) = descend(object, &steps) else {
+                continue;
+            };
+            rows += children_of(node).len().min(READ_PAGE);
+        }
+        if rows > READ_ROW_CAP {
+            return Err(BinDocumentError::ReadTooWide {
+                rows,
+                cap: READ_ROW_CAP,
+            });
+        }
+
+        paths
+            .iter()
+            .map(
+                |path| match self.children(entry, path, 0, READ_PAGE, names, schema) {
+                    Err(BinDocumentError::NodeNotFound { .. }) => Ok(BinRows {
+                        rows: Vec::new(),
+                        total: 0,
+                    }),
+                    answer => answer,
+                },
+            )
+            .collect()
+    }
 }
+
+/// How many rows one path of a projected read answers, the frontend's `PAGE_SIZE`.
+const READ_PAGE: usize = 500;
+
+/// How many rows one projected read answers, past which it is refused.
+///
+/// Four pages. A layout batches its paths under it rather than reading a whole file in
+/// one call, which is what keeps the answer a payload a viewport draws.
+pub const READ_ROW_CAP: usize = 4 * READ_PAGE;
 
 /// Which kind of bin file a document holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
