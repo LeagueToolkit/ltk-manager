@@ -5,6 +5,12 @@ Research note, and the record of what it proposes. Sections 1 to 4 are evidence 
 dataset of 2026-08-24, ritobin-lsp issue 55, and one screenshot of Riot's two particle editors
 side by side. Section 5 is the proposals and section 6 what only the maintainer can answer.
 
+The maintainer answered section 6 on 2026-09-07, over four rounds. What was decided is the body
+of EPIC #455, and writing it into an ADR and into `docs/ux/BIN_EDITOR.md` is issue #456. Three of
+the answers reach past what this note proposed: Probability ships as a third tab, the caption
+carries the wire path under the label chain, and the time axis fits the curve's own span rather
+than the 0 to 1 both editors plot.
+
 The question was how the object tab grows a graph editor over the value family, `ValueFloat`,
 `ValueVector2`, `ValueVector3` and `ValueColor`, and whether a React library carries any of it.
 It follows `bin-editor-higher-order-views.md`, whose section 6.9 left "a curve widget over
