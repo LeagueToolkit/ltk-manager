@@ -865,6 +865,23 @@ impl RowNames for CacheNames<'_> {
     }
 }
 
+/// Whether an optional draws what it holds in place of a row of its own.
+///
+/// An optional is one value or none, so a leaf inside one is a row the reader has to open
+/// to learn nothing the option row did not already say. What holds rows of its own keeps
+/// its `[0]`, because those rows have to hang off something.
+fn inlines(value: &PropertyValueEnum) -> bool {
+    !matches!(
+        value,
+        PropertyValueEnum::Container(_)
+            | PropertyValueEnum::UnorderedContainer(_)
+            | PropertyValueEnum::Map(_)
+            | PropertyValueEnum::Optional(_)
+            | PropertyValueEnum::Struct(_)
+            | PropertyValueEnum::Embedded(_)
+    )
+}
+
 /// Whether a `Struct` is the null pointer, which the format writes as a class hash of zero.
 fn is_null(inner: &values::Struct) -> bool {
     inner.class_hash.0 == 0
@@ -1115,6 +1132,7 @@ fn children_of(node: Node<'_>) -> Vec<Child<'_>> {
         PropertyValueEnum::UnorderedContainer(items) => elements(items.items()),
         PropertyValueEnum::Optional(optional) => optional
             .value()
+            .filter(|value| !inlines(value))
             .map(|value| Child::Element(0, value))
             .into_iter()
             .collect(),
@@ -1245,6 +1263,11 @@ impl Wanted {
             PropertyValueEnum::Hash(hash) => self.values.push(hash.value),
             PropertyValueEnum::ObjectLink(link) => self.entries.push(link.value),
             PropertyValueEnum::WadChunkLink(link) => self.chunks.push(link.value),
+            PropertyValueEnum::Optional(optional) => {
+                if let Some(inner) = optional.value().filter(|inner| inlines(inner)) {
+                    self.value(inner);
+                }
+            }
             PropertyValueEnum::Struct(inner) if !is_null(inner) => {
                 self.classes.push(inner.class_hash);
             }
@@ -1326,9 +1349,12 @@ impl Named {
                 len: items.len(),
                 item_kind: items.item_kind().into(),
             },
-            PropertyValueEnum::Optional(optional) => BinValue::Optional {
-                present: optional.is_some(),
-                item_kind: optional.item_kind().into(),
+            PropertyValueEnum::Optional(optional) => match optional.value() {
+                Some(inner) if inlines(inner) => self.value_of(inner),
+                _ => BinValue::Optional {
+                    present: optional.is_some(),
+                    item_kind: optional.item_kind().into(),
+                },
             },
             PropertyValueEnum::Map(map) => BinValue::Map {
                 len: map.entries().len(),

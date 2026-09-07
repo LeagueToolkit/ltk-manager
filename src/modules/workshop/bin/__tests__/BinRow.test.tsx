@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,6 +51,7 @@ function line(row: BinRow, owner: string | null = SKIN_CLASS): RowLine {
 const SCHEMA: ClassSchema = {
   name: "SkinCharacterDataProperties",
   build: 8104348,
+  patch: "16.17",
   fields: [
     {
       hash: "0x0000000a",
@@ -116,6 +117,60 @@ beforeEach(() => {
   });
 });
 
+describe("the value widgets", () => {
+  it("keeps a 64-bit integer's digits, which a JS number would round away", () => {
+    renderLine(
+      line(row({ kind: "u64", value: { type: "integer", text: "18446744073709551615" } })),
+    );
+
+    expect(screen.getByDisplayValue("18446744073709551615")).toHaveAttribute("readonly");
+  });
+
+  it("draws a string in a field of its own", () => {
+    renderLine(line(row({ value: { type: "string", value: "Justicar Aatrox" } })));
+
+    expect(screen.getByDisplayValue("Justicar Aatrox")).toBeInTheDocument();
+  });
+
+  it("gives a vector one field per axis, each named by it", () => {
+    renderLine(line(row({ kind: "vec3", value: { type: "vector", values: [1, -0.5, 0] } })));
+
+    expect(screen.getByRole("textbox", { name: "x" })).toHaveValue("1");
+    expect(screen.getByRole("textbox", { name: "y" })).toHaveValue("-0.5");
+    expect(screen.getByRole("textbox", { name: "z" })).toHaveValue("0");
+  });
+
+  it("draws a bool as a checkbox nothing can toggle", () => {
+    renderLine(line(row({ kind: "bool", value: { type: "bool", value: true } })));
+
+    const box = screen.getByRole("checkbox");
+    expect(box).toBeChecked();
+    expect(box).toHaveAttribute("aria-readonly", "true");
+  });
+
+  it("leaves the row's click alone when a field is clicked", async () => {
+    const onToggle = vi.fn();
+    renderLine(
+      line(
+        row({
+          kind: "embed",
+          value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 1 },
+        }),
+      ),
+      onToggle,
+    );
+
+    await userEvent.click(screen.getByText("Part"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes no tab stop, so a document of rows is not a tab order", () => {
+    renderLine(line(row({ value: { type: "string", value: "Justicar Aatrox" } })));
+
+    expect(screen.getByDisplayValue("Justicar Aatrox")).toHaveAttribute("tabindex", "-1");
+  });
+});
+
 describe("the tag", () => {
   it("follows every property and element row, composed from what the value holds", () => {
     renderLine(
@@ -130,7 +185,7 @@ describe("the tag", () => {
     expect(screen.getByText("list[embed]")).toBeInTheDocument();
   });
 
-  it("carries an element's own kind", () => {
+  it("is absent from an element, whose declaring property already names the kind", () => {
     renderLine(
       line(
         row({
@@ -143,7 +198,25 @@ describe("the tag", () => {
         null,
       ),
     );
-    expect(screen.getByText("map[hash,string]")).toBeInTheDocument();
+    expect(screen.queryByText("map[hash,string]")).toBeNull();
+  });
+
+  it("gives an element that holds a struct its class beside the index", () => {
+    renderLine(
+      line(
+        row({
+          node: "element",
+          path: "0000000a[0]",
+          name: "[0]",
+          kind: "embed",
+          value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 3 },
+        }),
+        null,
+      ),
+    );
+    expect(screen.getByText("[0]")).toBeInTheDocument();
+    expect(screen.getByText("Part")).toBeInTheDocument();
+    expect(screen.getByText("3 properties")).toBeInTheDocument();
   });
 
   it("is absent from an object row", () => {
@@ -176,11 +249,24 @@ describe("the mismatch mark", () => {
       ),
     );
 
-    expect(screen.getByRole("img", { name: "Type mismatch" })).toBeInTheDocument();
-
-    await userEvent.hover(screen.getByText("string"));
+    await userEvent.hover(screen.getByRole("img", { name: "Type mismatch" }));
     const declared = await screen.findByText("option[file]", {}, HOVER);
     expect(declared.parentElement).toHaveTextContent(/^Declared\s*option\[file\]$/);
+  });
+
+  it("leaves the tag itself without a tooltip, which the card already answers", async () => {
+    renderLine(
+      line(
+        row({
+          name: "iconCircle",
+          kind: "string",
+          declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
+        }),
+      ),
+    );
+
+    await userEvent.hover(screen.getByText("string"));
+    await expect(screen.findByText("Declared", {}, HOVER)).rejects.toThrow();
   });
 
   it("leaves a row the schema agrees with unmarked", () => {
@@ -207,38 +293,45 @@ describe("the class card", () => {
     },
   });
 
-  it("opens on hover with the schema's fields at the install's build", async () => {
+  it("opens on hover with the build it read, and sends the fields to the wiki", async () => {
     renderLine(line(embed));
 
-    await userEvent.hover(screen.getByRole("button", { name: "SkinCharacterDataProperties" }));
-    const card = await screen.findByRole("dialog", { name: "SkinCharacterDataProperties" }, HOVER);
+    await userEvent.hover(screen.getByText("SkinCharacterDataProperties"));
+    const card = await screen.findByRole("tooltip", { name: "SkinCharacterDataProperties" }, HOVER);
 
-    expect(await within(card).findByText("2 fields")).toBeInTheDocument();
-    expect(within(card).getByText("at build 8104348")).toBeInTheDocument();
-    expect(within(card).getByText("championSkinName")).toBeInTheDocument();
-    expect(within(card).getByText("option[file]")).toBeInTheDocument();
+    expect(await within(card).findByText("patch 16.17")).toBeInTheDocument();
+    expect(within(card).queryByText("championSkinName")).toBeNull();
+    expect(within(card).getByRole("link", { name: /meta wiki/ })).toHaveAttribute(
+      "href",
+      "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdataproperties/",
+    );
     expect(mockInvoke).toHaveBeenCalledWith("class_schema", { classHash: SKIN_CLASS });
   });
 
-  it("pins on a click without toggling the row, copies the name and the hash, and closes on Esc", async () => {
+  it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
+    mockInvoke.mockImplementation(() => Promise.resolve({ ok: true, value: null }));
+    renderLine(
+      line(
+        row({
+          kind: "pointer",
+          value: { type: "struct", classHash: "0x0000beef", class: null, len: 1 },
+        }),
+      ),
+    );
+
+    await userEvent.hover(screen.getByText("0x0000beef"));
+    const card = await screen.findByRole("tooltip", { name: "0x0000beef" }, HOVER);
+
+    expect(within(card).queryByRole("link")).toBeNull();
+  });
+
+  it("carries no action, and leaves the click to the row it sits in", async () => {
     const onToggle = vi.fn();
     renderLine(line(embed), onToggle);
 
-    await userEvent.click(screen.getByRole("button", { name: "SkinCharacterDataProperties" }));
-    const card = await screen.findByRole("dialog", { name: "SkinCharacterDataProperties" });
-    expect(onToggle).not.toHaveBeenCalled();
-
-    await userEvent.click(await within(card).findByRole("button", { name: "Copy name" }));
-    await waitFor(() =>
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("SkinCharacterDataProperties"),
-    );
-    await userEvent.click(within(card).getByRole("button", { name: "Copy hash" }));
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(SKIN_CLASS));
-
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "SkinCharacterDataProperties" })).toBeNull(),
-    );
+    await userEvent.click(screen.getByText("SkinCharacterDataProperties"));
+    expect(onToggle).toHaveBeenCalledWith(`${ENTRY}:0000000a`);
+    expect(screen.queryByRole("button", { name: "Copy name" })).toBeNull();
   });
 
   it("names a class the tables miss by its hash, and says the schema has no line for it", async () => {
@@ -252,11 +345,10 @@ describe("the class card", () => {
       ),
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "0x0000beef" }));
-    const card = await screen.findByRole("dialog", { name: "0x0000beef" });
+    await userEvent.hover(screen.getByText("0x0000beef"));
+    const card = await screen.findByRole("tooltip", { name: "0x0000beef" }, HOVER);
 
     expect(await within(card).findByText("Not in the schema")).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: "Copy name" })).toBeNull();
   });
 });
 
@@ -271,8 +363,8 @@ describe("the field card", () => {
   it("opens on hover with the declared kind and the revisions", async () => {
     renderLine(line(expandable));
 
-    await userEvent.hover(screen.getByRole("button", { name: "championSkinName" }));
-    const card = await screen.findByRole("dialog", { name: "championSkinName" }, HOVER);
+    await userEvent.hover(screen.getByText("championSkinName"));
+    const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
 
     expect(await within(card).findByText("5229820 – 8049184")).toBeInTheDocument();
     expect(within(card).getByText("since 8104348")).toBeInTheDocument();
@@ -280,35 +372,21 @@ describe("the field card", () => {
     expect(within(card).getByText("0x0000000a")).toBeInTheDocument();
   });
 
-  it("pins on a click without toggling the row, copies the name and the hash, and closes on Esc", async () => {
+  it("carries no action, and leaves the click to the row it sits in", async () => {
     const onToggle = vi.fn();
     renderLine(line(expandable), onToggle);
 
-    await userEvent.click(screen.getByRole("button", { name: "championSkinName" }));
-    const card = await screen.findByRole("dialog", { name: "championSkinName" });
-    expect(onToggle).not.toHaveBeenCalled();
-
-    await userEvent.click(within(card).getByRole("button", { name: "Copy name" }));
-    await waitFor(() =>
-      expect(navigator.clipboard.writeText).toHaveBeenCalledWith("championSkinName"),
-    );
-    await userEvent.click(within(card).getByRole("button", { name: "Copy hash" }));
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith("0x0000000a"));
-
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "championSkinName" })).toBeNull(),
-    );
+    await userEvent.click(screen.getByText("championSkinName"));
+    expect(onToggle).toHaveBeenCalledWith(`${ENTRY}:0000000a`);
+    expect(screen.queryByRole("button", { name: "Copy name" })).toBeNull();
   });
 
-  it("says a field the schema has no line for is not declared, and offers no name to copy", async () => {
+  it("says a field the schema has no line for is not declared", async () => {
     renderLine(line(row({ name: "0x9c4e1b02", unnamed: true, path: "9c4e1b02" })));
 
-    await userEvent.click(screen.getByRole("button", { name: "0x9c4e1b02" }));
-    const card = await screen.findByRole("dialog", { name: "0x9c4e1b02" });
+    await userEvent.hover(screen.getByText("0x9c4e1b02"));
+    const card = await screen.findByRole("tooltip", { name: "0x9c4e1b02" }, HOVER);
 
     expect(within(card).getByText("Not declared at this build")).toBeInTheDocument();
-    expect(within(card).queryByRole("button", { name: "Copy name" })).toBeNull();
-    expect(within(card).getByRole("button", { name: "Copy hash" })).toBeInTheDocument();
   });
 });

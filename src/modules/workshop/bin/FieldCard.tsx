@@ -1,17 +1,11 @@
-import { CopyIcon, HashIcon } from "@phosphor-icons/react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Button, Code, Popover, SeverityGlyph, Spinner } from "@/components";
-import { useCopyToClipboard } from "@/hooks";
+import { Code, HoverCard, SeverityGlyph, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
 
 import { shapeTag } from "./kindTag";
 import { useClassSchema } from "./useClassSchema";
-
-/** Hover for this long opens the card, the tooltip delay. A click does not wait. */
-const CARD_DELAY = 600;
 
 interface FieldCardProps {
   /** The class the field is read on. Null where the row's parent declares none. */
@@ -27,7 +21,7 @@ interface FieldCardProps {
 }
 
 /**
- * A field name as a control: a card on hover, pinned by a click, closed by `Esc`.
+ * A field name, and what the schema says about it while the pointer is on it.
  *
  * "The field card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
  * is when its query runs.
@@ -41,44 +35,32 @@ export function FieldCard({
   triggerClassName,
 }: FieldCardProps) {
   return (
-    <Popover.Root>
-      <Popover.Trigger
-        openOnHover
-        delay={CARD_DELAY}
-        render={<button type="button" onClick={keepRowShut} />}
-        /* DS-VEIL */
+    <HoverCard
+      label={name}
+      className="w-72"
+      content={
+        <FieldCardBody
+          classHash={classHash}
+          fieldHash={fieldHash}
+          name={name}
+          unnamed={unnamed}
+          declared={declared}
+        />
+      }
+    >
+      <span
         className={twMerge(
-          "-mx-1 min-w-0 cursor-pointer truncate rounded-sm px-1 text-left hover:bg-surface-veil hover:text-surface-100",
+          "min-w-0 truncate decoration-dotted underline-offset-2 hover:underline",
           triggerClassName,
         )}
       >
         {name}
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={name} className="w-72 p-3 text-meta select-none">
-            <FieldCardBody
-              classHash={classHash}
-              fieldHash={fieldHash}
-              name={name}
-              unnamed={unnamed}
-              declared={declared}
-            />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+      </span>
+    </HoverCard>
   );
 }
 
-/** A click on the control pins the card. The row under it keeps its expansion. */
-function keepRowShut(event: ReactMouseEvent<HTMLButtonElement>) {
-  event.stopPropagation();
-}
-
 function FieldCardBody({ classHash, fieldHash, name, unnamed, declared }: FieldCardProps) {
-  const copy = useCopyToClipboard();
-
   return (
     <div data-ui="FieldCard" className="flex flex-col gap-2">
       <header className="flex min-w-0 flex-col items-start gap-1">
@@ -91,26 +73,6 @@ function FieldCardBody({ classHash, fieldHash, name, unnamed, declared }: FieldC
       </header>
       <DeclaredLine declared={declared} />
       {classHash !== null && <Revisions classHash={classHash} fieldHash={fieldHash} />}
-      <footer className="flex gap-1">
-        {!unnamed && (
-          <Button
-            variant="ghost"
-            size="xs"
-            left={<CopyIcon />}
-            onClick={() => void copy(name, m.workshop_bin_name_label())}
-          >
-            {m.workshop_bin_copy_name_action()}
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="xs"
-          left={<HashIcon />}
-          onClick={() => void copy(fieldHash, m.workshop_bin_hash_label())}
-        >
-          {m.workshop_bin_copy_hash_action()}
-        </Button>
-      </footer>
     </div>
   );
 }

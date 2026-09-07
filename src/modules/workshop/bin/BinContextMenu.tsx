@@ -1,5 +1,6 @@
 import {
   ArrowSquareOutIcon,
+  CopyIcon,
   HashIcon,
   LinkIcon,
   MagnifyingGlassIcon,
@@ -15,9 +16,13 @@ import type { BinRow, BinValue } from "@/lib/tauri";
 import type { ContentDocument } from "../documents/contentDocument";
 import { useRevealInObjects } from "../objectsBrowser/useRevealInObjects";
 import type { OpenIntent } from "../palette/types";
-import { objectReferences, useFindReferences } from "../references/useFindReferences";
+import {
+  classReferences,
+  objectReferences,
+  useFindReferences,
+} from "../references/useFindReferences";
 import { useOpenDocumentAs } from "../state";
-import type { VisibleRow } from "./binRows";
+import { fieldHash, type VisibleRow } from "./binRows";
 import { decideLink, type LinkDecision } from "./linkDecision";
 import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
@@ -33,8 +38,10 @@ interface BinContextMenuProps {
 /**
  * The list's one menu, aimed at whichever row opened it.
  *
- * Copy path is the address of ADR-0027 as a person reads it: the object's path and the
- * property path joined on a colon, and the object's path alone for an object row.
+ * It enumerates rather than reading what sits under the pointer, per `DS-MENU-SCOPE`, and
+ * "The row menu" in docs/ux/BIN_EDITOR.md is what each item is offered on. Copy path is the
+ * address of ADR-0027 as a person reads it: the object's path and the property path joined
+ * on a colon, and the object's path alone for an object row.
  */
 export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
   const copy = useCopyToClipboard();
@@ -48,8 +55,12 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
 
   if (row === null) return null;
   const object = row.node === "object";
+  const property = row.node === "property";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
-  const valueHash = unnamedValueHash(row.value);
+  const struct = row.value.type === "struct" ? row.value : null;
+  const structName = struct?.class ?? null;
+  const valueText = readableValue(row.value);
+  const valueHash = linkedValueHash(row.value);
   const link = decideLink(row.value, targets, () => layer);
   const openLink = linkOpener(row.value, link, open, wantOpen);
 
@@ -99,21 +110,45 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
               >
                 {m.workshop_objects_reveal_action()}
               </ContextMenu.Item>
-              <ContextMenu.Separator />
             </>
           )}
+          {struct !== null && (
+            <ContextMenu.Item
+              icon={<MagnifyingGlassIcon />}
+              onClick={() => findReferences(classReferences(struct.classHash, struct.class))}
+            >
+              {m.workshop_references_find_class_action()}
+            </ContextMenu.Item>
+          )}
+          {(object || struct !== null) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}
           >
             {m.workshop_bin_copy_path_action()}
           </ContextMenu.Item>
-          {row.unnamed && (
+          {property && !row.unnamed && (
+            <ContextMenu.Item
+              icon={<CopyIcon />}
+              onClick={() => void copy(row.name, m.workshop_bin_name_label())}
+            >
+              {m.workshop_bin_copy_name_action()}
+            </ContextMenu.Item>
+          )}
+          {property && (
             <ContextMenu.Item
               icon={<HashIcon />}
-              onClick={() => void copy(row.name, m.workshop_bin_hash_label())}
+              onClick={() => void copy(fieldHash(row.path), m.workshop_bin_hash_label())}
             >
-              {m.workshop_bin_copy_hash_action()}
+              {m.workshop_bin_copy_field_hash_action()}
+            </ContextMenu.Item>
+          )}
+          {valueText !== null && (
+            <ContextMenu.Item
+              icon={<CopyIcon />}
+              onClick={() => void copy(valueText, m.workshop_bin_value_label())}
+            >
+              {m.workshop_bin_copy_value_action()}
             </ContextMenu.Item>
           )}
           {valueHash !== null && (
@@ -122,6 +157,22 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
               onClick={() => void copy(valueHash, m.workshop_bin_hash_label())}
             >
               {m.workshop_bin_copy_value_hash_action()}
+            </ContextMenu.Item>
+          )}
+          {structName !== null && (
+            <ContextMenu.Item
+              icon={<CopyIcon />}
+              onClick={() => void copy(structName, m.workshop_bin_name_label())}
+            >
+              {m.workshop_bin_copy_class_name_action()}
+            </ContextMenu.Item>
+          )}
+          {struct !== null && (
+            <ContextMenu.Item
+              icon={<HashIcon />}
+              onClick={() => void copy(struct.classHash, m.workshop_bin_hash_label())}
+            >
+              {m.workshop_bin_copy_class_hash_action()}
             </ContextMenu.Item>
           )}
         </ContextMenu.Popup>
@@ -144,17 +195,49 @@ function linkOpener(
   return null;
 }
 
-/** The hash a value shows in place of a name, or null where a table named it. */
-function unnamedValueHash(value: BinValue): string | null {
+/** The hash behind a link value, whether or not a table names it. */
+function linkedValueHash(value: BinValue): string | null {
   switch (value.type) {
     case "hash":
     case "objectLink":
-      return value.name === null ? value.hash : null;
     case "wadChunkLink":
-      return value.path === null ? value.hash : null;
-    case "struct":
-      return value.class === null ? value.classHash : null;
+      return value.hash;
     default:
       return null;
   }
+}
+
+/**
+ * The value as the one string a reader would take, or null where it reads as none.
+ *
+ * A container, a map, a struct and an optional draw a tally rather than a value, and a
+ * copy of "22 items" is what nobody asked for.
+ */
+function readableValue(value: BinValue): string | null {
+  switch (value.type) {
+    case "bool":
+      return String(value.value);
+    case "integer":
+      return value.text;
+    case "float":
+      return String(value.value);
+    case "vector":
+    case "matrix":
+      return value.values.join(", ");
+    case "color":
+      return `#${[value.r, value.g, value.b, value.a].map(hexByte).join("")}`;
+    case "string":
+      return value.value;
+    case "hash":
+    case "objectLink":
+      return value.name;
+    case "wadChunkLink":
+      return value.path;
+    default:
+      return null;
+  }
+}
+
+function hexByte(channel: number): string {
+  return channel.toString(16).padStart(2, "0").toUpperCase();
 }

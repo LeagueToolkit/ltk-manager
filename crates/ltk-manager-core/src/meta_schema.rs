@@ -236,6 +236,11 @@ pub struct ClassSchema {
     /// The content build `declared` is read at: the install's, or the newest the
     /// database names where the install has none it describes.
     pub build: u32,
+    /// The patch a player names, where the install's own build is what was read.
+    ///
+    /// Absent where the database describes no build the install has and the newest it
+    /// names stood in, because that build belongs to no patch this install knows.
+    pub patch: Option<String>,
     /// The named fields first, by name, and the unnamed after them by hash.
     pub fields: Vec<FieldSchema>,
 }
@@ -453,9 +458,9 @@ impl MetaSchema {
     #[must_use]
     pub fn class_schema(&self, class: BinHash, build: Option<GameBuild>) -> Option<ClassSchema> {
         let parsed = self.classes.get(&class)?;
-        let build = build
-            .filter(|build| self.describes(*build))
-            .map_or(self.latest, |build| build.content());
+        let described = build.filter(|build| self.describes(*build));
+        let patch = described.as_ref().map(GameBuild::patch);
+        let build = described.map_or(self.latest, |build| build.content());
 
         let mut fields: Vec<FieldSchema> = parsed
             .properties
@@ -481,6 +486,7 @@ impl MetaSchema {
         Some(ClassSchema {
             name: parsed.name.clone(),
             build,
+            patch,
             fields,
         })
     }

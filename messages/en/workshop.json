@@ -19,25 +19,19 @@
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
   "workshop_bin_absent_label": "absent",
   "workshop_bin_archive_label": "Archive",
-  "workshop_bin_at_build_label": "at build {build}",
+  "workshop_bin_at_patch_label": "patch {patch}",
   "workshop_bin_build_index_action": "Build the object index",
-  "workshop_bin_class_fields_label": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} field",
-        "countPlural=other": "{count} fields"
-      }
-    }
-  ],
   "workshop_bin_class_label": "Class",
   "workshop_bin_class_unknown_empty": "Not in the schema",
   "workshop_bin_command_label": "command",
+  "workshop_bin_copy_class_hash_action": "Copy class hash",
+  "workshop_bin_copy_class_name_action": "Copy class name",
   "workshop_bin_copy_command_action": "Copy the command",
+  "workshop_bin_copy_field_hash_action": "Copy field hash",
   "workshop_bin_copy_hash_action": "Copy hash",
   "workshop_bin_copy_name_action": "Copy name",
   "workshop_bin_copy_path_action": "Copy path",
+  "workshop_bin_copy_value_action": "Copy value",
   "workshop_bin_copy_value_hash_action": "Copy value hash",
   "workshop_bin_declarations_label": [
     {
@@ -88,6 +82,7 @@
   ],
   "workshop_bin_layer_label": "Layer",
   "workshop_bin_matrix_label": "4×4 matrix",
+  "workshop_bin_meta_wiki_action": "Open on the meta wiki",
   "workshop_bin_mismatch_label": "Type mismatch",
   "workshop_bin_more_label": "{loaded} of {total}",
   "workshop_bin_name_label": "name",
@@ -96,6 +91,7 @@
   "workshop_bin_no_viewer_title": "No viewer for a property bin",
   "workshop_bin_none_label": "none",
   "workshop_bin_null_label": "null",
+  "workshop_bin_object_actions_label": "Object actions",
   "workshop_bin_objects_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -168,6 +164,7 @@
   "workshop_bin_unmapped_kind_label": "unmapped type",
   "workshop_bin_unreadable_title": "This bin could not be read",
   "workshop_bin_unsupported_description": "Bin preview is not supported yet",
+  "workshop_bin_value_label": "value",
   "workshop_bin_version_label": "v{version}",
   "workshop_nav_label": "Workshop",
   "workshop_objects_browse_action": "Browse objects",
@@ -276,7 +273,7 @@
       }
     }
   ],
-  "workshop_references_find_class_action": "Find all references",
+  "workshop_references_find_class_action": "Find class references",
   "workshop_references_find_object_action": "Find references",
   "workshop_references_no_match_description": "The install declares nothing that answers it.",
   "workshop_references_no_match_title": "No references",

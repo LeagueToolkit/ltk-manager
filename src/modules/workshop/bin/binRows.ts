@@ -197,3 +197,42 @@ export function toggled(expanded: ReadonlySet<string>, key: string): Set<string>
   if (!next.delete(key)) next.add(key);
   return next;
 }
+
+/** One level of depth, as the guide draws it. Characters, because the tree is mono. */
+export const INDENT = "2ch";
+
+/** Past this depth the indentation stops and the guides stack. */
+export const MAX_INDENT_DEPTH = 8;
+
+/** The narrowest the name column goes, so a shallow list is not cramped. */
+const MIN_NAME_COLS = 22;
+
+/** The widest, so one long name cannot push every value off the pane. */
+const MAX_NAME_COLS = 52;
+
+/**
+ * How many characters the name column needs to hold every row without eliding.
+ *
+ * The tree is set in one mono face, so a character is a fixed advance and the widest
+ * row is arithmetic rather than a measurement. One width for the whole list is what
+ * keeps the values in a column, and taking it from the loaded rows rather than the
+ * visible ones is what stops it moving while a reader scrolls.
+ */
+export function nameColumns(
+  visible: readonly VisibleRow[],
+  tagOf: (row: BinRow) => string | null,
+): number {
+  let widest = MIN_NAME_COLS;
+  for (const line of visible) {
+    if (line.kind !== "row" || line.row.node === "object") continue;
+    const tag = tagOf(line.row);
+    const held = line.row.value.type === "struct" ? (line.row.value.class ?? "") : "";
+    const cols =
+      Math.min(line.depth, MAX_INDENT_DEPTH) * 2 +
+      line.row.name.length +
+      (tag === null ? 0 : tag.length + 1) +
+      (held === "" ? 0 : held.length + 1);
+    if (cols > widest) widest = cols;
+  }
+  return Math.min(widest, MAX_NAME_COLS);
+}

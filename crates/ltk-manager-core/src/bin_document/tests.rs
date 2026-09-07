@@ -89,6 +89,22 @@ fn skin() -> BinObject {
         h("never"),
         values::Optional::<NoMeta>::empty(Kind::I32).unwrap(),
     )
+    .property(
+        h("iconSquare"),
+        values::Optional::from(Some(values::WadChunkLink::new(WadHash::hash_str(
+            "assets/aatrox.tex",
+        )))),
+    )
+    .property(
+        h("boxed"),
+        values::Optional::from(Some(values::Embedded(values::Struct {
+            class_hash: h("Part"),
+            properties: [(h("name"), values::String::from("b0").into())]
+                .into_iter()
+                .collect(),
+            meta: NoMeta,
+        }))),
+    )
     .property(h("pointer"), values::Struct::default())
     .property(h("link"), values::ObjectLink::new(h("Characters/Aatrox")))
     .property(h("bits"), values::BitBool::new(true))
@@ -166,6 +182,8 @@ fn named() -> Tables {
             "lookup",
             "maybe",
             "never",
+            "iconSquare",
+            "boxed",
             "pointer",
             "link",
             "bits",
@@ -268,7 +286,7 @@ fn roots_name_every_object_and_count_its_properties() {
         BinValue::Struct {
             class_hash: hex(h("SkinCharacterDataProperties")),
             class: Some("SkinCharacterDataProperties".to_owned()),
-            len: 18,
+            len: 20,
         }
     );
     assert!(!rows[0].unnamed);
@@ -287,7 +305,7 @@ fn roots_name_every_object_and_count_its_properties() {
 fn an_object_expands_to_its_properties_in_file_order() {
     let rows = under("");
 
-    assert_eq!(rows.len(), 18);
+    assert_eq!(rows.len(), 20);
     assert_eq!(rows[0].name, "skinClassification");
     assert_eq!(rows[0].node, RowNode::Property);
     assert_eq!(rows[0].kind, Some(PropertyKind::I32));
@@ -306,7 +324,7 @@ fn an_object_expands_to_its_properties_in_file_order() {
             value: "Justicar Aatrox".to_owned()
         }
     );
-    assert_eq!(rows[17].name, "0x9c4e1b02");
+    assert_eq!(rows[19].name, "0x9c4e1b02");
 }
 
 #[test]
@@ -407,6 +425,22 @@ fn a_container_indexes_its_elements() {
         items[1].value,
         BinValue::Integer {
             text: "20".to_owned()
+        }
+    );
+}
+
+#[test]
+fn a_file_under_an_option_is_named_like_one_beside_a_field() {
+    let rows = under("");
+    let option = row(&rows, "iconSquare");
+    assert_eq!(option.kind, Some(PropertyKind::Optional));
+
+    assert!(under(&option.path).is_empty());
+    assert_eq!(
+        option.value,
+        BinValue::WadChunkLink {
+            hash: format!("{:016x}", WadHash::hash_str("assets/aatrox.tex")),
+            path: Some("assets/aatrox.tex".to_owned()),
         }
     );
 }
@@ -532,22 +566,13 @@ fn a_map_keys_its_entries() {
 }
 
 #[test]
-fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
+fn an_optional_holding_a_leaf_draws_it_and_holds_no_row() {
     let rows = under("");
 
     let maybe = row(&rows, "maybe");
-    assert_eq!(
-        maybe.value,
-        BinValue::Optional {
-            present: true,
-            item_kind: PropertyKind::F32,
-        }
-    );
-    let inside = under(&maybe.path);
-    assert_eq!(inside.len(), 1);
-    assert_eq!(inside[0].name, "[0]");
-    assert_eq!(inside[0].label, "maybe[0]");
-    assert_eq!(inside[0].value, BinValue::Float { value: 1.5 });
+    assert_eq!(maybe.kind, Some(PropertyKind::Optional));
+    assert_eq!(maybe.value, BinValue::Float { value: 1.5 });
+    assert!(under(&maybe.path).is_empty());
 
     let never = row(&rows, "never");
     assert_eq!(
@@ -558,6 +583,25 @@ fn a_present_optional_holds_index_zero_and_an_absent_one_nothing() {
         }
     );
     assert!(under(&never.path).is_empty());
+}
+
+#[test]
+fn an_optional_holding_rows_keeps_the_index_they_hang_off() {
+    let rows = under("");
+
+    let boxed = row(&rows, "boxed");
+    assert_eq!(
+        boxed.value,
+        BinValue::Optional {
+            present: true,
+            item_kind: PropertyKind::Embedded,
+        }
+    );
+
+    let inside = under(&boxed.path);
+    assert_eq!(inside.len(), 1);
+    assert_eq!(inside[0].name, "[0]");
+    assert_eq!(inside[0].label, "boxed[0]");
 }
 
 #[test]
@@ -838,13 +882,6 @@ fn a_container_and_an_optional_carry_the_kind_of_what_they_hold() {
         BinValue::Container {
             len: 1,
             item_kind: PropertyKind::U8,
-        }
-    );
-    assert_eq!(
-        row(&rows, "maybe").value,
-        BinValue::Optional {
-            present: true,
-            item_kind: PropertyKind::F32,
         }
     );
     assert_eq!(

@@ -173,7 +173,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
       <div
         ref={setToolbar}
         data-ui="EditorSurface:toolbar"
-        className="flex shrink-0 items-center gap-2 px-2 pb-1.5 empty:hidden"
+        className="flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 py-1.5 empty:hidden"
       />
 
       <div data-ui="EditorSurface:documents" className="relative min-h-0 flex-1 overflow-hidden">

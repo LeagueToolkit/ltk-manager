@@ -1,7 +1,15 @@
-import { FileIcon } from "@phosphor-icons/react";
+import {
+  CopyIcon,
+  DotsThreeVerticalIcon,
+  FileIcon,
+  HashIcon,
+  MagnifyingGlassIcon,
+  PathIcon,
+} from "@phosphor-icons/react";
 import { useCallback } from "react";
 
-import { Button, Spinner } from "@/components";
+import { Button, IconButton, Menu, Spinner } from "@/components";
+import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
@@ -9,6 +17,12 @@ import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import type { ContentDocumentOf } from "../documents/contentDocument";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../preview/BinPreview";
+/* The leaf rather than the references barrel, which pulls the document that routes here. */
+import {
+  classReferences,
+  objectReferences,
+  useFindReferences,
+} from "../references/useFindReferences";
 import { clickIntent } from "../state";
 import { Dot } from "./BinDocument";
 import { BinTree } from "./BinTree";
@@ -95,6 +109,7 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
         >
           {m.workshop_bin_show_in_file_action()}
         </Button>
+        <HeaderMenu object={object} />
       </DocumentToolbar>
       <BinTree
         document={handle.document}
@@ -106,5 +121,75 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
         onNotOpen={reopen}
       />
     </div>
+  );
+}
+
+/** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
+function HeaderMenu({ object }: { object: BinObjectHeader }) {
+  const copy = useCopyToClipboard();
+  const findReferences = useFindReferences();
+  const label = m.workshop_bin_object_actions_label();
+  const objectClass = object.class;
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+            aria-label={label}
+            className="h-5 w-5"
+          />
+        }
+      />
+      <Menu.Portal>
+        <Menu.Positioner align="end" sideOffset={4}>
+          <Menu.Popup className="w-56">
+            <Menu.Item
+              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+              onClick={() => findReferences(objectReferences(object.entry, object.name))}
+            >
+              {m.workshop_references_find_object_action()}
+            </Menu.Item>
+            <Menu.Item
+              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+              onClick={() => findReferences(classReferences(object.classHash, object.class))}
+            >
+              {m.workshop_references_find_class_action()}
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item
+              icon={<PathIcon className="h-4 w-4" />}
+              onClick={() => void copy(object.name, m.workshop_bin_path_label())}
+            >
+              {m.workshop_bin_copy_path_action()}
+            </Menu.Item>
+            <Menu.Item
+              icon={<HashIcon className="h-4 w-4" />}
+              onClick={() => void copy(object.entry, m.workshop_bin_hash_label())}
+            >
+              {m.workshop_bin_copy_hash_action()}
+            </Menu.Item>
+            {objectClass !== null && (
+              <Menu.Item
+                icon={<CopyIcon className="h-4 w-4" />}
+                onClick={() => void copy(objectClass, m.workshop_bin_name_label())}
+              >
+                {m.workshop_bin_copy_class_name_action()}
+              </Menu.Item>
+            )}
+            <Menu.Item
+              icon={<HashIcon className="h-4 w-4" />}
+              onClick={() => void copy(object.classHash, m.workshop_bin_hash_label())}
+            >
+              {m.workshop_bin_copy_class_hash_action()}
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   );
 }

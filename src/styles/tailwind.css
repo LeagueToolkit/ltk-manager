@@ -88,6 +88,10 @@
   /* Folder */
   --color-folder: var(--ltk-folder);
   --color-folder-text: var(--ltk-folder-text);
+  --color-bin-class: var(--ltk-bin-class);
+  --color-bin-class-text: var(--ltk-bin-class-text);
+  --color-bin-kind: var(--ltk-bin-kind);
+  --color-bin-kind-text: var(--ltk-bin-kind-text);
 
   /* Void */
   --color-void: var(--ltk-void);
@@ -139,6 +143,8 @@
   --text-meta--line-height: var(--type-meta-leading);
   --text-meta--letter-spacing: var(--type-meta-tracking);
   --text-code: var(--type-code);
+  --text-mono-row: var(--type-mono-row);
+  --text-mono-row--line-height: var(--type-mono-row-leading);
 
   /* Weights */
   --font-weight-normal: var(--weight-normal);

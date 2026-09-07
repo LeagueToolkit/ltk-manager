@@ -1,5 +1,6 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
@@ -18,7 +19,16 @@ import { stirImages } from "../preview/useImageSlot";
 import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
-import { flattenRows, isUnder, pagesWanted, rowKey, toggled, type VisibleRow } from "./binRows";
+import {
+  flattenRows,
+  isUnder,
+  nameColumns,
+  pagesWanted,
+  rowKey,
+  toggled,
+  type VisibleRow,
+} from "./binRows";
+import { rowTag } from "./kindTag";
 import { decideObjectLink } from "./linkDecision";
 import { type ChildrenRequest, useBinChildren } from "./useBinDocument";
 import {
@@ -98,6 +108,10 @@ export function BinTree({
     () => flattenRows(roots, expanded, (key) => loaded.get(key), rootOwner),
     [roots, expanded, loaded, rootOwner],
   );
+
+  /* One width for the whole list, so the values stay in a column while no name elides
+     that could have fitted. */
+  const nameCols = useMemo(() => nameColumns(visible, rowTag), [visible]);
 
   /* The roots and every expanded node's rows, each checked as one group. */
   const groups = useMemo<RowGroup[]>(
@@ -218,7 +232,8 @@ export function BinTree({
               ref={scrollRef}
               role="tree"
               aria-label={label}
-              className="min-h-0 flex-1 overflow-auto px-1 py-1 outline-none scrollbar-md select-none"
+              className="min-h-0 flex-1 overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none"
+              style={{ "--bin-name-cols": nameCols } as CSSProperties}
               onContextMenu={handleContextMenu}
               onScroll={stirImages}
               {...NO_OVERSCROLL}

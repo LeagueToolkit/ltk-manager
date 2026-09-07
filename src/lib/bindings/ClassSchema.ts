@@ -15,6 +15,13 @@ name: string | null,
  */
 build: number, 
 /**
+ * The patch a player names, where the install's own build is what was read.
+ *
+ * Absent where the database describes no build the install has and the newest it
+ * names stood in, because that build belongs to no patch this install knows.
+ */
+patch: string | null, 
+/**
  * The named fields first, by name, and the unnamed after them by hash.
  */
 fields: Array<FieldSchema>, };

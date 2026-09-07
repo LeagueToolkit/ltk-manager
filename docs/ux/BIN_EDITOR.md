@@ -4,6 +4,13 @@
 
 | Date       | Change                                                            |
 | ---------- | ----------------------------------------------------------------- |
+| 2026-09-07 | Measure the name column, and date a card by patch                 |
+| 2026-09-07 | Send a class's fields to the meta wiki                            |
+| 2026-09-07 | Start the value column at one x whatever the depth                |
+| 2026-09-07 | Name an element by its class, and hue a bin's type words          |
+| 2026-09-07 | Draw an optional's leaf on the option's own row                   |
+| 2026-09-07 | Draw a value in the field it will be edited in                    |
+| 2026-09-07 | Read the cards, act from the row menu                             |
 | 2026-09-05 | Open an object as its own tab, tag every row, make a link open    |
 | 2026-09-05 | Record the tables, the stream and the patch reader as landed      |
 | 2026-08-21 | Address a node with the game's own property path                  |
@@ -47,7 +54,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Property paths       | Available   | The game's path syntax, as the address and as Copy path       |
 | Open at object       | Available   | A `$` hit opens the declaring file scrolled to its object     |
 | Type tags            | Available   | Every row's kind after its name, in ritobin's words           |
-| Class cards          | Available   | A class or a field, pinned by a click, from the meta schema   |
+| Class cards          | Available   | A class or a field on hover, from the meta schema             |
 | Object tab           | Available   | One declaration as a document. ADR-0028                       |
 | Object links         | Available   | A chip that opens the object tab, resolved through the index  |
 | Hash links           | Available   | A `hash` the index declares, opening the same way             |
@@ -331,26 +338,39 @@ costs nothing a user can see.
 
 `ltk_meta::property::Kind` is the closed set. Nineteen leaves and eight containers.
 
-| Kind                              | Draws as                                      |
-| --------------------------------- | --------------------------------------------- |
-| `None`                            | The word, dimmed                              |
-| `Bool`, `BitBool`                 | A switch                                      |
-| `I8`..`U64`                       | A number field, clamped to the kind's range   |
-| `F32`                             | A number field                                |
-| `Vector2`, `Vector3`, `Vector4`   | Two to four number fields, labelled           |
-| `Matrix44`                        | A four by four grid, collapsed by default     |
-| `Color`                           | A swatch, and its four channels               |
-| `String`                          | A text field                                  |
-| `Hash`                            | The name the tables give, or the hex          |
-| `WadChunkLink`                    | The chunk's path, as a link                   |
-| `Container`, `UnorderedContainer` | A list, with its length                       |
-| `Struct`, `Embedded`              | A nested block, with its class                |
-| `ObjectLink`                      | The object's path, as a link                  |
-| `Optional`                        | Present or absent, and the value when present |
-| `Map`                             | Key and value pairs, with both kinds named    |
+| Kind                              | Draws as                                    |
+| --------------------------------- | ------------------------------------------- |
+| `None`                            | The word, dimmed                            |
+| `Bool`, `BitBool`                 | A checkbox                                  |
+| `I8`..`U64`                       | A number field, clamped to the kind's range |
+| `F32`                             | A number field                              |
+| `Vector2`, `Vector3`, `Vector4`   | Two to four number fields, labelled         |
+| `Matrix44`                        | A four by four grid, collapsed by default   |
+| `Color`                           | A swatch, and its four channels             |
+| `String`                          | A text field                                |
+| `Hash`                            | The name the tables give, or the hex        |
+| `WadChunkLink`                    | The chunk's path, as a link                 |
+| `Container`, `UnorderedContainer` | A list, with its length                     |
+| `Struct`, `Embedded`              | A nested block, with its class              |
+| `ObjectLink`                      | The object's path, as a link                |
+| `Optional`                        | What it holds, or that it holds nothing     |
+| `Map`                             | Key and value pairs, with both kinds named  |
 
-`BitBool` is a leaf that the format flags as complex. It draws as a switch and nothing about
+`BitBool` is a leaf that the format flags as complex. It draws as a checkbox and nothing about
 it is nested.
+
+Every widget here is drawn before it is editable, and the read-only one is the editable one at
+rest: a number and a string sit in their fields and a bool in its checkbox from the first read,
+so nothing on the row moves when editing lands. A field draws its border at rest rather than
+under the pointer, because a value that only becomes a field on hover reads until then as text
+laid over the row. What a read-only widget does not take is focus, since a document of them
+would otherwise be a tab order thousands of stops long.
+
+**An optional draws what it holds.** It is one value or none, so a leaf inside one takes the
+option's own row rather than a `[0]` under it - a row a reader opens to learn nothing the option
+row had not already said. An optional holding a struct or a container keeps its `[0]`, because
+those rows have to hang off something. The tag stays `option[...]` either way, so the row still
+says it is an option.
 
 **A kind with no widget still has a row.** It shows its name and its kind, says that this
 viewer does not draw it, and offers the file in VS Code. It is never hidden, because a row a
@@ -410,20 +430,30 @@ object opens it expanded, because a collapsed single row is a document that says
 
 ### The property row
 
-A row is a name, a tag and a value, on one line. The name column is fixed and the value column
-takes the rest. A run of rows reads as a column of values rather than a ragged list.
+A row is a name, a tag and a value, on one line. The name column is one width for the whole
+list and the value column takes the rest. A run of rows reads as a column of values rather than a ragged list, which is
+why the indent lives inside the name column rather than beside it - an indent that pushes the
+name along would push every value with it, and a deep row's value would start where a shallow
+one's ended.
+
+**The name column is measured, not fixed.** Every row is set in one mono face, so the width the
+widest name needs is arithmetic over the loaded rows rather than a measurement of the drawn ones:
+the indent in characters, the name, the tag and any class it holds. It is taken over the loaded
+rows rather than the visible ones, so it does not move while a reader scrolls, and it is bounded
+at both ends - a shallow list is not cramped, and one long name cannot push every value off the
+pane.
 
 ```
 │     ├ championSkinName        string   "Justicar Aatrox"           │
 │     ├ ▸ skinMeshProperties    embed    SkinMeshDataProperties      │
 │     ├ ▸ armorMaterial         list[embed]   8 items                │
 │     ├ ▸ tags                  map[hash,string]   3 entries         │
-│     └ [3]                     embed    SkinMeshDataProperties      │
+│     └ [3] SkinMeshDataProperties        17 properties             │
 ```
 
 **The tag is the row's kind, in ritobin's words.** Every row but the object row carries one.
-It sits after the name, the way a type follows a name in code, dim and mono, and the values
-keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
+It sits after the name, the way a type follows a name in code, mono and in the kind hue, and the
+values keep one column. An element row carries its item's kind. A container composes its shape the way the meta wiki
 writes it: `list[embed]`, `map[hash,string]`, `option[f32]`.
 
 | Kind in `ltk_meta`                | Tag                      |
@@ -444,11 +474,17 @@ property type mismatch writes the same words.
 **The tag is the kind in the file.** The meta schema declares a kind for the field at the
 install's build, and the two differ where the Problems rule for a property type fires. A row
 whose file kind differs from the declared kind carries the warning mark the Problems list uses,
-and the tag's tooltip names the declared kind. Every tag's tooltip carries the schema's line for
-the field at this build.
+and that mark's tooltip names the declared kind. The tag itself carries no tooltip, because the
+schema's line for the field is on [the field card](#the-field-card) and one row does not answer
+the same question twice.
 
 A field no table names takes the schema's name where the schema has one. The hex form stays for
 a field neither names.
+
+**An element names its class, not its kind.** A row inside a container is its index and, where
+it holds a struct, the class it holds - the tag is dropped, because the declaring property
+already reads `list[pointer]` and no element of a container is a different kind from its
+siblings. The value column then carries the property count rather than repeating the class.
 
 ### Containers and depth
 
@@ -474,6 +510,31 @@ The document's own row in the tab strip carries what the file is, and follows th
 A `PTCH` bin patches objects rather than declaring them, and the header says so, because the
 same block drawn under different semantics is the kind of thing a user has to be told once.
 Read [A patch bin is read-only](#a-patch-bin-is-read-only) for the rest of what it says.
+
+### The row menu
+
+Every action a row has is on its context menu, and a card holds none - `DS-MENU-SCOPE`. The menu
+belongs to the row rather than to the pointer, so it lists everything the row carries and which
+pixel was clicked never changes what it offers.
+
+| Item                             | On                                        |
+| -------------------------------- | ----------------------------------------- |
+| Open link, Open link beside      | A row whose value resolves to a document  |
+| Open object, Open object beside  | An object row                             |
+| Find all references              | An object row, and a row carrying a class |
+| Reveal in Objects                | An object row                             |
+| Copy path                        | Every row                                 |
+| Copy name                        | A row a table names                       |
+| Copy field hash                  | A property row                            |
+| Copy class name, Copy class hash | A row whose value carries a class         |
+| Copy value                       | A row whose value reads as one string     |
+| Copy value hash                  | A row whose value carries a hash          |
+
+Copy value takes the value as the row draws it: a string, a number, a `flag` as `true` or `false`,
+a colour as `#RRGGBBAA`, a vector or a matrix as its components joined by a comma, and a link as
+its path or its name. A container, a map, a struct and an optional read as no single string, so
+they carry no Copy value. Copy value hash is the hash behind such a link, whether or not a table
+names it.
 
 ## The object tab
 
@@ -514,8 +575,13 @@ rule of one row per leaf.
 | Properties         | The count                                                            |
 | Show in file       | Opens the declaring file's tab, scrolled to the object               |
 | Other declarations | A popover from the index, one row per file, each opening its own tab |
+| Kebab              | The object's and the class's actions, per `DS-GLYPH-ROLE`            |
 
 With the index absent, the other declarations draw a dim "Build the object index" affordance.
+
+The kebab is where the header's actions live, because a header is the one place a name sits with
+no row under it to right-click. It carries Find all references, Copy class name and Copy class
+hash for the class, and Copy path and Copy hash for the object.
 Its click builds the index.
 
 ### How it opens
@@ -588,27 +654,39 @@ other kind carries its kind badge.
 ## Classes
 
 A class name appears on the object block, on the object tab's header, on a `pointer` and an
-`embed` row, and on an objects browser row. Every one of them is the same control.
+`embed` row, on a container's element rows, and on an objects browser row. Every one of them is
+the same control.
+
+It draws in the class hue rather than a neutral rung, `DS-KIND-HUE`, so a name the meta schema
+declares reads apart from the names a modder writes. The kind tag takes the other half of that
+pair, so a row's two type words are told apart by hue the way an editor tells a type from a
+keyword.
 
 ### The class card
 
-The card opens on hover after the tooltip delay, and a click pins it as a popover with its
-actions. `Esc` closes it.
+The card opens on hover after the tooltip delay and closes when the pointer leaves both the name
+and the card. It reads and does nothing else, per `DS-MENU-SCOPE`: it carries no action, and the
+name under it takes no click of its own, so a click there expands the row like a click anywhere
+else on it. The pointer reaches into the card to scroll the field list and to select a hash.
 
 | Shows      | From                                                       |
 | ---------- | ---------------------------------------------------------- |
 | Name, hash | The tables, and the hex where no table names it            |
 | Declares   | How many objects of the install declare it, from the index |
-| Fields     | The schema's fields for this build, each with its kind     |
+| Patch      | The patch the schema answered at, or that it has no line   |
+| Meta wiki  | A link to the class's page, where its fields are written   |
 
-| Action              | Does                                                                       |
-| ------------------- | -------------------------------------------------------------------------- |
-| Find all references | Opens the [References document](PROJECT_EDITOR.md#the-references-document) |
-| Copy name           | The class name                                                             |
-| Copy hash           | The class hash                                                             |
+The class name's actions are on [the row menu](#the-row-menu) where a row carries it, and on the
+object tab's kebab where no row does.
 
-The card carries no link to the meta wiki. The wiki's API addresses a class by name or by hash,
-and the wiki serves no page per class at a URL of its own.
+The card sends the fields to the wiki rather than listing them. `meta-wiki.leaguetoolkit.dev`
+serves a page per class at its lowercased name, and that page carries every property with its
+type, its default and its patch history - more than a card can hold and more than the schema
+snapshot knows. A class no table names has no such URL, so it carries no link.
+
+The link is the one thing a card does that is not reading, and `DS-MENU-SCOPE` allows it: a link
+goes somewhere rather than changing something, and burying the wiki behind a right-click is
+hiding the card's most useful line.
 
 The schema crosses IPC once per class and is held on the frontend for the session. The meta
 schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, read through
@@ -617,8 +695,8 @@ schema ships in the build as the snapshot `pnpm generate:meta-schema` writes, re
 ### The field card
 
 A field name is the same control as a class name: a card on hover after the tooltip delay,
-pinned by a click, closed by `Esc`. The name draws as a chip under the pointer, and a click on
-it leaves the row's expansion where it is.
+closed by leaving it. The name draws under a dotted underline while the pointer is on it, which
+marks the card without making the name a second click target inside the row.
 
 | Shows      | From                                                                 |
 | ---------- | -------------------------------------------------------------------- |
@@ -626,10 +704,7 @@ it leaves the row's expansion where it is.
 | Declared   | The schema's kind for the field at this build                        |
 | Revisions  | The field's kinds across builds, as the schema's revisions hold them |
 
-| Action    | Does           |
-| --------- | -------------- |
-| Copy name | The field name |
-| Copy hash | The field hash |
+Copy name and Copy field hash are on [the row menu](#the-row-menu).
 
 The kind shown on the row stays the file's kind, per [The property row](#the-property-row).
 
@@ -637,8 +712,8 @@ The kind shown on the row stays the file's kind, per [The property row](#the-pro
 
 For a top-level class the index answers at once. Every declaration carrying the class hash is a
 row, grouped by file. An embedded class and an object's incoming links are answers of the walk,
-which the References document describes. Find references sits on every menu an object has, and
-on the class card.
+which the References document describes. Find references sits on every menu an object has, on the
+menu of a row whose value carries a class, and on the object tab's kebab.
 
 ## Special classes
 

@@ -44,13 +44,12 @@ export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
 
   const label = name ?? declared?.path ?? hash;
   if (decision.kind === "text" && kind === "link") return <Hex>{hash}</Hex>;
-  if (decision.kind === "text") return <Text mono={name === null}>{label}</Text>;
-  if (decision.kind === "pending") return <Text mono={name === null}>{label}</Text>;
+  if (decision.kind === "text") return <Text>{label}</Text>;
+  if (decision.kind === "pending") return <Text>{label}</Text>;
   if (decision.kind === "warm") {
     return (
       <LinkChip
         label={label}
-        mono={name === null}
         pending={wanting.has(hash)}
         onOpen={(intent) => wantOpen(hash, intent)}
       />
@@ -60,7 +59,6 @@ export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
   return (
     <LinkChip
       label={label}
-      mono={name === null}
       card={declared && <TargetCard hash={hash} declared={declared} />}
       onOpen={(intent) => open(decision.document, intent)}
     />
@@ -87,13 +85,13 @@ export function FileChip({ hash, path }: FileChipProps) {
   const decision = decideFileLink(path, targets, layer);
 
   if (path === null) return <Hex>{hash}</Hex>;
-  if (decision.kind !== "chip") return <Text mono>{path}</Text>;
+  if (decision.kind !== "chip") return <Text>{path}</Text>;
   const { document } = decision;
   const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} mono onOpen={onOpen} />
+      <LinkChip label={path} onOpen={onOpen} />
       <FileMark asset={document.asset} path={path} layerTitle={layer?.title} onOpen={onOpen} />
       {decision.side !== undefined && (
         <span className="shrink-0 text-meta text-surface-400">{decision.side}</span>
@@ -130,8 +128,6 @@ function FileMark({ asset, path, layerTitle, onOpen }: FileMarkProps) {
 
 interface LinkChipProps {
   label: string;
-  /** The label is a hash or a path rather than a name. */
-  mono: boolean;
   /** The click was taken and the index is building. */
   pending?: boolean;
   /** The hover card. Absent while the target is not resolved. */
@@ -140,7 +136,7 @@ interface LinkChipProps {
 }
 
 /** A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`. */
-export function LinkChip({ label, mono, pending = false, card, onOpen }: LinkChipProps) {
+export function LinkChip({ label, pending = false, card, onOpen }: LinkChipProps) {
   const button = (
     <button
       type="button"
@@ -154,11 +150,7 @@ export function LinkChip({ label, mono, pending = false, card, onOpen }: LinkChi
         onOpen(clickIntent(event));
       }}
     >
-      <Code
-        className={twMerge("hover:bg-surface-veil hover:text-surface-100", !mono && "font-sans")}
-      >
-        {label}
-      </Code>
+      <Code className="hover:bg-surface-veil hover:text-surface-100">{label}</Code>
     </button>
   );
   if (!card) return button;
@@ -205,18 +197,10 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
   );
 }
 
-function Text({ children, mono = false }: { children: ReactNode; mono?: boolean }) {
-  return (
-    <span
-      className={twMerge("truncate text-surface-200 select-text", mono && "font-mono text-code")}
-    >
-      {children}
-    </span>
-  );
+function Text({ children }: { children: ReactNode }) {
+  return <span className="truncate text-surface-200 select-text">{children}</span>;
 }
 
 function Hex({ children }: { children: ReactNode }) {
-  return (
-    <span className="truncate font-mono text-code text-surface-400 select-text">{children}</span>
-  );
+  return <span className="truncate text-surface-400 select-text">{children}</span>;
 }

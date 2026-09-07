@@ -98,12 +98,16 @@ export function EditorTabs({
     <Tabs.Root
       value={activeId}
       onValueChange={(value) => onActivate(String(value))}
-      className={twMerge("h-9 shrink-0 flex-row items-center select-none", className)}
+      className={twMerge(
+        /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
+        "h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        className,
+      )}
     >
       {/* The strip's inset belongs to the scroll container rather than around
           it, so its track runs the full width and ends against the panel's own
           edge instead of stopping short of it. `scroll` rather than `auto`
-          because a track that comes and goes takes its 4px out of this box
+          because a track that comes and goes takes its 6px out of this box
           each time, which walks the tabs up and down as tabs are opened. */}
       <Tabs.List
         ref={listRef}
@@ -290,8 +294,12 @@ const SortableTab = memo(function SortableTab({
       /* Hidden overflow clips the focus rail to the pill's rounded corners, so
          edge to edge means the silhouette's edges rather than past them. The
          bottom pad is the rail's own room, which it otherwise takes out of
-         the gap under the label. */
-      "group/tab relative flex h-7 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
+         the gap under the label.
+
+         The height is what the strip has left to give: 36px less the scroll
+         lane's 6px is 30, so a 24px tab bottom-aligns with the same 6px above
+         it as the lane leaves below. */
+      "group/tab relative flex h-6 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
       /* The open document rises off the strip rather than marking
          itself with a rule: DS-GROUND. */
       active && "bg-surface-800 text-surface-100",

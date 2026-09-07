@@ -7,14 +7,21 @@ import {
 import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { SeverityGlyph, Switch, Tooltip } from "@/components";
+import { Checkbox, Readout, SeverityGlyph, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { AppError, BinRow, BinValue } from "@/lib/tauri";
+import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 
 import { ObjectGlyph } from "../components/ObjectGlyph";
 import type { OpenIntent } from "../palette/types";
 import { clickIntent } from "../state";
-import { canExpand, fieldHash, type RowLine, type VisibleRow } from "./binRows";
+import {
+  canExpand,
+  fieldHash,
+  INDENT,
+  MAX_INDENT_DEPTH,
+  type RowLine,
+  type VisibleRow,
+} from "./binRows";
 import { ClassCard } from "./ClassCard";
 import { DeclaredLine, FieldCard } from "./FieldCard";
 import { rowTag } from "./kindTag";
@@ -23,14 +30,17 @@ import { FileChip, ObjectChip } from "./LinkChip";
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
 
-/** One level of depth, in px. */
-const INDENT = 16;
-
-/** Past this depth the indentation stops and the guides stack. */
-const MAX_INDENT_DEPTH = 8;
-
 const AXES = ["x", "y", "z", "w"] as const;
 const CHANNELS = ["r", "g", "b", "a"] as const;
+
+/** The room a number on its own takes, so a column of rows lines its digits up. */
+const SCALAR_WIDTH = "w-32";
+
+/** One component of a vector or a matrix, which holds a float. */
+const COMPONENT_WIDTH = "w-24";
+
+/** One channel of a colour, which holds a byte. */
+const CHANNEL_WIDTH = "w-14";
 
 interface RowLineProps {
   line: RowLine;
@@ -56,15 +66,13 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       aria-expanded={expandable ? expanded : undefined}
       className={twMerge(
         /* DS-VEIL, DS-RADIUS */
-        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-row transition-colors duration-100 hover:bg-surface-veil",
+        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row transition-colors duration-100 hover:bg-surface-veil",
         expandable && "cursor-pointer",
         focused && "bg-accent-500/15",
       )}
       onClick={() => expandable && onToggle(line.key)}
     >
-      <Guides depth={depth} />
-      <Caret expandable={expandable} expanded={expanded} loading={loading} />
-      <NameCell line={line} />
+      <NameCell line={line} expandable={expandable} expanded={expanded} loading={loading} />
       <ValueCell row={row} />
       {error && (
         <Tooltip content={errorSummary(error)}>
@@ -152,17 +160,29 @@ function Caret({ expandable, expanded, loading }: CaretProps) {
   );
 }
 
-/** The row's name, and its tag after it. "The property row" in docs/ux/BIN_EDITOR.md. */
-function NameCell({ line }: { line: RowLine }) {
-  const { row, owner } = line;
+interface NameCellProps {
+  line: RowLine;
+  expandable: boolean;
+  expanded: boolean;
+  loading: boolean;
+}
+
+/**
+ * The row's name, and its tag after it. "The property row" in docs/ux/BIN_EDITOR.md.
+ *
+ * The indent is inside this cell rather than beside it, so the value column starts at one
+ * x whatever the depth is and a run of rows reads as a column.
+ */
+function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
+  const { row, owner, depth } = line;
   const object = row.node === "object";
   const property = row.node === "property";
-  const mono = row.unnamed || row.node === "element" || row.node === "entry";
+  const element = row.node === "element";
+  const held = element && row.value.type === "struct" ? row.value : null;
   const nameClasses = twMerge(
     "truncate",
     object ? "font-medium text-surface-100" : "text-surface-200",
-    mono && "font-mono text-code",
-    row.node === "element" && "text-surface-400",
+    element && "text-surface-400",
     row.unnamed && "text-surface-300",
   );
 
@@ -170,9 +190,11 @@ function NameCell({ line }: { line: RowLine }) {
     <span
       className={twMerge(
         "flex min-w-0 shrink-0 items-center gap-1.5",
-        object ? "max-w-[60%]" : "w-72",
+        object ? "max-w-[60%]" : "w-[calc(var(--bin-name-cols)*1ch+2rem)]",
       )}
     >
+      <Guides depth={depth} />
+      <Caret expandable={expandable} expanded={expanded} loading={loading} />
       {object && (
         <ObjectGlyph
           objectClass={row.value.type === "struct" ? row.value.class : null}
@@ -190,7 +212,8 @@ function NameCell({ line }: { line: RowLine }) {
         />
       )}
       {!property && <span className={nameClasses}>{row.name}</span>}
-      {!object && <KindTag row={row} />}
+      {held && <ClassCard classHash={held.classHash} name={held.class} />}
+      {!object && !element && <KindTag row={row} />}
     </span>
   );
 }
@@ -204,56 +227,54 @@ function KindTag({ row }: { row: BinRow }) {
   return (
     <span className="flex shrink-0 items-center gap-1">
       {mismatch && (
-        <span role="img" aria-label={m.workshop_bin_mismatch_label()} className="flex">
-          <SeverityGlyph severity="warning" />
-        </span>
-      )}
-      {row.node === "property" && (
         <Tooltip content={<DeclaredLine declared={row.declared} />}>
-          <span className={TAG_CLASSES}>{tag}</span>
+          <span role="img" aria-label={m.workshop_bin_mismatch_label()} className="flex">
+            <SeverityGlyph severity="warning" />
+          </span>
         </Tooltip>
       )}
-      {row.node !== "property" && <span className={TAG_CLASSES}>{tag}</span>}
+      <span className={TAG_CLASSES}>{tag}</span>
     </span>
   );
 }
 
 /* A plain span rather than a component: the tooltip's render prop spreads its handlers
    onto the element it is given. */
-const TAG_CLASSES = "font-mono text-code text-surface-400";
+/* DS-KIND-HUE, DS-TEXT */
+const TAG_CLASSES = "text-bin-kind-text";
 
 function ValueCell({ row }: { row: BinRow }) {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <Value value={row.value} object={row.node === "object"} />
+      <Value value={row.value} node={row.node} />
     </span>
   );
 }
 
 interface ValueProps {
   value: BinValue;
-  /** The row is an object, whose count sits at the trailing edge. */
-  object: boolean;
+  /** Where the row sits, which decides what the name cell already drew. */
+  node: RowNode;
 }
 
-function Value({ value, object }: ValueProps) {
+function Value({ value, node }: ValueProps) {
   switch (value.type) {
     case "none":
       return <Dim>{m.workshop_bin_none_label()}</Dim>;
     case "bool":
-      return <Switch checked={value.value} disabled className="pointer-events-none" />;
+      return <Checkbox size="sm" checked={value.value} readOnly tabIndex={-1} />;
     case "integer":
-      return <Mono>{value.text}</Mono>;
+      return <Readout value={value.text} className={SCALAR_WIDTH} />;
     case "float":
-      return <Mono>{String(value.value)}</Mono>;
+      return <Readout value={String(value.value)} className={SCALAR_WIDTH} />;
     case "vector":
-      return <Components labels={AXES} values={value.values} />;
+      return <Components labels={AXES} values={value.values} width={COMPONENT_WIDTH} />;
     case "matrix":
       return <MatrixValue values={value.values} />;
     case "color":
       return <ColorValue value={value} />;
     case "string":
-      return <Data className="text-surface-100">{value.value}</Data>;
+      return <Readout value={value.value} className="flex-1 text-surface-100" />;
     case "hash":
       return <ObjectChip hash={value.hash} name={value.name} kind="hash" />;
     case "wadChunkLink":
@@ -267,7 +288,7 @@ function Value({ value, object }: ValueProps) {
       if (value.len === 0) return <Dim>{m.workshop_bin_empty_label()}</Dim>;
       return <Dim>{m.workshop_bin_entries_label({ count: value.len })}</Dim>;
     case "struct":
-      return <StructValue value={value} object={object} />;
+      return <StructValue value={value} node={node} />;
     case "null":
       return <Dim>{m.workshop_bin_null_label()}</Dim>;
     case "optional":
@@ -280,14 +301,19 @@ function Value({ value, object }: ValueProps) {
 
 interface StructValueProps {
   value: Extract<BinValue, { type: "struct" }>;
-  object: boolean;
+  node: RowNode;
 }
 
-function StructValue({ value, object }: StructValueProps) {
+function StructValue({ value, node }: StructValueProps) {
+  /* An element names its class beside its index, so the value column would write it twice. */
+  if (node === "element") {
+    return <Dim>{m.workshop_bin_properties_label({ count: value.len })}</Dim>;
+  }
+
   return (
     <>
       <ClassCard classHash={value.classHash} name={value.class} />
-      {object && <span className="ml-auto text-meta text-surface-400">{value.len}</span>}
+      {node === "object" && <span className="ml-auto text-meta text-surface-400">{value.len}</span>}
     </>
   );
 }
@@ -296,16 +322,20 @@ interface ComponentsProps {
   labels: readonly string[];
   /** A component is `null` for a float JSON cannot carry: a NaN or an infinity. */
   values: readonly (number | null)[];
+  /** The room one readout takes, so a column of rows lines up. */
+  width: string;
 }
 
-function Components({ labels, values }: ComponentsProps) {
+function Components({ labels, values, width }: ComponentsProps) {
   return (
-    <span className="flex min-w-0 gap-3">
+    <span className="flex min-w-0 gap-1.5">
       {values.map((component, at) => (
-        <span key={labels[at] ?? at} className="flex items-baseline gap-1">
-          <ComponentLabel>{labels[at]}</ComponentLabel>
-          <Mono>{String(component)}</Mono>
-        </span>
+        <Readout
+          key={labels[at] ?? at}
+          value={String(component)}
+          label={labels[at]}
+          className={width}
+        />
       ))}
     </span>
   );
@@ -314,36 +344,43 @@ function Components({ labels, values }: ComponentsProps) {
 /** Sixteen cells, shut until asked for. A shut matrix is one line like every other row. */
 function MatrixValue({ values }: { values: readonly (number | null)[] }) {
   const [open, setOpen] = useState(false);
+  const label = m.workshop_bin_matrix_label();
+
+  function toggle(event: ReactMouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setOpen((shown) => !shown);
+  }
 
   if (!open) {
     return (
       <button
         type="button"
         className="flex cursor-pointer items-center gap-1 text-surface-400 hover:text-surface-200"
-        onClick={(event) => {
-          event.stopPropagation();
-          setOpen(true);
-        }}
+        onClick={toggle}
       >
         <CaretRightIcon weight="bold" className="h-3 w-3" />
-        <span>{m.workshop_bin_matrix_label()}</span>
+        <span>{label}</span>
       </button>
     );
   }
 
+  /* A cell is a control of its own, which nothing may nest inside a button. */
   return (
-    <button
-      type="button"
-      className="my-1 grid cursor-pointer grid-cols-4 gap-x-3 gap-y-0.5 text-left"
-      onClick={(event) => {
-        event.stopPropagation();
-        setOpen(false);
-      }}
-    >
-      {values.map((cell, at) => (
-        <Mono key={at}>{String(cell)}</Mono>
-      ))}
-    </button>
+    <span className="my-1 flex items-start gap-1">
+      <button
+        type="button"
+        aria-label={label}
+        className="mt-1 flex h-4 w-3 shrink-0 cursor-pointer items-center justify-center text-surface-400 hover:text-surface-200"
+        onClick={toggle}
+      >
+        <CaretRightIcon weight="bold" className="h-3 w-3 rotate-90" />
+      </button>
+      <span className="grid grid-cols-4 gap-x-1 gap-y-0.5">
+        {values.map((cell, at) => (
+          <Readout key={at} value={String(cell)} className={COMPONENT_WIDTH} />
+        ))}
+      </span>
+    </span>
   );
 }
 
@@ -357,27 +394,11 @@ function ColorValue({ value }: { value: Extract<BinValue, { type: "color" }> }) 
         style={{ backgroundColor: `rgba(${r}, ${g}, ${b}, ${a / 255})` }}
         aria-hidden
       />
-      <Components labels={CHANNELS} values={[r, g, b, a]} />
+      <Components labels={CHANNELS} values={[r, g, b, a]} width={CHANNEL_WIDTH} />
     </span>
   );
 }
 
 function Dim({ children }: { children: ReactNode }) {
   return <span className="text-surface-400">{children}</span>;
-}
-
-function ComponentLabel({ children }: { children: ReactNode }) {
-  return <span className="shrink-0 text-meta text-surface-400">{children}</span>;
-}
-
-function Data({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span className={twMerge("truncate text-surface-200 select-text", className)}>{children}</span>
-  );
-}
-
-function Mono({ children }: { children: ReactNode }) {
-  return (
-    <span className="truncate font-mono text-code text-surface-200 select-text">{children}</span>
-  );
 }

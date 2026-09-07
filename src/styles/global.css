@@ -61,6 +61,12 @@
   --ltk-folder: #dcb67a;
   --ltk-folder-text: var(--ltk-folder);
 
+  /* The type vocabulary of a bin: a class, and a kind in ritobin's words. */
+  --ltk-bin-class: #45e3bd;
+  --ltk-bin-kind: #569cd6;
+  --ltk-bin-class-text: var(--ltk-bin-class);
+  --ltk-bin-kind-text: var(--ltk-bin-kind);
+
   /* Void hue for skinhack detection. */
   --ltk-void: #c084fc;
   --ltk-void-text: var(--ltk-void);
@@ -81,6 +87,8 @@
   --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
   --ltk-doc-problems-text: color-mix(in srgb, var(--ltk-doc-problems) 50%, black);
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
+  --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
+  --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
 }
 
@@ -299,6 +307,10 @@
   --type-meta: 0.6875rem;
   --type-meta-leading: 0.875rem;
   --type-meta-tracking: 0.01em;
+
+  /* The tier a row set entirely in mono names itself in. */
+  --type-mono-row: 0.8125rem;
+  --type-mono-row-leading: 1.125rem;
 
   /* Mono needs no size correction: font-size-adjust has already given it the
      same x-height as the sans it sits beside. */
