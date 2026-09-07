@@ -43,6 +43,74 @@ export function canExpand(row: BinRow): boolean {
   return holdsChildren(row.value);
 }
 
+/** How many rows sit under `row`, which is what reading it costs. */
+export function childCount(row: BinRow): number {
+  const { value } = row;
+  switch (value.type) {
+    case "struct":
+    case "container":
+    case "map":
+      return value.len;
+    case "optional":
+      return value.present ? 1 : 0;
+    default:
+      return 0;
+  }
+}
+
+/**
+ * Every key on the way down to `key`, the object's own first and `key` itself last.
+ *
+ * A reveal opens each of them, so a row nested under a container is on screen once
+ * every level has answered. A path this cannot read answers what it reached.
+ */
+export function ancestorKeys(key: string): string[] {
+  const [entry, path] = splitKey(key);
+  const keys = [`${entry}:`];
+  let at = 0;
+  while (at < path.length) {
+    const end = segmentEnd(path, at);
+    if (end === null) break;
+    at = end;
+    keys.push(`${entry}:${path.slice(0, at)}`);
+  }
+  if (keys.at(-1) !== key) keys.push(key);
+  return keys;
+}
+
+/** Where the segment starting at `at` ends, or null for a path this cannot read. */
+function segmentEnd(path: string, at: number): number | null {
+  if (path[at] === "[") {
+    const close = path.indexOf("]", at);
+    return close < 0 ? null : close + 1;
+  }
+  if (path[at] === "{") return keyEnd(path, at + 1);
+
+  /* A field is eight hex digits, and every one but the first opens with a dot. */
+  const start = path[at] === "." ? at + 1 : at;
+  return start + 8 <= path.length ? start + 8 : null;
+}
+
+/** Where the map key starting at `at` ends, quoted or bare, as the backend writes one. */
+function keyEnd(path: string, at: number): number | null {
+  if (path[at] !== '"') {
+    const close = path.indexOf("}", at);
+    return close < 0 ? null : close + 1;
+  }
+  let escaped = false;
+  for (let scan = at + 1; scan < path.length; scan += 1) {
+    if (path[scan] === "\\" && !escaped) {
+      escaped = true;
+      continue;
+    }
+    if (path[scan] === '"' && !escaped) {
+      return path[scan + 1] === "}" ? scan + 2 : null;
+    }
+    escaped = false;
+  }
+  return null;
+}
+
 /** The class the rows under `row` are properties of. Null under a container, a map and a leaf. */
 function ownerOf(row: BinRow): string | null {
   return row.value.type === "struct" ? row.value.classHash : null;

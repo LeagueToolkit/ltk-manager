@@ -16,14 +16,23 @@ export interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   /** A control for the whole group, seated in the track behind a divider. */
   action?: ReactNode;
+  /** The track's height, which is the height of the controls it sits beside. */
+  size?: "sm" | "xs";
+  /** The group's accessible name, where the options alone do not say what is chosen. */
+  "aria-label"?: string;
   className?: string;
 }
 
+const trackClass = {
+  sm: "h-8",
+  xs: "h-7",
+} as const satisfies Record<NonNullable<SegmentedControlProps<string>["size"]>, string>;
+
 const activeSegmentClass = "bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
 
-/* The track sets the height rather than the segments, so the border sits inside a
-   36px box like every other control in a toolbar row. Segments take h-full to
-   drop the size class that would otherwise stop them stretching. */
+/* The track sets the height rather than the segments, so the border sits inside the
+   box every other control in the row sits in. Segments take h-full to drop the size
+   class that would otherwise stop them stretching. */
 const segmentClass = "h-full rounded-none";
 
 /* Set from the track so the action, whose markup this component does not own, is covered:
@@ -36,22 +45,26 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   action,
+  size = "sm",
+  "aria-label": ariaLabel,
   className,
 }: SegmentedControlProps<T>) {
   return (
     <div
       className={twMerge(
-        "inline-flex h-8 items-stretch overflow-hidden rounded-md border border-surface-600 bg-transparent",
+        "inline-flex items-stretch overflow-hidden rounded-md border border-surface-600 bg-transparent",
+        trackClass[size],
         trackCornerClass,
         className,
       )}
       role="group"
+      aria-label={ariaLabel}
     >
       {options.map((option) => (
         <Button
           key={option.value}
           variant="ghost"
-          size="sm"
+          size={size}
           compact
           aria-pressed={option.value === value}
           aria-label={option.name}

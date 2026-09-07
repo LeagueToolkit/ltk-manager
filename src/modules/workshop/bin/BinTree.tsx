@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { twMerge } from "tailwind-merge";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
@@ -20,6 +21,7 @@ import { useOpenDocumentAs } from "../state";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
 import {
+  ancestorKeys,
   flattenRows,
   isUnder,
   nameColumns,
@@ -60,6 +62,13 @@ interface BinTreeProps {
   label: string;
   /** The keys open at mount. */
   initialExpanded?: readonly string[];
+  /**
+   * The most rows the scroller shows before it scrolls.
+   *
+   * Unset, the tree fills its parent, which is what a whole pane of rows wants. A
+   * class view's section sets one, so a section of three rows is three rows tall.
+   */
+  maxRows?: number;
   reveal?: TreeReveal | null;
   /** The name of the object an entry hash addresses, for the path a row copies. */
   objectName: (entry: string) => string;
@@ -85,6 +94,7 @@ export function BinTree({
   rootOwner,
   label,
   initialExpanded = NO_KEYS,
+  maxRows,
   reveal = null,
   objectName,
   onNotOpen,
@@ -209,10 +219,15 @@ export function BinTree({
     }
   }, [virtualItems, visible, requestMore]);
 
-  /* A request for a row that is not a root is left alone. */
+  /* Every level down to the row opens, so a nested key is on screen once each of them
+     answers. A request for a row this tree does not hold is left alone. */
   useEffect(() => {
-    if (reveal === null || !roots.some((row) => rowKey(row) === reveal.key)) return;
-    setExpanded((current) => (current.has(reveal.key) ? current : toggled(current, reveal.key)));
+    if (reveal === null) return;
+    const ancestors = ancestorKeys(reveal.key).filter((key) =>
+      roots.some((row) => isUnder(rowKey(row), key)),
+    );
+    if (ancestors.length === 0) return;
+    setExpanded((current) => new Set([...current, ...ancestors]));
     setFocused(reveal.key);
     setScrollTo(reveal);
   }, [reveal, roots]);
@@ -245,8 +260,16 @@ export function BinTree({
                 ref={scrollRef}
                 role="tree"
                 aria-label={label}
-                className="min-h-0 flex-1 overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none"
-                style={{ "--bin-name-cols": nameCols } as CSSProperties}
+                className={twMerge(
+                  "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
+                  maxRows === undefined && "min-h-0 flex-1",
+                )}
+                style={
+                  {
+                    "--bin-name-cols": nameCols,
+                    maxHeight: maxRows === undefined ? undefined : zoomed(ROW_HEIGHT) * maxRows + 8,
+                  } as CSSProperties
+                }
                 onContextMenu={handleContextMenu}
                 onScroll={stirImages}
                 {...NO_OVERSCROLL}

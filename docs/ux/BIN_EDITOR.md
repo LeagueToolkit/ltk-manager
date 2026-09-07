@@ -2,20 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                         |
-| ---------- | -------------------------------------------------------------- |
-| 2026-09-07 | Read several nodes in one call, and draw a value family        |
-| 2026-09-07 | Link a string that names a thing                               |
-| 2026-09-07 | Decide the class views                                         |
-| 2026-09-07 | Measure the name column, and date a card by patch              |
-| 2026-09-07 | Send a class's fields to the meta wiki                         |
-| 2026-09-07 | Start the value column at one x whatever the depth             |
-| 2026-09-07 | Name an element by its class, and hue a bin's type words       |
-| 2026-09-07 | Draw an optional's leaf on the option's own row                |
-| 2026-09-07 | Draw a value in the field it will be edited in                 |
-| 2026-09-07 | Read the cards, act from the row menu                          |
-| 2026-09-05 | Open an object as its own tab, tag every row, make a link open |
-| 2026-09-05 | Record the tables, the stream and the patch reader as landed   |
+| Date       | Change                                                   |
+| ---------- | -------------------------------------------------------- |
+| 2026-09-07 | Lay a material out beside the tree                       |
+| 2026-09-07 | Read several nodes in one call, and draw a value family  |
+| 2026-09-07 | Link a string that names a thing                         |
+| 2026-09-07 | Decide the class views                                   |
+| 2026-09-07 | Measure the name column, and date a card by patch        |
+| 2026-09-07 | Send a class's fields to the meta wiki                   |
+| 2026-09-07 | Start the value column at one x whatever the depth       |
+| 2026-09-07 | Name an element by its class, and hue a bin's type words |
+| 2026-09-07 | Draw an optional's leaf on the option's own row          |
+| 2026-09-07 | Draw a value in the field it will be edited in           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -64,7 +62,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Find all references  | In progress | The objects of a class from the index. The walk for the rest     |
 | String links         | Available   | A string naming a chunk or an object, as the chip its kind draws |
 | Value rows           | Available   | A `ValueColor`'s swatch and gradient on its collapsed row        |
-| Class views          | Planned     | A complete layout beside Properties, keyed on class. ADR-0030    |
+| Class views          | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
 | In-document search   | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing         | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing    | Proposed    | Add, remove, reorder, and a `Map` key                            |
@@ -816,21 +814,28 @@ choice holds while the tab is open and resets when it closes. A class with no la
 control.
 
 ```
-+-------------------------------------------------------------------------------+
-| StaticMaterialDef . 14 properties   [ Material | Properties ]  Show in file  [:]  |
-+-------------------------------------------------------------------------------+
-| Samplers                                                                      |
-|  +----+                                                                       |
-|  |    |  Diffuse_Texture                                                      |
-|  |    |  ASSETS/.../ezreal_base_tx_cm.dds            wrap  wrap    linear     |
-|  +----+                                                                       |
-| Params                                                                        |
-|  Fresnel_Power        4.00      0.00      0.00      0.00                      |
-| Switches                                                                      |
-|  [x] USE_EMISSIVE     [ ] USE_FRESNEL                                         |
-| Other                                                                         |
-|  > shaderMacros              map[string,string]   3                           |
-+-------------------------------------------------------------------------------+
++-----------------------------------------------------------------------------------+
+| StaticMaterialDef . 9 properties   [ Material | Properties ]   Show in file   [:] |
++-----------------------------------------------------------------------------------+
+| v IDENTITY                                                                        |
+|   name                Ezreal_Base_Mat                                             |
+| v SAMPLERS                                                                        |
+|   +----+                                                                          |
+|   |    |  Diffuse_Texture                                                         |
+|   |    |  ASSETS/.../ezreal_base_tx_cm.dds    U 0   V 0   W 0   Mag 1   Min 1     |
+|   +----+                                                                          |
+| v PARAMS                                                                          |
+|   Fresnel_Power       x 4.00   y 0.00   z 0.00   w 0.00                           |
+| v SWITCHES                                                                        |
+|   [x] USE_EMISSIVE                                                                |
+|   [ ] USE_FRESNEL                                                                 |
+| v MACROS                                                                          |
+|   v shaderMacros      map[string,string]   3                                      |
+| v TECHNIQUES                                                                      |
+|   v techniques        list[embed]   2                                             |
+| v OTHER                                                                           |
+|   > childTechniques   list[embed]   1                                             |
++-----------------------------------------------------------------------------------+
 ```
 
 The file tab keeps its blocks. A layout is the object tab's, per ADR-0028.
@@ -847,20 +852,31 @@ A section whose list is empty keeps its header and draws a muted None under it, 
 tells an empty list from a field the class lacks, and every object of one class has one section
 order. Sections collapse, and open by default.
 
+A section the tree draws opens the fields the layout named for it, and a reader sees one level
+of each without a click. Other opens none of its own, as in Properties. A tree section scrolls at
+twelve rows, so no one section owns the page.
+
 ### The registry
 
 A layout is data, keyed on the class hash, with each subclass listed by hand because the schema
 carries no inheritance. It names its fields by name, and a frontend FNV-1a turns each into the
 row's hash at module load, checked by a test over known pairs.
 
+A section names one widget or none. `sampler-table`, `param-table` and `switch-list` each read
+the fields of one class. `tree` is [the tree](#the-blocks) rooted at the section's own fields,
+which is what a nested structure with no table shape takes. A section that names no widget draws
+each of its fields in the cell that row would draw.
+
 ```ts
 export const materialLayout: ClassLayout = {
   title: m.workshop_bin_layout_material,
   sections: [
+    { title: m.workshop_bin_section_identity, fields: ["name", "type"] },
     { title: m.workshop_bin_section_samplers, fields: ["samplerValues"], as: "sampler-table" },
     { title: m.workshop_bin_section_params, fields: ["paramValues"], as: "param-table" },
     { title: m.workshop_bin_section_switches, fields: ["switches"], as: "switch-list" },
-    { title: m.workshop_bin_section_techniques, fields: ["techniques"], as: "technique-tree" },
+    { title: m.workshop_bin_section_macros, fields: ["shaderMacros"], as: "tree" },
+    { title: m.workshop_bin_section_techniques, fields: ["techniques"], as: "tree" },
   ],
 };
 ```
@@ -873,6 +889,10 @@ Every cell is a path and a value, the pair a row carries, drawn in the widget th
 a field, a checkbox, a chip, a swatch. When leaf editing lands, a cell edits through the patch a
 row would send, and a layout never holds state of its own.
 
+A cell carries the key of the row it draws rather than of the element it sits in. The menu over
+a sampler's path is that path's, and Show in properties from it reveals
+`samplerValues[0].texturePath`.
+
 A cell's context menu is [the row menu](#the-row-menu), plus Show in properties, which switches
 the mode and reveals the row in the tree, expanding the ancestors of a nested key. A layout has
 no keyboard model of its own until editing gives it one, and its read-only fields take no focus,
@@ -882,25 +902,34 @@ per [The value kinds](#the-value-kinds).
 
 The depth-zero rows arrive with the open. A nested row arrives through
 [the projected read](#the-projected-read), one call per level with the paths of a section
-batched under the call's cap. A material reads its samplers, params, switches and techniques in
-two calls, and a system of thirty emitters reads ten fields of each in two.
+batched under the call's cap. A table section costs two levels, the containers the layout placed
+and then the elements of each, and every table section of one layout shares those two calls. A
+tree section reads nothing until a reader expands it. A material's macros and techniques take
+the tree, which holds the whole material at two calls whatever its techniques nest to.
 
 A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
 `string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
 same, and a path neither side holds draws as text. In the sampler table the swatch is a 48px
 tile, because the textures are what the view is opened for.
 
+A sampler's address and filter modes draw as the numbers they hold, each under its own field's
+letter: `U`, `V`, `W`, `Mag`, `Min`. The meta schema declares them `u32` and names no constants.
+A word for each number is a table of its own.
+
+A table draws the fields it names and no others. A sampler element's `uncensoredTextures` is
+reachable through Properties, which is the whole object.
+
 ### The layouts
 
 | Class                                               | Sections                                                                                    |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `StaticMaterialDef`                                 | Identity, Samplers as tiles, Params, Switches, Macros, Techniques as a nested tree, Other   |
+| `StaticMaterialDef`                                 | Identity, Samplers as tiles, Params, Switches, Macros and Techniques as nested trees, Other |
 | `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other |
 | `VfxSystemDefinitionData`                           | Identity, Emitters as a table with a row per emitter, Audio, Other                          |
 | `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                         |
 
-The material layout ships first, with the value rows beside it. Skin and VFX follow in that
-order, and the animation graph table after them.
+`StaticMaterialDef` is the registered layout, with the value rows beside it. Skin and VFX follow
+in that order, and the animation graph table after them.
 
 A layout draws no Used by. Reverse references are the walk's, and Find all references on the
 kebab is the affordance until it ships. The preview slot on the skin layout waits on a renderer,

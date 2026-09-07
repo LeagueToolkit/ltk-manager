@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { AppError, BinRow } from "@/lib/tauri";
 
 import {
+  ancestorKeys,
   canExpand,
+  childCount,
   fieldHash,
   flattenRows,
   isUnder,
@@ -249,5 +251,65 @@ describe("isUnder", () => {
     expect(isUnder("0x1:aaaaaaaa[3]", "0x1:aaaaaaaa[3].bbbbbbbb")).toBe(true);
     expect(isUnder("0x1:aaaaaaaa[3]", "0x1:aaaaaaaa[30]")).toBe(false);
     expect(isUnder("0x1:aaaaaaaa", "0x2:aaaaaaaa")).toBe(false);
+  });
+});
+
+describe("childCount", () => {
+  it("counts what sits under a container, a map, a struct and an option", () => {
+    expect(childCount(row({ value: { type: "container", len: 8, itemKind: "embed" } }))).toBe(8);
+    expect(
+      childCount(row({ value: { type: "map", len: 2, keyKind: "hash", valueKind: "string" } })),
+    ).toBe(2);
+    expect(
+      childCount(row({ value: { type: "struct", classHash: "0x1", class: null, len: 3 } })),
+    ).toBe(3);
+    expect(childCount(row({ value: { type: "optional", present: true, itemKind: "f32" } }))).toBe(
+      1,
+    );
+    expect(childCount(row({ value: { type: "optional", present: false, itemKind: "f32" } }))).toBe(
+      0,
+    );
+  });
+
+  it("counts nothing under a leaf", () => {
+    expect(childCount(row({ value: { type: "float", value: 1 } }))).toBe(0);
+  });
+});
+
+describe("ancestorKeys", () => {
+  it("walks a field path down to the row, the object's own key first", () => {
+    expect(ancestorKeys(`${ENTRY}:0000000a[3].0000000b`)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000a`,
+      `${ENTRY}:0000000a[3]`,
+      `${ENTRY}:0000000a[3].0000000b`,
+    ]);
+  });
+
+  it("answers the object's own key for the object itself", () => {
+    expect(ancestorKeys(`${ENTRY}:`)).toEqual([`${ENTRY}:`]);
+  });
+
+  it("walks a map key, bare and quoted, as one segment", () => {
+    expect(ancestorKeys(`${ENTRY}:0000000a{7}.0000000b`)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000a`,
+      `${ENTRY}:0000000a{7}`,
+      `${ENTRY}:0000000a{7}.0000000b`,
+    ]);
+    expect(ancestorKeys(`${ENTRY}:0000000a{"we}ird"}`)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000a`,
+      `${ENTRY}:0000000a{"we}ird"}`,
+    ]);
+  });
+
+  /* Every ancestor opens, so a reveal of a row nobody can reach still opens what it can. */
+  it("answers what it reached for a path it cannot read, the key itself last", () => {
+    expect(ancestorKeys(`${ENTRY}:0000000a[3`)).toEqual([
+      `${ENTRY}:`,
+      `${ENTRY}:0000000a`,
+      `${ENTRY}:0000000a[3`,
+    ]);
   });
 });

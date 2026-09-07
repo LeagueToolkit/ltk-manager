@@ -36,6 +36,8 @@ interface BinContextMenuProps {
   objectName: (entry: string) => string;
   /** Open the object a row declares. Absent where no row is an object. */
   onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
+  /** Switch the tab to Properties and reveal the row there. Absent outside a class view. */
+  onShowInProperties?: (key: string) => void;
 }
 
 /**
@@ -46,7 +48,12 @@ interface BinContextMenuProps {
  * address of ADR-0027 as a person reads it: the object's path and the property path joined
  * on a colon, and the object's path alone for an object row.
  */
-export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMenuProps) {
+export function BinContextMenu({
+  line,
+  objectName,
+  onOpenObject,
+  onShowInProperties,
+}: BinContextMenuProps) {
   const copy = useCopyToClipboard();
   const open = useOpenDocumentAs();
   const revealInObjects = useRevealInObjects();
@@ -57,7 +64,8 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
   const row = line?.kind === "row" ? line.row : null;
   const layer = useLayerCopy(layerPath(row?.value ?? null));
 
-  if (row === null) return null;
+  if (row === null || line?.kind !== "row") return null;
+  const showInProperties = onShowInProperties;
   const object = row.node === "object";
   const property = row.node === "property";
   const path = object ? row.name : `${objectName(row.entry)}:${row.label}`;
@@ -124,7 +132,15 @@ export function BinContextMenu({ line, objectName, onOpenObject }: BinContextMen
               {m.workshop_references_find_class_action()}
             </ContextMenu.Item>
           )}
-          {(object || struct !== null) && <ContextMenu.Separator />}
+          {showInProperties && (
+            <ContextMenu.Item
+              icon={<TreeStructureIcon />}
+              onClick={() => showInProperties(line.key)}
+            >
+              {m.workshop_bin_show_in_properties_action()}
+            </ContextMenu.Item>
+          )}
+          {(object || struct !== null || showInProperties) && <ContextMenu.Separator />}
           <ContextMenu.Item
             icon={<PathIcon />}
             onClick={() => void copy(path, m.workshop_bin_path_label())}

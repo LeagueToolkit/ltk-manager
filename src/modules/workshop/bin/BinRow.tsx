@@ -77,7 +77,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       onClick={() => expandable && onToggle(line.key)}
     >
       <NameCell line={line} expandable={expandable} expanded={expanded} loading={loading} />
-      <ValueCell row={row} />
+      <RowValue row={row} />
       {error && (
         <Tooltip content={errorSummary(error)}>
           <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />
@@ -247,7 +247,11 @@ function KindTag({ row }: { row: BinRow }) {
 /* DS-KIND-HUE, DS-TEXT */
 const TAG_CLASSES = "text-bin-kind-text";
 
-function ValueCell({ row }: { row: BinRow }) {
+/**
+ * The cell a row's value draws, which is what a class view places where its layout
+ * names no widget of its own.
+ */
+export function RowValue({ row }: { row: BinRow }) {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <Value value={row.value} node={row.node} rowKey={rowKey(row)} />
