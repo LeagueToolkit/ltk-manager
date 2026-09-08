@@ -7,7 +7,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
-import { type ReactNode, useEffect } from "react";
+import { lazy, type ReactNode, Suspense, useEffect } from "react";
 
 import { Button, IconButton, Progress, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
@@ -25,7 +25,6 @@ import {
   usePatcherStatus,
   useRebuildOverlayAction,
 } from "@/modules/patcher";
-import { useSessionProjectNames } from "@/modules/workshop";
 import {
   type LeagueSession,
   type PatcherFailure,
@@ -166,11 +165,31 @@ function Middot() {
   );
 }
 
-function Pill({ children }: { children: React.ReactNode }) {
+/* Workshop resolves a path the session carries to the name the reader gave the
+   project, and is the largest module in the app. Dynamic, so an idle bar draws
+   without it. */
+const SessionProjectNames = lazy(() =>
+  import("@/modules/workshop").then((m) => ({ default: m.SessionProjectNames })),
+);
+
+/** What the session is testing, once workshop has answered with the names. */
+function TestingPill({ className }: { className?: string }) {
   return (
-    <span className="rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400">
-      {children}
-    </span>
+    <Suspense fallback={null}>
+      <SessionProjectNames>
+        {(names) => {
+          const label = describeTestingProjects(names);
+          if (!label) return null;
+          return (
+            <span
+              className={`rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400 ${className ?? ""}`}
+            >
+              {label}
+            </span>
+          );
+        }}
+      </SessionProjectNames>
+    </Suspense>
   );
 }
 
@@ -366,7 +385,6 @@ export function SessionBar() {
   const { data: availability } = useLaunchAvailability();
   const playStep = usePlaySessionStore((s) => s.step);
   const session = usePlaySessionStore((s) => s.session);
-  const sessionProjects = useSessionProjectNames();
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const incident = useIncidentLineStore((s) => s.incident);
   const failure = usePatcherFailureStore((s) => s.failure);
@@ -378,7 +396,6 @@ export function SessionBar() {
   const phase = patcherStatus?.phase ?? "idle";
   const isBuilding = phase === "building";
   const patcherUp = phase === "patching";
-  const testLabel = describeTestingProjects(sessionProjects);
 
   // A build that starts is the user trying again, and the start that failed
   // before it is history.
@@ -441,7 +458,7 @@ export function SessionBar() {
         <span className="font-medium text-success-text">In game</span>
         <span className="text-surface-400">{inGameHint(patcherUp)}</span>
         <span className="ml-auto flex items-center gap-2">
-          {testLabel && <Pill>{testLabel}</Pill>}
+          <TestingPill />
           {session.version && (
             <Tooltip content="Content release the Riot Client reports for this session. It changes when the game patches, which is what usually breaks a mod.">
               <span className="font-mono text-xs text-surface-500 select-text">
@@ -463,11 +480,7 @@ export function SessionBar() {
         <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
         <span className="font-medium text-success-text">Patcher running</span>
         <span className="text-surface-400">Your mods will be applied when League starts.</span>
-        {testLabel && (
-          <span className="ml-auto">
-            <Pill>{testLabel}</Pill>
-          </span>
-        )}
+        <TestingPill className="ml-auto" />
       </RestingLine>
     );
   }
@@ -539,7 +552,7 @@ export function SessionBar() {
               </span>
             </div>
           ))}
-          {testLabel && <Pill>{testLabel}</Pill>}
+          <TestingPill />
         </div>
 
         <div className="mt-1 flex items-center gap-3">

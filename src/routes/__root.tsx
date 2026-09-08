@@ -1,7 +1,7 @@
 import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
@@ -19,7 +19,7 @@ import {
   WEIGHT_TIERS,
 } from "@/lib/fonts";
 import type { OpenOn } from "@/lib/tauri";
-import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
+import { ProtocolInstallDialogLazy, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import {
   InstallMismatchDialog,
@@ -41,10 +41,15 @@ import {
   useClearTestingProjectsOnIdle,
 } from "@/modules/patcher";
 import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
-import { DevConsole, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
-import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
-import { useObjectIndexLifecycle } from "@/modules/workshop";
-import { useDisplayStore, useUpdaterUpdate } from "@/stores";
+import { DevConsoleLazy, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
+import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
+import { useDisplayStore, useSearchObjects, useUpdaterUpdate } from "@/stores";
+
+/* Workshop is the largest module and the root mounts one lifecycle of it, so
+   the import is dynamic and the bin editor stays off the boot path. */
+const ObjectIndexLifecycle = lazy(() =>
+  import("@/modules/workshop").then((m) => ({ default: m.ObjectIndexLifecycle })),
+);
 
 /** Where `Open on` sends a reader who arrives at `/`. Home is `/` itself. */
 const LANDING_ROUTES: Partial<Record<OpenOn, "/mods" | "/workshop">> = {
@@ -92,9 +97,16 @@ function RootLayout() {
   useCleanGameWatch();
   useLeagueSession();
   useInstallMismatchWatch();
-  useObjectIndexLifecycle();
   useOverscrollSpring();
   useZoomHotkeys();
+
+  /* Mounted for the rest of the session once the switch has been on, since the
+     lifecycle drops the index when it goes off and cannot do that unmounted. */
+  const searchObjects = useSearchObjects();
+  const [tracksObjectIndex, setTracksObjectIndex] = useState(searchObjects);
+  useEffect(() => {
+    if (searchObjects) setTracksObjectIndex(true);
+  }, [searchObjects]);
 
   const update = useUpdaterUpdate();
   const { data: settings } = useSettings();
@@ -207,20 +219,26 @@ function RootLayout() {
     <div className="root flex h-screen flex-col bg-surface-950">
       <TitleBar appInfo={appInfo} />
       <main className="relative flex-1 overflow-hidden">
-        <UpdateNotification />
+        <Suspense fallback={null}>
+          <UpdateNotificationLazy />
+        </Suspense>
         <div className="h-full">
           <Outlet />
         </div>
       </main>
       <SessionBar />
       <PatcherEventListeners />
-      <ProtocolInstallDialog />
       <LibraryMigrationDialog />
       <ModHealthSweepListener />
       <WadScanFailedDialog />
       <InstallMismatchDialog />
       <LinkedBinWarningDialog />
-      {import.meta.env.DEV && <DevConsole />}
+      <Suspense fallback={null}>
+        <ProtocolInstallDialogLazy />
+        {import.meta.env.DEV && <DevConsoleLazy />}
+      </Suspense>
+      {/* Its own boundary: the workshop chunk is the slowest of these to arrive. */}
+      <Suspense fallback={null}>{tracksObjectIndex && <ObjectIndexLifecycle />}</Suspense>
     </div>
   );
 }

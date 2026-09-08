@@ -2,4 +2,4 @@ export { ChangelogContent } from "./ChangelogContent";
 export { ReleaseHistory } from "./ReleaseHistory";
 export { ReleaseSection } from "./ReleaseSection";
 export { UpdateChangelogDialog } from "./UpdateChangelogDialog";
-export { UpdateNotification } from "./UpdateNotification";
+export { UpdateNotificationLazy } from "./UpdateNotificationLazy";
