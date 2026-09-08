@@ -1,32 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type AssetInfo, type AssetRef } from "@/lib/tauri";
-import { queryFnWithArgs } from "@/utils/query";
+import type { AssetRef } from "@/lib/tauri";
 
-import { assetKey } from "./assetRef";
+import { previewQueries } from "./queries";
 
-export const previewKeys = {
-  info: (asset: AssetRef) => ["asset-info", assetKey(asset)] as const,
-};
+export { previewKeys } from "./queries";
 
 /**
  * What an asset holds, beside the image the protocol draws.
- *
- * The two are separate requests on purpose. An `<img>` reports its pixel
- * dimensions and nothing else, so the container, the block format and the
- * mipmap count come over IPC while the pixels come over the protocol.
  *
  * `enabled` false leaves the request unsent. A caller that reads the kind off
  * the name asks the bytes only for a name that has no extension.
  */
 export function useAssetInfo(asset: AssetRef, enabled = true) {
-  return useQuery<AssetInfo, AppError>({
-    queryKey: previewKeys.info(asset),
-    queryFn: queryFnWithArgs(api.readAssetInfo, asset),
-    enabled,
-    /* A game chunk cannot change under a session, and a layer file that does
-       is refetched by the tree that noticed. */
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
+  return useQuery({ ...previewQueries.assetInfo(asset), enabled });
 }

@@ -24,7 +24,7 @@ interface SuspectBadgeProps {
  * incident, disables the mod, or a newer game runs clean.
  */
 export function SuspectBadge({ modId, projectPath, enabled = true }: SuspectBadgeProps) {
-  const { latest } = useLatestIncident();
+  const latest = useLatestIncident();
   const answeredId = useIncidentLineStore((s) => s.answeredIncidentId);
   const navigate = useNavigate();
 

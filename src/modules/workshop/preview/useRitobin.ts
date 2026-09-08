@@ -3,25 +3,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type AppError, type AssetRef } from "@/lib/tauri";
-import { queryFn, unwrapForQuery } from "@/utils/query";
+import { unwrapForQuery } from "@/utils/query";
 
-export const ritobinKeys = {
-  integration: () => ["ritobin", "integration"] as const,
-};
+import { ritobinQueries } from "./queries";
 
-/**
- * Whether VS Code will open a `.bin` as ritobin text.
- *
- * The answer is the Explorer verb the ritobin-lsp extension installs, read out
- * of the registry, so a user who installs it while the app is open gets the
- * action on the next refetch rather than on the next launch.
- */
+export { ritobinKeys } from "./queries";
+
+/** Whether VS Code will open a `.bin` as ritobin text. */
 export function useRitobinIntegration() {
-  return useQuery<boolean, AppError>({
-    queryKey: ritobinKeys.integration(),
-    queryFn: queryFn(api.detectRitobinIntegration),
-    retry: false,
-  });
+  return useQuery(ritobinQueries.integration());
 }
 
 interface OpenInRitobinArgs {

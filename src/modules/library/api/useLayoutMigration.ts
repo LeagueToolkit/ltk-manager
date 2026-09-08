@@ -2,20 +2,11 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { type ToastTask, useToast } from "@/components";
-import {
-  api,
-  type AppError,
-  type LayoutMigrationProgress,
-  type LayoutMigrationReport,
-  type LayoutMigrationState,
-} from "@/lib/tauri";
+import type { LayoutMigrationProgress, LayoutMigrationReport } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { queryFn } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
-
-/** How often to ask again while the startup pass has not reported. */
-const PENDING_POLL_MS = 400;
+import { libraryPassQueries } from "./queries";
 
 /**
  * Drives what the user sees of the library layout migration, and reports the
@@ -34,11 +25,7 @@ export function useLayoutMigration(): LayoutMigrationReport | null {
   const announced = useRef(false);
   const [live, setLive] = useState<LayoutMigrationReport | null>(null);
 
-  const { data: state } = useQuery<LayoutMigrationState, AppError>({
-    queryKey: libraryKeys.migrationState(),
-    queryFn: queryFn(api.getLayoutMigrationState),
-    refetchInterval: (query) => (query.state.data?.status === "pending" ? PENDING_POLL_MS : false),
-  });
+  const { data: state } = useQuery(libraryPassQueries.migrationState());
 
   useTauriEvent<LayoutMigrationProgress>("layout-migration-progress", (progress) => {
     task.current ??= toast.task("Upgrading your mod library");

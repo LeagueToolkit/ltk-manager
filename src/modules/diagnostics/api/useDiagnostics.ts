@@ -1,23 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type DiagnosticReport } from "@/lib/tauri";
-import { queryFn } from "@/utils/query";
+import { diagnosticsQueries } from "./queries";
 
-import { diagnosticsKeys } from "./keys";
-
-/**
- * Fetch the diagnostic report. Auto-fires on mount (the page is the only
- * caller) and is otherwise stable — `staleTime: Infinity` means TanStack
- * won't background-refetch on focus or reconnect; the user re-runs explicitly
- * via `query.refetch()` from the Re-run button.
- */
+/** The diagnostic report, run once on mount and re-run only when asked. */
 export function useDiagnostics() {
-  return useQuery<DiagnosticReport, AppError>({
-    queryKey: diagnosticsKeys.report(),
-    queryFn: queryFn(api.diagnostics.run),
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    staleTime: Infinity,
-    gcTime: Infinity,
-  });
+  return useQuery(diagnosticsQueries.report());
 }

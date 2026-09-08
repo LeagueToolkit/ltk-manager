@@ -1,56 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { beginReorderHold } from "@/hooks";
-import { api, type AppError, type InstalledMod } from "@/lib/tauri";
-import { promoteToFolderFront } from "@/modules/library/utils";
-import { unwrapForQuery } from "@/utils/query";
+import { modMutations } from "./modMutations";
 
-import { libraryKeys } from "./keys";
+export type { ToggleModVariables } from "./modMutations";
 
-interface ToggleModVariables {
-  modId: string;
-  enabled: boolean;
-}
-
-/**
- * Hook to toggle a mod's enabled state.
- * Uses optimistic updates for instant UI feedback.
- */
+/** Toggle a mod's enabled state, optimistically. */
 export function useToggleMod() {
-  const queryClient = useQueryClient();
-
-  return useMutation<void, AppError, ToggleModVariables, { previous?: InstalledMod[] }>({
-    mutationFn: async ({ modId, enabled }) => {
-      const result = await api.toggleMod(modId, enabled);
-      return unwrapForQuery(result);
-    },
-    onMutate: async ({ modId, enabled }) => {
-      beginReorderHold();
-
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: libraryKeys.mods() });
-
-      // Snapshot current value
-      const previous = queryClient.getQueryData<InstalledMod[]>(libraryKeys.mods());
-
-      // Optimistically update
-      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) => {
-        if (!old) return old;
-        const next = old.map((mod) => (mod.id === modId ? { ...mod, enabled } : mod));
-        return enabled ? promoteToFolderFront(next, modId) : next;
-      });
-
-      return { previous };
-    },
-    onError: (_error, _variables, context) => {
-      // Rollback on error
-      if (context?.previous) {
-        queryClient.setQueryData(libraryKeys.mods(), context.previous);
-      }
-    },
-    onSettled: () => {
-      // Refetch to ensure consistency
-      queryClient.invalidateQueries({ queryKey: libraryKeys.mods() });
-    },
-  });
+  return useMutation(modMutations.toggle(useQueryClient()));
 }

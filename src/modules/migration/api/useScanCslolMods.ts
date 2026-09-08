@@ -1,13 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { api, type AppError, type CslolModInfo } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { cslolMutations } from "./mutations";
 
+/** Read what a CSLOL directory holds. */
 export function useScanCslolMods() {
-  return useMutation<CslolModInfo[], AppError, string>({
-    mutationFn: async (directory) => {
-      const result = await api.scanCslolMods(directory);
-      return unwrapForQuery(result);
-    },
-  });
+  return useMutation(cslolMutations.scan());
 }

@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 
 import type { WorkshopProject } from "@/lib/tauri";
 
-import { projectThumbnailOptions } from "../api/useProjectThumbnail";
+import { projectQueries } from "../api/queries";
 import { useWorkshopProjects } from "../api/useWorkshopProjects";
 import { buildCandidate } from "./candidate";
 import type { PaletteCandidate } from "./types";
@@ -46,7 +46,7 @@ export function useProjectRows(): readonly PaletteCandidate[] {
      own surface the rows draw their thumbnails without a round trip. */
   const thumbnails = useQueries({
     queries: (projects ?? []).map((project) =>
-      projectThumbnailOptions(project.path, project.thumbnailPath),
+      projectQueries.thumbnail(project.path, project.thumbnailPath),
     ),
     combine: (results) => results.map((result) => result.data),
   });

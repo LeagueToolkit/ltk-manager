@@ -1,10 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { convertFileSrc } from "@tauri-apps/api/core";
 
-import { api, type AppError } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
-
-import { libraryKeys } from "./keys";
+import { modQueries } from "./queries";
 import { useThumbnailsBatched } from "./useModThumbnails";
 
 /**
@@ -16,14 +12,5 @@ import { useThumbnailsBatched } from "./useModThumbnails";
 export function useModThumbnail(modId: string) {
   const batched = useThumbnailsBatched();
 
-  return useQuery<string, AppError>({
-    queryKey: libraryKeys.thumbnail(modId),
-    queryFn: async () => {
-      const result = await api.getModThumbnail(modId);
-      const path = unwrapForQuery(result);
-      return path ? convertFileSrc(path) : "";
-    },
-    enabled: !batched,
-    staleTime: Infinity,
-  });
+  return useQuery({ ...modQueries.thumbnail(modId), enabled: !batched });
 }

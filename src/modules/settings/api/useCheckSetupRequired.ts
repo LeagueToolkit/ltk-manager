@@ -1,16 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError } from "@/lib/tauri";
-import { queryFn } from "@/utils/query";
+import { settingsQueries } from "./queries";
 
-import { settingsKeys } from "./keys";
-
-/**
- * Hook to check if initial setup is required (league path not configured).
- */
+/** Whether the league path is still unconfigured, so first-run setup is owed. */
 export function useCheckSetupRequired() {
-  return useQuery<boolean, AppError>({
-    queryKey: settingsKeys.setupRequired(),
-    queryFn: queryFn(api.checkSetupRequired),
-  });
+  return useQuery(settingsQueries.setupRequired());
 }

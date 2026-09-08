@@ -1,23 +1,18 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
-import { api, type AppError, type Profile } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
-
 import { libraryKeys } from "./keys";
+import { profileMutations } from "./profileMutations";
 
-/**
- * Hook to switch to a different profile.
- */
+/** Switch to a different profile, and land the reader back on the library. */
 export function useSwitchProfile() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  return useMutation<Profile, AppError, string>({
-    mutationFn: async (profileId) => {
-      const result = await api.switchModProfile(profileId);
-      return unwrapForQuery(result);
-    },
+  /* The navigation is this caller's, so it wraps the shared invalidation rather
+     than living inside it. */
+  return useMutation({
+    ...profileMutations.switchTo(queryClient),
     onSuccess: () => {
       navigate({ to: "/mods" });
       queryClient.invalidateQueries({ queryKey: libraryKeys.activeProfile() });

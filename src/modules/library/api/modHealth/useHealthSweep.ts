@@ -3,15 +3,11 @@ import { useEffect, useRef } from "react";
 
 import { type ToastTask, useToast } from "@/components";
 import { m } from "@/i18n";
-import { api, type AppError, type HealthSweepProgress, type HealthSweepState } from "@/lib/tauri";
+import type { HealthSweepProgress, HealthSweepState } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { queryFn } from "@/utils/query";
 
 import { libraryKeys } from "../keys";
-import { useInstalledMods } from "../queries";
-
-/** How often to ask again while the sweep has not reported. */
-const SWEEP_POLL_MS = 400;
+import { libraryPassQueries, useInstalledMods } from "../queries";
 
 /**
  * What the mod health sweep concluded this launch, and the progress toast while
@@ -33,14 +29,7 @@ export function useHealthSweep(): HealthSweepState | undefined {
     task.current = null;
   };
 
-  const { data: state } = useQuery<HealthSweepState, AppError>({
-    queryKey: libraryKeys.healthSweep(),
-    queryFn: queryFn(api.getHealthSweep),
-    // Both states are still owed an answer, and asking covers the sliver
-    // between this mounting and its listener being registered, where the
-    // finishing event would reach nobody.
-    refetchInterval: (query) => (isRunning(query.state.data) ? SWEEP_POLL_MS : false),
-  });
+  const { data: state } = useQuery(libraryPassQueries.healthSweep());
 
   useTauriEvent<HealthSweepProgress>("health-sweep-progress", (progress) => {
     task.current ??= toast.task(m.library_health_checking_label());

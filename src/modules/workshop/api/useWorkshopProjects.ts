@@ -1,23 +1,8 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
-import { queryFn } from "@/utils/query";
+import { projectQueries } from "./queries";
 
-import { workshopKeys } from "./keys";
-
-/**
- * Query options for fetching all workshop projects.
- */
-export function workshopProjectsOptions() {
-  return queryOptions<WorkshopProject[], AppError>({
-    queryKey: workshopKeys.projects(),
-    queryFn: queryFn(api.getWorkshopProjects),
-  });
-}
-
-/**
- * Hook to fetch all workshop projects.
- */
+/** Every workshop project the configured directory holds. */
 export function useWorkshopProjects() {
-  return useQuery(workshopProjectsOptions());
+  return useQuery(projectQueries.all());
 }

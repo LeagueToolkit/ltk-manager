@@ -24,7 +24,7 @@ export const CLEAN_GAME_GRACE_MS = 15_000;
  * newest itself.
  */
 export function useCleanGameWatch() {
-  const { latest } = useLatestIncident();
+  const latest = useLatestIncident();
   const markAnswered = useIncidentLineStore((s) => s.markAnswered);
   const [awaiting, setAwaiting] = useState<string | null>(null);
 

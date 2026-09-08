@@ -130,7 +130,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
  * and no clean game has answered it since.
  */
 function useFailedTest(projectPath: string): Incident | null {
-  const { latest } = useLatestIncident();
+  const latest = useLatestIncident();
   const answeredId = useIncidentLineStore((s) => s.answeredIncidentId);
 
   if (!latest || latest.id === answeredId) return null;

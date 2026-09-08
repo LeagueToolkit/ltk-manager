@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import pluginQuery from "@tanstack/eslint-plugin-query";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import i18next from "eslint-plugin-i18next";
 import reactPlugin from "eslint-plugin-react";
@@ -97,6 +98,7 @@ export default tseslint.config(
       "simple-import-sort/exports": "error",
     },
   },
+  ...pluginQuery.configs["flat/recommended-strict"],
   {
     /* Cycles are oxlint's job, in `.oxlintrc.json`: the graph walk costs
        ESLint more than every other rule here put together. */

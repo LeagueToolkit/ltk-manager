@@ -96,6 +96,7 @@
     "@eslint/js": "^9.39.4",
     "@inlang/plugin-message-format": "4.4.4",
     "@tailwindcss/vite": "^4.2.4",
+    "@tanstack/eslint-plugin-query": "^5.102.8",
     "@tanstack/router-plugin": "^1.167.23",
     "@tauri-apps/cli": "^2.11.0",
     "@testing-library/jest-dom": "^6.9.1",

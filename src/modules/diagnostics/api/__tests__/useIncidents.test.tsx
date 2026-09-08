@@ -9,7 +9,7 @@ import type { Incident } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
-import { useIncident, useLatestIncident } from "../useIncidents";
+import { useIncident, useIncidents, useLatestIncident } from "../useIncidents";
 
 function createWrapper() {
   const queryClient = createTestQueryClient();
@@ -65,6 +65,16 @@ function mockIncidents(incidents: Incident[]) {
   });
 }
 
+/* The selectors answer the incident alone, so the list query rides along to say
+   when the answer is the settled one rather than the empty one before it. */
+function useLatestIncidentWithQuery() {
+  return { latest: useLatestIncident(), query: useIncidents() };
+}
+
+function useIncidentWithQuery(id: string | null) {
+  return { incident: useIncident(id), query: useIncidents() };
+}
+
 describe("useLatestIncident", () => {
   beforeEach(() => {
     mockInvoke.mockReset();
@@ -72,33 +82,33 @@ describe("useLatestIncident", () => {
 
   it("returns the newest incident the user has not dismissed", async () => {
     mockIncidents([incident("newest", { dismissed: true }), incident("older"), incident("oldest")]);
-    const { result } = renderHook(() => useLatestIncident(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLatestIncidentWithQuery(), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.latest?.id).toBe("older");
   });
 
   it("has nothing once every incident is dismissed", async () => {
     mockIncidents([incident("a", { dismissed: true }), incident("b", { dismissed: true })]);
-    const { result } = renderHook(() => useLatestIncident(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLatestIncidentWithQuery(), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.latest).toBeNull();
   });
 
   it("has nothing on an empty list", async () => {
     mockIncidents([]);
-    const { result } = renderHook(() => useLatestIncident(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLatestIncidentWithQuery(), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.latest).toBeNull();
   });
 
   it("reads the list once", async () => {
     mockIncidents([incident("a")]);
-    const { result } = renderHook(() => useLatestIncident(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useLatestIncidentWithQuery(), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     const listings = mockInvoke.mock.calls.filter(([cmd]) => cmd === "list_incidents");
     expect(listings).toHaveLength(1);
   });
@@ -111,26 +121,30 @@ describe("useIncident", () => {
 
   it("finds the incident by id, dismissed or not", async () => {
     mockIncidents([incident("newest"), incident("wanted", { dismissed: true })]);
-    const { result } = renderHook(() => useIncident("wanted"), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useIncidentWithQuery("wanted"), {
+      wrapper: createWrapper(),
+    });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.incident?.id).toBe("wanted");
     expect(result.current.incident?.dismissed).toBe(true);
   });
 
   it("is null for an id the list does not hold", async () => {
     mockIncidents([incident("a")]);
-    const { result } = renderHook(() => useIncident("missing"), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useIncidentWithQuery("missing"), {
+      wrapper: createWrapper(),
+    });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.incident).toBeNull();
   });
 
   it("is null without an id", async () => {
     mockIncidents([incident("a")]);
-    const { result } = renderHook(() => useIncident(null), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useIncidentWithQuery(null), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     expect(result.current.incident).toBeNull();
   });
 });

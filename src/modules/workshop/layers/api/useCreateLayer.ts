@@ -1,33 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { layerMutations } from "./mutations";
 
-import { workshopKeys } from "../../api/keys";
+export type { CreateLayerVariables } from "./mutations";
 
-interface CreateLayerVariables {
-  projectPath: string;
-  name: string;
-  displayName?: string;
-  description?: string;
-}
-
+/** Add a layer to a project. */
 export function useCreateLayer() {
-  const queryClient = useQueryClient();
-
-  return useMutation<WorkshopProject, AppError, CreateLayerVariables>({
-    mutationFn: async ({ projectPath, name, displayName, description }) => {
-      const result = await api.createProjectLayer(projectPath, name, displayName, description);
-      return unwrapForQuery(result);
-    },
-    onSuccess: (updatedProject) => {
-      queryClient.setQueryData<WorkshopProject[]>(workshopKeys.projects(), (old) =>
-        old?.map((p) => (p.path === updatedProject.path ? updatedProject : p)),
-      );
-      queryClient.setQueryData(workshopKeys.project(updatedProject.path), updatedProject);
-      queryClient.invalidateQueries({
-        queryKey: workshopKeys.layerInfo(updatedProject.path),
-      });
-    },
-  });
+  return useMutation(layerMutations.create(useQueryClient()));
 }

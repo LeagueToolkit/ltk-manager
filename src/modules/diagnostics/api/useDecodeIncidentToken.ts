@@ -1,18 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { api, type AppError, type DecodedIncident } from "@/lib/tauri";
-import { mutationFn } from "@/utils/query";
+import { incidentMutations } from "./mutations";
 
-/**
- * Unfolds a pasted token into the incident it carries, read against this
- * build's tables.
- *
- * The backend accepts a bare token, or a report or URL with one inside, so
- * the caller passes the paste through untouched. Its error is a sentence
- * meant to be shown as it is.
- */
+/** Unfold a pasted token into the incident it carries, read against this build's tables. */
 export function useDecodeIncidentToken() {
-  return useMutation<DecodedIncident, AppError, string>({
-    mutationFn: mutationFn(api.diagnostics.decodeIncidentToken),
-  });
+  return useMutation(incidentMutations.decodeToken());
 }

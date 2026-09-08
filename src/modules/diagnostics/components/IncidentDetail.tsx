@@ -17,8 +17,7 @@ import type { Incident, Suspect } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 
 import {
-  incidentReportOptions,
-  incidentTokenOptions,
+  diagnosticsQueries,
   useDismissIncident,
   useIncidentReport,
   useIncidentToken,
@@ -176,7 +175,8 @@ function IncidentActions({ incident }: { incident: Incident }) {
 
   async function copyReport() {
     try {
-      const text = report.data ?? (await queryClient.fetchQuery(incidentReportOptions(incident)));
+      const text =
+        report.data ?? (await queryClient.fetchQuery(diagnosticsQueries.incidentReport(incident)));
       await navigator.clipboard.writeText(text);
       toast.success(m.diagnostics_report_copied_title(), m.diagnostics_report_copied_description());
     } catch (error) {
@@ -187,7 +187,8 @@ function IncidentActions({ incident }: { incident: Incident }) {
   async function copyToken() {
     let text: string;
     try {
-      text = token.data ?? (await queryClient.fetchQuery(incidentTokenOptions(incident.id)));
+      text =
+        token.data ?? (await queryClient.fetchQuery(diagnosticsQueries.incidentToken(incident.id)));
     } catch (error) {
       toast.error(m.diagnostics_token_build_failed_title(), errorMessage(error));
       return;
