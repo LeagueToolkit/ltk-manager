@@ -30,6 +30,7 @@ pub(crate) fn save_settings_inner(
     // Before the write, so a secret minted here reaches the file with everything
     // else rather than waiting for the next save.
     let (secret, _) = crate::telemetry::ensure_secret(&mut settings);
+    let was_collecting = state.0.lock().telemetry_enabled;
 
     // Sync OS autolaunch with the updated setting
     let autolaunch = app_handle.autolaunch();
@@ -53,7 +54,16 @@ pub(crate) fn save_settings_inner(
     // Rebuilt rather than toggled, because turning the setting off has to drop
     // what was spooled under the old answer rather than hold it back.
     let telemetry: State<'_, crate::telemetry::TelemetryState> = app_handle.state();
-    telemetry.replace(crate::telemetry::build(app_handle, &settings, secret));
+    let remote = telemetry.remote();
+    telemetry.replace(crate::telemetry::build(
+        app_handle, &settings, secret, &remote,
+    ));
+
+    // Only on the way back on, because an install that refused never fetched the
+    // document and would otherwise report under the compiled defaults.
+    if settings.telemetry_enabled && !was_collecting {
+        crate::telemetry::refresh_from_document(app_handle);
+    }
 
     let mut current = state.0.lock();
     *current = settings;

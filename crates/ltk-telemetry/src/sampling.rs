@@ -48,7 +48,7 @@ impl Default for SampleRate {
 ///
 /// The draw is over the identity rather than the event, so an install is in or
 /// out for a whole UTC day and a sampled session is never half reported.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Sampling {
     /// The draw every event passes first.

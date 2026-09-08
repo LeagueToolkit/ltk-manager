@@ -286,17 +286,18 @@ fn reset_telemetry_secret_inner(
     settings: &State<SettingsState>,
     telemetry: &State<TelemetryState>,
 ) -> AppResult<Option<String>> {
+    let remote = telemetry.remote();
     let rebuilt = {
         let mut held = settings.0.lock();
         held.telemetry_secret = None;
         let (secret, _) = crate::telemetry::ensure_secret(&mut held);
         crate::state::persist_settings(app_handle, &held)?;
-        crate::telemetry::build(app_handle, &held, secret)
+        crate::telemetry::build(app_handle, &held, secret, &remote)
     };
 
     // What the old secret spooled would otherwise travel under the new
     // pseudonym, which is the link the reader just asked to break.
-    telemetry.0.lock().discard();
+    telemetry.discard();
     telemetry.replace(rebuilt);
 
     Ok(telemetry
