@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                  |
-| ---------- | ------------------------------------------------------- |
-| 2026-09-08 | Give the curve dock its table and probability tabs      |
-| 2026-09-08 | Draw a colour curve as a gradient of its stops          |
-| 2026-09-08 | Decide the curve panel                                  |
-| 2026-09-07 | Frame a particle system as a shell of panes             |
-| 2026-09-07 | Fold a value family into the row a layout draws it in   |
-| 2026-09-07 | Draw an emitter as a card of its groups                 |
-| 2026-09-07 | Lay a skin and a particle system out                    |
-| 2026-09-07 | Name a project's own chunks                             |
-| 2026-09-07 | Lay a material out beside the tree                      |
-| 2026-09-07 | Read several nodes in one call, and draw a value family |
+| Date       | Change                                                |
+| ---------- | ----------------------------------------------------- |
+| 2026-09-08 | Size the emitter card and filter the strip by name    |
+| 2026-09-08 | Give the curve dock its table and probability tabs    |
+| 2026-09-08 | Draw a colour curve as a gradient of its stops        |
+| 2026-09-08 | Decide the curve panel                                |
+| 2026-09-07 | Frame a particle system as a shell of panes           |
+| 2026-09-07 | Fold a value family into the row a layout draws it in |
+| 2026-09-07 | Draw an emitter as a card of its groups               |
+| 2026-09-07 | Lay a skin and a particle system out                  |
+| 2026-09-07 | Name a project's own chunks                           |
+| 2026-09-07 | Lay a material out beside the tree                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -537,9 +537,13 @@ one glance shorter.
 
 ### A value family on its row
 
-`ValueColor`, `ValueFloat`, `ValueVector2` and `ValueVector3` are one shape: a constant, and a
-dynamics of times and values that may be null. Each is a struct row, and the constant a modder
-reads is one node under it.
+`ValueColor`, `ValueColorRgb`, `ValueFloat`, `ValueVector2` and `ValueVector3` are one shape: a
+constant, and a dynamics of times and values that may be null. Each is a struct row, and the
+constant a modder reads is one node under it.
+
+`ValueColorRgb` carries three channels where `ValueColor` carries four, and reads as a colour with
+a full alpha rather than as a vector, because what it holds is a colour. Its name is a hash crack
+rather than an attested string, which is why the schema spells it `Rgb`.
 
 **A collapsed row of the family draws its constant.** A `ValueColor` draws its class, then the
 constant as a swatch, then a gradient strip of fixed width over the dynamics' stops, with alpha
@@ -1063,10 +1067,27 @@ The square is the texture the emitter draws, and where it names none, its `birth
 its stops make where it animates, and its constant where it does not. An emitter with neither
 takes the tile a missing texture takes.
 
+**A card has three targets and each does the one thing it looks like.** The name row opens the
+emitter, the square opens the texture it draws, and a chip opens the emitter at that group. A card
+the read has not answered the fields of still opens, on no group, because a card that does nothing
+when clicked reads as a card that is broken.
+
 A chip opens the group under the strip, one group at a time, each field in the cell its own row
 draws. The strip opens on the first emitter's first group, because the read has answered every
 field by then and an empty panel says nothing. Reading an emitter whole is Properties, which is
 the whole object.
+
+**The card is sized by its group names, not by its square.** Both of Riot's editors draw a strip
+of small cards, and a system of sixty is walked rather than read one card at a time, so the card
+is as narrow as the widest thing that has to stay legible on it. That is the group names, and a
+name a reader cannot tell from the next one costs more than the pixels a bigger thumbnail gives
+back.
+
+A field over the strip narrows both readings to the emitters whose name holds what was typed,
+case-insensitively, and says how many of how many are drawn while it holds anything. It shares
+the row the reading control already owned, because the pane is short. The open emitter stays open
+while it matches, and the first match opens when it does not. The table narrows on what the strip
+left rather than matching the names a second time, so the two cannot drift.
 
 The groups are Birth, Position, Render, Scale and Texture, the components both of Riot's editors
 draw, and Emission, Colour, Material and Effects for what the class carries and those five do not

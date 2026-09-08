@@ -2,7 +2,7 @@ import { CaretDownIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/rea
 import { createContext, type ReactNode, use, useCallback, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Menu, SegmentedControl } from "@/components";
+import { Field, Menu, SegmentedControl } from "@/components";
 import { useHorizontalWheel } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
@@ -45,8 +45,15 @@ import {
 /** The second list, whose cards are marked, since one strip holds both. */
 const SIMPLE_LIST = nameHash("simpleEmitterDefinitionData");
 
-/** The room a card takes, which is what fits a name and a square side by side in a pane. */
-const CARD_WIDTH = "w-40";
+/**
+ * The room a card takes: its group names, which are the widest thing on it.
+ *
+ * Both of Riot's editors draw a strip of small cards, and a system of sixty is walked
+ * rather than read one card at a time. The square follows the width rather than setting
+ * it, because a name a reader cannot tell from the next one costs more than the pixels
+ * the thumbnail gives back.
+ */
+const CARD_WIDTH = "w-24";
 
 /** The room the panel's name column takes, which the longest emitter field fits in. */
 const PANEL_NAME = "w-56";
@@ -74,10 +81,10 @@ interface EmitterCardData {
   readonly groups: readonly GroupedRows[];
 }
 
-/** Which card is open, and at which of its groups. */
+/** Which card is open, and at which of its groups. Null while its fields have not landed. */
 interface Chosen {
   readonly key: string;
-  readonly group: EmitterGroup;
+  readonly group: EmitterGroup | null;
 }
 
 /**
@@ -88,7 +95,13 @@ interface Chosen {
  * remounts the section and would lose the reader's place with it.
  */
 export interface EmitterChoice {
+  /** The cards the filter left, which is every card while nothing is typed. */
   readonly cards: readonly EmitterCardData[];
+  /** How many the section holds, for the line saying how many of them are drawn. */
+  readonly total: number;
+  /** What the reader typed, which narrows both readings at once. */
+  readonly filter: string;
+  readonly setFilter: (filter: string) => void;
   readonly card: EmitterCardData | undefined;
   readonly group: GroupedRows | undefined;
   readonly open: Chosen | null;
@@ -115,6 +128,9 @@ const NO_MARKED: readonly BinRow[] = [];
 
 const NO_EMITTERS: EmitterChoice = {
   cards: NO_CARDS,
+  total: 0,
+  filter: "",
+  setFilter: () => {},
   card: undefined,
   group: undefined,
   open: null,
@@ -143,14 +159,16 @@ export function useEmitterChoice(
   pages: LayoutPages,
   frame: LayoutFrame,
 ): EmitterChoice {
-  const cards = useMemo(() => {
+  const held = useMemo(() => {
     const section = placed.find((each) => each.widget === "emitters");
     return section === undefined ? NO_CARDS : cardsOf(section, pages);
   }, [placed, pages]);
   const [chosen, setChosen] = useState<Chosen | null>(null);
   const [target, setTarget] = useState<InspectorTarget>("group");
   const [mode, setMode] = useState<EmitterMode>("cards");
+  const [filter, setFilter] = useState("");
 
+  const cards = useMemo(() => matching(held, filter), [held, filter]);
   const open = useMemo(() => openOf(chosen, cards), [chosen, cards]);
   const card = cards.find((each) => each.key === open?.key);
   const group = card?.groups.find((each) => each.group === open?.group);
@@ -159,11 +177,11 @@ export function useEmitterChoice(
     setChosen(next);
     setTarget("group");
   }, []);
+  /* A card whose fields have not landed opens on no group rather than not opening. */
   const chooseCard = useCallback(
     (key: string) => {
       const first = cards.find((each) => each.key === key)?.groups[0];
-      if (first === undefined) return;
-      setChosen({ key, group: first.group });
+      setChosen({ key, group: first?.group ?? null });
       setTarget("emitter");
     },
     [cards],
@@ -194,6 +212,9 @@ export function useEmitterChoice(
   return useMemo(
     () => ({
       cards,
+      total: held.length,
+      filter,
+      setFilter,
       card,
       group,
       open,
@@ -207,8 +228,34 @@ export function useEmitterChoice(
       marked,
       read,
     }),
-    [cards, card, group, open, target, shown, chooseCard, chooseGroup, mode, marked, read],
+    [
+      cards,
+      held.length,
+      filter,
+      card,
+      group,
+      open,
+      target,
+      shown,
+      chooseCard,
+      chooseGroup,
+      mode,
+      marked,
+      read,
+    ],
   );
+}
+
+/**
+ * The cards whose name holds `filter`, case-insensitively, or every card for no filter.
+ *
+ * The name rather than the index, because a reader typing here is looking for an emitter
+ * they can name and the index is what the card already shows beside it.
+ */
+function matching(cards: readonly EmitterCardData[], filter: string): readonly EmitterCardData[] {
+  const wanted = filter.trim().toLowerCase();
+  if (wanted === "") return cards;
+  return cards.filter((card) => nameOf(card).toLowerCase().includes(wanted));
 }
 
 /** The groups one target draws, which is what the inspector holds and what it marks. */
@@ -245,22 +292,41 @@ export function Emitters({ section, pages, view }: WidgetProps) {
   );
 }
 
-/** The control that picks the reading, which either frame draws over the strip. */
+/**
+ * The row over the strip: what narrows it, how much of it is drawn, and which reading.
+ *
+ * One row rather than two, because the pane the strip sits in is short and the control
+ * picking the reading already owned this line.
+ */
 function EmitterModes() {
-  const { mode, setMode } = useEmitters();
+  const { mode, setMode, filter, setFilter, cards, total } = useEmitters();
 
   return (
-    <SegmentedControl
-      size="xs"
-      className="self-end font-sans"
-      aria-label={m.workshop_bin_emitter_view_label()}
-      value={mode}
-      onChange={setMode}
-      options={[
-        { value: "cards", label: m.workshop_bin_emitter_view_cards_label() },
-        { value: "table", label: m.workshop_bin_emitter_view_table_label() },
-      ]}
-    />
+    <div className="flex items-center gap-2">
+      <Field.Control
+        className="h-6 w-40 px-2 font-sans text-meta"
+        aria-label={m.workshop_bin_emitter_filter_label()}
+        placeholder={m.workshop_bin_emitter_filter_placeholder()}
+        value={filter}
+        onChange={(event) => setFilter(event.target.value)}
+      />
+      {filter.trim() !== "" && (
+        <span className="text-meta text-surface-400 select-none">
+          {m.workshop_bin_emitter_shown_label({ shown: cards.length, total })}
+        </span>
+      )}
+      <SegmentedControl
+        size="xs"
+        className="ml-auto font-sans"
+        aria-label={m.workshop_bin_emitter_view_label()}
+        value={mode}
+        onChange={setMode}
+        options={[
+          { value: "cards", label: m.workshop_bin_emitter_view_cards_label() },
+          { value: "table", label: m.workshop_bin_emitter_view_table_label() },
+        ]}
+      />
+    </div>
   );
 }
 
@@ -336,6 +402,7 @@ function EmitterCard({ card, open }: { card: EmitterCardData; open: EmitterGroup
     >
       <button
         type="button"
+        aria-pressed={open !== null}
         /* DS-RADIUS, DS-VEIL */
         className={twMerge(
           "flex cursor-pointer items-center gap-1 rounded-sm px-0.5 text-left hover:bg-surface-veil",
@@ -648,7 +715,12 @@ const ADDRESSED = COLUMNS.map((column) => ({ ...column, hash: nameHash(column.fi
 export function EmitterTable({ section, pages, view }: WidgetProps) {
   const scroller = useRef<HTMLDivElement>(null);
   useHorizontalWheel(scroller);
-  const emitters = elementsOf(section.rows, pages);
+  const { cards } = useEmitters();
+
+  /* The strip already filtered, so the table takes what it left rather than matching
+     names a second time and drifting from it. */
+  const shown = useMemo(() => new Set(cards.map((card) => card.key)), [cards]);
+  const emitters = elementsOf(section.rows, pages).filter((row) => shown.has(rowKey(row)));
   const drawn = useMemo(
     () =>
       emitters.flatMap((emitter) => {

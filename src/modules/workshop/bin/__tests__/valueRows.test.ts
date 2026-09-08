@@ -198,6 +198,10 @@ describe("valueFamily", () => {
     expect(valueFamily(struct("ValueVector3", 2))).toBe("vector");
   });
 
+  it("reads the three-channel colour class as a colour rather than as a vector", () => {
+    expect(valueFamily(struct("ValueColorRgb", 2))).toBe("color");
+  });
+
   it("names no other struct and no leaf", () => {
     expect(valueFamily(struct("VfxEmitterDefinitionData", 139))).toBeNull();
     expect(valueFamily({ type: "float", value: 1 })).toBeNull();
@@ -354,13 +358,19 @@ describe("valueMarks", () => {
 });
 
 describe("colorStops and sparkKeys", () => {
-  it("paints a four-channel key as a stop, and skips a key of another width", () => {
+  it("paints a four-channel key as a stop, and skips a key too short to be a colour", () => {
     expect(
       colorStops([
         { time: 0, values: [1, 0, 0, 1] },
         { time: 1, values: [0.5] },
       ]),
     ).toEqual([{ time: 0, rgba: [1, 0, 0, 1] }]);
+  });
+
+  it("paints a three-channel key opaque, which is what a ValueColorRgb key holds", () => {
+    expect(colorStops([{ time: 0.5, values: [1, 0.5, 0] }])).toEqual([
+      { time: 0.5, rgba: [1, 0.5, 0, 1] },
+    ]);
   });
 
   it("gives a colour no sparkline, because its own band draws the same keys", () => {
@@ -372,6 +382,20 @@ describe("colorStops and sparkKeys", () => {
     expect(sparkKeys({ family: "scalar", constant: null, keys, tables: [], curve: true })).toBe(
       keys,
     );
+  });
+});
+
+describe("channels", () => {
+  it("takes a vec4 as it stands and a vec3 as an opaque colour", () => {
+    expect(channels(vec4(1, 0.5, 0, 0.25))).toEqual([1, 0.5, 0, 0.25]);
+    expect(channels({ type: "vector", values: [1, 0.5, 0] })).toEqual([1, 0.5, 0, 1]);
+  });
+
+  it("paints no colour out of a vector of another width, or one JSON could not carry", () => {
+    expect(channels({ type: "vector", values: [1, 0] })).toBeNull();
+    expect(channels({ type: "vector", values: [1, null, 0] })).toBeNull();
+    expect(channels({ type: "float", value: 1 })).toBeNull();
+    expect(channels(null)).toBeNull();
   });
 });
 

@@ -329,6 +329,68 @@ describe("ClassView over a particle system", () => {
     expect(screen.getByText("Trail")).toBeInTheDocument();
   });
 
+  it("narrows the strip to the emitters whose name holds the text, case-insensitively", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Sparks");
+
+    await user.type(screen.getByRole("textbox", { name: "Filter emitters by name" }), "spa");
+
+    expect(screen.getByText("Sparks")).toBeInTheDocument();
+    expect(screen.queryByText("Trail")).toBeNull();
+    expect(screen.getByText("1 of 3")).toBeInTheDocument();
+  });
+
+  it("restores every card when the field is cleared, and says how many while it is not", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Sparks");
+    const field = screen.getByRole("textbox", { name: "Filter emitters by name" });
+
+    expect(screen.queryByText("3 of 3")).toBeNull();
+
+    await user.type(field, "spa");
+    await user.clear(field);
+
+    expect(screen.getByText("Trail")).toBeInTheDocument();
+    expect(screen.queryByText(/ of 3/)).toBeNull();
+  });
+
+  it("narrows the table on the same text the strip was narrowed on", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Sparks");
+
+    await user.type(screen.getByRole("textbox", { name: "Filter emitters by name" }), "spa");
+    await user.click(screen.getByRole("button", { name: "Table" }));
+
+    expect(await screen.findByText("Sparks")).toBeInTheDocument();
+    expect(screen.queryByText("Trail")).toBeNull();
+  });
+
+  const opened = (name: RegExp) => screen.getByRole("button", { name, pressed: true });
+
+  it("moves the open card to the first match when the filter hides the one that was open", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Sparks/ }));
+    expect(opened(/Sparks/)).toBeInTheDocument();
+
+    await user.type(screen.getByRole("textbox", { name: "Filter emitters by name" }), "trail");
+
+    expect(opened(/Trail/)).toBeInTheDocument();
+  });
+
+  it("opens a card whose fields the read has not answered, which sets no group at all", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: /Trail/ }));
+
+    expect(opened(/Trail/)).toBeInTheDocument();
+  });
+
   it("marks a card off the second list, and carries each index", async () => {
     renderSystem();
 

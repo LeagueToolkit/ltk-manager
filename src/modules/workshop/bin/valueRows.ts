@@ -7,13 +7,22 @@ import type { ReadRequest } from "./useBinRead";
 /** How a value class draws its constant. "A value family on its row" in docs/ux/BIN_EDITOR.md. */
 export type ValueFamily = "color" | "scalar" | "vector";
 
-/** The classes whose collapsed row draws its constant, by class hash. */
+/**
+ * The classes whose collapsed row draws its constant, by class hash.
+ *
+ * `ValueColorRgb` carries three channels where `ValueColor` carries four, and is read as
+ * a colour with a full alpha rather than as a vector, because what it holds is a colour.
+ */
 const FAMILY: ReadonlyMap<string, ValueFamily> = new Map([
   [nameHash("ValueColor"), "color" as const],
+  [nameHash("ValueColorRgb"), "color" as const],
   [nameHash("ValueFloat"), "scalar" as const],
   [nameHash("ValueVector2"), "vector" as const],
   [nameHash("ValueVector3"), "vector" as const],
 ]);
+
+/** The alpha a colour written without one carries, which is the opaque the engine samples. */
+const OPAQUE = 1;
 
 /** The value every class of the family holds under one field hash. */
 const CONSTANT = nameHash("constantValue");
@@ -308,13 +317,13 @@ function components(value: BinValue | undefined): number[] | null {
   return held.length === value.values.length ? held : null;
 }
 
-/** The keys of a colour as the stops its band paints, which is four channels each. */
+/** The keys of a colour as the stops its band paints, a key with no alpha being opaque. */
 export function colorStops(keys: readonly CurveKey[]): ColorStop[] {
   const out: ColorStop[] = [];
   for (const key of keys) {
     const [r, g, b, a] = key.values;
-    if (r === undefined || g === undefined || b === undefined || a === undefined) continue;
-    out.push({ time: key.time, rgba: [r, g, b, a] });
+    if (r === undefined || g === undefined || b === undefined) continue;
+    out.push({ time: key.time, rgba: [r, g, b, a ?? OPAQUE] });
   }
   return out;
 }
@@ -353,16 +362,17 @@ export function placeTime(time: number, span: TimeSpan): number {
 }
 
 /**
- * A `vec4` as its four channels, or null for any other value.
+ * A `vec4` or a `vec3` as four channels, or null for any other value.
  *
- * A component is null where the float is one JSON does not carry, and a colour missing
- * a channel is one nothing can paint.
+ * A component is null where the float is one JSON does not carry, and a colour missing a
+ * channel is one nothing can paint. A `vec3` is a `ValueColorRgb`, which is opaque.
  */
 export function channels(value: BinValue | null | undefined): ColorStop["rgba"] | null {
-  if (value?.type !== "vector" || value.values.length !== 4) return null;
+  if (value?.type !== "vector") return null;
+  if (value.values.length !== 4 && value.values.length !== 3) return null;
   const held = value.values.filter((component) => component !== null);
-  if (held.length !== 4) return null;
-  return [held[0] ?? 0, held[1] ?? 0, held[2] ?? 0, held[3] ?? 0];
+  if (held.length !== value.values.length) return null;
+  return [held[0] ?? 0, held[1] ?? 0, held[2] ?? 0, held[3] ?? OPAQUE];
 }
 
 /**
