@@ -11,6 +11,7 @@ import {
   type ExportScope,
   type ExportShape,
   type ExportSummary,
+  revealPath,
 } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { mutationFn } from "@/utils/query";
@@ -42,6 +43,7 @@ export function useExportMods(): ModExport {
   useTauriEvent<ExportProgress>("export-progress", setProgress);
 
   const exportMods = useMutation<ExportSummary, AppError, ExportRequest>({
+    meta: { silentError: true },
     mutationFn: mutationFn(({ scope, shape, destination }) =>
       api.exportMods(scope, shape, destination),
     ),
@@ -67,7 +69,7 @@ export function useExportMods(): ModExport {
       timeout: 8000,
       action: {
         label: m.home_library_export_reveal_action(),
-        onClick: () => void api.revealInExplorer(summary.destination),
+        onClick: () => revealPath(summary.destination),
       },
     });
   }

@@ -1,9 +1,8 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Check, CircleAlert, FolderOpen, Package, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import { Button, Dialog, RadioGroup } from "@/components";
-import type { PackResult } from "@/lib/tauri";
+import { type PackResult, revealPath } from "@/lib/tauri";
 import { useWorkshopDialogsStore } from "@/stores";
 
 import { usePackProject } from "../api/usePackProject";
@@ -161,13 +160,7 @@ export function PackDialog() {
                 <Button
                   variant="filled"
                   left={<FolderOpen className="h-4 w-4" />}
-                  onClick={async () => {
-                    try {
-                      await invoke("reveal_in_explorer", { path: packResult.outputPath });
-                    } catch (error) {
-                      console.error("Failed to open folder:", error);
-                    }
-                  }}
+                  onClick={() => revealPath(packResult.outputPath)}
                 >
                   Show in Explorer
                 </Button>

@@ -509,3 +509,19 @@ export const api = {
   saveProjectEditorState: (projectPath: string, content: string) =>
     invokeResult<void>("save_project_editor_state", { projectPath, content }),
 };
+
+/**
+ * Open the file manager on `path`, for a control with nowhere to put a failure.
+ *
+ * A reveal the shell refuses is a dead click and nothing worse, so this logs and
+ * returns rather than growing an error surface onto every caller. Both the
+ * refusal and a rejected `invoke` land in the log.
+ */
+export function revealPath(path: string): void {
+  void api.revealInExplorer(path).then(
+    (result) => {
+      if (!result.ok) console.error("Could not reveal", path, result.error);
+    },
+    (error: unknown) => console.error("Could not reveal", path, error),
+  );
+}
