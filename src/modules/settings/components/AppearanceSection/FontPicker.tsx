@@ -1,5 +1,9 @@
+import { useEffect } from "react";
+
 import { Select } from "@/components";
 import {
+  loadMonoFaces,
+  loadSansFaces,
   MONO_OPTIONS,
   type MonoFont,
   monoStack,
@@ -12,6 +16,12 @@ import { useMonoFont, useSansFont, useSetMonoFont, useSetSansFont } from "@/stor
 export function InterfaceFontPicker() {
   const sansFont = useSansFont();
   const setSansFont = useSetSansFont();
+
+  /* Rows are drawn in the face they name, so this is the one screen that wants
+     every face rather than the chosen one. */
+  useEffect(() => {
+    void loadSansFaces();
+  }, []);
 
   return (
     <Select.Root
@@ -44,6 +54,10 @@ export function InterfaceFontPicker() {
 export function CodeFontPicker() {
   const monoFont = useMonoFont();
   const setMonoFont = useSetMonoFont();
+
+  useEffect(() => {
+    void loadMonoFaces();
+  }, []);
 
   return (
     <Select.Root

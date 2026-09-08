@@ -1,15 +1,9 @@
 /* Self-hosted: a packaged build has no network, and system-ui is not
-   metric-compatible with these faces. */
+   metric-compatible with these faces. Only the two defaults and the display
+   face are here, because every other face carries a `load` in `lib/fonts`. */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/bricolage-grotesque";
 @import "@fontsource-variable/geist-mono";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/ibm-plex-sans";
-@import "@fontsource-variable/nunito-sans";
-@import "@fontsource-variable/atkinson-hyperlegible-next";
-@import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource-variable/fira-code";
-@import "@fontsource-variable/source-code-pro";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";
