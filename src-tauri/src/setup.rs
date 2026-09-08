@@ -31,6 +31,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     initialize_first_run(&app_handle, &settings_state);
 
+    // Read from the cache rather than the network, because the window is drawn
+    // before the document answers. `refresh_from_document` catches up below.
+    let remote = crate::telemetry::config::cached(&crate::telemetry::config_path(&app_handle));
+
     // The secret is minted here rather than on first report, so the identity a
     // reader is shown in Settings is the one their events would carry.
     let telemetry = {
@@ -41,7 +45,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
                 tracing::warn!(%error, "Failed to store the diagnostics secret");
             }
         }
-        crate::telemetry::build(&app_handle, &settings, secret)
+        crate::telemetry::build(&app_handle, &settings, secret, &remote)
     };
 
     let settings = settings_state.0.lock().clone();
@@ -106,7 +110,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
     app.manage(incident_store);
-    app.manage(crate::telemetry::TelemetryState::new(telemetry));
+    app.manage(crate::telemetry::TelemetryState::new(telemetry, remote));
     app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
@@ -138,6 +142,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     library.maintain_in_background(settings.config.clone(), move || {
         crate::commands::hashtables::reopen_after_sync(&for_tables);
     });
+
+    crate::telemetry::refresh_from_document(&app_handle);
 
     crate::tray::setup(app)?;
 

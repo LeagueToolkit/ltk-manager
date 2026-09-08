@@ -38,3 +38,34 @@ fn diagnostics_are_on_and_unannounced_by_default() {
 fn a_debug_build_reports_nothing() {
     assert_eq!(REPORTS, !cfg!(debug_assertions));
 }
+
+#[test]
+fn the_setting_off_beats_a_document_that_allows_collection() {
+    let settings = Settings {
+        telemetry_enabled: false,
+        ..Settings::default()
+    };
+
+    let allowed = Remote {
+        enabled: true,
+        ..Remote::default()
+    };
+
+    assert_eq!(refusal(&settings, &allowed), Some(Refusal::Setting));
+}
+
+#[test]
+fn a_document_that_stops_collection_stops_a_reader_who_allowed_it() {
+    let settings = Settings::default();
+    let stopped = Remote {
+        enabled: false,
+        ..Remote::default()
+    };
+
+    let expected = if REPORTS {
+        Refusal::Document
+    } else {
+        Refusal::DebugBuild
+    };
+    assert_eq!(refusal(&settings, &stopped), Some(expected));
+}
