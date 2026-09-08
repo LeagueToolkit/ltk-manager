@@ -2,8 +2,8 @@ import { FolderPlus } from "lucide-react";
 import { useState } from "react";
 
 import { IconButton, Popover } from "@/components";
-import { useCreateFolder } from "@/modules/library";
 
+import { useCreateFolder } from "../api";
 import { FolderNameForm } from "./FolderNameForm";
 
 export function CreateFolderDialog() {

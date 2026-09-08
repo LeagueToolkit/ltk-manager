@@ -2,9 +2,9 @@ import { Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ContextMenu, Dialog } from "@/components";
-import { useDeleteFolder, useRenameFolder, useToggleFolder } from "@/modules/library";
 import { usePatcherStatus } from "@/modules/patcher";
 
+import { useDeleteFolder, useRenameFolder, useToggleFolder } from "../api";
 import { FolderNameForm } from "./FolderNameForm";
 
 interface FolderContextMenuProps {

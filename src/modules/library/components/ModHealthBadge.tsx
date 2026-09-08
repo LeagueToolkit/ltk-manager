@@ -10,13 +10,13 @@ import { formatDistanceToNow } from "date-fns";
 
 import { Button, IconButton, Popover, ShockedPoroDuotoneIcon, Tooltip } from "@/components";
 import { type ModHealthVerdict } from "@/lib/tauri";
+
 import {
   useCheckModHealth,
   useHealthCheckReadiness,
   useModHealthVerdict,
   useRepairMod,
-} from "@/modules/library";
-
+} from "../api";
 import { alarmOf, type SweepAlarm, toneOf } from "./modHealthNotice";
 
 interface ModHealthBadgeProps {
