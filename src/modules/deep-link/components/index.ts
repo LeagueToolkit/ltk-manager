@@ -1,1 +1,1 @@
-export { ProtocolInstallDialog } from "./ProtocolInstallDialog";
+export { ProtocolInstallDialogLazy } from "./ProtocolInstallDialogLazy";

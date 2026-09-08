@@ -19,6 +19,13 @@ vi.mock("@tanstack/react-router", async (importOriginal) => ({
   useNavigate: () => mockNavigate,
 }));
 
+/* The bar reaches workshop through a dynamic import, so the stub stands in for
+   the chunk the test would otherwise wait on. */
+vi.mock("@/modules/workshop", () => ({
+  SessionProjectNames: ({ children }: { children: (names: string[]) => React.ReactNode }) =>
+    children(["Star Guardian Ahri"]),
+}));
+
 type Handler = (event: { payload: unknown }) => void;
 
 /** Reports when the patcher status query has actually settled. */
@@ -507,6 +514,17 @@ describe("SessionBar", () => {
     expect(screen.getByText("In game")).toBeInTheDocument();
     expect(screen.getByText("24C2E5A086AFFB82")).toBeInTheDocument();
     expect(screen.queryByText("Build overlay")).not.toBeInTheDocument();
+  });
+
+  it("names the project a session is testing", async () => {
+    usePlaySessionStore.setState({
+      step: "in-game",
+      session: { phase: "None", running: true, version: "24C2E5A086AFFB82" },
+    });
+    mockPatcher("patching");
+    renderWithProviders(<SessionBar />);
+
+    expect(await screen.findByText("Testing Star Guardian Ahri")).toBeInTheDocument();
   });
 
   /// A session followed without the patcher is an ordinary game, and saying

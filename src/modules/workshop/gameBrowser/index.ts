@@ -8,6 +8,7 @@ export { GameDocument } from "./GameDocument";
 export { GameWadDocument } from "./GameWadDocument";
 export { GameWadsDocument } from "./GameWadsDocument";
 export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./keys";
+export { ObjectIndexLifecycle } from "./ObjectIndexLifecycle";
 export { gameQueries, objectIndexQueries } from "./queries";
 export * from "./sourceIndex";
 export { SourceTree } from "./SourceTree";
@@ -21,7 +22,6 @@ export {
   useDeclaredObjects,
   useDropObjectIndex,
   useObjectDeclarations,
-  useObjectIndexLifecycle,
   useWarmObjectIndex,
 } from "./useObjectIndex";
 export { useObjectSearch } from "./useObjectSearch";

@@ -33,6 +33,7 @@ export * from "./ProjectCardMenuItems";
 export { ProjectProvider, useOptionalProjectContext, useProjectContext } from "./ProjectContext";
 export { ProjectGrid } from "./ProjectGrid";
 export * from "./RenameProjectDialog";
+export { SessionProjectNames } from "./SessionProjectNames";
 export {
   CaretSlot,
   FolderGlyph,

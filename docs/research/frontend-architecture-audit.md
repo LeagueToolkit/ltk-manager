@@ -87,6 +87,22 @@ The findings below are the evidence at `018fe6e`. This section is what no longer
   each.
 - `src/CLAUDE.md` carries the rules as "Dialogs".
 
+### The root route and the boot chunk
+
+- `ProtocolInstallDialog`, `UpdateNotification` and `DevConsole` are `React.lazy` behind a
+  `Suspense` in the root, each in a chunk of its own. The wrapper lives in the module that owns the
+  dialog, because the root reaches a module only through its barrel and every one of those barrels
+  is already on the boot path. Section 11, "Slim the root route".
+- The root mounts `<ObjectIndexLifecycle />` through a dynamic `import("@/modules/workshop")`, and
+  mounts it once the Objects switch has been on in the session. The switch is off by default, so
+  most launches never ask for the chunk.
+- `SessionBar` reads the session's project names through the same dynamic import, as the
+  `SessionProjectNames` render prop under the testing pill. A DAG is not enough on its own: the
+  root mounts the bar, and that one static edge held all of workshop in the entry chunk whatever
+  the root itself imported.
+- Boot is 2,133 kB across two chunks, from 3,024 kB. Workshop and the bin editor are an 874 kB
+  chunk that only the workshop route and a live test session ask for.
+
 ### What still stands
 
 The library grid is unvirtualized and every card still issues its own thumbnail invoke. `pages/`
@@ -95,7 +111,8 @@ moved with their modules. The specta migration and the tree core are untouched, 
 components section 11 asks for, the dialogs have landed and `SearchInput`, `useFlatTree`,
 `useKeyCommit`, the date helpers and `compareNames` have not. Sections 7 and 10 read as written,
 section 8 apart from its dialog rows, and section 12 apart from the boot and patcher bullets
-above.
+above. The entry chunk still carries `library`, `settings`, `diagnostics` and `home`, which the
+root's own listeners and dialogs hold there.
 
 ## 1. The shape
 
