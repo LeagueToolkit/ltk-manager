@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import type { BinRow } from "@/lib/tauri";
-import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
+import { findLeaf, leafHolding, leaves, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,
   filesDocument,
@@ -10,6 +10,7 @@ import {
   previewDocument,
   readLegacyEditorSeed,
 } from "@/modules/workshop";
+import { defaultShellLayout } from "@/modules/workshop/bin/shellPanes";
 import {
   EMPTY_EDITOR,
   type HistoryEntry,
@@ -536,6 +537,8 @@ describe("workshopEditor store", () => {
         activeLeafId: layout.id,
         selectedLayer: "base",
         previewId: null,
+        shellLayout: defaultShellLayout(),
+        shellLeafId: "leaf-3",
       });
 
       const editor = editorOf(A);
@@ -826,6 +829,76 @@ describe("workshopEditor store", () => {
       store().moveProject(A, B);
 
       expect(historyOf()).toEqual({ stops: [`${B}/details`], at: 0 });
+    });
+  });
+
+  describe("shell panes", () => {
+    const panesOf = (projectPath: string) =>
+      leaves(editorOf(projectPath).shellLayout).map((leaf) => leaf.tabs);
+
+    it("starts every project on the arrangement the shell ships", () => {
+      expect(panesOf(A)).toEqual([["emitters"], ["curve"], ["inspector"]]);
+    });
+
+    it("closes a pane and gives its room to the panel beside it", () => {
+      store().closeShellPane(A, "leaf-4", "curve");
+
+      expect(panesOf(A)).toEqual([["emitters"], ["inspector"]]);
+      expect(editorOf(A).shellLeafId).toBe("leaf-3");
+    });
+
+    it("opens the preview into the panel the reader last touched", () => {
+      store().activateShellPane(A, "leaf-4", "curve");
+
+      store().openShellPane(A, "preview");
+
+      expect(editorOf(A).shellLeafId).toBe("leaf-4");
+      expect(panesOf(A)).toEqual([["emitters"], ["curve", "preview"], ["inspector"]]);
+    });
+
+    it("leaves an open pane where it is", () => {
+      const before = editorOf(A).shellLayout;
+
+      store().openShellPane(A, "curve");
+
+      expect(editorOf(A).shellLayout).toBe(before);
+    });
+
+    it("stacks one pane onto another's strip", () => {
+      store().applyShellDrop(A, {
+        kind: "move",
+        documentId: "curve",
+        toLeafId: "leaf-5",
+      });
+
+      expect(panesOf(A)).toEqual([["emitters"], ["inspector", "curve"]]);
+      expect(leafHolding(editorOf(A).shellLayout, "curve")?.activeTab).toBe("curve");
+    });
+
+    it("splits a panel when a pane lands on its edge", () => {
+      store().applyShellDrop(A, {
+        kind: "split",
+        documentId: "curve",
+        targetLeafId: "leaf-5",
+        edge: "bottom",
+      });
+
+      expect(panesOf(A)).toEqual([["emitters"], ["inspector"], ["curve"]]);
+    });
+
+    it("puts every pane back where it started", () => {
+      store().closeShellPane(A, "leaf-4", "curve");
+      store().openShellPane(A, "preview");
+
+      store().resetShellLayout(A);
+
+      expect(panesOf(A)).toEqual([["emitters"], ["curve"], ["inspector"]]);
+    });
+
+    it("keeps one project's arrangement out of another's", () => {
+      store().closeShellPane(A, "leaf-4", "curve");
+
+      expect(panesOf(B)).toEqual([["emitters"], ["curve"], ["inspector"]]);
     });
   });
 });

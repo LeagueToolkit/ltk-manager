@@ -3,7 +3,10 @@
 - **Status:** Accepted (2026-09-07)
 - **Date:** 2026-09-07
 - **Crates:** none. A frame is frontend, and Rust knows no class
-- **Related:** Amends [ADR-0030](0030-a-class-view-is-a-layout-over-the-rows.md), which draws
+- **Related:** Amended by
+  [ADR-0034](0034-the-shells-panes-are-the-editors-split-tree.md), which makes the shell's four
+  panes a split tree the reader arranges and drops the per-class pane sizes below.
+  Amends [ADR-0030](0030-a-class-view-is-a-layout-over-the-rows.md), which draws
   every class view as a stack of sections. [ADR-0028](0028-an-object-is-a-document-of-its-own.md),
   whose object tab a frame fills. [ADR-0023](0023-a-setting-id-and-a-ui-path-are-two-id-spaces.md)
   and [ADR-0024](0024-a-setting-id-is-its-key-in-settings-json.md), whose id space the remembered

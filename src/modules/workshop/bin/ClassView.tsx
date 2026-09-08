@@ -37,6 +37,7 @@ import {
   type SectionWidget,
 } from "./classLayouts";
 import { CurveSurface } from "./CurveSurface";
+import { PanesMenu, type ShellPaneContent, ShellPaneTree } from "./ShellPaneTree";
 import { EffectTable, IconRow, MeshCard, OverrideRows } from "./SkinSections";
 import { useBinRead } from "./useBinRead";
 import {
@@ -50,7 +51,8 @@ import {
 import { useValueMarks, ValueMarksContext } from "./useValueMarks";
 import {
   EmitterChoiceContext,
-  EmitterPanel,
+  EmitterFields,
+  EmitterModes,
   Emitters,
   INSPECTOR_NAME,
   ShellCrumb,
@@ -65,29 +67,6 @@ import {
  * sidebars open, so the fallback is for a narrow window rather than for the usual one.
  */
 const SHELL_WIDTH = 900;
-
-/**
- * The two columns of a shell, and the least each of them is useful at.
- *
- * The inspector floor is what one row of a vector family measures: a name column, three
- * components at their own width, and the mark that says a curve carries the rest.
- */
-const SHELL_COLUMNS = "grid-cols-[minmax(16rem,2fr)_minmax(36rem,3fr)]";
-
-/** The box each pane of a shell draws, so no pane invents a surface of its own. DS-GROUND. */
-const PANE = "flex flex-col gap-1 rounded-md border border-surface-700/50 bg-surface-900 p-1.5";
-
-/** The inspector's share of its column's height, the preview taking what is left. */
-const INSPECTOR_SHARE = "flex-[2]";
-
-/**
- * The room the curve takes at the foot of the strip's column.
- *
- * A curve is read for its shape rather than for a number off its axis, so both of Riot's
- * editors draw it as a wide short strip. The height left over is the strip's, where empty
- * ground reads as room and an empty pane reads as a hole.
- */
-const CURVE_HEIGHT = "h-52";
 
 const NO_PAGES: LayoutPages = new Map();
 
@@ -229,70 +208,77 @@ function Stack({ placed, pages, view }: FrameProps) {
 }
 
 /**
- * Four panes under a breadcrumb, which is the frame a tuned class draws in (ADR-0031).
+ * The panes under a breadcrumb, which is the frame a tuned class draws in (ADR-0031).
  *
- * The strip is wide and short and the inspector a tall narrow list, so each column takes
- * the axis its own content needs. The curve and the preview hold their places while they
- * are empty, because a pane that appears on a click moves every pane around it.
+ * Where each pane sits and how much room it takes is the project's own tree, so this
+ * builds the four of them and hands them over without arranging any of it (ADR-0034).
  */
 function Shell({ placed, pages, view, system }: ShellProps) {
-  const { target } = useEmitters();
   const emitters = useMemo(() => placed.find((each) => each.widget === "emitters"), [placed]);
   const others = useMemo(() => placed.filter((each) => each.widget !== "emitters"), [placed]);
 
+  const content = useMemo<ShellPaneContent>(
+    () => ({
+      emitters: {
+        body: <EmittersPane section={emitters} pages={pages} view={view} />,
+        actions: <EmitterModes />,
+      },
+      curve: {
+        body: (
+          <div className="flex min-h-0 flex-1 flex-col p-1.5">
+            <CurveSurface document={view.document} named={false} />
+          </div>
+        ),
+      },
+      inspector: { body: <InspectorPane placed={others} pages={pages} view={view} /> },
+      preview: { body: <PreviewPane /> },
+    }),
+    [emitters, others, pages, view],
+  );
+
   return (
     <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-      <ShellCrumb system={system} />
-      <div className={twMerge("grid min-h-0 flex-1 gap-3", SHELL_COLUMNS)}>
-        <div className="flex min-h-0 min-w-0 flex-col gap-3">
-          {emitters !== undefined && (
-            <div
-              className={twMerge(
-                PANE,
-                "min-h-0 overflow-y-auto font-mono text-mono-row scrollbar-md",
-              )}
-            >
-              <Emitters section={emitters} pages={pages} view={view} />
-            </div>
-          )}
-          <CurvePane document={view.document} />
-        </div>
-        <div className="flex min-h-0 min-w-0 flex-col gap-3">
-          {target === "system" && <SystemPane placed={others} pages={pages} view={view} />}
-          {target !== "system" && (
-            <EmitterPanel
-              className={twMerge("min-h-0 font-mono text-mono-row", INSPECTOR_SHARE)}
-              nameWidth={INSPECTOR_NAME}
-            />
-          )}
-          <PreviewPane />
-        </div>
+      <div className="flex items-center gap-2">
+        <ShellCrumb system={system} />
+        <PanesMenu className="ml-auto" />
       </div>
+      <ShellPaneTree content={content} />
     </div>
   );
 }
 
-/** Identity, Audio and Other, which is what the crumb's first segment draws. */
-function SystemPane({ placed, pages, view }: FrameProps) {
+/** Every emitter of the system, in whichever reading the strip's own control picked. */
+function EmittersPane({
+  section,
+  pages,
+  view,
+}: { section: PlacedSection | undefined } & Omit<FrameProps, "placed">) {
+  if (section === undefined) return null;
+
   return (
-    /* DS-RADIUS, DS-SCROLLBAR */
-    <div
-      /* DS-GROUND, DS-RADIUS, DS-SCROLLBAR */
-      className={twMerge(
-        "flex min-h-0 flex-col gap-3 overflow-y-auto rounded-md border border-surface-700/50 bg-surface-900 p-2 scrollbar-md",
-        INSPECTOR_SHARE,
-      )}
-    >
+    <div className="flex min-h-0 flex-1 flex-col p-1.5 font-mono text-mono-row">
+      <Emitters section={section} pages={pages} view={view} />
+    </div>
+  );
+}
+
+/** Whatever the crumb is aimed at: the system's own sections, or one emitter's fields. */
+function InspectorPane({ placed, pages, view }: FrameProps) {
+  const { target } = useEmitters();
+
+  if (target !== "system") {
+    return (
+      <EmitterFields
+        className="min-h-0 flex-1 font-mono text-mono-row"
+        nameWidth={INSPECTOR_NAME}
+      />
+    );
+  }
+
+  return (
+    /* DS-SCROLLBAR */
+    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">
       <Sections placed={placed} pages={pages} view={view} />
-    </div>
-  );
-}
-
-/** The curve, in the pane a shell holds for it rather than in the dock a stack gets. */
-function CurvePane({ document }: { document: BinDocumentId }) {
-  return (
-    <div data-ui="ClassView:curve" className={twMerge(PANE, "shrink-0", CURVE_HEIGHT)}>
-      <CurveSurface document={document} />
     </div>
   );
 }
@@ -304,9 +290,7 @@ function PreviewPane() {
       data-ui="ClassView:preview"
       role="img"
       aria-label={m.workshop_bin_preview_pane_label()}
-      /* DS-VEIL, DS-RADIUS */
-      /* DS-GROUND, DS-VEIL, DS-RADIUS */
-      className="flex min-h-0 flex-1 items-center justify-center rounded-md border border-dashed border-surface-veil-strong bg-surface-900 px-2 text-center text-meta text-surface-400"
+      className="flex min-h-0 flex-1 items-center justify-center px-2 text-center text-meta text-surface-400"
     >
       {m.workshop_bin_preview_pane_empty()}
     </span>

@@ -4,6 +4,8 @@
 
 | Date       | Change                                                |
 | ---------- | ----------------------------------------------------- |
+| 2026-09-08 | Wrap the emitter cards into the pane                  |
+| 2026-09-08 | Arrange the shell's panes as a split tree             |
 | 2026-09-08 | Size the emitter card and filter the strip by name    |
 | 2026-09-08 | Give the curve dock its table and probability tabs    |
 | 2026-09-08 | Draw a colour curve as a gradient of its stops        |
@@ -12,8 +14,6 @@
 | 2026-09-07 | Fold a value family into the row a layout draws it in |
 | 2026-09-07 | Draw an emitter as a card of its groups               |
 | 2026-09-07 | Lay a skin and a particle system out                  |
-| 2026-09-07 | Name a project's own chunks                           |
-| 2026-09-07 | Lay a material out beside the tree                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -64,7 +64,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
 | Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
 | Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032    |
-| Particle system shell | In progress | Four panes under a crumb, per ADR-0031. Pane sizes next          |
+| Particle system shell | Available   | Panes under a crumb, arranged by the reader. ADR-0031, ADR-0034  |
 | In-document search    | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
@@ -1077,17 +1077,20 @@ draws. The strip opens on the first emitter's first group, because the read has 
 field by then and an empty panel says nothing. Reading an emitter whole is Properties, which is
 the whole object.
 
-**The card is sized by its group names, not by its square.** Both of Riot's editors draw a strip
-of small cards, and a system of sixty is walked rather than read one card at a time, so the card
-is as narrow as the widest thing that has to stay legible on it. That is the group names, and a
-name a reader cannot tell from the next one costs more than the pixels a bigger thumbnail gives
-back.
+**The card is sized to its name.** A card a reader cannot tell from the next one is worth nothing
+however many of them fit, so the width is what a typical emitter name reads in rather than what
+the square or the group names need.
+
+**In a pane the cards wrap, in a stack they scroll sideways.** A pane is sized by the reader, so
+the count on screen is theirs to set: the cards flow into as many rows as its height allows, and a
+system of sixty is a page rather than a sideways walk. The stack draws the same cards in the one
+row it has room for, under a column that is already scrolling.
 
 A field over the strip narrows both readings to the emitters whose name holds what was typed,
-case-insensitively, and says how many of how many are drawn while it holds anything. It shares
-the row the reading control already owned, because the pane is short. The open emitter stays open
-while it matches, and the first match opens when it does not. The table narrows on what the strip
-left rather than matching the names a second time, so the two cannot drift.
+case-insensitively, and says how many of how many are drawn while it holds anything. It sits
+beside the reading control, on the stack's own row and in a pane's strip. The open emitter stays
+open while it matches, and the first match opens when it does not. The table narrows on what the
+strip left rather than matching the names a second time, so the two cannot drift.
 
 The groups are Birth, Position, Render, Scale and Texture, the components both of Riot's editors
 draw, and Emission, Colour, Material and Effects for what the class carries and those five do not
@@ -1116,15 +1119,17 @@ holds two of those in view at best.
 +-----------------------------------------------------------------+
 | VfxSystemDefinitionData  8 properties   [System|Table|Properties]|
 +-----------------------------------------------------------------+
-| Smolder_Base_BA_mis  >  Glow_Variant1 [0]  >  Emission           |
+| Smolder_Base_BA_mis > Glow_Variant1 [0] > Emission     [Panes v] |
 +---------------------------+-------------------------------------+
-| [card][CARD][card] --->   |  rate              1        ~       |
-|                           |  lifetime          0.055            |
-+---------------------------+  period            1                |
-| Curve   Glow . rate       |  isSingleParticle  [x]              |
-|  1.0 +--+                 +-------------------------------------+
-|  0.0 +---+--------+       |  [ no renderer yet ]                |
-+---------------------------+-------------------------------------+
+| EMITTERS [Filter][Cards|Table]  | INSPECTOR                     |
+|---------------------------------|-------------------------------|
+| [card][CARD][card][card]        |  rate              1      ~   |
+| [card][card][card][card]        |  lifetime          0.055      |
+|=================================|  period            1          |
+| CURVE            [Graph|Table]  |  isSingleParticle  [x]        |
+|  1.0 +--+                       |                               |
+|  0.0 +---+--------+             |                               |
++---------------------------------+-------------------------------+
 ```
 
 The breadcrumb names system, emitter and group, and each of its segments is a target the inspector
@@ -1138,15 +1143,54 @@ sixty emitters answer without one beside them.
 
 The curve pane holds its place and draws a muted line until a mark targets it, where the dock in a
 stack is absent until then: a pane that appears on a click moves every pane around it. The preview
-pane is empty, and what fills it is a renderer of its own.
+pane waits on a renderer of its own, and ships closed until it has one.
 
-Pane sizes are the reader's, remembered on the class hash across tabs and sessions, because the
-proportions belong to the kind of work rather than to the file. Below the width a strip, an
-inspector and a curve all need, the same layout draws as the stack, so nothing is out of reach on a
-narrow window or with both sidebars open.
+Below the width a strip, an inspector and a curve all need, the same layout draws as the stack, so
+nothing is out of reach on a narrow window or with both sidebars open.
 
 The strip marks the squares' colours and the open group's rows, and no other value family, because
 an emitter carries far more of them than a card ever draws at once.
+
+### How the panes are arranged
+
+The picture above is where the panes start, not where they stay. A pane is a tab of the same split
+tree the project editor runs its document panels on, per ADR-0034, so the gestures are the ones a
+reader already knows from the tabs: drag a pane's tab onto another panel's edge to split it, onto
+the panel itself to share that panel's strip, and drag a seam to resize.
+
+```
+one reader's arrangement: the strip takes the window,
+the curve and the inspector share a strip under it
+
++-----------------------------------------------------------------+
+| EMITTERS                          [Filter      ][Cards|Table] x |
+|-----------------------------------------------------------------|
+| [card][card][card][card][card][card][card][card][card][card]    |
+| [card][card][card][card][card][card][card][card][card][card]    |
+|=================================================================|
+| CURVE | INSPECTOR                                x              |
+|-----------------------------------------------------------------|
+|  1.0 +--+                                                       |
+|  0.0 +---+--------------------------------------------------+   |
++-----------------------------------------------------------------+
+```
+
+The arrangement belongs to the project. A modder sets it once and every particle system they open
+in that project opens that way, because the proportions belong to the kind of work rather than to
+the file. It survives a restart in `.ltk/editor.json`, beside the document panels.
+
+**A pane's own controls sit at the right end of its strip.** The Emitters filter and its
+Cards/Table control are there rather than on a row of their own, so a reader looks in one place for
+whatever a pane can be told to do, and the cards get the row back.
+
+A pane closes from its own tab, and **Panes** on the breadcrumb row lists every pane with a tick
+against the open ones. Reopening puts a pane in the panel the reader last touched, since the panel
+it was closed from is the one that was pruned. The same menu carries **Reset layout**, which is the
+way back to the picture above.
+
+**The preview ships closed.** A closed pane is not drawn at all, and until a renderer fills it the
+preview is the largest thing on screen saying the least. It is one click away in the Panes menu for
+anyone who wants the place held.
 
 ## The curve panel
 

@@ -171,6 +171,13 @@
       }
     }
   ],
+  "workshop_bin_pane_curve_label": "Curve",
+  "workshop_bin_pane_emitters_label": "Emitters",
+  "workshop_bin_pane_inspector_label": "Inspector",
+  "workshop_bin_pane_preview_label": "Preview",
+  "workshop_bin_panes_empty": "Reopen a pane from the Panes menu",
+  "workshop_bin_panes_menu_label": "Panes",
+  "workshop_bin_panes_reset_action": "Reset layout",
   "workshop_bin_patch_deleted_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

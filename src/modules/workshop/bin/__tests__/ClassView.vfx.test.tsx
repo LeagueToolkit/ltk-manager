@@ -2,7 +2,7 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { type ReactNode, useMemo, useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
+import { useWorkshopEditorStore } from "../../state/workshopEditor";
 import { nameHash } from "../binHash";
 import { vfxLayout } from "../classLayouts";
 import { ClassView } from "../ClassView";
@@ -592,13 +593,12 @@ describe("The shell frame", () => {
     expect(await screen.findByText("blendMode")).toBeInTheDocument();
   });
 
-  it("holds a place for the curve and the preview before either draws", async () => {
+  it("holds a place for the curve before a mark targets it", async () => {
     renderSystem();
     await screen.findByText("lifetime");
 
-    expect(screen.getByText("Curve")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Curve" })).toBeInTheDocument();
     expect(screen.getByText("No value targeted")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Particle preview" })).toBeInTheDocument();
   });
 
   it("draws the curve of the row a sparkline targets, named by its chain and its path", async () => {
@@ -699,6 +699,82 @@ describe("The shell frame", () => {
 
     expect(screen.getByText("VfxShapeSphere")).toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+});
+
+describe("The shell's panes", () => {
+  beforeEach(() => {
+    paneWidth = WIDE;
+    useWorkshopEditorStore.setState({ byProject: {} });
+  });
+
+  const paneTab = (name: string) => screen.queryByRole("tab", { name });
+
+  /** Reopen or close one pane from the menu the crumb row carries. */
+  async function fromPanesMenu(user: UserEvent, name: string) {
+    await user.click(screen.getByRole("button", { name: "Panes" }));
+    await user.click(await screen.findByRole("menuitem", { name }));
+  }
+
+  it("draws each pane that has something to draw in a panel of its own", async () => {
+    renderSystem();
+    await screen.findByText("lifetime");
+
+    for (const pane of ["Emitters", "Curve", "Inspector"]) {
+      expect(paneTab(pane)).toBeInTheDocument();
+    }
+    expect(paneTab("Preview")).not.toBeInTheDocument();
+  });
+
+  it("closes a pane from its own tab", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await user.click(screen.getByRole("button", { name: "Close Curve" }));
+
+    expect(paneTab("Curve")).not.toBeInTheDocument();
+  });
+
+  it("opens the preview from the Panes menu", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await fromPanesMenu(user, "Preview");
+
+    expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+  });
+
+  it("puts every pane back from Reset layout", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+    await fromPanesMenu(user, "Preview");
+    await fromPanesMenu(user, "Curve");
+
+    await fromPanesMenu(user, "Reset layout");
+
+    for (const pane of ["Emitters", "Curve", "Inspector"]) {
+      expect(await screen.findByRole("tab", { name: pane })).toBeInTheDocument();
+    }
+    expect(paneTab("Preview")).not.toBeInTheDocument();
+  });
+
+  it("keeps the inspector aimed where the crumb left it", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("lifetime");
+
+    await user.click(
+      within(screen.getByRole("navigation", { name: "What the inspector draws" })).getByRole(
+        "button",
+        { name: "Smolder_Base_Idle" },
+      ),
+    );
+
+    expect(await screen.findByRole("button", { name: "Identity" })).toBeInTheDocument();
+    expect(paneTab("Inspector")).toBeInTheDocument();
   });
 });
 

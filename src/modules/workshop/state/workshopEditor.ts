@@ -6,6 +6,7 @@ import type { BinRow } from "@/lib/tauri";
    this module needs `singleLeaf` while it evaluates. */
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
+  type DropOutcome,
   type Edge,
   findLeaf,
   insertTab,
@@ -23,6 +24,7 @@ import {
   splitLeaf,
 } from "@/modules/editor/layout";
 
+import { defaultShellLayout, firstShellLeafId, type ShellPaneId } from "../bin/shellPanes";
 import type { ContentDocument } from "../documents/contentDocument";
 import type { PersistedProjectEditor } from "./editorFile";
 
@@ -122,6 +124,15 @@ export interface ProjectEditor {
   revealObject: ObjectRevealRequest | null;
   /** The pending curve request, which at most one open object tab answers. */
   aimCurve: CurveAimRequest | null;
+  /**
+   * The split tree of shell panes, which every object tab of the project draws in.
+   *
+   * One tree per project rather than one per class or per tab, so a reader
+   * arranges the panes once and every particle system opens arranged that way.
+   */
+  shellLayout: LayoutNode;
+  /** The pane leaf a reopened pane lands in. */
+  shellLeafId: string;
 }
 
 interface WorkshopEditorStore {
@@ -172,6 +183,20 @@ interface WorkshopEditorStore {
   setSplitLayout: (projectPath: string, splitId: string, layout: Record<string, number>) => void;
   /** Merges every strip into the focused leaf, in reading order. */
   resetLayout: (projectPath: string) => void;
+  /** Activates one of a pane leaf's own panes, and focuses that leaf. */
+  activateShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
+  closeShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
+  /** Puts a closed pane back into the focused leaf, which is what the Panes menu asks for. */
+  openShellPane: (projectPath: string, paneId: ShellPaneId) => void;
+  /** Commits one finished pane drag: a reorder, a move between leaves, or a split. */
+  applyShellDrop: (projectPath: string, outcome: DropOutcome) => void;
+  setShellSplitLayout: (
+    projectPath: string,
+    splitId: string,
+    layout: Record<string, number>,
+  ) => void;
+  /** Puts every pane back where ADR-0031 arranged them. */
+  resetShellLayout: (projectPath: string) => void;
   setDocumentDirty: (projectPath: string, id: string, dirty: boolean) => void;
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
@@ -192,6 +217,9 @@ interface WorkshopEditorStore {
    op copies before it writes. */
 const ROOT = singleLeaf();
 
+/** The pane tree every project starts on, shared for the same reason as ROOT. */
+const SHELL_ROOT = defaultShellLayout();
+
 export const EMPTY_EDITOR: ProjectEditor = {
   documents: {},
   layout: ROOT,
@@ -203,6 +231,8 @@ export const EMPTY_EDITOR: ProjectEditor = {
   reveal: null,
   revealObject: null,
   aimCurve: null,
+  shellLayout: SHELL_ROOT,
+  shellLeafId: firstShellLeafId(SHELL_ROOT),
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
@@ -401,6 +431,34 @@ function reorderLeafTabs(node: LayoutNode, leafId: string, ids: readonly string[
   return changed ? { ...node, children } : node;
 }
 
+/** `leafId` when the tree still holds it, and the first leaf when a prune took it. */
+function heldLeafId(tree: LayoutNode, leafId: string): string {
+  return findLeaf(tree, leafId) ? leafId : firstShellLeafId(tree);
+}
+
+/**
+ * One finished pane drag as a tree and the leaf it left the reader on.
+ *
+ * The document side spends an action per outcome, because each of them also
+ * touches the preview tab or the navigation stack. A pane touches neither, so
+ * the three collapse into the one place that reads the resolver's verdict.
+ */
+function shellDrop(tree: LayoutNode, outcome: DropOutcome): { tree: LayoutNode; leafId: string } {
+  switch (outcome.kind) {
+    case "reorder":
+      return { tree: reorderLeafTabs(tree, outcome.leafId, outcome.ids), leafId: outcome.leafId };
+    case "move":
+      return {
+        tree: moveTab(tree, outcome.documentId, outcome.toLeafId, outcome.index),
+        leafId: outcome.toLeafId,
+      };
+    case "split": {
+      const split = splitLeaf(tree, outcome.targetLeafId, outcome.edge, outcome.documentId);
+      return { tree: split.tree, leafId: split.leafId };
+    }
+  }
+}
+
 export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) => ({
   byProject: {},
   history: [],
@@ -417,6 +475,8 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           activeLeafId: state.activeLeafId,
           selectedLayer: state.selectedLayer,
           previewId: state.previewId,
+          shellLayout: state.shellLayout,
+          shellLeafId: state.shellLeafId,
         },
       },
     })),
@@ -691,6 +751,73 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           if (layout === editor.layout) return null;
           return { ...editor, layout, activeLeafId: layout.id };
         }) ?? state,
+    ),
+
+  activateShellPane: (projectPath, leafId, paneId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const shellLayout = setActiveTab(editor.shellLayout, leafId, paneId);
+          if (shellLayout === editor.shellLayout && editor.shellLeafId === leafId) return null;
+          return { ...editor, shellLayout, shellLeafId: leafId };
+        }) ?? state,
+    ),
+
+  closeShellPane: (projectPath, leafId, paneId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const shellLayout = removeTab(editor.shellLayout, leafId, paneId);
+          if (shellLayout === editor.shellLayout) return null;
+          return {
+            ...editor,
+            shellLayout,
+            shellLeafId: heldLeafId(shellLayout, editor.shellLeafId),
+          };
+        }) ?? state,
+    ),
+
+  openShellPane: (projectPath, paneId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          if (leafHolding(editor.shellLayout, paneId)) return null;
+          const leafId = heldLeafId(editor.shellLayout, editor.shellLeafId);
+          return {
+            ...editor,
+            shellLayout: insertTab(editor.shellLayout, leafId, paneId),
+            shellLeafId: leafId,
+          };
+        }) ?? state,
+    ),
+
+  applyShellDrop: (projectPath, outcome) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const moved = shellDrop(editor.shellLayout, outcome);
+          if (moved.tree === editor.shellLayout) return null;
+          return { ...editor, shellLayout: moved.tree, shellLeafId: moved.leafId };
+        }) ?? state,
+    ),
+
+  setShellSplitLayout: (projectPath, splitId, layout) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const shellLayout = applySplitLayout(editor.shellLayout, splitId, layout);
+          return shellLayout === editor.shellLayout ? null : { ...editor, shellLayout };
+        }) ?? state,
+    ),
+
+  resetShellLayout: (projectPath) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.shellLayout === SHELL_ROOT
+            ? null
+            : { ...editor, shellLayout: SHELL_ROOT, shellLeafId: firstShellLeafId(SHELL_ROOT) },
+        ) ?? state,
     ),
 
   setDocumentDirty: (projectPath, id, dirty) =>

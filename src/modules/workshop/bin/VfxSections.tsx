@@ -46,14 +46,13 @@ import {
 const SIMPLE_LIST = nameHash("simpleEmitterDefinitionData");
 
 /**
- * The room a card takes: its group names, which are the widest thing on it.
+ * The room a card takes, which is what a typical emitter name reads in.
  *
- * Both of Riot's editors draw a strip of small cards, and a system of sixty is walked
- * rather than read one card at a time. The square follows the width rather than setting
- * it, because a name a reader cannot tell from the next one costs more than the pixels
- * the thumbnail gives back.
+ * A card a reader cannot tell from the next one is worth nothing however many of them
+ * fit, and in a pane the count comes from the rows the grid wraps into rather than from
+ * how narrow one card is.
  */
-const CARD_WIDTH = "w-24";
+const CARD_WIDTH = "w-36";
 
 /** The room the panel's name column takes, which the longest emitter field fits in. */
 const PANEL_NAME = "w-56";
@@ -278,13 +277,25 @@ function shownGroups(
 export function Emitters({ section, pages, view }: WidgetProps) {
   const { mode } = useEmitters();
 
+  /* A pane's own strip carries the filter and the reading, so the section drawn in one
+     is the cards alone. */
+  if (view.frame === "shell") {
+    if (mode === "cards") return <EmitterGrid />;
+    return (
+      /* DS-SCROLLBAR */
+      <div className="min-h-0 flex-1 overflow-auto scrollbar-md">
+        <EmitterTable section={section} pages={pages} view={view} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <EmitterModes />
       {mode === "cards" && (
         <div className="flex flex-col gap-1.5">
           <EmitterStrip />
-          {view.frame === "stack" && <EmitterPanel className={PANEL_HEIGHT} />}
+          <EmitterPanel className={PANEL_HEIGHT} />
         </div>
       )}
       {mode === "table" && <EmitterTable section={section} pages={pages} view={view} />}
@@ -293,12 +304,12 @@ export function Emitters({ section, pages, view }: WidgetProps) {
 }
 
 /**
- * The row over the strip: what narrows it, how much of it is drawn, and which reading.
+ * What narrows the strip, how much of it is drawn, and which reading.
  *
- * One row rather than two, because the pane the strip sits in is short and the control
- * picking the reading already owned this line.
+ * A stack draws it over the strip. A shell hands it to the pane's own strip, so the
+ * controls of every pane sit in the one place a reader looks for them.
  */
-function EmitterModes() {
+export function EmitterModes() {
   const { mode, setMode, filter, setFilter, cards, total } = useEmitters();
 
   return (
@@ -348,7 +359,7 @@ function cardsOf(section: PlacedSection, pages: LayoutPages): EmitterCardData[] 
   });
 }
 
-/** Every emitter as a card, in the one strip that scrolls sideways. */
+/** Every emitter as a card, in the one row a stack gets. */
 function EmitterStrip() {
   const { cards, open } = useEmitters();
   const strip = useRef<HTMLDivElement>(null);
@@ -356,8 +367,36 @@ function EmitterStrip() {
 
   if (cards.length === 0) return <None />;
   return (
+    /* DS-SCROLLBAR */
     <div ref={strip} className="overflow-x-auto scrollbar-sm">
       <div className="flex items-start gap-1.5 pb-1">
+        {cards.map((each) => (
+          <EmitterCard
+            key={each.key}
+            card={each}
+            open={open?.key === each.key ? open.group : null}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The same cards wrapped into as many rows as the pane leaves room for.
+ *
+ * A pane is sized by the reader rather than by the column it sat in, so the count on
+ * screen is theirs to set. Sixty emitters are a sideways walk in one row and a page in a
+ * grid.
+ */
+function EmitterGrid() {
+  const { cards, open } = useEmitters();
+
+  if (cards.length === 0) return <None />;
+  return (
+    /* DS-SCROLLBAR */
+    <div className="min-h-0 flex-1 overflow-y-auto scrollbar-sm">
+      <div className="flex flex-wrap content-start items-start gap-1.5 pb-1">
         {cards.map((each) => (
           <EmitterCard
             key={each.key}
@@ -507,16 +546,35 @@ export function EmitterPanel({
   className?: string;
   nameWidth?: string;
 }) {
+  return (
+    /* DS-GROUND, DS-RADIUS */
+    <EmitterFields
+      className={twMerge("rounded-md border border-surface-700/50 bg-surface-900", className)}
+      nameWidth={nameWidth}
+    />
+  );
+}
+
+/**
+ * The same fields with no surface, for a host that draws one around them.
+ *
+ * A pane of the shell is already a box, so the panel inside it would be a box
+ * within a box.
+ */
+export function EmitterFields({
+  className,
+  nameWidth = PANEL_NAME,
+}: {
+  className?: string;
+  nameWidth?: string;
+}) {
   const { card, shown } = useEmitters();
 
   return (
-    /* DS-GROUND, DS-RADIUS, DS-SCROLLBAR */
+    /* DS-SCROLLBAR */
     <div
       data-ui="EmitterPanel"
-      className={twMerge(
-        "flex flex-col gap-0.5 overflow-y-auto rounded-md border border-surface-700/50 bg-surface-900 p-1.5 scrollbar-md",
-        className,
-      )}
+      className={twMerge("flex flex-col gap-0.5 overflow-y-auto p-1.5 scrollbar-md", className)}
     >
       <CurveChainContext value={card === undefined ? "" : `${nameOf(card)} [${card.index}]`}>
         {shown.map((each) => (

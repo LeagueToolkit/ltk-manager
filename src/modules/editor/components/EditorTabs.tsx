@@ -1,4 +1,3 @@
-import { useDndContext } from "@dnd-kit/core";
 import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -26,7 +25,8 @@ import { ContextMenu, IconButton, Tabs } from "@/components";
 import { useCopyToClipboard, useHorizontalWheel } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 
-import { decodeDroppableId, tabDroppableId } from "../layout/dnd";
+import { tabDroppableId } from "../layout/dnd";
+import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
 
 export interface EditorTab {
   id: string;
@@ -88,7 +88,10 @@ export function EditorTabs({
   className,
 }: EditorTabsProps) {
   const sortableIds = tabs.map((tab) => tabDroppableId(leafId, tab.id));
-  const caretIndex = useForeignCaretIndex(leafId, tabs);
+  const caretIndex = useForeignCaretIndex(
+    leafId,
+    tabs.map((tab) => tab.id),
+  );
 
   const listRef = useRef<HTMLDivElement>(null);
   useHorizontalWheel(listRef);
@@ -158,28 +161,6 @@ function useActiveTabInView(ref: RefObject<HTMLDivElement | null>, activeId: str
     const tab = tabs && [...tabs].find((candidate) => candidate.dataset.tabId === activeId);
     tab?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [ref, activeId]);
-}
-
-/**
- * Where a tab dragged in from another strip would land, or null.
- *
- * A reorder within the strip previews through the sortable transforms instead,
- * so the caret only answers a foreign drag: before the hovered tab, or at the
- * end for a drop on the leaf's centre.
- */
-function useForeignCaretIndex(leafId: string, tabs: readonly EditorTab[]): number | null {
-  const { active, over } = useDndContext();
-  const dragged = active ? decodeDroppableId(String(active.id)) : null;
-  if (dragged?.kind !== "tab" || dragged.leafId === leafId) return null;
-
-  const target = over ? decodeDroppableId(String(over.id)) : null;
-  if (!target || target.leafId !== leafId) return null;
-
-  if (target.kind === "tab") {
-    const index = tabs.findIndex((tab) => tab.id === target.documentId);
-    return index < 0 ? null : index;
-  }
-  return target.region === "center" ? tabs.length : null;
 }
 
 function DropCaret() {
