@@ -483,6 +483,7 @@ describe("a value family's row", () => {
         { time: 0, values: [1, 0, 0, 1] },
         { time: 1, values: [0, 0, 1, 1] },
       ],
+      tables: [],
       curve: true,
     });
 
@@ -498,6 +499,7 @@ describe("a value family's row", () => {
         { time: 0, values: [1, 0, 0, 1] },
         { time: 1, values: [0, 0, 1, 1] },
       ],
+      tables: [],
       curve: true,
     });
 
@@ -509,6 +511,7 @@ describe("a value family's row", () => {
       family: "color",
       constant: { type: "vector", values: [1, 1, 1, 1] },
       keys: [],
+      tables: [],
       curve: false,
     });
 
@@ -520,6 +523,7 @@ describe("a value family's row", () => {
       family: "scalar",
       constant: { type: "float", value: 2.5 },
       keys: [],
+      tables: [],
       curve: false,
     });
     expect(screen.getByDisplayValue("2.5")).toHaveAttribute("readonly");
@@ -528,13 +532,14 @@ describe("a value family's row", () => {
       family: "vector",
       constant: { type: "vector", values: [0, 1.5, 0] },
       keys: [],
+      tables: [],
       curve: false,
     });
     expect(screen.getByDisplayValue("1.5")).toHaveAttribute("readonly");
   });
 
   it("draws nothing extra before the read lands", () => {
-    renderMarked({ family: "color", constant: null, keys: [], curve: false });
+    renderMarked({ family: "color", constant: null, keys: [], tables: [], curve: false });
 
     expect(screen.queryByLabelText(/colour stop/)).toBeNull();
   });

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                  |
 | ---------- | ------------------------------------------------------- |
+| 2026-09-08 | Give the curve dock its table and probability tabs      |
 | 2026-09-08 | Draw a colour curve as a gradient of its stops          |
 | 2026-09-08 | Decide the curve panel                                  |
 | 2026-09-07 | Frame a particle system as a shell of panes             |
@@ -13,7 +14,6 @@
 | 2026-09-07 | Name a project's own chunks                             |
 | 2026-09-07 | Lay a material out beside the tree                      |
 | 2026-09-07 | Read several nodes in one call, and draw a value family |
-| 2026-09-07 | Link a string that names a thing                        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -567,6 +567,10 @@ dynamics' two lists. Each level's rows carry how long the next is, so a level ba
 read's cap rather than guessing at it. A surface says which families it wants those levels for. A
 colour asks for them wherever it draws, since its band is its keys. Every other family asks only
 where a sparkline draws one. A value with no dynamics stops at the first level whatever asked.
+
+The dock walks three more for the probability tables - the table list, each table behind a slot,
+and each table's own two lists. It can afford them because it is aimed at one row, where a surface
+drawing rows is reading a page of them at a time.
 
 The strip takes the width one vector component takes, so a column mixing colours, floats and
 vectors keeps its readouts under each other. A stop sits at its own time in
@@ -1132,9 +1136,14 @@ reads a float, a vector and a colour alike.
 
 ### The window a curve is drawn over
 
-A key time is a share of the particle's own life, so the window every curve draws over is 0 to 1,
-widened at either end by whatever key reaches past it. A file holds times outside that range and
-none of them are clipped.
+A key time is a share of a life, so the window every curve draws over is 0 to 1, widened at either
+end by whatever key reaches past it. A file holds times outside that range and none of them are
+clipped.
+
+Whose life it is depends on the field. A particle-level value is sampled at
+`clamp01((now - birthTime) / lifetime)`, so the window is the particle's own and the clamp is the
+engine's. An emitter-level one such as `rate` is sampled on the emitter's clock instead. The panel
+draws one window either way, because which clock a field runs on is not something a curve carries.
 
 The window rather than the curve's own first and last key, because where in a life a value moves
 is half of what it says. A colour keyed 0.2 to 0.8 holds, fades, and holds again, and a plot
@@ -1182,13 +1191,32 @@ and the property path in the tree. The path is what a bug report needs.
 A mark and a sparkline both aim the dock, and so does Show curve on the row menu of a value that
 has dynamics. A value without one is offered neither.
 
+### The row's two triggers
+
+A value-family row in a layout draws its constant inline and then two triggers, the shape both of
+Riot's editors use: the constant is what a modder is tuning, and the rest of the value is one
+target away on the same line rather than behind a mode.
+
+```
+scale0    [X 1.5] [Y 1.0] [Z 1.0]   [~] [::]
+```
+
+**Riot's triggers add data and ours open a reading**, because nothing in the editor writes a bin
+yet. The first aims the dock's Graph and carries the sparkline where the read answered the keys.
+The second aims Probability. An aim naming a reading switches the dock to it, so a trigger lands
+on what it names rather than on whichever tab the dock was left on.
+
+Both are drawn only where the row has dynamics, which is one condition rather than two: the
+probability tables are a field inside the dynamics, so a value with no curve has no tables either.
+A row with no dynamics draws neither, per [what has no curve](#what-has-no-curve).
+
 ### The three tabs
 
 **Graph** plots the keys over [the window](#the-window-a-curve-is-drawn-over). A vector draws a
 line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one.
 
 A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
-at the stop's own time, and the picked stop's time and `#RRGGBBAA` under them.
+at the stop's own time, and the keys themselves under them.
 
 ```
 +-----------------------------------------------------------------+
@@ -1198,9 +1226,17 @@ at the stop's own time, and the picked stop's time and `#RRGGBBAA` under them.
 |      V           V                V                       V      |
 |     [#]         [#]              [#]                     [#]     |
 |   0.00                                                    1.00   |
-|  [#] 0.250   #FFEEDDAA [copy]                   4 colour stops   |
+|   Time      R      G      B      A                               |
+|   0.000  [#] #FF0000FF  1      0      0      1                   |
+|   0.250  [#] #FFEEDDAA  1      0.93   0.86   0.67                |
 +-----------------------------------------------------------------+
 ```
+
+**The keys sit under the ramp rather than behind a tab of their own.** A stop's numbers are what a
+reader compares against the ramp they are looking at, and a tab is a click plus a place to
+remember. The rail and the table are one selection, so picking a marker highlights its row and
+picking a row moves the marker. A colour's strip therefore offers Graph and Probability alone,
+because a Table tab would draw the rows a second time.
 
 **A colour plots no channel lines and offers no channel chips.** Four lines crossing a ramp are
 what a colour is made of rather than what it looks like, and a modder reads a colour curve as the
@@ -1220,10 +1256,18 @@ A curve of one key draws flat across the box. It is a value that animates to not
 as a line held at its own level and not as a mark in the corner of an empty plot.
 
 **Table** is the keys as rows, a time and a channel per column, which is the form an edit takes.
+Each column carries the hue its line draws in on the graph, and a colour's row carries a swatch
+and its `#RRGGBBAA` ahead of the four numbers, so a key is read as a colour there too. It is the
+same table a colour's graph draws under its ramp, which is why a colour is offered no tab of it.
 
-**Probability** is `probabilityTables` for the channel the graph's chips chose. Where a table
-holds no keys its `singleValue` draws in place of a plot. What the game samples from a probability
-table is not documented, so the tab draws the lists it finds and claims nothing about them.
+**Probability** is `probabilityTables`, which the file writes as one nullable slot per channel. A
+slot the file leaves null is a channel with no table rather than one shifting the rest along, so a
+chip is drawn for each table that exists and the chips are the tab's own. The graph's chips cannot
+serve here, because a colour draws none.
+
+Where a table holds no keys its `singleValue` draws in place of a plot, defaulting to `1` as the
+schema does. **What the game samples from a probability table is documented nowhere**, in the
+reversing notes or elsewhere, so the tab draws the lists it finds and claims nothing about them.
 
 ### Where a curve is drawn small
 

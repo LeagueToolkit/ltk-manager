@@ -1,4 +1,4 @@
-import { WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
+import { GridFourIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
 import { twMerge } from "tailwind-merge";
 
@@ -240,34 +240,62 @@ export function ValueCell({ row }: { row: BinRow }) {
   const { aim } = useCurveDock();
   const chain = useCurveChain(row.name);
 
+  /* Both of Riot's editors put the constant inline and the triggers after it, so a reader
+     tuning a value sees what it is worth and reaches the rest of it from the same row. The
+     probability tables live inside the dynamics, so one trigger present is both present. */
   return (
     <span className="flex min-w-0 items-center gap-2">
       <ValueMarkCell mark={mark} />
       {mark?.curve === true && (
-        <button
-          type="button"
-          aria-label={m.workshop_bin_show_curve_action()}
-          /* DS-RADIUS, DS-VEIL */
-          className="flex cursor-pointer items-center rounded-sm px-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-200"
-          onClick={() => aim({ row, chain })}
-        >
-          {keys.length > 0 && (
-            <Sparkline
-              keys={keys}
-              label={m.workshop_bin_curve_keys_label({ count: keys.length })}
-            />
-          )}
-          {keys.length === 0 && (
-            <WaveSineIcon
-              weight="bold"
-              role="img"
-              aria-label={m.workshop_bin_value_curve_label()}
-              className="h-3.5 w-3.5 shrink-0"
-            />
-          )}
-        </button>
+        <span className="flex shrink-0 items-center gap-0.5">
+          <Trigger label={m.workshop_bin_show_curve_action()} onClick={() => aim({ row, chain })}>
+            {keys.length > 0 && (
+              <Sparkline
+                keys={keys}
+                label={m.workshop_bin_curve_keys_label({ count: keys.length })}
+              />
+            )}
+            {keys.length === 0 && (
+              <WaveSineIcon
+                weight="bold"
+                role="img"
+                aria-label={m.workshop_bin_value_curve_label()}
+                className="h-3.5 w-3.5 shrink-0"
+              />
+            )}
+          </Trigger>
+          <Trigger
+            label={m.workshop_bin_show_probability_action()}
+            onClick={() => aim({ row, chain, tab: "probability" })}
+          >
+            <GridFourIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
+          </Trigger>
+        </span>
       )}
     </span>
+  );
+}
+
+/** One of the row's triggers, which aims the dock at a reading rather than writing anything. */
+function Trigger({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      /* DS-RADIUS, DS-VEIL */
+      className="flex cursor-pointer items-center rounded-sm px-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-200"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 

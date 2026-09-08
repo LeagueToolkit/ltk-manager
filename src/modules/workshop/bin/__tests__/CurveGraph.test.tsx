@@ -89,16 +89,26 @@ describe("CurveGraph", () => {
     expect(last).toHaveStyle({ left: "75.00%" });
   });
 
-  it("opens on the first stop, and reads the one a handle picks", async () => {
+  it("draws the keys under the ramp, so the numbers need no tab of their own", () => {
+    draw(COLOR, "color");
+
+    expect(screen.getByText("#FF0000FF")).toBeInTheDocument();
+    expect(screen.getByText("#0000FF00")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+  });
+
+  it("opens on the first stop, and moves the selection a handle or a row picks", async () => {
     draw(COLOR, "color");
     const user = userEvent.setup();
 
-    expect(screen.getByText("#FF0000FF")).toBeInTheDocument();
+    const rowOf = (at: number) => screen.getAllByRole("row")[at]!;
+    expect(rowOf(1)).toHaveAttribute("aria-selected", "true");
 
     await user.click(screen.getByRole("button", { name: "Colour stop at 1.000, #0000FF00" }));
+    expect(rowOf(2)).toHaveAttribute("aria-selected", "true");
 
-    expect(screen.getByText("#0000FF00")).toBeInTheDocument();
-    expect(screen.getByText("1.000")).toBeInTheDocument();
+    await user.click(rowOf(1));
+    expect(rowOf(1)).toHaveAttribute("aria-selected", "true");
   });
 
   it("offers neither handle nor readout for a family that is no colour", () => {

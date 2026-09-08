@@ -4,6 +4,7 @@ import { twMerge } from "tailwind-merge";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 
+import { CHANNELS, CHIP, STROKE } from "./curveChannels";
 import { axisText, plotOf } from "./curvePlot";
 import { GradientPlot } from "./GradientPlot";
 import type { CurveKey, ValueFamily } from "./valueRows";
@@ -13,22 +14,6 @@ const MARGIN = 0.12;
 
 /** The room the value axis labels take, which the time axis keeps clear to line up under. */
 const AXIS = "w-12";
-
-/** What each channel of a family is called, in the letters both of Riot's editors use. */
-const CHANNELS: Record<ValueFamily, readonly string[]> = {
-  scalar: ["value"],
-  vector: ["X", "Y", "Z"],
-  color: ["R", "G", "B", "A"],
-};
-
-/** The hue each channel draws in, X red, Y green and Z blue as Riot draws them. DS-KIND-HUE. */
-const STROKE = ["text-channel-1", "text-channel-2", "text-channel-3", "text-channel-4"];
-const CHIP = [
-  "text-channel-1-text",
-  "text-channel-2-text",
-  "text-channel-3-text",
-  "text-channel-4-text",
-];
 
 /**
  * A curve as the surface its family reads on. "The curve panel" in docs/ux/BIN_EDITOR.md.

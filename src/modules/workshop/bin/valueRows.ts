@@ -25,6 +25,17 @@ const DYNAMICS = nameHash("dynamics");
 const TIMES = nameHash("times");
 const VALUES = nameHash("values");
 
+/** One `VfxProbabilityTableData` per channel of the family, each slot a nullable pointer. */
+const TABLES = nameHash("probabilityTables");
+
+/** A table's own two lists, and the one value it holds instead of them. */
+const KEY_TIMES = nameHash("keyTimes");
+const KEY_VALUES = nameHash("keyValues");
+const SINGLE = nameHash("singleValue");
+
+/** What a table with no keys is worth, which the schema writes as the field's default. */
+const SINGLE_DEFAULT = 1;
+
 /** The family a row's value belongs to, or null for every other value. */
 export function valueFamily(value: BinValue): ValueFamily | null {
   if (value.type !== "struct") return null;
@@ -45,13 +56,29 @@ export interface CurveKey {
 }
 
 /**
+ * One channel's probability table, as the file holds it.
+ *
+ * What the game samples from one is not documented anywhere the reversing covers, so a
+ * surface draws the lists and claims nothing about them.
+ */
+export interface ProbabilityTable {
+  /** Which channel of the family the slot belongs to, in the list's own order. */
+  readonly channel: number;
+  /** The table's `singleValue`, which is what it is worth where it holds no keys. */
+  readonly single: number;
+  /** The table's own keys, one value each. Empty where it holds only `singleValue`. */
+  readonly keys: readonly CurveKey[];
+}
+
+/**
  * What a surface reads a curve for.
  *
  * A colour band is the keys of a colour and of nothing else, which is what every surface
  * drawing a row already pays for. A sparkline is every family's keys, two more read levels
- * that only a surface drawing a handful of rows at a time can afford.
+ * that only a surface drawing a handful of rows at a time can afford. The dock reads one
+ * row at a time, so it can afford the probability tables' three levels on top.
  */
-export type CurveRead = "bands" | "sparklines";
+export type CurveRead = "bands" | "sparklines" | "dock";
 
 /** What a value-family row draws after its class, as far as the read has answered. */
 export interface ValueMark {
@@ -60,11 +87,14 @@ export interface ValueMark {
   readonly constant: BinValue | null;
   /** The curve's keys, in its own order. Empty until the read asks for them. */
   readonly keys: readonly CurveKey[];
+  /** The curve's probability tables, which only a dock read asks for. */
+  readonly tables: readonly ProbabilityTable[];
   /** The row's `dynamics` points at a curve, so the constant is not the whole value. */
   readonly curve: boolean;
 }
 
 const NO_KEYS: readonly CurveKey[] = [];
+const NO_PAGES: ReadonlyMap<string, BinRows> = new Map();
 
 /** The first level: every family row in view, whose children are its constant and its curve. */
 export function constantRequests(rows: readonly BinRow[]): ReadRequest[] {
@@ -107,24 +137,81 @@ export function stopRequests(dynamics: ReadonlyMap<string, BinRows>): ReadReques
   return wanted;
 }
 
-/** What every family row in `rows` draws, out of the three levels the read answered. */
+/** The fourth level: the table list of every curve, which a dock read alone asks for. */
+export function tableRequests(
+  dynamics: ReadonlyMap<string, BinRows>,
+  read: CurveRead,
+): ReadRequest[] {
+  if (read !== "dock") return [];
+  const wanted: ReadRequest[] = [];
+  for (const page of dynamics.values()) {
+    const list = under(page, TABLES);
+    if (list?.value.type !== "container" || list.value.len === 0) continue;
+    wanted.push({ key: `${list.entry}:${list.path}`, rows: list.value.len });
+  }
+  return wanted;
+}
+
+/** The fifth level: each table the slots point at. A null slot is a channel with none. */
+export function tableFieldRequests(tables: ReadonlyMap<string, BinRows>): ReadRequest[] {
+  const wanted: ReadRequest[] = [];
+  for (const page of tables.values()) {
+    for (const slot of page.rows) {
+      if (slot.value.type !== "struct" || slot.value.len === 0) continue;
+      wanted.push({ key: `${slot.entry}:${slot.path}`, rows: slot.value.len });
+    }
+  }
+  return wanted;
+}
+
+/** The sixth level: the two lists of every table the level above answered for. */
+export function tableKeyRequests(fields: ReadonlyMap<string, BinRows>): ReadRequest[] {
+  const wanted: ReadRequest[] = [];
+  for (const page of fields.values()) {
+    for (const field of [KEY_TIMES, KEY_VALUES]) {
+      const list = under(page, field);
+      if (list?.value.type !== "container" || list.value.len === 0) continue;
+      wanted.push({ key: `${list.entry}:${list.path}`, rows: list.value.len });
+    }
+  }
+  return wanted;
+}
+
+/**
+ * What every level of the projected read answered, by the key each page sits under.
+ *
+ * The last three are a dock read's alone, so a caller that asked for bands or sparklines
+ * leaves them out and every row it drew reads its tables as empty.
+ */
+export interface CurvePages {
+  readonly constants: ReadonlyMap<string, BinRows>;
+  readonly dynamics: ReadonlyMap<string, BinRows>;
+  readonly stops: ReadonlyMap<string, BinRows>;
+  readonly tables?: ReadonlyMap<string, BinRows>;
+  readonly tableFields?: ReadonlyMap<string, BinRows>;
+  readonly tableKeys?: ReadonlyMap<string, BinRows>;
+}
+
+/** What every family row in `rows` draws, out of the levels the read answered. */
 export function valueMarks(
   rows: readonly BinRow[],
-  constants: ReadonlyMap<string, BinRows>,
-  dynamics: ReadonlyMap<string, BinRows>,
-  stops: ReadonlyMap<string, BinRows>,
+  pages: CurvePages,
 ): ReadonlyMap<string, ValueMark> {
   const marks = new Map<string, ValueMark>();
   for (const row of rows) {
     const family = valueFamily(row.value);
     if (family === null) continue;
     const key = rowKey(row);
-    const page = constants.get(key);
+    const page = pages.constants.get(key);
+    const curve = under(page, DYNAMICS);
+    const curvePage =
+      curve === null ? undefined : pages.dynamics.get(`${curve.entry}:${curve.path}`);
     marks.set(key, {
       family,
       constant: under(page, CONSTANT)?.value ?? null,
-      keys: curveKeys(page, dynamics, stops),
-      curve: under(page, DYNAMICS)?.value.type === "struct",
+      keys: curveKeys(curvePage, pages.stops),
+      tables: probabilityTables(curvePage, pages),
+      curve: curve?.value.type === "struct",
     });
   }
   return marks;
@@ -135,33 +222,29 @@ function under(page: BinRows | undefined, field: string): BinRow | null {
   return page?.rows.find((row) => fieldHash(row.path) === field) ?? null;
 }
 
-/** The rows of the list `page` holds under `field`, as the third level answered them. */
-function list(
+/** The rows of the list `page` holds under `field`, as the level below answered them. */
+function listRows(
   page: BinRows | undefined,
   field: string,
-  stops: ReadonlyMap<string, BinRows>,
+  answered: ReadonlyMap<string, BinRows>,
 ): readonly BinRow[] {
   const row = under(page, field);
   if (row === null) return [];
-  return stops.get(`${row.entry}:${row.path}`)?.rows ?? [];
+  return answered.get(`${row.entry}:${row.path}`)?.rows ?? [];
 }
 
 /**
- * The keys of the curve whose first level is `page`.
+ * The keys of the curve `curvePage` holds.
  *
  * The two lists are written in step, so a key is one index of each, and a list longer
  * than the other contributes nothing past where they agree.
  */
 function curveKeys(
-  page: BinRows | undefined,
-  dynamics: ReadonlyMap<string, BinRows>,
+  curvePage: BinRows | undefined,
   stops: ReadonlyMap<string, BinRows>,
 ): CurveKey[] {
-  const curve = under(page, DYNAMICS);
-  if (curve === null) return [];
-  const curvePage = dynamics.get(`${curve.entry}:${curve.path}`);
-  const times = list(curvePage, TIMES, stops);
-  const values = list(curvePage, VALUES, stops);
+  const times = listRows(curvePage, TIMES, stops);
+  const values = listRows(curvePage, VALUES, stops);
 
   const out: CurveKey[] = [];
   for (let at = 0; at < Math.min(times.length, values.length); at += 1) {
@@ -169,6 +252,50 @@ function curveKeys(
     const held = components(values[at]?.value);
     if (time?.type !== "float" || time.value === null || held === null) continue;
     out.push({ time: time.value, values: held });
+  }
+  return out;
+}
+
+/**
+ * The probability table of every channel the curve writes one for.
+ *
+ * The list carries one slot per channel and the slots are nullable, so a channel is the
+ * slot's own index and a null one contributes no table rather than shifting the rest.
+ */
+function probabilityTables(curvePage: BinRows | undefined, pages: CurvePages): ProbabilityTable[] {
+  const list = under(curvePage, TABLES);
+  if (list === null) return [];
+  const slots = (pages.tables ?? NO_PAGES).get(`${list.entry}:${list.path}`)?.rows ?? [];
+
+  const out: ProbabilityTable[] = [];
+  for (const [channel, slot] of slots.entries()) {
+    if (slot.value.type !== "struct") continue;
+    const fields = (pages.tableFields ?? NO_PAGES).get(`${slot.entry}:${slot.path}`);
+    const single = under(fields, SINGLE)?.value;
+    out.push({
+      channel,
+      single: single?.type === "float" ? (single.value ?? SINGLE_DEFAULT) : SINGLE_DEFAULT,
+      keys: tableKeys(fields, pages.tableKeys ?? NO_PAGES),
+    });
+  }
+  return out;
+}
+
+/** One table's keys, which are one float against one time rather than a channel set. */
+function tableKeys(
+  fields: BinRows | undefined,
+  answered: ReadonlyMap<string, BinRows>,
+): CurveKey[] {
+  const times = listRows(fields, KEY_TIMES, answered);
+  const values = listRows(fields, KEY_VALUES, answered);
+
+  const out: CurveKey[] = [];
+  for (let at = 0; at < Math.min(times.length, values.length); at += 1) {
+    const time = times[at]?.value;
+    const held = values[at]?.value;
+    if (time?.type !== "float" || time.value === null) continue;
+    if (held?.type !== "float" || held.value === null) continue;
+    out.push({ time: time.value, values: [held.value] });
   }
   return out;
 }

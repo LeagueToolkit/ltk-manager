@@ -14,6 +14,9 @@ import {
   placeTime,
   sparkKeys,
   stopRequests,
+  tableFieldRequests,
+  tableKeyRequests,
+  tableRequests,
   timeSpan,
   valueFamily,
   valueMarks,
@@ -83,12 +86,18 @@ const CONSTANTS = new Map<string, BinRows>([
   ],
 ]);
 
+/** The colour curve's table list, which carries one nullable slot per channel. */
+const TABLES_PATH = `${DYNAMICS_PATH}.a7084719`;
+const RED_TABLE = `${TABLES_PATH}[0]`;
+const BLUE_TABLE = `${TABLES_PATH}[2]`;
+
 const DYNAMICS = new Map<string, BinRows>([
   [
     `${ENTRY}:${DYNAMICS_PATH}`,
     page([
       row(`${DYNAMICS_PATH}.5d68eeb5`, { type: "container", len: 2, itemKind: "f32" }),
       row(`${DYNAMICS_PATH}.34474c3b`, { type: "container", len: 2, itemKind: "vec4" }),
+      row(TABLES_PATH, { type: "container", len: 4, itemKind: "pointer" }),
     ]),
   ],
   [
@@ -131,6 +140,56 @@ const STOPS = new Map<string, BinRows>([
   ],
 ]);
 
+/** The slots the list holds: a table on red, none on green or alpha, one on blue. */
+const TABLES = new Map<string, BinRows>([
+  [
+    `${ENTRY}:${TABLES_PATH}`,
+    page([
+      row(RED_TABLE, struct("VfxProbabilityTableData", 2)),
+      row(`${TABLES_PATH}[1]`, { type: "null" }),
+      row(BLUE_TABLE, struct("VfxProbabilityTableData", 1)),
+      row(`${TABLES_PATH}[3]`, { type: "null" }),
+    ]),
+  ],
+]);
+
+const TABLE_FIELDS = new Map<string, BinRows>([
+  [
+    `${ENTRY}:${RED_TABLE}`,
+    page([
+      row(`${RED_TABLE}.40c351da`, { type: "container", len: 2, itemKind: "f32" }),
+      row(`${RED_TABLE}.e44b7382`, { type: "container", len: 2, itemKind: "f32" }),
+    ]),
+  ],
+  [`${ENTRY}:${BLUE_TABLE}`, page([row(`${BLUE_TABLE}.ad345dd6`, { type: "float", value: 0.25 })])],
+]);
+
+const TABLE_KEYS = new Map<string, BinRows>([
+  [
+    `${ENTRY}:${RED_TABLE}.40c351da`,
+    page([
+      row(`${RED_TABLE}.40c351da[0]`, { type: "float", value: 0 }),
+      row(`${RED_TABLE}.40c351da[1]`, { type: "float", value: 1 }),
+    ]),
+  ],
+  [
+    `${ENTRY}:${RED_TABLE}.e44b7382`,
+    page([
+      row(`${RED_TABLE}.e44b7382[0]`, { type: "float", value: 0.1 }),
+      row(`${RED_TABLE}.e44b7382[1]`, { type: "float", value: 0.9 }),
+    ]),
+  ],
+]);
+
+const DOCK_PAGES = {
+  constants: CONSTANTS,
+  dynamics: DYNAMICS,
+  stops: STOPS,
+  tables: TABLES,
+  tableFields: TABLE_FIELDS,
+  tableKeys: TABLE_KEYS,
+};
+
 describe("valueFamily", () => {
   it("names the four classes whose row draws its constant", () => {
     expect(valueFamily(struct("ValueColor", 2))).toBe("color");
@@ -171,6 +230,26 @@ describe("the three levels", () => {
     expect(stopRequests(new Map())).toEqual([]);
   });
 
+  it("asks a dock alone for the table list, which no row-drawing surface reads", () => {
+    expect(tableRequests(DYNAMICS, "sparklines")).toEqual([]);
+    expect(tableRequests(DYNAMICS, "bands")).toEqual([]);
+    expect(tableRequests(DYNAMICS, "dock")).toEqual([{ key: `${ENTRY}:${TABLES_PATH}`, rows: 4 }]);
+  });
+
+  it("asks for the table behind every slot the list fills, and none behind a null one", () => {
+    expect(tableFieldRequests(TABLES)).toEqual([
+      { key: `${ENTRY}:${RED_TABLE}`, rows: 2 },
+      { key: `${ENTRY}:${BLUE_TABLE}`, rows: 1 },
+    ]);
+  });
+
+  it("asks for the two lists of every table, and none for one holding a single value", () => {
+    expect(tableKeyRequests(TABLE_FIELDS)).toEqual([
+      { key: `${ENTRY}:${RED_TABLE}.40c351da`, rows: 2 },
+      { key: `${ENTRY}:${RED_TABLE}.e44b7382`, rows: 2 },
+    ]);
+  });
+
   it("asks for the two lists of every curve the level above answered", () => {
     expect(stopRequests(DYNAMICS)).toEqual([
       { key: `${ENTRY}:${DYNAMICS_PATH}.5d68eeb5`, rows: 2 },
@@ -183,7 +262,11 @@ describe("the three levels", () => {
 
 describe("valueMarks", () => {
   it("carries a colour's constant and its keys, paired by index", () => {
-    const mark = valueMarks([colorRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${COLOR_PATH}`);
+    const mark = valueMarks([colorRow], {
+      constants: CONSTANTS,
+      dynamics: DYNAMICS,
+      stops: STOPS,
+    }).get(`${ENTRY}:${COLOR_PATH}`);
 
     expect(mark?.family).toBe("color");
     expect(channels(mark?.constant ?? undefined)).toEqual([1, 0.5, 0, 1]);
@@ -194,8 +277,44 @@ describe("valueMarks", () => {
     expect(mark?.curve).toBe(true);
   });
 
+  it("keys a probability table on the slot's own channel, so a null slot shifts none", () => {
+    const mark = valueMarks([colorRow], DOCK_PAGES).get(`${ENTRY}:${COLOR_PATH}`);
+
+    expect(mark?.tables).toEqual([
+      {
+        channel: 0,
+        single: 1,
+        keys: [
+          { time: 0, values: [0.1] },
+          { time: 1, values: [0.9] },
+        ],
+      },
+      { channel: 2, single: 0.25, keys: [] },
+    ]);
+  });
+
+  it("reads a table the file writes no `singleValue` for as the schema's own default", () => {
+    const mark = valueMarks([colorRow], DOCK_PAGES).get(`${ENTRY}:${COLOR_PATH}`);
+
+    expect(mark?.tables[0]?.single).toBe(1);
+  });
+
+  it("carries no table for a read that asked for none", () => {
+    const mark = valueMarks([colorRow], {
+      constants: CONSTANTS,
+      dynamics: DYNAMICS,
+      stops: STOPS,
+    }).get(`${ENTRY}:${COLOR_PATH}`);
+
+    expect(mark?.tables).toEqual([]);
+  });
+
   it("carries a scalar's keys, one channel to each", () => {
-    const mark = valueMarks([curveRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${CURVE_PATH}`);
+    const mark = valueMarks([curveRow], {
+      constants: CONSTANTS,
+      dynamics: DYNAMICS,
+      stops: STOPS,
+    }).get(`${ENTRY}:${CURVE_PATH}`);
 
     expect(mark?.family).toBe("scalar");
     expect(mark?.keys).toEqual([
@@ -205,7 +324,11 @@ describe("valueMarks", () => {
   });
 
   it("carries a scalar's constant and no keys where it has no curve", () => {
-    const mark = valueMarks([floatRow], CONSTANTS, DYNAMICS, STOPS).get(`${ENTRY}:${FLOAT_PATH}`);
+    const mark = valueMarks([floatRow], {
+      constants: CONSTANTS,
+      dynamics: DYNAMICS,
+      stops: STOPS,
+    }).get(`${ENTRY}:${FLOAT_PATH}`);
 
     expect(mark?.family).toBe("scalar");
     expect(mark?.constant).toEqual({ type: "float", value: 2.5 });
@@ -214,12 +337,17 @@ describe("valueMarks", () => {
   });
 
   it("carries a null constant while nothing has answered", () => {
-    const mark = valueMarks([colorRow], new Map(), new Map(), new Map());
+    const mark = valueMarks([colorRow], {
+      constants: new Map(),
+      dynamics: new Map(),
+      stops: new Map(),
+    });
 
     expect(mark.get(`${ENTRY}:${COLOR_PATH}`)).toEqual({
       family: "color",
       constant: null,
       keys: [],
+      tables: [],
       curve: false,
     });
   });
@@ -238,8 +366,12 @@ describe("colorStops and sparkKeys", () => {
   it("gives a colour no sparkline, because its own band draws the same keys", () => {
     const keys = [{ time: 0, values: [1, 0, 0, 1] }];
 
-    expect(sparkKeys({ family: "color", constant: null, keys, curve: true })).toEqual([]);
-    expect(sparkKeys({ family: "scalar", constant: null, keys, curve: true })).toBe(keys);
+    expect(sparkKeys({ family: "color", constant: null, keys, tables: [], curve: true })).toEqual(
+      [],
+    );
+    expect(sparkKeys({ family: "scalar", constant: null, keys, tables: [], curve: true })).toBe(
+      keys,
+    );
   });
 });
 
@@ -300,13 +432,20 @@ describe("colorHex and gradientCss", () => {
 describe("markText", () => {
   it("copies a colour as its bytes and a scalar and a vector as they draw", () => {
     expect(
-      markText({ family: "color", constant: vec4(1, 0.5, 0, 1), keys: [], curve: false }),
+      markText({
+        family: "color",
+        constant: vec4(1, 0.5, 0, 1),
+        keys: [],
+        tables: [],
+        curve: false,
+      }),
     ).toBe("#FF8000FF");
     expect(
       markText({
         family: "scalar",
         constant: { type: "float", value: 2.5 },
         keys: [],
+        tables: [],
         curve: false,
       }),
     ).toBe("2.5");
@@ -315,6 +454,7 @@ describe("markText", () => {
         family: "vector",
         constant: { type: "vector", values: [0, 1.5, 0] },
         keys: [],
+        tables: [],
         curve: false,
       }),
     ).toBe("0, 1.5, 0");
@@ -322,6 +462,8 @@ describe("markText", () => {
 
   it("copies nothing before the read lands", () => {
     expect(markText(undefined)).toBeNull();
-    expect(markText({ family: "color", constant: null, keys: [], curve: false })).toBeNull();
+    expect(
+      markText({ family: "color", constant: null, keys: [], tables: [], curve: false }),
+    ).toBeNull();
   });
 });

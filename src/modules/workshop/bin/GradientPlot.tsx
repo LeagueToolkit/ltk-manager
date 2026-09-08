@@ -1,13 +1,12 @@
-import { CopyIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 
 import { CHECKERBOARD } from "../preview/ImagePreview";
 import { Swatch } from "./ColorMark";
 import { axisText } from "./curvePlot";
+import { KeyTable } from "./KeyTable";
 import {
   colorHex,
   type ColorStop,
@@ -29,9 +28,10 @@ interface StopsProps {
 /**
  * A colour curve as the ramp it runs through. "The three tabs" in docs/ux/BIN_EDITOR.md.
  *
- * The band, a handle per stop on the axis under it, and the picked stop's own numbers over
- * it. Four channel lines are what a colour is made of rather than what it looks like, so a
- * colour plots none of them and the ramp is the whole reading.
+ * The band, a handle per stop on the axis under it, and the keys themselves under that.
+ * Four channel lines are what a colour is made of rather than what it looks like, so a
+ * colour plots none of them and the ramp is the whole reading. The rail and the table are
+ * one selection, so a stop picked either way is the row read the other.
  */
 export function GradientPlot({ keys }: { keys: readonly CurveKey[] }) {
   const stops = useMemo(() => colorStops(keys), [keys]);
@@ -39,19 +39,19 @@ export function GradientPlot({ keys }: { keys: readonly CurveKey[] }) {
   const span = timeSpan(stops.map((stop) => stop.time));
 
   return (
-    <div data-ui="GradientPlot" className="flex min-h-0 flex-1 flex-col justify-center gap-1">
+    <div data-ui="GradientPlot" className="flex min-h-0 flex-1 flex-col gap-1">
       {/* The rail hangs off the band, so the two are one object with no gap between them. */}
       <div className="flex shrink-0 flex-col">
         <Band stops={stops} />
         <StopRail stops={stops} span={span} selected={picked} onSelect={setPicked} />
       </div>
       {stops.length > 0 && (
-        <span className="flex justify-between text-meta text-surface-500">
+        <span className="flex shrink-0 justify-between text-meta text-surface-500">
           <span>{axisText(span.first)}</span>
           <span>{axisText(span.last)}</span>
         </span>
       )}
-      <StopReadout stops={stops} span={span} selected={picked} />
+      <KeyTable keys={keys} family="color" selected={picked} onSelect={setPicked} />
     </div>
   );
 }
@@ -128,35 +128,5 @@ function Tip({ selected }: { selected: boolean }) {
         selected ? "border-b-accent-500" : "border-b-surface-500",
       )}
     />
-  );
-}
-
-/** The stop the rail is on: when it lands, what colour it is, and the copy of that. */
-function StopReadout({ stops, selected }: StopsProps) {
-  const copy = useCopyToClipboard();
-  const stop = stops[selected];
-  if (stop === undefined) return null;
-
-  const hex = colorHex(stop.rgba);
-  return (
-    <div data-ui="StopReadout" className="flex items-center gap-2 px-1 text-meta">
-      <Swatch rgba={stop.rgba} />
-      <span className="font-mono text-code text-surface-400 tabular-nums select-text">
-        {stop.time.toFixed(3)}
-      </span>
-      <button
-        type="button"
-        aria-label={m.workshop_bin_copy_value_action()}
-        /* DS-RADIUS, DS-VEIL */
-        className="flex cursor-pointer items-center gap-1 rounded-sm px-1 font-mono text-code text-surface-200 hover:bg-surface-veil"
-        onClick={() => void copy(hex, m.workshop_bin_value_label())}
-      >
-        {hex}
-        <CopyIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
-      </button>
-      <span className="ml-auto text-surface-500">
-        {m.workshop_bin_gradient_label({ count: stops.length })}
-      </span>
-    </div>
   );
 }
