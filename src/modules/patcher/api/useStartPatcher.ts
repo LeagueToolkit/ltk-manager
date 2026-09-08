@@ -25,6 +25,8 @@ export function useStartPatcher() {
   const queryClient = useQueryClient();
 
   return useMutation<void, AppError, PatcherConfig>({
+    /* useGuardedStartPatcher reports the failure. */
+    meta: { silentError: true },
     mutationFn: async (config) => {
       const result = await startPatcherSpendingQueue(config);
       return unwrapForQuery(result);

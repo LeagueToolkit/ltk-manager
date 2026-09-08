@@ -21,11 +21,8 @@ export function ProfileDeleteDialog({ open, profile, onClose }: ProfileDeleteDia
       await deleteProfile.mutateAsync(profile.id);
       onClose();
       toast.success("Profile deleted");
-    } catch (error: unknown) {
-      toast.error(
-        "Failed to delete profile",
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      /* The default mutation toast reports it. */
     }
   };
 

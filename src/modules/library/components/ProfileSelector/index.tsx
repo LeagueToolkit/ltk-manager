@@ -1,7 +1,7 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
-import { Button, Popover, TooltipPrimitives as Tooltip, useToast } from "@/components";
+import { Button, Popover, TooltipPrimitives as Tooltip } from "@/components";
 import type { Profile } from "@/lib/tauri";
 import { useActiveProfile, useProfiles, useSwitchProfile } from "@/modules/library/api";
 
@@ -13,7 +13,6 @@ export function ProfileSelector() {
   const { data: profiles = [] } = useProfiles();
   const { data: activeProfile } = useActiveProfile();
   const switchProfile = useSwitchProfile();
-  const toast = useToast();
 
   const [isOpen, setIsOpen] = useState(false);
   const [profileToDelete, setProfileToDelete] = useState<Profile | null>(null);
@@ -22,11 +21,8 @@ export function ProfileSelector() {
     try {
       await switchProfile.mutateAsync(profileId);
       setIsOpen(false);
-    } catch (error: unknown) {
-      toast.error(
-        "Failed to switch profile",
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      /* The default mutation toast reports it. */
     }
   };
 

@@ -1,9 +1,10 @@
 import { PackageX } from "lucide-react";
 
 import { Tooltip } from "@/components";
-import { useLinkedBinOffender } from "@/modules/library";
 import { useSettings } from "@/modules/settings";
 import { useLinkedBinGuardStore } from "@/stores";
+
+import { useLinkedBinOffender } from "../api";
 
 interface MissingDepsBadgeProps {
   modId: string;

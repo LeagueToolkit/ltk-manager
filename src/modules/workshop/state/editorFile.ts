@@ -1,9 +1,9 @@
-/* The layout sub-barrel rather than the module barrel, for the same reason
-   `@/stores/workshopEditor` does: the full barrel pulls the editor's
-   components, whose imports circle back into workshop state. */
+/* The layout sub-barrel rather than the module barrel: the full barrel pulls
+   the editor's components, whose imports circle back into workshop state. */
 import { z } from "zod";
 
 import type { AssetRef } from "@/lib/tauri";
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   findLeaf,
   type LayoutNode,

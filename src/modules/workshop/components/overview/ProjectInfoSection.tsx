@@ -5,7 +5,8 @@ import { twMerge } from "tailwind-merge";
 import { IconButton, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
-import { useRenameProject } from "@/modules/workshop";
+
+import { useRenameProject } from "../../api";
 
 interface ProjectInfoSectionProps {
   project: WorkshopProject;

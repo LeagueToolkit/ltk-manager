@@ -13,6 +13,8 @@ import { unwrapForQuery } from "@/utils/query";
  */
 export function useRebuildOverlay() {
   return useMutation<void, AppError, void>({
+    /* Every caller reports: PatchingSection, IncidentDetail, useRebuildOverlayAction. */
+    meta: { silentError: true },
     mutationFn: async () => {
       const result = await api.rebuildOverlay();
       return unwrapForQuery(result);

@@ -4,7 +4,6 @@ import {
   ClipboardTextIcon,
   FileTextIcon,
   HashIcon,
-  ProhibitIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,7 +14,6 @@ import { Button, Tooltip, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorMessage, errorSummary, m } from "@/i18n";
 import type { Incident, Suspect } from "@/lib/tauri";
-import { useInstalledMods, useToggleMod } from "@/modules/library";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 
 import {
@@ -31,15 +29,24 @@ import { formatDuration, formatOrigin, projectNameFromPath } from "../utils/inci
 import { EvidenceTimeline } from "./EvidenceTimeline";
 import { VerdictCard } from "./VerdictCard";
 
+/**
+ * Draws the control that acts on the mod a suspect names.
+ *
+ * A slot rather than an import: the control reads the library, which sits
+ * above diagnostics in the module order.
+ */
+export type ModAction = (modId: string) => ReactNode;
+
 interface IncidentDetailProps {
   incident: Incident;
+  modAction?: ModAction;
 }
 
 /**
  * One incident, top to bottom in the order a player asks: the verdict, the
  * suspects, the hints, the evidence, the facts, and the actions.
  */
-export function IncidentDetail({ incident }: IncidentDetailProps) {
+export function IncidentDetail({ incident, modAction }: IncidentDetailProps) {
   const { verdict } = incident;
 
   return (
@@ -50,7 +57,11 @@ export function IncidentDetail({ incident }: IncidentDetailProps) {
         <DetailSection title={m.diagnostics_suspects_title()}>
           <ul className="divide-y divide-surface-800 rounded-lg border border-surface-700/50 bg-surface-900/95">
             {incident.suspects.map((suspect, index) => (
-              <SuspectRow key={`${suspect.displayName}-${index}`} suspect={suspect} />
+              <SuspectRow
+                key={`${suspect.displayName}-${index}`}
+                suspect={suspect}
+                modAction={modAction}
+              />
             ))}
           </ul>
         </DetailSection>
@@ -95,7 +106,7 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
   );
 }
 
-function SuspectRow({ suspect }: { suspect: Suspect }) {
+function SuspectRow({ suspect, modAction }: { suspect: Suspect; modAction?: ModAction }) {
   return (
     <li data-ui="IncidentDetail:suspect" className="flex items-center gap-3 px-3 py-2">
       <span className="min-w-0 flex-1">
@@ -104,71 +115,15 @@ function SuspectRow({ suspect }: { suspect: Suspect }) {
         </span>
         <span className="block truncate text-xs text-surface-400">{suspect.because}</span>
       </span>
-      <SuspectAction suspect={suspect} />
+      <SuspectAction suspect={suspect} modAction={modAction} />
     </li>
   );
 }
 
-function SuspectAction({ suspect }: { suspect: Suspect }) {
-  if (suspect.modId) return <DisableModButton modId={suspect.modId} />;
+function SuspectAction({ suspect, modAction }: { suspect: Suspect; modAction?: ModAction }) {
+  if (suspect.modId) return modAction?.(suspect.modId) ?? null;
   if (suspect.projectPath) return <OpenProjectButton projectPath={suspect.projectPath} />;
   return null;
-}
-
-/**
- * `Disable` for a mod still in the library. An uninstalled suspect keeps its
- * row under its display name and offers nothing.
- */
-function DisableModButton({ modId }: { modId: string }) {
-  const { data: mods } = useInstalledMods();
-  const { data: patcherStatus } = usePatcherStatus();
-  const toggleMod = useToggleMod();
-  const toast = useToast();
-
-  const mod = mods?.find((candidate) => candidate.id === modId);
-  if (!mod) return null;
-
-  if (!mod.enabled) {
-    return (
-      <Button variant="ghost" size="xs" disabled>
-        {m.diagnostics_suspect_disabled_label()}
-      </Button>
-    );
-  }
-
-  const patcherRunning = patcherStatus?.running ?? false;
-  const button = (
-    <Button
-      variant="outline"
-      size="xs"
-      disabled={patcherRunning}
-      loading={toggleMod.isPending}
-      left={<ProhibitIcon weight="bold" className="h-3.5 w-3.5" />}
-      onClick={() =>
-        toggleMod.mutate(
-          { modId, enabled: false },
-          {
-            onSuccess: () =>
-              toast.warning(
-                m.diagnostics_mod_disabled_title(),
-                m.diagnostics_mod_disabled_description({ name: mod.displayName }),
-              ),
-            onError: (error) =>
-              toast.error(m.diagnostics_mod_disable_failed_title(), errorSummary(error)),
-          },
-        )
-      }
-    >
-      {m.diagnostics_suspect_disable_action()}
-    </Button>
-  );
-
-  if (!patcherRunning) return button;
-  return (
-    <Tooltip content={m.diagnostics_patcher_busy_hint()}>
-      <span className="inline-flex">{button}</span>
-    </Tooltip>
-  );
 }
 
 function OpenProjectButton({ projectPath }: { projectPath: string }) {

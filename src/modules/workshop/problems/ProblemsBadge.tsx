@@ -2,7 +2,7 @@ import { SeverityGlyph, Tooltip } from "@/components";
 
 import { useProjectProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
-import { problemsDocument } from "../documents";
+import { problemsDocument } from "../documents/contentDocument";
 import { useOpenDocument } from "../state";
 import { countBySeverity, isMuted, type SeverityCounts } from "./problemGroups";
 import { useMutedRules } from "./runCatalogue";

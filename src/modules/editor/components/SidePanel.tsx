@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- per-section resize the Accordion wrapper does not expose
 import { Accordion } from "@base-ui/react/accordion";
 import { CaretRightIcon } from "@phosphor-icons/react";
 import {

@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    /* ES2022 for `Array.prototype.at`, which the app already calls. The webview
+       is Chromium or WebKit, so nothing here has to reach an older runtime. */
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -22,8 +24,8 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Paths */
-    "baseUrl": ".",
+    /* Paths. No baseUrl: TypeScript 7 removed it, and these targets are
+       already relative to this file. */
     "paths": {
       "@/*": ["./src/*"]
     }

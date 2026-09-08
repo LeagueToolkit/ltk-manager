@@ -9,7 +9,11 @@ import {
   previewDocument,
   readLegacyEditorSeed,
 } from "@/modules/workshop";
-import { EMPTY_EDITOR, type HistoryEntry, useWorkshopEditorStore } from "@/stores/workshopEditor";
+import {
+  EMPTY_EDITOR,
+  type HistoryEntry,
+  useWorkshopEditorStore,
+} from "@/modules/workshop/state/workshopEditor";
 
 const A = "C:/mods/project-a";
 const B = "C:/mods/project-b";

@@ -27,11 +27,8 @@ export function ProfileCreateForm() {
       setName("");
       setIsCreating(false);
       toast.success("Profile created", `Profile "${trimmedName}" has been created.`);
-    } catch (error: unknown) {
-      toast.error(
-        "Failed to create profile",
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      /* The default mutation toast reports it. */
     }
   };
 

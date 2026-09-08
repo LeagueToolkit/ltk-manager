@@ -2,7 +2,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
 import { type ToastTask, useToast } from "@/components";
-import { api, type InstalledMod, type ModStorage, type ModStorageProgress } from "@/lib/tauri";
+import {
+  type InstalledMod,
+  type ModStorage,
+  type ModStorageProgress,
+  revealPath,
+} from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 
 import { libraryKeys } from "./keys";
@@ -60,7 +65,7 @@ export function useModStorageToast() {
         action: mod && {
           label: "Open Location",
           onClick: () => {
-            void api.revealInExplorer(mod.modDir);
+            revealPath(mod.modDir);
           },
         },
       });

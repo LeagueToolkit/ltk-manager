@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": false,
+  "tabWidth": 2,
+  "trailingComma": "all",
+  "printWidth": 100,
+  "sortPackageJson": false,
+  "sortTailwindcss": {
+    "stylesheet": "./src/styles/tailwind.css",
+    "functions": ["clsx", "cn", "twMerge", "twJoin"]
+  },
+  "ignorePatterns": [
+    "**/*.toml",
+    "dist/",
+    "node_modules/",
+    "pnpm-lock.yaml",
+    "src/routeTree.gen.ts",
+    "src/lib/bindings/",
+    "src/lib/bindings.gen.ts",
+    "src/paraglide/",
+    "gen/",
+    "public/third-party-licenses.json",
+    "LTK-PATCHER-LICENSE.md",
+    ".github/",
+    "src-tauri/",
+    ".specify/",
+    "project.inlang/*",
+    "!project.inlang/settings.json",
+    "!project.inlang/paraglide.config.ts"
+  ]
+}

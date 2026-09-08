@@ -6,6 +6,14 @@ export const workshopKeys = {
   thumbnail: (path: string, thumbnailPath?: string | null) =>
     [...workshopKeys.project(path), "thumbnail", thumbnailPath] as const,
   layerInfo: (path: string) => [...workshopKeys.project(path), "layerInfo"] as const,
+  /* The names join into one segment: an array segment makes the key sensitive
+     to the order the caller happened to hold them in. */
+  layerInfoFor: (path: string, layerNames: readonly string[]) =>
+    [...workshopKeys.layerInfo(path), JSON.stringify([...layerNames].sort())] as const,
   contentTree: (path: string) => [...workshopKeys.project(path), "contentTree"] as const,
   problems: (path: string) => [...workshopKeys.project(path), "problems"] as const,
+  stringKeySearch: (query: string) => [...workshopKeys.all, "stringKeySearch", query] as const,
+  stringValues: (keys: readonly string[]) => [...workshopKeys.all, "stringValues", keys] as const,
+  gameExtractPlan: (targets: readonly unknown[] | null) =>
+    [...workshopKeys.all, "gameExtractPlan", targets] as const,
 };

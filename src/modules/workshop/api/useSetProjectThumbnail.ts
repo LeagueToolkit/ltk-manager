@@ -18,6 +18,8 @@ export function useSetProjectThumbnail() {
   const queryClient = useQueryClient();
 
   return useMutation<WorkshopProject, AppError, SetThumbnailArgs>({
+    /* ThumbnailSection and NewProjectDialog report. */
+    meta: { silentError: true },
     mutationFn: mutationFn(({ projectPath, imagePath }) =>
       api.setProjectThumbnail(projectPath, imagePath),
     ),

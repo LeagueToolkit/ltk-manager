@@ -16,6 +16,7 @@ export function useCheckModHealth() {
   const toast = useToast();
 
   return useMutation<ModHealthVerdict, AppError, string>({
+    meta: { silentError: true },
     mutationFn: async (modId) => {
       const result = await api.checkModHealth(modId);
       return unwrapForQuery(result);

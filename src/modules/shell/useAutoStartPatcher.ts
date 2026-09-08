@@ -1,9 +1,7 @@
 import { useEffect, useRef } from "react";
 
-import { useGuardedStartPatcher } from "@/modules/patcher";
-import { useSettings } from "@/modules/settings";
-
-import { useHddWarning } from "./useHddWarning";
+import { useGuardedStartPatcher } from "@/modules/library";
+import { useHddWarning, useSettings } from "@/modules/settings";
 
 export function useAutoStartPatcher() {
   const { data: settings } = useSettings();

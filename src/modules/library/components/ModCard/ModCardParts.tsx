@@ -94,6 +94,8 @@ export function ModCardThumbnail({
         <img
           src={thumbnailUrl}
           alt=""
+          loading="lazy"
+          decoding="async"
           className={twMerge("absolute inset-0 h-full w-full object-cover", styles.image)}
         />
       )}

@@ -28,6 +28,7 @@ export function useDeleteLayerContent() {
   const toast = useToast();
 
   return useMutation<void, AppError, DeleteLayerContentArgs>({
+    meta: { silentError: true },
     mutationFn: async ({ projectPath, layerName, relativePath }) => {
       const result = await api.deleteLayerContent(projectPath, layerName, relativePath);
       return unwrapForQuery(result);

@@ -19,7 +19,7 @@ const useHealthCheckReadiness = vi.fn<() => HealthCheckReadiness>(() => "ready")
 const checkOne = vi.fn();
 const repairOne = vi.fn();
 
-vi.mock("@/modules/library", () => ({
+vi.mock("../../api", () => ({
   useModHealthVerdict: () => useModHealthVerdict(),
   useHealthCheckReadiness: () => useHealthCheckReadiness(),
   useCheckModHealth: () => ({ mutate: checkOne, isPending: false }),

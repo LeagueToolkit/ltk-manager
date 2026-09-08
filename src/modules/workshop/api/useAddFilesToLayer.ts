@@ -19,6 +19,7 @@ export function useAddFilesToLayer() {
   const toast = useToast();
 
   return useMutation<AddFilesReport, AppError, AddFilesArgs>({
+    meta: { silentError: true },
     mutationFn: async ({ projectPath, layerName, sources }) => {
       const result = await api.addFilesToLayer(projectPath, layerName, sources);
       return unwrapForQuery(result);

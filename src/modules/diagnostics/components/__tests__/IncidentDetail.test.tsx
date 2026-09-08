@@ -4,11 +4,15 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SuspectModAction } from "@/modules/library";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { IncidentDetail } from "../IncidentDetail";
 import { createMockIncident, renderWithApp } from "./fixtures";
+
+/* What pages/Diagnostics composes, so the suspect row is tested as it ships. */
+const modAction = (modId: string) => <SuspectModAction modId={modId} />;
 
 const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }));
 
@@ -59,7 +63,7 @@ describe("IncidentDetail", () => {
   /// reason it is named, and the one action that answers it.
   it("renders a library suspect with its reason and a Disable action", async () => {
     mockBackend();
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     expect(screen.getByText("Aatrox Justicar")).toBeInTheDocument();
     expect(screen.getByText("writes Aatrox.wad.client, which holds the path")).toBeInTheDocument();
@@ -69,7 +73,7 @@ describe("IncidentDetail", () => {
   it("disables the mod through the library when Disable is clicked", async () => {
     mockBackend();
     const user = userEvent.setup();
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     await user.click(await screen.findByRole("button", { name: "Disable" }));
 
@@ -84,7 +88,7 @@ describe("IncidentDetail", () => {
   /// A mod cannot come out of a running overlay, so the action waits.
   it("holds Disable while the patcher runs", async () => {
     mockBackend({ patcherRunning: true });
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     expect(await screen.findByRole("button", { name: "Disable" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Rebuild overlay" })).toBeDisabled();
@@ -92,7 +96,7 @@ describe("IncidentDetail", () => {
 
   it("says Disabled for a suspect that is already off", async () => {
     mockBackend({ modEnabled: false });
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     expect(await screen.findByRole("button", { name: "Disabled" })).toBeDisabled();
   });
@@ -111,7 +115,7 @@ describe("IncidentDetail", () => {
         },
       ],
     });
-    renderWithApp(<IncidentDetail incident={incident} />);
+    renderWithApp(<IncidentDetail incident={incident} modAction={modAction} />);
 
     await user.click(screen.getByRole("button", { name: "Open" }));
 
@@ -123,7 +127,7 @@ describe("IncidentDetail", () => {
 
   it("draws a coded evidence line with its meaning", () => {
     mockBackend();
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     expect(
       screen.getByText("ALE-9B39AA45 FATAL ERROR. Missing data: 0x1a2b3c4d5e6f7081"),
@@ -152,7 +156,7 @@ describe("IncidentDetail", () => {
         },
       ],
     });
-    renderWithApp(<IncidentDetail incident={incident} />);
+    renderWithApp(<IncidentDetail incident={incident} modAction={modAction} />);
 
     expect(screen.getByText(meaning)).toBeInTheDocument();
     expect(screen.queryByText(/probably|confirmed/)).not.toBeInTheDocument();
@@ -191,7 +195,7 @@ describe("IncidentDetail", () => {
 
   it("lines up the facts: version, length, origin, and whether a log was found", () => {
     mockBackend();
-    renderWithApp(<IncidentDetail incident={createMockIncident()} />);
+    renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
     expect(screen.getByText("16.16.804.9184 · 12 s · Library · log found")).toBeInTheDocument();
   });
@@ -200,7 +204,9 @@ describe("IncidentDetail", () => {
   /// refusing rather than by opening an empty folder.
   it("disables Open game log when no log was found", () => {
     mockBackend();
-    renderWithApp(<IncidentDetail incident={createMockIncident({ game: null })} />);
+    renderWithApp(
+      <IncidentDetail incident={createMockIncident({ game: null })} modAction={modAction} />,
+    );
 
     expect(screen.getByRole("button", { name: "Open game log" })).toBeDisabled();
     expect(screen.getByText("12 s · Library · no log")).toBeInTheDocument();
@@ -208,7 +214,9 @@ describe("IncidentDetail", () => {
 
   it("marks a dismissed incident and retires the Dismiss action", () => {
     mockBackend();
-    renderWithApp(<IncidentDetail incident={createMockIncident({ dismissed: true })} />);
+    renderWithApp(
+      <IncidentDetail incident={createMockIncident({ dismissed: true })} modAction={modAction} />,
+    );
 
     expect(screen.getByText("Dismissed", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dismissed" })).toBeDisabled();

@@ -54,11 +54,8 @@ export function ProfileListItem({
       setIsEditing(false);
       setEditName("");
       toast.success("Profile renamed");
-    } catch (error: unknown) {
-      toast.error(
-        "Failed to rename profile",
-        error instanceof Error ? error.message : String(error),
-      );
+    } catch {
+      /* The default mutation toast reports it. */
     }
   };
 

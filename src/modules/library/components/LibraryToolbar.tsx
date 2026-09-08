@@ -4,7 +4,7 @@ import {
   ListIcon,
   MagnifyingGlassIcon,
 } from "@phosphor-icons/react";
-import { useRef } from "react";
+import { type ReactNode, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
@@ -29,7 +29,6 @@ import { ActiveFilterChips } from "./ActiveFilterChips";
 import { AnalyzeUncategorizedAction } from "./AnalyzeUncategorizedAction";
 import { FilterPopover } from "./FilterPopover";
 import { ModHealthCheckAction } from "./ModHealthCheckAction";
-import { PlayButton } from "./PlayButton";
 import { ProfileSelector } from "./ProfileSelector";
 import { SelectionButton } from "./SelectionButton";
 import { ViewOptionsPopover } from "./ViewOptionsPopover";
@@ -47,6 +46,9 @@ interface LibraryToolbarProps {
   isPatcherActive: boolean;
   filterOptions: FilterOptions;
   visibleMods: InstalledMod[];
+  /* A slot rather than an import: the play control belongs to launcher, which
+     sits above library in the module order. */
+  playButton?: ReactNode;
 }
 
 export function LibraryToolbar({
@@ -57,6 +59,7 @@ export function LibraryToolbar({
   isPatcherActive,
   filterOptions,
   visibleMods,
+  playButton,
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -130,7 +133,7 @@ export function LibraryToolbar({
             </Button>
           </Tooltip>
 
-          <PlayButton disabled={isInstalling} />
+          {playButton}
         </div>
       </ToolbarRow>
 

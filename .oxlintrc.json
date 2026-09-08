@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["import"],
+  "rules": {
+    "import/no-cycle": "warn"
+  },
+  "ignorePatterns": [
+    "src/lib/bindings/**",
+    "src/lib/bindings.gen.ts",
+    "src/routeTree.gen.ts",
+    "src/paraglide/**"
+  ]
+}

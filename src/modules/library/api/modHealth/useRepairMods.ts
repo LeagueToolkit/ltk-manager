@@ -43,6 +43,7 @@ export function useRepairMods(): RepairRun {
   useTauriEvent<ModRepairProgress>("mod-repair-progress", setProgress);
 
   const run = useMutation<LibraryRepairReport, AppError, string[]>({
+    meta: { silentError: true },
     mutationFn: async (modIds) => {
       const result = await api.repairMods(modIds);
       return unwrapForQuery(result);

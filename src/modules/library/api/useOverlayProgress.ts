@@ -4,9 +4,9 @@ import { useEffect, useRef } from "react";
 
 import type { OverlayProgress } from "@/lib/tauri";
 import { useTauriProgress } from "@/lib/useTauriProgress";
-import { libraryKeys } from "@/modules/library";
+import { usePatcherStatus } from "@/modules/patcher";
 
-import { usePatcherStatus } from "./usePatcherStatus";
+import { libraryKeys } from "./keys";
 
 const TERMINAL_STAGES = ["complete"];
 

@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 
-import { type HistoryEntry, useWorkshopEditorStore } from "@/stores";
+import { type HistoryEntry, useWorkshopEditorStore } from "./workshopEditor";
 
 /**
  * The navigation history, which spans both workshop surfaces.

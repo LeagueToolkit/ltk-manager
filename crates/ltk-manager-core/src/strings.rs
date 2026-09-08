@@ -12,7 +12,6 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// One autocomplete suggestion for a stringtable field.
@@ -214,7 +213,7 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
     };
     let locale = game_dir.locale().unwrap_or_else(|| "en_us".into());
 
-    let wad_path = find_localized_global_wad(game_dir.path(), &locale)?;
+    let wad_path = game_dir.localized_global_wad(&locale)?;
     let file = fs::File::open(&wad_path).ok()?;
     let mut wad = ltk_wad::Wad::mount(file).ok()?;
 
@@ -230,21 +229,6 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
             None
         }
     }
-}
-
-/// Locate `Localized/Global.{locale}.wad.client` case-insensitively.
-fn find_localized_global_wad(game_dir: &Path, locale: &str) -> Option<PathBuf> {
-    let localized_dir = game_dir.join("DATA").join("FINAL").join("Localized");
-    let wanted = format!("global.{}.wad.client", locale.to_lowercase());
-    fs::read_dir(localized_dir).ok()?.find_map(|entry| {
-        let entry = entry.ok()?;
-        let name = entry.file_name();
-        if name.to_str()?.eq_ignore_ascii_case(&wanted) {
-            Some(entry.path())
-        } else {
-            None
-        }
-    })
 }
 
 #[cfg(test)]

@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/tauri";
-/* The layout sub-barrel rather than the module barrel, for the same reason
-   `@/stores/workshopEditor` does: the full barrel pulls the editor's
-   components, whose imports circle back into workshop state. */
+/* The layout sub-barrel rather than the module barrel: the full barrel pulls
+   the editor's components, whose imports circle back into workshop state. */
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import { singleLeaf } from "@/modules/editor/layout";
-import { EMPTY_EDITOR, type ProjectEditor, useWorkshopEditorStore } from "@/stores";
 
 import type { ContentDocument } from "../documents";
 import {
@@ -14,6 +13,7 @@ import {
   sanitizeEditorState,
   serializeEditorFile,
 } from "./editorFile";
+import { EMPTY_EDITOR, type ProjectEditor, useWorkshopEditorStore } from "./workshopEditor";
 
 /* The zustand persist key the store wrote before `.ltk/editor.json` existed.
    Read once to seed a project's first file, and never written or cleared, so

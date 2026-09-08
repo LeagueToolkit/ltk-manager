@@ -17,6 +17,7 @@ export function useStopLeague() {
   const toast = useToast();
 
   return useMutation<void, AppError, void>({
+    meta: { silentError: true },
     mutationFn: async () => {
       const result = await api.stopLeague();
       return unwrapForQuery(result);

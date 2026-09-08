@@ -5,6 +5,7 @@ import { AlertBox, Button, Separator, Spinner, Tabs, useToast } from "@/componen
 import { errorSummary } from "@/i18n";
 import type { DiagnosticReport } from "@/lib/tauri";
 import { DiagnosticsReportView, GamesTab, useDiagnostics } from "@/modules/diagnostics";
+import { SuspectModAction } from "@/modules/library";
 
 import type { DiagnosticsTab } from "../routes/diagnostics";
 
@@ -73,7 +74,7 @@ export function Diagnostics() {
         </header>
 
         <Tabs.Panel value="games" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <GamesTab />
+          <GamesTab modAction={(modId) => <SuspectModAction modId={modId} />} />
         </Tabs.Panel>
         <Tabs.Panel value="system" className="mt-0 min-h-0 flex-1 overflow-y-auto">
           <SystemTab />

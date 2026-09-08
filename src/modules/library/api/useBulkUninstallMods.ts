@@ -15,6 +15,8 @@ export function useBulkUninstallMods() {
   const queryClient = useQueryClient();
 
   return useMutation<BulkUninstallResult, AppError, string[], { previous?: InstalledMod[] }>({
+    /* BulkUninstallDialog reports, and this onError only rolls back. */
+    meta: { silentError: true },
     mutationFn: async (modIds) => {
       const settled = await Promise.allSettled(modIds.map((id) => api.uninstallMod(id)));
 

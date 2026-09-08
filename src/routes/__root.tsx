@@ -5,13 +5,19 @@ import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
-  useAutoStartPatcher,
   useOverscrollSpring,
   useReducedMotion,
   useSurfaceLinkedBinWarning,
   useZoomHotkeys,
 } from "@/hooks";
-import { monoStack, sansStack, sansWeights, WEIGHT_TIERS } from "@/lib/fonts";
+import {
+  loadMonoFace,
+  loadSansFace,
+  monoStack,
+  sansStack,
+  sansWeights,
+  WEIGHT_TIERS,
+} from "@/lib/fonts";
 import type { OpenOn } from "@/lib/tauri";
 import { ProtocolInstallDialog, useDeepLinkListener } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
@@ -23,19 +29,19 @@ import {
 } from "@/modules/launcher";
 import {
   LibraryMigrationDialog,
+  LinkedBinWarningDialog,
   ModHealthSweepListener,
   useLibraryWatcher,
   useModStorageToast,
+  WadScanFailedDialog,
 } from "@/modules/library";
 import {
-  LinkedBinWarningDialog,
   PatcherEventListeners,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
-  WadScanFailedDialog,
 } from "@/modules/patcher";
 import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
-import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
+import { DevConsole, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
 import { useObjectIndexLifecycle } from "@/modules/workshop";
 import { useDisplayStore, useUpdaterUpdate } from "@/stores";
@@ -45,6 +51,16 @@ const LANDING_ROUTES: Partial<Record<OpenOn, "/mods" | "/workshop">> = {
   mods: "/mods",
   workshop: "/workshop",
 };
+
+/** `promise`, resolving either way, so a failed load still runs what follows it. */
+function settled(promise: Promise<unknown>): Promise<void> {
+  return promise.then(
+    () => undefined,
+    (reason: unknown) => {
+      console.error("Font face failed to load", reason);
+    },
+  );
+}
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
@@ -97,21 +113,39 @@ function RootLayout() {
     document.documentElement.dataset.corners = cornerStyle;
   }, [cornerStyle]);
 
+  /* The family is applied after the face is registered, so a lazily loaded face
+     never draws a frame in the fallback stack. A face whose chunk does not
+     arrive is applied anyway and falls back, which reads better than a stale
+     family the reader did not choose. */
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--face-sans", sansStack(sansFont));
-    /* Every tier is written or cleared, so the face before this one leaves
-       nothing of its own behind. */
-    const weights = sansWeights(sansFont);
-    for (const tier of WEIGHT_TIERS) {
-      const weight = weights[tier];
-      if (weight === undefined) root.style.removeProperty(`--weight-${tier}`);
-      else root.style.setProperty(`--weight-${tier}`, String(weight));
-    }
+    let current = true;
+    void settled(loadSansFace(sansFont)).then(() => {
+      if (!current) return;
+      const root = document.documentElement;
+      root.style.setProperty("--face-sans", sansStack(sansFont));
+      /* Every tier is written or cleared, so the face before this one leaves
+         nothing of its own behind. */
+      const weights = sansWeights(sansFont);
+      for (const tier of WEIGHT_TIERS) {
+        const weight = weights[tier];
+        if (weight === undefined) root.style.removeProperty(`--weight-${tier}`);
+        else root.style.setProperty(`--weight-${tier}`, String(weight));
+      }
+    });
+    return () => {
+      current = false;
+    };
   }, [sansFont]);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--face-mono", monoStack(monoFont));
+    let current = true;
+    void settled(loadMonoFace(monoFont)).then(() => {
+      if (!current) return;
+      document.documentElement.style.setProperty("--face-mono", monoStack(monoFont));
+    });
+    return () => {
+      current = false;
+    };
   }, [monoFont]);
 
   useEffect(() => {

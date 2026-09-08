@@ -1,7 +1,9 @@
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { useHddWarning } from "@/hooks";
-import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
+import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
+import { useHddWarning } from "@/modules/settings";
+
+import { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 
 /**
  * The library's keys, on any page that offers its actions.

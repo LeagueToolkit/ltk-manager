@@ -17,7 +17,9 @@ export default defineConfig({
   plugins: [
     tanstackRouter({ target: "react", autoCodeSplitting: true }),
     paraglideVitePlugin({ project: "./project.inlang" }),
-    react(),
+    /* The React Compiler, through oxc rather than Babel. It memoizes what the
+       app never hand-memoized: the bin rows, the class views and the cards. */
+    react({ compiler: true }),
     tailwindcss(),
     svgr(),
     releaseNotes(__dirname),

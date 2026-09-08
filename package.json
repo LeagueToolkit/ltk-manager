@@ -9,16 +9,18 @@
     "build": "pnpm generate:messages && tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "typecheck": "pnpm generate:messages && pnpm typecheck:tsc",
+    "typecheck": "pnpm generate:messages && pnpm typecheck:tsgo",
+    "typecheck:tsgo": "tsgo --noEmit",
     "typecheck:tsc": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "lint:cycles": "oxlint --tsconfig tsconfig.json src",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "pnpm generate:messages && pnpm run --parallel \"/^(typecheck:tsc|lint|format:check)$/\" && pnpm run test",
+    "check": "pnpm generate:messages && pnpm run --parallel \"/^(typecheck:tsgo|lint|lint:cycles|format:check)$/\" && pnpm run test",
     "prepare": "husky",
     "dev:logged": "node scripts/dev-logged.mjs",
     "generate:messages": "paraglide-js compile --project ./project.inlang",
@@ -33,10 +35,10 @@
     ],
     "*.{ts,tsx}": [
       "eslint --fix",
-      "prettier --write"
+      "oxfmt"
     ],
     "*.{js,json,css,html,md}": [
-      "prettier --write"
+      "oxfmt"
     ],
     "src-tauri/**/*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
@@ -64,9 +66,7 @@
     "@phosphor-icons/react": "^2.1.10",
     "@tanstack/react-form": "^1.29.1",
     "@tanstack/react-query": "^5.100.1",
-    "@tanstack/react-query-devtools": "^5.100.1",
     "@tanstack/react-router": "^1.168.23",
-    "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.24",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-deep-link": "^2.4.8",
@@ -104,7 +104,8 @@
     "@types/node": "^22.19.17",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^4.1.5",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
@@ -116,8 +117,9 @@
     "happy-dom": "^20.11.6",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
-    "prettier": "^3.8.3",
-    "prettier-plugin-tailwindcss": "^0.7.3",
+    "oxc-transform-react": "^0.145.0",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0",

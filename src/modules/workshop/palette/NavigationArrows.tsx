@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { IconButton, Tooltip } from "@/components";
-import { type HistoryEntry, useWorkshopEditorStore } from "@/stores";
 
 import { useWorkshopProjects } from "../api/useWorkshopProjects";
 import { useOptionalProjectContext } from "../components/ProjectContext";
 import { contentEditors } from "../documents";
+import { type HistoryEntry, useWorkshopEditorStore } from "../state";
 import { useHistoryReach, useNavigateHistory } from "../state";
 import { useOpenProject } from "./projectRows";
 

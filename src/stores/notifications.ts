@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-import type { ToastType } from "@/components";
+// eslint-disable-next-line no-restricted-imports -- the leaf, so the barrel does not close a cycle back to this store
+import type { ToastType } from "@/components/toastType";
 
 export interface Notification {
   id: string;

@@ -1,7 +1,6 @@
 use super::{
-    CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs,
-    SaveProjectConfigArgs, Workshop, WorkshopProject, find_config_file, is_valid_project_name,
-    load_workshop_project,
+    CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
+    SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -19,7 +18,7 @@ use ltk_mod_project::{
     ImportError, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, ProjectImporter,
 };
 use ltk_modpkg::Modpkg;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 impl Workshop {
     /// Get all workshop projects from the configured workshop directory.
@@ -40,11 +39,14 @@ impl Workshop {
                 continue;
             }
 
-            if find_config_file(&path).is_none() {
+            let Ok(project_dir) = ProjectDir::open(&path) else {
+                continue;
+            };
+            if project_dir.config_file().is_none() {
                 continue;
             }
 
-            match load_workshop_project(&path) {
+            match project_dir.load() {
                 Ok(project) => projects.push(project),
                 Err(e) => {
                     tracing::warn!("Skipping invalid project at {}: {}", path.display(), e);
@@ -114,26 +116,18 @@ impl Workshop {
         );
         fs::write(project_dir.join("README.md"), readme_content)?;
 
-        load_workshop_project(&project_dir)
+        ProjectDir::open(project_dir)?.load()
     }
 
     /// Get a single workshop project by path.
     pub fn get_project(&self, project_path: &str) -> AppResult<WorkshopProject> {
-        let path = PathBuf::from(project_path);
-        if !path.exists() {
-            return Err(AppError::ProjectNotFound(project_path.to_string()));
-        }
-        load_workshop_project(&path)
+        ProjectDir::open(project_path)?.load()
     }
 
     /// Save project configuration changes.
     pub fn save_config(&self, args: SaveProjectConfigArgs) -> AppResult<WorkshopProject> {
-        let path = PathBuf::from(&args.project_path);
-        if !path.exists() {
-            return Err(AppError::ProjectNotFound(args.project_path));
-        }
-
-        let mut mod_project = ModProject::load(path.try_as_utf8("project directory")?)?;
+        let project_dir = ProjectDir::open(&args.project_path)?;
+        let mut mod_project = project_dir.config()?;
 
         mod_project.display_name = args.display_name;
         mod_project.version = args.version;
@@ -150,11 +144,9 @@ impl Workshop {
         mod_project.champions = args.champions;
         mod_project.maps = args.maps.into_iter().map(ModMap::from).collect();
 
-        let json_config_path = path.join("mod.config.json");
-        let config_content = serde_json::to_string_pretty(&mod_project)?;
-        fs::write(&json_config_path, config_content)?;
+        project_dir.write_config(&mod_project)?;
 
-        load_workshop_project(&path)
+        project_dir.load()
     }
 
     /// Rename a workshop project (change its slug/directory name).
@@ -167,58 +159,44 @@ impl Workshop {
             ));
         }
 
-        let old_path = PathBuf::from(project_path);
-        if !old_path.exists() {
+        let old_dir = ProjectDir::open(project_path)?;
+        if old_dir.config_file().is_none() {
             return Err(AppError::ProjectNotFound(project_path.to_string()));
         }
 
-        // Verify it's a valid project
-        if find_config_file(&old_path).is_none() {
-            return Err(AppError::ProjectNotFound(project_path.to_string()));
-        }
-
-        let parent_dir = old_path.parent().ok_or_else(|| {
+        let parent_dir = old_dir.path().parent().ok_or_else(|| {
             AppError::InvalidPath("Cannot determine parent directory".to_string())
         })?;
         let new_path = parent_dir.join(&new_name);
 
-        // Check if old name is the same as new name
-        if old_path == new_path {
-            return load_workshop_project(&old_path);
+        if old_dir.path() == new_path {
+            return old_dir.load();
         }
 
         if new_path.exists() {
             return Err(AppError::ProjectAlreadyExists(new_name));
         }
 
-        // Rename the directory
-        fs::rename(&old_path, &new_path)?;
+        fs::rename(old_dir.path(), &new_path)?;
 
-        let mut mod_project = ModProject::load(new_path.try_as_utf8("project directory")?)?;
+        let new_dir = ProjectDir::open(new_path)?;
+        let mut mod_project = new_dir.config()?;
         mod_project.name = new_name;
+        new_dir.write_config(&mod_project)?;
 
-        let json_config_path = new_path.join("mod.config.json");
-        let config_content = serde_json::to_string_pretty(&mod_project)?;
-        fs::write(&json_config_path, config_content)?;
-
-        load_workshop_project(&new_path)
+        new_dir.load()
     }
 
     /// Delete a workshop project.
     pub fn delete_project(&self, project_path: &str) -> AppResult<()> {
-        let path = PathBuf::from(project_path);
-        if !path.exists() {
-            return Err(AppError::ProjectNotFound(project_path.to_string()));
-        }
-
-        // Safety check: ensure it contains a mod.config file
-        if find_config_file(&path).is_none() {
+        let project_dir = ProjectDir::open(project_path)?;
+        if project_dir.config_file().is_none() {
             return Err(AppError::ValidationFailed(
                 "Directory does not appear to be a mod project".to_string(),
             ));
         }
 
-        fs::remove_dir_all(&path)?;
+        fs::remove_dir_all(project_dir.path())?;
         Ok(())
     }
 
@@ -313,7 +291,7 @@ impl Workshop {
 
         long_paths::verify_unpacked(project_dir, ImportRoot::Workshop)?;
 
-        load_workshop_project(project_dir)
+        ProjectDir::open(project_dir)?.load()
     }
 
     fn emit_fantome_progress(&self, progress: FantomeImportProgress) {
@@ -354,7 +332,7 @@ impl Workshop {
             return Err(modpkg_import_error(e));
         }
 
-        load_workshop_project(&project_dir)
+        ProjectDir::open(project_dir)?.load()
     }
 
     /// Import a project from a GitHub repository by downloading and extracting its tarball.
@@ -439,7 +417,7 @@ impl Workshop {
             fs::rename(&extracted_dir, &project_dir)?;
 
             self.emit_git_progress(GitImportStage::Complete, None);
-            load_workshop_project(&project_dir)
+            ProjectDir::open(project_dir)?.load()
         })();
 
         if result.is_err() {

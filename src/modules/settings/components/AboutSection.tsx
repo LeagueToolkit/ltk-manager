@@ -2,7 +2,7 @@ import { FileText, ScrollText } from "lucide-react";
 import { useState } from "react";
 
 import { Button, ExternalLink, SectionCard } from "@/components";
-import { api, type AppInfo } from "@/lib/tauri";
+import { type AppInfo, revealPath } from "@/lib/tauri";
 
 import { LicensesDialog } from "./LicensesDialog";
 
@@ -22,11 +22,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
             {appInfo && <p className="text-sm text-surface-500">Version {appInfo.version}</p>}
           </div>
           {appInfo?.logFilePath && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => api.revealInExplorer(appInfo.logFilePath!)}
-            >
+            <Button variant="outline" size="sm" onClick={() => revealPath(appInfo.logFilePath!)}>
               <FileText className="h-4 w-4" />
               Open Log File
             </Button>
