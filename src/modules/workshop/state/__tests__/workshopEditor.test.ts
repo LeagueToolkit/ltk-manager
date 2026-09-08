@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { BinRow } from "@/lib/tauri";
 import { findLeaf, leaves, singleLeaf } from "@/modules/editor";
 import {
   detailsDocument,
@@ -56,9 +57,57 @@ function splitApart(projectPath: string): string {
   return editorOf(projectPath).activeLeafId;
 }
 
+const CURVE_ROW: BinRow = {
+  entry: "0x2a1f3c7d",
+  path: "0aaaaaaa",
+  label: "birthColor",
+  node: "property",
+  name: "birthColor",
+  unnamed: false,
+  kind: "embed",
+  value: { type: "struct", classHash: "0x074f91dd", class: "ValueColor", len: 2 },
+  declared: null,
+};
+
 describe("workshopEditor store", () => {
   beforeEach(() => {
     useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1 });
+  });
+
+  describe("aimCurve", () => {
+    it("carries the row and its chain to the object tab that was named", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "Glow [0] . birthColor");
+
+      expect(editorOf(A).aimCurve).toEqual({
+        documentId: "object:skin0",
+        row: CURVE_ROW,
+        chain: "Glow [0] . birthColor",
+        token: 1,
+      });
+    });
+
+    it("bumps the token, so aiming twice at one row is two aims", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      expect(editorOf(A).aimCurve?.token).toBe(2);
+    });
+
+    it("settles the request the tab answered, and leaves one it did not standing", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      store().settleCurveAim(A, 99);
+      expect(editorOf(A).aimCurve?.token).toBe(1);
+
+      store().settleCurveAim(A, 1);
+      expect(editorOf(A).aimCurve).toBeNull();
+    });
+
+    it("aims one project's editor and no other's", () => {
+      store().aimCurve(A, "object:skin0", CURVE_ROW, "chain");
+
+      expect(editorOf(B).aimCurve).toBeNull();
+    });
   });
 
   describe("setDocumentDirty", () => {

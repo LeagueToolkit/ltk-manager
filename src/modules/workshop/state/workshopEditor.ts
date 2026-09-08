@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import type { BinRow } from "@/lib/tauri";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state, and
    this module needs `singleLeaf` while it evaluates. */
@@ -40,6 +41,21 @@ export interface ObjectRevealRequest {
   /** `0x` and eight hex digits. */
   readonly objectHash: string;
   /** Bumped per request. A second request for the same object is a second scroll. */
+  readonly token: number;
+}
+
+/**
+ * A file tab's request that one object tab open with its dock on a row.
+ *
+ * The row travels rather than its key, because the dock reads the row itself and the
+ * tab receiving it has not read that far down its own tree.
+ */
+export interface CurveAimRequest {
+  readonly documentId: string;
+  readonly row: BinRow;
+  /** The labels the caption hangs off, which the surface that was clicked names. */
+  readonly chain: string;
+  /** Bumped per request. Aiming twice at one row is two aims. */
   readonly token: number;
 }
 
@@ -104,6 +120,8 @@ export interface ProjectEditor {
   reveal: RevealRequest | null;
   /** The pending object request, which at most one open bin answers. */
   revealObject: ObjectRevealRequest | null;
+  /** The pending curve request, which at most one open object tab answers. */
+  aimCurve: CurveAimRequest | null;
 }
 
 interface WorkshopEditorStore {
@@ -161,6 +179,9 @@ interface WorkshopEditorStore {
   revealObject: (projectPath: string, documentId: string, objectHash: string) => void;
   /** Drops the object request with `token`. A settled request reaches no later open. */
   settleObjectReveal: (projectPath: string, token: number) => void;
+  aimCurve: (projectPath: string, documentId: string, row: BinRow, chain: string) => void;
+  /** Drops the curve request with `token`. A settled request reaches no later open. */
+  settleCurveAim: (projectPath: string, token: number) => void;
   /** Follows a project whose path changed, so a rename keeps its editor. */
   moveProject: (fromPath: string, toPath: string) => void;
   /** Drops a deleted project, which would otherwise sit in storage forever. */
@@ -181,6 +202,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   collapsed: {},
   reveal: null,
   revealObject: null,
+  aimCurve: null,
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
@@ -731,6 +753,23 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
       (state) =>
         updateProject(state, projectPath, (editor) =>
           editor.revealObject?.token === token ? { ...editor, revealObject: null } : editor,
+        ) ?? state,
+    ),
+
+  aimCurve: (projectPath, documentId, row, chain) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          aimCurve: { documentId, row, chain, token: (editor.aimCurve?.token ?? 0) + 1 },
+        })) ?? state,
+    ),
+
+  settleCurveAim: (projectPath, token) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.aimCurve?.token === token ? { ...editor, aimCurve: null } : editor,
         ) ?? state,
     ),
 

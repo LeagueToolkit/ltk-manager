@@ -2,11 +2,16 @@ import { createContext, use } from "react";
 
 import type { BinRow } from "@/lib/tauri";
 
+/** The three readings of one curve, per "The three tabs" in docs/ux/BIN_EDITOR.md. */
+export type CurveTab = "graph" | "table" | "probability";
+
 /** What the curve surface is aimed at: the value row, and the chain that names it. */
 export interface CurveTarget {
   readonly row: BinRow;
   /** The labels from the object down to the row, which is the caption's first line. */
   readonly chain: string;
+  /** The reading the aim asks for. The dock keeps the one it is on without this. */
+  readonly tab?: CurveTab;
 }
 
 /**

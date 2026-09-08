@@ -33,6 +33,7 @@
   "workshop_bin_copy_path_action": "Copy path",
   "workshop_bin_copy_value_action": "Copy value",
   "workshop_bin_copy_value_hash_action": "Copy value hash",
+  "workshop_bin_curve_keys_empty": "No keys",
   "workshop_bin_curve_keys_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -45,6 +46,11 @@
   ],
   "workshop_bin_curve_pane_empty": "No value targeted",
   "workshop_bin_curve_pane_label": "Curve",
+  "workshop_bin_curve_tab_graph_label": "Graph",
+  "workshop_bin_curve_tab_label": "Curve reading",
+  "workshop_bin_curve_tab_probability_label": "Probability",
+  "workshop_bin_curve_tab_table_label": "Table",
+  "workshop_bin_curve_time_column": "Time",
   "workshop_bin_declarations_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -187,6 +193,18 @@
   "workshop_bin_present_label": "present",
   "workshop_bin_preview_pane_empty": "No renderer yet",
   "workshop_bin_preview_pane_label": "Particle preview",
+  "workshop_bin_probability_empty": "No probability table",
+  "workshop_bin_probability_keys_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} probability key",
+        "countPlural=other": "{count} probability keys"
+      }
+    }
+  ],
+  "workshop_bin_probability_single_label": "{channel} single value",
   "workshop_bin_revision_open_label": "since {from}",
   "workshop_bin_revision_span_label": "{from} – {to}",
   "workshop_bin_revisions_label": "Revisions",
@@ -209,6 +227,7 @@
   "workshop_bin_show_curve_action": "Show curve",
   "workshop_bin_show_in_file_action": "Show in file",
   "workshop_bin_show_in_properties_action": "Show in properties",
+  "workshop_bin_show_probability_action": "Show probability tables",
   "workshop_bin_texture_container_format_label": "{container} · {format}",
   "workshop_bin_texture_dimensions_label": "{width} × {height}",
   "workshop_bin_texture_format_label": "Format",

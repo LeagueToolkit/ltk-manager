@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import type { BinRow } from "@/lib/tauri";
 import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import { useTabOpenMode } from "@/stores/workshopLayout";
 
@@ -8,6 +9,7 @@ import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, documentLayerName } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
 import {
+  type CurveAimRequest,
   EMPTY_EDITOR,
   type HistoryEntry,
   NO_COLLAPSED_DIRS,
@@ -405,6 +407,34 @@ export function useRevealObject() {
   return useCallback(
     (documentId: string, objectHash: string) => revealObject(projectPath, documentId, objectHash),
     [revealObject, projectPath],
+  );
+}
+
+/** The pending curve request aimed at `documentId`, or null for a tab nobody aimed. */
+export function useCurveAimRequest(documentId: string): CurveAimRequest | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).aimCurve;
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Drop the curve request with `token`. The tab it addressed has answered it. */
+export function useSettleCurveAim() {
+  const projectPath = useProjectPath();
+  const settle = useWorkshopEditorStore((s) => s.settleCurveAim);
+  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+}
+
+/** Ask the object tab `documentId` to open its dock on `row`, captioned `chain`. */
+export function useAimCurve() {
+  const projectPath = useProjectPath();
+  const aimCurve = useWorkshopEditorStore((s) => s.aimCurve);
+  return useCallback(
+    (documentId: string, row: BinRow, chain: string) =>
+      aimCurve(projectPath, documentId, row, chain),
+    [aimCurve, projectPath],
   );
 }
 

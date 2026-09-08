@@ -6,7 +6,13 @@ import {
   MagnifyingGlassIcon,
   PathIcon,
 } from "@phosphor-icons/react";
-import { type MouseEvent as ReactMouseEvent, useCallback, useMemo, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/components";
@@ -24,7 +30,7 @@ import {
   objectReferences,
   useFindReferences,
 } from "../references/useFindReferences";
-import { clickIntent } from "../state";
+import { clickIntent, useCurveAimRequest, useSettleCurveAim } from "../state";
 import { Dot } from "./BinDocument";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
@@ -47,7 +53,7 @@ export function ObjectDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"object">>) {
-  const { asset, objectHash, objectPath, file } = document;
+  const { id, asset, objectHash, objectPath, file } = document;
   const { state, reopen } = useBinDocument(asset, objectHash);
 
   if (state.status === "failed") {
@@ -72,6 +78,7 @@ export function ObjectDocument({
 
   return (
     <OpenObject
+      documentId={id}
       asset={asset}
       objectPath={objectPath}
       file={file}
@@ -84,6 +91,8 @@ export function ObjectDocument({
 }
 
 interface OpenObjectProps {
+  /** The editor's id for the tab, which a curve request names. */
+  documentId: string;
   asset: AssetRef;
   objectPath: string;
   file: string;
@@ -93,7 +102,16 @@ interface OpenObjectProps {
   reopen: () => void;
 }
 
-function OpenObject({ asset, objectPath, file, handle, object, active, reopen }: OpenObjectProps) {
+function OpenObject({
+  documentId,
+  asset,
+  objectPath,
+  file,
+  handle,
+  object,
+  active,
+  reopen,
+}: OpenObjectProps) {
   const showInFile = useShowInFile();
   const narrow = useNarrowToolbar();
   const objectName = useCallback(() => object.name, [object.name]);
@@ -104,6 +122,15 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
   const [frame, setFrame] = useState<LayoutFrame>("stack");
   const [target, setTarget] = useState<CurveTarget | null>(null);
   const dock = useMemo<CurveDock>(() => ({ target, aim: setTarget }), [target]);
+
+  /* An answered request is settled, so a later open of the same object starts untargeted. */
+  const request = useCurveAimRequest(documentId);
+  const settleAim = useSettleCurveAim();
+  useEffect(() => {
+    if (request === null) return;
+    settleAim(request.token);
+    setTarget({ row: request.row, chain: request.chain });
+  }, [request, settleAim]);
 
   const showFile = useCallback(
     (event: ReactMouseEvent) => showInFile(asset, object.entry, file, clickIntent(event)),

@@ -10,6 +10,9 @@ import {
   type CurveRead,
   dynamicsRequests,
   stopRequests,
+  tableFieldRequests,
+  tableKeyRequests,
+  tableRequests,
   valueFamily,
   type ValueMark,
   valueMarks,
@@ -34,12 +37,13 @@ export function useValueMark(key: string | undefined): ValueMark | undefined {
 }
 
 /**
- * The constant, and the curve keys `read` asks for, of every value-family row in `rows`.
+ * The constant, and the curve `read` asks for, of every value-family row in `rows`.
  *
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. Three levels of the projected
- * read answer it: the row's own children, the curve one of them points at, and the
- * curve's two lists. Each level knows how many rows the next costs, so no level
- * guesses at the call's cap.
+ * read answer a curve: the row's own children, the curve one of them points at, and the
+ * curve's two lists. A dock read walks three more for the probability tables, which it
+ * can afford because it is aimed at one row. Each level knows how many rows the next
+ * costs, so no level guesses at the call's cap.
  */
 export function useValueMarks(
   document: BinDocumentId,
@@ -53,10 +57,13 @@ export function useValueMarks(
   );
   const dynamics = useBinRead(document, dynamicsRequests(settled, constants, read));
   const stops = useBinRead(document, stopRequests(dynamics));
+  const tables = useBinRead(document, tableRequests(dynamics, read));
+  const tableFields = useBinRead(document, tableFieldRequests(tables));
+  const tableKeys = useBinRead(document, tableKeyRequests(tableFields));
 
   return useMemo(
-    () => valueMarks(settled, constants, dynamics, stops),
-    [settled, constants, dynamics, stops],
+    () => valueMarks(settled, { constants, dynamics, stops, tables, tableFields, tableKeys }),
+    [settled, constants, dynamics, stops, tables, tableFields, tableKeys],
   );
 }
 

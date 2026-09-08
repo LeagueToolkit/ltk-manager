@@ -562,6 +562,27 @@ describe("The shell frame", () => {
     expect(screen.getByText("Glow [0] . rate")).toBeInTheDocument();
   });
 
+  it("gives a row with dynamics both triggers, and a row without neither", async () => {
+    renderSystem();
+    await screen.findByRole("button", { name: "Show curve" });
+
+    expect(screen.getAllByRole("button", { name: "Show curve" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Show probability tables" })).toHaveLength(1);
+  });
+
+  it("opens the dock on the probability tables the second trigger names", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Show probability tables" }));
+
+    expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Probability" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
   it("offers Show curve on a row with dynamics and on no row without", async () => {
     renderSystem();
     const user = userEvent.setup();
