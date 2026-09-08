@@ -198,13 +198,40 @@ export function sparkKeys(mark: ValueMark | undefined): readonly CurveKey[] {
   return mark.keys;
 }
 
+/** The window a curve is drawn over, in the shares of a particle's life its times are. */
+export interface TimeSpan {
+  readonly first: number;
+  readonly last: number;
+}
+
+/** The particle's own life, which a curve with no key outside it is read against. */
+const LIFE: TimeSpan = { first: 0, last: 1 };
+
+/**
+ * The window `times` are drawn over: the particle's life, widened to hold every key.
+ *
+ * A key time is a share of that life, so 0 to 1 is the reading a modder wants and a
+ * ramp keyed over the middle of it has to look like one. A file holds times outside
+ * that range, and those widen the window rather than being clipped out of it.
+ */
+export function timeSpan(times: readonly number[]): TimeSpan {
+  if (times.length === 0) return LIFE;
+  return { first: Math.min(LIFE.first, ...times), last: Math.max(LIFE.last, ...times) };
+}
+
+/** Where `time` lands in `span`, as a share of it from 0 to 1. */
+export function placeTime(time: number, span: TimeSpan): number {
+  const width = span.last - span.first;
+  return width === 0 ? 0 : (time - span.first) / width;
+}
+
 /**
  * A `vec4` as its four channels, or null for any other value.
  *
  * A component is null where the float is one JSON does not carry, and a colour missing
  * a channel is one nothing can paint.
  */
-export function channels(value: BinValue | undefined): ColorStop["rgba"] | null {
+export function channels(value: BinValue | null | undefined): ColorStop["rgba"] | null {
   if (value?.type !== "vector" || value.values.length !== 4) return null;
   const held = value.values.filter((component) => component !== null);
   if (held.length !== 4) return null;
@@ -239,11 +266,11 @@ export function colorCss(rgba: ColorStop["rgba"]): string {
 }
 
 /**
- * The stops as a CSS gradient, each at its share of the curve's own span.
+ * The stops as a CSS gradient, each at its own time in the window they span.
  *
- * The span rather than the times, because a curve runs over whatever seconds its
- * emitter lives and a strip of fixed width shows the shape rather than the clock. A
- * curve whose stops share one time draws the last of them.
+ * The outermost colours hold flat to the ends of the window, which is the value the
+ * engine samples outside the keyed range. A curve whose stops share one time draws the
+ * last of them.
  */
 export function gradientCss(stops: readonly ColorStop[]): string {
   const [only] = stops;
@@ -253,11 +280,9 @@ export function gradientCss(stops: readonly ColorStop[]): string {
     return `linear-gradient(to right, ${css}, ${css})`;
   }
 
-  const times = stops.map((stop) => stop.time);
-  const first = Math.min(...times);
-  const span = Math.max(...times) - first;
+  const span = timeSpan(stops.map((stop) => stop.time));
   const placed = stops.map((stop) => {
-    const at = span === 0 ? 0 : ((stop.time - first) / span) * 100;
+    const at = placeTime(stop.time, span) * 100;
     return `${colorCss(stop.rgba)} ${at.toFixed(2)}%`;
   });
   return `linear-gradient(to right, ${placed.join(", ")})`;

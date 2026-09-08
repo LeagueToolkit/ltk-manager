@@ -389,25 +389,28 @@ function CardSquare({ card }: { card: EmitterCardData }) {
   const texture = card.fields(CARD.texture);
   const colour = card.fields(CARD.colour);
   const mark = useValueMark(colour === undefined ? undefined : rowKey(colour));
-  const rgba = mark?.family === "color" && mark.constant !== null ? channels(mark.constant) : null;
+  const stops = mark?.family === "color" ? colorStops(mark.keys) : [];
+  const rgba = mark?.family === "color" ? channels(mark.constant) : null;
+  const background = squareBackground(stops, rgba);
 
   if (texturePath(texture) !== null) return <TextureTile row={texture} size="card" />;
-  if (colour !== undefined && rgba !== null) {
-    return <ColourSquare row={colour} rgba={rgba} stops={colorStops(mark?.keys ?? [])} />;
+  if (colour !== undefined && background !== null) {
+    return <ColourSquare row={colour} background={background} />;
   }
   return <EmptyTile size="card" />;
 }
 
+/** The square's paint: the stops where a colour animates, else its constant, else nothing. */
+function squareBackground(
+  stops: readonly ColorStop[],
+  rgba: ColorStop["rgba"] | null,
+): string | null {
+  if (stops.length > 0) return gradientCss(stops);
+  return rgba === null ? null : colorCss(rgba);
+}
+
 /** A `ValueColor` over the whole square, its stops as the band they draw on a row. */
-function ColourSquare({
-  row,
-  rgba,
-  stops,
-}: {
-  row: BinRow;
-  rgba: ColorStop["rgba"];
-  stops: readonly ColorStop[];
-}) {
+function ColourSquare({ row, background }: { row: BinRow; background: string }) {
   return (
     <Cell
       row={row}
@@ -418,7 +421,7 @@ function ColourSquare({
         role="img"
         aria-label={m.workshop_bin_emitter_colour_label()}
         className="block h-full w-full"
-        style={{ background: stops.length > 0 ? gradientCss(stops) : colorCss(rgba) }}
+        style={{ background }}
       />
     </Cell>
   );

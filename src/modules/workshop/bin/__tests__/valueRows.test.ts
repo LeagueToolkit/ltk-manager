@@ -11,8 +11,10 @@ import {
   dynamicsRequests,
   gradientCss,
   markText,
+  placeTime,
   sparkKeys,
   stopRequests,
+  timeSpan,
   valueFamily,
   valueMarks,
 } from "../valueRows";
@@ -241,13 +243,29 @@ describe("colorStops and sparkKeys", () => {
   });
 });
 
+describe("timeSpan and placeTime", () => {
+  it("is the particle's own life where every key falls inside it", () => {
+    expect(timeSpan([0.25, 0.75])).toEqual({ first: 0, last: 1 });
+    expect(placeTime(0.25, timeSpan([0.25, 0.75]))).toBeCloseTo(0.25);
+  });
+
+  it("widens to whichever end a key reaches past", () => {
+    expect(timeSpan([-0.5, 0.5])).toEqual({ first: -0.5, last: 1 });
+    expect(timeSpan([0.5, 4])).toEqual({ first: 0, last: 4 });
+  });
+
+  it("is that life for a curve the read has answered no keys for", () => {
+    expect(timeSpan([])).toEqual({ first: 0, last: 1 });
+  });
+});
+
 describe("colorHex and gradientCss", () => {
   it("writes a colour as the bytes Copy value takes, clamped", () => {
     expect(colorHex([1, 0.5, 0, 1])).toBe("#FF8000FF");
     expect(colorHex([2, -1, 0, 1])).toBe("#FF0000FF");
   });
 
-  it("places each stop at its share of the curve's span", () => {
+  it("places each stop at its own time in the window the stops span", () => {
     expect(
       gradientCss([
         { time: 1, rgba: [1, 0, 0, 1] },
@@ -255,8 +273,17 @@ describe("colorHex and gradientCss", () => {
         { time: 5, rgba: [0, 0, 1, 1] },
       ]),
     ).toBe(
-      "linear-gradient(to right, rgba(255, 0, 0, 1) 0.00%, rgba(0, 255, 0, 1) 25.00%, rgba(0, 0, 255, 1) 100.00%)",
+      "linear-gradient(to right, rgba(255, 0, 0, 1) 20.00%, rgba(0, 255, 0, 1) 40.00%, rgba(0, 0, 255, 1) 100.00%)",
     );
+  });
+
+  it("holds the first and last colour flat outside the keyed range", () => {
+    expect(
+      gradientCss([
+        { time: 0.25, rgba: [1, 0, 0, 1] },
+        { time: 0.75, rgba: [0, 0, 1, 1] },
+      ]),
+    ).toBe("linear-gradient(to right, rgba(255, 0, 0, 1) 25.00%, rgba(0, 0, 255, 1) 75.00%)");
   });
 
   it("draws one stop as a band of its own colour, which a gradient of one is not", () => {

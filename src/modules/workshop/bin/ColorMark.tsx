@@ -1,3 +1,5 @@
+import { twMerge } from "tailwind-merge";
+
 import { Popover } from "@/components";
 import { m } from "@/i18n";
 
@@ -16,8 +18,8 @@ const CARD_DELAY = 600;
 const STRIP_WIDTH = "w-24";
 
 interface ColorMarkProps {
-  /** The row's `constantValue`, each channel 0 to 1. */
-  constant: ColorStop["rgba"];
+  /** The row's `constantValue`, each channel 0 to 1. Null where the file writes none. */
+  constant: ColorStop["rgba"] | null;
   /** The dynamics' stops, in the curve's own order. Empty where it has none. */
   stops: readonly ColorStop[];
 }
@@ -26,23 +28,26 @@ interface ColorMarkProps {
  * A `ValueColor`'s constant as a swatch, and its dynamics as a strip of its stops.
  *
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. A colour with no dynamics
- * draws the swatch alone.
+ * draws the swatch alone, and one whose file writes no constant draws the strip alone.
  */
 export function ColorMark({ constant, stops }: ColorMarkProps) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <Swatch rgba={constant} />
+      {constant !== null && <Swatch rgba={constant} />}
       {stops.length > 0 && <Strip stops={stops} />}
     </span>
   );
 }
 
 /** One colour over the checkerboard, so an alpha reads as one rather than as a tint. */
-function Swatch({ rgba }: { rgba: ColorStop["rgba"] }) {
+export function Swatch({ rgba, className }: { rgba: ColorStop["rgba"]; className?: string }) {
   return (
     <span
-      /* DS-TOKEN */
-      className={`h-3.5 w-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:6px_6px]`}
+      /* DS-TOKEN, DS-VEIL, DS-RADIUS */
+      className={twMerge(
+        `h-3.5 w-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:6px_6px]`,
+        className,
+      )}
       aria-hidden
     >
       <span className="block h-full w-full" style={{ background: colorCss(rgba) }} />
