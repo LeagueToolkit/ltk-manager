@@ -89,6 +89,13 @@ export const commands = {
 	 */
 	resetTelemetrySecret: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reset_telemetry_secret"),
 	/**
+	 *  Report a crash the frontend caught, which is its only route to the wire.
+	 * 
+	 *  The frontend does not reach the network, so a boundary, a window error and a
+	 *  rejection all come here and are queued on the one egress path.
+	 */
+	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
+	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
 	 * 
@@ -1126,6 +1133,24 @@ export type Suspect = {
 	 *  incident stored before it existed carries no reason.
 	 */
 	reason?: Because,
+};
+
+/**
+ *  What a frontend crash reports, as the boundary and the two window handlers
+ *  hand it over.
+ */
+export type UiError = {
+	/**  The error's constructor name, which is what an issue groups on. */
+	name: string,
+	message: string,
+	/**  The stack as the engine wrote it, unresolved until the maps are uploaded. */
+	stack: string | null,
+	/**  Which components were mounted, where React gives one. */
+	componentStack: string | null,
+	/**  The route the reader was on, which is the location a crash carries. */
+	route: string | null,
+	/**  Whether anything caught it, which the vendor draws on an issue. */
+	handled: boolean,
 };
 
 /**  What the manager concluded from one game. */

@@ -3,6 +3,10 @@
   "common_action_failed_title": "Something went wrong",
   "common_cancel_action": "Cancel",
   "common_close_action": "Close",
+  "common_crash_description": "This screen stopped working. Reloading usually fixes it, and nothing you have installed is affected.",
+  "common_crash_reload_action": "Reload",
+  "common_crash_report_action": "Report a bug",
+  "common_crash_title": "The manager hit a problem",
   "common_health_broken_label": "{count} broken",
   "common_health_flagged_label": "{count} flagged",
   "common_health_repairs_label": [

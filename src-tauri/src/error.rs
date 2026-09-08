@@ -221,17 +221,53 @@ impl<T> IpcResult<T> {
     }
 
     pub fn err(error: impl Into<AppErrorResponse>) -> Self {
-        IpcResult::Err {
-            error: error.into(),
-        }
+        let error = error.into();
+        report(&error);
+        IpcResult::Err { error }
     }
+}
+
+/// Report `error` as a failure a reader hit, if diagnostics collect anything.
+///
+/// This is the one point every command error crosses on its way out, so it is
+/// where the diagnostics see one. The invoke handler cannot serve: its closure
+/// returns before the command resolves, so it never sees a result at all.
+fn report(error: &AppErrorResponse) {
+    let (code, message) = reported(error);
+    crate::telemetry::report_app_error(&code, &message);
+}
+
+/// The code an error groups under, and what it said beyond that code.
+///
+/// Read off the serialized form rather than matched variant by variant, so a new
+/// variant reports under its own code without being added in a second place. The
+/// message is the fields the frontend draws as data, which are prose from
+/// outside the app and are scrubbed on the way to the wire.
+fn reported(error: &AppErrorResponse) -> (String, String) {
+    let Ok(serde_json::Value::Object(fields)) = serde_json::to_value(error) else {
+        return ("UNKNOWN".to_owned(), String::new());
+    };
+
+    let code = fields
+        .get("code")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("UNKNOWN")
+        .to_owned();
+    let message = fields
+        .iter()
+        .filter(|(key, _)| key.as_str() != "code")
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    (code, message)
 }
 
 impl<T, E: Into<AppErrorResponse>> From<Result<T, E>> for IpcResult<T> {
     fn from(result: Result<T, E>) -> Self {
         match result {
             Ok(value) => IpcResult::Ok { value },
-            Err(e) => IpcResult::Err { error: e.into() },
+            Err(e) => IpcResult::err(e),
         }
     }
 }
