@@ -15,8 +15,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:cycles": "oxlint --tsconfig tsconfig.json src",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -35,10 +35,10 @@
     ],
     "*.{ts,tsx}": [
       "eslint --fix",
-      "prettier --write"
+      "oxfmt"
     ],
     "*.{js,json,css,html,md}": [
-      "prettier --write"
+      "oxfmt"
     ],
     "src-tauri/**/*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
@@ -117,9 +117,8 @@
     "happy-dom": "^20.11.6",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.2",
+    "oxfmt": "^0.67.0",
     "oxlint": "^1.82.0",
-    "prettier": "^3.8.3",
-    "prettier-plugin-tailwindcss": "^0.7.3",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0",
