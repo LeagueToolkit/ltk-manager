@@ -1,4 +1,10 @@
-# Telemetry configuration
+# Remote configuration
+
+What the app reads off the default branch at runtime rather than out of the build it shipped as.
+A document here changes a running install by merging a pull request. `news/` is the neighbouring
+directory a reader sees, where this one only the app reads.
+
+## Telemetry
 
 `telemetry.json` is the kill switch and the volume dial for anonymous diagnostics. The app reads
 it raw from the default branch on every boot, so that URL is the contract, and stopping collection
@@ -8,7 +14,7 @@ The document can only ever narrow what is collected. It never turns collection b
 somebody who turned it off in Settings, and it never lifts the rule that a debug build reports
 nothing.
 
-## Schema 1
+### Schema 1
 
 ```json
 {
@@ -43,7 +49,7 @@ indistinguishable from a deliberate stop. A build that has never read one falls 
 compiled defaults in `src-tauri/src/telemetry/config.rs`, whose sample rate mirrors the rate
 below so an install behind a blocked network weighs the same in the data as one that is not.
 
-## Rollout
+### Rollout
 
 The rate is **deliberately low**, not left over.
 

@@ -1,9 +1,9 @@
 //! What the project publishes about collection, read raw from the repository.
 //!
 //! The document is the kill switch and the volume dial. It lives at
-//! `news/telemetry.json` on the default branch, and its URL is the contract, so
-//! stopping collection or raising the sample rate is a merged pull request
-//! rather than a release. `news/TELEMETRY.md` names the schema.
+//! `config/telemetry.json` on the default branch, and its URL is the contract,
+//! so stopping collection or raising the sample rate is a merged pull request
+//! rather than a release. `config/README.md` names the schema.
 //!
 //! The document is advisory over the user's setting and can only ever narrow
 //! what is collected. A published `enabled` never turns collection back on for
@@ -23,7 +23,7 @@ use crate::github;
 
 /// The document, read raw so a change to collection is a reviewed change.
 const DOCUMENT_URL: &str =
-    "https://raw.githubusercontent.com/LeagueToolkit/ltk-manager/main/news/telemetry.json";
+    "https://raw.githubusercontent.com/LeagueToolkit/ltk-manager/main/config/telemetry.json";
 
 /// The one schema this build reads. A document on another is no document.
 const SCHEMA: u32 = 1;
