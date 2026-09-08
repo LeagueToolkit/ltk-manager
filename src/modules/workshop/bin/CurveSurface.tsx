@@ -18,7 +18,14 @@ import { useValueMarks } from "./useValueMarks";
  * shell (ADR-0031). It holds no target of its own, so a reader walking the emitter strip
  * compares every emitter's numbers against one open curve.
  */
-export function CurveSurface({ document }: { document: BinDocumentId }) {
+export function CurveSurface({
+  document,
+  named = true,
+}: {
+  document: BinDocumentId;
+  /** False where the host already names the surface, as a pane's own strip does. */
+  named?: boolean;
+}) {
   const { target } = useCurveDock();
   const rows = useMemo(() => (target === null ? [] : [target.row]), [target]);
   const marks = useValueMarks(document, rows, "dock");
@@ -41,12 +48,15 @@ export function CurveSurface({ document }: { document: BinDocumentId }) {
 
   return (
     <section data-ui="CurveSurface" className="flex min-h-0 flex-1 flex-col gap-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="px-1 text-xs font-medium tracking-wide text-surface-400 uppercase">
-          {m.workshop_bin_curve_pane_label()}
-        </span>
+      <div className="flex items-center gap-2">
+        {named && (
+          <span className="mr-auto px-1 text-xs font-medium tracking-wide text-surface-400 uppercase">
+            {m.workshop_bin_curve_pane_label()}
+          </span>
+        )}
         {target !== null && (
           <SegmentedControl
+            className="ml-auto"
             size="xs"
             aria-label={m.workshop_bin_curve_tab_label()}
             value={shown}

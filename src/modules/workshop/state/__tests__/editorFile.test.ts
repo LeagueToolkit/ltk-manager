@@ -17,6 +17,7 @@ import {
   problemsDocument,
 } from "@/modules/workshop";
 
+import { defaultShellLayout, firstShellLeafId } from "../../bin/shellPanes";
 import {
   parseEditorFile,
   type PersistedProjectEditor,
@@ -26,12 +27,15 @@ import {
 
 function twoDocumentState(): PersistedProjectEditor {
   const layout = singleLeaf(["details", "files:base"], "files:base");
+  const shellLayout = defaultShellLayout();
   return {
     documents: { details: detailsDocument(), "files:base": filesDocument("base") },
     layout,
     activeLeafId: layout.id,
     selectedLayer: "base",
     previewId: null,
+    shellLayout,
+    shellLeafId: firstShellLeafId(shellLayout),
   };
 }
 
