@@ -1,4 +1,13 @@
 {
   "schema": 1,
-  "notices": []
+  "notices": [
+    {
+      "id": "2026-09-patch-16-17-property-types",
+      "severity": "warning",
+      "title": "Patch 16.17 changed 395 meta property types. Run a health check on your mods.",
+      "url": "https://github.com/orgs/LeagueToolkit/discussions/481",
+      "publishedAt": "2026-09-08T12:00:00Z",
+      "expiresAt": "2026-10-20T00:00:00Z"
+    }
+  ]
 }
