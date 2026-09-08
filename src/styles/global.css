@@ -278,11 +278,11 @@
   --space-012: calc(12 * 4.5px * var(--zoom-scale));
 
   /* Corner radius. 006 is a pill, not a rung on the scale. */
-  --radius-001: 3px;
-  --radius-002: 6px;
-  --radius-003: 9px;
-  --radius-004: 12px;
-  --radius-005: 18px;
+  --radius-001: 2px;
+  --radius-002: 4px;
+  --radius-003: 6px;
+  --radius-004: 8px;
+  --radius-005: 12px;
   --radius-006: 9999px;
 
   /* Scrollbar thumb thickness, the density scale over it, and the gutter it

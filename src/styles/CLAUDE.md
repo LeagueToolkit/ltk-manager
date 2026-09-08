@@ -50,7 +50,7 @@ Numbered scales are the convention:
 | Category   | Pattern            | Example                            |
 | ---------- | ------------------ | ---------------------------------- |
 | Spacing    | `--space-{NNN}`    | `--space-004` → 18px (NNN × 4.5px) |
-| Radius     | `--radius-{NNN}`   | `--radius-003` → 9px               |
+| Radius     | `--radius-{NNN}`   | `--radius-003` → 6px               |
 | Icon sizes | `--icon-{NNN}`     | `--icon-003` → 12px                |
 | Shadows    | `--shadow-{name}`  | `--shadow-sm`, `--shadow-glass`    |
 | Z-index    | `--z-{name}`       | `--z-modal`, `--z-toast`           |
