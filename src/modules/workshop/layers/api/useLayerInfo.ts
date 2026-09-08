@@ -7,7 +7,7 @@ import { workshopKeys } from "../../api/keys";
 
 export function useLayerInfo(projectPath: string, layerNames: string[]) {
   return useQuery({
-    queryKey: [...workshopKeys.layerInfo(projectPath), layerNames],
+    queryKey: workshopKeys.layerInfoFor(projectPath, layerNames),
     queryFn: queryFnWithArgs(api.getLayerInfo, projectPath, layerNames),
   });
 }

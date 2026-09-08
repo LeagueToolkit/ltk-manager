@@ -1,4 +1,5 @@
 export const launcherKeys = {
-  availability: () => ["launcher", "availability"] as const,
-  session: () => ["launcher", "session"] as const,
+  all: ["launcher"] as const,
+  availability: () => [...launcherKeys.all, "availability"] as const,
+  session: () => [...launcherKeys.all, "session"] as const,
 };

@@ -4,6 +4,8 @@ import { useDebouncedValue } from "@/hooks";
 import { api, type AppError, type StringKeySearchResult } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
+import { workshopKeys } from "./keys";
+
 /**
  * Autocomplete suggestions for stringtable field names.
  *
@@ -15,7 +17,7 @@ export function useStringKeySearch(query: string, enabled = true) {
   const debouncedQuery = useDebouncedValue(query.trim().toLowerCase());
 
   return useQuery<StringKeySearchResult, AppError>({
-    queryKey: ["string-key-search", debouncedQuery],
+    queryKey: workshopKeys.stringKeySearch(debouncedQuery),
     queryFn: async () => {
       const result = await api.searchStringKeys(debouncedQuery, 50);
       return unwrapForQuery(result);

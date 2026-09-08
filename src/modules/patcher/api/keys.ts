@@ -1,3 +1,4 @@
 export const patcherKeys = {
-  status: () => ["patcher", "status"] as const,
+  all: ["patcher"] as const,
+  status: () => [...patcherKeys.all, "status"] as const,
 };

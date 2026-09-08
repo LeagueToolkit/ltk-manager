@@ -13,6 +13,8 @@ import {
 } from "@/lib/tauri";
 import { mutationFn, queryFn } from "@/utils/query";
 
+import { workshopKeys } from "../api/keys";
+
 /**
  * What extracting `targets` would write, for the dialog's summary line.
  *
@@ -22,7 +24,7 @@ import { mutationFn, queryFn } from "@/utils/query";
  */
 export function usePlanGameExtract(targets: readonly ExtractTarget[] | null) {
   return useQuery<ExtractPlan, AppError>({
-    queryKey: ["game-extract-plan", targets],
+    queryKey: workshopKeys.gameExtractPlan(targets),
     queryFn: queryFn(() => api.planGameExtract([...(targets ?? [])], null)),
     enabled: targets !== null && targets.length > 0,
     /* The install changes only when Riot patches it, and the dialog is shut

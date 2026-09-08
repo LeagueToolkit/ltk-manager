@@ -3,6 +3,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, type AppError } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
+import { workshopKeys } from "./keys";
+
 /**
  * Current in-game text for override keys, keyed as the caller wrote them.
  *
@@ -16,7 +18,7 @@ export function useGameStringValues(keys: readonly string[]) {
   const wanted = [...new Set(keys.filter((key) => key.trim().length > 0))].sort();
 
   return useQuery<Record<string, string>, AppError>({
-    queryKey: ["string-values", wanted],
+    queryKey: workshopKeys.stringValues(wanted),
     queryFn: async () => {
       const result = await api.lookupStringValues(wanted);
       return unwrapForQuery(result);
