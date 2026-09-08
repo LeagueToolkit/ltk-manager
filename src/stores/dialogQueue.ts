@@ -13,6 +13,7 @@ export const DIALOG_ORDER = [
   "linked-bin-warning",
   "library-migration",
   "mod-health",
+  "diagnostics-notice",
   "update",
 ] as const;
 

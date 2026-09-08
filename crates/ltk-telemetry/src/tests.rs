@@ -183,6 +183,17 @@ fn a_sampled_out_install_writes_nothing_down() {
 }
 
 #[test]
+fn discarding_leaves_nothing_for_the_next_flush() {
+    let harness = Harness::new();
+
+    harness.telemetry.track(EVENT, Properties::new());
+    harness.telemetry.discard();
+    harness.telemetry.flush();
+
+    assert!(harness.sink.batches().is_empty());
+}
+
+#[test]
 fn a_disabled_handle_collects_nothing() {
     let telemetry = Telemetry::disabled();
 

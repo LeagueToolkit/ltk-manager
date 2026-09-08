@@ -20,6 +20,7 @@ mod protocol;
 mod releases;
 mod setup;
 mod state;
+mod telemetry;
 mod tray;
 mod workshop;
 
