@@ -4,10 +4,10 @@ import { useCallback, useMemo } from "react";
 import { Button, EmptyState } from "@/components";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import { useShutWadDirs, useToggleWadDir } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
+import { useShutWadDirs, useToggleWadDir } from "../state";
 import { archiveTarget } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import {

@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 
 import { useAppInfo } from "@/modules/settings";
-import { useHomeStore } from "@/stores";
 
+import { useHomeStore } from "../state";
 import { newestPostAt, useAnnouncements } from "./useAnnouncements";
 
 /** Home marks what it shows as seen, on mount and again as the feeds answer while it is up. */

@@ -4,10 +4,10 @@ import { useEffect, useRef } from "react";
 import { toastManager, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type ExtractProgress, type ExtractSummary } from "@/lib/tauri";
-import { type ExtractRequest, useExtractRunStore } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import { workshopKeys } from "../api";
+import { type ExtractRequest, useExtractRunStore } from "../state";
 import { describeFileKind } from "../utils/fileKindIcon";
 import { useCancelExtract, useExtractGameFiles, useExtractProgress } from "./useGameExtract";
 

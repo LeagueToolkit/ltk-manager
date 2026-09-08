@@ -14,14 +14,12 @@ import {
   ProjectGrid,
   RenameProjectDialog,
   useFilteredProjects,
+  useHasActiveWorkshopFilters,
   useWorkshopProjects,
+  useWorkshopSearchQuery,
+  useWorkshopSelectionStore,
   useWorkshopTestState,
 } from "@/modules/workshop";
-import {
-  useHasActiveWorkshopFilters,
-  useWorkshopSelectionStore,
-  useWorkshopViewStore,
-} from "@/stores";
 
 export const Route = createFileRoute("/workshop/")({
   component: WorkshopIndex,
@@ -30,7 +28,7 @@ export const Route = createFileRoute("/workshop/")({
 function WorkshopIndex() {
   const navigate = useNavigate();
   const { isLoading, error } = useWorkshopProjects();
-  const searchQuery = useWorkshopViewStore((s) => s.searchQuery);
+  const searchQuery = useWorkshopSearchQuery();
   const filteredProjects = useFilteredProjects();
   const hasActiveFilters = useHasActiveWorkshopFilters();
 

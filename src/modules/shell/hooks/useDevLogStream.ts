@@ -1,5 +1,6 @@
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { useDevConsoleStore } from "@/stores/devConsole";
+
+import { useDevConsoleStore } from "../state";
 
 interface LogEventPayload {
   timestamp: string;

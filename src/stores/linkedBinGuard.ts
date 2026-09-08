@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-interface LinkedBinDialogStore {
+interface LinkedBinGuardStore {
   /** Whether the reachable linked-bin warning dialog is open. */
   open: boolean;
   openDialog: () => void;
@@ -13,7 +13,7 @@ interface LinkedBinDialogStore {
  * controls visibility so it can be opened from anywhere — a mod card's
  * `MissingDepsBadge` or the post-start warning toast.
  */
-export const useLinkedBinGuardStore = create<LinkedBinDialogStore>((set) => ({
+export const useLinkedBinGuardStore = create<LinkedBinGuardStore>()((set) => ({
   open: false,
   openDialog: () => set({ open: true }),
   close: () => set({ open: false }),

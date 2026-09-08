@@ -3,7 +3,8 @@ import { useCallback, useEffect } from "react";
 
 import { api, type DeepLinkInstallRequest, type DeepLinkSettingsRequest } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { useDeepLinkStore } from "@/stores";
+
+import { useDeepLinkStore } from "../state";
 
 export function useDeepLinkListener() {
   const navigate = useNavigate();

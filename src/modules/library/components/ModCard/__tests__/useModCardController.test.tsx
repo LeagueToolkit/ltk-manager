@@ -40,7 +40,7 @@ const selectionState = {
   selectRangeTo: vi.fn(),
   selectOnly: vi.fn(),
 };
-vi.mock("@/stores", () => ({
+vi.mock("@/modules/library/state", () => ({
   useLibrarySelectionStore: (selector: (state: typeof selectionState) => unknown) =>
     selector(selectionState),
 }));

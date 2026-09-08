@@ -6,10 +6,10 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Announcement, Notice } from "@/lib/tauri";
-import { useHomeStore } from "@/stores";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { useHomeStore } from "../../state";
 import { useHomeUnread } from "../useHomeUnread";
 
 function createWrapper() {

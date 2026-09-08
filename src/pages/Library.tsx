@@ -10,15 +10,16 @@ import {
   LibraryToolbar,
   ModHealthSweep,
   SelectionActionBar,
+  useBulkUninstallDialog,
   useFilterOptions,
   useInstalledMods,
   useLibraryActions,
   useLibraryHotkeys,
+  useLibrarySelectionStore,
   useModFileDrop,
   useVisibleMods,
 } from "@/modules/library";
 import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
-import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
 
 interface LibraryProps {
   folderId?: string;
@@ -53,7 +54,7 @@ export function Library({ folderId }: LibraryProps = {}) {
   useEffect(
     () => () => {
       useLibrarySelectionStore.getState().clear();
-      useLibraryDialogsStore.getState().closeBulkUninstallDialog();
+      useBulkUninstallDialog.getState().close();
     },
     [],
   );

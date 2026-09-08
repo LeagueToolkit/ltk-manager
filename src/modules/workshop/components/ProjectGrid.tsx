@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from "react";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { useWorkshopViewStore } from "@/stores";
 
 import { useProjectGridNav } from "../hooks";
+import { useWorkshopViewMode } from "../state";
 import { ProjectCard } from "./ProjectCard";
 
 interface ProjectGridProps {
@@ -12,7 +12,7 @@ interface ProjectGridProps {
 }
 
 export function ProjectGrid({ projects, onEdit }: ProjectGridProps) {
-  const viewMode = useWorkshopViewStore((s) => s.viewMode);
+  const viewMode = useWorkshopViewMode();
 
   const keys = useMemo(() => projects.map((project) => project.path), [projects]);
   const openAt = useCallback(

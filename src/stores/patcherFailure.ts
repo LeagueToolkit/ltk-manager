@@ -25,7 +25,7 @@ interface PatcherFailureStore {
  * starts or the user closes it. Kept apart from the incident line because a
  * failure arrives before its incident does, and may arrive without one.
  */
-export const usePatcherFailureStore = create<PatcherFailureStore>((update) => ({
+export const usePatcherFailureStore = create<PatcherFailureStore>()((update) => ({
   failure: null,
   set: (failure) => update({ failure }),
   clear: () => update({ failure: null }),

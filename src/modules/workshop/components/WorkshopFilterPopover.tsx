@@ -27,10 +27,16 @@ import {
   WELL_KNOWN_MAPS,
   WELL_KNOWN_TAGS,
 } from "@/modules/library";
-import { useHasActiveWorkshopFilters, useWorkshopFilterStore } from "@/stores";
 
 import { useWorkshopFilterOptions } from "../api/useFilterOptions";
 import { useWorkshopProjects } from "../api/useWorkshopProjects";
+import {
+  useHasActiveWorkshopFilters,
+  useWorkshopFilterActions,
+  useWorkshopSelectedChampions,
+  useWorkshopSelectedMaps,
+  useWorkshopSelectedTags,
+} from "../state";
 import { WorkshopSortDirectionToggle, WorkshopSortOptions } from "./WorkshopSortOptions";
 
 function mergeUnique(wellKnown: string[], fromProjects: string[]): string[] {
@@ -55,15 +61,10 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
   const { data: projects = [] } = useWorkshopProjects();
   const filterOptions = useWorkshopFilterOptions(projects);
 
-  const {
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    toggleTag,
-    toggleChampion,
-    toggleMap,
-    clearFilters,
-  } = useWorkshopFilterStore();
+  const selectedTags = useWorkshopSelectedTags();
+  const selectedChampions = useWorkshopSelectedChampions();
+  const selectedMaps = useWorkshopSelectedMaps();
+  const { toggleTag, toggleChampion, toggleMap, clearFilters } = useWorkshopFilterActions();
   const hasActive = useHasActiveWorkshopFilters();
   const [champSearch, setChampSearch] = useState("");
   const hasChampions = filterOptions.champions.length > 0;

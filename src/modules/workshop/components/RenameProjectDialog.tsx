@@ -2,9 +2,9 @@ import { useState } from "react";
 
 import { Button, Dialog, Field, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { useRenameProject } from "../api/useRenameProject";
+import { useRenameProjectDialog } from "../state";
 import { projectSlugError } from "../utils/projectSlug";
 
 /**
@@ -15,8 +15,8 @@ import { projectSlugError } from "../utils/projectSlug";
  * word. Per "Rename" in `docs/ux/WORKSHOP.md`.
  */
 export function RenameProjectDialog() {
-  const project = useWorkshopDialogsStore((s) => s.renameProject);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeRenameDialog);
+  const project = useRenameProjectDialog((s) => s.payload);
+  const closeDialog = useRenameProjectDialog((s) => s.close);
   const renameProject = useRenameProject();
   const toast = useToast();
 

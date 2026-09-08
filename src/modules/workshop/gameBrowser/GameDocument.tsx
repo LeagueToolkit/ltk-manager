@@ -6,21 +6,21 @@ import { EmptyState, IconButton, Spinner, Tooltip } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { GameFindHit, GameFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { hasErrorCode } from "@/utils/errors";
+
+import { TreeSearchBox } from "../components/TreeSearchBox";
+import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import {
   useExpandedGameDirs,
   useGameSearchPattern,
   useGameSearchRegex,
+  useOpenDocument,
   useSetGameSearchPattern,
   useSetGameSearchRegex,
   useShutFindDirs,
   useToggleFindDir,
   useToggleGameDir,
-} from "@/stores";
-import { hasErrorCode } from "@/utils/errors";
-
-import { TreeSearchBox } from "../components/TreeSearchBox";
-import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
-import { useOpenDocument } from "../state";
+} from "../state";
 import { indexDir } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import {

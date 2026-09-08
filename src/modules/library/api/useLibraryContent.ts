@@ -3,9 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
 import { usePatcherStatus } from "@/modules/patcher";
-import { useHasActiveFilters, useLibraryFilterStore, useLibrarySelectionStore } from "@/stores";
-import { useLibraryViewStore } from "@/stores/libraryView";
 
+import {
+  useHasActiveFilters,
+  useLibrarySelectionStore,
+  useLibrarySort,
+  useLibraryViewStore,
+} from "../state";
 import { useFolderOrder, useFolders } from "./queries";
 import { useFilteredMods } from "./useFilteredMods";
 import { useLibraryViewMode } from "./useLibraryViewMode";
@@ -47,7 +51,7 @@ export function useLibraryContent({
   const [editMod, setEditMod] = useState<InstalledMod | null>(null);
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
-  const { sort } = useLibraryFilterStore();
+  const sort = useLibrarySort();
   const { data: folders } = useFolders();
   const { data: folderOrder } = useFolderOrder();
   const cleanupStaleFolders = useLibraryViewStore((s) => s.cleanupStaleFolders);

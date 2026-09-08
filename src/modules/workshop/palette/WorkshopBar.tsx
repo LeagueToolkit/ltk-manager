@@ -14,7 +14,6 @@ import { twMerge } from "tailwind-merge";
 
 import { Kbd } from "@/components";
 import { useClickOutside } from "@/hooks";
-import { useWorkshopViewStore } from "@/stores";
 
 import { useFilteredProjects } from "../api/useFilteredProjects";
 import { useWorkshopProjects } from "../api/useWorkshopProjects";
@@ -22,6 +21,7 @@ import { useOptionalProjectContext } from "../components/ProjectContext";
 import { WorkshopFilterPopover } from "../components/WorkshopFilterPopover";
 import { useRevealGameSearch } from "../gameBrowser";
 import { useRequestGridFocus } from "../hooks";
+import { useSetWorkshopSearchQuery, useWorkshopSearchQuery } from "../state";
 import { type BarIntent, barMode, barPlaceholder } from "./barMode";
 import { ProjectPalette } from "./ProjectPalette";
 import { useOpenProject } from "./projectRows";
@@ -54,8 +54,8 @@ export function WorkshopBar() {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const filterRef = useRef<HTMLInputElement>(null);
 
-  const searchQuery = useWorkshopViewStore((s) => s.searchQuery);
-  const setSearchQuery = useWorkshopViewStore((s) => s.setSearchQuery);
+  const searchQuery = useWorkshopSearchQuery();
+  const setSearchQuery = useSetWorkshopSearchQuery();
   const filtered = useFilteredProjects();
 
   /* The idle bar is unmounted while the bar is open, so its trigger has no

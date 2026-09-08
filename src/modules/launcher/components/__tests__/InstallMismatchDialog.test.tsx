@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components";
 import {
   type DetectedInstallMismatch,
-  useDialogQueue,
+  useDialogQueueStore,
   useInstallMismatchStore,
   usePendingRebuildStore,
 } from "@/stores";
@@ -52,7 +52,7 @@ describe("InstallMismatchDialog", () => {
     mockInvoke.mockImplementation(() => Promise.resolve({ ok: true, value: null }));
     useInstallMismatchStore.setState({ mismatch: null, kept: false });
     usePendingRebuildStore.setState({ queued: true });
-    useDialogQueue.setState({ current: null, claims: [] });
+    useDialogQueueStore.setState({ current: null, claims: [] });
   });
 
   it("names both installs", async () => {

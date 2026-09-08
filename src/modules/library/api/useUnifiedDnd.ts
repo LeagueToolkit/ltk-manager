@@ -21,8 +21,8 @@ import {
   REMOVE_FROM_FOLDER_ID,
   resolveFolderId,
 } from "@/modules/library/utils";
-import { useReorderDisabled } from "@/stores";
 
+import { useReorderDisabled } from "../state";
 import { useFolderDnd } from "./useFolderDnd";
 import { useLingeringSlot } from "./useLingeringSlot";
 import { useMoveModToFolder, useReorderFolderMods } from "./useMoveMod";

@@ -1,16 +1,16 @@
 import { useCallback, useMemo } from "react";
 
 import type { ExtractTarget } from "@/lib/tauri";
+
+import { useProjectContext } from "../components/ProjectContext";
+import { layerTitle } from "../documents/contentDocument";
 import {
   useExtractDialogStore,
   useExtractRunning,
   useOpenExtractDialog,
+  useSelectedLayerName,
   useStartExtract,
-} from "@/stores";
-
-import { useProjectContext } from "../components/ProjectContext";
-import { layerTitle } from "../documents/contentDocument";
-import { useSelectedLayerName } from "../state";
+} from "../state";
 
 /** Which of the three ways out of the browser a gesture asked for. */
 export type ExtractHow = "quick" | "dialog" | "copy";

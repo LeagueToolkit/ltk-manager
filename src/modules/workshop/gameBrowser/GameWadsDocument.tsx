@@ -9,11 +9,17 @@ import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import { keepScrollTop, keptScrollTop, useSetWadFilter, useWadFilter } from "@/stores";
 import { formatBytes } from "@/utils";
 
 import { type ContentDocumentOf, gameWadDocument } from "../documents/contentDocument";
-import { useActiveDocumentId, useOpenDocument } from "../state";
+import {
+  keepScrollTop,
+  keptScrollTop,
+  useActiveDocumentId,
+  useOpenDocument,
+  useSetWadFilter,
+  useWadFilter,
+} from "../state";
 import { ExtractMenuItems } from "./ExtractMenuItems";
 import { archiveTarget } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState } from "./GameBrowserStates";

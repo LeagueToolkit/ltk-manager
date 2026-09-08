@@ -4,8 +4,9 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { ButtonGroup, IconButton, Kbd, Menu, Tooltip } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import type { useLibraryActions } from "@/modules/library/api";
-import { useLibrarySelectionStore } from "@/stores";
 import { isOverlayOpen } from "@/utils";
+
+import { useLibrarySelectionStore } from "../state";
 
 interface SelectionButtonProps {
   actions: ReturnType<typeof useLibraryActions>;

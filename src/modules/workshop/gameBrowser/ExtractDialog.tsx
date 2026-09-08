@@ -1,7 +1,7 @@
 import { Button, Dialog, PathField, SegmentedControl, Spinner, Switch } from "@/components";
-import { useExtractDialogStore, useExtractRunning, useStartExtract } from "@/stores";
 import { formatBytes } from "@/utils";
 
+import { useExtractDialogStore, useExtractRunning, useStartExtract } from "../state";
 import { usePlanGameExtract } from "./useGameExtract";
 
 /**

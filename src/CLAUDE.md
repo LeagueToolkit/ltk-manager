@@ -53,6 +53,23 @@ TanStack Query deduplicates identical queries, so multiple components calling th
 
 **Exception:** Props are appropriate for coordinating parent-owned UI state (e.g., `onViewDetails` that opens a sibling dialog, `onReorder` where reorder target varies by context).
 
+## Where a Store Lives
+
+A zustand store read by one module lives in `modules/<module>/state/`, and `src/stores/` holds
+only what crosses modules. A module's own state reaches its files through `../state` and reaches
+the rest of the app through the module barrel.
+
+A component subscribes to the fields it reads, never to a whole store. Where several components
+read the same store, it exports a hook per field beside it in the `displayStore` style, and one
+`useShallow` hook for the actions a caller needs together.
+
+Every persisted store declares a `version` and a `migrate`, so a shape change is a migration rather
+than a silent hydration of a stale key. `keepUnversioned` in `stores/storage.ts` is the migration
+for a shape that has not changed yet.
+
+One dialog is one `createDialogStore<T>()`, which answers `payload`, `isOpen`, `open` and `close`.
+`T` is `void` for a dialog that carries nothing.
+
 ## Tauri Event Listening
 
 A backend-to-frontend event reaches a component through `useTauriEvent` in `lib/useTauriEvent.ts`,

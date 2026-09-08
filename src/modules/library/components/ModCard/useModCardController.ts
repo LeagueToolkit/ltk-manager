@@ -13,7 +13,8 @@ import {
 } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
 import { usePatcherStatus } from "@/modules/patcher";
-import { useLibrarySelectionStore } from "@/stores";
+
+import { useLibrarySelectionStore } from "../../state";
 
 const ROOT_FOLDER_ID = "root";
 

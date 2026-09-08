@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
-import { keepScrollTop, keptScrollTop, type ObjectsReveal } from "@/stores";
 
 import { TreeStickyBand } from "../components/TreeStickyBand";
 import { useReadOnlyTreeNav, useStickyTreeRows } from "../hooks";
 import type { OpenIntent } from "../palette/types";
+import { keepScrollTop, keptScrollTop, type ObjectsReveal } from "../state";
 import { ObjectsContextMenu } from "./ObjectsContextMenu";
 import { ObjectsTreeRow } from "./ObjectsTreeRow";
 import {

@@ -9,7 +9,13 @@ import {
 import type { ReactNode } from "react";
 
 import { Button, ChampionIcon, TogglePill } from "@/components";
-import { type SortDirection, type SortField, useLibraryFilterStore } from "@/stores";
+
+import {
+  type SortDirection,
+  type SortField,
+  useLibraryFilterActions,
+  useLibrarySort,
+} from "../state";
 
 interface SortOption {
   field: SortField;
@@ -61,7 +67,8 @@ function reverse(direction: SortDirection): SortDirection {
 }
 
 export function SortOptions() {
-  const { sort, setSort } = useLibraryFilterStore();
+  const sort = useLibrarySort();
+  const { setSort } = useLibraryFilterActions();
 
   const selectOption = (option: SortOption) => {
     if (sort.field === option.field && option.directionLabels) {
@@ -88,7 +95,8 @@ export function SortOptions() {
 
 /** Flips the active sort, labelled with what the current direction means. */
 export function SortDirectionToggle() {
-  const { sort, setSort } = useLibraryFilterStore();
+  const sort = useLibrarySort();
+  const { setSort } = useLibraryFilterActions();
   const option = SORT_OPTIONS.find((o) => o.field === sort.field);
 
   if (!option?.directionLabels) return null;

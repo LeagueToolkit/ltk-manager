@@ -3,9 +3,9 @@ import { open } from "@tauri-apps/plugin-shell";
 import { AlertBox, type AlertBoxVariant, Button } from "@/components";
 import { m } from "@/i18n";
 import type { NoticeSeverity } from "@/lib/tauri";
-import { useHomeStore } from "@/stores";
 
 import { useNotices } from "../api";
+import { useHomeStore } from "../state";
 
 const VARIANT: Record<NoticeSeverity, AlertBoxVariant> = {
   info: "info",

@@ -4,8 +4,8 @@ import type { CSSProperties } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { type CardDropLine, NO_DROP_LINE, parseSortableFolderId } from "@/modules/library/utils";
-import { useReorderDisabled } from "@/stores";
 
+import { useReorderDisabled } from "../state";
 import { DropLine } from "./DropLine";
 import { FolderCard } from "./FolderCard";
 

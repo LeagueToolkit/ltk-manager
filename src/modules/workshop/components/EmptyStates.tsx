@@ -5,9 +5,9 @@ import { Download, FolderOpen, Hammer, Plus, Settings } from "lucide-react";
 import { Button, EmptyState } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { useImportFromModpkg } from "../api/useImportFromModpkg";
+import { useNewProjectDialog } from "../state";
 
 export function LoadingState() {
   return (
@@ -57,7 +57,7 @@ export function NotConfiguredState() {
 }
 
 export function NoProjectsState() {
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
+  const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   const importFromModpkg = useImportFromModpkg();
 
   async function handleImport() {

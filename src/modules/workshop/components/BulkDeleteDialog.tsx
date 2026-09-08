@@ -5,9 +5,9 @@ import { useCallback, useRef, useState } from "react";
 import { Button, Dialog, Progress } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api } from "@/lib/tauri";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
 
 import { workshopKeys } from "../api/keys";
+import { useBulkDeleteDialog, useWorkshopSelectionStore } from "../state";
 
 type Phase = "confirm" | "deleting" | "done";
 
@@ -17,11 +17,10 @@ interface DeleteItemResult {
 }
 
 export function BulkDeleteDialog() {
-  const projects = useWorkshopDialogsStore((s) => s.bulkDeleteProjects);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeBulkDeleteDialog);
+  const projects = useBulkDeleteDialog((s) => s.payload) ?? [];
+  const closeDialog = useBulkDeleteDialog((s) => s.close);
+  const open = useBulkDeleteDialog((s) => s.isOpen);
   const queryClient = useQueryClient();
-
-  const open = projects.length > 0;
 
   const [phase, setPhase] = useState<Phase>("confirm");
   const [currentIndex, setCurrentIndex] = useState(0);

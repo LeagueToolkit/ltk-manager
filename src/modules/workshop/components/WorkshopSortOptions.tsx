@@ -2,11 +2,13 @@ import { ArrowDownIcon, ArrowUpIcon, ClockIcon, TextAaIcon } from "@phosphor-ico
 import type { ReactNode } from "react";
 
 import { Button, TogglePill } from "@/components";
+
 import {
-  useWorkshopFilterStore,
+  useWorkshopFilterActions,
+  useWorkshopSort,
   type WorkshopSortDirection,
   type WorkshopSortField,
-} from "@/stores";
+} from "../state";
 
 interface SortOption {
   field: WorkshopSortField;
@@ -38,7 +40,8 @@ function reverse(direction: WorkshopSortDirection): WorkshopSortDirection {
 }
 
 export function WorkshopSortOptions() {
-  const { sort, setSort } = useWorkshopFilterStore();
+  const sort = useWorkshopSort();
+  const { setSort } = useWorkshopFilterActions();
 
   const selectOption = (option: SortOption) => {
     if (sort.field === option.field) {
@@ -65,7 +68,8 @@ export function WorkshopSortOptions() {
 
 /** Flips the active sort, labelled with what the current direction means. */
 export function WorkshopSortDirectionToggle() {
-  const { sort, setSort } = useWorkshopFilterStore();
+  const sort = useWorkshopSort();
+  const { setSort } = useWorkshopFilterActions();
   const option = SORT_OPTIONS.find((o) => o.field === sort.field);
 
   if (!option) return null;

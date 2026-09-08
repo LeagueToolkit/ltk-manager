@@ -4,7 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import { Button, Dialog, IconButton, Progress, RadioGroup, Tooltip } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type PackFormat, type PackResult } from "@/lib/tauri";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
+
+import { useBulkPackDialog, useWorkshopSelectionStore } from "../state";
 
 type Phase = "configure" | "packing" | "done";
 
@@ -14,10 +15,9 @@ interface PackItemResult {
 }
 
 export function BulkPackDialog() {
-  const projects = useWorkshopDialogsStore((s) => s.bulkPackProjects);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeBulkPackDialog);
-
-  const open = projects.length > 0;
+  const projects = useBulkPackDialog((s) => s.payload) ?? [];
+  const closeDialog = useBulkPackDialog((s) => s.close);
+  const open = useBulkPackDialog((s) => s.isOpen);
 
   const [format, setFormat] = useState<PackFormat>("modpkg");
   const [phase, setPhase] = useState<Phase>("configure");

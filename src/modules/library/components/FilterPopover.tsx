@@ -28,8 +28,14 @@ import {
   WELL_KNOWN_MAPS,
   WELL_KNOWN_TAGS,
 } from "@/modules/library/utils";
-import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
 
+import {
+  useHasActiveFilters,
+  useLibraryFilterActions,
+  useLibrarySelectedChampions,
+  useLibrarySelectedMaps,
+  useLibrarySelectedTags,
+} from "../state";
 import { SortDirectionToggle, SortOptions } from "./SortOptions";
 
 function mergeUnique(wellKnown: string[], fromMods: string[]): string[] {
@@ -51,15 +57,10 @@ interface FilterPopoverProps {
 }
 
 export function FilterPopover({ filterOptions, className }: FilterPopoverProps) {
-  const {
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    toggleTag,
-    toggleChampion,
-    toggleMap,
-    clearFilters,
-  } = useLibraryFilterStore();
+  const selectedTags = useLibrarySelectedTags();
+  const selectedChampions = useLibrarySelectedChampions();
+  const selectedMaps = useLibrarySelectedMaps();
+  const { toggleTag, toggleChampion, toggleMap, clearFilters } = useLibraryFilterActions();
   const hasActive = useHasActiveFilters();
   const [champSearch, setChampSearch] = useState("");
   const hasChampions = filterOptions.champions.length > 0;

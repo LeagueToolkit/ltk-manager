@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
-import { useTabOpenMode } from "@/stores";
+import { useTabOpenMode } from "@/stores/workshopLayout";
 
 import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, documentLayerName } from "../documents/contentDocument";

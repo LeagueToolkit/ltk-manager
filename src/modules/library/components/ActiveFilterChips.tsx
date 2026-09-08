@@ -1,18 +1,20 @@
 import { XIcon } from "@phosphor-icons/react";
 
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
-import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
+
+import {
+  useHasActiveFilters,
+  useLibraryFilterActions,
+  useLibrarySelectedChampions,
+  useLibrarySelectedMaps,
+  useLibrarySelectedTags,
+} from "../state";
 
 export function ActiveFilterChips() {
-  const {
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    toggleTag,
-    toggleChampion,
-    toggleMap,
-    clearFilters,
-  } = useLibraryFilterStore();
+  const selectedTags = useLibrarySelectedTags();
+  const selectedChampions = useLibrarySelectedChampions();
+  const selectedMaps = useLibrarySelectedMaps();
+  const { toggleTag, toggleChampion, toggleMap, clearFilters } = useLibraryFilterActions();
   const hasActive = useHasActiveFilters();
 
   if (!hasActive) return null;

@@ -2,10 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { errorSummary } from "@/i18n";
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
-import { useDeepLinkStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "../../library/api/keys";
+import { useDeepLinkStore } from "../state";
 
 interface ProtocolInstallVars {
   url: string;

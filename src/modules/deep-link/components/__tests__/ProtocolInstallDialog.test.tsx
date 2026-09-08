@@ -5,11 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DeepLinkInstallRequest, Settings } from "@/lib/tauri";
-import { useDeepLinkStore, useDialogQueue } from "@/stores";
+import { useDialogQueueStore } from "@/stores";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
+import { useDeepLinkStore } from "../../state";
 import { ProtocolInstallDialog } from "../ProtocolInstallDialog";
 
 vi.mock("@tauri-apps/api/event", () => ({
@@ -56,7 +57,7 @@ describe("ProtocolInstallDialog", () => {
     );
     world.settings = createMockSettings({ trustedDomains: ["runeforge.dev"] });
     useDeepLinkStore.getState().reset();
-    useDialogQueue.setState({ current: null, claims: [] });
+    useDialogQueueStore.setState({ current: null, claims: [] });
   });
 
   it("asks nothing about a domain the allowlist already covers", async () => {

@@ -23,7 +23,7 @@ interface NotificationStore {
   dismissOne: (id: string) => void;
 }
 
-export const useNotificationStore = create<NotificationStore>((set) => ({
+export const useNotificationsStore = create<NotificationStore>()((set) => ({
   notifications: [],
   unreadCount: 0,
 

@@ -4,8 +4,8 @@ import { type CSSProperties, memo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
 import { type CardDropLine, NO_DROP_LINE } from "@/modules/library/utils";
-import { useReorderDisabled } from "@/stores";
 
+import { useReorderDisabled } from "../state";
 import { DropLine } from "./DropLine";
 import { ModCard } from "./ModCard";
 

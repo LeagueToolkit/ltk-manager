@@ -2,12 +2,20 @@ import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
 import { sortMods } from "@/modules/library/utils";
-import { useLibraryFilterStore } from "@/stores";
 
+import {
+  useLibrarySelectedChampions,
+  useLibrarySelectedMaps,
+  useLibrarySelectedTags,
+  useLibrarySort,
+} from "../state";
 import { useEffectiveCategories } from "./useEffectiveCategories";
 
 export function useFilteredMods(mods: InstalledMod[], searchQuery: string): InstalledMod[] {
-  const { selectedTags, selectedChampions, selectedMaps, sort } = useLibraryFilterStore();
+  const selectedTags = useLibrarySelectedTags();
+  const selectedChampions = useLibrarySelectedChampions();
+  const selectedMaps = useLibrarySelectedMaps();
+  const sort = useLibrarySort();
   const effective = useEffectiveCategories(mods);
 
   return useMemo(() => {

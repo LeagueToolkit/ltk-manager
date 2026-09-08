@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { keepUnversioned } from "./storage";
+
 /* The marks the title bar can wear, in the order a rotation walks them. The
    diamond leads, so a full turn always comes back to what the app ships. */
 const APP_MARKS = ["ltk", "poro", "minion", "scuttle"] as const;
@@ -29,7 +31,7 @@ export const useAppMarkStore = create<AppMarkStore>()(
           return { appMark: rest[Math.floor(Math.random() * rest.length)] };
         }),
     }),
-    { name: "ltk-app-mark" },
+    { name: "ltk-app-mark", version: 1, migrate: keepUnversioned<AppMarkStore> },
   ),
 );
 

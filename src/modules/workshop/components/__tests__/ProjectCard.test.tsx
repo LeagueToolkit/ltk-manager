@@ -5,9 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
+import { useRenameProjectDialog, useWorkshopSelectionStore } from "../../state";
 import { ProjectCard } from "../ProjectCard";
 
 vi.mock("@/modules/diagnostics", () => ({ SuspectBadge: () => null }));
@@ -55,7 +55,7 @@ const picked = () => [...useWorkshopSelectionStore.getState().selectedPaths];
 beforeEach(() => {
   testState.kind = "idle";
   useWorkshopSelectionStore.setState({ selectedPaths: new Set() });
-  useWorkshopDialogsStore.setState({ renameProject: null });
+  useRenameProjectDialog.setState({ payload: null, isOpen: false });
 });
 
 describe("ProjectCard menu", () => {
@@ -141,7 +141,7 @@ describe("ProjectCard rename", () => {
     card().focus();
     await user.keyboard("{F2}");
 
-    expect(useWorkshopDialogsStore.getState().renameProject).toEqual(ONE);
+    expect(useRenameProjectDialog.getState().payload).toEqual(ONE);
   });
 
   it("reaches the same dialog from the menu", async () => {
@@ -150,6 +150,6 @@ describe("ProjectCard rename", () => {
 
     await user.click(item(/Rename/)!);
 
-    expect(useWorkshopDialogsStore.getState().renameProject).toEqual(ONE);
+    expect(useRenameProjectDialog.getState().payload).toEqual(ONE);
   });
 });

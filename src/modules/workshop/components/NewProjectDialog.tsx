@@ -8,11 +8,11 @@ import { Button, Dialog, Field, IconButton, Select, useToast } from "@/component
 import { errorSummary } from "@/i18n";
 import { useAppForm } from "@/lib/form";
 import { useSettings } from "@/modules/settings";
-import { useWorkshopDialogsStore } from "@/stores";
 import { toSlug } from "@/utils";
 
 import { useCreateProject } from "../api/useCreateProject";
 import { useSetProjectThumbnail } from "../api/useSetProjectThumbnail";
+import { useLastAuthorName, useNewProjectDialog, useSetLastAuthorName } from "../state";
 import { projectSlugSchema } from "../utils/projectSlug";
 
 const projectSchema = z.object({
@@ -25,10 +25,10 @@ const projectSchema = z.object({
 const CUSTOM_AUTHOR = "__custom__";
 
 export function NewProjectDialog() {
-  const dialogOpen = useWorkshopDialogsStore((s) => s.newProjectOpen);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeNewProjectDialog);
-  const lastAuthorName = useWorkshopDialogsStore((s) => s.lastAuthorName);
-  const setLastAuthorName = useWorkshopDialogsStore((s) => s.setLastAuthorName);
+  const dialogOpen = useNewProjectDialog((s) => s.isOpen);
+  const closeDialog = useNewProjectDialog((s) => s.close);
+  const lastAuthorName = useLastAuthorName();
+  const setLastAuthorName = useSetLastAuthorName();
 
   const { data: settings } = useSettings();
   const profiles = settings?.authorProfiles ?? [];

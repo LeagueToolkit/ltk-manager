@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { HealthCheckReadiness } from "@/lib/tauri";
-import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
 
+import { useBulkUninstallDialog, useLibrarySelectionStore } from "../../state";
 import { SelectionActionBar } from "../SelectionActionBar";
 import { installedMod } from "./modHealthFixtures";
 
@@ -57,7 +57,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useHealthCheckReadiness.mockReturnValue("ready");
   patcherRunning.running = false;
-  useLibraryDialogsStore.setState({ bulkUninstallMods: [] });
+  useBulkUninstallDialog.setState({ payload: null, isOpen: false });
   useLibrarySelectionStore.setState({ selectedIds: new Set(), anchorId: null });
 });
 
@@ -123,7 +123,7 @@ describe("SelectionActionBar", () => {
 
     await userEvent.click(press(/Uninstall 2/));
 
-    expect(useLibraryDialogsStore.getState().bulkUninstallMods).toEqual(MODS);
+    expect(useBulkUninstallDialog.getState().payload).toEqual(MODS);
   });
 
   it("clears the selection on Escape", async () => {

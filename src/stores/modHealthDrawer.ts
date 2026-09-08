@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { keepUnversioned } from "./storage";
+
 /** Wide enough for a mod name and its one line of detail, and no wider. */
 const DEFAULT_WIDTH = 380;
 
@@ -113,6 +115,8 @@ export const useModHealthDrawerStore = create<ModHealthDrawerStore>()(
     }),
     {
       name: "mod-health-drawer",
+      version: 1,
+      migrate: keepUnversioned<ModHealthDrawerStore>,
       /* The panel's own state belongs to the session that shaped it. */
       partialize: (state) => ({
         announcedFor: state.announcedFor,

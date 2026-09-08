@@ -3,16 +3,16 @@ import { useState } from "react";
 
 import { Button, Dialog, RadioGroup } from "@/components";
 import { type PackResult, revealPath } from "@/lib/tauri";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { usePackProject } from "../api/usePackProject";
 import { useValidateProject } from "../api/useValidateProject";
+import { usePackDialog } from "../state";
 
 export function PackDialog() {
-  const project = useWorkshopDialogsStore((s) => s.packProject);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closePackDialog);
+  const project = usePackDialog((s) => s.payload);
+  const closeDialog = usePackDialog((s) => s.close);
 
-  const open = project !== null;
+  const open = usePackDialog((s) => s.isOpen);
 
   const packProject = usePackProject();
   const { data: validation, isLoading: validationLoading } = useValidateProject(
