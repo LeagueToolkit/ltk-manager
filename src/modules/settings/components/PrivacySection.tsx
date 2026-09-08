@@ -49,9 +49,7 @@ export function PrivacySection({ settings, onSave }: PrivacySectionProps) {
             <span className="text-sm text-surface-300">{m.diagnostics_identity_label()}</span>
             {identity && <Code className="select-text">{identity}</Code>}
             {!identity && (
-              <span className="text-sm text-surface-400">
-                {m.diagnostics_identity_off_label()}
-              </span>
+              <span className="text-sm text-surface-400">{m.diagnostics_identity_off_label()}</span>
             )}
           </div>
           <p className="text-xs text-surface-400">{m.diagnostics_identity_hint()}</p>
