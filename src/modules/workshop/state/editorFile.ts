@@ -3,6 +3,7 @@
 import { z } from "zod";
 
 import type { AssetRef } from "@/lib/tauri";
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   findLeaf,
   type LayoutNode,

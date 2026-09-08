@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/tauri";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state. */
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import { singleLeaf } from "@/modules/editor/layout";
 
 import type { ContentDocument } from "../documents";

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+// eslint-disable-next-line no-restricted-imports -- the route validates search before the module loads
 import { isSettingsTab, type SettingsTab } from "@/modules/settings/tabs";
 
 import { Settings } from "../pages/Settings";

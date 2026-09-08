@@ -10,6 +10,53 @@ import tseslint from "typescript-eslint";
 /** Output no rule can ask an author to change. */
 const GENERATED = ["src/lib/bindings/**", "src/lib/bindings.gen.ts", "src/routeTree.gen.ts"];
 
+/** Every directory under `src/modules`, so each can be told apart from the rest. */
+const MODULES = [
+  "deep-link",
+  "diagnostics",
+  "editor",
+  "home",
+  "launcher",
+  "library",
+  "migration",
+  "patcher",
+  "settings",
+  "shell",
+  "updater",
+  "workshop",
+];
+
+const NOT_MODULE_SOURCE = ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED];
+
+/* What every file under `src` is kept away from, whichever module it is in. */
+const RESTRICTED = [
+  {
+    group: ["@/components/*"],
+    message: "Import a component through the barrel, `@/components`.",
+  },
+  {
+    group: ["@base-ui/react/*"],
+    message: "Reach Base UI through its wrapper in `src/components`.",
+  },
+  {
+    group: ["lucide-react"],
+    message: "Icons are Phosphor duotone: DS-ICON-WEIGHT.",
+  },
+];
+
+/**
+ * The barrel rule, as seen from inside `owner`.
+ *
+ * Only another module's insides are out of bounds. A module reaching past its
+ * own barrel is how a file avoids the import cycle the barrel would close, so
+ * the rule would otherwise argue against the fix for it.
+ */
+function barrelRule(owner) {
+  const group = ["@/modules/*/**"];
+  if (owner) group.push(`!@/modules/${owner}/**`);
+  return { group, message: "Import another module through its barrel, `@/modules/<name>`." };
+}
+
 export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -135,31 +182,18 @@ export default tseslint.config(
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED],
     rules: {
-      "no-restricted-imports": [
-        "warn",
-        {
-          patterns: [
-            {
-              group: ["@/modules/*/*"],
-              message: "Import a module through its barrel, `@/modules/<name>`.",
-            },
-            {
-              group: ["@/components/*"],
-              message: "Import a component through the barrel, `@/components`.",
-            },
-            {
-              group: ["@base-ui/react/*"],
-              message: "Reach Base UI through its wrapper in `src/components`.",
-            },
-            {
-              group: ["lucide-react"],
-              message: "Icons are Phosphor duotone: DS-ICON-WEIGHT.",
-            },
-          ],
-        },
-      ],
+      "no-restricted-imports": ["warn", { patterns: [barrelRule(null), ...RESTRICTED] }],
     },
   },
+  /* One block per module, each blind to its own insides. Last match wins in a
+     flat config, so these replace the rule the block above sets. */
+  ...MODULES.map((owner) => ({
+    files: [`src/modules/${owner}/**/*.{ts,tsx}`],
+    ignores: NOT_MODULE_SOURCE,
+    rules: {
+      "no-restricted-imports": ["warn", { patterns: [barrelRule(owner), ...RESTRICTED] }],
+    },
+  })),
   {
     /* The wrappers are what the rule points every other file at. */
     files: ["src/components/**/*.{ts,tsx}"],

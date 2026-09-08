@@ -3,6 +3,7 @@ import { create } from "zustand";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state, and
    this module needs `singleLeaf` while it evaluates. */
+// eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   type Edge,
   findLeaf,
