@@ -6,6 +6,7 @@ export {
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
   usePatcherError,
+  usePatcherRunning,
   usePatcherStatus,
   useRebuildOverlay,
   useRebuildOverlayAction,

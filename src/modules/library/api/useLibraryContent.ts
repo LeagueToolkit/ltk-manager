@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
-import { usePatcherStatus } from "@/modules/patcher";
+import { usePatcherRunning } from "@/modules/patcher";
 
 import {
   useHasActiveFilters,
@@ -45,8 +45,7 @@ export function useLibraryContent({
   folderId,
 }: UseLibraryContentArgs) {
   const { viewMode } = useLibraryViewMode();
-  const { data: patcherStatus } = usePatcherStatus();
-  const isPatcherActive = patcherStatus?.running ?? false;
+  const isPatcherActive = usePatcherRunning();
   const [detailsMod, setDetailsMod] = useState<InstalledMod | null>(null);
   const [editMod, setEditMod] = useState<InstalledMod | null>(null);
   const filteredMods = useFilteredMods(mods, searchQuery);

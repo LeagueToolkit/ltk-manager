@@ -16,6 +16,7 @@ import { DndDragOverlay } from "./DndDragOverlay";
 import { ModCard } from "./ModCard";
 import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableModCard } from "./SortableModCard";
+import { VirtualCards } from "./VirtualCards";
 
 /** The remove zone wins wherever it is under the pointer, cards decide the rest. */
 const removeZoneFirstCollision: CollisionDetection = (args) => {
@@ -65,17 +66,20 @@ export function SortableModList({
 
   if (disabled) {
     return (
-      <div className={className}>
-        {mods.map((mod) => (
+      <VirtualCards
+        items={mods}
+        keyOf={(mod) => mod.id}
+        viewMode={viewMode}
+        className={className}
+        renderItem={(mod) => (
           <ModCard
-            key={mod.id}
             mod={mod}
             viewMode={viewMode}
             onViewDetails={onViewDetails}
             onEditMetadata={onEditMetadata}
           />
-        ))}
-      </div>
+        )}
+      />
     );
   }
 
@@ -90,18 +94,22 @@ export function SortableModList({
     >
       <SortableContext items={order} strategy={noSorting}>
         {folderId && <RemoveFromFolderZone visible={!!activeId} />}
-        <div ref={gridRef} className={className}>
-          {orderedMods.map((mod) => (
+        <VirtualCards
+          items={orderedMods}
+          keyOf={(mod) => mod.id}
+          viewMode={viewMode}
+          className={className}
+          containerRef={gridRef}
+          renderItem={(mod) => (
             <SortableModCard
-              key={mod.id}
               mod={mod}
               viewMode={viewMode}
               dropLine={dropLineFor(dropLine, mod.id)}
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />
-          ))}
-        </div>
+          )}
+        />
       </SortableContext>
       <DndDragOverlay activeMod={activeMod} activeFolder={null} />
     </DndContext>

@@ -104,6 +104,7 @@ fn main() {
             commands::export_mods,
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
+            commands::get_mod_thumbnails,
             commands::get_storage_directory,
             commands::reorder_mods,
             commands::get_mod_wad_report,

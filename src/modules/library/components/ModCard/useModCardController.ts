@@ -12,7 +12,7 @@ import {
   useUninstallMod,
 } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
-import { usePatcherStatus } from "@/modules/patcher";
+import { usePatcherRunning } from "@/modules/patcher";
 
 import { useLibrarySelectionStore } from "../../state";
 
@@ -105,7 +105,7 @@ export function useModCardController({
   const uninstallMod = useUninstallMod();
   const moveModToFolder = useMoveModToFolder();
   const setModStorage = useSetModStorage();
-  const { data: patcherStatus } = usePatcherStatus();
+  const patcherRunning = usePatcherRunning();
 
   const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
@@ -122,7 +122,6 @@ export function useModCardController({
   } = useSkinhackFlag(mod);
 
   const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
-  const patcherRunning = patcherStatus?.running ?? false;
   const disabled = isFlagged || patcherRunning;
   // A patcher run owns the library. Being unusable is not the same thing, and is
   // the state most in need of a menu.

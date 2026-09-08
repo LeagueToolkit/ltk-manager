@@ -8,7 +8,7 @@ export {
   patcherFailureTitle,
   usePatcherError,
 } from "./usePatcherError";
-export { usePatcherStatus } from "./usePatcherStatus";
+export { usePatcherRunning, usePatcherStatus } from "./usePatcherStatus";
 export { usePatcherStatusListener } from "./usePatcherStatusListener";
 export { useRebuildOverlay } from "./useRebuildOverlay";
 export { useRebuildOverlayAction } from "./useRebuildOverlayAction";

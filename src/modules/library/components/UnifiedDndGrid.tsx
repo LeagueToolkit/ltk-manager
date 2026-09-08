@@ -1,11 +1,11 @@
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
-import { useRef } from "react";
+import { useMemo } from "react";
 
 import { useReorderTransition } from "@/hooks";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { useLibraryDndSensors, useUnifiedDnd } from "@/modules/library/api";
-import { dropLineFor, gridClass, noSorting, parseSortableFolderId } from "@/modules/library/utils";
+import { dropLineFor, noSorting, parseSortableFolderId } from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
 import { FolderCard } from "./FolderCard";
@@ -15,8 +15,12 @@ import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableFolderCard } from "./SortableFolderCard";
 import { SortableFolderRow } from "./SortableFolderRow";
 import { SortableModCard } from "./SortableModCard";
+import { VirtualCards } from "./VirtualCards";
 
-export { gridClass } from "@/modules/library/utils";
+/** One cell of the unified grid: a folder before every root mod. */
+type Cell =
+  | { kind: "folder"; key: string; folder: LibraryFolder; mods: InstalledMod[] }
+  | { kind: "mod"; key: string; mod: InstalledMod };
 
 interface UnifiedDndGridProps {
   folders: LibraryFolder[];
@@ -39,10 +43,6 @@ export function UnifiedDndGrid({
   onViewDetails,
   onEditMetadata,
 }: UnifiedDndGridProps) {
-  const hasMountedRef = useRef(false);
-  const stagger = !hasMountedRef.current ? " stagger-enter" : "";
-  hasMountedRef.current = true;
-
   if (dndDisabled) {
     return (
       <StaticGrid
@@ -52,7 +52,6 @@ export function UnifiedDndGrid({
         viewMode={viewMode}
         onViewDetails={onViewDetails}
         onEditMetadata={onEditMetadata}
-        staggerClass={stagger}
       />
     );
   }
@@ -77,7 +76,6 @@ interface StaticGridProps {
   viewMode: "grid" | "list";
   onViewDetails?: (mod: InstalledMod) => void;
   onEditMetadata?: (mod: InstalledMod) => void;
-  staggerClass?: string;
 }
 
 function StaticGrid({
@@ -87,36 +85,50 @@ function StaticGrid({
   viewMode,
   onViewDetails,
   onEditMetadata,
-  staggerClass = "",
 }: StaticGridProps) {
+  const cells = useMemo<Cell[]>(
+    () => [
+      ...folders.map((folder) => ({
+        kind: "folder" as const,
+        key: folder.id,
+        folder,
+        mods: modsByFolder.get(folder.id) ?? [],
+      })),
+      ...rootMods.map((mod) => ({ kind: "mod" as const, key: mod.id, mod })),
+    ],
+    [folders, modsByFolder, rootMods],
+  );
+
   return (
-    <div className={`${gridClass(viewMode)}${staggerClass}`}>
-      {folders.map((folder) => {
-        const folderMods = modsByFolder.get(folder.id) ?? [];
+    <VirtualCards
+      items={cells}
+      keyOf={(cell) => cell.key}
+      viewMode={viewMode}
+      renderItem={(cell) => {
+        if (cell.kind === "mod") {
+          return (
+            <ModCard
+              mod={cell.mod}
+              viewMode={viewMode}
+              onViewDetails={onViewDetails}
+              onEditMetadata={onEditMetadata}
+            />
+          );
+        }
         if (viewMode === "list") {
           return (
             <FolderRow
-              key={folder.id}
-              folder={folder}
-              mods={folderMods}
+              folder={cell.folder}
+              mods={cell.mods}
               dndDisabled
               onViewDetails={onViewDetails}
               onEditMetadata={onEditMetadata}
             />
           );
         }
-        return <FolderCard key={folder.id} folder={folder} mods={folderMods} />;
-      })}
-      {rootMods.map((mod) => (
-        <ModCard
-          key={mod.id}
-          mod={mod}
-          viewMode={viewMode}
-          onViewDetails={onViewDetails}
-          onEditMetadata={onEditMetadata}
-        />
-      ))}
-    </div>
+        return <FolderCard folder={cell.folder} mods={cell.mods} />;
+      }}
+    />
   );
 }
 
@@ -160,6 +172,27 @@ function DndGrid({
   const gridRef = useReorderTransition<HTMLDivElement>(!isDraggingMod && !isDraggingFolderMod);
   const sensors = useLibraryDndSensors();
 
+  const cells = useMemo<Cell[]>(() => {
+    const folderCells = folderOrder.flatMap((sortableId) => {
+      const folderId = parseSortableFolderId(sortableId);
+      const folder = folderId && folders.find((f) => f.id === folderId);
+      if (!folder) return [];
+      return [
+        {
+          kind: "folder" as const,
+          key: sortableId,
+          folder,
+          mods: modsByFolder.get(folder.id) ?? [],
+        },
+      ];
+    });
+
+    return [
+      ...folderCells,
+      ...orderedRootMods.map((mod) => ({ kind: "mod" as const, key: mod.id, mod })),
+    ];
+  }, [folderOrder, folders, modsByFolder, orderedRootMods]);
+
   return (
     <DndContext
       sensors={sensors}
@@ -170,23 +203,31 @@ function DndGrid({
       onDragCancel={handleDragCancel}
     >
       <SortableContext items={sortableItems} strategy={noSorting}>
-        <div ref={gridRef} className={gridClass(viewMode)}>
-          {folderOrder.map((sortableId) => {
-            const folderId = parseSortableFolderId(sortableId);
-            if (!folderId) return null;
-            const folder = folders.find((f) => f.id === folderId);
-            if (!folder) return null;
-            const folderMods = modsByFolder.get(folder.id) ?? [];
-
+        <VirtualCards
+          items={cells}
+          keyOf={(cell) => cell.key}
+          viewMode={viewMode}
+          containerRef={gridRef}
+          renderItem={(cell) => {
+            if (cell.kind === "mod") {
+              return (
+                <SortableModCard
+                  mod={cell.mod}
+                  viewMode={viewMode}
+                  dropLine={dropLineFor(dropLine, cell.mod.id)}
+                  onViewDetails={onViewDetails}
+                  onEditMetadata={onEditMetadata}
+                />
+              );
+            }
             if (viewMode === "list") {
               return (
                 <SortableFolderRow
-                  key={sortableId}
-                  sortableId={sortableId}
-                  folder={folder}
-                  mods={folderMods}
+                  sortableId={cell.key}
+                  folder={cell.folder}
+                  mods={cell.mods}
                   sortDisabled={isDraggingMod || isDraggingFolderMod}
-                  dropLine={dropLineFor(folderDropLine, sortableId)}
+                  dropLine={dropLineFor(folderDropLine, cell.key)}
                   modDropLine={folderModDropLine}
                   onViewDetails={onViewDetails}
                   onEditMetadata={onEditMetadata}
@@ -195,27 +236,15 @@ function DndGrid({
             }
             return (
               <SortableFolderCard
-                key={sortableId}
-                sortableId={sortableId}
-                folder={folder}
-                mods={folderMods}
+                sortableId={cell.key}
+                folder={cell.folder}
+                mods={cell.mods}
                 sortDisabled={isDraggingMod || isDraggingFolderMod}
-                dropLine={dropLineFor(folderDropLine, sortableId)}
+                dropLine={dropLineFor(folderDropLine, cell.key)}
               />
             );
-          })}
-
-          {orderedRootMods.map((mod) => (
-            <SortableModCard
-              key={mod.id}
-              mod={mod}
-              viewMode={viewMode}
-              dropLine={dropLineFor(dropLine, mod.id)}
-              onViewDetails={onViewDetails}
-              onEditMetadata={onEditMetadata}
-            />
-          ))}
-        </div>
+          }}
+        />
       </SortableContext>
 
       <RemoveFromFolderZone visible={isDraggingFolderMod} />

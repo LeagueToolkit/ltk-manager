@@ -1,7 +1,12 @@
-import { useRef } from "react";
+import { useMemo } from "react";
 
 import type { AppError, InstalledMod } from "@/lib/tauri";
-import { useLibraryContent, useReorderFolderMods, useReorderMods } from "@/modules/library/api";
+import {
+  ModThumbnails,
+  useLibraryContent,
+  useReorderFolderMods,
+  useReorderMods,
+} from "@/modules/library/api";
 
 import { EditMetadataDialog } from "./EditMetadataDialog";
 import { FolderHeader } from "./FolderHeader";
@@ -9,7 +14,7 @@ import { LibraryContextMenu } from "./LibraryContextMenu";
 import { LibraryEmptyState, LibraryErrorState, LibraryLoadingState } from "./LibraryStates";
 import { ModDetailsDialog } from "./ModDetailsDialog";
 import { SortableModList } from "./SortableModList";
-import { gridClass, UnifiedDndGrid } from "./UnifiedDndGrid";
+import { UnifiedDndGrid } from "./UnifiedDndGrid";
 
 interface LibraryContentProps {
   mods: InstalledMod[];
@@ -46,19 +51,9 @@ export function LibraryContent({
     hasError: error !== null && mods.length === 0,
     folderId,
   });
+  const modIds = useMemo(() => mods.map((mod) => mod.id), [mods]);
   const reorderMods = useReorderMods();
   const reorderFolderMods = useReorderFolderMods();
-
-  /* The stagger is an entrance, so it belongs to the first list the reader is
-     shown and not to every reorder after it. A replay restarts each card from
-     opacity 0, which reads as the list blinking. */
-  const staggeredRef = useRef(false);
-  const isList =
-    contentView.type === "flat" ||
-    contentView.type === "folder-drilldown" ||
-    contentView.type === "unified";
-  const stagger = isList && !staggeredRef.current ? " stagger-enter" : "";
-  if (isList) staggeredRef.current = true;
 
   // Extra bottom padding while the bar is up, so it never covers the last row.
   const scrollClass = hasSelection
@@ -85,7 +80,6 @@ export function LibraryContent({
           disabled={dndDisabled}
           onViewDetails={setDetailsMod}
           onEditMetadata={setEditMod}
-          className={`${gridClass(viewMode)}${stagger}`}
         />
       );
     }
@@ -103,7 +97,7 @@ export function LibraryContent({
             disabled={dndDisabled}
             onViewDetails={setDetailsMod}
             onEditMetadata={setEditMod}
-            className={`${gridClass(viewMode)}${stagger} mt-4`}
+            className="mt-4"
             folderId={contentView.folder.id}
           />
         </>
@@ -130,7 +124,9 @@ export function LibraryContent({
   return (
     <>
       <LibraryContextMenu>
-        <div className={scrollClass}>{content()}</div>
+        <div className={scrollClass}>
+          <ModThumbnails modIds={modIds}>{content()}</ModThumbnails>
+        </div>
       </LibraryContextMenu>
       <ModDetailsDialog
         open={detailsMod !== null}
