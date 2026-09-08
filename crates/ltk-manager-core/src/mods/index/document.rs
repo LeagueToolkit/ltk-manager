@@ -34,6 +34,23 @@ impl ModLibrary {
             .ok_or_else(|| AppError::Other("Failed to resolve mod storage directory".to_string()))
     }
 
+    /// Where the archive of `mod_id` lies, for a mod the library keeps packed.
+    ///
+    /// `None` for a mod stored unpacked, which has no one file to point at, and
+    /// for an id the index does not carry.
+    pub(crate) fn archive_path_of(&self, config: &Config, mod_id: &str) -> Option<PathBuf> {
+        self.with_index(config, |storage_dir, index| {
+            Ok(index
+                .mods
+                .iter()
+                .find(|entry| entry.id == mod_id)
+                .filter(|entry| entry.is_packed())
+                .map(|entry| entry.archive_path(storage_dir)))
+        })
+        .ok()
+        .flatten()
+    }
+
     /// Run reconciliation to clean up orphaned entries, discover new archives,
     /// and refresh stale metadata.
     /// Returns `true` if the index was modified.

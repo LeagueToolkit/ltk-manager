@@ -3004,6 +3004,7 @@ dependencies = [
  "image",
  "indexmap 2.14.0",
  "lru",
+ "ltk-telemetry",
  "ltk_fantome",
  "ltk_file",
  "ltk_hash",

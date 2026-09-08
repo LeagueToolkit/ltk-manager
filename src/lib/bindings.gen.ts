@@ -226,6 +226,11 @@ pathHash: string } |
  */
 { kind: "file"; path: string };
 
+/**  Why a suspect is one, as the line under its name. */
+export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-verify" | "skipped" | "could-not-mount" | 
+/**  What an incident stored before the reason was written down reads as. */
+"unknown";
+
 /**
  *  What an open answers: the id, the header, and the rows at depth zero.
  * 
@@ -1113,6 +1118,14 @@ export type Suspect = {
 	 *  redirected - so no separate word grades it.
 	 */
 	because: string,
+	/**
+	 *  The same claim as a word, for a reader that groups rather than reads.
+	 * 
+	 *  [`Suspect::because`] names the archives, so it is prose and one of a kind
+	 *  per suspect. This is what a count is taken over. Defaulted, because an
+	 *  incident stored before it existed carries no reason.
+	 */
+	reason?: Because,
 };
 
 /**  What the manager concluded from one game. */

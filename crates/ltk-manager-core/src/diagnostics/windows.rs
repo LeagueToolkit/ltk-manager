@@ -27,6 +27,19 @@ fn read_kuser_version() -> (u32, u32, u32) {
     }
 }
 
+/// The OS as `10.0.26100`, or `None` where the platform does not report one.
+#[cfg(target_os = "windows")]
+pub fn os_build() -> Option<String> {
+    let (major, minor, build) = read_kuser_version();
+    Some(format!("{major}.{minor}.{build}"))
+}
+
+/// The OS as `10.0.26100`, or `None` where the platform does not report one.
+#[cfg(not(target_os = "windows"))]
+pub fn os_build() -> Option<String> {
+    None
+}
+
 #[cfg(target_os = "windows")]
 pub fn check_version() -> Check {
     let (major, minor, build) = read_kuser_version();

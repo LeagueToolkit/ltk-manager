@@ -17,9 +17,11 @@ use crate::state::{get_app_data_dir, Settings};
 
 /// The project key the vendor accepts a batch under, supplied at build time.
 ///
-/// A build without it reports nothing, so a fork and a local release build stay
-/// out of the project's data. It is public by the vendor's design, and it is not
-/// the local secret an identity is salted with.
+/// A build without it reports nothing, which is what a local build and a fork
+/// get. The release workflow passes the project's own key; point a development
+/// build at a test project by setting the variable before `cargo build`. It is
+/// public by the vendor's design and it is not the local secret an identity is
+/// salted with, but it stays out of the tree so the repository carries no token.
 const API_KEY: Option<&str> = option_env!("LTK_POSTHOG_API_KEY");
 
 /// Whether a build of this profile reports at all.

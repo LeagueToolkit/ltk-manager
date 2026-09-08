@@ -170,6 +170,7 @@ pub(crate) fn start_patcher_inner(
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
     }
+    let telemetry: State<'_, crate::telemetry::TelemetryState> = app_handle.state();
 
     tracing::debug!("Start patcher requested (external injector)");
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
@@ -265,6 +266,7 @@ pub(crate) fn start_patcher_inner(
             patcher_binaries,
             incident_store,
             force_rebuild: config.force_rebuild.unwrap_or(false),
+            telemetry: telemetry.handle(),
         },
     )
 }

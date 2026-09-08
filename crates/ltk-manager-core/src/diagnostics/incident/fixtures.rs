@@ -97,6 +97,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
                 project_path: None,
                 display_name: "Aatrox Justicar".to_string(),
                 because: "writes Aatrox.wad.client, which holds the path".to_string(),
+                reason: Because::HoldsThePath,
             }],
             dismissed: false,
         }

@@ -444,6 +444,13 @@ pub struct Suspect {
     /// it says - holding the path is not the same sentence as having been
     /// redirected - so no separate word grades it.
     pub because: String,
+    /// The same claim as a word, for a reader that groups rather than reads.
+    ///
+    /// [`Suspect::because`] names the archives, so it is prose and one of a kind
+    /// per suspect. This is what a count is taken over. Defaulted, because an
+    /// incident stored before it existed carries no reason.
+    #[serde(default)]
+    pub reason: Because,
 }
 
 /// The record the manager keeps for one game that went wrong.
@@ -1039,14 +1046,21 @@ impl Incident {
 }
 
 /// Why a suspect is one, as the line under its name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Because {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "kebab-case")]
+pub enum Because {
     HoldsThePath,
     Redirected,
     Rejected,
     DidNotVerify,
     Skipped,
     CouldNotMount,
+    /// What an incident stored before the reason was written down reads as.
+    #[default]
+    Unknown,
 }
 
 impl Because {
@@ -1063,6 +1077,7 @@ impl Because {
             Self::DidNotVerify => format!("writes {names}, which did not verify"),
             Self::Skipped => format!("writes {names}, which the lazy scan skipped"),
             Self::CouldNotMount => format!("writes {names}, which League could not mount"),
+            Self::Unknown => format!("writes {names}"),
         }
     }
 }
@@ -1135,6 +1150,7 @@ impl ClassifyContext<'_> {
                 project_path: None,
                 display_name: footprint.display_name.clone(),
                 because: because.text(&names),
+                reason: because,
             });
         }
         for footprint in self.projects {
@@ -1147,6 +1163,7 @@ impl ClassifyContext<'_> {
                 project_path: Some(footprint.project_path.clone()),
                 display_name: footprint.display_name.clone(),
                 because: because.text(&names),
+                reason: because,
             });
         }
         suspects

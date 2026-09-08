@@ -14,12 +14,18 @@ use std::thread;
 use chrono::{Duration, Local};
 use fs_err as fs;
 
+use ltk_telemetry::Telemetry;
+
 use crate::config::Config;
 use crate::diagnostics::game_log::{GameWindow, LeagueLogs};
 use crate::diagnostics::incident::{
-    ClassifyContext, GameRecord, Incident, ModFootprint, ProjectFootprint, ScanMode,
+    ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
+    Suspect,
 };
 use crate::diagnostics::store::IncidentStore;
+use crate::diagnostics::telemetry::{
+    self, Environment, GAME_SESSION_ENDED, SessionFacts, SuspectIdentity,
+};
 use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use crate::launcher::install::installed_patchlines;
 use crate::launcher::same_install;
@@ -28,6 +34,9 @@ use crate::workshop::ProjectDir;
 
 use super::events::PatcherEvents;
 use super::host::hook_flags;
+
+#[cfg(test)]
+mod tests;
 
 /// How long after the game's last sign a crash marker still counts as this
 /// game's. Crashpad writes it while the process is going down, which can
@@ -42,6 +51,8 @@ pub struct IncidentPipeline {
     workshop_paths: Vec<PathBuf>,
     store: Arc<IncidentStore>,
     events: Arc<dyn PatcherEvents>,
+    telemetry: Telemetry,
+    environment: Environment,
 }
 
 impl IncidentPipeline {
@@ -54,7 +65,16 @@ impl IncidentPipeline {
         workshop_paths: Vec<PathBuf>,
         store: Arc<IncidentStore>,
         events: Arc<dyn PatcherEvents>,
+        telemetry: Telemetry,
     ) -> Self {
+        let environment = Environment {
+            app_version: library.app_version().to_string(),
+            os_build: crate::diagnostics::windows::os_build(),
+            arch: std::env::consts::ARCH.to_string(),
+            locale: crate::utils::game::GameDir::resolve(&config)
+                .ok()
+                .and_then(|dir| dir.locale()),
+        };
         Self {
             config,
             host_flags,
@@ -62,6 +82,8 @@ impl IncidentPipeline {
             workshop_paths,
             store,
             events,
+            telemetry,
+            environment,
         }
     }
 
@@ -102,22 +124,132 @@ impl IncidentPipeline {
             league_path: self.config.league_path.as_deref(),
         };
 
-        let Some(incident) = record.classify(&ctx) else {
-            tracing::info!("Game ended clean, no incident recorded");
-            return None;
-        };
-        tracing::info!(
-            id = %incident.id,
-            verdict = ?incident.verdict.kind,
-            "Incident recorded: {}",
-            incident.verdict.title
-        );
+        let outcome = record.classify(&ctx);
 
-        if let Err(e) = self.store.record(&incident) {
-            tracing::error!("Could not store incident {}: {e}", incident.id);
+        if let Some(incident) = &outcome {
+            tracing::info!(
+                id = %incident.id,
+                verdict = ?incident.verdict.kind,
+                "Incident recorded: {}",
+                incident.verdict.title
+            );
+            if let Err(e) = self.store.record(incident) {
+                tracing::error!("Could not store incident {}: {e}", incident.id);
+            }
+        } else {
+            tracing::info!("Game ended clean, no incident recorded");
         }
+
+        // Both branches report, because a verdict rate needs the sessions that
+        // reached none as its denominator.
+        self.report_session(&record, outcome.as_ref(), &mods, &projects);
+
+        let incident = outcome?;
         self.events.incident_recorded(incident.clone());
         Some(incident)
+    }
+
+    /// Report that a session ended, whether or not it reached a verdict.
+    ///
+    /// Every failure inside is the telemetry handle's to swallow, so nothing here
+    /// can fail a session that has already ended.
+    fn report_session(
+        &self,
+        record: &GameRecord,
+        incident: Option<&Incident>,
+        mods: &[ModFootprint],
+        projects: &[ProjectFootprint],
+    ) {
+        if !self.telemetry.is_enabled() {
+            return;
+        }
+
+        let facts = SessionFacts {
+            duration_secs: session_seconds(record),
+            enabled_count: saturating_count(mods.len() + projects.len()),
+            injected: record.injected,
+            launch: record.launch,
+            origin: OriginKind::of(&record.origin),
+            scan: record.scan,
+            overlay: record.overlay,
+            game_patch: record
+                .log
+                .as_ref()
+                .and_then(|log| log.build_version.clone()),
+        };
+
+        let properties = match incident {
+            None => telemetry::clean_session(&self.environment, &facts),
+            Some(incident) => {
+                let suspects = self.suspect_identities(&incident.suspects, mods, projects);
+                let token = incident.token(self.library.app_version());
+                telemetry::verdict_session(&self.environment, &facts, incident, token, &suspects)
+            }
+        };
+        self.telemetry.track(GAME_SESSION_ENDED, properties);
+    }
+
+    /// Each suspect as a digest and a reason, with nothing that names it.
+    ///
+    /// A library mod kept as an archive hashes the archive's bytes, so every
+    /// machine holding that file agrees. Anything unpacked hashes the archives it
+    /// writes instead, sorted, because there is no one file to read. A repacked
+    /// mod is a different mod under this scheme, which is accepted.
+    fn suspect_identities(
+        &self,
+        suspects: &[Suspect],
+        mods: &[ModFootprint],
+        projects: &[ProjectFootprint],
+    ) -> Vec<SuspectIdentity> {
+        suspects
+            .iter()
+            .map(|suspect| {
+                let digest = self
+                    .archive_digest(suspect)
+                    .unwrap_or_else(|| self.footprint_digest(suspect, mods, projects));
+                SuspectIdentity {
+                    digest,
+                    reason: suspect.reason,
+                }
+            })
+            .collect()
+    }
+
+    /// The digest of a library mod's archive, for one kept as an archive.
+    ///
+    /// `None` for a mod stored unpacked, for a workshop project, and for an
+    /// archive that cannot be read, each of which falls back to the footprint.
+    fn archive_digest(&self, suspect: &Suspect) -> Option<String> {
+        let mod_id = suspect.mod_id.as_deref()?;
+        let path = self.library.archive_path_of(&self.config, mod_id)?;
+        match fs::read(&path) {
+            Ok(bytes) => Some(crate::diagnostics::binary_id::content_hash(&bytes)),
+            Err(e) => {
+                tracing::debug!("Could not read a suspect archive for the session event: {e}");
+                None
+            }
+        }
+    }
+
+    /// The digest of what a suspect writes, which is what an unpacked mod has.
+    fn footprint_digest(
+        &self,
+        suspect: &Suspect,
+        mods: &[ModFootprint],
+        projects: &[ProjectFootprint],
+    ) -> String {
+        let wads = match (&suspect.mod_id, &suspect.project_path) {
+            (Some(id), _) => mods
+                .iter()
+                .find(|footprint| &footprint.mod_id == id)
+                .map(|footprint| footprint.affected_wads.as_slice()),
+            (_, Some(path)) => projects
+                .iter()
+                .find(|footprint| &footprint.project_path == path)
+                .map(|footprint| footprint.affected_wads.as_slice()),
+            _ => None,
+        };
+        telemetry::wad_paths_digest(wads.unwrap_or_default())
     }
 
     /// The game log and the crash marker, when the reader is on and a game was
@@ -303,4 +435,18 @@ fn open_wad_tables() -> Option<LayeredHashDb> {
             None
         }
     }
+}
+
+/// How long the session ran, in whole seconds.
+///
+/// `None` when the record spans no time, which is a session that failed before
+/// any game and has no length worth reporting.
+fn session_seconds(record: &GameRecord) -> Option<u64> {
+    let seconds = (record.ended_at - record.started_at).num_seconds();
+    u64::try_from(seconds).ok().filter(|secs| *secs > 0)
+}
+
+/// `count` as the width the wire carries, saturating rather than wrapping.
+fn saturating_count(count: usize) -> u16 {
+    u16::try_from(count).unwrap_or(u16::MAX)
 }
