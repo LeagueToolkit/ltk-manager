@@ -16,69 +16,65 @@ export function MigrationWizardDialog({ open: isOpen, onClose }: MigrationWizard
   const wizard = useMigrationWizard(onClose);
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && wizard.handleClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="lg">
-          <Dialog.Header>
-            <Dialog.Title>{getStepTitle(wizard.step)}</Dialog.Title>
-            {wizard.step !== "importing" && <Dialog.Close />}
-          </Dialog.Header>
+    <Dialog.Shell
+      open={isOpen}
+      onClose={wizard.handleClose}
+      title={getStepTitle(wizard.step)}
+      size="lg"
+      closable={wizard.step !== "importing"}
+    >
+      <Dialog.Body className="space-y-4">
+        {wizard.step === "browse" && (
+          <BrowseStep
+            onBrowse={wizard.handleBrowse}
+            isScanning={wizard.isScanning}
+            error={wizard.scanError}
+          />
+        )}
+        {wizard.step === "select" && (
+          <SelectStep
+            mods={wizard.mods}
+            selectedFolders={wizard.selectedFolders}
+            onToggle={wizard.handleToggleMod}
+            onSelectAll={wizard.handleSelectAll}
+            onSelectNone={wizard.handleSelectNone}
+          />
+        )}
+        {wizard.step === "importing" && <MigrationImportProgress progress={wizard.progress} />}
+        {wizard.step === "results" && wizard.importResult && (
+          <BulkInstallResults result={wizard.importResult} verb="imported" />
+        )}
+      </Dialog.Body>
 
-          <Dialog.Body className="space-y-4">
-            {wizard.step === "browse" && (
-              <BrowseStep
-                onBrowse={wizard.handleBrowse}
-                isScanning={wizard.isScanning}
-                error={wizard.scanError}
-              />
-            )}
-            {wizard.step === "select" && (
-              <SelectStep
-                mods={wizard.mods}
-                selectedFolders={wizard.selectedFolders}
-                onToggle={wizard.handleToggleMod}
-                onSelectAll={wizard.handleSelectAll}
-                onSelectNone={wizard.handleSelectNone}
-              />
-            )}
-            {wizard.step === "importing" && <MigrationImportProgress progress={wizard.progress} />}
-            {wizard.step === "results" && wizard.importResult && (
-              <BulkInstallResults result={wizard.importResult} verb="imported" />
-            )}
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            {wizard.step === "browse" && (
-              <Button variant="outline" size="sm" onClick={wizard.handleClose}>
-                Cancel
-              </Button>
-            )}
-            {wizard.step === "select" && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => wizard.setStep("browse")}>
-                  Back
-                </Button>
-                <Button
-                  variant="filled"
-                  size="sm"
-                  onClick={wizard.handleImport}
-                  disabled={wizard.selectedFolders.size === 0}
-                >
-                  Import {wizard.selectedFolders.size} Mod
-                  {wizard.selectedFolders.size !== 1 ? "s" : ""}
-                </Button>
-              </>
-            )}
-            {wizard.step === "results" && (
-              <Button variant="filled" size="sm" onClick={wizard.handleClose}>
-                Done
-              </Button>
-            )}
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        {wizard.step === "browse" && (
+          <Button variant="outline" size="sm" onClick={wizard.handleClose}>
+            Cancel
+          </Button>
+        )}
+        {wizard.step === "select" && (
+          <>
+            <Button variant="outline" size="sm" onClick={() => wizard.setStep("browse")}>
+              Back
+            </Button>
+            <Button
+              variant="filled"
+              size="sm"
+              onClick={wizard.handleImport}
+              disabled={wizard.selectedFolders.size === 0}
+            >
+              Import {wizard.selectedFolders.size} Mod
+              {wizard.selectedFolders.size !== 1 ? "s" : ""}
+            </Button>
+          </>
+        )}
+        {wizard.step === "results" && (
+          <Button variant="filled" size="sm" onClick={wizard.handleClose}>
+            Done
+          </Button>
+        )}
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }
 

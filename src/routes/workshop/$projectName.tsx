@@ -5,11 +5,9 @@ import { Button } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
 import {
   ContentBrowser,
-  DeleteConfirmDialog,
   ExtractDialog,
   ExtractRunner,
   LoadingState,
-  PackDialog,
   useEditorPersistence,
   useWorkshopProjects,
 } from "@/modules/workshop";
@@ -49,8 +47,6 @@ function ProjectDetail() {
           without the key a pane carries its scroll and focus over. */}
       <HydratedContentBrowser key={project.path} project={project} />
 
-      <PackDialog />
-      <DeleteConfirmDialog />
       <ExtractDialog />
       <ExtractRunner />
     </>

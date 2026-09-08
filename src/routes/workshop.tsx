@@ -6,15 +6,13 @@ import { twMerge } from "tailwind-merge";
 import { Toolbar } from "@/components";
 import { useSettings } from "@/modules/settings";
 import {
-  ImportFantomeDialog,
-  ImportGitRepoDialog,
-  NewProjectDialog,
   NotConfiguredState,
   ProjectProvider,
   useNewProjectDialog,
   useRecordListVisit,
   useWorkshopProjects,
   WorkshopActiveFilterChips,
+  WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
 
@@ -74,11 +72,7 @@ function WorkshopShell() {
         </div>
       </div>
 
-      {/* The four ways to a project are commands the bar runs from either route,
-          so what they open is mounted over both. */}
-      <NewProjectDialog />
-      <ImportFantomeDialog />
-      <ImportGitRepoDialog />
+      <WorkshopDialogs />
     </ProjectProvider>
   );
 }

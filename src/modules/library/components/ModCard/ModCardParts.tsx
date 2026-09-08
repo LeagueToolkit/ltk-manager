@@ -552,29 +552,25 @@ export function SkinhackInfoDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>What is a skinhack?</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-          <Dialog.Body>
-            <p className="text-sm leading-relaxed text-surface-300">
-              A skinhack is a mod that grants access to paid League of Legends skins.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-surface-300">
-              Using skinhacks violates the distribution policy and can put your account at risk. LTK
-              Manager blocks these mods to protect both users and the modding community.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-surface-400">
-              If you believe this mod was flagged incorrectly, open an issue on the GitHub
-              repository page with the relevant info and we will investigate.
-            </p>
-          </Dialog.Body>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog.Shell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="What is a skinhack?"
+      size="sm"
+    >
+      <Dialog.Body>
+        <p className="text-sm leading-relaxed text-surface-300">
+          A skinhack is a mod that grants access to paid League of Legends skins.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-surface-300">
+          Using skinhacks violates the distribution policy and can put your account at risk. LTK
+          Manager blocks these mods to protect both users and the modding community.
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-surface-400">
+          If you believe this mod was flagged incorrectly, open an issue on the GitHub repository
+          page with the relevant info and we will investigate.
+        </p>
+      </Dialog.Body>
+    </Dialog.Shell>
   );
 }

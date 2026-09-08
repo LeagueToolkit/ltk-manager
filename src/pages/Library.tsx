@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { usePlatformSupport } from "@/hooks";
 import { PlayButton } from "@/modules/launcher";
 import {
-  BulkUninstallDialog,
   DragDropOverlay,
   ImportProgressDialog,
   LibraryContent,
+  LibraryDialogs,
   LibraryToolbar,
   ModHealthSweep,
   SelectionActionBar,
@@ -90,7 +90,7 @@ export function Library({ folderId }: LibraryProps = {}) {
         {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
         <ModHealthSweep />
       </div>
-      <BulkUninstallDialog />
+      <LibraryDialogs />
       <ImportProgressDialog
         open={actions.importDialogOpen}
         onClose={actions.handleCloseImportDialog}

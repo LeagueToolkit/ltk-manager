@@ -5,6 +5,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React, { type ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
+import { ConfirmHost } from "./components/ConfirmDialog";
 import { ToastProvider } from "./components/ToastProvider";
 import { queryClient } from "./lib/query";
 import { api } from "./lib/tauri";
@@ -42,6 +43,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <ToastProvider>
           <RouterProvider router={router} />
+          <ConfirmHost />
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>

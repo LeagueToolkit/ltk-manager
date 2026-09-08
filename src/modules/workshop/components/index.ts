@@ -43,5 +43,6 @@ export {
 } from "./TreeRowParts";
 export { TreeSearchBox } from "./TreeSearchBox";
 export { WorkshopActiveFilterChips } from "./WorkshopActiveFilterChips";
+export { WorkshopDialogs } from "./WorkshopDialogs";
 export { WorkshopFilterPopover } from "./WorkshopFilterPopover";
 export { WorkshopHeader } from "./WorkshopHeader";

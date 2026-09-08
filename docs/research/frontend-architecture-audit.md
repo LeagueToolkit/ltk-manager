@@ -68,13 +68,34 @@ The findings below are the evidence at `018fe6e`. This section is what no longer
   list that re-rendered on its own scroll would spend the scroll twice.
 - `src/CLAUDE.md` carries the placement rule as "Where a Store Lives".
 
+### The dialog layer, ADR-0033
+
+- `Dialog.Shell` draws the frame from the backdrop down to the title row. Twenty-one files pass it
+  `open`, `onClose`, `title` and a body, and four more reach it through `ConfirmDialog`. Eight
+  still build the frame from the parts: the two context-menu headers and the sheet, which are not
+  a title row at all, and five that each hold one thing the shell does not express - a header with
+  no title, a header that is not `Dialog.Header`, a toned or `shrink-0` close button, a
+  `truncate` description, and a dialog undismissable mid-install. Section 8, "Dialogs, three
+  mechanisms" and the confirm clones.
+- `ConfirmDialog` is the callout, the question and the Cancel-beside-danger footer, with four
+  callers. `useConfirm` and `ConfirmHost` above the router are the imperative path for a caller
+  with nowhere to mount one, and land with none.
+- `useDialog(store)` is one `useShallow` subscription over a `createDialogStore`, at every
+  component that reads all three of `isOpen`, `payload` and `close`.
+- `WorkshopDialogs` and `LibraryDialogs` mount their module's store dialogs once, at the route
+  every consumer sits under. `PackDialog` and `DeleteConfirmDialog` were mounted on two routes
+  each.
+- `src/CLAUDE.md` carries the rules as "Dialogs".
+
 ### What still stands
 
 The library grid is unvirtualized and every card still issues its own thumbnail invoke. `pages/`
 is still four shims. The `lib`, `utils` and `hooks` split is unsorted apart from the hooks that
-moved with their modules. The specta migration, the lifted components and the tree core are
-untouched. Sections 7, 8 and 10 read as written, and so does section 12 apart from the boot and
-patcher bullets above.
+moved with their modules. The specta migration and the tree core are untouched, and of the lifted
+components section 11 asks for, the dialogs have landed and `SearchInput`, `useFlatTree`,
+`useKeyCommit`, the date helpers and `compareNames` have not. Sections 7 and 10 read as written,
+section 8 apart from its dialog rows, and section 12 apart from the boot and patcher bullets
+above.
 
 ## 1. The shape
 

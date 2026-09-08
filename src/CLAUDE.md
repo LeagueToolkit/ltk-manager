@@ -68,7 +68,24 @@ than a silent hydration of a stale key. `keepUnversioned` in `stores/storage.ts`
 for a shape that has not changed yet.
 
 One dialog is one `createDialogStore<T>()`, which answers `payload`, `isOpen`, `open` and `close`.
-`T` is `void` for a dialog that carries nothing.
+`T` is `void` for a dialog that carries nothing. The dialog component reads all three of `isOpen`,
+`payload` and `close` through `useDialog(store)`, and the trigger keeps reading `open` on its own.
+
+## Dialogs
+
+A dialog draws through `Dialog.Shell`, which takes `open`, `onClose`, `title` and optionally
+`description`, `size`, `tone` and `closable`, and whose children are the `Dialog.Body` and
+`Dialog.Footer` under the header. A dialog whose header is not a title and a close button builds
+its frame from the parts instead, which all stay exported.
+
+One question with one destructive answer is a `ConfirmDialog`. A caller with nowhere to mount one
+asks through `useConfirm`, which draws on `ConfirmHost` above the router.
+
+A store dialog is mounted by its module's `<ModuleDialogs />` bundle, at the route every consumer
+sits under, so one import is what says the module's dialogs can all open. Three mechanisms raise a
+dialog and each answers a different question: local `useState` where the trigger owns it,
+`createDialogStore` where it outlives the menu that raised it, and `useQueuedDialog` where it
+raises itself. See ADR-0033 and ADR-0022.
 
 ## Tauri Event Listening
 

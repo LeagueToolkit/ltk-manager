@@ -40,12 +40,10 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
     decode.mutate(trimmed);
   }
 
-  function handleOpenChange(next: boolean) {
-    if (!next) {
-      setInput("");
-      decode.reset();
-    }
-    onOpenChange(next);
+  function handleClose() {
+    setInput("");
+    decode.reset();
+    onOpenChange(false);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -56,50 +54,47 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={handleOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="lg" data-ui="TokenDecoder">
-          <Dialog.Header>
-            <Dialog.Title>Decode a token</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-          <Dialog.Body className="flex flex-col gap-4">
-            <TextareaField
-              name="incident-token"
-              label="Token"
-              description="A token, or a report or bug-report link with one inside"
-              placeholder="DIAG1-…"
-              rows={3}
-              spellCheck={false}
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={handleKeyDown}
-              textareaClassName="min-h-0 font-mono text-xs"
-            />
-            <div className="flex items-center justify-between gap-4">
-              <span className="flex-1">
-                {decode.error && (
-                  <p role="alert" className="text-xs text-danger-text">
-                    {errorSummary(decode.error)}
-                  </p>
-                )}
-              </span>
-              <Button
-                variant="filled"
-                size="sm"
-                disabled={!trimmed}
-                loading={decode.isPending}
-                onClick={submit}
-              >
-                Decode
-              </Button>
-            </div>
-            {decode.data && <DecodedTokenCard incident={decode.data} />}
-          </Dialog.Body>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog.Shell
+      open={open}
+      onClose={handleClose}
+      title="Decode a token"
+      size="lg"
+      data-ui="TokenDecoder"
+    >
+      <Dialog.Body className="flex flex-col gap-4">
+        <TextareaField
+          name="incident-token"
+          label="Token"
+          description="A token, or a report or bug-report link with one inside"
+          placeholder="DIAG1-…"
+          rows={3}
+          spellCheck={false}
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          onKeyDown={handleKeyDown}
+          textareaClassName="min-h-0 font-mono text-xs"
+        />
+        <div className="flex items-center justify-between gap-4">
+          <span className="flex-1">
+            {decode.error && (
+              <p role="alert" className="text-xs text-danger-text">
+                {errorSummary(decode.error)}
+              </p>
+            )}
+          </span>
+          <Button
+            variant="filled"
+            size="sm"
+            disabled={!trimmed}
+            loading={decode.isPending}
+            onClick={submit}
+          >
+            Decode
+          </Button>
+        </div>
+        {decode.data && <DecodedTokenCard incident={decode.data} />}
+      </Dialog.Body>
+    </Dialog.Shell>
   );
 }
 

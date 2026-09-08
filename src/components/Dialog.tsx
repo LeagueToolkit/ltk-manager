@@ -287,6 +287,77 @@ export const DialogFooter = forwardRef<HTMLDivElement, DialogFooterProps>(
 );
 DialogFooter.displayName = "Dialog.Footer";
 
+// Shell (the whole frame: root, portal, backdrop, overlay and a title header)
+export interface DialogShellProps extends Omit<
+  BaseDialog.Popup.Props,
+  "className" | "children" | "title"
+> {
+  open: boolean;
+  /** Run when the reader dismisses, whether by the close button, Escape or the backdrop. */
+  onClose: () => void;
+  title: ReactNode;
+  /** A second line under the title, for what the dialog is about. */
+  description?: ReactNode;
+  size?: DialogOverlaySize;
+  tone?: DialogHeaderTone;
+  /** Whether the header offers a close button. A dialog mid-task withholds it. */
+  closable?: boolean;
+  /** Lands on the title itself, for a title that lays an icon out beside its text. */
+  titleClassName?: string;
+  className?: string;
+  children?: ReactNode;
+}
+
+/**
+ * A dialog's frame, from the backdrop down to the title row.
+ *
+ * `children` are the `Dialog.Body` and `Dialog.Footer` under that header. A
+ * dialog whose header is not a title and a close button builds its own frame
+ * from the parts instead.
+ */
+export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
+  (
+    {
+      open,
+      onClose,
+      title,
+      description,
+      size,
+      tone,
+      closable = true,
+      titleClassName,
+      className,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <DialogRoot open={open} onOpenChange={(next) => !next && onClose()}>
+        <DialogPortal>
+          <DialogBackdrop />
+          <DialogOverlay ref={ref} size={size} className={className} {...props}>
+            <DialogHeader tone={tone}>
+              {description === undefined && (
+                <DialogTitle className={titleClassName}>{title}</DialogTitle>
+              )}
+              {description !== undefined && (
+                <div className="min-w-0">
+                  <DialogTitle className={titleClassName}>{title}</DialogTitle>
+                  <DialogDescription className="mt-0.5">{description}</DialogDescription>
+                </div>
+              )}
+              {closable && <DialogClose />}
+            </DialogHeader>
+            {children}
+          </DialogOverlay>
+        </DialogPortal>
+      </DialogRoot>
+    );
+  },
+);
+DialogShell.displayName = "Dialog.Shell";
+
 // Compound export
 export const Dialog = {
   Root: DialogRoot,
@@ -301,4 +372,5 @@ export const Dialog = {
   Header: DialogHeader,
   Body: DialogBody,
   Footer: DialogFooter,
+  Shell: DialogShell,
 };

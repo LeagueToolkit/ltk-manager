@@ -46,54 +46,49 @@ export function EditLayerDialog({ open, layer, onClose, projectPath }: EditLayer
   if (!layer) return null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && handleClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>Edit Layer: {layer.displayName}</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell
+      open={open}
+      onClose={handleClose}
+      title={`Edit Layer: ${layer.displayName}`}
+      size="sm"
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+      >
+        <Dialog.Body className="space-y-4">
+          <form.AppField name="description">
+            {(field) => (
+              <field.TextareaField
+                label="Description"
+                placeholder="Optional description for this layer..."
+                rows={2}
+                autoFocus
+              />
+            )}
+          </form.AppField>
+        </Dialog.Body>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              form.handleSubmit();
-            }}
-          >
-            <Dialog.Body className="space-y-4">
-              <form.AppField name="description">
-                {(field) => (
-                  <field.TextareaField
-                    label="Description"
-                    placeholder="Optional description for this layer..."
-                    rows={2}
-                    autoFocus
-                  />
-                )}
-              </form.AppField>
-            </Dialog.Body>
-
-            <Dialog.Footer>
-              <Button variant="ghost" onClick={handleClose}>
-                Cancel
+        <Dialog.Footer>
+          <Button variant="ghost" onClick={handleClose}>
+            Cancel
+          </Button>
+          <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit })}>
+            {({ canSubmit }) => (
+              <Button
+                variant="filled"
+                loading={updateDescription.isPending}
+                disabled={!canSubmit}
+                onClick={() => form.handleSubmit()}
+              >
+                Save
               </Button>
-              <form.Subscribe selector={(state) => ({ canSubmit: state.canSubmit })}>
-                {({ canSubmit }) => (
-                  <Button
-                    variant="filled"
-                    loading={updateDescription.isPending}
-                    disabled={!canSubmit}
-                    onClick={() => form.handleSubmit()}
-                  >
-                    Save
-                  </Button>
-                )}
-              </form.Subscribe>
-            </Dialog.Footer>
-          </form>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+            )}
+          </form.Subscribe>
+        </Dialog.Footer>
+      </form>
+    </Dialog.Shell>
   );
 }
