@@ -1,13 +1,9 @@
-import { type InfiniteData, useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo } from "react";
 
-import { api, type AppError, type ReleaseNote, type ReleasePage } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import type { AppError, ReleaseNote, ReleasePage } from "@/lib/tauri";
 
-import { updaterKeys } from "./keys";
-
-/** Half an hour, because the history only moves when a release ships. */
-const HISTORY_STALE_MS = 30 * 60 * 1000;
+import { updaterQueries } from "./queries";
 
 export interface UseReleaseHistoryOptions {
   /** The history loads only while the surface showing it is open. */
@@ -41,21 +37,7 @@ export function useReleaseHistory({
     isFetchingNextPage,
     isPending,
     refetch,
-  } = useInfiniteQuery<
-    ReleasePage,
-    AppError,
-    InfiniteData<ReleasePage>,
-    ReturnType<typeof updaterKeys.releases>,
-    number
-  >({
-    queryKey: updaterKeys.releases(),
-    queryFn: async ({ pageParam }) => unwrapForQuery(await api.listReleases(pageParam)),
-    initialPageParam: 1,
-    getNextPageParam: (last) => last.nextPage ?? undefined,
-    staleTime: HISTORY_STALE_MS,
-    retry: 1,
-    enabled,
-  });
+  } = useInfiniteQuery({ ...updaterQueries.releases(), enabled });
 
   const pages = data?.pages;
   const { releases, newestPageAdded } = useMemo(

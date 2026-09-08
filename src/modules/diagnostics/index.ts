@@ -1,7 +1,6 @@
 export {
   diagnosticsKeys,
-  incidentReportOptions,
-  incidentTokenOptions,
+  diagnosticsQueries,
   useCleanGameWatch,
   useDecodeIncidentToken,
   useDiagnostics,

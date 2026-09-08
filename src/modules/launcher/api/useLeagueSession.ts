@@ -2,21 +2,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { useToast } from "@/components";
-import {
-  api,
-  type AppError,
-  type SessionChanged,
-  type SessionEnded,
-  type SessionGameRunning,
-  type SessionStarted,
-} from "@/lib/tauri";
+import type { SessionChanged, SessionEnded, SessionGameRunning, SessionStarted } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
 import { usePlaySessionStore } from "@/stores";
-import { queryFn } from "@/utils/query";
 
 import { launcherKeys } from "./keys";
+import { launcherQueries } from "./queries";
 
 /** The Riot Client's word for a game that closed the way it meant to. */
 const CLEAN_EXIT = "Exit";
@@ -64,14 +57,7 @@ export function useLeagueSession() {
   const { data: patcherStatus } = usePatcherStatus();
   const stopPatcher = useStopPatcher();
 
-  // Asked once, because a session in progress announced itself before this
-  // webview existed. Everything after this arrives as an event.
-  const { data: current } = useQuery<SessionStarted | null, AppError>({
-    queryKey: launcherKeys.session(),
-    queryFn: queryFn(api.getLeagueSession),
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-  });
+  const { data: current } = useQuery(launcherQueries.session());
 
   useEffect(() => {
     // Only ever seeds an empty bar. An event that has already told the store

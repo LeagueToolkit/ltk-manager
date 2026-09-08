@@ -1,44 +1,16 @@
-import {
-  queryOptions,
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { api, type AppError, type GameDirListing, type GameIndexStats } from "@/lib/tauri";
+import { api, type AppError } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
-import { mutationFn, queryFn, queryFnWithArgs } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
+import { gameKeys } from "./keys";
+import { gameQueries } from "./queries";
 import type { SourceDirListing } from "./sourceIndex";
-import { GAME_STALE_MS, gameKeys } from "./useGameWads";
 import { useWarmObjectIndex } from "./useObjectIndex";
 
-/* The tree speaks plain numbers, so the wire format's bigint stays behind this
-   adapter. Directory rows arrive sorted and folded, which is the index's work. */
-function toSourceListing(listing: GameDirListing): SourceDirListing {
-  return {
-    dirs: listing.dirs,
-    files: listing.files.map((file) => ({
-      pathHash: file.pathHash,
-      path: file.path,
-      sizeBytes: Number(file.sizeBytes),
-      wad: file.wad,
-    })),
-  };
-}
-
 const EMPTY_LISTING: SourceDirListing = { dirs: [], files: [] };
-
-function gameDirOptions(path: string) {
-  return queryOptions<GameDirListing, AppError, SourceDirListing>({
-    queryKey: gameKeys.dir(path),
-    queryFn: queryFnWithArgs(api.readGameDir, path),
-    staleTime: GAME_STALE_MS,
-    select: toSourceListing,
-  });
-}
 
 /**
  * One directory of the folded game index, `""` for the root.
@@ -47,7 +19,7 @@ function gameDirOptions(path: string) {
  * install carries. Every read after it answers from what that built.
  */
 export function useGameDir(path: string) {
-  return useQuery(gameDirOptions(path));
+  return useQuery(gameQueries.dir(path));
 }
 
 /**
@@ -74,16 +46,12 @@ export function useGameDirs(
     [paths],
   );
 
-  return useQueries({ queries: paths.map(gameDirOptions), combine });
+  return useQueries({ queries: paths.map((path) => gameQueries.dir(path)), combine });
 }
 
 /** What the folded index holds, once it is built. */
 export function useGameIndex() {
-  return useQuery<GameIndexStats, AppError>({
-    queryKey: gameKeys.index,
-    queryFn: queryFn(api.getGameIndex),
-    staleTime: GAME_STALE_MS,
-  });
+  return useQuery(gameQueries.index());
 }
 
 /**

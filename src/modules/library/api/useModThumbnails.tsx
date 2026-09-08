@@ -1,11 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
-import { api, type AppError } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
-
-import { libraryKeys } from "./keys";
+import { modQueries } from "./queries";
 
 const BatchedContext = createContext(false);
 
@@ -31,21 +27,7 @@ export function ModThumbnails({ modIds, children }: ModThumbnailsProps) {
   /* Sorted, so the same library in a different order is the same query. */
   const ids = useMemo(() => [...modIds].sort(), [modIds]);
 
-  useQuery<Record<string, string>, AppError>({
-    queryKey: libraryKeys.thumbnails(ids),
-    queryFn: async () => {
-      const paths = unwrapForQuery(await api.getModThumbnails(ids));
-
-      for (const id of ids) {
-        const path = paths[id];
-        queryClient.setQueryData(libraryKeys.thumbnail(id), path ? convertFileSrc(path) : "");
-      }
-
-      return paths;
-    },
-    enabled: ids.length > 0,
-    staleTime: Infinity,
-  });
+  useQuery(modQueries.thumbnails(ids, queryClient));
 
   return <BatchedContext value={true}>{children}</BatchedContext>;
 }

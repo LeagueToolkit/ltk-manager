@@ -1,4 +1,5 @@
 export { settingsKeys } from "./keys";
+export { hashtableQueries, leagueInstallQueries, settingsQueries } from "./queries";
 export { useAppInfo } from "./useAppInfo";
 export { useAutoDetectLeaguePath } from "./useAutoDetectLeaguePath";
 export { useAvailableWads } from "./useAvailableWads";

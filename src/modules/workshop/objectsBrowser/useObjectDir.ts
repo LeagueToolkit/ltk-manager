@@ -1,37 +1,13 @@
-import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { api, type AppError, type ObjectDir, type ObjectDirListing } from "@/lib/tauri";
-import { queryFnWithArgs } from "@/utils/query";
+import type { ObjectDir, ObjectDirListing } from "@/lib/tauri";
 
-/* The leaves rather than the browser's barrel. The barrel reaches this module back
-   through the documents registry mid-evaluation, its keys unbound. */
-import { gameKeys } from "../gameBrowser/useGameWads";
-import { BUILDING_POLL_MS } from "../gameBrowser/useObjectIndex";
+import { objectTreeQueries } from "./queries";
 
-export const objectKeys = {
-  /* Under the object searches. The invalidation of a warm or a drop refetches every
-     listing with them. */
-  dirs: [...gameKeys.objectSearches, "dir"] as const,
-  dir: (prefix: string) => [...gameKeys.objectSearches, "dir", prefix] as const,
-  find: (pattern: string, regex: boolean, cls: string | null) =>
-    [...gameKeys.objectSearches, "find", pattern, regex, cls] as const,
-};
+export { objectKeys } from "./keys";
 
 const EMPTY_LISTING: ObjectDirListing = { prefixes: [], objects: [] };
-
-function objectDirOptions(prefix: string) {
-  return queryOptions<ObjectDir, AppError>({
-    queryKey: objectKeys.dir(prefix),
-    queryFn: queryFnWithArgs(api.objectDir, prefix),
-    /* The install's for the session. A warm or a drop settling asks again. */
-    staleTime: Infinity,
-    refetchInterval: (query) => {
-      const status = query.state.data?.status;
-      return status === "building" || status === "absent" ? BUILDING_POLL_MS : false;
-    },
-  });
-}
 
 /**
  * One prefix of the object tree, `""` for the root, in the slot the index is in.
@@ -39,7 +15,7 @@ function objectDirOptions(prefix: string) {
  * An answer the build has not given asks again each second until it lands.
  */
 export function useObjectDir(prefix: string) {
-  return useQuery(objectDirOptions(prefix));
+  return useQuery(objectTreeQueries.dir(prefix));
 }
 
 /**
@@ -69,5 +45,5 @@ export function useObjectDirs(
     [prefixes],
   );
 
-  return useQueries({ queries: prefixes.map(objectDirOptions), combine });
+  return useQueries({ queries: prefixes.map((prefix) => objectTreeQueries.dir(prefix)), combine });
 }

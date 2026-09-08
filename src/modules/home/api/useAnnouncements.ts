@@ -1,22 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { type Announcement, api, type AppError } from "@/lib/tauri";
-import { queryFn } from "@/utils/query";
+import type { Announcement } from "@/lib/tauri";
 
 import { isAfter } from "../state";
-import { homeKeys } from "./keys";
-
-/** Half an hour, because a post is news for longer than that. */
-const FEED_STALE_MS = 30 * 60 * 1000;
+import { homeQueries } from "./queries";
 
 /** The project's newest announcements, newest first. */
 export function useAnnouncements() {
-  return useQuery<Announcement[], AppError>({
-    queryKey: homeKeys.announcements(),
-    queryFn: queryFn(api.listAnnouncements),
-    staleTime: FEED_STALE_MS,
-    retry: 1,
-  });
+  return useQuery(homeQueries.announcements());
 }
 
 /** When the newest of `posts` went up, or `null` with no dated post among them. */

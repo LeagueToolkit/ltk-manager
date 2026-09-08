@@ -1,13 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api } from "@/lib/tauri";
-import { queryFnWithArgs } from "@/utils/query";
+import { projectQueries } from "../../api/queries";
 
-import { workshopKeys } from "../../api/keys";
-
+/** What each named layer of a project holds. */
 export function useLayerInfo(projectPath: string, layerNames: string[]) {
-  return useQuery({
-    queryKey: workshopKeys.layerInfoFor(projectPath, layerNames),
-    queryFn: queryFnWithArgs(api.getLayerInfo, projectPath, layerNames),
-  });
+  return useQuery(projectQueries.layerInfo(projectPath, layerNames));
 }

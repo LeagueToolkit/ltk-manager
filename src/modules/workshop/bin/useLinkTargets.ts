@@ -1,4 +1,4 @@
-import { useQueries, type UseQueryOptions } from "@tanstack/react-query";
+import { useQueries, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
 import { createContext, use, useEffect, useMemo, useState } from "react";
 
 import {
@@ -229,6 +229,51 @@ type LocatedQuery = UseQueryOptions<
   ReturnType<typeof linkKeys.located>
 >;
 
+/** What the declared checks answered across every group. */
+interface DeclaredAnswer {
+  readonly index: ObjectIndexStatus | null;
+  readonly objects: Readonly<Record<string, DeclaredObject>>;
+  readonly pending: boolean;
+}
+
+/** What the located checks answered across every group. */
+interface LocatedAnswer {
+  readonly entries: Readonly<Record<string, GameFileEntry>>;
+  readonly pending: boolean;
+}
+
+/* Both answers are plain records rather than maps, and both combines sit at module
+   scope. Structural sharing then holds one identity across a render that changed
+   nothing, which is what the memo reading them depends on. */
+
+function combineDeclared(
+  results: readonly UseQueryResult<DeclaredObjects, AppError>[],
+): DeclaredAnswer {
+  const objects: Record<string, DeclaredObject> = {};
+  let index: ObjectIndexStatus | null = null;
+  let pending = false;
+  for (const result of results) {
+    if (result.isPending) pending = true;
+    if (!result.data) continue;
+    index = result.data.index;
+    Object.assign(objects, result.data.objects);
+  }
+  return { index, objects, pending };
+}
+
+function combineLocated(
+  results: readonly UseQueryResult<Record<string, GameFileEntry>, AppError>[],
+): LocatedAnswer {
+  const entries: Record<string, GameFileEntry> = {};
+  let pending = false;
+  for (const result of results) {
+    if (result.isPending) pending = true;
+    if (!result.data) continue;
+    Object.assign(entries, result.data);
+  }
+  return { entries, pending };
+}
+
 /**
  * Check every group's link and hash targets against the index and the project's
  * layers, and its `file` targets against the install, one call per group and per kind.
@@ -264,7 +309,7 @@ export function useCheckLinkTargets(
       refetchInterval: (query) =>
         query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
     }));
-  const declaredResults = useQueries({ queries: declaredQueries });
+  const declaredAnswer = useQueries({ queries: declaredQueries, combine: combineDeclared });
 
   const locatedQueries: LocatedQuery[] = targets
     .filter((group) => group.paths.length > 0)
@@ -274,32 +319,23 @@ export function useCheckLinkTargets(
       staleTime: Infinity,
       retry: false,
     }));
-  const locatedResults = useQueries({ queries: locatedQueries });
+  const locatedAnswer = useQueries({ queries: locatedQueries, combine: combineLocated });
 
   return useMemo(() => {
-    const install = new Map<string, DeclaredObject>();
-    let index: ObjectIndexStatus | null = null;
-    let pending = false;
-    for (const result of declaredResults) {
-      if (result.isPending) pending = true;
-      if (!result.data) continue;
-      index = result.data.index;
-      for (const [hash, object] of Object.entries(result.data.objects)) install.set(hash, object);
-    }
-
-    const located = new Map<string, GameFileEntry>();
-    for (const result of locatedResults) {
-      if (result.isPending) pending = true;
-      if (!result.data) continue;
-      for (const [path, entry] of Object.entries(result.data)) located.set(path, entry);
-    }
+    const install = new Map(Object.entries(declaredAnswer.objects));
+    const located = new Map(Object.entries(locatedAnswer.entries));
 
     const wanted = new Set(targets.flatMap((group) => group.hashes));
     const declared = project
       ? joinDeclarations(install, layerDeclarations(tree, project.path, wanted))
       : install;
-    return { index, declared, located, pending };
-  }, [declaredResults, locatedResults, project, targets, tree]);
+    return {
+      index: declaredAnswer.index,
+      declared,
+      located,
+      pending: declaredAnswer.pending || locatedAnswer.pending,
+    };
+  }, [declaredAnswer, locatedAnswer, project, targets, tree]);
 }
 
 /** What a layer directory holding an archive's chunks is named. */

@@ -1,37 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type ModHealthVerdict } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { modQueries } from "../queries";
 
-import { libraryKeys } from "../keys";
-
-/**
- * Batch-fetch every remembered mod health verdict in a single IPC call.
- * Individual badges select their own mod's entry via `useModHealthVerdict`.
- */
+/** Every remembered mod health verdict, in one IPC call. */
 export function useModHealthVerdicts() {
-  return useQuery<Record<string, ModHealthVerdict>, AppError>({
-    queryKey: libraryKeys.modHealthVerdicts(),
-    queryFn: async () => {
-      const result = await api.getModHealthVerdicts();
-      return unwrapForQuery(result);
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  return useQuery(modQueries.healthVerdicts());
 }
 
 /**
- * The remembered health verdict for a single mod, or `null` for a mod that
- * has never been checked. Reads from the shared batch query — no extra IPC.
+ * The remembered health verdict for one mod.
+ *
+ * Null for a mod that has never been checked. Reads from the shared batch query,
+ * so no extra IPC call.
  */
 export function useModHealthVerdict(modId: string) {
-  return useQuery<Record<string, ModHealthVerdict>, AppError, ModHealthVerdict | null>({
-    queryKey: libraryKeys.modHealthVerdicts(),
-    queryFn: async () => {
-      const result = await api.getModHealthVerdicts();
-      return unwrapForQuery(result);
-    },
-    staleTime: 5 * 60 * 1000,
-    select: (data) => data[modId] ?? null,
+  return useQuery({
+    ...modQueries.healthVerdicts(),
+    select: (verdicts) => verdicts[modId] ?? null,
   });
 }

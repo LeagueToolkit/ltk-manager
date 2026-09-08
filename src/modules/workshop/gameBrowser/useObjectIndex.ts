@@ -1,16 +1,14 @@
-import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
-import { api, type AppError, type DeclaredObjects } from "@/lib/tauri";
+import { api, type AppError } from "@/lib/tauri";
 import { useSearchObjects } from "@/stores";
-import { mutationFn, queryFnWithArgs } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
-import { gameKeys } from "./useGameWads";
+import { gameKeys } from "./keys";
+import { objectIndexQueries } from "./queries";
 
 const NO_OBJECTS = new Set<string>();
-
-/** How often an answer the build has not given asks again. */
-export const BUILDING_POLL_MS = 1000;
 
 /**
  * One step of the index's lifecycle, after which every held object search is
@@ -73,14 +71,7 @@ export function useWarmOnAbsent(slot: ObjectIndexSlot | undefined): () => void {
  * its own, and a warm or a drop settling asks again.
  */
 export function useObjectDeclarations(objectHashes: readonly string[]) {
-  return useQuery<DeclaredObjects, AppError>({
-    queryKey: gameKeys.declaredObjects(objectHashes),
-    queryFn:
-      objectHashes.length > 0 ? queryFnWithArgs(api.declaredObjects, [...objectHashes]) : skipToken,
-    staleTime: Infinity,
-    refetchInterval: (query) =>
-      query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
-  });
+  return useQuery(objectIndexQueries.declarations(objectHashes));
 }
 
 /**

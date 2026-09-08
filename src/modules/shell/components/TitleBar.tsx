@@ -24,7 +24,7 @@ import {
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import { api, type AppInfo, type VerdictKind } from "@/lib/tauri";
-import { isInformational, useLatestIncident } from "@/modules/diagnostics";
+import { isInformational, useIncidents, useLatestIncident } from "@/modules/diagnostics";
 import { useHomeUnread } from "@/modules/home";
 import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
 
@@ -164,7 +164,8 @@ interface TitleBarProps {
 export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const { data: platform } = usePlatformSupport();
   const isMacOS = platform?.os === "macos";
-  const { latest, data: incidents } = useLatestIncident();
+  const latest = useLatestIncident();
+  const { data: incidents } = useIncidents();
   const homeUnread = useHomeUnread();
   const pendingIncidents = incidents?.filter((incident) => !incident.dismissed).length ?? 0;
 

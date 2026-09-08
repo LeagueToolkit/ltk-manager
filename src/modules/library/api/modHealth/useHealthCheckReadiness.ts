@@ -1,13 +1,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type HealthCheckReadiness } from "@/lib/tauri";
+import type { HealthCheckReadiness } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { queryFn } from "@/utils/query";
 
 import { libraryKeys } from "../keys";
-
-/** How often to ask again while the tables are still landing. */
-const READINESS_POLL_MS = 1000;
+import { libraryPassQueries } from "../queries";
 
 /**
  * Whether a health check can run now, for the controls that offer one.
@@ -29,12 +26,7 @@ const READINESS_POLL_MS = 1000;
 export function useHealthCheckReadiness(): HealthCheckReadiness {
   const queryClient = useQueryClient();
 
-  const { data } = useQuery<HealthCheckReadiness, AppError>({
-    queryKey: libraryKeys.healthCheckReadiness(),
-    queryFn: queryFn(api.getHealthCheckReadiness),
-    staleTime: 0,
-    refetchInterval: (query) => (query.state.data === "syncing" ? READINESS_POLL_MS : false),
-  });
+  const { data } = useQuery(libraryPassQueries.healthCheckReadiness());
 
   useTauriEvent("hashtable-sync-progress", () => {
     if (data === "syncing") return;

@@ -61,11 +61,10 @@ export { useWadScanOffenders } from "./useWadScanOffenders";
 
 // Query options and hooks
 export {
-  activeProfileQueryOptions,
-  folderOrderQueryOptions,
-  foldersQueryOptions,
-  installedModsQueryOptions,
-  profilesQueryOptions,
+  folderQueries,
+  libraryPassQueries,
+  modQueries,
+  profileQueries,
   useActiveProfile,
   useFolderOrder,
   useFolders,

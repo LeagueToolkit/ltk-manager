@@ -6,14 +6,13 @@ import {
   api,
   type AppError,
   type ExtractOptions,
-  type ExtractPlan,
   type ExtractProgress,
   type ExtractSummary,
   type ExtractTarget,
 } from "@/lib/tauri";
-import { mutationFn, queryFn } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
-import { workshopKeys } from "../api/keys";
+import { gameQueries } from "./queries";
 
 /**
  * What extracting `targets` would write, for the dialog's summary line.
@@ -23,14 +22,7 @@ import { workshopKeys } from "../api/keys";
  * aimed at.
  */
 export function usePlanGameExtract(targets: readonly ExtractTarget[] | null) {
-  return useQuery<ExtractPlan, AppError>({
-    queryKey: workshopKeys.gameExtractPlan(targets),
-    queryFn: queryFn(() => api.planGameExtract([...(targets ?? [])], null)),
-    enabled: targets !== null && targets.length > 0,
-    /* The install changes only when Riot patches it, and the dialog is shut
-       and reopened often enough that a refetch per open is pure latency. */
-    staleTime: 60_000,
-  });
+  return useQuery(gameQueries.extractPlan(targets));
 }
 
 interface ExtractArgs {

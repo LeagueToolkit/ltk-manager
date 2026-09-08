@@ -14,7 +14,7 @@ import { Tile } from "./Tile";
 
 /** The latest incident's verdict, hidden while there is none or it was dismissed. */
 export function LastGameTile() {
-  const { latest } = useLatestIncident();
+  const latest = useLatestIncident();
   const navigate = useNavigate();
 
   if (!latest) return null;
