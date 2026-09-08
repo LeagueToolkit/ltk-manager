@@ -55,8 +55,8 @@ impl Properties {
         &self.0
     }
 
-    pub(crate) fn as_map_mut(&mut self) -> &mut Map<String, Value> {
-        &mut self.0
+    pub(crate) fn values_mut(&mut self) -> impl Iterator<Item = &mut Value> {
+        self.0.values_mut()
     }
 }
 
@@ -80,8 +80,8 @@ impl Event {
 
     /// The property that keeps a rotating identity from creating a person profile.
     ///
-    /// Set to `false` on every event. Without it the vendor creates one profile
-    /// per identity per day, which is wasteful and the opposite of the intent.
+    /// Set to `false` on every event, because an identity that rotates daily
+    /// would otherwise leave one profile behind per install per day.
     pub const PROCESS_PERSON_PROFILE: &'static str = "$process_person_profile";
 
     /// An event under `name`, describing itself with `properties`, at `timestamp`.

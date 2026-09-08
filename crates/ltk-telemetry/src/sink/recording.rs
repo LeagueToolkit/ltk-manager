@@ -8,9 +8,8 @@ use crate::sink::{Sink, SinkError};
 
 /// The sink that keeps every batch it is given instead of sending it.
 ///
-/// A test asserts over [`RecordingSink::payloads`], which is the exact JSON the
-/// vendor would have been handed. Asserting there rather than over the events is
-/// what makes the schema the thing under test.
+/// [`RecordingSink::payloads`] answers with the exact JSON the vendor would have
+/// been handed, which is what an assertion over the schema reads.
 #[derive(Debug, Default)]
 pub struct RecordingSink {
     batches: Mutex<Vec<Vec<Event>>>,

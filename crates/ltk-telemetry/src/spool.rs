@@ -3,8 +3,10 @@
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use fs_err as fs;
+use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
+
+use fs_err as fs;
 
 use crate::event::Event;
 
@@ -21,7 +23,9 @@ const TEMP_FILE_NAME: &str = "telemetry-spool.jsonl.tmp";
 ///
 /// Both caps are enforced on every append. A session event runs to roughly two
 /// kilobytes, so the entry cap is what binds in practice and the byte cap is the
-/// ceiling an unexpectedly large property map cannot cross.
+/// ceiling an unexpectedly large property map cannot cross. The newest event is
+/// kept whatever the byte cap says, because a spool holding nothing reports
+/// nothing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SpoolCaps {
     /// How many events are kept.
@@ -40,6 +44,53 @@ impl Default for SpoolCaps {
     }
 }
 
+/// How far into the spool a delivery reached.
+///
+/// A delivery acknowledges which entries it took rather than how many, so events
+/// appended while a batch was in the air cannot be mistaken for delivered ones.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SpoolMark(u64);
+
+/// The events one flush takes, and the mark that says which they were.
+#[derive(Debug, Clone, Default)]
+pub struct Batch {
+    events: Vec<Event>,
+    mark: Option<SpoolMark>,
+}
+
+impl Batch {
+    /// The events to deliver, oldest first.
+    #[must_use]
+    pub fn events(&self) -> &[Event] {
+        &self.events
+    }
+
+    /// The mark to acknowledge once the events are delivered.
+    #[must_use]
+    pub fn mark(&self) -> Option<SpoolMark> {
+        self.mark
+    }
+
+    /// How many events the batch carries.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+
+    /// Whether the batch carries nothing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.events.is_empty()
+    }
+}
+
+/// One event as the spool writes it down, under the mark it is acknowledged by.
+#[derive(Debug, Serialize, Deserialize)]
+struct Entry {
+    seq: u64,
+    event: Event,
+}
+
 /// The events written down but not yet delivered, oldest first.
 ///
 /// Every failure is logged and swallowed. A machine whose disk refuses the write
@@ -50,6 +101,7 @@ pub struct Spool {
     temp_path: PathBuf,
     caps: SpoolCaps,
     entries: usize,
+    next_seq: u64,
 }
 
 impl Spool {
@@ -66,8 +118,12 @@ impl Spool {
             temp_path: dir.join(TEMP_FILE_NAME),
             caps,
             entries: 0,
+            next_seq: 0,
         };
-        spool.entries = spool.read().len();
+
+        let entries = spool.entries();
+        spool.entries = entries.len();
+        spool.next_seq = entries.iter().map(|entry| entry.seq + 1).max().unwrap_or(0);
         spool
     }
 
@@ -94,7 +150,11 @@ impl Spool {
     /// The write reaches the file before this answers, which is what lets a panic
     /// hook record the event that explains the panic.
     pub fn append(&mut self, event: &Event) {
-        let Ok(mut line) = serde_json::to_string(event) else {
+        let entry = Entry {
+            seq: self.next_seq,
+            event: event.clone(),
+        };
+        let Ok(mut line) = serde_json::to_string(&entry) else {
             warn!(event = event.name(), "Failed to encode a telemetry event");
             return;
         };
@@ -110,16 +170,61 @@ impl Spool {
             return;
         }
 
+        self.next_seq += 1;
         self.entries += 1;
         self.enforce_caps();
     }
 
     /// Every event the spool holds, oldest first.
-    ///
-    /// A line that cannot be read is skipped rather than failing the read, so one
-    /// event written by an older build cannot strand the rest.
     #[must_use]
     pub fn read(&self) -> Vec<Event> {
+        self.entries()
+            .into_iter()
+            .map(|entry| entry.event)
+            .collect()
+    }
+
+    /// Everything the spool holds, as one batch to deliver.
+    #[must_use]
+    pub fn batch(&self) -> Batch {
+        let entries = self.entries();
+        Batch {
+            mark: entries.last().map(|entry| SpoolMark(entry.seq)),
+            events: entries.into_iter().map(|entry| entry.event).collect(),
+        }
+    }
+
+    /// Drop every event up to and including `mark`, which a delivery took.
+    ///
+    /// Whatever was appended since keeps a higher mark and survives, so a flush
+    /// that ran alongside a track cannot drop an event nobody sent.
+    pub fn remove_through(&mut self, mark: SpoolMark) {
+        let kept: Vec<Entry> = self
+            .entries()
+            .into_iter()
+            .filter(|entry| entry.seq > mark.0)
+            .collect();
+        if kept.is_empty() {
+            self.clear();
+            return;
+        }
+        self.rewrite(&kept);
+    }
+
+    /// Drop everything the spool holds.
+    pub fn clear(&mut self) {
+        match fs::remove_file(&self.path) {
+            Ok(()) => self.entries = 0,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.entries = 0,
+            Err(error) => warn!(%error, "Failed to clear the telemetry spool"),
+        }
+    }
+
+    /// Every entry the spool holds, oldest first.
+    ///
+    /// A line that cannot be read is skipped rather than failing the read, so one
+    /// entry written by an older build cannot strand the rest.
+    fn entries(&self) -> Vec<Entry> {
         let contents = match fs::read_to_string(&self.path) {
             Ok(contents) => contents,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Vec::new(),
@@ -133,7 +238,7 @@ impl Spool {
             .lines()
             .filter(|line| !line.trim().is_empty())
             .filter_map(|line| match serde_json::from_str(line) {
-                Ok(event) => Some(event),
+                Ok(entry) => Some(entry),
                 Err(error) => {
                     debug!(%error, "Dropped an unreadable telemetry spool entry");
                     None
@@ -142,38 +247,17 @@ impl Spool {
             .collect()
     }
 
-    /// Drop the first `count` events, which are the ones a flush delivered.
-    pub fn remove_first(&mut self, count: usize) {
-        if count == 0 {
-            return;
-        }
-        let events = self.read();
-        if count >= events.len() {
-            self.clear();
-            return;
-        }
-        self.rewrite(&events[count..]);
-    }
-
-    /// Drop everything the spool holds.
-    pub fn clear(&mut self) {
-        match fs::remove_file(&self.path) {
-            Ok(()) => self.entries = 0,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => self.entries = 0,
-            Err(error) => warn!(%error, "Failed to clear the telemetry spool"),
-        }
-    }
-
-    /// Drop from the front until both caps hold, keeping the newest event always.
+    /// Drop from the front until both caps hold, keeping the newest entry always.
+    ///
+    /// The rewrite costs the whole file, which is why it runs only once a cap is
+    /// crossed. The cap is what bounds that cost.
     fn enforce_caps(&mut self) {
-        let over_entries = self.entries > self.caps.entries;
-        let over_bytes = self.file_len() > self.caps.bytes;
-        if !over_entries && !over_bytes {
+        if self.entries <= self.caps.entries && self.file_len() <= self.caps.bytes {
             return;
         }
 
-        let events = self.read();
-        let mut kept = events.as_slice();
+        let entries = self.entries();
+        let mut kept = entries.as_slice();
         while kept.len() > 1
             && (kept.len() > self.caps.entries || encoded_len(kept) > self.caps.bytes)
         {
@@ -182,10 +266,10 @@ impl Spool {
         self.rewrite(kept);
     }
 
-    fn rewrite(&mut self, events: &[Event]) {
+    fn rewrite(&mut self, entries: &[Entry]) {
         let mut contents = String::new();
-        for event in events {
-            match serde_json::to_string(event) {
+        for entry in entries {
+            match serde_json::to_string(entry) {
                 Ok(line) => {
                     contents.push_str(&line);
                     contents.push('\n');
@@ -202,7 +286,7 @@ impl Spool {
             warn!(%error, "Failed to put the rewritten telemetry spool in place");
             return;
         }
-        self.entries = events.len();
+        self.entries = entries.len();
     }
 
     fn file_len(&self) -> u64 {
@@ -210,12 +294,12 @@ impl Spool {
     }
 }
 
-/// How many bytes `events` take as spool lines.
-fn encoded_len(events: &[Event]) -> u64 {
-    events
+/// How many bytes `entries` take as spool lines.
+fn encoded_len(entries: &[Entry]) -> u64 {
+    entries
         .iter()
-        .map(|event| {
-            serde_json::to_string(event)
+        .map(|entry| {
+            serde_json::to_string(entry)
                 .map(|line| line.len() as u64 + 1)
                 .unwrap_or(0)
         })

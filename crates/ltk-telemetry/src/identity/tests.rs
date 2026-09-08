@@ -12,9 +12,9 @@ fn at(hour: u32, minute: u32) -> DateTime<Utc> {
 fn identity_is_stable_across_one_utc_day() {
     let secret = Secret::from_stored("a-secret");
 
-    let midnight = identity(&secret, at(0, 0));
-    let noon = identity(&secret, at(12, 0));
-    let last_minute = identity(&secret, at(23, 59));
+    let midnight = Identity::for_day(&secret, at(0, 0));
+    let noon = Identity::for_day(&secret, at(12, 0));
+    let last_minute = Identity::for_day(&secret, at(23, 59));
 
     assert_eq!(midnight, noon);
     assert_eq!(noon, last_minute);
@@ -24,8 +24,8 @@ fn identity_is_stable_across_one_utc_day() {
 fn identity_changes_across_a_utc_date_boundary() {
     let secret = Secret::from_stored("a-secret");
 
-    let before = identity(&secret, at(23, 59));
-    let after = identity(
+    let before = Identity::for_day(&secret, at(23, 59));
+    let after = Identity::for_day(
         &secret,
         Utc.with_ymd_and_hms(2026, 9, 9, 0, 0, 0)
             .single()
@@ -39,15 +39,15 @@ fn identity_changes_across_a_utc_date_boundary() {
 fn identity_changes_when_the_secret_is_replaced() {
     let now = at(12, 0);
 
-    let before = identity(&Secret::from_stored("the-first-secret"), now);
-    let after = identity(&Secret::from_stored("the-second-secret"), now);
+    let before = Identity::for_day(&Secret::from_stored("the-first-secret"), now);
+    let after = Identity::for_day(&Secret::from_stored("the-second-secret"), now);
 
     assert_ne!(before, after);
 }
 
 #[test]
 fn identity_is_thirty_two_hex_characters() {
-    let rendered = identity(&Secret::generate(), at(12, 0));
+    let rendered = Identity::for_day(&Secret::generate(), at(12, 0));
 
     assert_eq!(rendered.as_str().len(), IDENTITY_BYTES * 2);
     assert!(rendered.as_str().chars().all(|c| c.is_ascii_hexdigit()));
@@ -57,7 +57,7 @@ fn identity_is_thirty_two_hex_characters() {
 fn identity_does_not_carry_the_secret() {
     let secret = Secret::from_stored("a-secret-worth-keeping");
 
-    let rendered = identity(&secret, at(12, 0));
+    let rendered = Identity::for_day(&secret, at(12, 0));
 
     assert!(!rendered.as_str().contains(secret.as_str()));
 }

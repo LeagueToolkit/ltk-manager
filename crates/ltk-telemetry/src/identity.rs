@@ -52,6 +52,28 @@ impl fmt::Debug for Secret {
 pub struct Identity(String);
 
 impl Identity {
+    /// The identity `secret` carries on the UTC day `now` falls in.
+    ///
+    /// It rotates at midnight UTC and cannot be reversed to the secret, which is
+    /// the whole of what makes the data anonymous. Two installs sharing a day
+    /// share nothing else.
+    #[must_use]
+    pub fn for_day(secret: &Secret, now: DateTime<Utc>) -> Self {
+        let mut hasher = Sha256::new();
+        hasher.update(secret.as_str().as_bytes());
+        hasher.update(b":");
+        hasher.update(now.date_naive().to_string().as_bytes());
+
+        const HEX: [u8; 16] = *b"0123456789abcdef";
+        let digest = hasher.finalize();
+        let mut rendered = String::with_capacity(IDENTITY_BYTES * 2);
+        for byte in &digest[..IDENTITY_BYTES] {
+            rendered.push(char::from(HEX[usize::from(byte >> 4)]));
+            rendered.push(char::from(HEX[usize::from(byte & 0x0f)]));
+        }
+        Self(rendered)
+    }
+
     /// The identity as the wire and the sampler read it.
     #[must_use]
     pub fn as_str(&self) -> &str {
@@ -63,26 +85,4 @@ impl fmt::Display for Identity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.0)
     }
-}
-
-/// The identity `secret` carries on the UTC day `now` falls in.
-///
-/// It rotates at midnight UTC and cannot be reversed to the secret, which is the
-/// whole of what makes the data anonymous. Two installs sharing a day share
-/// nothing else.
-#[must_use]
-pub fn identity(secret: &Secret, now: DateTime<Utc>) -> Identity {
-    let mut hasher = Sha256::new();
-    hasher.update(secret.as_str().as_bytes());
-    hasher.update(b":");
-    hasher.update(now.date_naive().to_string().as_bytes());
-
-    const HEX: [u8; 16] = *b"0123456789abcdef";
-    let digest = hasher.finalize();
-    let mut rendered = String::with_capacity(IDENTITY_BYTES * 2);
-    for byte in &digest[..IDENTITY_BYTES] {
-        rendered.push(char::from(HEX[usize::from(byte >> 4)]));
-        rendered.push(char::from(HEX[usize::from(byte & 0x0f)]));
-    }
-    Identity(rendered)
 }

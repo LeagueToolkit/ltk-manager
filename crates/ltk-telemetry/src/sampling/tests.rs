@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
 
 use super::*;
-use crate::identity::{Secret, identity};
+use crate::identity::Secret;
 
 const EVENT: &str = "game_session_ended";
 
@@ -10,7 +10,7 @@ fn identity_on(secret: &str, day: u32) -> Identity {
         .with_ymd_and_hms(2026, 9, day, 12, 0, 0)
         .single()
         .expect("September 2026 has the days these tests name");
-    identity(&Secret::from_stored(secret), now)
+    Identity::for_day(&Secret::from_stored(secret), now)
 }
 
 /// How many distinct secrets a share is measured over.

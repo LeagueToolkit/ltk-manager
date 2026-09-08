@@ -18,6 +18,10 @@ use crate::event::Event;
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SinkError {
+    /// The HTTP client could not be built, so nothing was ever asked of it.
+    #[error("the diagnostics client could not be built")]
+    Client(#[source] reqwest::Error),
+
     /// The endpoint could not be reached, or answered too slowly.
     #[error("the diagnostics endpoint could not be reached")]
     Transport(#[source] reqwest::Error),
@@ -32,8 +36,8 @@ pub enum SinkError {
 
 /// Where a batch of events is delivered.
 ///
-/// One implementation posts to the vendor and one records what it was given, and
-/// the second is the seam every test in this epic is written against.
+/// [`PostHogSink`] posts to the vendor and [`RecordingSink`] keeps what it was
+/// given, so a test drives the whole crate without a network.
 pub trait Sink: std::fmt::Debug + Send + Sync {
     /// Deliver `batch`, oldest event first.
     ///

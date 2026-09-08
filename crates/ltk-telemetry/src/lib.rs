@@ -50,11 +50,11 @@ use tracing::{debug, trace, warn};
 
 pub use crate::clock::{Clock, FixedClock, SystemClock};
 pub use crate::event::{Event, Properties};
-pub use crate::identity::{Identity, Secret, identity};
+pub use crate::identity::{Identity, Secret};
 pub use crate::sampling::{SampleRate, Sampling};
 pub use crate::scrub::Scrubber;
 pub use crate::sink::{Sink, SinkError};
-pub use crate::spool::{Spool, SpoolCaps};
+pub use crate::spool::{Batch, Spool, SpoolCaps, SpoolMark};
 
 /// Everything a handle is built from, with the replaceable parts defaulted.
 ///
@@ -159,9 +159,8 @@ impl Telemetry {
 
     /// A handle that collects nothing and writes nothing down.
     ///
-    /// What a caller holds when the setting is off or the build is a debug build.
-    /// Nothing is gathered and held back, so turning the setting off stops
-    /// collection rather than deferring it.
+    /// Every method answers without gathering, spooling or sending, so a caller
+    /// holding this one reports nothing rather than reporting it later.
     #[must_use]
     pub fn disabled() -> Self {
         Self(None)
@@ -180,7 +179,7 @@ impl Telemetry {
     #[must_use]
     pub fn identity(&self) -> Option<Identity> {
         let inner = self.0.as_ref()?;
-        Some(identity(&inner.secret, inner.clock.now()))
+        Some(Identity::for_day(&inner.secret, inner.clock.now()))
     }
 
     /// Write down that `name` happened, described by `properties`.
@@ -188,19 +187,18 @@ impl Telemetry {
     /// The event is scrubbed, stamped, given the day's identity and appended to
     /// the spool. Nothing is sent here and nothing fails here, so a call site pays
     /// one file append and never an error.
-    pub fn track(&self, name: &str, properties: Properties) {
+    pub fn track(&self, name: &str, mut properties: Properties) {
         let Some(inner) = &self.0 else {
             return;
         };
 
         let now = inner.clock.now();
-        let identity = identity(&inner.secret, now);
+        let identity = Identity::for_day(&inner.secret, now);
         if !inner.sampling.admits(&identity, name) {
             trace!(event = name, "Sampled out of telemetry");
             return;
         }
 
-        let mut properties = properties;
         inner.scrubber.scrub_properties(&mut properties);
         properties.insert(Event::DISTINCT_ID, identity.as_str());
         properties.insert(Event::PROCESS_PERSON_PROFILE, false);
@@ -213,9 +211,11 @@ impl Telemetry {
 
     /// Post what the spool holds, and drop what was delivered.
     ///
-    /// A batch that fails stays spooled for the next flush. Two flushes cannot
-    /// overlap, so a timer and an exit hook firing together deliver a batch once.
-    /// Events written while a flush is in the air survive it.
+    /// The post is synchronous, so this belongs on a thread the user is not
+    /// waiting on. A batch that fails stays spooled for the next flush, and two
+    /// flushes cannot overlap, so a timer and an exit hook firing together
+    /// deliver a batch once. An event tracked while a batch is in the air keeps
+    /// a higher mark than the batch acknowledges and survives it.
     pub fn flush(&self) {
         let Some(inner) = &self.0 else {
             return;
@@ -225,14 +225,14 @@ impl Telemetry {
             return;
         };
 
-        let batch = inner.spool.lock().read();
-        if batch.is_empty() {
+        let batch = inner.spool.lock().batch();
+        let (Some(mark), false) = (batch.mark(), batch.is_empty()) else {
             return;
-        }
+        };
 
-        match inner.sink.send(&batch) {
+        match inner.sink.send(batch.events()) {
             Ok(()) => {
-                inner.spool.lock().remove_first(batch.len());
+                inner.spool.lock().remove_through(mark);
                 debug!(events = batch.len(), "Sent a telemetry batch");
             }
             Err(error) => {

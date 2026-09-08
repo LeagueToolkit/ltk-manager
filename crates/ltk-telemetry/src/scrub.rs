@@ -91,7 +91,7 @@ impl Scrubber {
         if self.profile_dir.is_none() {
             return;
         }
-        for value in properties.as_map_mut().values_mut() {
+        for value in properties.values_mut() {
             self.scrub_value(value);
         }
     }
