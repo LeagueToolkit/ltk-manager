@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 
 import type { WadScanFailureInfo } from "@/lib/tauri";
-import { useAllModWadReports, useInstalledMods } from "@/modules/library";
+
+import { useInstalledMods } from "./queries";
+import { useAllModWadReports } from "./useModWadReport";
 
 export interface WadScanOffender {
   modId: string;

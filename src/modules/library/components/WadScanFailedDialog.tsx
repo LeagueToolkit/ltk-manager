@@ -2,13 +2,16 @@ import { Copy, Package, Wrench } from "lucide-react";
 
 import { AlertBox, Button, Dialog, Spinner, useToast } from "@/components";
 import type { WadScanFailedPayload } from "@/lib/tauri";
+import {
+  pickPrimaryStatus,
+  SCAN_STATUS_MESSAGES,
+  usePatcherStatus,
+  useStopPatcher,
+  useWadScanFailure,
+} from "@/modules/patcher";
 import { useQueuedDialog } from "@/stores";
 
-import { usePatcherStatus } from "../api/usePatcherStatus";
-import { useStopPatcher } from "../api/useStopPatcher";
-import { useWadScanFailure } from "../api/useWadScanFailure";
 import { useWadScanOffenders } from "../api/useWadScanOffenders";
-import { pickPrimaryStatus, SCAN_STATUS_MESSAGES } from "../utils/scanStatus";
 
 const TONE = {
   red: {

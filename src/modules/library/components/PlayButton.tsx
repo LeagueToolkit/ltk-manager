@@ -15,11 +15,12 @@ import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
 import { useInstalledMods } from "@/modules/library/api";
-import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
+import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useHddWarning } from "@/modules/settings";
 import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 
+import { useGuardedStartPatcher } from "../api";
 import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
 
 /* The patcher is live, so the control wears the running hue over the accent it

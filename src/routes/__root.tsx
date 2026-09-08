@@ -29,20 +29,19 @@ import {
 } from "@/modules/launcher";
 import {
   LibraryMigrationDialog,
+  LinkedBinWarningDialog,
   ModHealthSweepListener,
   useLibraryWatcher,
   useModStorageToast,
+  WadScanFailedDialog,
 } from "@/modules/library";
 import {
-  LinkedBinWarningDialog,
   PatcherEventListeners,
-  useAutoStartPatcher,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
-  WadScanFailedDialog,
 } from "@/modules/patcher";
 import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
-import { DevConsole, TitleBar, useDevLogStream } from "@/modules/shell";
+import { DevConsole, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
 import { UpdateNotification, useUpdateCheck } from "@/modules/updater";
 import { useObjectIndexLifecycle } from "@/modules/workshop";
 import { useDisplayStore, useUpdaterUpdate } from "@/stores";

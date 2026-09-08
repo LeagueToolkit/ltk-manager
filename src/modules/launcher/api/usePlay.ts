@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import { useToast } from "@/components";
 import { api, type AppError, isOk, type LaunchOutcome } from "@/lib/tauri";
-import { useGuardedStartPatcher } from "@/modules/patcher";
+import { useGuardedStartPatcher } from "@/modules/library";
 import { useHddWarning } from "@/modules/settings";
 import { type PlayStep, usePlaySessionStore } from "@/stores";
 

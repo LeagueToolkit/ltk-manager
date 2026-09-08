@@ -18,11 +18,10 @@ import {
   offersRebuild,
   useDismissIncident,
 } from "@/modules/diagnostics";
-import { ModHealthStatusItem, useHealthVerdicts } from "@/modules/library";
+import { ModHealthStatusItem, useHealthVerdicts, useOverlayProgress } from "@/modules/library";
 import {
   patcherFailureTab,
   patcherFailureTitle,
-  useOverlayProgress,
   usePatcherStatus,
   useRebuildOverlayAction,
 } from "@/modules/patcher";
