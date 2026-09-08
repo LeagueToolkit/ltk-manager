@@ -18,6 +18,64 @@ cites a file and line. Each proposal names what moves and what it costs.
 - Five read-only sweeps over `src/`, one each for stores, IPC, duplication, rendering, and
   organization
 
+## What has landed
+
+The findings below are the evidence at `018fe6e`. This section is what no longer describes `main`.
+
+### Guards, boot and the data layer, PR #473
+
+- `oxlint` carries `import/no-cycle` and ESLint carries the barrel rule, `no-restricted-imports`
+  for `@/components/*` and `lucide-react`, and `max-lines` at 400 as a warning. Section 11,
+  "Enforce before moving".
+- The three module cycles and the six self-barrel imports are gone, and the module graph is a DAG.
+  The 24 cycles `pnpm lint:cycles` still reports are all between sub-barrels inside `workshop`.
+  Section 4.
+- Every selectable font family carries a `load` and arrives when it is chosen. The two defaults
+  and the display face stay eager. `DataTable` and `@tanstack/react-table` are deleted, and
+  `@tanstack/react-query-devtools` is out of the production dependencies. Section 12, "Boot".
+- `MutationCache` reports an unhandled mutation failure, and a mutation that reports its own
+  declares `silentError` in its `meta`. Finding 6.
+- `usePatcherStatus` is driven by a phase event and polls only until a status settles. An idle app
+  polls not at all. Finding 4.
+- The mod card image is `loading="lazy"`, the four inline query keys are in their module's factory,
+  and both raw `invoke("reveal_in_explorer")` calls go through the API.
+- `src/CLAUDE.md` names `useTauriEvent` and `useTauriProgress`. Finding 8.
+- The React Compiler is on, `tsgo` typechecks in CI, and `oxfmt` replaces Prettier.
+
+### The state layer, `74afa9a` and `2aab466`
+
+- Sixteen single-consumer stores are in `modules/<module>/state/`, and `src/stores/` holds what
+  crosses modules. `workshopView` is folded into `workshopFilter`. Finding 7, and section 11,
+  "Stores go to their module".
+- `workshopLayout` stays in `src/stores/`, because `settings/components/SettingScope.tsx` reads it
+  and `workshop` already imports `settings`.
+- `stores/facetFilter.ts` holds the three-category slice both list stores spread. What is left in
+  `libraryFilter` is the sort field, and in `workshopFilter` the sort field, the view mode and the
+  search query.
+- The thirteen whole-store subscriptions on the two filter stores are gone, replaced by a hook per
+  field and one `useShallow` hook for the actions. The three that remain - `SettingScope`,
+  `DevConsole`, `NotificationCenter` - each read every field of the store they subscribe to.
+- `stores/createDialogStore.ts` answers `payload`, `isOpen`, `open` and `close`. It replaces
+  `libraryDialogs` and the eight pairs and seventeen actions in `workshopDialogs`. `lastAuthorName`
+  is its own store in `workshop/state`.
+- Every persisted store declares `version` and `migrate`. `libraryView` migrates its array to a
+  `Set` and drops its hand-rolled storage codec for the shared one.
+- `stores/updater.ts` is state and named transitions. The download is `useInstallUpdate` and the
+  check is `useCheckForUpdate`, both in `modules/updater/api`. No store performs I/O.
+- `create<T>()(...)` everywhere, `displayStore.ts` is `display.ts`, `incidents.ts` is
+  `incidentLine.ts`, and the store hooks all carry the `Store` suffix.
+- `gameBrowser`'s `keptScrollTop` and `keepScrollTop` stay outside React on `getState()`, because a
+  list that re-rendered on its own scroll would spend the scroll twice.
+- `src/CLAUDE.md` carries the placement rule as "Where a Store Lives".
+
+### What still stands
+
+The library grid is unvirtualized and every card still issues its own thumbnail invoke. `pages/`
+is still four shims. The `lib`, `utils` and `hooks` split is unsorted apart from the hooks that
+moved with their modules. The specta migration, the lifted components and the tree core are
+untouched. Sections 7, 8 and 10 read as written, and so does section 12 apart from the boot and
+patcher bullets above.
+
 ## 1. The shape
 
 1,158 TypeScript files, 49,324 lines including tests, 34,950 without.
@@ -746,13 +804,14 @@ and the health sweep, both of which stream today as an event plus a status poll.
 
 ## 13. Suggested order
 
-1. ESLint guards. One PR, no behavior change, stops regressions.
-2. Fonts on demand and `DataTable` removal. Boot cost, no structural risk.
+1. ESLint guards. One PR, no behavior change, stops regressions. **Landed.**
+2. Fonts on demand and `DataTable` removal. Boot cost, no structural risk. **Landed.**
 3. `MutationCache.onError` and the CLAUDE.md event section. Two small edits with wide effect.
-4. The patcher event. One backend emit, one frontend hook change.
-5. The library grid: thumbnails command, lazy images, virtualization.
-6. The session leaf and named barrels. The chunk graph fixes itself after this.
+   **Landed.**
+4. The patcher event. One backend emit, one frontend hook change. **Landed.**
+5. The library grid: thumbnails command, lazy images, virtualization. **Lazy images only.**
+6. The session leaf and named barrels. The chunk graph fixes itself after this. **Landed.**
 7. Stores to modules, `pages/` deleted, `lib`/`utils`/`hooks` sorted. Mechanical moves once the
-   guards hold.
+   guards hold. **Stores only.**
 8. The specta migration per module, `library` first.
 9. The lifted components and the tree core, each on the next change that touches them.
