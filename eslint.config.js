@@ -1,9 +1,6 @@
 import js from "@eslint/js";
-import path from "node:path";
-
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import i18next from "eslint-plugin-i18next";
-import importX, { createNodeResolver } from "eslint-plugin-import-x";
 import reactPlugin from "eslint-plugin-react";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
@@ -13,32 +10,7 @@ import tseslint from "typescript-eslint";
 /** Output no rule can ask an author to change. */
 const GENERATED = ["src/lib/bindings/**", "src/lib/bindings.gen.ts", "src/routeTree.gen.ts"];
 
-const SRC = path.resolve(import.meta.dirname, "src");
-const nodeResolver = createNodeResolver({
-  extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
-});
-
-/**
- * The one `paths` entry in `tsconfig.json`, so `import-x` follows `@/` the way
- * Vite does. `eslint-import-resolver-typescript` reads no alias out of this
- * tsconfig, and one alias does not need a resolver that reads a project graph.
- */
-const aliasResolver = {
-  interfaceVersion: 3,
-  name: "ltk-alias",
-  resolve(source, file) {
-    const specifier = source.startsWith("@/") ? path.join(SRC, source.slice("@/".length)) : source;
-    return nodeResolver.resolve(specifier, file);
-  },
-};
-
 export default tseslint.config(
-  {
-    settings: {
-      ...importX.flatConfigs.typescript.settings,
-      "import-x/resolver-next": [aliasResolver],
-    },
-  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -47,7 +19,6 @@ export default tseslint.config(
       react: reactPlugin,
       "react-hooks": reactHooksPlugin,
       "simple-import-sort": simpleImportSort,
-      "import-x": importX,
     },
     languageOptions: {
       globals: {
@@ -80,13 +51,11 @@ export default tseslint.config(
     },
   },
   {
-    /* Warnings while the three module cycles in
-       docs/research/frontend-architecture-audit.md stand. Each becomes an error
-       as its section lands. */
+    /* Cycles are oxlint's job, in `.oxlintrc.json`: the graph walk costs
+       ESLint more than every other rule here put together. */
     files: ["src/**/*.{ts,tsx}"],
     ignores: GENERATED,
     rules: {
-      "import-x/no-cycle": ["warn", { ignoreExternal: true }],
       "max-lines": ["warn", { max: 400, skipBlankLines: true, skipComments: true }],
     },
   },
