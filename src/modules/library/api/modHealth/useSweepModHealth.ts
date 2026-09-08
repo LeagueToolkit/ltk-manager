@@ -19,6 +19,7 @@ export function useSweepModHealth() {
   const forgetAnnouncement = useModHealthDrawerStore((s) => s.forgetAnnouncement);
 
   return useMutation<HealthSweepReport, AppError, string[] | undefined>({
+    meta: { silentError: true },
     mutationFn: async (modIds) => unwrapForQuery(await api.sweepModHealth(modIds)),
     onSuccess: (report) => {
       forgetAnnouncement();

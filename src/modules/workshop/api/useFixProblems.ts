@@ -35,6 +35,7 @@ export function useFixProblems() {
   const toast = useToast();
 
   return useMutation<FixReport, AppError, FixProblemsArgs>({
+    meta: { silentError: true },
     mutationFn: async ({ projectPath, problems }) => {
       const result = await api.fixProblems(projectPath, problems);
       return unwrapForQuery(result);

@@ -18,6 +18,8 @@ export function useProtocolInstall() {
   const queryClient = useQueryClient();
 
   return useMutation<InstalledMod, AppError, ProtocolInstallVars>({
+    /* The dialog draws the error this puts in the store. */
+    meta: { silentError: true },
     mutationFn: async ({ url, name, author, source }) => {
       useDeepLinkStore.getState().setStatus("installing");
       const result = await api.deepLinkInstallMod(url, name, author, source);

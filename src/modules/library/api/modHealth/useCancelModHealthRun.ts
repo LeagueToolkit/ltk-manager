@@ -20,6 +20,7 @@ export function useCancelModHealthRun() {
   const toast = useToast();
 
   return useMutation<null, AppError, void>({
+    meta: { silentError: true },
     mutationFn: async () => unwrapForQuery(await api.cancelModHealthRun()),
     onError: (error) => {
       toast.error(m.library_health_cancel_failed_title(), errorSummary(error));

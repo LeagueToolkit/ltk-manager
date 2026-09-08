@@ -25,6 +25,7 @@ export function SaveCopyAction({ asset, name }: SaveCopyActionProps) {
   const { success, error } = useToast();
 
   const saveCopy = useMutation<void, AppError, string>({
+    meta: { silentError: true },
     mutationFn: mutationFn((destination: string) => api.saveAssetCopy(asset, destination)),
     onSuccess: () => success("Saved a copy", name),
     onError: (e) => error("Could not save a copy", errorSummary(e)),

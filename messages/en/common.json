@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_action_failed_title": "Something went wrong",
   "common_cancel_action": "Cancel",
   "common_close_action": "Close",
   "common_health_broken_label": "{count} broken",

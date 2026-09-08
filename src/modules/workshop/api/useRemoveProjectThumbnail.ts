@@ -16,6 +16,8 @@ export function useRemoveProjectThumbnail() {
   const queryClient = useQueryClient();
 
   return useMutation<WorkshopProject, AppError, RemoveThumbnailArgs>({
+    /* ThumbnailSection reports. */
+    meta: { silentError: true },
     mutationFn: mutationFn(({ projectPath }) => api.removeProjectThumbnail(projectPath)),
     onSuccess: (updatedProject) => {
       queryClient.setQueryData<WorkshopProject[]>(workshopKeys.projects(), (old) =>

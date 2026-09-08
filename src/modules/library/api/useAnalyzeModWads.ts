@@ -21,6 +21,7 @@ export function useAnalyzeModWads() {
   const toast = useToast();
 
   return useMutation<ModWadReport, AppError, string>({
+    meta: { silentError: true },
     mutationFn: async (modId) => {
       const result = await api.analyzeModWads(modId);
       return unwrapForQuery(result);

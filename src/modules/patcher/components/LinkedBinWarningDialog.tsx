@@ -91,8 +91,9 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
       );
       onClose();
     } catch {
+      /* useToggleMod reports through the default toast, which names the cause
+         this one could only guess at. */
       setBusy(false);
-      toast.error("Couldn't disable mods", "Try again from the mod's menu.");
     }
   };
 

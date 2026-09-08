@@ -40,6 +40,7 @@ export function useOpenInRitobin() {
   const toast = useToast();
 
   return useMutation<void, AppError, OpenInRitobinArgs>({
+    meta: { silentError: true },
     mutationFn: async ({ asset, name }) =>
       unwrapForQuery(await api.openAssetInRitobin(asset, name)),
     onError: (error) => toast.error("Couldn't open in VS Code", errorSummary(error)),

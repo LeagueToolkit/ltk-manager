@@ -53,6 +53,7 @@ export function useAnalyzeUncategorizedMods() {
   const toast = useToast();
 
   return useMutation<AnalyzeBackfillResult, AppError, InstalledMod[]>({
+    meta: { silentError: true },
     mutationFn: async (mods) => {
       let analyzed = 0;
       const failures: AnalyzeFailure[] = [];

@@ -15,6 +15,8 @@ export function useLaunchLeague() {
   const queryClient = useQueryClient();
 
   return useMutation<LaunchOutcome | null, AppError, LaunchTarget | undefined>({
+    /* usePlay reports the failure through the launch-error toast. */
+    meta: { silentError: true },
     mutationFn: async (target) => {
       const result = await api.launchLeague(target);
       return unwrapForQuery(result);

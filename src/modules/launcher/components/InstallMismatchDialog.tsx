@@ -11,7 +11,7 @@ import {
   usePendingRebuildStore,
   useQueuedDialog,
 } from "@/stores";
-import { basename } from "@/utils/path";
+import { basename } from "@/utils";
 import { mutationFn } from "@/utils/query";
 
 /** The install as the dialog names it: its patchline where one is known, else its folder. */
@@ -45,6 +45,7 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
   const queryClient = useQueryClient();
 
   const switchInstall = useMutation<null, AppError, string>({
+    meta: { silentError: true },
     mutationFn: mutationFn(api.launcher.switchLeagueInstall),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.settings() });

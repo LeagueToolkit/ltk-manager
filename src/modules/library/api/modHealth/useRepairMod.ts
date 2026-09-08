@@ -20,6 +20,7 @@ export function useRepairMod() {
   const toast = useToast();
 
   return useMutation<FixReport, AppError, string>({
+    meta: { silentError: true },
     mutationFn: async (modId) => {
       const result = await api.repairMod(modId);
       return unwrapForQuery(result);

@@ -68,10 +68,9 @@ export function ProtocolInstallDialog() {
       ...settings,
       trustedDomains: [...(settings.trustedDomains ?? []), untrustedDomain],
     };
-    saveSettings.mutate(trusted, {
-      onSuccess: runInstall,
-      onError: (err) => toast.error(m.deep_link_install_failed_title(), errorSummary(err)),
-    });
+    /* No onError: useSaveSettings has seven callers and reports through the
+       default toast, which this one would double. */
+    saveSettings.mutate(trusted, { onSuccess: runInstall });
   }
 
   function handleClose() {

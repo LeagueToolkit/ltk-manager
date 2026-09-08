@@ -3,7 +3,10 @@ import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
+import { describeError, errorMessage } from "@/i18n/errors";
+import { m } from "@/paraglide/messages";
 import { useNotificationStore } from "@/stores/notifications";
+import { isAppError } from "@/utils/errors";
 
 export type ToastType = "success" | "error" | "warning" | "info";
 
@@ -54,6 +57,24 @@ export interface ToastTask {
  * running task. Bound here, raising a toast subscribes to nothing.
  */
 export const toastManager = heldUntilListened(BaseToast.createToastManager<ToastData>());
+
+/**
+ * Report a failure nothing else speaks for, from outside React.
+ *
+ * The data layer's last resort, so a mutation with no `onError` still reaches
+ * the reader rather than the devtools alone.
+ */
+export function reportUnhandledFailure(error: unknown): void {
+  const copy = isAppError(error)
+    ? describeError(error)
+    : { title: m.common_action_failed_title(), detail: errorMessage(error) };
+  toastManager.add({
+    title: copy.title,
+    description: copy.detail ?? copy.description,
+    data: { type: "error", timeout: 7000 },
+    timeout: 7000,
+  });
+}
 
 /**
  * `manager`, holding what is raised before the provider listens.
