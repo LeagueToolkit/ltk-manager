@@ -10,6 +10,7 @@ import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
 import { RowValue, ValueMarkCell } from "./BinRow";
 import { fieldHash, rowKey } from "./binRows";
+import { BinTree } from "./BinTree";
 import type { LayoutFrame, PlacedSection } from "./classLayouts";
 import { useCurveChain, useCurveDock } from "./curveTarget";
 import { chunkPath, decideFileLink } from "./linkDecision";
@@ -143,6 +144,43 @@ export function TextCell({ row, className }: { row: BinRow | undefined; classNam
   );
 }
 
+/** The most rows a section's tree shows before it scrolls, so no section owns the page. */
+const TREE_ROWS = 12;
+
+interface SectionTreeProps {
+  view: ViewContext;
+  /** The rows at depth zero: what the section placed, or the elements under them. */
+  roots: readonly BinRow[];
+  /** The class the roots are properties of. Null where they are a container's elements. */
+  rootOwner: string | null;
+  /** The tree's accessible name, which is the section's own title. */
+  label: string;
+  /** The keys open at mount. */
+  initialExpanded?: readonly string[];
+}
+
+/** A section's rows as the tree draws them, in a box of its own. */
+export function SectionTree({ view, roots, rootOwner, label, initialExpanded }: SectionTreeProps) {
+  if (roots.length === 0) return <None />;
+
+  return (
+    /* DS-GROUND, DS-RADIUS */
+    <div className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900">
+      <BinTree
+        document={view.document}
+        asset={view.asset}
+        roots={roots}
+        rootOwner={rootOwner}
+        label={label}
+        maxRows={TREE_ROWS}
+        initialExpanded={initialExpanded}
+        objectName={view.objectName}
+        onNotOpen={view.onNotOpen}
+      />
+    </div>
+  );
+}
+
 /** The line a section draws where the read answered no row for it. */
 export function None() {
   return <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>;
@@ -164,7 +202,7 @@ export function TableRows({
           key={rowKey(element)}
           data-row-key={rowKey(element)}
           /* DS-VEIL, DS-RADIUS */
-          className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
+          className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
         >
           {children(element)}
         </div>
@@ -180,7 +218,7 @@ export function FieldRow({ row, width = "w-40" }: { row: BinRow; width?: string 
   return (
     /* DS-VEIL, DS-RADIUS */
     <div
-      className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil"
+      className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
       data-row-key={rowKey(row)}
     >
       <span className={twMerge("shrink-0 truncate text-surface-200", width)}>{row.name}</span>

@@ -311,7 +311,8 @@ export function nameColumns(
 ): number {
   let widest = MIN_NAME_COLS;
   for (const line of visible) {
-    if (line.kind !== "row" || line.row.node === "object") continue;
+    /* An object and an element sit outside the column, so neither widens it. */
+    if (line.kind !== "row" || line.row.node === "object" || line.row.node === "element") continue;
     const tag = tagOf(line.row);
     const held = line.row.value.type === "struct" ? (line.row.value.class ?? "") : "";
     const cols =

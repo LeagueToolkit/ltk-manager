@@ -61,15 +61,29 @@ const SCHEMA: ClassSchema = {
       name: "championSkinName",
       declared: { kind: "string", key: null, value: null },
       revisions: [
-        { from: 5229820, to: 8049184, shape: { kind: "hash", key: null, value: null } },
-        { from: 8104348, to: null, shape: { kind: "string", key: null, value: null } },
+        {
+          from: 5229820,
+          to: 8049184,
+          shape: { kind: "hash", key: null, value: null },
+        },
+        {
+          from: 8104348,
+          to: null,
+          shape: { kind: "string", key: null, value: null },
+        },
       ],
     },
     {
       hash: "0x0000000b",
       name: "iconCircle",
       declared: { kind: "option", key: null, value: "file" },
-      revisions: [{ from: 5229820, to: null, shape: { kind: "option", key: null, value: "file" } }],
+      revisions: [
+        {
+          from: 5229820,
+          to: null,
+          shape: { kind: "option", key: null, value: "file" },
+        },
+      ],
     },
   ],
 };
@@ -123,7 +137,12 @@ beforeEach(() => {
 describe("the value widgets", () => {
   it("keeps a 64-bit integer's digits, which a JS number would round away", () => {
     renderLine(
-      line(row({ kind: "u64", value: { type: "integer", text: "18446744073709551615" } })),
+      line(
+        row({
+          kind: "u64",
+          value: { type: "integer", text: "18446744073709551615" },
+        }),
+      ),
     );
 
     expect(screen.getByDisplayValue("18446744073709551615")).toHaveAttribute("readonly");
@@ -157,7 +176,12 @@ describe("the value widgets", () => {
       line(
         row({
           kind: "embed",
-          value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 1 },
+          value: {
+            type: "struct",
+            classHash: SKIN_CLASS,
+            class: "Part",
+            len: 1,
+          },
         }),
       ),
       onToggle,
@@ -212,14 +236,19 @@ describe("the tag", () => {
           path: "0000000a[0]",
           name: "[0]",
           kind: "embed",
-          value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 3 },
+          value: {
+            type: "struct",
+            classHash: SKIN_CLASS,
+            class: "Part",
+            len: 3,
+          },
         }),
         null,
       ),
     );
     expect(screen.getByText("[0]")).toBeInTheDocument();
     expect(screen.getByText("Part")).toBeInTheDocument();
-    expect(screen.getByText("3 properties")).toBeInTheDocument();
+    expect(screen.queryByText("3 properties")).not.toBeInTheDocument();
   });
 
   it("is absent from an object row", () => {
@@ -230,7 +259,12 @@ describe("the tag", () => {
           path: "",
           name: "Characters/Aatrox",
           kind: null,
-          value: { type: "struct", classHash: SKIN_CLASS, class: "CharacterRecord", len: 2 },
+          value: {
+            type: "struct",
+            classHash: SKIN_CLASS,
+            class: "CharacterRecord",
+            len: 2,
+          },
         }),
         null,
       ),
@@ -247,7 +281,10 @@ describe("the mismatch mark", () => {
         row({
           name: "iconCircle",
           kind: "string",
-          declared: { shape: { kind: "option", key: null, value: "file" }, mismatch: true },
+          declared: {
+            shape: { kind: "option", key: null, value: "file" },
+            mismatch: true,
+          },
         }),
       ),
     );
@@ -263,7 +300,10 @@ describe("the mismatch mark", () => {
         row({
           name: "iconCircle",
           kind: "string",
-          declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
+          declared: {
+            shape: { kind: "string", key: null, value: null },
+            mismatch: false,
+          },
         }),
       ),
     );
@@ -276,7 +316,10 @@ describe("the mismatch mark", () => {
     renderLine(
       line(
         row({
-          declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
+          declared: {
+            shape: { kind: "string", key: null, value: null },
+            mismatch: false,
+          },
         }),
       ),
     );
@@ -308,7 +351,9 @@ describe("the class card", () => {
       "href",
       "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdataproperties/",
     );
-    expect(mockInvoke).toHaveBeenCalledWith("class_schema", { classHash: SKIN_CLASS });
+    expect(mockInvoke).toHaveBeenCalledWith("class_schema", {
+      classHash: SKIN_CLASS,
+    });
   });
 
   it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
@@ -317,7 +362,12 @@ describe("the class card", () => {
       line(
         row({
           kind: "pointer",
-          value: { type: "struct", classHash: "0x0000beef", class: null, len: 1 },
+          value: {
+            type: "struct",
+            classHash: "0x0000beef",
+            class: null,
+            len: 1,
+          },
         }),
       ),
     );
@@ -343,7 +393,12 @@ describe("the class card", () => {
       line(
         row({
           kind: "pointer",
-          value: { type: "struct", classHash: "0x0000beef", class: null, len: 1 },
+          value: {
+            type: "struct",
+            classHash: "0x0000beef",
+            class: null,
+            len: 1,
+          },
         }),
       ),
     );
@@ -360,7 +415,10 @@ describe("the field card", () => {
     name: "championSkinName",
     kind: "embed",
     value: { type: "struct", classHash: SKIN_CLASS, class: "Part", len: 1 },
-    declared: { shape: { kind: "string", key: null, value: null }, mismatch: false },
+    declared: {
+      shape: { kind: "string", key: null, value: null },
+      mismatch: false,
+    },
   });
 
   it("opens on hover with the declared kind and the revisions", async () => {
@@ -401,7 +459,12 @@ describe("a value family's row", () => {
     const marked = line(
       row({
         kind: "embed",
-        value: { type: "struct", classHash: nameHash("ValueColor"), class: "ValueColor", len: 2 },
+        value: {
+          type: "struct",
+          classHash: nameHash("ValueColor"),
+          class: "ValueColor",
+          len: 2,
+        },
       }),
     );
     return render(

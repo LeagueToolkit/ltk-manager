@@ -13,6 +13,7 @@ import {
   isUnder,
   type LoadedChildren,
   mergePages,
+  nameColumns,
   PAGE_SIZE,
   pagesWanted,
   rowKey,
@@ -330,5 +331,32 @@ describe("ancestorKeys", () => {
       `${ENTRY}:0000000a`,
       `${ENTRY}:0000000a[3`,
     ]);
+  });
+});
+
+describe("nameColumns", () => {
+  const line = (row: BinRow, depth = 0) => ({
+    kind: "row" as const,
+    key: rowKey(row),
+    row,
+    depth,
+    expanded: false,
+    loading: false,
+    owner: null,
+  });
+
+  const noTag = () => null;
+
+  it("widens the column for the longest property name it holds", () => {
+    const long = row({ name: "mConditionFloatPairDataList" });
+
+    expect(nameColumns([line(long)], noTag)).toBeGreaterThan(nameColumns([line(SIZE)], noTag));
+  });
+
+  it("leaves the column alone for an object and an element, which sit outside it", () => {
+    const element = row({ node: "element", name: "[0]", path: "0000000a[0]" });
+    const bare = nameColumns([line(SIZE)], noTag);
+
+    expect(nameColumns([line(SIZE), line(OBJECT), line(element, 4)], noTag)).toBe(bare);
   });
 });

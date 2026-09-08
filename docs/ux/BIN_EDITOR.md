@@ -468,6 +468,20 @@ rows rather than the visible ones, so it does not move while a reader scrolls, a
 at both ends - a shallow list is not cramped, and one long name cannot push every value off the
 pane.
 
+**An element sits outside the column.** Its value follows its index rather than starting where a
+property's does, because a list of elements is read down its own values and a column measured for
+the names around it strands each one behind a run of nothing. The names in a list are `[0]` and
+`[1]`, so there is no column for them to keep.
+
+**An element's index never elides.** A list is read by counting down it, so `[12]` is the one part
+of a row that has to survive a narrow pane, and the class beside it is what gives way.
+
+**The pane is the last bound.** The measured width is what the names want, and on a narrow pane
+what they want is the whole row, so the column stops at half of it and the names elide from there.
+The value is the answer a reader came for, and a column of names beside a column of nothing
+answers nothing. Half is the split rather than a fixed number of characters, because the pane
+moves under a splitter drag and a name has an ellipsis to fall back on where a value has none.
+
 ```
 │     ├ championSkinName        string   "Justicar Aatrox"           │
 │     ├ ▸ skinMeshProperties    embed    SkinMeshDataProperties      │
@@ -509,7 +523,8 @@ a field neither names.
 **An element names its class, not its kind.** A row inside a container is its index and, where
 it holds a struct, the class it holds - the tag is dropped, because the declaring property
 already reads `list[pointer]` and no element of a container is a different kind from its
-siblings. The value column then carries the property count rather than repeating the class.
+siblings. The value column stays empty under it, because a count of the rows the caret is about
+to open is a fact the tree answers the moment a reader asks for it.
 
 ### Containers and depth
 
@@ -574,6 +589,8 @@ The document's own row in the tab strip carries what the file is, and follows th
 
 A `PTCH` bin patches objects rather than declaring them, and the header says so, because the
 same block drawn under different semantics is the kind of thing a user has to be told once.
+On a narrow tab the row keeps the object count, the dependencies and the fact that the file is a
+patch, and drops the version and the patch tallies.
 Read [A patch bin is read-only](#a-patch-bin-is-read-only) for the rest of what it says.
 
 ### The row menu
@@ -638,13 +655,21 @@ rule of one row per leaf.
 | Fact               | Reads                                                                  |
 | ------------------ | ---------------------------------------------------------------------- |
 | Class              | The class the declaration carries, as a [card](#the-class-card)        |
-| Properties         | The count                                                              |
 | Show in file       | Opens the declaring file's tab, scrolled to the object                 |
 | Other declarations | A popover from the index, one row per file, each opening its own tab   |
 | Mode               | The layout or Properties, where the class has a [layout](#class-views) |
 | Kebab              | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
 
 With the index absent, the other declarations draw a dim "Build the object index" affordance.
+
+The row carries no property count. The tree under it is the count, one row per property, and a
+tally of what is already on screen is a fact the reader reads twice.
+
+**A narrow toolbar drops what a reader reaches another way.** The class, the mode and the kebab
+stay at every width. The other declarations go first, because the index is a question rather than
+an answer. Show in file folds into the kebab, where the object's other actions already are. What a toolbar never does is
+wrap or scroll, because a second row costs the tree a row of content at the width that has the
+least of it, and a control that has scrolled out of a row is a control nobody finds.
 
 The kebab is where the header's actions live, because a header is the one place a name sits with
 no row under it to right-click. It carries Find all references, Copy class name and Copy class
@@ -891,16 +916,22 @@ A layout is data, keyed on the class hash, with each subclass listed by hand bec
 carries no inheritance. It names its fields by name, and a frontend FNV-1a turns each into the
 row's hash at module load, checked by a test over known pairs.
 
-A section names one widget or none, and a widget reads the fields of one class: `sampler-table`,
-`param-table` and `switch-list` for the material, `icons`, `mesh`, `override-table` and
-`effect-table` for the skin, `emitters` for the particle system. `fields` draws the
-sub-fields a section names under the row it placed, which is what a one-field embed such as
-`skinAnimationProperties` takes. `tree` is [the tree](#the-blocks) rooted at the section's own
-fields, which is what a nested structure with no table shape takes. A section that names no
-widget draws each of its fields in the cell that row would draw.
+A section names one widget or none. `rows` is the elements of the containers the section placed,
+each as the row [the tree](#the-blocks) draws, which is what a list takes. `override-rows` is the
+same over a list one level down, which is how the skin reaches the mesh's material overrides.
+`icons`, `mesh` and `effect-table` are the skin's own, and `emitters` the particle system's, each
+reading the fields of one class. `fields` draws the sub-fields a section names under the row it
+placed, which is what a one-field embed such as `skinAnimationProperties` takes. `tree` is the
+tree rooted at the section's own fields, which is what a nested structure takes. A section that
+names no widget draws each of its fields in the cell that row would draw.
+
+**A list draws as rows, not as a table of its own columns.** A table asks a reader to learn which
+column is which and then holds them to the fields it chose, where the same elements as rows read
+the way the rest of the editor reads and open to everything the element carries. The tile and the
+columns a table spent its width on are what a row gives up for that.
 
 A widget also declares how far under its own fields it reads, one step per level, and a step
-names which of a level's rows carry on down. So the material override table reaches
+names which of a level's rows carry on down. So the skin's material overrides reach
 `skinMeshProperties.materialOverride` and the elements under it without the mesh's other fields
 costing a call of their own.
 
@@ -909,11 +940,31 @@ export const materialLayout: ClassLayout = {
   title: m.workshop_bin_layout_material,
   sections: [
     { title: m.workshop_bin_section_identity, fields: ["name", "type"] },
-    { title: m.workshop_bin_section_samplers, fields: ["samplerValues"], as: "sampler-table" },
-    { title: m.workshop_bin_section_params, fields: ["paramValues"], as: "param-table" },
-    { title: m.workshop_bin_section_switches, fields: ["switches"], as: "switch-list" },
-    { title: m.workshop_bin_section_macros, fields: ["shaderMacros"], as: "tree" },
-    { title: m.workshop_bin_section_techniques, fields: ["techniques"], as: "tree" },
+    {
+      title: m.workshop_bin_section_samplers,
+      fields: ["samplerValues"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_params,
+      fields: ["paramValues"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_switches,
+      fields: ["switches"],
+      as: "rows",
+    },
+    {
+      title: m.workshop_bin_section_macros,
+      fields: ["shaderMacros"],
+      as: "tree",
+    },
+    {
+      title: m.workshop_bin_section_techniques,
+      fields: ["techniques"],
+      as: "tree",
+    },
   ],
 };
 ```
@@ -927,8 +978,9 @@ a field, a checkbox, a chip, a swatch. When leaf editing lands, a cell edits thr
 row would send, and a layout never holds state of its own.
 
 A cell carries the key of the row it draws rather than of the element it sits in. The menu over
-a sampler's path is that path's, and Show in properties from it reveals
-`samplerValues[0].texturePath`.
+the mesh's `simpleSkin` is that row's, and Show in properties from it reveals
+`skinMeshProperties.simpleSkin`. A section drawn as rows carries [the row menu](#the-row-menu)
+itself, because its rows are the tree's.
 
 A cell's context menu is [the row menu](#the-row-menu), plus Show in properties, which switches
 the mode and reveals the row in the tree, expanding the ancestors of a nested key. A layout has
@@ -956,11 +1008,11 @@ so does a panel row whose keys the read has not answered yet.
 
 The depth-zero rows arrive with the open. A nested row arrives through
 [the projected read](#the-projected-read), one call per level with the paths of a section
-batched under the call's cap. A table section costs two levels, the containers the layout placed
-and then the elements of each, and every table section of one layout shares those two calls. A
-table under a nested field costs three, which is as deep as a layout reads. A tree section reads
-nothing until a reader expands it. A material's macros and techniques take the tree, which holds
-the whole material at two calls whatever its techniques nest to.
+batched under the call's cap. A section of rows costs one level, the elements of the containers
+the layout placed, and every section of one layout shares that call. The rows under an element
+are the tree's own fetch rather than a level of the read. A widget that draws named cells costs
+the level under its elements too, which is as deep as a layout reads. A tree section reads
+nothing until a reader expands it.
 
 A widget that joins a second object reads it through the same handle, because a read names the
 entry it walks. Only an object another file declares costs an open of its own, which is what the
@@ -968,24 +1020,21 @@ skin's VFX table does to reach its resolver.
 
 A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
 `string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
-same, and a path neither side holds draws as text. In the sampler table the swatch is a 48px
-tile, because the textures are what the view is opened for.
+same, and a path neither side holds draws as text. The skin's icons and mesh textures draw as
+tiles, because the textures are what those sections are opened for.
 
-A sampler's address and filter modes draw as the numbers they hold, each under its own field's
-letter: `U`, `V`, `W`, `Mag`, `Min`. The meta schema declares them `u32` and names no constants.
-A word for each number is a table of its own.
-
-A table draws the fields it names and no others. A sampler element's `uncensoredTextures` is
-reachable through Properties, which is the whole object.
+A widget of named cells draws the fields it names and no others, which is what the icons, the
+mesh and the VFX join do. Everything else a class carries is reachable through the rows and
+through Properties.
 
 ### The layouts
 
-| Class                                               | Sections                                                                                    |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `StaticMaterialDef`                                 | Identity, Samplers as tiles, Params, Switches, Macros and Techniques as nested trees, Other |
-| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other |
-| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                          |
-| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                         |
+| Class                                               | Sections                                                                                      |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other   |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                            |
+| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                           |
 
 The material, the skin and the particle system are the registered layouts, with the value rows
 beside them. The animation graph table follows.

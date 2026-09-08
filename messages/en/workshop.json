@@ -186,16 +186,6 @@
   "workshop_bin_present_label": "present",
   "workshop_bin_preview_pane_empty": "No renderer yet",
   "workshop_bin_preview_pane_label": "Particle preview",
-  "workshop_bin_properties_label": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} property",
-        "countPlural=other": "{count} properties"
-      }
-    }
-  ],
   "workshop_bin_revision_open_label": "since {from}",
   "workshop_bin_revision_span_label": "{from} – {to}",
   "workshop_bin_revisions_label": "Revisions",

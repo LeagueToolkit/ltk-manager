@@ -37,7 +37,7 @@ export function Readout({ value, label, "aria-label": ariaLabel, className }: Re
         "font-mono text-surface-200 tabular-nums select-text focus:outline-none",
         /* DS-VEIL, DS-HOVER, DS-RADIUS. The wrapper draws them for a labelled one. */
         label === undefined &&
-          "rounded-sm border border-surface-veil-strong transition-colors hover:border-accent-hover",
+          "rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
         className,
       )}
       onClick={keepRowShut}
@@ -51,7 +51,7 @@ export function Readout({ value, label, "aria-label": ariaLabel, className }: Re
   return (
     <span
       /* DS-VEIL, DS-HOVER, DS-RADIUS */
-      className="inline-flex items-stretch overflow-hidden rounded-sm border border-surface-veil-strong transition-colors hover:border-accent-hover"
+      className="inline-flex items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors hover:border-accent-hover"
     >
       <span
         aria-hidden

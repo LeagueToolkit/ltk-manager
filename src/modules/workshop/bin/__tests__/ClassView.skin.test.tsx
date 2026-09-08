@@ -41,7 +41,17 @@ function row(
   node: BinRow["node"] = "property",
   unnamed = false,
 ): BinRow {
-  return { entry, path, label: name, node, name, unnamed, kind: null, value, declared: null };
+  return {
+    entry,
+    path,
+    label: name,
+    node,
+    name,
+    unnamed,
+    kind: null,
+    value,
+    declared: null,
+  };
 }
 
 function field(name: string, value: BinValue): BinRow {
@@ -50,15 +60,27 @@ function field(name: string, value: BinValue): BinRow {
 
 const page = (rows: BinRow[]): BinRows => ({ rows, total: rows.length });
 
-const list = (len: number): BinValue => ({ type: "container", len, itemKind: "embed" });
+const list = (len: number): BinValue => ({
+  type: "container",
+  len,
+  itemKind: "embed",
+});
 const embed = (className: string, len: number): BinValue => ({
   type: "struct",
   classHash: nameHash(className),
   class: className,
   len,
 });
-const chunk = (path: string): BinValue => ({ type: "wadChunkLink", hash: "00cc", path });
-const link = (hash: string, name: string | null): BinValue => ({ type: "objectLink", hash, name });
+const chunk = (path: string): BinValue => ({
+  type: "wadChunkLink",
+  hash: "00cc",
+  path,
+});
+const link = (hash: string, name: string | null): BinValue => ({
+  type: "objectLink",
+  hash,
+  name,
+});
 
 const ROOTS: BinRow[] = [
   field("championSkinName", { type: "string", value: "Smolder" }),
@@ -98,7 +120,10 @@ const PAGES: Record<string, BinRows> = {
     row(ENTRY, OVERRIDE, "[0]", embed("SkinMeshDataProperties_MaterialOverride", 3), "element"),
   ]),
   [`${ENTRY}:${OVERRIDE}`]: page([
-    row(ENTRY, `${OVERRIDE}.${at("submesh")}`, "submesh", { type: "string", value: "Body" }),
+    row(ENTRY, `${OVERRIDE}.${at("submesh")}`, "submesh", {
+      type: "string",
+      value: "Body",
+    }),
     row(ENTRY, `${OVERRIDE}.${at("texture")}`, "texture", chunk(BODY)),
   ]),
   [`${ENTRY}:${at("skinAnimationProperties")}`]: page([
@@ -131,7 +156,10 @@ const PAGES: Record<string, BinRows> = {
       type: "string",
       value: "IdleGlow",
     }),
-    row(ENTRY, `${EFFECT}.${at("boneName")}`, "boneName", { type: "string", value: "L_Wing" }),
+    row(ENTRY, `${EFFECT}.${at("boneName")}`, "boneName", {
+      type: "string",
+      value: "L_Wing",
+    }),
   ]),
   [`${RESOLVER}:`]: page([
     row(RESOLVER, RESOURCE_MAP, "resourceMap", {
@@ -228,7 +256,12 @@ beforeEach(() => {
         value: Object.fromEntries(
           found.map((path) => [
             path,
-            { pathHash: "00dd00dd00dd00dd", path, sizeBytes: 1n, wad: ASSET.wad },
+            {
+              pathHash: "00dd00dd00dd00dd",
+              path,
+              sizeBytes: 1n,
+              wad: ASSET.wad,
+            },
           ]),
         ),
       });
@@ -238,9 +271,15 @@ beforeEach(() => {
       const objects = Object.fromEntries(
         hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),
       );
-      return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects } });
+      return Promise.resolve({
+        ok: true,
+        value: { index: { status: "ready" }, objects },
+      });
     }
-    return Promise.resolve({ ok: false, error: { code: "UNKNOWN", detail: command } });
+    return Promise.resolve({
+      ok: false,
+      error: { code: "UNKNOWN", detail: command },
+    });
   });
 });
 
@@ -294,10 +333,11 @@ describe("ClassView over a skin", () => {
     expect(await screen.findByText(SIMPLE_SKIN.toLowerCase())).toBeInTheDocument();
   });
 
-  it("draws a row per material override, with the submesh it swaps", async () => {
+  /* The rows themselves are virtualized, which a zero-height test viewport draws none of. */
+  it("draws the material overrides as a tree over the elements the read answered", async () => {
     renderSkin();
 
-    expect(await screen.findByText("Body")).toBeInTheDocument();
+    expect(await screen.findByRole("tree", { name: "Material overrides" })).toBeInTheDocument();
   });
 
   it("carries the system's chip on an effect row, joined through the resolver", async () => {

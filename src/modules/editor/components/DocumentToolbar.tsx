@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, use } from "react";
+import { createContext, type ReactNode, use, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 /** The toolbar row a surface offers its documents, per surface. */
@@ -32,4 +32,27 @@ export function DocumentToolbar({ active, children }: DocumentToolbarProps): Rea
   if (!active || !slot) return null;
 
   return createPortal(children, slot);
+}
+
+/**
+ * The width of the surface's toolbar row, or null before it is measured.
+ *
+ * A document lays its own chrome out against the pane it is in rather than the window,
+ * because two surfaces split down the middle each hold half of it.
+ */
+export function useToolbarWidth(): number | null {
+  const slot = use(DocumentToolbarSlotContext);
+  const [width, setWidth] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!slot) return;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries.at(-1);
+      if (entry) setWidth(entry.contentRect.width);
+    });
+    observer.observe(slot);
+    return () => observer.disconnect();
+  }, [slot]);
+
+  return width;
 }
