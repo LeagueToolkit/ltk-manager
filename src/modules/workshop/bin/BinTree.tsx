@@ -1,9 +1,7 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -11,40 +9,21 @@ import {
 import { twMerge } from "tailwind-merge";
 
 import { ContextMenu } from "@/components";
-import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
+import { NO_OVERSCROLL } from "@/hooks";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
 import type { OpenIntent } from "../palette/types";
 import { stirImages } from "../preview/useImageSlot";
 import { BinContextMenu } from "./BinContextMenu";
-import { BinRowLine, MoreRow, ROW_HEIGHT } from "./BinRow";
-import {
-  ancestorKeys,
-  flattenRows,
-  isUnder,
-  nameColumns,
-  pagesWanted,
-  rowKey,
-  toggled,
-  type VisibleRow,
-} from "./binRows";
+import { BinRowLine, MoreRow } from "./BinRow";
+import { nameColumns, type VisibleRow } from "./binRows";
 import { rowTag } from "./kindTag";
-import { type ChildrenRequest, useBinChildren } from "./useBinDocument";
-import {
-  LinkAssetContext,
-  LinkOpenContext,
-  LinkTargetsContext,
-  type RowGroup,
-  useCheckLinkTargets,
-  useWarmLinkOpen,
-} from "./useLinkTargets";
-import { useValueMarks, ValueMarksContext } from "./useValueMarks";
+import { TreeContexts } from "./TreeContexts";
+import { type TreeReveal, useReveal } from "./useReveal";
+import { useRowWindow } from "./useRowWindow";
+import { useNextPages, useTreeRows } from "./useTreeRows";
 
-/** A row the tree is asked to expand, focus and scroll to. A new token scrolls again. */
-export interface TreeReveal {
-  readonly key: string;
-  readonly token: number;
-}
+export type { TreeReveal } from "./useReveal";
 
 interface BinTreeProps {
   /** The open's id, which every children call carries. */
@@ -77,12 +56,15 @@ interface BinTreeProps {
 
 const NO_KEYS: readonly string[] = [];
 
+/** The room a bounded tree leaves around its rows, which is the scroller's own padding. */
+const SCROLLER_PADDING = 8;
+
 /**
  * The rows of one bin document as a tree, a window at a time.
  *
- * The tree stays in the backend (ADR-0026). This holds the expansion state, a window of
- * rows, and asks for the rows under one node at a time. The file tab and the object tab
- * draw it over their own roots.
+ * The tree stays in the backend (ADR-0026). `useTreeRows` holds the expansion state and
+ * the lines it produces, and `useRowWindow` draws the ones on screen. The file tab and
+ * the object tab draw this over their own roots.
  */
 export function BinTree({
   document,
@@ -97,118 +79,39 @@ export function BinTree({
   onNotOpen,
   onOpenObject,
 }: BinTreeProps) {
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(initialExpanded));
-  const [pages, setPages] = useState<ReadonlyMap<string, number>>(() => new Map());
-  const [focused, setFocused] = useState<string | null>(null);
-  const [scrollTo, setScrollTo] = useState<TreeReveal | null>(null);
+  const {
+    visible,
+    loaded,
+    groups,
+    toggle: toggleRow,
+    expand,
+    requestMore,
+  } = useTreeRows({ document, roots, rootOwner, initialExpanded, onNotOpen });
 
-  const requests = useMemo<ChildrenRequest[]>(
-    () => [...expanded].map((key) => ({ key, pages: pages.get(key) ?? 1 })),
-    [expanded, pages],
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const { items, lines, totalSize, rowHeight, measureElement, scrollToKey } = useRowWindow(
+    scrollRef,
+    visible,
   );
-  const { loaded, notOpen } = useBinChildren(document, requests);
+  useNextPages(lines, requestMore);
 
-  useEffect(() => {
-    if (notOpen) onNotOpen();
-  }, [notOpen, onNotOpen]);
+  const { focused, clearFocus } = useReveal(reveal, roots, expand, scrollToKey);
+  const toggle = useCallback(
+    (key: string) => {
+      clearFocus();
+      toggleRow(key);
+    },
+    [clearFocus, toggleRow],
+  );
 
-  const visible = useMemo(
-    () => flattenRows(roots, expanded, (key) => loaded.get(key), rootOwner),
-    [roots, expanded, loaded, rootOwner],
+  const inView = useMemo(
+    () => lines.flatMap((line) => (line.kind === "row" ? [line.row] : [])),
+    [lines],
   );
 
   /* One width for the whole list, so the values stay in a column while no name elides
      that could have fitted. */
   const nameCols = useMemo(() => nameColumns(visible, rowTag), [visible]);
-
-  /* The roots and every expanded node's rows, each checked as one group. */
-  const groups = useMemo<RowGroup[]>(
-    () => [
-      { key: "", rows: roots },
-      ...[...loaded].map(([key, children]) => ({ key, rows: children.rows })),
-    ],
-    [roots, loaded],
-  );
-  const linkTargets = useCheckLinkTargets(document, groups);
-
-  const linkOpen = useWarmLinkOpen(linkTargets);
-
-  const toggle = useCallback((key: string) => {
-    setFocused(null);
-    setExpanded((current) => {
-      if (!current.has(key)) return toggled(current, key);
-      /* Collapsing forgets what was open underneath. Nothing hidden is fetched. */
-      return new Set([...current].filter((open) => !isUnder(key, open)));
-    });
-  }, []);
-
-  const requestMore = useCallback((parent: string, loadedCount: number) => {
-    setPages((current) => {
-      const wanted = pagesWanted(loadedCount);
-      if ((current.get(parent) ?? 1) >= wanted) return current;
-      return new Map(current).set(parent, wanted);
-    });
-  }, []);
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const zoomed = useZoomedPx();
-  const virtualizer = useVirtualizer({
-    count: visible.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => zoomed(ROW_HEIGHT),
-    overscan: 16,
-    getItemKey: (index) => visible[index]?.key ?? index,
-  });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
-
-  const virtualItems = virtualizer.getVirtualItems();
-
-  /* The viewport's own rows, which is the page a value row's read is scoped to. */
-  const inView = useMemo(
-    () =>
-      virtualItems.flatMap((item) => {
-        const line = visible[item.index];
-        return line?.kind === "row" ? [line.row] : [];
-      }),
-    [virtualItems, visible],
-  );
-  const marks = useValueMarks(document, inView);
-
-  /* A node's next page is asked for while the line under its rows is on screen. */
-  useEffect(() => {
-    for (const item of virtualItems) {
-      const line = visible[item.index];
-      if (line?.kind === "more" && !line.pending) requestMore(line.parent, line.loaded);
-    }
-  }, [virtualItems, visible, requestMore]);
-
-  /* Every level down to the row opens, so a nested key is on screen once each of them
-     answers. A request for a row this tree does not hold is left alone. */
-  useEffect(() => {
-    if (reveal === null) return;
-    const ancestors = ancestorKeys(reveal.key).filter((key) =>
-      roots.some((row) => isUnder(rowKey(row), key)),
-    );
-    if (ancestors.length === 0) return;
-    setExpanded((current) => new Set([...current, ...ancestors]));
-    setFocused(reveal.key);
-    setScrollTo(reveal);
-  }, [reveal, roots]);
-
-  /* Keyed on the request's token. A second request for the same row scrolls again. */
-  const scrolledToken = useRef<number | null>(null);
-  useEffect(() => {
-    if (scrollTo === null || scrolledToken.current === scrollTo.token) return;
-    const index = visible.findIndex((line) => line.key === scrollTo.key);
-    if (index < 0) return;
-    scrolledToken.current = scrollTo.token;
-    virtualizer.scrollToIndex(index, { align: "start" });
-  }, [scrollTo, visible, virtualizer]);
 
   /* One menu for the whole list, pointed at the line the event came from. */
   const [menuLine, setMenuLine] = useState<VisibleRow | null>(null);
@@ -219,62 +122,56 @@ export function BinTree({
   }
 
   return (
-    <LinkAssetContext value={asset}>
-      <LinkTargetsContext value={linkTargets}>
-        <LinkOpenContext value={linkOpen}>
-          <ValueMarksContext value={marks}>
-            <ContextMenu.Root>
-              <ContextMenu.Trigger
-                ref={scrollRef}
-                role="tree"
-                aria-label={label}
-                className={twMerge(
-                  "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
-                  maxRows === undefined && "min-h-0 flex-1",
-                )}
-                style={
-                  {
-                    "--bin-name-cols": nameCols,
-                    maxHeight: maxRows === undefined ? undefined : zoomed(ROW_HEIGHT) * maxRows + 8,
-                  } as CSSProperties
-                }
-                onContextMenu={handleContextMenu}
-                onScroll={stirImages}
-                {...NO_OVERSCROLL}
-              >
-                <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-                  {virtualItems.map((item) => {
-                    const line = visible[item.index];
-                    if (!line) return null;
-                    return (
-                      <div
-                        key={item.key}
-                        ref={virtualizer.measureElement}
-                        data-index={item.index}
-                        className="absolute top-0 left-0 w-full"
-                        style={{ transform: `translateY(${item.start}px)` }}
-                      >
-                        {line.kind === "row" && (
-                          <BinRowLine
-                            line={line}
-                            focused={line.key === focused}
-                            error={loaded.get(line.key)?.error}
-                            onToggle={toggle}
-                            onOpenObject={onOpenObject}
-                          />
-                        )}
-                        {line.kind === "more" && <MoreRow line={line} />}
-                      </div>
-                    );
-                  })}
+    <TreeContexts document={document} asset={asset} groups={groups} inView={inView}>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger
+          ref={scrollRef}
+          role="tree"
+          aria-label={label}
+          className={twMerge(
+            "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
+            maxRows === undefined && "min-h-0 flex-1",
+          )}
+          style={
+            {
+              "--bin-name-cols": nameCols,
+              maxHeight: maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
+            } as CSSProperties
+          }
+          onContextMenu={handleContextMenu}
+          onScroll={stirImages}
+          {...NO_OVERSCROLL}
+        >
+          <div className="relative w-full" style={{ height: totalSize }}>
+            {items.map((item) => {
+              const line = visible[item.index];
+              if (!line) return null;
+              return (
+                <div
+                  key={item.key}
+                  ref={measureElement}
+                  data-index={item.index}
+                  className="absolute top-0 left-0 w-full"
+                  style={{ transform: `translateY(${item.start}px)` }}
+                >
+                  {line.kind === "row" && (
+                    <BinRowLine
+                      line={line}
+                      focused={line.key === focused}
+                      error={loaded.get(line.key)?.error}
+                      onToggle={toggle}
+                      onOpenObject={onOpenObject}
+                    />
+                  )}
+                  {line.kind === "more" && <MoreRow line={line} />}
                 </div>
-              </ContextMenu.Trigger>
+              );
+            })}
+          </div>
+        </ContextMenu.Trigger>
 
-              <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-            </ContextMenu.Root>
-          </ValueMarksContext>
-        </LinkOpenContext>
-      </LinkTargetsContext>
-    </LinkAssetContext>
+        <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+      </ContextMenu.Root>
+    </TreeContexts>
   );
 }
