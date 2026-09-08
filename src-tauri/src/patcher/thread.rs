@@ -99,11 +99,13 @@ impl PatcherEvents for TauriPatcherEvents {
             self.app_handle.clone(),
             tray_state_for(phase, self.is_workshop),
         );
+        let _ = self.app_handle.emit("patcher-status-changed", ());
     }
 
     fn error(&self, error: AppError) {
         let response: AppErrorResponse = error.into();
         let _ = self.app_handle.emit("patcher-error", &response);
+        let _ = self.app_handle.emit("patcher-status-changed", ());
     }
 
     fn wad_scan_failed(&self, failures: Vec<WadScanFailure>) {

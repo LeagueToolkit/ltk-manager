@@ -11,6 +11,7 @@ export {
   usePatcherError,
 } from "./usePatcherError";
 export { usePatcherStatus } from "./usePatcherStatus";
+export { usePatcherStatusListener } from "./usePatcherStatusListener";
 export { useRebuildOverlay } from "./useRebuildOverlay";
 export { useRebuildOverlayAction } from "./useRebuildOverlayAction";
 export { startPatcherSpendingQueue, useStartPatcher } from "./useStartPatcher";
