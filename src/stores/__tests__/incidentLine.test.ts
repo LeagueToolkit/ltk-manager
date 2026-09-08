@@ -1,6 +1,6 @@
 import type { Incident } from "@/lib/tauri";
 
-import { useIncidentLineStore } from "../incidents";
+import { useIncidentLineStore } from "../incidentLine";
 
 function incident(id: string): Incident {
   return {

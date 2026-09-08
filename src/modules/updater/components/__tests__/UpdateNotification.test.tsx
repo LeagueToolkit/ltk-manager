@@ -3,7 +3,7 @@
 import type { Update } from "@tauri-apps/plugin-updater";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useDialogQueue, useUpdaterStore } from "@/stores";
+import { useDialogQueueStore, useUpdaterStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
 import type { ReleaseFeed, UseReleaseHistoryOptions } from "../../api";
@@ -37,7 +37,7 @@ describe("UpdateNotification", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useReleaseHistory.mockReturnValue(history());
-    useDialogQueue.setState({ current: null, claims: [] });
+    useDialogQueueStore.setState({ current: null, claims: [] });
     useUpdaterStore.setState({ update: UPDATE, dialogOpen: true, dialogOpener: "check" });
   });
 
@@ -49,7 +49,7 @@ describe("UpdateNotification", () => {
 
     renderWithProviders(<UpdateNotification />);
 
-    expect(useDialogQueue.getState().claims).toEqual([]);
+    expect(useDialogQueueStore.getState().claims).toEqual([]);
     expect(useUpdaterStore.getState().dialogOpen).toBe(false);
     expect(useUpdaterStore.getState().dialogOpener).toBeNull();
   });
@@ -59,7 +59,7 @@ describe("UpdateNotification", () => {
 
     renderWithProviders(<UpdateNotification />);
 
-    expect(useDialogQueue.getState().claims).toEqual(["update"]);
+    expect(useDialogQueueStore.getState().claims).toEqual(["update"]);
   });
 
   it("claims the screen on Home when a press opened the dialog", () => {
@@ -68,6 +68,6 @@ describe("UpdateNotification", () => {
 
     renderWithProviders(<UpdateNotification />);
 
-    expect(useDialogQueue.getState().claims).toEqual(["update"]);
+    expect(useDialogQueueStore.getState().claims).toEqual(["update"]);
   });
 });

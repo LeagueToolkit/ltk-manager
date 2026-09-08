@@ -5,7 +5,7 @@ import { twMerge } from "tailwind-merge";
 
 import { EmptyState, IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { type Notification, useNotificationStore } from "@/stores/notifications";
+import { type Notification, useNotificationsStore } from "@/stores/notifications";
 
 import { cellBase, cellInactive } from "./cells";
 
@@ -49,7 +49,7 @@ function NotificationItem({
 
 export function NotificationCenter() {
   const { notifications, unreadCount, markAllRead, dismissAll, dismissOne } =
-    useNotificationStore();
+    useNotificationsStore();
   const hasMarkedRead = useRef(false);
 
   // Reset the ref when new notifications arrive so the next open marks them as read

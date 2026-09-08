@@ -3,7 +3,7 @@
 import { renderHook } from "@testing-library/react";
 
 import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { useDisplayStore } from "@/stores/displayStore";
+import { useDisplayStore } from "@/stores/display";
 
 function createMockMatchMedia(matches: boolean) {
   const listeners: Array<(e: MediaQueryListEvent) => void> = [];

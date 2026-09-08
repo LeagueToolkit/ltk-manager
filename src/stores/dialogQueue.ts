@@ -34,7 +34,7 @@ interface DialogQueueStore {
  * Each one keeps its own state and its own trigger. All this arbitrates is who
  * is showing, and a dialog that closes hands the screen to the next claim.
  */
-export const useDialogQueue = create<DialogQueueStore>((set) => ({
+export const useDialogQueueStore = create<DialogQueueStore>()((set) => ({
   current: null,
   claims: [],
   request: (dialog) =>
@@ -55,9 +55,9 @@ function granted(claims: QueuedDialog[]): Pick<DialogQueueStore, "claims" | "cur
  * dialog closing itself raise the next one.
  */
 export function useQueuedDialog(dialog: QueuedDialog, wanted: boolean): boolean {
-  const request = useDialogQueue((state) => state.request);
-  const release = useDialogQueue((state) => state.release);
-  const current = useDialogQueue((state) => state.current);
+  const request = useDialogQueueStore((state) => state.request);
+  const release = useDialogQueueStore((state) => state.release);
+  const current = useDialogQueueStore((state) => state.current);
 
   useEffect(() => {
     if (!wanted) return;

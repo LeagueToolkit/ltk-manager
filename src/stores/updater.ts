@@ -42,7 +42,7 @@ const skippedAtStart = globalThis.localStorage?.getItem(SKIPPED_VERSION_KEY) ?? 
  * The download itself lives in `modules/updater/api`, which drives this store
  * through the transitions above.
  */
-const store = create<UpdaterStore>((set, get) => ({
+const store = create<UpdaterStore>()((set, get) => ({
   checking: false,
   updating: false,
   update: null,

@@ -12,7 +12,7 @@ interface PendingRebuildStore {
  * the next start honours it once. Per "The verdict line" in
  * docs/ux/LEAGUE_DIAGNOSTICS.md.
  */
-export const usePendingRebuildStore = create<PendingRebuildStore>((set) => ({
+export const usePendingRebuildStore = create<PendingRebuildStore>()((set) => ({
   queued: false,
   queue: () => set({ queued: true }),
   clear: () => set({ queued: false }),

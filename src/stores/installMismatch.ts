@@ -32,7 +32,7 @@ interface InstallMismatchStore {
  * docs/ux/LEAGUE_DIAGNOSTICS.md. The client check and the wrong-install
  * verdict both raise it here, and the dialog queue decides when it shows.
  */
-export const useInstallMismatchStore = create<InstallMismatchStore>((set) => ({
+export const useInstallMismatchStore = create<InstallMismatchStore>()((set) => ({
   mismatch: null,
   kept: false,
   raise: (mismatch) => set((state) => (state.kept ? state : { mismatch })),

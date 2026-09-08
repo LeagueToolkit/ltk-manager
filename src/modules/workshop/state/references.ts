@@ -26,7 +26,7 @@ interface ReferencesStore {
  * splits remounts the document under it. One store across the projects, because one
  * query reads one install.
  */
-export const useReferencesStore = create<ReferencesStore>((set) => ({
+export const useReferencesStore = create<ReferencesStore>()((set) => ({
   request: null,
   /* The shut files belong to the answer, so a new question opens every group of its own. */
   ask: (request) => set({ request, shutFiles: new Set() }),

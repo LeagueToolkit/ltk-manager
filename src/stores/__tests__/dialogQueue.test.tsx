@@ -2,60 +2,60 @@
 
 import { act, renderHook } from "@testing-library/react";
 
-import { useDialogQueue, useQueuedDialog } from "../dialogQueue";
+import { useDialogQueueStore, useQueuedDialog } from "../dialogQueue";
 
 describe("dialog queue store", () => {
   beforeEach(() => {
-    useDialogQueue.setState({ current: null, claims: [] });
+    useDialogQueueStore.setState({ current: null, claims: [] });
   });
 
   it("grants the screen to the only claim", () => {
-    useDialogQueue.getState().request("update");
+    useDialogQueueStore.getState().request("update");
 
-    expect(useDialogQueue.getState().current).toBe("update");
+    expect(useDialogQueueStore.getState().current).toBe("update");
   });
 
   it("grants the screen by the order, whatever order the claims arrive in", () => {
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().request("wad-scan-failed");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().request("wad-scan-failed");
 
-    expect(useDialogQueue.getState().current).toBe("wad-scan-failed");
+    expect(useDialogQueueStore.getState().current).toBe("wad-scan-failed");
   });
 
   it("hands the screen to the next claim when the holder releases", () => {
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().request("mod-health");
-    useDialogQueue.getState().release("mod-health");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().request("mod-health");
+    useDialogQueueStore.getState().release("mod-health");
 
-    expect(useDialogQueue.getState().current).toBe("update");
+    expect(useDialogQueueStore.getState().current).toBe("update");
   });
 
   it("keeps a waiting claim waiting rather than dropping it", () => {
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().request("wad-scan-failed");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().request("wad-scan-failed");
 
-    expect(useDialogQueue.getState().claims).toContain("update");
+    expect(useDialogQueueStore.getState().claims).toContain("update");
   });
 
   it("counts one claim per dialog", () => {
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().release("update");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().release("update");
 
-    expect(useDialogQueue.getState().current).toBeNull();
+    expect(useDialogQueueStore.getState().current).toBeNull();
   });
 
   it("goes back to nothing showing once every claim is released", () => {
-    useDialogQueue.getState().request("update");
-    useDialogQueue.getState().release("update");
+    useDialogQueueStore.getState().request("update");
+    useDialogQueueStore.getState().release("update");
 
-    expect(useDialogQueue.getState().current).toBeNull();
+    expect(useDialogQueueStore.getState().current).toBeNull();
   });
 });
 
 describe("useQueuedDialog", () => {
   beforeEach(() => {
-    useDialogQueue.setState({ current: null, claims: [] });
+    useDialogQueueStore.setState({ current: null, claims: [] });
   });
 
   it("shows a dialog nothing outranks", () => {
@@ -65,17 +65,17 @@ describe("useQueuedDialog", () => {
   });
 
   it("holds a dialog back while something outranks it", () => {
-    act(() => useDialogQueue.getState().request("wad-scan-failed"));
+    act(() => useDialogQueueStore.getState().request("wad-scan-failed"));
     const { result } = renderHook(() => useQueuedDialog("update", true));
 
     expect(result.current).toBe(false);
   });
 
   it("raises the held dialog once the one above it releases", () => {
-    act(() => useDialogQueue.getState().request("wad-scan-failed"));
+    act(() => useDialogQueueStore.getState().request("wad-scan-failed"));
     const { result } = renderHook(() => useQueuedDialog("update", true));
 
-    act(() => useDialogQueue.getState().release("wad-scan-failed"));
+    act(() => useDialogQueueStore.getState().release("wad-scan-failed"));
 
     expect(result.current).toBe(true);
   });
@@ -83,7 +83,7 @@ describe("useQueuedDialog", () => {
   it("claims nothing while the dialog has nothing to say", () => {
     renderHook(() => useQueuedDialog("update", false));
 
-    expect(useDialogQueue.getState().claims).toEqual([]);
+    expect(useDialogQueueStore.getState().claims).toEqual([]);
   });
 
   it("releases the screen when the dialog stops wanting it", () => {
@@ -93,7 +93,7 @@ describe("useQueuedDialog", () => {
 
     rerender({ wanted: false });
 
-    expect(useDialogQueue.getState().current).toBeNull();
+    expect(useDialogQueueStore.getState().current).toBeNull();
   });
 
   it("releases the screen when the dialog unmounts", () => {
@@ -101,6 +101,6 @@ describe("useQueuedDialog", () => {
 
     unmount();
 
-    expect(useDialogQueue.getState().current).toBeNull();
+    expect(useDialogQueueStore.getState().current).toBeNull();
   });
 });

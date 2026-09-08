@@ -5,7 +5,7 @@ import { twMerge } from "tailwind-merge";
 
 import { describeError, errorMessage } from "@/i18n/errors";
 import { m } from "@/paraglide/messages";
-import { useNotificationStore } from "@/stores/notifications";
+import { useNotificationsStore } from "@/stores/notifications";
 import { isAppError } from "@/utils/errors";
 
 import { type ToastType } from "./toastType";
@@ -313,7 +313,7 @@ export function ToastList() {
 
 /** The app's toasts, raised from anywhere. */
 export function useToast() {
-  const addNotification = useNotificationStore((s) => s.addNotification);
+  const addNotification = useNotificationsStore((s) => s.addNotification);
 
   return useMemo(
     () => ({

@@ -45,7 +45,7 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
  * the file - the tree would shut, the box would empty, the scroll would jump.
  * One store across the projects, since every game tab browses one install.
  */
-export const useGameBrowserStore = create<GameBrowserStore>((set) => ({
+export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
   expandedDirs: new Set(),
   toggleDir: (path) => set((state) => ({ expandedDirs: toggled(state.expandedDirs, path) })),
   searchPattern: "",

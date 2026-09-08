@@ -46,7 +46,7 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
  * shuts on the click that opened the object. One store across the projects: every
  * objects tab browses one install.
  */
-export const useObjectsBrowserStore = create<ObjectsBrowserStore>((set) => ({
+export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
   expandedPrefixes: new Set(),
   togglePrefix: (path) =>
     set((state) => ({ expandedPrefixes: toggled(state.expandedPrefixes, path) })),

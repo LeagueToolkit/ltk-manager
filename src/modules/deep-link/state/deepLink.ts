@@ -16,7 +16,7 @@ interface DeepLinkStore {
   reset: () => void;
 }
 
-export const useDeepLinkStore = create<DeepLinkStore>((set) => ({
+export const useDeepLinkStore = create<DeepLinkStore>()((set) => ({
   request: null,
   status: "idle",
   progress: null,

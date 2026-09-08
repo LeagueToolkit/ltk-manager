@@ -41,7 +41,7 @@ export function isLevelVisible(entryLevel: string, filterLevel: LogLevel): boole
   return entryPriority >= filterPriority;
 }
 
-export const useDevConsoleStore = create<DevConsoleStore>((set) => ({
+export const useDevConsoleStore = create<DevConsoleStore>()((set) => ({
   entries: [],
   isOpen: false,
   levelFilter: "DEBUG" as LogLevel,

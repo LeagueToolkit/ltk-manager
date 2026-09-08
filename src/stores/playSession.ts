@@ -74,7 +74,7 @@ function stepFor(running: boolean): PlayStep {
  * The session half is driven by backend events, so it is populated for a game
  * this app never launched too - one it adopted, or one that outlived a restart.
  */
-export const usePlaySessionStore = create<PlaySessionStore>((set) => ({
+export const usePlaySessionStore = create<PlaySessionStore>()((set) => ({
   step: "idle",
   setStep: (step) => set({ step }),
   session: null,

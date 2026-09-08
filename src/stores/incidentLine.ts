@@ -22,7 +22,7 @@ interface IncidentLineStore {
  * closes it or the next game starts. The list itself is the `useIncidents`
  * query, which this store never duplicates.
  */
-export const useIncidentLineStore = create<IncidentLineStore>((set) => ({
+export const useIncidentLineStore = create<IncidentLineStore>()((set) => ({
   incident: null,
   answeredIncidentId: null,
   show: (incident) => set({ incident }),
