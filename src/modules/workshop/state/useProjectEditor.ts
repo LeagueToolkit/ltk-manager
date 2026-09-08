@@ -2,19 +2,19 @@ import { useCallback, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
+import { useTabOpenMode } from "@/stores";
+
+import { useProjectContext } from "../components/ProjectContext";
+import { type ContentDocument, documentLayerName } from "../documents/contentDocument";
+import type { OpenIntent } from "../palette/types";
 import {
   EMPTY_EDITOR,
   type HistoryEntry,
   NO_COLLAPSED_DIRS,
   type ObjectRevealRequest,
   type RevealRequest,
-  useTabOpenMode,
   useWorkshopEditorStore,
-} from "@/stores";
-
-import { useProjectContext } from "../components/ProjectContext";
-import { type ContentDocument, documentLayerName } from "../documents";
-import type { OpenIntent } from "../palette/types";
+} from "./workshopEditor";
 
 /**
  * The editor state of the project the caller is mounted inside.

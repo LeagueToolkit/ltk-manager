@@ -24,7 +24,6 @@ export * from "./playSession";
 export * from "./references";
 export * from "./updater";
 export * from "./workshopDialogs";
-export * from "./workshopEditor";
 export * from "./workshopFilter";
 export * from "./workshopLayout";
 export * from "./workshopSelection";

@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import { detailsDocument, filesDocument, gameDocument } from "@/modules/workshop";
-import { useWorkshopEditorStore } from "@/stores/workshopEditor";
 
 import { ProjectProvider } from "../../components/ProjectContext";
 import { useRecentDocumentIds } from "../useProjectEditor";
+import { useWorkshopEditorStore } from "../workshopEditor";
 
 const MINE: WorkshopProject = {
   path: "X:/mods/mine",

@@ -1,8 +1,8 @@
 import { create } from "zustand";
 
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
-   the editor's components, whose imports circle back into `@/stores`, and this
-   module needs `singleLeaf` while it evaluates. */
+   the editor's components, whose imports circle back into workshop state, and
+   this module needs `singleLeaf` while it evaluates. */
 import {
   type Edge,
   findLeaf,
@@ -20,7 +20,9 @@ import {
   splitEmpty,
   splitLeaf,
 } from "@/modules/editor/layout";
-import type { ContentDocument, PersistedProjectEditor } from "@/modules/workshop";
+
+import type { ContentDocument } from "../documents/contentDocument";
+import type { PersistedProjectEditor } from "./editorFile";
 
 /** An outline's request that one layer's file tree scroll to an entry. */
 export interface RevealRequest {

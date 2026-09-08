@@ -22,7 +22,7 @@ import type {
   WorkshopProject,
 } from "@/lib/tauri";
 import { DocumentToolbarSlotContext } from "@/modules/editor";
-import { useWorkshopEditorStore } from "@/stores/workshopEditor";
+import { useWorkshopEditorStore } from "@/modules/workshop/state/workshopEditor";
 import { useWorkshopLayoutStore } from "@/stores/workshopLayout";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";

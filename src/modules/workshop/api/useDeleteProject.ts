@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
-import { useWorkshopEditorStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
 
+import { useWorkshopEditorStore } from "../state";
 import { workshopKeys } from "./keys";
 
 /**

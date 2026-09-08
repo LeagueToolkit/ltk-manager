@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import { detailsDocument, workshopKeys } from "@/modules/workshop";
-import { useWorkshopEditorStore } from "@/stores/workshopEditor";
+import { useWorkshopEditorStore } from "@/modules/workshop/state/workshopEditor";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
