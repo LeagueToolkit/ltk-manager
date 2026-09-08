@@ -1,29 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { projectMutations } from "./mutations";
 
-import { workshopKeys } from "./keys";
+export type { RenameProjectVariables } from "./mutations";
 
-interface RenameProjectVariables {
-  projectPath: string;
-  newName: string;
-}
-
-/**
- * Hook to rename a workshop project (change its slug/directory name).
- */
+/** Rename a workshop project, which moves its directory. */
 export function useRenameProject() {
-  const queryClient = useQueryClient();
-
-  return useMutation<WorkshopProject, AppError, RenameProjectVariables>({
-    mutationFn: async ({ projectPath, newName }) => {
-      const result = await api.renameWorkshopProject(projectPath, newName);
-      return unwrapForQuery(result);
-    },
-    onSuccess: () => {
-      // Path changed, so invalidate all project queries
-      queryClient.invalidateQueries({ queryKey: workshopKeys.projects() });
-    },
-  });
+  return useMutation(projectMutations.rename(useQueryClient()));
 }

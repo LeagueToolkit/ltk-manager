@@ -1,29 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type Profile } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { profileMutations } from "./profileMutations";
 
-import { libraryKeys } from "./keys";
+export type { RenameProfileVariables } from "./profileMutations";
 
-interface RenameProfileVariables {
-  profileId: string;
-  newName: string;
-}
-
-/**
- * Hook to rename a profile.
- */
+/** Rename a profile. */
 export function useRenameProfile() {
-  const queryClient = useQueryClient();
-
-  return useMutation<Profile, AppError, RenameProfileVariables>({
-    mutationFn: async ({ profileId, newName }) => {
-      const result = await api.renameModProfile(profileId, newName);
-      return unwrapForQuery(result);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: libraryKeys.profiles() });
-      queryClient.invalidateQueries({ queryKey: libraryKeys.activeProfile() });
-    },
-  });
+  return useMutation(profileMutations.rename(useQueryClient()));
 }

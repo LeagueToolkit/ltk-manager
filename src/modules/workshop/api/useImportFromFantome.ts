@@ -1,22 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type ImportFantomeArgs, type WorkshopProject } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { projectImportMutations } from "./mutations";
 
-import { workshopKeys } from "./keys";
-
+/** Import a `.fantome` as a new workshop project. */
 export function useImportFromFantome() {
-  const queryClient = useQueryClient();
-
-  return useMutation<WorkshopProject, AppError, ImportFantomeArgs>({
-    mutationFn: async (args) => {
-      const result = await api.importFromFantome(args);
-      return unwrapForQuery(result);
-    },
-    onSuccess: (newProject) => {
-      queryClient.setQueryData<WorkshopProject[]>(workshopKeys.projects(), (old) =>
-        old ? [newProject, ...old] : [newProject],
-      );
-    },
-  });
+  return useMutation(projectImportMutations.fromFantome(useQueryClient()));
 }

@@ -1,28 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type BulkInstallResult, type InstalledMod } from "@/lib/tauri";
-import { libraryKeys } from "@/modules/library";
-import { unwrapForQuery } from "@/utils/query";
+import { cslolMutations } from "./mutations";
 
-interface ImportCslolModsArgs {
-  directory: string;
-  selectedFolders: string[];
-}
+export type { ImportCslolModsVariables } from "./mutations";
 
+/** Bring the chosen CSLOL folders into the library. */
 export function useImportCslolMods() {
-  const queryClient = useQueryClient();
-
-  return useMutation<BulkInstallResult, AppError, ImportCslolModsArgs>({
-    mutationFn: async ({ directory, selectedFolders }) => {
-      const result = await api.importCslolMods(directory, selectedFolders);
-      return unwrapForQuery(result);
-    },
-    onSuccess: (result) => {
-      if (result.installed.length > 0) {
-        queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-          old ? [...old, ...result.installed] : result.installed,
-        );
-      }
-    },
-  });
+  return useMutation(cslolMutations.importMods(useQueryClient()));
 }
