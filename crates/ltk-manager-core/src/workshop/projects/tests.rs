@@ -5,6 +5,7 @@ use crate::mods::test_support::{make_bad_crc_fantome_zip, make_full_fantome_zip}
 use assert_matches::assert_matches;
 use parking_lot::Mutex;
 use std::io::Write;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 /// A workshop rooted at `dir`, plus the config that points it there.

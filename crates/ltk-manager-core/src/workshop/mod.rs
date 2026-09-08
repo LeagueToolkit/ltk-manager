@@ -317,7 +317,7 @@ pub struct ValidationResult {
 // Helpers
 // ============================================================================
 
-pub(crate) fn find_config_file(project_dir: &Path) -> Option<PathBuf> {
+fn find_config_file(project_dir: &Path) -> Option<PathBuf> {
     let json_path = project_dir.join("mod.config.json");
     if json_path.exists() {
         return Some(json_path);
@@ -331,7 +331,7 @@ pub(crate) fn find_config_file(project_dir: &Path) -> Option<PathBuf> {
     None
 }
 
-pub(crate) fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
+fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
     let config_path = find_config_file(project_dir)
         .ok_or_else(|| AppError::ProjectNotFound(project_dir.display().to_string()))?;
 

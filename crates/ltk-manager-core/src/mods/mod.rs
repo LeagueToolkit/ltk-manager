@@ -56,6 +56,7 @@ pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFol
 use crate::config::Config;
 use crate::events::EventSink;
 use crate::hashtables::WadPathResolverState;
+use crate::overlay::OverlayStorageExt;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -244,7 +245,7 @@ impl ModLibrary {
     /// moving anything in the builder's reuse key: the next build has to start
     /// from the files rather than from what it remembers of them.
     pub(crate) fn invalidate_overlay_for(&self, storage_dir: &std::path::Path, mod_ids: &[String]) {
-        crate::overlay::force_flush_on_next_build(storage_dir);
+        storage_dir.invalidate_overlays_on_next_build();
         let _ = self.wad_reports.0.lock().invalidate_by_content(mod_ids);
     }
 

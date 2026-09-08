@@ -1,92 +1,91 @@
 //! Lifecycle of a profile's cached overlay artifacts.
 //!
-//! The builder decides whether to reuse an existing overlay by hashing the mod
-//! set, mod content, game fingerprint, and a state schema version. None of those
-//! move when the overlay-building *logic* changes, so a fix shipped in a new
-//! release would never reach anyone who already has an overlay on disk. Purging
-//! on version change is what forces that one clean rebuild.
+//! The builder's reuse key is the mod set, the mod content, the game fingerprint
+//! and a state schema version. Overlay-building logic is outside that key. A
+//! flush is the only reach an out-of-key change has to an overlay on disk.
 //!
-//! Every function here is best-effort: a cache that can't be deleted is logged
-//! and skipped, never fatal.
+//! Every operation here is best-effort. An artifact that resists deletion is
+//! logged and skipped.
 
 use fs_err as fs;
 use std::path::Path;
 
-/// Wipe every profile's cached overlay artifacts when the app version changed
-/// since the overlays were last built.
-///
-/// The overlay builder keys its reuse/skip decisions on the mod set, mod
-/// content, game fingerprint and a state *schema* version — none of which move
-/// when the overlay-building *logic* changes between releases. So a build-logic
-/// fix would otherwise never reach users who already have an overlay on disk.
-/// Gating on the app version forces one clean rebuild after each update.
-///
-/// `app_version` is the *host application's* version, passed in rather than read
-/// from `CARGO_PKG_VERSION`: that would resolve to this crate's version, which
-/// does not move when the app ships a release, so the flush would never fire.
-///
-/// Best-effort: a marker file under `storage_dir` records the version that last
-/// built overlays. Failures are logged, never fatal.
-pub(super) fn flush_overlays_if_app_version_changed(storage_dir: &Path, app_version: &str) {
-    let marker = storage_dir.join(".overlay-build-version");
+/// Name of the marker holding the app version that last built these overlays.
+const BUILD_VERSION_MARKER: &str = ".overlay-build-version";
 
-    let up_to_date = fs::read_to_string(&marker)
-        .ok()
-        .is_some_and(|v| v.trim() == app_version);
-    if up_to_date {
-        return;
-    }
+/// Overlay-artifact lifecycle on a library's storage directory.
+pub(crate) trait OverlayStorageExt {
+    /// Purge every profile's overlay artifacts when `app_version` differs from
+    /// the marker. A matching marker is a no-op.
+    ///
+    /// `app_version` is the host application's version. `CARGO_PKG_VERSION` here
+    /// is this crate's version, which is independent of the app's releases.
+    ///
+    /// Best-effort: the marker records `app_version`. A failure is logged.
+    fn invalidate_stale_overlays(&self, app_version: &str);
 
-    let profiles_dir = storage_dir.join("profiles");
-    if let Ok(entries) = fs::read_dir(&profiles_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if path.is_dir() {
-                purge_overlay_artifacts(&path, false);
+    /// Drop the marker. The next build purges every profile.
+    ///
+    /// The marker is the reach of a change that moves what a mod's content is
+    /// without moving the app version, such as the library layout migration.
+    fn invalidate_overlays_on_next_build(&self);
+}
+
+impl OverlayStorageExt for Path {
+    fn invalidate_stale_overlays(&self, app_version: &str) {
+        let marker = self.join(BUILD_VERSION_MARKER);
+
+        let up_to_date = fs::read_to_string(&marker)
+            .ok()
+            .is_some_and(|v| v.trim() == app_version);
+        if up_to_date {
+            return;
+        }
+
+        let profiles_dir = self.join("profiles");
+        if let Ok(entries) = fs::read_dir(&profiles_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_dir() {
+                    purge_overlay_artifacts(&path, false);
+                }
             }
+        }
+
+        let _ = fs::create_dir_all(self);
+        match fs::write(&marker, app_version) {
+            Ok(()) => tracing::info!(
+                "Flushed cached overlays for app version {} (overlay build logic may have changed)",
+                app_version
+            ),
+            Err(e) => tracing::warn!(
+                "Failed to write overlay build-version marker {}: {}",
+                marker.display(),
+                e
+            ),
         }
     }
 
-    let _ = fs::create_dir_all(storage_dir);
-    match fs::write(&marker, app_version) {
-        Ok(()) => tracing::info!(
-            "Flushed cached overlays for app version {} (overlay build logic may have changed)",
-            app_version
-        ),
-        Err(e) => tracing::warn!(
-            "Failed to write overlay build-version marker {}: {}",
-            marker.display(),
-            e
-        ),
+    fn invalidate_overlays_on_next_build(&self) {
+        let marker = self.join(BUILD_VERSION_MARKER);
+        match fs::remove_file(&marker) {
+            Ok(()) => tracing::info!("Cleared the overlay build-version marker"),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => tracing::warn!(
+                "Failed to clear overlay build-version marker {}: {}",
+                marker.display(),
+                e
+            ),
+        }
     }
 }
 
-/// Drop the build-version marker so the next build flushes every profile.
+/// Remove a profile's cached overlay artifacts. The next build starts clean.
 ///
-/// For a change that moves what a mod's content *is* without moving the app
-/// version — the library layout migration, which repoints every provider at a
-/// directory — where the builder would otherwise reuse overlays built from the
-/// archives.
-pub(crate) fn force_flush_on_next_build(storage_dir: &Path) {
-    let marker = storage_dir.join(".overlay-build-version");
-    match fs::remove_file(&marker) {
-        Ok(()) => tracing::info!("Cleared the overlay build-version marker"),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => tracing::warn!(
-            "Failed to clear overlay build-version marker {}: {}",
-            marker.display(),
-            e
-        ),
-    }
-}
-
-/// Remove a profile's cached overlay artifacts so the next build starts clean.
-///
-/// Always removes the patched-WAD `overlay/` tree, the `overlay.json` state
-/// file, and the `override_meta.bin` metadata cache. The `game_index.bin` cache
-/// is only removed when `include_game_index` is set — it is expensive to rebuild
-/// and is independently validated by the game fingerprint, so the version flush
-/// keeps it and only a manual full rebuild drops it.
+/// The patched-WAD `overlay/` tree, the `overlay.json` state file and the
+/// `override_meta.bin` metadata cache always go. `game_index.bin` goes only
+/// under `include_game_index`. That cache is expensive to rebuild, and the game
+/// fingerprint validates it independently of the app version.
 pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bool) {
     let overlay_dir = profile_dir.join("overlay");
     if overlay_dir.exists()
@@ -119,9 +118,10 @@ pub(super) fn purge_overlay_artifacts(profile_dir: &Path, include_game_index: bo
     }
 }
 
-/// Scan `state_dir` for top-level JSON files that are empty or contain invalid
-/// JSON and remove them so `ltk_overlay` does not fail to parse stale/corrupt
-/// state files written by a previous run that was interrupted mid-write.
+/// Remove every empty or unparseable top-level JSON file under `state_dir`.
+///
+/// A run interrupted mid-write leaves a truncated state file. `ltk_overlay`
+/// fails to parse one.
 pub(super) fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
     let entries = match fs::read_dir(state_dir) {
         Ok(e) => e,

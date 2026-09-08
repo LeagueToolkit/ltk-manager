@@ -9,7 +9,7 @@ mod artifacts;
 mod build;
 mod resolve;
 
-pub(crate) use artifacts::force_flush_on_next_build;
+pub(crate) use artifacts::OverlayStorageExt;
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
@@ -48,7 +48,7 @@ impl ModLibrary {
     ) -> AppResult<OverlayBuild> {
         let storage_dir = self.storage_dir(config)?;
 
-        artifacts::flush_overlays_if_app_version_changed(&storage_dir, self.app_version());
+        storage_dir.invalidate_stale_overlays(self.app_version());
 
         let game_dir = crate::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
@@ -82,7 +82,7 @@ impl ModLibrary {
             Vec::new()
         });
         let blocked_wads = resolve_blocked_wads(config, &available_wads);
-        let string_override_mode = resolve_string_override_mode(config, game_dir.path());
+        let string_override_mode = resolve_string_override_mode(config, &game_dir);
         tracing::info!("Overlay: blocked_wads count={}", blocked_wads.len());
         tracing::info!("Overlay: string_override_mode={:?}", string_override_mode);
 

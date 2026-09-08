@@ -128,7 +128,50 @@ impl GameDir {
 
     /// The League client's configured locale, e.g. `"en_us"`.
     pub fn locale(&self) -> Option<String> {
-        super::locale::detect_league_locale(&self.0)
+        super::locale::detect_league_locale(self)
+    }
+
+    /// Locales with a `Global.{locale}.wad.client`, lowercased and sorted.
+    pub fn installed_locales(&self) -> Vec<String> {
+        let Ok(entries) = fs::read_dir(self.localized_dir()) else {
+            return Vec::new();
+        };
+
+        let mut locales: Vec<String> = entries
+            .flatten()
+            .filter_map(|entry| {
+                let name = entry.file_name().to_str()?.to_ascii_lowercase();
+                let locale = name
+                    .strip_prefix("global.")?
+                    .strip_suffix(".wad.client")?
+                    .to_string();
+                if locale.is_empty() || locale.contains('.') {
+                    return None;
+                }
+                Some(locale)
+            })
+            .collect();
+        locales.sort();
+        locales.dedup();
+        locales
+    }
+
+    /// `Global.{locale}.wad.client`, matched case-insensitively.
+    pub fn localized_global_wad(&self, locale: &str) -> Option<PathBuf> {
+        let wanted = format!("global.{}.wad.client", locale.to_lowercase());
+        fs::read_dir(self.localized_dir()).ok()?.find_map(|entry| {
+            let entry = entry.ok()?;
+            if entry.file_name().to_str()?.eq_ignore_ascii_case(&wanted) {
+                Some(entry.path())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// The directory holding the game's localized WADs.
+    fn localized_dir(&self) -> PathBuf {
+        self.0.join("DATA").join("FINAL").join("Localized")
     }
 }
 

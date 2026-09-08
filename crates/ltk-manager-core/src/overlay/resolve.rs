@@ -5,7 +5,7 @@
 //! identically to the GUI.
 
 use crate::config::{Config, WadBlocklistEntry};
-use std::path::Path;
+use crate::utils::game::GameDir;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
 const TFT_WAD: &str = "map22.wad.client";
@@ -18,13 +18,13 @@ const TFT_WAD: &str = "map22.wad.client";
 /// and finally to `en_us` so string overrides still apply on unusual installs.
 pub(crate) fn resolve_string_override_mode(
     config: &Config,
-    game_dir: &Path,
+    game_dir: &GameDir,
 ) -> ltk_overlay::StringOverrideMode {
     if config.apply_string_overrides_to_all_locales {
         return ltk_overlay::StringOverrideMode::AllInstalled;
     }
 
-    let locale = crate::utils::locale::detect_league_locale(game_dir).unwrap_or_else(|| {
+    let locale = game_dir.locale().unwrap_or_else(|| {
         tracing::warn!("Falling back to 'en_us' for string overrides");
         "en_us".to_string()
     });
