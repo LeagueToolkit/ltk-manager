@@ -63,16 +63,48 @@ describe("CurveGraph", () => {
     expect(screen.getByRole("button", { name: "Y" })).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("draws a colour as its band, and no channel until a chip asks", async () => {
+  it("draws a colour as its ramp alone, with no line and no channel chip", () => {
     const container = draw(COLOR, "color");
-    const user = userEvent.setup();
 
     expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
     expect(strokes(container)).toEqual([]);
+    for (const channel of ["R", "G", "B", "A"]) {
+      expect(screen.queryByRole("button", { name: channel })).toBeNull();
+    }
+  });
 
-    await user.click(screen.getByRole("button", { name: "R" }));
+  it("puts a handle on the axis at each stop's own time", () => {
+    draw(
+      [
+        { time: 0.25, values: [1, 0, 0, 1] },
+        { time: 0.75, values: [0, 0, 1, 0] },
+      ],
+      "color",
+    );
 
-    expect(strokes(container)).toEqual(["text-channel-1"]);
+    const first = screen.getByRole("button", { name: "Colour stop at 0.250, #FF0000FF" });
+    const last = screen.getByRole("button", { name: "Colour stop at 0.750, #0000FF00" });
+
+    expect(first).toHaveStyle({ left: "25.00%" });
+    expect(last).toHaveStyle({ left: "75.00%" });
+  });
+
+  it("opens on the first stop, and reads the one a handle picks", async () => {
+    draw(COLOR, "color");
+    const user = userEvent.setup();
+
+    expect(screen.getByText("#FF0000FF")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Colour stop at 1.000, #0000FF00" }));
+
+    expect(screen.getByText("#0000FF00")).toBeInTheDocument();
+    expect(screen.getByText("1.000")).toBeInTheDocument();
+  });
+
+  it("offers neither handle nor readout for a family that is no colour", () => {
+    draw(VECTOR, "vector");
+
+    expect(screen.queryByLabelText(/Colour stop at/)).toBeNull();
   });
 
   it("draws a scalar with no chips, because it has one channel to tell apart from none", () => {

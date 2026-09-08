@@ -4,6 +4,7 @@
 
 | Date       | Change                                                  |
 | ---------- | ------------------------------------------------------- |
+| 2026-09-08 | Draw a colour curve as a gradient of its stops          |
 | 2026-09-08 | Decide the curve panel                                  |
 | 2026-09-07 | Frame a particle system as a shell of panes             |
 | 2026-09-07 | Fold a value family into the row a layout draws it in   |
@@ -13,7 +14,6 @@
 | 2026-09-07 | Lay a material out beside the tree                      |
 | 2026-09-07 | Read several nodes in one call, and draw a value family |
 | 2026-09-07 | Link a string that names a thing                        |
-| 2026-09-07 | Decide the class views                                  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -544,7 +544,9 @@ reads is one node under it.
 **A collapsed row of the family draws its constant.** A `ValueColor` draws its class, then the
 constant as a swatch, then a gradient strip of fixed width over the dynamics' stops, with alpha
 over a checkerboard and the stops on a hover card. A colour with no dynamics draws the swatch
-alone. The other three draw the constant in the field a scalar or a vector row draws.
+alone, and one whose file writes no `constantValue` draws the strip alone: a colour that animates
+is its stops, and a row that waited for a constant the file never held drew nothing at all. The
+other three draw the constant in the field a scalar or a vector row draws.
 
 ```
 |  birthColor    embed   ValueColor    [#] [=====gradient=====]   |
@@ -567,10 +569,12 @@ colour asks for them wherever it draws, since its band is its keys. Every other 
 where a sparkline draws one. A value with no dynamics stops at the first level whatever asked.
 
 The strip takes the width one vector component takes, so a column mixing colours, floats and
-vectors keeps its readouts under each other. Its stops are placed over the curve's own span
-rather than over its seconds, because a strip of fixed width shows the shape and not the clock.
-A row draws nothing where the read has not landed, rather than a placeholder that would shift
-the line under it.
+vectors keeps its readouts under each other. A stop sits at its own time in
+[the curve's window](#the-window-a-curve-is-drawn-over), and the outermost colours hold flat to
+the ends of it, so a ramp keyed over the middle of a particle's life reads as one rather than as
+a ramp filling the whole of it. The strip, the emitter card's colour square and the dock's band
+are one drawing at three sizes. A row draws nothing where the read has not landed, rather than a
+placeholder that would shift the line under it.
 
 Copy value on a row of the family takes the constant: a colour as `#RRGGBBAA`, and a float and a
 vector as the row draws them.
@@ -1051,9 +1055,9 @@ draws the same: one card per element of `complexEmitterDefinitionData` and
 marked as simple. A card carries the emitter's name, its index in its own list, a square, and one
 chip per group of fields it sets. A `disabled` emitter dims and takes a struck eye.
 
-The square is the texture the emitter draws, and where it names none, the constant of its
-`birthColor` as a swatch or as the band its stops make. An emitter with neither takes the tile a
-missing texture takes.
+The square is the texture the emitter draws, and where it names none, its `birthColor`: the band
+its stops make where it animates, and its constant where it does not. An emitter with neither
+takes the tile a missing texture takes.
 
 A chip opens the group under the strip, one group at a time, each field in the cell its own row
 draws. The strip opens on the first emitter's first group, because the read has answered every
@@ -1126,6 +1130,28 @@ own width, and a `probabilityTables` list beside them. ADR-0032 draws it, and th
 `VfxAnimated*` classes share their field hashes, so one widget over `(times, values[channel])`
 reads a float, a vector and a colour alike.
 
+### The window a curve is drawn over
+
+A key time is a share of the particle's own life, so the window every curve draws over is 0 to 1,
+widened at either end by whatever key reaches past it. A file holds times outside that range and
+none of them are clipped.
+
+The window rather than the curve's own first and last key, because where in a life a value moves
+is half of what it says. A colour keyed 0.2 to 0.8 holds, fades, and holds again, and a plot
+fitted to its own keys draws that identically to a colour that ramps across the whole life.
+
+```
+keys at 0.20 and 0.80              the same keys, fitted to themselves
+
+|RRRRR|R------>G|GGGGG|            |R------------------->G|
+0.00  0.20    0.80  1.00           0.20               0.80
+```
+
+Outside the outermost key a value holds flat, which is what the engine samples there. A band
+paints that as a run of the end colour and a plot draws its line to the edge of the box, so the
+hold is a shape rather than an absence. Every surface that draws a curve shares this window: the
+row strip, the emitter card's square, the sparkline and the dock.
+
 ### The dock
 
 The curve draws in a dock under the object tab, collapsed until a mark targets it and open from
@@ -1158,12 +1184,37 @@ has dynamics. A value without one is offered neither.
 
 ### The three tabs
 
-**Graph** plots the keys. The time axis fits the curve's own first and last key, because a file
-holds key times outside the 0 to 1 both of Riot's editors plot. A vector draws a line per channel,
-X red, Y green and Z blue as Riot draws them, with chips that mute one. A colour draws its
-gradient band over the same axis with each stop marked, and the channel lines behind it only when
-a chip asks, because a modder reads a colour curve as the ramp a particle runs through rather than
-as four numbers.
+**Graph** plots the keys over [the window](#the-window-a-curve-is-drawn-over). A vector draws a
+line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one.
+
+A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
+at the stop's own time, and the picked stop's time and `#RRGGBBAA` under them.
+
+```
++-----------------------------------------------------------------+
+|  +-----------------------------------------------------------+  |
+|  |///////////// bar over a checkerboard //////////////////////|  |
+|  +-----------------------------------------------------------+  |
+|      V           V                V                       V      |
+|     [#]         [#]              [#]                     [#]     |
+|   0.00                                                    1.00   |
+|  [#] 0.250   #FFEEDDAA [copy]                   4 colour stops   |
++-----------------------------------------------------------------+
+```
+
+**A colour plots no channel lines and offers no channel chips.** Four lines crossing a ramp are
+what a colour is made of rather than what it looks like, and a modder reads a colour curve as the
+ramp a particle runs through. The stop is where the numbers are: a marker points at the bar rather
+than floating under it, so it reads as a stop of that ramp and not as a chip beside one, its body
+carries the colour it lands on, and the picked one is ringed in the accent.
+
+The bar takes a fixed height and the group centres in the pane. A ramp says the same thing at any
+height, so a reader who drags the dock taller gets the room rather than a taller ramp.
+
+Picking a stop is the whole of the gesture. The panel writes nothing yet, per
+[where editing is allowed](#where-editing-is-allowed), and the readout's hex copies. It opens on
+the first stop rather than on none, because a readout that is blank until a click reads as a
+header rather than as a value.
 
 A curve of one key draws flat across the box. It is a value that animates to nothing, which reads
 as a line held at its own level and not as a mark in the corner of an empty plot.

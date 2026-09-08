@@ -4,9 +4,9 @@ import { twMerge } from "tailwind-merge";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 
-import { CHECKERBOARD } from "../preview/ImagePreview";
-import { plotOf } from "./curvePlot";
-import { colorStops, type CurveKey, gradientCss, type ValueFamily } from "./valueRows";
+import { axisText, plotOf } from "./curvePlot";
+import { GradientPlot } from "./GradientPlot";
+import type { CurveKey, ValueFamily } from "./valueRows";
 
 /** How much room over and under the keys the value axis keeps, as a share of their span. */
 const MARGIN = 0.12;
@@ -31,27 +31,26 @@ const CHIP = [
 ];
 
 /**
- * The keys plotted against time, one line per channel. "The curve panel" in
- * docs/ux/BIN_EDITOR.md.
+ * A curve as the surface its family reads on. "The curve panel" in docs/ux/BIN_EDITOR.md.
  *
- * A colour is its band rather than its channels, because a modder reads a colour curve as
- * the ramp a particle runs through. Its lines are behind a chip for the reader who wants
- * the numbers.
+ * A colour is a ramp and every other family is a plot of its channels, which are two
+ * drawings rather than one drawing with a switch on it.
  */
 export function CurveGraph({ keys, family }: { keys: readonly CurveKey[]; family: ValueFamily }) {
+  if (family === "color") return <GradientPlot keys={keys} />;
+  return <ChannelPlot keys={keys} family={family} />;
+}
+
+/** The keys plotted against time, one line per channel, with chips that mute one. */
+function ChannelPlot({ keys, family }: { keys: readonly CurveKey[]; family: ValueFamily }) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const measure = useResizeObserver<HTMLDivElement>((element) =>
     setSize({ width: element.clientWidth, height: element.clientHeight }),
   );
-  /* A colour opens on its band, which is the reading a modder wants, and its channels are
-     behind a chip for the reader who wants the numbers. */
-  const [muted, setMuted] = useState<ReadonlySet<number>>(
-    () => new Set(family === "color" ? [0, 1, 2, 3] : []),
-  );
+  const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set());
 
   const plot = plotOf(keys, { width: size.width, height: size.height, margin: MARGIN });
   const names = CHANNELS[family];
-  const band = family === "color";
   const drawn = plot === null ? [] : plot.lines.map((_, at) => at).filter((at) => !muted.has(at));
   const axis = plot !== null && drawn.length > 0;
 
@@ -73,19 +72,6 @@ export function CurveGraph({ keys, family }: { keys: readonly CurveKey[]; family
           <span>{axis ? axisText(plot.low) : ""}</span>
         </span>
         <div ref={measure} className="relative min-h-0 min-w-0 flex-1">
-          {band && (
-            /* DS-TOKEN, DS-RADIUS */
-            <span
-              role="img"
-              aria-label={m.workshop_bin_gradient_label({ count: keys.length })}
-              className={`absolute inset-0 overflow-hidden rounded-sm ${CHECKERBOARD} [background-size:8px_8px]`}
-            >
-              <span
-                className="block h-full w-full"
-                style={{ background: gradientCss(colorStops(keys)) }}
-              />
-            </span>
-          )}
           {plot !== null && (
             <svg
               role="img"
@@ -151,9 +137,4 @@ export function CurveGraph({ keys, family }: { keys: readonly CurveKey[]; family
       </div>
     </div>
   );
-}
-
-/** An axis number, at the two decimals a key time is written with and no trailing zeros. */
-function axisText(value: number): string {
-  return String(Number(value.toFixed(2)));
 }

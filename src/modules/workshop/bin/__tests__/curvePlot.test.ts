@@ -9,16 +9,27 @@ function plot(keys: { time: number; values: number[] }[]) {
 }
 
 describe("plotOf", () => {
-  it("fits the time axis to the curve's own first and last key", () => {
+  it("widens the time axis past the particle's life to hold every key", () => {
     const drawn = plot([
       { time: 2, values: [0] },
       { time: 4, values: [10] },
       { time: 6, values: [5] },
     ]);
 
-    expect(drawn?.first).toBe(2);
+    expect(drawn?.first).toBe(0);
     expect(drawn?.last).toBe(6);
-    expect(drawn?.at).toEqual([0, 50, 100]);
+    expect(drawn?.at.map((x) => Math.round(x))).toEqual([33, 67, 100]);
+  });
+
+  it("holds the time axis at the particle's own life where every key falls inside it", () => {
+    const drawn = plot([
+      { time: 0.2, values: [0] },
+      { time: 0.8, values: [10] },
+    ]);
+
+    expect(drawn?.first).toBe(0);
+    expect(drawn?.last).toBe(1);
+    expect(drawn?.at).toEqual([20, 80]);
   });
 
   it("keeps a margin over and under, so no key lands on the edge", () => {
@@ -77,13 +88,13 @@ describe("plotOf", () => {
     expect(drawn?.points[0]?.[0]?.y).toBeCloseTo(BOX.height / 2);
   });
 
-  it("spaces keys evenly where every one of them lands at the same time", () => {
+  it("stacks keys that share one time at the time they share", () => {
     const drawn = plot([
       { time: 1, values: [0] },
       { time: 1, values: [1] },
     ]);
 
-    expect(drawn?.at).toEqual([0, 100]);
+    expect(drawn?.at).toEqual([100, 100]);
   });
 
   it("draws nothing with no keys, and nothing in a box of no size", () => {

@@ -490,6 +490,20 @@ describe("a value family's row", () => {
     expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
   });
 
+  it("draws the strip alone for a colour whose file writes no constant", () => {
+    renderMarked({
+      family: "color",
+      constant: null,
+      keys: [
+        { time: 0, values: [1, 0, 0, 1] },
+        { time: 1, values: [0, 0, 1, 1] },
+      ],
+      curve: true,
+    });
+
+    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+  });
+
   it("draws no strip for a colour with no dynamics", () => {
     renderMarked({
       family: "color",

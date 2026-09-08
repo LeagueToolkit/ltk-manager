@@ -341,12 +341,15 @@ function StructValue({ value, node, rowKey: key }: StructValueProps) {
  * keeps the row one line rather than a placeholder that shifts.
  */
 export function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
-  if (mark?.constant == null) return null;
+  if (mark === undefined) return null;
+  /* A colour that animates is drawn by its stops, which a file writing no constant still has. */
   if (mark.family === "color") {
     const rgba = channels(mark.constant);
-    if (rgba === null) return null;
-    return <ColorMark constant={rgba} stops={colorStops(mark.keys)} />;
+    const stops = colorStops(mark.keys);
+    if (rgba === null && stops.length === 0) return null;
+    return <ColorMark constant={rgba} stops={stops} />;
   }
+  if (mark.constant == null) return null;
   if (mark.constant.type === "float") {
     return <Readout value={String(mark.constant.value)} className={SCALAR_WIDTH} />;
   }
