@@ -9,7 +9,14 @@ import {
   WELL_KNOWN_MAPS,
   WELL_KNOWN_TAGS,
 } from "@/modules/library/utils/labels";
-import { useHasActiveFilters, useLibraryFilterStore } from "@/stores";
+
+import {
+  useHasActiveFilters,
+  useLibraryFilterActions,
+  useLibrarySelectedChampions,
+  useLibrarySelectedMaps,
+  useLibrarySelectedTags,
+} from "../state";
 
 function mergeOptions(
   wellKnown: string[],
@@ -35,15 +42,10 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ filterOptions }: FilterBarProps) {
-  const {
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    setTags,
-    setChampions,
-    setMaps,
-    clearFilters,
-  } = useLibraryFilterStore();
+  const selectedTags = useLibrarySelectedTags();
+  const selectedChampions = useLibrarySelectedChampions();
+  const selectedMaps = useLibrarySelectedMaps();
+  const { setTags, setChampions, setMaps, clearFilters } = useLibraryFilterActions();
   const hasActive = useHasActiveFilters();
 
   const tagOptions = useMemo(

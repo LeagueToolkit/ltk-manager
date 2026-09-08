@@ -9,11 +9,11 @@ import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
-import { useWorkshopSelectionStore, type ViewMode } from "@/stores";
 
 import { useProjectActions } from "../api/useProjectActions";
 import { useProjectThumbnail } from "../api/useProjectThumbnail";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
+import { useWorkshopSelectionStore, type ViewMode } from "../state";
 import { ProjectCardMenuItems, ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 
 interface ProjectCardProps {

@@ -1,13 +1,13 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 
 import { api, type AppError, type ObjectReferences, type ReferenceQuery } from "@/lib/tauri";
-import type { ReferenceRequest } from "@/stores";
 import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaves rather than the browsers' barrels, which reach this module back through
    the documents registry mid-evaluation, their keys unbound. */
 import { gameKeys } from "../gameBrowser/useGameWads";
 import { BUILDING_POLL_MS } from "../gameBrowser/useObjectIndex";
+import type { ReferenceRequest } from "../state";
 
 export const referenceKeys = {
   /* Under the object searches. The invalidation of a warm or a drop asks again. */

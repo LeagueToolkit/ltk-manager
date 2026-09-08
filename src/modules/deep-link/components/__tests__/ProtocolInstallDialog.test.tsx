@@ -5,11 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DeepLinkInstallRequest, Settings } from "@/lib/tauri";
-import { useDeepLinkStore, useDialogQueue } from "@/stores";
+import { useDialogQueue } from "@/stores";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
+import { useDeepLinkStore } from "../../state";
 import { ProtocolInstallDialog } from "../ProtocolInstallDialog";
 
 vi.mock("@tauri-apps/api/event", () => ({

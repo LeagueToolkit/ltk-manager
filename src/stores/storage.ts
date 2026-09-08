@@ -19,3 +19,13 @@ export const sessionJsonStorage = createJSONStorage(() => sessionStorage, {
   replacer,
   reviver,
 });
+
+export const localJsonStorage = createJSONStorage(() => localStorage, {
+  replacer,
+  reviver,
+});
+
+/** Adopts a payload written before its store declared a version. */
+export function keepUnversioned<S>(persisted: unknown): S {
+  return persisted as S;
+}

@@ -1,6 +1,6 @@
 import { useAppInfo } from "@/modules/settings";
-import { isAfter, useHomeStore } from "@/stores";
 
+import { isAfter, useHomeStore } from "../state";
 import { newestPostAt, useAnnouncements } from "./useAnnouncements";
 import { useNotices } from "./useNotices";
 

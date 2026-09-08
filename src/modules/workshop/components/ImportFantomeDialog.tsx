@@ -3,10 +3,10 @@ import { z } from "zod";
 
 import { Button, Dialog } from "@/components";
 import { useAppForm } from "@/lib/form";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { useFantomeImportProgress } from "../api/useFantomeImportProgress";
 import { useImportFromFantome } from "../api/useImportFromFantome";
+import { useFantomeImportDialog } from "../state";
 
 const importSchema = z.object({
   name: z
@@ -21,12 +21,12 @@ const importSchema = z.object({
 });
 
 export function ImportFantomeDialog() {
-  const fantomeImport = useWorkshopDialogsStore((s) => s.fantomeImport);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeFantomeImportDialog);
+  const fantomeImport = useFantomeImportDialog((s) => s.payload);
+  const closeDialog = useFantomeImportDialog((s) => s.close);
   const importFromFantome = useImportFromFantome();
   const progress = useFantomeImportProgress();
 
-  const open = fantomeImport !== null;
+  const open = useFantomeImportDialog((s) => s.isOpen);
   const peekResult = fantomeImport?.peekResult ?? null;
   const filePath = fantomeImport?.filePath ?? null;
   const isImporting =

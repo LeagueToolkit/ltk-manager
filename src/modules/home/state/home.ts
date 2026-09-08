@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { keepUnversioned } from "@/stores/storage";
+
 interface HomeStore {
   /** The installed version the reader last opened Home on, `null` before any. */
   seenVersion: string | null;
@@ -38,7 +40,7 @@ export const useHomeStore = create<HomeStore>()(
             : { dismissedNoticeIds: [...state.dismissedNoticeIds, id] },
         ),
     }),
-    { name: "ltk-home" },
+    { name: "ltk-home", version: 1, migrate: keepUnversioned<HomeStore> },
   ),
 );
 

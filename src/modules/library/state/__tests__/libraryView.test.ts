@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { useLibraryViewStore } from "@/stores/libraryView";
+import { useLibraryViewStore } from "..";
 
 describe("libraryView store", () => {
   beforeEach(() => {

@@ -5,8 +5,9 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { Button, IconButton, Tooltip } from "@/components";
 import type { HealthCheckReadiness, InstalledMod } from "@/lib/tauri";
 import { useSelectionActions } from "@/modules/library/api";
-import { useLibrarySelectionStore } from "@/stores";
 import { isOverlayOpen } from "@/utils";
+
+import { useLibrarySelectionStore } from "../state";
 
 /** What the press will do, or what it is waiting on before it can. */
 const CHECK_HINTS: Record<HealthCheckReadiness, string> = {

@@ -4,8 +4,8 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
 
+import { useBulkDeleteDialog, useBulkPackDialog, useWorkshopSelectionStore } from "../../state";
 import { useProjectSelectionActions } from "../useProjectSelectionActions";
 
 function project(name: string): WorkshopProject {
@@ -45,7 +45,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   testState.kind = "idle";
   useWorkshopSelectionStore.setState({ selectedPaths: new Set() });
-  useWorkshopDialogsStore.setState({ bulkPackProjects: [], bulkDeleteProjects: [] });
+  useBulkPackDialog.setState({ payload: null, isOpen: false });
+  useBulkDeleteDialog.setState({ payload: null, isOpen: false });
 });
 
 describe("useProjectSelectionActions", () => {
@@ -94,7 +95,7 @@ describe("useProjectSelectionActions", () => {
 
     actions().pack();
 
-    expect(useWorkshopDialogsStore.getState().bulkPackProjects).toEqual([PROJECTS[0], PROJECTS[1]]);
+    expect(useBulkPackDialog.getState().payload).toEqual([PROJECTS[0], PROJECTS[1]]);
   });
 
   it("asks before it deletes, over the picks", () => {
@@ -102,6 +103,6 @@ describe("useProjectSelectionActions", () => {
 
     actions().delete();
 
-    expect(useWorkshopDialogsStore.getState().bulkDeleteProjects).toEqual([PROJECTS[2]]);
+    expect(useBulkDeleteDialog.getState().payload).toEqual([PROJECTS[2]]);
   });
 });

@@ -11,12 +11,12 @@ import {
   NewProjectDialog,
   NotConfiguredState,
   ProjectProvider,
+  useNewProjectDialog,
   useRecordListVisit,
   useWorkshopProjects,
   WorkshopActiveFilterChips,
   WorkshopHeader,
 } from "@/modules/workshop";
-import { useWorkshopDialogsStore } from "@/stores";
 
 export const Route = createFileRoute("/workshop")({
   component: WorkshopLayout,
@@ -40,7 +40,7 @@ function WorkshopShell() {
   const { data: projects } = useWorkshopProjects();
   const project = projects?.find((candidate) => candidate.name === projectName) ?? null;
 
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
+  const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   useHotkeys("ctrl+n", () => openNewProjectDialog(), { preventDefault: true });
 
   /* The route rather than the resolved project, which arrives a frame late and

@@ -2,7 +2,8 @@ import { WarningIcon } from "@phosphor-icons/react";
 
 import { Button, Dialog, useToast } from "@/components";
 import { useBulkUninstallMods } from "@/modules/library/api";
-import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
+
+import { useBulkUninstallDialog, useLibrarySelectionStore } from "../state";
 
 const PREVIEW_LIMIT = 5;
 
@@ -14,14 +15,14 @@ const PREVIEW_LIMIT = 5;
  * preview under the reader.
  */
 export function BulkUninstallDialog() {
-  const mods = useLibraryDialogsStore((s) => s.bulkUninstallMods);
-  const close = useLibraryDialogsStore((s) => s.closeBulkUninstallDialog);
+  const mods = useBulkUninstallDialog((s) => s.payload) ?? [];
+  const close = useBulkUninstallDialog((s) => s.close);
+  const open = useBulkUninstallDialog((s) => s.isOpen);
   const clearSelection = useLibrarySelectionStore((s) => s.clear);
   const setSelection = useLibrarySelectionStore((s) => s.setSelection);
   const bulkUninstall = useBulkUninstallMods();
   const toast = useToast();
 
-  const open = mods.length > 0;
   const isPending = bulkUninstall.isPending;
   const count = mods.length;
 

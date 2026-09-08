@@ -1,4 +1,4 @@
-import { useLibraryFilterStore } from "@/stores/libraryFilter";
+import { useLibraryFilterStore } from "..";
 
 describe("libraryFilter store", () => {
   beforeEach(() => {

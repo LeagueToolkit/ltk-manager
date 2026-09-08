@@ -1,4 +1,4 @@
-import { useNotificationStore } from "@/stores/notifications";
+import { useNotificationStore } from "../notifications";
 
 describe("notifications store", () => {
   beforeEach(() => {

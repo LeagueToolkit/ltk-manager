@@ -4,7 +4,8 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tooltip } from "@/components";
-import { isLevelVisible, type LogEntry, useDevConsoleStore } from "@/stores/devConsole";
+
+import { isLevelVisible, type LogEntry, useDevConsoleStore } from "../state";
 
 const levelColors: Record<string, string> = {
   TRACE: "text-surface-500",

@@ -1,4 +1,4 @@
-import { usePatcherSessionStore } from "@/stores/patcherSession";
+import { usePatcherSessionStore } from "../patcherSession";
 
 describe("patcherSession store", () => {
   beforeEach(() => {

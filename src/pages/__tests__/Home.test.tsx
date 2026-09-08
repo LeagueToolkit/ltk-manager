@@ -17,9 +17,10 @@ import type {
   Settings,
 } from "@/lib/tauri";
 import { createMockIncident } from "@/modules/diagnostics/components/__tests__/fixtures";
+import { useHomeStore } from "@/modules/home";
 import { verdict } from "@/modules/library/components/__tests__/modHealthFixtures";
 import type { ReleaseFeed, UseReleaseHistoryOptions } from "@/modules/updater";
-import { useHomeStore, useModHealthDrawerStore, useUpdaterStore } from "@/stores";
+import { useModHealthDrawerStore, useUpdaterStore } from "@/stores";
 import { createMockInstalledMod, createMockProfile, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";

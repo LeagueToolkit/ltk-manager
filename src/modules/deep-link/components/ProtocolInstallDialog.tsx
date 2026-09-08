@@ -12,10 +12,11 @@ import { Button, Dialog, Progress, useToast } from "@/components";
 import { errorSummary, m, Marked } from "@/i18n";
 import type { ProtocolInstallProgress, Settings } from "@/lib/tauri";
 import { useSaveSettings, useSettings } from "@/modules/settings";
-import { useDeepLinkStore, useQueuedDialog } from "@/stores";
+import { useQueuedDialog } from "@/stores";
 
 import { useProtocolInstall } from "../api/useProtocolInstall";
 import { useProtocolInstallProgress } from "../api/useProtocolInstallProgress";
+import { useDeepLinkStore } from "../state";
 
 export function ProtocolInstallDialog() {
   const request = useDeepLinkStore((s) => s.request);

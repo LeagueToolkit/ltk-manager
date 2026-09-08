@@ -2,8 +2,8 @@ import { useMemo } from "react";
 
 import type { HealthCheckReadiness, InstalledMod } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
-import { useLibraryDialogsStore, useLibrarySelectionStore } from "@/stores";
 
+import { useBulkUninstallDialog, useLibrarySelectionStore } from "../state";
 import { useHealthCheckReadiness, useSweepModHealth } from "./modHealth";
 import { useInstalledMods } from "./queries";
 import { useSetModsEnabled } from "./useSetModsEnabled";
@@ -34,7 +34,7 @@ export interface SelectionActions {
 export function useSelectionActions(): SelectionActions {
   const selectedIds = useLibrarySelectionStore((s) => s.selectedIds);
   const clear = useLibrarySelectionStore((s) => s.clear);
-  const openBulkUninstallDialog = useLibraryDialogsStore((s) => s.openBulkUninstallDialog);
+  const openBulkUninstallDialog = useBulkUninstallDialog((s) => s.open);
 
   const { data: allMods = [] } = useInstalledMods();
   const { data: patcherStatus } = usePatcherStatus();

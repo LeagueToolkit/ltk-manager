@@ -1,4 +1,4 @@
-import { isAfter, useHomeStore } from "@/stores/home";
+import { isAfter, useHomeStore } from "..";
 
 describe("home store", () => {
   beforeEach(() => {

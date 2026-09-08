@@ -7,8 +7,8 @@ import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import type { LingeringSlot } from "@/modules/library/api";
 import { useFolderToggle } from "@/modules/library/api";
 import { dropLineFor, noSorting } from "@/modules/library/utils";
-import { useLibraryViewStore } from "@/stores/libraryView";
 
+import { useLibraryViewStore } from "../state";
 import { FolderContextMenu } from "./FolderContextMenu";
 import { ModCard } from "./ModCard";
 import { SortableModCard } from "./SortableModCard";

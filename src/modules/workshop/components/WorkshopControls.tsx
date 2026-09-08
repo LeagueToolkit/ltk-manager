@@ -19,9 +19,14 @@ import {
   Tooltip,
 } from "@/components";
 import { ViewOptionsPopover } from "@/modules/library";
-import { useWorkshopDialogsStore, useWorkshopViewStore, type ViewMode } from "@/stores";
 
 import { useProjectImports } from "../api/useProjectImports";
+import {
+  useNewProjectDialog,
+  useSetWorkshopViewMode,
+  useWorkshopViewMode,
+  type ViewMode,
+} from "../state";
 import { WorkshopSelectionButton } from "./WorkshopSelectionButton";
 
 /* What the header's slots hold while no project is open. Each is one slot, so a
@@ -34,8 +39,8 @@ const VIEW_OPTIONS: SegmentedOption<ViewMode>[] = [
 
 /** The view slot without a project: which selection, which shape. */
 export function WorkshopViewControls() {
-  const viewMode = useWorkshopViewStore((s) => s.viewMode);
-  const setViewMode = useWorkshopViewStore((s) => s.setViewMode);
+  const viewMode = useWorkshopViewMode();
+  const setViewMode = useSetWorkshopViewMode();
 
   return (
     <>
@@ -62,7 +67,7 @@ export function WorkshopViewControls() {
  * actions, and every route in here carries its name in the palette.
  */
 export function WorkshopActions() {
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
+  const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   const imports = useProjectImports();
 
   return (

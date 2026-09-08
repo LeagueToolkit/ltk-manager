@@ -10,8 +10,8 @@ import {
   isSameSlot,
   resolveFolderId,
 } from "@/modules/library/utils";
-import { useReorderDisabled } from "@/stores";
 
+import { useReorderDisabled } from "../state";
 import { useLingeringSlot } from "./useLingeringSlot";
 import { useMoveModToFolder } from "./useMoveMod";
 

@@ -1,9 +1,7 @@
 import { useCallback } from "react";
 
-import { type ReferenceRequest, useAskReferences } from "@/stores";
-
 import { referencesDocument } from "../documents/contentDocument";
-import { useOpenDocument } from "../state";
+import { type ReferenceRequest, useAskReferences, useOpenDocument } from "../state";
 
 /** Every object of one class, labelled by the class name or its hash. */
 export function classReferences(classHash: string, name: string | null): ReferenceRequest {

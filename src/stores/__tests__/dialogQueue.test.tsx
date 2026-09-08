@@ -2,7 +2,7 @@
 
 import { act, renderHook } from "@testing-library/react";
 
-import { useDialogQueue, useQueuedDialog } from "@/stores/dialogQueue";
+import { useDialogQueue, useQueuedDialog } from "../dialogQueue";
 
 describe("dialog queue store", () => {
   beforeEach(() => {

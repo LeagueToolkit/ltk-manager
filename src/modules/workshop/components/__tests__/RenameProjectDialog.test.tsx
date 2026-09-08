@@ -5,9 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { useWorkshopDialogsStore } from "@/stores";
 import { renderWithProviders } from "@/test/utils";
 
+import { useRenameProjectDialog } from "../../state";
 import { RenameProjectDialog } from "../RenameProjectDialog";
 
 const rename = vi.fn();
@@ -38,13 +38,13 @@ const submit = () => screen.getByRole("button", { name: "Rename" });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useWorkshopDialogsStore.setState({ renameProject: null });
+  useRenameProjectDialog.setState({ payload: null, isOpen: false });
 });
 
 describe("RenameProjectDialog", () => {
   it("renames the project over its slug", async () => {
     const user = userEvent.setup();
-    useWorkshopDialogsStore.setState({ renameProject: MOD });
+    useRenameProjectDialog.getState().open(MOD);
     renderWithProviders(<RenameProjectDialog />);
 
     await user.clear(field());
@@ -59,7 +59,7 @@ describe("RenameProjectDialog", () => {
 
   it("refuses a slug a directory name would not hold", async () => {
     const user = userEvent.setup();
-    useWorkshopDialogsStore.setState({ renameProject: MOD });
+    useRenameProjectDialog.getState().open(MOD);
     renderWithProviders(<RenameProjectDialog />);
 
     await user.clear(field());
@@ -70,7 +70,7 @@ describe("RenameProjectDialog", () => {
   });
 
   it("offers nothing for a name that has not moved", () => {
-    useWorkshopDialogsStore.setState({ renameProject: MOD });
+    useRenameProjectDialog.getState().open(MOD);
     renderWithProviders(<RenameProjectDialog />);
 
     expect(submit()).toBeDisabled();
@@ -80,14 +80,14 @@ describe("RenameProjectDialog", () => {
      slug it still has rather than the text that was refused. */
   it("seeds the field again after a close", async () => {
     const user = userEvent.setup();
-    useWorkshopDialogsStore.setState({ renameProject: MOD });
+    useRenameProjectDialog.getState().open(MOD);
     const { rerender } = renderWithProviders(<RenameProjectDialog />);
 
     await user.clear(field());
     await user.type(field(), "half-typed");
-    useWorkshopDialogsStore.getState().closeRenameDialog();
+    useRenameProjectDialog.getState().close();
     rerender(<RenameProjectDialog />);
-    useWorkshopDialogsStore.setState({ renameProject: MOD });
+    useRenameProjectDialog.getState().open(MOD);
     rerender(<RenameProjectDialog />);
 
     expect(field()).toHaveValue(MOD.name);

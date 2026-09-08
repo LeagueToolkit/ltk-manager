@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { type Announcement, api, type AppError } from "@/lib/tauri";
-import { isAfter } from "@/stores";
 import { queryFn } from "@/utils/query";
 
+import { isAfter } from "../state";
 import { homeKeys } from "./keys";
 
 /** Half an hour, because a post is news for longer than that. */

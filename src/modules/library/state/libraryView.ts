@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { localJsonStorage } from "@/stores/storage";
+
 interface LibraryViewStore {
   expandedFolders: Set<string>;
 
@@ -32,31 +34,20 @@ export const useLibraryViewStore = create<LibraryViewStore>()(
     }),
     {
       name: "ltk-library-view",
-      partialize: (state) => ({
-        expandedFolders: state.expandedFolders,
-      }),
-      storage: {
-        getItem: (name) => {
-          const str = localStorage.getItem(name);
-          if (!str) return null;
-          const parsed = JSON.parse(str);
-          if (parsed?.state?.expandedFolders) {
-            parsed.state.expandedFolders = new Set(parsed.state.expandedFolders);
-          }
-          return parsed;
-        },
-        setItem: (name, value) => {
-          const serializable = {
-            ...value,
-            state: {
-              ...value.state,
-              expandedFolders: [...(value.state.expandedFolders ?? [])],
-            },
-          };
-          localStorage.setItem(name, JSON.stringify(serializable));
-        },
-        removeItem: (name) => localStorage.removeItem(name),
+      version: 1,
+      /* Version 0 wrote the set as a bare array, which the shared codec reads
+         back as one. */
+      migrate: (persisted) => {
+        const state = persisted as { expandedFolders?: unknown };
+        return {
+          ...state,
+          expandedFolders: new Set(
+            Array.isArray(state.expandedFolders) ? (state.expandedFolders as string[]) : [],
+          ),
+        } as LibraryViewStore;
       },
+      storage: localJsonStorage,
+      partialize: (state) => ({ expandedFolders: state.expandedFolders }),
     },
   ),
 );

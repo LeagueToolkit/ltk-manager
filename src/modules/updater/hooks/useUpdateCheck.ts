@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 
-import { useUpdaterCheckForUpdate, useUpdaterStore } from "@/stores";
+import { useUpdaterStore } from "@/stores";
 
+import { useCheckForUpdate } from "../api";
 import { mockUpdate } from "../mockUpdate";
 
 /**
@@ -11,7 +12,7 @@ import { mockUpdate } from "../mockUpdate";
  * exercise the titlebar cell and the changelog dialog.
  */
 export function useUpdateCheck({ checkOnMount = true, delayMs = 3000 } = {}) {
-  const checkForUpdate = useUpdaterCheckForUpdate();
+  const checkForUpdate = useCheckForUpdate();
 
   useEffect(() => {
     if (import.meta.env.DEV) {

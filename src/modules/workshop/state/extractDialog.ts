@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import type { ExistingFiles, ExtractLayout, ExtractTarget } from "@/lib/tauri";
+import { keepUnversioned } from "@/stores/storage";
 
 interface ExtractDialogStore {
   /**
@@ -56,6 +57,8 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
     }),
     {
       name: "extract-dialog",
+      version: 1,
+      migrate: keepUnversioned<ExtractDialogStore>,
       /* The fields, not what is aimed at: a dialog that reopened itself on
          launch would be aimed at rows from another session. */
       partialize: (state) => ({

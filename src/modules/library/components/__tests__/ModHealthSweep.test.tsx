@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components";
 import type { ModHealthVerdict } from "@/lib/tauri";
 import type { HealthFilter } from "@/modules/library";
-import { useLibrarySelectionStore, useModHealthDrawerStore } from "@/stores";
+import { useModHealthDrawerStore } from "@/stores";
 
+import { useLibrarySelectionStore } from "../../state";
 import { ModHealthStatusItem } from "../ModHealthStatusItem";
 import { ModHealthSweep } from "../ModHealthSweep";
 import { type HealthLists, healthVerdicts, installedMod, verdict } from "./modHealthFixtures";

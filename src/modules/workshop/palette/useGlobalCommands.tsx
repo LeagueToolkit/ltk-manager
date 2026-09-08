@@ -9,10 +9,9 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
-import { useWorkshopDialogsStore } from "@/stores";
-
 import { useProjectImports } from "../api/useProjectImports";
 import { useRefreshGameIndex } from "../gameBrowser";
+import { useNewProjectDialog } from "../state";
 import type { ProjectCommand } from "./types";
 
 const GLYPH = "h-4 w-4";
@@ -29,7 +28,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
   const navigate = useNavigate();
   const refreshGameIndex = useRefreshGameIndex();
   const imports = useProjectImports();
-  const openNewProjectDialog = useWorkshopDialogsStore((s) => s.openNewProjectDialog);
+  const openNewProjectDialog = useNewProjectDialog((s) => s.open);
 
   const refresh = refreshGameIndex.mutate;
 

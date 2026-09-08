@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { useWorkshopLayoutStore } from "@/stores/workshopLayout";
+import { useWorkshopLayoutStore } from "../workshopLayout";
 
 describe("workshopLayout", () => {
   beforeEach(() => {

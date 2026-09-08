@@ -2,10 +2,10 @@ import { z } from "zod";
 
 import { Button, Dialog } from "@/components";
 import { useAppForm } from "@/lib/form";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { useGitImportProgress } from "../api/useGitImportProgress";
 import { useImportFromGitRepo } from "../api/useImportFromGitRepo";
+import { useGitImportDialog } from "../state";
 
 const importSchema = z.object({
   url: z
@@ -19,8 +19,8 @@ const importSchema = z.object({
 });
 
 export function ImportGitRepoDialog() {
-  const open = useWorkshopDialogsStore((s) => s.gitImportOpen);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeGitImportDialog);
+  const open = useGitImportDialog((s) => s.isOpen);
+  const closeDialog = useGitImportDialog((s) => s.close);
   const importFromGitRepo = useImportFromGitRepo();
   const progress = useGitImportProgress();
 

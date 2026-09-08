@@ -6,7 +6,6 @@ import {
   useQueuedDialog,
   useUpdaterDialogOpen,
   useUpdaterDismissError,
-  useUpdaterDownloadAndInstall,
   useUpdaterError,
   useUpdaterProgress,
   useUpdaterSetDialogOpen,
@@ -16,6 +15,7 @@ import {
   useUpdaterUpdating,
 } from "@/stores";
 
+import { useInstallUpdate } from "../api";
 import { ReleaseHistory } from "./ReleaseHistory";
 import { ReleaseSection } from "./ReleaseSection";
 
@@ -23,7 +23,7 @@ export function UpdateChangelogDialog() {
   const update = useUpdaterUpdate();
   const dialogOpen = useUpdaterDialogOpen();
   const setDialogOpen = useUpdaterSetDialogOpen();
-  const downloadAndInstall = useUpdaterDownloadAndInstall();
+  const downloadAndInstall = useInstallUpdate();
   const updating = useUpdaterUpdating();
   const progress = useUpdaterProgress();
   const error = useUpdaterError();

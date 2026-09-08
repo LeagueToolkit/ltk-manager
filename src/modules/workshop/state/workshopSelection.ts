@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { sessionJsonStorage } from "./storage";
+import { keepUnversioned, sessionJsonStorage } from "@/stores/storage";
 
 interface WorkshopSelectionStore {
   selectedPaths: Set<string>;
@@ -32,6 +32,8 @@ export const useWorkshopSelectionStore = create<WorkshopSelectionStore>()(
     }),
     {
       name: "workshop-selection",
+      version: 1,
+      migrate: keepUnversioned<WorkshopSelectionStore>,
       storage: sessionJsonStorage,
     },
   ),

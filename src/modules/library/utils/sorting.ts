@@ -1,5 +1,6 @@
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
-import type { SortConfig } from "@/stores/libraryFilter";
+
+import type { SortConfig } from "../state";
 
 /** Alphabetically first champion of a mod, or null when it names none. */
 function championKey(mod: InstalledMod): string | null {

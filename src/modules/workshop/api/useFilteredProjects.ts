@@ -1,13 +1,21 @@
 import { useMemo } from "react";
 
-import { useWorkshopFilterStore, useWorkshopViewStore } from "@/stores";
-
+import {
+  useWorkshopSearchQuery,
+  useWorkshopSelectedChampions,
+  useWorkshopSelectedMaps,
+  useWorkshopSelectedTags,
+  useWorkshopSort,
+} from "../state";
 import { useWorkshopProjects } from "./useWorkshopProjects";
 
 export function useFilteredProjects() {
   const { data: projects = [] } = useWorkshopProjects();
-  const searchQuery = useWorkshopViewStore((s) => s.searchQuery);
-  const { selectedTags, selectedChampions, selectedMaps, sort } = useWorkshopFilterStore();
+  const searchQuery = useWorkshopSearchQuery();
+  const selectedTags = useWorkshopSelectedTags();
+  const selectedChampions = useWorkshopSelectedChampions();
+  const selectedMaps = useWorkshopSelectedMaps();
+  const sort = useWorkshopSort();
 
   return useMemo(() => {
     let result = projects;

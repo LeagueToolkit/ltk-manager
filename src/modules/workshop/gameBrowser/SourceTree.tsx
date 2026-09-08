@@ -5,10 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContextMenu } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
-import { keepScrollTop, keptScrollTop } from "@/stores";
 
 import { TreeStickyBand } from "../components/TreeStickyBand";
 import { useStickyTreeRows } from "../hooks";
+import { keepScrollTop, keptScrollTop } from "../state";
 import { type DirTargets, filesUnder, fileTarget } from "./extractTargets";
 import {
   flattenSourceTree,

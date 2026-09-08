@@ -5,20 +5,7 @@ import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { ObjectFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import {
-  useExpandedObjectPrefixes,
-  useObjectsReveal,
-  useObjectsSearchPattern,
-  useObjectsSearchRegex,
-  useSearchObjects,
-  useSetObjectsSearchPattern,
-  useSetObjectsSearchRegex,
-  useSetSearchObjects,
-  useSettleObjectsReveal,
-  useShutFindPrefixes,
-  useToggleFindPrefix,
-  useToggleObjectPrefix,
-} from "@/stores";
+import { useSearchObjects, useSetSearchObjects } from "@/stores";
 import { hasErrorCode } from "@/utils/errors";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";
@@ -27,6 +14,18 @@ import { TreeSearchBox } from "../components/TreeSearchBox";
 import type { ContentDocumentOf } from "../documents/contentDocument";
 import { GameLoadingState, GameWadsErrorState } from "../gameBrowser/GameBrowserStates";
 import { useWarmOnAbsent } from "../gameBrowser/useObjectIndex";
+import {
+  useExpandedObjectPrefixes,
+  useObjectsReveal,
+  useObjectsSearchPattern,
+  useObjectsSearchRegex,
+  useSetObjectsSearchPattern,
+  useSetObjectsSearchRegex,
+  useSettleObjectsReveal,
+  useShutFindPrefixes,
+  useToggleFindPrefix,
+  useToggleObjectPrefix,
+} from "../state";
 import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,

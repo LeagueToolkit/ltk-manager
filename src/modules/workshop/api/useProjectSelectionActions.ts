@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 
 import type { WorkshopProject } from "@/lib/tauri";
-import { useWorkshopDialogsStore, useWorkshopSelectionStore } from "@/stores";
 
+import { useBulkDeleteDialog, useBulkPackDialog, useWorkshopSelectionStore } from "../state";
 import { useFilteredProjects } from "./useFilteredProjects";
 import { useTestProjects } from "./useTestProject";
 import { useWorkshopTestState } from "./useWorkshopTestState";
@@ -30,8 +30,8 @@ export interface ProjectSelectionActions {
 export function useProjectSelectionActions(): ProjectSelectionActions {
   const selectedPaths = useWorkshopSelectionStore((s) => s.selectedPaths);
   const clear = useWorkshopSelectionStore((s) => s.clear);
-  const openBulkPackDialog = useWorkshopDialogsStore((s) => s.openBulkPackDialog);
-  const openBulkDeleteDialog = useWorkshopDialogsStore((s) => s.openBulkDeleteDialog);
+  const openBulkPackDialog = useBulkPackDialog((s) => s.open);
+  const openBulkDeleteDialog = useBulkDeleteDialog((s) => s.open);
 
   const filteredProjects = useFilteredProjects();
   const testProjects = useTestProjects();

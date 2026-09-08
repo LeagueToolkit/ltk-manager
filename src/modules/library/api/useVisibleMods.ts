@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
-import { useHasActiveFilters } from "@/stores";
 
+import { useHasActiveFilters } from "../state";
 import { useFilteredMods } from "./useFilteredMods";
 
 const ROOT_FOLDER_ID = "root";

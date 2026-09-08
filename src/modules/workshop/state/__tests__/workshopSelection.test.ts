@@ -1,4 +1,4 @@
-import { useWorkshopSelectionStore } from "@/stores/workshopSelection";
+import { useWorkshopSelectionStore } from "../workshopSelection";
 
 describe("workshopSelection store", () => {
   beforeEach(() => {

@@ -1,4 +1,4 @@
-import { keepScrollTop, keptScrollTop, useGameBrowserStore } from "@/stores/gameBrowser";
+import { keepScrollTop, keptScrollTop, useGameBrowserStore } from "../gameBrowser";
 
 describe("gameBrowser store", () => {
   beforeEach(() => {

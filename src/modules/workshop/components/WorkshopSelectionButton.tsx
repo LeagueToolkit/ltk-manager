@@ -3,11 +3,11 @@ import { match } from "ts-pattern";
 
 import { Button, ButtonGroup, IconButton, Kbd, Menu, Tooltip } from "@/components";
 import { useActiveProfile } from "@/modules/library";
-import { useWorkshopSelectionStore } from "@/stores";
 
 import { useFilteredProjects } from "../api/useFilteredProjects";
 import { useProjectSelectionActions } from "../api/useProjectSelectionActions";
 import { useWorkshopTestState } from "../api/useWorkshopTestState";
+import { useWorkshopSelectionStore } from "../state";
 import { testTint } from "./actionTints";
 import { ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 import { BuildingTestButton, StopTestButton } from "./testSessionButtons";

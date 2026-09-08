@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores/displayStore";
+import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "../displayStore";
 
 describe("displayStore", () => {
   beforeEach(() => {

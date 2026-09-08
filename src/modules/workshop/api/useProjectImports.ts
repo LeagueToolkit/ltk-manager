@@ -1,8 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useMemo } from "react";
 
-import { useWorkshopDialogsStore } from "@/stores";
-
+import { useFantomeImportDialog, useGitImportDialog } from "../state";
 import { useImportFromModpkg } from "./useImportFromModpkg";
 import { usePeekFantome } from "./usePeekFantome";
 
@@ -25,8 +24,8 @@ export interface ProjectImports {
  * in.
  */
 export function useProjectImports(): ProjectImports {
-  const openFantomeImportDialog = useWorkshopDialogsStore((s) => s.openFantomeImportDialog);
-  const openGitImportDialog = useWorkshopDialogsStore((s) => s.openGitImportDialog);
+  const openFantomeImportDialog = useFantomeImportDialog((s) => s.open);
+  const openGitImportDialog = useGitImportDialog((s) => s.open);
 
   const importFromModpkg = useImportFromModpkg();
   const peekFantome = usePeekFantome();
@@ -43,7 +42,7 @@ export function useProjectImports(): ProjectImports {
     if (!file) return;
 
     peek(file, {
-      onSuccess: (result) => openFantomeImportDialog(result, file),
+      onSuccess: (peekResult) => openFantomeImportDialog({ peekResult, filePath: file }),
       onError: (err) => console.error("Failed to peek fantome:", err),
     });
   }, [openFantomeImportDialog, peek]);

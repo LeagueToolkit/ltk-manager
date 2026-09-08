@@ -1,4 +1,4 @@
-import { isLevelVisible, useDevConsoleStore } from "@/stores/devConsole";
+import { isLevelVisible, useDevConsoleStore } from "..";
 
 describe("isLevelVisible", () => {
   it("shows same level as filter", () => {

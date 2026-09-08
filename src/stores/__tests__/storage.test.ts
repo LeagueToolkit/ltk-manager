@@ -1,4 +1,4 @@
-import { replacer, reviver } from "@/stores/storage";
+import { replacer, reviver } from "../storage";
 
 describe("replacer", () => {
   it("serializes Set to tagged object", () => {

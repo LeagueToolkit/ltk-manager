@@ -5,10 +5,10 @@ import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useLibraryFilterStore } from "@/stores";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { createTestQueryClient } from "@/test/utils";
 
+import { useLibraryFilterStore } from "../../state";
 import { useVisibleMods } from "../useVisibleMods";
 
 const MODS = [

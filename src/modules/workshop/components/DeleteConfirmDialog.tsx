@@ -2,17 +2,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { TriangleAlert } from "lucide-react";
 
 import { Button, Dialog } from "@/components";
-import { useWorkshopDialogsStore } from "@/stores";
 
 import { useDeleteProject } from "../api/useDeleteProject";
+import { useDeleteProjectDialog } from "../state";
 
 export function DeleteConfirmDialog() {
-  const project = useWorkshopDialogsStore((s) => s.deleteProject);
-  const closeDialog = useWorkshopDialogsStore((s) => s.closeDeleteDialog);
+  const project = useDeleteProjectDialog((s) => s.payload);
+  const closeDialog = useDeleteProjectDialog((s) => s.close);
   const deleteProject = useDeleteProject();
   const navigate = useNavigate();
 
-  const open = project !== null;
+  const open = useDeleteProjectDialog((s) => s.isOpen);
 
   function handleConfirm() {
     if (!project) return;

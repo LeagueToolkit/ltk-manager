@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { keepUnversioned } from "./storage";
+
 /** Which edge of the content browser the layers explorer docks to. */
 type LayerPanelSide = "left" | "right";
 type WadSort = "name" | "size";
@@ -115,7 +117,11 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setSearchObjects: (searchObjects) => set({ searchObjects }),
       setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
     }),
-    { name: "ltk-workshop-layout", version: 1 },
+    {
+      name: "ltk-workshop-layout",
+      version: 1,
+      migrate: keepUnversioned<WorkshopLayoutStore>,
+    },
   ),
 );
 

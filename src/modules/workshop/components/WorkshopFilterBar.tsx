@@ -3,9 +3,15 @@ import { useMemo } from "react";
 
 import { MultiSelect, type MultiSelectOption } from "@/components";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
-import { useHasActiveWorkshopFilters, useWorkshopFilterStore } from "@/stores";
 
 import type { WorkshopFilterOptions } from "../api/useFilterOptions";
+import {
+  useHasActiveWorkshopFilters,
+  useWorkshopFilterActions,
+  useWorkshopSelectedChampions,
+  useWorkshopSelectedMaps,
+  useWorkshopSelectedTags,
+} from "../state";
 
 function mergeOptions(
   wellKnown: string[],
@@ -31,15 +37,10 @@ interface WorkshopFilterBarProps {
 }
 
 export function WorkshopFilterBar({ filterOptions }: WorkshopFilterBarProps) {
-  const {
-    selectedTags,
-    selectedChampions,
-    selectedMaps,
-    setTags,
-    setChampions,
-    setMaps,
-    clearFilters,
-  } = useWorkshopFilterStore();
+  const selectedTags = useWorkshopSelectedTags();
+  const selectedChampions = useWorkshopSelectedChampions();
+  const selectedMaps = useWorkshopSelectedMaps();
+  const { setTags, setChampions, setMaps, clearFilters } = useWorkshopFilterActions();
   const hasActive = useHasActiveWorkshopFilters();
 
   const tagOptions = useMemo(

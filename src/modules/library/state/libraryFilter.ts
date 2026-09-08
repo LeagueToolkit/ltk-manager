@@ -1,18 +1,19 @@
 import { create } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
-export type WorkshopSortField = "name" | "lastModified";
-export type WorkshopSortDirection = "asc" | "desc";
+export type SortField = "priority" | "name" | "champion" | "installedAt" | "enabled";
+export type SortDirection = "asc" | "desc";
 
-export interface WorkshopSortConfig {
-  field: WorkshopSortField;
-  direction: WorkshopSortDirection;
+export interface SortConfig {
+  field: SortField;
+  direction: SortDirection;
 }
 
-interface WorkshopFilterStore {
+interface LibraryFilterStore {
   selectedTags: Set<string>;
   selectedChampions: Set<string>;
   selectedMaps: Set<string>;
-  sort: WorkshopSortConfig;
+  sort: SortConfig;
 
   toggleTag: (tag: string) => void;
   toggleChampion: (champion: string) => void;
@@ -21,14 +22,14 @@ interface WorkshopFilterStore {
   setChampions: (champions: Set<string>) => void;
   setMaps: (maps: Set<string>) => void;
   clearFilters: () => void;
-  setSort: (sort: WorkshopSortConfig) => void;
+  setSort: (sort: SortConfig) => void;
 }
 
-export const useWorkshopFilterStore = create<WorkshopFilterStore>((set) => ({
+export const useLibraryFilterStore = create<LibraryFilterStore>((set) => ({
   selectedTags: new Set(),
   selectedChampions: new Set(),
   selectedMaps: new Set(),
-  sort: { field: "name", direction: "asc" },
+  sort: { field: "priority", direction: "desc" },
 
   toggleTag: (tag) =>
     set((state) => {
@@ -68,8 +69,33 @@ export const useWorkshopFilterStore = create<WorkshopFilterStore>((set) => ({
   setSort: (sort) => set({ sort }),
 }));
 
-export function useHasActiveWorkshopFilters() {
-  return useWorkshopFilterStore(
+export function useHasActiveFilters() {
+  return useLibraryFilterStore(
     (s) => s.selectedTags.size > 0 || s.selectedChampions.size > 0 || s.selectedMaps.size > 0,
   );
 }
+
+/** Reordering only applies in priority sort. Any other sort imposes its own order. */
+export function useReorderDisabled() {
+  return useLibraryFilterStore((s) => s.sort.field !== "priority");
+}
+
+export const useLibrarySelectedTags = () => useLibraryFilterStore((s) => s.selectedTags);
+export const useLibrarySelectedChampions = () => useLibraryFilterStore((s) => s.selectedChampions);
+export const useLibrarySelectedMaps = () => useLibraryFilterStore((s) => s.selectedMaps);
+export const useLibrarySort = () => useLibraryFilterStore((s) => s.sort);
+
+/** Every filter action at once, on identities the store never replaces. */
+export const useLibraryFilterActions = () =>
+  useLibraryFilterStore(
+    useShallow((s) => ({
+      toggleTag: s.toggleTag,
+      toggleChampion: s.toggleChampion,
+      toggleMap: s.toggleMap,
+      setTags: s.setTags,
+      setChampions: s.setChampions,
+      setMaps: s.setMaps,
+      clearFilters: s.clearFilters,
+      setSort: s.setSort,
+    })),
+  );

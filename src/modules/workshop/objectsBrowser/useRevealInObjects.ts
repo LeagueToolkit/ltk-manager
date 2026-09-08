@@ -1,13 +1,12 @@
 import { useCallback } from "react";
 
+import { objectsDocument } from "../documents/contentDocument";
 import {
   useExpandObjectPrefixes,
+  useOpenDocument,
   useRequestObjectsReveal,
   useSetObjectsSearchPattern,
-} from "@/stores";
-
-import { objectsDocument } from "../documents/contentDocument";
-import { useOpenDocument } from "../state";
+} from "../state";
 import { ancestorPrefixes } from "./objectTree";
 
 /**
