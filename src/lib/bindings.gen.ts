@@ -75,20 +75,6 @@ export const commands = {
 	 */
 	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
 	/**
-	 *  The pseudonym today's diagnostics would travel under, if any would.
-	 * 
-	 *  Answers `None` when nothing is collected, so the Privacy card can say that
-	 *  rather than show an identity that reaches no one.
-	 */
-	telemetryIdentity: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("telemetry_identity"),
-	/**
-	 *  Mint a new diagnostics secret, breaking the link to everything sent before.
-	 * 
-	 *  Takes effect at once rather than at the next midnight, because a reader who
-	 *  presses it is asking for the link to break now. Answers the new pseudonym.
-	 */
-	resetTelemetrySecret: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reset_telemetry_secret"),
-	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
 	 * 

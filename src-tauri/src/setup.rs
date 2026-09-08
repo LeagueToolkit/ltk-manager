@@ -31,19 +31,6 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     initialize_first_run(&app_handle, &settings_state);
 
-    // The secret is minted here rather than on first report, so the identity a
-    // reader is shown in Settings is the one their events would carry.
-    let telemetry = {
-        let mut settings = settings_state.0.lock();
-        let (secret, minted) = crate::telemetry::ensure_secret(&mut settings);
-        if minted {
-            if let Err(error) = crate::state::persist_settings(&app_handle, &settings) {
-                tracing::warn!(%error, "Failed to store the diagnostics secret");
-            }
-        }
-        crate::telemetry::build(&app_handle, &settings, secret)
-    };
-
     let settings = settings_state.0.lock().clone();
 
     // The library owns these stores; `manage` below registers the same `Arc`s so
@@ -106,7 +93,6 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
     app.manage(incident_store);
-    app.manage(crate::telemetry::TelemetryState::new(telemetry));
     app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
@@ -181,9 +167,6 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         crate::patcher::shutdown_resources(app_handle);
-
-        let telemetry: tauri::State<'_, crate::telemetry::TelemetryState> = app_handle.state();
-        telemetry.handle().flush();
 
         // The session watcher ends on its own, but the window hider polls for
         // five minutes waiting for a game that will never come now.

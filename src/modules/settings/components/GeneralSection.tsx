@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import type { Settings } from "@/lib/tauri";
 
 import { LeagueSection } from "./LeagueSection";
-import { PrivacySection } from "./PrivacySection";
 import { StartupAndTraySection } from "./StartupAndTraySection";
 
 interface GeneralSectionProps {
@@ -19,7 +18,6 @@ export function GeneralSection({ settings, onSave, migration }: GeneralSectionPr
     <div className="flex flex-col gap-6">
       <LeagueSection settings={settings} onSave={onSave} />
       <StartupAndTraySection settings={settings} onSave={onSave} />
-      <PrivacySection settings={settings} onSave={onSave} />
       {migration}
     </div>
   );

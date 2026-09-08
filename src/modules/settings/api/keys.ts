@@ -10,5 +10,4 @@ export const settingsKeys = {
   hashtableUpdates: () => [...settingsKeys.all, "hashtableUpdates"] as const,
   leaguePathValid: (path: string) => [...settingsKeys.all, "leaguePathValid", path] as const,
   thirdPartyLicenses: () => [...settingsKeys.all, "thirdPartyLicenses"] as const,
-  telemetryIdentity: () => [...settingsKeys.all, "telemetryIdentity"] as const,
 };

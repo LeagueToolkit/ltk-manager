@@ -1,7 +1,6 @@
 export { AboutSection } from "./AboutSection";
 export { AppearanceSection } from "./AppearanceSection";
 export { CacheSection } from "./CacheSection";
-export { DiagnosticsNoticeDialog } from "./DiagnosticsNoticeDialog";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
 export { LibrarySection } from "./LibrarySection";

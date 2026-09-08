@@ -54,14 +54,6 @@ export const settingsQueries = {
       queryFn: fetchThirdPartyLicenses,
       staleTime: Infinity,
     }),
-
-  /* Refetched on focus, because the identity rotates at midnight UTC and a window
-     left open across it would otherwise show yesterday's. */
-  telemetryIdentity: () =>
-    queryOptions<string | null, AppError>({
-      queryKey: settingsKeys.telemetryIdentity(),
-      queryFn: queryFn(api.diagnostics.telemetryIdentity),
-    }),
 } as const;
 
 /** What the configured League install answers about itself. */

@@ -412,8 +412,6 @@ export const api = {
       commands.incidentReport(id, hints).then(toResult),
     incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
     decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
-    telemetryIdentity: () => commands.telemetryIdentity().then(toResult),
-    resetTelemetrySecret: () => commands.resetTelemetrySecret().then(toResult),
   },
 
   // Launcher, on tauri-specta.

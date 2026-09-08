@@ -10,7 +10,6 @@ use crate::commands::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, IncidentStoreState, SettingsState};
-use crate::telemetry::TelemetryState;
 use ltk_manager_core::diagnostics::incident::Incident;
 use ltk_manager_core::diagnostics::token::{DecodedIncident, IncidentToken};
 use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
@@ -251,56 +250,4 @@ fn find_incident(incidents: &State<IncidentStoreState>, id: &str) -> AppResult<I
         .0
         .get(id)?
         .ok_or_else(|| AppError::Other(format!("Incident {id} not found")))
-}
-
-/// The pseudonym today's diagnostics would travel under, if any would.
-///
-/// Answers `None` when nothing is collected, so the Privacy card can say that
-/// rather than show an identity that reaches no one.
-#[tauri::command]
-#[specta::specta]
-pub fn telemetry_identity(telemetry: State<TelemetryState>) -> IpcResult<Option<String>> {
-    let identity = telemetry
-        .handle()
-        .identity()
-        .map(|identity| identity.as_str().to_owned());
-    AppResult::Ok(identity).into()
-}
-
-/// Mint a new diagnostics secret, breaking the link to everything sent before.
-///
-/// Takes effect at once rather than at the next midnight, because a reader who
-/// presses it is asking for the link to break now. Answers the new pseudonym.
-#[tauri::command]
-#[specta::specta]
-pub fn reset_telemetry_secret(
-    app_handle: AppHandle,
-    settings: State<SettingsState>,
-    telemetry: State<TelemetryState>,
-) -> IpcResult<Option<String>> {
-    reset_telemetry_secret_inner(&app_handle, &settings, &telemetry).into()
-}
-
-fn reset_telemetry_secret_inner(
-    app_handle: &AppHandle,
-    settings: &State<SettingsState>,
-    telemetry: &State<TelemetryState>,
-) -> AppResult<Option<String>> {
-    let rebuilt = {
-        let mut held = settings.0.lock();
-        held.telemetry_secret = None;
-        let (secret, _) = crate::telemetry::ensure_secret(&mut held);
-        crate::state::persist_settings(app_handle, &held)?;
-        crate::telemetry::build(app_handle, &held, secret)
-    };
-
-    // What the old secret spooled would otherwise travel under the new
-    // pseudonym, which is the link the reader just asked to break.
-    telemetry.0.lock().discard();
-    telemetry.replace(rebuilt);
-
-    Ok(telemetry
-        .handle()
-        .identity()
-        .map(|identity| identity.as_str().to_owned()))
 }

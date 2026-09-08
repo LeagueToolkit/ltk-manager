@@ -44,8 +44,6 @@ migrated![
     incident_report,
     incident_token,
     decode_incident_token,
-    telemetry_identity,
-    reset_telemetry_secret,
     // Launcher
     check_install_mismatch,
     switch_league_install,

@@ -36,16 +36,3 @@ export const hashtableMutations = {
       },
     }),
 } as const;
-
-/** Writes against the diagnostics identity the Privacy card shows. */
-export const telemetryMutations = {
-  /* The answer is the new pseudonym, so it seeds the query rather than
-     invalidating it and asking the backend what it just answered. */
-  resetSecret: (client: QueryClient) =>
-    mutationOptions<string | null, AppError, void>({
-      mutationFn: mutationFn(api.diagnostics.resetTelemetrySecret),
-      onSuccess: (identity) => {
-        client.setQueryData(settingsKeys.telemetryIdentity(), identity);
-      },
-    }),
-} as const;

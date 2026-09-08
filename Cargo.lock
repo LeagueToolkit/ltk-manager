@@ -2943,7 +2943,6 @@ dependencies = [
  "image",
  "indexmap 2.14.0",
  "ltk-manager-core",
- "ltk-telemetry",
  "ltk_file",
  "ltk_mod_core",
  "ltk_overlay",

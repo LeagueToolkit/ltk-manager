@@ -40,12 +40,7 @@ import {
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
 } from "@/modules/patcher";
-import {
-  DiagnosticsNoticeDialog,
-  useAppInfo,
-  useCheckSetupRequired,
-  useSettings,
-} from "@/modules/settings";
+import { useAppInfo, useCheckSetupRequired, useSettings } from "@/modules/settings";
 import { DevConsoleLazy, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
 import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
 import { useDisplayStore, useSearchObjects, useUpdaterUpdate } from "@/stores";
@@ -238,7 +233,6 @@ function RootLayout() {
       <WadScanFailedDialog />
       <InstallMismatchDialog />
       <LinkedBinWarningDialog />
-      <DiagnosticsNoticeDialog />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />
         {import.meta.env.DEV && <DevConsoleLazy />}
