@@ -9,8 +9,9 @@ import {
 } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { useListNav, useZoomedPx } from "@/hooks";
+import { useListNav } from "@/hooks/useListNav";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import { useZoomedPx } from "@/hooks/useZoomedPx";
 
 import { Skeleton } from "./Skeleton";
 import { Spinner } from "./Spinner";
