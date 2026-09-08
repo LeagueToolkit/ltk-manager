@@ -43,6 +43,7 @@ export * from "./Table";
 export * from "./Tabs";
 export * from "./Toast";
 export * from "./ToastProvider";
+export * from "./toastType";
 export * from "./TogglePill";
 export * from "./Toolbar";
 export * from "./Tooltip";

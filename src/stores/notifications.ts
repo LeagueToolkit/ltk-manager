@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { ToastType } from "@/components";
+import type { ToastType } from "@/components/toastType";
 
 export interface Notification {
   id: string;

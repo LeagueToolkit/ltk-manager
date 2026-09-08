@@ -8,7 +8,7 @@ import { m } from "@/paraglide/messages";
 import { useNotificationStore } from "@/stores/notifications";
 import { isAppError } from "@/utils/errors";
 
-export type ToastType = "success" | "error" | "warning" | "info";
+import { type ToastType } from "./toastType";
 
 export interface ToastAction {
   label: string;
