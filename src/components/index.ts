@@ -8,7 +8,6 @@ export * from "./Code";
 export * from "./Combobox";
 export * from "./CommandPalette";
 export * from "./ContextMenu";
-export * from "./DataTable";
 export * from "./Dialog";
 export * from "./EmptyState";
 export * from "./ExternalLink";

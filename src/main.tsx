@@ -44,7 +44,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <RouterProvider router={router} />
         </ToastProvider>
       </ThemeProvider>
-      {/* {import.meta.env.DEV && <ReactQueryDevtools  initialIsOpen={false} />} */}
     </QueryClientProvider>
   </React.StrictMode>,
 );
