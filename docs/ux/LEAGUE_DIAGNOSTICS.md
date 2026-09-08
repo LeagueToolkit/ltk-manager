@@ -1374,9 +1374,18 @@ dropped can reach it. The last-lines excerpt passes through the same redaction a
 header, because a later line can repeat the command line. The token holds less than the
 report: no excerpt, and a message that named a file on disk keeps the file's name alone.
 
-Nothing is sent anywhere. The one outward route is `Report a Bug`, which opens a browser on
-a prefilled issue that the player reads before submitting, and the token in its URL decodes
-to the same facts the report shows.
+An incident leaves the machine two ways, and both carry less than the report. `Report a Bug`
+opens a browser on a prefilled issue the player reads before submitting, and the token in its
+URL decodes to the same facts the report shows. Anonymous diagnostics send one
+`game_session_ended` event while the switch in Settings is on, carrying the verdict, the
+evidence codes, that same token, and each suspect as a digest of the archive's bytes rather
+than a name. The identity on it is a hash of a local secret and the day's date, so it changes
+at midnight and the secret never leaves. [Telemetry](TELEMETRY.md) lists every event and every
+property, and [ADR-0034](../adr/0034-anonymous-diagnostics-leave-the-machine.md) records what
+the design gives up.
+
+The table above still holds. What the reader drops on the way in cannot reach an event either,
+because an event is built from the incident and the incident is built from the redacted read.
 
 ## Why a verdict and not a log viewer
 
