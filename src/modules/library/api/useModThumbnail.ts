@@ -5,12 +5,17 @@ import { api, type AppError } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
+import { useThumbnailsBatched } from "./useModThumbnails";
 
 /**
- * Hook to fetch a mod's cached thumbnail as a Tauri asset URL.
- * Returns an empty string if the mod has no thumbnail.
+ * A mod's cached thumbnail as a Tauri asset URL, empty where it has none.
+ *
+ * Under a `ModThumbnails` provider this is a cache read, because the provider
+ * has already asked for the whole list in one call.
  */
 export function useModThumbnail(modId: string) {
+  const batched = useThumbnailsBatched();
+
   return useQuery<string, AppError>({
     queryKey: libraryKeys.thumbnail(modId),
     queryFn: async () => {
@@ -18,6 +23,7 @@ export function useModThumbnail(modId: string) {
       const path = unwrapForQuery(result);
       return path ? convertFileSrc(path) : "";
     },
+    enabled: !batched,
     staleTime: Infinity,
   });
 }

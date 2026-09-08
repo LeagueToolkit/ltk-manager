@@ -39,7 +39,7 @@ vi.mock("@/modules/library/api/queries", async (importOriginal) => ({
 }));
 
 vi.mock("@/modules/patcher", () => ({
-  usePatcherStatus: () => ({ data: patcherRunning }),
+  usePatcherRunning: () => patcherRunning.running,
 }));
 
 const press = (name: RegExp) => screen.getByRole("button", { name });

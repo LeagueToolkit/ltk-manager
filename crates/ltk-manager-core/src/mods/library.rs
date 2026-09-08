@@ -12,12 +12,12 @@ use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
     extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
 };
-use crate::mods::index::ModArchiveFormat;
 use crate::mods::index::get_active_profile;
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
 use fs_err as fs;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 impl ModLibrary {
     pub fn get_installed_mods(&self, config: &Config) -> AppResult<Vec<InstalledMod>> {
@@ -302,6 +302,10 @@ impl ModLibrary {
 
     /// Get a mod's cached thumbnail path, extracting from the archive on first access.
     /// Returns `None` if the mod has no thumbnail.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AppError::ModNotFound`] when no mod carries `mod_id`.
     pub fn get_mod_thumbnail_path(
         &self,
         config: &Config,
@@ -314,31 +318,70 @@ impl ModLibrary {
                 .find(|m| m.id == mod_id)
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
-            let mod_dir = entry.mod_dir(storage_dir);
-
-            for filename in ["thumbnail.webp", "thumbnail.png"] {
-                let cached = mod_dir.join(filename);
-                if cached.exists() {
-                    return Ok(Some(cached.display().to_string()));
-                }
-            }
-
-            // Nothing cached: a mod whose archive is still around can still be
-            // asked. A fantome installed with archive retention off has none,
-            // and simply has no thumbnail.
-            let archive_path = entry.archive_path(storage_dir);
-            if !archive_path.exists() {
-                return Ok(None);
-            }
-
-            let cached_path = match entry.format {
-                ModArchiveFormat::Modpkg => extract_modpkg_thumbnail(&archive_path, &mod_dir)?,
-                ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-                    extract_fantome_thumbnail(&archive_path, &mod_dir)?
-                }
-            };
-
-            Ok(cached_path.map(|p| p.display().to_string()))
+            thumbnail_path(storage_dir, entry)
         })
     }
+
+    /// Get the cached thumbnail path of each of `mod_ids` that has one.
+    ///
+    /// The whole list under one index read, which is what a grid of cards asks
+    /// for. A mod with no thumbnail, and an id no mod carries, are both absent
+    /// from the answer rather than an error, so one unreadable archive does not
+    /// cost the grid every other thumbnail.
+    pub fn get_mod_thumbnail_paths(
+        &self,
+        config: &Config,
+        mod_ids: &[String],
+    ) -> AppResult<HashMap<String, String>> {
+        self.with_index(config, |storage_dir, index| {
+            let mut paths = HashMap::with_capacity(mod_ids.len());
+
+            for mod_id in mod_ids {
+                let Some(entry) = index.mods.iter().find(|m| &m.id == mod_id) else {
+                    continue;
+                };
+
+                match thumbnail_path(storage_dir, entry) {
+                    Ok(Some(path)) => {
+                        paths.insert(mod_id.clone(), path);
+                    }
+                    Ok(None) => {}
+                    Err(error) => {
+                        tracing::warn!(mod_id, %error, "thumbnail unreadable");
+                    }
+                }
+            }
+
+            Ok(paths)
+        })
+    }
+}
+
+/// One mod's cached thumbnail, extracted from its archive if it is not there yet.
+fn thumbnail_path(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<Option<String>> {
+    let mod_dir = entry.mod_dir(storage_dir);
+
+    for filename in ["thumbnail.webp", "thumbnail.png"] {
+        let cached = mod_dir.join(filename);
+        if cached.exists() {
+            return Ok(Some(cached.display().to_string()));
+        }
+    }
+
+    // Nothing cached: a mod whose archive is still around can still be
+    // asked. A fantome installed with archive retention off has none,
+    // and simply has no thumbnail.
+    let archive_path = entry.archive_path(storage_dir);
+    if !archive_path.exists() {
+        return Ok(None);
+    }
+
+    let cached_path = match entry.format {
+        ModArchiveFormat::Modpkg => extract_modpkg_thumbnail(&archive_path, &mod_dir)?,
+        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
+            extract_fantome_thumbnail(&archive_path, &mod_dir)?
+        }
+    };
+
+    Ok(cached_path.map(|p| p.display().to_string()))
 }

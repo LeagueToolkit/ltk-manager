@@ -37,6 +37,7 @@ export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffen
 export { useModChecksumMismatches } from "./useModChecksumMismatches";
 export { useModFileDrop } from "./useModFileDrop";
 export { useModStorageToast } from "./useModStorageToast";
+export { ModThumbnails, useThumbnailsBatched } from "./useModThumbnails";
 export { useAllModWadReports, useModWadReport } from "./useModWadReport";
 export { useMoveModToFolder, useReorderFolderMods, useReorderFolders } from "./useMoveMod";
 export { useOverlayProgress } from "./useOverlayProgress";

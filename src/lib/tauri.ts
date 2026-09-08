@@ -213,6 +213,8 @@ export const api = {
   toggleMod: (modId: string, enabled: boolean) =>
     invokeResult<void>("toggle_mod", { modId, enabled }),
   getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
+  getModThumbnails: (modIds: readonly string[]) =>
+    invokeResult<Record<string, string>>("get_mod_thumbnails", { modIds }),
   getStorageDirectory: () => invokeResult<string>("get_storage_directory"),
   reorderMods: (modIds: string[]) => invokeResult<void>("reorder_mods", { modIds }),
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>

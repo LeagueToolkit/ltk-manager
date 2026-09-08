@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 
 import { api, type AppError, type PatcherStatus } from "@/lib/tauri";
 import { queryFn } from "@/utils/query";
@@ -14,11 +14,25 @@ import { patcherKeys } from "./keys";
  * polls not at all.
  */
 export function usePatcherStatus() {
-  return useQuery<PatcherStatus, AppError>({
+  return useQuery(statusOptions());
+}
+
+/**
+ * Whether a patcher run owns the library, and nothing else about it.
+ *
+ * A card that draws itself against `running` alone re-renders on that answer
+ * rather than on every phase the run passes through.
+ */
+export function usePatcherRunning(): boolean {
+  return useQuery({ ...statusOptions(), select: (status) => status.running }).data ?? false;
+}
+
+function statusOptions(): UseQueryOptions<PatcherStatus, AppError> {
+  return {
     queryKey: patcherKeys.status(),
     queryFn: queryFn(api.getPatcherStatus),
     refetchInterval: pollWhileUnsettled,
-  });
+  };
 }
 
 /**

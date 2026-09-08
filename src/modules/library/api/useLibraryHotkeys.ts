@@ -1,6 +1,6 @@
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
+import { usePatcherRunning, useStopPatcher } from "@/modules/patcher";
 import { useHddWarning } from "@/modules/settings";
 
 import { useGuardedStartPatcher } from "./useGuardedStartPatcher";
@@ -12,12 +12,10 @@ import { useGuardedStartPatcher } from "./useGuardedStartPatcher";
  * Play button's tooltip promises wherever that button is drawn.
  */
 export function useLibraryHotkeys(importMods: () => void): void {
-  const { data: patcherStatus } = usePatcherStatus();
+  const running = usePatcherRunning();
   const { start: guardedStart } = useGuardedStartPatcher();
   const stopPatcher = useStopPatcher();
   const maybeShowHddWarning = useHddWarning();
-
-  const running = patcherStatus?.running ?? false;
 
   async function startPatcher() {
     await maybeShowHddWarning();

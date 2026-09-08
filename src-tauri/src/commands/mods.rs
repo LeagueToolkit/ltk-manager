@@ -238,6 +238,22 @@ pub fn get_mod_thumbnail(
     library.0.get_mod_thumbnail_path(&config, &mod_id).into()
 }
 
+/// Get the cached thumbnail path of each of `mod_ids` that has one.
+///
+/// One index read for the whole list, and a mod with no thumbnail is absent
+/// from the map rather than an error. Off-thread, because a first read extracts
+/// from every archive that has not been asked for yet.
+#[tauri::command]
+pub async fn get_mod_thumbnails(
+    mod_ids: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<HashMap<String, String>> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || library.get_mod_thumbnail_paths(&config, &mod_ids)).await
+}
+
 /// Get the mod storage directory path.
 #[tauri::command]
 pub fn get_storage_directory(

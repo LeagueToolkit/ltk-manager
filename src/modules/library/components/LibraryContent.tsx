@@ -1,7 +1,12 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import type { AppError, InstalledMod } from "@/lib/tauri";
-import { useLibraryContent, useReorderFolderMods, useReorderMods } from "@/modules/library/api";
+import {
+  ModThumbnails,
+  useLibraryContent,
+  useReorderFolderMods,
+  useReorderMods,
+} from "@/modules/library/api";
 
 import { EditMetadataDialog } from "./EditMetadataDialog";
 import { FolderHeader } from "./FolderHeader";
@@ -46,6 +51,7 @@ export function LibraryContent({
     hasError: error !== null && mods.length === 0,
     folderId,
   });
+  const modIds = useMemo(() => mods.map((mod) => mod.id), [mods]);
   const reorderMods = useReorderMods();
   const reorderFolderMods = useReorderFolderMods();
 
@@ -130,7 +136,9 @@ export function LibraryContent({
   return (
     <>
       <LibraryContextMenu>
-        <div className={scrollClass}>{content()}</div>
+        <div className={scrollClass}>
+          <ModThumbnails modIds={modIds}>{content()}</ModThumbnails>
+        </div>
       </LibraryContextMenu>
       <ModDetailsDialog
         open={detailsMod !== null}

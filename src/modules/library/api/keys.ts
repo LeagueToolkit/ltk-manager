@@ -3,6 +3,8 @@ export const libraryKeys = {
   mods: () => [...libraryKeys.all, "mods"] as const,
   mod: (id: string) => [...libraryKeys.mods(), id] as const,
   thumbnail: (modId: string) => [...libraryKeys.mod(modId), "thumbnail"] as const,
+  thumbnails: (modIds: readonly string[]) =>
+    [...libraryKeys.mods(), "thumbnails", modIds.join(",")] as const,
   profiles: () => [...libraryKeys.all, "profiles"] as const,
   activeProfile: () => [...libraryKeys.profiles(), "active"] as const,
   folders: () => [...libraryKeys.all, "folders"] as const,

@@ -29,7 +29,7 @@ vi.mock("@/modules/library/api/useModThumbnail", () => ({
 }));
 
 vi.mock("@/modules/patcher", () => ({
-  usePatcherStatus: () => ({ data: { running: false } }),
+  usePatcherRunning: () => false,
 }));
 
 /* The store is a zustand selector hook, so it has to answer whatever selector
