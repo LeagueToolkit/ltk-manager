@@ -11,11 +11,12 @@ import {
   PatcherIcon,
   Tooltip,
 } from "@/components";
-import { useHddWarning, usePlatformSupport } from "@/hooks";
+import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
 import { useInstalledMods } from "@/modules/library/api";
 import { useGuardedStartPatcher, usePatcherStatus, useStopPatcher } from "@/modules/patcher";
+import { useHddWarning } from "@/modules/settings";
 import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 

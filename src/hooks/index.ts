@@ -1,8 +1,6 @@
-export { useAutoStartPatcher } from "./useAutoStartPatcher";
 export { useClickOutside } from "./useClickOutside";
 export { useCopyToClipboard } from "./useCopyToClipboard";
 export { useDebouncedValue } from "./useDebouncedValue";
-export { useHddWarning } from "./useHddWarning";
 export { useHorizontalWheel } from "./useHorizontalWheel";
 export { type ListNav, type ListNavParams, useListNav } from "./useListNav";
 export { NO_OVERSCROLL, useOverscrollSpring } from "./useOverscrollSpring";

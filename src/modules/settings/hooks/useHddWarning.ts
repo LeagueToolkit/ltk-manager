@@ -2,7 +2,9 @@ import { useCallback } from "react";
 
 import { useToast } from "@/components";
 import { api, isOk } from "@/lib/tauri";
-import { useSaveSettings, useSettings } from "@/modules/settings";
+
+import { useSaveSettings } from "../api/useSaveSettings";
+import { useSettings } from "../api/useSettings";
 
 /**
  * Returns a callback that, when invoked, checks whether the user's League

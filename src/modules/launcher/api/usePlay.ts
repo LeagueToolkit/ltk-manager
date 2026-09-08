@@ -1,9 +1,9 @@
 import { useCallback } from "react";
 
 import { useToast } from "@/components";
-import { useHddWarning } from "@/hooks";
 import { api, type AppError, isOk, type LaunchOutcome } from "@/lib/tauri";
 import { useGuardedStartPatcher } from "@/modules/patcher";
+import { useHddWarning } from "@/modules/settings";
 import { type PlayStep, usePlaySessionStore } from "@/stores";
 
 import { useLaunchErrorToast } from "./useLaunchErrorToast";

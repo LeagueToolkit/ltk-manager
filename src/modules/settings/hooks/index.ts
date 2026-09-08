@@ -1,5 +1,6 @@
 export type { BlocklistSortKey, DecoratedBlocklistEntry } from "./useBlocklistView";
 export { useBlocklistView } from "./useBlocklistView";
+export { useHddWarning } from "./useHddWarning";
 export type { RegexPreview } from "./useRegexPreview";
 export { useRegexPreview } from "./useRegexPreview";
 export { useWadAutocomplete } from "./useWadAutocomplete";
