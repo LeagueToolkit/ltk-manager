@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { usePlatformSupport } from "@/hooks";
+import { PlayButton } from "@/modules/launcher";
 import {
   BulkUninstallDialog,
   DragDropOverlay,
@@ -57,6 +58,8 @@ export function Library({ folderId }: LibraryProps = {}) {
     [],
   );
 
+  const isInstalling = actions.installMod.isPending || actions.bulkInstallMods.isPending;
+
   return (
     <div className="relative flex h-full flex-col">
       <DragDropOverlay visible={isDragOver} />
@@ -73,6 +76,7 @@ export function Library({ folderId }: LibraryProps = {}) {
         isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
         visibleMods={visibleMods}
+        playButton={<PlayButton disabled={isInstalling} />}
       />
       <div className="relative mx-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900/40">
         <LibraryContent

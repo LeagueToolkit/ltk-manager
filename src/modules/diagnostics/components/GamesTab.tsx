@@ -6,7 +6,7 @@ import { AlertBox, Button, EmptyState, Spinner, Tooltip } from "@/components";
 import { errorSummary } from "@/i18n";
 
 import { useDismissAllIncidents, useIncidents } from "../api";
-import { IncidentDetail } from "./IncidentDetail";
+import { IncidentDetail, type ModAction } from "./IncidentDetail";
 import { IncidentList } from "./IncidentList";
 import { TokenDecoder } from "./TokenDecoder";
 
@@ -25,7 +25,7 @@ const DISMISS_ALL_LABEL = "Dismiss all";
  * column inside the rest, so a fullscreen window widens the margins rather
  * than the prose.
  */
-export function GamesTab() {
+export function GamesTab({ modAction }: { modAction?: ModAction }) {
   const incidents = useIncidents();
   const dismissAll = useDismissAllIncidents();
   const { incident: requestedId } = useSearch({ from: "/diagnostics" });
@@ -122,7 +122,9 @@ export function GamesTab() {
       </aside>
       <div data-ui="GamesTab:detail" className="min-w-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-5xl p-6">
-          {selected && <IncidentDetail key={selected.id} incident={selected} />}
+          {selected && (
+            <IncidentDetail key={selected.id} incident={selected} modAction={modAction} />
+          )}
         </div>
       </div>
       <TokenDecoder open={decoderOpen} onOpenChange={setDecoderOpen} />

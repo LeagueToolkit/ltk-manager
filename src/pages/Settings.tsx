@@ -11,6 +11,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
 import { LootIcon, PatcherIcon, Tabs } from "@/components";
+import { MigrationPanel } from "@/modules/migration";
 import {
   AboutSection,
   AppearanceSection,
@@ -104,7 +105,11 @@ export function Settings() {
                   </div>
                 </div>
               )}
-              <GeneralSection settings={settings} onSave={saveSettings} />
+              <GeneralSection
+                settings={settings}
+                onSave={saveSettings}
+                migration={<MigrationPanel />}
+              />
             </Tabs.Panel>
 
             <Tabs.Panel value="library" className="mx-auto max-w-5xl px-6 pt-4 pb-6">

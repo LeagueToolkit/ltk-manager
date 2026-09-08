@@ -13,15 +13,17 @@ import {
 } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
-import { useLaunchAvailability, usePlay, useStopLeague } from "@/modules/launcher";
+import { useGuardedStartPatcher } from "@/modules/library";
+import { type GuardedLaunch, ModHealthLaunchGuard } from "@/modules/library";
 import { useInstalledMods } from "@/modules/library/api";
 import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useHddWarning } from "@/modules/settings";
 import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 
-import { useGuardedStartPatcher } from "../api";
-import { type GuardedLaunch, ModHealthLaunchGuard } from "./ModHealthLaunchGuard";
+import { useLaunchAvailability } from "../api/useLaunchAvailability";
+import { usePlay } from "../api/usePlay";
+import { useStopLeague } from "../api/useStopLeague";
 
 /* The patcher is live, so the control wears the running hue over the accent it
    wears at rest. Slower than the button's own 150ms: this is a state to notice

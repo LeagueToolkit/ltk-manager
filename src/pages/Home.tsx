@@ -10,10 +10,10 @@ import {
   StatusLine,
   useMarkHomeSeen,
 } from "@/modules/home";
+import { PlayButton } from "@/modules/launcher";
 import {
   DragDropOverlay,
   ImportProgressDialog,
-  PlayButton,
   useLibraryActions,
   useLibraryHotkeys,
   useModFileDrop,
