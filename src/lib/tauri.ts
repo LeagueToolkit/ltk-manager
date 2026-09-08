@@ -77,6 +77,7 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
+import type { UiError } from "@/lib/bindings.gen";
 import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
@@ -130,6 +131,7 @@ export type {
   Severity,
   SkippedArchive,
   Suspect,
+  UiError,
   Verdict_Serialize as Verdict,
   VerdictKind,
 } from "@/lib/bindings.gen";
@@ -414,6 +416,7 @@ export const api = {
     decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
     telemetryIdentity: () => commands.telemetryIdentity().then(toResult),
     resetTelemetrySecret: () => commands.resetTelemetrySecret().then(toResult),
+    trackUiError: (error: UiError) => commands.trackUiError(error).then(toResult),
   },
 
   // Launcher, on tauri-specta.

@@ -110,7 +110,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
     app.manage(incident_store);
-    app.manage(crate::telemetry::TelemetryState::new(telemetry, remote));
+    let telemetry_state = Arc::new(crate::telemetry::TelemetryState::new(telemetry, remote));
+    crate::telemetry::install(&telemetry_state);
+    app.manage(telemetry_state);
     app.manage(launcher_state);
     app.manage(crate::commands::launcher::LaunchState::default());
     app.manage(linked_bins);
@@ -188,7 +190,7 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
     if let tauri::RunEvent::Exit = event {
         crate::patcher::shutdown_resources(app_handle);
 
-        let telemetry: tauri::State<'_, crate::telemetry::TelemetryState> = app_handle.state();
+        let telemetry: tauri::State<'_, Arc<crate::telemetry::TelemetryState>> = app_handle.state();
         telemetry.handle().flush();
 
         // The session watcher ends on its own, but the window hider polls for

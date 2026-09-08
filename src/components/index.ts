@@ -11,6 +11,7 @@ export * from "./ConfirmDialog";
 export * from "./ContextMenu";
 export * from "./Dialog";
 export * from "./EmptyState";
+export * from "./ErrorBoundary";
 export * from "./ExternalLink";
 export * from "./FieldAffix";
 export * from "./FilterColumn";

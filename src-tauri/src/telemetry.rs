@@ -5,10 +5,13 @@
 //! configuration and the presence of a project key, and where the spool sits.
 
 pub mod config;
+pub mod dedup;
+pub mod errors;
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
+use chrono::Utc;
 use ltk_telemetry::sink::{ApiKey, PostHogSink};
 use ltk_telemetry::{Config, Secret, Telemetry};
 use parking_lot::Mutex;
@@ -17,6 +20,8 @@ use tracing::{info, warn};
 
 use crate::state::{get_app_data_dir, Settings, SettingsState};
 use crate::telemetry::config::Remote;
+use crate::telemetry::dedup::Dedup;
+use crate::telemetry::errors::UiError;
 
 /// The project key the vendor accepts a batch under, supplied at build time.
 ///
@@ -154,7 +159,7 @@ pub fn refresh_from_document(app_handle: &AppHandle) {
 
         let remote = config::fetch(&config_path(&app_handle));
 
-        let telemetry: tauri::State<'_, TelemetryState> = app_handle.state();
+        let telemetry: tauri::State<'_, Arc<TelemetryState>> = app_handle.state();
         if telemetry.remote() == remote {
             return;
         }
@@ -174,10 +179,85 @@ pub fn refresh_from_document(app_handle: &AppHandle) {
     });
 }
 
+/// The one state every seam reports through.
+///
+/// Managed by Tauri for the commands, and held here as well for the two seams
+/// that have no `AppHandle` to reach it by: the panic hook, which is installed
+/// before there is an app, and the conversion of an error into its IPC response,
+/// which is a `From` impl.
+static STATE: OnceLock<Arc<TelemetryState>> = OnceLock::new();
+
+/// Report through `state` from every seam from now on.
+///
+/// The first call wins, so a second app in one process does not take the seams
+/// off the first.
+pub fn install(state: &Arc<TelemetryState>) {
+    let _ = STATE.set(Arc::clone(state));
+}
+
+/// Report that `code` failed with `message`, if anything is collected.
+///
+/// Called from the conversion every command error crosses, so a caller pays a
+/// map lookup and a file append on a path that was already failing.
+pub fn report_app_error(code: &str, message: &str) {
+    if let Some(state) = STATE.get() {
+        state.report_app_error(code, message);
+    }
+}
+
+/// Report the panic `info` describes, before the thread unwinds.
+///
+/// Writing it down is all this does. The event reaches the spool synchronously,
+/// which is the case the spool exists for, and a process that dies here sends it
+/// on the next start.
+pub fn report_panic(info: &std::panic::PanicHookInfo<'_>) {
+    let Some(state) = STATE.get() else {
+        return;
+    };
+    let (file, line) = match info.location() {
+        Some(location) => (Some(location.file()), Some(location.line())),
+        None => (None, None),
+    };
+    state.report_panic(&panic_message(info), file, line);
+}
+
+/// What a panic said, for the two payload types the standard library boxes.
+fn panic_message(info: &std::panic::PanicHookInfo<'_>) -> String {
+    let payload = info.payload();
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        return (*message).to_owned();
+    }
+    if let Some(message) = payload.downcast_ref::<String>() {
+        return message.clone();
+    }
+    "a panic carrying no message".to_owned()
+}
+
+/// Report the frontend crash `error` describes.
+pub fn report_ui_error(error: &UiError) {
+    if let Some(state) = STATE.get() {
+        state.report_ui_error(error);
+    }
+}
+
+/// Report a panic from here on, keeping whatever the previous hook did.
+///
+/// Installed before logging, so a panic during startup is still caught. One
+/// before the state is installed reaches the log and not the spool, which is the
+/// window the app has no spool directory to write to anyway.
+pub fn install_panic_hook() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        report_panic(info);
+        previous(info);
+    }));
+}
+
 /// Tauri-managed diagnostics handle, replaced when what allows it changes.
 pub struct TelemetryState {
     telemetry: Mutex<Telemetry>,
     remote: Mutex<Remote>,
+    dedup: Dedup,
 }
 
 impl TelemetryState {
@@ -186,6 +266,7 @@ impl TelemetryState {
         Self {
             telemetry: Mutex::new(telemetry),
             remote: Mutex::new(remote),
+            dedup: Dedup::default(),
         }
     }
 
@@ -200,9 +281,52 @@ impl TelemetryState {
         self.remote.lock().clone()
     }
 
-    /// Drop what is spooled without sending it.
+    /// Report that `code` failed with `message`.
+    fn report_app_error(&self, code: &str, message: &str) {
+        let fingerprint = errors::fingerprint(errors::APP_ERROR, code);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle()
+            .track(errors::APP_ERROR, errors::app_error(code, message));
+    }
+
+    /// Report a panic that said `message` at `file` and `line`.
+    ///
+    /// Takes the location rather than the hook's own argument, since a
+    /// `PanicHookInfo` is only ever handed out by a real panic and a test has to
+    /// reach this without staging one.
+    fn report_panic(&self, message: &str, file: Option<&str>, line: Option<u32>) {
+        let location = format!("{}:{}", file.unwrap_or("unknown"), line.unwrap_or(0));
+        let fingerprint = errors::fingerprint(errors::KIND_APP_PANIC, &location);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle().track(
+            errors::EXCEPTION,
+            errors::panic_exception(message, file, line),
+        );
+    }
+
+    /// Report the frontend crash `error` describes.
+    fn report_ui_error(&self, error: &UiError) {
+        let location = format!("{}:{}", error.name, error.route.as_deref().unwrap_or("/"));
+        let fingerprint = errors::fingerprint(errors::KIND_UI_ERROR, &location);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle()
+            .track(errors::EXCEPTION, errors::ui_exception(error));
+    }
+
+    /// Drop what is spooled without sending it, and let every failure report
+    /// again.
+    ///
+    /// What has been reported recently is part of the link a reset breaks, so it
+    /// is forgotten with the events rather than kept across the new identity.
     pub fn discard(&self) {
         self.telemetry.lock().discard();
+        self.dedup.clear();
     }
 
     /// Report through `telemetry` from now on, dropping whatever the old handle

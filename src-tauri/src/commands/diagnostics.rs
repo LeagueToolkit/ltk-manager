@@ -10,6 +10,9 @@ use crate::commands::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, IncidentStoreState, SettingsState};
+use std::sync::Arc;
+
+use crate::telemetry::errors::UiError;
 use crate::telemetry::TelemetryState;
 use ltk_manager_core::diagnostics::incident::Incident;
 use ltk_manager_core::diagnostics::token::{DecodedIncident, IncidentToken};
@@ -259,12 +262,23 @@ fn find_incident(incidents: &State<IncidentStoreState>, id: &str) -> AppResult<I
 /// rather than show an identity that reaches no one.
 #[tauri::command]
 #[specta::specta]
-pub fn telemetry_identity(telemetry: State<TelemetryState>) -> IpcResult<Option<String>> {
+pub fn telemetry_identity(telemetry: State<Arc<TelemetryState>>) -> IpcResult<Option<String>> {
     let identity = telemetry
         .handle()
         .identity()
         .map(|identity| identity.as_str().to_owned());
     AppResult::Ok(identity).into()
+}
+
+/// Report a crash the frontend caught, which is its only route to the wire.
+///
+/// The frontend does not reach the network, so a boundary, a window error and a
+/// rejection all come here and are queued on the one egress path.
+#[tauri::command]
+#[specta::specta]
+pub fn track_ui_error(error: UiError) -> IpcResult<()> {
+    crate::telemetry::report_ui_error(&error);
+    AppResult::Ok(()).into()
 }
 
 /// Mint a new diagnostics secret, breaking the link to everything sent before.
@@ -276,7 +290,7 @@ pub fn telemetry_identity(telemetry: State<TelemetryState>) -> IpcResult<Option<
 pub fn reset_telemetry_secret(
     app_handle: AppHandle,
     settings: State<SettingsState>,
-    telemetry: State<TelemetryState>,
+    telemetry: State<Arc<TelemetryState>>,
 ) -> IpcResult<Option<String>> {
     reset_telemetry_secret_inner(&app_handle, &settings, &telemetry).into()
 }
@@ -284,7 +298,7 @@ pub fn reset_telemetry_secret(
 fn reset_telemetry_secret_inner(
     app_handle: &AppHandle,
     settings: &State<SettingsState>,
-    telemetry: &State<TelemetryState>,
+    telemetry: &State<Arc<TelemetryState>>,
 ) -> AppResult<Option<String>> {
     let remote = telemetry.remote();
     let rebuilt = {
