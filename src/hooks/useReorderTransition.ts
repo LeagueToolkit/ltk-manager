@@ -41,7 +41,8 @@ function isReorder(before: readonly string[], after: readonly string[]): boolean
   return after.every((id) => members.has(id));
 }
 
-function scrollerOf(element: HTMLElement): HTMLElement | null {
+/** The nearest ancestor that scrolls, which is what a list is windowed against. */
+export function scrollerOf(element: HTMLElement): HTMLElement | null {
   for (let node = element.parentElement; node; node = node.parentElement) {
     const { overflowY } = getComputedStyle(node);
     if (overflowY === "auto" || overflowY === "scroll") return node;
@@ -164,9 +165,9 @@ export function useReorderTransition<T extends HTMLElement>(active = true) {
        measuring across it would cost a DOM read per frame for no change. */
     if (!node || !active) return;
 
-    const children = Array.from(node.children).filter(
-      (child): child is HTMLElement => child instanceof HTMLElement && !!child.dataset.flipId,
-    );
+    /* Descendants rather than children: a windowed list wraps each row, so the
+       cards are a level down from the element the animation is mounted on. */
+    const children = Array.from(node.querySelectorAll<HTMLElement>("[data-flip-id]"));
     const ids = children.map((child) => child.dataset.flipId as string);
     const before = previous.current;
     previous.current = ids;

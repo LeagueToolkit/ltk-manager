@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 
 import type { AppError, InstalledMod } from "@/lib/tauri";
 import {
@@ -14,7 +14,7 @@ import { LibraryContextMenu } from "./LibraryContextMenu";
 import { LibraryEmptyState, LibraryErrorState, LibraryLoadingState } from "./LibraryStates";
 import { ModDetailsDialog } from "./ModDetailsDialog";
 import { SortableModList } from "./SortableModList";
-import { gridClass, UnifiedDndGrid } from "./UnifiedDndGrid";
+import { UnifiedDndGrid } from "./UnifiedDndGrid";
 
 interface LibraryContentProps {
   mods: InstalledMod[];
@@ -55,17 +55,6 @@ export function LibraryContent({
   const reorderMods = useReorderMods();
   const reorderFolderMods = useReorderFolderMods();
 
-  /* The stagger is an entrance, so it belongs to the first list the reader is
-     shown and not to every reorder after it. A replay restarts each card from
-     opacity 0, which reads as the list blinking. */
-  const staggeredRef = useRef(false);
-  const isList =
-    contentView.type === "flat" ||
-    contentView.type === "folder-drilldown" ||
-    contentView.type === "unified";
-  const stagger = isList && !staggeredRef.current ? " stagger-enter" : "";
-  if (isList) staggeredRef.current = true;
-
   // Extra bottom padding while the bar is up, so it never covers the last row.
   const scrollClass = hasSelection
     ? "flex-1 overflow-auto px-6 pt-6 pb-28"
@@ -91,7 +80,6 @@ export function LibraryContent({
           disabled={dndDisabled}
           onViewDetails={setDetailsMod}
           onEditMetadata={setEditMod}
-          className={`${gridClass(viewMode)}${stagger}`}
         />
       );
     }
@@ -109,7 +97,7 @@ export function LibraryContent({
             disabled={dndDisabled}
             onViewDetails={setDetailsMod}
             onEditMetadata={setEditMod}
-            className={`${gridClass(viewMode)}${stagger} mt-4`}
+            className="mt-4"
             folderId={contentView.folder.id}
           />
         </>
