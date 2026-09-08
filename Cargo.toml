@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "crates/ltk-manager-core"]
+members = ["src-tauri", "crates/ltk-manager-core", "crates/ltk-telemetry"]
 resolver = "2"
 
 # Dependencies only, so our own crates stay debuggable. A debug build parses
@@ -23,6 +23,8 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 # same rev: `ltk_mimir_cache` hands back `ltk_hashdb` types.
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
+
+ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
