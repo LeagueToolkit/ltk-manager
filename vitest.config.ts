@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import react from "@vitejs/plugin-react";
 import svgr from "vite-plugin-svgr";
 import { defineConfig } from "vitest/config";
 
@@ -10,7 +11,12 @@ import { releaseNotes } from "./scripts/vite-release-notes";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [paraglideVitePlugin({ project: "./project.inlang" }), svgr(), releaseNotes(__dirname)],
+  plugins: [
+    paraglideVitePlugin({ project: "./project.inlang" }),
+    react({ compiler: true }),
+    svgr(),
+    releaseNotes(__dirname),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
