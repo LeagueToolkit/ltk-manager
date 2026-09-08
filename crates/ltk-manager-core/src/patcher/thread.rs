@@ -8,6 +8,8 @@ use std::thread;
 
 use parking_lot::Mutex;
 
+use ltk_telemetry::Telemetry;
+
 use crate::config::Config;
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::SessionFailure;
@@ -38,6 +40,8 @@ pub struct SessionParams {
     pub incident_store: Arc<IncidentStore>,
     /// Whether the overlay is built from scratch rather than reused.
     pub force_rebuild: bool,
+    /// Where the session reports that it ended.
+    pub telemetry: Telemetry,
 }
 
 /// Inputs moved into the background patcher thread.
@@ -95,6 +99,7 @@ impl PatcherThread {
             patcher_binaries,
             incident_store,
             force_rebuild,
+            telemetry,
         } = params;
         let pipeline = Arc::new(IncidentPipeline::new(
             config.clone(),
@@ -103,6 +108,7 @@ impl PatcherThread {
             workshop_paths.clone(),
             incident_store,
             Arc::clone(&events),
+            telemetry,
         ));
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
