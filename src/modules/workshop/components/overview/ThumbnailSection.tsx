@@ -4,11 +4,8 @@ import { Image, Pencil, Trash2 } from "lucide-react";
 import { Button, Menu, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
-import {
-  useProjectThumbnail,
-  useRemoveProjectThumbnail,
-  useSetProjectThumbnail,
-} from "@/modules/workshop";
+
+import { useProjectThumbnail, useRemoveProjectThumbnail, useSetProjectThumbnail } from "../../api";
 
 interface ThumbnailSectionProps {
   project: WorkshopProject;
