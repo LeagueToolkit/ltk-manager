@@ -35,6 +35,11 @@ const INDEX = [
   },
   { id: "general.autoRun", key: "autoRun", title: "Auto run" },
   {
+    id: "general.telemetryEnabled",
+    key: "telemetryEnabled",
+    title: "Anonymous diagnostics",
+  },
+  {
     id: "general.startInTrayUnlessUpdate",
     key: "startInTrayUnlessUpdate",
     title: "Start in tray unless update available",

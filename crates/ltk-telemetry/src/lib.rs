@@ -209,6 +209,18 @@ impl Telemetry {
             .append(&Event::new(name, properties, now));
     }
 
+    /// Drop everything written down and not yet sent.
+    ///
+    /// What a caller reaches for when the reader turns collection off, because an
+    /// event spooled under the old answer is one the reader has since refused.
+    pub fn discard(&self) {
+        let Some(inner) = &self.0 else {
+            return;
+        };
+        inner.spool.lock().clear();
+        debug!("Discarded what telemetry had spooled");
+    }
+
     /// Post what the spool holds, and drop what was delivered.
     ///
     /// The post is synchronous, so this belongs on a thread the user is not

@@ -77,6 +77,7 @@ const accentName: SettingFormat = (value) => {
 
 const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   autoRun: onOff,
+  telemetryEnabled: onOff,
   startInTrayUnlessUpdate: onOff,
   alwaysStartPatcher: onOff,
   openOn: titleCase,

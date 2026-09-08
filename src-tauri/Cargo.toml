@@ -29,6 +29,7 @@ tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
 
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
+ltk-telemetry = { workspace = true }
 
 ltk_mod_core = { version = "0.1.0" }
 ltk_overlay = { workspace = true }

@@ -23,10 +23,14 @@ pub fn save_settings(
 }
 
 pub(crate) fn save_settings_inner(
-    settings: Settings,
+    mut settings: Settings,
     app_handle: &AppHandle,
     state: &State<SettingsState>,
 ) -> AppResult<()> {
+    // Before the write, so a secret minted here reaches the file with everything
+    // else rather than waiting for the next save.
+    let (secret, _) = crate::telemetry::ensure_secret(&mut settings);
+
     // Sync OS autolaunch with the updated setting
     let autolaunch = app_handle.autolaunch();
     if settings.auto_run {
@@ -45,6 +49,11 @@ pub(crate) fn save_settings_inner(
     if let Err(e) = launcher.launcher().reconfigure(&settings.config) {
         tracing::error!(error = ?e, "Could not apply the new settings to the launcher");
     }
+
+    // Rebuilt rather than toggled, because turning the setting off has to drop
+    // what was spooled under the old answer rather than hold it back.
+    let telemetry: State<'_, crate::telemetry::TelemetryState> = app_handle.state();
+    telemetry.replace(crate::telemetry::build(app_handle, &settings, secret));
 
     let mut current = state.0.lock();
     *current = settings;
