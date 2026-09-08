@@ -147,6 +147,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.2.4
         version: 4.2.4(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
+      '@tanstack/eslint-plugin-query':
+        specifier: ^5.102.8
+        version: 5.102.8(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       '@tanstack/router-plugin':
         specifier: ^1.167.23
         version: 1.167.23(@tanstack/react-router@1.168.23(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -1402,6 +1405,15 @@ packages:
     resolution: {integrity: sha512-OZI6QyULw0FI0wjgmeYzCIfbgPsOEzwJtCpa69XrfLMtNXLGnz3d/dIabk7frg0TmHo+Ah49w5I4KC7Tufwsvw==}
     engines: {node: '>=18'}
     hasBin: true
+
+  '@tanstack/eslint-plugin-query@5.102.8':
+    resolution: {integrity: sha512-zRjG2PL3zvoqnsSNJFyfX5Mo+OwRwTbLERwZVO3oNQQn82V949INwaLrprzsOW/ivuow7gASeAUUC24xH7kwSQ==}
+    peerDependencies:
+      eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
+      typescript: ^5.6.0 || ^6.0.0 || ^7.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@tanstack/form-core@1.29.1':
     resolution: {integrity: sha512-NIYPO36eEu7nSWvMpbFDQaBWyVtnH/C8fsZ3/XpJUT4uOWgmxsiUvHGbTbDNIQTXAKIkhwEl0sUrqBNn2SfUnw==}
@@ -4878,6 +4890,15 @@ snapshots:
       vite: 8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3)
 
   '@tanstack/devtools-event-client@0.4.3': {}
+
+  '@tanstack/eslint-plugin-query@5.102.8(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)':
+    dependencies:
+      '@typescript-eslint/utils': 8.59.0(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      eslint: 9.39.4(jiti@2.7.0)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
 
   '@tanstack/form-core@1.29.1':
     dependencies:

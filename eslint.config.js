@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import pluginQuery from "@tanstack/eslint-plugin-query";
 import eslintConfigPrettier from "eslint-config-prettier/flat";
 import i18next from "eslint-plugin-i18next";
 import reactPlugin from "eslint-plugin-react";
@@ -96,6 +97,16 @@ export default tseslint.config(
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
     },
+  },
+  /* The recommended tier only. `prefer-query-options` is the strict tier's own
+     rule, and the inline `useQueries` callers it names are a refactor rather
+     than a lint fix. */
+  ...pluginQuery.configs["flat/recommended"],
+  {
+    /* A warning while `useLinkTargets` still reduces `useQueries` results in a
+       `useMemo` the fresh array identity defeats. */
+    files: ["src/**/*.{ts,tsx}"],
+    rules: { "@tanstack/query/no-unstable-deps": "warn" },
   },
   {
     /* Cycles are oxlint's job, in `.oxlintrc.json`: the graph walk costs
