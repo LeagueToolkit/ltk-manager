@@ -54,62 +54,59 @@ export function RenameProjectDialog() {
   }
 
   return (
-    <Dialog.Root open onOpenChange={(next) => !next && !renameProject.isPending && closeDialog()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>Rename {project.displayName}</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell
+      open
+      onClose={() => {
+        if (!renameProject.isPending) closeDialog();
+      }}
+      title={`Rename ${project.displayName}`}
+      size="sm"
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit();
+        }}
+      >
+        <Dialog.Body>
+          <Field.Root>
+            <Field.Label>Project slug</Field.Label>
+            <Field.Control
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value.toLowerCase());
+                setDirty(true);
+              }}
+              hasError={dirty && error !== null}
+              placeholder={project.name}
+              autoFocus
+              className="font-mono"
+            />
+            <Field.Description>
+              Lowercase letters, numbers and hyphens. This is the folder name on disk.
+            </Field.Description>
+            {dirty && error && <Field.Error>{error}</Field.Error>}
+          </Field.Root>
+        </Dialog.Body>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSubmit();
-            }}
+        <Dialog.Footer>
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={closeDialog}
+            disabled={renameProject.isPending}
           >
-            <Dialog.Body>
-              <Field.Root>
-                <Field.Label>Project slug</Field.Label>
-                <Field.Control
-                  value={slug}
-                  onChange={(e) => {
-                    setSlug(e.target.value.toLowerCase());
-                    setDirty(true);
-                  }}
-                  hasError={dirty && error !== null}
-                  placeholder={project.name}
-                  autoFocus
-                  className="font-mono"
-                />
-                <Field.Description>
-                  Lowercase letters, numbers and hyphens. This is the folder name on disk.
-                </Field.Description>
-                {dirty && error && <Field.Error>{error}</Field.Error>}
-              </Field.Root>
-            </Dialog.Body>
-
-            <Dialog.Footer>
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={closeDialog}
-                disabled={renameProject.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={error !== null || unchanged}
-                loading={renameProject.isPending}
-              >
-                Rename
-              </Button>
-            </Dialog.Footer>
-          </form>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={error !== null || unchanged}
+            loading={renameProject.isPending}
+          >
+            Rename
+          </Button>
+        </Dialog.Footer>
+      </form>
+    </Dialog.Shell>
   );
 }

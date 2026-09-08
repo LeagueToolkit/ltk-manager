@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Button, Dialog } from "@/components";
+import { ConfirmDialog } from "@/components";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
 import { DocumentToolbarSlotContext } from "./DocumentToolbar";
@@ -220,31 +220,14 @@ interface UnsavedCloseDialogProps {
 
 function UnsavedCloseDialog({ title, onCancel, onDiscard }: UnsavedCloseDialogProps) {
   return (
-    <Dialog.Root open={title !== undefined} onOpenChange={(open) => !open && onCancel()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>Close without saving?</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-
-          <Dialog.Body>
-            <p className="text-sm text-surface-400">
-              {title} has unsaved changes. Closing it now throws them away.
-            </p>
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={onCancel}>
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={onDiscard}>
-              Discard changes
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <ConfirmDialog
+      open={title !== undefined}
+      onClose={onCancel}
+      title="Close without saving?"
+      description={<>{title} has unsaved changes. Closing it now throws them away.</>}
+      confirmLabel="Discard changes"
+      onConfirm={onDiscard}
+      size="sm"
+    />
   );
 }

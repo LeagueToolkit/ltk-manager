@@ -1,7 +1,8 @@
+import { PencilSimpleIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
-import { Edit3, Image, Sparkles, Trash2 } from "lucide-react";
+import { Image, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AutoPill, Button, Dialog, FormField, MultiSelect, useToast } from "@/components";
@@ -182,151 +183,145 @@ export function EditMetadataDialog({ mod, open, onOpenChange }: EditMetadataDial
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title className="flex items-center gap-2">
-              <Edit3 className="h-5 w-5 text-accent-500" />
-              Edit Mod Metadata
-            </Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
-
-          <Dialog.Body className="space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="relative aspect-video w-48 shrink-0 overflow-hidden rounded-lg border border-surface-600 bg-linear-to-br from-surface-700 to-surface-800">
-                {!removeThumbnail && (thumbnailPath || currentThumbnailUrl) ? (
-                  <img
-                    src={thumbnailPath ? convertFileSrc(thumbnailPath) : currentThumbnailUrl}
-                    alt="Mod thumbnail"
-                    className="absolute inset-0 h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Image className="h-8 w-8 text-surface-500" />
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  left={<Image className="h-4 w-4" />}
-                  onClick={handleSetThumbnail}
-                >
-                  Set Thumbnail
-                </Button>
-                {!removeThumbnail && (thumbnailPath || currentThumbnailUrl) && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    left={<Trash2 className="h-4 w-4" />}
-                    onClick={handleRemoveThumbnail}
-                    className="text-danger-text hover:bg-danger/10 hover:text-danger-text"
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <FormField
-              label="Mod Name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="e.g. My Awesome Mod"
-            />
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-surface-200">Tags</label>
-              <MultiSelect
-                options={tagOptions}
-                selected={tags}
-                onChange={setTags}
-                placeholder="Select tags..."
-                variant="field"
+    <Dialog.Shell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title={
+        <>
+          <PencilSimpleIcon className="h-5 w-5 text-accent-500" />
+          Edit Mod Metadata
+        </>
+      }
+      titleClassName="flex items-center gap-2"
+      size="md"
+    >
+      <Dialog.Body className="space-y-4">
+        <div className="flex items-start gap-4">
+          <div className="relative aspect-video w-48 shrink-0 overflow-hidden rounded-lg border border-surface-600 bg-linear-to-br from-surface-700 to-surface-800">
+            {!removeThumbnail && (thumbnailPath || currentThumbnailUrl) ? (
+              <img
+                src={thumbnailPath ? convertFileSrc(thumbnailPath) : currentThumbnailUrl}
+                alt="Mod thumbnail"
+                className="absolute inset-0 h-full w-full object-cover"
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium text-surface-200">Maps</label>
-              <MultiSelect
-                options={mapOptions}
-                selected={maps}
-                onChange={setMaps}
-                placeholder="Select maps..."
-                variant="field"
-              />
-            </div>
-
-            <FormField
-              label="Champions"
-              description="Comma-separated list of champions (e.g. Ahri, Yasuo)"
-              value={championsStr}
-              onChange={(e) => setChampionsStr(e.target.value)}
-              placeholder="e.g. Riven, Lee Sin"
-            />
-
-            {hasSuggestions && (
-              <div className="space-y-2 rounded-lg border border-dashed border-surface-600 bg-surface-800/40 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
-                    <Sparkles className="h-4 w-4 text-accent-400" />
-                    Auto-detected suggestions
-                  </span>
-                  <Button variant="outline" size="sm" onClick={applyAllSuggestions}>
-                    Apply all
-                  </Button>
-                </div>
-                <p className="text-xs text-surface-400">
-                  Detected from the game files this mod patches. Click to add, then save.
-                </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {suggestions.tags.map((tag) => (
-                    <AutoPill
-                      key={`tag:${tag}`}
-                      label={getTagLabel(tag)}
-                      tone="tag"
-                      onClick={() => addTag(tag)}
-                    />
-                  ))}
-                  {suggestions.champions.map((champion) => (
-                    <AutoPill
-                      key={`champ:${champion}`}
-                      label={champion}
-                      tone="champion"
-                      onClick={() => addChampion(champion)}
-                    />
-                  ))}
-                  {suggestions.maps.map((map) => (
-                    <AutoPill
-                      key={`map:${map}`}
-                      label={getMapLabel(map)}
-                      tone="map"
-                      onClick={() => addMap(map)}
-                    />
-                  ))}
-                </div>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <Image className="h-8 w-8 text-surface-500" />
               </div>
             )}
-          </Dialog.Body>
-
-          <Dialog.Footer>
+          </div>
+          <div className="flex flex-col gap-2">
             <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={editMod.isPending}
+              variant="outline"
+              size="sm"
+              left={<Image className="h-4 w-4" />}
+              onClick={handleSetThumbnail}
             >
-              Cancel
+              Set Thumbnail
             </Button>
-            <Button variant="filled" onClick={handleSave} disabled={editMod.isPending}>
-              {editMod.isPending ? "Saving..." : "Save Changes"}
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+            {!removeThumbnail && (thumbnailPath || currentThumbnailUrl) && (
+              <Button
+                variant="outline"
+                size="sm"
+                left={<Trash2 className="h-4 w-4" />}
+                onClick={handleRemoveThumbnail}
+                className="text-danger-text hover:bg-danger/10 hover:text-danger-text"
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <FormField
+          label="Mod Name"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="e.g. My Awesome Mod"
+        />
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-surface-200">Tags</label>
+          <MultiSelect
+            options={tagOptions}
+            selected={tags}
+            onChange={setTags}
+            placeholder="Select tags..."
+            variant="field"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-surface-200">Maps</label>
+          <MultiSelect
+            options={mapOptions}
+            selected={maps}
+            onChange={setMaps}
+            placeholder="Select maps..."
+            variant="field"
+          />
+        </div>
+
+        <FormField
+          label="Champions"
+          description="Comma-separated list of champions (e.g. Ahri, Yasuo)"
+          value={championsStr}
+          onChange={(e) => setChampionsStr(e.target.value)}
+          placeholder="e.g. Riven, Lee Sin"
+        />
+
+        {hasSuggestions && (
+          <div className="space-y-2 rounded-lg border border-dashed border-surface-600 bg-surface-800/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200">
+                <Sparkles className="h-4 w-4 text-accent-400" />
+                Auto-detected suggestions
+              </span>
+              <Button variant="outline" size="sm" onClick={applyAllSuggestions}>
+                Apply all
+              </Button>
+            </div>
+            <p className="text-xs text-surface-400">
+              Detected from the game files this mod patches. Click to add, then save.
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {suggestions.tags.map((tag) => (
+                <AutoPill
+                  key={`tag:${tag}`}
+                  label={getTagLabel(tag)}
+                  tone="tag"
+                  onClick={() => addTag(tag)}
+                />
+              ))}
+              {suggestions.champions.map((champion) => (
+                <AutoPill
+                  key={`champ:${champion}`}
+                  label={champion}
+                  tone="champion"
+                  onClick={() => addChampion(champion)}
+                />
+              ))}
+              {suggestions.maps.map((map) => (
+                <AutoPill
+                  key={`map:${map}`}
+                  label={getMapLabel(map)}
+                  tone="map"
+                  onClick={() => addMap(map)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </Dialog.Body>
+
+      <Dialog.Footer>
+        <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={editMod.isPending}>
+          Cancel
+        </Button>
+        <Button variant="filled" onClick={handleSave} disabled={editMod.isPending}>
+          {editMod.isPending ? "Saving..." : "Save Changes"}
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }

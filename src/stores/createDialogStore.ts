@@ -1,4 +1,5 @@
-import { create } from "zustand";
+import { create, type StoreApi, type UseBoundStore } from "zustand";
+import { useShallow } from "zustand/react/shallow";
 
 /** One dialog's open state, and what it was opened with. */
 export interface DialogStore<T> {
@@ -26,4 +27,24 @@ export function createDialogStore<T = void>() {
       set({ payload: payload ?? null, isOpen: true })) as DialogStore<T>["open"],
     close: () => set({ payload: null, isOpen: false }),
   }));
+}
+
+/** One dialog's store, as `createDialogStore` hands it back. */
+export type DialogStoreHook<T> = UseBoundStore<StoreApi<DialogStore<T>>>;
+
+/** What a dialog component reads: whether it shows, what with, and how to leave. */
+export interface DialogView<T> {
+  isOpen: boolean;
+  payload: T | null;
+  close: () => void;
+}
+
+/**
+ * Subscribe to everything a dialog component draws itself from.
+ *
+ * One `useShallow` subscription rather than three, and the caller keeps
+ * `store` for the trigger side, where only `open` is wanted.
+ */
+export function useDialog<T>(store: DialogStoreHook<T>): DialogView<T> {
+  return store(useShallow((s) => ({ isOpen: s.isOpen, payload: s.payload, close: s.close })));
 }

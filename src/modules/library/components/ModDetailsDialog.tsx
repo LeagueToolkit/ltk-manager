@@ -19,34 +19,24 @@ export function ModDetailsDialog({ open, mod, onClose }: ModDetailsDialogProps) 
   if (!mod) return null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title>{mod.displayName}</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell open={open} onClose={onClose} title={mod.displayName} size="md">
+      <Dialog.Body className="space-y-5">
+        <ModDetailsContent mod={mod} />
+      </Dialog.Body>
 
-          <Dialog.Body className="space-y-5">
-            <ModDetailsContent mod={mod} />
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-            <Button
-              variant="filled"
-              left={<FolderOpen className="h-4 w-4" />}
-              onClick={() => revealPath(mod.modDir)}
-            >
-              Open Location
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+        <Button
+          variant="filled"
+          left={<FolderOpen className="h-4 w-4" />}
+          onClick={() => revealPath(mod.modDir)}
+        >
+          Open Location
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }
 

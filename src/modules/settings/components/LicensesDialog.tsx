@@ -13,25 +13,18 @@ interface LicensesDialogProps {
 
 export function LicensesDialog({ open, onOpenChange }: LicensesDialogProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="xl" className="max-w-3xl">
-          <Dialog.Header>
-            <div>
-              <Dialog.Title>Third-Party Licenses</Dialog.Title>
-              <Dialog.Description className="mt-0.5">
-                Open source libraries distributed with LTK Manager
-              </Dialog.Description>
-            </div>
-            <Dialog.Close />
-          </Dialog.Header>
-          <Dialog.Body className="flex h-[60vh] flex-col gap-3 overflow-hidden">
-            <LicensesContent open={open} />
-          </Dialog.Body>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog.Shell
+      open={open}
+      onClose={() => onOpenChange(false)}
+      title="Third-Party Licenses"
+      description="Open source libraries distributed with LTK Manager"
+      size="xl"
+      className="max-w-3xl"
+    >
+      <Dialog.Body className="flex h-[60vh] flex-col gap-3 overflow-hidden">
+        <LicensesContent open={open} />
+      </Dialog.Body>
+    </Dialog.Shell>
   );
 }
 

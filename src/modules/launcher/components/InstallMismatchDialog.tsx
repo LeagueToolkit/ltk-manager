@@ -63,62 +63,60 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
   const running = installLabel(mismatch.sessionPath, mismatch.sessionPatchline);
 
   return (
-    <Dialog.Root open onOpenChange={(open) => !open && keep()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title className="flex items-center gap-2.5">
-              {/* DS-TEXT. */}
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
-                <WarningIcon className="h-4 w-4" weight="fill" />
-              </span>
-              {m.launcher_install_mismatch_title()}
-            </Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell
+      open
+      onClose={keep}
+      title={
+        <>
+          {/* DS-TEXT. */}
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
+            <WarningIcon className="h-4 w-4" weight="fill" />
+          </span>
+          {m.launcher_install_mismatch_title()}
+        </>
+      }
+      titleClassName="flex items-center gap-2.5"
+      size="md"
+    >
+      <Dialog.Body className="flex flex-col gap-4">
+        <p className="text-sm leading-relaxed text-surface-300">
+          <Marked text={m.launcher_install_mismatch_description({ running, configured })}>
+            {(clause) => <strong className="font-medium text-surface-100">{clause}</strong>}
+          </Marked>
+        </p>
+        <dl
+          data-ui="InstallMismatchDialog:installs"
+          className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+        >
+          <dt className="text-surface-400 select-none">
+            {m.launcher_install_mismatch_running_label()}
+          </dt>
+          <dd className="min-w-0">
+            <Code className="break-all">{mismatch.sessionPath}</Code>
+          </dd>
+          <dt className="text-surface-400 select-none">
+            {m.launcher_install_mismatch_configured_label()}
+          </dt>
+          <dd className="min-w-0">
+            <Code className="break-all">{mismatch.configuredPath}</Code>
+          </dd>
+        </dl>
+        <p className="text-sm text-surface-400">{m.launcher_install_mismatch_hint()}</p>
+      </Dialog.Body>
 
-          <Dialog.Body className="flex flex-col gap-4">
-            <p className="text-sm leading-relaxed text-surface-300">
-              <Marked text={m.launcher_install_mismatch_description({ running, configured })}>
-                {(clause) => <strong className="font-medium text-surface-100">{clause}</strong>}
-              </Marked>
-            </p>
-            <dl
-              data-ui="InstallMismatchDialog:installs"
-              className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
-            >
-              <dt className="text-surface-400 select-none">
-                {m.launcher_install_mismatch_running_label()}
-              </dt>
-              <dd className="min-w-0">
-                <Code className="break-all">{mismatch.sessionPath}</Code>
-              </dd>
-              <dt className="text-surface-400 select-none">
-                {m.launcher_install_mismatch_configured_label()}
-              </dt>
-              <dd className="min-w-0">
-                <Code className="break-all">{mismatch.configuredPath}</Code>
-              </dd>
-            </dl>
-            <p className="text-sm text-surface-400">{m.launcher_install_mismatch_hint()}</p>
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={keep} disabled={switchInstall.isPending}>
-              {m.launcher_install_mismatch_keep_action({ configured })}
-            </Button>
-            <Button
-              variant="filled"
-              left={<ArrowsLeftRightIcon weight="bold" className="h-4 w-4" />}
-              loading={switchInstall.isPending}
-              onClick={() => switchInstall.mutate(mismatch.sessionPath)}
-            >
-              {m.launcher_install_mismatch_switch_action()}
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="ghost" onClick={keep} disabled={switchInstall.isPending}>
+          {m.launcher_install_mismatch_keep_action({ configured })}
+        </Button>
+        <Button
+          variant="filled"
+          left={<ArrowsLeftRightIcon weight="bold" className="h-4 w-4" />}
+          loading={switchInstall.isPending}
+          onClick={() => switchInstall.mutate(mismatch.sessionPath)}
+        >
+          {m.launcher_install_mismatch_switch_action()}
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }

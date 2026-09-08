@@ -86,115 +86,111 @@ export function ProtocolInstallDialog() {
   const busy = isInstalling || saveSettings.isPending;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && handleClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="lg">
-          <Dialog.Header>
-            <Dialog.Title>{title(isComplete, isError)}</Dialog.Title>
-            {!busy && <Dialog.Close />}
-          </Dialog.Header>
+    <Dialog.Shell
+      open={open}
+      onClose={handleClose}
+      title={title(isComplete, isError)}
+      size="lg"
+      closable={!busy}
+    >
+      <Dialog.Body className="flex flex-col gap-3">
+        {!isComplete && !isError && (
+          <>
+            {untrustedDomain && <UntrustedBand domain={untrustedDomain} />}
 
-          <Dialog.Body className="flex flex-col gap-3">
-            {!isComplete && !isError && (
-              <>
-                {untrustedDomain && <UntrustedBand domain={untrustedDomain} />}
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
-                    <PackageIcon className="h-5 w-5 text-accent-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="truncate font-medium text-surface-100">{displayName}</p>
-                    {(request.author || request.source) && (
-                      <div className="mt-0.5 flex items-center gap-3 text-xs text-surface-400">
-                        {request.author && (
-                          <span className="flex items-center gap-1">
-                            <UserIcon className="h-3 w-3 shrink-0" />
-                            {request.author}
-                          </span>
-                        )}
-                        {request.source && (
-                          <span className="flex items-center gap-1">
-                            <GlobeIcon className="h-3 w-3 shrink-0" />
-                            {request.source}
-                          </span>
-                        )}
-                      </div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+                <PackageIcon className="h-5 w-5 text-accent-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate font-medium text-surface-100">{displayName}</p>
+                {(request.author || request.source) && (
+                  <div className="mt-0.5 flex items-center gap-3 text-xs text-surface-400">
+                    {request.author && (
+                      <span className="flex items-center gap-1">
+                        <UserIcon className="h-3 w-3 shrink-0" />
+                        {request.author}
+                      </span>
+                    )}
+                    {request.source && (
+                      <span className="flex items-center gap-1">
+                        <GlobeIcon className="h-3 w-3 shrink-0" />
+                        {request.source}
+                      </span>
                     )}
                   </div>
-                </div>
-
-                <div className="rounded-md bg-surface-900 px-2.5 py-1.5">
-                  <p className="font-mono text-xs leading-relaxed break-all text-surface-500 select-text">
-                    {request.url}
-                  </p>
-                </div>
-
-                {isInstalling && progress && <DownloadProgressBar progress={progress} />}
-              </>
-            )}
-
-            {isComplete && (
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
-                  <CheckCircleIcon className="h-5 w-5 text-success-text" />
-                </div>
-                <p className="text-sm text-surface-300">
-                  <Marked text={m.deep_link_install_succeeded_description({ name: displayName })}>
-                    {(clause) => <span className="font-medium text-surface-100">{clause}</span>}
-                  </Marked>
-                </p>
+                )}
               </div>
-            )}
+            </div>
 
-            {isError && error && (
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
-                  <XCircleIcon className="h-5 w-5 text-danger-text" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-surface-100">
-                    {m.deep_link_install_failed_description({ name: displayName })}
-                  </p>
-                  <p className="mt-1 text-sm text-danger-text select-text">{error}</p>
-                </div>
-              </div>
-            )}
-          </Dialog.Body>
+            <div className="rounded-md bg-surface-900 px-2.5 py-1.5">
+              <p className="font-mono text-xs leading-relaxed break-all text-surface-500 select-text">
+                {request.url}
+              </p>
+            </div>
 
-          <Dialog.Footer>
-            {!isComplete && !isError && untrustedDomain && (
-              <>
-                <Button variant="ghost" onClick={handleClose} disabled={busy}>
-                  {m.deep_link_untrusted_reject_action()}
-                </Button>
-                <Button variant="filled" onClick={trustAndInstall} loading={busy}>
-                  <ShieldWarningIcon weight="bold" className="h-4 w-4" />
-                  {m.deep_link_untrusted_trust_action()}
-                </Button>
-              </>
-            )}
-            {!isComplete && !isError && !untrustedDomain && (
-              <>
-                <Button variant="ghost" onClick={handleClose} disabled={busy}>
-                  {m.common_cancel_action()}
-                </Button>
-                <Button variant="filled" onClick={runInstall} loading={busy}>
-                  <DownloadSimpleIcon weight="bold" className="h-4 w-4" />
-                  {m.deep_link_install_action()}
-                </Button>
-              </>
-            )}
-            {(isComplete || isError) && (
-              <Button variant="filled" onClick={handleClose}>
-                {m.deep_link_install_done_action()}
-              </Button>
-            )}
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+            {isInstalling && progress && <DownloadProgressBar progress={progress} />}
+          </>
+        )}
+
+        {isComplete && (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
+              <CheckCircleIcon className="h-5 w-5 text-success-text" />
+            </div>
+            <p className="text-sm text-surface-300">
+              <Marked text={m.deep_link_install_succeeded_description({ name: displayName })}>
+                {(clause) => <span className="font-medium text-surface-100">{clause}</span>}
+              </Marked>
+            </p>
+          </div>
+        )}
+
+        {isError && error && (
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
+              <XCircleIcon className="h-5 w-5 text-danger-text" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-surface-100">
+                {m.deep_link_install_failed_description({ name: displayName })}
+              </p>
+              <p className="mt-1 text-sm text-danger-text select-text">{error}</p>
+            </div>
+          </div>
+        )}
+      </Dialog.Body>
+
+      <Dialog.Footer>
+        {!isComplete && !isError && untrustedDomain && (
+          <>
+            <Button variant="ghost" onClick={handleClose} disabled={busy}>
+              {m.deep_link_untrusted_reject_action()}
+            </Button>
+            <Button variant="filled" onClick={trustAndInstall} loading={busy}>
+              <ShieldWarningIcon weight="bold" className="h-4 w-4" />
+              {m.deep_link_untrusted_trust_action()}
+            </Button>
+          </>
+        )}
+        {!isComplete && !isError && !untrustedDomain && (
+          <>
+            <Button variant="ghost" onClick={handleClose} disabled={busy}>
+              {m.common_cancel_action()}
+            </Button>
+            <Button variant="filled" onClick={runInstall} loading={busy}>
+              <DownloadSimpleIcon weight="bold" className="h-4 w-4" />
+              {m.deep_link_install_action()}
+            </Button>
+          </>
+        )}
+        {(isComplete || isError) && (
+          <Button variant="filled" onClick={handleClose}>
+            {m.deep_link_install_done_action()}
+          </Button>
+        )}
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }
 

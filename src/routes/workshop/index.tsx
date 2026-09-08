@@ -3,16 +3,11 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import {
-  BulkDeleteDialog,
-  BulkPackDialog,
-  DeleteConfirmDialog,
   ErrorState,
   LoadingState,
   NoProjectsState,
   NoSearchResultsState,
-  PackDialog,
   ProjectGrid,
-  RenameProjectDialog,
   useFilteredProjects,
   useHasActiveWorkshopFilters,
   useWorkshopProjects,
@@ -56,15 +51,5 @@ function WorkshopIndex() {
     return <ProjectGrid projects={filteredProjects} onEdit={handleEditProject} />;
   }
 
-  return (
-    <>
-      <div className="h-full overflow-auto p-6">{renderContent()}</div>
-
-      <PackDialog />
-      <BulkPackDialog />
-      <DeleteConfirmDialog />
-      <RenameProjectDialog />
-      <BulkDeleteDialog />
-    </>
-  );
+  return <div className="h-full overflow-auto p-6">{renderContent()}</div>;
 }

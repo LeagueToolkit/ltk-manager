@@ -56,98 +56,88 @@ export function ExtractDialog() {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="md">
-          <Dialog.Header>
-            <Dialog.Title>Extract to disk</Dialog.Title>
-            <Dialog.Close />
-          </Dialog.Header>
+    <Dialog.Shell open={open} onClose={close} title="Extract to disk" size="md">
+      <Dialog.Body className="flex flex-col gap-4">
+        <Summary
+          subject={subject}
+          files={plan.data?.files ?? 0}
+          bytes={Number(plan.data?.bytes ?? 0)}
+          archives={plan.data?.archives.length ?? 0}
+          loading={plan.isPending && open}
+        />
 
-          <Dialog.Body className="flex flex-col gap-4">
-            <Summary
-              subject={subject}
-              files={plan.data?.files ?? 0}
-              bytes={Number(plan.data?.bytes ?? 0)}
-              archives={plan.data?.archives.length ?? 0}
-              loading={plan.isPending && open}
-            />
+        <PathField
+          label="Destination"
+          pick="directory"
+          value={destination}
+          onSelect={setDestination}
+          dialogTitle="Extract to"
+          placeholder="Choose a folder"
+          description="Anywhere but the League install"
+        />
 
-            <PathField
-              label="Destination"
-              pick="directory"
-              value={destination}
-              onSelect={setDestination}
-              dialogTitle="Extract to"
-              placeholder="Choose a folder"
-              description="Anywhere but the League install"
-            />
+        <Row label="Layout" hint="Keep paths writes each file at its game path">
+          <SegmentedControl
+            options={[
+              { value: "paths", label: "Keep paths" },
+              { value: "flat", label: "Flat" },
+            ]}
+            value={layout}
+            onChange={setLayout}
+            className="w-56"
+          />
+        </Row>
 
-            <Row label="Layout" hint="Keep paths writes each file at its game path">
-              <SegmentedControl
-                options={[
-                  { value: "paths", label: "Keep paths" },
-                  { value: "flat", label: "Flat" },
-                ]}
-                value={layout}
-                onChange={setLayout}
-                className="w-56"
-              />
-            </Row>
+        <Row label="Existing files">
+          <SegmentedControl
+            options={[
+              { value: "skip", label: "Skip" },
+              { value: "replace", label: "Replace" },
+            ]}
+            value={existing}
+            onChange={setExisting}
+            className="w-56"
+          />
+        </Row>
 
-            <Row label="Existing files">
-              <SegmentedControl
-                options={[
-                  { value: "skip", label: "Skip" },
-                  { value: "replace", label: "Replace" },
-                ]}
-                value={existing}
-                onChange={setExisting}
-                className="w-56"
-              />
-            </Row>
+        <SwitchRow
+          label="One folder per archive"
+          hint="The layout a layer holds, for Add WAD folder"
+          checked={perArchiveFolder}
+          onChange={setPerArchiveFolder}
+        />
+        <SwitchRow
+          label="Recover names from the archive"
+          hint="Reads every bin for names no hashtable holds, which is slow"
+          checked={recoverNames}
+          onChange={setRecoverNames}
+        />
+        <SwitchRow
+          label="Open the folder when done"
+          checked={openWhenDone}
+          onChange={setOpenWhenDone}
+        />
 
-            <SwitchRow
-              label="One folder per archive"
-              hint="The layout a layer holds, for Add WAD folder"
-              checked={perArchiveFolder}
-              onChange={setPerArchiveFolder}
-            />
-            <SwitchRow
-              label="Recover names from the archive"
-              hint="Reads every bin for names no hashtable holds, which is slow"
-              checked={recoverNames}
-              onChange={setRecoverNames}
-            />
-            <SwitchRow
-              label="Open the folder when done"
-              checked={openWhenDone}
-              onChange={setOpenWhenDone}
-            />
+        {busy && (
+          <p className="text-xs text-warning-text select-none">
+            An extract is already running. Wait for it to finish, then try again.
+          </p>
+        )}
+      </Dialog.Body>
 
-            {busy && (
-              <p className="text-xs text-warning-text select-none">
-                An extract is already running. Wait for it to finish, then try again.
-              </p>
-            )}
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={close}>
-              Cancel
-            </Button>
-            <Button
-              variant="filled"
-              disabled={busy || !destination || plan.data?.files === 0}
-              onClick={handleExtract}
-            >
-              Extract
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+        <Button
+          variant="filled"
+          disabled={busy || !destination || plan.data?.files === 0}
+          onClick={handleExtract}
+        >
+          Extract
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }
 

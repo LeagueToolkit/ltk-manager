@@ -59,89 +59,85 @@ export function ImportGitRepoDialog() {
   }
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && handleClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="lg">
-          <Dialog.Header>
-            <Dialog.Title>Import from Git Repository</Dialog.Title>
-            {!isImporting && <Dialog.Close />}
-          </Dialog.Header>
+    <Dialog.Shell
+      open={open}
+      onClose={handleClose}
+      title="Import from Git Repository"
+      size="lg"
+      closable={!isImporting}
+    >
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit();
+        }}
+      >
+        <Dialog.Body className="space-y-4">
+          <form.AppField name="url">
+            {(field) => (
+              <field.TextField
+                label="Repository URL"
+                required
+                placeholder="https://github.com/user/repo"
+                description="GitHub repository URL containing a mod project."
+                disabled={isImporting}
+              />
+            )}
+          </form.AppField>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              form.handleSubmit();
-            }}
-          >
-            <Dialog.Body className="space-y-4">
-              <form.AppField name="url">
-                {(field) => (
-                  <field.TextField
-                    label="Repository URL"
-                    required
-                    placeholder="https://github.com/user/repo"
-                    description="GitHub repository URL containing a mod project."
-                    disabled={isImporting}
-                  />
+          <form.AppField name="branch">
+            {(field) => (
+              <field.TextField
+                label="Branch"
+                placeholder="main"
+                description="Branch or tag name. Defaults to 'main' if empty."
+                disabled={isImporting}
+              />
+            )}
+          </form.AppField>
+
+          {progress && progress.stage !== "complete" && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                {progress.stage === "error" && (
+                  <span className="text-danger-text">Error occurred</span>
                 )}
-              </form.AppField>
-
-              <form.AppField name="branch">
-                {(field) => (
-                  <field.TextField
-                    label="Branch"
-                    placeholder="main"
-                    description="Branch or tag name. Defaults to 'main' if empty."
-                    disabled={isImporting}
-                  />
+                {progress.stage === "downloading" && (
+                  <span className="text-surface-400">Downloading repository...</span>
                 )}
-              </form.AppField>
-
-              {progress && progress.stage !== "complete" && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    {progress.stage === "error" && (
-                      <span className="text-danger-text">Error occurred</span>
-                    )}
-                    {progress.stage === "downloading" && (
-                      <span className="text-surface-400">Downloading repository...</span>
-                    )}
-                    {progress.stage === "extracting" && (
-                      <span className="text-surface-400">Extracting files...</span>
-                    )}
-                  </div>
-                  {progress.stage !== "error" && (
-                    <div className="h-2 overflow-hidden rounded-full bg-surface-700">
-                      <div className="h-full w-full animate-pulse rounded-full bg-accent-500 transition-all duration-300" />
-                    </div>
-                  )}
+                {progress.stage === "extracting" && (
+                  <span className="text-surface-400">Extracting files...</span>
+                )}
+              </div>
+              {progress.stage !== "error" && (
+                <div className="h-2 overflow-hidden rounded-full bg-surface-700">
+                  <div className="h-full w-full animate-pulse rounded-full bg-accent-500 transition-all duration-300" />
                 </div>
               )}
-            </Dialog.Body>
+            </div>
+          )}
+        </Dialog.Body>
 
-            <Dialog.Footer>
-              <Button variant="ghost" onClick={handleClose} disabled={isImporting}>
-                Cancel
-              </Button>
-              <form.Subscribe
-                selector={(state) => ({ canSubmit: state.canSubmit, isValid: state.isValid })}
+        <Dialog.Footer>
+          <Button variant="ghost" onClick={handleClose} disabled={isImporting}>
+            Cancel
+          </Button>
+          <form.Subscribe
+            selector={(state) => ({ canSubmit: state.canSubmit, isValid: state.isValid })}
+          >
+            {({ canSubmit, isValid }) => (
+              <Button
+                variant="filled"
+                loading={isImporting}
+                disabled={!canSubmit || !isValid || isImporting}
+                onClick={() => form.handleSubmit()}
               >
-                {({ canSubmit, isValid }) => (
-                  <Button
-                    variant="filled"
-                    loading={isImporting}
-                    disabled={!canSubmit || !isValid || isImporting}
-                    onClick={() => form.handleSubmit()}
-                  >
-                    Import
-                  </Button>
-                )}
-              </form.Subscribe>
-            </Dialog.Footer>
-          </form>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+                Import
+              </Button>
+            )}
+          </form.Subscribe>
+        </Dialog.Footer>
+      </form>
+    </Dialog.Shell>
   );
 }

@@ -20,26 +20,23 @@ export function ImportProgressDialog({
   const isComplete = result !== null;
 
   return (
-    <Dialog.Root open={open} onOpenChange={(open) => !open && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="sm">
-          <Dialog.Header>
-            <Dialog.Title>{isComplete ? "Import Complete" : "Importing Mods..."}</Dialog.Title>
-          </Dialog.Header>
+    <Dialog.Shell
+      open={open}
+      onClose={onClose}
+      title={isComplete ? "Import Complete" : "Importing Mods..."}
+      size="sm"
+      closable={false}
+    >
+      <Dialog.Body className="space-y-4">
+        {!isComplete && <BulkInstallProgress progress={progress} />}
+        {isComplete && result && <BulkInstallResults result={result} />}
+      </Dialog.Body>
 
-          <Dialog.Body className="space-y-4">
-            {!isComplete && <BulkInstallProgress progress={progress} />}
-            {isComplete && result && <BulkInstallResults result={result} />}
-          </Dialog.Body>
-
-          <Dialog.Footer>
-            <Button variant="filled" size="sm" onClick={onClose}>
-              {isComplete ? "Done" : "Dismiss"}
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <Dialog.Footer>
+        <Button variant="filled" size="sm" onClick={onClose}>
+          {isComplete ? "Done" : "Dismiss"}
+        </Button>
+      </Dialog.Footer>
+    </Dialog.Shell>
   );
 }

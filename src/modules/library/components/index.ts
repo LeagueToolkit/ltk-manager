@@ -21,6 +21,7 @@ export * from "./LayerPopover";
 export * from "./LayerToggleList";
 export * from "./LibraryContent";
 export * from "./LibraryContextMenu";
+export * from "./LibraryDialogs";
 export * from "./LibraryMigrationDialog";
 export * from "./LibraryStates";
 export * from "./LibraryToolbar";
