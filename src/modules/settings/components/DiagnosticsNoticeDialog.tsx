@@ -1,4 +1,5 @@
-import { ShieldCheckIcon } from "@phosphor-icons/react";
+import { TargetIcon } from "@phosphor-icons/react";
+import { type ReactNode, useRef } from "react";
 
 import { Button, Dialog, ExternalLink } from "@/components";
 import { m, Marked } from "@/i18n";
@@ -6,6 +7,15 @@ import { useQueuedDialog } from "@/stores";
 
 import { useSaveSettings, useSettings } from "../api";
 import { PRIVACY_PAGE_URL } from "../privacyPage";
+
+/** What the notice lists under "What gets collected", in the order it reads. */
+const COLLECTED = [
+  m.diagnostics_notice_collected_session,
+  m.diagnostics_notice_collected_errors,
+  m.diagnostics_notice_collected_mods,
+  m.diagnostics_notice_collected_versions,
+  m.diagnostics_notice_collected_identity,
+];
 
 /**
  * What a reader is told before anything about their machine leaves it.
@@ -16,6 +26,7 @@ import { PRIVACY_PAGE_URL } from "../privacyPage";
 export function DiagnosticsNoticeDialog() {
   const { data: settings } = useSettings();
   const saveSettings = useSaveSettings();
+  const panel = useRef<HTMLDivElement>(null);
 
   const owed = settings !== undefined && !settings.hasSeenDiagnosticsNotice;
   const showing = useQueuedDialog("diagnostics-notice", owed);
@@ -35,20 +46,48 @@ export function DiagnosticsNoticeDialog() {
   };
 
   return (
+    /* Focus starts on the panel rather than on the first link, so the notice
+       opens saying what it says instead of wearing a ring. */
     <Dialog.Shell
+      ref={panel}
+      initialFocus={panel}
       open
+      size="xl"
       onClose={acknowledge}
       closable={false}
-      title={m.diagnostics_notice_title()}
+      title={
+        <>
+          <TargetIcon className="h-6 w-6 shrink-0 text-accent-400" weight="duotone" />
+          {m.diagnostics_notice_title()}
+        </>
+      }
+      titleClassName="flex items-center gap-2.5"
       data-ui="DiagnosticsNoticeDialog"
     >
       <Dialog.Body>
-        <div className="flex items-start gap-3 select-none">
-          <ShieldCheckIcon className="h-10 w-10 shrink-0 text-accent-400" />
+        <div className="flex flex-col gap-5 select-none">
+          <Section title={m.diagnostics_notice_why_title()}>
+            <p className="text-sm text-surface-300">{m.diagnostics_notice_why_body()}</p>
+          </Section>
+
+          <Section title={m.diagnostics_notice_collected_title()}>
+            <ul className="flex flex-col gap-0.5">
+              {COLLECTED.map((line) => (
+                <li key={line()} className="flex gap-2.5 text-sm text-surface-300">
+                  <span
+                    aria-hidden
+                    className="mt-[0.4375rem] h-1 w-1 shrink-0 rounded-full bg-surface-400"
+                  />
+                  <span>{line()}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-surface-400">{m.diagnostics_notice_never_body()}</p>
+          </Section>
+
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-surface-200">{m.diagnostics_notice_description()}</p>
-            <p className="text-sm text-surface-300">
-              <Marked text={m.diagnostics_notice_detail()}>
+            <p className="text-sm text-surface-400">
+              <Marked text={m.diagnostics_notice_settings_hint()}>
                 {(clause) => <strong className="font-medium text-surface-200">{clause}</strong>}
               </Marked>
             </p>
@@ -67,5 +106,19 @@ export function DiagnosticsNoticeDialog() {
         </Button>
       </Dialog.Footer>
     </Dialog.Shell>
+  );
+}
+
+interface SectionProps {
+  title: string;
+  children: ReactNode;
+}
+
+function Section({ title, children }: SectionProps) {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium text-surface-100">{title}</h3>
+      {children}
+    </section>
   );
 }

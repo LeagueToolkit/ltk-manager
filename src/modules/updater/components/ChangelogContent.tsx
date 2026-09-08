@@ -15,7 +15,7 @@ const components: Components = {
   h3: ({ children }) => (
     <h3 className="mt-3 mb-1.5 text-sm font-medium text-surface-300 first:mt-0">{children}</h3>
   ),
-  ul: ({ children }) => <ul className="mb-3 flex flex-col gap-1 pl-1">{children}</ul>,
+  ul: ({ children }) => <ul className="mb-3 flex flex-col gap-0.5 pl-1">{children}</ul>,
   li: ({ children }) => (
     <li className="flex gap-2 text-sm text-surface-300">
       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-500/50" />
