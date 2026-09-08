@@ -6,7 +6,7 @@ import {
   MagnifyingGlassIcon,
   PathIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { type MouseEvent as ReactMouseEvent, useCallback, useMemo, useState } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/components";
@@ -34,6 +34,7 @@ import { CurveSurface } from "./CurveSurface";
 import { type CurveDock, CurveDockContext, type CurveTarget } from "./curveTarget";
 import { OtherDeclarations } from "./OtherDeclarations";
 import { useBinDocument } from "./useBinDocument";
+import { useNarrowToolbar } from "./useNarrowToolbar";
 import { useShowInFile } from "./useShowInFile";
 
 /**
@@ -94,6 +95,7 @@ interface OpenObjectProps {
 
 function OpenObject({ asset, objectPath, file, handle, object, active, reopen }: OpenObjectProps) {
   const showInFile = useShowInFile();
+  const narrow = useNarrowToolbar();
   const objectName = useCallback(() => object.name, [object.name]);
   const layout = classLayout(object.classHash);
 
@@ -102,6 +104,11 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
   const [frame, setFrame] = useState<LayoutFrame>("stack");
   const [target, setTarget] = useState<CurveTarget | null>(null);
   const dock = useMemo<CurveDock>(() => ({ target, aim: setTarget }), [target]);
+
+  const showFile = useCallback(
+    (event: ReactMouseEvent) => showInFile(asset, object.entry, file, clickIntent(event)),
+    [asset, file, object.entry, showInFile],
+  );
 
   const showInProperties = useCallback((key: string) => {
     setMode("properties");
@@ -117,10 +124,12 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
       <DocumentToolbar active={active}>
         <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
           <ClassCard classHash={object.classHash} name={object.class} />
-          <Dot />
-          <span>{m.workshop_bin_properties_label({ count: object.properties })}</span>
-          <Dot />
-          <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
+          {!narrow && (
+            <>
+              <Dot />
+              <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
+            </>
+          )}
         </span>
         {layout && (
           <SegmentedControl
@@ -130,19 +139,24 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
             onChange={setMode}
             options={[
               { value: "layout", label: layout.title() },
-              { value: "properties", label: m.workshop_bin_mode_properties_label() },
+              {
+                value: "properties",
+                label: m.workshop_bin_mode_properties_label(),
+              },
             ]}
           />
         )}
-        <Button
-          variant="ghost"
-          size="xs"
-          left={<FileIcon className="h-4 w-4" />}
-          onClick={(event) => showInFile(asset, object.entry, file, clickIntent(event))}
-        >
-          {m.workshop_bin_show_in_file_action()}
-        </Button>
-        <HeaderMenu object={object} />
+        {!narrow && (
+          <Button
+            variant="ghost"
+            size="xs"
+            left={<FileIcon className="h-4 w-4" />}
+            onClick={showFile}
+          >
+            {m.workshop_bin_show_in_file_action()}
+          </Button>
+        )}
+        <HeaderMenu object={object} onShowInFile={narrow ? showFile : undefined} />
       </DocumentToolbar>
       <CurveDockContext value={dock}>
         <Group
@@ -203,8 +217,14 @@ function OpenObject({ asset, objectPath, file, handle, object, active, reopen }:
 /** Which way the tab draws its object: its class's layout, or the tree. */
 type Mode = "layout" | "properties";
 
+interface HeaderMenuProps {
+  object: BinObjectHeader;
+  /** Show in file, where the toolbar is too narrow to carry it as a button of its own. */
+  onShowInFile?: (event: ReactMouseEvent) => void;
+}
+
 /** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
-function HeaderMenu({ object }: { object: BinObjectHeader }) {
+function HeaderMenu({ object, onShowInFile }: HeaderMenuProps) {
   const copy = useCopyToClipboard();
   const findReferences = useFindReferences();
   const label = m.workshop_bin_object_actions_label();
@@ -227,6 +247,14 @@ function HeaderMenu({ object }: { object: BinObjectHeader }) {
       <Menu.Portal>
         <Menu.Positioner align="end" sideOffset={4}>
           <Menu.Popup className="w-56">
+            {onShowInFile && (
+              <>
+                <Menu.Item icon={<FileIcon className="h-4 w-4" />} onClick={onShowInFile}>
+                  {m.workshop_bin_show_in_file_action()}
+                </Menu.Item>
+                <Menu.Separator />
+              </>
+            )}
             <Menu.Item
               icon={<MagnifyingGlassIcon className="h-4 w-4" />}
               onClick={() => findReferences(objectReferences(object.entry, object.name))}

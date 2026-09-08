@@ -38,7 +38,11 @@ function row(path: string, name: string, value: BinValue): BinRow {
   };
 }
 
-const list = (len: number): BinValue => ({ type: "container", len, itemKind: "embed" });
+const list = (len: number): BinValue => ({
+  type: "container",
+  len,
+  itemKind: "embed",
+});
 const embed = (className: string, len: number): BinValue => ({
   type: "struct",
   classHash: nameHash(className),
@@ -72,14 +76,12 @@ describe("frameOf", () => {
 
 describe("descentOf", () => {
   const widgets: SectionWidget[] = [
-    "sampler-table",
-    "param-table",
-    "switch-list",
+    "rows",
     "tree",
     "fields",
     "icons",
     "mesh",
-    "override-table",
+    "override-rows",
     "effect-table",
     "emitters",
   ];
@@ -99,7 +101,12 @@ describe("placeRows", () => {
     field("samplerValues", list(2)),
     field("paramValues", list(1)),
     field("switches", list(0)),
-    field("shaderMacros", { type: "map", len: 3, keyKind: "string", valueKind: "string" }),
+    field("shaderMacros", {
+      type: "map",
+      len: 3,
+      keyKind: "string",
+      valueKind: "string",
+    }),
     field("techniques", list(1)),
     field("dynamicMaterial", { type: "null" }),
     field("childTechniques", list(0)),
@@ -144,9 +151,9 @@ describe("placeRows", () => {
 
     expect(placed.map((section) => section.widget)).toEqual([
       undefined,
-      "sampler-table",
-      "param-table",
-      "switch-list",
+      "rows",
+      "rows",
+      "rows",
       "tree",
       "tree",
       "tree",
@@ -159,7 +166,11 @@ describe("placeRows over a skin", () => {
     field("championSkinName"),
     field("skinMeshProperties", embed("SkinMeshDataProperties", 38)),
     field("idleParticlesEffects", list(2)),
-    field("mResourceResolver", { type: "objectLink", hash: "0x11223344", name: null }),
+    field("mResourceResolver", {
+      type: "objectLink",
+      hash: "0x11223344",
+      name: null,
+    }),
     field("healthBarData", embed("CharacterHealthBarDataRecord", 4)),
   ];
 
@@ -169,7 +180,7 @@ describe("placeRows over a skin", () => {
       section.rows.some((row) => row.name === "skinMeshProperties"),
     );
 
-    expect(mesh.map((section) => section.widget)).toEqual(["mesh", "override-table"]);
+    expect(mesh.map((section) => section.widget)).toEqual(["mesh", "override-rows"]);
   });
 
   it("leaves a field no section names to Other, the mesh included once it is placed", () => {

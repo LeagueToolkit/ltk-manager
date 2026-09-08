@@ -8,28 +8,21 @@ import {
 } from "react";
 import { twMerge } from "tailwind-merge";
 
-import { Checkbox, ContextMenu, Readout } from "@/components";
+import { ContextMenu } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
 import { BinContextMenu } from "./BinContextMenu";
 import { nameHash } from "./binHash";
-import { RowValue } from "./BinRow";
 import { rowKey, type RowLine } from "./binRows";
-import { BinTree } from "./BinTree";
 import {
-  Cell,
   elementsOf,
   FieldRow,
   fieldsIn,
-  type FieldsOf,
-  fieldsOf,
   type LayoutPages,
   None,
-  TableRows,
-  TextCell,
-  TextureTile,
+  SectionTree,
   type ViewContext,
   type WidgetProps,
 } from "./ClassCells";
@@ -38,15 +31,13 @@ import {
   frameOf,
   type LayoutFrame,
   levelRequests,
-  NAMED,
   type PlacedSection,
   placeRows,
   readsOwnMarks,
-  SAMPLER,
   type SectionWidget,
 } from "./classLayouts";
 import { CurveSurface } from "./CurveSurface";
-import { EffectTable, IconRow, MeshCard, OverrideTable } from "./SkinSections";
+import { EffectTable, IconRow, MeshCard, OverrideRows } from "./SkinSections";
 import { useBinRead } from "./useBinRead";
 import {
   LinkAssetContext,
@@ -66,12 +57,6 @@ import {
   useEmitterChoice,
   useEmitters,
 } from "./VfxSections";
-
-/** The most rows a tree section shows before it scrolls, so no section owns the page. */
-const TREE_ROWS = 12;
-
-/** The room a mode field takes, so a column of them lines its digits up. */
-const MODE_WIDTH = "w-8";
 
 /**
  * The width a strip and an inspector both need, under which a shell falls to the stack.
@@ -409,13 +394,11 @@ function Section({ section, pages, view }: SectionProps) {
 
 /** What each widget draws for the section that names it. */
 const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => ReactNode> = {
-  "sampler-table": SamplerTable,
-  "param-table": ParamTable,
-  "switch-list": SwitchList,
+  rows: ElementRows,
   fields: NamedFields,
   icons: IconRow,
   mesh: MeshCard,
-  "override-table": OverrideTable,
+  "override-rows": OverrideRows,
   "effect-table": EffectTable,
   emitters: Emitters,
 };
@@ -423,20 +406,13 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
 function SectionBody({ section, pages, view, title }: SectionProps & { title: string }) {
   if (section.widget === "tree") {
     return (
-      /* DS-GROUND, DS-RADIUS */
-      <div className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900">
-        <BinTree
-          document={view.document}
-          asset={view.asset}
-          roots={section.rows}
-          rootOwner={view.classHash}
-          label={title}
-          maxRows={TREE_ROWS}
-          initialExpanded={section.other ? undefined : section.rows.map(rowKey)}
-          objectName={view.objectName}
-          onNotOpen={view.onNotOpen}
-        />
-      </div>
+      <SectionTree
+        view={view}
+        roots={section.rows}
+        rootOwner={view.classHash}
+        label={title}
+        initialExpanded={section.other ? undefined : section.rows.map(rowKey)}
+      />
     );
   }
 
@@ -471,106 +447,15 @@ function NamedFields({ section, pages }: WidgetProps) {
   );
 }
 
-/** A row per element, each drawn from the fields the level under it answered. */
-function ElementTable({
-  section,
-  pages,
-  draw,
-}: WidgetProps & { draw: (fields: FieldsOf) => ReactNode }) {
+/** One row per element of the containers the section placed, as the tree draws them. */
+function ElementRows({ section, pages, view }: WidgetProps) {
   return (
-    <TableRows rows={elementsOf(section.rows, pages)}>
-      {(element) => draw(fieldsOf(pages.get(rowKey(element))))}
-    </TableRows>
-  );
-}
-
-function SamplerTable(props: WidgetProps) {
-  return <ElementTable {...props} draw={(fields) => <Sampler fields={fields} />} />;
-}
-
-function ParamTable(props: WidgetProps) {
-  return <ElementTable {...props} draw={(fields) => <Param fields={fields} />} />;
-}
-
-function SwitchList(props: WidgetProps) {
-  return <ElementTable {...props} draw={(fields) => <Switch fields={fields} />} />;
-}
-
-/** The sampler's texture as a tile, its name, its path as a chip, and its modes. */
-function Sampler({ fields }: { fields: FieldsOf }) {
-  const texture = fields(SAMPLER.texturePath);
-  const named = fields(SAMPLER.textureName) ?? fields(SAMPLER.samplerName);
-
-  return (
-    <>
-      <TextureTile row={texture} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        {/* DS-WEIGHT-TIER */}
-        <TextCell row={named} className="font-medium text-surface-100" />
-        <Cell row={texture} className="flex min-w-0 items-center gap-2">
-          {texture && <RowValue row={texture} />}
-        </Cell>
-      </span>
-      <Modes fields={fields} />
-    </>
-  );
-}
-
-/** The sampler's address and filter modes, each under its field's own letter. */
-function Modes({ fields }: { fields: FieldsOf }) {
-  const modes: [label: string, hash: string][] = [
-    ["U", SAMPLER.addressU],
-    ["V", SAMPLER.addressV],
-    ["W", SAMPLER.addressW],
-    ["Mag", SAMPLER.filterMag],
-    ["Min", SAMPLER.filterMin],
-  ];
-
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      {modes.map(([label, hash]) => {
-        const mode = fields(hash);
-        if (mode?.value.type !== "integer") return null;
-        return (
-          <Cell key={label} row={mode} className="flex">
-            <Readout label={label} value={mode.value.text} className={MODE_WIDTH} />
-          </Cell>
-        );
-      })}
-    </span>
-  );
-}
-
-/** The param's name, and its four numbers in the field a vector row draws. */
-function Param({ fields }: { fields: FieldsOf }) {
-  const named = fields(NAMED.name);
-  const value = fields(NAMED.value);
-  return (
-    <>
-      <TextCell row={named} className="w-48 shrink-0 text-surface-200" />
-      <Cell row={value} className="flex min-w-0 flex-1">
-        {value && <RowValue row={value} />}
-      </Cell>
-    </>
-  );
-}
-
-/** The switch's checkbox, and its name after it. */
-function Switch({ fields }: { fields: FieldsOf }) {
-  const on = fields(NAMED.on);
-  const named = fields(NAMED.name);
-  return (
-    <>
-      <Cell row={on} className="flex">
-        <Checkbox
-          size="sm"
-          checked={on?.value.type === "bool" && on.value.value}
-          readOnly
-          tabIndex={-1}
-        />
-      </Cell>
-      <TextCell row={named} className="min-w-0 text-surface-200" />
-    </>
+    <SectionTree
+      view={view}
+      roots={elementsOf(section.rows, pages)}
+      rootOwner={null}
+      label={section.title()}
+    />
   );
 }
 

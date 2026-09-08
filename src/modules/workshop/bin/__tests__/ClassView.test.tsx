@@ -53,7 +53,11 @@ function page(rows: BinRow[]): BinRows {
   return { rows, total: rows.length };
 }
 
-const list = (len: number): BinValue => ({ type: "container", len, itemKind: "embed" });
+const list = (len: number): BinValue => ({
+  type: "container",
+  len,
+  itemKind: "embed",
+});
 const embed = (className: string, len: number): BinValue => ({
   type: "struct",
   classHash: nameHash(className),
@@ -67,7 +71,12 @@ const ROOTS: BinRow[] = [
   field("samplerValues", list(1)),
   field("paramValues", list(1)),
   field("switches", list(0)),
-  field("shaderMacros", { type: "map", len: 1, keyKind: "string", valueKind: "string" }),
+  field("shaderMacros", {
+    type: "map",
+    len: 1,
+    keyKind: "string",
+    valueKind: "string",
+  }),
   field("dynamicMaterial", { type: "null" }),
 ];
 
@@ -170,9 +179,15 @@ beforeEach(() => {
     }
     if (command === "locate_game_files") return Promise.resolve({ ok: true, value: {} });
     if (command === "declared_objects") {
-      return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
+      return Promise.resolve({
+        ok: true,
+        value: { index: { status: "ready" }, objects: {} },
+      });
     }
-    return Promise.resolve({ ok: false, error: { code: "UNKNOWN", detail: command } });
+    return Promise.resolve({
+      ok: false,
+      error: { code: "UNKNOWN", detail: command },
+    });
   });
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
@@ -213,57 +228,55 @@ describe("ClassView", () => {
     expect(screen.getByDisplayValue("1")).toBeInTheDocument();
   });
 
-  it("reads its tables through the projected read, one call per level", async () => {
+  it("reads a section's elements through the projected read, one call for the level", async () => {
     renderView();
 
-    await waitFor(() => expect(screen.getByText("Diffuse_Texture")).toBeInTheDocument());
-
-    const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
-    expect(reads).toHaveLength(2);
-    const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
-    expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
-    expect(reads[1]?.[1]).toMatchObject({ entry: ENTRY, paths: [SAMPLER_PATH, PARAM_PATH].sort() });
+    await waitFor(() => {
+      const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
+      expect(reads).toHaveLength(1);
+      const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
+      expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
+    });
   });
 
-  it("draws a sampler's name, its path and its modes", async () => {
+  /* The rows themselves are virtualized, which a zero-height test viewport draws none of. */
+  it("draws a list section as a tree over the elements the read answered", async () => {
     renderView();
 
-    expect(await screen.findByText("Diffuse_Texture")).toBeInTheDocument();
-    expect(screen.getByText(TEXTURE)).toBeInTheDocument();
-    expect(screen.getByLabelText("U")).toHaveValue("1");
-    expect(screen.getByLabelText("Mag")).toHaveValue("2");
+    expect(await screen.findByRole("tree", { name: "Samplers" })).toBeInTheDocument();
+    expect(screen.getByRole("tree", { name: "Params" })).toBeInTheDocument();
   });
 
-  it("draws a param's name and its four numbers", async () => {
-    renderView();
-
-    expect(await screen.findByText("Fresnel_Power")).toBeInTheDocument();
-    expect(screen.getByLabelText("x")).toHaveValue("4");
-  });
-
-  it("sends a cell's Show in properties the cell's own key, not its element's", async () => {
+  it("sends a cell's Show in properties the cell's own key", async () => {
     const onShowInProperties = renderView();
     const user = userEvent.setup();
 
-    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText(TEXTURE) });
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByDisplayValue("Ezreal_Base_Mat"),
+    });
     await user.click(await screen.findByRole("menuitem", { name: "Show in properties" }));
 
-    expect(onShowInProperties).toHaveBeenCalledWith(
-      `${ENTRY}:${SAMPLER_PATH}.${nameHash("texturePath").slice(2)}`,
-    );
+    expect(onShowInProperties).toHaveBeenCalledWith(`${ENTRY}:${nameHash("name").slice(2)}`);
   });
 
   it("copies a cell's own path, which is the address of the node under it", async () => {
     renderView();
     const writeText = vi.fn(() => Promise.resolve());
     const user = userEvent.setup({ writeToClipboard: false });
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
 
-    await user.pointer({ keys: "[MouseRight]", target: await screen.findByText(TEXTURE) });
+    await user.pointer({
+      keys: "[MouseRight]",
+      target: screen.getByDisplayValue("Ezreal_Base_Mat"),
+    });
     await user.click(await screen.findByRole("menuitem", { name: "Copy path" }));
 
     expect(writeText).toHaveBeenCalledWith(
-      "Characters/Ezreal/Skins/Base/Materials/Ezreal_Base_Mat:texturePath",
+      "Characters/Ezreal/Skins/Base/Materials/Ezreal_Base_Mat:name",
     );
   });
 });

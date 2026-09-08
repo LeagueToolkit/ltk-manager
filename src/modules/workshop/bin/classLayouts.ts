@@ -13,14 +13,12 @@ import type { ReadRequest } from "./useBinRead";
  * cell its row would draw, or the tree.
  */
 export type SectionWidget =
-  | "sampler-table"
-  | "param-table"
-  | "switch-list"
+  | "rows"
   | "tree"
   | "fields"
   | "icons"
   | "mesh"
-  | "override-table"
+  | "override-rows"
   | "effect-table"
   | "emitters";
 
@@ -67,21 +65,17 @@ export function frameOf(layout: ClassLayout): LayoutFrame {
 /**
  * The material, which a texture modder opens for its samplers.
  *
- * The four fields the wiki groups as the shader's own inputs take tables. The
- * techniques take the tree, which folds a technique to its passes and a pass to its
- * shader without a widget per level and without a read per technique.
+ * The four fields the wiki groups as the shader's own inputs are lists, and a list
+ * draws as the rows a reader opens further. The techniques take the tree, which folds a
+ * technique to its passes and a pass to its shader without a read per technique.
  */
 export const materialLayout: ClassLayout = {
   title: m.workshop_bin_layout_material_label,
   sections: [
     { title: m.workshop_bin_section_identity_label, fields: ["name", "type"] },
-    {
-      title: m.workshop_bin_section_samplers_label,
-      fields: ["samplerValues"],
-      as: "sampler-table",
-    },
-    { title: m.workshop_bin_section_params_label, fields: ["paramValues"], as: "param-table" },
-    { title: m.workshop_bin_section_switches_label, fields: ["switches"], as: "switch-list" },
+    { title: m.workshop_bin_section_samplers_label, fields: ["samplerValues"], as: "rows" },
+    { title: m.workshop_bin_section_params_label, fields: ["paramValues"], as: "rows" },
+    { title: m.workshop_bin_section_switches_label, fields: ["switches"], as: "rows" },
     { title: m.workshop_bin_section_macros_label, fields: ["shaderMacros"], as: "tree" },
     { title: m.workshop_bin_section_techniques_label, fields: ["techniques"], as: "tree" },
   ],
@@ -109,7 +103,7 @@ export const skinLayout: ClassLayout = {
     {
       title: m.workshop_bin_section_overrides_label,
       fields: ["skinMeshProperties"],
-      as: "override-table",
+      as: "override-rows",
     },
     {
       title: m.workshop_bin_section_animation_label,
@@ -247,7 +241,7 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
 /**
  * How far under its own fields each widget reads.
  *
- * "What a layout reads" in docs/ux/BIN_EDITOR.md. A table costs the containers the
+ * "What a layout reads" in docs/ux/BIN_EDITOR.md. A widget costs the containers the
  * layout placed and then the elements of each. A widget that wants one field of a
  * nested struct names it, so the level under it carries that field alone rather than
  * every struct the level above answered.
@@ -257,11 +251,10 @@ const DESCENT: Record<SectionWidget, Descent> = {
   fields: ["all"],
   icons: ["all"],
   mesh: ["all"],
-  "sampler-table": ["all", "all"],
-  "param-table": ["all", "all"],
-  "switch-list": ["all", "all"],
+  /* The elements alone. The tree fetches what sits under each of them itself. */
+  rows: ["all"],
   "effect-table": ["all", "all"],
-  "override-table": [["materialOverride"], "all", "all"],
+  "override-rows": [["materialOverride"], "all"],
   emitters: ["all", ["CustomMaterial"], "all"],
 };
 
@@ -337,25 +330,6 @@ function selected(rows: readonly BinRow[], select: Select): BinRow[] {
   return rows.filter((row) => wanted.has(fieldHash(row.path)));
 }
 
-/** The fields a sampler's cell reads, by hash. */
-export const SAMPLER = {
-  textureName: nameHash("TextureName"),
-  samplerName: nameHash("samplerName"),
-  texturePath: nameHash("texturePath"),
-  addressU: nameHash("addressU"),
-  addressV: nameHash("addressV"),
-  addressW: nameHash("addressW"),
-  filterMag: nameHash("filterMag"),
-  filterMin: nameHash("filterMin"),
-} as const;
-
-/** The fields a param's and a switch's cell read, which share a name field. */
-export const NAMED = {
-  name: nameHash("name"),
-  value: nameHash("value"),
-  on: nameHash("on"),
-} as const;
-
 /** The image a censored icon holds under it, which is the chunk the tile draws. */
 export const CENSORED_IMAGE = nameHash("image");
 
@@ -370,13 +344,6 @@ export const MESH = {
   roughness: nameHash("RoughnessMetallicAoTexture"),
   material: nameHash("Material"),
   override: nameHash("materialOverride"),
-} as const;
-
-/** The fields one material override draws: which submesh, and what it swaps in. */
-export const OVERRIDE = {
-  submesh: nameHash("submesh"),
-  texture: nameHash("texture"),
-  material: nameHash("Material"),
 } as const;
 
 /** The fields of one idle effect, and the resolver its key resolves through. */

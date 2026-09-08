@@ -13,6 +13,7 @@ import { useObjectRevealRequest, useOpenDocumentAs, useSettleObjectReveal } from
 import { objectKey, rowKey } from "./binRows";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { useBinDocument } from "./useBinDocument";
+import { useNarrowToolbar } from "./useNarrowToolbar";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -88,6 +89,8 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const roots = handle.rows;
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
+  const narrow = useNarrowToolbar();
+
   /* A bin holding one object opens it expanded. */
   const initialExpanded = useMemo(() => {
     const [only] = roots;
@@ -123,7 +126,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   return (
     <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <DocumentToolbar active={active}>
-        <BinFacts header={handle.header} />
+        <BinFacts header={handle.header} narrow={narrow} />
         {actions}
       </DocumentToolbar>
       <BinTree
@@ -142,12 +145,18 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   );
 }
 
+interface BinFactsProps {
+  header: BinHeader;
+  /** The toolbar has room for the count and what opens, and for none of the rest. */
+  narrow: boolean;
+}
+
 /** What the file is, in the row its tab owns: the count, the version, the dependencies. */
-function BinFacts({ header }: { header: BinHeader }) {
+function BinFacts({ header, narrow }: BinFactsProps) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
       <span>{m.workshop_bin_objects_label({ count: header.objects })}</span>
-      {header.kind === "prop" && header.version !== null && (
+      {!narrow && header.kind === "prop" && header.version !== null && (
         <>
           <Dot />
           <span>{m.workshop_bin_version_label({ version: header.version })}</span>
@@ -163,12 +172,16 @@ function BinFacts({ header }: { header: BinHeader }) {
         <>
           <Dot />
           <span>{m.workshop_bin_patch_label()}</span>
-          <Dot />
-          <span>{m.workshop_bin_patch_records_label({ count: header.patches })}</span>
-          {header.deleted > 0 && (
+          {!narrow && (
             <>
               <Dot />
-              <span>{m.workshop_bin_patch_deleted_label({ count: header.deleted })}</span>
+              <span>{m.workshop_bin_patch_records_label({ count: header.patches })}</span>
+              {header.deleted > 0 && (
+                <>
+                  <Dot />
+                  <span>{m.workshop_bin_patch_deleted_label({ count: header.deleted })}</span>
+                </>
+              )}
             </>
           )}
         </>

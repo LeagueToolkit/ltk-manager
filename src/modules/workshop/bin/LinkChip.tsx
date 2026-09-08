@@ -122,7 +122,13 @@ export function StringValue({ text }: StringValueProps) {
   const decision = decideStringLink(text, targets, () => layer);
 
   if (decision.kind === "missing") return <Text missing>{path ?? text}</Text>;
-  if (decision.kind !== "chip") return <Readout value={text} className="flex-1 text-surface-100" />;
+  if (decision.kind !== "chip") {
+    /* Sized to what it holds rather than to the column, which a short name in a
+       full-width box reads as a text area waiting for more. */
+    return (
+      <Readout value={text} className="field-sizing-content max-w-full min-w-32 text-surface-100" />
+    );
+  }
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
     return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;

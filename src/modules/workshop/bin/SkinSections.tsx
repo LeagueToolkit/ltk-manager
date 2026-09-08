@@ -13,12 +13,13 @@ import {
   fieldsIn,
   fieldsOf,
   type LayoutPages,
+  SectionTree,
   TableRows,
   TextCell,
   TextureTile,
   type WidgetProps,
 } from "./ClassCells";
-import { CENSORED_IMAGE, EFFECT, MESH, OVERRIDE } from "./classLayouts";
+import { CENSORED_IMAGE, EFFECT, MESH } from "./classLayouts";
 import { decideObjectLink } from "./linkDecision";
 import { useBinDocument } from "./useBinDocument";
 import { useBinRead } from "./useBinRead";
@@ -114,30 +115,19 @@ function PreviewSlot() {
   );
 }
 
-/** A row per material override: which submesh it swaps, and what it swaps in. */
-export function OverrideTable({ section, pages }: WidgetProps) {
-  const list = section.rows
+/** One row per material override the mesh carries, as the tree draws them. */
+export function OverrideRows({ section, pages, view }: WidgetProps) {
+  const lists = section.rows
     .map((row) => childOf(pages, row, MESH.override))
     .filter((row): row is BinRow => row !== undefined);
 
   return (
-    <TableRows rows={elementsOf(list, pages)}>
-      {(element) => {
-        const fields = fieldsOf(pages.get(rowKey(element)));
-        const submesh = fields(OVERRIDE.submesh);
-        const texture = fields(OVERRIDE.texture);
-        const material = fields(OVERRIDE.material);
-        return (
-          <>
-            <TextureTile row={texture} size="row" />
-            <TextCell row={submesh} className="w-40 shrink-0 text-surface-200" />
-            <Cell row={material} className="flex min-w-0 flex-1 items-center gap-2">
-              {material && <RowValue row={material} />}
-            </Cell>
-          </>
-        );
-      }}
-    </TableRows>
+    <SectionTree
+      view={view}
+      roots={elementsOf(lists, pages)}
+      rootOwner={null}
+      label={section.title()}
+    />
   );
 }
 

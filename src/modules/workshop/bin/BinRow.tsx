@@ -69,8 +69,9 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
       aria-level={depth + 1}
       aria-expanded={expandable ? expanded : undefined}
       className={twMerge(
-        /* DS-VEIL, DS-RADIUS */
-        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row transition-colors duration-100 hover:bg-surface-veil",
+        /* DS-VEIL, DS-RADIUS. No transition: a fade in and out under a pointer crossing
+           a list of 24px rows reads as a flicker rather than as a highlight. */
+        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row hover:bg-surface-veil-soft",
         expandable && "cursor-pointer",
         focused && "bg-accent-500/15",
       )}
@@ -184,7 +185,8 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const element = row.node === "element";
   const held = element && row.value.type === "struct" ? row.value : null;
   const nameClasses = twMerge(
-    "truncate",
+    /* An element's index is what a reader counts rows by, so the class beside it elides first. */
+    element ? "shrink-0" : "truncate",
     object ? "font-medium text-surface-100" : "text-surface-200",
     element && "text-surface-400",
     row.unnamed && "text-surface-300",
@@ -194,7 +196,9 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
     <span
       className={twMerge(
         "flex min-w-0 shrink-0 items-center gap-1.5",
-        object ? "max-w-[60%]" : "w-[calc(var(--bin-name-cols)*1ch+2rem)]",
+        /* An element sits outside the column: its value follows its index rather than
+           starting where a property's value does. */
+        object || element ? "max-w-[60%]" : "w-[min(calc(var(--bin-name-cols)*1ch+2rem),50%)]",
       )}
     >
       <Guides depth={depth} />
@@ -319,14 +323,7 @@ function StructValue({ value, node, rowKey: key }: StructValueProps) {
   const mark = useValueMark(key);
 
   /* An element names its class beside its index, so the value column would write it twice. */
-  if (node === "element") {
-    return (
-      <>
-        {mark === undefined && <Dim>{m.workshop_bin_properties_label({ count: value.len })}</Dim>}
-        <ValueMarkCell mark={mark} />
-      </>
-    );
-  }
+  if (node === "element") return <ValueMarkCell mark={mark} />;
 
   return (
     <>
