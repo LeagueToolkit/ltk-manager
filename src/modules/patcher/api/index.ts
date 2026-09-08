@@ -1,4 +1,5 @@
 export { patcherKeys } from "./keys";
+export { useAutoStartPatcher } from "./useAutoStartPatcher";
 export { useClearStoppingOnIdle } from "./useClearStoppingOnIdle";
 export { useClearTestingProjectsOnIdle } from "./useClearTestingProjectsOnIdle";
 export { useGuardedStartPatcher } from "./useGuardedStartPatcher";

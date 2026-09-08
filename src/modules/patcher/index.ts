@@ -3,6 +3,7 @@ export {
   patcherFailureTitle,
   patcherKeys,
   startPatcherSpendingQueue,
+  useAutoStartPatcher,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
   useGuardedStartPatcher,

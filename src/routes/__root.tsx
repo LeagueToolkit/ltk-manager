@@ -5,7 +5,6 @@ import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import {
-  useAutoStartPatcher,
   useOverscrollSpring,
   useReducedMotion,
   useSurfaceLinkedBinWarning,
@@ -37,6 +36,7 @@ import {
 import {
   LinkedBinWarningDialog,
   PatcherEventListeners,
+  useAutoStartPatcher,
   useClearStoppingOnIdle,
   useClearTestingProjectsOnIdle,
   WadScanFailedDialog,
