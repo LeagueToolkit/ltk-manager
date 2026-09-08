@@ -55,7 +55,17 @@ TanStack Query deduplicates identical queries, so multiple components calling th
 
 ## Tauri Event Listening
 
-For backend-to-frontend events (e.g., overlay progress), use `listen<T>()` from `@tauri-apps/api/event` in a `useEffect` with cleanup via `unlisten()`. See `modules/patcher/api/useOverlayProgress.ts` for the pattern.
+A backend-to-frontend event reaches a component through `useTauriEvent` in `lib/useTauriEvent.ts`,
+which holds the callback in a ref, so a fresh closure per render costs no resubscription. A null
+event name subscribes to nothing, which is how a listener waits on an id it does not have yet. See
+`modules/launcher/api/useLeagueSession.ts` for the pattern.
+
+A stream that reports stages rather than facts uses `useTauriProgress` in `lib/useTauriProgress.ts`,
+which keeps the last payload and clears it after a terminal stage.
+
+Neither leaves a reason to call `listen()` directly. A hand-rolled `useEffect` around it
+resubscribes whenever the callback's identity changes, and it leaks the subscription that resolves
+after the effect has already been cleaned up.
 
 ## Component Library (`src/components/`)
 
