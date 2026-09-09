@@ -213,6 +213,12 @@ jobs:
           # Read by `option_env!` at compile time. A build without it reports no
           # diagnostics, so a fork releases without collecting anything.
           LTK_POSTHOG_API_KEY: ${{ secrets.LTK_POSTHOG_API_KEY }}
+          # Read by `scripts/upload-source-maps.mjs`, between the frontend build
+          # and the bundle. Absent, the maps are deleted rather than uploaded, so
+          # a fork and the pull request workflow ship the same installer.
+          POSTHOG_CLI_HOST: https://eu.posthog.com
+          POSTHOG_CLI_PROJECT_ID: ${{ secrets.POSTHOG_CLI_PROJECT_ID }}
+          POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           SIGNTOOL_PATH: ${{ steps.signtool.outputs.SIGNTOOL_PATH }}
         with:
           tagName: ${{ steps.version.outputs.tag }}
