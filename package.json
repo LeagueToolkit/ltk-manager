@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm generate:messages && tsc && vite build",
+    "build:app": "pnpm build && node scripts/upload-source-maps.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "typecheck": "pnpm generate:messages && pnpm typecheck:tsgo",

@@ -50,8 +50,10 @@ export default defineConfig({
   build: {
     // Tauri uses Chromium on Windows and WebKit on macOS and Linux
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "es2020",
-    // Produce source maps for debugging
-    sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    // Hidden in a release: the maps are written for the diagnostics vendor and
+    // nothing in the shipped bundle points at them. `scripts/upload-source-maps.mjs`
+    // hands them over and then deletes them, so they never reach a user.
+    sourcemap: process.env.TAURI_ENV_DEBUG ? true : "hidden",
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
 
     // Fallback to original minifier until @tailwindcss/vite supports Vite 8
