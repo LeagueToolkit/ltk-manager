@@ -8,6 +8,8 @@ import {
   MagnifyingGlassIcon,
   PackageIcon,
   PlayIcon,
+  PushPinIcon,
+  PushPinSlashIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -28,7 +30,9 @@ import {
   useActiveLeafId,
   useLeafLocked,
   useOpenDocument,
+  usePinnedDocumentIds,
   useResetLayout,
+  useSetDocumentPinned,
   useSetLeafLocked,
   useSplitWithDocument,
 } from "../state";
@@ -60,6 +64,9 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const activeLeafId = useActiveLeafId();
   const activeLeafLocked = useLeafLocked(activeLeafId);
   const setLeafLocked = useSetLeafLocked();
+  const pinnedIds = usePinnedDocumentIds();
+  const setDocumentPinned = useSetDocumentPinned();
+  const activeDocumentPinned = activeDocumentId !== null && pinnedIds.includes(activeDocumentId);
 
   const layerPanelOpen = useLayerPanelOpen();
   const setLayerPanelOpen = useSetLayerPanelOpen();
@@ -166,6 +173,22 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         },
       },
       {
+        id: "view.pinTab",
+        title: activeDocumentPinned ? "Unpin the tab" : "Pin the tab",
+        group: "View",
+        keywords: ["stick", "keep", "front", "strip"],
+        icon: activeDocumentPinned ? (
+          <PushPinSlashIcon className={GLYPH} />
+        ) : (
+          <PushPinIcon className={GLYPH} />
+        ),
+        enabled: activeDocumentId !== null,
+        disabledReason: "Nothing open",
+        run: () => {
+          if (activeDocumentId) setDocumentPinned(activeDocumentId, !activeDocumentPinned);
+        },
+      },
+      {
         id: "view.lockGroup",
         title: activeLeafLocked ? "Unlock the group" : "Lock the group",
         group: "View",
@@ -208,6 +231,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   }, [
     actions,
     activeDocumentId,
+    activeDocumentPinned,
     activeLeafId,
     activeLeafLocked,
     global,
@@ -216,6 +240,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     openDocument,
     resetLayout,
     revealGameSearch,
+    setDocumentPinned,
     setLayerPanelOpen,
     setLeafLocked,
     splitWithDocument,

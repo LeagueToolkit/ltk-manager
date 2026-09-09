@@ -119,6 +119,14 @@ export interface ProjectEditor {
   previewId: string | null;
   /** Ids with unsaved edits. Editors report their own. */
   dirty: ReadonlySet<string>;
+  /**
+   * Ids a user pinned, which lead their strip and outlive a close of the rest.
+   *
+   * One list for the project rather than one per group, because a document
+   * sits in exactly one group and its pin travels with it into another. An
+   * array rather than a set so the persisted slice compares by identity.
+   */
+  pinned: readonly string[];
   /** Directories the user shut, per layer name. Anything absent is open. */
   collapsed: Record<string, ReadonlySet<string>>;
   /** The pending scroll request, which at most one layer's tree answers. */
@@ -159,6 +167,8 @@ interface WorkshopEditorStore {
   openPreview: (projectPath: string, document: ContentDocument, leafId?: string) => void;
   /** Makes a document permanent, which is what a double click asks for. */
   promoteDocument: (projectPath: string, id: string) => void;
+  /** Pins or unpins one document, which moves it to the divider of its own strip. */
+  setDocumentPinned: (projectPath: string, id: string, pinned: boolean) => void;
   activateDocument: (projectPath: string, leafId: string, id: string) => void;
   closeDocument: (projectPath: string, leafId: string, id: string) => void;
   /** Rewrites one strip's order from a full list of its ids. */
@@ -232,6 +242,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   selectedLayer: null,
   previewId: null,
   dirty: new Set(),
+  pinned: [],
   collapsed: {},
   reveal: null,
   revealObject: null,
@@ -437,6 +448,53 @@ function unlockedGroup(
   return { layout: split.tree, leafId: split.leafId };
 }
 
+/**
+ * One strip's ids with the pinned ones first, each side keeping its own order.
+ *
+ * The invariant every other helper here relies on: a leaf's pinned tabs are a
+ * prefix of its strip, so the divider between the two has tabs of one kind on
+ * each side of it.
+ */
+function pinnedFirst(tabs: readonly string[], pinned: readonly string[]): string[] {
+  return [
+    ...tabs.filter((id) => pinned.includes(id)),
+    ...tabs.filter((id) => !pinned.includes(id)),
+  ];
+}
+
+/**
+ * One strip's ids with `documentId` moved to the boundary of the pinned run.
+ *
+ * The same index serves both directions. A pin lands at the end of the run and
+ * an unpin in the first slot after it, which is where the tab that just
+ * changed sides is closest to where it was.
+ */
+function atPinnedBoundary(leaf: LeafNode, documentId: string, pinned: readonly string[]): string[] {
+  const rest = leaf.tabs.filter((id) => id !== documentId);
+  const boundary = rest.filter((id) => pinned.includes(id)).length;
+
+  const ids = [...rest];
+  ids.splice(boundary, 0, documentId);
+  return ids;
+}
+
+/**
+ * Where a tab may land in a strip, given which side of the divider it is on.
+ *
+ * A pinned tab stays inside the run and an unpinned one stays out of it, so a
+ * drop that aimed across the divider settles against it rather than through it.
+ */
+function clampToPinnedRun(
+  tabs: readonly string[],
+  documentId: string,
+  index: number,
+  pinned: readonly string[],
+): number {
+  const rest = tabs.filter((id) => id !== documentId);
+  const boundary = rest.filter((id) => pinned.includes(id)).length;
+  return pinned.includes(documentId) ? Math.min(index, boundary) : Math.max(index, boundary);
+}
+
 /*
  * Rewrite one strip in the order a drag settled on. Lives here rather than in
  * the tree module because it is the one op with a store-shaped guard: a drop
@@ -505,6 +563,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           activeLeafId: state.activeLeafId,
           selectedLayer: state.selectedLayer,
           previewId: state.previewId,
+          pinned: state.pinned,
           shellLayout: state.shellLayout,
           shellLeafId: state.shellLeafId,
         },
@@ -612,6 +671,29 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         ) ?? state,
     ),
 
+  setDocumentPinned: (projectPath, id, pinned) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const holder = leafHolding(editor.layout, id);
+          if (!holder || editor.pinned.includes(id) === pinned) return null;
+
+          const next = pinned
+            ? [...editor.pinned, id]
+            : editor.pinned.filter((candidate) => candidate !== id);
+          const layout = reorderLeafTabs(
+            editor.layout,
+            holder.id,
+            atPinnedBoundary(holder, id, next),
+          );
+
+          /* A pin is what says the tab is worth keeping, so it cannot stay the
+             one the next open replaces. */
+          const previewId = pinned && editor.previewId === id ? null : editor.previewId;
+          return { ...editor, layout, pinned: next, previewId };
+        }) ?? state,
+    ),
+
   activateDocument: (projectPath, leafId, id) =>
     set(
       (state) =>
@@ -634,9 +716,15 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
 
           const documents = { ...editor.documents };
           const dirty = new Set(editor.dirty);
+          let pinned = editor.pinned;
           if (!leafHolding(layout, id)) {
             delete documents[id];
             dirty.delete(id);
+            /* Rebuilt only for a document that held a pin, so a close of any
+               other one leaves the persisted slice comparing equal. */
+            if (pinned.includes(id)) {
+              pinned = pinned.filter((candidate) => candidate !== id);
+            }
           }
           const previewId = editor.previewId === id ? null : editor.previewId;
 
@@ -646,7 +734,10 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
             ? editor.activeLeafId
             : leaves(layout)[0].id;
 
-          return forgetVisits({ ...editor, documents, layout, activeLeafId, dirty, previewId }, id);
+          return forgetVisits(
+            { ...editor, documents, layout, activeLeafId, dirty, pinned, previewId },
+            id,
+          );
         }) ?? state,
     ),
 
@@ -654,7 +745,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => {
-          const layout = reorderLeafTabs(editor.layout, leafId, ids);
+          const layout = reorderLeafTabs(editor.layout, leafId, pinnedFirst(ids, editor.pinned));
           return layout === editor.layout ? null : { ...editor, layout };
         }) ?? state,
     ),
@@ -663,7 +754,16 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => {
-          const layout = moveTab(editor.layout, documentId, toLeafId, index);
+          const target = findLeaf(editor.layout, toLeafId);
+          if (!target) return null;
+
+          const at = clampToPinnedRun(
+            target.tabs,
+            documentId,
+            index ?? target.tabs.length,
+            editor.pinned,
+          );
+          const layout = moveTab(editor.layout, documentId, toLeafId, at);
           if (layout === editor.layout) return null;
           return { ...editor, layout, activeLeafId: toLeafId };
         }) ?? state,
@@ -779,9 +879,14 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => {
-          const layout = mergeToSingleLeaf(editor.layout, editor.activeLeafId);
-          if (layout === editor.layout) return null;
-          return { ...editor, layout, activeLeafId: layout.id };
+          const merged = mergeToSingleLeaf(editor.layout, editor.activeLeafId);
+          if (merged === editor.layout) return null;
+
+          /* The merge gathers each strip whole, so a pinned tab of the second
+             group lands behind the first group's unpinned ones. */
+          const leaf = leaves(merged)[0];
+          const layout = reorderLeafTabs(merged, leaf.id, pinnedFirst(leaf.tabs, editor.pinned));
+          return { ...editor, layout, activeLeafId: leaf.id };
         }) ?? state,
     ),
 

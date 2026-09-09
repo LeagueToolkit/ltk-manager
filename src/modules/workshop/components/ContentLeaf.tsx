@@ -12,8 +12,10 @@ import {
   useFocusLeaf,
   useLeafTabs,
   useOpenDocument,
+  usePinnedDocumentIds,
   usePreviewDocumentId,
   usePromoteDocument,
+  useSetDocumentPinned,
   useSetLeafLocked,
   useSplitWithDocument,
 } from "../state";
@@ -36,6 +38,8 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const activeLeafId = useActiveLeafId();
   const previewId = usePreviewDocumentId();
   const promoteDocument = usePromoteDocument();
+  const pinnedIds = usePinnedDocumentIds();
+  const setDocumentPinned = useSetDocumentPinned();
   const setLeafLocked = useSetLeafLocked();
 
   return (
@@ -47,9 +51,11 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           activeId={leaf.activeTab}
           registry={editors}
           dirtyIds={dirtyIds}
+          pinnedIds={pinnedIds}
           previewId={previewId}
           onActivate={(id) => activateDocument(leaf.id, id)}
           onPromote={promoteDocument}
+          onTogglePin={setDocumentPinned}
           onClose={(id) => closeDocument(leaf.id, id)}
           onSplit={(id, edge) => splitWithDocument(id, leaf.id, edge)}
           locked={leaf.locked === true}

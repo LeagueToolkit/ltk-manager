@@ -393,6 +393,127 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("setDocumentPinned", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    /** Details, files and the game index in one strip, with files active. */
+    function threeTabs() {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, gameDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().activateDocument(A, ROOT_LEAF, "files:base");
+    }
+
+    it("sends the tab to the front of the strip", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "game", true);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["game"]);
+    });
+
+    it("gathers a second pin behind the first", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "game", true);
+      store().setDocumentPinned(A, "files:base", true);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "files:base", "details"]);
+    });
+
+    /* Pinning a tab is a claim about the strip rather than about what to read,
+       so it leaves the reader on the document they were already in. */
+    it("leaves the active tab where it was", () => {
+      threeTabs();
+
+      store().setDocumentPinned(A, "details", true);
+
+      expect(activeTabOf(A, ROOT_LEAF)).toBe("files:base");
+    });
+
+    it("returns an unpinned tab to the first slot after the run", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+      store().setDocumentPinned(A, "details", true);
+
+      store().setDocumentPinned(A, "game", false);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "game", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["details"]);
+    });
+
+    it("makes an ephemeral tab permanent", () => {
+      const document = preview("icon.tex");
+      store().openPreview(A, document);
+      const leafId = editorOf(A).activeLeafId;
+
+      store().setDocumentPinned(A, document.id, true);
+
+      expect(editorOf(A).previewId).toBeNull();
+      expect(tabsOf(A, leafId)).toEqual([document.id]);
+    });
+
+    it("gives up the pin when the document closes", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().closeDocument(A, ROOT_LEAF, "game");
+
+      expect(editorOf(A).pinned).toEqual([]);
+    });
+
+    it("carries the pin into the group a tab is dragged to", () => {
+      const right = splitApart(A);
+      store().setDocumentPinned(A, "details", true);
+
+      store().moveDocument(A, "details", right, 1);
+
+      expect(tabsOf(A, right)).toEqual(["details", "files:base"]);
+      expect(editorOf(A).pinned).toEqual(["details"]);
+    });
+
+    it("settles an unpinned tab against the divider rather than through it", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().moveDocument(A, "files:base", ROOT_LEAF, 0);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "files:base", "details"]);
+    });
+
+    it("keeps a reorder from interleaving the two runs", () => {
+      threeTabs();
+      store().setDocumentPinned(A, "game", true);
+
+      store().reorderDocuments(A, ROOT_LEAF, ["details", "game", "files:base"]);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["game", "details", "files:base"]);
+    });
+
+    it("leads the merged strip after a reset", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().splitWithDocument(A, "files:base", ROOT_LEAF, "right");
+      store().setDocumentPinned(A, "files:base", true);
+
+      store().resetLayout(A);
+
+      expect(openIds(A)).toEqual(["files:base", "details"]);
+    });
+
+    it("returns the same state for a document that already reads that way", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().setDocumentPinned(A, "details", false);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
   describe("setLeafLocked", () => {
     function preview(path: string) {
       return previewDocument({ kind: "layer", project: A, layer: "base", path });
@@ -601,6 +722,7 @@ describe("workshopEditor store", () => {
         activeLeafId: layout.id,
         selectedLayer: "base",
         previewId: null,
+        pinned: ["details"],
         shellLayout: defaultShellLayout(),
         shellLeafId: "leaf-3",
       });
@@ -608,6 +730,7 @@ describe("workshopEditor store", () => {
       const editor = editorOf(A);
       expect(findLeaf(editor.layout, editor.activeLeafId)?.tabs).toEqual(["details"]);
       expect(editor.selectedLayer).toBe("base");
+      expect(editor.pinned).toEqual(["details"]);
       expect(editor.dirty.size).toBe(0);
       expect(editor.collapsed).toEqual({});
       expect(editor.reveal).toBeNull();

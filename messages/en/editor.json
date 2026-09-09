@@ -1,0 +1,17 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "editor_group_lock_action": "Lock Group",
+  "editor_group_unlock_action": "Unlock Group",
+  "editor_tab_close_action": "Close",
+  "editor_tab_close_all_action": "Close All",
+  "editor_tab_close_label": "Close {title}",
+  "editor_tab_close_others_action": "Close Others",
+  "editor_tab_close_right_action": "Close to the Right",
+  "editor_tab_copy_name_action": "Copy Name",
+  "editor_tab_copy_path_action": "Copy Path",
+  "editor_tab_pin_action": "Pin",
+  "editor_tab_split_down_action": "Split Down",
+  "editor_tab_split_right_action": "Split Right",
+  "editor_tab_unpin_action": "Unpin",
+  "editor_tab_unpin_label": "Unpin {title}"
+}
