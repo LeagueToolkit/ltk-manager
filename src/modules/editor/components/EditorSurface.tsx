@@ -15,6 +15,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   registry: EditorRegistry<D>;
   /** Documents whose editor has reported unsaved edits. */
   dirtyIds: ReadonlySet<string>;
+  /** Documents a user pinned. They lead the strip, and a batch close passes them over. */
+  pinnedIds: readonly string[];
   /** The ephemeral tab, which draws in italic. Null when the strip holds none. */
   previewId?: string | null;
   onActivate: (id: string) => void;
@@ -23,6 +25,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   /** A double click on a tab, which keeps an ephemeral one. */
   onPromote?: (id: string) => void;
+  /** Absent leaves the strip without a pin, for a host whose tabs are all alike. */
+  onTogglePin?: (id: string, pinned: boolean) => void;
   /** This group takes a document only from a gesture that names it. */
   locked?: boolean;
   /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
@@ -52,11 +56,13 @@ export function EditorSurface<D extends EditorDocumentBase>({
   activeId,
   registry,
   dirtyIds,
+  pinnedIds,
   previewId,
   onActivate,
   onClose,
   onSplit,
   onPromote,
+  onTogglePin,
   locked,
   onToggleLock,
   onFocus,
@@ -95,11 +101,19 @@ export function EditorSurface<D extends EditorDocumentBase>({
             icon: definition.icon(document),
             dirty: dirtyIds.has(document.id),
             preview: document.id === previewId,
+            pinned: pinnedIds.includes(document.id),
             menu: definition.tabMenu?.(document),
           },
         ];
       }),
-    [documents, definitionFor, dirtyIds, previewId],
+    [documents, definitionFor, dirtyIds, pinnedIds, previewId],
+  );
+
+  /** The strip's own order, minus whatever a pin holds back. */
+  const closableIds = useCallback(
+    (candidates: readonly D[]) =>
+      candidates.filter((document) => !pinnedIds.includes(document.id)).map((it) => it.id),
+    [pinnedIds],
   );
 
   /** Close what can go now, and queue whatever would lose edits. */
@@ -119,23 +133,22 @@ export function EditorSurface<D extends EditorDocumentBase>({
   const closeOne = useCallback((id: string) => requestClose([id]), [requestClose]);
 
   const closeOthers = useCallback(
-    (id: string) =>
-      requestClose(documents.filter((document) => document.id !== id).map((it) => it.id)),
-    [documents, requestClose],
+    (id: string) => requestClose(closableIds(documents.filter((document) => document.id !== id))),
+    [closableIds, documents, requestClose],
   );
 
   const closeToRight = useCallback(
     (id: string) => {
       const from = documents.findIndex((document) => document.id === id);
       if (from < 0) return;
-      requestClose(documents.slice(from + 1).map((document) => document.id));
+      requestClose(closableIds(documents.slice(from + 1)));
     },
-    [documents, requestClose],
+    [closableIds, documents, requestClose],
   );
 
   const closeAll = useCallback(
-    () => requestClose(documents.map((document) => document.id)),
-    [documents, requestClose],
+    () => requestClose(closableIds(documents)),
+    [closableIds, documents, requestClose],
   );
 
   function discardPending() {
@@ -171,6 +184,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
         onCloseAll={closeAll}
         onSplit={onSplit}
         onPromote={onPromote}
+        onTogglePin={onTogglePin}
         locked={locked}
         onToggleLock={onToggleLock}
         focused={focused}

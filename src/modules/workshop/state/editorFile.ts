@@ -23,6 +23,8 @@ export interface PersistedProjectEditor {
   selectedLayer: string | null;
   /** The ephemeral tab, or null when the strip holds none. */
   previewId: string | null;
+  /** The pinned documents, which lead the strip that holds them. */
+  pinned: readonly string[];
   /** The split tree of shell panes, which every object tab of the project draws in. */
   shellLayout: LayoutNode;
   shellLeafId: string;
@@ -58,6 +60,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
       previewId: state.previewId,
+      pinned: state.pinned,
       shellLayout: state.shellLayout,
       shellLeafId: state.shellLeafId,
     },
@@ -121,9 +124,22 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     }
   }
 
-  const layout = isLayoutNode(entry.layout)
-    ? dropUnknownTabs(entry.layout, documents)
-    : singleLeaf();
+  const held = isLayoutNode(entry.layout) ? dropUnknownTabs(entry.layout, documents) : singleLeaf();
+
+  /* A pin on a tab the sanitize dropped is a pin on nothing. What survives
+     then leads its own strip, so a hand-edited file cannot open with the two
+     kinds interleaved. */
+  const pinned = Array.isArray(entry.pinned)
+    ? [
+        ...new Set(
+          entry.pinned.filter(
+            (id): id is string => typeof id === "string" && leafHolding(held, id) !== null,
+          ),
+        ),
+      ]
+    : [];
+  const layout = pinnedFirst(held, pinned);
+
   const activeLeafId =
     typeof entry.activeLeafId === "string" && findLeaf(layout, entry.activeLeafId)
       ? entry.activeLeafId
@@ -151,9 +167,30 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     activeLeafId,
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
     previewId,
+    pinned,
     shellLayout,
     shellLeafId,
   };
+}
+
+/** Sort every strip so its pinned tabs lead it, keeping untouched nodes' identity. */
+function pinnedFirst(node: LayoutNode, pinned: readonly string[]): LayoutNode {
+  if (node.kind === "leaf") {
+    const tabs = [
+      ...node.tabs.filter((id) => pinned.includes(id)),
+      ...node.tabs.filter((id) => !pinned.includes(id)),
+    ];
+    if (tabs.every((id, index) => node.tabs[index] === id)) return node;
+    return { ...node, tabs };
+  }
+
+  let changed = false;
+  const children = node.children.map((child) => {
+    const next = pinnedFirst(child, pinned);
+    if (next !== child) changed = true;
+    return next;
+  });
+  return changed ? { ...node, children } : node;
 }
 
 /* Every field of a reference reaches the backend, which checks each one against

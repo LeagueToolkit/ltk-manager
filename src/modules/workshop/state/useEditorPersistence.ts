@@ -55,8 +55,10 @@ export function migrateFromV1(persisted: unknown): {
       layout,
       activeLeafId: layout.id,
       selectedLayer: editor.selectedLayer ?? null,
-      // The old store had no ephemeral tab, so every migrated one is permanent.
+      // The old store had neither an ephemeral tab nor a pin, so every migrated
+      // tab is permanent and none of them leads the strip.
       previewId: null,
+      pinned: [],
       shellLayout,
       shellLeafId: firstShellLeafId(shellLayout),
     };
@@ -98,6 +100,7 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     activeLeafId: editor.activeLeafId,
     selectedLayer: editor.selectedLayer,
     previewId: editor.previewId,
+    pinned: editor.pinned,
     shellLayout: editor.shellLayout,
     shellLeafId: editor.shellLeafId,
   };
@@ -114,6 +117,7 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.activeLeafId === b.activeLeafId &&
     a.selectedLayer === b.selectedLayer &&
     a.previewId === b.previewId &&
+    a.pinned === b.pinned &&
     a.shellLayout === b.shellLayout &&
     a.shellLeafId === b.shellLeafId
   );

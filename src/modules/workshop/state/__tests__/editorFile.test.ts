@@ -34,6 +34,7 @@ function twoDocumentState(): PersistedProjectEditor {
     activeLeafId: layout.id,
     selectedLayer: "base",
     previewId: null,
+    pinned: [],
     shellLayout,
     shellLeafId: firstShellLeafId(shellLayout),
   };
@@ -47,6 +48,19 @@ describe("editorFile", () => {
       const parsed = parseEditorFile(serializeEditorFile(state));
 
       expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("carries a pinned tab across the file", () => {
+      const state = twoDocumentState();
+      const withPin = {
+        ...state,
+        pinned: ["files:base"],
+        layout: singleLeaf(["files:base", "details"], "files:base"),
+      };
+
+      const parsed = parseEditorFile(serializeEditorFile(withPin));
+
+      expect(parsed).toEqual({ kind: "ok", state: withPin });
     });
 
     it("carries a locked group across the file", () => {
@@ -93,6 +107,7 @@ describe("editorFile", () => {
       expect(findLeaf(parsed.state.layout, parsed.state.activeLeafId)?.tabs).toEqual(["details"]);
       expect(parsed.state.documents.details?.id).toBe("details");
       expect(parsed.state.previewId).toBeNull();
+      expect(parsed.state.pinned).toEqual([]);
     });
 
     it("reports a version above this build as newer", () => {
@@ -147,6 +162,24 @@ describe("editorFile", () => {
 
       expect(state?.layout).toEqual(singleLeaf());
       expect(state?.activeLeafId).toBe(singleLeaf().id);
+    });
+
+    it("drops a pin on a tab the sanitize did not keep", () => {
+      const entry = twoDocumentState();
+
+      const state = sanitizeEditorState({ ...entry, pinned: ["files:base", "files:gone", 7] });
+
+      expect(state?.pinned).toEqual(["files:base"]);
+    });
+
+    /* A file a user edited by hand can interleave the two runs, which the strip
+       cannot draw one divider through. */
+    it("sorts a hand-written strip so its pinned tabs lead", () => {
+      const entry = twoDocumentState();
+
+      const state = sanitizeEditorState({ ...entry, pinned: ["files:base"] });
+
+      expect(leaves(state!.layout)[0].tabs).toEqual(["files:base", "details"]);
     });
 
     it("falls back to a single leaf for a lock that is not a boolean", () => {

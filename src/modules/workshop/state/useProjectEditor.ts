@@ -101,6 +101,21 @@ export function useDirtyDocumentIds(): ReadonlySet<string> {
   return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).dirty);
 }
 
+/** The documents a user pinned, which lead their strip. */
+export function usePinnedDocumentIds(): readonly string[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).pinned);
+}
+
+export function useSetDocumentPinned() {
+  const projectPath = useProjectPath();
+  const setDocumentPinned = useWorkshopEditorStore((s) => s.setDocumentPinned);
+  return useCallback(
+    (id: string, pinned: boolean) => setDocumentPinned(projectPath, id, pinned),
+    [setDocumentPinned, projectPath],
+  );
+}
+
 /**
  * The layer that every layer-scoped panel reads.
  *

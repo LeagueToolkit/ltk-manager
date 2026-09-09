@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close     |
 | 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere          |
 | 2026-09-05 | Browse the install's objects as a tree, and open one as a tab          |
 | 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects |
@@ -13,7 +14,6 @@
 | 2026-08-24 | Hand the shell-wide pieces to [Workshop](WORKSHOP.md)                  |
 | 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
 | 2026-08-22 | Delete a layer file or folder from its own tree row                    |
-| 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -49,8 +49,9 @@ This table holds every major feature of the editor. A status word has one meanin
 | Mod details document   | Available   | -                                                                  |
 | String overrides       | Available   | -                                                                  |
 | Tab strip, per project | Available   | -                                                                  |
-| Tab context menu       | Available   | The four closes, copy path and copy name, the splits and the lock  |
+| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
 | Group lock             | Available   | A locked group takes only what a gesture aims at it                |
+| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
 | Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
 | Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
@@ -383,7 +384,8 @@ import time, and a command that needs project state reads it the way every other
 
 The first set is the actions the editor already holds: Test, Pack, Open project folder, Delete
 project, Mod details, Game index, Game WADs, Rebuild the game index, Reset the layout, Split
-right, Split down, Lock the group, the four closes, and the routes into the settings.
+right, Split down, Pin the tab, Lock the group, the four closes, and the routes into the
+settings.
 
 ## The scan of the game
 
@@ -1920,7 +1922,7 @@ There are two answers, and the settings hold the choice.
   directory stays one tab wide
 
 A replaceable tab shows its name in italic, and a double click on the tab itself keeps it.
-The strip holds one at a time.
+The strip holds one at a time. A pin keeps it too. Read [A pinned tab](#a-pinned-tab).
 
 ### What a tab's context menu holds
 
@@ -1928,6 +1930,8 @@ The strip holds one at a time.
   the tab sits in, so the other group of a split keeps its own tabs
 - **Copy Path**, **Copy Name** - the path is whatever addresses the subject outside the app:
   a file's path on disk, and for a game chunk its archive and then the path inside it
+- **Pin**, and **Unpin** while it is pinned - the tab itself, at the top of the menu. Read
+  [A pinned tab](#a-pinned-tab)
 - **Split Right**, **Split Down** - already there, now under the same menu
 - **Lock Group**, and **Unlock Group** while it is locked - the group the tab sits in. Read
   [A locked group](#a-locked-group)
@@ -2884,6 +2888,42 @@ gesture. Every other panel type appears once, because none of them holds a tab.
 
 A user reaches a side by side read without a preset and without a layout dialog. Two layers
 compare this way, and so do two [scoped game browsers](#scope-to-one-archive).
+
+### A pinned tab
+
+A pinned tab leads its strip and a batch close passes it over. The pin is the reader saying
+which of the open documents the session is about, so the rest can churn around it.
+
+The strip draws the pinned run first, then a divider, then everything else. A drag settles
+against that divider rather than through it, so the two runs never interleave.
+
+| Gesture                                     | What a pinned tab does                           |
+| ------------------------------------------- | ------------------------------------------------ |
+| Close Others, Close to the Right, Close All | Passes it over                                   |
+| The tab's own **Close**                     | Closes it, since the item names this tab         |
+| A middle click                              | Nothing. The gesture is quick and undoes nowhere |
+| The button at the tab's right end           | Unpins rather than closes                        |
+| A drag inside its own strip                 | Reorders inside the pinned run                   |
+| A drag into another group                   | Carries the pin, and lands in that group's run   |
+
+**A pin makes an ephemeral tab permanent.** A preview tab is the one the next open replaces,
+and a pin is the opposite claim, so pinning one ends its ephemeral role.
+
+**A batch close with nothing to close reads as disabled.** Close Others over a strip whose
+other tabs are all pinned would do nothing, so the item is greyed rather than silent.
+
+**A reset gathers the pinned tabs to the front.** The merge takes each strip whole, which
+would leave the second group's pinned tabs behind the first group's ordinary ones.
+
+The pin belongs to the document and to the project. `.ltk/editor.json` holds the list beside
+the tabs, so a project opens pinned the way it was left. A pin dies with the tab it is on:
+closing a pinned document drops it.
+
+| Where the control is              | What it reads                       |
+| --------------------------------- | ----------------------------------- |
+| The tab's right end, while pinned | A filled pin, in place of the close |
+| A tab's context menu              | Pin, and Unpin while pinned         |
+| The command bar, under View       | Pin the tab                         |
 
 ### A locked group
 
