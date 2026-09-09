@@ -1,10 +1,10 @@
 import { WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Code, Popover, Readout, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { type ContentDocumentOf, declaringFileContext } from "../documents/contentDocument";
 import { fileKindFromPath } from "../gameBrowser/fileKind";

@@ -1,5 +1,6 @@
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { Button, type ButtonProps } from "./Button";
 

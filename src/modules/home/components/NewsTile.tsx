@@ -8,10 +8,10 @@ import {
 } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import type { MouseEvent } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, ExternalLink } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { useAnnouncements } from "../api";
 import { Tile } from "./Tile";

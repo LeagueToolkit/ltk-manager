@@ -4,9 +4,9 @@ import {
   FileMagnifyingGlassIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, IconButton, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import { filesDocument, gameWadDocument } from "../documents";

@@ -1,8 +1,8 @@
 import { CircleAlert, CircleCheck, CircleX, Info } from "lucide-react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import type { Severity } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 const styles: Record<Severity, { bg: string; text: string; label: string }> = {
   ok: { bg: "border-success/40 bg-success/10", text: "text-success-text", label: "OK" },

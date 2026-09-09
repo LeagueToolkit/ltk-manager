@@ -1,7 +1,7 @@
 import { PlusIcon, TranslateIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, IconButton, Menu, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 import { stringsDocument } from "../documents";
 import { useActiveDocumentId, useOpenDocument } from "../state";

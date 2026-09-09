@@ -1,10 +1,10 @@
 import { CaretRightIcon, WrenchIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Code, IconButton, SeverityGlyph, SeverityTally, Tooltip } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import type { FixPreview, Problem } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { useFixProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";

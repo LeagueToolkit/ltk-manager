@@ -1,5 +1,4 @@
 import { ArrowsClockwiseIcon, CaretDownIcon, XCircleIcon, XIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import {
   Button,
@@ -20,6 +19,7 @@ import { usePatcherStatus, useStopPatcher } from "@/modules/patcher";
 import { useHddWarning } from "@/modules/settings";
 import { useSettings } from "@/modules/settings";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { useLaunchAvailability } from "../api/useLaunchAvailability";
 import { usePlay } from "../api/usePlay";

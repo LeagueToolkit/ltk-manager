@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { CHECKERBOARD } from "../preview/ImagePreview";
 import { Swatch } from "./ColorMark";

@@ -25,12 +25,12 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, Menu, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type LayerContent, type WorkshopLayer, type WorkshopProject } from "@/lib/tauri";
 import { useShowLayerStats } from "@/stores";
+import { twMerge } from "@/utils";
 import { formatBytes, restrictToVerticalAxis } from "@/utils";
 
 import { workshopKeys } from "../api/keys";

@@ -1,7 +1,7 @@
 import { ArrowsClockwiseIcon, WrenchIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 import { useFixProblems, useProjectProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";

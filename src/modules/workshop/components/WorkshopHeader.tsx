@@ -1,6 +1,5 @@
-import { twMerge } from "tailwind-merge";
-
 import { ToolbarRow } from "@/components";
+import { twMerge } from "@/utils";
 
 import { NavigationArrows } from "../palette/NavigationArrows";
 import { WorkshopBar } from "../palette/WorkshopBar";

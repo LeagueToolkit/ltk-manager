@@ -1,8 +1,8 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, HintIcon, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 import { useSettingMark } from "./SettingFocus";
 import { SettingScope, useSettingReset } from "./SettingScope";

@@ -144,6 +144,9 @@
   --text-meta: var(--type-meta);
   --text-meta--line-height: var(--type-meta-leading);
   --text-meta--letter-spacing: var(--type-meta-tracking);
+  --text-fine: var(--type-fine);
+  --text-fine--line-height: var(--type-fine-leading);
+  --text-fine--letter-spacing: var(--type-fine-tracking);
   --text-code: var(--type-code);
   --text-mono-row: var(--type-mono-row);
   --text-mono-row--line-height: var(--type-mono-row-leading);

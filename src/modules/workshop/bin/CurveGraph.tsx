@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { CHANNELS, CHIP, STROKE } from "./curveChannels";
 import { axisText, plotOf } from "./curvePlot";

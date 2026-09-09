@@ -1,10 +1,10 @@
 import { Check, ChevronDown, ChevronRight, Info, Pencil, X } from "lucide-react";
 import { useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { useRenameProject } from "../../api";
 

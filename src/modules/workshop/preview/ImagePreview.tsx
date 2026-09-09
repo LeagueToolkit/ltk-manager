@@ -14,13 +14,13 @@ import {
   TransformComponent,
   TransformWrapper,
 } from "react-zoom-pan-pinch";
-import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
 import { useReducedMotion, useResizeObserver } from "@/hooks";
 import { errorSummary } from "@/i18n";
 import type { AppError, AssetInfo, AssetRef } from "@/lib/tauri";
 import { usePreviewCheckered, useSetPreviewCheckered } from "@/stores";
+import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import { assetArchive, previewUrl } from "./assetRef";

@@ -1,8 +1,8 @@
 import { type KeyboardEvent, useEffect, useMemo, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import type { Incident } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import {
   dayKey,

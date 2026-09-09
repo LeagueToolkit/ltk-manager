@@ -9,7 +9,7 @@ import { useWorkshopProjects } from "../api/useWorkshopProjects";
 import { useOptionalProjectContext } from "../components/ProjectContext";
 import { contentEditors } from "../documents";
 import { type HistoryEntry, useWorkshopEditorStore } from "../state";
-import { useHistoryReach, useNavigateHistory } from "../state";
+import { restoreLocation, useHistoryReach, useNavigateHistory } from "../state";
 import { useOpenProject } from "./projectRows";
 
 /* The fourth and fifth mouse buttons, which every browser and file manager
@@ -32,16 +32,40 @@ export function NavigationArrows() {
   useHotkeys("alt+left", goBack, { preventDefault: true, enableOnFormTags: true });
   useHotkeys("alt+right", goForward, { preventDefault: true, enableOnFormTags: true });
 
+  /**
+   * The thumb buttons, taken off the webview before it walks its own history.
+   *
+   * Chromium navigates on the release rather than on the press, so preventing
+   * the press alone left the walk to run and the webview to pop a route behind
+   * it: the arrow reached the directory and the pop landed on the grid. Every
+   * phase of the gesture is swallowed, and the release is what acts. Captured,
+   * because a control that stops the event is not a control that meant to
+   * spend the thumb buttons.
+   */
   useEffect(() => {
-    function onMouseDown(event: MouseEvent) {
-      if (event.button !== MOUSE_BACK && event.button !== MOUSE_FORWARD) return;
+    function walksHistory(event: MouseEvent): boolean {
+      return event.button === MOUSE_BACK || event.button === MOUSE_FORWARD;
+    }
+
+    function swallow(event: MouseEvent) {
+      if (walksHistory(event)) event.preventDefault();
+    }
+
+    function onMouseUp(event: MouseEvent) {
+      if (!walksHistory(event)) return;
       event.preventDefault();
       if (event.button === MOUSE_BACK) goBack();
       else goForward();
     }
 
-    window.addEventListener("mousedown", onMouseDown);
-    return () => window.removeEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousedown", swallow, true);
+    window.addEventListener("auxclick", swallow, true);
+    window.addEventListener("mouseup", onMouseUp, true);
+    return () => {
+      window.removeEventListener("mousedown", swallow, true);
+      window.removeEventListener("auxclick", swallow, true);
+      window.removeEventListener("mouseup", onMouseUp, true);
+    };
   }, [goBack, goForward]);
 
   /* One control pair rather than two buttons that happen to be adjacent, so
@@ -80,6 +104,10 @@ function useWalkHistory(): (delta: number) => void {
       /* A stop holds the directory, and the route takes the slug. */
       const project = projects?.find((candidate) => candidate.path === entry.project);
       if (project) openProject(project.name);
+
+      /* The store put the tab back. Where the stop names a directory inside an
+         explorer, that is the other half of the same stop. */
+      if (entry.location) restoreLocation(entry.location.explorerId, entry.location.path);
     },
     [navigate, navigateHistory, openProject, projects],
   );
@@ -123,6 +151,13 @@ function Arrow({ direction, entry, onClick }: ArrowProps) {
   return <Tooltip content={`${label} to ${title} (${back ? "Alt+←" : "Alt+→"})`}>{button}</Tooltip>;
 }
 
+/** The directory a location stop names, and null at the source's own root. */
+function stopSegment(path: string): string | null {
+  if (path.length === 0) return null;
+  const slash = path.lastIndexOf("/");
+  return slash < 0 ? path : path.slice(slash + 1);
+}
+
 /** What a stop is called: the grid by its own name, a document by its tab's. */
 function useStopTitle(entry: HistoryEntry | null): string {
   const stop = entry?.kind === "document" ? entry : null;
@@ -143,7 +178,11 @@ function useStopTitle(entry: HistoryEntry | null): string {
   const definition = editors[document.kind] as {
     label: (document: never) => { title: string };
   };
-  const title = definition.label(document as never).title;
+  /* A directory stop names the directory, since several of them share one tab
+     and its title alone would not tell a reader which one they are going to. */
+  const title = entry.location
+    ? (stopSegment(entry.location.path) ?? definition.label(document as never).title)
+    : definition.label(document as never).title;
 
   return project.path === here?.path ? title : `${title} in ${project.displayName}`;
 }

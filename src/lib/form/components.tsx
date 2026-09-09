@@ -1,5 +1,4 @@
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
-import { twMerge } from "tailwind-merge";
 
 import {
   ComboboxEmpty,
@@ -30,6 +29,7 @@ import {
   SelectValue,
   useComboboxFilter,
 } from "@/components";
+import { twMerge } from "@/utils";
 
 import { useFieldContext, useFormContext } from "./form-context";
 

@@ -315,12 +315,15 @@
   --weight-semibold: 600;
   --weight-bold: 700;
 
-  /* Dense row type: the tier a row names itself in, and the tier around it. */
+  /* Dense row type: the tier a row names itself in, and the tiers around it. */
   --type-row: 0.75rem;
   --type-row-leading: 1rem;
   --type-meta: 0.6875rem;
   --type-meta-leading: 0.875rem;
   --type-meta-tracking: 0.01em;
+  --type-fine: 0.625rem;
+  --type-fine-leading: 0.8125rem;
+  --type-fine-tracking: 0.01em;
 
   /* The tier a row set entirely in mono names itself in. */
   --type-mono-row: 0.8125rem;

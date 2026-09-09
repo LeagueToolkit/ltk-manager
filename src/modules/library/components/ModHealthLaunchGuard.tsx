@@ -1,10 +1,10 @@
 import { PlugsIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, Popover } from "@/components";
 import { useModHealthDrawerStore } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { useHealthVerdicts } from "../api";
 import { alarmOf } from "./modHealthNotice";

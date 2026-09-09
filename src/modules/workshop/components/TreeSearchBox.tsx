@@ -1,8 +1,8 @@
 import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import type { KeyboardEvent, ReactNode, RefObject } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Field, IconButton, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 interface TreeSearchBoxProps {
   value: string;

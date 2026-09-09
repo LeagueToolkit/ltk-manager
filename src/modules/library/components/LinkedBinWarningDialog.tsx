@@ -1,11 +1,11 @@
 import { ChevronDown, PackageCheck, PackageX, ShieldAlert } from "lucide-react";
 import { useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { AlertBox, Button, Checkbox, Dialog, Spinner, Tooltip, useToast } from "@/components";
 import type { LinkedBinOffenderInfo } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useLinkedBinGuardStore, useQueuedDialog } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { useInstalledMods, useLinkedBinOffenders, useToggleMod } from "../api";
 

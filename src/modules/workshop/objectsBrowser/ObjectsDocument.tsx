@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { ObjectFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useSearchObjects, useSetSearchObjects } from "@/stores";
+import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
 
 import { useProjectContentTree } from "../api/useProjectContentTree";

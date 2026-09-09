@@ -2,13 +2,13 @@ import { FileArchiveIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/rea
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, ContextMenu, EmptyState, Field, IconButton } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import { type ContentDocumentOf, gameWadDocument } from "../documents/contentDocument";

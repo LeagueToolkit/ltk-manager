@@ -1,6 +1,5 @@
-import { twMerge } from "tailwind-merge";
-
 import { BaseLayerIcon, LayerIcon } from "@/components";
+import { twMerge } from "@/utils";
 
 interface LayerGlyphProps {
   layerName: string;

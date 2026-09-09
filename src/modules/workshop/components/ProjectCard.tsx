@@ -1,6 +1,5 @@
 import { EllipsisVertical, Package, Play, X } from "lucide-react";
 import { type KeyboardEvent, type ReactElement, type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import { Button, Checkbox, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
@@ -9,6 +8,7 @@ import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
+import { twMerge } from "@/utils";
 
 import { useProjectActions } from "../api/useProjectActions";
 import { useProjectThumbnail } from "../api/useProjectThumbnail";

@@ -1,7 +1,7 @@
 import { FolderDashedIcon, FolderIcon, FolderOpenIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import { Spinner } from "@/components";
+import { twMerge } from "@/utils";
 
 /* The layer file tree's row styling, shared by every read-only tree of the editor.
    Selected-hover has to beat plain hover, so it appears later in the string. */

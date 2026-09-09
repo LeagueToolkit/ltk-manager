@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { HintIcon } from "@/components";
+import { twMerge } from "@/utils";
 
 import { type IndexedSettingKey, settingEntry } from "../settingsIndex";
 import { useMarkRedirect, useSettingMark } from "./SettingFocus";

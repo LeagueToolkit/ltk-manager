@@ -1,6 +1,7 @@
 import { InfoIcon, WarningIcon } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { Tooltip } from "./Tooltip";
 

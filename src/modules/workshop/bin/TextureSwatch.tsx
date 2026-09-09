@@ -1,10 +1,10 @@
 import { type MouseEvent as ReactMouseEvent, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Popover, Spinner } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, TextureInfo, WorkshopFileKind } from "@/lib/tauri";
 import { usePreviewCheckered } from "@/stores";
+import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../palette/types";
 import { assetArchive, previewUrl } from "../preview/assetRef";

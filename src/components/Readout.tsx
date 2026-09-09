@@ -1,5 +1,6 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export interface ReadoutProps {
   /**

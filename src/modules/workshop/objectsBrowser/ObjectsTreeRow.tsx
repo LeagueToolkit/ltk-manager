@@ -1,9 +1,9 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { MarkedText, Popover } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { ClassCard } from "../bin/ClassCard";
 import { DeclarationList } from "../bin/DeclarationList";

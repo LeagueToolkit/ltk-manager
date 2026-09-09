@@ -6,3 +6,4 @@ export * from "./path";
 export * from "./query";
 export * from "./result";
 export * from "./slug";
+export * from "./twMerge";

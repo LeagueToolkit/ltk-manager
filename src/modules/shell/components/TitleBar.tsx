@@ -9,7 +9,6 @@ import {
 import { Link } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ComponentType, useEffect, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import {
   CollectionIcon,
@@ -27,6 +26,7 @@ import { api, type AppInfo, type VerdictKind } from "@/lib/tauri";
 import { isInformational, useIncidents, useLatestIncident } from "@/modules/diagnostics";
 import { useHomeUnread } from "@/modules/home";
 import { type AppMark, useAppMark, useRollAppMark } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { AppMenu } from "./AppMenu";
 import { cellActive, cellBase, cellInactive, iconLiftClass } from "./cells";

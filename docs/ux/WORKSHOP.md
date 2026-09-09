@@ -4,14 +4,15 @@
 
 | Date       | Change                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
+| 2026-09-10 | Take the whole thumb-button gesture off the webview                       |
+| 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount          |
+| 2026-09-10 | Climb out of a directory a tab opened inside, rather than out of the tab  |
+| 2026-09-10 | Record an explorer's directory as a stop of its own                       |
 | 2026-09-07 | Put one menu on the card's right click and its kebab, and add Rename      |
 | 2026-08-24 | Fold the one-shell implementation plan into this document                 |
 | 2026-08-24 | Give the grid a roving tab stop, and hand the keyboard to it from the bar |
 | 2026-08-24 | Bring the grid's trailing group down to the size of a project's           |
 | 2026-08-24 | Put one navigation stack under the shell, with the grid a stop on it      |
-| 2026-08-24 | Add the Projects source, and split the palette's commands by context      |
-| 2026-08-24 | Give the bar a filter mode, and reach the grid through it                 |
-| 2026-08-24 | Draw one header and one fold over both workshop routes                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -419,8 +420,45 @@ project, and the two arrows walk between them.
 | ----------------------------------------------------- | --------------------------------------- |
 | Opening, activating, focusing or revealing a document | Pushes a stop                           |
 | Arriving on the grid                                  | Pushes a grid stop                      |
+| Moving an explorer's location                         | Pushes a stop carrying that directory   |
 | Walking with an arrow                                 | Moves the index, and hands the tab back |
 | Closing a tab                                         | Drops the stops matching that tab       |
+
+**A directory is a stop.** An explorer document is a place a reader moves around inside, so a
+tab alone is too coarse a stop to be useful: descending four directories and pressing back would
+leave the reader exactly where they were. A stop therefore carries the directory an explorer was
+standing in, and the arrows put it back after the store has put the tab back.
+
+The stop a tab's own open records names no directory yet. The first location its explorer reports
+completes that stop rather than standing beside it, so a tab and the directory it opened at are
+one stop and a back out of the tab does not first walk a stop that changes nothing on screen.
+
+**A stop naming no directory is the tab wherever it stands.** Activating the tab a directory stop
+already names records nothing, because the tab has not moved. Reading the two as different stops
+put a second one over the first, and the back that followed only stepped off it.
+
+**A tab that opens already inside a directory records the route down to it.** A location belongs
+to its explorer rather than to the document drawing it, so it outlives a tab close and a tab can
+open four directories deep having walked no route there. Recording the deepest alone left that
+tab a single stop, and one back out of it walked past the tab to the grid behind. The root, each
+directory on the way, and the location itself go down together, so back climbs out of the
+directory rather than out of the editor.
+
+**The thumb buttons and `Alt+←` walk this stack, not the webview's.** A desktop app has one
+Back, and it is this one. Chromium spends the fourth and fifth mouse buttons on its own history
+and navigates on the release rather than on the press, so every phase of the gesture is taken
+before it reaches the webview. Preventing the press alone left both to run: the arrow reached the
+directory and the webview's own pop landed on the grid a moment later, which reads as a Back that
+teleported out of the project. An arrow key held with `Alt` belongs to the stack for the same
+reason, so an explorer's own arrows leave it alone.
+
+**A mount is not a navigation, and writes no stop.** That route is laid once, while the tab's own
+stop still names no directory. An explorer remounts whenever its route does, and the arrows route
+on every stop inside a project, so a mount that recorded again would drop whatever the arrows had
+ahead of them - the file preview a back had just stepped off - and stand its own stops in its
+place. Only a move writes: descending, going up, a crumb, a typed path.
+
+Closing a tab drops its directories with it, because they were only ever stops in that tab.
 
 A walk that lands in another project routes to it, so the store returns the stop it reached
 rather than leaving a caller to re-read an index the next walk can race.

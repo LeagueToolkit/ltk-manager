@@ -9,7 +9,6 @@ import {
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import {
   Checkbox,
@@ -35,6 +34,7 @@ import {
   useToggleSection,
   useWadSort,
 } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { workshopKeys } from "../api/keys";
 import { useProjectActions } from "../api/useProjectActions";

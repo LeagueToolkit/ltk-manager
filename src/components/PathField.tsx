@@ -1,7 +1,8 @@
 import { CheckCircleIcon, FolderOpenIcon, WarningCircleIcon, XIcon } from "@phosphor-icons/react";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { IconButton } from "./Button";
 import { FieldAffix, fieldAffixButtonClass } from "./FieldAffix";

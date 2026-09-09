@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 /**
  * The element a spotlight is cut around, looked up rather than held.

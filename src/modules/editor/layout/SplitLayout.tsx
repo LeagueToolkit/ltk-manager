@@ -1,6 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import type { LayoutNode, LeafNode } from "./tree";
 

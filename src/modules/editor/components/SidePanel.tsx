@@ -10,9 +10,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useResizeObserver } from "@/hooks";
+import { twMerge } from "@/utils";
 
 export interface SidePanelSection {
   id: string;

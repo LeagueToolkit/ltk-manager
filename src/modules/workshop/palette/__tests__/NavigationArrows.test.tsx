@@ -98,4 +98,58 @@ describe("NavigationArrows", () => {
 
     expect(mockNavigate).toHaveBeenCalledWith({ to: "/workshop" });
   });
+
+  /* The gesture Chromium spends on its own history, where the shell's stack is
+     what a user means by Back. Dispatched by hand, because userEvent draws no
+     thumb button. */
+  function thumb(type: "mousedown" | "mouseup" | "auxclick", button: number): MouseEvent {
+    const event = new MouseEvent(type, { button, bubbles: true, cancelable: true });
+    window.dispatchEvent(event);
+    return event;
+  }
+
+  it("walks back on the thumb button, and takes the gesture off the webview", () => {
+    standOnTheGrid();
+    store().navigateHistory(1);
+    renderArrows(PROJECT);
+
+    /* Chromium navigates on the release, so a press left unprevented pops a
+       route behind the walk and the arrow's work lands on the grid. */
+    expect(thumb("mousedown", 3).defaultPrevented).toBe(true);
+    expect(thumb("mouseup", 3).defaultPrevented).toBe(true);
+
+    expect(mockNavigate).toHaveBeenCalledWith({ to: "/workshop" });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("walks forward on the other thumb button", () => {
+    standOnTheGrid();
+    renderArrows(null);
+
+    thumb("mousedown", 4);
+    thumb("mouseup", 4);
+
+    expect(mockNavigate).toHaveBeenCalledWith({
+      to: "/workshop/$projectName",
+      params: { projectName: "mine" },
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it("swallows the aux click the gesture ends on", () => {
+    standOnTheGrid();
+    renderArrows(null);
+
+    expect(thumb("auxclick", 3).defaultPrevented).toBe(true);
+  });
+
+  it("leaves every other button to whatever was clicked", () => {
+    standOnTheGrid();
+    renderArrows(null);
+
+    expect(thumb("mouseup", 0).defaultPrevented).toBe(false);
+    expect(thumb("mouseup", 1).defaultPrevented).toBe(false);
+    expect(thumb("mouseup", 2).defaultPrevented).toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });

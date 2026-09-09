@@ -10,10 +10,10 @@ import {
   useState,
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { twMerge } from "tailwind-merge";
 
 import { Kbd } from "@/components";
 import { useClickOutside } from "@/hooks";
+import { twMerge } from "@/utils";
 
 import { useFilteredProjects } from "../api/useFilteredProjects";
 import { useWorkshopProjects } from "../api/useWorkshopProjects";

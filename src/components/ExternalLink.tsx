@@ -1,6 +1,7 @@
 import { ExternalLink as ExternalLinkIcon } from "lucide-react";
 import { type AnchorHTMLAttributes, forwardRef } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export interface ExternalLinkProps extends Omit<
   AnchorHTMLAttributes<HTMLAnchorElement>,

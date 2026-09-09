@@ -1,11 +1,11 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { useCallback, useMemo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, EmptyState } from "@/components";
 import { m } from "@/i18n";
 import type { ReferenceResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { twMerge } from "@/utils";
 
 import { ClassCard } from "../bin/ClassCard";
 import type { ContentDocumentOf } from "../documents/contentDocument";

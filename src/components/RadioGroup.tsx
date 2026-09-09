@@ -1,7 +1,8 @@
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup as BaseRadioGroup, type RadioGroupProps } from "@base-ui/react/radio-group";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 /**
  * RadioGroup - A group of mutually exclusive options.

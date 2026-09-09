@@ -1,7 +1,7 @@
 import { InfoIcon, WarningIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 
 import type { VerdictKind } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { isInformational } from "../utils/incident";
 

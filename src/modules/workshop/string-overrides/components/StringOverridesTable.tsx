@@ -1,9 +1,9 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { type ReactNode, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, TextareaField, Tooltip } from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import type { OverrideEntry, OverrideEntryField } from "../types";
 import { StringKeyField } from "./StringKeyField";

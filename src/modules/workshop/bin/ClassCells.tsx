@@ -1,9 +1,9 @@
 import { GridFourIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
 import { type ReactNode, useMemo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
