@@ -3,6 +3,8 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLineRightIcon,
   CopyIcon,
+  LockSimpleIcon,
+  LockSimpleOpenIcon,
   PathIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -61,6 +63,10 @@ export interface EditorTabsProps {
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   /** A double click on a tab, which keeps an ephemeral one. */
   onPromote?: (id: string) => void;
+  /** This group takes a document only from a gesture that names it. */
+  locked?: boolean;
+  /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
+  onToggleLock?: (locked: boolean) => void;
   /** The strip belongs to the focused leaf, whose active tab carries the accent rail. */
   focused?: boolean;
   className?: string;
@@ -84,6 +90,8 @@ export function EditorTabs({
   onCloseAll,
   onSplit,
   onPromote,
+  locked,
+  onToggleLock,
   focused,
   className,
 }: EditorTabsProps) {
@@ -103,7 +111,7 @@ export function EditorTabs({
       onValueChange={(value) => onActivate(String(value))}
       className={twMerge(
         /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
-        "h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        "group/strip h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
         className,
       )}
     >
@@ -130,8 +138,10 @@ export function EditorTabs({
               splittable={onSplit !== undefined && tabs.length > 1}
               alone={tabs.length === 1}
               last={index === tabs.length - 1}
+              locked={locked === true}
               onSplit={onSplit}
               onPromote={onPromote}
+              onToggleLock={onToggleLock}
               onClose={onClose}
               onCloseOthers={onCloseOthers}
               onCloseToRight={onCloseToRight}
@@ -141,8 +151,53 @@ export function EditorTabs({
         </SortableContext>
         {caretIndex === tabs.length && <DropCaret />}
       </Tabs.List>
+      {/* Outside the scroll lane, so a strip too full to fit still shows it, and
+          only over a strip with tabs, where a lock has something to hold. */}
+      {onToggleLock && tabs.length > 0 && (
+        <LockToggle locked={locked === true} onToggle={onToggleLock} />
+      )}
     </Tabs.Root>
   );
+}
+
+interface LockToggleProps {
+  locked: boolean;
+  onToggle: (locked: boolean) => void;
+}
+
+/* Revealed on hover the way a tab's close is, and kept on while it is locked,
+   which is the only mark the strip carries for a state the tabs cannot show. */
+function LockToggle({ locked, onToggle }: LockToggleProps) {
+  const label = locked ? "Unlock Group" : "Lock Group";
+
+  return (
+    <IconButton
+      icon={<LockGlyph closed={locked} weight="bold" />}
+      variant="ghost"
+      size="xs"
+      compact
+      title={label}
+      aria-label={label}
+      aria-pressed={locked}
+      onClick={() => onToggle(!locked)}
+      className={twMerge(
+        "mr-2 h-6 w-6 shrink-0 opacity-0 transition-opacity",
+        "group-hover/strip:opacity-100 focus-visible:opacity-100",
+        locked && "text-accent-400 opacity-100",
+      )}
+    />
+  );
+}
+
+interface LockGlyphProps {
+  /** The shackle is down, which is the group holding rather than the gesture offered. */
+  closed: boolean;
+  weight?: "regular" | "bold";
+}
+
+function LockGlyph({ closed, weight = "regular" }: LockGlyphProps) {
+  if (closed) return <LockSimpleIcon weight={weight} className="h-4 w-4" />;
+  return <LockSimpleOpenIcon weight={weight} className="h-4 w-4" />;
 }
 
 /**
@@ -178,8 +233,10 @@ interface SortableTabProps {
   alone: boolean;
   /** Nothing sits after this tab, so there is nothing to its right to close. */
   last: boolean;
+  locked: boolean;
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   onPromote?: (id: string) => void;
+  onToggleLock?: (locked: boolean) => void;
   onClose: (id: string) => void;
   onCloseOthers?: (id: string) => void;
   onCloseToRight?: (id: string) => void;
@@ -195,8 +252,10 @@ const SortableTab = memo(function SortableTab({
   splittable,
   alone,
   last,
+  locked,
   onSplit,
   onPromote,
+  onToggleLock,
   onClose,
   onCloseOthers,
   onCloseToRight,
@@ -206,6 +265,7 @@ const SortableTab = memo(function SortableTab({
     id: tabDroppableId(leafId, tab.id),
   });
   const copy = useCopyToClipboard();
+  const lockLabel = locked ? "Unlock Group" : "Lock Group";
 
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -365,6 +425,20 @@ const SortableTab = memo(function SortableTab({
                     onClick={() => onSplit(tab.id, "bottom")}
                   >
                     Split Down
+                  </ContextMenu.Item>
+                </>
+              )}
+
+              {onToggleLock && (
+                <>
+                  <ContextMenu.Separator />
+                  {/* The glyph is the gesture on offer rather than the state, so an
+                      unlocked group shows the shut padlock its item would give it. */}
+                  <ContextMenu.Item
+                    icon={<LockGlyph closed={!locked} />}
+                    onClick={() => onToggleLock(!locked)}
+                  >
+                    {lockLabel}
                   </ContextMenu.Item>
                 </>
               )}

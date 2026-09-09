@@ -3,6 +3,8 @@ import {
   FileArchiveIcon,
   FolderOpenIcon,
   LayoutIcon,
+  LockSimpleIcon,
+  LockSimpleOpenIcon,
   MagnifyingGlassIcon,
   PackageIcon,
   PlayIcon,
@@ -24,8 +26,10 @@ import { useRevealGameSearch } from "../gameBrowser";
 import {
   useActiveDocumentId,
   useActiveLeafId,
+  useLeafLocked,
   useOpenDocument,
   useResetLayout,
+  useSetLeafLocked,
   useSplitWithDocument,
 } from "../state";
 import type { ProjectCommand } from "./types";
@@ -54,6 +58,8 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const splitWithDocument = useSplitWithDocument();
   const activeDocumentId = useActiveDocumentId();
   const activeLeafId = useActiveLeafId();
+  const activeLeafLocked = useLeafLocked(activeLeafId);
+  const setLeafLocked = useSetLeafLocked();
 
   const layerPanelOpen = useLayerPanelOpen();
   const setLayerPanelOpen = useSetLayerPanelOpen();
@@ -160,6 +166,18 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         },
       },
       {
+        id: "view.lockGroup",
+        title: activeLeafLocked ? "Unlock the group" : "Lock the group",
+        group: "View",
+        keywords: ["pin", "freeze", "pane", "tabs"],
+        icon: activeLeafLocked ? (
+          <LockSimpleOpenIcon className={GLYPH} />
+        ) : (
+          <LockSimpleIcon className={GLYPH} />
+        ),
+        run: () => setLeafLocked(activeLeafId, !activeLeafLocked),
+      },
+      {
         id: "view.resetLayout",
         title: "Reset the layout",
         group: "View",
@@ -191,6 +209,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     actions,
     activeDocumentId,
     activeLeafId,
+    activeLeafLocked,
     global,
     layerCount,
     layerPanelOpen,
@@ -198,6 +217,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     resetLayout,
     revealGameSearch,
     setLayerPanelOpen,
+    setLeafLocked,
     splitWithDocument,
     testState.kind,
   ]);

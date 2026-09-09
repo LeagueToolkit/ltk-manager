@@ -6,18 +6,21 @@ import type { BinRow } from "@/lib/tauri";
    this module needs `singleLeaf` while it evaluates. */
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
+  acceptsOpen,
   type DropOutcome,
   type Edge,
   findLeaf,
   insertTab,
   type LayoutNode,
   leafHolding,
+  type LeafNode,
   leaves,
   mergeToSingleLeaf,
   moveTab,
   removeTab,
   replaceTab,
   setActiveTab,
+  setLeafLocked as applyLeafLock,
   setSplitLayout as applySplitLayout,
   singleLeaf,
   splitEmpty,
@@ -183,6 +186,8 @@ interface WorkshopEditorStore {
   setSplitLayout: (projectPath: string, splitId: string, layout: Record<string, number>) => void;
   /** Merges every strip into the focused leaf, in reading order. */
   resetLayout: (projectPath: string) => void;
+  /** Locks or unlocks one group, which is what the strip's own control asks for. */
+  setLeafLocked: (projectPath: string, leafId: string, locked: boolean) => void;
   /** Activates one of a pane leaf's own panes, and focuses that leaf. */
   activateShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
   closeShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
@@ -379,6 +384,8 @@ function isPreviewKind(kind: ContentDocument["kind"]): boolean {
  * a browser keeps its own group and a walk through a tree never pushes it off
  * screen. The first preview splits that group off, and every later one joins
  * the group it left behind.
+ *
+ * A locked group takes neither, since neither gesture named it.
  */
 function openGroup(
   editor: ProjectEditor,
@@ -387,15 +394,18 @@ function openGroup(
 ): { layout: LayoutNode; leafId: string } {
   const focused =
     findLeaf(editor.layout, leafId ?? editor.activeLeafId) ?? leaves(editor.layout)[0];
-  if (leafId !== undefined || !isPreviewKind(document.kind)) {
-    return { layout: editor.layout, leafId: focused.id };
-  }
+  /* A caller naming the group has consented to it, so a drop and an open into
+     one group reach a locked group the way they always did. */
+  if (leafId !== undefined) return { layout: editor.layout, leafId: focused.id };
+  if (!isPreviewKind(document.kind)) return unlockedGroup(editor.layout, focused);
 
-  const previews = leaves(editor.layout).find((leaf) =>
-    leaf.tabs.some((id) => {
-      const kind = editor.documents[id]?.kind;
-      return kind !== undefined && isPreviewKind(kind);
-    }),
+  const previews = leaves(editor.layout).find(
+    (leaf) =>
+      acceptsOpen(leaf) &&
+      leaf.tabs.some((id) => {
+        const kind = editor.documents[id]?.kind;
+        return kind !== undefined && isPreviewKind(kind);
+      }),
   );
   if (previews) return { layout: editor.layout, leafId: previews.id };
 
@@ -404,6 +414,26 @@ function openGroup(
   if (focused.tabs.length === 0) return { layout: editor.layout, leafId: focused.id };
 
   const split = splitEmpty(editor.layout, focused.id, "right");
+  return { layout: split.tree, leafId: split.leafId };
+}
+
+/*
+ * The group behind a locked one: the next that takes an open, else a fresh one.
+ *
+ * Reading order rather than the tree's shape, so the document lands in the
+ * group a reader would have reached for next. Every group being locked is what
+ * mints one, which is the only way a lock adds a group to the screen.
+ */
+function unlockedGroup(
+  layout: LayoutNode,
+  focused: LeafNode,
+): { layout: LayoutNode; leafId: string } {
+  if (acceptsOpen(focused)) return { layout, leafId: focused.id };
+
+  const open = leaves(layout).find(acceptsOpen);
+  if (open) return { layout, leafId: open.id };
+
+  const split = splitEmpty(layout, focused.id, "right");
   return { layout: split.tree, leafId: split.leafId };
 }
 
@@ -537,7 +567,9 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           const documents = { ...editor.documents, [document.id]: document };
           const previous = editor.previewId ? leafHolding(editor.layout, editor.previewId) : null;
 
-          if (previous && editor.previewId) {
+          /* A lock makes the group's preview tab permanent: the replacement
+             cannot land there, so the tab it would have taken stays put. */
+          if (previous && acceptsOpen(previous) && editor.previewId) {
             const layout = replaceTab(editor.layout, previous.id, editor.previewId, document.id);
             if (layout !== editor.layout) {
               const replaced = editor.previewId;
@@ -750,6 +782,15 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           const layout = mergeToSingleLeaf(editor.layout, editor.activeLeafId);
           if (layout === editor.layout) return null;
           return { ...editor, layout, activeLeafId: layout.id };
+        }) ?? state,
+    ),
+
+  setLeafLocked: (projectPath, leafId, locked) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const layout = applyLeafLock(editor.layout, leafId, locked);
+          return layout === editor.layout ? null : { ...editor, layout };
         }) ?? state,
     ),
 

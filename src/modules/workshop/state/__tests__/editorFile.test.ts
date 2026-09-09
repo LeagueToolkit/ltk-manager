@@ -48,6 +48,15 @@ describe("editorFile", () => {
 
       expect(parsed).toEqual({ kind: "ok", state });
     });
+
+    it("carries a locked group across the file", () => {
+      const state = twoDocumentState();
+      const locked = { ...state, layout: { ...state.layout, locked: true } };
+
+      const parsed = parseEditorFile(serializeEditorFile(locked));
+
+      expect(parsed).toEqual({ kind: "ok", state: locked });
+    });
   });
 
   describe("parseEditorFile", () => {
@@ -138,6 +147,14 @@ describe("editorFile", () => {
 
       expect(state?.layout).toEqual(singleLeaf());
       expect(state?.activeLeafId).toBe(singleLeaf().id);
+    });
+
+    it("falls back to a single leaf for a lock that is not a boolean", () => {
+      const entry = twoDocumentState();
+
+      const state = sanitizeEditorState({ ...entry, layout: { ...entry.layout, locked: "yes" } });
+
+      expect(state?.layout).toEqual(singleLeaf());
     });
 
     it("re-points a dangling activeLeafId at the first leaf", () => {

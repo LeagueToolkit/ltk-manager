@@ -174,7 +174,12 @@ const assetRefSchema = z.discriminatedUnion("kind", [
    so one bad entry costs a tab rather than the whole layout. */
 const layoutNodeSchema: z.ZodType<unknown> = z.lazy(() =>
   z.union([
-    z.object({ kind: z.literal("leaf"), id: z.string(), tabs: z.array(z.unknown()) }),
+    z.object({
+      kind: z.literal("leaf"),
+      id: z.string(),
+      tabs: z.array(z.unknown()),
+      locked: z.boolean().optional(),
+    }),
     z.object({
       kind: z.literal("split"),
       id: z.string(),
