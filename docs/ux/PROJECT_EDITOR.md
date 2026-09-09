@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
+| 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere          |
 | 2026-09-05 | Browse the install's objects as a tree, and open one as a tab          |
 | 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects |
 | 2026-09-05 | Settle the rows, the `class:` filter, the sniff and the lifecycle      |
@@ -13,7 +14,6 @@
 | 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
 | 2026-08-22 | Delete a layer file or folder from its own tree row                    |
 | 2026-08-22 | Give every tab its chrome in a row, and a menu on the tab itself       |
-| 2026-08-22 | Extract with no dialog, and copy a game file into a layer              |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -49,7 +49,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Mod details document   | Available   | -                                                                  |
 | String overrides       | Available   | -                                                                  |
 | Tab strip, per project | Available   | -                                                                  |
-| Tab context menu       | Available   | The four closes, copy path and copy name, and the splits           |
+| Tab context menu       | Available   | The four closes, copy path and copy name, the splits and the lock  |
+| Group lock             | Available   | A locked group takes only what a gesture aims at it                |
 | Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
 | Preview tabs           | Available   | A tab of its own, or one replaceable tab. A setting picks          |
 | Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
@@ -382,7 +383,7 @@ import time, and a command that needs project state reads it the way every other
 
 The first set is the actions the editor already holds: Test, Pack, Open project folder, Delete
 project, Mod details, Game index, Game WADs, Rebuild the game index, Reset the layout, Split
-right, Split down, the four closes, and the routes into the settings.
+right, Split down, Lock the group, the four closes, and the routes into the settings.
 
 ## The scan of the game
 
@@ -1928,6 +1929,8 @@ The strip holds one at a time.
 - **Copy Path**, **Copy Name** - the path is whatever addresses the subject outside the app:
   a file's path on disk, and for a game chunk its archive and then the path inside it
 - **Split Right**, **Split Down** - already there, now under the same menu
+- **Lock Group**, and **Unlock Group** while it is locked - the group the tab sits in. Read
+  [A locked group](#a-locked-group)
 
 Closing several tabs at once asks the unsaved-edits question once for each editor that has
 any. The clean ones close straight away and the rest queue behind one dialog, so a refusal
@@ -1943,7 +1946,8 @@ that split would show nothing.
 
 Nothing else moves. A document opened from the sidebar lands in the focused group, as
 before, and a preview dragged out of the group settles wherever it is dropped - the group
-is where a preview _opens_, not a place it is held to.
+is where a preview _opens_, not a place it is held to. A locked group takes neither the
+first preview nor a later one. Read [A locked group](#a-locked-group).
 
 The layer tree keeps its own panel, so the tree and the preview are both on screen at all
 times. A separate preview pane at the right edge adds nothing.
@@ -2795,11 +2799,18 @@ type LayoutNode =
       children: LayoutNode[];
       layout?: Record<string, number>;
     }
-  | { kind: "leaf"; id: string; tabs: DocumentId[]; activeTab: DocumentId | null };
+  | {
+      kind: "leaf";
+      id: string;
+      tabs: DocumentId[];
+      activeTab: DocumentId | null;
+      locked?: boolean;
+    };
 ```
 
-`layout` holds the sizes the seam library last reported, keyed by child id, and the editor
-never authors a number into it. A split with no `layout` takes even shares. There is no
+`locked` is the group lock. Read [A locked group](#a-locked-group). `layout` holds the sizes
+the seam library last reported, keyed by child id, and the editor never authors a number into
+it. A split with no `layout` takes even shares. There is no
 panel field, because every leaf is an editor surface. The side panels live in the shell,
 and the game browser opens as a tab like any other document.
 
@@ -2873,6 +2884,46 @@ gesture. Every other panel type appears once, because none of them holds a tab.
 
 A user reaches a side by side read without a preset and without a layout dialog. Two layers
 compare this way, and so do two [scoped game browsers](#scope-to-one-archive).
+
+### A locked group
+
+A locked group takes a document only from a gesture that names it. Every other open lands
+somewhere else, so an arrangement a user built survives a walk through a tree.
+
+This is the cost the split tree carries without it. A reader opens a bin beside the file
+list, then walks the list, and every file the walk opens lands on top of the bin. The lock is
+what holds a reference open beside the work.
+
+| Gesture                                      | What a locked group does                    |
+| -------------------------------------------- | ------------------------------------------- |
+| An open from a tree, the sidebar or the bar  | Passes it by                                |
+| A preview                                    | Passes it by, and keeps its own preview tab |
+| A tab dropped on its strip or its middle     | Takes it, because the drop named the group  |
+| Split Right, Split Down, Open beside         | Land where they landed before               |
+| A close, a reorder, an activate, a seam drag | Unchanged                                   |
+
+**An open it passes by lands in the next group that takes one**, in reading order, and in a
+group of its own to the right when every group is locked. That last case is the only way a
+lock puts a group on screen.
+
+**A preview tab in a locked group becomes permanent.** The next preview cannot replace it
+where it sits, so it stops being the one ephemeral tab and the replacement opens elsewhere.
+
+**An empty group takes a document either way.** A lock is what a group holds against a stray
+open, and a group holding nothing has nothing to hold. A group that loses its last tab closes
+and takes its lock with it, so the strip shows the control only while it holds a tab.
+
+**A reset unlocks.** It merges every strip into one, and one group has nothing to hold itself
+against.
+
+The lock belongs to the group and to the project. `.ltk/editor.json` holds it beside the
+tabs, so a project opens locked the way it was left.
+
+| Where the control is           | What it reads                                     |
+| ------------------------------ | ------------------------------------------------- |
+| The right end of the tab strip | A padlock, on hover and at all times while locked |
+| A tab's context menu           | Lock Group, and Unlock Group while locked         |
+| The command bar, under View    | Lock the group                                    |
 
 ### Two libraries that do not fit
 

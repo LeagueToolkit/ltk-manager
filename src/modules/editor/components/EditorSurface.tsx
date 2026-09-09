@@ -23,6 +23,10 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onSplit?: (id: string, edge: "right" | "bottom") => void;
   /** A double click on a tab, which keeps an ephemeral one. */
   onPromote?: (id: string) => void;
+  /** This group takes a document only from a gesture that names it. */
+  locked?: boolean;
+  /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
+  onToggleLock?: (locked: boolean) => void;
   /** A pointer landing anywhere in the surface, tab strip or document body. */
   onFocus?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
@@ -53,6 +57,8 @@ export function EditorSurface<D extends EditorDocumentBase>({
   onClose,
   onSplit,
   onPromote,
+  locked,
+  onToggleLock,
   onFocus,
   focused,
   empty,
@@ -165,6 +171,8 @@ export function EditorSurface<D extends EditorDocumentBase>({
         onCloseAll={closeAll}
         onSplit={onSplit}
         onPromote={onPromote}
+        locked={locked}
+        onToggleLock={onToggleLock}
         focused={focused}
       />
 

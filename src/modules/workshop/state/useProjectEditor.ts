@@ -343,6 +343,24 @@ export function useResetLayout() {
   return useCallback(() => resetLayout(projectPath), [resetLayout, projectPath]);
 }
 
+/** One group holds itself against an open that did not name it. */
+export function useLeafLocked(leafId: string): boolean {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    return findLeaf(editor.layout, leafId)?.locked === true;
+  });
+}
+
+export function useSetLeafLocked() {
+  const projectPath = useProjectPath();
+  const setLeafLocked = useWorkshopEditorStore((s) => s.setLeafLocked);
+  return useCallback(
+    (leafId: string, locked: boolean) => setLeafLocked(projectPath, leafId, locked),
+    [setLeafLocked, projectPath],
+  );
+}
+
 export function useSetDocumentDirty() {
   const projectPath = useProjectPath();
   const setDocumentDirty = useWorkshopEditorStore((s) => s.setDocumentDirty);

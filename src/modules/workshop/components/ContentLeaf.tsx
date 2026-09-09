@@ -14,6 +14,7 @@ import {
   useOpenDocument,
   usePreviewDocumentId,
   usePromoteDocument,
+  useSetLeafLocked,
   useSplitWithDocument,
 } from "../state";
 import { LeafProvider } from "./LeafContext";
@@ -35,6 +36,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const activeLeafId = useActiveLeafId();
   const previewId = usePreviewDocumentId();
   const promoteDocument = usePromoteDocument();
+  const setLeafLocked = useSetLeafLocked();
 
   return (
     <LeafProvider leafId={leaf.id}>
@@ -50,6 +52,8 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           onPromote={promoteDocument}
           onClose={(id) => closeDocument(leaf.id, id)}
           onSplit={(id, edge) => splitWithDocument(id, leaf.id, edge)}
+          locked={leaf.locked === true}
+          onToggleLock={(locked) => setLeafLocked(leaf.id, locked)}
           onFocus={() => focusLeaf(leaf.id)}
           focused={activeLeafId === leaf.id}
           empty={<NothingOpenState />}

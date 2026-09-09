@@ -393,6 +393,70 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("setLeafLocked", () => {
+    function preview(path: string) {
+      return previewDocument({ kind: "layer", project: A, layer: "base", path });
+    }
+
+    it("passes a locked group by for the next one in reading order", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument());
+
+      expect(tabsOf(A, right)).toEqual(["files:base"]);
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "game"]);
+    });
+
+    it("opens a group of its own when every group is locked", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, ROOT_LEAF, true);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument());
+
+      const opened = editorOf(A).activeLeafId;
+      expect(leaves(editorOf(A).layout)).toHaveLength(3);
+      expect(tabsOf(A, opened)).toEqual(["game"]);
+    });
+
+    /* A gesture naming the group has consented to it, which is what a drop and
+       an open into one group are. */
+    it("takes a document the caller aimed at the locked group", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+
+      store().openDocument(A, gameDocument(), right);
+      store().moveDocument(A, "details", right);
+
+      expect(tabsOf(A, right)).toEqual(["files:base", "game", "details"]);
+    });
+
+    it("keeps the preview tab of a locked group and opens the next one elsewhere", () => {
+      store().openDocument(A, detailsDocument());
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const previews = editorOf(A).activeLeafId;
+      store().setLeafLocked(A, previews, true);
+
+      const second = preview("second.tex");
+      store().openPreview(A, second);
+
+      expect(tabsOf(A, previews)).toEqual([first.id]);
+      expect(editorOf(A).previewId).toBe(second.id);
+      expect(leaves(editorOf(A).layout)).toHaveLength(3);
+    });
+
+    it("returns the same state for a leaf that already reads that way", () => {
+      store().openDocument(A, detailsDocument());
+      const before = store().byProject;
+
+      store().setLeafLocked(A, ROOT_LEAF, false);
+
+      expect(store().byProject).toBe(before);
+    });
+  });
+
   describe("reveal", () => {
     /* Every open document stays mounted, so an unaddressed request scrolled the
        tree of every open layer rather than the one that was asked for. */
