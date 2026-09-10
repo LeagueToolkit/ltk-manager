@@ -53,7 +53,7 @@ pub(crate) fn save_settings_inner(
 
     // Rebuilt rather than toggled, because turning the setting off has to drop
     // what was spooled under the old answer rather than hold it back.
-    let telemetry: State<'_, std::sync::Arc<crate::telemetry::TelemetryState>> = app_handle.state();
+    let telemetry = crate::telemetry::state(app_handle);
     let remote = telemetry.remote();
     telemetry.replace(crate::telemetry::build(
         app_handle, &settings, secret, &remote,
