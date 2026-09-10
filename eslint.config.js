@@ -29,6 +29,14 @@ const MODULES = [
 
 const NOT_MODULE_SOURCE = ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED];
 
+/* The stock merger reads `text-*` against Tailwind's own sizes alone, so it
+   files a tier of ours under text colour and drops it when a colour stands
+   beside it. `@/utils` exports the one that knows them. */
+const TAILWIND_MERGE = {
+  group: ["tailwind-merge"],
+  message: "Merge classes with `twMerge` from `@/utils`.",
+};
+
 /* What every file under `src` is kept away from, whichever module it is in. */
 const RESTRICTED = [
   {
@@ -43,6 +51,7 @@ const RESTRICTED = [
     group: ["lucide-react"],
     message: "Icons are Phosphor duotone: DS-ICON-WEIGHT.",
   },
+  TAILWIND_MERGE,
 ];
 
 /**
@@ -197,8 +206,17 @@ export default tseslint.config(
     },
   })),
   {
-    /* The wrappers are what the rule points every other file at. */
+    /* The wrappers are what the rule points every other file at, so they reach
+       Base UI and each other freely. The merger is not one of those, and a
+       wrapper reaching the stock one loses the type tier like anything else. */
     files: ["src/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["warn", { patterns: [TAILWIND_MERGE] }],
+    },
+  },
+  {
+    /* Where the configured merger is built. */
+    files: ["src/utils/twMerge.ts"],
     rules: { "no-restricted-imports": "off" },
   },
   {

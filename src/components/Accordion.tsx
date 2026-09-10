@@ -1,8 +1,9 @@
 import { Accordion as BaseAccordion } from "@base-ui/react/accordion";
 import { CaretDownIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
+
+import { twMerge } from "@/utils";
 
 /**
  * `band` divides items with a rule and adds no surface, the shape a settings

@@ -1,8 +1,9 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
-import { memo } from "react";
-import { twMerge } from "tailwind-merge";
+import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
 import { MarkedText, Tooltip } from "@/components";
+import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import {
@@ -22,14 +23,23 @@ interface SourceTreeRowProps {
   depth: number;
   isExpanded: boolean;
   isSelected: boolean;
+  /** A selected directory holds this row, so it draws the fill at half strength. */
+  covered?: boolean;
   onToggle: (node: SourceDirNode) => void;
-  onSelect: (index: number) => void;
+  /** A click, which writes the selection under whichever modifiers it carried. */
+  onSelect: (index: number, event?: ReactMouseEvent<HTMLElement>) => void;
+  /** The focus landing here, which moves the ring and nothing else. */
+  onFocusRow: (index: number) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: SourceFileNode) => void;
   height: number;
   rowIndex: number;
   tabIndex: number;
 }
+
+/* Half the selected fill, so the reach of a selected directory is visible
+   without a count. `aria-selected` wins over it by its own specificity. */
+const COVERED_CLASS = "bg-accent-500/8";
 
 function SourceTreeRowInner(props: SourceTreeRowProps) {
   const node = props.node;
@@ -49,15 +59,16 @@ function DirRow({
   depth,
   isExpanded,
   isSelected,
+  covered,
   onToggle,
   onSelect,
+  onFocusRow,
   height,
   rowIndex,
   tabIndex,
 }: DirRowProps) {
   return (
-    <button
-      type="button"
+    <div
       role="treeitem"
       aria-expanded={isExpanded}
       aria-level={depth + 1}
@@ -65,27 +76,45 @@ function DirRow({
       data-ui="SourceTreeRow:dir"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => {
-        onSelect(rowIndex);
-        onToggle(node);
-      }}
-      onFocus={() => onSelect(rowIndex)}
+      onClick={(event) => onSelect(rowIndex, event)}
+      onDoubleClick={() => onToggle(node)}
+      onFocus={() => onFocusRow(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
+      className={twMerge(
+        "w-full cursor-pointer text-left",
+        ROW_BASE_CLASSES,
+        covered && COVERED_CLASS,
+        ROW_STATE_CLASSES,
+      )}
     >
       <IndentRails depth={depth} />
-      <CaretRightIcon
-        className={twMerge(
-          "h-3 w-3 shrink-0 text-surface-400 transition-transform",
-          isExpanded && "rotate-90",
-        )}
-      />
+      {/* Its own target, so opening a directory is not also selecting every
+          file below it, which is what selecting a directory means. */}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={
+          isExpanded ? m.workshop_explorer_collapse_action() : m.workshop_explorer_expand_action()
+        }
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle(node);
+        }}
+        className="-m-0.5 shrink-0 rounded-sm p-0.5 hover:bg-surface-veil"
+      >
+        <CaretRightIcon
+          className={twMerge(
+            "h-3 w-3 text-surface-400 transition-transform",
+            isExpanded && "rotate-90",
+          )}
+        />
+      </button>
       <FolderGlyph unknown={node.unknown} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
+      <span className="ml-auto shrink-0 text-fine text-surface-500 tabular-nums">
         {node.fileCount}
       </span>
-    </button>
+    </div>
   );
 }
 
@@ -97,7 +126,9 @@ function FileRow({
   node,
   depth,
   isSelected,
+  covered,
   onSelect,
+  onFocusRow,
   onOpen,
   height,
   rowIndex,
@@ -115,12 +146,16 @@ function FileRow({
       data-ui="SourceTreeRow:file"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => onSelect(rowIndex)}
+      onClick={(event) => onSelect(rowIndex, event)}
       onDoubleClick={() => onOpen?.(node)}
-      onContextMenu={() => onSelect(rowIndex)}
-      onFocus={() => onSelect(rowIndex)}
+      onFocus={() => onFocusRow(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
+      className={twMerge(
+        "cursor-pointer",
+        ROW_BASE_CLASSES,
+        covered && COVERED_CLASS,
+        ROW_STATE_CLASSES,
+      )}
     >
       <IndentRails depth={depth} />
       <CaretSlot />
@@ -136,7 +171,7 @@ function FileRow({
       <span className="truncate">
         <MarkedText text={node.name} ranges={node.entry.nameRanges} />
       </span>
-      <span className="ml-auto shrink-0 font-mono text-[0.625rem] text-surface-400 tabular-nums">
+      <span className="ml-auto shrink-0 font-mono text-fine text-surface-400 tabular-nums">
         {formatBytes(node.entry.sizeBytes)}
       </span>
     </div>

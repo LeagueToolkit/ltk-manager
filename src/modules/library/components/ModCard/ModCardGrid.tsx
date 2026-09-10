@@ -1,9 +1,9 @@
 import { ShieldWarningIcon } from "@phosphor-icons/react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
 import { SuspectBadge } from "@/modules/diagnostics";
+import { twMerge } from "@/utils";
 
 import { LayerPopover } from "../LayerPopover";
 import { MissingDepsBadge } from "../MissingDepsBadge";

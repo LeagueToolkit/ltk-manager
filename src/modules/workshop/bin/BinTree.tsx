@@ -6,11 +6,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../palette/types";
 import { stirImages } from "../preview/useImageSlot";

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { stripReleasePreamble } from "../api";
 import { ChangelogContent } from "./ChangelogContent";

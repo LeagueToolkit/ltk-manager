@@ -15,6 +15,43 @@ type WadSort = "name" | "size";
  */
 type TabOpenMode = "append" | "replace";
 
+/** Which drawing of an explorer's rows is on screen. */
+type ExplorerView = "tree" | "grid" | "details";
+
+/** The widths a tile draws at, which are the widths a thumbnail is asked for. */
+const EXPLORER_TILE_SIZES = [64, 96, 128, 160, 192, 256] as const;
+type ExplorerTileSize = (typeof EXPLORER_TILE_SIZES)[number];
+
+/**
+ * The heights a details row draws at, which its art is measured against.
+ *
+ * Its own setting rather than the tile size, because the two answer different
+ * questions: how big the art is, and how many rows fit. The tallest still
+ * leaves the art under 64px, so every row asks the asset scheme for that one
+ * width whatever this is.
+ */
+const EXPLORER_ROW_HEIGHTS = [20, 24, 28, 36, 48, 64] as const;
+type ExplorerRowHeight = (typeof EXPLORER_ROW_HEIGHTS)[number];
+
+/**
+ * The fixed columns of the details list, in px, which its dividers drag.
+ *
+ * Mirrored from `explorer/columns.ts` rather than imported, because a store
+ * that reached into a module would close a cycle back onto itself.
+ */
+interface ExplorerColumns {
+  size: number;
+  kind: number;
+}
+
+type ExplorerSortField = "name" | "size" | "kind";
+type ExplorerSortDirection = "asc" | "desc";
+
+interface ExplorerSort {
+  field: ExplorerSortField;
+  direction: ExplorerSortDirection;
+}
+
 interface WorkshopLayoutStore {
   layerPanelSide: LayerPanelSide;
   layerPanelOpen: boolean;
@@ -62,6 +99,26 @@ interface WorkshopLayoutStore {
    * the switch above the list takes them off it.
    */
   forwardLookingMeta: boolean;
+  /**
+   * How every explorer draws, and what its tiles look like.
+   *
+   * A work habit rather than a place, so it belongs to the application and not
+   * to a document: a modder who reads by size reads every explorer by size, and
+   * one on a laptop turns the thumbnails off once. Where an explorer is stands
+   * apart, in the session store beside the expansion it already keeps.
+   */
+  explorerView: ExplorerView;
+  explorerTileSize: ExplorerTileSize;
+  explorerRowHeight: ExplorerRowHeight;
+  explorerThumbnails: boolean;
+  explorerSort: ExplorerSort;
+  explorerColumns: ExplorerColumns;
+  setExplorerView: (explorerView: ExplorerView) => void;
+  setExplorerTileSize: (explorerTileSize: ExplorerTileSize) => void;
+  setExplorerRowHeight: (explorerRowHeight: ExplorerRowHeight) => void;
+  setExplorerThumbnails: (explorerThumbnails: boolean) => void;
+  setExplorerSort: (explorerSort: ExplorerSort) => void;
+  setExplorerColumn: (column: keyof ExplorerColumns, width: number) => void;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
   toggleSection: (id: string, open: boolean) => void;
@@ -101,7 +158,22 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       showLayerStats: true,
       wadSort: "name",
       previewCheckered: true,
+      explorerView: "tree",
+      explorerTileSize: 128,
+      explorerRowHeight: 24,
+      explorerThumbnails: true,
+      explorerSort: { field: "name", direction: "asc" },
+      explorerColumns: { size: 88, kind: 112 },
       ...PROJECT_EDITOR_DEFAULTS,
+      setExplorerView: (explorerView) => set({ explorerView }),
+      setExplorerTileSize: (explorerTileSize) => set({ explorerTileSize }),
+      setExplorerRowHeight: (explorerRowHeight) => set({ explorerRowHeight }),
+      setExplorerThumbnails: (explorerThumbnails) => set({ explorerThumbnails }),
+      setExplorerSort: (explorerSort) => set({ explorerSort }),
+      /* One column rather than the record, so a drag's writer is stable across
+         the re-renders the drag itself causes. */
+      setExplorerColumn: (column, width) =>
+        set((state) => ({ explorerColumns: { ...state.explorerColumns, [column]: width } })),
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       toggleSection: (id, open) =>
@@ -125,8 +197,33 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   ),
 );
 
-export { PROJECT_EDITOR_DEFAULTS };
-export type { LayerPanelSide, ProjectEditorKey, TabOpenMode, WadSort };
+export { EXPLORER_ROW_HEIGHTS, EXPLORER_TILE_SIZES, PROJECT_EDITOR_DEFAULTS };
+export type {
+  ExplorerColumns,
+  ExplorerRowHeight,
+  ExplorerSort,
+  ExplorerSortDirection,
+  ExplorerSortField,
+  ExplorerTileSize,
+  ExplorerView,
+  LayerPanelSide,
+  ProjectEditorKey,
+  TabOpenMode,
+  WadSort,
+};
+export const useExplorerView = () => useWorkshopLayoutStore((s) => s.explorerView);
+export const useSetExplorerView = () => useWorkshopLayoutStore((s) => s.setExplorerView);
+export const useExplorerTileSize = () => useWorkshopLayoutStore((s) => s.explorerTileSize);
+export const useExplorerRowHeight = () => useWorkshopLayoutStore((s) => s.explorerRowHeight);
+export const useSetExplorerRowHeight = () => useWorkshopLayoutStore((s) => s.setExplorerRowHeight);
+export const useSetExplorerTileSize = () => useWorkshopLayoutStore((s) => s.setExplorerTileSize);
+export const useExplorerThumbnails = () => useWorkshopLayoutStore((s) => s.explorerThumbnails);
+export const useSetExplorerThumbnails = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerThumbnails);
+export const useExplorerSort = () => useWorkshopLayoutStore((s) => s.explorerSort);
+export const useSetExplorerSort = () => useWorkshopLayoutStore((s) => s.setExplorerSort);
+export const useExplorerColumns = () => useWorkshopLayoutStore((s) => s.explorerColumns);
+export const useSetExplorerColumn = () => useWorkshopLayoutStore((s) => s.setExplorerColumn);
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);
 export const useSetLayerPanelSide = () => useWorkshopLayoutStore((s) => s.setLayerPanelSide);
 export const useLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.layerPanelOpen);

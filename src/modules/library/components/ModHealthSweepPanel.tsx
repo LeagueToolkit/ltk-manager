@@ -7,7 +7,6 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
 
 import {
@@ -32,6 +31,7 @@ import {
   type RuleBrief,
 } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";
+import { twMerge } from "@/utils";
 
 import {
   type RepairRun,

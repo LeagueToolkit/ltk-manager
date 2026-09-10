@@ -1,8 +1,8 @@
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useResizeObserver } from "@/hooks";
+import { twMerge } from "@/utils";
 
 import { decodeDroppableId, leafDroppableId } from "./dnd";
 import type { Edge } from "./tree";

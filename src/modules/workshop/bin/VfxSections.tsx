@@ -1,11 +1,11 @@
 import { CaretDownIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { createContext, type ReactNode, use, useCallback, useMemo, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Field, Menu, SegmentedControl } from "@/components";
 import { useHorizontalWheel } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { CHECKERBOARD } from "../preview/ImagePreview";
 import { nameHash } from "./binHash";

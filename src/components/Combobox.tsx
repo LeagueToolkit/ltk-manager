@@ -1,7 +1,8 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
 import { Check, ChevronDown, X } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;

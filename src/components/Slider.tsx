@@ -1,5 +1,6 @@
 import { Slider as BaseSlider } from "@base-ui/react/slider";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 /** A mark along the slider. */
 interface Mark {

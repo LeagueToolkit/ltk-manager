@@ -1,6 +1,7 @@
 import { Field as BaseField } from "@base-ui/react/field";
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 // Field Root
 export interface FieldRootProps extends Omit<BaseField.Root.Props, "className"> {

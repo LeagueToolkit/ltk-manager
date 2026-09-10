@@ -1,8 +1,7 @@
-import { twMerge } from "tailwind-merge";
-
 import skinhackMark from "@/assets/game/skinhack.png";
 import type { Incident } from "@/lib/tauri";
 import { scanRejectionCause } from "@/modules/patcher";
+import { twMerge } from "@/utils";
 
 import { isSkinhackRejection, verdictTitle } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";

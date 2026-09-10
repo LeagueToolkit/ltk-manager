@@ -5,11 +5,11 @@ import {
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Checkbox, Readout, SeverityGlyph, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { ObjectGlyph } from "../components/ObjectGlyph";
 import type { OpenIntent } from "../palette/types";

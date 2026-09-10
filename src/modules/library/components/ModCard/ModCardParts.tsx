@@ -15,7 +15,6 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import {
   AutoPill,
@@ -38,6 +37,7 @@ import {
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { SelectionMenuItems } from "../SelectionMenuItems";
 import type { ModCardView } from "./useModCardController";

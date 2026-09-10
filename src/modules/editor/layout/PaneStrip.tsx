@@ -2,9 +2,9 @@ import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dn
 import { CSS } from "@dnd-kit/utilities";
 import { XIcon } from "@phosphor-icons/react";
 import { type CSSProperties, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tabs } from "@/components";
+import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "./dnd";
 import { useForeignCaretIndex } from "./useForeignCaretIndex";

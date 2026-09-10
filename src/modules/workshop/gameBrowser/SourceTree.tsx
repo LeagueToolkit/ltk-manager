@@ -1,22 +1,18 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 
 import { TreeStickyBand } from "../components/TreeStickyBand";
+import { type ExplorerSelectionApi, selectionSubject } from "../explorer";
 import { useStickyTreeRows } from "../hooks";
+import { stirImages } from "../preview/useImageSlot";
 import { keepScrollTop, keptScrollTop } from "../state";
 import { type DirTargets, filesUnder, fileTarget } from "./extractTargets";
-import {
-  flattenSourceTree,
-  type SourceDirNode,
-  type SourceFileNode,
-  type SourceRow,
-  type SourceTreeNode,
-} from "./sourceIndex";
+import type { SourceDirNode, SourceFileNode, SourceRow, SourceTreeNode } from "./sourceIndex";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
 import { SourceTreeRow } from "./SourceTreeRow";
 import { type ExtractHow, useExtractActions } from "./useExtractActions";
@@ -29,7 +25,8 @@ const ROW_HEIGHT = 24;
 const CONTENT_TOP = 4;
 
 interface SourceTreeProps {
-  nodes: readonly SourceTreeNode[];
+  /** The rows to draw, flattened by the caller, which is what an extend runs over. */
+  rows: readonly SourceRow[];
   ariaLabel: string;
   isExpanded: (node: SourceDirNode) => boolean;
   onToggle: (node: SourceDirNode) => void;
@@ -45,20 +42,29 @@ interface SourceTreeProps {
    * opened, so it passes [`indexDir`](./extractTargets) instead.
    */
   dirTargets?: DirTargets;
+  /**
+   * The explorer's selection, shared with whatever else draws these items.
+   *
+   * Absent leaves the tree with a focused row and nothing else, which is what a
+   * transient answer such as a search result wants.
+   */
+  selection?: ExplorerSelectionApi;
+  /** What a run against the selection takes, where one is being held. */
+  selectionTargets?: () => ReturnType<DirTargets>;
 }
 
 /** A read-only virtualized tree over source nodes, from any source index. */
 export function SourceTree({
-  nodes,
+  rows,
   ariaLabel,
   isExpanded,
   onToggle,
   onOpen,
   scrollKey,
   dirTargets = filesUnder,
+  selection,
+  selectionTargets,
 }: SourceTreeProps) {
-  const rows = useMemo(() => flattenSourceTree(nodes, isExpanded), [nodes, isExpanded]);
-
   const scrollRef = useRef<HTMLDivElement>(null);
   const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
 
@@ -110,10 +116,16 @@ export function SourceTree({
 
   const runNode = useCallback(
     (node: SourceTreeNode, how: ExtractHow) => {
+      /* The menu acts on the selection wherever one is held, which is what makes
+         a screen of rows into a layer in one gesture. */
+      if (selectionTargets && selection && selection.summary.files > 0) {
+        run(how, selectionTargets(), selectionSubject(selection));
+        return;
+      }
       if (node.type === "file") run(how, [fileTarget(node)], node.name);
       if (node.type === "dir") run(how, dirTargets(node), node.name);
     },
-    [run, dirTargets],
+    [run, dirTargets, selection, selectionTargets],
   );
 
   const { focusedIndex, setFocusedIndex, handleKeyDown } = useSourceTreeNav({
@@ -122,9 +134,28 @@ export function SourceTree({
     onToggle,
     onOpen,
     onRun: runNode,
+    selection,
     virtualizer,
     scrollElementRef: scrollRef,
   });
+
+  const handleFocusRow = useCallback((index: number) => setFocusedIndex(index), [setFocusedIndex]);
+
+  const handleRowSelect = useCallback(
+    (index: number, event?: ReactMouseEvent<HTMLElement>) => {
+      setFocusedIndex(index);
+      const node = rows[index]?.node;
+      if (!selection || !node) return;
+      const id = idOf(node);
+      if (id === null) return;
+
+      selection.select(id, {
+        toggle: event?.ctrlKey === true || event?.metaKey === true,
+        extend: event?.shiftKey === true,
+      });
+    },
+    [rows, selection, setFocusedIndex],
+  );
 
   /* A pinned row answers a click by going to the row it stands for. Collapsing
      from up there would shut a directory the user cannot see the extent of. */
@@ -143,7 +174,16 @@ export function SourceTree({
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
     const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
     const index = Number(row?.dataset.treeitemIndex);
-    setMenuNode(Number.isInteger(index) ? (rows[index]?.node ?? null) : null);
+    if (!Number.isInteger(index)) {
+      setMenuNode(null);
+      return;
+    }
+
+    const node = rows[index]?.node ?? null;
+    setMenuNode(node);
+
+    const id = node === null ? null : idOf(node);
+    if (selection && id !== null) selection.aimAt(id);
   }
 
   return (
@@ -154,9 +194,11 @@ export function SourceTree({
         className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
         role="tree"
         aria-label={ariaLabel}
+        aria-multiselectable={selection !== undefined}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
+        onScroll={stirImages}
         {...NO_OVERSCROLL}
       >
         {/* The padding rides inside the scrollport rather than on it: a sticky
@@ -177,9 +219,11 @@ export function SourceTree({
                   node={pin.row.node}
                   depth={pin.row.depth}
                   isExpanded
-                  isSelected={pin.index === focusedIndex}
+                  isSelected={drawsSelected(pin.row.node, pin.index, focusedIndex, selection)}
+                  covered={drawsCovered(pin.row.node, selection)}
                   onToggle={() => revealRow(pin.index)}
-                  onSelect={setFocusedIndex}
+                  onSelect={handleRowSelect}
+                  onFocusRow={handleFocusRow}
                   onOpen={onOpen}
                   height={rowHeight}
                   rowIndex={pin.index}
@@ -199,7 +243,7 @@ export function SourceTree({
               const row = rows[virtualRow.index]!;
               const node = row.node;
               const expanded = node.type === "dir" && isExpanded(node);
-              const isSelected = virtualRow.index === focusedIndex;
+              const focused = virtualRow.index === focusedIndex;
               return (
                 <div
                   key={virtualRow.key}
@@ -211,13 +255,15 @@ export function SourceTree({
                     node={node}
                     depth={row.depth}
                     isExpanded={expanded}
-                    isSelected={isSelected}
+                    isSelected={drawsSelected(node, virtualRow.index, focusedIndex, selection)}
+                    covered={drawsCovered(node, selection)}
                     onToggle={onToggle}
-                    onSelect={setFocusedIndex}
+                    onSelect={handleRowSelect}
+                    onFocusRow={handleFocusRow}
                     onOpen={onOpen}
                     height={rowHeight}
                     rowIndex={virtualRow.index}
-                    tabIndex={isSelected ? 0 : -1}
+                    tabIndex={focused ? 0 : -1}
                   />
                 </div>
               );
@@ -229,4 +275,33 @@ export function SourceTree({
       <SourceTreeContextMenu node={menuNode} onOpen={onOpen} onRun={runNode} />
     </ContextMenu.Root>
   );
+}
+
+/** What the selection holds an item by: a directory's path, a file's hash. */
+function idOf(node: SourceTreeNode): string | null {
+  if (node.type === "dir") return node.path;
+  if (node.type === "file") return node.entry.pathHash;
+  return null;
+}
+
+/**
+ * The accent fill reports the selection where there is one, and the focused row
+ * where there is not, which is what a tree drew before a selection existed.
+ */
+function drawsSelected(
+  node: SourceTreeNode,
+  index: number,
+  focusedIndex: number,
+  selection?: ExplorerSelectionApi,
+): boolean {
+  if (!selection) return index === focusedIndex;
+  const id = idOf(node);
+  return id !== null && selection.isSelected(id);
+}
+
+function drawsCovered(node: SourceTreeNode, selection?: ExplorerSelectionApi): boolean {
+  if (!selection) return false;
+  if (node.type === "dir") return selection.isCoveredPath(node.path);
+  if (node.type === "file") return selection.isCoveredPath(node.entry.path);
+  return false;
 }

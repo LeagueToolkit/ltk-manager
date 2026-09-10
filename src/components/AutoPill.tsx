@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 /** What the pill labels. The hue is the category, so the tone is named for it. */
 export type AutoPillTone = "tag" | "champion" | "map";

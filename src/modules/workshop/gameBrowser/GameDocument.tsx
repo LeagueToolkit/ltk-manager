@@ -1,111 +1,194 @@
 import { ArrowsClockwiseIcon, FilesIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useRef } from "react";
-import { twMerge } from "tailwind-merge";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { EmptyState, IconButton, Spinner, Tooltip } from "@/components";
-import { errorSummary } from "@/i18n";
-import type { GameFindHit, GameFindResult } from "@/lib/tauri";
+import { type BreadcrumbItem, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
+import { m } from "@/i18n";
+import type { AssetRef, GameFindResult } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
-import { hasErrorCode } from "@/utils/errors";
+import {
+  useExplorerSort,
+  useExplorerThumbnails,
+  useExplorerTileSize,
+  useExplorerView,
+} from "@/stores";
+import { twMerge } from "@/utils";
 
-import { TreeSearchBox } from "../components/TreeSearchBox";
 import { type ContentDocumentOf, gameWadsDocument } from "../documents/contentDocument";
 import {
+  CrumbSiblings,
+  crumbsOf,
+  ExplorerBar,
+  ExplorerDetails,
+  type ExplorerFileItem,
+  ExplorerGrid,
+  type ExplorerItem,
+  ExplorerSearchBox,
+  filterItems,
+  filterTree,
+  itemsOf,
+  selectedOfItem,
+  selectedOfNode,
+  selectionSubject,
+  selectionTargets,
+  sortItems,
+  sortTree,
+  useExplorerKeys,
+  useExplorerNav,
+  useExplorerSelectionApi,
+} from "../explorer";
+import {
   useExpandedGameDirs,
+  useExplorerFilter,
+  useExplorerScope,
   useGameSearchPattern,
   useGameSearchRegex,
   useOpenDocument,
+  useSetExplorerFilter,
+  useSetExplorerScope,
   useSetGameSearchPattern,
   useSetGameSearchRegex,
-  useShutFindDirs,
-  useToggleFindDir,
   useToggleGameDir,
 } from "../state";
-import { indexDir } from "./extractTargets";
+import { indexDirTarget } from "./extractTargets";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
+import { GameFindResults } from "./GameFindResults";
 import {
   buildIndexTree,
-  buildSourceTree,
+  flattenSourceTree,
   holdsOnlyUnknown,
   type SourceDirNode,
-  type SourceEntry,
+  type SourceFileNode,
+  type SourceTreeNode,
+  UNKNOWN_DIR,
 } from "./sourceIndex";
 import { SourceTree } from "./SourceTree";
+import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
+import { type ExtractHow, useExtractActions } from "./useExtractActions";
 import { useGameFind } from "./useGameFind";
 import { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
 import { useGameSearchRevealTarget } from "./useGameSearchReveal";
 import { useSourcePreview } from "./useSourcePreview";
 
-/**
- * The root game browser: every archive of the installed game, folded into one tree.
- *
- * The toolbar's box is the full search over the same tree. Empty, the document
- * browses lazily, one directory read as it opens. Typed into, the body swaps to
- * the tree the pattern leaves - every hit under its real directories - and back
- * without losing where the browse had gotten to.
- */
-export function GameDocument({ active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
-  const pattern = useGameSearchPattern();
-  const bodyRef = useRef<HTMLDivElement>(null);
+/** What the whole install's explorer keeps its location and selection under. */
+const EXPLORER_ID = "game";
 
-  const searching = pattern.length > 0;
+/**
+ * The root game browser: every archive of the installed game, folded into one
+ * explorer.
+ *
+ * A tree reads the shape of the install and a grid reads the art in it, and
+ * both draw the same location and the same selection. The bar's box reads the
+ * open directory or the whole install, which its scope control says.
+ */
+export function GameDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
+  const nav = useExplorerNav(EXPLORER_ID, document.id);
+  const [typing, setTyping] = useState(false);
+  const boxRef = useRef<HTMLInputElement>(null);
+
+  const handleKeyDown = useExplorerKeys({
+    onUp: nav.goUp,
+    onType: () => setTyping(true),
+    boxRef,
+  });
 
   return (
     <div
       data-ui="GameDocument"
-      ref={bodyRef}
       className="flex min-h-0 flex-1 flex-col bg-surface-950"
+      onKeyDown={handleKeyDown}
     >
-      {/* A row of its own rather than the strip's popover, because a route to
-          the archives and a way to rebuild the index are worth a glance. */}
       <DocumentToolbar active={active}>
-        <SearchField onCommit={() => focusRows(bodyRef.current)} />
-        <GameStats />
-        <ArchivesAction />
-        <RebuildAction />
+        <GameExplorerBar nav={nav} typing={typing} onTypingChange={setTyping} boxRef={boxRef} />
       </DocumentToolbar>
-
-      {/* Hidden rather than unmounted, so the browse tree's expanded
-          directories survive a search and back. */}
-      <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
-        <GameIndexTree />
-      </div>
-      {searching && <FindResults />}
+      <GameBody location={nav.location} onNavigate={nav.goTo} onUp={nav.goUp} />
     </div>
   );
 }
 
-/* The browse tree stays mounted under `hidden` while a search shows, so the
-   visible tree is the one whose rows can take focus. */
-function focusRows(body: HTMLElement | null) {
-  if (!body) return;
+interface GameExplorerBarProps {
+  nav: ReturnType<typeof useExplorerNav>;
+  typing: boolean;
+  onTypingChange: (typing: boolean) => void;
+  boxRef: React.RefObject<HTMLInputElement | null>;
+}
 
-  const rows = body.querySelectorAll<HTMLElement>('[data-treeitem-index="0"]');
-  const first = [...rows].find((row) => row.offsetParent !== null);
-  if (first) {
-    first.focus();
-    return;
-  }
+function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBarProps) {
+  const view = useExplorerView();
+  const filter = useExplorerFilter(EXPLORER_ID);
+  const setFilter = useSetExplorerFilter();
+  const selection = useExplorerSelectionApi(EXPLORER_ID, NO_ORDER);
 
-  /* The first row virtualizes away once the tree is scrolled. The tree itself
-     still takes focus, and the keys continue from the row it last held. */
-  const trees = body.querySelectorAll<HTMLElement>('[role="tree"]');
-  [...trees].find((tree) => tree.offsetParent !== null)?.focus();
+  const renderSiblings = useCallback(
+    (crumb: BreadcrumbItem) => (
+      <CrumbSiblings path={crumb.id} onNavigate={nav.goTo} useChildDirs={useIndexChildDirs} />
+    ),
+    [nav.goTo],
+  );
+
+  return (
+    <ExplorerBar
+      crumbs={crumbsOf(m.workshop_game_source_label(), nav.location)}
+      onNavigate={nav.goTo}
+      onUp={nav.goUp}
+      atRoot={nav.atRoot}
+      renderSiblings={renderSiblings}
+      useCompletions={useIndexCompletions}
+      typing={typing}
+      onTypingChange={onTypingChange}
+      location={nav.location}
+      view={view}
+      filter={filter}
+      onFilterChange={(next) => setFilter(EXPLORER_ID, next)}
+      box={<SearchField boxRef={boxRef} />}
+      selection={selection.summary}
+      onClearSelection={selection.clear}
+      actions={
+        <>
+          <GameStats />
+          <ArchivesAction />
+          <RebuildAction />
+        </>
+      }
+    />
+  );
+}
+
+/* The bar reads the selection's totals and never its order, so it asks for none.
+   The views hold the order, because it is what they draw. */
+const NO_ORDER: never[] = [];
+
+interface GameBodyProps {
+  location: string;
+  onNavigate: (path: string) => void;
+  onUp: () => void;
+}
+
+function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
+  const view = useExplorerView();
+  const scope = useExplorerScope(EXPLORER_ID);
+  const pattern = useGameSearchPattern();
+
+  if (scope === "whole" && pattern.length > 0) return <GameFindResults />;
+  if (view !== "tree")
+    return <GameIndexItems view={view} location={location} onDescend={onNavigate} onUp={onUp} />;
+  return <GameIndexTree />;
 }
 
 function GameStats() {
   const { data } = useGameIndex();
-  /* The search's own count stands in the same row and answers the same
-     question of what is in front of the reader, so the two never both show. */
-  const searching = useGameSearchPattern().length > 0;
-  if (!data || searching) return null;
-
-  const files = data.files === 1 ? "file" : "files";
-  const archives = data.archives === 1 ? "archive" : "archives";
+  if (!data) return null;
 
   return (
-    <span className="text-xs text-surface-400 select-none">
-      {data.files.toLocaleString()} {files} · {data.archives} {archives}
+    <span className="shrink-0 text-xs text-surface-400 select-none">
+      {m.workshop_game_files_label({
+        count: data.files,
+        formatted: data.files.toLocaleString(),
+      })}
+      {" · "}
+      {m.workshop_game_archives_label({
+        count: data.archives,
+        formatted: data.archives.toLocaleString(),
+      })}
     </span>
   );
 }
@@ -116,14 +199,14 @@ function ArchivesAction() {
   const openDocument = useOpenDocument();
 
   return (
-    <Tooltip content="Game WADs">
+    <Tooltip content={m.workshop_game_wads_label()}>
       <IconButton
         icon={<FilesIcon className="h-4 w-4" />}
         variant="ghost"
         size="xs"
         compact
         onClick={() => openDocument(gameWadsDocument())}
-        aria-label="List the game WADs"
+        aria-label={m.workshop_game_wads_action()}
       />
     </Tooltip>
   );
@@ -135,7 +218,7 @@ function RebuildAction() {
   const rebuild = useRefreshGameIndex();
 
   return (
-    <Tooltip content="Rebuild index">
+    <Tooltip content={m.workshop_game_rebuild_label()}>
       <IconButton
         icon={
           <ArrowsClockwiseIcon
@@ -147,146 +230,99 @@ function RebuildAction() {
         compact
         onClick={() => rebuild.mutate()}
         disabled={rebuild.isPending}
-        aria-label="Rebuild the game index"
+        aria-label={m.workshop_game_rebuild_action()}
       />
     </Tooltip>
   );
 }
 
-interface SearchFieldProps {
-  /** `Enter` or `ArrowDown`, which hand the keyboard to the rows below. */
-  onCommit: () => void;
+/** The child directories of one path, for a crumb's caret. */
+function useIndexChildDirs(path: string) {
+  const { data } = useGameDir(path);
+  return data?.dirs ?? null;
 }
 
-function SearchField({ onCommit }: SearchFieldProps) {
+/** The directories under one path, for the typed path's completion. */
+function useIndexCompletions(directory: string): readonly string[] {
+  const { data } = useGameDir(directory);
+  return useMemo(() => data?.dirs.map((dir) => dir.path) ?? [], [data]);
+}
+
+interface SearchFieldProps {
+  boxRef: React.RefObject<HTMLInputElement | null>;
+}
+
+/**
+ * The one box, reading whatever the scope says.
+ *
+ * Whole game runs the index's own find, which ranks across every archive. This
+ * folder narrows the rows already on screen, which costs no read at all.
+ */
+function SearchField({ boxRef }: SearchFieldProps) {
+  const scope = useExplorerScope(EXPLORER_ID);
+  const setScope = useSetExplorerScope();
+  const filter = useExplorerFilter(EXPLORER_ID);
+  const setFilter = useSetExplorerFilter();
   const pattern = useGameSearchPattern();
   const regex = useGameSearchRegex();
   const onPatternChange = useSetGameSearchPattern();
   const onRegexChange = useSetGameSearchRegex();
 
   const { data, error, isFetching } = useGameFind(pattern, regex);
-  const counted = pattern.length > 0 && data && data.total > 0 && !error;
+  const counted = scope === "whole" && pattern.length > 0 && data && data.total > 0 && !error;
 
-  const inputRef = useRef<HTMLInputElement>(null);
-  useGameSearchRevealTarget(inputRef);
+  useGameSearchRevealTarget(boxRef);
+
+  const value = scope === "whole" ? pattern : filter.text;
+  const onChange = (next: string) => {
+    if (scope === "whole") onPatternChange(next);
+    else setFilter(EXPLORER_ID, { ...filter, text: next });
+  };
 
   return (
-    <TreeSearchBox
-      value={pattern}
-      onChange={onPatternChange}
-      regex={regex}
-      onRegexChange={onRegexChange}
-      label="Search the game files"
-      regexLabel="Search the game files by regex"
-      regexToggleLabel="Use regular expression"
-      clearLabel="Clear the search"
-      onCommit={onCommit}
-      inputRef={inputRef}
+    <ExplorerSearchBox
+      value={value}
+      onChange={onChange}
+      scope={scope}
+      onScopeChange={(next) => setScope(EXPLORER_ID, next)}
+      wholeLabel={m.workshop_explorer_scope_game_label()}
+      /* The index is what a regex is worth writing against. A filter over the
+         rows on screen matches a substring and nothing more. */
+      regex={scope === "whole" ? { on: regex, onChange: onRegexChange } : undefined}
+      inputRef={boxRef}
     >
       {counted && (
         <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
-          {countText(data)}
+          <MatchCount result={data} />
         </span>
       )}
-      {isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
-    </TreeSearchBox>
+      {scope === "whole" && isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
+    </ExplorerSearchBox>
   );
 }
 
-function countText(result: GameFindResult): string {
-  const total = result.total.toLocaleString();
-  const label = result.total === 1 ? "match" : "matches";
+/** What the find turned up, and how much of it the answer carries. */
+function MatchCount({ result }: { result: GameFindResult }) {
+  const formatted = result.total.toLocaleString();
+
   if (result.hits.length < result.total) {
-    return `first ${result.hits.length.toLocaleString()} of ${total} ${label}`;
+    return m.workshop_game_matches_partial_label({
+      count: result.total,
+      formatted,
+      shown: result.hits.length.toLocaleString(),
+    });
   }
-  return `${total} ${label}`;
+
+  return m.workshop_game_matches_label({ count: result.total, formatted });
 }
-
-/**
- * The tree the pattern leaves: every matching file under its real directories.
- *
- * The hits arrive flat and in tree order, and `buildSourceTree` folds them
- * back into directories, so the filtered view reads exactly like the browse
- * tree it stands in for - same rows, same context menu, same keys. Everything
- * starts expanded, because the hits are what the pattern was typed to see.
- */
-function FindResults() {
-  const pattern = useGameSearchPattern();
-  const regex = useGameSearchRegex();
-  const { data, error, isFetching } = useGameFind(pattern, regex);
-  const openFile = useSourcePreview();
-
-  /* The parse error belongs under the box, because the fix is the next
-     keystroke. Every other failure replaces the tree, because the fix is not. */
-  const patternError = error && hasErrorCode(error, "VALIDATION_FAILED") ? error : null;
-
-  const shut = useShutFindDirs();
-  const toggleFindDir = useToggleFindDir();
-  const tree = useMemo(() => buildSourceTree((data?.hits ?? []).map(toSourceEntry)), [data]);
-  const isExpanded = useCallback((node: SourceDirNode) => !shut.has(node.id), [shut]);
-  const handleToggle = useCallback(
-    (node: SourceDirNode) => toggleFindDir(node.id),
-    [toggleFindDir],
-  );
-
-  if (error && !patternError) return <GameWadsErrorState error={error} />;
-  if (!data && !patternError) return <GameLoadingState />;
-
-  return (
-    <>
-      {patternError && (
-        <p className="shrink-0 border-b border-surface-700/50 px-3 pb-1.5 font-mono text-xs whitespace-pre-wrap text-danger-text">
-          {errorSummary(patternError)}
-        </p>
-      )}
-      {data && data.unnamed && <UnknownHashHint />}
-      {data && data.hits.length === 0 && (
-        <EmptyState
-          size="sm"
-          title="No match"
-          description="Nothing in the install matches that pattern."
-        />
-      )}
-      {data && data.hits.length > 0 && (
-        <div
-          className={twMerge(
-            "flex min-h-0 flex-1 flex-col transition-opacity",
-            /* Still the answer to the last pattern, dimmed rather than blanked. */
-            isFetching && "opacity-50",
-          )}
-        >
-          <SourceTree
-            nodes={tree}
-            ariaLabel="Search results"
-            isExpanded={isExpanded}
-            onToggle={handleToggle}
-            onOpen={openFile}
-            /* Per pattern, so a fresh search opens at its first hit rather than
-               where the last one was read to. */
-            scrollKey={`game-find:${regex ? "re" : "text"}:${pattern}`}
-          />
-        </div>
-      )}
-    </>
-  );
-}
-
-function toSourceEntry(hit: GameFindHit): SourceEntry {
-  return {
-    pathHash: hit.pathHash,
-    path: hit.path,
-    sizeBytes: Number(hit.sizeBytes),
-    wad: hit.wad,
-    nameRanges: hit.nameRanges,
-  };
-}
-
 function GameIndexTree() {
+  const filter = useExplorerFilter(EXPLORER_ID);
   /* Opt-in, where the scoped browser opts out: a whole-game tree is too large
      to hold at once, so a directory is read when it is first opened. */
   const expanded = useExpandedGameDirs();
   const toggleDir = useToggleGameDir();
   const openFile = useSourcePreview();
+  const sort = useExplorerSort();
 
   const root = useGameDir("");
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
@@ -296,18 +332,36 @@ function GameIndexTree() {
     if (!root.data) return [];
     const all = new Map(listings);
     all.set("", root.data);
-    return buildIndexTree(all, (path) => expanded.has(path));
-  }, [root.data, listings, expanded]);
+    const built = buildIndexTree(all, (path) => expanded.has(path));
+    /* What is read, and no more. A directory nobody opened holds no rows here,
+       so this narrows the tree on screen rather than answering for the install
+       - which is what the whole-game scope is for. */
+    return sortTree(filterTree(built, filter.text), sort);
+  }, [root.data, listings, expanded, filter.text, sort]);
 
   const isExpanded = useCallback((node: SourceDirNode) => expanded.has(node.id), [expanded]);
+  const rows = useMemo(() => flattenSourceTree(tree, isExpanded), [tree, isExpanded]);
+  const order = useMemo(
+    () => rows.map((row) => selectedOfNode(row.node)).filter(isPresent),
+    [rows],
+  );
+  const selection = useExplorerSelectionApi(EXPLORER_ID, order);
 
   const handleToggle = useCallback((node: SourceDirNode) => toggleDir(node.id), [toggleDir]);
+  const targets = useCallback(
+    () => selectionTargets(selection.selection, indexDirTargets),
+    [selection.selection],
+  );
 
   if (root.isPending) return <GameLoadingState />;
   if (root.isError) return <GameWadsErrorState error={root.error} />;
   if (root.data.dirs.length === 0 && root.data.files.length === 0) {
     return (
-      <EmptyState size="sm" title="No files" description="The installed game holds no archives." />
+      <EmptyState
+        size="sm"
+        title={m.workshop_game_empty_title()}
+        description={m.workshop_game_empty_description()}
+      />
     );
   }
 
@@ -315,16 +369,132 @@ function GameIndexTree() {
     <>
       {holdsOnlyUnknown(root.data) && <UnknownHashHint />}
       <SourceTree
-        nodes={tree}
-        ariaLabel="Game files"
+        rows={rows}
+        ariaLabel={m.workshop_game_files_tree_label()}
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onOpen={openFile}
         /* A shut row here holds no children yet, so the backend expands it
            through the index rather than the tree walking what it has. */
-        dirTargets={indexDir}
+        dirTargets={(node) => [indexDirTarget(node.path)]}
+        selection={selection}
+        selectionTargets={targets}
         scrollKey="game-index"
       />
     </>
   );
+}
+
+interface GameIndexItemsProps {
+  /** Which of the two item views draws, both of which read one directory. */
+  view: "grid" | "details";
+  location: string;
+  onDescend: (path: string) => void;
+  onUp: () => void;
+}
+
+/* The grid and the details list differ in how a row draws and in nothing that
+   reaches the source, so one component reads the directory for both. */
+function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps) {
+  const here = useGameDir(location);
+  const openFile = useSourcePreview();
+  const filter = useExplorerFilter(EXPLORER_ID);
+  const sort = useExplorerSort();
+  const tileSize = useExplorerTileSize();
+  const thumbnails = useExplorerThumbnails();
+
+  const items = useMemo(() => {
+    if (!here.data) return [];
+    return sortItems(filterItems(itemsOf(here.data), filter), sort);
+  }, [here.data, filter, sort]);
+
+  const order = useMemo(() => items.map(selectedOfItem), [items]);
+  const selection = useExplorerSelectionApi(EXPLORER_ID, order);
+
+  const handleOpen = useCallback(
+    (item: ExplorerFileItem) => openFile(fileNodeOf(item)),
+    [openFile],
+  );
+
+  const { run } = useExtractActions();
+  const runSelection = useCallback(
+    (how: ExtractHow) =>
+      run(how, selectionTargets(selection.selection, indexDirTargets), selectionSubject(selection)),
+    [run, selection],
+  );
+
+  const renderMenu = useCallback(
+    (item: ExplorerItem | null) => (
+      <SourceTreeContextMenu
+        node={menuNodeOf(item)}
+        onOpen={openFile}
+        onRun={(_node, how) => runSelection(how)}
+      />
+    ),
+    [openFile, runSelection],
+  );
+
+  if (here.isPending) return <GameLoadingState />;
+  if (here.isError) return <GameWadsErrorState error={here.error} />;
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        size="sm"
+        title={m.workshop_explorer_empty_title()}
+        description={m.workshop_explorer_empty_description()}
+      />
+    );
+  }
+
+  const shared = {
+    items,
+    thumbnails,
+    selection,
+    ariaLabel: m.workshop_game_files_tree_label(),
+    onDescend,
+    onOpen: handleOpen,
+    onUp,
+    assetOf: gameAsset,
+    renderMenu,
+    onRun: runSelection,
+  };
+
+  if (view === "details") return <ExplorerDetails {...shared} />;
+  return <ExplorerGrid {...shared} size={tileSize} showFacts={tileSize >= 128} />;
+}
+
+/** A game chunk names the archive it came from, which is the route back to its bytes. */
+function gameAsset(item: ExplorerItem): AssetRef | null {
+  if (item.kind === "dir") return null;
+  return { kind: "gameChunk", wad: item.entry.wad, pathHash: item.entry.pathHash };
+}
+
+function fileNodeOf(item: ExplorerFileItem): SourceFileNode {
+  return { type: "file", id: item.id, name: item.name, entry: item.entry };
+}
+
+/**
+ * The tile the menu opened on, as the node that menu reads.
+ *
+ * A directory tile carries no children here, and the menu never walks any: it
+ * offers the ways out, and those act on the selection the right click aimed.
+ */
+function menuNodeOf(item: ExplorerItem | null): SourceTreeNode | null {
+  if (item === null) return null;
+  if (item.kind === "file") return fileNodeOf(item);
+  return {
+    type: "dir",
+    id: item.id,
+    path: item.id,
+    name: item.name,
+    unknown: item.id === UNKNOWN_DIR,
+    fileCount: item.fileCount,
+    children: [],
+  };
+}
+
+const indexDirTargets = (path: string) => [indexDirTarget(path)];
+
+function isPresent<T>(value: T | null): value is T {
+  return value !== null;
 }

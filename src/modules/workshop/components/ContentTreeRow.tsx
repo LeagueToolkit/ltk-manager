@@ -1,8 +1,8 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import type { ContentTreeNode, DirNode, FileNode } from "../utils/contentTree";

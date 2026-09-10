@@ -1,8 +1,8 @@
 import { Lock } from "lucide-react";
-import { twMerge } from "tailwind-merge";
 
 import { Checkbox, Tooltip } from "@/components";
 import type { ModLayer } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 interface LayerToggleListProps {
   layers: ModLayer[];

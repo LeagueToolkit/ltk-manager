@@ -1,8 +1,8 @@
 import { ChevronRight, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { AlertBox, Dialog, ExternalLink, Field, Spinner } from "@/components";
+import { twMerge } from "@/utils";
 
 import { type LicenseText, type ThirdPartyCrate, useThirdPartyLicenses } from "../api";
 

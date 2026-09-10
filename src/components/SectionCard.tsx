@@ -1,5 +1,6 @@
 import { type ReactElement, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 interface SectionCardProps {
   title: string;

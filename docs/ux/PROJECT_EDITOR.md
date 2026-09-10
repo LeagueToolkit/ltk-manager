@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close     |
-| 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere          |
-| 2026-09-05 | Browse the install's objects as a tree, and open one as a tab          |
-| 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects |
-| 2026-09-05 | Settle the rows, the `class:` filter, the sniff and the lifecycle      |
-| 2026-09-05 | Decide the object build, its row, its trigger, and the order of halves |
-| 2026-09-05 | Record the lazy read as landed, and unblock the object index           |
-| 2026-08-24 | Hand the shell-wide pieces to [Workshop](WORKSHOP.md)                  |
-| 2026-08-22 | Give the problems list a model, and the bin retype rule that fills it  |
-| 2026-08-22 | Delete a layer file or folder from its own tree row                    |
+| Date       | Change                                                                  |
+| ---------- | ----------------------------------------------------------------------- |
+| 2026-09-10 | Give the location and the box the explorer bar's first row              |
+| 2026-09-10 | Set a details row's height, and grab a column boundary that holds       |
+| 2026-09-10 | Read a game explorer as a details list, over one surface with the grid  |
+| 2026-09-10 | Walk an explorer's directories with the navigation arrows               |
+| 2026-09-10 | Step a tile's name with its size, and gather the bar behind one control |
+| 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close      |
+| 2026-09-09 | Draw a game explorer as tiles, over one location and one selection      |
+| 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere           |
+| 2026-09-05 | Browse the install's objects as a tree, and open one as a tab           |
+| 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -61,14 +61,15 @@ This table holds every major feature of the editor. A status word has one meanin
 | Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
 | Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                       |
 | Directory size and bar | Planned     | Needs a size total for each directory                              |
-| File type filter       | Planned     | One of the three explorer filters. Uses the reported kind          |
-| Explorer bar           | Proposed    | The location, the breadcrumb and the view controls, one row        |
-| Breadcrumb navigator   | Proposed    | Crumbs with sibling menus, and `Ctrl+L` for a typed path           |
-| Grid view              | Proposed    | One directory as tiles, in any of the three explorers              |
-| Asset thumbnails       | Proposed    | `?w=` and the queue serve the bin swatch. The tiles are unbuilt    |
-| Details list           | Proposed    | The third view. Name, size, kind, and modified where it is         |
-| Explorer sorting       | Proposed    | Name, size and kind, and the directories first                     |
-| Multi-select and copy  | Proposed    | One model under every view. A directory is its files               |
+| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains       |
+| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains        |
+| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width  |
+| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains       |
+| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode             |
+| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains    |
+| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains     |
+| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views         |
+| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains       |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
 | Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
 | Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
@@ -78,7 +79,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Mesh preview           | Planned     | A model in a small viewport                                        |
 | Modified time          | Planned     | Needs a time field in the content scan                             |
 | Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
-| Game browser           | In progress | One folded read-only tree. Search remains                          |
+| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar             |
 | Game index             | In progress | Folded, in memory and searchable. The mmap cache remains           |
 | Scoped game browser    | Available   | One tab for each archive, from either list of archives             |
 | Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings          |
@@ -101,7 +102,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Project object index   | Available   | The layers' own bins, read with the content scan, matched in place |
 | Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed |
 | Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
-| Navigation history     | Available   | The `←` `→` arrows, one stack for the whole workshop shell         |
+| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories    |
 | Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
 | Merged layer view      | Proposed    | Names the layer that wins for each path                            |
 | Layer diff             | Proposed    | Compares one path across two layers                                |
@@ -1290,6 +1291,11 @@ selection under every view.
 Everything below is a view over rows that a source already returns. The thumbnail is the one
 addition that reaches the backend, and it is a parameter on a URL that exists.
 
+**The two game explorers hold these controls today.** The layer file tree keeps the tree it
+has, because it lives in a side panel and the panel's own width is the question that decides
+what a bar there can carry. Nothing in the model is theirs: a source answers a listing, a
+location names a directory of it, and a third source joins by answering the same two.
+
 ### The location
 
 A tree has no current directory. A grid needs one, because a grid draws one directory rather
@@ -1310,34 +1316,55 @@ what the grid lists. A switch from the tree to the grid opens the grid where the
 switch back expands to that directory and reveals it. This is what makes the two views one
 explorer rather than two.
 
+The tree half of that is open. A tree row taking the focus does not move the location today, so a
+switch to the grid opens where the grid was last rather than where the tree is, and a switch back
+expands nothing. The location, the filter and the selection already cross the switch, so this is
+the one thread that does not.
+
 ### The explorer bar
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ ↑ │ base / assets / characters / smolder ⌄ │ ⌕ filter │ ⇅ Name │ ⊞ │ ⋮      │
+│ ↑ │ Game / assets / characters / smolder ⌄   │ ┃This folder ⌄│⌕   │.*┃       │
+│   4 files · 1.2 MB ✕ │ 795,415 files · 392 archives ⧉ ⟳ │ ☰ ⊞ ▤ │ ⚙          │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                  the rows                                    │
 ```
 
-| Control    | Does                                                      |
-| ---------- | --------------------------------------------------------- |
-| `↑`        | Goes to the parent directory                              |
-| Breadcrumb | Names the location, and navigates to any part of it       |
-| Filter box | Narrows the rows. `Ctrl+F` and `/` focus it               |
-| Sort       | The field, and the direction                              |
-| View       | Tree, grid or details                                     |
-| Overflow   | The tile size, the thumbnail switch, and what a row shows |
+| Control    | Does                                                        |
+| ---------- | ----------------------------------------------------------- |
+| `↑`        | Goes to the parent directory                                |
+| Breadcrumb | Names the location, and navigates to any part of it         |
+| Box        | Narrows the rows, or searches. `Ctrl+F` and `/` focus it    |
+| Scope      | Inside the box: this folder, or the whole source            |
+| Selection  | Its file count, its size, and a clear                       |
+| View       | Tree, grid or details                                       |
+| Options    | The sort, the kind filter, the item size and the thumbnails |
 
-[Document chrome](#document-chrome) says that a leaf draws one row and not two, and this bar is
-a second row. That rule was written against a bar that repeats the title its tab already
-carries. This one carries the location, which no tab can hold and which changes at every move.
-The explorers are the only documents that draw it, and the controls they keep in the tab row
-today - the refresh, the Add WAD menu, the rebuild and the file counts - move into it, so a leaf
-still pays for one row of chrome. Visual Studio Code draws the same bar under its tabs for the
-same reason.
+**The location leads, and what the source holds follows underneath.**
+[Document chrome](#document-chrome) gives a document a row across the top of its surface, and an
+explorer draws two of them in it. The first is the location and the box, which read as one line:
+where I am, and what I am looking for inside it. The second is what the source contributes - the
+file counts, the archives list, the rebuild, the ways out of an archive - and how the rows draw.
+
+**Neither line has width it can give up.** A crumb trail folds away the moment it shares a row
+with a count, a segmented control and a 288px box, and a folded trail is the one control here
+that stops answering the question it exists for. The location is read on every move where the
+rest is set once, so the location is what gets the first row rather than the leftovers of one.
+
+- The scope sits **inside the box's own shell** rather than beside it, because the two are one
+  question: a reader asking where this searches is looking at the box when they ask it
+- The sort, the kind filter, the unnamed switch, the item size and the thumbnail switch are
+  **one popover**. The item size is the tile's width in the grid and the row's height in the
+  details list, and each view shows its own. What stays outside is the view toggle alone, because
+  it changes what the reader is looking at where the rest only tune it
+- The trigger tints while a filter is narrowing the rows, which is what says so now that no chip
+  does. **There are no filter chips.** A row of them cost the location more width than the
+  reading was worth, and the popover lists the same filters with a clear beside them
 
 A side panel is narrower than a surface. There the bar keeps the up control, the last two crumbs
-and the filter box, and folds the rest into the overflow.
+and the box, and folds the rest into the options. That variant arrives with the layer explorer,
+which is the first panel to draw one.
 
 ### The breadcrumb
 
@@ -1345,17 +1372,21 @@ and the filter box, and folds the rest into the overflow.
 - Each later crumb is one path segment. A folded chain of single-child directories draws one
   crumb for each of its segments, because a crumb is a place a user lands on and the fold would
   hide those places
-- A chevron after a crumb lists the sibling directories of the next one, so a move from
-  `skins/base` to `skins/skin01` costs one click and does not go up first
-- The leading crumbs collapse into one `…` crumb with a menu as soon as the row runs out of
-  width. The bar never wraps to a second line
-- The last crumb reads as the location, and carries the count of what it holds
-- A crumb's context menu holds **Copy path**, **Open in a new tab**, and **Copy into the layer**
-  in a game explorer
+- The caret after a crumb is the separator, and it lists the directories that crumb holds, so a
+  move from `skins/base` to `skins/skin01` costs one click and does not go up first. A source
+  is asked for that listing when the caret opens, and never for the whole trail at once
+- The leading crumbs collapse into one `…` crumb with a menu past four of them. The bar never
+  wraps to a second line
+- The last crumb reads as the location
 
-`@/components` holds no breadcrumb yet. [The project bar](#the-project-bar) wants the same shape
-for its `Workshop /` crumb, so one component serves both and neither module writes the markup
-itself.
+`Breadcrumb` in `@/components` is the component. [The project bar](#the-project-bar) wants the
+same shape for its `Workshop /` crumb, so one component serves both and neither module writes
+the markup itself.
+
+Two of these are still open. The collapse counts crumbs where the rule above measures width,
+which is the cheaper reading of the same intent and is wrong on a trail of four long names. A
+crumb carries no context menu, so **Copy path** and **Copy into the layer** are reached from a
+row rather than from a crumb, and the last crumb carries no count of what it holds.
 
 #### The path input
 
@@ -1371,6 +1402,9 @@ before it, which the index answers in 30 microseconds.
 A path that names nothing reports so in place of the rows. The view does not empty itself,
 because an empty view reads as an empty directory and a typo is not one.
 
+The report is still open. A path the source does not hold navigates and draws an empty
+directory today, which is exactly the reading the rule above rejects.
+
 ### The views
 
 | Mode    | Draws                              | Suits                                  |
@@ -1382,6 +1416,15 @@ because an empty view reads as an empty directory and a typo is not one.
 Tree is the default, and it is the mode a side panel opens in. The mode is remembered for the
 editor surface and for the side panel apart, because a 280px panel and a 900px surface do not
 want the same view.
+
+All three are built, and `Ctrl+1`, `Ctrl+2` and `Ctrl+3` reach them. The mode is one setting
+across every explorer rather than one per host: the panel is a layer explorer question and
+arrives with it.
+
+The grid and the details list read one directory and differ in how a row draws, so one
+component reads the source for both and the scroll, the virtualizer, the keys, the hit testing
+and the context menu are one implementation under either. A second implementation of those is
+a second keyboard model that drifts from the first.
 
 #### The grid
 
@@ -1403,16 +1446,36 @@ want the same view.
   does
 - The kind sits as a badge on a tile that carries a thumbnail, so a `.tex` and a `.dds` of the
   same art still read apart
-- A name wraps to two lines and then ellipsizes in the middle. A game file differs from its
-  neighbour at the end of the name
+- A name wraps to three lines and is then cut in the middle, which is the run Windows gives one.
+  Both halves are kept because a game file differs from its neighbour at the end of the name as
+  often as at the start
 - The size reads under the name, and drops out at the two smallest tile sizes
 - A texture with alpha draws on the checkerboard the preview already offers, under the
   `previewCheckered` setting that governs the preview
 - The grid virtualizes one row of tiles at a time
 
-The tile size is a slider in the overflow, on the ruler variant that the library's card size
-uses, over 64, 96, 128, 160, 192 and 256 pixels. `Ctrl` and the wheel steps it, the way a file
-manager does, and `Ctrl+=` and `Ctrl+-` do the same from the keyboard.
+**The name steps up the type scale with the tile.** A tile spans 64px to 256px and no one tier
+reads well across that: the tier that suits the smallest is lost on the largest.
+
+| Tile     | Name tier   |
+| -------- | ----------- |
+| 64, 96   | `text-fine` |
+| 128, 160 | `text-meta` |
+| 192, 256 | `text-row`  |
+
+`text-fine` is a third dense tier, minted under `text-meta` for this. The size line reads at the
+name's own tier at the plain weight, so the two hold their proportion at every tile size and the
+hierarchy between them comes from weight rather than from size.
+
+A row's height is computed from that choice rather than measured, so every part of a tile that is
+not the art is a number the grid knows: its padding, its gaps, the tier's leading and the lines
+reserved. A line the tile draws and the grid does not count is a row of tiles drawn over the row
+below it, which is a bug this shape is chosen to make impossible.
+
+The tile size is a slider in the options, on the ruler variant that the library's card size uses,
+over 64, 96, 128, 160, 192 and 256 pixels. The six are not evenly spaced, so a thumb between two
+of them takes the nearer: `w` stays one of six widths whatever the slider lands on. `Ctrl` and
+the wheel, `Ctrl+=` and `Ctrl+-` are not built.
 
 #### Thumbnails
 
@@ -1462,8 +1525,21 @@ it, and it costs a chunk table for each archive it adds.
 
 #### The details list
 
+```
+| Name                                    Size      Kind    |
+|-----------------------------------------------------------|
+| [D] Characters                      12 files   Folder     |
+| [#] smolder_base_tx.dds               1.2 MB   DDS Texture|
+| [#] smolder_emissive.tex               512 KB  Riot Texture|
+| [#] smolder_recall.anm                 2.1 MB  Animation  |
+```
+
 Name, size and kind as columns, and modified where the source reports one. A game chunk carries
 no time at all, so that column is absent in the two game explorers rather than empty in them.
+
+**A directory reads what it holds in the size column,** the count the grid tile draws under its
+folder, because no source totals the bytes below one and a blank cell in a size column reads as
+a size of zero. Its kind column reads `Folder`.
 
 The constraints are the ones that
 [Why the file tree is not a table](#why-the-file-tree-is-not-a-table) already sets: one
@@ -1473,6 +1549,55 @@ sorts, and a second click on it flips the direction.
 
 `@/components/DataTable` is the wrong host for it. That component mounts every row, and one
 directory of the game index holds thousands.
+
+**A row height is a setting, on six stops from 20px to 64px.** It is the list's answer to the
+grid's tile size and it is its own setting rather than that one, because the two answer
+different questions: how big the art is, and how many rows fit. 24px is the default and about
+thirty rows on a 720px surface.
+
+| Row  | Art  | The name reads in |
+| ---- | ---- | ----------------- |
+| 20px | 16px | `text-meta`       |
+| 24px | 20px | `text-row`        |
+| 28px | 24px | `text-row`        |
+| 36px | 32px | `text-row`        |
+| 48px | 44px | `text-row`        |
+| 64px | 60px | `text-row`        |
+
+The art is inset 4px inside the row, and the name drops a tier under 24px, where the body size
+does not fit its own leading. Above that the name holds `text-row`: a taller row is asking for
+bigger art, not bigger type.
+
+**The art is asked for at `w=64` at every height,** the smallest tile size, so the list adds no
+seventh width to the six that a session asks the
+[asset scheme](#the-thumbnail-and-the-w-parameter) for. The tallest row still draws under that
+width, which is what fixes the top stop at 64px. The same Thumbnails switch turns the art into
+the kind glyph, and the `.tex` and `.dds` badge that a tile draws is absent here, because the
+kind column already says which one a row is.
+
+**The header row is sticky inside the scroll rather than fixed above it,** so the header and the
+rows measure against one width and a scrollbar cannot slide them apart.
+
+#### The column boundaries
+
+A hairline sits on each fixed column's leading edge, and it is both the separator a reader sees
+and the grab area. It thickens to the accent under the pointer and while it is held.
+
+| Gesture      | Does                                                    |
+| ------------ | ------------------------------------------------------- |
+| Drag         | Moves the boundary, between 56px and 280px              |
+| Double click | Returns that column to its default width                |
+| `Tab`        | Reaches it, and the accent says which one has the focus |
+| `←` `→`      | Moves it 8px, so a boundary is settable without a mouse |
+
+**The boundary follows the pointer, and the column to its right is what changes.** The name
+takes whatever the fixed columns leave, so a fixed column's trailing edge cannot move: dragging
+a boundary left widens the column after it and narrows the name.
+
+**The drag is carried on the window rather than on a pointer capture.** Writing a width
+re-renders the header under the pointer, and a capture is one more thing that has to survive
+that for the boundary to keep following. The cursor comes from the document for the same
+reason, because the pointer leaves the 12px grab area long before the drag ends.
 
 ### Sorting
 
@@ -1495,7 +1620,9 @@ Nothing here reaches the backend. The layer explorer holds every entry already, 
 index answers one directory at a time, so a sort reads rows that the frontend holds either way.
 
 The control is the shape the library's sort already draws: the fields as toggle pills, and the
-direction as a button that names what the current direction means.
+direction as a button that names what the current direction means. Both sit in
+[the explorer bar](#the-explorer-bar)'s options, and clicking the active field flips the
+direction as well, so the button states the direction rather than being the only way to it.
 
 ### Filtering
 
@@ -1507,18 +1634,34 @@ Three filters, and a row shows when it passes all three.
 | Kind   | a menu of the groups | the file kind, which a row already carries         |
 | Extra  | the same menu        | one condition that the source makes worth offering |
 
-**The box reads the location and everything below it.** In tree mode the result is the filtered
-tree that [Search](#search) describes, with every parent of a match kept. In grid mode the
-result is a flat list, each tile carrying its path in dim text under the name, because a grid
-has no way to draw depth. This is what a file manager does with the same box.
+**A scope control says what the box reads.** One box carries two questions - narrow what is in
+front of me, and find it anywhere in this source - and a box whose meaning followed the view
+would give the same keystroke two answers with nothing on screen saying which. So the control
+sits inside the box and names the scope in the source's own word: **This folder**, or **Whole
+game** and **Whole archive**.
+
+| Scope         | In the game index                            | In a game archive                   |
+| ------------- | -------------------------------------------- | ----------------------------------- |
+| This folder   | narrows the rows on screen, live             | the same                            |
+| Whole game    | the find the index ranks, over every archive | -                                   |
+| Whole archive | -                                            | every file below the location, flat |
+
+The two sources differ because a read below the location differs in cost. An archive hands over
+its whole chunk table, so widening the box costs nothing and its wide form is a flat list of
+every file under the location that matches. The root game browser holds one directory and Rust
+holds the rest, so its wide form is the find that
+[The scan of the game](#the-scan-of-the-game) builds, and it answers over the whole install
+rather than under the location. Narrowing that find to a prefix arrives with the scorer, and the
+flat game grid with it - each tile carrying its path in dim text under the name.
+
+**The scope is a grid question.** A tree draws the depth a flat list of hits cannot, so the box
+narrows the tree whatever the scope says: the tree it leaves is the one
+[Search](#search) describes, with every parent of a match kept. What the tree cannot do is answer
+for a directory nobody opened, since it holds only what has been read - which is the whole reason
+the game index keeps a scope that reaches past it.
 
 The layer explorer keeps the widening to every layer, in the box's own menu. A relative path is
 the same string in every layer, so a result names the layer that holds it.
-
-The root game browser is the one explorer where a read below the location is not free. It holds
-one directory and Rust holds the rest, so the recursive form is the query that
-[The scan of the game](#the-scan-of-the-game) builds, with the location as its prefix. It
-arrives with that scorer and not before, and a filter of the open directory alone works today.
 
 **The kind groups.** These use the file kind that the backend reports, and a game explorer reads
 it off the extension the way its row glyph already does.
@@ -1540,8 +1683,20 @@ it off the extension the way its row glyph already does.
 | Game archive | The same         | The same, for one archive                             |
 | Layer files  | In another layer | Which files of this layer another layer holds as well |
 
-An active filter shows as a chip under the bar, on the shape the workshop's filter chips already
-draw, and one click clears one.
+An active filter tints the options trigger, and the popover that opens holds the filters with a
+clear beside them. [The explorer bar](#the-explorer-bar) says why they are not chips in the row.
+
+**The kind and the extra belong to the two item views, and the text is every view's.** The
+whole-game tree holds the directories a user has opened and no others, so a kind filter there
+would hide rows it never read and read as an answer about the install. The control says so
+rather than offering what it cannot mean. The grid and the details list each draw one whole
+directory, so neither has that problem. The text is different in kind: narrowing what is on
+screen is honest about being that, where a kind filter would read as a claim about the source.
+
+**A filter never hides a directory.** The kind and the extra apply to files alone, because a
+directory row is the only way down into the location an item view draws and a filter that took
+the folders away would leave that location a dead end. The text filter is the exception and matches a directory name
+too, since a name is what a reader types to find one.
 
 ### Selection
 
@@ -1559,20 +1714,37 @@ what lets the selection outlive all four. The model offers select, toggle, exten
 and clear, and it answers the count, the size and the targets a copy takes. No view reads the
 set to decide anything. A view asks the model.
 
-| Gesture              | Does                                                     |
-| -------------------- | -------------------------------------------------------- |
-| A click              | Selects one, and drops the rest                          |
-| `Ctrl` and a click   | Adds one, or removes one                                 |
-| `Shift` and a click  | Extends from the anchor, over every item between the two |
-| `Shift` and an arrow | The same, along the order the view walks                 |
-| `Ctrl+Space`         | Adds the focused item, or removes it                     |
-| `Ctrl+A`             | Selects every item in the directory that holds the focus |
-| `Escape`             | Clears the selection                                     |
-| A double click       | Opens a file, and descends into a directory in the grid  |
-| A right click        | Selects the item alone, unless the selection holds it    |
+| Gesture                | Does                                                     |
+| ---------------------- | -------------------------------------------------------- |
+| A click                | Selects one, and drops the rest                          |
+| `Ctrl` and a click     | Adds one, or removes one                                 |
+| `Shift` and a click    | Extends from the anchor, over every item between the two |
+| `Shift` and an arrow   | The same, along the order the view walks                 |
+| `Ctrl+Space`           | Adds the focused item, or removes it                     |
+| `Ctrl+A`               | Selects every item in the directory that holds the focus |
+| `Escape`               | Clears the selection                                     |
+| A double click         | Opens a file, and descends into a directory in the grid  |
+| A right click          | Selects the item alone, unless the selection holds it    |
+| A move of the focus    | Moves the ring, and writes nothing                       |
+| A move of the location | Drops the selection                                      |
 
 The gestures are the same in every view. What differs is what "between" and "the directory that
 holds the focus" mean, and the view answers both.
+
+**The focus and the selection are two marks, and only one of them a click writes.** A row taking
+the focus - by an arrow, by a click landing on it, by the view restoring it - moves the ring and
+leaves the set alone. Writing the set from the focus instead collapses a `Shift` run the moment
+the focus lands at its end, and drops a built selection on a plain arrow, so the two are two
+callbacks and not one.
+
+**A move of the location drops the selection**, the way a file manager does. Descending into a
+directory that is itself selected would otherwise draw every item inside it covered, which reads
+as though the move had selected them.
+
+**A directory's caret is its own target.** Clicking it opens the directory and writes nothing,
+where clicking the row selects it. One target doing both means expanding a folder also selects
+every file below it, which is what selecting a folder means here and is not what opening one
+should say.
 
 **What a view supplies.** Three answers, and nothing else.
 
@@ -1586,6 +1758,10 @@ A range therefore runs over the rows on screen between the anchor and the click 
 whatever their depth, which is what Visual Studio Code's explorer does, and over the tiles in
 reading order in the grid. Under a filter, the directory that holds the focus is the filtered
 set, so `Ctrl+A` selects what the filter shows.
+
+The third row is the one still open. `Ctrl+A` takes every item the view is drawing rather than
+the directory of the focus, which is the same answer in a grid - the location is what it draws -
+and a wider one in a tree, where it reaches every expanded depth at once.
 
 **A selected directory is every file below it.** That is the whole answer to what a selection
 that spans depths means, and it holds in every view: a directory tile in the grid selects the
@@ -1619,10 +1795,23 @@ not move it. An empty selection shows nothing there, so the row reads as it does
 directory's size needs a total on each directory entry, which the game index computes at the
 build beside the file count it keeps already.
 
+The action is not in it yet. The readout is the count, the size and the clear, and every route
+out of a selection is the context menu or a key. What the action would name is the same **Copy
+into base** that menu already carries, so the gap costs a gesture rather than a capability.
+
+Until it does, a selection holding a directory reads its size as a floor - `3.4 MB+` - because
+the bytes counted are the files' own and the directories add only their counts. That is the one
+honest reading of a total nothing holds, and the `+` goes when the index carries one.
+
 The context menu acts on the selection in every view, so **Copy into base** writes every
 selected file whether the menu opened on a row or on a tile. That is the gesture that turns a
 screen of thumbnails, or a tree of rows, into a layer. [Copy into a layer](#copy-into-a-layer)
-holds the rest.
+holds the rest. `Ctrl+E` and `Ctrl+I` take the selection on the same rule, and the extract's
+plural targets already carried it.
+
+**Two surfaces hold no selection.** The search-result tree is an answer to one question rather
+than a place, and the copy it feeds is taken where the files live, so a hit there focuses and
+opens and nothing more. The layer file tree joins when it becomes an explorer.
 
 ### An item is a drag source
 
@@ -1679,24 +1868,47 @@ drop of one on another layer is a later pass, once the layer explorer takes the 
 
 ### Keys
 
-| Key                | Does                                       |
-| ------------------ | ------------------------------------------ |
-| `Ctrl+L`           | Turns the breadcrumb into the path input   |
-| `Alt+↑`            | Goes to the parent                         |
-| `Backspace`        | The same, while no input holds the focus   |
-| `Ctrl+F`, `/`      | Focuses the filter box                     |
-| `Ctrl+1` `2` `3`   | Tree, grid, details                        |
-| `Ctrl+=` `Ctrl+-`  | Steps the tile size                        |
-| `Ctrl` and a wheel | The same                                   |
-| The arrows         | Move the focus, by a column in the grid    |
-| A letter           | Jumps to the next name that starts with it |
-| `Enter`            | Opens, and descends into a directory       |
-| `Ctrl+C`           | Copies the selection, in a game explorer   |
-| `Ctrl+V`           | Writes the copied files into the layer     |
-| `Ctrl+E`           | Opens the extract dialog for the selection |
+| Key                  | Does                                           |
+| -------------------- | ---------------------------------------------- |
+| `Ctrl+L`             | Turns the breadcrumb into the path input       |
+| `Alt+↑`              | Goes to the parent                             |
+| `Backspace`          | The same, while no input holds the focus       |
+| `Ctrl+F`, `/`        | Focuses the box                                |
+| `Ctrl+1` `2` `3`     | Tree, grid, details                            |
+| `Ctrl+=` `Ctrl+-`    | Steps the tile size                            |
+| `Ctrl` and a wheel   | The same                                       |
+| The arrows           | Move the focus, by a column where a view wraps |
+| `Shift` and an arrow | Extends the selection along that order         |
+| `Ctrl+A`             | Selects every item the view is drawing         |
+| `Ctrl+Space`         | Adds the focused item, or removes it           |
+| `Escape`             | Clears the selection                           |
+| A letter             | Jumps to the next name that starts with it     |
+| `Enter`              | Opens, and descends into a directory           |
+| `Ctrl+C`             | Copies the selection, in a game explorer       |
+| `Ctrl+V`             | Writes the copied files into the layer         |
+| `Ctrl+E`             | Extracts the selection, `Shift` for the dialog |
+| `Ctrl+I`             | Copies the selection into the layer            |
 
-`Alt+←` stays with [the navigation history](#the-navigation-history). A move to a parent is not
-a move back.
+`Alt+←` stays with [the navigation history](#the-navigation-history), and `Alt+↑` is its own key.
+A move to a parent is not a move back: going up is a move like any other, and it pushes a stop
+rather than walking one.
+
+**Every move of the location is a stop.** Descending into a directory, going up, landing on a
+crumb, typing a path - the arrows walk all of them, so a reader who went four directories deep
+gets back out the way they came. [Workshop](WORKSHOP.md#the-navigation-history) holds the shape
+of the stack, since it is the shell's rather than the editor's.
+
+A back that only changes the directory names that directory on the arrow, where a back that
+changes the tab names the tab. Several directories share one tab, and its title alone would not
+say which of them the arrow is going to.
+
+Three of these are unbuilt. `Ctrl+=`, `Ctrl+-` and a `Ctrl` wheel wait on a keyboard route to
+the tile size, which the options' slider is the only way to today. `Ctrl+C` and `Ctrl+V` wait on
+the game clipboard, which is a feature of its own rather than a key this one forgot.
+
+`Backspace` reaches every view, and the rule that no input holds the focus is what the explorer
+checks before it acts: the box takes the key as a character while it is being typed into, and
+the rows take it as a move to the parent.
 
 ### Where the state lives
 
@@ -1714,12 +1926,21 @@ a move back.
 | The conflict answer     | the app                        | a work habit, and the dialog's checkbox writes it       |
 
 `workshopLayout` holds the application's four, beside the alpha checkerboard and the tab open
-mode that it holds now. `.ltk/editor.json` holds the document's, with the tabs and the split
-tree. A preview's zoom and pan are in neither. They belong to one open preview and go when it
-closes, which [Panning and zooming a preview](#panning-and-zooming-a-preview) gives the reason
-for.
-The layer file tree of the side panel is not a document, so its location joins the collapse
-state that the workshop store already keys by layer.
+mode that it holds now. A preview's zoom and pan are in neither. They belong to one open preview
+and go when it closes, which [Panning and zooming a preview](#panning-and-zooming-a-preview)
+gives the reason for.
+
+**The explorer's own three sit in a session store, not in `.ltk/editor.json`.** The location,
+the filter and the selection are keyed by an explorer id - `game`, or `game-wad:<name>` - in the
+store that already holds the browser's expansion and its scroll, for the reason that store
+gives: the first preview a row opens splits a group off beside it, and a leaf that gains a split
+around it remounts everything under it. A document holding its own location would land back at
+the root on the very double click that opened the file. What that costs is a restart, which
+forgets where each explorer was. Writing the location through to the file is what the rule above
+asks for and is still open.
+
+The layer file tree of the side panel is not a document either, so its location joins the
+collapse state that the workshop store already keys by layer.
 
 ### Accessibility
 
@@ -1734,18 +1955,37 @@ state that the workshop store already keys by layer.
 
 ### What ships in what order
 
-| Step | Holds                                                                  |
-| ---- | ---------------------------------------------------------------------- |
-| 1    | The bar, the location, the breadcrumb and the path input, in tree mode |
-| 2    | The grid, the tile size, the thumbnail switch, and the `w` parameter   |
-| 3    | The sort, the kind filter and the chips, over every view               |
-| 4    | The details list, and the recursive filter of the game index           |
+| Step | Holds                                                                  | Status  |
+| ---- | ---------------------------------------------------------------------- | ------- |
+| 1    | The bar, the location, the breadcrumb and the path input, in tree mode | Landed  |
+| 2    | The grid, the tile size, the thumbnail switch, and the `w` parameter   | Landed  |
+| 3    | The sort, and the kind filter with a way to clear it                   | Landed  |
+| 4    | The details list, its sorting header and its resizable columns         | Landed  |
+| 5    | The recursive filter of the game index                                 | Remains |
+| 6    | The layer file tree as the third explorer, in the side panel           | Remains |
 
-Step 1 changes no backend. Step 2 changes one URL. Step 3 changes none. Step 4 waits on the
-scorer that [the project bar](#the-project-bar) builds.
+Step 1 changed no backend. Step 2 changed no backend either, because the `w` parameter and the
+queue behind it landed with [the bin editor's texture swatch](BIN_EDITOR.md#a-wad-chunk-link)
+and the tiles are its second reader. Steps 3 and 4 change none either, and step 4 asks the asset
+scheme for no width the grid does not already ask for. Step 5 waits on the scorer that
+[the project bar](#the-project-bar) builds. Step 6 is what the fold of the bar into a 280px
+panel is for.
 
-The selection is not in this table. It ships ahead of the grid, in the tree, under the order
-that [Copy into a layer](#copy-into-a-layer) sets, because the copy wants it first.
+The selection is not in this table. It shipped with steps 1 to 3 rather than ahead of them, in
+both views at once, under the order that [Copy into a layer](#copy-into-a-layer) sets, because
+the copy wants it.
+
+Five smaller pieces remain inside the landed steps, and each is noted where it belongs above.
+
+| Open                             | Costs                                                |
+| -------------------------------- | ---------------------------------------------------- |
+| A directory's size total         | the bar reads a selection's size as a floor          |
+| The game index's recursive box   | its wide scope answers the install, not the location |
+| The location following the tree  | a view switch opens where that view was last         |
+| An action in the selection bar   | a copy is one gesture further away                   |
+| `Ctrl+A` scoped to the directory | it takes every depth a tree has open                 |
+
+None of them blocks another, and the first is the only one that reaches the backend.
 
 ## Editor surface
 
@@ -2090,14 +2330,19 @@ An archive holds no directory of its own. Each chunk carries one path hash, and 
 table supplies the path. Read [Hash names](#hash-names). A chunk with no known path groups
 under an `unknown` node, and its row shows the hash in hex.
 
+Both browsers draw a grid over these same rows, and [The explorers](#the-explorers) is what
+governs it: one location, one selection, one bar. This section describes what a row is, and
+that section describes the ways to read a set of them.
+
 ### Search across the game
 
-A search box at the top of the view filters the tree. The box matches the full path, the
-same rule that the layer file tree obeys. A scoped browser searches its own archive, and
-the root browser searches every archive.
+The box in [the explorer bar](#the-explorer-bar) is the search, and its scope control is what
+widens it past the open directory. The box matches the full path, the same rule that the layer
+file tree obeys. A scoped browser searches its own archive, and the root browser searches every
+archive.
 
-The game holds more than one million paths, so the box searches the index and not the
-rendered tree. A result keeps its parent directories, so the result is still a tree.
+The game holds more than one million paths, so the root browser's wide search reads the index
+and not the rendered tree. A result keeps its parent directories, so the result is still a tree.
 
 An archive filter and a file type filter narrow the search further. Both reuse the
 controls of the layer file tree.

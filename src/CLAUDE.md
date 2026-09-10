@@ -219,6 +219,18 @@ drove the choice, cite its `DS-*` code and stop. The rare comment that earns its
 an outside constraint the classes cannot show, such as a layout gap the value must fit
 inside.
 
+**Merge classes with `twMerge` from `@/utils`, never from `tailwind-merge`.** The stock merger
+reads `text-*` against Tailwind's own sizes alone, so it files this app's tiers - `text-row`,
+`text-meta`, `text-fine`, `text-code`, `text-mono-row` - under text colour and drops the tier
+whenever a colour stands beside it in the same call:
+
+```ts
+twMerge("text-meta", "text-surface-300"); // stock: "text-surface-300"
+```
+
+`src/utils/twMerge.ts` names the tiers so both survive, and `no-restricted-imports` points at it.
+A dense surface whose type looks a step too large is the first thing to check.
+
 ## Messages
 
 Every string a user reads is a Paraglide message, called as a typed function. The catalog is

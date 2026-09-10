@@ -9,9 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useReducedMotion } from "@/hooks";
+import { twMerge } from "@/utils";
 
 import { settingFocusTab } from "../settingsIndex";
 

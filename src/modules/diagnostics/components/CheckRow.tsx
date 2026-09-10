@@ -1,10 +1,10 @@
 import { ChevronRight, Copy, ShieldUser } from "lucide-react";
 import { useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, IconButton, Tooltip, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type Check, isErr } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { SeverityBadge } from "./SeverityBadge";
 

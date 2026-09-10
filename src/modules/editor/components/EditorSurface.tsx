@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { ConfirmDialog } from "@/components";
+import { twMerge } from "@/utils";
 
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
 import { DocumentToolbarSlotContext } from "./DocumentToolbar";

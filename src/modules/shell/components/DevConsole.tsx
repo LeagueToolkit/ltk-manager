@@ -1,9 +1,9 @@
 import { Terminal, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { twMerge } from "tailwind-merge";
 
 import { IconButton, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 import { isLevelVisible, type LogEntry, useDevConsoleStore } from "../state";
 

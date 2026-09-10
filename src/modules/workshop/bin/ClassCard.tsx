@@ -1,8 +1,7 @@
-import { twMerge } from "tailwind-merge";
-
 import { Code, ExternalLink, HoverCard, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, ClassSchema } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { useClassSchema } from "./useClassSchema";
 

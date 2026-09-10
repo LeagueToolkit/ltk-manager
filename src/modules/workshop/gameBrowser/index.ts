@@ -5,6 +5,7 @@ export { archiveTarget, chunkTarget } from "./extractTargets";
 export { fileKindFromPath } from "./fileKind";
 export { GameWadsErrorState } from "./GameBrowserStates";
 export { GameDocument } from "./GameDocument";
+export { GameFindResults } from "./GameFindResults";
 export { GameWadDocument } from "./GameWadDocument";
 export { GameWadsDocument } from "./GameWadsDocument";
 export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./keys";

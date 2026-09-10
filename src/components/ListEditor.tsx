@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { type ButtonSize, IconButton } from "./Button";
 import { ContextMenu } from "./ContextMenu";

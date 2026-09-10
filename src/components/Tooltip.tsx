@@ -1,6 +1,7 @@
 import { Tooltip as BaseTooltip } from "@base-ui/react/tooltip";
 import { forwardRef, type ReactElement, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 // Root/Provider
 export interface TooltipProviderProps extends BaseTooltip.Provider.Props {

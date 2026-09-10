@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 
-import { type HistoryEntry, useWorkshopEditorStore } from "./workshopEditor";
+import { type ExplorerStop, type HistoryEntry, useWorkshopEditorStore } from "./workshopEditor";
 
 /**
  * The navigation history, which spans both workshop surfaces.
@@ -32,6 +32,24 @@ export function useHistoryReach(): {
  */
 export function useNavigateHistory(): (delta: number) => HistoryEntry | null {
   return useWorkshopEditorStore((s) => s.navigateHistory);
+}
+
+/** Records where an explorer is standing, as a stop the arrows can return to. */
+export function useRecordLocationVisit(): (
+  project: string,
+  documentId: string,
+  location: ExplorerStop,
+) => void {
+  return useWorkshopEditorStore((s) => s.recordLocationVisit);
+}
+
+/** Lays the route down to where an explorer opens, once per tab open. */
+export function useOpenLocationStops(): (
+  project: string,
+  documentId: string,
+  stops: readonly ExplorerStop[],
+) => void {
+  return useWorkshopEditorStore((s) => s.openLocationStops);
 }
 
 /** Records the grid as a stop, which is what a back out of a project lands on. */

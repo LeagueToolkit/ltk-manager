@@ -1,8 +1,8 @@
 import { CaretDownIcon, MagnifyingGlassIcon, TranslateIcon, XIcon } from "@phosphor-icons/react";
 import { useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Field, IconButton, Menu, Tooltip } from "@/components";
+import { twMerge } from "@/utils";
 
 import { useProjectContext } from "../../components/ProjectContext";
 import { stringsDocument } from "../../documents/contentDocument";

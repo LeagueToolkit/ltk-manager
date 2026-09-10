@@ -1,6 +1,7 @@
 import { Progress as BaseProgress } from "@base-ui/react/progress";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export type ProgressSize = "sm" | "md";
 

@@ -1,8 +1,7 @@
-import { twMerge } from "tailwind-merge";
-
 import { Code, HoverCard, SeverityGlyph, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { shapeTag } from "./kindTag";
 import { useClassSchema } from "./useClassSchema";

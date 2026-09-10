@@ -1,5 +1,6 @@
 import { NumberField as BaseNumberField } from "@base-ui/react/number-field";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 interface NumberFieldProps {
   value: number;

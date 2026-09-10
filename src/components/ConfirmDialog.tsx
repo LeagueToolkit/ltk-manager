@@ -1,7 +1,8 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { type ReactNode, useCallback, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 import { create } from "zustand";
+
+import { twMerge } from "@/utils";
 
 import { Button } from "./Button";
 import { Dialog, type DialogOverlaySize } from "./Dialog";

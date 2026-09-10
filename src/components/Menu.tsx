@@ -1,7 +1,8 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
 import { CaretRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { Kbd } from "./Kbd";
 

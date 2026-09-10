@@ -1,6 +1,7 @@
 export * from "./Accordion";
 export * from "./AlertBox";
 export * from "./AutoPill";
+export * from "./Breadcrumb";
 export * from "./Button";
 export * from "./ButtonGroup";
 export * from "./Checkbox";

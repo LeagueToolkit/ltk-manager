@@ -1,7 +1,8 @@
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
 import { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
+
+import { twMerge } from "@/utils";
 
 export type TabsVariant = "default" | "pills" | "plain";
 

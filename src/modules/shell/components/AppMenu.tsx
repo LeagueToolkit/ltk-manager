@@ -1,12 +1,12 @@
 import { DotsThreeVerticalIcon, FolderOpenIcon, WheelchairIcon } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import { useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Menu, Tooltip, useToast } from "@/components";
 import { m } from "@/i18n";
 import { api, type AppInfo, unwrap } from "@/lib/tauri";
 import { useLatestIncidentToken } from "@/modules/diagnostics";
+import { twMerge } from "@/utils";
 
 import { cellActive, cellBase, cellInactive } from "./cells";
 

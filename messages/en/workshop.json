@@ -17,6 +17,26 @@
     }
   ],
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
+  "workshop_archive_copy_action": "Copy into {layer}",
+  "workshop_archive_extract_action": "Extract…",
+  "workshop_archive_extract_quick_action": "Extract to {folder}",
+  "workshop_archive_files_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} file",
+        "countPlural=other": "{count} files"
+      }
+    }
+  ],
+  "workshop_archive_filter_clear_action": "Clear the filter",
+  "workshop_archive_filter_label": "Filter the archive",
+  "workshop_archive_grid_label": "Archive files",
+  "workshop_archive_missing_description": "The installed game does not hold {wad}.",
+  "workshop_archive_missing_title": "Archive not installed",
+  "workshop_archive_source_label": "Archive",
+  "workshop_archive_tree_label": "Files of {archive}",
   "workshop_bin_absent_label": "absent",
   "workshop_bin_archive_label": "Archive",
   "workshop_bin_at_patch_label": "patch {patch}",
@@ -252,6 +272,143 @@
   "workshop_bin_value_label": "value",
   "workshop_bin_version_label": "v{version}",
   "workshop_bin_view_mode_label": "View mode",
+  "workshop_explorer_chip_clear_action": "Clear the {name} filter",
+  "workshop_explorer_clear_box_action": "Clear the box",
+  "workshop_explorer_clear_filters_action": "Clear",
+  "workshop_explorer_collapse_action": "Collapse this folder",
+  "workshop_explorer_column_resize_action": "Resize this column",
+  "workshop_explorer_completions_label": "Directories under this path",
+  "workshop_explorer_empty_description": "This folder holds no rows.",
+  "workshop_explorer_empty_title": "Nothing here",
+  "workshop_explorer_expand_action": "Expand this folder",
+  "workshop_explorer_here_filter_label": "Filter this folder",
+  "workshop_explorer_kind_animations_label": "Animations",
+  "workshop_explorer_kind_audio_label": "Audio",
+  "workshop_explorer_kind_data_label": "Data",
+  "workshop_explorer_kind_filter_label": "Filter by kind",
+  "workshop_explorer_kind_folder_label": "Folder",
+  "workshop_explorer_kind_meshes_label": "Meshes",
+  "workshop_explorer_kind_other_label": "Other",
+  "workshop_explorer_kind_section_label": "Kind",
+  "workshop_explorer_kind_textures_label": "Textures",
+  "workshop_explorer_location_label": "Location",
+  "workshop_explorer_names_section_label": "Names",
+  "workshop_explorer_options_label": "View options",
+  "workshop_explorer_path_action": "Type a path",
+  "workshop_explorer_row_height_label": "Row height",
+  "workshop_explorer_scope_archive_label": "Whole archive",
+  "workshop_explorer_scope_game_label": "Whole game",
+  "workshop_explorer_scope_here_label": "This folder",
+  "workshop_explorer_selection_clear_action": "Clear the selection",
+  "workshop_explorer_selection_files_label": "{count} files",
+  "workshop_explorer_selection_label": [
+    {
+      "declarations": [
+        "input count",
+        "input formatted",
+        "input size",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} file · {size}",
+        "countPlural=other": "{formatted} files · {size}"
+      }
+    }
+  ],
+  "workshop_explorer_siblings_action": "Show the folders here",
+  "workshop_explorer_siblings_empty": "No folders here",
+  "workshop_explorer_sort_action": "Sort the rows",
+  "workshop_explorer_sort_ascending_label": "Ascending",
+  "workshop_explorer_sort_descending_label": "Descending",
+  "workshop_explorer_sort_kind_label": "Kind",
+  "workshop_explorer_sort_label": "Sort",
+  "workshop_explorer_sort_name_label": "Name",
+  "workshop_explorer_sort_section_label": "Sort by",
+  "workshop_explorer_sort_size_label": "Size",
+  "workshop_explorer_thumbnails_action": "Draw a thumbnail on each item",
+  "workshop_explorer_thumbnails_description": "Each item draws its asset. Off, every item reads its kind glyph.",
+  "workshop_explorer_thumbnails_label": "Thumbnails",
+  "workshop_explorer_tile_files_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} file",
+        "countPlural=other": "{count} files"
+      }
+    }
+  ],
+  "workshop_explorer_tile_size_label": "Tile size",
+  "workshop_explorer_unnamed_chip_label": "Unnamed",
+  "workshop_explorer_unnamed_label": "Unnamed only",
+  "workshop_explorer_up_action": "Go to the parent folder",
+  "workshop_explorer_up_label": "Parent folder",
+  "workshop_explorer_view_details_label": "Details",
+  "workshop_explorer_view_grid_label": "Grid",
+  "workshop_explorer_view_label": "How the rows draw",
+  "workshop_explorer_view_options_label": "Sort and view",
+  "workshop_explorer_view_tree_label": "Tree",
+  "workshop_game_archives_label": [
+    {
+      "declarations": ["input count", "input formatted", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} archive",
+        "countPlural=other": "{formatted} archives"
+      }
+    }
+  ],
+  "workshop_game_empty_description": "The installed game holds no archives.",
+  "workshop_game_empty_title": "No files",
+  "workshop_game_files_label": [
+    {
+      "declarations": ["input count", "input formatted", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} file",
+        "countPlural=other": "{formatted} files"
+      }
+    }
+  ],
+  "workshop_game_files_tree_label": "Game files",
+  "workshop_game_matches_label": [
+    {
+      "declarations": ["input count", "input formatted", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{formatted} match",
+        "countPlural=other": "{formatted} matches"
+      }
+    }
+  ],
+  "workshop_game_matches_partial_label": [
+    {
+      "declarations": [
+        "input count",
+        "input formatted",
+        "input shown",
+        "local countPlural = count: plural"
+      ],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "first {shown} of {formatted} match",
+        "countPlural=other": "first {shown} of {formatted} matches"
+      }
+    }
+  ],
+  "workshop_game_no_match_description": "Nothing in the install matches that pattern.",
+  "workshop_game_no_match_title": "No match",
+  "workshop_game_rebuild_action": "Rebuild the game index",
+  "workshop_game_rebuild_label": "Rebuild index",
+  "workshop_game_results_tree_label": "Search results",
+  "workshop_game_search_clear_action": "Clear the search",
+  "workshop_game_search_label": "Search the game files",
+  "workshop_game_search_regex_action": "Use regular expression",
+  "workshop_game_search_regex_label": "Search the game files by regex",
+  "workshop_game_source_label": "Game",
+  "workshop_game_wads_action": "List the game WADs",
+  "workshop_game_wads_label": "Game WADs",
   "workshop_nav_label": "Workshop",
   "workshop_objects_browse_action": "Browse objects",
   "workshop_objects_building_label": "Indexing the game's bin objects…",

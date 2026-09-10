@@ -845,8 +845,145 @@ describe("workshopEditor store", () => {
 
     /** A stop as one string, so a project's own stops read apart from the grid's. */
     function stopName(entry: HistoryEntry): string {
-      return entry.kind === "list" ? "list" : `${entry.project}/${entry.documentId}`;
+      if (entry.kind === "list") return "list";
+      const at = entry.location === undefined ? "" : `@${entry.location.path || "/"}`;
+      return `${entry.project}/${entry.documentId}${at}`;
     }
+
+    describe("an explorer's location", () => {
+      const GAME = "game";
+
+      function record(path: string) {
+        store().recordLocationVisit(A, "game", { explorerId: GAME, path });
+      }
+
+      /** What `goTo` does: name the directory left, then the one arrived at. */
+      function move(from: string, to: string) {
+        record(from);
+        record(to);
+      }
+
+      it("completes the stop the tab's own open recorded", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+
+        expect(historyOf()).toEqual({ stops: [`${A}/game@/`], at: 0 });
+      });
+
+      it("records each directory as a stop of its own", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+
+        expect(historyOf()).toEqual({
+          stops: [`${A}/game@/`, `${A}/game@assets`, `${A}/game@assets/characters`],
+          at: 2,
+        });
+      });
+
+      it("records nothing for the directory it already stands on", () => {
+        store().openDocument(A, gameDocument());
+        record("assets");
+        record("assets");
+
+        expect(historyOf().stops).toHaveLength(1);
+      });
+
+      it("walks back through the directories, and hands each one back", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          location: { explorerId: GAME, path: "assets" },
+        });
+        expect(store().historyIndex).toBe(1);
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          location: { explorerId: GAME, path: "" },
+        });
+        expect(store().historyIndex).toBe(0);
+      });
+
+      it("walks forward again to where the back came from", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        store().navigateHistory(-1);
+
+        expect(store().navigateHistory(1)).toMatchObject({
+          location: { explorerId: GAME, path: "assets" },
+        });
+      });
+
+      it("drops the forward part once a move follows a back", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        record("assets/characters");
+        store().navigateHistory(-1);
+        store().navigateHistory(-1);
+        record("loadouts");
+
+        expect(historyOf()).toEqual({ stops: [`${A}/game@/`, `${A}/game@loadouts`], at: 1 });
+      });
+
+      it("keeps two explorers' directories apart in one stack", () => {
+        store().openDocument(A, gameDocument());
+        record("assets");
+        store().recordLocationVisit(A, "game", { explorerId: "game-wad:X", path: "assets" });
+
+        expect(historyOf().stops).toHaveLength(2);
+      });
+
+      it("keeps the tab's own directory on the stack when a move is the first record", () => {
+        /* The reported bug: a tab activated after its explorer mounted leaves a
+           stop naming no directory on top, and a move that completed that stop
+           instead of pushing left the tab with one stop. A back then walked
+           past the tab entirely. */
+        store().recordListVisit();
+        store().openDocument(A, gameDocument());
+        move("", "assets");
+
+        expect(historyOf()).toEqual({
+          stops: ["list", `${A}/game@/`, `${A}/game@assets`],
+          at: 2,
+        });
+      });
+
+      it("goes back to the directory it came from, not out of the tab", () => {
+        store().recordListVisit();
+        store().openDocument(A, gameDocument());
+        move("", "assets");
+
+        expect(store().navigateHistory(-1)).toMatchObject({
+          kind: "document",
+          location: { explorerId: GAME, path: "" },
+        });
+      });
+
+      it("records one stop for a move that follows the explorer's own report", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        move("", "assets");
+
+        expect(historyOf()).toEqual({
+          stops: [`${A}/game@/`, `${A}/game@assets`],
+          at: 1,
+        });
+      });
+
+      it("forgets a closed tab's directories with the tab", () => {
+        store().openDocument(A, gameDocument());
+        record("");
+        record("assets");
+        store().closeDocument(A, ROOT_LEAF, "game");
+
+        expect(historyOf().stops).toEqual([]);
+      });
+    });
 
     it("records each document a route lands on", () => {
       store().openDocument(A, detailsDocument());

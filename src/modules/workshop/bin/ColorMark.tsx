@@ -1,7 +1,6 @@
-import { twMerge } from "tailwind-merge";
-
 import { Popover } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { CHECKERBOARD } from "../preview/ImagePreview";
 import { colorCss, colorHex, type ColorStop, gradientCss } from "./valueRows";

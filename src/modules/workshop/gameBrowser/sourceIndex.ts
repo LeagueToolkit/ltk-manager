@@ -47,6 +47,12 @@ export type SourceTreeNode = SourceDirNode | SourceFileNode | SourceLoadingNode;
 export interface SourceDirNode {
   readonly type: "dir";
   readonly id: string;
+  /**
+   * The directory's path in its source, which is what addresses it everywhere
+   * outside this tree: a listing to read, a target to extract, an item the
+   * selection holds. A folded chain carries the deepest path of the run.
+   */
+  readonly path: string;
   /** The directory's own name, or every segment of a folded chain joined by "/". */
   readonly name: string;
   /** True for the group holding the entries with no resolved path. */
@@ -130,6 +136,7 @@ export function buildSourceTree(entries: readonly SourceEntry[], idPrefix = ""):
     children.push({
       type: "dir",
       id: `${idPrefix}u:unknown`,
+      path: UNKNOWN_DIR,
       name: "unknown",
       unknown: true,
       fileCount: unknown.length,
@@ -165,6 +172,7 @@ function finalizeChildren(
     dirs.push({
       type: "dir",
       id: `${idPrefix}d:${sub.path}`,
+      path: sub.path,
       name,
       unknown: false,
       fileCount: inner.fileCount,
@@ -203,6 +211,7 @@ export function buildIndexTree(
     const dirs = listing.dirs.map<SourceDirNode>((dir) => ({
       type: "dir",
       id: dir.path,
+      path: dir.path,
       name: dir.name,
       unknown: dir.path === UNKNOWN_DIR,
       fileCount: dir.fileCount,

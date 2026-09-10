@@ -23,12 +23,12 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { ContextMenu, IconButton, Tabs } from "@/components";
 import { useCopyToClipboard, useHorizontalWheel } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "../layout/dnd";
 import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";

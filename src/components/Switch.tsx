@@ -1,6 +1,7 @@
 import { Switch as BaseSwitch } from "@base-ui/react/switch";
 import { forwardRef } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export interface SwitchProps extends Omit<BaseSwitch.Root.Props, "className"> {
   className?: string;

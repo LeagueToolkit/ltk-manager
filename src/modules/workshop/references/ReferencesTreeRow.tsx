@@ -1,6 +1,7 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 import { ClassCard } from "../bin/ClassCard";
 import { ObjectGlyph } from "../components/ObjectGlyph";

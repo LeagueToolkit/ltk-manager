@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 const sizeClasses = {
   sm: "h-4 w-4",

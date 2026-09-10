@@ -1,6 +1,5 @@
-import { twMerge } from "tailwind-merge";
-
 import type { Consequence } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 /* A consequence is a thing that happened to the game, which is what the status
    scales are for. The two that cost the player everything they asked for take

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { Swatch } from "./ColorMark";
 import { CHANNELS, CHIP } from "./curveChannels";

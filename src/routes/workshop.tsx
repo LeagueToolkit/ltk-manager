@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { twMerge } from "tailwind-merge";
 
 import { Toolbar } from "@/components";
 import { useSettings } from "@/modules/settings";
@@ -15,6 +14,7 @@ import {
   WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
+import { twMerge } from "@/utils";
 
 export const Route = createFileRoute("/workshop")({
   component: WorkshopLayout,

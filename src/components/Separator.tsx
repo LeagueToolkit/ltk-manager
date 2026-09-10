@@ -1,6 +1,7 @@
 import { Separator as BaseSeparator } from "@base-ui/react/separator";
 import { forwardRef } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export interface SeparatorProps extends Omit<BaseSeparator.Props, "className"> {
   className?: string;

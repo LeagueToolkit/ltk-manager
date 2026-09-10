@@ -1,5 +1,6 @@
 export * from "./authorName";
 export * from "./editorFile";
+export * from "./explorer";
 export * from "./extractDialog";
 export * from "./extractRun";
 export * from "./gameBrowser";

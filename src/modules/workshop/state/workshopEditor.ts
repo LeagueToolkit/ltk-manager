@@ -80,7 +80,20 @@ export type HistoryEntry =
       /** The path of the project holding it, which is what the arrows route to. */
       readonly project: string;
       readonly documentId: string;
+      /**
+       * Where an explorer document was standing, absent for every other kind.
+       *
+       * A tab is one stop and a directory inside it is another, so the arrows
+       * walk the folders a reader opened and not only the tabs.
+       */
+      readonly location?: ExplorerStop;
     };
+
+/** One explorer, and the directory it was showing. */
+export interface ExplorerStop {
+  readonly explorerId: string;
+  readonly path: string;
+}
 
 /** How far back the arrows reach before the oldest stop is dropped. */
 const HISTORY_LIMIT = 50;
@@ -185,6 +198,22 @@ interface WorkshopEditorStore {
   focusLeaf: (projectPath: string, leafId: string) => void;
   /** Records the list as a stop, which is what a back out of a project lands on. */
   recordListVisit: () => void;
+  /**
+   * Record where an explorer is standing, as a stop of its own.
+   *
+   * The first one completes the stop its tab's own open recorded, so a tab and
+   * the directory it opened at are one stop rather than two.
+   */
+  recordLocationVisit: (project: string, documentId: string, location: ExplorerStop) => void;
+  /**
+   * Lay the route down to where an explorer opens, if the tab has none yet.
+   *
+   * A location belongs to its explorer rather than to the tab drawing it, so a
+   * tab can open several directories deep having walked no route there. These
+   * are the stops that walk it back out. Recorded once per open, because a
+   * remount is not a second open.
+   */
+  openLocationStops: (project: string, documentId: string, stops: readonly ExplorerStop[]) => void;
   /**
    * Walks the history by `delta` without recording the stop it lands on.
    *
@@ -359,10 +388,45 @@ function pushStop(stack: Stack, entry: HistoryEntry): Stack | null {
   return { history, historyIndex: history.length - 1 };
 }
 
+/** Whether this stop is the named tab's, standing at no directory of it yet. */
+function isBareStopOf(entry: HistoryEntry | undefined, project: string, documentId: string) {
+  return (
+    entry?.kind === "document" &&
+    entry.project === project &&
+    entry.documentId === documentId &&
+    entry.location === undefined
+  );
+}
+
+/**
+ * Complete the tab's own bare stop with this directory, or stand beside it.
+ *
+ * The stop a tab's open records names no directory, so the first directory it
+ * reports fills that stop in rather than standing behind it as a second one a
+ * back would have to step over.
+ */
+function placeStop(stack: Stack, entry: Extract<HistoryEntry, { kind: "document" }>): Stack {
+  if (!isBareStopOf(stack.history[stack.historyIndex], entry.project, entry.documentId)) {
+    return pushStop(stack, entry) ?? stack;
+  }
+
+  const history = [...stack.history];
+  history[stack.historyIndex] = entry;
+  return { history, historyIndex: stack.historyIndex };
+}
+
 function sameStop(a: HistoryEntry | undefined, b: HistoryEntry): boolean {
   if (a === undefined) return false;
   if (a.kind === "list" || b.kind === "list") return a.kind === b.kind;
-  return a.project === b.project && a.documentId === b.documentId;
+  if (a.project !== b.project || a.documentId !== b.documentId) return false;
+
+  /* A stop naming no directory is the tab wherever it stands, so an activate of
+     the tab a stop already names is the stop it already names. Comparing the
+     two as different put a second stop on the tab that a back then had to step
+     over, which reads as an arrow that did nothing. */
+  if (a.location === undefined || b.location === undefined) return true;
+
+  return a.location.explorerId === b.location.explorerId && a.location.path === b.location.path;
 }
 
 /** Drop the stops a predicate names, keeping the arrows inside what is left. */
@@ -834,6 +898,30 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
     ),
 
   recordListVisit: () => set((state) => pushStop(state, { kind: "list" }) ?? state),
+
+  recordLocationVisit: (project, documentId, location) =>
+    set((state) => placeStop(state, { kind: "document", project, documentId, location })),
+
+  openLocationStops: (project, documentId, stops) =>
+    set((state) => {
+      /* Written once, when the tab's own stop still names no directory of it.
+         A mount is not a navigation: an explorer remounts whenever its route
+         does, and a remount that laid these down again would drop whatever the
+         arrows had ahead of them and stand two junk stops in its place. */
+      const placed = state.history.some(
+        (entry) =>
+          entry.kind === "document" &&
+          entry.project === project &&
+          entry.documentId === documentId &&
+          entry.location !== undefined,
+      );
+      if (placed) return state;
+
+      return stops.reduce<Stack>(
+        (stack, location) => placeStop(stack, { kind: "document", project, documentId, location }),
+        state,
+      );
+    }),
 
   navigateHistory: (delta) => {
     const state = get();

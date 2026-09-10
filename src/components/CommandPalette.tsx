@@ -7,11 +7,11 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { useListNav } from "@/hooks/useListNav";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { useZoomedPx } from "@/hooks/useZoomedPx";
+import { twMerge } from "@/utils";
 
 import { Skeleton } from "./Skeleton";
 import { Spinner } from "./Spinner";

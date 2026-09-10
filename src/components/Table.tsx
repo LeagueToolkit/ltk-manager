@@ -1,7 +1,8 @@
 import { ChevronDown, ChevronsUpDown, ChevronUp } from "lucide-react";
 import { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 import { match } from "ts-pattern";
+
+import { twMerge } from "@/utils";
 
 // Root
 export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"table">>(

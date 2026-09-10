@@ -1,9 +1,9 @@
 import { ArrowCounterClockwiseIcon, CopyIcon, GearSixIcon, LinkIcon } from "@phosphor-icons/react";
 import { type MouseEvent, type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Menu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
+import { twMerge } from "@/utils";
 
 import { type IndexedSettingKey, settingEntry, settingLink } from "../settingsIndex";
 import { useSettingDefault } from "./SettingScope";

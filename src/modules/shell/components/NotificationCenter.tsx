@@ -1,11 +1,11 @@
 import { formatDistanceToNow } from "date-fns";
 import { Bell, CircleAlert, CircleCheck, CircleX, Info, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { EmptyState, IconButton, Popover, type ToastType, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { type Notification, useNotificationsStore } from "@/stores/notifications";
+import { twMerge } from "@/utils";
 
 import { cellBase, cellInactive } from "./cells";
 

@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 export type AlertBoxVariant = "neutral" | "info" | "success" | "warning" | "error";
 

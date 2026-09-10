@@ -6,12 +6,12 @@ import {
   useMemo,
   useState,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { ContextMenu } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { BinContextMenu } from "./BinContextMenu";
 import { nameHash } from "./binHash";

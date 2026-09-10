@@ -1,6 +1,5 @@
 import { CheckIcon, ColumnsIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
@@ -12,6 +11,7 @@ import {
   SplitLayout,
   TabDndProvider,
 } from "@/modules/editor";
+import { twMerge } from "@/utils";
 
 import {
   useActivateShellPane,

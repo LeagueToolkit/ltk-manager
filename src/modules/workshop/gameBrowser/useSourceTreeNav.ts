@@ -1,6 +1,7 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
+import type { ExplorerSelectionApi } from "../explorer";
 import type { SourceDirNode, SourceFileNode, SourceRow, SourceTreeNode } from "./sourceIndex";
 import type { ExtractHow } from "./useExtractActions";
 
@@ -16,6 +17,8 @@ interface UseSourceTreeNavParams {
   onOpen?: (node: SourceFileNode) => void;
   /** The keyboard route to the focused row's own extract items. */
   onRun?: (node: SourceTreeNode, how: ExtractHow) => void;
+  /** The explorer's selection, where this tree draws one. */
+  selection?: ExplorerSelectionApi;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -38,6 +41,7 @@ export function useSourceTreeNav({
   onToggle,
   onOpen,
   onRun,
+  selection,
   virtualizer,
   scrollElementRef,
 }: UseSourceTreeNavParams): UseSourceTreeNavReturn {
@@ -65,6 +69,19 @@ export function useSourceTreeNav({
     [rows.length, virtualizer, scrollElementRef],
   );
 
+  /* A `Shift` arrow moves the focus and runs the selection along with it, over
+     the rows on screen whatever their depth. */
+  const step = useCallback(
+    (nextIndex: number, extend: boolean) => {
+      moveFocus(nextIndex);
+      if (!extend || !selection) return;
+      const clamped = Math.max(0, Math.min(nextIndex, rows.length - 1));
+      const id = selectionId(rows[clamped]?.node);
+      if (id !== null) selection.select(id, { toggle: false, extend: true });
+    },
+    [moveFocus, selection, rows],
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
       const row = rows[focusedIndex];
@@ -74,18 +91,35 @@ export function useSourceTreeNav({
       /* Before the switch, because the plain keys are already spoken for and a
          modifier has to be read rather than fallen through to. `Ctrl+E` is
          whichever extract needs no dialog, and Shift asks for the dialog. */
-      if (onRun && (e.ctrlKey || e.metaKey)) {
+      if (e.ctrlKey || e.metaKey) {
         const key = e.key.toLowerCase();
-        if (key === "e") {
+        if (onRun && key === "e") {
           e.preventDefault();
           onRun(node, e.shiftKey ? "dialog" : "quick");
           return;
         }
-        if (key === "i") {
+        if (onRun && key === "i") {
           e.preventDefault();
           onRun(node, "copy");
           return;
         }
+        if (selection && key === "a") {
+          e.preventDefault();
+          selection.selectAll();
+          return;
+        }
+        if (selection && key === " ") {
+          e.preventDefault();
+          const id = selectionId(node);
+          if (id !== null) selection.select(id, { toggle: true, extend: false });
+          return;
+        }
+      }
+
+      if (selection && e.key === "Escape") {
+        e.preventDefault();
+        selection.clear();
+        return;
       }
 
       switch (e.key) {
@@ -102,11 +136,11 @@ export function useSourceTreeNav({
           return;
         case "ArrowDown":
           e.preventDefault();
-          moveFocus(focusedIndex + 1);
+          step(focusedIndex + 1, e.shiftKey);
           return;
         case "ArrowUp":
           e.preventDefault();
-          moveFocus(focusedIndex - 1);
+          step(focusedIndex - 1, e.shiftKey);
           return;
         case "Home":
           e.preventDefault();
@@ -139,8 +173,15 @@ export function useSourceTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, isExpanded, onToggle, onOpen, onRun, moveFocus],
+    [rows, focusedIndex, isExpanded, onToggle, onOpen, onRun, selection, moveFocus, step],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };
+}
+
+/** What the selection holds a row by: a directory's path, a file's hash. */
+function selectionId(node: SourceTreeNode | undefined): string | null {
+  if (node?.type === "dir") return node.path;
+  if (node?.type === "file") return node.entry.pathHash;
+  return null;
 }

@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
+
+import { twMerge } from "@/utils";
 
 /** Styling for a control sitting inside a field, flush with its trailing edge. */
 export const fieldAffixButtonClass =

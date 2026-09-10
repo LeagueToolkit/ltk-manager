@@ -1,11 +1,11 @@
 import { Toast as BaseToast, type ToastManager } from "@base-ui/react/toast";
 import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { describeError, errorMessage } from "@/i18n/errors";
 import { m } from "@/paraglide/messages";
 import { useNotificationsStore } from "@/stores/notifications";
+import { twMerge } from "@/utils";
 import { isAppError } from "@/utils/errors";
 
 import { type ToastType } from "./toastType";
