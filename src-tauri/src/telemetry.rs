@@ -159,7 +159,7 @@ pub fn refresh_from_document(app_handle: &AppHandle) {
 
         let remote = config::fetch(&config_path(&app_handle));
 
-        let telemetry: tauri::State<'_, Arc<TelemetryState>> = app_handle.state();
+        let telemetry = state(&app_handle);
         if telemetry.remote() == remote {
             return;
         }
@@ -177,6 +177,18 @@ pub fn refresh_from_document(app_handle: &AppHandle) {
         };
         telemetry.apply(remote, rebuilt);
     });
+}
+
+/// The managed diagnostics state, for a seam that holds an `AppHandle`.
+///
+/// The one place naming the managed type, so no caller asks Tauri for an
+/// unwrapped [`TelemetryState`] and panics for it.
+///
+/// # Panics
+///
+/// Panics when `setup` has not managed it yet.
+pub fn state(app_handle: &AppHandle) -> Arc<TelemetryState> {
+    app_handle.state::<Arc<TelemetryState>>().inner().clone()
 }
 
 /// The one state every seam reports through.
