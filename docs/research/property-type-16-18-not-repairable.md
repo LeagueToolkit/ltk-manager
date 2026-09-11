@@ -14,6 +14,9 @@ half of it:
   change a tag and an item type together, so they fall to `Conversion::Unknown`, report with no
   repair, and tell the reader to rebuild the mod against the current game.
 
+Both are fixed on this branch, in sections 5.1 and 5.3. Section 5.2 is what keeps the first from
+happening again, and it is left as a decision rather than a change.
+
 ## Sources
 
 - `crates/ltk-manager-core/src/problems/rules/bin_property_type/mod.rs` - the rule, `Lens::objection`
@@ -139,17 +142,40 @@ Both are mechanically repairable with code the rule already has. `hashed` conver
 rekeys a `Hash`-keyed map while `hashed` rewrites its `String` values. The gap is that `Conversion`
 is one tag and `convert` dispatches on it once, so no row can name two steps.
 
+Fixed in section 5.3. The same six shapes now read:
+
+```
+TextureResource.texturePath:                    string -> file              HashValue      fix=true
+AtlasDataBase.mTextureName:                     string -> file              HashValue      fix=true
+EvolutionDescription.mIconNames as list:        list[string] -> list[file]  HashValue      fix=true
+EvolutionDescription.mIconNames as list2:       list2[string] -> list[file] RetagHashValue fix=true
+UiElementParticleSystemData as map[hash,string]: map[hash,string] -> map[file,file] HashKeyValue fix=false
+UiElementParticleSystemData as map[file,string]: map[file,string] -> map[file,file] HashValue    fix=true
+```
+
+The one row still without a repair is the map whose key no table names back to its path, and it now
+says why:
+
+> Neither the Mimir hashtables nor the mod's own resolve `0x00000001` back to its path, and only
+> those paths cross to File keys, the 64-bit xxHash. Adding the paths to the mod's hashtables makes
+> this repairable.
+
+That is the rule's existing sentence for an unresolvable hash, and it names something the reader can
+act on. "Rebuild the mod against the current game" did not.
+
 ## 4. What each defect costs
 
-| Reader                                 | Today                                                |
-| -------------------------------------- | ---------------------------------------------------- |
-| 16.18, cache synced since 16.18 landed | Five of seven path retypes repair, two say rebuild   |
-| 16.18, cache older or absent           | Silence on all twelve, and on every other schema row |
-| 16.17 or older                         | Unaffected                                           |
+| Reader                                 | Before                                               | After 5.1 and 5.3                                  |
+| -------------------------------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| 16.18, cache synced since 16.18 landed | Five of seven path retypes repair, two say rebuild   | Every path retype repairs where its hashes resolve |
+| 16.18, cache older or absent           | Silence on all twelve, and on every other schema row | The same, off the shipped snapshot                 |
+| 16.17 or older                         | Unaffected                                           | Unaffected                                         |
 
-## 5. Proposed fix
+## 5. The fix
 
-Three changes, independent of each other, in the order they pay off.
+Three changes, independent of each other, in the order they pay off. Sections 5.1 and 5.3 are
+applied on this branch. Section 5.2 is left for the maintainer, because each of its three pieces is
+a decision about the product rather than about this rule.
 
 ### 5.1 Refresh the embedded snapshot
 
@@ -193,39 +219,45 @@ installed game may have moved since. Recommended only beside a visible note that
 floored, because silently answering at an older build is how a rule reports a mismatch that is not
 there.
 
-### 5.3 Let a conversion name more than one step
+### 5.3 Name the two roads that cross both halves of a type
 
-Give `Conversion` a composite form, so a row can hold the steps a value takes rather than one tag.
-The smallest shape that covers both misses:
+A list's ordering tag and its item type are independent, and so are a map's keys and its values.
+Two variants say so, beside the seven roads `Conversion` already names:
 
 ```rust
-/// How a value crosses from the old type to the new one.
-enum Conversion {
-    // ... the existing single-step variants
-    /// Two steps, applied in order, where one alone does not cross the pair.
-    ///
-    /// A container whose tag and item type both move, and a map whose key and
-    /// value both move, are the pairs that need one.
-    Then(&'static Conversion, &'static Conversion),
-}
+/// A container's items go the way `HashValue` does, and its ordering tag flips.
+RetagHashValue,
+/// A `Map`'s keys go the way `HashKey` does, and its values the way `HashValue` does.
+HashKeyValue,
 ```
 
-`Conversion::between` then answers `Then(HashValue, None)` for `list2[string]` to `list[file]` and
-`Then(HashKey, HashValue)` for `map[hash,string]` to `map[file,file]`, and `convert` applies each
-step against the value in front of it. What this has to keep:
+`Conversion::between` answers `RetagHashValue` where the tag flips over items that cross, and
+`HashKeyValue` where a map's keys are `Hash` to `File` and its values cross as well. Each is two
+calls the rule already had - `hash_value` then `retag`, and `rehash_keys` then `hash_value` - so no
+conversion machinery is new.
 
-- **`keep_names` sees every path the whole sequence hashes away.** It is what refuses a repair that
-  would leave the mod holding a hash no table names, and a two-step conversion has two chances to
-  do that.
-- **The four-row idempotence in the module header.** A value matching `to` raises nothing, so a
-  half-applied sequence has to leave the property as it was rather than partway across. Both steps
-  above already report whether they changed anything, so a sequence is all-or-nothing on the same
-  terms a single step is.
-- **`preview` draws the paths the sequence writes from.** For both pairs above that is what
-  `HashValue` and `HashKey` already draw.
+A recursive `Then(&'static Conversion, &'static Conversion)` was the first shape considered and
+rejected. `Conversion::between` computes its steps, and a computed step has no `'static` to borrow
+from, so the general form would cost a `Box` and `Conversion`'s `Copy` with it. Two named roads are
+what the pairs actually are, and the file already reads as an enumeration of concrete roads.
 
-A boxed or vector form is not needed. Every pair the meta database has produced so far is two steps
-at most, and a fixed pair keeps `Conversion` `Copy` and the table's row type unchanged.
+What the two keep:
+
+- **Both halves or neither.** `crossing` takes a copy, runs both steps and commits only when both
+  report a change. A value left between the two types declares neither, and the four-row
+  idempotence in the module header is what a half-applied repair would break.
+- **`keep_names` sees every path the road hashes away.** `HashKeyValue` keeps the key paths and the
+  string values both, since either losing its path leaves the mod holding a hash it cannot name.
+- **The keys are what `preview` draws for a `HashKeyValue`,** because they are the half that can
+  fail. A key no table names is the one row still without a repair, and it now takes the rule's
+  existing sentence about an unresolvable hash rather than the one telling the reader to rebuild.
+
+`RowConversion` is left alone. The two roads are derived from the schema, never written in a table,
+which is already true of `NullPointer`.
+
+`Conversion` is `pub`, so this adds two variants to a public enum. `ltk-manager-core` is a workspace
+member with one consumer and no release, so the contract is the workspace's own. Worth a
+`#[non_exhaustive]` if that ever stops being true.
 
 ## 6. Not doing
 

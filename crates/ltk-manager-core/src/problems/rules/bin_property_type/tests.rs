@@ -1832,3 +1832,162 @@ fn the_check_over_a_stream_matches_the_check_over_the_owned_tree() {
     assert!(!owned.is_empty());
     assert_eq!(streamed, owned);
 }
+
+// ---- the two roads that cross on both halves -------------------------
+
+/// Patch 16.18, which retyped `EvolutionDescription:mIconNames` and
+/// `UiElementParticleSystemData:TextureOverrides` on both halves at once.
+const AFTER_16_18: GameBuild = GameBuild::new(16, 18, 8_159_717);
+
+/// The row the database's answer at `build` amounts to, for a value of this
+/// shape. What [`derived`] builds when a check hits one.
+fn schema_migration(
+    class: &str,
+    field: &str,
+    build: GameBuild,
+    value: &PropertyValueEnum,
+) -> Migration {
+    let class = BinHash::hash_str(class);
+    let field = BinHash::hash_str(field);
+    let schema = meta_schema::MetaSchema::shipped();
+    let expected = schema
+        .expected(class, field, build)
+        .unwrap_or_else(|| panic!("the shipped database names {class:#010x}:{field:#010x}"));
+    derived(class, field, expected, value)
+}
+
+/// Story: a mod holds its icons as a `List2` of paths and 16.18 reads a `List`
+/// of `File`. The ordering tag and the item type are independent - the vector
+/// is the same bytes either way - so one road takes both.
+#[test]
+fn a_list2_of_paths_the_game_reads_as_a_list_of_files_crosses_on_both() {
+    const PATH: &str = "assets/fixture/evolution_icon.dds";
+    let mut value: PropertyValueEnum =
+        values::UnorderedContainer(values::Container::from(vec![text(PATH)])).into();
+    let migration = schema_migration("EvolutionDescription", "mIconNames", AFTER_16_18, &value);
+
+    assert_eq!(migration.from.label(), "list2[string]");
+    assert_eq!(migration.to.label(), "list[file]");
+    assert_eq!(migration.conversion, Conversion::RetagHashValue);
+    assert!(preview(&migration, &value, &BinNames::none()).is_some());
+
+    assert!(convert(&mut value, &migration, &BinNames::none()));
+
+    let PropertyValueEnum::Container(items) = &value else {
+        panic!("expected a List");
+    };
+    assert_eq!(items.item_kind(), Kind::WadChunkLink);
+    assert_eq!(
+        items.items()[0]
+            .get::<values::WadChunkLink>()
+            .unwrap()
+            .value,
+        WadHash::hash_str(PATH)
+    );
+}
+
+/// Story: 16.18 moved `TextureOverrides` to `File` on both sides of the map.
+/// The keys go the way a rehash does, through the path behind each one, and
+/// the values go the way every other path does.
+#[test]
+fn a_map_that_moves_its_keys_and_its_values_is_rekeyed_and_rehashed() {
+    const KEY: &str = "assets/fixture/override_key.dds";
+    const HELD: &str = "assets/fixture/override_value.dds";
+    let (_tmp, names) = names_of(&[KEY]);
+
+    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
+    map.push(
+        values::Hash::new(BinHash::hash_str(KEY)).into(),
+        text(HELD).into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+    let migration = schema_migration(
+        "UiElementParticleSystemData",
+        "TextureOverrides",
+        AFTER_16_18,
+        &value,
+    );
+
+    assert_eq!(migration.from.label(), "map[hash,string]");
+    assert_eq!(migration.to.label(), "map[file,file]");
+    assert_eq!(migration.conversion, Conversion::HashKeyValue);
+    assert!(preview(&migration, &value, &names).is_some());
+
+    assert!(convert(&mut value, &migration, &names));
+
+    let PropertyValueEnum::Map(map) = &value else {
+        panic!("expected a Map");
+    };
+    assert_eq!(map.key_kind(), Kind::WadChunkLink);
+    assert_eq!(map.value_kind(), Kind::WadChunkLink);
+    let (key, held) = &map.entries()[0];
+    assert_eq!(
+        key.get::<values::WadChunkLink>().unwrap().value,
+        WadHash::hash_str(KEY)
+    );
+    assert_eq!(
+        held.get::<values::WadChunkLink>().unwrap().value,
+        WadHash::hash_str(HELD)
+    );
+}
+
+/// The keys are the half that can fail. A key no table names back to its path
+/// has no road to `File`, and the values crossing anyway would leave the map
+/// read under two hash functions.
+#[test]
+fn a_map_with_an_unnamed_key_crosses_neither_half() {
+    const HELD: &str = "assets/fixture/override_value.dds";
+    let mut map = values::Map::empty(Kind::Hash, Kind::String).expect("kinds a map can hold");
+    map.push(
+        values::Hash::new(BinHash(0x1111_2222)).into(),
+        text(HELD).into(),
+    )
+    .unwrap();
+    let mut value: PropertyValueEnum = map.into();
+    let migration = schema_migration(
+        "UiElementParticleSystemData",
+        "TextureOverrides",
+        AFTER_16_18,
+        &value,
+    );
+    let before = value.clone();
+
+    assert_eq!(migration.conversion, Conversion::HashKeyValue);
+    assert!(preview(&migration, &value, &BinNames::none()).is_none());
+    assert!(!convert(&mut value, &migration, &BinNames::none()));
+    assert_eq!(value, before, "not even the values moved");
+
+    let message = note(
+        &migration,
+        &value,
+        &BinNames::none(),
+        Some(AFTER_16_18),
+        AFTER_16_18,
+    )
+    .expect("a note naming the key it is missing");
+    assert!(message.contains("0x11112222"), "{message}");
+}
+
+/// The whole point of the two roads: a 16.18 install is offered a repair where
+/// it used to be told to rebuild the mod.
+#[test]
+fn the_16_18_both_halves_retypes_are_reported_repairable() {
+    const PATH: &str = "assets/fixture/evolution_icon.dds";
+    let icons = values::UnorderedContainer(values::Container::from(vec![text(PATH)]));
+    let bin = object_bin(
+        BinHash::hash_str("EvolutionDescription"),
+        BinHash::hash_str("mIconNames"),
+        icons,
+    );
+    let (_tmp, files) = project_on(&bin, Some(AFTER_16_18));
+
+    let problems = check_with(&files);
+
+    assert_eq!(problems.len(), 1);
+    let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
+    assert_eq!(mismatch.expected, "list[file]");
+    assert_eq!(mismatch.found, "list2[string]");
+    assert!(problems[0].fix.is_some());
+    assert_eq!(problems[0].message, None, "no rebuild-the-mod sentence");
+}
