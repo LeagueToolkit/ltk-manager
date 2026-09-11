@@ -6,7 +6,7 @@ import {
   objectDocument,
   previewDocument,
 } from "../documents/contentDocument";
-import { assetContext } from "../preview/assetRef";
+import { assetContext, assetKey } from "../preview/assetRef";
 import { nameHash } from "./binHash";
 import type { LinkTargets } from "./useLinkTargets";
 
@@ -79,6 +79,18 @@ export function decideObjectLink(hash: string, targets: LinkTargets): LinkDecisi
   if (status === "ready" || status === "failed") return TEXT;
   if (status === "building" || status === "absent") return WARM;
   return targets.pending ? PENDING : TEXT;
+}
+
+/** The asset declaring object `hash`, where one other than `asset` declares it. */
+export function declaredElsewhere(
+  hash: string,
+  targets: LinkTargets,
+  asset: AssetRef,
+): AssetRef | null {
+  const decision = decideObjectLink(hash, targets);
+  if (decision.kind !== "chip" || decision.document.kind !== "object") return null;
+  const declaring = decision.document.asset;
+  return assetKey(declaring) === assetKey(asset) ? null : declaring;
 }
 
 /** What a `Hash` draws as: a chip where the index declares an object under it, else text. */

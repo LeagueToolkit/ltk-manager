@@ -538,6 +538,29 @@ describe("a value family's row", () => {
     expect(screen.getByDisplayValue("1.5")).toHaveAttribute("readonly");
   });
 
+  it("draws a random range as its two bounds, where the tables have been read", () => {
+    renderMarked({
+      family: "scalar",
+      constant: { type: "float", value: 1.5 },
+      keys: [],
+      tables: [
+        {
+          channel: 0,
+          single: 1,
+          keys: [
+            { time: 0, values: [0.8] },
+            { time: 1, values: [1.2] },
+          ],
+        },
+      ],
+      curve: true,
+    });
+
+    expect(screen.getByDisplayValue("1.2")).toHaveAttribute("readonly");
+    expect(screen.getByDisplayValue("1.8")).toHaveAttribute("readonly");
+    expect(screen.queryByDisplayValue("1.5")).toBeNull();
+  });
+
   it("draws nothing extra before the read lands", () => {
     renderMarked({ family: "color", constant: null, keys: [], tables: [], curve: false });
 

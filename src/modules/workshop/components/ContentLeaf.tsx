@@ -11,6 +11,7 @@ import {
   useDirtyDocumentIds,
   useFocusLeaf,
   useLeafTabs,
+  useMaximizedLeafId,
   useOpenDocument,
   usePinnedDocumentIds,
   usePreviewDocumentId,
@@ -18,6 +19,7 @@ import {
   useSetDocumentPinned,
   useSetLeafLocked,
   useSplitWithDocument,
+  useToggleMaximizedLeaf,
 } from "../state";
 import { LeafProvider } from "./LeafContext";
 import { useProjectContext } from "./ProjectContext";
@@ -41,10 +43,12 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
   const pinnedIds = usePinnedDocumentIds();
   const setDocumentPinned = useSetDocumentPinned();
   const setLeafLocked = useSetLeafLocked();
+  const maximizedLeafId = useMaximizedLeafId();
+  const toggleMaximized = useToggleMaximizedLeaf();
 
   return (
     <LeafProvider leafId={leaf.id}>
-      <LeafDropZones leafId={leaf.id} tabs={leaf.tabs}>
+      <LeafDropZones leafId={leaf.id} tabs={leaf.tabs} maximized={maximizedLeafId === leaf.id}>
         <EditorSurface
           leafId={leaf.id}
           documents={documents}
@@ -56,6 +60,7 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
           onActivate={(id) => activateDocument(leaf.id, id)}
           onPromote={promoteDocument}
           onTogglePin={setDocumentPinned}
+          onMaximize={() => toggleMaximized(leaf.id)}
           onClose={(id) => closeDocument(leaf.id, id)}
           onSplit={(id, edge) => splitWithDocument(id, leaf.id, edge)}
           locked={leaf.locked === true}

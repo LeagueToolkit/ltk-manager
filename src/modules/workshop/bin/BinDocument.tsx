@@ -143,6 +143,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
         open(document, "default");
         aimCurve(document.id, row, chain);
       },
+      clear: () => {},
     }),
     [aimCurve, documentOf, open, rootByKey],
   );

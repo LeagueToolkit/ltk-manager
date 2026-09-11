@@ -11,7 +11,7 @@ use std::num::NonZeroU32;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::{AssetRef, Preview, PreviewError, PreviewImage};
+use ltk_manager_core::preview::{AssetRef, Preview, PreviewError, PreviewImage, PreviewRequest};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
@@ -29,6 +29,21 @@ pub const SCHEME: &str = "ltk-asset";
 /// "Thumbnails" in docs/ux/PROJECT_EDITOR.md.
 const WIDTH_PARAMETER: &str = "w";
 
+/// The query parameter naming what the response carries, where an image is not it.
+const FORM_PARAMETER: &str = "as";
+
+/// The [`FORM_PARAMETER`] value asking a mesh for its vertex buffer.
+const GEOMETRY_FORM: &str = "geometry";
+
+/// The [`FORM_PARAMETER`] value asking a skeleton for its joint buffer.
+const SKELETON_FORM: &str = "skeleton";
+
+/// The [`FORM_PARAMETER`] value asking a clip for its baked pose buffer.
+const ANIMATION_FORM: &str = "animation";
+
+/// The [`FORM_PARAMETER`] value asking a cube map for its six faces as one image.
+const CUBE_FORM: &str = "cube";
+
 /// Answer one preview request.
 ///
 /// The path is a base64url [`AssetRef`], unpadded. That alphabet survives
@@ -42,15 +57,16 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
-    let min_width = match requested_width(request.uri().query()) {
-        Ok(min_width) => min_width,
+    let wanted = match requested(request.uri().query()) {
+        Ok(wanted) => wanted,
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
     let config = app.state::<SettingsState>().config();
 
-    match asset.preview(min_width, &config, &app.state::<WadCache>()) {
+    match asset.preview(wanted, &config, &app.state::<WadCache>()) {
         Ok(Preview::Image(image)) => image_response(image),
+        Ok(Preview::Buffer(bytes)) => buffer_response(bytes),
         Err(e) => {
             tracing::debug!("No preview for {asset:?}: {e}");
             message_response(status_for(&e), &e.to_string())
@@ -66,18 +82,26 @@ fn decode(token: &str) -> Result<AssetRef, String> {
     serde_json::from_slice(&json).map_err(|e| format!("Not an asset reference: {e}"))
 }
 
-/// The `w` a query carries, and none for a query without one.
+/// What a query asks the asset for.
 ///
-/// Any other parameter passes unread.
+/// A query naming no form is an image, which is every request written before geometry
+/// was a second answer, and a width only an image has a use for.
+fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
+    match parameter(query, FORM_PARAMETER) {
+        None => Ok(PreviewRequest::Image {
+            min_width: requested_width(query)?,
+        }),
+        Some(GEOMETRY_FORM) => Ok(PreviewRequest::Geometry),
+        Some(SKELETON_FORM) => Ok(PreviewRequest::Skeleton),
+        Some(ANIMATION_FORM) => Ok(PreviewRequest::Animation),
+        Some(CUBE_FORM) => Ok(PreviewRequest::Cube),
+        Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
+    }
+}
+
+/// The `w` a query carries, and none for a query without one.
 fn requested_width(query: Option<&str>) -> Result<Option<NonZeroU32>, String> {
-    let Some(query) = query else {
-        return Ok(None);
-    };
-    let Some(value) = query
-        .split('&')
-        .filter_map(|pair| pair.split_once('='))
-        .find_map(|(key, value)| (key == WIDTH_PARAMETER).then_some(value))
-    else {
+    let Some(value) = parameter(query, WIDTH_PARAMETER) else {
         return Ok(None);
     };
 
@@ -87,10 +111,22 @@ fn requested_width(query: Option<&str>) -> Result<Option<NonZeroU32>, String> {
         .map_err(|_| format!("Not a width: {WIDTH_PARAMETER}={value}"))
 }
 
+/// The value `key` carries in `query`, and none for a query without it.
+///
+/// Any other parameter passes unread.
+fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
+    query?
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .find_map(|(name, value)| (name == key).then_some(value))
+}
+
 /// The status that tells a caller what went wrong.
 fn status_for(error: &AppError) -> StatusCode {
     match error {
-        AppError::Preview(PreviewError::Unsupported(_)) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        AppError::Preview(
+            PreviewError::Unsupported(_) | PreviewError::UnsupportedMesh(_) | PreviewError::NotCube,
+        ) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         AppError::InvalidPath(_) | AppError::LeagueNotFound => StatusCode::NOT_FOUND,
         AppError::Io(e) if e.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -99,6 +135,11 @@ fn status_for(error: &AppError) -> StatusCode {
 
 fn image_response(image: PreviewImage) -> Response<Vec<u8>> {
     build(StatusCode::OK, image.mime, image.bytes)
+}
+
+/// A buffer, which the webview decodes rather than renders.
+fn buffer_response(bytes: Vec<u8>) -> Response<Vec<u8>> {
+    build(StatusCode::OK, "application/octet-stream", bytes)
 }
 
 fn message_response(status: StatusCode, message: &str) -> Response<Vec<u8>> {
@@ -190,6 +231,55 @@ mod tests {
         assert!(requested_width(Some("w=")).is_err());
     }
 
+    /// Every URL written before geometry was a second answer asks for an image, and
+    /// carries no form to say so.
+    #[test]
+    fn a_query_with_no_form_asks_for_an_image() {
+        assert_eq!(
+            requested(None),
+            Ok(PreviewRequest::Image { min_width: None })
+        );
+        assert_eq!(
+            requested(Some("w=128")),
+            Ok(PreviewRequest::Image {
+                min_width: NonZeroU32::new(128)
+            })
+        );
+    }
+
+    #[test]
+    fn a_geometry_form_asks_for_geometry_whatever_width_rides_along() {
+        assert_eq!(requested(Some("as=geometry")), Ok(PreviewRequest::Geometry));
+        assert_eq!(
+            requested(Some("w=64&as=geometry")),
+            Ok(PreviewRequest::Geometry),
+            "a mesh has no mipmap to pick, so the width passes unread"
+        );
+    }
+
+    #[test]
+    fn a_skeleton_form_and_an_animation_form_ask_for_their_buffers() {
+        assert_eq!(requested(Some("as=skeleton")), Ok(PreviewRequest::Skeleton));
+        assert_eq!(
+            requested(Some("as=animation")),
+            Ok(PreviewRequest::Animation)
+        );
+    }
+
+    #[test]
+    fn a_cube_form_asks_for_the_six_faces() {
+        assert_eq!(requested(Some("as=cube")), Ok(PreviewRequest::Cube));
+    }
+
+    /// A form nothing answers is a mistake in the caller's URL, and answering the image
+    /// it did not ask for would hide it.
+    #[test]
+    fn a_form_that_names_nothing_is_rejected() {
+        assert!(requested(Some("as=")).is_err());
+        assert!(requested(Some("as=mesh")).is_err());
+        assert!(requested(Some("as=image")).is_err());
+    }
+
     #[test]
     fn a_token_that_is_not_a_reference_is_rejected() {
         assert!(decode("not base64!!").is_err());
@@ -202,6 +292,9 @@ mod tests {
             ltk_manager_core::preview::LeagueFileKind::PropertyBin,
         ));
         assert_eq!(status_for(&error), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+
+        let mesh = AppError::Preview(PreviewError::UnsupportedMesh(".tmesh"));
+        assert_eq!(status_for(&mesh), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
 
     #[test]

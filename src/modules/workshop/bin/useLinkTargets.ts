@@ -19,7 +19,9 @@ import { unwrapForQuery } from "@/utils/query";
 import { useProjectContentTree } from "../api/useProjectContentTree";
 import { useOptionalProjectContext, useProjectContext } from "../components/ProjectContext";
 import { layerTitle } from "../documents/contentDocument";
-import { BUILDING_POLL_MS, gameKeys, useWarmObjectIndex } from "../gameBrowser";
+/* The leaves rather than the browser barrel, which pulls the documents that route back here. */
+import { BUILDING_POLL_MS, gameKeys } from "../gameBrowser/keys";
+import { useWarmObjectIndex } from "../gameBrowser/useObjectIndex";
 import type { OpenIntent } from "../palette/types";
 import { assetKey } from "../preview/assetRef";
 import { useOpenDocumentAs } from "../state";

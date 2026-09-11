@@ -1,6 +1,7 @@
 # ADR-0032: A curve draws in a dock under the object tab
 
-- **Status:** Accepted (2026-09-08)
+- **Status:** Accepted (2026-09-08), amended 2026-09-11: the target follows its field, and the
+  random spread draws on the graph in place of a Probability tab
 - **Date:** 2026-09-08
 - **Crates:** none. A curve is four fields the projected read already answers, and Rust knows
   no value family
@@ -32,12 +33,15 @@ and open from then on for the life of the tab. Both of Riot's editors dock rathe
 and a popover closes on the first click into another cell, which is the click a reader tuning a
 value makes most.
 
-**The dock holds its target until another mark replaces it,** so a reader walks the emitter strip
-comparing every emitter's numbers against one open curve.
+**The target follows its field from emitter to emitter,** so the curve, the crumb and the
+inspector name one emitter. Where the next emitter holds the field flat or not at all, the surface
+lists the fields that emitter animates. A target no emitter owns stays until another mark replaces
+it. A held target would name one emitter on the curve and another in the inspector.
 
-**It carries three tabs: Graph, Probability and Table.** Graph plots the keys. Table is the keys
-as rows, which is the form an edit will take. Probability is `probabilityTables` for the channel
-the graph's chips chose, with `singleValue` drawn in place of a plot where a table holds no keys.
+**It carries two tabs: Graph and Table.** Graph plots the keys, and a value with probability
+tables draws its random spread there: a lane per channel where the value has no keys, and a band
+per random channel with a density edge where it animates. Table is the keys as rows, which is the form an edit will take. A table plotted on
+a tab of its own read as a curve over time, which it is not, so the tab it had is gone.
 
 **Its caption is the label chain, with the wire path on a line under it.** The chain is what the
 reader clicked. The path is what a bug report needs.
@@ -65,14 +69,14 @@ dock already targeted, the way Show in properties switches the mode.
   their field hashes and differ only in how wide a key is.
 - **Positive:** the colour strip a row already draws becomes a reading of the same keys rather
   than a second read of its own.
-- **Positive:** the dock's target outliving the click is what makes a strip walkable, which is
-  the tuning loop the class view exists for.
+- **Positive:** the target following its field is what makes a strip walkable, which is the
+  tuning loop the class view exists for: one field read down every emitter.
 - **Negative:** the surface has two hosts. In a stack and in Properties it is the dock, absent
   until targeted. In the shell of ADR-0031 it is a pane that holds its place, because a pane
   appearing on a click moves every pane around it.
 - **Negative:** the sparkline's two extra read levels have to be asked for per surface rather
   than per family, so a surface that draws many rows at once must say it wants only the mark.
-- **Neutral:** Probability is undocumented. The tab draws the lists it finds and claims nothing
-  about what the game samples from them.
+- **Neutral:** what the game draws from a table is section 5 of
+  VfxPalette_ErosionAndProbability.md, and the spread draws that reading rather than the lists.
 - **Neutral:** no plotting library. The axis ticks are fixed and the value axis fits its own
   keys, which is arithmetic rather than a dependency.

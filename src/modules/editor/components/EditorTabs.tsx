@@ -74,6 +74,8 @@ export interface EditorTabsProps {
   locked?: boolean;
   /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
   onToggleLock?: (locked: boolean) => void;
+  /** A double click on a kept tab, which fills the grid with this leaf. */
+  onMaximize?: () => void;
   /** The strip belongs to the focused leaf, whose active tab carries the accent rail. */
   focused?: boolean;
   className?: string;
@@ -100,6 +102,7 @@ export function EditorTabs({
   onTogglePin,
   locked,
   onToggleLock,
+  onMaximize,
   focused,
   className,
 }: EditorTabsProps) {
@@ -154,6 +157,7 @@ export function EditorTabs({
               onPromote={onPromote}
               onTogglePin={onTogglePin}
               onToggleLock={onToggleLock}
+              onMaximize={onMaximize}
               onClose={onClose}
               onCloseOthers={onCloseOthers}
               onCloseToRight={onCloseToRight}
@@ -271,6 +275,7 @@ interface SortableTabProps {
   onPromote?: (id: string) => void;
   onTogglePin?: (id: string, pinned: boolean) => void;
   onToggleLock?: (locked: boolean) => void;
+  onMaximize?: () => void;
   onClose: (id: string) => void;
   onCloseOthers?: (id: string) => void;
   onCloseToRight?: (id: string) => void;
@@ -293,6 +298,7 @@ const SortableTab = memo(function SortableTab({
   onPromote,
   onTogglePin,
   onToggleLock,
+  onMaximize,
   onClose,
   onCloseOthers,
   onCloseToRight,
@@ -319,6 +325,13 @@ const SortableTab = memo(function SortableTab({
     if (event.button !== 1) return;
     event.preventDefault();
     if (!pinned) onClose(tab.id);
+  }
+
+  /* A replaceable tab spends the double click on being kept, per "Preview tabs"
+     in `docs/ux/PROJECT_EDITOR.md`. */
+  function handleDoubleClick() {
+    if (tab.preview) onPromote?.(tab.id);
+    else onMaximize?.();
   }
 
   const body = (
@@ -355,7 +368,7 @@ const SortableTab = memo(function SortableTab({
        attribute, because `data-ui` is a label for a reader and not a hook. */
     "data-tab-id": tab.id,
     onAuxClick: handleAuxClick,
-    onDoubleClick: () => onPromote?.(tab.id),
+    onDoubleClick: handleDoubleClick,
     ...listeners,
     className: twMerge(
       /* Hidden overflow clips the focus rail to the pill's rounded corners, so

@@ -1,5 +1,5 @@
 import { m } from "@/i18n";
-import type { BinRow } from "@/lib/tauri";
+import type { BinRow, FieldSchema, KindShape } from "@/lib/tauri";
 
 import { nameHash } from "./binHash";
 import { fieldHash } from "./binRows";
@@ -237,5 +237,64 @@ export function groupRows(rows: readonly BinRow[]): GroupedRows[] {
   return GROUP_ORDER.flatMap((group) => {
     const held = byGroup.get(group);
     return held === undefined ? [] : [{ group, rows: held }];
+  });
+}
+
+/** A field the class declares and the emitter does not author, which Defaults lists. */
+export interface DefaultField {
+  /** `0x` and eight hex digits. */
+  readonly hash: string;
+  /** The field as the schema names it, or its hash where the database names it none. */
+  readonly name: string;
+  /** The type at the install's build, and null where no revision covers it. */
+  readonly declared: KindShape | null;
+}
+
+/** One section of the inspector: what the emitter authored, and what Defaults adds under it. */
+export interface InspectorGroup {
+  readonly group: EmitterGroup;
+  readonly rows: readonly BinRow[];
+  readonly defaults: readonly DefaultField[];
+}
+
+/**
+ * The fields of `fields` that no hash in `authored` names, in the schema's own order.
+ *
+ * The two the card draws are left out wherever they come from, the way `groupRows`
+ * leaves them out of a group.
+ */
+export function unauthoredFields(
+  fields: readonly FieldSchema[],
+  authored: ReadonlySet<string>,
+): DefaultField[] {
+  return fields
+    .filter((field) => !authored.has(field.hash))
+    .filter((field) => field.hash !== CARD.name && field.hash !== CARD.disabled)
+    .map((field) => ({
+      hash: field.hash,
+      name: field.name ?? field.hash,
+      declared: field.declared,
+    }));
+}
+
+/** `groups` with every default under the group its field falls in, in card order. */
+export function inspectorGroups(
+  groups: readonly GroupedRows[],
+  defaults: readonly DefaultField[],
+): InspectorGroup[] {
+  const byGroup = new Map<EmitterGroup, DefaultField[]>();
+  for (const field of defaults) {
+    const group = BY_FIELD.get(field.hash) ?? "other";
+    const held = byGroup.get(group);
+    if (held === undefined) byGroup.set(group, [field]);
+    else held.push(field);
+  }
+
+  const authored = new Map(groups.map((each) => [each.group, each.rows] as const));
+  return GROUP_ORDER.flatMap((group) => {
+    const rows = authored.get(group);
+    const held = byGroup.get(group);
+    if (rows === undefined && held === undefined) return [];
+    return [{ group, rows: rows ?? [], defaults: held ?? [] }];
   });
 }

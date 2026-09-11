@@ -12,6 +12,13 @@ const BUG_REPORT_URL =
 
 interface ErrorBoundaryProps {
   children: ReactNode;
+  /**
+   * What to draw in place of the children once one threw, given the way to draw them again.
+   *
+   * A boundary around one pane draws a notice in that pane. The one above the router draws
+   * the whole-window fallback and offers a reload instead.
+   */
+  fallback?: (retry: () => void) => ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -40,8 +47,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     });
   }
 
+  retry = () => {
+    this.setState({ crashed: false });
+  };
+
   render() {
     if (!this.state.crashed) return this.props.children;
+    if (this.props.fallback) return this.props.fallback(this.retry);
 
     return (
       <div

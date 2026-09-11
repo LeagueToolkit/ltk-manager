@@ -2,6 +2,15 @@ use super::*;
 
 /// A project on disk: layer files under `content`, and declared tables under `hashes`.
 fn project(files: &[&str], tables: &[(&str, &str)]) -> tempfile::TempDir {
+    written(files, tables, &[])
+}
+
+/// A project whose manifest declares `layers` by name and priority.
+fn layered(files: &[&str], layers: &[(&str, i32)]) -> tempfile::TempDir {
+    written(files, &[], layers)
+}
+
+fn written(files: &[&str], tables: &[(&str, &str)], layers: &[(&str, i32)]) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("temp dir");
 
     for layer_path in files {
@@ -20,8 +29,14 @@ fn project(files: &[&str], tables: &[(&str, &str)]) -> tempfile::TempDir {
         })
         .collect();
 
+    let named: Vec<String> = layers
+        .iter()
+        .map(|(name, priority)| format!(r#"{{"name":"{name}","priority":{priority}}}"#))
+        .collect();
+
     let manifest = format!(
-        r#"{{"name":"probe","display_name":"Probe","version":"1.0.0","description":"","authors":[],"layers":[],"hashtables":[{}]}}"#,
+        r#"{{"name":"probe","display_name":"Probe","version":"1.0.0","description":"","authors":[],"layers":[{}],"hashtables":[{}]}}"#,
+        named.join(","),
         declared.join(",")
     );
     fs::write(dir.path().join("mod.config.json"), manifest.as_bytes()).expect("manifest");
@@ -52,6 +67,33 @@ fn the_layer_and_the_archive_are_not_part_of_the_chunk_path() {
         chunks.get(WadHash::hash_str("base/Aatrox.wad.client/assets/x.tex")),
         None
     );
+}
+
+#[test]
+fn a_chunk_path_reaches_the_layer_file_holding_it_whatever_its_casing() {
+    let dir = project(&["base/Aatrox.wad.client/assets/x.tex"], &[]);
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.asset_at("ASSETS/X.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "base".to_owned(),
+            path: "Aatrox.wad.client/assets/x.tex".to_owned(),
+        })
+    );
+}
+
+#[test]
+fn a_path_only_a_declared_table_names_reaches_no_file() {
+    let path = "assets/x.tex";
+    let dir = project(&[], &[("game.hashes.txt", &format!("{path}\n"))]);
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(chunks.get(WadHash::hash_str(path)), Some(path));
+    assert_eq!(chunks.asset_at(path), None);
 }
 
 #[test]
@@ -89,6 +131,126 @@ fn a_table_path_and_a_layer_path_differing_only_in_case_are_one_chunk() {
     let chunks = LayerChunks::scan(dir.path());
 
     assert_eq!(chunks.len(), 1, "one hash, whatever the casing");
+}
+
+/// `Layer::priority`'s contract, against a name order that would answer the other way.
+#[test]
+fn a_path_two_layers_hold_reaches_the_higher_priority_one() {
+    let dir = layered(
+        &[
+            "aaa/W.wad.client/assets/x.tex",
+            "zzz/W.wad.client/assets/x.tex",
+        ],
+        &[("aaa", 5), ("zzz", 1)],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.asset_at("assets/x.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "aaa".to_owned(),
+            path: "W.wad.client/assets/x.tex".to_owned(),
+        })
+    );
+}
+
+/// A layer dropped in by hand is declared nowhere, and still stacks over `base`.
+#[test]
+fn an_undeclared_layer_directory_stacks_onto_base() {
+    let dir = layered(
+        &[
+            "base/W.wad.client/assets/x.tex",
+            "custom/W.wad.client/assets/x.tex",
+        ],
+        &[("base", 0)],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.asset_at("assets/x.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "custom".to_owned(),
+            path: "W.wad.client/assets/x.tex".to_owned(),
+        })
+    );
+}
+
+/// `base` sits under its siblings by convention, not by rank, so a manifest that puts it
+/// above them resolves that way.
+#[test]
+fn a_base_layer_of_the_higher_priority_still_wins() {
+    let dir = layered(
+        &[
+            "base/W.wad.client/assets/x.tex",
+            "extra/W.wad.client/assets/x.tex",
+        ],
+        &[("base", 10), ("extra", 1)],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.asset_at("assets/x.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "base".to_owned(),
+            path: "W.wad.client/assets/x.tex".to_owned(),
+        })
+    );
+}
+
+/// A priority is signed, and a layer below `base` is under it rather than over it.
+#[test]
+fn a_layer_of_a_negative_priority_is_under_base() {
+    let dir = layered(
+        &[
+            "base/W.wad.client/assets/x.tex",
+            "under/W.wad.client/assets/x.tex",
+        ],
+        &[("base", 0), ("under", -1)],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.asset_at("assets/x.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "base".to_owned(),
+            path: "W.wad.client/assets/x.tex".to_owned(),
+        })
+    );
+}
+
+/// One layer answers both halves, so a resolved link does not name one file and open another.
+#[test]
+fn the_named_spelling_and_the_file_come_from_one_layer() {
+    let dir = layered(
+        &[
+            "aaa/W.wad.client/Assets/X.tex",
+            "zzz/W.wad.client/assets/x.tex",
+        ],
+        &[("aaa", 1), ("zzz", 5)],
+    );
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.get(WadHash::hash_str("assets/x.tex")),
+        Some("assets/x.tex")
+    );
+    assert_eq!(
+        chunks.asset_at("assets/x.tex"),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "zzz".to_owned(),
+            path: "W.wad.client/assets/x.tex".to_owned(),
+        })
+    );
 }
 
 #[test]

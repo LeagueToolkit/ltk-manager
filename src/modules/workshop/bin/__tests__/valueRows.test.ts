@@ -10,6 +10,7 @@ import {
   constantRequests,
   dynamicsRequests,
   gradientCss,
+  markRanges,
   markText,
   placeTime,
   sparkKeys,
@@ -19,6 +20,7 @@ import {
   tableRequests,
   timeSpan,
   valueFamily,
+  type ValueMark,
   valueMarks,
 } from "../valueRows";
 
@@ -222,22 +224,23 @@ describe("the three levels", () => {
     ]);
   });
 
-  it("asks a sparkline for every family's curve", () => {
-    expect(dynamicsRequests([colorRow, floatRow, curveRow], CONSTANTS, "sparklines")).toEqual([
+  it("asks a curve read for every family's curve", () => {
+    expect(dynamicsRequests([colorRow, floatRow, curveRow], CONSTANTS, "curves")).toEqual([
       { key: `${ENTRY}:${DYNAMICS_PATH}`, rows: 3 },
       { key: `${ENTRY}:${CURVE_DYNAMICS}`, rows: 3 },
     ]);
   });
 
   it("asks for nothing before the level above answers", () => {
-    expect(dynamicsRequests([colorRow], new Map(), "sparklines")).toEqual([]);
+    expect(dynamicsRequests([colorRow], new Map(), "curves")).toEqual([]);
     expect(stopRequests(new Map())).toEqual([]);
   });
 
-  it("asks a dock alone for the table list, which no row-drawing surface reads", () => {
-    expect(tableRequests(DYNAMICS, "sparklines")).toEqual([]);
+  it("asks a curve read for the table list, which a band never reads", () => {
     expect(tableRequests(DYNAMICS, "bands")).toEqual([]);
-    expect(tableRequests(DYNAMICS, "dock")).toEqual([{ key: `${ENTRY}:${TABLES_PATH}`, rows: 4 }]);
+    expect(tableRequests(DYNAMICS, "curves")).toEqual([
+      { key: `${ENTRY}:${TABLES_PATH}`, rows: 4 },
+    ]);
   });
 
   it("asks for the table behind every slot the list fills, and none behind a null one", () => {
@@ -297,6 +300,41 @@ describe("valueMarks", () => {
     ]);
   });
 
+  it("counts the list's slots, a null one included, once every table has answered", () => {
+    const whole = valueMarks([colorRow], DOCK_PAGES).get(`${ENTRY}:${COLOR_PATH}`);
+    const halfRead = valueMarks([colorRow], { ...DOCK_PAGES, tableKeys: new Map() }).get(
+      `${ENTRY}:${COLOR_PATH}`,
+    );
+
+    expect(whole?.slots).toBe(4);
+    expect(halfRead?.slots).toBeUndefined();
+  });
+
+  it("counts no slot before the curve's own keys answer, so a draw never reads a still base", () => {
+    const keyless = valueMarks([colorRow], { ...DOCK_PAGES, stops: new Map() }).get(
+      `${ENTRY}:${COLOR_PATH}`,
+    );
+
+    expect(keyless?.tables).not.toHaveLength(0);
+    expect(keyless?.slots).toBeUndefined();
+  });
+
+  it("reads lists of two lengths as the 0 the engine reads them as", () => {
+    const fields = new Map(TABLE_FIELDS);
+    fields.set(
+      `${ENTRY}:${RED_TABLE}`,
+      page([
+        row(`${RED_TABLE}.40c351da`, { type: "container", len: 2, itemKind: "f32" }),
+        row(`${RED_TABLE}.e44b7382`, { type: "container", len: 3, itemKind: "f32" }),
+      ]),
+    );
+    const mark = valueMarks([colorRow], { ...DOCK_PAGES, tableFields: fields }).get(
+      `${ENTRY}:${COLOR_PATH}`,
+    );
+
+    expect(mark?.tables[0]).toEqual({ channel: 0, single: 0, keys: [], mismatched: true });
+  });
+
   it("reads a table the file writes no `singleValue` for as the schema's own default", () => {
     const mark = valueMarks([colorRow], DOCK_PAGES).get(`${ENTRY}:${COLOR_PATH}`);
 
@@ -354,6 +392,99 @@ describe("valueMarks", () => {
       tables: [],
       curve: false,
     });
+  });
+});
+
+describe("markRanges", () => {
+  /** A table reaching from `least` at a draw of 0 to `most` at a draw of 1. */
+  function table(channel: number, least: number, most: number) {
+    return {
+      channel,
+      single: 1,
+      keys: [
+        { time: 0, values: [least] },
+        { time: 1, values: [most] },
+      ],
+    };
+  }
+
+  function scalar(value: number, over: Partial<ValueMark> = {}): ValueMark {
+    return {
+      family: "scalar",
+      constant: { type: "float", value },
+      keys: [],
+      tables: [],
+      curve: true,
+      ...over,
+    };
+  }
+
+  it("reads a constant under a table as the constant times the table's reach", () => {
+    expect(markRanges(scalar(1.5, { tables: [table(0, 0.8, 1.2)] }))).toEqual([
+      { least: 1.2, most: 1.8 },
+    ]);
+  });
+
+  it("reads a curve's one key under its table, where the constant is not read", () => {
+    const keys = [{ time: 0, values: [4] }];
+
+    expect(markRanges(scalar(100, { keys, tables: [table(0, 0.5, 1)] }))).toEqual([
+      { least: 2, most: 4 },
+    ]);
+  });
+
+  it("draws no range for a value that animates, whose curve is not a chance", () => {
+    const keys = [
+      { time: 0, values: [2] },
+      { time: 1, values: [4] },
+    ];
+
+    expect(markRanges(scalar(1, { keys, tables: [table(0, 0.5, 1)] }))).toBeNull();
+  });
+
+  it("holds a table flat past its outermost keys, as the draw reads it", () => {
+    const inner = {
+      channel: 0,
+      single: 1,
+      keys: [
+        { time: 0.25, values: [2] },
+        { time: 0.75, values: [4] },
+      ],
+    };
+
+    expect(markRanges(scalar(1, { tables: [inner] }))).toEqual([{ least: 2, most: 4 }]);
+  });
+
+  it("keeps a negative value's bounds in order", () => {
+    expect(markRanges(scalar(-2, { tables: [table(0, 0.5, 1)] }))).toEqual([
+      { least: -2, most: -1 },
+    ]);
+  });
+
+  it("gives a channel with no table no range", () => {
+    const mark: ValueMark = {
+      family: "vector",
+      constant: { type: "vector", values: [1, 2, 3] },
+      keys: [],
+      tables: [table(1, 1, 3)],
+      curve: true,
+    };
+
+    expect(markRanges(mark)).toEqual([null, { least: 2, most: 6 }, null]);
+  });
+
+  it("draws no range for a colour, nor before the tables are read", () => {
+    const colour: ValueMark = {
+      family: "color",
+      constant: vec4(1, 1, 1, 1),
+      keys: [],
+      tables: [table(0, 0, 1)],
+      curve: true,
+    };
+
+    expect(markRanges(colour)).toBeNull();
+    expect(markRanges(scalar(1))).toBeNull();
+    expect(markRanges(undefined)).toBeNull();
   });
 });
 

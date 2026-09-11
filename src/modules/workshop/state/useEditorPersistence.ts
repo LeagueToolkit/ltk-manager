@@ -6,7 +6,7 @@ import { api } from "@/lib/tauri";
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import { singleLeaf } from "@/modules/editor/layout";
 
-import { defaultShellLayout, firstShellLeafId } from "../bin/shellPanes";
+import { defaultShellArrangements } from "../bin/shellPanes";
 import type { ContentDocument } from "../documents";
 import {
   parseEditorFile,
@@ -42,7 +42,7 @@ export function migrateFromV1(persisted: unknown): {
 } {
   const stored = (persisted as { byProject?: Record<string, ProjectEditorV1> } | null)?.byProject;
 
-  const shellLayout = defaultShellLayout();
+  const shells = defaultShellArrangements();
   const byProject: Record<string, PersistedProjectEditor> = {};
   for (const [path, editor] of Object.entries(stored ?? {})) {
     const open = editor.open ?? [];
@@ -59,8 +59,7 @@ export function migrateFromV1(persisted: unknown): {
       // tab is permanent and none of them leads the strip.
       previewId: null,
       pinned: [],
-      shellLayout,
-      shellLeafId: firstShellLeafId(shellLayout),
+      shells,
     };
   }
   return { byProject };
@@ -101,8 +100,7 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     selectedLayer: editor.selectedLayer,
     previewId: editor.previewId,
     pinned: editor.pinned,
-    shellLayout: editor.shellLayout,
-    shellLeafId: editor.shellLeafId,
+    shells: editor.shells,
   };
 }
 
@@ -118,8 +116,7 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.selectedLayer === b.selectedLayer &&
     a.previewId === b.previewId &&
     a.pinned === b.pinned &&
-    a.shellLayout === b.shellLayout &&
-    a.shellLeafId === b.shellLeafId
+    a.shells === b.shells
   );
 }
 

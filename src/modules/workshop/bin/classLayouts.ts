@@ -3,6 +3,7 @@ import type { BinRow } from "@/lib/tauri";
 
 import { nameHash } from "./binHash";
 import { childCount, fieldHash, rowKey } from "./binRows";
+import { type ShellKind, shellPanesOf } from "./shellPanes";
 import type { ReadRequest } from "./useBinRead";
 
 /**
@@ -52,14 +53,22 @@ export interface LayoutSection {
 export interface ClassLayout {
   /** The word the mode's segment carries. */
   readonly title: () => string;
-  /** The frame it draws in. Absent for the stack, which is what a layout gets by default. */
-  readonly frame?: LayoutFrame;
+  /**
+   * The shell it draws in, which names the panes it holds (ADR-0036). Absent for the
+   * stack, which is what a layout gets by default.
+   */
+  readonly shell?: ShellKind;
   readonly sections: readonly LayoutSection[];
 }
 
-/** The frame `layout` draws in, which is the stack unless it names another. */
+/** The frame `layout` draws in, which is the stack unless it names a shell. */
 export function frameOf(layout: ClassLayout): LayoutFrame {
-  return layout.frame ?? "stack";
+  return layout.shell === undefined ? "stack" : "shell";
+}
+
+/** Whether `layout`'s shell holds a curve pane, which the dock otherwise stands in for. */
+export function shellHoldsCurve(layout: ClassLayout): boolean {
+  return layout.shell !== undefined && shellPanesOf(layout.shell).includes("curve");
 }
 
 /**
@@ -82,13 +91,15 @@ export const materialLayout: ClassLayout = {
 };
 
 /**
- * The skin, which is a hub of links and paths rather than a table of its own.
+ * The skin, which is a hub of links and paths drawn beside the character they build.
  *
  * The mesh and its overrides both hang off `skinMeshProperties`, so two sections place
- * that one row and each draws its own part of what sits under it.
+ * that one row and each draws its own part of what sits under it. It declares a shell,
+ * because the posed character is what a reader of a skin is looking at (ADR-0036).
  */
 export const skinLayout: ClassLayout = {
   title: m.workshop_bin_layout_skin_label,
+  shell: "skin",
   sections: [
     {
       title: m.workshop_bin_section_identity_label,
@@ -129,12 +140,12 @@ export const skinLayout: ClassLayout = {
  * The particle system, which is a list of emitters of 139 fields each.
  *
  * The two emitter lists are one table, because a reader looks for an emitter by name
- * rather than by which of the two holds it. It is the one layout that declares a shell,
- * per ADR-0031, because a particle system is tuned rather than read.
+ * rather than by which of the two holds it. It declares a shell, per ADR-0031, because a
+ * particle system is tuned rather than read.
  */
 export const vfxLayout: ClassLayout = {
   title: m.workshop_bin_layout_vfx_label,
-  frame: "shell",
+  shell: "vfx",
   sections: [
     {
       title: m.workshop_bin_section_identity_label,

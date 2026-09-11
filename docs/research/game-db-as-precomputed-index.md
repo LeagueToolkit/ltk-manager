@@ -35,11 +35,6 @@ Primary, in order of weight:
   `league_of_legends.live.db`, copied to the scratchpad and opened
   `file:...?mode=ro&immutable=1`
 - The install on disk: `C:\Riot Games\League of Legends\Game\`, read but never written
-- `X:\lol\dev\league_structs\docs\reversing\PatchDatabase_GameDb.md` - the schema record, sections
-  2 to 8
-- `X:\lol\dev\league_structs\docs\reversing\PatchChunkerWad.md` - the WAD chunker read out of
-  `RiotGamesApi.dll` 26.7.1.0, sections 3 to 6. The emission rules in its section 4 are what the
-  measurement in section 2 below tests
 - `crates/ltk-manager-core/src/game_index.rs` - the app's own global index
 - `crates/ltk-manager-core/src/game_wads.rs` - `GameArchives`, what the build walks
 - `ltk_overlay` 0.9.7 `src/game_index.rs` - the second index, its disk cache and its game
@@ -69,7 +64,7 @@ scratchpad
 
 ## 1. What the database holds, on this machine
 
-Every number here is `measured`, not read from the write-up.
+Every number here is `measured`, not read from any prior account.
 
 | property                | value                                           |
 | ----------------------- | ----------------------------------------------- |
@@ -86,26 +81,25 @@ Every number here is `measured`, not read from the write-up.
 The chunker type per file, `SELECT type, COUNT(*) FROM files GROUP BY type`, is 3 rows of type 0
 (the metadata jsons), 392 of type 2 (WAD) and 7 of type 3 (PE). The three chunking-parameter sets
 are `(4, 16384, 65536, 8388608)` for 10 files, `(4, 62500, 250000, 8388608)` for 210, and
-`(4, 250000, 1000000, 8388608)` for 182. Both match `PatchDatabase_GameDb.md` section 3 exactly, so
-that document's account of the schema is taken as sound for the parts not re-derived here.
+`(4, 250000, 1000000, 8388608)` for 182. Both match the documented schema exactly, so that account
+is taken as sound for the parts not re-derived here.
 
-Two claims of that document were **not** re-verified, and nothing below rests on either: that
+Two of its claims were **not** re-verified, and nothing below rests on either: that
 `path_id` is `XXH64` of the path text, and that the row-to-manifest correspondence holds 402 of 402. Reading `path_id` back out of `files` costs nothing, so the app would never need to compute
 it.
 
 ## 2. The decisive test: chunk boundaries against WAD entry boundaries
 
-`PatchDatabase_GameDb.md` says nothing about whether the database's byte ranges mean anything at
-the asset level. `PatchChunkerWad.md` section 4 says they should: the chunker emits the header and
-table of contents as one region, then walks the entries sorted by `dataOffset` and hands each
-entry's byte range to the plain CDC chunker as its own call, with `PatchChunkerSparse` over the
-gaps.
+The schema says nothing about whether the database's byte ranges mean anything at the asset level.
+The WAD chunker's emission rules say they should: it emits the header and table of contents as one
+region, then walks the entries sorted by `dataOffset` and hands each entry's byte range to the
+plain CDC chunker as its own call, with a sparse chunker over the gaps.
 
 If that holds on shipped data, every entry boundary is also a chunk boundary, and no chunk can
 straddle two assets.
 
-`wad_boundary_check.py` parses the WAD header and table of contents, reproduces the emission rules
-of that section including the zero-size skip and the `(dataOffset, compressedSize)` duplicate
+`wad_boundary_check.py` parses the WAD header and table of contents, reproduces those emission
+rules including the zero-size skip and the `(dataOffset, compressedSize)` duplicate
 collapse, then compares against `SELECT offset, size, id FROM chunks WHERE path_id=? ORDER BY
 offset`. Three archives, chosen as a base champion WAD, a locale WAD and the largest archive in
 the install:
@@ -128,7 +122,7 @@ The header-plus-table region ends exactly on a chunk boundary in all three: one 
 84,944 for `Aatrox`, one ending at 848 for the locale WAD, eight chunks ending at 2,096,208 for
 `Global`.
 
-So the alignment is real on shipped data, not only in the disassembly. An entry maps to a
+So the alignment is real on shipped data, not only in the emission rules. An entry maps to a
 contiguous run of chunk rows, one row for 94 percent of `Aatrox`'s entries and 98.7 percent of
 `Global`'s, and the multi-chunk cases are simply large assets that CDC split further inside their
 own region.
@@ -140,8 +134,8 @@ target. Per-entry identity there is a chunk-id _sequence_, not a single id.
 ## 3. What the ids are, therefore
 
 For a single-chunk entry the chunk covers exactly the entry's compressed byte range, so its id is a
-pure function of that asset's bytes. `PatchChunkerWad.md` section 6 identifies the version-4 chunk
-id as the first eight bytes of a BLAKE3 digest. Nothing in the app would ever compute one, only
+pure function of that asset's bytes. The version-4 chunk id is the first eight bytes of a BLAKE3
+digest. Nothing in the app would ever compute one, only
 compare Riot's.
 
 That is only useful if the id is independent of where the bytes lie. `shared_chunk_bytes.py` takes
@@ -281,20 +275,19 @@ tripwire alone does not.
 ## 8. Risks
 
 - **Presence is not guaranteed.** Verified here only on one live install plus the
-  `league_of_legends.live` product database. PBE is claimed by the write-up and untested here.
+  `league_of_legends.live` product database. PBE is claimed elsewhere and untested here.
   Garena and other region clients, partial installs, and any install mid-patch are all unverified.
   Every path must treat absence as ordinary and fall back to what the app does today.
-- **The patcher does not trust it either.** `PatchDatabase_GameDb.md` section 5 records that every
-  local chunk is re-hashed before reuse and a stale row costs a download rather than corruption. A
+- **The patcher does not trust it either.** Every local chunk is re-hashed before reuse, and a
+  stale row costs a download rather than corruption. A
   feature built on these ids inherits that: they are a fast path, never an authority.
 - **Staleness has no signal.** The rows describe the last patch or repair. A third-party tool
   writing into `Game\` invalidates them silently, which is the same fact the tripwire exploits and
   the reason nothing else may assume freshness without checking size and mtime first.
-- **The schema is already moving.** `user_version` is 3 here, and `PatchDatabase_GameDb.md` section
-  7 reports that `rpatch.dll` already carries a twelve-column `files` with the manifest's own file
-  id. Read defensively, check `user_version`, degrade rather than fail on a shape that does not
-  match.
-- **WAL concurrency**, per section 5. Copy before reading. Never open the live file for write, and
+- **The schema is already moving.** `user_version` is 3 here, and `rpatch.dll` already carries a
+  twelve-column `files` with the manifest's own file id. Read defensively, check `user_version`,
+  degrade rather than fail on a shape that does not match.
+- **WAL concurrency.** Copy before reading. Never open the live file for write, and
   never hold a reader across a patch.
 - **Anti-cheat.** Everything here is an ordinary read of files the user owns, with no injection and
   no write, and the app writing nothing into `Game\` is what keeps it that way. Vanguard's view of

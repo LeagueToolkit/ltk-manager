@@ -7,9 +7,9 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 use ltk_hash::BinHash;
 use ltk_wad::hex_name;
 
+use crate::bin_document::hex;
 use crate::game_index::SEARCH_LIMIT;
 use crate::matcher::{EXACT_SCORE, Query, Range, mask_covers};
-use crate::problems::names::hex;
 
 use super::{
     ObjectClassHit, ObjectIndex, ObjectSearchHit, ObjectSearchResult, Row, STALE_CHECK_INTERVAL,

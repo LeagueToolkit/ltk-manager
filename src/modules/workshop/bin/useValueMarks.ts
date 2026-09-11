@@ -41,9 +41,8 @@ export function useValueMark(key: string | undefined): ValueMark | undefined {
  *
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. Three levels of the projected
  * read answer a curve: the row's own children, the curve one of them points at, and the
- * curve's two lists. A dock read walks three more for the probability tables, which it
- * can afford because it is aimed at one row. Each level knows how many rows the next
- * costs, so no level guesses at the call's cap.
+ * curve's two lists. A curve read walks three more for the probability tables. Each level
+ * knows how many rows the next costs, so no level guesses at the call's cap.
  */
 export function useValueMarks(
   document: BinDocumentId,
@@ -55,11 +54,26 @@ export function useValueMarks(
     document,
     useMemo(() => constantRequests(settled), [settled]),
   );
-  const dynamics = useBinRead(document, dynamicsRequests(settled, constants, read));
-  const stops = useBinRead(document, stopRequests(dynamics));
-  const tables = useBinRead(document, tableRequests(dynamics, read));
-  const tableFields = useBinRead(document, tableFieldRequests(tables));
-  const tableKeys = useBinRead(document, tableKeyRequests(tableFields));
+  const dynamics = useBinRead(
+    document,
+    useMemo(() => dynamicsRequests(settled, constants, read), [settled, constants, read]),
+  );
+  const stops = useBinRead(
+    document,
+    useMemo(() => stopRequests(dynamics), [dynamics]),
+  );
+  const tables = useBinRead(
+    document,
+    useMemo(() => tableRequests(dynamics, read), [dynamics, read]),
+  );
+  const tableFields = useBinRead(
+    document,
+    useMemo(() => tableFieldRequests(tables), [tables]),
+  );
+  const tableKeys = useBinRead(
+    document,
+    useMemo(() => tableKeyRequests(tableFields), [tableFields]),
+  );
 
   return useMemo(
     () => valueMarks(settled, { constants, dynamics, stops, tables, tableFields, tableKeys }),
@@ -79,7 +93,10 @@ function useSettled(rows: readonly BinRow[]): readonly BinRow[] {
   const signature = family.map((row) => rowKey(row)).join("\n");
   const settled = useDebouncedValue(signature, SETTLE_MS);
 
-  const held = useRef<readonly BinRow[]>(NO_ROWS);
-  if (settled === signature) held.current = family;
-  return held.current;
+  /* Held with its signature, so a settled set keeps one identity across renders. */
+  const held = useRef({ signature: "", rows: NO_ROWS });
+  if (settled === signature && held.current.signature !== signature) {
+    held.current = { signature, rows: family };
+  }
+  return held.current.rows;
 }

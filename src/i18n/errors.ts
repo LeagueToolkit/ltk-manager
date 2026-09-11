@@ -75,6 +75,14 @@ export function describeError(error: AppError): ErrorCopy {
       title: m["error.BIN_READ_TOO_WIDE.title"](),
       description: m["error.BIN_READ_TOO_WIDE.description"]({ rows, cap }),
     }))
+    .with({ code: "BIN_READ_TOO_LARGE" }, () => ({
+      title: m["error.BIN_READ_TOO_LARGE.title"](),
+      description: m["error.BIN_READ_TOO_LARGE.description"](),
+    }))
+    .with({ code: "BIN_READ_TOO_DEEP" }, () => ({
+      title: m["error.BIN_READ_TOO_DEEP.title"](),
+      description: m["error.BIN_READ_TOO_DEEP.description"](),
+    }))
     .with({ code: "OVERLAY" }, ({ category, detail }) => withDetail(overlayTitle(category), detail))
     .with({ code: "UNTRUSTED_DOMAIN" }, ({ domain }) => ({
       title: m["error.UNTRUSTED_DOMAIN.title"]({ domain }),

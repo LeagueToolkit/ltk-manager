@@ -2,8 +2,8 @@ import { createContext, use } from "react";
 
 import type { BinRow } from "@/lib/tauri";
 
-/** The three readings of one curve, per "The three tabs" in docs/ux/BIN_EDITOR.md. */
-export type CurveTab = "graph" | "table" | "probability";
+/** The readings of one curve, per "The tabs" in docs/ux/BIN_EDITOR.md. */
+export type CurveTab = "graph" | "table";
 
 /** What the curve surface is aimed at: the value row, and the chain that names it. */
 export interface CurveTarget {
@@ -17,15 +17,16 @@ export interface CurveTarget {
 /**
  * The open target, and how a mark replaces it. "The curve panel" in docs/ux/BIN_EDITOR.md.
  *
- * There is one of these per object tab, per ADR-0032, so walking the emitter strip leaves
- * the dock on whatever the reader last aimed it at.
+ * There is one of these per object tab, per ADR-0032.
  */
 export interface CurveDock {
   readonly target: CurveTarget | null;
   readonly aim: (target: CurveTarget) => void;
+  /** Let go of the target, which leaves a dock that was open drawn with nothing in it. */
+  readonly clear: () => void;
 }
 
-const NO_DOCK: CurveDock = { target: null, aim: () => {} };
+const NO_DOCK: CurveDock = { target: null, aim: () => {}, clear: () => {} };
 
 export const CurveDockContext = createContext<CurveDock>(NO_DOCK);
 

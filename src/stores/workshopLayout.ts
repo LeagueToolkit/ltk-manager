@@ -1,11 +1,40 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import type { CameraPreset } from "@/modules/viewport";
+
 import { keepUnversioned } from "./storage";
 
 /** Which edge of the content browser the layers explorer docks to. */
 type LayerPanelSide = "left" | "right";
 type WadSort = "name" | "size";
+
+/** How a preview draws the run: shaded, as its triangle edges alone, or edges over shading. */
+type PreviewWireframe = "off" | "only" | "overlay";
+
+/**
+ * What a viewport draws around the run, and how the inspector lists a class.
+ *
+ * Display preferences, app-wide and persisted beside `previewCheckered` (ADR-0037). The
+ * run itself - the seed, the rig, the playhead - is kept per system for the session.
+ */
+interface PreviewDisplay {
+  /** The ground and its grid are drawn. */
+  previewGround: boolean;
+  /** The ground wears the midlane's texture. */
+  previewMidlane: boolean;
+  /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
+  previewGizmo: boolean;
+  /** The live counts and the frame's milliseconds are drawn in the corner. */
+  previewStats: boolean;
+  /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
+  previewCamera: CameraPreset;
+  previewWireframe: PreviewWireframe;
+  /** The timeline's lanes draw each emitter's live particles per step over its bar. */
+  timelineHistogram: boolean;
+  /** The inspector lists every field the class declares, the unauthored ones dimmed. */
+  inspectorDefaults: boolean;
+}
 /**
  * What opening a file from a tree does to the strip.
  *
@@ -52,7 +81,7 @@ interface ExplorerSort {
   direction: ExplorerSortDirection;
 }
 
-interface WorkshopLayoutStore {
+interface WorkshopLayoutStore extends PreviewDisplay {
   layerPanelSide: LayerPanelSide;
   layerPanelOpen: boolean;
   /** Open state per explorer section, keyed by section id. Absent means default. */
@@ -131,7 +160,19 @@ interface WorkshopLayoutStore {
   setSearchGame: (searchGame: boolean) => void;
   setSearchObjects: (searchObjects: boolean) => void;
   setForwardLookingMeta: (forwardLookingMeta: boolean) => void;
+  setPreviewDisplay: (display: Partial<PreviewDisplay>) => void;
 }
+
+const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
+  previewGround: true,
+  previewMidlane: true,
+  previewGizmo: true,
+  previewStats: false,
+  previewCamera: "game",
+  previewWireframe: "off",
+  timelineHistogram: false,
+  inspectorDefaults: false,
+};
 
 /* What the Project editor card shows. The rest of this store is geometry, which is
    remembered rather than chosen, so a settings key exists only for these four. */
@@ -165,6 +206,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       explorerSort: { field: "name", direction: "asc" },
       explorerColumns: { size: 88, kind: 112 },
       ...PROJECT_EDITOR_DEFAULTS,
+      ...PREVIEW_DISPLAY_DEFAULTS,
       setExplorerView: (explorerView) => set({ explorerView }),
       setExplorerTileSize: (explorerTileSize) => set({ explorerTileSize }),
       setExplorerRowHeight: (explorerRowHeight) => set({ explorerRowHeight }),
@@ -188,6 +230,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setSearchGame: (searchGame) => set({ searchGame }),
       setSearchObjects: (searchObjects) => set({ searchObjects }),
       setForwardLookingMeta: (forwardLookingMeta) => set({ forwardLookingMeta }),
+      setPreviewDisplay: (display) => set(display),
     }),
     {
       name: "ltk-workshop-layout",
@@ -197,7 +240,12 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   ),
 );
 
-export { EXPLORER_ROW_HEIGHTS, EXPLORER_TILE_SIZES, PROJECT_EDITOR_DEFAULTS };
+export {
+  EXPLORER_ROW_HEIGHTS,
+  EXPLORER_TILE_SIZES,
+  PREVIEW_DISPLAY_DEFAULTS,
+  PROJECT_EDITOR_DEFAULTS,
+};
 export type {
   ExplorerColumns,
   ExplorerRowHeight,
@@ -207,6 +255,8 @@ export type {
   ExplorerTileSize,
   ExplorerView,
   LayerPanelSide,
+  PreviewDisplay,
+  PreviewWireframe,
   ProjectEditorKey,
   TabOpenMode,
   WadSort,
@@ -249,3 +299,12 @@ export const useSetSearchObjects = () => useWorkshopLayoutStore((s) => s.setSear
 export const useForwardLookingMeta = () => useWorkshopLayoutStore((s) => s.forwardLookingMeta);
 export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
+export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
+export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
+export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
+export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
+export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
+export const usePreviewWireframe = () => useWorkshopLayoutStore((s) => s.previewWireframe);
+export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
+export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
+export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);

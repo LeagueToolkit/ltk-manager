@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 
 use ltk_hash::BinHash;
 
-use crate::problems::names::hex;
+use crate::bin_document::hex;
 use crate::utils::natural_order::compare_names;
 
 use super::{

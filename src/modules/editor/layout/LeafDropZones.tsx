@@ -34,6 +34,8 @@ export interface LeafDropZonesProps {
   leafId: string;
   /** The leaf's tab ids, for muting the preview of a drop the resolver refuses. */
   tabs: readonly string[];
+  /** This leaf fills the grid, per "Maximizing a panel" in `docs/ux/PROJECT_EDITOR.md`. */
+  maximized?: boolean;
   children: ReactNode;
 }
 
@@ -46,8 +48,11 @@ export interface LeafDropZonesProps {
  * Studio Code's does. Everything stays `pointer-events-none`, since collision
  * is computed from pointer coordinates rather than from the DOM under the
  * cursor.
+ *
+ * A maximized leaf offers its centre alone. An edge of one splits a tree that
+ * is not on screen.
  */
-export function LeafDropZones({ leafId, tabs, children }: LeafDropZonesProps) {
+export function LeafDropZones({ leafId, tabs, maximized, children }: LeafDropZonesProps) {
   const { active, over } = useDndContext();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const observe = useResizeObserver<HTMLDivElement>((element) =>
@@ -75,18 +80,19 @@ export function LeafDropZones({ leafId, tabs, children }: LeafDropZonesProps) {
       {children}
       <div className="pointer-events-none absolute inset-0 z-30">
         <Zone id={leafDroppableId(leafId, "center")} className="inset-0" />
-        {(["top", "right", "bottom", "left"] as const).map((edge) => (
-          <Zone
-            key={edge}
-            id={leafDroppableId(leafId, edge)}
-            className={EDGE_BANDS[edge]}
-            disabled={
-              edge === "left" || edge === "right"
-                ? size.width < MIN_SPLIT_WIDTH
-                : size.height < MIN_SPLIT_HEIGHT
-            }
-          />
-        ))}
+        {!maximized &&
+          (["top", "right", "bottom", "left"] as const).map((edge) => (
+            <Zone
+              key={edge}
+              id={leafDroppableId(leafId, edge)}
+              className={EDGE_BANDS[edge]}
+              disabled={
+                edge === "left" || edge === "right"
+                  ? size.width < MIN_SPLIT_WIDTH
+                  : size.height < MIN_SPLIT_HEIGHT
+              }
+            />
+          ))}
         {region !== null && (
           <div
             className={twMerge(

@@ -100,6 +100,16 @@ export type {
   PropertyKind,
   RowNode,
 } from "@/lib/bindings.gen";
+// The particle renderer's types, per ADR-0029.
+export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
+// The skin preview's types, per ADR-0029.
+export type {
+  AnimationClip,
+  IdleEffect,
+  NamedAsset,
+  SkinModel,
+  SubmeshTexture,
+} from "@/lib/bindings.gen";
 /* The diagnostics types. A serde `default` or `skip_serializing_if` splits a type by
 phase, and a command answers the serialize side, so that side takes the plain name. */
 export type {
@@ -372,6 +382,16 @@ export const api = {
     commands.binRead(document, entry, [...paths]).then(toResult),
   binClose: (document: BinDocumentId) => commands.binClose(document).then(toResult),
   classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
+
+  // Particle renderer
+  readVfxSystem: (document: BinDocumentId, entry: string) =>
+    commands.readVfxSystem(document, entry).then(toResult),
+
+  // Skin preview
+  readSkin: (document: BinDocumentId, entry: string) =>
+    commands.readSkin(document, entry).then(toResult),
+  readAnimationClips: (document: BinDocumentId, entry: string) =>
+    commands.readAnimationClips(document, entry).then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),

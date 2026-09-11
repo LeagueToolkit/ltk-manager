@@ -72,9 +72,9 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, NoMeta, ValueMut, values};
 use ltk_meta::walk::{Node, TreeValue as _, Visit, Visitor};
 
-use crate::bin_document::PropertyKind;
+use crate::bin_document::{PropertyKind, hex, owned};
 use crate::meta_schema::{self, MetaSchema};
-use crate::problems::names::{self, BinNames};
+use crate::problems::names::BinNames;
 use crate::problems::walk::{self, Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
@@ -572,7 +572,7 @@ fn retags_an_empty_option<'a>(to: &TypeSpec, value: impl Declared<'a>) -> bool {
 /// repaired and then re-read is a tree walk rather than a second parse.
 fn check_bin(bin: &ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit)> {
     let mut check = Check::new(lens);
-    walk::owned(walk::bin(bin, &mut check));
+    owned(walk::bin(bin, &mut check));
     check.found
 }
 
@@ -661,8 +661,8 @@ fn repair(
     let mut applied = 0;
 
     for (field, value) in properties.iter_mut() {
-        let objection = walk::owned(lens.objection(class, *field, &*value));
-        let holds_node = walk::owned((&*value).holds_node());
+        let objection = owned(lens.objection(class, *field, &*value));
+        let holds_node = owned((&*value).holds_node());
         if objection.is_none() && !holds_node {
             continue;
         }
@@ -1320,7 +1320,7 @@ fn link(path: &str) -> values::WadChunkLink<NoMeta> {
 fn subscript(key: &PropertyValueEnum) -> String {
     match key {
         PropertyValueEnum::String(text) => text.value.clone(),
-        PropertyValueEnum::Hash(hash) => names::hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hex(hash.value),
         PropertyValueEnum::WadChunkLink(hash) => format!("0x{:016x}", hash.value.0),
         PropertyValueEnum::U8(v) => v.value.to_string(),
         PropertyValueEnum::U32(v) => v.value.to_string(),
@@ -1415,7 +1415,7 @@ fn note(
 /// a map names the first unresolved one and says how many more went unnamed.
 fn unresolved(value: &PropertyValueEnum, names: &BinNames) -> String {
     match value {
-        PropertyValueEnum::Hash(hash) => names::hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hex(hash.value),
         PropertyValueEnum::Map(map) => {
             let missing: Vec<&PropertyValueEnum> = map
                 .entries()

@@ -249,6 +249,33 @@ export const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
 );
 MenuRadioItem.displayName = "Menu.RadioItem";
 
+// CheckboxItem
+export interface MenuCheckboxItemProps extends Omit<BaseMenu.CheckboxItem.Props, "className"> {
+  icon?: ReactNode;
+  className?: string;
+  children?: ReactNode;
+}
+
+/** A switch in a popup, whose trailing check says whether it is on. */
+export const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
+  ({ icon, className, children, ...props }, ref) => {
+    return (
+      <BaseMenu.CheckboxItem
+        ref={ref}
+        className={twMerge(itemClasses, itemVariantClasses.default, className)}
+        {...props}
+      >
+        {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
+        <span className="flex-1">{children}</span>
+        <BaseMenu.CheckboxItemIndicator className="flex h-4 w-4 shrink-0 items-center justify-center text-accent-400">
+          <CheckIcon className="h-3.5 w-3.5" weight="bold" />
+        </BaseMenu.CheckboxItemIndicator>
+      </BaseMenu.CheckboxItem>
+    );
+  },
+);
+MenuCheckboxItem.displayName = "Menu.CheckboxItem";
+
 // Separator
 export interface MenuSeparatorProps extends Omit<BaseMenu.Separator.Props, "className"> {
   className?: string;
@@ -321,6 +348,7 @@ export const Menu = {
   SubmenuPositioner: MenuSubmenuPositioner,
   RadioGroup: MenuRadioGroup,
   RadioItem: MenuRadioItem,
+  CheckboxItem: MenuCheckboxItem,
   Separator: MenuSeparator,
   Group: MenuGroup,
   GroupLabel: MenuGroupLabel,

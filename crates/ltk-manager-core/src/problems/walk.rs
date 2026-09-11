@@ -32,15 +32,6 @@ where
     }
 }
 
-/// A tree read over the owned tree, which never fails.
-///
-/// # Panics
-///
-/// On a read the owned tree refused, which is a bug in the tree.
-pub fn owned<T>(read: Result<T, ltk_meta::Error>) -> T {
-    read.expect("the owned tree never fails")
-}
-
 /// The kinds a container, an optional or a map declares in its header.
 ///
 /// `TreeValue` answers the walk's questions and no other. A rule about a

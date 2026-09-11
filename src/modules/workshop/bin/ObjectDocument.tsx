@@ -31,14 +31,14 @@ import {
   useFindReferences,
 } from "../references/useFindReferences";
 import { clickIntent, useCurveAimRequest, useSettleCurveAim } from "../state";
-import { Dot } from "./BinDocument";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { ClassCard } from "./ClassCard";
-import { classLayout, type LayoutFrame } from "./classLayouts";
+import { classLayout, type LayoutFrame, shellHoldsCurve } from "./classLayouts";
 import { ClassView } from "./ClassView";
 import { CurveSurface } from "./CurveSurface";
 import { type CurveDock, CurveDockContext, type CurveTarget } from "./curveTarget";
 import { OtherDeclarations } from "./OtherDeclarations";
+import { ShellHeaderContext, ShellHeaderSlot, useShellHeaderSlots } from "./shellHeader";
 import { useBinDocument } from "./useBinDocument";
 import { useNarrowToolbar } from "./useNarrowToolbar";
 import { useShowInFile } from "./useShowInFile";
@@ -121,7 +121,16 @@ function OpenObject({
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
   const [frame, setFrame] = useState<LayoutFrame>("stack");
   const [target, setTarget] = useState<CurveTarget | null>(null);
-  const dock = useMemo<CurveDock>(() => ({ target, aim: setTarget }), [target]);
+  /* Apart from the target, so a follow that lets go of it leaves the dock open. */
+  const [aimed, setAimed] = useState(false);
+  const aim = useCallback((next: CurveTarget) => {
+    setTarget(next);
+    setAimed(true);
+  }, []);
+  const dock = useMemo<CurveDock>(
+    () => ({ target, aim, clear: () => setTarget(null) }),
+    [target, aim],
+  );
 
   /* An answered request is settled, so a later open of the same object starts untargeted. */
   const request = useCurveAimRequest(documentId);
@@ -129,8 +138,8 @@ function OpenObject({
   useEffect(() => {
     if (request === null) return;
     settleAim(request.token);
-    setTarget({ row: request.row, chain: request.chain });
-  }, [request, settleAim]);
+    aim({ row: request.row, chain: request.chain });
+  }, [request, settleAim, aim]);
 
   const showFile = useCallback(
     (event: ReactMouseEvent) => showInFile(asset, object.entry, file, clickIntent(event)),
@@ -142,22 +151,28 @@ function OpenObject({
     setReveal({ key, token: Date.now() });
   }, []);
 
-  /* A shell holds the curve in a pane of its own (ADR-0031), so the dock is what every
+  /* A shell with a curve pane holds the curve there (ADR-0031), so the dock is what every
      other frame and Properties get, and no tab draws the surface twice. */
-  const docked = target !== null && (mode === "properties" || frame === "stack");
+  const paned = frame === "shell" && layout !== undefined && shellHoldsCurve(layout);
+  const docked = aimed && (mode === "properties" || !paned);
+
+  /* The crumb and the Panes menu share this row with the header, "The shell" in
+     docs/ux/BIN_EDITOR.md. The slots stand only while a shell is what the tab draws. */
+  const [slots, registerSlot] = useShellHeaderSlots();
+  const shelled = frame === "shell" && mode === "layout";
 
   return (
     <div data-ui="ObjectDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <DocumentToolbar active={active}>
-        <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
+        <span className="flex min-w-0 shrink-0 items-center gap-2 text-meta text-surface-400 select-none">
           <ClassCard classHash={object.classHash} name={object.class} />
           {!narrow && (
-            <>
-              <Dot />
-              <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
-            </>
+            <OtherDeclarations asset={asset} objectHash={object.entry} objectPath={objectPath} />
           )}
         </span>
+        {shelled && (
+          <ShellHeaderSlot name="crumb" onElement={registerSlot} className="min-w-0 flex-1" />
+        )}
         {layout && (
           <SegmentedControl
             size="xs"
@@ -183,60 +198,57 @@ function OpenObject({
             {m.workshop_bin_show_in_file_action()}
           </Button>
         )}
+        {shelled && <ShellHeaderSlot name="panes" onElement={registerSlot} />}
         <HeaderMenu object={object} onShowInFile={narrow ? showFile : undefined} />
       </DocumentToolbar>
-      <CurveDockContext value={dock}>
-        <Group
-          /* The library reads its layout at mount, so a docking remounts the group. */
-          key={docked ? "view+curve" : "view"}
-          id="object"
-          orientation="vertical"
-          className="flex min-h-0 flex-1 flex-col"
-        >
-          <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
-            {layout && mode === "layout" && (
-              <ClassView
-                document={handle.document}
-                asset={asset}
-                roots={handle.rows}
-                classHash={object.classHash}
-                layout={layout}
-                objectName={objectName}
-                onNotOpen={reopen}
-                onShowInProperties={showInProperties}
-                onFrame={setFrame}
-              />
+      <ShellHeaderContext value={slots}>
+        <CurveDockContext value={dock}>
+          <Group id="object" orientation="vertical" className="flex min-h-0 flex-1 flex-col">
+            <Panel id="view" minSize={160} className="flex min-h-0 w-full flex-col">
+              {layout && mode === "layout" && (
+                <ClassView
+                  document={handle.document}
+                  asset={asset}
+                  roots={handle.rows}
+                  classHash={object.classHash}
+                  layout={layout}
+                  objectName={objectName}
+                  onNotOpen={reopen}
+                  onShowInProperties={showInProperties}
+                  onFrame={setFrame}
+                />
+              )}
+              {mode === "properties" && (
+                <BinTree
+                  document={handle.document}
+                  asset={asset}
+                  roots={handle.rows}
+                  rootOwner={object.classHash}
+                  label={object.name}
+                  reveal={reveal}
+                  objectName={objectName}
+                  onNotOpen={reopen}
+                />
+              )}
+            </Panel>
+            {docked && (
+              <>
+                <Seam orientation="vertical" variant="divider" />
+                <Panel
+                  id="curve"
+                  defaultSize={220}
+                  minSize={140}
+                  maxSize="60%"
+                  /* DS-GROUND: a band over the page, as every other pane of the tab is. */
+                  className="flex min-h-0 w-full flex-col bg-surface-900 p-2"
+                >
+                  <CurveSurface document={handle.document} />
+                </Panel>
+              </>
             )}
-            {mode === "properties" && (
-              <BinTree
-                document={handle.document}
-                asset={asset}
-                roots={handle.rows}
-                rootOwner={object.classHash}
-                label={object.name}
-                reveal={reveal}
-                objectName={objectName}
-                onNotOpen={reopen}
-              />
-            )}
-          </Panel>
-          {docked && (
-            <>
-              <Seam orientation="vertical" variant="divider" />
-              <Panel
-                id="curve"
-                defaultSize={220}
-                minSize={140}
-                maxSize="60%"
-                /* DS-GROUND: a band over the page, as every other pane of the tab is. */
-                className="flex min-h-0 w-full flex-col bg-surface-900 p-2"
-              >
-                <CurveSurface document={handle.document} />
-              </Panel>
-            </>
-          )}
-        </Group>
-      </CurveDockContext>
+          </Group>
+        </CurveDockContext>
+      </ShellHeaderContext>
     </div>
   );
 }

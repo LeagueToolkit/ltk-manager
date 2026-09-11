@@ -1,7 +1,5 @@
-import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
-import { assetKey } from "../preview/assetRef";
 import { RowValue } from "./BinRow";
 import { childCount, entryKeyHash, fieldHash, objectKey, PAGE_SIZE, rowKey } from "./binRows";
 import {
@@ -20,7 +18,7 @@ import {
   type WidgetProps,
 } from "./ClassCells";
 import { CENSORED_IMAGE, EFFECT, MESH } from "./classLayouts";
-import { decideObjectLink } from "./linkDecision";
+import { declaredElsewhere } from "./linkDecision";
 import { useBinDocument } from "./useBinDocument";
 import { useBinRead } from "./useBinRead";
 import { useLinkTargets } from "./useLinkTargets";
@@ -71,47 +69,25 @@ const MESH_TEXTURES = [
 /** The three fields that name what the mesh is built out of. */
 const MESH_FIELDS = [MESH.simpleSkin, MESH.skeleton, MESH.material] as const;
 
-/**
- * The mesh: what it is built out of, its textures, and the slot the renderer takes.
- *
- * The slot is drawn empty. The renderer is frontend WebGL and its own ADR, per "The
- * layouts" in docs/ux/BIN_EDITOR.md.
- */
+/** The mesh: what it is built out of, and its textures. */
 export function MeshCard({ section, pages }: WidgetProps) {
   const byField = fieldsIn(elementsOf(section.rows, pages));
   const named = MESH_FIELDS.map(byField).filter((row): row is BinRow => row !== undefined);
   const textures = MESH_TEXTURES.map(byField).filter((row): row is BinRow => row !== undefined);
 
   return (
-    <div className="flex flex-wrap items-start gap-3">
-      <PreviewSlot />
-      <div className="flex min-w-64 flex-1 flex-col gap-2">
-        <div className="flex flex-col">
-          {named.map((row) => (
-            <FieldRow key={rowKey(row)} row={row} />
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {textures.map((row) => (
-            <Tile key={rowKey(row)} name={row.name} row={row} />
-          ))}
-        </div>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-col">
+        {named.map((row) => (
+          <FieldRow key={rowKey(row)} row={row} />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        {textures.map((row) => (
+          <Tile key={rowKey(row)} name={row.name} row={row} />
+        ))}
       </div>
     </div>
-  );
-}
-
-/** The room the mesh preview takes, held open so the layout does not move when it lands. */
-function PreviewSlot() {
-  return (
-    <span
-      /* DS-VEIL, DS-RADIUS */
-      className="flex h-32 w-32 shrink-0 items-center justify-center rounded-sm border border-dashed border-surface-veil-strong bg-surface-veil-soft px-2 text-center text-meta text-surface-400"
-      aria-label={m.workshop_bin_mesh_preview_label()}
-      role="img"
-    >
-      {m.workshop_bin_mesh_preview_empty()}
-    </span>
   );
 }
 
@@ -157,11 +133,7 @@ export function EffectTable({ section, pages, view }: WidgetProps) {
 function useResolverAsset(resolver: BinRow | undefined, asset: AssetRef): AssetRef | null {
   const targets = useLinkTargets();
   if (resolver?.value.type !== "objectLink") return null;
-  const decision = decideObjectLink(resolver.value.hash, targets);
-  if (decision.kind !== "chip" || decision.document.kind !== "object") return null;
-  const declaring = decision.document.asset;
-  if (assetKey(declaring) === assetKey(asset)) return null;
-  return declaring;
+  return declaredElsewhere(resolver.value.hash, targets, asset);
 }
 
 interface ResolvedProps {

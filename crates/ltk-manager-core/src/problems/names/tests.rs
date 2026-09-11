@@ -1,6 +1,7 @@
 //! Unit tests for the four bin name tables, and for a cache that holds none.
 
 use super::*;
+use crate::bin_document::hex;
 
 /// Every lookup has to miss rather than answer out of another table's
 /// universe, which is the whole reason the four are kept apart.

@@ -20,12 +20,22 @@ import {
   useOpenShellPane,
   useOpenShellPanes,
   useResetShellLayout,
+  useRestoreMaximizedShellLeaf,
   useSetShellSplitLayout,
   useShellActivePane,
   useShellLayout,
+  useShellMaximizedLeaf,
   useShellPanes,
+  useToggleMaximizedShellLeaf,
 } from "../state";
-import { isShellPaneId, SHELL_PANE_IDS, SHELL_PANE_TITLE, type ShellPaneId } from "./shellPanes";
+import {
+  isShellPaneId,
+  SHELL_PANE_TITLE,
+  type ShellKind,
+  type ShellPaneId,
+  type ShellPaneOf,
+  shellPanesOf,
+} from "./shellPanes";
 
 /** The box one pane draws, so no pane invents a surface of its own. DS-GROUND. */
 const PANE =
@@ -38,26 +48,36 @@ export interface ShellPane {
   actions?: ReactNode;
 }
 
-/** What each pane of the shell draws, which the tree places and never reads. */
-export type ShellPaneContent = Record<ShellPaneId, ShellPane>;
+/** What each pane of a `K` shell draws, one body per pane it holds, which the tree places. */
+export type ShellPaneContent<K extends ShellKind> = Record<ShellPaneOf<K>, ShellPane>;
+
+interface ShellPaneTreeProps<K extends ShellKind> {
+  /** Which shell, whose own tree of its own panes is drawn (ADR-0036). */
+  kind: K;
+  content: ShellPaneContent<K>;
+}
 
 /**
- * The shell's panes as the split tree the editor grid runs on (ADR-0034).
+ * A shell's panes as the split tree the editor grid runs on (ADR-0034).
  *
  * A pane is a tab of a leaf, so the same drag that moves a document between
  * editor groups moves a pane between panels, and the same seam resizes one.
  */
-export function ShellPaneTree({ content }: { content: ShellPaneContent }) {
-  const tree = useShellLayout();
-  const applyDrop = useApplyShellDrop();
-  const setSplitLayout = useSetShellSplitLayout();
+export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneTreeProps<K>) {
+  const tree = useShellLayout(kind);
+  const applyDrop = useApplyShellDrop(kind);
+  const setSplitLayout = useSetShellSplitLayout(kind);
+  const maximizedLeafId = useShellMaximizedLeaf(kind);
+  const restoreMaximized = useRestoreMaximizedShellLeaf(kind);
 
   return (
     <TabDndProvider tree={tree} onDrop={applyDrop} overlay={PaneGhost}>
       <SplitLayout
         node={tree}
         onLayoutChanged={setSplitLayout}
-        renderLeaf={(leaf) => <PaneLeaf key={leaf.id} leaf={leaf} content={content} />}
+        renderLeaf={(leaf) => <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} />}
+        maximizedLeafId={maximizedLeafId}
+        onRestore={restoreMaximized}
       />
     </TabDndProvider>
   );
@@ -74,14 +94,22 @@ function PaneGhost(paneId: string) {
 }
 
 /** One panel of the tree: its strip, and whichever of its panes is open. */
-function PaneLeaf({ leaf, content }: { leaf: LeafNode; content: ShellPaneContent }) {
-  const panes = useShellPanes(leaf.id);
-  const active = useShellActivePane(leaf.id);
-  const activate = useActivateShellPane();
-  const close = useCloseShellPane();
+function PaneLeaf<K extends ShellKind>({
+  kind,
+  leaf,
+  content,
+}: { leaf: LeafNode } & ShellPaneTreeProps<K>) {
+  const panes = useShellPanes(kind, leaf.id);
+  const active = useShellActivePane(kind, leaf.id);
+  const activate = useActivateShellPane(kind);
+  const close = useCloseShellPane(kind);
+  const maximizedLeafId = useShellMaximizedLeaf(kind);
+  const toggleMaximized = useToggleMaximizedShellLeaf(kind);
+  /* A pane the tree holds is one the shell holds, which the sanitize on load keeps true. */
+  const bodies: Partial<Record<ShellPaneId, ShellPane>> = content;
 
   return (
-    <LeafDropZones leafId={leaf.id} tabs={panes}>
+    <LeafDropZones leafId={leaf.id} tabs={panes} maximized={maximizedLeafId === leaf.id}>
       <div data-ui={`ShellPaneTree:${leaf.id}`} className={PANE}>
         <PaneStrip
           leafId={leaf.id}
@@ -89,10 +117,11 @@ function PaneLeaf({ leaf, content }: { leaf: LeafNode; content: ShellPaneContent
           activeId={active}
           onActivate={(id) => isShellPaneId(id) && activate(leaf.id, id)}
           onClose={(id) => isShellPaneId(id) && close(leaf.id, id)}
-          actions={active === null ? null : content[active].actions}
+          onMaximize={() => toggleMaximized(leaf.id)}
+          actions={active === null ? null : bodies[active]?.actions}
         />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {active !== null && content[active].body}
+          {active !== null && bodies[active]?.body}
           {active === null && <NoPanes />}
         </div>
       </div>
@@ -115,12 +144,12 @@ function NoPanes() {
  * A pane reopens into the panel the reader last touched rather than where it
  * was closed, because the panel it was closed from is the one the prune took.
  */
-export function PanesMenu({ className }: { className?: string }) {
-  const tree = useShellLayout();
-  const open = useOpenShellPanes();
-  const openPane = useOpenShellPane();
-  const closePane = useCloseShellPane();
-  const reset = useResetShellLayout();
+export function PanesMenu({ kind, className }: { kind: ShellKind; className?: string }) {
+  const tree = useShellLayout(kind);
+  const open = useOpenShellPanes(kind);
+  const openPane = useOpenShellPane(kind);
+  const closePane = useCloseShellPane(kind);
+  const reset = useResetShellLayout(kind);
 
   function toggle(pane: ShellPaneId) {
     const holder = leafHolding(tree, pane);
@@ -146,7 +175,7 @@ export function PanesMenu({ className }: { className?: string }) {
       <Menu.Portal>
         <Menu.Positioner align="end">
           <Menu.Popup className="w-48">
-            {SHELL_PANE_IDS.map((pane) => (
+            {shellPanesOf(kind).map((pane) => (
               <Menu.Item
                 key={pane}
                 icon={open.has(pane) && <CheckIcon weight="bold" className="h-4 w-4" />}

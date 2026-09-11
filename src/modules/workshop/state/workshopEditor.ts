@@ -27,7 +27,14 @@ import {
   splitLeaf,
 } from "@/modules/editor/layout";
 
-import { defaultShellLayout, firstShellLeafId, type ShellPaneId } from "../bin/shellPanes";
+import {
+  defaultShellArrangements,
+  firstShellLeafId,
+  type ShellArrangement,
+  type ShellArrangements,
+  type ShellKind,
+  type ShellPaneId,
+} from "../bin/shellPanes";
 import type { ContentDocument } from "../documents/contentDocument";
 import type { PersistedProjectEditor } from "./editorFile";
 
@@ -149,14 +156,16 @@ export interface ProjectEditor {
   /** The pending curve request, which at most one open object tab answers. */
   aimCurve: CurveAimRequest | null;
   /**
-   * The split tree of shell panes, which every object tab of the project draws in.
+   * Each shell's tree of panes, and the leaf a reopened pane lands in.
    *
-   * One tree per project rather than one per class or per tab, so a reader
-   * arranges the panes once and every particle system opens arranged that way.
+   * One arrangement per project and kind of shell rather than per tab, so a reader
+   * arranges the panes once and every object of that kind opens arranged that way.
    */
-  shellLayout: LayoutNode;
-  /** The pane leaf a reopened pane lands in. */
-  shellLeafId: string;
+  shells: ShellArrangements;
+  /** The one panel filling the grid, or null while the tree draws whole. */
+  maximizedLeafId: string | null;
+  /** The one panel filling each shell, absent for a shell drawing its whole tree. */
+  maximizedShellLeaf: Readonly<Partial<Record<ShellKind, string>>>;
 }
 
 interface WorkshopEditorStore {
@@ -227,20 +236,43 @@ interface WorkshopEditorStore {
   resetLayout: (projectPath: string) => void;
   /** Locks or unlocks one group, which is what the strip's own control asks for. */
   setLeafLocked: (projectPath: string, leafId: string, locked: boolean) => void;
+  /**
+   * Fills the grid with one panel, or gives the tree back when it already fills it.
+   *
+   * Per "Maximizing a panel" in `docs/ux/PROJECT_EDITOR.md`.
+   */
+  toggleMaximizedLeaf: (projectPath: string, leafId: string) => void;
+  /** Gives the tree back, which is what Esc asks for. */
+  restoreMaximizedLeaf: (projectPath: string) => void;
   /** Activates one of a pane leaf's own panes, and focuses that leaf. */
-  activateShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
-  closeShellPane: (projectPath: string, leafId: string, paneId: ShellPaneId) => void;
+  activateShellPane: (
+    projectPath: string,
+    kind: ShellKind,
+    leafId: string,
+    paneId: ShellPaneId,
+  ) => void;
+  closeShellPane: (
+    projectPath: string,
+    kind: ShellKind,
+    leafId: string,
+    paneId: ShellPaneId,
+  ) => void;
   /** Puts a closed pane back into the focused leaf, which is what the Panes menu asks for. */
-  openShellPane: (projectPath: string, paneId: ShellPaneId) => void;
+  openShellPane: (projectPath: string, kind: ShellKind, paneId: ShellPaneId) => void;
   /** Commits one finished pane drag: a reorder, a move between leaves, or a split. */
-  applyShellDrop: (projectPath: string, outcome: DropOutcome) => void;
+  applyShellDrop: (projectPath: string, kind: ShellKind, outcome: DropOutcome) => void;
   setShellSplitLayout: (
     projectPath: string,
+    kind: ShellKind,
     splitId: string,
     layout: Record<string, number>,
   ) => void;
-  /** Puts every pane back where ADR-0031 arranged them. */
-  resetShellLayout: (projectPath: string) => void;
+  /** Puts every pane of one shell back where it ships. */
+  resetShellLayout: (projectPath: string, kind: ShellKind) => void;
+  /** Fills one shell with one pane, or gives its panes back. */
+  toggleMaximizedShellLeaf: (projectPath: string, kind: ShellKind, leafId: string) => void;
+  /** Gives one shell's panes back, which is what Esc asks for. */
+  restoreMaximizedShellLeaf: (projectPath: string, kind: ShellKind) => void;
   setDocumentDirty: (projectPath: string, id: string, dirty: boolean) => void;
   selectLayer: (projectPath: string, layerName: string) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
@@ -261,8 +293,8 @@ interface WorkshopEditorStore {
    op copies before it writes. */
 const ROOT = singleLeaf();
 
-/** The pane tree every project starts on, shared for the same reason as ROOT. */
-const SHELL_ROOT = defaultShellLayout();
+/** The pane trees every project starts on, shared for the same reason as ROOT. */
+const SHELL_ROOTS = defaultShellArrangements();
 
 export const EMPTY_EDITOR: ProjectEditor = {
   documents: {},
@@ -276,8 +308,9 @@ export const EMPTY_EDITOR: ProjectEditor = {
   reveal: null,
   revealObject: null,
   aimCurve: null,
-  shellLayout: SHELL_ROOT,
-  shellLeafId: firstShellLeafId(SHELL_ROOT),
+  shells: SHELL_ROOTS,
+  maximizedLeafId: null,
+  maximizedShellLeaf: {},
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */
@@ -324,14 +357,57 @@ function updateProject(
   if (result === null) return null;
 
   const move = asMove(result);
+  const editor = dropPrunedMaximized(move.editor);
   const stack = foldStack(state, projectPath, move);
-  const moved = move.editor !== current;
+  const moved = editor !== current;
   if (!moved && stack === null) return null;
 
   return {
-    ...(moved ? { byProject: { ...state.byProject, [projectPath]: move.editor } } : null),
+    ...(moved ? { byProject: { ...state.byProject, [projectPath]: editor } } : null),
     ...stack,
   };
+}
+
+/**
+ * The editor without a maximized panel its tree has lost.
+ *
+ * Every close and every drop reaches a tree through {@link updateProject}, and
+ * each of them prunes the leaf that gave up its last tab. A leaf id is minted
+ * off the tree that holds it. An id kept past the prune names whichever leaf
+ * takes the number next.
+ */
+function dropPrunedMaximized(editor: ProjectEditor): ProjectEditor {
+  const maximizedLeafId =
+    editor.maximizedLeafId !== null && !findLeaf(editor.layout, editor.maximizedLeafId)
+      ? null
+      : editor.maximizedLeafId;
+
+  let maximizedShellLeaf = editor.maximizedShellLeaf;
+  for (const [kind, leafId] of Object.entries(maximizedShellLeaf) as [ShellKind, string][]) {
+    if (!findLeaf(editor.shells[kind].layout, leafId)) {
+      maximizedShellLeaf = withoutShellLeaf(maximizedShellLeaf, kind);
+    }
+  }
+
+  if (
+    maximizedLeafId === editor.maximizedLeafId &&
+    maximizedShellLeaf === editor.maximizedShellLeaf
+  ) {
+    return editor;
+  }
+  return { ...editor, maximizedLeafId, maximizedShellLeaf };
+}
+
+/** The map without `kind`, and the map itself where it holds no pane for one. */
+function withoutShellLeaf(
+  held: Readonly<Partial<Record<ShellKind, string>>>,
+  kind: ShellKind,
+): Readonly<Partial<Record<ShellKind, string>>> {
+  if (held[kind] === undefined) return held;
+
+  const rest = { ...held };
+  delete rest[kind];
+  return rest;
 }
 
 /* Forgotten before visited, so replacing a preview drops the tab it stood on
@@ -583,6 +659,19 @@ function reorderLeafTabs(node: LayoutNode, leafId: string, ids: readonly string[
   return changed ? { ...node, children } : node;
 }
 
+/** Apply a change to one shell of one project's editor, or report that nothing moved. */
+function updateShell(
+  state: WorkshopEditorStore,
+  projectPath: string,
+  kind: ShellKind,
+  change: (shell: ShellArrangement) => ShellArrangement | null,
+): Partial<WorkshopEditorStore> | null {
+  return updateProject(state, projectPath, (editor) => {
+    const next = change(editor.shells[kind]);
+    return next === null ? null : { ...editor, shells: { ...editor.shells, [kind]: next } };
+  });
+}
+
 /** `leafId` when the tree still holds it, and the first leaf when a prune took it. */
 function heldLeafId(tree: LayoutNode, leafId: string): string {
   return findLeaf(tree, leafId) ? leafId : firstShellLeafId(tree);
@@ -628,8 +717,7 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
           selectedLayer: state.selectedLayer,
           previewId: state.previewId,
           pinned: state.pinned,
-          shellLayout: state.shellLayout,
-          shellLeafId: state.shellLeafId,
+          shells: state.shells,
         },
       },
     })),
@@ -968,13 +1056,13 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
       (state) =>
         updateProject(state, projectPath, (editor) => {
           const merged = mergeToSingleLeaf(editor.layout, editor.activeLeafId);
-          if (merged === editor.layout) return null;
+          if (merged === editor.layout && editor.maximizedLeafId === null) return null;
 
           /* The merge gathers each strip whole, so a pinned tab of the second
              group lands behind the first group's unpinned ones. */
           const leaf = leaves(merged)[0];
           const layout = reorderLeafTabs(merged, leaf.id, pinnedFirst(leaf.tabs, editor.pinned));
-          return { ...editor, layout, activeLeafId: leaf.id };
+          return { ...editor, layout, activeLeafId: leaf.id, maximizedLeafId: null };
         }) ?? state,
     ),
 
@@ -987,71 +1075,114 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
         }) ?? state,
     ),
 
-  activateShellPane: (projectPath, leafId, paneId) =>
+  toggleMaximizedLeaf: (projectPath, leafId) =>
     set(
       (state) =>
         updateProject(state, projectPath, (editor) => {
-          const shellLayout = setActiveTab(editor.shellLayout, leafId, paneId);
-          if (shellLayout === editor.shellLayout && editor.shellLeafId === leafId) return null;
-          return { ...editor, shellLayout, shellLeafId: leafId };
+          if (editor.maximizedLeafId === leafId) return { ...editor, maximizedLeafId: null };
+          if (!findLeaf(editor.layout, leafId)) return null;
+          return { ...editor, maximizedLeafId: leafId };
         }) ?? state,
     ),
 
-  closeShellPane: (projectPath, leafId, paneId) =>
-    set(
-      (state) =>
-        updateProject(state, projectPath, (editor) => {
-          const shellLayout = removeTab(editor.shellLayout, leafId, paneId);
-          if (shellLayout === editor.shellLayout) return null;
-          return {
-            ...editor,
-            shellLayout,
-            shellLeafId: heldLeafId(shellLayout, editor.shellLeafId),
-          };
-        }) ?? state,
-    ),
-
-  openShellPane: (projectPath, paneId) =>
-    set(
-      (state) =>
-        updateProject(state, projectPath, (editor) => {
-          if (leafHolding(editor.shellLayout, paneId)) return null;
-          const leafId = heldLeafId(editor.shellLayout, editor.shellLeafId);
-          return {
-            ...editor,
-            shellLayout: insertTab(editor.shellLayout, leafId, paneId),
-            shellLeafId: leafId,
-          };
-        }) ?? state,
-    ),
-
-  applyShellDrop: (projectPath, outcome) =>
-    set(
-      (state) =>
-        updateProject(state, projectPath, (editor) => {
-          const moved = shellDrop(editor.shellLayout, outcome);
-          if (moved.tree === editor.shellLayout) return null;
-          return { ...editor, shellLayout: moved.tree, shellLeafId: moved.leafId };
-        }) ?? state,
-    ),
-
-  setShellSplitLayout: (projectPath, splitId, layout) =>
-    set(
-      (state) =>
-        updateProject(state, projectPath, (editor) => {
-          const shellLayout = applySplitLayout(editor.shellLayout, splitId, layout);
-          return shellLayout === editor.shellLayout ? null : { ...editor, shellLayout };
-        }) ?? state,
-    ),
-
-  resetShellLayout: (projectPath) =>
+  restoreMaximizedLeaf: (projectPath) =>
     set(
       (state) =>
         updateProject(state, projectPath, (editor) =>
-          editor.shellLayout === SHELL_ROOT
-            ? null
-            : { ...editor, shellLayout: SHELL_ROOT, shellLeafId: firstShellLeafId(SHELL_ROOT) },
+          editor.maximizedLeafId === null ? null : { ...editor, maximizedLeafId: null },
         ) ?? state,
+    ),
+
+  activateShellPane: (projectPath, kind, leafId, paneId) =>
+    set(
+      (state) =>
+        updateShell(state, projectPath, kind, (shell) => {
+          const layout = setActiveTab(shell.layout, leafId, paneId);
+          if (layout === shell.layout && shell.leafId === leafId) return null;
+          return { layout, leafId };
+        }) ?? state,
+    ),
+
+  closeShellPane: (projectPath, kind, leafId, paneId) =>
+    set(
+      (state) =>
+        updateShell(state, projectPath, kind, (shell) => {
+          const layout = removeTab(shell.layout, leafId, paneId);
+          if (layout === shell.layout) return null;
+          return { layout, leafId: heldLeafId(layout, shell.leafId) };
+        }) ?? state,
+    ),
+
+  openShellPane: (projectPath, kind, paneId) =>
+    set(
+      (state) =>
+        updateShell(state, projectPath, kind, (shell) => {
+          if (leafHolding(shell.layout, paneId)) return null;
+          const leafId = heldLeafId(shell.layout, shell.leafId);
+          return { layout: insertTab(shell.layout, leafId, paneId), leafId };
+        }) ?? state,
+    ),
+
+  applyShellDrop: (projectPath, kind, outcome) =>
+    set(
+      (state) =>
+        updateShell(state, projectPath, kind, (shell) => {
+          const moved = shellDrop(shell.layout, outcome);
+          if (moved.tree === shell.layout) return null;
+          return { layout: moved.tree, leafId: moved.leafId };
+        }) ?? state,
+    ),
+
+  setShellSplitLayout: (projectPath, kind, splitId, layout) =>
+    set(
+      (state) =>
+        updateShell(state, projectPath, kind, (shell) => {
+          const next = applySplitLayout(shell.layout, splitId, layout);
+          return next === shell.layout ? null : { ...shell, layout: next };
+        }) ?? state,
+    ),
+
+  resetShellLayout: (projectPath, kind) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const maximizedShellLeaf = withoutShellLeaf(editor.maximizedShellLeaf, kind);
+          const arranged = editor.shells[kind].layout === SHELL_ROOTS[kind].layout;
+          if (arranged && maximizedShellLeaf === editor.maximizedShellLeaf) return null;
+          return {
+            ...editor,
+            shells: { ...editor.shells, [kind]: SHELL_ROOTS[kind] },
+            maximizedShellLeaf,
+          };
+        }) ?? state,
+    ),
+
+  toggleMaximizedShellLeaf: (projectPath, kind, leafId) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          if (editor.maximizedShellLeaf[kind] === leafId) {
+            return {
+              ...editor,
+              maximizedShellLeaf: withoutShellLeaf(editor.maximizedShellLeaf, kind),
+            };
+          }
+          if (!findLeaf(editor.shells[kind].layout, leafId)) return null;
+          return {
+            ...editor,
+            maximizedShellLeaf: { ...editor.maximizedShellLeaf, [kind]: leafId },
+          };
+        }) ?? state,
+    ),
+
+  restoreMaximizedShellLeaf: (projectPath, kind) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => {
+          const maximizedShellLeaf = withoutShellLeaf(editor.maximizedShellLeaf, kind);
+          if (maximizedShellLeaf === editor.maximizedShellLeaf) return null;
+          return { ...editor, maximizedShellLeaf };
+        }) ?? state,
     ),
 
   setDocumentDirty: (projectPath, id, dirty) =>

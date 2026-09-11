@@ -30,10 +30,12 @@ import {
 } from "../documents";
 import {
   useLayoutTree,
+  useMaximizedLeafId,
   useMoveDocument,
   useOpenDocument,
   useOpenDocuments,
   useReorderDocuments,
+  useRestoreMaximizedLeaf,
   useSelectedLayerName,
   useSetSplitLayout,
   useSplitWithDocument,
@@ -64,6 +66,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const moveDocument = useMoveDocument();
   const splitWithDocument = useSplitWithDocument();
   const selectedLayerName = useSelectedLayerName();
+  const maximizedLeafId = useMaximizedLeafId();
+  const restoreMaximized = useRestoreMaximizedLeaf();
 
   const contentLayers = useMemo<readonly LayerContent[]>(() => data?.layers ?? [], [data]);
 
@@ -175,7 +179,13 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       )}
 
       <TabDndProvider tree={layout} onDrop={handleTabDrop} overlay={renderGhost}>
-        <SplitLayout node={layout} onLayoutChanged={setSplitLayout} renderLeaf={renderLeaf} />
+        <SplitLayout
+          node={layout}
+          onLayoutChanged={setSplitLayout}
+          renderLeaf={renderLeaf}
+          maximizedLeafId={maximizedLeafId}
+          onRestore={restoreMaximized}
+        />
       </TabDndProvider>
     </div>
   );

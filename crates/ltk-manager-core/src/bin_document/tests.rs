@@ -260,7 +260,7 @@ fn row<'a>(rows: &'a [BinRow], name: &str) -> &'a BinRow {
 
 #[test]
 fn roots_name_every_object_and_count_its_properties() {
-    let rows = document().roots(&named());
+    let rows = document().roots(&named(), None);
 
     let names: Vec<_> = rows.iter().map(|row| row.name.as_str()).collect();
     assert_eq!(
@@ -832,7 +832,7 @@ fn a_patch_bin_opens_to_its_added_objects_and_counts_what_it_does_not_draw() {
             deleted: 1,
         }
     );
-    let rows = document.roots(&named());
+    let rows = document.roots(&named(), None);
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].name, "Characters/Aatrox");
 }
@@ -1046,11 +1046,15 @@ fn schema() -> MetaSchema {
             "{mesh}": {{
               "name": "SkinMeshDataProperties",
               "properties": {{ {material} }}
-            }}
+            }},
+            "{part}": {{ "name": "Part", "properties": {{}} }},
+            "{record}": {{ "name": "CharacterRecord", "properties": {{}} }}
           }}
         }}"#,
         skin = key("SkinCharacterDataProperties"),
         mesh = key("SkinMeshDataProperties"),
+        part = key("Part"),
+        record = key("CharacterRecord"),
         champion_skin_name = line("championSkinName", r#""String", "0x0", "0x0", "0x0""#),
         skin_classification = line("skinClassification", r#""File", "0x0", "0x0", "0x0""#),
         armor_material = line("armorMaterial", r#""List", "0x0", "I32", "0x0""#),
@@ -1147,6 +1151,33 @@ fn a_field_no_table_names_takes_the_schemas_name() {
     );
 }
 
+#[test]
+fn a_class_no_table_names_takes_the_schemas_name() {
+    let schema = schema();
+    let mut tables = named();
+    tables.classes.remove(&h("Part"));
+
+    let classed = judged_under(&schema, &tables, "");
+    let without = document()
+        .children(
+            h("Characters/Aatrox/Skins/Skin0/Resources"),
+            "",
+            0,
+            usize::MAX,
+            &tables,
+            None,
+        )
+        .unwrap()
+        .rows;
+
+    let class = |rows: &[BinRow]| match &row(rows, "classed").value {
+        BinValue::Struct { class, .. } => class.clone(),
+        other => panic!("classed is a struct, not {other:?}"),
+    };
+    assert_eq!(class(&classed).as_deref(), Some("Part"));
+    assert_eq!(class(&without), None);
+}
+
 /// A name is the database's at every build. A declared kind is a revision's.
 #[test]
 fn without_a_build_the_schema_names_a_field_and_declares_nothing() {
@@ -1209,7 +1240,7 @@ fn an_entry_open_answers_the_objects_header_facts() {
     let document = document();
     let entry = h("Characters/Aatrox/Skins/Skin0/Resources");
 
-    let header = document.object(entry, &named()).unwrap();
+    let header = document.object(entry, &named(), None).unwrap();
     assert_eq!(header.entry, hex(entry));
     assert_eq!(header.name, "Characters/Aatrox/Skins/Skin0/Resources");
     assert!(!header.unnamed);
@@ -1218,7 +1249,7 @@ fn an_entry_open_answers_the_objects_header_facts() {
     assert_eq!(header.properties, under("").len());
 
     let unnamed = document
-        .object(BinHash::from(UNNAMED_OBJECT), &named())
+        .object(BinHash::from(UNNAMED_OBJECT), &named(), None)
         .unwrap();
     assert_eq!(unnamed.name, "0x12345678");
     assert!(unnamed.unnamed);
@@ -1226,8 +1257,32 @@ fn an_entry_open_answers_the_objects_header_facts() {
     assert_eq!(unnamed.class_hash, "0xabcdef01");
     assert_eq!(unnamed.properties, 0);
 
-    let error = document.object(h("Characters/Ahri"), &named()).unwrap_err();
+    let error = document
+        .object(h("Characters/Ahri"), &named(), None)
+        .unwrap_err();
     assert!(matches!(error, BinDocumentError::NodeNotFound { .. }));
+}
+
+#[test]
+fn a_header_and_a_root_take_the_schemas_class_name_where_the_tables_have_none() {
+    let schema = schema();
+    let document = document();
+    let mut tables = named();
+    tables.classes.remove(&h("CharacterRecord"));
+
+    let header = document
+        .object(h("Characters/Aatrox"), &tables, Some(at(&schema)))
+        .unwrap();
+    assert_eq!(header.class.as_deref(), Some("CharacterRecord"));
+
+    let roots = document.roots(&tables, Some(at(&schema)));
+    let root = roots
+        .iter()
+        .find(|row| row.name == "Characters/Aatrox")
+        .expect("the record is a root");
+    assert!(
+        matches!(&root.value, BinValue::Struct { class: Some(name), .. } if name == "CharacterRecord")
+    );
 }
 
 #[test]
@@ -1237,7 +1292,7 @@ fn an_objects_own_declaration_names_its_asset_and_file() {
     let tables = named();
 
     let declaration = document
-        .object(h("Characters/Aatrox"), &tables)
+        .object(h("Characters/Aatrox"), &tables, None)
         .unwrap()
         .declared_in(&asset, "data/skin0.bin");
     assert_eq!(declaration.asset, asset);
@@ -1246,7 +1301,7 @@ fn an_objects_own_declaration_names_its_asset_and_file() {
     assert_eq!(declaration.class_hash, hex(h("CharacterRecord")));
 
     let unnamed = document
-        .object(BinHash::from(UNNAMED_OBJECT), &tables)
+        .object(BinHash::from(UNNAMED_OBJECT), &tables, None)
         .unwrap()
         .declared_in(&asset, "data/skin0.bin");
     assert_eq!(

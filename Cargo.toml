@@ -37,6 +37,8 @@ ltk_modpkg = "0.9.2"
 ltk_overlay = "0.9.7"
 ltk_wad = "0.5.4"
 
+ltk_anim = "0.3.6"
+ltk_mesh = "0.4.5"
 ltk_rst = "0.2.1"
 ltk_texture = { version = "0.6.0", features = ["intel-tex"] }
 
@@ -44,7 +46,11 @@ camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
 fs-err = "3"
+# The vector types `ltk_mesh` hands geometry back as, pinned to the version
+# every league-toolkit crate builds against.
+glam = "0.27"
 image = "0.25.2"
+image_dds = { version = "0.6", default-features = false, features = ["ddsfile", "image"] }
 indexmap = { version = "2", features = ["serde"] }
 lru = "0.18"
 parking_lot = "0.12"

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorBoundary } from "@/components";
@@ -51,6 +52,25 @@ describe("ErrorBoundary", () => {
     expect(error.message).toBe("x is not a function");
     expect(error.componentStack).toContain("Boom");
     expect(error.handled).toBe(true);
+  });
+
+  it("draws the fallback it is given, and the children again on a retry", async () => {
+    let armed = true;
+    function Once() {
+      if (armed) throw new TypeError("once");
+      return <p>drawn again</p>;
+    }
+    render(
+      <ErrorBoundary fallback={(retry) => <button onClick={retry}>again</button>}>
+        <Once />
+      </ErrorBoundary>,
+    );
+    expect(screen.getByRole("button", { name: "again" })).toBeInTheDocument();
+
+    armed = false;
+    await userEvent.click(screen.getByRole("button", { name: "again" }));
+
+    expect(screen.getByText("drawn again")).toBeInTheDocument();
   });
 
   it("draws its children when nothing throws", () => {

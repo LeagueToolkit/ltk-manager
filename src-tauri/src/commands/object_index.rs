@@ -413,12 +413,15 @@ fn fold_own_declarations(
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
+    let (schema, build) = super::bin::installed_schema(app);
 
     let (dependencies, own) = store.read(document, |open| {
         let own: Vec<(&str, BinObjectHeader)> = object_hashes
             .iter()
             .filter_map(|text| {
-                let header = open.object(parse_hash(text)?, &names).ok()?;
+                let header = open
+                    .object(parse_hash(text)?, &names, Some(schema.at(build)))
+                    .ok()?;
                 Some((text.as_str(), header))
             })
             .collect();

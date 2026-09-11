@@ -36,10 +36,10 @@
     ],
     "*.{ts,tsx}": [
       "eslint --fix",
-      "oxfmt"
+      "oxfmt --no-error-on-unmatched-pattern"
     ],
     "*.{js,json,css,html,md}": [
-      "oxfmt"
+      "oxfmt --no-error-on-unmatched-pattern"
     ],
     "src-tauri/**/*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
@@ -65,6 +65,8 @@
     "@fontsource-variable/source-code-pro": "^5.3.0",
     "@inlang/paraglide-js": "2.25.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
     "@tanstack/react-form": "^1.29.1",
     "@tanstack/react-query": "^5.100.1",
     "@tanstack/react-router": "^1.168.23",
@@ -88,6 +90,7 @@
     "react-zoom-pan-pinch": "^4.0.4",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.5.0",
+    "three": "^0.185.1",
     "ts-pattern": "^5.9.0",
     "usehooks-ts": "^3.1.1",
     "zod": "^3.25.76",
@@ -106,6 +109,7 @@
     "@types/node": "^22.19.17",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.4",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^4.1.5",
