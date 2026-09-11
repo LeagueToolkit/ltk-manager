@@ -66,6 +66,18 @@ pub enum Conversion {
     /// option declares a type it holds no value of. There is nothing to cross,
     /// whatever the two item types are.
     EmptyOption,
+    /// A container's items go the way [`HashValue`](Self::HashValue) does, and
+    /// its ordering tag flips.
+    ///
+    /// `List` and `List2` are one vector under two tags, so the two halves are
+    /// independent: the items cross whatever the tag does.
+    RetagHashValue,
+    /// A `Map`'s keys go the way [`HashKey`](Self::HashKey) does, and its values
+    /// the way [`HashValue`](Self::HashValue) does.
+    ///
+    /// The keys are the half that can fail, since only a key a table names back
+    /// to its path crosses to `File`.
+    HashKeyValue,
     /// Nothing this build knows turns the value into the type it should be.
     Unknown,
 }
@@ -98,17 +110,42 @@ impl Conversion {
             {
                 Self::None
             }
+            /* The tag crosses on its own, so the items decide the rest. */
+            (Kind::Container, Kind::UnorderedContainer)
+            | (Kind::UnorderedContainer, Kind::Container) => {
+                match Self::held(from.value, to.value) {
+                    Self::HashValue => Self::RetagHashValue,
+                    _ => Self::Unknown,
+                }
+            }
             (Kind::Container | Kind::UnorderedContainer | Kind::Optional, same)
                 if same == from.kind =>
             {
                 Self::held(from.value, to.value)
             }
             (Kind::Map, Kind::Map) if from.key == to.key => Self::held(from.value, to.value),
-            (Kind::Map, Kind::Map) if from.value == to.value => match (from.key, to.key) {
-                (Some(Kind::Hash), Some(Kind::WadChunkLink)) => Self::HashKey,
-                _ => Self::Unknown,
-            },
+            (Kind::Map, Kind::Map) => {
+                match (Self::keys(from.key, to.key), from.value == to.value) {
+                    (Self::HashKey, true) => Self::HashKey,
+                    (Self::HashKey, false) => match Self::held(from.value, to.value) {
+                        Self::HashValue => Self::HashKeyValue,
+                        _ => Self::Unknown,
+                    },
+                    _ => Self::Unknown,
+                }
+            }
             (narrow, wide) => Self::widening(narrow, wide),
+        }
+    }
+
+    /// How a map's keys cross, which only the rehashing road does.
+    ///
+    /// A key is a primitive the entries are ordered by, so nothing widens one:
+    /// a pair that is not `Hash` to `File` leaves the map where it is.
+    fn keys(from: Option<Kind>, to: Option<Kind>) -> Self {
+        match (from, to) {
+            (Some(Kind::Hash), Some(Kind::WadChunkLink)) => Self::HashKey,
+            _ => Self::Unknown,
         }
     }
 
@@ -1005,13 +1042,88 @@ not json at all
             ),
             Conversion::None
         );
+    }
+
+    /// The tag and the items are independent, so a pair that moves both takes
+    /// the road that does both.
+    #[test]
+    fn a_list_of_paths_the_game_reads_as_a_list2_of_files_crosses_on_both() {
+        let list_of = |kind, item| TypeSpec {
+            value: Some(item),
+            ..TypeSpec::bare(kind)
+        };
         assert_eq!(
             Conversion::between(
                 &list_of(Kind::Container, Kind::String),
                 &list_of(Kind::UnorderedContainer, Kind::WadChunkLink)
             ),
+            Conversion::RetagHashValue
+        );
+        assert_eq!(
+            Conversion::between(
+                &list_of(Kind::UnorderedContainer, Kind::String),
+                &list_of(Kind::Container, Kind::WadChunkLink)
+            ),
+            Conversion::RetagHashValue
+        );
+    }
+
+    /// A tag that flips over items with no road between them is still no road,
+    /// because the items are what the property holds.
+    #[test]
+    fn a_retag_over_items_that_cannot_cross_is_unknown() {
+        let list_of = |kind, item| TypeSpec {
+            value: Some(item),
+            ..TypeSpec::bare(kind)
+        };
+        assert_eq!(
+            Conversion::between(
+                &list_of(Kind::Container, Kind::U32),
+                &list_of(Kind::UnorderedContainer, Kind::U8)
+            ),
+            Conversion::Unknown
+        );
+    }
+
+    /// A map's two halves are independent the way a container's tag and items
+    /// are, and 16.18 moved both at once on `UiElementParticleSystemData`.
+    #[test]
+    fn a_map_that_moves_its_keys_and_its_values_crosses_on_both() {
+        let map_of = |key, value| TypeSpec {
+            key: Some(key),
+            value: Some(value),
+            ..TypeSpec::bare(Kind::Map)
+        };
+        assert_eq!(
+            Conversion::between(
+                &map_of(Kind::Hash, Kind::String),
+                &map_of(Kind::WadChunkLink, Kind::WadChunkLink)
+            ),
+            Conversion::HashKeyValue
+        );
+        assert_eq!(
+            Conversion::between(
+                &map_of(Kind::Hash, Kind::String),
+                &map_of(Kind::WadChunkLink, Kind::String)
+            ),
+            Conversion::HashKey,
+            "the values stay as they are, so the keys are the whole road"
+        );
+        assert_eq!(
+            Conversion::between(
+                &map_of(Kind::Hash, Kind::Struct),
+                &map_of(Kind::WadChunkLink, Kind::Embedded)
+            ),
             Conversion::Unknown,
-            "the items would have to cross as well, and one road cannot do both"
+            "a pointer becoming an embed is a road, but not one a map's values take"
+        );
+        assert_eq!(
+            Conversion::between(
+                &map_of(Kind::U32, Kind::String),
+                &map_of(Kind::WadChunkLink, Kind::WadChunkLink)
+            ),
+            Conversion::Unknown,
+            "only a Hash key crosses to a File key"
         );
     }
 

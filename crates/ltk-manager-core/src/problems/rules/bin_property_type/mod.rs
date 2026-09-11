@@ -45,8 +45,13 @@
 //! the other: `Embed` and `Pointer`, `List` and `List2`, `Bool` and `Flag`. The
 //! first is exact only for the class the field itself names, because a
 //! `Pointer` also holds a class derived from it and an `Embed` does not, and
-//! the schema names no class to check against. A list crosses only where both
-//! sides hold the same item type, since the tag is all that moves.
+//! the schema names no class to check against.
+//!
+//! A type has halves that move independently, and Riot moves both at once. A
+//! list's ordering tag and its item type are one such pair, and a map's keys
+//! and its values are another, so two roads take both halves in turn. Either
+//! the whole property crosses or none of it does: a value left between the two
+//! types declares neither, which is worse than the type it had.
 //!
 //! The check is a visitor over `ltk_meta::walk`, riding the pass's one walk of
 //! each bin. Every node carries a class hash of its own, and two rows of the
@@ -696,13 +701,18 @@ fn keep_names(
     kept: &mut PreservedNames<'_>,
 ) -> bool {
     match migration.conversion {
-        Conversion::HashValue => strings(value)
-            .into_iter()
-            .all(|path| kept.keep(path) == Preserved::Kept),
+        Conversion::HashValue | Conversion::RetagHashValue => keeps(strings(value), kept),
         /* The paths a rehash writes from came out of a table, and keeping them
         under the new hash is what lets a reader name the `File` it left. */
         Conversion::Rehash | Conversion::HashKey => resolved_paths(value, migration, names)
-            .is_some_and(|paths| paths.iter().all(|path| kept.keep(path) == Preserved::Kept)),
+            .is_some_and(|paths| keeps(paths.iter().map(String::as_str), kept)),
+        /* Both halves of the map, since a key or a value losing its path leaves
+        the mod holding a hash it can no longer name. */
+        Conversion::HashKeyValue => {
+            resolved_paths(value, migration, names)
+                .is_some_and(|paths| keeps(paths.iter().map(String::as_str), kept))
+                && keeps(strings(value), kept)
+        }
         Conversion::None
         | Conversion::NullPointer
         | Conversion::Widen
@@ -710,6 +720,13 @@ fn keep_names(
         /* Nothing is written, so there is no path to keep. */
         Conversion::Unknown => false,
     }
+}
+
+/// Keep every one of `paths`. Reports whether all of them survived.
+fn keeps<'p>(paths: impl IntoIterator<Item = &'p str>, kept: &mut PreservedNames<'_>) -> bool {
+    paths
+        .into_iter()
+        .all(|path| kept.keep(path) == Preserved::Kept)
 }
 
 /// Walk `repair` into whatever object-like nodes `value` holds.
@@ -816,9 +833,34 @@ fn convert(value: &mut PropertyValueEnum, migration: &Migration, names: &BinName
         Conversion::NullPointer => null_pointers(value),
         Conversion::Widen => widen(value, &migration.to),
         Conversion::EmptyOption => retag_option(value, migration.to.value),
+        Conversion::RetagHashValue => {
+            crossing(value, |held| hash_value(held) && retag(held, migration))
+        }
+        Conversion::HashKeyValue => {
+            crossing(value, |held| rehash_keys(held, names) && hash_value(held))
+        }
         /* No road from what it holds to what it should be. */
         Conversion::Unknown => false,
     }
+}
+
+/// Take a road of two steps, or leave the value as it was. Reports whether it
+/// changed.
+///
+/// Both steps or neither: a property left halfway across declares a type that
+/// is neither the one it had nor the one the game reads, which is worse than
+/// the one it had. The copy is what makes that cheap to abandon, and a repair
+/// pays it only for a property it is already rewriting.
+fn crossing(
+    value: &mut PropertyValueEnum,
+    steps: impl FnOnce(&mut PropertyValueEnum) -> bool,
+) -> bool {
+    let mut held = value.clone();
+    if !steps(&mut held) {
+        return false;
+    }
+    *value = held;
+    true
 }
 
 /// Rewrite a `Hash` as the `File` of the path behind it. Reports whether it
@@ -1334,7 +1376,9 @@ fn note(
                 unresolved(value, names)
             ));
         }
-        Conversion::HashKey if resolved_paths(value, migration, names).is_none() => {
+        Conversion::HashKey | Conversion::HashKeyValue
+            if resolved_paths(value, migration, names).is_none() =>
+        {
             parts.push(format!(
                 "Neither the Mimir hashtables nor the mod's own resolve {} back to its path, and only those paths cross to File keys, the 64-bit xxHash. Adding the paths to the mod's hashtables makes this repairable.",
                 unresolved(value, names)
@@ -1349,7 +1393,9 @@ fn note(
         }
         Conversion::Rehash
         | Conversion::HashKey
+        | Conversion::HashKeyValue
         | Conversion::HashValue
+        | Conversion::RetagHashValue
         | Conversion::None
         | Conversion::NullPointer
         | Conversion::Widen
@@ -1410,7 +1456,7 @@ fn resolved_paths(
         (Conversion::Rehash, PropertyValueEnum::Hash(hash)) => {
             Some(vec![names.path_value(hash.value)?])
         }
-        (Conversion::HashKey, PropertyValueEnum::Map(map)) => map
+        (Conversion::HashKey | Conversion::HashKeyValue, PropertyValueEnum::Map(map)) => map
             .entries()
             .iter()
             .map(|(key, _)| key_path(key, names))
@@ -1435,7 +1481,9 @@ fn preview(
     names: &BinNames,
 ) -> Option<FixPreview> {
     match migration.conversion {
-        Conversion::Rehash | Conversion::HashKey => {
+        /* The keys are the half a `HashKeyValue` can fail on, so they are the
+        half worth drawing. */
+        Conversion::Rehash | Conversion::HashKey | Conversion::HashKeyValue => {
             let paths = resolved_paths(value, migration, names)?;
             Some(match paths.as_slice() {
                 [] => FixPreview::default(),
@@ -1451,7 +1499,7 @@ fn preview(
         | Conversion::NullPointer
         | Conversion::Widen
         | Conversion::EmptyOption => Some(FixPreview::default()),
-        Conversion::HashValue => Some(value_preview(value)),
+        Conversion::HashValue | Conversion::RetagHashValue => Some(value_preview(value)),
         /* No repair, so nothing to preview. */
         Conversion::Unknown => None,
     }
