@@ -6,6 +6,7 @@ import {
   LinearFilter,
   type Object3D,
   PerspectiveCamera,
+  RGBFormat,
   type Scene,
   Vector2,
   type WebGLRenderer,
@@ -30,6 +31,10 @@ export const PARTICLE_LAYER = 2;
 export const FRAME = new FramebufferTexture(1, 1);
 FRAME.minFilter = LinearFilter;
 FRAME.magFilter = LinearFilter;
+/* The drawing buffer `opaqueRenderer` asks for has no alpha channel, and a copy into a
+   texture with one fails with INVALID_OPERATION on every frame. */
+FRAME.format = RGBFormat;
+FRAME.internalFormat = "RGB8";
 
 /** The drawing buffer's size in pixels, which turns a fragment's place into a coordinate. */
 export const VIEWPORT = new Vector2(1, 1);
