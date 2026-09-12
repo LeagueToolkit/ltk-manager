@@ -1,10 +1,87 @@
 use std::num::NonZeroU32;
 
 use image::RgbaImage;
+use image_dds::ddsfile::{
+    AlphaMode, Caps2, D3D10ResourceDimension, D3DFormat, DxgiFormat, NewD3dParams, NewDxgiParams,
+};
 use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions};
 
 use super::*;
+
+/// A DDS of `faces` square faces `size` wide, face `n` a flat grey of `n * 40`.
+fn dds_bytes(size: u32, faces: u8) -> Vec<u8> {
+    let cube = faces == 6;
+    let mut dds = Dds::new_dxgi(NewDxgiParams {
+        height: size,
+        width: size,
+        depth: None,
+        format: DxgiFormat::R8G8B8A8_UNorm,
+        mipmap_levels: None,
+        array_layers: cube.then_some(6),
+        caps2: cube.then_some(Caps2::CUBEMAP | Caps2::CUBEMAP_ALLFACES),
+        is_cubemap: cube,
+        resource_dimension: D3D10ResourceDimension::Texture2D,
+        alpha_mode: AlphaMode::Straight,
+    })
+    .unwrap();
+    let face = (size * size * 4) as usize;
+    dds.data = (0..faces).flat_map(|n| vec![n * 40; face]).collect();
+
+    let mut bytes = Vec::new();
+    dds.write(&mut bytes).unwrap();
+    bytes
+}
+
+#[test]
+fn a_cube_renders_its_six_faces_top_to_bottom_in_file_order() {
+    let preview = render_cube(&dds_bytes(4, 6)).unwrap();
+
+    let decoded = image::load_from_memory(&preview.bytes).unwrap().to_rgba8();
+    assert_eq!((decoded.width(), decoded.height()), (4, 24));
+    for face in 0..6u8 {
+        let texel = decoded.get_pixel(1, u32::from(face) * 4 + 1);
+        assert_eq!(texel[0], face * 40, "face {face} sits at row {}", face * 4);
+    }
+}
+
+/// The shipped maps are block-compressed and written with the legacy header.
+#[test]
+fn a_legacy_block_compressed_cube_renders_its_six_faces() {
+    let mut dds = Dds::new_d3d(NewD3dParams {
+        height: 4,
+        width: 4,
+        depth: None,
+        format: D3DFormat::DXT1,
+        mipmap_levels: None,
+        caps2: Some(Caps2::CUBEMAP | Caps2::CUBEMAP_ALLFACES),
+    })
+    .unwrap();
+    dds.data = vec![0; 6 * 8];
+    let mut bytes = Vec::new();
+    dds.write(&mut bytes).unwrap();
+
+    let decoded = image::load_from_memory(&render_cube(&bytes).unwrap().bytes).unwrap();
+    assert_eq!((decoded.width(), decoded.height()), (4, 24));
+}
+
+#[test]
+fn a_flat_dds_is_no_cube() {
+    let err = render_cube(&dds_bytes(4, 1)).unwrap_err();
+    assert!(
+        matches!(err, PreviewError::NotCube),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn bytes_that_are_not_a_dds_report_a_read_error_for_a_cube() {
+    let err = render_cube(b"not a texture at all").unwrap_err();
+    assert!(
+        matches!(err, PreviewError::Read(_)),
+        "unexpected error: {err}"
+    );
+}
 
 /// A `w` of `width`.
 fn wide(width: u32) -> Option<NonZeroU32> {

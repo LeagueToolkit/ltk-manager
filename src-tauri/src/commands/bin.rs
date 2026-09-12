@@ -55,15 +55,15 @@ pub async fn bin_open(
         let cache = CacheNames::new(&bin, &wad);
         let chunks = store.chunks_of(document);
         let names = ProjectNames::new(&cache, &chunks);
-        let schema = entry.map(|_| installed_schema(&app_handle));
+        let (schema, build) = installed_schema(&app_handle);
         store.read(document, |open| {
-            let (rows, object) = match (entry, &schema) {
-                (Some(entry), Some((schema, build))) => (
-                    open.children(entry, "", 0, WHOLE, &names, Some(schema.at(*build)))?
-                        .rows,
-                    Some(open.object(entry, &names)?),
+            let at = Some(schema.at(build));
+            let (rows, object) = match entry {
+                Some(entry) => (
+                    open.children(entry, "", 0, WHOLE, &names, at)?.rows,
+                    Some(open.object(entry, &names, at)?),
                 ),
-                _ => (open.roots(&names), None),
+                None => (open.roots(&names, at), None),
             };
             Ok(BinDocumentHandle {
                 document,
@@ -158,7 +158,7 @@ pub async fn class_schema(
 
 /// The shared meta schema and the installed game's content build, which keys every
 /// answer read out of it.
-fn installed_schema(app_handle: &AppHandle) -> (Arc<MetaSchema>, Option<GameBuild>) {
+pub(super) fn installed_schema(app_handle: &AppHandle) -> (Arc<MetaSchema>, Option<GameBuild>) {
     let config = app_handle.state::<SettingsState>().config();
     let build = GameBuild::installed(&config);
     (meta_schema::shared(build), build)

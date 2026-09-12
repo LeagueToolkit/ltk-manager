@@ -31,6 +31,8 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   locked?: boolean;
   /** Absent leaves the strip without a lock, for a host whose groups all take an open. */
   onToggleLock?: (locked: boolean) => void;
+  /** A double click on a kept tab, which fills the grid with this surface. */
+  onMaximize?: () => void;
   /** A pointer landing anywhere in the surface, tab strip or document body. */
   onFocus?: () => void;
   /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
@@ -65,6 +67,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
   onTogglePin,
   locked,
   onToggleLock,
+  onMaximize,
   onFocus,
   focused,
   empty,
@@ -169,7 +172,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
       data-ui={`EditorSurface:${leafId}`}
       onPointerDownCapture={onFocus}
       className={twMerge(
-        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-950",
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-900",
         className,
       )}
     >
@@ -187,6 +190,7 @@ export function EditorSurface<D extends EditorDocumentBase>({
         onTogglePin={onTogglePin}
         locked={locked}
         onToggleLock={onToggleLock}
+        onMaximize={onMaximize}
         focused={focused}
       />
 

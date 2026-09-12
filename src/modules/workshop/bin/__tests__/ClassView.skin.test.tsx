@@ -2,8 +2,9 @@
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
@@ -11,6 +12,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
+import { useWorkshopEditorStore } from "../../state/workshopEditor";
 import { nameHash } from "../binHash";
 import { skinLayout } from "../classLayouts";
 import { ClassView } from "../ClassView";
@@ -283,6 +285,23 @@ beforeEach(() => {
   });
 });
 
+/** What the object pane measures, which happy-dom runs no layout to answer. */
+let paneWidth = 0;
+const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => paneWidth,
+  });
+});
+
+afterAll(() => {
+  if (measured !== undefined) {
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", measured);
+  }
+});
+
 describe("ClassView over a skin", () => {
   it("draws every section of the layout, in its order", () => {
     renderSkin();
@@ -314,10 +333,10 @@ describe("ClassView over a skin", () => {
     expect(await screen.findByText("loadscreen")).toBeInTheDocument();
   });
 
-  it("holds the preview slot open, with no renderer behind it", () => {
+  it("draws the skin above the sections in a pane too narrow for the shell", () => {
     renderSkin();
 
-    expect(screen.getByRole("img", { name: "Mesh preview" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Mesh preview" })).toBeInTheDocument();
   });
 
   it("draws the mesh's own fields and its textures", async () => {
@@ -330,7 +349,9 @@ describe("ClassView over a skin", () => {
   it("opens a string path the resolver holds as a chip", async () => {
     renderSkin();
 
-    expect(await screen.findByText(SIMPLE_SKIN.toLowerCase())).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: SIMPLE_SKIN.toLowerCase() }),
+    ).toBeInTheDocument();
   });
 
   /* The rows themselves are virtualized, which a zero-height test viewport draws none of. */
@@ -363,5 +384,36 @@ describe("ClassView over a skin", () => {
 
     expect(new Set(entries)).toEqual(new Set([ENTRY, RESOLVER]));
     expect(mockInvoke.mock.calls.some(([command]) => command === "bin_open")).toBe(false);
+  });
+});
+
+describe("ClassView over a skin in a pane wide enough for the shell", () => {
+  beforeEach(() => {
+    paneWidth = 1200;
+    useWorkshopEditorStore.setState({ byProject: {} });
+  });
+
+  afterEach(() => {
+    paneWidth = 0;
+  });
+
+  it("puts the preview and the inspector in panes of their own, and no other", async () => {
+    renderSkin();
+
+    expect(await screen.findByRole("tab", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Inspector" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Emitters" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Mesh preview" })).toBeInTheDocument();
+  });
+
+  it("lists only the skin's panes in the Panes menu", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Panes" }));
+
+    expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Inspector" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Curve" })).not.toBeInTheDocument();
   });
 });

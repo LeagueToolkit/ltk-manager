@@ -12,6 +12,7 @@ import {
   MAX_LEVELS,
   placeRows,
   type SectionWidget,
+  shellHoldsCurve,
   skinLayout,
   vfxLayout,
 } from "../classLayouts";
@@ -64,13 +65,21 @@ describe("classLayout", () => {
 });
 
 describe("frameOf", () => {
-  it("gives a layout that names no frame the stack", () => {
+  it("gives a layout that names no shell the stack", () => {
     expect(frameOf(materialLayout)).toBe("stack");
-    expect(frameOf(skinLayout)).toBe("stack");
   });
 
-  it("gives the particle system the shell it declares", () => {
+  it("gives the particle system and the skin the shells they declare", () => {
     expect(frameOf(vfxLayout)).toBe("shell");
+    expect(frameOf(skinLayout)).toBe("shell");
+  });
+});
+
+describe("shellHoldsCurve", () => {
+  it("is the particle system's shell alone, which the dock stands in for elsewhere", () => {
+    expect(shellHoldsCurve(vfxLayout)).toBe(true);
+    expect(shellHoldsCurve(skinLayout)).toBe(false);
+    expect(shellHoldsCurve(materialLayout)).toBe(false);
   });
 });
 

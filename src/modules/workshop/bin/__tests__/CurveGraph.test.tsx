@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { CurveGraph } from "../CurveGraph";
-import type { CurveKey } from "../valueRows";
+import { randomDraw } from "../randomDraw";
+import type { CurveKey, ProbabilityTable, ValueMark } from "../valueRows";
 
 const SIDE = 100;
 
@@ -29,6 +30,30 @@ const COLOR: CurveKey[] = [
   { time: 1, values: [0, 0, 1, 0] },
 ];
 
+/** A vector whose X draws a uniform 0 to 360 over its base, and whose Y and Z are filler. */
+function randomX(keys: CurveKey[]): ValueMark {
+  const table = (channel: number, points: [number, number][]): ProbabilityTable => ({
+    channel,
+    single: 1,
+    keys: points.map(([time, value]) => ({ time, values: [value] })),
+  });
+  return {
+    family: "vector",
+    constant: { type: "vector", values: [1, 0, 0] },
+    keys,
+    tables: [
+      table(0, [
+        [0, 0],
+        [1, 360],
+      ]),
+      table(1, []),
+      table(2, []),
+    ],
+    curve: true,
+    slots: 3,
+  };
+}
+
 function draw(keys: CurveKey[], family: "scalar" | "vector" | "color") {
   return render(<CurveGraph keys={keys} family={family} />).container;
 }
@@ -45,22 +70,39 @@ describe("CurveGraph", () => {
     expect(drawn).toEqual(["text-channel-1", "text-channel-2", "text-channel-3"]);
   });
 
-  it("names each channel of a vector in the letters Riot labels them with", () => {
-    draw(VECTOR, "vector");
-
-    for (const axis of ["X", "Y", "Z"]) {
-      expect(screen.getByRole("button", { name: axis })).toHaveAttribute("aria-pressed", "true");
-    }
-  });
-
-  it("mutes the channel a chip turns off", async () => {
-    const container = draw(VECTOR, "vector");
-    const user = userEvent.setup();
-
-    await user.click(screen.getByRole("button", { name: "Y" }));
+  it("draws no line for a channel the toolbar muted", () => {
+    const { container } = render(<CurveGraph keys={VECTOR} family="vector" muted={new Set([1])} />);
 
     expect(strokes(container)).toEqual(["text-channel-1", "text-channel-3"]);
-    expect(screen.getByRole("button", { name: "Y" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("draws a random value whose base holds still as lanes, with no time plot", () => {
+    const { container } = render(
+      <CurveGraph keys={[]} family="vector" draw={randomDraw(randomX([]))} unit="degrees" />,
+    );
+
+    expect(screen.getByRole("slider", { name: "Pin the chance on X" })).toBeInTheDocument();
+    expect(screen.getByText("0 .. 360")).toBeInTheDocument();
+    expect(container.querySelector('[data-ui="ChannelPlot"]')).toBeNull();
+  });
+
+  it("draws an animated random value over time, with the births at one time beside it", () => {
+    const { container } = render(
+      <CurveGraph keys={VECTOR} family="vector" draw={randomDraw(randomX(VECTOR))} />,
+    );
+
+    const plot = container.querySelector('[data-ui="ChannelPlot"] svg');
+    expect(plot?.querySelectorAll("polyline")).toHaveLength(3);
+    expect(screen.getByText("births")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "How often each value is drawn" })).toHaveLength(1);
+    expect(screen.getByText("uniform")).toBeInTheDocument();
+  });
+
+  it("names the unit by the top value tick, and ticks time at its quarters", () => {
+    render(<CurveGraph keys={VECTOR} family="vector" unit="rate" />);
+
+    expect(screen.getByText("/s")).toBeInTheDocument();
+    expect(screen.getByText("0.25")).toBeInTheDocument();
   });
 
   it("draws a colour as its ramp alone, with no line and no channel chip", () => {

@@ -34,6 +34,11 @@ migrated![
     bin_read,
     bin_close,
     class_schema,
+    // Particle renderer
+    read_vfx_system,
+    // Skin preview
+    read_skin,
+    read_animation_clips,
     // Diagnostics
     run_diagnostics,
     open_elevated_terminal,

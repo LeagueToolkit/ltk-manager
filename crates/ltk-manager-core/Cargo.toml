@@ -5,6 +5,7 @@ description = "UI-agnostic core library for LTK Manager"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
 
 [features]
 # Derive `ts_rs::TS` and `specta::Type` on core types so the Tauri shell can
@@ -18,11 +19,13 @@ ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl", "dep:specta"]
 [dependencies]
 ritoclient = { workspace = true }
 
+ltk_anim = { workspace = true }
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
 ltk_hash = { workspace = true }
 ltk_hashdb = { workspace = true }
 ltk_hashtable = { workspace = true }
+ltk_mesh = { workspace = true }
 ltk_meta = { workspace = true }
 ltk_mimir_cache = { workspace = true }
 ltk_modpkg = { workspace = true }
@@ -38,7 +41,9 @@ camino = { workspace = true }
 chrono = { workspace = true }
 flate2 = { workspace = true }
 fs-err = { workspace = true }
+glam = { workspace = true }
 image = { workspace = true }
+image_dds = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
 parking_lot = { workspace = true }

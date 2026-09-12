@@ -1,45 +1,10 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-
 import type { AssetRef } from "@/lib/tauri";
 
-/** The URI scheme the backend serves a rendered preview on. */
-const SCHEME = "ltk-asset";
-
-/** The query parameter a thumbnail or a swatch names its width on. */
-const WIDTH_PARAMETER = "w";
-
-/**
- * The URL an `<img>` draws this asset from.
- *
- * The backend renders whatever the file is into something the webview decodes,
- * so a `.tex` and a `.png` both arrive as an image and neither one crosses the
- * JavaScript heap.
- *
- * `minWidth` is a thumbnail's or a swatch's `w`. Without one the full resolution
- * arrives.
- */
-export function previewUrl(asset: AssetRef, minWidth?: number): string {
-  const url = convertFileSrc(encodeToken(asset), SCHEME);
-  if (minWidth === undefined) return url;
-  return `${url}?${WIDTH_PARAMETER}=${minWidth}`;
-}
+export { previewUrl } from "@/lib/previewUrl";
 
 /** The archive a chunk's bytes come from, and null for a file that mounts none. */
 export function assetArchive(asset: AssetRef): string | null {
   return asset.kind === "gameChunk" ? asset.wad : null;
-}
-
-/**
- * Pack a reference into one URL path segment.
- *
- * Unpadded base64url is `A-Za-z0-9-_` alone, which is exactly the set
- * `encodeURIComponent` leaves untouched, so the token reaches the handler
- * character for character and no escaping question comes up on the way.
- */
-function encodeToken(asset: AssetRef): string {
-  const utf8 = new TextEncoder().encode(JSON.stringify(asset));
-  const binary = Array.from(utf8, (byte) => String.fromCharCode(byte)).join("");
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 /** What identifies an asset within one project, for a document id or a query key. */

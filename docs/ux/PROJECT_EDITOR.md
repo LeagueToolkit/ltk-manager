@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-11 | Maximize a panel from its tab                                           |
 | 2026-09-10 | Give the location and the box the explorer bar's first row              |
 | 2026-09-10 | Set a details row's height, and grab a column boundary that holds       |
 | 2026-09-10 | Read a game explorer as a details list, over one surface with the grid  |
@@ -95,6 +96,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
 | Source control section | Planned     | Git history for the declarative data                               |
 | Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
+| Panel maximize         | Planned     | A kept tab's double click fills the grid, and Esc restores it      |
 | Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
 | Project bar            | Available   | Takes the header's middle, from the project name title             |
 | Command palette        | Available   | The project, the game and the bin objects of both halves           |
@@ -2162,7 +2164,8 @@ There are two answers, and the settings hold the choice.
   directory stays one tab wide
 
 A replaceable tab shows its name in italic, and a double click on the tab itself keeps it.
-The strip holds one at a time. A pin keeps it too. Read [A pinned tab](#a-pinned-tab).
+The strip holds one at a time. A pin keeps it too, per [A pinned tab](#a-pinned-tab). A double
+click on a kept tab maximizes its panel, per [Maximizing a panel](#maximizing-a-panel).
 
 ### What a tab's context menu holds
 
@@ -3209,6 +3212,17 @@ tabs, so a project opens locked the way it was left.
 | The right end of the tab strip | A padlock, on hover and at all times while locked |
 | A tab's context menu           | Lock Group, and Unlock Group while locked         |
 | The command bar, under View    | Lock the group                                    |
+
+### Maximizing a panel
+
+A double click on a kept tab maximizes its panel. The panel fills the editor grid, and the rest of
+the tree waits behind it. A second double click on the tab restores the tree, and so does Esc where
+nothing inside the panel takes the key. A double click on a replaceable tab keeps it, per
+[Preview tabs](#preview-tabs), and the next one maximizes.
+
+Maximizing writes nothing to the tree, and a restart opens the arranged grid. A maximized panel
+takes no drop on its edges. The shells of the bin editor maximize a pane by the same gesture, per
+[How the panes are arranged](BIN_EDITOR.md#how-the-panes-are-arranged).
 
 ### Two libraries that do not fit
 

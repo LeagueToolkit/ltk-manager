@@ -4,9 +4,9 @@ use std::collections::HashSet;
 
 use ltk_hash::BinHash;
 
+use crate::bin_document::hex;
 use crate::game_index::FIND_LIMIT;
 use crate::matcher::{FindQuery, Range};
-use crate::problems::names::hex;
 
 use super::{ObjectFindHit, ObjectFindResult, ObjectIndex, STALE_CHECK_INTERVAL};
 

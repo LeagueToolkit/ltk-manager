@@ -37,6 +37,27 @@ export const commands = {
 	 *  `class_hash` is `0x` and eight hex digits.
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
+	/**
+	 *  One particle system of an open document, with every reference resolved.
+	 * 
+	 *  `entry` is the object's hash as `0x` and eight hex digits.
+	 */
+	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
+	/**
+	 *  One skin of an open document, as a viewport draws it.
+	 * 
+	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
+	 *  digits.
+	 */
+	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
+	/**
+	 *  The clips an animation graph plays, each with its `.anm` placed.
+	 * 
+	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
+	 *  graph the open document does not declare is looked for through the files it links,
+	 *  and a linked file that cannot be read is passed over.
+	 */
+	readAnimationClips: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationClip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_clips", { document, entry }),
 	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
 	/**
 	 *  Launch an elevated PowerShell window so the user can run a fix command.
@@ -116,6 +137,16 @@ export const commands = {
 };
 
 /* Types */
+/**  One clip an animation graph plays out of a single `.anm`. */
+export type AnimationClip = {
+	/**  The clip's key as the tables name it, and its hash where none does. */
+	name: string,
+	/**  The key, `0x` and eight hex digits. */
+	hash: string,
+	/**  `mAnimationResourceData.mAnimationFilePath`. */
+	animation: NamedAsset,
+};
+
 /**
  *  What went wrong, as the fields the frontend translates over.
  * 
@@ -186,6 +217,10 @@ export type AppErrorResponse =
 { code: "BIN_NODE_NOT_FOUND"; address: string } | 
 /**  A projected read asked for more rows than one call answers. */
 { code: "BIN_READ_TOO_WIDE"; rows: number; cap: number } | 
+/**  A resolved read reached more values than one call answers. */
+{ code: "BIN_READ_TOO_LARGE" } | 
+/**  A resolved read nested deeper than one call answers. */
+{ code: "BIN_READ_TOO_DEEP" } | 
 /**
  *  An overlay build or analysis failed.
  * 
@@ -701,6 +736,20 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  */
 "large-textures";
 
+/**  One effect a skin wears for as long as the character stands. */
+export type IdleEffect = {
+	/**  `effectKey`, `0x` and eight hex digits. */
+	effectKey: string,
+	/**  The system the skin's resolver maps the key to, where this document declares it. */
+	system: string | null,
+	/**  `boneName`, the joint the effect rides. */
+	bone: string,
+	/**  `targetBoneName`, the joint it aims at, and empty for one that aims at none. */
+	targetBone: string,
+	/**  `Position`, the effect's offset from its joint. */
+	position: [(number | null), (number | null), (number | null)],
+};
+
 /**  The record the manager keeps for one game that went wrong. */
 export type Incident = Incident_Serialize | Incident_Deserialize;
 
@@ -881,6 +930,17 @@ export type LauncherError =
  *  [`ritoclient`], carrying that error's own prose.
  */
 { kind: "OTHER"; message: string };
+
+/**  A path a bin names, and where its bytes live. */
+export type NamedAsset = {
+	/**
+	 *  The path as the bin spells it, or a chunk's sixteen hex digits where no table
+	 *  names it.
+	 */
+	path: string,
+	/**  Absent for a path nothing on this machine holds, which is not an error. */
+	asset: AssetRef | null,
+};
 
 /**  What the session was started for, without the paths a workshop one carries. */
 export type OriginKind = "library" | "workshop";
@@ -1067,6 +1127,26 @@ export type Severity =
 /**  Known to break the patcher, should be fixed. */
 "bad";
 
+/**  A skin, as a viewport draws it. */
+export type SkinModel = {
+	/**  The `.skn`, `skinMeshProperties.simpleSkin`. */
+	mesh: NamedAsset | null,
+	/**  The `.skl`, `skinMeshProperties.skeleton`. */
+	skeleton: NamedAsset | null,
+	/**  The texture a submesh draws with where no override names its own. */
+	texture: NamedAsset | null,
+	/**  The submeshes a `materialOverride` gives a texture of their own. */
+	overrides: SubmeshTexture[],
+	/**  The submeshes `initialSubmeshToHide` names, which the character starts without. */
+	hidden: string[],
+	/**  `skinScale`, which the character is drawn at. */
+	scale: number | null,
+	/**  `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits. */
+	animationGraph: string | null,
+	/**  `idleParticlesEffects`, in the order the skin lists them. */
+	idleEffects: IdleEffect[],
+};
+
 /**  An archive the lazy scan skipped, with the DLL's reason. */
 export type SkippedArchive = {
 	wad: string,
@@ -1110,6 +1190,14 @@ export type StoredVerdict_Serialize = {
 	cause: string,
 	subject: string | null,
 	hints: Hint[],
+};
+
+/**  One submesh a material override gives its own texture. */
+export type SubmeshTexture = {
+	/**  The submesh's name as the `.skn` spells it. */
+	submesh: string,
+	/**  The override's `texture`, which the submesh draws with in place of the skin's own. */
+	texture: NamedAsset,
 };
 
 /**  A mod, or a workshop project, that the evidence implicates. */
@@ -1205,6 +1293,90 @@ export type Verdict_Serialize = {
 	/**  At most two. */
 	hints: Hint[],
 };
+
+/**  One property of a resolved struct. */
+export type VfxField = {
+	/**  `0x` and eight hex digits. */
+	hash: string,
+	/**  The property as the tables name it. Absent where no table does. */
+	name: string | null,
+	/**  What the property holds, resolved. */
+	value: VfxValue,
+};
+
+/**  One entry of a resolved map. */
+export type VfxMapEntry = {
+	/**
+	 *  A named hash key by its name, an unnamed one as hex, and every other kind as the
+	 *  wire form writes it.
+	 */
+	key: string,
+	/**  What the entry holds, resolved. */
+	value: VfxValue,
+};
+
+/**  The object a resolved struct holds the properties of, where a walk reached one. */
+export type VfxObject = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+};
+
+/**  One particle system, as the renderer reads it. */
+export type VfxSystem = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	/**  The object's path. Absent where no table names it. */
+	name: string | null,
+	/**  `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class as the tables name it. Absent where no table does. */
+	class: string | null,
+	/**  The object's own properties, resolved. Always a [`VfxValue::Struct`]. */
+	root: VfxValue,
+};
+
+/**  A value of a resolved system's tree. */
+export type VfxValue = 
+/**  A `Bool` or a `BitBool`. */
+{ type: "bool"; value: boolean } | 
+/**
+ *  Every integer kind and every float, as one number, because the consumer does
+ *  arithmetic on them.
+ */
+{ type: "number"; value: number | null } | 
+/**  Two, three or four components. A `Color` is four channels as fractions. */
+{ type: "vector"; values: (number | null)[] } | 
+/**  Sixteen cells, row-major. */
+{ type: "matrix"; values: (number | null)[] } | 
+/**  A `String`, held as the file spells it. */
+{ type: "string"; value: string } | 
+/**  `0x` and eight hex digits, and the string behind it where a table names one. */
+{ type: "hash"; hash: string; name: string | null } | 
+/**
+ *  A name field resolved to where its bytes live.
+ * 
+ *  `path` keeps the spelling the bin holds. `asset` is absent for a path nothing on
+ *  this machine holds, which is not an error.
+ */
+{ type: "asset"; path: string; asset: AssetRef | null } | 
+/**  A `Link` whose target is not an object of this document. */
+{ type: "link"; hash: string; name: string | null } | 
+/**  A `Struct` with a class, an `Embedded`, or the object a `Link` reached. */
+{ type: "struct"; classHash: string; class: string | null; fields: VfxField[]; 
+/**  The object whose properties these are, absent for an embedded struct. */
+object: VfxObject | null } | 
+/**  A `Container` or an `UnorderedContainer`. */
+{ type: "container"; items: VfxValue[] } | 
+/**  A `Map`, its entries in the order the file holds them. */
+{ type: "map"; entries: VfxMapEntry[] } | 
+/**  A `Struct` with a class hash of zero. */
+{ type: "null" } | 
+/**  A `None` leaf, or an optional holding nothing. */
+{ type: "none" } | 
+/**  A leaf this build has no reading for. */
+{ type: "undrawn" };
 
 /**
  *  Domain errors specific to workshop operations.

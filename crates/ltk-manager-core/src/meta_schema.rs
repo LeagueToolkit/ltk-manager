@@ -18,8 +18,8 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
+use crate::bin_document::hex;
 use crate::problems::GameBuild;
-use crate::problems::names::hex;
 
 #[cfg(test)]
 mod tests;
@@ -319,6 +319,12 @@ impl<'a> SchemaAt<'a> {
     pub fn field_name(self, class: BinHash, field: BinHash) -> Option<&'a str> {
         self.schema.field_name(class, field)
     }
+
+    /// The class as the database names it, at any build.
+    #[must_use]
+    pub fn class_name(self, class: BinHash) -> Option<&'a str> {
+        self.schema.class_name(class)
+    }
 }
 
 /// What one property is, at one build.
@@ -449,6 +455,12 @@ impl MetaSchema {
             .get(&field)?
             .name
             .as_deref()
+    }
+
+    /// The class as the database names it, at any build.
+    #[must_use]
+    pub fn class_name(&self, class: BinHash) -> Option<&str> {
+        self.classes.get(&class)?.name.as_deref()
     }
 
     /// One class as the class card draws it, or `None` for a class it does not describe.

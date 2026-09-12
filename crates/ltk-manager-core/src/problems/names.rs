@@ -310,11 +310,5 @@ impl std::fmt::Debug for BinNames {
     }
 }
 
-/// A hash as a row prints one, which is `0x` and eight digits.
-#[must_use]
-pub fn hex(hash: BinHash) -> String {
-    format!("0x{:08x}", hash.0)
-}
-
 #[cfg(test)]
 mod tests;

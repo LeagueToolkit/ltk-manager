@@ -17,7 +17,7 @@ interface KeyTableProps {
 }
 
 /**
- * The keys as rows, a time and a channel per column. "The three tabs" in
+ * The keys as rows, a time and a channel per column. "The tabs" in
  * docs/ux/BIN_EDITOR.md.
  *
  * It is the form an edit takes, so it is the numbers themselves rather than a reading of

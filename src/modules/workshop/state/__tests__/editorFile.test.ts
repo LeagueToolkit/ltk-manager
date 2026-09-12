@@ -17,7 +17,7 @@ import {
   problemsDocument,
 } from "@/modules/workshop";
 
-import { defaultShellLayout, firstShellLeafId } from "../../bin/shellPanes";
+import { defaultShellArrangements } from "../../bin/shellPanes";
 import {
   parseEditorFile,
   type PersistedProjectEditor,
@@ -27,7 +27,6 @@ import {
 
 function twoDocumentState(): PersistedProjectEditor {
   const layout = singleLeaf(["details", "files:base"], "files:base");
-  const shellLayout = defaultShellLayout();
   return {
     documents: { details: detailsDocument(), "files:base": filesDocument("base") },
     layout,
@@ -35,8 +34,7 @@ function twoDocumentState(): PersistedProjectEditor {
     selectedLayer: "base",
     previewId: null,
     pinned: [],
-    shellLayout,
-    shellLeafId: firstShellLeafId(shellLayout),
+    shells: defaultShellArrangements(),
   };
 }
 
@@ -320,6 +318,38 @@ describe("editorFile", () => {
       expect(state?.documents).toEqual({});
       expect(state?.layout).toEqual(singleLeaf());
       expect(state?.selectedLayer).toBeNull();
+      expect(state?.shells).toEqual(defaultShellArrangements());
+    });
+
+    /* A file written while the particle system's shell was the only one. */
+    it("reads a file's lone shell tree as the particle system's", () => {
+      const tree = { kind: "leaf", id: "leaf-9", tabs: ["curve"], activeTab: "curve" };
+
+      const state = sanitizeEditorState({
+        ...twoDocumentState(),
+        shells: undefined,
+        shellLayout: tree,
+        shellLeafId: "leaf-9",
+      });
+
+      expect(state?.shells.vfx).toEqual({ layout: tree, leafId: "leaf-9" });
+      expect(state?.shells.skin).toEqual(defaultShellArrangements().skin);
+    });
+
+    it("drops a pane from a shell that does not hold it", () => {
+      const state = sanitizeEditorState({
+        shells: {
+          skin: {
+            layout: { kind: "leaf", id: "leaf-2", tabs: ["preview", "curve"], activeTab: "curve" },
+            leafId: "leaf-2",
+          },
+        },
+      });
+
+      expect(state?.shells.skin).toEqual({
+        layout: { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        leafId: "leaf-2",
+      });
     });
   });
 });

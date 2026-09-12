@@ -220,6 +220,12 @@ export default tseslint.config(
     rules: { "no-restricted-imports": "off" },
   },
   {
+    /* React Three Fiber's reconciler draws ThreeJS objects rather than DOM nodes, so
+       every element and prop in this directory is one the DOM rule has never heard of. */
+    files: ["src/modules/viewport/**/*.tsx", "src/modules/workshop/bin/vfx/**/*.tsx"],
+    rules: { "react/no-unknown-property": "off" },
+  },
+  {
     files: ["scripts/**/*.mjs"],
     languageOptions: {
       globals: {

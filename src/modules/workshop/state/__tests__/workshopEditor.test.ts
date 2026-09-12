@@ -10,7 +10,7 @@ import {
   previewDocument,
   readLegacyEditorSeed,
 } from "@/modules/workshop";
-import { defaultShellLayout } from "@/modules/workshop/bin/shellPanes";
+import { defaultShellArrangements, type ShellKind } from "@/modules/workshop/bin/shellPanes";
 import {
   EMPTY_EDITOR,
   type HistoryEntry,
@@ -723,8 +723,7 @@ describe("workshopEditor store", () => {
         selectedLayer: "base",
         previewId: null,
         pinned: ["details"],
-        shellLayout: defaultShellLayout(),
-        shellLeafId: "leaf-3",
+        shells: defaultShellArrangements(),
       });
 
       const editor = editorOf(A);
@@ -1157,72 +1156,210 @@ describe("workshopEditor store", () => {
   });
 
   describe("shell panes", () => {
-    const panesOf = (projectPath: string) =>
-      leaves(editorOf(projectPath).shellLayout).map((leaf) => leaf.tabs);
+    const panesOf = (projectPath: string, kind: ShellKind = "vfx") =>
+      leaves(editorOf(projectPath).shells[kind].layout).map((leaf) => leaf.tabs);
 
     it("starts every project on the arrangement the shell ships", () => {
-      expect(panesOf(A)).toEqual([["emitters"], ["curve"], ["inspector"]]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+      expect(panesOf(A, "skin")).toEqual([["preview"], ["inspector"]]);
     });
 
     it("closes a pane and gives its room to the panel beside it", () => {
-      store().closeShellPane(A, "leaf-4", "curve");
+      store().closeShellPane(A, "vfx", "leaf-4", "inspector");
 
-      expect(panesOf(A)).toEqual([["emitters"], ["inspector"]]);
-      expect(editorOf(A).shellLeafId).toBe("leaf-3");
+      expect(panesOf(A)).toEqual([["preview"], ["timeline"], ["curve"]]);
+      expect(editorOf(A).shells.vfx.leafId).toBe("leaf-3");
     });
 
-    it("opens the preview into the panel the reader last touched", () => {
-      store().activateShellPane(A, "leaf-4", "curve");
+    it("reopens a pane into the panel the reader last touched", () => {
+      store().closeShellPane(A, "vfx", "leaf-7", "timeline");
+      store().activateShellPane(A, "vfx", "leaf-4", "inspector");
 
-      store().openShellPane(A, "preview");
+      store().openShellPane(A, "vfx", "timeline");
 
-      expect(editorOf(A).shellLeafId).toBe("leaf-4");
-      expect(panesOf(A)).toEqual([["emitters"], ["curve", "preview"], ["inspector"]]);
+      expect(editorOf(A).shells.vfx.leafId).toBe("leaf-4");
+      expect(panesOf(A)).toEqual([["preview"], ["inspector", "timeline"], ["curve"]]);
     });
 
     it("leaves an open pane where it is", () => {
-      const before = editorOf(A).shellLayout;
+      const before = editorOf(A).shells.vfx.layout;
 
-      store().openShellPane(A, "curve");
+      store().openShellPane(A, "vfx", "curve");
 
-      expect(editorOf(A).shellLayout).toBe(before);
+      expect(editorOf(A).shells.vfx.layout).toBe(before);
     });
 
     it("stacks one pane onto another's strip", () => {
-      store().applyShellDrop(A, {
+      store().applyShellDrop(A, "vfx", {
         kind: "move",
         documentId: "curve",
-        toLeafId: "leaf-5",
+        toLeafId: "leaf-4",
       });
 
-      expect(panesOf(A)).toEqual([["emitters"], ["inspector", "curve"]]);
-      expect(leafHolding(editorOf(A).shellLayout, "curve")?.activeTab).toBe("curve");
+      expect(panesOf(A)).toEqual([["preview"], ["inspector", "curve"], ["timeline"]]);
+      expect(leafHolding(editorOf(A).shells.vfx.layout, "curve")?.activeTab).toBe("curve");
     });
 
     it("splits a panel when a pane lands on its edge", () => {
-      store().applyShellDrop(A, {
+      store().applyShellDrop(A, "vfx", {
         kind: "split",
         documentId: "curve",
-        targetLeafId: "leaf-5",
+        targetLeafId: "leaf-4",
         edge: "bottom",
       });
 
-      expect(panesOf(A)).toEqual([["emitters"], ["inspector"], ["curve"]]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["curve"], ["timeline"]]);
     });
 
     it("puts every pane back where it started", () => {
-      store().closeShellPane(A, "leaf-4", "curve");
-      store().openShellPane(A, "preview");
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+      store().closeShellPane(A, "vfx", "leaf-7", "timeline");
 
-      store().resetShellLayout(A);
+      store().resetShellLayout(A, "vfx");
 
-      expect(panesOf(A)).toEqual([["emitters"], ["curve"], ["inspector"]]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
     });
 
     it("keeps one project's arrangement out of another's", () => {
-      store().closeShellPane(A, "leaf-4", "curve");
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
 
-      expect(panesOf(B)).toEqual([["emitters"], ["curve"], ["inspector"]]);
+      expect(panesOf(B)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+    });
+
+    it("keeps the skin's arrangement apart from the particle system's", () => {
+      store().applyShellDrop(A, "skin", {
+        kind: "move",
+        documentId: "inspector",
+        toLeafId: "leaf-2",
+      });
+
+      expect(panesOf(A, "skin")).toEqual([["preview", "inspector"]]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+    });
+
+    it("resets one shell without touching the other", () => {
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+      store().closeShellPane(A, "skin", "leaf-3", "inspector");
+
+      store().resetShellLayout(A, "skin");
+
+      expect(panesOf(A, "skin")).toEqual([["preview"], ["inspector"]]);
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
+    });
+  });
+
+  describe("maximizing a panel", () => {
+    it("fills the grid with one panel, and writes nothing to the tree", () => {
+      const right = splitApart(A);
+      const tree = editorOf(A).layout;
+
+      store().toggleMaximizedLeaf(A, right);
+
+      expect(editorOf(A).maximizedLeafId).toBe(right);
+      expect(editorOf(A).layout).toBe(tree);
+    });
+
+    it("gives the tree back on a second toggle", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().toggleMaximizedLeaf(A, right);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("gives the tree back on a restore", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().restoreMaximizedLeaf(A);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("leaves the grid alone for a leaf the tree does not hold", () => {
+      store().openDocument(A, detailsDocument());
+      const before = editorOf(A);
+
+      store().toggleMaximizedLeaf(A, "leaf-99");
+
+      expect(editorOf(A)).toBe(before);
+    });
+
+    it("gives the tree back when the layout resets", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().resetLayout(A);
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("drops a maximized panel the close pruned", () => {
+      const right = splitApart(A);
+      store().toggleMaximizedLeaf(A, right);
+
+      store().closeDocument(A, right, "files:base");
+
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    /* The panel a pane sits in rather than an id off the shipped tree. A
+       rearrangement of what the shell ships leaves these cases standing. */
+    const paneLeafOf = (pane: string) =>
+      leafHolding(editorOf(A).shells.vfx.layout, pane)?.id ?? pane;
+
+    it("fills one shell with one pane, and leaves its arrangement alone", () => {
+      const leafId = paneLeafOf("curve");
+      const tree = editorOf(A).shells.vfx.layout;
+
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBe(leafId);
+      expect(editorOf(A).maximizedShellLeaf.skin).toBeUndefined();
+      expect(editorOf(A).shells.vfx.layout).toBe(tree);
+    });
+
+    it("gives one shell's panes back on a second toggle", () => {
+      const leafId = paneLeafOf("curve");
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("gives one shell's panes back on a restore", () => {
+      store().toggleMaximizedShellLeaf(A, "vfx", paneLeafOf("curve"));
+
+      store().restoreMaximizedShellLeaf(A, "vfx");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("leaves a shell alone for a leaf its tree does not hold", () => {
+      const before = editorOf(A);
+
+      store().toggleMaximizedShellLeaf(A, "vfx", "leaf-99");
+
+      expect(editorOf(A)).toBe(before);
+    });
+
+    it("gives one shell's panes back when it resets", () => {
+      store().toggleMaximizedShellLeaf(A, "vfx", paneLeafOf("curve"));
+
+      store().resetShellLayout(A, "vfx");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
+    });
+
+    it("drops a maximized pane the close pruned", () => {
+      const leafId = paneLeafOf("curve");
+      store().toggleMaximizedShellLeaf(A, "vfx", leafId);
+
+      store().closeShellPane(A, "vfx", leafId, "curve");
+
+      expect(editorOf(A).maximizedShellLeaf.vfx).toBeUndefined();
     });
   });
 });

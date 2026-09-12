@@ -1,5 +1,10 @@
-import { GridFourIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
-import { type ReactNode, useMemo } from "react";
+import {
+  CaretRightIcon,
+  DiceFiveIcon,
+  WarningCircleIcon,
+  WaveSineIcon,
+} from "@phosphor-icons/react";
+import { type ReactNode, use, useMemo } from "react";
 
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, BinRow, BinRows } from "@/lib/tauri";
@@ -8,14 +13,21 @@ import { twMerge } from "@/utils";
 import { fileKindFromPath } from "../gameBrowser/fileKind";
 import type { OpenIntent } from "../palette/types";
 import { useOpenDocumentAs } from "../state";
-import { RowValue, ValueMarkCell } from "./BinRow";
-import { fieldHash, rowKey } from "./binRows";
+import { AxisCells, ownField, RowValue, ValueMarkCell } from "./BinRow";
+import { canExpand, childCount, fieldHash, rowKey } from "./binRows";
 import { BinTree } from "./BinTree";
 import type { LayoutFrame, PlacedSection } from "./classLayouts";
 import { useCurveChain, useCurveDock } from "./curveTarget";
+import { CutText } from "./CutText";
+import { FieldCard } from "./FieldCard";
 import { chunkPath, decideFileLink } from "./linkDecision";
+import { drawSummary, randomDraw, rerollsEveryFrame } from "./randomDraw";
+import { summaryText } from "./randomText";
+import { RowDocumentContext, useRowFold } from "./rowFold";
+import { useHeldRows } from "./rowRegistry";
 import { Sparkline } from "./Sparkline";
 import { TextureSwatch } from "./TextureSwatch";
+import { useBinRead } from "./useBinRead";
 import {
   joinDeclarations,
   type LinkTargets,
@@ -25,8 +37,8 @@ import {
   useLayerCopy,
   useLinkTargets,
 } from "./useLinkTargets";
-import { useValueMark } from "./useValueMarks";
-import { sparkKeys, valueFamily } from "./valueRows";
+import { useValueMark, useValueMarks, ValueMarksContext } from "./useValueMarks";
+import { markRanges, sparkKeys, valueFamily, type ValueMark } from "./valueRows";
 
 /** What the levels of a layout's read answered, by the key of the row each sits under. */
 export type LayoutPages = ReadonlyMap<string, BinRows>;
@@ -71,7 +83,8 @@ export function AlsoCheck({
   children: ReactNode;
 }) {
   const outer = useLinkTargets();
-  const inner = useCheckLinkTargets(document, [group]);
+  const groups = useMemo(() => [group], [group]);
+  const inner = useCheckLinkTargets(document, groups);
   const merged = useMemo<LinkTargets>(
     () => ({
       index: inner.index ?? outer.index,
@@ -211,20 +224,139 @@ export function TableRows({
   );
 }
 
-/** One field on a line of its own: its name, and the cell its row draws. */
-export function FieldRow({ row, width = "w-40" }: { row: BinRow; width?: string }) {
+interface FieldRowProps {
+  row: BinRow;
+  width?: string;
+  /** The class the field is read on, for the revisions its card draws. */
+  owner?: string | null;
+}
+
+/**
+ * One field on a line of its own: its name, and the box its value is shaped as.
+ *
+ * "A row is shaped as its input" in docs/ux/BIN_EDITOR.md. The name is the field card's
+ * trigger, and every layout drawing field rows draws this one.
+ */
+export function FieldRow({ row, width = "w-40", owner = null }: FieldRowProps) {
   const family = valueFamily(row.value);
+  const axes = row.value.type === "vector" ? row.value.values : null;
+  const document = use(RowDocumentContext);
+  const folds = family === null && axes === null && canExpand(row);
+  const [open, toggle] = useRowFold(row);
+  const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
 
   return (
-    /* DS-VEIL, DS-RADIUS */
-    <div
-      className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
-      data-row-key={rowKey(row)}
+    <>
+      {/* DS-VEIL, DS-RADIUS */}
+      <div
+        className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+        data-row-key={rowKey(row)}
+      >
+        <FieldName row={row} width={width} owner={owner} caret={caret} />
+        {family !== null && <ValueCell row={row} shaped />}
+        {family === null && axes !== null && <AxisCells values={axes} />}
+        {family === null && axes === null && <RowValue row={row} />}
+      </div>
+      {document !== null && folds && open && (
+        <NestedRows document={document} row={row} width={width} />
+      )}
+    </>
+  );
+}
+
+/** A struct's or a list's fold, drawn in the row's gutter so the names stay in one column. */
+function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={m.workshop_bin_row_fields_action()}
+      aria-expanded={open}
+      className="-ml-3 flex h-4 w-3 shrink-0 cursor-pointer items-center justify-center text-surface-400 hover:text-surface-100"
+      onClick={onToggle}
     >
-      <span className={twMerge("shrink-0 truncate text-surface-200", width)}>{row.name}</span>
-      {family === null && <RowValue row={row} />}
-      {family !== null && <ValueCell row={row} />}
-    </div>
+      <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+    </button>
+  );
+}
+
+const NO_ROWS: readonly BinRow[] = [];
+
+/**
+ * A struct's or a list's own rows under it, each a field row of its own.
+ *
+ * Read on open and marked on its own, since the surface above read only its own rows.
+ * Its links are checked and its rows registered for the same reason, so a chip under it
+ * resolves and a right-click on it aims the view's menu as on any row of the view.
+ */
+function NestedRows({
+  document,
+  row,
+  width,
+}: {
+  document: BinDocumentId;
+  row: BinRow;
+  width: string;
+}) {
+  const key = rowKey(row);
+  const rows = useMemo(() => [{ key, rows: childCount(row) }], [key, row]);
+  const children = useBinRead(document, rows).get(key)?.rows ?? NO_ROWS;
+  const families = useMemo(
+    () => children.filter((child) => valueFamily(child.value) !== null),
+    [children],
+  );
+  const own = useValueMarks(document, families, "curves");
+  const outer = use(ValueMarksContext);
+  const marks = useMemo(() => new Map([...outer, ...own]), [outer, own]);
+  const group = useMemo<RowGroup>(() => ({ key, rows: children }), [key, children]);
+  useHeldRows(children);
+  const owner = row.value.type === "struct" ? row.value.classHash : null;
+
+  return (
+    <ValueMarksContext value={marks}>
+      <AlsoCheck document={document} group={group}>
+        <div data-ui="FieldRow:nested" className="flex flex-col gap-0.5 pl-3">
+          {children.map((child) => (
+            <FieldRow key={rowKey(child)} row={child} width={width} owner={owner} />
+          ))}
+        </div>
+      </AlsoCheck>
+    </ValueMarksContext>
+  );
+}
+
+interface FieldNameProps {
+  row: BinRow;
+  width: string;
+  owner: string | null;
+  /** The fold of a row that holds more rows, which opens the name's column. */
+  caret: ReactNode;
+}
+
+/** The row's name, raw, which is what the field card hangs off. */
+function FieldName({ row, width, owner, caret }: FieldNameProps) {
+  const field = ownField(row);
+
+  if (field === null) {
+    return (
+      <span className={twMerge("flex min-w-0 shrink-0", width)}>
+        {caret}
+        <CutText text={row.name} className="text-surface-200" />
+      </span>
+    );
+  }
+  return (
+    <span className={twMerge("flex min-w-0 shrink-0", width)}>
+      {caret}
+      <FieldCard
+        classHash={owner}
+        fieldHash={field}
+        name={row.name}
+        unnamed={row.unnamed}
+        declared={row.declared}
+        triggerClassName="text-surface-200"
+        cut
+      />
+    </span>
   );
 }
 
@@ -232,9 +364,10 @@ export function FieldRow({ row, width = "w-40" }: { row: BinRow; width?: string 
  * A value family's constant, and what carries the rest of it where a curve does.
  *
  * "A value family in a layout" in docs/ux/BIN_EDITOR.md. The shape where the read
- * answered the keys, and the mark where it read only that there are some.
+ * answered the keys, and the mark where it read only that there are some. `shaped` is a
+ * field row, whose vector takes tinted columns and whose scalar carries its unit.
  */
-export function ValueCell({ row }: { row: BinRow }) {
+export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boolean }) {
   const mark = useValueMark(rowKey(row));
   const keys = sparkKeys(mark);
   const { aim } = useCurveDock();
@@ -242,10 +375,10 @@ export function ValueCell({ row }: { row: BinRow }) {
 
   /* Both of Riot's editors put the constant inline and the triggers after it, so a reader
      tuning a value sees what it is worth and reaches the rest of it from the same row. The
-     probability tables live inside the dynamics, so one trigger present is both present. */
+     probability tables live inside the dynamics, so the chip only ever sits beside a curve. */
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <ValueMarkCell mark={mark} />
+    <span className="flex min-w-0 flex-1 items-center gap-2">
+      <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
       {mark?.curve === true && (
         <span className="flex shrink-0 items-center gap-0.5">
           <Trigger label={m.workshop_bin_show_curve_action()} onClick={() => aim({ row, chain })}>
@@ -264,15 +397,61 @@ export function ValueCell({ row }: { row: BinRow }) {
               />
             )}
           </Trigger>
-          <Trigger
-            label={m.workshop_bin_show_probability_action()}
-            onClick={() => aim({ row, chain, tab: "probability" })}
-          >
-            <GridFourIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
-          </Trigger>
+          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} />
         </span>
       )}
     </span>
+  );
+}
+
+/**
+ * What a table randomizes on the row, which aims the dock's graph the spread draws on.
+ *
+ * "The row's two triggers" in docs/ux/BIN_EDITOR.md. A bare die until the tables are read,
+ * and nothing once they read as filler.
+ */
+function RandomChip({
+  row,
+  mark,
+  chain,
+  shaped,
+}: {
+  row: BinRow;
+  mark: ValueMark | undefined;
+  chain: string;
+  shaped: boolean;
+}) {
+  const { aim } = useCurveDock();
+  const draw = randomDraw(mark);
+  const summary = draw === null ? null : drawSummary(draw);
+  if (mark === undefined || (mark.slots !== undefined && summary === null)) return null;
+
+  const flickers =
+    summary !== null && summary.kind !== "broken" && rerollsEveryFrame(ownField(row));
+  /* The value column draws the range already where it could read one. */
+  const ranged = shaped && markRanges(mark) !== null;
+  const text = summary === null ? null : summaryText(summary, mark.family, ranged);
+
+  return (
+    <Trigger
+      label={m.workshop_bin_show_random_action()}
+      /* DS-TEXT */
+      className={twMerge(
+        summary?.kind === "broken" && "text-danger-text",
+        flickers && "text-warning-text",
+      )}
+      onClick={() => aim({ row, chain, tab: "graph" })}
+    >
+      <DiceFiveIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
+      {flickers && (
+        <span className="ml-1 font-sans text-meta whitespace-nowrap">
+          {m.workshop_bin_random_flicker_label()}
+        </span>
+      )}
+      {!flickers && text !== null && (
+        <span className="ml-1 font-sans text-meta whitespace-nowrap">{text}</span>
+      )}
+    </Trigger>
   );
 }
 
@@ -280,10 +459,12 @@ export function ValueCell({ row }: { row: BinRow }) {
 function Trigger({
   label,
   onClick,
+  className,
   children,
 }: {
   label: string;
   onClick: () => void;
+  className?: string;
   children: ReactNode;
 }) {
   return (
@@ -291,7 +472,10 @@ function Trigger({
       type="button"
       aria-label={label}
       /* DS-RADIUS, DS-VEIL */
-      className="flex cursor-pointer items-center rounded-sm px-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-200"
+      className={twMerge(
+        "flex cursor-pointer items-center rounded-sm px-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-200",
+        className,
+      )}
       onClick={onClick}
     >
       {children}

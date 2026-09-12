@@ -1,12 +1,13 @@
 import {
   ArrowSquareOutIcon,
+  CaretDownIcon,
   CaretRightIcon,
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode, useState } from "react";
 
-import { Checkbox, Readout, SeverityGlyph, Tooltip } from "@/components";
+import { Checkbox, Code, Readout, SeverityGlyph, Tooltip } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { AppError, BinRow, BinValue, RowNode } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -26,10 +27,12 @@ import {
 import { ClassCard } from "./ClassCard";
 import { ColorMark } from "./ColorMark";
 import { DeclaredLine, FieldCard } from "./FieldCard";
+import { enumReading } from "./fieldEnums";
+import { type FieldUnit, fieldUnit, UNIT_SUFFIX } from "./fieldUnits";
 import { rowTag } from "./kindTag";
 import { FileChip, ObjectChip, StringValue } from "./LinkChip";
 import { useValueMark } from "./useValueMarks";
-import { channels, colorStops, type ValueMark } from "./valueRows";
+import { channels, colorStops, markRanges, type ValueMark, type ValueRange } from "./valueRows";
 
 /** One line, which is what sizes the virtualizer. A matrix opened in place grows past it. */
 export const ROW_HEIGHT = 24;
@@ -45,6 +48,9 @@ const COMPONENT_WIDTH = "w-24";
 
 /** One channel of a colour, which holds a byte. */
 const CHANNEL_WIDTH = "w-14";
+
+/** What stands between a random range's bounds, "The inspector" in docs/ux/BIN_EDITOR.md. */
+const RANGE_SEPARATOR = "..";
 
 interface RowLineProps {
   line: RowLine;
@@ -258,9 +264,14 @@ const TAG_CLASSES = "text-bin-kind-text";
 export function RowValue({ row }: { row: BinRow }) {
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <Value value={row.value} node={row.node} rowKey={rowKey(row)} />
+      <Value value={row.value} node={row.node} rowKey={rowKey(row)} field={ownField(row)} />
     </span>
   );
+}
+
+/** The field hash a row's own tables are keyed on, and null for a row that is no property. */
+export function ownField(row: BinRow): string | null {
+  return row.node === "property" ? fieldHash(row.path) : null;
 }
 
 interface ValueProps {
@@ -269,18 +280,20 @@ interface ValueProps {
   node: RowNode;
   /** The row's own key, which a value the projected read answers for reads its mark under. */
   rowKey: string;
+  /** The field the value sits under, which its enum and its unit are keyed on. */
+  field: string | null;
 }
 
-function Value({ value, node, rowKey: key }: ValueProps) {
+function Value({ value, node, rowKey: key, field }: ValueProps) {
   switch (value.type) {
     case "none":
       return <Dim>{m.workshop_bin_none_label()}</Dim>;
     case "bool":
       return <Checkbox size="sm" checked={value.value} readOnly tabIndex={-1} />;
     case "integer":
-      return <Readout value={value.text} className={SCALAR_WIDTH} />;
+      return <IntegerValue text={value.text} field={field} />;
     case "float":
-      return <Readout value={String(value.value)} className={SCALAR_WIDTH} />;
+      return <NumberValue text={String(value.value)} field={field} />;
     case "vector":
       return <Components labels={AXES} values={value.values} width={COMPONENT_WIDTH} />;
     case "matrix":
@@ -313,6 +326,122 @@ function Value({ value, node, rowKey: key }: ValueProps) {
   }
 }
 
+/** An integer, drawn as the engine's own word for it wherever a table holds one. */
+function IntegerValue({ text, field }: { text: string; field: string | null }) {
+  const reading = enumReading(field, text);
+  if (reading === null) return <NumberValue text={text} field={field} />;
+  return <EnumValue reading={reading} raw={text} />;
+}
+
+/** A number in the box it is edited in, and the unit its field is measured in after it. */
+function NumberValue({ text, field }: { text: string; field: string | null }) {
+  const unit = fieldUnit(field);
+  if (unit === null) return <Readout value={text} className={SCALAR_WIDTH} />;
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <Readout value={text} className={SCALAR_WIDTH} />
+      <Unit unit={unit} />
+    </span>
+  );
+}
+
+/** A random range as the two boxes an edit sets, and the unit after them. */
+function RangeValue({ range, field }: { range: ValueRange; field: string | null }) {
+  const unit = fieldUnit(field);
+  if (range.least === range.most) return <NumberValue text={String(range.least)} field={field} />;
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      <Readout value={String(range.least)} className={COMPONENT_WIDTH} />
+      <span className="shrink-0 text-surface-400 select-none">{RANGE_SEPARATOR}</span>
+      <Readout value={String(range.most)} className={COMPONENT_WIDTH} />
+      {unit !== null && <Unit unit={unit} />}
+    </span>
+  );
+}
+
+/** One range as the text of a cell too narrow for two boxes. */
+function rangeText(range: ValueRange): string {
+  if (range.least === range.most) return String(range.least);
+  return `${range.least} ${RANGE_SEPARATOR} ${range.most}`;
+}
+
+/** What a number is measured in. "The inspector" in docs/ux/BIN_EDITOR.md. */
+function Unit({ unit }: { unit: FieldUnit }) {
+  return <span className="shrink-0 text-surface-400 select-none">{UNIT_SUFFIX[unit]()}</span>;
+}
+
+/** An enum in the box a leaf edit turns into a select, the number the file holds beside it. */
+function EnumValue({ reading, raw }: { reading: string; raw: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span
+        /* DS-VEIL, DS-RADIUS */
+        className="flex min-w-0 items-center gap-1 rounded-sm border border-surface-veil bg-surface-veil-soft px-1.5 py-0.5 text-surface-200"
+      >
+        <span className="min-w-0 truncate select-text">{reading}</span>
+        <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
+      </span>
+      {/* DS-CODE-CHIP */}
+      <Code className="shrink-0 select-text">{raw}</Code>
+    </span>
+  );
+}
+
+/** The channel each axis is drawn in, X red, Y green and Z blue as Riot draws them. */
+const AXIS_TINT: readonly string[] = [
+  "text-channel-1-text",
+  "text-channel-2-text",
+  "text-channel-3-text",
+  "text-channel-4-text",
+];
+
+/**
+ * A vector down columns of one width, each axis tinted its own channel.
+ *
+ * "The inspector" in docs/ux/BIN_EDITOR.md. A component past the third wraps to a second
+ * line of the same three columns, so one column holds one axis down the whole pane. An
+ * axis a table widens reads its range.
+ */
+export function AxisCells({
+  values,
+  ranges,
+}: {
+  values: readonly (number | null)[];
+  ranges?: readonly (ValueRange | null)[];
+}) {
+  return (
+    <span className="grid min-w-0 flex-1 grid-cols-3 gap-1">
+      {values.map((component, at) => (
+        <span
+          key={AXES[at] ?? at}
+          /* DS-VEIL, DS-RADIUS */
+          className="flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil"
+        >
+          <span
+            aria-hidden
+            /* DS-WEIGHT-TIER */
+            className={twMerge(
+              "flex items-center bg-surface-veil px-1.5 font-mono font-semibold select-none",
+              AXIS_TINT[at] ?? "text-surface-300",
+            )}
+          >
+            {AXES[at] ?? at}
+          </span>
+          <span className="min-w-0 flex-1 truncate bg-surface-veil-soft px-1.5 py-0.5 text-right font-mono text-surface-200 tabular-nums select-text">
+            {axisText(component, ranges?.[at])}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** One axis as its cell reads it: the range a table widens it to, else its value. */
+function axisText(component: number | null, range: ValueRange | null | undefined): string {
+  if (range == null) return String(component);
+  return rangeText(range);
+}
+
 interface StructValueProps {
   value: Extract<BinValue, { type: "struct" }>;
   node: RowNode;
@@ -340,20 +469,34 @@ function StructValue({ value, node, rowKey: key }: StructValueProps) {
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. Nothing until it lands, which
  * keeps the row one line rather than a placeholder that shifts.
  */
-export function ValueMarkCell({ mark }: { mark: ValueMark | undefined }) {
+export function ValueMarkCell({
+  mark,
+  axes = false,
+  field = null,
+}: {
+  mark: ValueMark | undefined;
+  /** A vector constant takes the inspector's tinted columns rather than a run of readouts. */
+  axes?: boolean;
+  /** The field the family sits under, whose unit a scalar constant carries. */
+  field?: string | null;
+}) {
   if (mark === undefined) return null;
   /* A colour that animates is drawn by its stops, which a file writing no constant still has. */
   if (mark.family === "color") {
     const rgba = channels(mark.constant);
     const stops = colorStops(mark.keys);
     if (rgba === null && stops.length === 0) return null;
-    return <ColorMark constant={rgba} stops={stops} />;
+    return <ColorMark constant={rgba} stops={stops} wide={axes} />;
   }
+  const ranges = markRanges(mark);
+  const [range] = ranges ?? [];
+  if (mark.family === "scalar" && range != null) return <RangeValue range={range} field={field} />;
   if (mark.constant == null) return null;
   if (mark.constant.type === "float") {
-    return <Readout value={String(mark.constant.value)} className={SCALAR_WIDTH} />;
+    return <NumberValue text={String(mark.constant.value)} field={field} />;
   }
   if (mark.constant.type === "vector") {
+    if (axes) return <AxisCells values={mark.constant.values} ranges={ranges ?? undefined} />;
     return <Components labels={AXES} values={mark.constant.values} width={COMPONENT_WIDTH} />;
   }
   return null;

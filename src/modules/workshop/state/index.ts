@@ -9,6 +9,7 @@ export * from "./references";
 export * from "./useEditorPersistence";
 export * from "./useProjectEditor";
 export * from "./useShellHistory";
+export * from "./vfxRunMemory";
 export * from "./workshopDialogs";
 export * from "./workshopEditor";
 export * from "./workshopFilter";

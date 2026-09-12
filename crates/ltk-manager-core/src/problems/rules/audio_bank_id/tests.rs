@@ -23,9 +23,8 @@ const WAD: &str = "Aatrox.wad.client";
 
 /// The id the shipped game carries at `BANK_IN_WAD`.
 ///
-/// From the worked example in the reversing notes: `sett_base_sfx_audio.bnk`
-/// ships at `0xE9B70B40`, which is `FNV-1` of its own name. This is the number
-/// the repair has to arrive at from the file name alone.
+/// `sett_base_sfx_audio.bnk` ships at `0xE9B70B40`, which is `FNV-1` of its own
+/// name. This is the number the repair has to arrive at from the file name alone.
 const SETT_BANK_ID: u32 = 0xE9B7_0B40;
 
 /// The version the measured specimens carry, which the rule says nothing about.

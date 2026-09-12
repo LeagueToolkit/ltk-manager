@@ -1,9 +1,10 @@
 import { Fragment, type ReactNode } from "react";
+import { useHotkeys } from "react-hotkeys-hook";
 import { Group, Panel, Separator } from "react-resizable-panels";
 
-import { twMerge } from "@/utils";
+import { isOverlayOpen, twMerge } from "@/utils";
 
-import type { LayoutNode, LeafNode } from "./tree";
+import { findLeaf, type LayoutNode, type LeafNode } from "./tree";
 
 export interface SplitLayoutProps {
   node: LayoutNode;
@@ -11,6 +12,10 @@ export interface SplitLayoutProps {
   onLayoutChanged: (splitId: string, layout: Record<string, number>) => void;
   /** Draws one editor group, so this module never learns what a document is. */
   renderLeaf: (leaf: LeafNode) => ReactNode;
+  /** The one leaf drawn, per "Maximizing a panel" in `docs/ux/PROJECT_EDITOR.md`. */
+  maximizedLeafId?: string | null;
+  /** The restore Esc runs while a leaf is maximized. */
+  onRestore?: () => void;
 }
 
 /**
@@ -19,8 +24,28 @@ export interface SplitLayoutProps {
  * The `Group` is keyed by its children's ids because `defaultLayout` is read at
  * mount alone. A split gaining or losing a child remounts its group, which is
  * what hands the library the redistributed shares the tree computed.
+ *
+ * A maximized leaf draws alone and the rest of the tree waits behind it. The id
+ * is read against the tree rather than written into it, and an id the tree does
+ * not hold draws the whole tree.
  */
-export function SplitLayout({ node, onLayoutChanged, renderLeaf }: SplitLayoutProps) {
+export function SplitLayout({
+  node,
+  onLayoutChanged,
+  renderLeaf,
+  maximizedLeafId,
+  onRestore,
+}: SplitLayoutProps) {
+  const maximized = maximizedLeafId ? findLeaf(node, maximizedLeafId) : null;
+
+  /* A dialog or a menu over the tree owns Escape while it is open, where the key means
+     "close this". */
+  useHotkeys("escape", () => !isOverlayOpen() && onRestore?.(), {
+    enabled: onRestore !== undefined && Boolean(maximized),
+  });
+
+  if (maximized) return renderLeaf(maximized);
+
   if (node.kind === "leaf") return renderLeaf(node);
 
   const orientation = node.dir === "row" ? "horizontal" : "vertical";

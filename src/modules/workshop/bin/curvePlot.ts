@@ -38,15 +38,20 @@ export interface Plot {
  * against itself.
  *
  * A curve of one key is a value that animates to nothing, and draws flat across the box
- * rather than as a mark in its corner.
+ * rather than as a mark in its corner. `fit` is any further value the axis has to hold,
+ * such as the edges of a random band.
  */
-export function plotOf(keys: readonly CurveKey[], box: PlotBox): Plot | null {
+export function plotOf(
+  keys: readonly CurveKey[],
+  box: PlotBox,
+  fit: readonly number[] = [],
+): Plot | null {
   const channels = keys[0]?.values.length ?? 0;
   if (keys.length === 0 || channels === 0 || box.width <= 0 || box.height <= 0) return null;
 
   const span = timeSpan(keys.map((key) => key.time));
   const { first, last } = span;
-  const held = keys.flatMap((key) => key.values);
+  const held = [...keys.flatMap((key) => key.values), ...fit];
   const lowest = Math.min(...held);
   const highest = Math.max(...held);
   const room =
@@ -80,7 +85,7 @@ export function plotOf(keys: readonly CurveKey[], box: PlotBox): Plot | null {
  * there, so a curve keyed over the middle of a life draws as a hold, a move and a hold. A
  * single key is the whole of that: it draws flat across the box.
  */
-function lineOf(points: readonly PlotPoint[], width: number): string {
+export function lineOf(points: readonly PlotPoint[], width: number): string {
   const [first] = points;
   const last = points.at(-1);
   if (first === undefined || last === undefined) return "";
@@ -97,7 +102,88 @@ function round(value: number): string {
   return value.toFixed(2);
 }
 
+/** Where `value` lands on `plot`'s value axis, in a box `height` tall. */
+export function plotLevel(plot: Plot, height: number, value: number): number {
+  const reach = plot.high - plot.low;
+  return reach === 0 ? height / 2 : height - ((value - plot.low) / reach) * height;
+}
+
+/**
+ * The band between two lines over the same keys, as one polygon's points.
+ *
+ * Both lines hold flat to the box's ends as a curve does, so the band spans the box.
+ */
+export function bandOf(
+  upper: readonly PlotPoint[],
+  lower: readonly PlotPoint[],
+  width: number,
+): string {
+  const top = lineOf(upper, width);
+  const bottom = lineOf(lower, width).split(" ").reverse().join(" ");
+  return top === "" || bottom === "" ? "" : `${top} ${bottom}`;
+}
+
 /** An axis number, at the two decimals a key time is written with and no trailing zeros. */
 export function axisText(value: number): string {
   return String(Number(value.toFixed(2)));
+}
+
+/** How many pieces an axis is cut into, about. */
+const TICK_COUNT = 4;
+
+/** The share of a time axis one tick covers, a quarter of a life. */
+const QUARTER = 0.25;
+
+/** More quarters than this, and a time axis ticks at round steps instead. */
+const MOST_QUARTERS = 8;
+
+/** A step of 1, 2 or 5 times a power of ten that cuts `reach` into about `count` pieces. */
+function tickStep(reach: number, count: number): number {
+  const rough = reach / count;
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const scaled = rough / power;
+  if (scaled < 1.5) return power;
+  if (scaled < 3.5) return 2 * power;
+  if (scaled < 7.5) return 5 * power;
+  return 10 * power;
+}
+
+/** A step for `low` to `high`, and one off the value's own size where the two meet. */
+function stepOf(low: number, high: number): number {
+  const reach = high - low;
+  if (reach > 0) return tickStep(reach, TICK_COUNT);
+  return tickStep(Math.max(Math.abs(low), 1), TICK_COUNT);
+}
+
+/** Multiples of `step` from `low` to `high`, with no float dust on them. */
+function multiples(low: number, high: number, step: number): number[] {
+  const out: number[] = [];
+  const digits = Math.max(0, -Math.floor(Math.log10(step)) + 1);
+  for (let at = Math.ceil(low / step - 1e-9); at * step <= high + step * 1e-9; at += 1) {
+    out.push(Number((at * step).toFixed(digits)) + 0);
+  }
+  return out;
+}
+
+/** Round ticks inside `low` to `high`, about four of them. */
+export function ticksWithin(low: number, high: number): number[] {
+  return multiples(low, high, stepOf(low, high));
+}
+
+/** `range` widened out to the round ticks either side of it, and those ticks. */
+export function roundDomain(
+  least: number,
+  most: number,
+): { low: number; high: number; ticks: number[] } {
+  const step = stepOf(least, most);
+  const low = Math.floor(least / step + 1e-9) * step;
+  const high = Math.max(Math.ceil(most / step - 1e-9) * step, low + step);
+  const ticks = multiples(low, high, step);
+  return { low: ticks[0] ?? low, high: ticks.at(-1) ?? high, ticks };
+}
+
+/** The ticks a time axis from `first` to `last` carries: its quarters, else round steps. */
+export function timeTicks(first: number, last: number): number[] {
+  if ((last - first) / QUARTER > MOST_QUARTERS) return ticksWithin(first, last);
+  return multiples(first, last, QUARTER);
 }

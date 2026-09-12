@@ -14,12 +14,11 @@ the field is known, so the `Error` severity it shipped at was never supported.
 
 Primary, in order of weight:
 
-- **The bank-header record** - the BKHD chunk's layout, the version gate, and a sweep of
-  every instruction in the client that reads the header id
-- **The bank-id hash record** - the bank-name hash itself, as
-  `AK::SoundEngine::GetBankIDFromString` computes it
-- **The HIRC payload record** - the payload delta behind `016-audio-bank-conversion`,
-  relevant only to the neighbouring rule
+- **The BKHD layout** - the chunk's fields, the version gate, and every known reader of
+  the header id
+- **The bank-name hash** - `AK::SoundEngine::GetBankIDFromString` and what it computes
+- **The HIRC payload delta** behind `016-audio-bank-conversion`, relevant only to the
+  neighbouring rule
 - `crates/ltk-manager-core/src/problems/rules/audio_bank_id/mod.rs` - the rule as shipped
 - `specs/013-mod-defect-rules/issues/013-audio-bank-id.md` - the issue that created it
 - `specs/013-mod-defect-rules/issues/004-audio-bank-version.md` and
@@ -29,7 +28,7 @@ Primary, in order of weight:
 ## 1. Where the id lives, and what it would have to be
 
 The rule reads the right bytes. A `.bnk` opens with a `BKHD` chunk, and the header struct
-inside it is laid out as the bank-header record has it:
+inside it is laid out as:
 
 ```
 file offset   struct offset   field
@@ -48,13 +47,13 @@ file offset   struct offset   field
 `crates/ltk-manager-core/src/problems/rules/audio_bank_id/mod.rs:39` sets `BANK_ID_AT = 12`
 counted from the start of the file, which is `+0x04` in the struct. That is the field.
 
-The value it would have to hold is not a mystery either. The bank-id hash record reads
-`AK::SoundEngine::GetBankIDFromString` out as: strip the extension at the last `.`,
+The value it would have to hold is not a mystery either.
+`AK::SoundEngine::GetBankIDFromString` computes it as: strip the extension at the last `.`,
 then FNV-1 32-bit over the ASCII-lowercased bytes - basis `0x811C9DC5`, prime
-`0x01000193`, multiply before xor. The doc is explicit that this is FNV-1 and not FNV-1a,
-and that reversing the order gives a completely different value.
+`0x01000193`, multiply before xor. It is FNV-1 and not FNV-1a, and reversing the order
+gives a completely different value.
 
-The bank-header record carries a worked example that closes the loop: `sett_base_sfx_audio.bnk` ships with id `0xE9B70B40`, which is
+A worked example closes the loop: `sett_base_sfx_audio.bnk` ships with id `0xE9B70B40`, which is
 `FNV-1("sett_base_sfx_audio")`.
 
 So a repair is about as cheap as a repair gets:
@@ -73,12 +72,11 @@ exactly what to put there.
 
 This is the finding that reframes the question.
 
-The bank-header record finds exactly one instruction in the whole image that reads
-header offset `+4`, inside `AkBankMgr_GetInMemoryBankInfo`. That
-function serves the `LoadBank(const void *memory, ...)` overloads, which have no file name
-to hash and so must take the id from the header. Its callers are the eight in-memory
-overloads - four `LoadBankMemoryView`, four `LoadBankMemoryCopy` - and the doc states all
-eight have zero code cross-references in the image. League never calls them.
+Exactly one reader of header offset `+4` is known, inside `AkBankMgr_GetInMemoryBankInfo`.
+That function serves the `LoadBank(const void *memory, ...)` overloads, which have no file
+name to hash and so must take the id from the header. Its callers are the eight in-memory
+overloads - four `LoadBankMemoryView`, four `LoadBankMemoryCopy` - and nothing calls any of
+the eight. League never calls them.
 
 What League does call is the by-name path. `BankManager_LoadBankNow` does this
 before any file is opened:
@@ -90,34 +88,33 @@ AK_AppendExtensionIfMissing(&fileName, name, ".bnk");
 
 The id is decided from the file name, before the file exists to the loader. The bank
 record and the hash-table key it registers under both come from the request rather than
-the header, and the doc states there is no comparison anywhere between the requested id
-and the header id.
+the header, and no comparison between the requested id and the header id is made
+anywhere.
 
-The record says the same of Riot's own code. `SoundBank_ExtractEventIds`
+The same holds of Riot's own code. `SoundBank_ExtractEventIds`
 reads `BKHD`'s id and size and seeks straight past the body looking for `HIRC`, so the
 pre-pass never reads the bank id either.
 
-Section 10 draws the conclusion: "The header ID does not matter. Zero is fine. It is not
-read. Do not spend effort fixing it, and do not treat a mismatch as the cause of a
-problem."
+The conclusion the evidence draws: the header id does not matter. Zero is fine. It is not
+read. Fixing it is not worth effort, and a mismatch is not the cause of a problem.
 
 ### 2.1 How far that evidence actually reaches
 
 It is a static-analysis argument for a negative, and it should be read as one.
 
-What is established is that no call path found in the image reads the field. What is not
-established is that no call path exists. A missed indirect call, a read through the header
-struct's tail that the sweep did not chase, or a path in a build the sweep did not
-cover would all defeat it, and the record's own open questions admit two of these - the `.wpk` container was not covered at all, and the 16-byte hash at `+0x18`
-was not chased through every read of the struct's tail.
+What is established is that no call path found reads the field. What is not established is
+that no call path exists. A missed indirect call, a read through the header struct's tail
+that the sweep did not chase, or a path in a build the sweep did not cover would all defeat
+it, and two of these are open - the `.wpk` container was not covered at all, and the
+16-byte hash at `+0x18` was not chased through every read of the struct's tail.
 
-The 18 `crepe_*` banks in section 7 are **not** the confirming observation I first read
-them as. They are version-125 scrapped characters, and section 13 records that no
-`BankUnit` reference check was done for the dead content in this install. A bank nothing
+The 18 `crepe_*` banks the sweep counts are **not** the confirming observation I first read
+them as. They are version-125 scrapped characters, and no `BankUnit` reference check was
+done for the dead content in this install. A bank nothing
 requests is never loaded, so it cannot demonstrate that a mismatched id loads. It shows
 that Riot's build once shipped a mismatch, not that the runtime tolerates one.
 
-So the honest statement is narrower than section 5.1's: **there is no known reader, and no
+So the honest statement is a narrow one: **there is no known reader, and no
 observation of a zero-id bank failing because of its id.** That is enough to say the
 severity is unsupported. It is not enough to say the field is provably inert, and it is
 not a reason to leave a file holding a value the format says is wrong.
@@ -127,14 +124,14 @@ not a reason to leave a file holding a value the format says is wrong.
 Three claims in `013-audio-bank-id.md` and in the module doc do not survive the
 evidence.
 
-| Claim                                                                       | Where                                                    | Status                                                                                                                 |
-| --------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| "A Wwise bank's header carries the id the runtime addresses the bank by"    | `013-audio-bank-id.md` context, `audio_bank_id/mod.rs:3` | Contradicted. The runtime addresses it by FNV-1 of the file name, computed before the file is opened - section 2       |
-| "nothing can ask for it by name and the sounds in it never play"            | `audio_bank_id/mod.rs` `detail()`                        | Contradicted. The name is exactly what it is asked for by, and the name still works - section 5.1 of the reversing doc |
-| Severity `Error`, defined as "the game rejects this. The mod does not work" | `audio_bank_id/mod.rs:82`, `problems/mod.rs:73`          | Contradicted. Nothing rejects it                                                                                       |
+| Claim                                                                       | Where                                                    | Status                                                                                                           |
+| --------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| "A Wwise bank's header carries the id the runtime addresses the bank by"    | `013-audio-bank-id.md` context, `audio_bank_id/mod.rs:3` | Contradicted. The runtime addresses it by FNV-1 of the file name, computed before the file is opened - section 2 |
+| "nothing can ask for it by name and the sounds in it never play"            | `audio_bank_id/mod.rs` `detail()`                        | Contradicted. The name is exactly what it is asked for by, and the name still works                              |
+| Severity `Error`, defined as "the game rejects this. The mod does not work" | `audio_bank_id/mod.rs:82`, `problems/mod.rs:73`          | Contradicted. Nothing rejects it                                                                                 |
 
 What survives is the census. Zero banks out of 7,829 in the rule's own measurement, and
-zero out of 8,875 in the reversing doc's larger sweep of retail 16.17, carry an unset id.
+zero out of 8,875 in a larger sweep of retail 16.17, carry an unset id.
 That statistic holds. What it means is different from what the issue took it to mean: a
 zero id is reliable evidence that a bank was not built by the Wwise toolchain, and it is
 not evidence that the bank is broken.
@@ -148,8 +145,8 @@ That correlation now has a better explanation sitting next to it. The specimens 
 described as a modder-rebuilt SFX bank at a real game path. The rule that catches the
 actual failure in that shape is `audio/bank-version`, `013-004`: a legacy-version bank
 carrying `HIRC` is rejected by `AkBankMgr_ProcessBankChunks` with `AK_WrongBankVersion`,
-and in retail it is dropped silently because `AK_OPTIMIZED` stripped the emit
-(the bank-header record). Both a zero id and a rejected
+and in retail it is dropped silently because `AK_OPTIMIZED` stripped the emit. Both a zero
+id and a rejected
 version are downstream of the same cause - a bank rebuilt by a non-Wwise tool - and only
 one of them is the thing that stops the audio.
 
@@ -187,8 +184,8 @@ What shipped, in `crates/ltk-manager-core/src/problems/rules/audio_bank_id/`:
   `sett_base_sfx_audio.bnk` at `0xE9B70B40`, so FNV-1a can never be substituted silently
 
 **The trigger is still an id of zero, not a mismatch.** Zero is the value measured absent
-from every one of the 8,875 shipped banks. A mismatch is not: section 7 of the reversing
-notes counts 18 shipped banks whose id does not match their own name, so a rule keyed on
+from every one of the 8,875 shipped banks. A mismatch is not: the same sweep counts 18
+shipped banks whose id does not match their own name, so a rule keyed on
 mismatch would report the game's own content.
 
 ## 5. The grouping: what the model held, and why the split was not severity
@@ -305,7 +302,7 @@ old anatomy as a decision, and both were rewritten to state this one.
 - Were the two specimens behind `013-audio-bank-id.md` also failing `audio/bank-version`?
   If they were, the silence is already attributed and the id rule reported a passenger
 - Does any rule other than `audio/bank-id` currently report at a severity its evidence does
-  not carry? The reversing pass here was prompted by one rule, and the failure mode is not
+  not carry? The pass here was prompted by one rule, and the failure mode is not
   obviously unique to it
 - The row now tallies by severity rather than showing `n of m`. Whether a reader still wants
   to know how much of a mod the press reaches, before pressing it, is untested

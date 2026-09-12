@@ -20,11 +20,15 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub(crate) mod resolve;
+
+pub use resolve::{AssetLookup, hex, owned};
+pub(crate) use resolve::{EFFECT_KEY, Namer, chunk_asset, first_name, object_at, resolver_entries};
+
 use crate::error::AppResult;
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
 use crate::object_index::{CacheNames, ObjectDeclaration};
 use crate::preview::AssetRef;
-use crate::problems::names::hex;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
 use crate::workshop::LayerChunks;
@@ -67,6 +71,14 @@ pub enum BinDocumentError {
     /// A projected read reached more rows than one call answers.
     #[error("a projected read of {rows} rows is over the cap of {cap}")]
     ReadTooWide { rows: usize, cap: usize },
+
+    /// A resolved read reached more values than one call answers.
+    #[error("a resolved read holds more values than one call answers")]
+    ReadTooLarge,
+
+    /// A resolved read nested deeper than one call answers.
+    #[error("a resolved read nests deeper than one call answers")]
+    ReadTooDeep,
 }
 
 /// The open documents, one tree per asset, bounded, evicting the least recently used.
@@ -86,7 +98,8 @@ struct Store {
 
 /// One parsed asset, and how many ids hold it.
 struct Held {
-    document: BinDocument,
+    /// Shared, so a read can walk the tree with the store unlocked.
+    document: Arc<BinDocument>,
     /// The chunk paths this asset's project names, scanned once with the parse.
     chunks: Arc<LayerChunks>,
     holders: usize,
@@ -165,7 +178,7 @@ impl BinDocuments {
             Some(held) => held.holders += 1,
             None => {
                 let held = Held {
-                    document,
+                    document: Arc::new(document),
                     chunks: Arc::new(chunks),
                     holders: 1,
                 };
@@ -195,6 +208,24 @@ impl BinDocuments {
             .and_then(|asset| held.get(asset))
             .ok_or(BinDocumentError::NotOpen(id))?;
         read(&held.document)
+    }
+
+    /// The document under one id, for a read that runs with the store unlocked.
+    ///
+    /// A walk over a whole system is what asks, so that every other document command
+    /// goes on answering while it runs. The ask marks its asset the most recently used.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed or its asset was
+    /// evicted.
+    pub fn document(&self, id: BinDocumentId) -> Result<Arc<BinDocument>, BinDocumentError> {
+        let mut store = self.inner.lock();
+        let Store { ids, held, .. } = &mut *store;
+        ids.get(&id)
+            .and_then(|asset| held.get(asset))
+            .map(|held| Arc::clone(&held.document))
+            .ok_or(BinDocumentError::NotOpen(id))
     }
 
     /// The chunk names the project behind `id`'s asset holds.
@@ -292,6 +323,8 @@ impl BinDocument {
 
     /// The facts an object tab's header draws for `entry`.
     ///
+    /// `schema` names a class the tables miss.
+    ///
     /// # Errors
     ///
     /// Fails with [`BinDocumentError::NodeNotFound`] when `entry` is no object of the
@@ -300,6 +333,7 @@ impl BinDocument {
         &self,
         entry: BinHash,
         names: &dyn RowNames,
+        schema: Option<SchemaAt<'_>>,
     ) -> Result<BinObjectHeader, BinDocumentError> {
         let object =
             self.file
@@ -311,7 +345,7 @@ impl BinDocument {
         let mut wanted = Wanted::default();
         wanted.entries.push(entry);
         wanted.classes.push(object.class_hash);
-        let named = wanted.resolve(names);
+        let named = wanted.resolve(names, schema);
         let (name, unnamed) = named.entry(entry);
         Ok(BinObjectHeader {
             entry: hex(entry),
@@ -328,6 +362,22 @@ impl BinDocument {
         self.file.objects().keys().copied()
     }
 
+    /// The object `entry` names, or `None` where the file declares none under it.
+    #[must_use]
+    pub fn object_at(&self, entry: BinHash) -> Option<&BinObject> {
+        self.file.objects().get(&entry)
+    }
+
+    /// The header's dependencies, as the archive paths the file writes them. A `PTCH`
+    /// names none.
+    #[must_use]
+    pub fn dependencies(&self) -> &[String] {
+        match &self.file {
+            BinFile::Prop(bin) => &bin.dependencies,
+            BinFile::Override(_) => &[],
+        }
+    }
+
     /// The header's dependencies, hashed as the WAD paths they name.
     ///
     /// A dependency is written as the archive path of the file it names, and the hash
@@ -340,16 +390,16 @@ impl BinDocument {
         }
     }
 
-    /// One row per object, in file order.
+    /// One row per object, in file order. `schema` names a class the tables miss.
     #[must_use]
-    pub fn roots(&self, names: &dyn RowNames) -> Vec<BinRow> {
+    pub fn roots(&self, names: &dyn RowNames, schema: Option<SchemaAt<'_>>) -> Vec<BinRow> {
         let objects = self.file.objects();
         let mut wanted = Wanted::default();
         wanted.entries.extend(objects.keys().copied());
         wanted
             .classes
             .extend(objects.values().map(|object| object.class_hash));
-        let named = wanted.resolve(names);
+        let named = wanted.resolve(names, schema);
 
         objects
             .values()
@@ -427,7 +477,7 @@ impl BinDocument {
             }
         }
         let lens = Lens {
-            named: wanted.resolve(names),
+            named: wanted.resolve(names, schema),
             schema,
         };
 
@@ -1305,7 +1355,7 @@ fn elements(items: &[PropertyValueEnum]) -> Vec<Child<'_>> {
 /// The text inside `{}` on the wire, the way a Problems finding writes it.
 fn wire_key(key: &PropertyValueEnum) -> String {
     let mut out = String::new();
-    walk::write_key(&mut out, walk::owned(key.leaf()));
+    walk::write_key(&mut out, owned(key.leaf()));
     out
 }
 
@@ -1314,7 +1364,7 @@ fn wire_key(key: &PropertyValueEnum) -> String {
 /// A named `Hash` key is its string as a JSON literal. An unnamed one is `0x` and eight
 /// hex digits. Every other kind reads as it does on the wire.
 fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
-    match walk::owned(key.leaf()) {
+    match owned(key.leaf()) {
         Some(Leaf::Hash(hash)) => match named.values.get(&hash) {
             Some(name) => {
                 let mut out = String::new();
@@ -1434,8 +1484,8 @@ impl Wanted {
         }
     }
 
-    /// Ask every table once for what it names.
-    fn resolve(mut self, names: &dyn RowNames) -> Named {
+    /// Ask every table once for what it names, and `schema` for a class they miss.
+    fn resolve(mut self, names: &dyn RowNames, schema: Option<SchemaAt<'_>>) -> Named {
         for list in [
             &mut self.entries,
             &mut self.classes,
@@ -1455,6 +1505,16 @@ impl Wanted {
         names.for_each_class(&self.classes, &mut |at, name| {
             named.classes.insert(self.classes[at], name.to_owned());
         });
+        if let Some(schema) = schema {
+            for &class in &self.classes {
+                if let Some(name) = schema.class_name(class) {
+                    named
+                        .classes
+                        .entry(class)
+                        .or_insert_with(|| name.to_owned());
+                }
+            }
+        }
         names.for_each_field(&self.fields, &mut |at, name| {
             named.fields.insert(self.fields[at], name.to_owned());
         });
@@ -1517,7 +1577,7 @@ impl Named {
                 class: self.classes.get(&inner.class_hash).cloned(),
                 len: inner.properties.len(),
             },
-            leaf => self.leaf_of(walk::owned(leaf.leaf())),
+            leaf => self.leaf_of(owned(leaf.leaf())),
         }
     }
 

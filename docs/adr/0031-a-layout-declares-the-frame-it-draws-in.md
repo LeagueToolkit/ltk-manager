@@ -5,7 +5,8 @@
 - **Crates:** none. A frame is frontend, and Rust knows no class
 - **Related:** Amended by
   [ADR-0034](0034-the-shells-panes-are-the-editors-split-tree.md), which makes the shell's four
-  panes a split tree the reader arranges and drops the per-class pane sizes below.
+  panes a split tree the reader arranges and drops the per-class pane sizes below, and by
+  [ADR-0036](0036-a-shells-panes-are-its-layouts-own.md), which gives the skin a shell of its own.
   Amends [ADR-0030](0030-a-class-view-is-a-layout-over-the-rows.md), which draws
   every class view as a stack of sections. [ADR-0028](0028-an-object-is-a-document-of-its-own.md),
   whose object tab a frame fills. [ADR-0023](0023-a-setting-id-and-a-ui-path-are-two-id-spaces.md)

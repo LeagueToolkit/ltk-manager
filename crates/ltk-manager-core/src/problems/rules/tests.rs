@@ -24,6 +24,8 @@ fn each_rule_declares_who_answers_for_its_severity() {
             ("audio/bank-id".to_owned(), Some(Severity::Info)),
             ("tex/block-alignment".to_owned(), Some(Severity::Fatal)),
             ("bin/resolver-key-loss".to_owned(), Some(Severity::Info)),
+            ("vfx/per-frame-random".to_owned(), Some(Severity::Warning)),
+            ("vfx/broken-random".to_owned(), Some(Severity::Error)),
         ]
     );
 }

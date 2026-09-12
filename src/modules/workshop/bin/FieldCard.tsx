@@ -3,6 +3,7 @@ import { errorSummary, m } from "@/i18n";
 import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { CutText } from "./CutText";
 import { shapeTag } from "./kindTag";
 import { useClassSchema } from "./useClassSchema";
 
@@ -16,7 +17,23 @@ interface FieldCardProps {
   /** No table names the field, and `name` is its hash. */
   unnamed: boolean;
   declared: DeclaredKind | null;
+  /**
+   * What the field is worth where nothing authors it.
+   *
+   * The slot the card's "Shows" table in docs/ux/BIN_EDITOR.md names. `ClassSchema`
+   * carries no default, so nothing fills it and the card draws no line for it.
+   */
+  defaultValue?: string | null;
+  /**
+   * The wiki's written doc for the field, the card's other unfilled slot.
+   *
+   * `meta-wiki.leaguetoolkit.dev` holds the prose and the schema snapshot does not, so
+   * the card links the class and draws no doc of its own.
+   */
+  doc?: string | null;
   triggerClassName?: string;
+  /** The name fills its box and is cut in the middle, rather than at its end. */
+  cut?: boolean;
 }
 
 /**
@@ -31,7 +48,10 @@ export function FieldCard({
   name,
   unnamed,
   declared,
+  defaultValue = null,
+  doc = null,
   triggerClassName,
+  cut = false,
 }: FieldCardProps) {
   return (
     <HoverCard
@@ -44,22 +64,34 @@ export function FieldCard({
           name={name}
           unnamed={unnamed}
           declared={declared}
+          defaultValue={defaultValue}
+          doc={doc}
         />
       }
     >
       <span
         className={twMerge(
           "min-w-0 truncate decoration-dotted underline-offset-2 hover:underline",
+          cut && "flex flex-1",
           triggerClassName,
         )}
       >
-        {name}
+        {cut && <CutText text={name} />}
+        {!cut && name}
       </span>
     </HoverCard>
   );
 }
 
-function FieldCardBody({ classHash, fieldHash, name, unnamed, declared }: FieldCardProps) {
+function FieldCardBody({
+  classHash,
+  fieldHash,
+  name,
+  unnamed,
+  declared,
+  defaultValue = null,
+  doc = null,
+}: FieldCardProps) {
   return (
     <div data-ui="FieldCard" className="flex flex-col gap-2">
       <header className="flex min-w-0 flex-col items-start gap-1">
@@ -71,9 +103,29 @@ function FieldCardBody({ classHash, fieldHash, name, unnamed, declared }: FieldC
         <Code className="select-text">{fieldHash}</Code>
       </header>
       <DeclaredLine declared={declared} />
+      <DefaultLine value={defaultValue} />
+      <DocLine text={doc} />
       {classHash !== null && <Revisions classHash={classHash} fieldHash={fieldHash} />}
     </div>
   );
+}
+
+/** The field's default, and nothing at all until the schema carries one. */
+function DefaultLine({ value }: { value: string | null }) {
+  if (value === null) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-surface-300">
+      <span>{m.workshop_bin_field_default_label()}</span>
+      {/* DS-CODE-CHIP */}
+      <Code className="select-text">{value}</Code>
+    </span>
+  );
+}
+
+/** The wiki's prose for the field, and nothing at all until the schema carries it. */
+function DocLine({ text }: { text: string | null }) {
+  if (text === null) return null;
+  return <p className="text-surface-300 select-text">{text}</p>;
 }
 
 /** The schema's line for a field: its declared kind, or that it has none at this build. */

@@ -12,8 +12,8 @@ use std::sync::Arc;
 use ltk_hash::BinHash;
 use ltk_wad::{WadHash, hex_name};
 
+use crate::bin_document::hex;
 use crate::preview::AssetRef;
-use crate::problems::names::hex;
 
 mod browse;
 mod build;

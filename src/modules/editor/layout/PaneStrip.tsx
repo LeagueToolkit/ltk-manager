@@ -24,6 +24,8 @@ export interface PaneStripProps {
   onActivate: (id: string) => void;
   /** Absent leaves the strip without close buttons, for a host whose panes are fixed. */
   onClose?: (id: string) => void;
+  /** A double click on a tab, which fills the shell with this leaf. */
+  onMaximize?: () => void;
   /** Drawn at the strip's right end, for a control the pane itself owns. */
   actions?: ReactNode;
   className?: string;
@@ -42,6 +44,7 @@ export function PaneStrip({
   activeId,
   onActivate,
   onClose,
+  onMaximize,
   actions,
   className,
 }: PaneStripProps) {
@@ -71,6 +74,7 @@ export function PaneStrip({
               active={pane.id === activeId}
               caretBefore={caretIndex === index}
               onClose={onClose}
+              onMaximize={onMaximize}
             />
           ))}
         </SortableContext>
@@ -87,9 +91,17 @@ interface SortableStripTabProps {
   active: boolean;
   caretBefore: boolean;
   onClose?: (id: string) => void;
+  onMaximize?: () => void;
 }
 
-function SortableStripTab({ leafId, pane, active, caretBefore, onClose }: SortableStripTabProps) {
+function SortableStripTab({
+  leafId,
+  pane,
+  active,
+  caretBefore,
+  onClose,
+  onMaximize,
+}: SortableStripTabProps) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: tabDroppableId(leafId, pane.id),
   });
@@ -106,6 +118,7 @@ function SortableStripTab({ leafId, pane, active, caretBefore, onClose }: Sortab
         ref={setNodeRef}
         style={style}
         data-ui="PaneStrip:tab"
+        onDoubleClick={() => onMaximize?.()}
         {...listeners}
         className={twMerge(
           "group/pane relative flex h-5 max-w-56 shrink-0 touch-none items-center rounded-sm pr-0.5",

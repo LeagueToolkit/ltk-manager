@@ -2945,6 +2945,7 @@ dependencies = [
  "ltk-manager-core",
  "ltk-telemetry",
  "ltk_file",
+ "ltk_hash",
  "ltk_mod_core",
  "ltk_overlay",
  "notify",
@@ -3001,15 +3002,19 @@ dependencies = [
  "filetime",
  "flate2",
  "fs-err",
+ "glam",
  "image",
+ "image_dds",
  "indexmap 2.14.0",
  "lru",
  "ltk-telemetry",
+ "ltk_anim",
  "ltk_fantome",
  "ltk_file",
  "ltk_hash",
  "ltk_hashdb",
  "ltk_hashtable",
+ "ltk_mesh",
  "ltk_meta",
  "ltk_mimir_cache",
  "ltk_mod_project",
@@ -3059,6 +3064,22 @@ dependencies = [
  "thiserror 2.0.18",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "ltk_anim"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c27fb44826ce965dc65d2c5180a49b4a3010752fa146aa2e2276a33e9d68b02"
+dependencies = [
+ "bitflags 2.13.1",
+ "bytemuck",
+ "byteorder",
+ "glam",
+ "ltk_hash",
+ "ltk_io_ext",
+ "num_enum",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -3133,6 +3154,22 @@ dependencies = [
  "byteorder",
  "glam",
  "ltk_primitives",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ltk_mesh"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cc13cb2b73ef8c52f79d443ebcfd0c988619a22900a24ff58d108eed726f47"
+dependencies = [
+ "bitflags 2.13.1",
+ "byteorder",
+ "glam",
+ "lazy_static",
+ "ltk_io_ext",
+ "ltk_primitives",
+ "num_enum",
  "thiserror 1.0.69",
 ]
 

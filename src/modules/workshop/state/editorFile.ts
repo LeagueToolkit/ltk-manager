@@ -12,7 +12,14 @@ import {
   singleLeaf,
 } from "@/modules/editor/layout";
 
-import { defaultShellLayout, firstShellLeafId, sanitizeShellLayout } from "../bin/shellPanes";
+import {
+  defaultShellArrangements,
+  firstShellLeafId,
+  sanitizeShellLayout,
+  type ShellArrangement,
+  type ShellArrangements,
+  type ShellKind,
+} from "../bin/shellPanes";
 import type { ContentDocument } from "../documents";
 
 /** The slice of one project's editor that survives a restart. */
@@ -25,9 +32,14 @@ export interface PersistedProjectEditor {
   previewId: string | null;
   /** The pinned documents, which lead the strip that holds them. */
   pinned: readonly string[];
-  /** The split tree of shell panes, which every object tab of the project draws in. */
-  shellLayout: LayoutNode;
-  shellLeafId: string;
+  /** Each shell's tree of panes, which every object tab of its kind draws in. */
+  shells: ShellArrangements;
+}
+
+/** The one shell a file written before the skin had a shell carries, which is the particle system's. */
+interface LegacyShell {
+  shellLayout?: unknown;
+  shellLeafId?: unknown;
 }
 
 /** What `parseEditorFile` made of a `.ltk/editor.json`'s content. */
@@ -61,8 +73,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       selectedLayer: state.selectedLayer,
       previewId: state.previewId,
       pinned: state.pinned,
-      shellLayout: state.shellLayout,
-      shellLeafId: state.shellLeafId,
+      shells: state.shells,
     },
     null,
     2,
@@ -115,7 +126,7 @@ export function parseEditorFile(raw: string): EditorFileParseResult {
  */
 export function sanitizeEditorState(value: unknown): PersistedProjectEditor | null {
   if (typeof value !== "object" || value === null) return null;
-  const entry = value as Partial<PersistedProjectEditor>;
+  const entry = value as Partial<PersistedProjectEditor> & LegacyShell;
 
   const documents: Record<string, ContentDocument> = {};
   if (typeof entry.documents === "object" && entry.documents !== null) {
@@ -152,15 +163,6 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
       ? entry.previewId
       : null;
 
-  /* A file written before the shell had a tree carries none, so it reads back
-     as the arrangement ADR-0031 ships rather than as an empty shell. */
-  const shellLayout =
-    entry.shellLayout === undefined ? defaultShellLayout() : sanitizeShellLayout(entry.shellLayout);
-  const shellLeafId =
-    typeof entry.shellLeafId === "string" && findLeaf(shellLayout, entry.shellLeafId)
-      ? entry.shellLeafId
-      : firstShellLeafId(shellLayout);
-
   return {
     documents,
     layout,
@@ -168,8 +170,7 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
     previewId,
     pinned,
-    shellLayout,
-    shellLeafId,
+    shells: sanitizeShells(entry),
   };
 }
 
@@ -191,6 +192,34 @@ function pinnedFirst(node: LayoutNode, pinned: readonly string[]): LayoutNode {
     return next;
   });
   return changed ? { ...node, children } : node;
+}
+
+/**
+ * Each shell's arrangement out of an untrusted entry.
+ *
+ * A file written before the skin had a shell carries the particle system's tree as
+ * `shellLayout`, which reads back as the `vfx` shell's. A shell the file never wrote, or
+ * one written before any shell had a tree, reads as the arrangement it ships.
+ */
+function sanitizeShells(entry: Partial<PersistedProjectEditor> & LegacyShell): ShellArrangements {
+  const shipped = defaultShellArrangements();
+  const written: Partial<Record<ShellKind, Partial<Record<keyof ShellArrangement, unknown>>>> =
+    typeof entry.shells === "object" && entry.shells !== null ? entry.shells : {};
+
+  const read = (kind: ShellKind): ShellArrangement => {
+    const held = written[kind];
+    const tree = held?.layout ?? (kind === "vfx" ? entry.shellLayout : undefined);
+    if (tree === undefined) return shipped[kind];
+
+    const layout = sanitizeShellLayout(kind, tree);
+    const leafId = held?.leafId ?? (kind === "vfx" ? entry.shellLeafId : undefined);
+    return {
+      layout,
+      leafId:
+        typeof leafId === "string" && findLeaf(layout, leafId) ? leafId : firstShellLeafId(layout),
+    };
+  };
+  return { vfx: read("vfx"), skin: read("skin") };
 }
 
 /* Every field of a reference reaches the backend, which checks each one against

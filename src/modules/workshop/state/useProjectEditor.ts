@@ -5,7 +5,7 @@ import type { BinRow } from "@/lib/tauri";
 import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import { useTabOpenMode } from "@/stores/workshopLayout";
 
-import { isShellPaneId, openShellPanes, type ShellPaneId } from "../bin/shellPanes";
+import { isShellPaneId, openShellPanes, type ShellKind, type ShellPaneId } from "../bin/shellPanes";
 import { useProjectContext } from "../components/ProjectContext";
 import { type ContentDocument, documentLayerName } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
@@ -376,6 +376,37 @@ export function useSetLeafLocked() {
   );
 }
 
+/**
+ * The panel filling the grid, or null while the tree draws whole.
+ *
+ * Null for a leaf the tree has lost, which is what a prune leaves behind.
+ */
+export function useMaximizedLeafId(): string | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    if (editor.maximizedLeafId === null) return null;
+    return findLeaf(editor.layout, editor.maximizedLeafId) ? editor.maximizedLeafId : null;
+  });
+}
+
+/** Fill the grid with one panel, or give the tree back. */
+export function useToggleMaximizedLeaf() {
+  const projectPath = useProjectPath();
+  const toggleMaximizedLeaf = useWorkshopEditorStore((s) => s.toggleMaximizedLeaf);
+  return useCallback(
+    (leafId: string) => toggleMaximizedLeaf(projectPath, leafId),
+    [toggleMaximizedLeaf, projectPath],
+  );
+}
+
+/** Give the tree back, which is what Esc asks for. */
+export function useRestoreMaximizedLeaf() {
+  const projectPath = useProjectPath();
+  const restoreMaximizedLeaf = useWorkshopEditorStore((s) => s.restoreMaximizedLeaf);
+  return useCallback(() => restoreMaximizedLeaf(projectPath), [restoreMaximizedLeaf, projectPath]);
+}
+
 export function useSetDocumentDirty() {
   const projectPath = useProjectPath();
   const setDocumentDirty = useWorkshopEditorStore((s) => s.setDocumentDirty);
@@ -508,88 +539,130 @@ export function useMoveProjectDocuments() {
   );
 }
 
-/** The split tree of shell panes, which every object tab of this project draws in. */
-export function useShellLayout(): LayoutNode {
+/** The split tree of one shell's panes, which every object tab of that kind draws in. */
+export function useShellLayout(kind: ShellKind): LayoutNode {
   const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).shellLayout);
+  return useWorkshopEditorStore(
+    (s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).shells[kind].layout,
+  );
 }
 
 /** Which panes one pane leaf holds, in strip order. */
-export function useShellPanes(leafId: string): readonly ShellPaneId[] {
+export function useShellPanes(kind: ShellKind, leafId: string): readonly ShellPaneId[] {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore(
     useShallow((s) => {
       const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
-      return (findLeaf(editor.shellLayout, leafId)?.tabs ?? []).filter(isShellPaneId);
+      return (findLeaf(editor.shells[kind].layout, leafId)?.tabs ?? []).filter(isShellPaneId);
     }),
   );
 }
 
-export function useShellActivePane(leafId: string): ShellPaneId | null {
+export function useShellActivePane(kind: ShellKind, leafId: string): ShellPaneId | null {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore((s) => {
     const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
-    const active = findLeaf(editor.shellLayout, leafId)?.activeTab;
+    const active = findLeaf(editor.shells[kind].layout, leafId)?.activeTab;
     return isShellPaneId(active) ? active : null;
   });
 }
 
 /** Every pane the tree holds, which is what the Panes menu ticks. */
-export function useOpenShellPanes(): ReadonlySet<ShellPaneId> {
+export function useOpenShellPanes(kind: ShellKind): ReadonlySet<ShellPaneId> {
   const projectPath = useProjectPath();
   return useWorkshopEditorStore(
-    useShallow((s) => openShellPanes((s.byProject[projectPath] ?? EMPTY_EDITOR).shellLayout)),
+    useShallow((s) =>
+      openShellPanes((s.byProject[projectPath] ?? EMPTY_EDITOR).shells[kind].layout),
+    ),
   );
 }
 
-export function useActivateShellPane() {
+export function useActivateShellPane(kind: ShellKind) {
   const projectPath = useProjectPath();
   const activateShellPane = useWorkshopEditorStore((s) => s.activateShellPane);
   return useCallback(
-    (leafId: string, paneId: ShellPaneId) => activateShellPane(projectPath, leafId, paneId),
-    [activateShellPane, projectPath],
+    (leafId: string, paneId: ShellPaneId) => activateShellPane(projectPath, kind, leafId, paneId),
+    [activateShellPane, projectPath, kind],
   );
 }
 
-export function useCloseShellPane() {
+export function useCloseShellPane(kind: ShellKind) {
   const projectPath = useProjectPath();
   const closeShellPane = useWorkshopEditorStore((s) => s.closeShellPane);
   return useCallback(
-    (leafId: string, paneId: ShellPaneId) => closeShellPane(projectPath, leafId, paneId),
-    [closeShellPane, projectPath],
+    (leafId: string, paneId: ShellPaneId) => closeShellPane(projectPath, kind, leafId, paneId),
+    [closeShellPane, projectPath, kind],
   );
 }
 
-export function useOpenShellPane() {
+export function useOpenShellPane(kind: ShellKind) {
   const projectPath = useProjectPath();
   const openShellPane = useWorkshopEditorStore((s) => s.openShellPane);
   return useCallback(
-    (paneId: ShellPaneId) => openShellPane(projectPath, paneId),
-    [openShellPane, projectPath],
+    (paneId: ShellPaneId) => openShellPane(projectPath, kind, paneId),
+    [openShellPane, projectPath, kind],
   );
 }
 
-export function useApplyShellDrop() {
+export function useApplyShellDrop(kind: ShellKind) {
   const projectPath = useProjectPath();
   const applyShellDrop = useWorkshopEditorStore((s) => s.applyShellDrop);
   return useCallback(
-    (outcome: DropOutcome) => applyShellDrop(projectPath, outcome),
-    [applyShellDrop, projectPath],
+    (outcome: DropOutcome) => applyShellDrop(projectPath, kind, outcome),
+    [applyShellDrop, projectPath, kind],
   );
 }
 
-export function useSetShellSplitLayout() {
+export function useSetShellSplitLayout(kind: ShellKind) {
   const projectPath = useProjectPath();
   const setShellSplitLayout = useWorkshopEditorStore((s) => s.setShellSplitLayout);
   return useCallback(
     (splitId: string, layout: Record<string, number>) =>
-      setShellSplitLayout(projectPath, splitId, layout),
-    [setShellSplitLayout, projectPath],
+      setShellSplitLayout(projectPath, kind, splitId, layout),
+    [setShellSplitLayout, projectPath, kind],
   );
 }
 
-export function useResetShellLayout() {
+export function useResetShellLayout(kind: ShellKind) {
   const projectPath = useProjectPath();
   const resetShellLayout = useWorkshopEditorStore((s) => s.resetShellLayout);
-  return useCallback(() => resetShellLayout(projectPath), [resetShellLayout, projectPath]);
+  return useCallback(
+    () => resetShellLayout(projectPath, kind),
+    [resetShellLayout, projectPath, kind],
+  );
+}
+
+/**
+ * The pane filling one shell, or null while its tree draws whole.
+ *
+ * Null for a leaf the tree has lost, which is what a prune leaves behind.
+ */
+export function useShellMaximizedLeaf(kind: ShellKind): string | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const editor = s.byProject[projectPath] ?? EMPTY_EDITOR;
+    const leafId = editor.maximizedShellLeaf[kind];
+    if (leafId === undefined) return null;
+    return findLeaf(editor.shells[kind].layout, leafId) ? leafId : null;
+  });
+}
+
+/** Fill one shell with one pane, or give its panes back. */
+export function useToggleMaximizedShellLeaf(kind: ShellKind) {
+  const projectPath = useProjectPath();
+  const toggleMaximizedShellLeaf = useWorkshopEditorStore((s) => s.toggleMaximizedShellLeaf);
+  return useCallback(
+    (leafId: string) => toggleMaximizedShellLeaf(projectPath, kind, leafId),
+    [toggleMaximizedShellLeaf, projectPath, kind],
+  );
+}
+
+/** Give one shell's panes back, which is what Esc asks for. */
+export function useRestoreMaximizedShellLeaf(kind: ShellKind) {
+  const projectPath = useProjectPath();
+  const restoreMaximizedShellLeaf = useWorkshopEditorStore((s) => s.restoreMaximizedShellLeaf);
+  return useCallback(
+    () => restoreMaximizedShellLeaf(projectPath, kind),
+    [restoreMaximizedShellLeaf, projectPath, kind],
+  );
 }

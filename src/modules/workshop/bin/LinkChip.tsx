@@ -21,6 +21,7 @@ import {
   decideObjectLink,
   decideStringLink,
 } from "./linkDecision";
+import { splitPath } from "./textCut";
 import { TextureSwatch } from "./TextureSwatch";
 import { useLayerCopy, useLinkOpen, useLinkTargets } from "./useLinkTargets";
 
@@ -92,7 +93,7 @@ export function FileChip({ hash, path }: FileChipProps) {
   const decision = decideFileLink(path, targets, layer);
 
   if (path === null) return <Hex>{hash}</Hex>;
-  if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"}>{path}</Text>;
+  if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"} path={path} />;
   return (
     <ChunkChip
       document={decision.document}
@@ -121,7 +122,8 @@ export function StringValue({ text }: StringValueProps) {
   const open = useOpenDocumentAs();
   const decision = decideStringLink(text, targets, () => layer);
 
-  if (decision.kind === "missing") return <Text missing>{path ?? text}</Text>;
+  if (decision.kind === "missing" && path !== null) return <Text missing path={path} />;
+  if (decision.kind === "missing") return <Text missing>{text}</Text>;
   if (decision.kind !== "chip") {
     /* Sized to what it holds rather than to the column, which a short name in a
        full-width box reads as a text area waiting for more. */
@@ -161,7 +163,7 @@ function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} onOpen={onOpen} />
+      <LinkChip label={path} cut="start" onOpen={onOpen} />
       <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
       {side !== undefined && <span className="shrink-0 text-meta text-surface-400">{side}</span>}
     </span>
@@ -196,6 +198,8 @@ function FileMark({ asset, path, layerTitle, onOpen }: FileMarkProps) {
 
 interface LinkChipProps {
   label: string;
+  /** Where a label too long for its box is cut: its end, or the start of a path. */
+  cut?: "end" | "start";
   /** The click was taken and the index is building. */
   pending?: boolean;
   /** The hover card. Absent while the target is not resolved. */
@@ -203,12 +207,19 @@ interface LinkChipProps {
   onOpen: (intent: OpenIntent) => void;
 }
 
-/** A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`. */
-export function LinkChip({ label, pending = false, card, onOpen }: LinkChipProps) {
+/**
+ * A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`.
+ *
+ * A path is cut from its start by a right-to-left box, so the file name is what stays.
+ */
+export function LinkChip({ label, cut = "end", pending = false, card, onOpen }: LinkChipProps) {
   const button = (
     <button
       type="button"
       data-ui="LinkChip"
+      dir={cut === "start" ? "rtl" : undefined}
+      aria-label={cut === "start" ? label : undefined}
+      title={cut === "start" ? label : undefined}
       className={twMerge(
         "max-w-full min-w-0 cursor-pointer truncate rounded-sm text-left",
         pending && "animate-pulse",
@@ -218,7 +229,10 @@ export function LinkChip({ label, pending = false, card, onOpen }: LinkChipProps
         onOpen(clickIntent(event));
       }}
     >
-      <Code className="hover:bg-surface-veil hover:text-surface-100">{label}</Code>
+      <Code className="hover:bg-surface-veil hover:text-surface-100">
+        {cut === "start" && <PathText path={label} />}
+        {cut === "end" && label}
+      </Code>
     </button>
   );
   if (!card) return button;
@@ -234,6 +248,17 @@ export function LinkChip({ label, pending = false, card, onOpen }: LinkChipProps
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
+  );
+}
+
+/** A path read left to right inside a chip cut from its start, its folder dimmed. */
+function PathText({ path }: { path: string }) {
+  const { folder, file } = splitPath(path);
+  return (
+    <span dir="ltr">
+      <span className="text-surface-400">{folder}</span>
+      {file}
+    </span>
   );
 }
 
@@ -271,16 +296,28 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
  * "A chunk nothing holds" in docs/ux/BIN_EDITOR.md. One component draws both, so the
  * check answering marks the row it already drew instead of replacing it.
  */
-function Text({ children, missing = false }: { children: ReactNode; missing?: boolean }) {
+function Text({
+  children,
+  missing = false,
+  path,
+}: {
+  children?: ReactNode;
+  missing?: boolean;
+  /** A path, cut from its start as a path chip is. */
+  path?: string;
+}) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <span
+        dir={path === undefined ? undefined : "rtl"}
+        title={path}
         className={twMerge(
-          "truncate select-text",
+          "truncate text-left select-text",
           missing ? "text-surface-300" : "text-surface-200",
         )}
       >
-        {children}
+        {path !== undefined && <PathText path={path} />}
+        {path === undefined && children}
       </span>
       {missing && (
         <Tooltip content={m.workshop_bin_missing_chunk_description()}>

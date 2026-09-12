@@ -3,7 +3,9 @@
 - **Status:** Accepted (2026-09-08)
 - **Date:** 2026-09-08
 - **Crates:** none. A pane is frontend, and Rust knows no frame
-- **Related:** Amends [ADR-0031](0031-a-layout-declares-the-frame-it-draws-in.md), whose shell
+- **Related:** Amended by [ADR-0036](0036-a-shells-panes-are-its-layouts-own.md), which gives
+  each shelled layout a pane set and a tree of its own. Amends
+  [ADR-0031](0031-a-layout-declares-the-frame-it-draws-in.md), whose shell
   fixed the four panes in two columns and whose pane sizes were to be remembered on the class
   hash. [ADR-0032](0032-a-curve-draws-in-a-dock-under-the-object-tab.md), whose curve surface is
   one of the panes. The panel layout the editor grid already runs on is

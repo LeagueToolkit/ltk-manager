@@ -7,8 +7,8 @@ use std::collections::HashMap;
 use ltk_hash::BinHash;
 use ltk_wad::WadHash;
 
+use crate::bin_document::hex;
 use crate::game_index::FIND_LIMIT;
-use crate::problems::names::hex;
 use crate::utils::natural_order::compare_names;
 
 use super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceResult, STALE_CHECK_INTERVAL};

@@ -75,7 +75,9 @@ describe("FileChip", () => {
   it("follows a texture's chip with its swatch and the side that answered", async () => {
     renderChip("assets/characters/aatrox/aatrox.tex");
 
-    expect(screen.getByText("assets/characters/aatrox/aatrox.tex")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "assets/characters/aatrox/aatrox.tex" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Texture preview" })).toBeInTheDocument();
     expect(screen.getByText("Aatrox")).toBeInTheDocument();
     expect(mockInvoke).not.toHaveBeenCalledWith("read_asset_info", expect.anything());
@@ -131,7 +133,9 @@ describe("StringValue", () => {
       targets(["assets/characters/aatrox/aatrox.tex"]),
     );
 
-    expect(screen.getByText("assets/characters/aatrox/aatrox.tex")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "assets/characters/aatrox/aatrox.tex" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Texture preview" })).toBeInTheDocument();
   });
 

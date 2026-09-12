@@ -1,9 +1,9 @@
 use super::Workshop;
 use super::layer;
+use crate::bin_document::hex;
 use crate::error::{AppError, AppResult};
 use crate::hashtables::{BinHashTables, HashtableCache};
 use crate::object_index::{Declaration, for_each_declaration};
-use crate::problems::names::hex;
 use fs_err as fs;
 use ltk_file::LeagueFileKind;
 use ltk_hash::BinHash;

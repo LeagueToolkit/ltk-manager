@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                |
-| ---------- | ----------------------------------------------------- |
-| 2026-09-08 | Wrap the emitter cards into the pane                  |
-| 2026-09-08 | Arrange the shell's panes as a split tree             |
-| 2026-09-08 | Size the emitter card and filter the strip by name    |
-| 2026-09-08 | Give the curve dock its table and probability tabs    |
-| 2026-09-08 | Draw a colour curve as a gradient of its stops        |
-| 2026-09-08 | Decide the curve panel                                |
-| 2026-09-07 | Frame a particle system as a shell of panes           |
-| 2026-09-07 | Fold a value family into the row a layout draws it in |
-| 2026-09-07 | Draw an emitter as a card of its groups               |
-| 2026-09-07 | Lay a skin and a particle system out                  |
+| Date       | Change                                              |
+| ---------- | --------------------------------------------------- |
+| 2026-09-12 | Flag the timeline's playhead and trace the pointer  |
+| 2026-09-11 | Draw the random spread as lanes and a density edge  |
+| 2026-09-11 | Draw a value's random spread on its graph           |
+| 2026-09-11 | Draw a child lane's emitter in the inspector        |
+| 2026-09-11 | Add the particle timeline, and redraw the inspector |
+| 2026-09-08 | Wrap the emitter cards into the pane                |
+| 2026-09-08 | Arrange the shell's panes as a split tree           |
+| 2026-09-08 | Size the emitter card and filter the strip by name  |
+| 2026-09-08 | Give the curve dock its table and probability tabs  |
+| 2026-09-08 | Draw a colour curve as a gradient of its stops      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -65,6 +65,9 @@ This table holds every major feature of the bin editor. A status word has one me
 | Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
 | Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032    |
 | Particle system shell | Available   | Panes under a crumb, arranged by the reader. ADR-0031, ADR-0034  |
+| Particle timeline     | Available   | Lanes under one playhead, on checkpoints. ADR-0037               |
+| Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                  |
+| Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
 | In-document search    | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
@@ -430,6 +433,10 @@ The hex, in `font-mono`, at the width the kind uses: eight digits for a bin hash
 a WAD path hash. It is selectable and the row's context menu copies it, because a modder
 holding an unnamed hash is a modder about to paste it into another tool.
 
+A field or a class the tables miss takes the name the shipped meta schema holds for it, so a
+spawn shape reads `VfxShapePointDoNotUse` rather than `0xee39916f`. The hex is for a hash
+neither names.
+
 ## The blocks
 
 ### The object block
@@ -572,9 +579,9 @@ read's cap rather than guessing at it. A surface says which families it wants th
 colour asks for them wherever it draws, since its band is its keys. Every other family asks only
 where a sparkline draws one. A value with no dynamics stops at the first level whatever asked.
 
-The dock walks three more for the probability tables - the table list, each table behind a slot,
-and each table's own two lists. It can afford them because it is aimed at one row, where a surface
-drawing rows is reading a page of them at a time.
+The dock and the inspector's sections on screen walk three more for the probability tables - the
+table list, each table behind a slot, and each table's own two lists. The dock is aimed at one row
+and the inspector reads only what is on screen, where the tree reads a page of rows at a time.
 
 The strip takes the width one vector component takes, so a column mixing colours, floats and
 vectors keeps its readouts under each other. A stop sits at its own time in
@@ -673,6 +680,7 @@ rule of one row per leaf.
 | Kebab              | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
 
 With the index absent, the other declarations draw a dim "Build the object index" affordance.
+Where no other file declares the object, they draw nothing.
 
 The row carries no property count. The tree under it is the count, one row per property, and a
 tally of what is already on screen is a fact the reader reads twice.
@@ -1011,10 +1019,10 @@ Where the row's `dynamics` points at a curve the cell takes a mark, since the co
 would read as the whole value. The first level of the value read answers `constantValue` and
 `dynamics` together, so the mark costs no call of its own.
 
-The emitter panel is the one layout surface that draws the shape rather than the mark: each of
-its rows takes a sparkline of the curve beside its constant, per
-[the curve panel](#the-curve-panel). Every other cell of every other layout keeps the mark, and
-so does a panel row whose keys the read has not answered yet.
+A field row draws the shape rather than the mark, in every layout that draws field rows: an
+animated row takes its curve across the value column beside the constant, per
+[the inspector](#the-inspector). A table cell keeps the mark, and so does a field row whose keys
+the read has not answered.
 
 ### What a layout reads
 
@@ -1027,8 +1035,9 @@ the level under its elements too, which is as deep as a layout reads. A tree sec
 nothing until a reader expands it.
 
 A widget that joins a second object reads it through the same handle, because a read names the
-entry it walks. Only an object another file declares costs an open of its own, which is what the
-skin's VFX table does to reach its resolver.
+entry it walks. The inspector reads a child lane's emitter the same way, since the run inlines a
+child system only where the open document declares it. Only an object another file declares
+costs an open of its own, which is what the skin's VFX table does to reach its resolver.
 
 A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
 `string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
@@ -1044,7 +1053,7 @@ through Properties.
 | Class                                               | Sections                                                                                      |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other |
-| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh with a preview slot, Material overrides, Animation, VFX, Audio, Other   |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Animation, VFX, Audio, Other, beside a preview     |
 | `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                            |
 | `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                           |
 
@@ -1052,10 +1061,20 @@ The material, the skin and the particle system are the registered layouts, with 
 beside them. The animation graph table follows.
 
 A layout draws no Used by. Reverse references are the walk's, and Find all references on the
-kebab is the affordance until it ships. The preview slot on the skin layout waits on a renderer,
-which is frontend WebGL and its own ADR.
+kebab is the affordance until it ships.
+
+The skin's preview draws the skin on its skeleton, posed by a clip of its animation graph and
+wearing its idle effects, per ADR-0035. An effect that draws the character draws over the skin,
+and a child set naming bones spawns on the joints it names. The transport under it plays, pauses and scrubs the clip,
+sets its speed and names it: an idle clip first, and the bind pose where the graph holds none. A
+graph the skin's own file does not declare is read out of the files it links, which is where the
+engine finds it. The camera frames the character when it lands, and again on Frame the character.
 
 ### The emitter strip
+
+The strip is the Emitters pane of the particle shell, and a stack's Emitters section. The shell's
+default arrangement draws the lanes of [the timeline](#the-timeline) in its place, and the Panes
+menu opens it.
 
 Both of Riot's particle editors draw a system as a row of emitter cards, and the Emitters section
 draws the same: one card per element of `complexEmitterDefinitionData` and
@@ -1112,44 +1131,59 @@ to thirty fields and no section owns the page.
 A layout declares the frame it draws in, and the frame is the stack of sections unless it says
 otherwise. `VfxSystemDefinitionData` declares a shell, per ADR-0031, because a particle system is
 tuned rather than read: a change to one emitter's `rate` is judged against that emitter's curve,
-its other fields and, once a renderer exists, against the particles themselves. A scrolling column
+its other fields and the particles themselves. A scrolling column
 holds two of those in view at best.
 
+The skin declares a shell too, per ADR-0036, of two panes: the preview, first and the wider, and
+the inspector holding every section. The posed character is what a reader of a skin is looking
+at, and a square beside the mesh fields made it the smallest thing on screen. Each shell's
+arrangement is its own, so arranging the skin's panes leaves the particle system's where they
+were.
+
 ```
-+-----------------------------------------------------------------+
-| VfxSystemDefinitionData  8 properties   [System|Table|Properties]|
-+-----------------------------------------------------------------+
-| Smolder_Base_BA_mis > Glow_Variant1 [0] > Emission     [Panes v] |
-+---------------------------+-------------------------------------+
-| EMITTERS [Filter][Cards|Table]  | INSPECTOR                     |
-|---------------------------------|-------------------------------|
-| [card][CARD][card][card]        |  rate              1      ~   |
-| [card][card][card][card]        |  lifetime          0.055      |
-|=================================|  period            1          |
-| CURVE            [Graph|Table]  |  isSingleParticle  [x]        |
-|  1.0 +--+                       |                               |
-|  0.0 +---+--------+             |                               |
-+---------------------------------+-------------------------------+
++----------------------------------------------------------------------------------+
+| VfxSystemDefinitionData  Ahri_Base_Q_mis > Orb [0]   [System|Properties] [Panes] |
++------------------------------------------------------+---------------------------+
+| PREVIEW  [Ground][Midlane][Gizmo][Stats][Cam v][Fit] | INSPECTOR                 |
+|                                            [Burst v] | [Emission][Birth][Scale]  |
+|                                                      | v EMISSION                |
+|                      (viewport)                      |   rate           1  ___/  |
+|                                                      |   lifetime       1 s      |
+|                              1,204 particles  2.1 ms | v BIRTH                   |
++------------------------------------------------------+---------------------------+
+| TIMELINE  < > >  0.42 / 1.60 s  1x                   | CURVE      [Graph|Table]  |
+| [#] Orb           [0]  [####]~~~//               312 |  1.0 +--+                 |
+| [/] Sparkles      [1]    [##]~~~~//               48 |  0.0 +---+-------+        |
++------------------------------------------------------+---------------------------+
 ```
 
-The breadcrumb names system, emitter and group, and each of its segments is a target the inspector
-draws. The system's segment draws Identity, Audio and Other, which is where a shell keeps the
-sections a stack lists down the page. The emitter's segment draws every group it sets, and the
-group's segment opens a menu of them. Selecting a card rewrites the crumb, and a chip on a card
-moves its last segment.
+**One row holds the object tab's header and the crumb.** The class, the crumb, the mode control,
+Show in file and Panes share it, and the preview takes the height of the row it saves.
 
-Table takes the shell's whole width and folds the inspector away, because thirteen columns down
-sixty emitters answer without one beside them.
+The crumb names system and emitter, and each segment is a target the inspector draws. The system's
+segment draws Identity, Audio and Other, which is where a shell keeps the sections a stack lists
+down the page. The emitter's segment draws every group it sets, per
+[the inspector](#the-inspector). A third segment names the group in view and opens a menu of the
+groups, which draws that group alone. Selecting a lane or a card rewrites the crumb. A child lane's
+emitter takes a segment of its own between its parent's and the group, and the parent's segment
+goes back to the parent.
 
-The curve pane holds its place and draws a muted line until a mark targets it, where the dock in a
-stack is absent until then: a pane that appears on a click moves every pane around it. The preview
-pane waits on a renderer of its own, and ships closed until it has one.
+The Emitters pane's Table takes the shell's whole width and folds the inspector away. Thirteen
+columns down sixty emitters answer without one beside them.
 
-Below the width a strip, an inspector and a curve all need, the same layout draws as the stack, so
-nothing is out of reach on a narrow window or with both sidebars open.
+The curve pane holds its place until a mark targets it, where the dock in a stack is absent until
+then: a pane that appears on a click moves every pane around it. It draws a muted line, and over
+it a chip per field of the selected emitter that animates, each aiming the pane. The preview
+draws the run per [the viewer](#the-viewer), and the timeline draws its emitters per
+[the timeline](#the-timeline).
 
-The strip marks the squares' colours and the open group's rows, and no other value family, because
-an emitter carries far more of them than a card ever draws at once.
+Below the width the panes need, the same layout draws as the stack, and nothing is out of reach on
+a narrow window or with both sidebars open. The stack keeps the preview above the sections, the
+skin's character and the particle system's run alike, and a particle system's preview carries the
+mini transport there.
+
+The strip and the lanes mark the squares' colours, and the inspector marks the rows it draws. No
+other value family is marked. An emitter carries far more of them than any surface draws at once.
 
 ### How the panes are arranged
 
@@ -1188,9 +1222,237 @@ against the open ones. Reopening puts a pane in the panel the reader last touche
 it was closed from is the one that was pruned. The same menu carries **Reset layout**, which is the
 way back to the picture above.
 
-**The preview ships closed.** A closed pane is not drawn at all, and until a renderer fills it the
-preview is the largest thing on screen saying the least. It is one click away in the Panes menu for
-anyone who wants the place held.
+**The preview opens widest, over the timeline.** A closed pane is not drawn at all. A reader who
+wants the room closes one and costs the renderer nothing, and the Panes menu brings it back. A
+saved arrangement with no `timeline` leaf opens without the pane, and the Panes menu adds it.
+
+**A pane maximizes from its tab.** A double click on a pane's tab fills the shell with that pane,
+and the rest of the tree waits behind it. A second double click, or Esc, restores the tree.
+Maximizing writes nothing to the arrangement. The editor grid maximizes a document panel the same
+way, per [the panel layout](PROJECT_EDITOR.md#maximizing-a-panel).
+
+### The timeline
+
+The timeline is the particle shell's fifth pane, per ADR-0037. It reads the run the shell holds
+above the panes, and it draws one lane per emitter under one playhead.
+
+```
+TIMELINE  [Filter    ]  < > >  0.42 / 1.60 s  [--|---] 1x  [Loop]
+
+                             0     .25   .5    .75   1.0   1.25
+                             |-----|-----[=====]-----|-----|
+  [#] Orb         [0] (o) S  [#####]~~~~////              312
+  [/] Sparkles    [1] (o) S     [##]~~~~~~////             48
+  [@] Smoke       [2] (-) S  [############################>  844
+v [*] Burst       [3] (o) S        [###]~~~               120
+    |-- Spark     [0] (o) S          [#]~~  [#]~~  [#]~~   36
+  [ ] Glow SIMPLE [0] (o) S     [#]~~                      12
+
+[###] emitting   ~~~ particle life   //// linger   [===] loop range   > endless
+```
+
+**The transport row.** Step back, play and step forward, the playhead over the run's span as
+`0.42 / 1.60 s`, the speed, the loop switch and the Histogram switch. The speed is a slider with
+detents at 0.05, 0.1,
+0.25, 0.5, 1, 1.5 and 2. The name filter at the row's left narrows the lanes, as the strip's filter
+narrows the cards. The seed and the rig are the viewport's, per [the viewer](#the-viewer).
+
+**A lane is an emitter.** Its head carries its eye, a 20 px square of what the emitter draws, its
+name, its index in its own list, a SIMPLE tag for the second list, the struck eye of a `disabled`
+emitter, and the solo toggle. The square is the card's square at lane height.
+
+**The head fits the longest name.** Its width is what the system's longest name and index read in,
+capped at a third of the pane. Past the cap a name is cut in its middle, because a system's
+emitters share a prefix and differ at the end.
+
+**A lane's bar is the emitter's timing.** A solid bar spans the emission window, from
+`timeBeforeFirstEmission` to the end of `lifetime`. An emitter with no `lifetime` runs to the edge
+under an arrow. A faded tail runs past the bar to the peak of `particleLifetime`, and a hatched
+tail runs on to the end of the linger. The live count stands at the lane's right edge, under a
+`live` caption on the ruler's row. With the Histogram switch on, a histogram over the bar draws
+the emitter's live particles per step, filled in as the run plays. The switch is off by default,
+and the bar's own timing reads clear.
+
+**Lanes run in draw order**: the ground layer first, then `pass`, the blend mode's rank,
+`miscRenderFlags` and the index, which is `compareDrawOrder`. A child system's emitters nest under
+the emitter whose particles carry them, collapsed, with their bars at the times this run spawned
+them.
+
+**A click does the one thing its target names.** The name selects the emitter, and the crumb, the
+inspector and the Emitters pane follow. The ruler and a lane's track seek. A child lane selects its
+emitter into the inspector, under a banner naming the child system and an Open system link to its
+own tab, and opens the card of the emitter carrying it. Dragging a bar's edge to write
+`timeBeforeFirstEmission` and `lifetime` belongs to [leaf editing](#editing).
+
+**A child's emitter reads as the system's own.** Its groups draw under the same tabs, Defaults
+lists what it leaves unauthored, its curves take the curve pane, and a followed field crosses
+between a child and the system's emitters. A struct opened on one is open on the other, held by
+its path under the emitter. The banner is the one difference on screen. Lanes nest one level,
+and a grandchild's lanes are its own system's, reached by Open system.
+
+**The eye and solo hide an emitter and leave it running.** A lane's eye is open while the emitter
+draws and shut while it is muted. With any emitter soloed, only the soloed ones draw. The
+simulation runs whole either way, per decision 2.46 of `docs/plans/vfx-particle-renderer.md`, and
+neither toggle writes `disabled`. The viewport carries no Solo pill.
+
+**A stroke sets many lanes.** A press on an eye or an S and a drag down its column gives every lane
+passed the state the first took. Alt and a click shows that lane alone, and a second one shows
+every lane again. Shift and a click sets every lane from the last one pressed to this one, in the
+order the lanes are listed. Over the heads, an eye shows or hides every lane and an S clears every
+solo.
+
+**The ruler zooms and loops.** The timeline opens fitted to the run's span. Ctrl and the wheel zoom
+about the pointer, Shift and the wheel pan, and a double click on the ruler refits. A drag along
+the ruler sets an in and an out, and the run loops between them. A drag on an edge of the band
+moves that edge, and a drag on the band moves the whole range. A double click inside the band,
+or its x, clears it. A run with no range loops as its rig says.
+**The playhead is a flag.** Its chip on the ruler reads the time, and its line runs down every
+lane with a faint glow, so it reads over the bars and the histogram. A drag on the chip scrubs,
+which gives the ruler a scrub handle while a drag on the open ruler sets a loop. A dashed line
+follows the pointer through the ruler and the lanes, its own chip reading the time a press would
+seek to, so no track needs a crosshair cursor.
+
+**The ruler says where the run ends.** Everything past the run's span is shaded on the ruler and
+under every lane. Minor ticks cut each labelled step, a second into quarters and a fraction of one
+into fifths, and the last label carries the unit. Resting the pointer on a bar lists its times:
+when it emits, how long its particles live on, and where its linger ends.
+
+**A scrub moves the run live.** The run keeps a checkpoint every quarter second of simulated time
+within a budget of bytes, and a seek replays from the nearest one, per decision 2.46. A drag moves the run with the pointer,
+a step back costs one frame, and a loop's wrap costs no replay from zero.
+
+**The keys** act anywhere in the shell outside an editable field.
+
+| Key                     | Does                              |
+| ----------------------- | --------------------------------- |
+| Space                   | Play or pause                     |
+| Left, Right             | One frame back or forward, 1/60 s |
+| Shift+Left, Shift+Right | 0.1 s back or forward             |
+| Home                    | Restart                           |
+| F                       | Fit the camera                    |
+| S, M                    | Solo or mute the selected emitter |
+| `[`, `]`                | The next speed detent down or up  |
+| Esc                     | Restore a maximized pane          |
+
+**The preview carries a mini transport while no timeline shows**: play, a scrub and the time, with
+the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
+the mini transport, and its Emitters section keeps the strip.
+
+### The viewer
+
+The preview pane draws the run on the particle renderer of `docs/plans/vfx-particle-renderer.md`.
+Its controls sit at its top right: the Show menu, the wireframe menu, the camera menu, Fit and the
+rig.
+
+**The Show menu** ticks Ground, Midlane, Gizmo and Stats, and stays open while they are set. Its
+trigger counts the ones on. Midlane draws on the ground alone, so it is off while Ground is.
+
+**The wireframe menu** draws the run shaded, as its triangle edges alone, or as its edges over the
+shading. The edges are the particles' own geometry in one flat accent, drawn after every emitter,
+and a distorting emitter's edges draw with the rest. Over the shading the edges are part
+transparent, and the particle reads through them. A character's attached mesh stays shaded.
+
+**The camera menu** holds Game, Orbit, Top, Front and Side, and a system opens on Game. Game is the
+in-match camera at the game's own distance: a 56 degree pitch and a 40 degree vertical field of
+view, the meta defaults of `DynamicCameraSettings` and `CameraConfig.ZoomFov`, standing 2250 units
+off the rig's ground point along its look, which is `CameraConfig.mZoomMaxDistance`. `map11.bin`
+overrides none of the three. Its wheel dollies between the game's two zooms, 1000 and 2250, and
+Fit restands it. The match camera faces `+Z`. Top, Front and Side are orthographic. A drag from any
+preset turns into Orbit from where the camera stands, holding its projection until the drag ends
+and then showing the same height of the scene through the other one. A move between presets, a
+fit and a gizmo pick all animate, and reduce motion makes them instant.
+
+**Fit, and F,** frame the system's definition at its rig, at the active preset's angle: a champion
+about every stop the rig makes, and each emitter's spawn origin, offset and shape as the run opens.
+The box is read off the definition rather than the run, so the same system frames the same way on
+open, on F and at any moment of its play. A child set's emitters ride their parent's particles and
+add nothing to it. The skin's preview frames its mesh.
+
+**The orbit.** The left button orbits, the right pans, the middle and the wheel dolly toward the
+pointer. A flat preset's wheel zooms in place of the dolly.
+
+**The axis gizmo** sits in the pane's top left corner and turns with the camera: the corner of a
+cube, three arms on the viewport's own axes with a lettered head each, and a square face between
+every two. An arm, its head and the face across it wear that axis's channel colour. A head or a
+face stands the camera on its axis, picking Side, Top or Front. Picked again while the camera
+already stands there, it turns the camera to the axis's other end, on Orbit.
+
+**The rig pill** names its preset beside an icon of the motion. Its popover holds the motion, the
+loop, the stop, and the seed with its reroll.
+
+**The gizmo** draws the selected emitter's origin, its offset and its spawn shape as a wireframe.
+**Stats** draws the live particles, the live child systems and the frame's milliseconds in the
+bottom right corner, on a plate that reads over any ground. The count is of simulated particles,
+a muted emitter's included.
+
+**What persists.** Ground, Midlane, Gizmo, Stats, the wireframe mode, the camera preset, the
+timeline's Histogram switch and the inspector's Defaults switch are display preferences, app-wide
+and persisted. The rig, the seed, the speed, mute and
+solo, the loop range and the playhead belong to the run, kept per system for the session, per
+ADR-0037.
+
+**The skin's preview** takes the keys, the camera menu with Fit, the axis gizmo and the speed detents. Its clip
+plays on its own clock under its own transport, and it has no timeline.
+
+### The inspector
+
+The inspector draws the target the crumb names. For an emitter it draws its groups under a row of
+tabs pinned to the pane's top: All, then one per group the emitter sets. A child lane's emitter
+draws the same, under the banner of [the timeline](#the-timeline). All draws every group,
+each a section that folds, and a group's tab draws that group alone. The emitter's crumb segment
+and a card's name pick All, and a group's tab, a card's chip and the crumb's group menu pick that
+group. A section reads its curves as it scrolls into view, and a folded section reads none. The read is bounded by what is on screen, per
+[what a layout reads](#what-a-layout-reads).
+
+```
+INSPECTOR   Orb [0]                              [ ] Defaults
+[All] [Emission] [Birth] [Scale] [Colour] [Texture] [Render]
+---------------------------------------------------------------
+v EMISSION
+  rate               1                    ___/''''
+  particleLifetime   0.25 .. 0.4 s
+  lifetime           1 s
+  isSingleParticle   [x]
+v BIRTH
+  birthScale0        x 40        y 40        z 40
+  birthColor         [##########] 3 stops
+v RENDER
+  blendMode          Add
+  miscRenderFlags    DisableZBuffer
+```
+
+**A field keeps its own name.** A row reads `particleLifetime`, the name ritobin, the tree and the
+meta wiki use. The name's hover card carries the declared type, the default and the wiki's written
+doc for the field. The name column fits the longest name the inspector draws, capped at 40% of the
+pane, and past the cap a name is cut in its middle, as a lane's is.
+
+**A value reads as what it means.** An enum reads its name, and a flags field reads its named bits,
+off the tables `model.ts` holds. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
+random range reads `min .. max`. Which unit a field carries is a table written by hand, as the
+groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. An
+animated row draws its curve across the value column beside the constant, and a click on it aims
+the curve pane. An animated colour's band takes the value column too. A path reads its file name
+whole and its folder dimmed, cut from its start where the column runs out.
+
+**A struct opens in place.** A pointer, an embed or a list row carries a caret in the row's gutter
+and opens into its own field rows, indented under it and read on open. A struct inside one opens
+the same way. A row starts folded, and an open one stays open on the next emitter, held by its path
+under the emitter, because a reader comparing spawn shapes walks the lanes.
+
+**Defaults** in the inspector's header adds every field the class declares and the emitter does
+not author, dimmed at its default.
+
+**Random at birth** heads All where the emitter randomizes anything: every `birth` field and
+`particleLifetime` whose tables draw more than one value, each with what it draws and its shape,
+under the one roll they share. A row aims the dock's graph, and the section carries the pin of
+[the random spread](#the-random-spread). It reads the birth fields alone, which are the only ones
+the birth roll reaches, so a folded group's other fields stay unread.
+
+**A row is shaped as its input.** The inspector is read-only, and each widget is the box
+[leaf editing](#editing) turns into an input.
+
+The row is `FieldRow` and `ValueCell`, and every layout that draws field rows draws these, the
+skin's inspector and the stacked layouts included. The group tabs are the particle system's own.
 
 ## The curve panel
 
@@ -1234,24 +1496,30 @@ is the click a reader tuning a value makes most.
 
 ```
 +-----------------------------------------------------------------+
-|  Glow [0]  .  rate                                               |
-|  complexEmitterDefinitionData[0].rate                            |
-|  [ Graph ] [ Probability ] [ Table ]              [X] [Y] [Z]    |
-|   12 +                    ___----                               |
-|      |          ___---                                          |
-|    3 +-----                                                     |
-|      0.00                                       1.00            |
+|  Glow [0]  .  rate      complexEmitterDefinitionData[0].rate    |
+|  [X] [Y] [Z]                                    Graph   Table   |
+|   12 /s +                    ___----                            |
+|       8 + - - - - - - - ___--- - - - - - - - - - - - - - - - -  |
+|       4 +-----                                                  |
+|         0        .25       .5        .75        1               |
 +-----------------------------------------------------------------+
 ```
 
-The dock holds its target until another mark replaces it, so a reader walks the emitter strip
-comparing every emitter's numbers against one open curve. There is one dock in the app: a mark on
+**The target follows its field.** Selecting another emitter aims the dock at the same field of
+that emitter, so the curve, the crumb and the inspector name one emitter. Where the next emitter
+holds the field flat or not at all, the shell's pane lists the fields it animates instead and a
+stack's dock draws its muted line. The field stays held, and the next emitter that animates it
+takes the curve back. A field of a struct opened in place is not followed. A target no
+emitter owns, such as a system field or a row of Properties, stays until another mark replaces it.
+A dock once open stays open when a follow lets go. There is one dock in the app: a mark on
 a bin file tab's row opens the object tab with the dock already targeted, the way Show in
 properties switches the mode.
 
-The caption is the label chain, with the wire path on a line under it. The chain is what the
+The caption is the label chain, with the wire path dimmed beside it. The chain is what the
 reader clicked, which the surface it was clicked on names: an emitter and its index in the panel,
-and the property path in the tree. The path is what a bug report needs.
+and the property path in the tree. The path is what a bug report needs. One toolbar row under it
+carries every control: the channel chips, the `probabilityTables` chip, the chance slider and the
+tabs.
 
 A mark and a sparkline both aim the dock, and so does Show curve on the row menu of a value that
 has dynamics. A value without one is offered neither.
@@ -1263,22 +1531,35 @@ Riot's editors use: the constant is what a modder is tuning, and the rest of the
 target away on the same line rather than behind a mode.
 
 ```
-scale0    [X 1.5] [Y 1.0] [Z 1.0]   [~] [::]
+birthScale0     [X 10 .. 20] [Y 10 .. 20] [Z 10 .. 20]   [~] [dice linked]
+birthRotation0  [X 0 .. 360] [Y 0] [Z 0]                 [~] [dice uniform]
 ```
 
 **Riot's triggers add data and ours open a reading**, because nothing in the editor writes a bin
 yet. The first aims the dock's Graph and carries the sparkline where the read answered the keys.
-The second aims Probability. An aim naming a reading switches the dock to it, so a trigger lands
-on what it names rather than on whichever tab the dock was left on.
+The second is the random chip, which aims the same Graph, where
+[the random spread](#the-random-spread) draws. An aim naming a reading switches the dock to it, so
+a trigger lands on what it names rather than on whichever tab the dock was left on.
+
+The chip says what is random in the fewest words the row leaves it. Where the value column already
+draws the range, as the inspector's does, the chip names the shape: `uniform`, `split`, `custom`,
+`linked` for channels drawing one table over one base, and a count of channels that differ.
+Anywhere else it carries the range itself, `XYZ 10 .. 20`. A table on a per-frame field reads
+`random every frame` in the warning tone, and a set the game cannot read reads `broken` in the
+danger tone.
 
 Both are drawn only where the row has dynamics, which is one condition rather than two: the
 probability tables are a field inside the dynamics, so a value with no curve has no tables either.
-A row with no dynamics draws neither, per [what has no curve](#what-has-no-curve).
+A row with no dynamics draws neither, per [what has no curve](#what-has-no-curve). The chip is a
+bare die until the tables are read, and is gone once they read as filler, because a set of tables
+that each multiply by 1 draws nothing a reader needs to open.
 
-### The three tabs
+### The tabs
 
 **Graph** plots the keys over [the window](#the-window-a-curve-is-drawn-over). A vector draws a
-line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one.
+line per channel, X red, Y green and Z blue as Riot draws them, with chips that mute one. The
+value axis takes three to five round ticks over faint grid lines, a stronger line at 0 and the
+unit by the top tick. The time axis ticks at quarters.
 
 A colour draws as a gradient editor instead: a bar of the stops, a marker per stop hanging off it
 at the stop's own time, and the keys themselves under them.
@@ -1300,8 +1581,8 @@ at the stop's own time, and the keys themselves under them.
 **The keys sit under the ramp rather than behind a tab of their own.** A stop's numbers are what a
 reader compares against the ramp they are looking at, and a tab is a click plus a place to
 remember. The rail and the table are one selection, so picking a marker highlights its row and
-picking a row moves the marker. A colour's strip therefore offers Graph and Probability alone,
-because a Table tab would draw the rows a second time.
+picking a row moves the marker. A colour's strip therefore offers Graph alone, because a Table tab
+would draw the rows a second time.
 
 **A colour plots no channel lines and offers no channel chips.** Four lines crossing a ramp are
 what a colour is made of rather than what it looks like, and a modder reads a colour curve as the
@@ -1324,29 +1605,96 @@ as a line held at its own level and not as a mark in the corner of an empty plot
 Each column carries the hue its line draws in on the graph, and a colour's row carries a swatch
 and its `#RRGGBBAA` ahead of the four numbers, so a key is read as a colour there too. It is the
 same table a colour's graph draws under its ramp, which is why a colour is offered no tab of it.
+A value with no keys is offered no Table either, because it has no rows.
 
-**Probability** is `probabilityTables`, which the file writes as one nullable slot per channel. A
-slot the file leaves null is a channel with no table rather than one shifting the rest along, so a
-chip is drawn for each table that exists and the chips are the tab's own. The graph's chips cannot
-serve here, because a colour draws none.
+### The random spread
 
-Where a table holds no keys its `singleValue` draws in place of a plot, defaulting to `1` as the
-schema does. **What the game samples from a probability table is documented nowhere**, in the
-reversing notes or elsewhere, so the tab draws the lists it finds and claims nothing about them.
+`probabilityTables` is one nullable slot per channel, and a table is the chance against a factor:
+a particle's birth rolls one chance, reads every channel's table at it, and multiplies the sampled
+value by what it reads. One roll serves every channel and every birth value of the particle, so X
+and Y of one particle move together.
+
+**The spread draws on the Graph rather than on a tab of its own.** A table plotted as a line reads
+as a curve over time, which it is not. What a modder asks is what the value draws, the curve times
+the table, and the Graph draws that in one of two forms.
+
+**A value with no keys draws lanes in place of the time plot.** Its curve is one level, so time
+says nothing, and a lane is the surface an edit drags.
+
+```
+X  -55 .. -33 or 33 .. 55 /s |  ____       ////       __|_   41.2  [keys]
+   split                     | -60   -30     0     30    60
+Y  -10 .. -8 or 8 .. 10 /s   |  ____       ////       _|__    8.6  [keys]
+   split                     | -10   -5      0     5     10
+Z  0  fixed                  |  -----------|-----------
+```
+
+- one lane per channel, on its own scale with round ticks and 0 marked where it falls inside, so
+  Y at 10 gets the width X at 55 does
+- a label column on the left, as wide as the widest label: channel, result range with unit, shape
+- density as a filled step area in the channel's hue, a split's gap hatched
+- a fixed or filler channel as a thin dim lane with one tick at its value
+- after the lane, the value at the pin and a keys button
+- lanes scroll when the dock is short, and a muted chip hides its lane
+
+Under [where editing is allowed](#where-editing-is-allowed), a block end drags min or max and a
+fixed channel's tick drags open into a range.
+
+**A value that animates keeps its time plot, with a density edge.** A random channel carries a band
+from the curve at its least factor to the curve at its most, and a split carries two. A column on
+the plot's right edge shares the value axis and draws the density at one time: the cursor's, else
+the playhead's, drawn as a vertical line. A birth value samples at the emitter's life ratio, so
+its playhead is known. A per-particle curve has none and rests at 0. A readout row per channel
+under the plot reads that time: range, unit, shape, pin value and a keys button.
+
+```
+50 /s |          |  ___----====  |##
+25    |- - - ___-|- - - - - - - -|####
+ 0    |==.-'=====|===============|##
+      0   .25   .36    .75     1  births
+X  12 .. 36 deg   uniform   pin 24.0  [keys]
+Y  0              fixed
+```
+
+**The words.** A range is the result, the base times the factor. A base that animates has no one
+result, so the popover reads the factor alone. The shape is `uniform` for two keys on 0 and 1,
+`split` for one step of 0.01 chance or less, and `custom` for anything else. Filler reads dim:
+`fixed` for a table of 1, `x2 always` for one other number, `no effect, base is 0`. A slot left
+null beside a table reads `no table`, and lists of two lengths read as such, both in the danger
+tone under a line saying the game crashes on the first and reads the second as 0.
+
+**The keys button opens a popover** of chance, factor and result, the factor range over it. A key
+outside 0 to 1 draws dim as `never rolled`.
+
+**A colour with no keys draws one bar from chance 0 to 1,** every colour the roll gives, with the
+pin marked on it. A colour that animates draws its ramp at chance 0, at 1, and at the pin.
+
+**The chance can be pinned.** The toolbar's slider sets it, and so does a click or drag on any
+lane, which moves every lane's marker together, because one roll serves every channel. It pins
+every birth of the whole run, children included, and the viewport says so in its corner with a
+cross that lets it go. The run keeps drawing its own rolls under a pin, so letting go returns the
+same run. [The inspector](#the-inspector)'s section carries the same slider.
+
+The `probabilityTables` chip in the toolbar carries the one-roll sentence as its tooltip, and is
+drawn only where the value has tables.
+
+A table on `Color` or `scale0` re-rolls every frame and every channel, and the toolbar warns of it.
+Those two are the only fields that do. The Problems
+panel carries the same two faults for the whole mod: `vfx/per-frame-random` warns of a random
+table on those two fields, and `vfx/broken-random` reports a set the game crashes on or reads as 0.
 
 ### Where a curve is drawn small
 
-The emitter panel's own rows draw a sparkline beside the constant, which is the first place a
-reader sees the shape of a `ValueFloat` without leaving the panel. It carries no axis and no
-number, because it answers whether a value moves rather than what it is worth. Its channels share
-one colour at that size, where the graph tells them apart.
+A field row draws a sparkline across its value column beside the constant, in every layout that
+draws field rows. It is the first place a reader sees the shape of a `ValueFloat` without leaving
+the row. It carries no axis and no number: it answers whether a value moves rather than what it is
+worth. Its channels share one colour at that size, where the graph tells them apart.
 
-Every other surface keeps the mark. Two more read levels for the eight rows a group shows is
-bounded, and the same rule over the emitter table's four value columns is 240 curves on one
-screen. A panel the table has folded away reads none of them, because what is not drawn is not
-read.
+A table cell keeps the mark. The same rule over the emitter table's four value columns is 240
+curves on one screen. A field row reads its curve as its section scrolls into view, and a folded
+section or a panel the table has folded away reads none. What is not drawn is not read.
 
-A curve of one key draws no sparkline, since a single key is the constant the row already draws.
+A curve of one key draws no sparkline. A single key is the constant the row draws.
 
 ### What has no curve
 
@@ -1644,6 +1992,7 @@ result is a mod rather than a modified install.
 | Is eight open documents the right bound, or should it follow the tab strip?  |
 | Is a `{k}` map subscript worth emitting before one is confirmed in game?     |
 | Should an edit be offerable as a patch record once `ltk_meta` can write one? |
+| Does a child lane's emitter take edits in its parent's tab, or only its own? |
 
 ### Answered
 

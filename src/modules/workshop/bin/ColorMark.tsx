@@ -21,6 +21,8 @@ interface ColorMarkProps {
   constant: ColorStop["rgba"] | null;
   /** The dynamics' stops, in the curve's own order. Empty where it has none. */
   stops: readonly ColorStop[];
+  /** The strip takes the rest of its line, as a field row's value column gives it. */
+  wide?: boolean;
 }
 
 /**
@@ -29,11 +31,11 @@ interface ColorMarkProps {
  * "A value family on its row" in docs/ux/BIN_EDITOR.md. A colour with no dynamics
  * draws the swatch alone, and one whose file writes no constant draws the strip alone.
  */
-export function ColorMark({ constant, stops }: ColorMarkProps) {
+export function ColorMark({ constant, stops, wide = false }: ColorMarkProps) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
+    <span className={twMerge("flex min-w-0 items-center gap-2", wide && "flex-1")}>
       {constant !== null && <Swatch rgba={constant} />}
-      {stops.length > 0 && <Strip stops={stops} />}
+      {stops.length > 0 && <Strip stops={stops} wide={wide} />}
     </span>
   );
 }
@@ -55,13 +57,16 @@ export function Swatch({ rgba, className }: { rgba: ColorStop["rgba"]; className
 }
 
 /** The curve as one band, and its stops on the card. */
-function Strip({ stops }: { stops: readonly ColorStop[] }) {
+function Strip({ stops, wide }: { stops: readonly ColorStop[]; wide: boolean }) {
   const trigger = (
     <span
       data-ui="ColorMark:strip"
       aria-label={m.workshop_bin_gradient_label({ count: stops.length })}
       /* DS-TOKEN, DS-VEIL, DS-RADIUS */
-      className={`h-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${STRIP_WIDTH} ${CHECKERBOARD} [background-size:6px_6px]`}
+      className={twMerge(
+        `h-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${STRIP_WIDTH} ${CHECKERBOARD} [background-size:6px_6px]`,
+        wide && "w-auto min-w-24 flex-1 shrink",
+      )}
     >
       <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />
     </span>
