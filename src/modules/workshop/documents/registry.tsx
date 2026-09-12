@@ -34,6 +34,7 @@ import { ObjectsDocument, useRevealInObjects } from "../objectsBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
 import { objectReferences, ReferencesDocument, useFindReferences } from "../references";
+import { ProjectTextDocument, textFileKind } from "../text-files";
 import { describeFileKind } from "../utils/fileKindIcon";
 import {
   type ContentDocument,
@@ -54,6 +55,12 @@ import { StringsDocument } from "./StringsDocument";
  * workshop, so a stop is titled by the project it sits in and not by the one on
  * screen - `layerTitle` against the wrong project names the wrong layer.
  */
+/* DS-KIND-HUE: a root text file is a kind of its own, not a status. */
+function glyphClass(file: ContentDocumentOf<"text">["file"]): string {
+  const hue = file === "readme" ? "text-doc-readme-text" : "text-doc-license-text";
+  return `h-4 w-4 shrink-0 ${hue}`;
+}
+
 export function contentEditors(project: WorkshopProject): EditorRegistry<ContentDocument> {
   return {
     details: {
@@ -85,6 +92,14 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         path: document.at ?? project.path,
       }),
       component: IgnoreRulesDocument,
+    },
+    text: {
+      icon: (document) => textFileKind(document.file).icon(glyphClass(document.file)),
+      label: (document) => ({
+        title: textFileKind(document.file).title(),
+        path: project.path,
+      }),
+      component: ProjectTextDocument,
     },
     problems: {
       icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,

@@ -217,6 +217,10 @@ export function describeWorkshopError(error: WorkshopError): ErrorCopy {
       title: m["workshop.PACK_IGNORE_PATTERN.title"](),
       description: m["workshop.PACK_IGNORE_PATTERN.description"]({ path, line, message }),
     }))
+    .with({ kind: "TEXT_FILE_CHANGED" }, ({ path }) => ({
+      title: m["workshop.TEXT_FILE_CHANGED.title"](),
+      description: m["workshop.TEXT_FILE_CHANGED.description"]({ path }),
+    }))
     .exhaustive();
 }
 

@@ -4,5 +4,7 @@ export type { EditorSurfaceProps } from "./EditorSurface";
 export { EditorSurface } from "./EditorSurface";
 export type { EditorTab, EditorTabsProps } from "./EditorTabs";
 export { EditorTabs, TabGlyph } from "./EditorTabs";
+export type { SaveStatusProps } from "./SaveStatus";
+export { SaveStatus } from "./SaveStatus";
 export type { SidePanelProps, SidePanelSection } from "./SidePanel";
 export { SidePanel } from "./SidePanel";

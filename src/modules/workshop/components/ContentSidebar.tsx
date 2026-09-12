@@ -1,4 +1,5 @@
 import {
+  BookOpenTextIcon,
   CubeIcon,
   EyeSlashIcon,
   FolderOpenIcon,
@@ -50,6 +51,8 @@ import {
   objectsDocument,
   PROBLEMS_DOCUMENT_ID,
   problemsDocument,
+  projectTextDocument,
+  README_DOCUMENT_ID,
 } from "../documents";
 import { useRevealGameSearch } from "../gameBrowser";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
@@ -290,6 +293,18 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
           onClick={() => openDocument(objectsDocument())}
           aria-label={m.workshop_objects_title()}
           className={twMerge(activeId === OBJECTS_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content={m.workshop_readme_title()}>
+        <IconButton
+          icon={<BookOpenTextIcon className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={() => openDocument(projectTextDocument("readme"))}
+          aria-label={m.workshop_readme_title()}
+          className={twMerge(activeId === README_DOCUMENT_ID && activeDocumentClass)}
         />
       </Tooltip>
 

@@ -261,6 +261,11 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
   z.object({ id: z.string(), kind: z.literal("problems") }),
   z.object({
     id: z.string(),
+    kind: z.literal("text"),
+    file: z.enum(["readme", "license"]),
+  }),
+  z.object({
+    id: z.string(),
     kind: z.literal("strings"),
     layerName: z.string(),
     locale: z.string(),

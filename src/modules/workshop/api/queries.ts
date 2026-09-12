@@ -6,6 +6,8 @@ import {
   type AppError,
   type ContentTree,
   type IgnoreRules,
+  type ProjectText,
+  type ProjectTextFile,
   type Run,
   type StringKeySearchResult,
   type ValidationResult,
@@ -88,6 +90,18 @@ export const projectQueries = {
       queryKey: workshopKeys.ignoreRules(projectPath ?? "", at),
       queryFn: projectPath
         ? async () => unwrapForQuery(await api.ignoreRules.read(projectPath, at))
+        : skipToken,
+      refetchOnWindowFocus: true,
+      staleTime: CONTENT_SCAN_STALE_MS,
+    }),
+
+  /* Refetched on focus for the reason the rules are: a creator writes prose in
+     a real editor as readily as in this one. */
+  projectText: (projectPath: string | undefined, file: ProjectTextFile) =>
+    queryOptions<ProjectText, AppError>({
+      queryKey: workshopKeys.projectText(projectPath ?? "", file),
+      queryFn: projectPath
+        ? async () => unwrapForQuery(await api.projectText.read(projectPath, file))
         : skipToken,
       refetchOnWindowFocus: true,
       staleTime: CONTENT_SCAN_STALE_MS,

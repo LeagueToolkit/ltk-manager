@@ -2,7 +2,8 @@ import { InfoIcon, PackageIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 
-import { Button, Field, SectionCard, Tooltip } from "@/components";
+import { Button, Code, Field, SectionCard, Tooltip } from "@/components";
+import { m, Marked } from "@/i18n";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useSettings } from "@/modules/settings";
 
@@ -11,7 +12,9 @@ import { CategorizationSection } from "../components/overview/CategorizationSect
 import { ProjectInfoSection } from "../components/overview/ProjectInfoSection";
 import { ThumbnailSection } from "../components/overview/ThumbnailSection";
 import { useProjectContext } from "../components/ProjectContext";
+import { useOpenDocument } from "../state";
 import { useMoveProjectDocuments, useSetDocumentDirty } from "../state";
+import { projectTextDocument } from "./contentDocument";
 import type { ContentDocumentOf } from "./contentDocument";
 import { DETAILS_DOCUMENT_ID } from "./contentDocument";
 import { useProjectDetails, validateVersion } from "./useProjectDetails";
@@ -133,6 +136,8 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
                     />
                   )}
                 </form.AppField>
+
+                <ReadmeLink />
               </div>
             </div>
           </SectionCard>
@@ -185,5 +190,29 @@ function VersionHint() {
         Pre-release: <code>1.0.0-beta.1</code>
       </p>
     </div>
+  );
+}
+
+/**
+ * Where the long description lives, beside the one line that is not it.
+ *
+ * The project row opens the same document. A creator filling in the blurb is
+ * the one who has not met it yet.
+ */
+function ReadmeLink() {
+  const openDocument = useOpenDocument();
+
+  return (
+    <p className="flex items-center gap-1.5 text-meta text-surface-400">
+      <Marked text={m.workshop_readme_details_hint()}>{(clause) => <Code>{clause}</Code>}</Marked>
+      <Button
+        variant="ghost"
+        size="xs"
+        compact
+        onClick={() => openDocument(projectTextDocument("readme"))}
+      >
+        {m.workshop_readme_open_action()}
+      </Button>
+    </p>
   );
 }

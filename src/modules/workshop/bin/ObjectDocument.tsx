@@ -19,7 +19,12 @@ import { Button, IconButton, Menu, SegmentedControl, Spinner } from "@/component
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinObjectHeader } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps, Seam } from "@/modules/editor";
+import {
+  DocumentToolbar,
+  type EditorDocumentProps,
+  Seam,
+  useNarrowToolbar,
+} from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
@@ -40,7 +45,6 @@ import { type CurveDock, CurveDockContext, type CurveTarget } from "./curveTarge
 import { OtherDeclarations } from "./OtherDeclarations";
 import { ShellHeaderContext, ShellHeaderSlot, useShellHeaderSlots } from "./shellHeader";
 import { useBinDocument } from "./useBinDocument";
-import { useNarrowToolbar } from "./useNarrowToolbar";
 import { useShowInFile } from "./useShowInFile";
 
 /**
