@@ -65,7 +65,7 @@ function Strip({ stops, wide }: { stops: readonly ColorStop[]; wide: boolean }) 
       /* DS-TOKEN, DS-VEIL, DS-RADIUS */
       className={twMerge(
         `h-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${STRIP_WIDTH} ${CHECKERBOARD} [background-size:6px_6px]`,
-        wide && "w-auto min-w-24 flex-1 shrink",
+        wide && "h-5 w-48",
       )}
     >
       <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />

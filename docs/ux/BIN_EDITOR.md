@@ -1021,8 +1021,9 @@ would read as the whole value. The first level of the value read answers `consta
 `dynamics` together, so the mark costs no call of its own.
 
 A field row draws the shape rather than the mark, in every layout that draws field rows: an
-animated row takes its curve on a band under its name, per [the inspector](#the-inspector). A table
-cell keeps the mark, and so does a field row whose keys the read has not answered.
+animated row takes its curve on a plate in its value column, per
+[the inspector](#the-inspector). A table cell keeps the mark, and so does a field row whose keys
+the read has not answered.
 
 ### What a layout reads
 
@@ -1413,19 +1414,15 @@ INSPECTOR  Orb [0] / Birth v          Chance 0.55   Defaults ( )
      particleLifetime        [0.7        ] s
      lifetime                [4.25       ] s
  v BIRTH
-     birthOrbitalVelocity    [x 0  ][y 5  ][z 0  ]
-   | birthVelocity
-   | [x -200 .. 0 ][y 0 .. 5  ][z 0       ]        2 channels
-   ! birthColor
-   ! [######### gradient #########]               A 0.1 .. 1
+     birthOrbitalVelocity  [x 0 ][y 5 ][z 0 ]
+   | birthVelocity         [x -200..0][y 0..5][z 0]     2 channels
+   ! birthColor            [#### gradient ####]          A 0.1 .. 1
  v POSITION
    > SpawnShape            VfxShapeLegacy
-   | EmitterPosition
-   | [x 0        ][y 0 .. 20 ][z 0        ]           Y uniform
-     isGroundLayer           [x]
+   | EmitterPosition       [x 0 ][y 0..20][z 0 ]          Y uniform
+     isGroundLayer         [x]
  v SCALE
-     scale0
-     [~~~~~~~~~~~~~~ curve ~~~~~~~~~~~~~~~]            animated
+     scale0                [~~~~~ curve ~~~~~]             animated
 
 |  a field the birth roll reaches   !  a field that rerolls every frame
 ```
@@ -1445,12 +1442,13 @@ random range reads `min .. max`. Which unit a field carries is a table written b
 groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. A path
 reads its file name whole and its folder dimmed, cut from its start where the column runs out.
 
-**A value the column cannot hold takes a band under its name.** A curve, a colour ramp and a range
-the axis columns would cut drop to a line of their own, which runs from the row's own indent to the
-pane's right padding, so a value inside an opened struct stays visibly inside it. The name keeps
-the line above, the shape chip sits at the band's right end, and one fill and one menu cover both
-lines, because the two lines are one row. A scalar, a flag and a vector of constants stay on one
-line. A click on a band aims the curve pane, and a click on the name opens the field card.
+**A curve and a colour ramp draw on a plate of one width.** Both sit in the value column on the
+row's own line, at the width every other plate down the pane takes, so a row keeps one height
+whatever it holds. A curve stretched over the whole pane is a hairline, which reads as a stray rule
+rather than as a shape, and plates of two widths are the ragged column the inspector exists to keep
+straight. A plate is recessed off the row, because the row is what a reader scans and the plate is
+what they stop on. The shape chip sits after it. A click on a plate aims the curve pane, and a
+click on the name opens the field card.
 
 **The roll rail says when a value is rolled.** A gutter at the pane's left edge, outside the fold
 carets and outside every indent, carries a segment beside each field whose tables draw more than
@@ -1482,7 +1480,7 @@ A reading with no run has no birth to pin and the header carries nothing.
 [leaf editing](#editing) turns into an input.
 
 The row is `FieldRow` and `ValueCell`, and every layout that draws field rows draws these, the
-skin's inspector and the stacked layouts included. The band is theirs too. The roll rail, the
+skin's inspector and the stacked layouts included. The plate is theirs too. The roll rail, the
 sticky header and the group menu are the particle system's own, because a birth roll and a group
 are things only an emitter has.
 
@@ -1719,9 +1717,9 @@ back while their findings are too noisy to draw.
 
 ### Where a curve is drawn small
 
-A field row draws a sparkline on a band under its name, in every layout that draws field rows, and
-the band is what gives it a width worth reading. It is the first place a reader sees the shape of a
-`ValueFloat` without leaving the row. It carries no axis and no number: it answers whether a value moves rather than what it is
+A field row draws a sparkline on a plate under its name, in every layout that draws field rows, at
+one width down the pane. It is the first place a reader sees the shape of a `ValueFloat` without
+leaving the row. It carries no axis and no number: it answers whether a value moves rather than what it is
 worth. Its channels share one colour at that size, where the graph tells them apart.
 
 A table cell keeps the mark. The same rule over the emitter table's four value columns is 240

@@ -234,7 +234,7 @@ interface FieldRowProps {
 }
 
 /**
- * One field as its name and the box its value is shaped as, on one line or on two.
+ * One field on a line of its own: its name, and the box its value is shaped as.
  *
  * "A row is shaped as its input" in docs/ux/BIN_EDITOR.md. The name is the field card's
  * trigger, and every layout drawing field rows draws this one.
@@ -246,33 +246,10 @@ export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowPr
   const folds = family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
   const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
-  const mark = useValueMark(rowKey(row));
   const name = <FieldName row={row} width={width} owner={owner} caret={caret} />;
   const nested = document !== null && folds && open && (
     <NestedRows document={document} row={row} width={width} />
   );
-
-  /* The dynamics rather than the keys, so the row does not fall to two lines under a
-     reader once the read lands. "A value the column cannot hold takes a band under its
-     name" in docs/ux/BIN_EDITOR.md. */
-  if (family !== null && mark?.curve === true) {
-    return (
-      <>
-        {/* DS-VEIL, DS-RADIUS */}
-        <div
-          className="relative flex flex-col rounded-sm px-1.5 pb-0.5 hover:bg-surface-veil-soft"
-          data-row-key={rowKey(row)}
-        >
-          {rail}
-          <span className="flex min-h-6 min-w-0 items-center">{name}</span>
-          <span className="flex min-w-0 items-center gap-2">
-            <ValueCell row={row} shaped banded railed={rail !== undefined} />
-          </span>
-        </div>
-        {nested}
-      </>
-    );
-  }
 
   return (
     <>
@@ -398,13 +375,10 @@ function FieldName({ row, width, owner, caret }: FieldNameProps) {
 export function ValueCell({
   row,
   shaped = false,
-  banded = false,
   railed = false,
 }: {
   row: BinRow;
   shaped?: boolean;
-  /** The cell has the row's own band to itself, so its curve is drawn at that width. */
-  banded?: boolean;
   /** The layout draws a roll rail, which already says when the table is re-rolled. */
   railed?: boolean;
 }) {
@@ -412,7 +386,6 @@ export function ValueCell({
   const keys = sparkKeys(mark);
   const { aim } = useCurveDock();
   const chain = useCurveChain(row.name);
-  const stretch = banded && keys.length > 0;
 
   /* Both of Riot's editors put the constant inline and the triggers after it, so a reader
      tuning a value sees what it is worth and reaches the rest of it from the same row. The
@@ -421,19 +394,13 @@ export function ValueCell({
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
       {mark?.curve === true && (
-        <span
-          className={twMerge("flex items-center gap-0.5", stretch ? "min-w-0 flex-1" : "shrink-0")}
-        >
-          <Trigger
-            label={m.workshop_bin_show_curve_action()}
-            className={twMerge(stretch && "min-w-0 flex-1")}
-            onClick={() => aim({ row, chain })}
-          >
+        <span className="flex shrink-0 items-center gap-0.5">
+          <Trigger label={m.workshop_bin_show_curve_action()} onClick={() => aim({ row, chain })}>
             {keys.length > 0 && (
               <Sparkline
                 keys={keys}
                 label={m.workshop_bin_curve_keys_label({ count: keys.length })}
-                wide={stretch}
+                wide={shaped}
               />
             )}
             {keys.length === 0 && (

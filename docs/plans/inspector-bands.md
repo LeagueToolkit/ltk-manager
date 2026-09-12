@@ -36,18 +36,26 @@ reads a value.
 | 15  | The row's targets     | Name is the card, band is the dock, rail is the roll      |
 | 16  | The chance pin        | Moves to the transport. The header reads the pinned value |
 
+Decisions 2, 5, 7 and 11 put a rich value on a second line under its name, and stage 1 supersedes
+all four. Bounding the widget to one width is what retired them: a plate that fits beside the name
+needs no line of its own, and a row of one height is easier to scan than one that grows.
+
 ## The stages
 
-### 1. The band
+### 1. The plate
 
-`FieldRow` in `src/modules/workshop/bin/ClassCells.tsx` grows a second line. A row is rich when its
-value is a curve with keys, a colour ramp, or a vector whose axes carry ranges. The band is a
-sibling of the name line inside the row's own hover container, so one fill, one `data-row-key` and
-one menu cover both lines.
+A curve and a colour ramp draw on a plate of one width in the row's own value column: `w-48`, and
+one rung below the row at `bg-surface-950/40`, so the plate reads under the line rather than on it.
+`Sparkline` and `ColorMark` take a `wide` flag that a field row sets and a table cell does not, so
+the dense readings keep their 40 px mark.
 
-The band's left edge is the container's, which `NestedRows` has already indented by `pl-3` per
-level, and its right edge is the scroller's padding. The name column keeps its `width` prop and the
-band ignores it.
+A row stays one line. A second line under the name was the first shape this took, and the plate
+retired it: once the widget is bounded it fits beside the name, and a row of one height is what
+lets a reader scan the column.
+
+A plate stretched to the pane's edge is the other thing this replaces. `preserveAspectRatio="none"`
+over 600 px turns a curve into a hairline, and plates of two widths leave the ragged value column
+the inspector exists to keep straight.
 
 This lands in every layout that draws field rows at once: `GroupSection`, `ClassSections`
 (`SectionBody`, `NamedFields`), `NestedRows` and `SkinSections` (`MeshCard`). Judge it on the skin
