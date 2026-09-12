@@ -131,7 +131,8 @@ interface ObjectRowProps extends ObjectsTreeRowProps {
  * An object: its mark, its last segment, its class and its source.
  *
  * A node that is both an object and a prefix opens from its body and toggles from its
- * caret alone, per "What a row opens" in docs/ux/PROJECT_EDITOR.md.
+ * caret alone, per "What a row opens" in docs/ux/PROJECT_EDITOR.md. The class yields
+ * its room first and the name last, per "The tree" there.
  */
 function ObjectRow({
   node,
@@ -184,15 +185,15 @@ function ObjectRow({
       )}
       {!opens && <CaretSlot />}
       <ObjectGlyph objectClass={first?.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-      <span className={twMerge("truncate", node.unnamed && "text-surface-300")}>
+      <span className={twMerge("min-w-0 truncate", node.unnamed && "text-surface-300")}>
         <MarkedText text={node.name} ranges={rangesInName(node.path, node.ranges)} />
       </span>
       {first && (
-        <span className="ml-2 max-w-[40%] shrink-0 truncate">
+        <span className="ml-2 min-w-0 shrink-1000 truncate opacity-60">
           <ClassCard classHash={first.classHash} name={classLabel(first.class, first.classHash)} />
         </span>
       )}
-      <span className="ml-auto max-w-[40%] shrink-0 truncate text-[0.625rem] text-surface-400">
+      <span className="ml-auto min-w-0 shrink-10 truncate pl-2 text-[0.625rem] text-surface-400">
         <Source node={node} />
       </span>
       {node.layers.map((layer) => (
@@ -210,12 +211,17 @@ function classLabel(cls: string, classHash: string): string | null {
   return cls === classHash ? null : cls;
 }
 
-/** The declaring file, or a chip listing the files where several declare the node. */
+/** The declaring file's name, or a chip listing the files where several declare the node. */
 function Source({ node }: { node: ObjectRowNode }) {
   const first = node.declarations[0];
   if (!first) return null;
   if (node.declarations.length > 1) return <FilesChip node={node} />;
-  return <>{declaringFileContext(first.asset, first.file)}</>;
+  return <span title={declaringFileContext(first.asset, first.file)}>{fileName(first.file)}</span>;
+}
+
+/** The last segment of a declaring file's path, which is what tells two files apart in a row. */
+function fileName(file: string): string {
+  return file.slice(Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\")) + 1);
 }
 
 /** Hover for this long opens the list, the tooltip delay. A click does not wait. */

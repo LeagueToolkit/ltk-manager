@@ -107,7 +107,9 @@ describe("ObjectsTreeRow", () => {
     const row = screen.getByRole("treeitem");
     expect(row).toHaveTextContent("skin0");
     expect(row).toHaveTextContent("SkinCharacterDataProperties");
-    expect(row).toHaveTextContent("Aatrox/…/skin0.bin");
+    expect(row).toHaveTextContent("skin0.bin");
+    expect(row).not.toHaveTextContent("Aatrox/…/skin0.bin");
+    expect(screen.getByTitle("Aatrox/…/skin0.bin")).toHaveTextContent("skin0.bin");
     expect(row).not.toHaveAttribute("aria-expanded");
 
     await user.click(screen.getByText("skin0"));
