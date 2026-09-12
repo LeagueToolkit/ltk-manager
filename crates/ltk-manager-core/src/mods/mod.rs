@@ -41,6 +41,7 @@ pub use analysis::categorize::{ChampionRoster, DerivedCategorization};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
 pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
+pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
@@ -51,7 +52,9 @@ pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, HealthCheckReadiness, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
-pub use types::{BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, Profile};
+pub use types::{
+    BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, ModLicense, Profile,
+};
 
 use crate::config::Config;
 use crate::events::EventSink;

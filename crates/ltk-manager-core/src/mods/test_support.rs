@@ -282,6 +282,17 @@ pub(crate) fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
 /// A modpkg's archive is the mod, so anything that reads one has to mount it —
 /// a stub of made-up bytes proves nothing about the path under test.
 pub(crate) fn make_modpkg(path: &Path, name: &str) {
+    make_modpkg_with_documents(path, name, None, None);
+}
+
+/// [`make_modpkg`] carrying a readme and a license, picked up out of the
+/// project root the same way a creator's own pack picks them up.
+pub(crate) fn make_modpkg_with_documents(
+    path: &Path,
+    name: &str,
+    readme: Option<&str>,
+    license: Option<&str>,
+) {
     let source = tempfile::tempdir().unwrap();
     let wad_dir = source
         .path()
@@ -296,12 +307,50 @@ pub(crate) fn make_modpkg(path: &Path, name: &str) {
         serde_json::to_string_pretty(&mod_project_named(name)).unwrap(),
     )
     .unwrap();
+    if let Some(readme) = readme {
+        fs::write(source.path().join("README.md"), readme).unwrap();
+    }
+    if let Some(license) = license {
+        fs::write(source.path().join("LICENSE"), license).unwrap();
+    }
 
     let project_dir = camino::Utf8PathBuf::from_path_buf(source.path().to_path_buf()).unwrap();
     let writer = std::io::BufWriter::new(fs::File::create(path).unwrap());
     ltk_mod_project::ProjectPacker::new(mod_project_named(name), project_dir)
         .pack(ltk_mod_project::modpkg::ModpkgFormat::new(writer))
         .unwrap();
+}
+
+/// [`make_named_fantome_zip`] carrying a readme and a license under `META/`,
+/// where a fantome's own documents live and where nothing extracts them.
+pub(crate) fn make_fantome_zip_with_documents(
+    path: &Path,
+    name: &str,
+    readme: Option<&str>,
+    license: Option<&str>,
+) {
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+
+    zip.start_file("META/info.json", options).unwrap();
+    zip.write_all(
+        serde_json::to_string_pretty(&fantome_info(name))
+            .unwrap()
+            .as_bytes(),
+    )
+    .unwrap();
+
+    if let Some(readme) = readme {
+        zip.start_file("META/README.md", options).unwrap();
+        zip.write_all(readme.as_bytes()).unwrap();
+    }
+    if let Some(license) = license {
+        zip.start_file("META/LICENSE", options).unwrap();
+        zip.write_all(license.as_bytes()).unwrap();
+    }
+
+    zip.finish().unwrap();
 }
 
 /// Build a minimal but valid fantome archive: a zip whose only entry is

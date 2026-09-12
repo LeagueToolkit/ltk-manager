@@ -109,6 +109,8 @@ fn main() {
             commands::inspect_modpkg,
             commands::get_mod_thumbnail,
             commands::get_mod_thumbnails,
+            commands::get_mod_readme,
+            commands::get_mod_license_text,
             commands::get_storage_directory,
             commands::reorder_mods,
             commands::get_mod_wad_report,

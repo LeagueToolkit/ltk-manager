@@ -13,19 +13,15 @@ interface SortableModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
   dropLine?: CardDropLine;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 /* Memoised: a drag re-renders the sortable context on every pointer move, and
-   a library is hundreds of these. Every prop is stable per card - the mod comes
-   from the query cache and both callbacks are setState. */
+   a library is hundreds of these. Every prop is stable per card, since the mod
+   comes from the query cache. */
 export const SortableModCard = memo(function SortableModCard({
   mod,
   viewMode,
   dropLine = NO_DROP_LINE,
-  onViewDetails,
-  onEditMetadata,
 }: SortableModCardProps) {
   const reorderDisabled = useReorderDisabled();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -59,12 +55,7 @@ export const SortableModCard = memo(function SortableModCard({
         />
       )}
       <div className={`${viewMode === "list" ? "" : "h-full"} ${isDragging ? "invisible" : ""}`}>
-        <ModCard
-          mod={mod}
-          viewMode={viewMode}
-          onViewDetails={onViewDetails}
-          onEditMetadata={onEditMetadata}
-        />
+        <ModCard mod={mod} viewMode={viewMode} />
       </div>
     </div>
   );

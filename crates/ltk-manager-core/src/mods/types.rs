@@ -87,6 +87,39 @@ pub struct ModLayer {
     pub enabled: bool,
 }
 
+/// What a mod says it is licensed under.
+///
+/// The name alone, which every mod's config already carries. A license's text
+/// reaches disk for neither format and costs one archive mount, so it is read
+/// where a reader asks to see it rather than beside every card.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ModLicense {
+    /// An SPDX id, or the name a custom license gives itself.
+    pub name: String,
+    /// Where the full terms are, for a license that points anywhere.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub url: Option<String>,
+}
+
+impl From<&ltk_mod_project::ModProjectLicense> for ModLicense {
+    fn from(license: &ltk_mod_project::ModProjectLicense) -> Self {
+        match license {
+            ltk_mod_project::ModProjectLicense::Spdx(id) => Self {
+                name: id.clone(),
+                url: None,
+            },
+            ltk_mod_project::ModProjectLicense::Custom { name, url } => Self {
+                name: name.clone(),
+                url: url.clone(),
+            },
+        }
+    }
+}
+
 /// A mod entry shown in the UI Library.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -116,6 +149,10 @@ pub struct InstalledMod {
     pub has_archive: bool,
     /// ID of the containing folder, or None if ungrouped.
     pub folder_id: Option<String>,
+    /// What the mod's config declares it is licensed under, if it declares one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    pub license: Option<ModLicense>,
     /// The mod's directory name under `mods/`.
     ///
     /// `None` while the mod is still in the legacy layout the migration has

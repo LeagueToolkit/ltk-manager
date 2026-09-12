@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
@@ -18,16 +17,11 @@ import { useLibrarySelectionStore } from "../../state";
 
 const ROOT_FOLDER_ID = "root";
 
-/** Which commands a card's right click opens: its own, or the selection's. */
-export type MenuScope = "card" | "selection";
-
 type Modifiers = Pick<React.MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">;
 
 export interface ModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 /**
@@ -66,19 +60,14 @@ export interface ModCardView {
   hasSelection: boolean;
   isSelected: boolean;
   inEnabledState: boolean;
-  /** Which commands the right click landed on, decided before the pick moved under it. */
-  menuScope: MenuScope;
   /** Whether the mod cannot be used at all, which is not the same as being off. */
   blocked: boolean;
   isInteractive: boolean;
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
-  wadFootprintOpen: boolean;
-  setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onCardKeyDown: (e: React.KeyboardEvent) => void;
-  onCardContextMenu: () => void;
   onSelectionToggle: () => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
@@ -86,19 +75,13 @@ export interface ModCardView {
   onCopyId: () => void;
   onOpenLocation: () => void;
   onRemoveFromFolder: () => void;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 /**
  * Owns all of a mod card's interaction logic and the UI state that must be shared
  * between the card body, toggle control, context menu, and skinhack dialog
  */
-export function useModCardController({
-  mod,
-  onViewDetails,
-  onEditMetadata,
-}: ModCardProps): ModCardView {
+export function useModCardController({ mod }: ModCardProps): ModCardView {
   const { data: thumbnailUrl } = useModThumbnail(mod.id);
   const toast = useToast();
   const toggleMod = useToggleMod();
@@ -111,8 +94,6 @@ export function useModCardController({
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
   const toggleSelection = useLibrarySelectionStore((s) => s.toggle);
   const selectRangeTo = useLibrarySelectionStore((s) => s.selectRangeTo);
-  const selectOnly = useLibrarySelectionStore((s) => s.selectOnly);
-  const [menuScope, setMenuScope] = useState<MenuScope>("card");
 
   const {
     isFlagged,
@@ -121,7 +102,6 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
-  const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const disabled = isFlagged || patcherRunning;
   // A patcher run owns the library. Being unusable is not the same thing, and is
   // the state most in need of a menu.
@@ -206,17 +186,6 @@ export function useModCardController({
     activateCard(e);
   }
 
-  /* Read before the pick moves, so a right click that collapses the selection
-     onto this card still opens the card's own commands. */
-  function handleCardContextMenu() {
-    if (isSelected) {
-      setMenuScope("selection");
-      return;
-    }
-    setMenuScope("card");
-    selectOnly(mod.id);
-  }
-
   const blocked = isFlagged;
   const inEnabledState = mod.enabled && !blocked;
   const isInteractive = !blocked && !disabled;
@@ -240,17 +209,13 @@ export function useModCardController({
     hasSelection,
     isSelected,
     inEnabledState,
-    menuScope,
     blocked,
     isInteractive,
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
-    wadFootprintOpen,
-    setWadFootprintOpen,
     onCardClick: handleCardClick,
     onCardKeyDown: handleCardKeyDown,
-    onCardContextMenu: handleCardContextMenu,
     onSelectionToggle: () => toggleSelection(mod.id),
     onToggle: handleToggle,
     onUninstall: handleUninstall,
@@ -258,7 +223,5 @@ export function useModCardController({
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,
     onRemoveFromFolder: handleRemoveFromFolder,
-    onViewDetails,
-    onEditMetadata,
   };
 }

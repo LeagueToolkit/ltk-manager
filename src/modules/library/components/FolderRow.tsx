@@ -19,18 +19,9 @@ interface FolderRowProps {
   /** The gap a mod would land in among this folder's mods. */
   modDropLine?: LingeringSlot;
   dndDisabled?: boolean;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-export function FolderRow({
-  folder,
-  mods,
-  modDropLine,
-  dndDisabled = true,
-  onViewDetails,
-  onEditMetadata,
-}: FolderRowProps) {
+export function FolderRow({ folder, mods, modDropLine, dndDisabled = true }: FolderRowProps) {
   const expandedFolders = useLibraryViewStore((s) => s.expandedFolders);
   const toggleFolderExpanded = useLibraryViewStore((s) => s.toggleFolderExpanded);
   const isExpanded = expandedFolders.has(folder.id);
@@ -79,13 +70,7 @@ export function FolderRow({
             ) : dndDisabled ? (
               <div className="flex flex-col gap-2">
                 {mods.map((mod) => (
-                  <ModCard
-                    key={mod.id}
-                    mod={mod}
-                    viewMode="list"
-                    onViewDetails={onViewDetails}
-                    onEditMetadata={onEditMetadata}
-                  />
+                  <ModCard key={mod.id} mod={mod} viewMode="list" />
                 ))}
               </div>
             ) : (
@@ -97,8 +82,6 @@ export function FolderRow({
                       key={mod.id}
                       mod={mod}
                       viewMode="list"
-                      onViewDetails={onViewDetails}
-                      onEditMetadata={onEditMetadata}
                     />
                   ))}
                 </div>

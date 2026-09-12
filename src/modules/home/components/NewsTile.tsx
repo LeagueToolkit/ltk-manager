@@ -6,8 +6,6 @@ import {
   LifebuoyIcon,
   StackIcon,
 } from "@phosphor-icons/react";
-import { open } from "@tauri-apps/plugin-shell";
-import type { MouseEvent } from "react";
 
 import { Button, ExternalLink } from "@/components";
 import { m } from "@/i18n";
@@ -49,12 +47,6 @@ const LEARN_LINKS: StandingLink[] = [
   },
 ];
 
-/** The link opens in the browser through the shell plugin, which is where every outside link goes. */
-function openInBrowser(event: MouseEvent<HTMLAnchorElement>) {
-  event.preventDefault();
-  void open(event.currentTarget.href);
-}
-
 /** The project's posts, then the links that stand whether or not it has posted. */
 export function NewsTile() {
   const { data: posts, error, refetch } = useAnnouncements();
@@ -81,7 +73,6 @@ export function NewsTile() {
                 <ExternalLink
                   href={post.url}
                   hideIcon
-                  onClick={openInBrowser}
                   className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
                 >
                   <span className="line-clamp-2 text-sm leading-snug">{post.title}</span>
@@ -109,7 +100,6 @@ export function NewsTile() {
               key={href}
               href={href}
               hideIcon
-              onClick={openInBrowser}
               className="gap-2 rounded-md px-2 py-1.5 text-sm text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
             >
               <Glyph className="h-4 w-4 shrink-0 text-surface-400" />

@@ -2,6 +2,7 @@
 import type { HarvestSummary } from "./HarvestSummary";
 import type { ModArchiveFormat } from "./ModArchiveFormat";
 import type { ModLayer } from "./ModLayer";
+import type { ModLicense } from "./ModLicense";
 import type { ModStorage } from "./ModStorage";
 
 /**
@@ -29,6 +30,10 @@ hasArchive: boolean,
  * ID of the containing folder, or None if ungrouped.
  */
 folderId: string | null, 
+/**
+ * What the mod's config declares it is licensed under, if it declares one.
+ */
+license?: ModLicense | null, 
 /**
  * The mod's directory name under `mods/`.
  *

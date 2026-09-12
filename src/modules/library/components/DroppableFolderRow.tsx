@@ -7,10 +7,9 @@ import { FolderRow } from "./FolderRow";
 interface DroppableFolderRowProps {
   folder: LibraryFolder;
   mods: InstalledMod[];
-  onViewDetails?: (mod: InstalledMod) => void;
 }
 
-export function DroppableFolderRow({ folder, mods, onViewDetails }: DroppableFolderRowProps) {
+export function DroppableFolderRow({ folder, mods }: DroppableFolderRowProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `folder:${folder.id}`,
     data: { type: "folder", folderId: folder.id },
@@ -23,7 +22,7 @@ export function DroppableFolderRow({ folder, mods, onViewDetails }: DroppableFol
         isOver ? "bg-accent-500/10 ring-2 ring-accent-500" : ""
       }`}
     >
-      <FolderRow folder={folder} mods={mods} onViewDetails={onViewDetails} />
+      <FolderRow folder={folder} mods={mods} />
     </div>
   );
 }

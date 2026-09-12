@@ -1,5 +1,90 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_details_cancel_action": "Cancel",
+  "library_details_champions_description": "Comma-separated list of champions (e.g. Ahri, Yasuo)",
+  "library_details_champions_label": "Champions",
+  "library_details_champions_placeholder": "e.g. Riven, Lee Sin",
+  "library_details_discard_action": "Discard",
+  "library_details_discard_description": "Leaving this mod drops what you typed. Nothing is saved until you save it.",
+  "library_details_discard_heading": "Discard your changes?",
+  "library_details_discard_title": "Unsaved changes",
+  "library_details_edit_action": "Edit",
+  "library_details_installed_label": "Installed {date}",
+  "library_details_layers_label": "Layers",
+  "library_details_maps_label": "Maps",
+  "library_details_maps_placeholder": "Select maps...",
+  "library_details_name_label": "Mod Name",
+  "library_details_name_placeholder": "e.g. My Awesome Mod",
+  "library_details_none_open_description": "Open a mod from its card menu",
+  "library_details_none_open_title": "No mod open",
+  "library_details_open_location_action": "Open Location",
+  "library_details_overrides_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} override",
+        "countPlural=other": "{count} overrides"
+      }
+    }
+  ],
+  "library_details_packaging_chunks_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} chunk",
+        "countPlural=other": "{count} chunks"
+      }
+    }
+  ],
+  "library_details_packaging_description": "This mod's archive reports checksums its own files don't have. The mod still works — the manager corrects them while building — but the tool that packed it wrote wrong metadata, so it's worth re-exporting.",
+  "library_details_packaging_label": "Packaging",
+  "library_details_save_action": "Save",
+  "library_details_save_failed_title": "Failed to update metadata",
+  "library_details_saved_hint": "Mod information has been saved successfully.",
+  "library_details_saved_title": "Metadata updated",
+  "library_details_suggestions_apply_action": "Apply all",
+  "library_details_suggestions_description": "Detected from the game files this mod patches. Click to add, then save.",
+  "library_details_suggestions_label": "Auto-detected suggestions",
+  "library_details_tags_label": "Tags",
+  "library_details_tags_placeholder": "Select tags...",
+  "library_details_thumbnail_filter_label": "Images",
+  "library_details_thumbnail_remove_action": "Remove thumbnail",
+  "library_details_thumbnail_set_action": "Set thumbnail",
+  "library_details_unknown_author_label": "Unknown author",
+  "library_details_wads_analyzed_label": "Analyzed {when}",
+  "library_details_wads_champions_label": "Champions",
+  "library_details_wads_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} WAD",
+        "countPlural=other": "{count} WADs"
+      }
+    }
+  ],
+  "library_details_wads_failed_description": "This mod could not be analyzed.",
+  "library_details_wads_label": "WAD footprint",
+  "library_details_wads_maps_label": "Maps",
+  "library_details_wads_none_description": "This mod patches no game WADs.",
+  "library_details_wads_other_label": "Other",
+  "library_details_wads_reading_label": "Reading this mod's files",
+  "library_details_wads_reanalyze_action": "Re-analyze",
+  "library_details_wads_retry_action": "Try again",
+  "library_details_wads_stale_hint": "May be outdated. Re-analyze or patch to refresh.",
+  "library_details_wads_ui_label": "UI",
+  "library_documents_close_action": "Close documents",
+  "library_documents_details_tab": "Details",
+  "library_documents_licenses_tab": "Licenses",
+  "library_documents_no_mod_title": "No mod open",
+  "library_documents_readme_tab": "Readme",
+  "library_documents_removed_description": "The mod this panel was holding is no longer installed",
+  "library_documents_removed_title": "Mod uninstalled",
+  "library_documents_resize_action": "Resize the drawer",
+  "library_documents_title": "Documents",
+  "library_documents_toggle_action": "Documents",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
   "library_health_cancel_failed_title": "Couldn't stop the run",
   "library_health_check_clean_hint": [
@@ -105,7 +190,26 @@
   "library_launch_league_only_action": "Launch League only",
   "library_launch_options_label": "More launch options",
   "library_league_close_action": "Close League",
+  "library_licenses_no_text_description": "This mod names a license and ships no text for it",
+  "library_licenses_none_open_description": "Open a mod from its card menu",
+  "library_licenses_none_open_title": "No mod open",
+  "library_licenses_undeclared_description": "This mod's author named no license for it",
+  "library_licenses_undeclared_title": "No license declared",
+  "library_licenses_unreadable_description": "This mod's archive did not answer, so its license cannot be read",
+  "library_mod_copy_id_action": "Copy ID",
+  "library_mod_details_action": "Details",
+  "library_mod_hashtables_syncing_label": "Syncing hashtables…",
+  "library_mod_hashtables_unsynced_label": "Hashtables not synced",
+  "library_mod_health_action": "Check Health",
   "library_mod_missing_title": "Mod no longer exists in the library",
+  "library_mod_open_location_action": "Open Location",
+  "library_mod_readme_action": "Readme",
+  "library_mod_remove_from_folder_action": "Remove from folder",
+  "library_mod_skinhack_action": "What is a skinhack?",
+  "library_mod_storage_archive_label": "Archive",
+  "library_mod_storage_label": "Storage",
+  "library_mod_storage_project_label": "Project",
+  "library_mod_uninstall_action": "Uninstall",
   "library_nav_label": "Mods",
   "library_patcher_no_mods_hint": "No mods are enabled - there is nothing to patch",
   "library_patcher_only_action": "Start patcher only",
@@ -123,5 +227,11 @@
   "library_play_league_running_hint": "League is already running - your mods will apply to your next game",
   "library_play_league_running_no_mods_hint": "League is already running - enable a mod to patch it",
   "library_play_no_mods_hint": "No mods are enabled - League will launch unmodded",
-  "library_play_starting_label": "Starting..."
+  "library_play_starting_label": "Starting...",
+  "library_readme_absent_description": "This mod's author shipped no readme",
+  "library_readme_absent_title": "No readme",
+  "library_readme_none_open_description": "Open a mod's readme from its card menu",
+  "library_readme_none_open_title": "No mod open",
+  "library_readme_unreadable_description": "This mod's archive did not answer, so the mod may not work at all",
+  "library_readme_unreadable_title": "Readme unreadable"
 }

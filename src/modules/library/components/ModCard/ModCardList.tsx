@@ -16,7 +16,6 @@ import {
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
-import { ModWadFootprintDialog } from "./ModWadFootprintDialog";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardList({ view }: { view: ModCardView }) {
@@ -34,7 +33,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick,
-    onCardContextMenu,
     onSelectionToggle,
   } = view;
 
@@ -71,7 +69,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
   const row = (
     <div
       onClick={onCardClick}
-      onContextMenu={onCardContextMenu}
       className={twMerge(
         "group flex items-center gap-4 rounded-lg border p-4 transition-[translate,box-shadow,background-color,border-color,opacity,filter] duration-150 ease-out",
         "hover:opacity-100 hover:saturate-100",
@@ -156,11 +153,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
         <ModCardMenu view={view} />
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModWadFootprintDialog
-        view={view}
-        open={view.wadFootprintOpen}
-        onOpenChange={view.setWadFootprintOpen}
-      />
     </ModCardContextMenu>
   );
 }

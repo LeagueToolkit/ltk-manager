@@ -15,7 +15,6 @@ import {
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
-import { ModWadFootprintDialog } from "./ModWadFootprintDialog";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardGrid({ view }: { view: ModCardView }) {
@@ -35,7 +34,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     setSkinhackInfoOpen,
     onCardClick,
     onCardKeyDown,
-    onCardContextMenu,
     onSelectionToggle,
   } = view;
 
@@ -87,7 +85,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <div
       onClick={onCardClick}
       onKeyDown={onCardKeyDown}
-      onContextMenu={onCardContextMenu}
       role="button"
       tabIndex={isInteractive ? 0 : -1}
       aria-pressed={mod.enabled}
@@ -201,11 +198,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
         </div>
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModWadFootprintDialog
-        view={view}
-        open={view.wadFootprintOpen}
-        onOpenChange={view.setWadFootprintOpen}
-      />
     </ModCardContextMenu>
   );
 }

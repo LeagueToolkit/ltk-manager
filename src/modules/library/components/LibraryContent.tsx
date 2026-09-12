@@ -8,11 +8,9 @@ import {
   useReorderMods,
 } from "@/modules/library/api";
 
-import { EditMetadataDialog } from "./EditMetadataDialog";
 import { FolderHeader } from "./FolderHeader";
 import { LibraryContextMenu } from "./LibraryContextMenu";
 import { LibraryEmptyState, LibraryErrorState, LibraryLoadingState } from "./LibraryStates";
-import { ModDetailsDialog } from "./ModDetailsDialog";
 import { SortableModList } from "./SortableModList";
 import { UnifiedDndGrid } from "./UnifiedDndGrid";
 
@@ -31,16 +29,7 @@ export function LibraryContent({
   error,
   folderId,
 }: LibraryContentProps) {
-  const {
-    viewMode,
-    dndDisabled,
-    hasSelection,
-    contentView,
-    detailsMod,
-    setDetailsMod,
-    editMod,
-    setEditMod,
-  } = useLibraryContent({
+  const { viewMode, dndDisabled, hasSelection, contentView } = useLibraryContent({
     mods,
     searchQuery,
     isLoading,
@@ -78,8 +67,6 @@ export function LibraryContent({
           viewMode={viewMode}
           onReorder={(ids) => reorderMods.mutate(ids)}
           disabled={dndDisabled}
-          onViewDetails={setDetailsMod}
-          onEditMetadata={setEditMod}
         />
       );
     }
@@ -95,8 +82,6 @@ export function LibraryContent({
               reorderFolderMods.mutate({ folderId: contentView.folder.id, modIds: ids })
             }
             disabled={dndDisabled}
-            onViewDetails={setDetailsMod}
-            onEditMetadata={setEditMod}
             className="mt-4"
             folderId={contentView.folder.id}
           />
@@ -112,8 +97,6 @@ export function LibraryContent({
         viewMode={viewMode}
         dndDisabled={dndDisabled}
         onReorder={(ids) => reorderMods.mutate(ids)}
-        onViewDetails={setDetailsMod}
-        onEditMetadata={setEditMod}
       />
     );
   }
@@ -122,24 +105,10 @@ export function LibraryContent({
      the element React reconciles at this position, so passing through loading,
      error or empty built a new scroller and the offset went with the old one. */
   return (
-    <>
-      <LibraryContextMenu>
-        <div className={scrollClass}>
-          <ModThumbnails modIds={modIds}>{content()}</ModThumbnails>
-        </div>
-      </LibraryContextMenu>
-      <ModDetailsDialog
-        open={detailsMod !== null}
-        mod={detailsMod}
-        onClose={() => setDetailsMod(null)}
-      />
-      {editMod && (
-        <EditMetadataDialog
-          mod={editMod}
-          open={editMod !== null}
-          onOpenChange={(open) => !open && setEditMod(null)}
-        />
-      )}
-    </>
+    <LibraryContextMenu>
+      <div className={scrollClass}>
+        <ModThumbnails modIds={modIds}>{content()}</ModThumbnails>
+      </div>
+    </LibraryContextMenu>
   );
 }

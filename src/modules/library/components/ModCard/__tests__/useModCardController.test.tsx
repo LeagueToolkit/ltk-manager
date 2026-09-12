@@ -241,25 +241,3 @@ describe("useModCardController gestures", () => {
     expect(selectionState.toggle).toHaveBeenCalledWith("a");
   });
 });
-
-describe("useModCardController right click", () => {
-  it("collapses the pick onto a card outside the selection, and opens its own menu", () => {
-    selectionState.selectedIds = new Set(["b"]);
-    const view = mount(createMockInstalledMod({ id: "a" }));
-
-    act(() => view.current.onCardContextMenu());
-
-    expect(selectionState.selectOnly).toHaveBeenCalledWith("a");
-    expect(view.current.menuScope).toBe("card");
-  });
-
-  it("opens what the selection carries over a card inside it", () => {
-    selectionState.selectedIds = new Set(["a", "b"]);
-    const view = mount(createMockInstalledMod({ id: "a" }));
-
-    act(() => view.current.onCardContextMenu());
-
-    expect(selectionState.selectOnly).not.toHaveBeenCalled();
-    expect(view.current.menuScope).toBe("selection");
-  });
-});

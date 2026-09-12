@@ -4,8 +4,10 @@ import type { Components } from "react-markdown";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { Code, ExternalLink } from "@/components";
 import { twMerge } from "@/utils";
+
+import { Code } from "./Code";
+import { ExternalLink, isLeavable } from "./ExternalLink";
 
 interface MarkdownViewProps {
   text: string;
@@ -15,7 +17,7 @@ interface MarkdownViewProps {
 }
 
 /**
- * A root text file as it will be read, rather than as it is written.
+ * A Markdown document as it will be read, rather than as it is written.
  *
  * Raw HTML is not rendered, which is `react-markdown`'s own default and the
  * reason it is left alone: a readme arrives from a git import or a packaged
@@ -80,12 +82,15 @@ function renderers(root: string | null): Components {
       </pre>
     ),
     img: ({ src, alt }) => {
-      const resolved = typeof src === "string" ? projectImage(src, root) : null;
+      const resolved = typeof src === "string" ? relativeImage(src, root) : null;
       if (!resolved) return <span className="text-meta text-surface-500">{alt ?? ""}</span>;
       return <img src={resolved} alt={alt ?? ""} className="mb-2 max-w-full rounded-md" />;
     },
+    /* A relative href survives react-markdown's own transform, and there is
+       nothing beside a document for it to mean, so only what the system can
+       open is drawn as a link. */
     a: ({ href, children }) => {
-      if (!href || href.startsWith("#")) return <span>{children}</span>;
+      if (!href || !isLeavable(href)) return <span>{children}</span>;
       return <ExternalLink href={href}>{children}</ExternalLink>;
     },
   };
@@ -94,11 +99,11 @@ function renderers(root: string | null): Components {
 /**
  * `src` as something the webview can load, or null where it must not.
  *
- * Only a file beside the project loads. A remote URL would tell its host that
- * the project was opened, which is a request the creator never made, and a path
- * climbing out of the project is not the project's to show.
+ * Only a file under `root` loads. A remote URL would tell its host that the
+ * document was opened, which is a request the reader never made, and a path
+ * climbing out of the root is not the root's to show.
  */
-function projectImage(src: string, root: string | null): string | null {
+function relativeImage(src: string, root: string | null): string | null {
   if (/^[a-z][a-z0-9+.-]*:/i.test(src)) return null;
   if (!root) return null;
 

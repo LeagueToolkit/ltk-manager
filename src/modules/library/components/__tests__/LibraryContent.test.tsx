@@ -30,8 +30,6 @@ vi.mock("../UnifiedDndGrid", () => ({
 }));
 vi.mock("../SortableModList", () => ({ SortableModList: () => <div>list</div> }));
 vi.mock("../FolderHeader", () => ({ FolderHeader: () => <div>folder</div> }));
-vi.mock("../ModDetailsDialog", () => ({ ModDetailsDialog: () => null }));
-vi.mock("../EditMetadataDialog", () => ({ EditMetadataDialog: () => null }));
 
 const unified: ContentView = {
   type: "unified",
@@ -46,10 +44,6 @@ function show(contentView: ContentView) {
     dndDisabled: false,
     hasSelection: false,
     contentView,
-    detailsMod: null,
-    setDetailsMod: vi.fn(),
-    editMod: null,
-    setEditMod: vi.fn(),
   });
 }
 

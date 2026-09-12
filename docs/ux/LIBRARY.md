@@ -4,6 +4,11 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
+| 2026-09-12 | The licenses tab follows the open mod, like the other two  |
+| 2026-09-12 | A right click reads a card and no longer picks it          |
+| 2026-09-12 | The details tab, which folds the three mod dialogs in      |
+| 2026-09-12 | The documents panel, its two tabs and what it persists     |
 | 2026-09-07 | The library selects by gesture, and select mode is retired |
 | 2026-09-07 | First draft of this document                               |
 
@@ -24,7 +29,7 @@ ctrl-click or shift-click rather than by a mode to switch into first.
 - A bare press means the one thing a user came to the library for
 - Picking a set costs no mode, no button and no round trip through the toolbar
 - A mouse-only reader finds the checkbox without knowing the modifier
-- Every command a selection carries is on the bar and on the right click, and they cannot drift
+- Every command a selection carries is on the bar, which is up whenever a selection is
 - Nothing acts on a mod the reader cannot see
 
 ## Feature status
@@ -36,7 +41,6 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Selection by gesture   | Available | Ctrl-click picks, shift-click ranges, no mode to enter        |
 | The checkbox           | Available | On the hovered card, and on every card under a selection      |
 | The floating bar       | Available | Five commands, while the selection is non-empty               |
-| The selection's menu   | Available | The same five on a right click over a selected card           |
 | Select all             | Available | The toolbar button, toggling all visible against clear        |
 | All visible Enable     | Available | On the button's caret, beside Disable                         |
 | Enable and disable     | Available | A bare press on a card, and a switch on a list row            |
@@ -50,6 +54,10 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
+| The documents panel    | Available | A drawer over the grid's right edge, closed until asked for   |
+| The details tab        | Available | One mod's cover, facts, layers, WAD footprint and edit form   |
+| The readme tab         | Available | One mod's readme, opened from that card's menu                |
+| The licenses tab       | Available | One mod's license name, its link, and the text it ships       |
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
 | Marquee selection      | Proposed  | Competes with drag-to-reorder for the same press              |
 | Folder moves on a pick | Proposed  | A selection carries no destination today                      |
@@ -118,18 +126,16 @@ what is left.
 
 ## What a right click opens
 
-**A right click over a selected card opens what the selection carries.** The five commands, under
-a label naming the count. This is the same list the bar draws, from the same place, so the two
-ways into a bulk action cannot come to offer different ones.
+**A right click opens the card's own menu, whatever is picked.** The same list the kebab draws,
+because which pixel was hit never changes what opens. A reader who has picked eleven mods and
+right-clicks one of them is asking about that mod, not about the eleven.
 
-**A right click outside the selection selects that card alone.** The pick collapses onto the card
-under the pointer and the card's own menu opens, so a command always acts on what was pressed.
-The menu is decided before the pick moves, which is why collapsing onto a card does not turn the
-menu into the selection's.
+**A right click reads the card and never writes the pick.** It selects nothing, deselects nothing
+and collapses nothing, so the set a reader assembled survives asking a question about one of its
+members. Picking is the checkbox's and the modifiers', which are the gestures that say so.
 
-**The kebab is always the card's own menu.** It is per-card by construction, and it draws the same
-list as the card's right click does with nothing selected. Neither closes while a selection
-exists.
+**The selection's own commands are the bar's.** The bar is up for as long as a selection is, and it
+carries all five, so nothing is out of reach once the right click stops offering them.
 
 **A right click on the library ground offers New Folder.** The ground is not a card, so it neither
 reads nor changes the selection.
@@ -159,30 +165,158 @@ Navigating away from the library clears the selection. A pick carried to another
 would let `Uninstall N` act on mods the reader cannot see, and a folder drilldown is the case that
 makes it concrete. The selection is session state and is never written to disk.
 
+## The documents panel
+
+The Library's right edge holds a panel with three tabs: **Details**, which answers what one
+installed mod is, **Readme**, which renders that mod's own readme, and **Licenses**, which names
+what that mod is licensed under. All three answer for the one mod the panel holds. It is closed
+until a reader opens it, and it opens over the grid rather than pushing the cards aside.
+
+**A card's menu aims the panel, and the toolbar only shows or hides it.** The `Details` item lands
+on Details and the `Readme` item lands on Readme, so the tab follows the intent of what opened it.
+The toolbar's Documents toggle names no mod of its own, so it reopens on the mod and the tab the
+panel was last left on.
+
+There is no gesture on the card itself. A bare press is the switch, so a double-press would flip
+`enabled` twice on the way to a readme, and the selection is a set with no notion of one readable
+pick.
+
+**The panel names what it holds in its own header.** A reader who opened a mod, toggled six
+switches and came back still knows what they are reading. The name is not on the tab, where the
+strip would shift under the pointer as one mod's name gave way to another's.
+
+**The Readme item is always offered.** Whether a mod has a readme is not known until its archive
+opens, so an item that hid without one would cost either a flag persisted for every installed mod
+or an archive opened per card. A mod with no readme shows the panel's own empty state.
+
+**An absent readme and an unreadable archive are two answers.** The second says the mod's archive
+is not answering, which is a mod that may not work at all, and reporting it as a mod whose author
+wrote nothing is a silent lie about something the reader has installed. The same holds for a
+license.
+
+**A readme renders as GitHub Flavoured Markdown, with a stranger's file in mind.** Raw HTML and
+inline scripts are not rendered, an external link opens in the system browser, and no image
+resolves - a mod directory is not a project, so a relative path has nothing to point at and the
+image degrades to its alt text. A readme holding one heading renders as one heading: any
+threshold is wrong for somebody, and an author who wrote only a title still chose to write a
+file.
+
+**Uninstalling the open mod clears the panel rather than closing it.** The panel stays at its
+width and says the mod is gone, so there is no stale content and no layout change nobody asked
+for. Opening another mod is the likely next act.
+
+### The details tab
+
+Details is one mod's whole answer: its cover, who wrote it, what it says it does, the categories
+it carries, the layers it switches, the game WADs it patches, and where it sits on disk. Three
+modal dialogs answered those separately before. Each covered the library, each was dismissed
+before the next could open, and none of them could be read beside the grid.
+
+**The cover runs the panel's full width.** A mod's thumbnail is the thing a reader remembers it
+by, and a column's top is the one place a jump in scale costs nothing. A mod with no art keeps
+the cover and falls back to the letter plate its card draws, because a panel whose first element
+comes and goes per mod reads as broken rather than as adaptive.
+
+**Editing happens in the tab rather than over it.** The Edit press swaps the read sections for the
+form in place, and Save and Cancel sit in a band pinned to the panel's foot. The cover stays,
+because the thumbnail picker is part of the form and the cover is where a thumbnail is.
+
+**Nothing autosaves, and nothing is lost silently.** The panel is not modal, so a reader can press
+another card, another tab or the close button with a half-typed name still in the form. Each of
+those asks first, and cancelling leaves the panel where it was.
+
+**The WAD footprint analyses on its first expand.** The dialog took that gate from its own portal,
+which drew nothing at all while closed. A section in a scrolling tab has no such gate, so the fold
+is the gate and a library nobody expands runs no analysis.
+
+**Three tabs is the ceiling.** The strip fits Details, Readme and Licenses at the width the panel
+asks for. A fourth needs either truncation or a scroller, so anything else a reader wants to know
+about a mod becomes a section of Details rather than a tab of its own.
+
+### The licenses tab
+
+The tab answers for the mod the panel holds, the way Readme does. A reader asking what they are
+allowed to do with a mod is asking about the mod in front of them, and a list of every other mod's
+license is not the answer to that question.
+
+It draws the name the mod declares, the link beside it where there is one, and the text the
+archive carries.
+
+Three states are told apart, because the middle one is the common one:
+
+- a mod that declares a name and carries the file, which shows its text
+- a mod that declares a name and carries **no** file, which says exactly that
+- a mod that declares neither, which reads as undeclared and opens no archive at all
+
+The name costs nothing, because it rides in the `mod.config.json` a listing already opens. The
+text is on disk for neither format, so reading it mounts that mod's archive, and the answer is
+held for the session and never written to disk. That is why a mod naming no license is worth
+telling apart early: there is nothing to mount for it. A license renders preformatted rather than
+as Markdown, because it is a hard-wrapped plain-text file and Markdown mangles it.
+
+### The drawer, and what its width does
+
+**The panel is a drawer over the grid, not a pane beside it.** Opening one asks a question about a
+mod rather than changing the library, so the cards underneath keep the positions they were being
+read in. A pane on a seam reflowed the grid twice per visit - once on the way in and once on the
+way out - and a grid that reflows is a grid a reader has to find their place in again.
+
+It arrives from the right edge it is anchored to, and it draws over the grid alone: the toolbar
+above and the session bar below stay where they are, because the drawer belongs to the library
+rather than to the window.
+
+**Its left edge drags to resize, and the width outlives a restart.** The drag is bounded twice: a
+280px floor, and whatever leaves 320px of library underneath. The floor wins where the two
+disagree, because a window too narrow to hold both still has to hold the drawer a reader has just
+opened. Arrow keys move the edge from the keyboard, 16px at a time.
+
+Whether the drawer was open, and which mod it held, do not survive a restart: the Library opens
+closed every session. A drawer that reopened itself would be covering cards over a question the
+reader had forgotten asking, and persisting the mod needs a fallback for one uninstalled between
+sessions.
+
+**The panel draws on the page ground with a hairline**, which is what the toolbar and the session
+bar already do, and what lets a rendered document sit on the ground without an inset frame of its
+own. The tab strip therefore has no rung to mark itself with and leans on that hairline and on
+type.
+
+Escape and `Ctrl+A` stay with the library underneath. The panel is not modal, so leaving it does
+not also drop the selection.
+
 ## Decided questions
 
-| Question                                        | Answer                                                    |
-| ----------------------------------------------- | --------------------------------------------------------- |
-| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in       |
-| What does a bare click do under a selection?    | Switches that mod, as it always does                      |
-| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                     |
-| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                        |
-| Is there a marquee?                             | No. It competes with drag-to-reorder for one press        |
-| What does the toolbar button do?                | Select all visible, or clear once they all are            |
-| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection         |
-| Does a right click inside the pick keep it?     | Yes, and it opens what the selection carries              |
-| Does a right click outside the pick keep it?    | No. It collapses onto that card and opens the card's menu |
-| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there    |
-| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                         |
-| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press              |
-| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see            |
-| Is the selection written to disk?               | No. It is session state                                   |
+| Question                                        | Answer                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in        |
+| What does a bare click do under a selection?    | Switches that mod, as it always does                       |
+| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                      |
+| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                         |
+| Is there a marquee?                             | No. It competes with drag-to-reorder for one press         |
+| What does the toolbar button do?                | Select all visible, or clear once they all are             |
+| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection          |
+| Does a right click change the pick?             | No. It reads the card and leaves the selection alone       |
+| What does a right click open over a pick?       | The card's own menu, the same one the kebab draws          |
+| Where do a selection's own commands live?       | The floating bar, which is up whenever a selection is      |
+| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there     |
+| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                          |
+| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press               |
+| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see             |
+| Is the selection written to disk?               | No. It is session state                                    |
+| Does the documents panel cover the cards?       | Yes. It is a drawer, so the grid never reflows around it   |
+| What opens it, and on which tab?                | A card's menu on Details or Readme. The toolbar reopens it |
+| Where does a mod's metadata get edited?         | In the Details tab, in place. No dialog is left to open    |
+| Does Details replace the card's layer popover?  | No. That is a different gesture at a different scope       |
+| When is a mod's WAD footprint analysed?         | On the first expand of its fold, never on drawing the tab  |
+| Does the Readme item hide for a mod with none?  | No. Presence is unknown until the archive opens            |
+| Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held        |
+| Does the licenses tab follow the opened mod?    | Yes. Every tab in the panel answers for the one mod        |
+| Is a license text cached to disk?               | No. It is read once per session and held in memory         |
 
 ## Open questions
 
 1. What does a selection do about folders? Moving a picked set into a folder is the obvious sixth
-   command, and it needs a destination the bar has nowhere to put. A submenu on the right click
-   is the cheap half, and the bar is the half nobody has designed.
+   command, and it needs a destination the bar has nowhere to put. The right click is no longer
+   the cheap half, since it carries no selection commands at all, so the bar is the whole problem.
 2. Does the keyboard reach a range? Enter and Space carry their modifiers, so a focused card
    picks and ranges the way a click does. What has no answer is arrowing between cards, which the
    grid does not offer at all.
