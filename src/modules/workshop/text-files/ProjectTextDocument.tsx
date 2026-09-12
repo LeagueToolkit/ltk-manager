@@ -142,10 +142,8 @@ function Body({ editor, file, half }: BodyProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col p-3">
-        {kind.markdown && <Split editor={editor} half={half} kind={kind} />}
-        {!kind.markdown && <Buffer editor={editor} label={kind.title()} />}
-      </div>
+      {kind.markdown && <Split editor={editor} half={half} kind={kind} />}
+      {!kind.markdown && <Buffer editor={editor} label={kind.title()} />}
       {editor.conflict && <Conflict editor={editor} fileName={kind.fileName} />}
     </div>
   );
@@ -183,7 +181,7 @@ function Buffer({ editor, label }: { editor: Editor; label: string }) {
       aria-label={m.workshop_text_buffer_label({ title: label })}
       onChange={(event) => editor.setText(event.target.value)}
       /* DS-MONO-SIZE: prose is written where it is read, in the editor's mono. */
-      className="min-h-0 min-w-0 flex-1 resize-none rounded-lg border border-surface-700 bg-surface-900 p-3 font-mono text-mono-row leading-relaxed text-surface-200 outline-none scrollbar-md"
+      className="min-h-0 min-w-0 flex-1 resize-none bg-surface-950 p-3 font-mono text-mono-row leading-relaxed text-surface-200 outline-none scrollbar-md"
     />
   );
 }
@@ -192,7 +190,7 @@ function Rendered({ editor, kind }: { editor: Editor; kind: TextFileKind }) {
   return (
     <div
       aria-label={m.workshop_text_preview_label({ title: kind.title() })}
-      className="min-h-0 min-w-0 flex-1 overflow-y-auto rounded-lg border border-surface-700 bg-surface-900 p-3 scrollbar-md"
+      className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-surface-950 p-3 scrollbar-md"
     >
       <MarkdownView text={editor.text} root={projectRootOf(editor.path)} />
     </div>
