@@ -10,4 +10,4 @@ export {
 } from "./ignoreLine";
 export { IgnoreRulesDocument } from "./IgnoreRulesDocument";
 export { type RuleSubject, useIgnoreRowActions } from "./useIgnoreRowActions";
-export { type IgnoreSaveState, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
+export { type IgnoreRuleProblem, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
