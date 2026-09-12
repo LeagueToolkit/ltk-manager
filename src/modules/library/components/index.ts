@@ -5,6 +5,8 @@ export * from "./BulkInstallResults";
 export * from "./BulkUninstallDialog";
 export * from "./CreateFolderDialog";
 export * from "./DndDragOverlay";
+export * from "./DocumentsSidebar";
+export * from "./DocumentsToggle";
 export * from "./DragDropOverlay";
 export * from "./DroppableFolderCard";
 export * from "./DroppableFolderRow";

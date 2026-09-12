@@ -1,5 +1,12 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "library_documents_close_action": "Close documents",
+  "library_documents_library_wide_label": "Every installed mod",
+  "library_documents_licenses_tab": "Licenses",
+  "library_documents_no_mod_title": "No mod open",
+  "library_documents_readme_tab": "Readme",
+  "library_documents_title": "Documents",
+  "library_documents_toggle_action": "Documents",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
   "library_health_cancel_failed_title": "Couldn't stop the run",
   "library_health_check_clean_hint": [
@@ -105,6 +112,13 @@
   "library_launch_league_only_action": "Launch League only",
   "library_launch_options_label": "More launch options",
   "library_league_close_action": "Close League",
+  "library_licenses_empty_title": "Nothing installed yet",
+  "library_licenses_no_match_description": "No installed mod or license name matches that",
+  "library_licenses_no_match_title": "No matches",
+  "library_licenses_no_text_description": "This mod names a license and ships no text for it",
+  "library_licenses_search_placeholder": "Search mods and licenses...",
+  "library_licenses_undeclared_label": "Not declared",
+  "library_licenses_unreadable_description": "This mod's archive did not answer, so its license cannot be read",
   "library_mod_missing_title": "Mod no longer exists in the library",
   "library_nav_label": "Mods",
   "library_patcher_no_mods_hint": "No mods are enabled - there is nothing to patch",
@@ -123,5 +137,13 @@
   "library_play_league_running_hint": "League is already running - your mods will apply to your next game",
   "library_play_league_running_no_mods_hint": "League is already running - enable a mod to patch it",
   "library_play_no_mods_hint": "No mods are enabled - League will launch unmodded",
-  "library_play_starting_label": "Starting..."
+  "library_play_starting_label": "Starting...",
+  "library_readme_absent_description": "This mod's author shipped no readme",
+  "library_readme_absent_title": "No readme",
+  "library_readme_none_open_description": "Open a mod's readme from its card menu",
+  "library_readme_none_open_title": "No mod open",
+  "library_readme_removed_description": "The mod this panel was holding is no longer installed",
+  "library_readme_removed_title": "Mod uninstalled",
+  "library_readme_unreadable_description": "This mod's archive did not answer, so the mod may not work at all",
+  "library_readme_unreadable_title": "Readme unreadable"
 }

@@ -1,5 +1,6 @@
 import {
   ArchiveIcon,
+  BookOpenTextIcon,
   CopyIcon,
   DotsThreeVerticalIcon,
   FolderIcon,
@@ -34,6 +35,7 @@ import {
   useHealthCheckReadiness,
   useModEffectiveCategories,
 } from "@/modules/library/api";
+import { useLibrarySidebarStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
@@ -287,6 +289,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
           Edit Metadata
         </Menu.Item>
       )}
+      <ModCardReadmeItem modId={mod.id} />
       <Menu.Item
         icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
         onClick={view.onOpenLocation}
@@ -321,6 +324,26 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         Uninstall
       </Menu.Item>
     </>
+  );
+}
+
+/**
+ * Open this mod into the documents panel, on its readme.
+ *
+ * Always offered. Whether a mod has a readme is unknown until its archive
+ * opens, so an item that hid without one would cost either a persisted flag
+ * with a backfill or an archive open per card.
+ */
+function ModCardReadmeItem({ modId }: { modId: string }) {
+  const showReadme = useLibrarySidebarStore((s) => s.showReadme);
+
+  return (
+    <Menu.Item
+      icon={<BookOpenTextIcon className="h-4 w-4" weight="bold" />}
+      onClick={() => showReadme(modId)}
+    >
+      Readme
+    </Menu.Item>
   );
 }
 
