@@ -13,6 +13,9 @@ pub mod vfx_random;
 use super::Rule;
 
 /// Every rule a run calls, in the order it calls them.
+///
+/// `vfx_random`'s two rules are held out of the list while their findings are too noisy to
+/// draw. The module stays compiled, so each is one line to put back.
 #[must_use]
 pub fn all() -> Vec<Box<dyn Rule>> {
     vec![
@@ -21,8 +24,6 @@ pub fn all() -> Vec<Box<dyn Rule>> {
         Box::new(audio_bank_id::AudioBankId::new()),
         Box::new(tex_block_alignment::TexBlockAlignment::new()),
         Box::new(bin_resolver_key_loss::BinResolverKeyLoss::new()),
-        Box::new(vfx_random::VfxPerFrameRandom::new()),
-        Box::new(vfx_random::VfxBrokenRandom::new()),
     ]
 }
 
