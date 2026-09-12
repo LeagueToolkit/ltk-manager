@@ -8,7 +8,7 @@
 
 use crate::error::{AppError, AppResult};
 use crate::mods::index::LibraryModEntry;
-use crate::mods::types::{InstalledMod, ModLayer};
+use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;
 use ltk_mod_project::{ModProject, ModProjectLayer};
 use ltk_modpkg::Modpkg;
@@ -71,6 +71,7 @@ pub(crate) fn read_installed_mod(
         storage: entry.storage,
         has_archive: entry.archive_path(storage_dir).is_file(),
         folder_id: None,
+        license: project.license.as_ref().map(ModLicense::from),
         slug: entry.slug.as_ref().map(|slug| slug.as_str().to_string()),
         harvest: entry.harvest,
     })

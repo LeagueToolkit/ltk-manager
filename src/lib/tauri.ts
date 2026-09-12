@@ -48,6 +48,7 @@ import type {
   LibraryFolder,
   LibraryRepairReport,
   LinkedBinOffenderInfo,
+  ModDocument,
   ModHealthVerdict,
   ModpkgInfo,
   ModStorage,
@@ -230,6 +231,9 @@ export const api = {
   getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
   getModThumbnails: (modIds: readonly string[]) =>
     invokeResult<Record<string, string>>("get_mod_thumbnails", { modIds }),
+  getModReadme: (modId: string) => invokeResult<ModDocument>("get_mod_readme", { modId }),
+  getModLicenseText: (modId: string) =>
+    invokeResult<ModDocument>("get_mod_license_text", { modId }),
   getStorageDirectory: () => invokeResult<string>("get_storage_directory"),
   reorderMods: (modIds: string[]) => invokeResult<void>("reorder_mods", { modIds }),
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>

@@ -6,7 +6,9 @@
 //! [`inspect`] reads an archive the user hasn't installed yet, [`migration`]
 //! brings in a whole cslol-manager directory at once, and [`storage`] switches
 //! an installed mod between reading its archive and reading an unpacked tree.
+//! [`documents`] reads the readme and the license a reader asks to see.
 
+pub(super) mod documents;
 pub(super) mod export;
 pub(super) mod inspect;
 pub(super) mod install;
