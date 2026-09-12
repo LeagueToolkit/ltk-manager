@@ -82,6 +82,7 @@
   "library_documents_readme_tab": "Readme",
   "library_documents_removed_description": "The mod this panel was holding is no longer installed",
   "library_documents_removed_title": "Mod uninstalled",
+  "library_documents_resize_action": "Resize the drawer",
   "library_documents_title": "Documents",
   "library_documents_toggle_action": "Documents",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",

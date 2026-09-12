@@ -1,5 +1,5 @@
 import { XIcon } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import { IconButton, Tabs, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -9,16 +9,6 @@ import { type DocumentsTab, useLibrarySidebarStore } from "@/modules/library/sta
 import { DetailsTab } from "./DetailsTab";
 import { LicensesTab } from "./LicensesTab";
 import { ReadmeTab } from "./ReadmeTab";
-
-/**
- * The window width below which the panel floats over the grid.
- *
- * The panel at the width it asks for beside the grid's own 320px floor. Under
- * that one of the two is at its minimum, and a grid squeezed to a single column
- * has stopped being a grid. Decided here rather than by a container query,
- * following the readme's own fold.
- */
-const OVERLAY_BELOW = 760;
 
 interface DocumentsSidebarProps {
   /** Every installed mod, which the licenses tab lists and the readme tab names. */
@@ -31,7 +21,8 @@ interface DocumentsSidebarProps {
  * Draws on the page ground with a hairline, the way the toolbar and the session
  * bar already do, which is what lets a rendered document sit on the ground with
  * no inset frame of its own. The strip therefore has no rung to mark itself
- * with and leans on that hairline and on type.
+ * with and leans on that hairline and on type. [`LibraryBody`] is what puts it
+ * over the grid.
  */
 export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
   const tab = useLibrarySidebarStore((s) => s.tab);
@@ -116,25 +107,4 @@ function Header({ mod }: { mod: InstalledMod | null }) {
 function headerTitle(mod: InstalledMod | null): string {
   if (mod) return mod.displayName;
   return m.library_documents_no_mod_title();
-}
-
-/** Whether the window is too narrow to hold the panel beside the grid. */
-export function useOverlaidSidebar(): boolean {
-  const [narrow, setNarrow] = useState(isNarrow);
-
-  useEffect(() => {
-    const query = window.matchMedia(NARROW_QUERY);
-    const answer = (event: MediaQueryListEvent) => setNarrow(event.matches);
-    query.addEventListener("change", answer);
-    return () => query.removeEventListener("change", answer);
-  }, []);
-
-  return narrow;
-}
-
-const NARROW_QUERY = `(max-width: ${OVERLAY_BELOW - 1}px)`;
-
-function isNarrow(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia(NARROW_QUERY).matches;
 }

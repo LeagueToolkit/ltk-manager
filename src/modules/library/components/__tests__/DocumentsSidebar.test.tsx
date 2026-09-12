@@ -51,7 +51,7 @@ function answers(document: ModDocument) {
 beforeEach(() => {
   readme.mockReset();
   licenseText.mockReset();
-  useLibrarySidebarStore.setState({ open: true, tab: "readme", modId: null, split: null });
+  useLibrarySidebarStore.setState({ open: true, tab: "readme", modId: null });
 });
 
 describe("the readme tab", () => {

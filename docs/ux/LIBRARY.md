@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
 | 2026-09-12 | The licenses tab follows the open mod, like the other two  |
 | 2026-09-12 | A right click reads a card and no longer picks it          |
 | 2026-09-12 | The details tab, which folds the three mod dialogs in      |
@@ -53,7 +54,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
-| The documents panel    | Available | A right-edge panel on a seam, closed until asked for          |
+| The documents panel    | Available | A drawer over the grid's right edge, closed until asked for   |
 | The details tab        | Available | One mod's cover, facts, layers, WAD footprint and edit form   |
 | The readme tab         | Available | One mod's readme, opened from that card's menu                |
 | The licenses tab       | Available | One mod's license name, its link, and the text it ships       |
@@ -169,7 +170,7 @@ makes it concrete. The selection is session state and is never written to disk.
 The Library's right edge holds a panel with three tabs: **Details**, which answers what one
 installed mod is, **Readme**, which renders that mod's own readme, and **Licenses**, which names
 what that mod is licensed under. All three answer for the one mod the panel holds. It is closed
-until a reader opens it, and opening it narrows the grid rather than covering the cards.
+until a reader opens it, and it opens over the grid rather than pushing the cards aside.
 
 **A card's menu aims the panel, and the toolbar only shows or hides it.** The `Details` item lands
 on Details and the `Readme` item lands on Readme, so the tab follows the intent of what opened it.
@@ -253,18 +254,26 @@ held for the session and never written to disk. That is why a mod naming no lice
 telling apart early: there is nothing to mount for it. A license renders preformatted rather than
 as Markdown, because it is a hard-wrapped plain-text file and Markdown mangles it.
 
-### What survives, and what the width does
+### The drawer, and what its width does
 
-The seam between the grid and the panel drags to resize, within a minimum that keeps both halves
-usable, and **the width outlives a restart**. Whether the panel was open, and which mod it held,
-do not: the Library opens closed and full width every session. Persisting the open state boots a
-reader into a narrower grid they had forgotten about, and persisting the mod needs a fallback for
-one uninstalled between sessions.
+**The panel is a drawer over the grid, not a pane beside it.** Opening one asks a question about a
+mod rather than changing the library, so the cards underneath keep the positions they were being
+read in. A pane on a seam reflowed the grid twice per visit - once on the way in and once on the
+way out - and a grid that reflows is a grid a reader has to find their place in again.
 
-Below 760px of window the panel floats over the grid instead of pushing it, so the feature is
-reachable at any size and the cards never squeeze to nothing. That figure is the panel at the
-width it asks for beside the grid's own floor. Under it one of the two would be at its minimum,
-and a grid squeezed to a single column has stopped being a grid.
+It arrives from the right edge it is anchored to, and it draws over the grid alone: the toolbar
+above and the session bar below stay where they are, because the drawer belongs to the library
+rather than to the window.
+
+**Its left edge drags to resize, and the width outlives a restart.** The drag is bounded twice: a
+280px floor, and whatever leaves 320px of library underneath. The floor wins where the two
+disagree, because a window too narrow to hold both still has to hold the drawer a reader has just
+opened. Arrow keys move the edge from the keyboard, 16px at a time.
+
+Whether the drawer was open, and which mod it held, do not survive a restart: the Library opens
+closed every session. A drawer that reopened itself would be covering cards over a question the
+reader had forgotten asking, and persisting the mod needs a fallback for one uninstalled between
+sessions.
 
 **The panel draws on the page ground with a hairline**, which is what the toolbar and the session
 bar already do, and what lets a rendered document sit on the ground without an inset frame of its
@@ -293,7 +302,7 @@ not also drop the selection.
 | Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press               |
 | Does the selection survive leaving the library? | No. It would act on mods the reader cannot see             |
 | Is the selection written to disk?               | No. It is session state                                    |
-| Does the documents panel cover the cards?       | No, above 760px. It narrows the grid and floats below it   |
+| Does the documents panel cover the cards?       | Yes. It is a drawer, so the grid never reflows around it   |
 | What opens it, and on which tab?                | A card's menu on Details or Readme. The toolbar reopens it |
 | Where does a mod's metadata get edited?         | In the Details tab, in place. No dialog is left to open    |
 | Does Details replace the card's layer popover?  | No. That is a different gesture at a different scope       |

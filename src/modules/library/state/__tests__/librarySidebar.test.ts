@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { useLibrarySidebarStore } from "../librarySidebar";
+import { clampDrawerWidth, DEFAULT_DRAWER_WIDTH, useLibrarySidebarStore } from "../librarySidebar";
 
 function state() {
   return useLibrarySidebarStore.getState();
@@ -13,7 +13,6 @@ beforeEach(() => {
     modId: null,
     pending: null,
     dirty: false,
-    split: null,
   });
 });
 
@@ -24,10 +23,12 @@ describe("opening the panel", () => {
     expect(state()).toMatchObject({ open: true, tab: "details", modId: "a" });
   });
 
-  it("lands the toolbar on the library-wide tab, which needs no mod", () => {
+  it("reopens the toolbar's press on the tab the panel was left on", () => {
+    useLibrarySidebarStore.setState({ open: false, tab: "readme", modId: "a" });
+
     state().toggle();
 
-    expect(state()).toMatchObject({ open: true, tab: "licenses" });
+    expect(state()).toMatchObject({ open: true, tab: "readme", modId: "a" });
   });
 });
 
@@ -99,5 +100,39 @@ describe("the guard with nothing to lose", () => {
 
     expect(state().modId).toBe("b");
     expect(state().pending).toBeNull();
+  });
+});
+
+/* A drawer covers the grid rather than splitting the row with it, so its width
+   is bounded by what the window can spare rather than by a panel's share. */
+describe("how wide the drawer may be dragged", () => {
+  const WIDE = 1600;
+
+  it("keeps what the reader dragged to, between the bounds", () => {
+    expect(clampDrawerWidth(500, WIDE)).toBe(500);
+  });
+
+  it("refuses to go under the floor", () => {
+    expect(clampDrawerWidth(10, WIDE)).toBe(280);
+  });
+
+  it("always leaves the library something to be a grid with", () => {
+    expect(clampDrawerWidth(WIDE, WIDE)).toBe(WIDE - 320);
+  });
+
+  /* A window too narrow to hold both still has to hold the drawer a reader
+     just opened, so the floor wins where the two disagree. */
+  it("holds the floor in a window with no room for both", () => {
+    expect(clampDrawerWidth(400, 400)).toBe(280);
+  });
+
+  it("answers a whole number of pixels", () => {
+    expect(clampDrawerWidth(500.6, WIDE)).toBe(501);
+  });
+});
+
+describe("the drawer's own defaults", () => {
+  it("opens at the default width before anyone drags it", () => {
+    expect(useLibrarySidebarStore.getState().width).toBe(DEFAULT_DRAWER_WIDTH);
   });
 });

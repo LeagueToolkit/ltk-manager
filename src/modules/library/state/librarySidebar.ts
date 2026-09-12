@@ -29,13 +29,8 @@ interface LibrarySidebarStore extends SidebarView {
   pending: SidebarView | null;
   /** Whether the Details form holds edits nobody has saved. */
   dirty: boolean;
-  /**
-   * The grid's and the panel's shares of the row, keyed by panel id.
-   *
-   * `null` until the seam has been dragged, which is what tells a first open
-   * from a width the reader chose.
-   */
-  split: Record<string, number> | null;
+  /** How wide the drawer opens, in pixels. */
+  width: number;
   /** Show the panel, or hide it, on whichever tab it was left. */
   toggle: () => void;
   close: () => void;
@@ -47,7 +42,7 @@ interface LibrarySidebarStore extends SidebarView {
   setDirty: (dirty: boolean) => void;
   /** Take the view the guard held back, or drop it. */
   resolvePending: (take: boolean) => void;
-  setSplit: (split: Record<string, number>) => void;
+  setWidth: (width: number) => void;
 }
 
 /** Whether `next` leaves the Details form the reader is typing into. */
@@ -56,12 +51,32 @@ function leavesTheForm(current: SidebarView, next: SidebarView): boolean {
   return !stays;
 }
 
+/** The width a drawer nobody has dragged opens at. */
+export const DEFAULT_DRAWER_WIDTH = 360;
+
+/** The narrowest a drag may leave the drawer. */
+const MIN_DRAWER_WIDTH = 280;
+
+/** What the drawer always leaves of the library underneath it. */
+const GRID_KEPT = 320;
+
 /**
- * What the Library's documents panel is showing, and how wide it was left.
+ * What a drag may leave the drawer, given the room `viewport` has.
  *
- * The width outlives a restart and nothing else does. A library that booted
- * into a narrower grid would be charging a reader for a panel they had
- * forgotten, and a mod held across sessions can be uninstalled between them.
+ * The floor wins where the two disagree, because a window too narrow to hold
+ * both still has to hold the drawer a reader just opened.
+ */
+export function clampDrawerWidth(next: number, viewport: number): number {
+  const ceiling = Math.max(MIN_DRAWER_WIDTH, viewport - GRID_KEPT);
+  return Math.round(Math.max(MIN_DRAWER_WIDTH, Math.min(next, ceiling)));
+}
+
+/**
+ * What the Library's documents drawer is showing, and how wide it was left.
+ *
+ * The width outlives a restart and nothing else does. A drawer that reopened
+ * itself would be covering cards a reader had forgotten asking about, and a mod
+ * held across sessions can be uninstalled between them.
  */
 export const useLibrarySidebarStore = create<LibrarySidebarStore>()(
   persist(
@@ -87,7 +102,7 @@ export const useLibrarySidebarStore = create<LibrarySidebarStore>()(
         modId: null,
         pending: null,
         dirty: false,
-        split: null,
+        width: DEFAULT_DRAWER_WIDTH,
 
         toggle: () => requestView({ ...view(), open: !get().open }),
         close: () => requestView({ ...view(), open: false }),
@@ -104,15 +119,17 @@ export const useLibrarySidebarStore = create<LibrarySidebarStore>()(
           }
           set({ ...pending, pending: null, dirty: false });
         },
-        setSplit: (split) => set({ split }),
+        setWidth: (width) => set({ width }),
       };
     },
     {
       name: "ltk-library-sidebar",
-      version: 1,
-      migrate: keepUnversioned,
+      version: 2,
+      /* v1 kept the two shares of a seam the drawer does not have. */
+      migrate: (persisted, version) =>
+        version < 2 ? { width: DEFAULT_DRAWER_WIDTH } : keepUnversioned(persisted),
       storage: localJsonStorage,
-      partialize: (state) => ({ split: state.split }),
+      partialize: (state) => ({ width: state.width }),
     },
   ),
 );

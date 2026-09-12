@@ -1,9 +1,15 @@
-import { type ReactNode, useEffect, useState } from "react";
-import { Group, Panel } from "react-resizable-panels";
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { usePlatformSupport } from "@/hooks";
+import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
-import { Seam } from "@/modules/editor";
 import { PlayButton } from "@/modules/launcher";
 import {
   DocumentsSidebar,
@@ -14,6 +20,7 @@ import {
   LibraryToolbar,
   ModHealthSweep,
   SelectionActionBar,
+  clampDrawerWidth,
   useBulkUninstallDialog,
   useFilterOptions,
   useInstalledMods,
@@ -22,7 +29,6 @@ import {
   useLibrarySelectionStore,
   useLibrarySidebarStore,
   useModFileDrop,
-  useOverlaidSidebar,
   useVisibleMods,
 } from "@/modules/library";
 import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
@@ -109,48 +115,86 @@ export function Library({ folderId }: LibraryProps = {}) {
   );
 }
 
+/** How far one arrow key moves the edge. */
+const KEY_STEP = 16;
+
 /**
- * The grid, and the documents panel beside it once a reader opens one.
+ * The grid, with the documents drawer over its right edge once a reader opens one.
  *
- * Opening reflows rather than covering, so the cards a reader was comparing
- * stay readable. Under the fold there is no room for both, and the panel floats
- * over the grid instead of squeezing it or switching itself off.
+ * A drawer rather than a pane on a seam: opening one asks a question about a
+ * mod rather than changing the library, so the cards underneath keep the
+ * positions they were being read in. Per "The drawer, and what its width does" in
+ * `docs/ux/LIBRARY.md`.
  */
 function LibraryBody({ mods, children }: { mods: InstalledMod[]; children: ReactNode }) {
   const open = useLibrarySidebarStore((s) => s.open);
-  const split = useLibrarySidebarStore((s) => s.split);
-  const setSplit = useLibrarySidebarStore((s) => s.setSplit);
-  const overlaid = useOverlaidSidebar();
 
-  if (!open) return <div className="mx-2 flex min-h-0 flex-1 flex-col">{children}</div>;
+  return (
+    <div className="relative mx-2 flex min-h-0 flex-1 flex-col">
+      {children}
+      {open && <DocumentsDrawer mods={mods} />}
+    </div>
+  );
+}
 
-  if (overlaid) {
-    return (
-      <div className="relative mx-2 flex min-h-0 flex-1 flex-col">
-        {children}
-        <div className="absolute inset-y-0 right-0 z-20 w-90 max-w-full shadow-xl">
-          <DocumentsSidebar mods={mods} />
-        </div>
-      </div>
-    );
+/** The drawer, and the edge a reader drags to decide how much it covers. */
+function DocumentsDrawer({ mods }: { mods: InstalledMod[] }) {
+  const width = useLibrarySidebarStore((s) => s.width);
+  const setWidth = useLibrarySidebarStore((s) => s.setWidth);
+  const drag = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  function resize(next: number) {
+    setWidth(clampDrawerWidth(next, window.innerWidth));
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    drag.current = { startX: event.clientX, startWidth: width };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!drag.current) return;
+    resize(drag.current.startWidth - (event.clientX - drag.current.startX));
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    drag.current = null;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function handleKeys(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    resize(width + (event.key === "ArrowLeft" ? KEY_STEP : -KEY_STEP));
   }
 
   return (
-    <Group
-      orientation="horizontal"
-      defaultLayout={split ?? undefined}
-      onLayoutChanged={(layout, meta) => {
-        if (meta.isUserInteraction) setSplit(layout);
-      }}
-      className="mx-2 flex min-h-0 flex-1"
+    <div
+      data-ui="DocumentsDrawer"
+      style={{ width }}
+      className="animate-drawer-in absolute inset-y-0 right-0 z-20 max-w-full shadow-xl"
     >
-      <Panel id="grid" minSize={320} className="flex min-h-0 flex-col">
-        {children}
-      </Panel>
-      <Seam orientation="horizontal" />
-      <Panel id="documents" minSize={280} defaultSize={360} className="flex min-h-0 flex-col">
-        <DocumentsSidebar mods={mods} />
-      </Panel>
-    </Group>
+      <DocumentsSidebar mods={mods} />
+
+      {/* Last, so the tab order is the drawer's own content before the one
+          control that only changes the shape of it. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={m.library_documents_resize_action()}
+        tabIndex={0}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onKeyDown={handleKeys}
+        className="group/handle absolute inset-y-6 left-0 z-10 w-1.5 cursor-col-resize outline-none"
+      >
+        <span
+          aria-hidden="true"
+          className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors group-hover/handle:bg-accent-500/60 group-focus-visible/handle:bg-accent-500"
+        />
+      </div>
+    </div>
   );
 }

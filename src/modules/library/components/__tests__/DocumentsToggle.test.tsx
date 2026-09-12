@@ -49,14 +49,14 @@ describe("what the panel remembers", () => {
     expect(state).toMatchObject({ open: true, tab: "readme", modId: "a" });
   });
 
-  /* The width outlives a restart and nothing else does: a library that booted
-     into a narrower grid would charge a reader for a panel they had forgotten. */
+  /* The width outlives a restart and nothing else does: a drawer that reopened
+     itself would cover cards a reader had forgotten asking about. */
   it("writes the width to disk and neither the open state nor the mod", () => {
-    useLibrarySidebarStore.setState({ open: true, modId: "a", split: { grid: 70, documents: 30 } });
+    useLibrarySidebarStore.setState({ open: true, modId: "a", width: 420 });
 
     const written = window.localStorage.getItem("ltk-library-sidebar");
 
-    expect(written).toContain("split");
+    expect(written).toContain("420");
     expect(written).not.toContain('"open"');
     expect(written).not.toContain("modId");
   });

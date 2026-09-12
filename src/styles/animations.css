@@ -55,6 +55,15 @@
   }
 }
 
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);
@@ -139,4 +148,8 @@
 
 .animate-slide-up {
   animation: slide-up var(--duration-005) var(--ease-out);
+}
+
+.animate-drawer-in {
+  animation: drawer-in var(--duration-004) var(--ease-out);
 }
