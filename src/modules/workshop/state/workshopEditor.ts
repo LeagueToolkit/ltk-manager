@@ -181,6 +181,18 @@ interface WorkshopEditorStore {
   history: readonly HistoryEntry[];
   /** Where in `history` the arrows stand. -1 while nothing has been visited. */
   historyIndex: number;
+  /**
+   * A document each project's editor opens as soon as it is hydrated.
+   *
+   * Outside `byProject`, because an entry there is what tells
+   * {@link useEditorPersistence} the editor is already held, and an open
+   * written before the file is read would cost the user every tab it holds.
+   */
+  pendingDocuments: Readonly<Record<string, ContentDocument>>;
+  /** Asks `projectPath`'s editor to open `document` once it can. */
+  requestDocument: (projectPath: string, document: ContentDocument) => void;
+  /** Takes the pending document, if there is one, and clears it. */
+  takePendingDocument: (projectPath: string) => ContentDocument | null;
   /** Installs a project's persisted slice, completing it with the memory-only fields. */
   hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
   /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
@@ -704,6 +716,23 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
   byProject: {},
   history: [],
   historyIndex: -1,
+  pendingDocuments: {},
+
+  requestDocument: (projectPath, document) =>
+    set((current) => ({
+      pendingDocuments: { ...current.pendingDocuments, [projectPath]: document },
+    })),
+
+  takePendingDocument: (projectPath) => {
+    const pending = get().pendingDocuments[projectPath];
+    if (!pending) return null;
+
+    set((current) => {
+      const { [projectPath]: _taken, ...rest } = current.pendingDocuments;
+      return { pendingDocuments: rest };
+    });
+    return pending;
+  },
 
   hydrateProject: (projectPath, state) =>
     set((current) => ({

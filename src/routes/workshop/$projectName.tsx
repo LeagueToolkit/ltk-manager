@@ -9,6 +9,7 @@ import {
   ExtractRunner,
   LoadingState,
   useEditorPersistence,
+  useRequestedDocument,
   useWorkshopProjects,
 } from "@/modules/workshop";
 
@@ -58,6 +59,7 @@ function ProjectDetail() {
    store, which the arriving hydration then overwrites. */
 function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
   const ready = useEditorPersistence(project.path);
+  useRequestedDocument(project.path, ready);
 
   if (!ready) return <LoadingState />;
   return <ContentBrowser project={project} />;

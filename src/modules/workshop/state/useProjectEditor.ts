@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import type { BinRow } from "@/lib/tauri";
@@ -156,6 +156,23 @@ export function useRevealRequest(layerName: string): RevealRequest | null {
     if (!request || request.layerName !== layerName) return null;
     return request;
   });
+}
+
+/**
+ * Open the document another surface asked for, once the editor can hold it.
+ *
+ * The pack dialog names a document from the project grid, where this editor is
+ * not mounted, and an open written before `ready` would cost the user every tab
+ * the file on disk holds.
+ */
+export function useRequestedDocument(projectPath: string, ready: boolean) {
+  useEffect(() => {
+    if (!ready) return;
+
+    const store = useWorkshopEditorStore.getState();
+    const document = store.takePendingDocument(projectPath);
+    if (document) store.openDocument(projectPath, document);
+  }, [projectPath, ready]);
 }
 
 export function useOpenDocument() {

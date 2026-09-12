@@ -96,6 +96,7 @@ export type { HealthSweepReport } from "./HealthSweepReport";
 export type { HealthSweepState } from "./HealthSweepState";
 export type { HealthTiming } from "./HealthTiming";
 export type { HotkeyAction } from "./HotkeyAction";
+export type { IgnoredEntry } from "./IgnoredEntry";
 export type { ImportFantomeArgs } from "./ImportFantomeArgs";
 export type { ImportGitRepoArgs } from "./ImportGitRepoArgs";
 export type { Incident } from "./Incident";

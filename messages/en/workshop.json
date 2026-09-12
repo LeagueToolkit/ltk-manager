@@ -19,6 +19,8 @@
     }
   ],
   "workshop.LAYER_FILE_CONFLICT.title": "Files already exist in this layer",
+  "workshop.PACK_IGNORE_PATTERN.description": "{path}, line {line}: {message}",
+  "workshop.PACK_IGNORE_PATTERN.title": "That ignore rule cannot be read",
   "workshop_archive_copy_action": "Copy into {layer}",
   "workshop_archive_extract_action": "Extract…",
   "workshop_archive_extract_quick_action": "Extract to {folder}",
@@ -652,6 +654,8 @@
   "workshop_objects_show_in_file_action": "Show in file",
   "workshop_objects_title": "Objects",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
+  "workshop_pack_left_out_list_label": "What the ignore rules left out",
+  "workshop_pack_left_out_title": "Left out by ignore rules",
   "workshop_preview_copy_into_action": "Copy into {layer}",
   "workshop_preview_extract_action": "Extract",
   "workshop_preview_extract_to_label": "Extract to {folder}",

@@ -1403,5 +1403,12 @@ export type WorkshopError =
 /**  One or more files already exist in the target layer directory. */
 { kind: "LAYER_FILE_CONFLICT"; conflicts: string[] } | 
 /**  A `.modignore` line the matcher cannot compile, which held its save back. */
-{ kind: "IGNORE_RULE_PATTERN"; line: number; message: string };
+{ kind: "IGNORE_RULE_PATTERN"; line: number; message: string } | 
+/**
+ *  A `.modignore` line the matcher cannot compile, which failed a pack.
+ * 
+ *  Names its file, because a pack reads the nested files as well as the
+ *  root one and only the line and the file together place the pattern.
+ */
+{ kind: "PACK_IGNORE_PATTERN"; path: string; line: number; message: string };
 
