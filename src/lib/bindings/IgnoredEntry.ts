@@ -9,6 +9,6 @@ export type IgnoredEntry = {
  */
 path: string, 
 /**
- * A pruned directory, which stands for everything under it.
+ * A directory the walk cut, which stands for everything under it.
  */
-directory: boolean, };
+pruned: boolean, };

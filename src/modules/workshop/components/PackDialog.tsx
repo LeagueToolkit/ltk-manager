@@ -55,7 +55,12 @@ export function PackDialog() {
   const hasWarnings = validation && validation.warnings.length > 0;
 
   return (
-    <Dialog.Shell open={open} onClose={handleClose} title={`Pack ${project.displayName}`} size="lg">
+    <Dialog.Shell
+      open={open}
+      onClose={handleClose}
+      title={m.workshop_pack_title({ name: project.displayName })}
+      size="lg"
+    >
       <Dialog.Body>
         {packResult ? (
           <div className="flex flex-col gap-4">
@@ -63,7 +68,9 @@ export function PackDialog() {
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/20">
                 <CheckIcon weight="bold" className="h-8 w-8 text-success-text" />
               </div>
-              <h3 className="text-lg font-semibold text-surface-100">Package Created</h3>
+              <h3 className="text-lg font-semibold text-surface-100">
+                {m.workshop_pack_created_title()}
+              </h3>
               <p className="mt-2 text-sm font-medium text-surface-200">{packResult.fileName}</p>
               <p className="mt-1 max-w-sm text-xs break-all text-surface-400">
                 {packResult.outputPath}
@@ -83,7 +90,7 @@ export function PackDialog() {
             {validationLoading ? (
               <div className="flex items-center gap-2 text-surface-400">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent-500 border-t-transparent" />
-                Validating project...
+                {m.workshop_pack_validating_label()}
               </div>
             ) : validation ? (
               <div className="flex flex-col gap-3">
@@ -92,12 +99,12 @@ export function PackDialog() {
                     <div className="flex items-center gap-2 text-danger-text">
                       <WarningCircleIcon weight="fill" className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        {validation.errors.length} error{validation.errors.length !== 1 && "s"}
+                        {m.workshop_pack_error_count({ count: validation.errors.length })}
                       </span>
                     </div>
                     <ul className="flex list-disc flex-col gap-1 pl-6 text-sm text-surface-300 marker:text-danger/70">
-                      {validation.errors.map((error) => (
-                        <li key={error}>{error}</li>
+                      {validation.errors.map((error, i) => (
+                        <li key={i}>{error}</li>
                       ))}
                     </ul>
                   </div>
@@ -108,13 +115,12 @@ export function PackDialog() {
                     <div className="flex items-center gap-2 text-warning-text">
                       <WarningIcon weight="fill" className="h-4 w-4" />
                       <span className="text-sm font-medium">
-                        {validation.warnings.length} warning
-                        {validation.warnings.length !== 1 && "s"}
+                        {m.workshop_pack_warning_count({ count: validation.warnings.length })}
                       </span>
                     </div>
                     <ul className="flex list-disc flex-col gap-1 pl-6 text-sm text-surface-300 marker:text-warning/70">
-                      {validation.warnings.map((warning) => (
-                        <li key={warning}>{warning}</li>
+                      {validation.warnings.map((warning, i) => (
+                        <li key={i}>{warning}</li>
                       ))}
                     </ul>
                   </div>
@@ -123,7 +129,7 @@ export function PackDialog() {
                 {validation.valid && !hasWarnings && (
                   <div className="flex items-center gap-2 text-success-text">
                     <CheckIcon weight="bold" className="h-4 w-4" />
-                    <span className="text-sm">Project is valid</span>
+                    <span className="text-sm">{m.workshop_pack_valid_label()}</span>
                   </div>
                 )}
               </div>
@@ -133,17 +139,17 @@ export function PackDialog() {
               value={format}
               onValueChange={(value: unknown) => setFormat(value as "modpkg" | "fantome")}
             >
-              <RadioGroup.Label>Output Format</RadioGroup.Label>
+              <RadioGroup.Label>{m.workshop_pack_format_label()}</RadioGroup.Label>
               <RadioGroup.Options>
                 <RadioGroup.Card
                   value="modpkg"
                   title=".modpkg"
-                  description="Full support for layers and metadata"
+                  description={m.workshop_pack_modpkg_description()}
                 />
                 <RadioGroup.Card
                   value="fantome"
                   title=".fantome"
-                  description="Legacy format (base layer only)"
+                  description={m.workshop_pack_fantome_description()}
                 />
               </RadioGroup.Options>
             </RadioGroup.Root>
@@ -152,8 +158,7 @@ export function PackDialog() {
               <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
                 <WarningIcon weight="fill" className="mt-0.5 h-4 w-4 shrink-0 text-warning-text" />
                 <div className="text-warning-text">
-                  This project has {project.layers.length} layers, but Fantome format only supports
-                  the base layer. Other layers will not be included.
+                  {m.workshop_pack_fantome_layers_hint({ count: project.layers.length })}
                 </div>
               </div>
             )}
@@ -165,20 +170,20 @@ export function PackDialog() {
         {packResult ? (
           <>
             <Button variant="ghost" onClick={handleClose}>
-              Close
+              {m.common_close_action()}
             </Button>
             <Button
               variant="filled"
               left={<FolderOpenIcon className="h-4 w-4" />}
               onClick={() => revealPath(packResult.outputPath)}
             >
-              Show in Explorer
+              {m.workshop_pack_reveal_action()}
             </Button>
           </>
         ) : (
           <>
             <Button variant="ghost" onClick={handleClose}>
-              Cancel
+              {m.common_cancel_action()}
             </Button>
             <Button
               variant="filled"
@@ -187,7 +192,7 @@ export function PackDialog() {
               loading={packProject.isPending}
               disabled={hasErrors || validationLoading}
             >
-              {packProject.isPending ? "Packing..." : "Pack"}
+              {packProject.isPending ? m.workshop_pack_packing_label() : m.workshop_pack_action()}
             </Button>
           </>
         )}
@@ -209,16 +214,15 @@ function LeftOutDisclosure({ entries, projectPath, onOpenRules }: LeftOutDisclos
     [entries],
   );
 
-  /* The editor is not mounted when the dialog is opened from the grid, and an
-     open written into the store before it hydrates would cost the reader every
-     tab their `.ltk/editor.json` holds. */
+  /* Requested rather than opened, because the dialog also opens from the grid,
+     where no editor is mounted. See `pendingDocuments`. */
   function openRules() {
     useWorkshopEditorStore.getState().requestDocument(projectPath, ignoreRulesDocument());
     onOpenRules();
   }
 
   return (
-    <div data-ui="PackDialog:leftOut" className="border-t border-surface-700/50 pt-2">
+    <div data-ui="PackDialog:left-out" className="border-t border-surface-700/50 pt-2">
       <Accordion.Root className="-mx-2">
         <Accordion.Item value="left-out">
           <Accordion.Trigger className="rounded-md px-2 py-1.5">
@@ -264,12 +268,12 @@ function LeftOutDisclosure({ entries, projectPath, onOpenRules }: LeftOutDisclos
 /** One path the rules held back, its folder end shortened before its name. */
 function LeftOutRow({ entry }: { entry: IgnoredEntry }) {
   const { prefix, name } = splitPath(entry);
-  const Glyph = entry.directory ? FolderIcon : FileIcon;
+  const Glyph = entry.pruned ? FolderIcon : FileIcon;
 
   return (
     <li title={entry.path} className="flex items-center gap-2 px-2.5 py-1 text-surface-300">
       <Glyph
-        weight={entry.directory ? "fill" : "regular"}
+        weight={entry.pruned ? "fill" : "regular"}
         className="h-3.5 w-3.5 shrink-0 text-surface-500"
       />
       {prefix && <span className="truncate">{prefix}</span>}
@@ -285,6 +289,6 @@ function splitPath(entry: IgnoredEntry): { prefix: string; name: string } {
 
   return {
     prefix: cut < 0 ? "" : entry.path.slice(0, cut + 1),
-    name: entry.directory ? `${name}/` : name,
+    name: entry.pruned ? `${name}/` : name,
   };
 }

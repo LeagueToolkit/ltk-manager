@@ -73,7 +73,7 @@ impl ProjectDir {
                     continue;
                 }
 
-                match layer_contents(ignore.as_ref(), &layer_dir, &layer.name) {
+                match layer_contents(&layer_dir, ignore.as_ref()) {
                     LayerContents::Files => {}
                     LayerContents::Empty => {
                         warnings.push(format!("Layer content/{} is empty", layer.name));
@@ -109,11 +109,13 @@ impl ProjectDir {
     ///
     /// # Errors
     ///
-    /// [`WorkshopError::PackIgnorePattern`] for a pattern the matcher refuses,
-    /// which is the failure the pack itself would raise.
+    /// Whatever the pack itself would raise: `AppError::InvalidPath` for a
+    /// project path no archive format stores, [`WorkshopError::PackIgnorePattern`]
+    /// for a pattern the matcher refuses, and `AppError::PackFailed` for a
+    /// `.modignore` that cannot be read.
     fn ignore_filter(&self) -> AppResult<ModIgnore> {
         let root = self.path().try_as_utf8("project path")?;
-        ModIgnore::load(root).map_err(ignore_error)
+        ModIgnore::load(root).map_err(|error| ignore_error(error, root))
     }
 }
 
@@ -129,8 +131,9 @@ enum LayerContents {
 }
 
 /// What `layer_dir` holds, through `ignore` where the project has rules.
-fn layer_contents(ignore: Option<&ModIgnore>, layer_dir: &Path, layer_name: &str) -> LayerContents {
-    let Some(ignore) = ignore else {
+fn layer_contents(layer_dir: &Path, ignore: Option<&ModIgnore>) -> LayerContents {
+    let filtered = ignore.zip(Utf8Path::from_path(layer_dir));
+    let Some((ignore, layer_dir)) = filtered else {
         return match fs::read_dir(layer_dir).map(|entries| entries.count() == 0) {
             Ok(false) => LayerContents::Files,
             Ok(true) | Err(_) => LayerContents::Empty,
@@ -138,8 +141,9 @@ fn layer_contents(ignore: Option<&ModIgnore>, layer_dir: &Path, layer_name: &str
     };
 
     /* `skipped` is only complete once the walk is, which is why the first
-    entry returns before it is read. */
-    let mut walk = ignore.walk(&ignore.content_dir().join(layer_name));
+    entry returns before it is read. An entry that failed to read counts, since
+    a directory nothing can read is not one a warning should call empty. */
+    let mut walk = ignore.walk(layer_dir);
     if walk.by_ref().next().is_some() {
         return LayerContents::Files;
     }
@@ -153,9 +157,9 @@ fn layer_contents(ignore: Option<&ModIgnore>, layer_dir: &Path, layer_name: &str
 
 /// A refused `.modignore` pattern as the frontend reads it, with its line.
 ///
-/// Every other failure keeps the crate's own rendering, which names the file
-/// and needs no field of its own.
-fn ignore_error(error: ModIgnoreError) -> AppError {
+/// The file is named relative to `project_root`, the form the creator knows it
+/// by. Every other failure keeps the crate's own rendering.
+fn ignore_error(error: ModIgnoreError, project_root: &Utf8Path) -> AppError {
     let ModIgnoreError::Pattern { path, source } = &error else {
         return AppError::PackFailed(error.to_string());
     };
@@ -164,7 +168,7 @@ fn ignore_error(error: ModIgnoreError) -> AppError {
     let (line, message) = split_line_prefix(&rendered).unwrap_or((1, rendered.as_str()));
 
     WorkshopError::PackIgnorePattern {
-        path: path.to_string(),
+        path: project_relative(path, project_root),
         line,
         message: message.to_string(),
     }
@@ -175,11 +179,19 @@ fn ignore_error(error: ModIgnoreError) -> AppError {
 ///
 /// A refused pattern is the one case with a field to carry, since
 /// `to_string` alone drops the line the matcher counted.
-fn pack_error<E: std::error::Error>(error: PackError<E>) -> AppError {
+fn pack_error<E: std::error::Error>(error: PackError<E>, project_root: &Utf8Path) -> AppError {
     match error {
-        PackError::Ignore(ignore) => ignore_error(ignore),
+        PackError::Ignore(ignore) => ignore_error(ignore, project_root),
         other => AppError::PackFailed(other.to_string()),
     }
+}
+
+/// `path` under `base`, forward-slashed so both platforms read alike.
+fn project_relative(path: &Utf8Path, base: &Utf8Path) -> String {
+    path.strip_prefix(base)
+        .unwrap_or(path)
+        .as_str()
+        .replace('\\', "/")
 }
 
 /// `report`'s exclusions as the dialog lists them.
@@ -191,12 +203,10 @@ fn ignored_entries(report: &PackReport, content_dir: &Utf8Path) -> Vec<IgnoredEn
         .ignored_files()
         .iter()
         .map(|path| IgnoredEntry {
-            directory: path.is_dir(),
-            path: path
-                .strip_prefix(content_dir)
-                .unwrap_or(path)
-                .as_str()
-                .replace('\\', "/"),
+            /* The report says what was left out and not what shape it is, so
+            the shape is read off disk, where the entry still sits. */
+            pruned: path.is_dir(),
+            path: project_relative(path, content_dir),
         })
         .collect()
 }
@@ -232,42 +242,40 @@ impl Workshop {
         // Create output directory if needed
         fs::create_dir_all(output_dir.as_std_path())?;
 
-        match args.format {
+        let project_root = project_path_utf8.clone();
+        let content_dir = project_root.join("content");
+
+        let (file_name, output_path, format, report) = match args.format {
             PackFormat::Modpkg => {
                 let file_name = mod_project.package_file_name(None, PackageFormat::Modpkg);
                 let output_path = output_dir.join(&file_name);
                 let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                let content_dir = project_path_utf8.join("content");
                 let report = ProjectPacker::new(mod_project, project_path_utf8)
                     .pack(ModpkgFormat::new(writer))
-                    .map_err(pack_error)?;
+                    .map_err(|e| pack_error(e, &project_root))?;
 
-                Ok(PackResult {
-                    output_path: output_path.to_string(),
-                    file_name,
-                    format: "modpkg".to_string(),
-                    ignored: ignored_entries(&report, &content_dir),
-                })
+                (file_name, output_path, "modpkg", report)
             }
             PackFormat::Fantome => {
                 let file_name = mod_project.package_file_name(None, PackageFormat::Fantome);
                 let output_path = output_dir.join(&file_name);
                 let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                let content_dir = project_path_utf8.join("content");
                 let report = ProjectPacker::new(mod_project, project_path_utf8)
                     .pack(FantomeFormat::new(writer))
-                    .map_err(pack_error)?;
+                    .map_err(|e| pack_error(e, &project_root))?;
 
-                Ok(PackResult {
-                    output_path: output_path.to_string(),
-                    file_name,
-                    format: "fantome".to_string(),
-                    ignored: ignored_entries(&report, &content_dir),
-                })
+                (file_name, output_path, "fantome", report)
             }
-        }
+        };
+
+        Ok(PackResult {
+            output_path: output_path.to_string(),
+            file_name,
+            format: format.to_string(),
+            ignored: ignored_entries(&report, &content_dir),
+        })
     }
 
     /// Validate a project before packing.
@@ -368,5 +376,6 @@ impl Workshop {
         Ok(thumbnail_path.to_string())
     }
 }
+
 #[cfg(test)]
 mod tests;

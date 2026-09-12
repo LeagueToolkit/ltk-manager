@@ -654,8 +654,39 @@
   "workshop_objects_show_in_file_action": "Show in file",
   "workshop_objects_title": "Objects",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
+  "workshop_pack_action": "Pack",
+  "workshop_pack_created_title": "Package Created",
+  "workshop_pack_error_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} error",
+        "countPlural=other": "{count} errors"
+      }
+    }
+  ],
+  "workshop_pack_fantome_description": "Legacy format (base layer only)",
+  "workshop_pack_fantome_layers_hint": "This project has {count} layers, but Fantome format only supports the base layer. Other layers will not be included.",
+  "workshop_pack_format_label": "Output Format",
   "workshop_pack_left_out_list_label": "What the ignore rules left out",
   "workshop_pack_left_out_title": "Left out by ignore rules",
+  "workshop_pack_modpkg_description": "Full support for layers and metadata",
+  "workshop_pack_packing_label": "Packing...",
+  "workshop_pack_reveal_action": "Show in Explorer",
+  "workshop_pack_title": "Pack {name}",
+  "workshop_pack_valid_label": "Project is valid",
+  "workshop_pack_validating_label": "Validating project...",
+  "workshop_pack_warning_count": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} warning",
+        "countPlural=other": "{count} warnings"
+      }
+    }
+  ],
   "workshop_preview_copy_into_action": "Copy into {layer}",
   "workshop_preview_extract_action": "Extract",
   "workshop_preview_extract_to_label": "Extract to {folder}",

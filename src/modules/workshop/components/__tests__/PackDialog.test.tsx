@@ -68,9 +68,9 @@ describe("PackDialog", () => {
   it("counts what the rules left out and lists it", async () => {
     const user = userEvent.setup();
     packResult = result([
-      { path: "base/textures/skin0_src.psd", directory: false },
-      { path: "base/wip", directory: true },
-      { path: "base/.DS_Store", directory: false },
+      { path: "base/textures/skin0_src.psd", pruned: false },
+      { path: "base/wip", pruned: true },
+      { path: "base/.DS_Store", pruned: false },
     ]);
     usePackDialog.getState().open(MOD);
     renderWithProviders(<PackDialog />);
@@ -101,7 +101,7 @@ describe("PackDialog", () => {
 
   it("asks the editor for the ignore rules rather than opening them itself", async () => {
     const user = userEvent.setup();
-    packResult = result([{ path: "base/notes.txt", directory: false }]);
+    packResult = result([{ path: "base/notes.txt", pruned: false }]);
     usePackDialog.getState().open(MOD);
     renderWithProviders(<PackDialog />);
 
@@ -112,8 +112,6 @@ describe("PackDialog", () => {
     expect(useWorkshopEditorStore.getState().pendingDocuments[MOD.path]?.id).toBe(
       IGNORE_RULES_DOCUMENT_ID,
     );
-    /* The open waits for the editor to hydrate, so nothing is written where
-       the reader's own tabs live. */
     expect(useWorkshopEditorStore.getState().byProject[MOD.path]).toBeUndefined();
   });
 

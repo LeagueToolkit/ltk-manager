@@ -349,7 +349,7 @@ fn a_pack_reports_what_the_rules_left_out() {
         .iter()
         .find(|entry| entry.path == "base/wip")
         .unwrap();
-    assert!(pruned.directory, "a pruned folder is marked as one");
+    assert!(pruned.pruned, "a pruned folder is marked as one");
 }
 
 #[test]
@@ -372,7 +372,8 @@ fn a_pattern_that_does_not_compile_fails_the_pack_with_its_line() {
         error,
         AppError::Workshop(WorkshopError::PackIgnorePattern { path, line, .. }) => {
             assert_eq!(line, 3);
-            assert!(path.ends_with(".modignore"), "{path} should name the file");
+            // Project-relative, the form the creator knows the file by.
+            assert_eq!(path, ".modignore");
         }
     );
 }
@@ -424,6 +425,25 @@ fn a_layer_with_no_files_reads_as_empty_rather_than_emptied() {
     make_project(tmp.path(), base_layer(), &[]);
     fs::create_dir_all(tmp.path().join("content").join("base")).unwrap();
     write_rules(tmp.path(), "*.psd\n");
+
+    let validation = ProjectDir::open(tmp.path()).unwrap().validate().unwrap();
+
+    assert!(
+        validation
+            .warnings
+            .contains(&"Layer content/base is empty".to_string()),
+        "{:?}",
+        validation.warnings
+    );
+}
+
+/// The filter walks files, so a layer whose only entries are directories packs
+/// nothing and reads as empty, where counting raw entries called it populated.
+#[test]
+fn a_layer_holding_only_empty_directories_reads_as_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    make_project(tmp.path(), base_layer(), &[]);
+    fs::create_dir_all(tmp.path().join("content").join("base").join("textures")).unwrap();
 
     let validation = ProjectDir::open(tmp.path()).unwrap().validate().unwrap();
 

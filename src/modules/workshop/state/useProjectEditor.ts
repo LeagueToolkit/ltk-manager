@@ -158,13 +158,7 @@ export function useRevealRequest(layerName: string): RevealRequest | null {
   });
 }
 
-/**
- * Open the document another surface asked for, once the editor can hold it.
- *
- * The pack dialog names a document from the project grid, where this editor is
- * not mounted, and an open written before `ready` would cost the user every tab
- * the file on disk holds.
- */
+/** Open the document another surface asked for, once the editor can hold it. */
 export function useRequestedDocument(projectPath: string, ready: boolean) {
   useEffect(() => {
     if (!ready) return;

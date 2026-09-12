@@ -319,8 +319,8 @@ pub struct PackResult {
 pub struct IgnoredEntry {
     /// Path under `content/`, forward-slashed, where a rule's own path starts.
     pub path: String,
-    /// A pruned directory, which stands for everything under it.
-    pub directory: bool,
+    /// A directory the walk cut, which stands for everything under it.
+    pub pruned: bool,
 }
 
 /// Result of adding files/folders to a layer.
