@@ -23,7 +23,7 @@ interface VirtualCardsProps<T> {
 /**
  * A list's cards, mounting only the rows the reader can see.
  *
- * The column count is read back out of the row's own computed
+ * The column count is read back out of an empty row's computed
  * `grid-template-columns` rather than worked out from the card width, so the
  * browser's `auto-fill` answer is the one used and the zoom and card-scale
  * tokens need no second implementation here.
@@ -37,7 +37,7 @@ export function VirtualCards<T>({
   className = "",
 }: VirtualCardsProps<T>) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const rowRef = useRef<HTMLDivElement>(null);
+  const probeRef = useRef<HTMLDivElement>(null);
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [columns, setColumns] = useState(1);
   const [rowGap, setRowGap] = useState(0);
@@ -47,10 +47,12 @@ export function VirtualCards<T>({
     if (frameRef.current) setScroller(scrollerOf(frameRef.current));
   }, []);
 
-  /* The row is the grid, so its used track list is the column count and its own
-     row gap is the space between rows the absolute layout has to add back. The
-     margin is whatever sits between the scroller's top and the first row - the
-     scroller's padding, and a folder header where there is one. */
+  /* The probe is a row with no cards, so its used track list is the column count
+     and its row gap is the space between rows the absolute layout has to add
+     back. A probe rather than the first row, which is not mounted before the
+     first paint or once scrolled past. The margin is whatever sits between the
+     scroller's top and the first row - the scroller's padding, and a folder
+     header where there is one. */
   const measure = useCallback(() => {
     const frame = frameRef.current;
     if (frame && scroller) {
@@ -58,15 +60,16 @@ export function VirtualCards<T>({
       setScrollMargin(top + scroller.scrollTop);
     }
 
-    const row = rowRef.current;
-    if (!row) return;
+    const probe = probeRef.current;
+    if (!probe) return;
 
-    const style = getComputedStyle(row);
+    const style = getComputedStyle(probe);
     const tracks = style.gridTemplateColumns;
     setColumns(tracks === "none" ? 1 : tracks.split(" ").length);
     setRowGap(Number.parseFloat(style.rowGap) || 0);
   }, [scroller]);
 
+  /* `viewMode` swaps the probe's grid class, and the tracks with it. */
   useLayoutEffect(() => {
     measure();
     if (!scroller) return;
@@ -74,7 +77,7 @@ export function VirtualCards<T>({
     const observer = new ResizeObserver(measure);
     observer.observe(scroller);
     return () => observer.disconnect();
-  }, [measure, scroller]);
+  }, [measure, scroller, viewMode]);
 
   const rowCount = Math.ceil(items.length / columns);
   const virtualizer = useVirtualizer({
@@ -92,6 +95,12 @@ export function VirtualCards<T>({
       style={{ height: virtualizer.getTotalSize(), position: "relative" }}
       data-ui="VirtualCards"
     >
+      <div
+        ref={probeRef}
+        aria-hidden="true"
+        className={gridClass(viewMode)}
+        style={{ height: 0 }}
+      />
       <div ref={containerRef}>
         {virtualizer.getVirtualItems().map((row) => {
           const from = row.index * columns;
@@ -100,10 +109,7 @@ export function VirtualCards<T>({
           return (
             <div
               key={row.key}
-              ref={(node) => {
-                if (row.index === 0) rowRef.current = node;
-                virtualizer.measureElement(node);
-              }}
+              ref={virtualizer.measureElement}
               data-index={row.index}
               className={gridClass(viewMode)}
               style={{
