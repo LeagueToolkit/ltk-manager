@@ -270,11 +270,12 @@ or `docs/plans/`, and no language setting (the `locale` in `Settings` is the gam
   channel, is "preinstalled onto all Windows 11 devices" and was installed to eligible Windows 10
   devices.
 - **Tauri's CSP allows bundled modules.** `tauri.conf.json` sets
-  `default-src 'self' ipc: http://ipc.localhost` with no `connect-src`, so a dynamic `import()`
-  of a chunk and a `fetch()` of a bundled file are both same-origin and allowed. Tauri's own docs
-  example sets a `connect-src` without `'self'`, under which `fetch()` of a bundled JSON would be
-  blocked, so a runtime-loading library depends on this line staying as it is. Route components are
-  already code-split (`autoCodeSplitting: true`), so chunk loading under this CSP is proven.
+  `default-src 'self' ipc: http://ipc.localhost` and a `connect-src` that starts with `'self'`, so a
+  dynamic `import()` of a chunk and a `fetch()` of a bundled file are both same-origin and allowed.
+  Tauri's own docs example sets a `connect-src` without `'self'`, under which `fetch()` of a bundled
+  JSON would be blocked, so a runtime-loading library depends on `'self'` staying in that
+  directive. Route components are already code-split (`autoCodeSplitting: true`), so chunk loading
+  under this CSP is proven.
 - **ESLint 9.39 flat config** via `tseslint.config`, plugins `react`, `react-hooks`,
   `simple-import-sort`, ignoring `src-tauri/`, `gen/`, `dist/`. `lint-staged` runs `eslint --fix`
   and Prettier on staged `.ts`/`.tsx` and `cargo fmt` on staged `.rs`. CI's `frontend-check` runs

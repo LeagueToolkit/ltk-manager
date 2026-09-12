@@ -24,7 +24,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost ltk-asset: http://ltk-asset.localhost",
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: data: http://asset.localhost ltk-asset: http://ltk-asset.localhost; connect-src 'self' ipc: http://ipc.localhost asset: http://asset.localhost ltk-asset: http://ltk-asset.localhost; style-src 'self' 'unsafe-inline'",
+      "dangerousDisableAssetCspModification": ["style-src"],
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]
