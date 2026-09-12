@@ -2,8 +2,9 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, IgnoreRules,
-    ImportFantomeArgs, ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs,
-    ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
+    ImportFantomeArgs, ImportGitRepoArgs, PackProjectArgs, PackResult, ProjectText,
+    ProjectTextFile, Revision, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
+    WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
 };
 use chrono::Local;
 use fs_err as fs;
@@ -107,6 +108,38 @@ pub fn add_recommended_ignore_rules(
         .0
         .project(&project_path)
         .and_then(|project| project.add_recommended_ignore_rules(today))
+        .into()
+}
+
+/// Read one of the project's root text files, the readme or the license.
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_text(
+    project_path: String,
+    file: ProjectTextFile,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ProjectText> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.project_text(file))
+        .into()
+}
+
+/// Write one of the project's root text files, guarded by `expected`.
+#[tauri::command]
+#[specta::specta]
+pub fn save_project_text(
+    project_path: String,
+    file: ProjectTextFile,
+    text: String,
+    expected: Option<Revision>,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ProjectText> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.write_project_text(file, &text, expected))
         .into()
 }
 

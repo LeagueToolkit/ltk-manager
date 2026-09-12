@@ -23,6 +23,8 @@ export {
   previewDocumentId,
   PROBLEMS_DOCUMENT_ID,
   problemsDocument,
+  projectTextDocument,
+  README_DOCUMENT_ID,
   REFERENCES_DOCUMENT_ID,
   referencesDocument,
   stringsDocument,

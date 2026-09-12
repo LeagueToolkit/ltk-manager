@@ -123,6 +123,14 @@ export const commands = {
 	/**  Write the `.modignore` at project-relative `at`, or the root file for none. */
 	saveProjectIgnoreRules: (projectPath: string, at: string | null, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, at, text }),
 	addRecommendedIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_recommended_ignore_rules", { projectPath }),
+	/**  Read one of the project's root text files, the readme or the license. */
+	getProjectText: (projectPath: string, file: ProjectTextFile) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_text", { projectPath, file }),
+	/**  Write one of the project's root text files, guarded by `expected`. */
+	saveProjectText: (projectPath: string, file: ProjectTextFile, text: string, expected: {
+	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
+	modifiedMs: number,
+	size: number,
+} | null) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_text", { projectPath, file, text, expected }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -1046,6 +1054,30 @@ export type PatcherError =
  */
 { kind: "INJECTION_FAILED"; stage: InjectionStage; message: string };
 
+/**  One of a project's root text files, as the editor reads it. */
+export type ProjectText = {
+	/**  Absolute path of the file, whether or not one exists. */
+	path: string,
+	/**  The file's text, null where no file exists or its bytes are not UTF-8. */
+	text: string | null,
+	/**  Whether a file that exists decoded. A file that did not is read-only. */
+	readable: boolean,
+	/**  What the file was when it was read, null where no file exists. */
+	revision: Revision | null,
+};
+
+/**
+ *  A text file a project keeps at its root, beside `content/`.
+ * 
+ *  Naming the files rather than taking a path is what keeps a command that
+ *  writes into a project from being addressable at an arbitrary one.
+ */
+export type ProjectTextFile = 
+/**  The long description a package carries, in Markdown. */
+"readme" | 
+/**  The terms the mod is shared under, which both pack formats ship. */
+"license";
+
 /**
  *  The 27 kinds `ltk_meta` reads, as they cross IPC.
  * 
@@ -1054,6 +1086,19 @@ export type PatcherError =
  *  compile error here.
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
+
+/**
+ *  What a file was when it was read, so a save can tell it has not moved.
+ * 
+ *  Modification time and size rather than a hash of the bytes: one `stat`
+ *  answers it, and prose a person typed does not change back into the same
+ *  length within the same millisecond.
+ */
+export type Revision = {
+	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
+	modifiedMs: number,
+	size: number,
+};
 
 /**  Where a row sits in the tree. */
 export type RowNode = 
@@ -1416,5 +1461,7 @@ export type WorkshopError =
  *  Names its file, because a pack reads the nested files as well as the
  *  root one and only the line and the file together place the pattern.
  */
-{ kind: "PACK_IGNORE_PATTERN"; path: string; line: number; message: string };
+{ kind: "PACK_IGNORE_PATTERN"; path: string; line: number; message: string } | 
+/**  A root text file that changed on disk under the buffer being saved. */
+{ kind: "TEXT_FILE_CHANGED"; path: string };
 

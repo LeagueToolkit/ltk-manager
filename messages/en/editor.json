@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "editor_group_lock_action": "Lock Group",
   "editor_group_unlock_action": "Unlock Group",
+  "editor_save_failed_hint": "Couldn't save",
+  "editor_save_retry_action": "Retry",
   "editor_tab_close_action": "Close",
   "editor_tab_close_all_action": "Close All",
   "editor_tab_close_label": "Close {title}",

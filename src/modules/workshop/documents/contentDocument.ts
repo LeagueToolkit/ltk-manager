@@ -1,4 +1,4 @@
-import type { AssetRef, WorkshopProject } from "@/lib/tauri";
+import type { AssetRef, ProjectTextFile, WorkshopProject } from "@/lib/tauri";
 import type { EditorDocumentBase } from "@/modules/editor";
 
 /* The reference helpers rather than the preview barrel, which pulls the viewer
@@ -28,6 +28,12 @@ interface IgnoreRulesDoc extends EditorDocumentBase {
   kind: "ignore-rules";
   /** The file's project-relative path, absent for the project's root rules. */
   at?: string;
+}
+
+interface TextFileDoc extends EditorDocumentBase {
+  kind: "text";
+  /** Which of the project's root text files this is. */
+  file: ProjectTextFile;
 }
 
 interface GameDoc extends EditorDocumentBase {
@@ -86,6 +92,7 @@ export type ContentDocument =
   | StringsDoc
   | ProblemsDoc
   | IgnoreRulesDoc
+  | TextFileDoc
   | GameDoc
   | GameWadsDoc
   | GameWadDoc
@@ -122,6 +129,19 @@ export const IGNORE_RULES_DOCUMENT_ID = "ignore-rules";
 export function ignoreRulesDocument(at?: string): ContentDocumentOf<"ignore-rules"> {
   if (at === undefined) return { id: IGNORE_RULES_DOCUMENT_ID, kind: "ignore-rules" };
   return { id: `${IGNORE_RULES_DOCUMENT_ID}:${at}`, kind: "ignore-rules", at };
+}
+
+/** The project's readme, the one root text file a route opens today. */
+export const README_DOCUMENT_ID = "text:readme";
+
+/**
+ * One of the project's root text files.
+ *
+ * A project holds one of each, so the file is what keys the document and a
+ * second one costs a caller rather than a kind.
+ */
+export function projectTextDocument(file: ProjectTextFile): ContentDocumentOf<"text"> {
+  return { id: `text:${file}`, kind: "text", file };
 }
 
 /** A run covers the whole project, so its document needs nothing to key on. */

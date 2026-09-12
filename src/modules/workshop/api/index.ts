@@ -1,5 +1,5 @@
 export { workshopKeys } from "./keys";
-export { ignoreRuleMutations } from "./mutations";
+export { ignoreRuleMutations, projectTextMutations } from "./mutations";
 export { projectQueries, stringQueries } from "./queries";
 export { useAddFilesToLayer } from "./useAddFilesToLayer";
 export { useCreateProject } from "./useCreateProject";

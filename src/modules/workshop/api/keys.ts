@@ -1,3 +1,5 @@
+import type { ProjectTextFile } from "@/lib/tauri";
+
 export const workshopKeys = {
   all: ["workshop"] as const,
   projects: () => [...workshopKeys.all, "projects"] as const,
@@ -15,6 +17,8 @@ export const workshopKeys = {
   ignoreRules: (path: string, at: string | null) =>
     [...workshopKeys.project(path), "ignoreRules", at] as const,
   recommendedIgnoreRules: () => [...workshopKeys.all, "recommendedIgnoreRules"] as const,
+  projectText: (path: string, file: ProjectTextFile) =>
+    [...workshopKeys.project(path), "text", file] as const,
   stringKeySearch: (query: string) => [...workshopKeys.all, "stringKeySearch", query] as const,
   stringValues: (keys: readonly string[]) => [...workshopKeys.all, "stringValues", keys] as const,
   gameExtractPlan: (targets: readonly unknown[] | null) =>

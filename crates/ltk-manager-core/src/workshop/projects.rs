@@ -1,3 +1,4 @@
+use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
     SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
@@ -110,11 +111,7 @@ impl Workshop {
         let config_content = serde_json::to_string_pretty(&mod_project)?;
         fs::write(&config_path, config_content)?;
 
-        let readme_content = format!(
-            "# {}\n\n{}\n",
-            mod_project.display_name, mod_project.description
-        );
-        fs::write(project_dir.join("README.md"), readme_content)?;
+        write_default_readme(&project_dir, &mod_project.display_name)?;
 
         start_project(project_dir)
     }

@@ -80,6 +80,10 @@
   --color-doc-problems-text: var(--ltk-doc-problems-text);
   --color-doc-ignore: var(--ltk-doc-ignore);
   --color-doc-ignore-text: var(--ltk-doc-ignore-text);
+  --color-doc-readme: var(--ltk-doc-readme);
+  --color-doc-readme-text: var(--ltk-doc-readme-text);
+  --color-doc-license: var(--ltk-doc-license);
+  --color-doc-license-text: var(--ltk-doc-license-text);
   --color-channel-1: var(--ltk-channel-1);
   --color-channel-1-text: var(--ltk-channel-1-text);
   --color-channel-2: var(--ltk-channel-2);

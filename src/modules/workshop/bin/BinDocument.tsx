@@ -3,7 +3,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Popover, Spinner } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinHeader, BinRow } from "@/lib/tauri";
-import { DocumentToolbar } from "@/modules/editor";
+import { DocumentToolbar, useNarrowToolbar } from "@/modules/editor";
 
 import { objectDocument } from "../documents/contentDocument";
 import type { OpenIntent } from "../palette/types";
@@ -19,7 +19,6 @@ import { objectKey, rowKey } from "./binRows";
 import { BinTree, type TreeReveal } from "./BinTree";
 import { type CurveDock, CurveDockContext } from "./curveTarget";
 import { useBinDocument } from "./useBinDocument";
-import { useNarrowToolbar } from "./useNarrowToolbar";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */

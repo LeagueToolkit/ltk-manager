@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-12 | Write a project's readme beside its rendered half                       |
 | 2026-09-12 | Report what the ignore rules left out of a package                      |
 | 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude      |
 | 2026-09-11 | Maximize a panel from its tab                                           |
@@ -1057,6 +1058,7 @@ whatever the editor grid holds.
 | Mod details          | Opens the metadata editor as a document                      |
 | Game index           | Opens the game browser as a document                         |
 | Objects              | Opens the objects browser as a document                      |
+| Readme               | Opens the project's `README.md` as a document                |
 | Ignore rules         | Opens the project's `.modignore` as a document               |
 | Open project folder  | Shows the project directory in the file manager              |
 | Source control (Git) | Version control for the declarative data. Under construction |
@@ -1377,10 +1379,14 @@ The project row opens Ignore rules as a document, so it sits beside a layer whil
 works. Its tab glyph is the slashed eye on a new `doc-ignore` slate token, the one unsaturated
 glyph among the document hues (DS-KIND-HUE).
 
-The text sits left with a sticky syntax rail of about 220px beside it, which folds to a
-disclosure below roughly 560px. A mono gutter carries the line numbers the tooltips cite. The
+The text fills the document and a mono gutter carries the line numbers the tooltips cite. The
 toolbar is a `.modignore` chip, Add missing recommended rules where entries are missing, and the
 save state.
+
+The syntax is a bar along the bottom rather than a rail beside the text: four patterns and three
+rules are two wrapped lines, where a rail spent a fifth of the pane on them and disappeared
+entirely at the width that most needed the room. It collapses to its own header, and the wiki
+link sits at the end of that header whether it is open or not.
 
 It autosaves, following the Strings document, so the tab's dirty state is reserved for a save
 that is blocked or failed.
@@ -1424,6 +1430,107 @@ cannot break the game.
 
 A save or an action invalidates the content tree query, which refetches on window focus. An edit
 made in another editor lands when the app is next focused. There is no watcher.
+
+## The readme
+
+A mod project holds a `README.md`, both pack formats ship it, and both imports restore it.
+Nothing in the manager wrote it after the moment the project was created, so what a package
+carried was a heading over the one-line description and never a word more. What the manager
+adds is the surface for it.
+
+The reasons, the source per point and the alternatives each decision was taken over are in
+`docs/research/readme-in-project-editor.md`.
+
+### What it is for, and what it is not
+
+The readme is the long description a package ships: what the mod changes, what installing it
+needs, who made which part. The `description` field in the details document is the one line a
+mod's card carries. Neither is derived from the other, because a field derived from prose
+rewrites itself whenever the prose is edited, and the two texts then disagree with nothing on
+screen saying which is current.
+
+A new project is written the display name as a heading and nothing else. A project that
+already exists is never written to, and a git import keeps whatever the repository holds.
+
+### Two routes
+
+The project row opens it, beside the other routes that belong to the whole project. The
+details document's description field carries one line naming `README.md` as where the long
+text lives, with a control that opens the same document, because a creator filling in the
+blurb is the one who has not met the readme yet.
+
+The content tree draws no row for it. The file sits above `content/`, which is the only tree
+the editor has.
+
+### The document
+
+Raw Markdown on the left, rendered Markdown on the right, half and half, with a divider the
+creator drags. Below 560px, the width the ignore rules document folds its syntax rail at, one
+half is on screen at a time and the toolbar carries a Raw and Preview toggle.
+
+The halves scroll independently. Tying them together needs a map from a source line to the
+node it drew, which the renderer does not give up cheaply, and a sync that holds for prose but
+not for a table reads worse than none.
+
+The rendered half is GitHub Flavoured Markdown, which is what a mod's readme is written for.
+Raw HTML and inline scripts are not rendered: a readme arrives from a git import or a packaged
+mod as readily as from the project's own author, and the webview runs with the app's
+privileges. A relative image resolves against the project root, a remote image does not load,
+and an external link opens in the system browser.
+
+It autosaves, following the Ignore rules and Strings documents, so the tab's dirty state is
+reserved for a save that is blocked or failed.
+
+**Insert template** appends the sections the file lacks - About, Installing, Credits - matched
+on heading text rather than heading level. It is an action and never fires on its own, because
+a skeleton written at creation ships its empty headings to every player of a mod whose author
+never opened the document.
+
+A project with no readme draws a card offering to write one, which writes the heading and
+nothing else when it is taken.
+
+### A text document sits on the ground
+
+Every document whose body is text a creator edits - the readme, its rendered half, the ignore
+rules and its syntax rail - draws on `surface-950` with no padding around it and no inset frame
+of its own. The tab is the frame, and what divides two halves is a hairline.
+
+A bordered, rounded box inset in a padded document is a frame drawn inside a frame, which costs
+a text surface the width it exists to give, and which reads as a card in a place where nothing
+is being lifted off the page.
+
+### What a save guards
+
+A creator writes prose in a real editor as readily as in this one. A save carries the
+modification time and size the buffer was read at, and a file that no longer matches refuses
+the write rather than winning the race. The strip under the buffer names the file and offers
+Reload, which takes what is on disk, and Keep mine, which writes over it. Nothing autosaves
+again until one of them is pressed.
+
+A file whose bytes are not UTF-8 opens read-only and says so. The packer moves those bytes
+without decoding them, and a document that decoded to show them would re-encode them on the
+next save.
+
+A file's own line ending survives a save. A buffer arrives from a textarea with `\n`
+whatever the file had, so rewriting every line of a CRLF readme is a diff its author did not
+make.
+
+### What Pack reports
+
+A project with no readme is a pre-flight warning, in the shape the missing thumbnail warning
+takes, and Pack stays enabled because a creator may mean it. A readme that exists is not
+judged: nothing here can tell a deliberate one-line readme from an abandoned one.
+
+There is no problems rule. The problems pass is about a project that will misbehave in the
+game, and a missing readme cannot break anything.
+
+### The license
+
+The same command reads and writes the project's license file, which `ltk_mod_project` resolves
+as `LICENSE`, `LICENSE.md` or `LICENSE.txt` without regard to case, and which both pack
+formats carry the same way they carry the readme. No route opens it yet. The document kind
+names the file rather than taking a path, so a license surface is a route and a hue rather
+than a second document.
 
 ## The explorers
 
@@ -2194,6 +2301,7 @@ already fills it with a layer name. The rule above sets when that field shows.
 | Mod details  | The project metadata form                          |
 | Layer files  | The file tree of one layer                         |
 | Strings      | The override table for one layer and locale        |
+| Readme       | The project's `README.md`, raw beside rendered     |
 | Ignore rules | The project's `.modignore` as text                 |
 | Game index   | Every archive of the install, folded into one tree |
 | Game WADs    | The list of the install's archives                 |
