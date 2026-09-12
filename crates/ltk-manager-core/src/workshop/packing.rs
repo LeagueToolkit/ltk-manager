@@ -1,7 +1,7 @@
 use super::ignore_rules::{ignore_error, project_relative};
 use super::{
-    IgnoredEntry, PackFormat, PackProjectArgs, PackResult, ProjectDir, ValidationResult, Workshop,
-    WorkshopProject, is_valid_project_name,
+    IgnoredEntry, PackFormat, PackProjectArgs, PackResult, ProjectDir, ProjectTextFile,
+    README_FILE_NAME, ValidationResult, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::error::{AppError, AppResult};
 use camino::{Utf8Path, Utf8PathBuf};
@@ -94,6 +94,14 @@ impl ProjectDir {
             && !self.path().join("thumbnail.png").exists()
         {
             warnings.push("No thumbnail found (thumbnail.webp or thumbnail.png)".to_string());
+        }
+
+        /* A readme that exists is not judged, because nothing here can tell a
+        deliberate one-line readme from an abandoned one. */
+        if !self.text_file_path(ProjectTextFile::Readme).exists() {
+            warnings.push(format!(
+                "No {README_FILE_NAME} found, so the package carries nothing to read"
+            ));
         }
 
         Ok(ValidationResult {

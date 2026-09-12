@@ -5,10 +5,12 @@ pub mod layer;
 mod layers;
 mod packing;
 mod projects;
+mod text_files;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
+pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
@@ -50,6 +52,10 @@ pub enum WorkshopError {
         line: u32,
         message: String,
     },
+
+    /// A root text file that changed on disk under the buffer being saved.
+    #[error("{path} changed since it was read")]
+    TextFileChanged { path: String },
 }
 
 /// Managed struct that encapsulates workshop operations.

@@ -57,6 +57,8 @@ migrated![
     recommended_ignore_rules,
     save_project_ignore_rules,
     add_recommended_ignore_rules,
+    get_project_text,
+    save_project_text,
     // Launcher
     check_install_mismatch,
     switch_league_install,

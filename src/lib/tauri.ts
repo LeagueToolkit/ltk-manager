@@ -77,7 +77,7 @@ import type {
   WorkshopLayerInfo,
   WorkshopProject,
 } from "@/lib/bindings";
-import type { UiError } from "@/lib/bindings.gen";
+import type { ProjectTextFile, Revision, UiError } from "@/lib/bindings.gen";
 import { type BinDocumentId, commands } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
@@ -102,6 +102,7 @@ export type {
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
+export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
@@ -457,6 +458,14 @@ export const api = {
       commands.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
     addRecommended: (projectPath: string) =>
       commands.addRecommendedIgnoreRules(projectPath).then(toResult),
+  },
+
+  // A project's root text files, on tauri-specta.
+  projectText: {
+    read: (projectPath: string, file: ProjectTextFile) =>
+      commands.getProjectText(projectPath, file).then(toResult),
+    save: (projectPath: string, file: ProjectTextFile, text: string, expected: Revision | null) =>
+      commands.saveProjectText(projectPath, file, text, expected).then(toResult),
   },
 
   // Workshop
