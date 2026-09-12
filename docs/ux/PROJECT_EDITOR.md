@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-12 | Report what the ignore rules left out of a package                      |
 | 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude      |
 | 2026-09-11 | Maximize a panel from its tab                                           |
 | 2026-09-10 | Give the location and the box the explorer bar's first row              |
@@ -14,7 +15,6 @@
 | 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close      |
 | 2026-09-09 | Draw a game explorer as tiles, over one location and one selection      |
 | 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere           |
-| 2026-09-05 | Browse the install's objects as a tree, and open one as a tab           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1399,12 +1399,21 @@ creator reads what the button writes before pressing it.
 
 ### What Pack reports
 
-The pack result carries the count of what the rules left out and the list, made project-relative,
-with a pruned folder as one row and a link to the document. A creator finding an empty layer in a
-package is the failure this closes.
+The pack result carries the count of what the rules left out and the list, relative to `content/`
+where a rule's own path starts, with a pruned folder as one row and a link to the document. A
+creator finding an empty layer in a package is the failure this closes.
+
+The list is a disclosure, closed on arrival. The count beside its title is what answers whether
+anything was left out, and the list is what answers what. A pack that leaves nothing out draws no
+disclosure at all.
+
+The link opens the document in the project's own editor, which the dialog reaches from the grid as
+well. A document asked for there waits for the editor to read `.ltk/editor.json`, because an open
+written before that arrives is an open the reader's tabs are traded for.
 
 A layer the rules empty is a warning in the pre-flight list, in the shape the other pre-flight
-warnings take. A pattern that does not parse keeps its line number through the pack.
+warnings take, and Pack stays enabled because a creator may mean it. A pattern that does not parse
+keeps its line number and its file, in the pre-flight errors and in the pack's own failure alike.
 
 The problems pass gains one rule, for a project with no ignore file at all, whose fix writes the
 default. No rule reports an unignored source file, so a creator who dropped an entry is not told

@@ -195,9 +195,10 @@ fn patterns_of(text: &str) -> impl Iterator<Item = &str> {
 
 /// `line {n}: {message}`, as `ignore::Error::WithLineNumber` renders itself.
 ///
-/// The line travels in its own field, so the prefix is dropped rather than
-/// shown twice.
-fn split_line_prefix(rendered: &str) -> Option<(u32, &str)> {
+/// The rendering is the only place the line is: `ignore::Error` implements no
+/// `source`. The line travels in its own field, so the prefix is dropped rather
+/// than shown twice.
+pub(super) fn split_line_prefix(rendered: &str) -> Option<(u32, &str)> {
     let (number, message) = rendered.strip_prefix("line ")?.split_once(": ")?;
     Some((number.parse().ok()?, message))
 }

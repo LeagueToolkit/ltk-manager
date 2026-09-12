@@ -39,6 +39,17 @@ pub enum WorkshopError {
     /// A `.modignore` line the matcher cannot compile, which held its save back.
     #[error("Invalid ignore rule on line {line}: {message}")]
     IgnoreRulePattern { line: u32, message: String },
+
+    /// A `.modignore` line the matcher cannot compile, which failed a pack.
+    ///
+    /// Names its file, because a pack reads the nested files as well as the
+    /// root one and only the line and the file together place the pattern.
+    #[error("Invalid ignore rule in {path} on line {line}: {message}")]
+    PackIgnorePattern {
+        path: String,
+        line: u32,
+        message: String,
+    },
 }
 
 /// Managed struct that encapsulates workshop operations.
@@ -296,6 +307,20 @@ pub struct PackResult {
     pub output_path: String,
     pub file_name: String,
     pub format: String,
+    /// What the ignore rules left out, in the packer's traversal order.
+    pub ignored: Vec<IgnoredEntry>,
+}
+
+/// An entry the ignore rules kept out of a package.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct IgnoredEntry {
+    /// Path under `content/`, forward-slashed, where a rule's own path starts.
+    pub path: String,
+    /// A directory the walk cut, which stands for everything under it.
+    pub pruned: bool,
 }
 
 /// Result of adding files/folders to a layer.

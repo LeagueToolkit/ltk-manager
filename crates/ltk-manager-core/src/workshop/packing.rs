@@ -1,15 +1,18 @@
+use super::ignore_rules::split_line_prefix;
 use super::{
-    PackFormat, PackProjectArgs, PackResult, ProjectDir, ValidationResult, Workshop,
-    WorkshopProject, is_valid_project_name,
+    IgnoredEntry, PackFormat, PackProjectArgs, PackResult, ProjectDir, ValidationResult, Workshop,
+    WorkshopError, WorkshopProject, is_valid_project_name,
 };
-use crate::error::{AppError, AppResult};
-use camino::Utf8PathBuf;
+use crate::error::{AppError, AppResult, Utf8PathRefExt};
+use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use ltk_mod_project::fantome::FantomeFormat;
 use ltk_mod_project::modpkg::ModpkgFormat;
-use ltk_mod_project::{ModProject, PackageFormat, ProjectPacker};
+use ltk_mod_project::{
+    ModIgnore, ModIgnoreError, ModProject, PackError, PackReport, PackageFormat, ProjectPacker,
+};
 use std::io::BufWriter;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 impl ProjectDir {
     /// Check the project for problems that would break packing.
@@ -53,15 +56,34 @@ impl ProjectDir {
         if !content_dir.exists() {
             errors.push("content/ directory not found".to_string());
         } else {
+            /* The filter the pack itself would build, so a layer the rules
+            empty is warned about here rather than found in the package. */
+            let ignore = match self.ignore_filter() {
+                Ok(ignore) => Some(ignore),
+                Err(e) => {
+                    errors.push(e.to_string());
+                    None
+                }
+            };
+
             for layer in &mod_project.layers {
                 let layer_dir = content_dir.join(&layer.name);
                 if !layer_dir.exists() {
                     errors.push(format!("Layer directory content/{} not found", layer.name));
-                } else if fs::read_dir(&layer_dir)
-                    .map(|d| d.count() == 0)
-                    .unwrap_or(true)
-                {
-                    warnings.push(format!("Layer content/{} is empty", layer.name));
+                    continue;
+                }
+
+                match layer_contents(&layer_dir, ignore.as_ref()) {
+                    LayerContents::Files => {}
+                    LayerContents::Empty => {
+                        warnings.push(format!("Layer content/{} is empty", layer.name));
+                    }
+                    LayerContents::EmptiedByRules => {
+                        warnings.push(format!(
+                            "Layer content/{} is empty after ignore rules",
+                            layer.name
+                        ));
+                    }
                 }
             }
         }
@@ -82,6 +104,111 @@ impl ProjectDir {
             warnings,
         })
     }
+
+    /// The rules a pack of this project filters through.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the pack itself would raise: `AppError::InvalidPath` for a
+    /// project path no archive format stores, [`WorkshopError::PackIgnorePattern`]
+    /// for a pattern the matcher refuses, and `AppError::PackFailed` for a
+    /// `.modignore` that cannot be read.
+    fn ignore_filter(&self) -> AppResult<ModIgnore> {
+        let root = self.path().try_as_utf8("project path")?;
+        ModIgnore::load(root).map_err(|error| ignore_error(error, root))
+    }
+}
+
+/// What a layer directory holds once the rules have had it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LayerContents {
+    /// At least one entry a pack would take.
+    Files,
+    /// Nothing to pack and nothing excluded.
+    Empty,
+    /// Nothing to pack, because the rules took everything there was.
+    EmptiedByRules,
+}
+
+/// What `layer_dir` holds, through `ignore` where the project has rules.
+fn layer_contents(layer_dir: &Path, ignore: Option<&ModIgnore>) -> LayerContents {
+    let filtered = ignore.zip(Utf8Path::from_path(layer_dir));
+    let Some((ignore, layer_dir)) = filtered else {
+        return match fs::read_dir(layer_dir).map(|entries| entries.count() == 0) {
+            Ok(false) => LayerContents::Files,
+            Ok(true) | Err(_) => LayerContents::Empty,
+        };
+    };
+
+    /* `skipped` is only complete once the walk is, which is why the first
+    entry returns before it is read. An entry that failed to read counts, since
+    a directory nothing can read is not one a warning should call empty. */
+    let mut walk = ignore.walk(layer_dir);
+    if walk.by_ref().next().is_some() {
+        return LayerContents::Files;
+    }
+
+    if walk.skipped().is_empty() {
+        LayerContents::Empty
+    } else {
+        LayerContents::EmptiedByRules
+    }
+}
+
+/// A refused `.modignore` pattern as the frontend reads it, with its line.
+///
+/// The file is named relative to `project_root`, the form the creator knows it
+/// by. Every other failure keeps the crate's own rendering.
+fn ignore_error(error: ModIgnoreError, project_root: &Utf8Path) -> AppError {
+    let ModIgnoreError::Pattern { path, source } = &error else {
+        return AppError::PackFailed(error.to_string());
+    };
+
+    let rendered = source.to_string();
+    let (line, message) = split_line_prefix(&rendered).unwrap_or((1, rendered.as_str()));
+
+    WorkshopError::PackIgnorePattern {
+        path: project_relative(path, project_root),
+        line,
+        message: message.to_string(),
+    }
+    .into()
+}
+
+/// A pack failure as the frontend reads it.
+///
+/// A refused pattern is the one case with a field to carry, since
+/// `to_string` alone drops the line the matcher counted.
+fn pack_error<E: std::error::Error>(error: PackError<E>, project_root: &Utf8Path) -> AppError {
+    match error {
+        PackError::Ignore(ignore) => ignore_error(ignore, project_root),
+        other => AppError::PackFailed(other.to_string()),
+    }
+}
+
+/// `path` under `base`, forward-slashed so both platforms read alike.
+fn project_relative(path: &Utf8Path, base: &Utf8Path) -> String {
+    path.strip_prefix(base)
+        .unwrap_or(path)
+        .as_str()
+        .replace('\\', "/")
+}
+
+/// `report`'s exclusions as the dialog lists them.
+///
+/// Relative to `content/` rather than to the project, because that is where a
+/// rule's own path starts, and forward-slashed so both platforms read alike.
+fn ignored_entries(report: &PackReport, content_dir: &Utf8Path) -> Vec<IgnoredEntry> {
+    report
+        .ignored_files()
+        .iter()
+        .map(|path| IgnoredEntry {
+            /* The report says what was left out and not what shape it is, so
+            the shape is read off disk, where the entry still sits. */
+            pruned: path.is_dir(),
+            path: project_relative(path, content_dir),
+        })
+        .collect()
 }
 
 impl Workshop {
@@ -115,38 +242,40 @@ impl Workshop {
         // Create output directory if needed
         fs::create_dir_all(output_dir.as_std_path())?;
 
-        match args.format {
+        let project_root = project_path_utf8.clone();
+        let content_dir = project_root.join("content");
+
+        let (file_name, output_path, format, report) = match args.format {
             PackFormat::Modpkg => {
                 let file_name = mod_project.package_file_name(None, PackageFormat::Modpkg);
                 let output_path = output_dir.join(&file_name);
                 let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                ProjectPacker::new(mod_project, project_path_utf8)
+                let report = ProjectPacker::new(mod_project, project_path_utf8)
                     .pack(ModpkgFormat::new(writer))
-                    .map_err(|e| AppError::PackFailed(e.to_string()))?;
+                    .map_err(|e| pack_error(e, &project_root))?;
 
-                Ok(PackResult {
-                    output_path: output_path.to_string(),
-                    file_name,
-                    format: "modpkg".to_string(),
-                })
+                (file_name, output_path, "modpkg", report)
             }
             PackFormat::Fantome => {
                 let file_name = mod_project.package_file_name(None, PackageFormat::Fantome);
                 let output_path = output_dir.join(&file_name);
                 let writer = BufWriter::new(fs::File::create(output_path.as_std_path())?);
 
-                ProjectPacker::new(mod_project, project_path_utf8)
+                let report = ProjectPacker::new(mod_project, project_path_utf8)
                     .pack(FantomeFormat::new(writer))
-                    .map_err(|e| AppError::PackFailed(e.to_string()))?;
+                    .map_err(|e| pack_error(e, &project_root))?;
 
-                Ok(PackResult {
-                    output_path: output_path.to_string(),
-                    file_name,
-                    format: "fantome".to_string(),
-                })
+                (file_name, output_path, "fantome", report)
             }
-        }
+        };
+
+        Ok(PackResult {
+            output_path: output_path.to_string(),
+            file_name,
+            format: format.to_string(),
+            ignored: ignored_entries(&report, &content_dir),
+        })
     }
 
     /// Validate a project before packing.
@@ -249,271 +378,4 @@ impl Workshop {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use indexmap::IndexMap;
-
-    fn make_valid_project(dir: &std::path::Path) {
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test Mod".to_string(),
-            version: "1.0.0".to_string(),
-            description: "A valid test mod".to_string(),
-            authors: vec![ltk_mod_project::ModProjectAuthor::Name(
-                "Author".to_string(),
-            )],
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.join("content").join("base")).unwrap();
-        fs::write(
-            dir.join("content").join("base").join("test.wad.client"),
-            b"data",
-        )
-        .unwrap();
-        fs::write(dir.join("thumbnail.webp"), b"fake thumbnail").unwrap();
-    }
-
-    #[test]
-    fn validate_missing_config_file() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| e.contains("mod.config.json")));
-    }
-
-    #[test]
-    fn validate_invalid_config() {
-        let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("mod.config.json"), "invalid json").unwrap();
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| e.contains("parse config")));
-    }
-
-    #[test]
-    fn validate_invalid_project_name() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "BadName".to_string(),
-            display_name: "Bad".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.path().join("content").join("base")).unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| e.contains("lowercase")));
-    }
-
-    #[test]
-    fn validate_invalid_version() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test".to_string(),
-            version: "not-semver".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.path().join("content").join("base")).unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| e.contains("version")));
-    }
-
-    #[test]
-    fn validate_missing_content_dir() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(!result.valid);
-        assert!(result.errors.iter().any(|e| e.contains("content/")));
-    }
-
-    #[test]
-    fn validate_empty_layer_dir_warns() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.path().join("content").join("base")).unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(result.valid);
-        assert!(result.warnings.iter().any(|w| w.contains("empty")));
-    }
-
-    #[test]
-    fn validate_missing_thumbnail_warns() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: ltk_mod_project::ModProjectLayer::default_table(),
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.path().join("content").join("base")).unwrap();
-        fs::write(
-            dir.path().join("content").join("base").join("file"),
-            b"data",
-        )
-        .unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(result.valid);
-        assert!(result.warnings.iter().any(|w| w.contains("thumbnail")));
-    }
-
-    #[test]
-    fn validate_valid_project_passes() {
-        let dir = tempfile::tempdir().unwrap();
-        make_valid_project(dir.path());
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(
-            result.valid,
-            "errors: {:?}, warnings: {:?}",
-            result.errors, result.warnings
-        );
-        assert!(result.errors.is_empty());
-    }
-
-    #[test]
-    fn validate_no_base_layer_warns() {
-        let dir = tempfile::tempdir().unwrap();
-        let mod_project = ltk_mod_project::ModProject {
-            name: "test-mod".to_string(),
-            display_name: "Test".to_string(),
-            version: "1.0.0".to_string(),
-            description: "".to_string(),
-            authors: Vec::new(),
-            license: None,
-            tags: Vec::new(),
-            champions: Vec::new(),
-            maps: Vec::new(),
-            transformers: Vec::new(),
-            layers: vec![ltk_mod_project::ModProjectLayer {
-                name: "chroma".to_string(),
-                display_name: Some("Chroma".to_string()),
-                priority: 1,
-                description: None,
-                string_overrides: IndexMap::new(),
-            }],
-            thumbnail: None,
-            hashtables: Vec::new(),
-        };
-        fs::write(
-            dir.path().join("mod.config.json"),
-            serde_json::to_string_pretty(&mod_project).unwrap(),
-        )
-        .unwrap();
-        fs::create_dir_all(dir.path().join("content").join("chroma")).unwrap();
-        fs::write(
-            dir.path().join("content").join("chroma").join("file"),
-            b"data",
-        )
-        .unwrap();
-
-        let result = ProjectDir::open(dir.path()).unwrap().validate().unwrap();
-        assert!(result.warnings.iter().any(|w| w.contains("base")));
-    }
-
-    #[test]
-    fn pack_format_deserialization() {
-        let modpkg: PackFormat = serde_json::from_str("\"modpkg\"").unwrap();
-        assert_eq!(modpkg, PackFormat::Modpkg);
-        let fantome: PackFormat = serde_json::from_str("\"fantome\"").unwrap();
-        assert_eq!(fantome, PackFormat::Fantome);
-    }
-}
+mod tests;
