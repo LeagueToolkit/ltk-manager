@@ -103,7 +103,7 @@ export const skinLayout: ClassLayout = {
   sections: [
     {
       title: m.workshop_bin_section_identity_label,
-      fields: ["championSkinName", "skinClassification", "skinParent"],
+      fields: ["championSkinName", "skinClassification", "skinParent", "armorMaterial"],
     },
     {
       title: m.workshop_bin_section_icons_label,
@@ -133,6 +133,7 @@ export const skinLayout: ClassLayout = {
       as: "fields",
       under: ["bankUnits"],
     },
+    { title: m.workshop_bin_section_health_bar_label, fields: ["healthBarData"] },
   ],
 };
 
@@ -200,6 +201,8 @@ export function sectionFields(section: LayoutSection): string[] {
 
 /** One section with the rows it drew, in the order the layout named its fields. */
 export interface PlacedSection {
+  /** What the section is remembered by, its widget and the fields it names. */
+  readonly id: string;
   readonly title: () => string;
   /** The widget. Absent for the cell each row itself draws. */
   readonly widget: SectionWidget | undefined;
@@ -213,7 +216,7 @@ export interface PlacedSection {
 /**
  * Every depth-zero row placed in a section, the ones no section names in a last one.
  *
- * "A layout is complete" in docs/ux/BIN_EDITOR.md. Other is the tree rooted at what is
+ * "A layout is complete" in docs/ux/BIN_EDITOR.md. Other is the field rows of what is
  * left, so a field the game adds in a patch is on screen the day the schema changes,
  * and a field the layout names and the object lacks draws nothing.
  */
@@ -231,6 +234,7 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
       taken.add(hash);
     }
     placed.push({
+      id: `${section.as ?? "cells"}:${section.fields.join(",")}`,
       title: section.title,
       widget: section.as,
       rows,
@@ -240,13 +244,52 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
   }
 
   placed.push({
+    id: "other",
     title: m.workshop_bin_section_other_label,
-    widget: "tree",
+    widget: undefined,
     rows: roots.filter((row) => !taken.has(fieldHash(row.path))),
     under: [],
     other: true,
   });
   return placed;
+}
+
+/**
+ * How many things a section lists, for its header, and null for a section of named fields.
+ *
+ * A list's elements are what a reader counts, so a widget over lists counts those, and
+ * Other counts the fields it was left.
+ */
+export function sectionCount(
+  section: PlacedSection,
+  pages: ReadonlyMap<string, Page>,
+): number | null {
+  const lists = (rows: readonly BinRow[]) =>
+    rows.reduce((sum, row) => sum + (isList(row) ? childCount(row) : 0), 0);
+
+  if (section.other) return section.rows.length;
+  switch (section.widget) {
+    case "rows":
+    case "emitters":
+      return lists(section.rows);
+    case "effect-table":
+      return lists(section.rows.filter((row) => fieldHash(row.path) !== EFFECT.resolver));
+    case "override-rows":
+      return lists(
+        section.rows.flatMap(
+          (row) =>
+            pages
+              .get(rowKey(row))
+              ?.rows.filter((child) => fieldHash(child.path) === MESH.override) ?? [],
+        ),
+      );
+    default:
+      return null;
+  }
+}
+
+function isList(row: BinRow): boolean {
+  return row.value.type === "container" || row.value.type === "map";
 }
 
 /**
@@ -265,7 +308,8 @@ const DESCENT: Record<SectionWidget, Descent> = {
   /* The elements alone. The tree fetches what sits under each of them itself. */
   rows: ["all"],
   "effect-table": ["all", "all"],
-  "override-rows": [["materialOverride"], "all"],
+  /* The third level is each override's fields, which name the submesh its row is titled by. */
+  "override-rows": [["materialOverride"], "all", "all"],
   emitters: ["all", ["CustomMaterial"], "all"],
 };
 
@@ -355,12 +399,15 @@ export const MESH = {
   roughness: nameHash("RoughnessMetallicAoTexture"),
   material: nameHash("Material"),
   override: nameHash("materialOverride"),
+  submesh: nameHash("submesh"),
 } as const;
 
 /** The fields of one idle effect, and the resolver its key resolves through. */
 export const EFFECT = {
   key: nameHash("effectKey"),
+  name: nameHash("effectName"),
   bone: nameHash("boneName"),
+  targetBone: nameHash("targetBoneName"),
   resolver: nameHash("mResourceResolver"),
   resourceMap: nameHash("resourceMap"),
 } as const;

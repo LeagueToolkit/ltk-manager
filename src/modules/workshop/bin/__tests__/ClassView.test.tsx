@@ -205,12 +205,11 @@ describe("ClassView", () => {
     expect(screen.getByRole("button", { name: "Other" })).toBeInTheDocument();
   });
 
-  /* The tree's own rows are virtualized, which a zero-height test viewport draws none
-     of. What this asserts is that Other is drawn by a tree over the rows left. */
-  it("draws what the layout does not name as a tree of its own", () => {
+  it("draws what the layout does not name as field rows, and a nested section as a tree", () => {
     renderView();
 
-    expect(screen.getByRole("tree", { name: "Other" })).toBeInTheDocument();
+    expect(screen.getByText("dynamicMaterial")).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Other" })).toBeNull();
     expect(screen.getByRole("tree", { name: "Macros" })).toBeInTheDocument();
     expect(screen.queryByRole("tree", { name: "Techniques" })).toBeNull();
   });
@@ -224,7 +223,7 @@ describe("ClassView", () => {
   it("draws the identity fields in the cell their own rows draw", () => {
     renderView();
 
-    expect(screen.getByDisplayValue("Ezreal_Base_Mat")).toBeInTheDocument();
+    expect(screen.getByText("Ezreal_Base_Mat")).toBeInTheDocument();
     expect(screen.getByDisplayValue("1")).toBeInTheDocument();
   });
 
@@ -239,12 +238,12 @@ describe("ClassView", () => {
     });
   });
 
-  /* The rows themselves are virtualized, which a zero-height test viewport draws none of. */
-  it("draws a list section as a tree over the elements the read answered", async () => {
+  it("draws a list section as a field row per element the read answered", async () => {
     renderView();
 
-    expect(await screen.findByRole("tree", { name: "Samplers" })).toBeInTheDocument();
-    expect(screen.getByRole("tree", { name: "Params" })).toBeInTheDocument();
+    expect(await screen.findByText("StaticMaterialShaderSamplerDef")).toBeInTheDocument();
+    expect(screen.getByText("StaticMaterialShaderParamDef")).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Samplers" })).toBeNull();
   });
 
   it("sends a cell's Show in properties the cell's own key", async () => {
@@ -253,7 +252,7 @@ describe("ClassView", () => {
 
     await user.pointer({
       keys: "[MouseRight]",
-      target: screen.getByDisplayValue("Ezreal_Base_Mat"),
+      target: screen.getByText("Ezreal_Base_Mat"),
     });
     await user.click(await screen.findByRole("menuitem", { name: "Show in properties" }));
 
@@ -271,7 +270,7 @@ describe("ClassView", () => {
 
     await user.pointer({
       keys: "[MouseRight]",
-      target: screen.getByDisplayValue("Ezreal_Base_Mat"),
+      target: screen.getByText("Ezreal_Base_Mat"),
     });
     await user.click(await screen.findByRole("menuitem", { name: "Copy path" }));
 

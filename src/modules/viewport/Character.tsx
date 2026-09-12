@@ -1,4 +1,4 @@
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { type ReactNode, useEffect, useLayoutEffect, useMemo } from "react";
 import {
   Bone,
@@ -8,10 +8,12 @@ import {
   DoubleSide,
   Matrix4,
   MeshBasicMaterial,
+  Raycaster,
   Skeleton,
   SkinnedMesh,
   type Texture,
   Uint16BufferAttribute,
+  Vector2,
 } from "three";
 
 import { type CharacterSkin, CharacterSkinContext } from "./characterSkin";
@@ -34,9 +36,19 @@ export interface CharacterProps {
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
   readonly scale: number;
+  /** The submesh drawn at full strength while every other one dims, and null to dim none. */
+  readonly highlighted?: string | null;
+  /** A click on the viewport, with the submesh it landed on and null where it missed them all. */
+  readonly onSubmeshPick?: (submesh: string | null) => void;
   /** What the character wears, which reaches its skin through `useCharacterSkin`. */
   readonly children?: ReactNode;
 }
+
+/** How much of its colour a submesh keeps while another one is highlighted. */
+const DIMMED = 0.3;
+
+/** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
+const CLICK_SLOP = 4;
 
 /**
  * One skinned mesh on its skeleton, posed at the clock's time.
@@ -54,6 +66,8 @@ export function Character({
   untextured,
   hidden,
   scale,
+  highlighted = null,
+  onSubmeshPick,
   children,
 }: CharacterProps) {
   const { skeleton, parents } = pose;
@@ -87,8 +101,9 @@ export function Character({
   }, [skinned, rig]);
 
   useLayoutEffect(() => {
-    dress(materials, drawn.ranges, textureOf, untextured, hidden);
-  }, [materials, drawn, textureOf, untextured, hidden]);
+    dress(materials, drawn.ranges, { textureOf, untextured, hidden, highlighted });
+  }, [materials, drawn, textureOf, untextured, hidden, highlighted]);
+  useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
   useEffect(
@@ -152,18 +167,25 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
   return { bones, roots, skeleton: bound };
 }
 
+/** What a submesh's material is dressed from. */
+interface Dress {
+  readonly textureOf: (submesh: string) => Texture | null;
+  readonly untextured: Color;
+  readonly hidden: readonly string[];
+  readonly highlighted: string | null;
+}
+
 /**
  * Each submesh's material drawn with its texture, in `untextured` where it has none, and
- * not at all where the skin hides it.
+ * not at all where the skin hides it. Every submesh but a highlighted one dims.
  */
 function dress(
   materials: readonly MeshBasicMaterial[],
   ranges: readonly MeshRange[],
-  textureOf: (submesh: string) => Texture | null,
-  untextured: Color,
-  hidden: readonly string[],
+  { textureOf, untextured, hidden, highlighted }: Dress,
 ): void {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
+  const lit = highlighted?.toLowerCase() ?? null;
   ranges.forEach((range, at) => {
     const material = materials[at];
     material.visible = !skip.has(range.name.toLowerCase());
@@ -175,7 +197,61 @@ function dress(
     }
     if (map === null) material.color.copy(untextured);
     else material.color.setRGB(1, 1, 1);
+    if (lit !== null && range.name.toLowerCase() !== lit) material.color.multiplyScalar(DIMMED);
   });
+}
+
+/**
+ * Report which submesh a click on the canvas lands on.
+ *
+ * The ray is cast on the click alone rather than through the renderer's pointer events,
+ * which would skin every vertex of the character on each move of the pointer.
+ */
+function useSubmeshPick(
+  target: SkinnedMesh,
+  ranges: readonly MeshRange[],
+  hidden: readonly string[],
+  onPick: ((submesh: string | null) => void) | undefined,
+): void {
+  const element = useThree((state) => state.gl.domElement);
+  const camera = useThree((state) => state.camera);
+
+  useEffect(() => {
+    if (onPick === undefined) return;
+    const skip = new Set(hidden.map((name) => name.toLowerCase()));
+    const raycaster = new Raycaster();
+    const pointer = new Vector2();
+    let pressed: { x: number; y: number } | null = null;
+
+    const press = (event: PointerEvent) => {
+      pressed = event.button === 0 ? { x: event.clientX, y: event.clientY } : null;
+    };
+    const release = (event: PointerEvent) => {
+      if (pressed === null) return;
+      const moved = Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y);
+      pressed = null;
+      if (moved > CLICK_SLOP) return;
+
+      const box = element.getBoundingClientRect();
+      pointer.set(
+        ((event.clientX - box.left) / box.width) * 2 - 1,
+        -((event.clientY - box.top) / box.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObject(target, false).find((each) => {
+        const range = ranges[each.face?.materialIndex ?? -1];
+        return range !== undefined && !skip.has(range.name.toLowerCase());
+      });
+      onPick(hit === undefined ? null : (ranges[hit.face?.materialIndex ?? -1]?.name ?? null));
+    };
+
+    element.addEventListener("pointerdown", press);
+    element.addEventListener("pointerup", release);
+    return () => {
+      element.removeEventListener("pointerdown", press);
+      element.removeEventListener("pointerup", release);
+    };
+  }, [element, camera, target, ranges, hidden, onPick]);
 }
 
 /**

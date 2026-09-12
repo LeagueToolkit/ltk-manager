@@ -148,10 +148,11 @@ describe("the value widgets", () => {
     expect(screen.getByDisplayValue("18446744073709551615")).toHaveAttribute("readonly");
   });
 
-  it("draws a string in a field of its own", () => {
+  it("draws a string as its own text, which is not a field", () => {
     renderLine(line(row({ value: { type: "string", value: "Justicar Aatrox" } })));
 
-    expect(screen.getByDisplayValue("Justicar Aatrox")).toBeInTheDocument();
+    expect(screen.getByText("Justicar Aatrox")).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("Justicar Aatrox")).toBeNull();
   });
 
   it("gives a vector one field per axis, each named by it", () => {
@@ -192,9 +193,9 @@ describe("the value widgets", () => {
   });
 
   it("takes no tab stop, so a document of rows is not a tab order", () => {
-    renderLine(line(row({ value: { type: "string", value: "Justicar Aatrox" } })));
+    renderLine(line(row({ kind: "f32", value: { type: "float", value: 2.5 } })));
 
-    expect(screen.getByDisplayValue("Justicar Aatrox")).toHaveAttribute("tabindex", "-1");
+    expect(screen.getByDisplayValue("2.5")).toHaveAttribute("tabindex", "-1");
   });
 });
 

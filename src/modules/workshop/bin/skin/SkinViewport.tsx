@@ -119,7 +119,7 @@ function SkinScene({ skin, document, graphDocument }: SkinSceneProps) {
   const own = useSkinChoice();
   const { clock, picked, setPicked, playing, setPlaying, speed, setSpeed } =
     use(SkinChoiceContext) ?? own;
-  const { effects, setEffects } = use(SkinChoiceContext) ?? own;
+  const { effects, setEffects, submesh, pickSubmesh } = use(SkinChoiceContext) ?? own;
 
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
@@ -224,6 +224,8 @@ function SkinScene({ skin, document, graphDocument }: SkinSceneProps) {
             untextured={colors.untextured}
             hidden={skin.hidden}
             scale={scale}
+            highlighted={submesh}
+            onSubmeshPick={pickSubmesh}
           >
             {effects &&
               idle.map(({ effect }, at) => {

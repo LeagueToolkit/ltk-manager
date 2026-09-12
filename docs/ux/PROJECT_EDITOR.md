@@ -3215,13 +3215,16 @@ Two levels, as the game browser's tree has two: the path prefix, and the object.
 │ ▾ Characters                                                       12,480 │
 │   ▾ Aatrox                                                            214 │
 │     ▾ Skins                                                            96 │
-│       ▾ ◈ Skin0        SkinCharacterDataProperties  Aatrox.wad/…/skin0.bin │
-│           ◈ Resources  ResourceResolver             Aatrox.wad/…/skin0.bin │
-│           ◈ 0x9c4e1b02 SkinAnimationProperties     Aatrox.wad/…/skin0.bin │
+│       ▾ ◈ Skin0        SkinCharacterDataProperties               skin0.bin │
+│           ◈ Resources  ResourceResolver                          skin0.bin │
+│           ◈ 0x9c4e1b02 SkinAnimationProperties                   skin0.bin │
 ```
 
 A node is a path. A prefix no object bears draws as a directory row with the count of objects
 under it. A node that is an object draws its mark, its last segment, its class and its source.
+The source is the declaring file's name, and its archive and folder are on hover. The last
+segment and the file name are what a reader scans for, so a narrow panel takes its room from
+the class first, dimmed beside them, and from the name last.
 A node that is both an object and a prefix draws as one object row with a caret, its
 descendants under it. A run of prefixes each holding one prefix folds into a single row, the
 rule the layer tree obeys.

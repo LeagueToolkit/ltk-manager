@@ -11,6 +11,7 @@ import {
   materialLayout,
   MAX_LEVELS,
   placeRows,
+  sectionCount,
   type SectionWidget,
   shellHoldsCurve,
   skinLayout,
@@ -129,7 +130,7 @@ describe("placeRows", () => {
 
     const other = placed.at(-1);
     expect(other?.other).toBe(true);
-    expect(other?.widget).toBe("tree");
+    expect(other?.widget).toBeUndefined();
     expect(other?.rows.map((row) => row.name)).toEqual(["dynamicMaterial", "childTechniques"]);
   });
 
@@ -155,7 +156,7 @@ describe("placeRows", () => {
     expect(placed.at(-1)?.rows).toEqual([]);
   });
 
-  it("names a widget only where the layout does, and the tree for Other", () => {
+  it("names a widget only where the layout does, and none for Other", () => {
     const placed = placeRows(roots, materialLayout);
 
     expect(placed.map((section) => section.widget)).toEqual([
@@ -165,8 +166,21 @@ describe("placeRows", () => {
       "rows",
       "tree",
       "tree",
-      "tree",
+      undefined,
     ]);
+  });
+
+  it("gives each section an id of its own", () => {
+    const placed = placeRows(roots, materialLayout);
+
+    expect(new Set(placed.map((section) => section.id)).size).toBe(placed.length);
+  });
+
+  it("counts a list section's elements and Other's fields, and nothing for named fields", () => {
+    const placed = placeRows(roots, materialLayout);
+    const counts = placed.map((section) => sectionCount(section, new Map()));
+
+    expect(counts).toEqual([null, 2, 1, 0, null, null, 2]);
   });
 });
 
@@ -181,6 +195,7 @@ describe("placeRows over a skin", () => {
       name: null,
     }),
     field("healthBarData", embed("CharacterHealthBarDataRecord", 4)),
+    field("emoteLoadout", list(3)),
   ];
 
   it("places the mesh row in both the sections that draw a part of it", () => {
@@ -195,7 +210,14 @@ describe("placeRows over a skin", () => {
   it("leaves a field no section names to Other, the mesh included once it is placed", () => {
     const placed = placeRows(roots, skinLayout);
 
-    expect(placed.at(-1)?.rows.map((row) => row.name)).toEqual(["healthBarData"]);
+    expect(placed.at(-1)?.rows.map((row) => row.name)).toEqual(["emoteLoadout"]);
+  });
+
+  it("gives the health bar a section of its own", () => {
+    const placed = placeRows(roots, skinLayout);
+    const bar = placed.find((section) => section.title() === "Health bar");
+
+    expect(bar?.rows.map((row) => row.name)).toEqual(["healthBarData"]);
   });
 
   it("names the fields a section draws under the row it placed", () => {

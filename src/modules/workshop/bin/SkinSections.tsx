@@ -1,24 +1,34 @@
-import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import { ArrowRightIcon } from "@phosphor-icons/react";
+import { use, useEffect, useRef, useState } from "react";
 
+import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
+
+import { nameHash } from "./binHash";
 import { RowValue } from "./BinRow";
 import { childCount, entryKeyHash, fieldHash, objectKey, PAGE_SIZE, rowKey } from "./binRows";
+import { ClassCard } from "./ClassCard";
 import {
   AlsoCheck,
   Cell,
   childOf,
   elementsOf,
-  FieldRow,
+  FieldRows,
   fieldsIn,
   fieldsOf,
+  FoldCaret,
   type LayoutPages,
-  SectionTree,
+  None,
   TableRows,
   TextCell,
+  textOf,
   TextureTile,
   type WidgetProps,
 } from "./ClassCells";
 import { CENSORED_IMAGE, EFFECT, MESH } from "./classLayouts";
+import { ObjectChip } from "./LinkChip";
 import { declaredElsewhere } from "./linkDecision";
+import { sameSubmesh, SkinChoiceContext } from "./skin/skinChoice";
 import { useBinDocument } from "./useBinDocument";
 import { useBinRead } from "./useBinRead";
 import { useLinkTargets } from "./useLinkTargets";
@@ -26,7 +36,7 @@ import { useLinkTargets } from "./useLinkTargets";
 /** The icons a skin carries, each as a tile under its own field's name. */
 export function IconRow({ section, pages }: WidgetProps) {
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-3 px-1.5">
       {section.rows.map((row) => (
         <Tile key={rowKey(row)} name={row.name} row={iconChunk(row, pages)} />
       ))}
@@ -47,7 +57,7 @@ function iconChunk(row: BinRow, pages: LayoutPages): BinRow | undefined {
   return pages.get(rowKey(row))?.rows.find((child) => child.value.type === "wadChunkLink");
 }
 
-/** One texture at tile size, named under it, which is how an icon and a map draw. */
+/** One texture at tile size, named under it, which is how an icon draws. */
 function Tile({ name, row }: { name: string; row: BinRow | undefined }) {
   return (
     <span className="flex flex-col items-center gap-1" data-row-key={row && rowKey(row)}>
@@ -57,53 +67,104 @@ function Tile({ name, row }: { name: string; row: BinRow | undefined }) {
   );
 }
 
-/** The five textures the mesh names, in the order a modder reads them. */
-const MESH_TEXTURES = [
+/** The mesh's fields in the order a modder reads them: its files, its textures, its material. */
+const MESH_FIELDS = [
+  MESH.simpleSkin,
+  MESH.skeleton,
   MESH.texture,
   MESH.emissive,
   MESH.normalMap,
   MESH.gloss,
   MESH.roughness,
+  MESH.material,
 ] as const;
 
-/** The three fields that name what the mesh is built out of. */
-const MESH_FIELDS = [MESH.simpleSkin, MESH.skeleton, MESH.material] as const;
-
-/** The mesh: what it is built out of, and its textures. */
+/** The mesh: what it is built out of and its textures, each a field row. */
 export function MeshCard({ section, pages }: WidgetProps) {
   const byField = fieldsIn(elementsOf(section.rows, pages));
-  const named = MESH_FIELDS.map(byField).filter((row): row is BinRow => row !== undefined);
-  const textures = MESH_TEXTURES.map(byField).filter((row): row is BinRow => row !== undefined);
+  const drawn = MESH_FIELDS.map(byField).filter((row): row is BinRow => row !== undefined);
 
+  return <FieldRows rows={drawn} owner={structClass(section.rows[0])} />;
+}
+
+/** The class a struct row holds, which its fields are read on. */
+function structClass(row: BinRow | undefined): string | null {
+  return row?.value.type === "struct" ? row.value.classHash : null;
+}
+
+const NO_ROWS: readonly BinRow[] = [];
+
+/** One group per material override the mesh carries, each titled by the submesh it dresses. */
+export function OverrideRows({ section, pages }: WidgetProps) {
+  const lists = section.rows
+    .map((row) => childOf(pages, row, MESH.override))
+    .filter((row): row is BinRow => row !== undefined);
+  const overrides = elementsOf(lists, pages);
+
+  if (overrides.length === 0) return <None />;
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col">
-        {named.map((row) => (
-          <FieldRow key={rowKey(row)} row={row} />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-3">
-        {textures.map((row) => (
-          <Tile key={rowKey(row)} name={row.name} row={row} />
-        ))}
-      </div>
+    <div className="flex flex-col gap-0.5">
+      {overrides.map((element) => (
+        <Override
+          key={rowKey(element)}
+          element={element}
+          fields={pages.get(rowKey(element))?.rows ?? NO_ROWS}
+        />
+      ))}
     </div>
   );
 }
 
-/** One row per material override the mesh carries, as the tree draws them. */
-export function OverrideRows({ section, pages, view }: WidgetProps) {
-  const lists = section.rows
-    .map((row) => childOf(pages, row, MESH.override))
-    .filter((row): row is BinRow => row !== undefined);
+/**
+ * One override: its index and submesh over its own field rows.
+ *
+ * The group and the character's submesh point at each other through the skin choice,
+ * per "The skin's preview" in docs/ux/BIN_EDITOR.md.
+ */
+function Override({ element, fields }: { element: BinRow; fields: readonly BinRow[] }) {
+  const choice = use(SkinChoiceContext);
+  const [open, setOpen] = useState(true);
+  const submesh = textOf(fieldsIn(fields)(MESH.submesh)) ?? null;
+  const pointed = sameSubmesh(choice?.submesh ?? null, submesh);
+  const root = useRef<HTMLDivElement>(null);
+
+  const picks = choice?.picks ?? 0;
+  const seen = useRef(picks);
+  useEffect(() => {
+    if (picks === seen.current) return;
+    seen.current = picks;
+    if (pointed) root.current?.scrollIntoView?.({ block: "nearest" });
+  }, [picks, pointed]);
 
   return (
-    <SectionTree
-      view={view}
-      roots={elementsOf(lists, pages)}
-      rootOwner={null}
-      label={section.title()}
-    />
+    <div
+      ref={root}
+      data-ui="OverrideRows:override"
+      /* DS-RADIUS */
+      className={twMerge("flex flex-col gap-0.5 rounded-sm", pointed && "bg-accent-500/10")}
+      onPointerEnter={() => submesh !== null && choice?.setSubmesh(submesh)}
+      onPointerLeave={() => pointed && choice?.setSubmesh(null)}
+    >
+      {/* DS-VEIL, DS-RADIUS */}
+      <div
+        data-row-key={rowKey(element)}
+        className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+      >
+        <span className="flex min-w-0 items-center gap-1.5">
+          <FoldCaret open={open} onToggle={() => setOpen((shown) => !shown)} />
+          <span className="shrink-0 text-surface-400">{element.name}</span>
+          {submesh !== null && (
+            <span className="min-w-0 truncate font-medium text-surface-100 select-text">
+              {submesh}
+            </span>
+          )}
+          {submesh === null && element.value.type === "struct" && (
+            <ClassCard classHash={element.value.classHash} name={element.value.class} />
+          )}
+        </span>
+      </div>
+      {open && <FieldRows rows={fields} owner={structClass(element)} depth={1} />}
+    </div>
   );
 }
 
@@ -210,24 +271,41 @@ function useResourceMap(
 }
 
 /**
- * The system an effect's key names, drawn as the resolver's own link row.
+ * The system an effect names, as a chip reading its last segment.
  *
- * A key the map does not answer for keeps its own hash, which is what the tree draws.
+ * An effect is keyed by `effectKey`, or by the hash of its `effectName` where it carries
+ * no key. A name the map does not answer for draws as its text, and a key as its hash.
+ * Every effect of a skin shares the folder its systems sit in, so the chip reads the name.
  */
 function Resource({
   effect,
+  name,
   resources,
 }: {
   effect: BinRow | undefined;
+  name: BinRow | undefined;
   resources: ReadonlyMap<string, BinRow>;
 }) {
-  const system = effect?.value.type === "hash" ? resources.get(effect.value.hash) : undefined;
+  const named = textOf(name);
+  const hash =
+    effect?.value.type === "hash"
+      ? effect.value.hash
+      : named === undefined
+        ? null
+        : nameHash(named);
+  const system = hash === null ? undefined : resources.get(hash);
+  if (system?.value.type === "objectLink") {
+    return (
+      <ObjectChip hash={system.value.hash} name={system.value.name} kind="link" reading="name" />
+    );
+  }
   if (system !== undefined) return <RowValue row={system} />;
-  if (effect === undefined) return null;
-  return <RowValue row={effect} />;
+  if (effect !== undefined) return <RowValue row={effect} />;
+  if (named !== undefined) return <span className="truncate select-text">{named}</span>;
+  return null;
 }
 
-/** A row per effect: the system its key resolves to, its name, and the bone it sits on. */
+/** A row per effect: the system it resolves to, the bone it sits on, and the bone it aims at. */
 function EffectRows({
   effects,
   pages,
@@ -242,12 +320,20 @@ function EffectRows({
       {(element) => {
         const fields = fieldsOf(pages.get(rowKey(element)));
         const key = fields(EFFECT.key);
+        const name = fields(EFFECT.name);
+        const target = fields(EFFECT.targetBone);
         return (
           <>
-            <Cell row={key} className="flex min-w-0 flex-1 items-center gap-2">
-              <Resource effect={key} resources={resources} />
+            <Cell row={key ?? name} className="flex min-w-0 flex-1 items-center gap-2">
+              <Resource effect={key} name={name} resources={resources} />
             </Cell>
-            <TextCell row={fields(EFFECT.bone)} className="w-48 shrink-0 text-surface-400" />
+            <TextCell row={fields(EFFECT.bone)} className="w-32 shrink-0 text-surface-400" />
+            {Boolean(textOf(target)) && (
+              <span className="flex w-32 shrink-0 items-center gap-1 text-surface-400">
+                <ArrowRightIcon aria-hidden className="h-3 w-3 shrink-0" />
+                <TextCell row={target} className="min-w-0" />
+              </span>
+            )}
           </>
         );
       }}
