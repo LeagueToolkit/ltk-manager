@@ -16,6 +16,7 @@ import { useOpenDocumentAs } from "../state";
 import { AxisCells, ownField, RowValue, ValueMarkCell } from "./BinRow";
 import { canExpand, childCount, fieldHash, rowKey } from "./binRows";
 import { BinTree } from "./BinTree";
+import { ClassCard } from "./ClassCard";
 import type { LayoutFrame, PlacedSection } from "./classLayouts";
 import { useCurveChain, useCurveDock } from "./curveTarget";
 import { CutText } from "./CutText";
@@ -196,8 +197,16 @@ export function SectionTree({ view, roots, rootOwner, label, initialExpanded }: 
 
 /** The line a section draws where the read answered no row for it. */
 export function None() {
-  return <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>;
+  return (
+    <span className="px-1.5 text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>
+  );
 }
+
+/** The name column a layout's field rows share, measured into `--name-width` by the view. */
+export const NAME_COLUMN = "w-[var(--name-width,10rem)]";
+
+/** How far one level of nesting indents a name inside its column. */
+const INDENT = "0.75rem";
 
 /** One row per element of the containers a section placed, drawn by the widget. */
 export function TableRows({
@@ -224,9 +233,31 @@ export function TableRows({
   );
 }
 
+/** Rows each drawn as a field row, down one column, and None where there are none. */
+export function FieldRows({
+  rows,
+  owner = null,
+  depth = 0,
+}: {
+  rows: readonly BinRow[];
+  owner?: string | null;
+  depth?: number;
+}) {
+  if (rows.length === 0) return <None />;
+  return (
+    <div className="flex flex-col gap-0.5">
+      {rows.map((row) => (
+        <FieldRow key={rowKey(row)} row={row} owner={owner} depth={depth} />
+      ))}
+    </div>
+  );
+}
+
 interface FieldRowProps {
   row: BinRow;
   width?: string;
+  /** How many structs the row sits inside, which indents its name within the column. */
+  depth?: number;
   /** The class the field is read on, for the revisions its card draws. */
   owner?: string | null;
   /** The roll rail's segment, which only a layout with a roll to draw gives it. */
@@ -237,18 +268,25 @@ interface FieldRowProps {
  * One field on a line of its own: its name, and the box its value is shaped as.
  *
  * "A row is shaped as its input" in docs/ux/BIN_EDITOR.md. The name is the field card's
- * trigger, and every layout drawing field rows draws this one.
+ * trigger, and every layout drawing field rows draws this one. The indent sits inside
+ * the name column, so every depth's value starts at one x.
  */
-export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowProps) {
+export function FieldRow({
+  row,
+  width = NAME_COLUMN,
+  depth = 0,
+  owner = null,
+  rail,
+}: FieldRowProps) {
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
   const document = use(RowDocumentContext);
   const folds = family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
   const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
-  const name = <FieldName row={row} width={width} owner={owner} caret={caret} />;
+  const name = <FieldName row={row} width={width} depth={depth} owner={owner} caret={caret} />;
   const nested = document !== null && folds && open && (
-    <NestedRows document={document} row={row} width={width} />
+    <NestedRows document={document} row={row} width={width} depth={depth + 1} />
   );
 
   return (
@@ -262,6 +300,9 @@ export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowPr
         {name}
         {family !== null && <ValueCell row={row} shaped railed={rail !== undefined} />}
         {family === null && axes !== null && <AxisCells values={axes} />}
+        {family === null && axes === null && row.node === "element" && (
+          <ElementClass value={row.value} />
+        )}
         {family === null && axes === null && <RowValue row={row} />}
       </div>
       {nested}
@@ -269,8 +310,14 @@ export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowPr
   );
 }
 
+/** The class an element's struct holds, which the tree draws beside the element's index. */
+function ElementClass({ value }: { value: BinRow["value"] }) {
+  if (value.type !== "struct") return null;
+  return <ClassCard classHash={value.classHash} name={value.class} />;
+}
+
 /** A struct's or a list's fold, drawn in the row's gutter so the names stay in one column. */
-function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+export function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
     <button
       type="button"
@@ -297,10 +344,12 @@ function NestedRows({
   document,
   row,
   width,
+  depth,
 }: {
   document: BinDocumentId;
   row: BinRow;
   width: string;
+  depth: number;
 }) {
   const key = rowKey(row);
   const rows = useMemo(() => [{ key, rows: childCount(row) }], [key, row]);
@@ -319,9 +368,9 @@ function NestedRows({
   return (
     <ValueMarksContext value={marks}>
       <AlsoCheck document={document} group={group}>
-        <div data-ui="FieldRow:nested" className="flex flex-col gap-0.5 pl-3">
+        <div data-ui="FieldRow:nested" className="flex flex-col gap-0.5">
           {children.map((child) => (
-            <FieldRow key={rowKey(child)} row={child} width={width} owner={owner} />
+            <FieldRow key={rowKey(child)} row={child} width={width} depth={depth} owner={owner} />
           ))}
         </div>
       </AlsoCheck>
@@ -332,18 +381,23 @@ function NestedRows({
 interface FieldNameProps {
   row: BinRow;
   width: string;
+  depth: number;
   owner: string | null;
   /** The fold of a row that holds more rows, which opens the name's column. */
   caret: ReactNode;
 }
 
 /** The row's name, raw, which is what the field card hangs off. */
-function FieldName({ row, width, owner, caret }: FieldNameProps) {
+function FieldName({ row, width, depth, owner, caret }: FieldNameProps) {
   const field = ownField(row);
+  const indent = depth > 0 && (
+    <span aria-hidden className="shrink-0" style={{ width: `calc(${INDENT} * ${depth})` }} />
+  );
 
   if (field === null) {
     return (
       <span className={twMerge("flex min-w-0 shrink-0", width)}>
+        {indent}
         {caret}
         <CutText text={row.name} className="text-surface-200" />
       </span>
@@ -351,6 +405,7 @@ function FieldName({ row, width, owner, caret }: FieldNameProps) {
   }
   return (
     <span className={twMerge("flex min-w-0 shrink-0", width)}>
+      {indent}
       {caret}
       <FieldCard
         classHash={owner}

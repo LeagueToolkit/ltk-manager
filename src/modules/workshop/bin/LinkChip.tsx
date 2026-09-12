@@ -1,7 +1,7 @@
-import { WarningCircleIcon } from "@phosphor-icons/react";
+import { ArchiveIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
-import { Code, Popover, Readout, Tooltip } from "@/components";
+import { Code, LayerIcon, Popover, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -35,6 +35,11 @@ interface ObjectChipProps {
   name: string | null;
   /** A `link` value, which draws dim hex where nothing declares it. A `hash` stays text. */
   kind: "link" | "hash";
+  /**
+   * How the chip reads the path: whole with its folder cut first, or its last segment
+   * alone where every row of a list shares the folder. The whole path is on hover either way.
+   */
+  reading?: "path" | "name";
 }
 
 /**
@@ -44,21 +49,28 @@ interface ObjectChipProps {
  * A click that lands while the index is absent builds it. The tree opens the target
  * on the check's answer.
  */
-export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
+export function ObjectChip({ hash, name, kind, reading = "path" }: ObjectChipProps) {
   const targets = useLinkTargets();
   const declared = targets.declared.get(hash);
   const decision = kind === "link" ? decideObjectLink(hash, targets) : decideHash(hash, targets);
   const { wantOpen, wanting } = useLinkOpen();
   const open = useOpenDocumentAs();
 
-  const label = name ?? declared?.path ?? hash;
+  const whole = name ?? declared?.path ?? hash;
+  const label = reading === "name" ? splitPath(whole).file : whole;
+  const cut = reading === "path" && whole.includes("/") ? "path" : "end";
   if (decision.kind === "text" && kind === "link") return <Hex>{hash}</Hex>;
-  if (decision.kind === "text") return <Text>{label}</Text>;
-  if (decision.kind === "pending") return <Text>{label}</Text>;
+  if (decision.kind === "text") return <Text>{whole}</Text>;
+  if (decision.kind === "pending" && kind === "link") {
+    return <PendingChip label={label} whole={whole} />;
+  }
+  if (decision.kind === "pending") return <Text>{whole}</Text>;
   if (decision.kind === "warm") {
     return (
       <LinkChip
         label={label}
+        whole={whole}
+        cut={cut}
         pending={wanting.has(hash)}
         onOpen={(intent) => wantOpen(hash, intent)}
       />
@@ -68,6 +80,8 @@ export function ObjectChip({ hash, name, kind }: ObjectChipProps) {
   return (
     <LinkChip
       label={label}
+      whole={whole}
+      cut={cut}
       card={declared && <TargetCard hash={hash} declared={declared} />}
       onOpen={(intent) => open(decision.document, intent)}
     />
@@ -124,13 +138,7 @@ export function StringValue({ text }: StringValueProps) {
 
   if (decision.kind === "missing" && path !== null) return <Text missing path={path} />;
   if (decision.kind === "missing") return <Text missing>{text}</Text>;
-  if (decision.kind !== "chip") {
-    /* Sized to what it holds rather than to the column, which a short name in a
-       full-width box reads as a text area waiting for more. */
-    return (
-      <Readout value={text} className="field-sizing-content max-w-full min-w-32 text-surface-100" />
-    );
-  }
+  if (decision.kind !== "chip") return <Text>{text}</Text>;
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
     return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;
@@ -163,10 +171,28 @@ function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} cut="start" onOpen={onOpen} />
+      <LinkChip label={path} cut="path" onOpen={onOpen} />
       <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
-      {side !== undefined && <span className="shrink-0 text-meta text-surface-400">{side}</span>}
+      {side !== undefined && <SideTag side={side} layer={layerTitle !== undefined} />}
     </span>
+  );
+}
+
+/** Which side answered a `file` chip, marked as a layer or an archive and named in full on hover. */
+function SideTag({ side, layer }: { side: string; layer: boolean }) {
+  const label = layer
+    ? m.workshop_bin_chip_layer_label({ name: side })
+    : m.workshop_bin_chip_archive_label({ name: side });
+
+  return (
+    <Tooltip content={label}>
+      <span className="flex max-w-40 min-w-0 shrink items-center gap-1 text-meta text-surface-400">
+        {/* DS-KIND-HUE */}
+        {layer && <LayerIcon className="h-3 w-3 shrink-0 text-doc-layer-text" />}
+        {!layer && <ArchiveIcon className="h-3 w-3 shrink-0" />}
+        <span className="min-w-0 truncate">{side}</span>
+      </span>
+    </Tooltip>
   );
 }
 
@@ -198,8 +224,10 @@ function FileMark({ asset, path, layerTitle, onOpen }: FileMarkProps) {
 
 interface LinkChipProps {
   label: string;
-  /** Where a label too long for its box is cut: its end, or the start of a path. */
-  cut?: "end" | "start";
+  /** The whole of what the chip names, where the label draws a part of it. */
+  whole?: string;
+  /** Where a label too long for its box is cut: its end, or a path's folder. */
+  cut?: "end" | "path";
   /** The click was taken and the index is building. */
   pending?: boolean;
   /** The hover card. Absent while the target is not resolved. */
@@ -210,18 +238,28 @@ interface LinkChipProps {
 /**
  * A mono `Code` chip, per DS-CODE-CHIP, opening on click and beside on `Ctrl+click`.
  *
- * A path is cut from its start by a right-to-left box, so the file name is what stays.
+ * A path is cut inside its folder, so both the root that names the champion and the
+ * file name stay.
  */
-export function LinkChip({ label, cut = "end", pending = false, card, onOpen }: LinkChipProps) {
+export function LinkChip({
+  label,
+  whole = label,
+  cut = "end",
+  pending = false,
+  card,
+  onOpen,
+}: LinkChipProps) {
+  const path = cut === "path";
+  const partial = path || whole !== label;
   const button = (
     <button
       type="button"
       data-ui="LinkChip"
-      dir={cut === "start" ? "rtl" : undefined}
-      aria-label={cut === "start" ? label : undefined}
-      title={cut === "start" ? label : undefined}
+      aria-label={partial ? whole : undefined}
+      title={partial && !card ? whole : undefined}
       className={twMerge(
         "max-w-full min-w-0 cursor-pointer truncate rounded-sm text-left",
+        path && "flex",
         pending && "animate-pulse",
       )}
       onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
@@ -229,9 +267,11 @@ export function LinkChip({ label, cut = "end", pending = false, card, onOpen }: 
         onOpen(clickIntent(event));
       }}
     >
-      <Code className="hover:bg-surface-veil hover:text-surface-100">
-        {cut === "start" && <PathText path={label} />}
-        {cut === "end" && label}
+      <Code
+        className={twMerge("hover:bg-surface-veil hover:text-surface-100", path && "flex min-w-0")}
+      >
+        {path && <PathText path={label} />}
+        {!path && label}
       </Code>
     </button>
   );
@@ -242,7 +282,7 @@ export function LinkChip({ label, cut = "end", pending = false, card, onOpen }: 
       <Popover.Trigger openOnHover delay={CARD_DELAY} render={button} />
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={label} className="w-80 p-3 text-meta select-none">
+          <Popover.Popup aria-label={whole} className="w-80 p-3 text-meta select-none">
             {card}
           </Popover.Popup>
         </Popover.Positioner>
@@ -251,13 +291,23 @@ export function LinkChip({ label, cut = "end", pending = false, card, onOpen }: 
   );
 }
 
-/** A path read left to right inside a chip cut from its start, its folder dimmed. */
+/** A path with its folder dimmed, the folder cut first where the box runs out. */
 function PathText({ path }: { path: string }) {
   const { folder, file } = splitPath(path);
   return (
-    <span dir="ltr">
-      <span className="text-surface-400">{folder}</span>
-      {file}
+    <span className="flex min-w-0">
+      <span className="min-w-0 shrink-1000 truncate text-surface-400">{folder}</span>
+      <span className="min-w-0 truncate">{file}</span>
+    </span>
+  );
+}
+
+/** A link whose target the check has not answered yet: its chip, dimmed, which opens nothing. */
+function PendingChip({ label, whole }: { label: string; whole: string }) {
+  return (
+    <span className="flex min-w-0" title={whole}>
+      {/* DS-CODE-CHIP */}
+      <Code className="min-w-0 truncate text-surface-400 select-text">{label}</Code>
     </span>
   );
 }
@@ -309,10 +359,10 @@ function Text({
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <span
-        dir={path === undefined ? undefined : "rtl"}
         title={path}
         className={twMerge(
-          "truncate text-left select-text",
+          "min-w-0 text-left select-text",
+          path === undefined ? "truncate" : "flex",
           missing ? "text-surface-300" : "text-surface-200",
         )}
       >

@@ -1,27 +1,43 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
-import { type ReactNode, useState } from "react";
-import { twMerge } from "tailwind-merge";
+import { type CSSProperties, type ReactNode, useMemo } from "react";
 
 import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
+import { useSectionOpen, useToggleSection } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { nameHash } from "./binHash";
 import { rowKey } from "./binRows";
 import {
   elementsOf,
-  FieldRow,
+  FieldRows,
   fieldsIn,
   type LayoutPages,
-  None,
   SectionTree,
   type ViewContext,
   type WidgetProps,
 } from "./ClassCells";
-import type { PlacedSection, SectionWidget } from "./classLayouts";
+import { type PlacedSection, type SectionWidget, sectionCount } from "./classLayouts";
 import { EffectTable, IconRow, MeshCard, OverrideRows } from "./SkinSections";
+import { nameColumn } from "./textCut";
 import { Emitters } from "./VfxSections";
 
-/** Every placed section, in the order the layout named them. */
+/** The share of a section past which the name column cuts its names. */
+const NAME_CAP = "40%";
+
+/** What the column holds beside a name, in pixels: the caret's gutter and the row's padding. */
+const NAME_EXTRA = 16;
+
+/** The widgets whose rows are field rows, which the name column is measured over. */
+const FIELD_ROW_WIDGETS: ReadonlySet<SectionWidget | undefined> = new Set([
+  undefined,
+  "rows",
+  "fields",
+  "mesh",
+  "override-rows",
+]);
+
+/** Every placed section, in the order the layout named them, over one name column. */
 export function Sections({
   placed,
   pages,
@@ -31,9 +47,41 @@ export function Sections({
   pages: LayoutPages;
   view: ViewContext;
 }) {
-  return placed.map((section, at) => (
-    <Section key={at} section={section} pages={pages} view={view} />
-  ));
+  const column = useMemo(
+    () =>
+      ({
+        "--name-width": nameColumn(fieldRowNames(placed, pages), NAME_EXTRA, NAME_CAP),
+      }) as CSSProperties,
+    [placed, pages],
+  );
+
+  return (
+    <div data-ui="ClassView:sections" className="contents" style={column}>
+      {placed.map((section) => (
+        <Section key={section.id} section={section} pages={pages} view={view} />
+      ))}
+    </div>
+  );
+}
+
+/** The names a layout draws as field rows, which the name column is measured over. */
+function fieldRowNames(placed: readonly PlacedSection[], pages: LayoutPages): string[] {
+  const names: string[] = [];
+  const under = (rows: readonly BinRow[]) => {
+    for (const row of rows) {
+      const page = pages.get(rowKey(row));
+      if (page === undefined) continue;
+      names.push(...page.rows.map((child) => child.name));
+      under(page.rows);
+    }
+  };
+
+  for (const section of placed) {
+    if (!FIELD_ROW_WIDGETS.has(section.widget)) continue;
+    if (section.widget === undefined) names.push(...section.rows.map((row) => row.name));
+    else under(section.rows);
+  }
+  return names;
 }
 
 interface SectionProps {
@@ -44,26 +92,40 @@ interface SectionProps {
 
 /** One section: its header, and the fields it placed. */
 function Section({ section, pages, view }: SectionProps) {
-  const [open, setOpen] = useState(true);
+  const id = `bin-section:${view.classHash}:${section.id}`;
+  const open = useSectionOpen(id) ?? true;
+  const toggle = useToggleSection();
   const title = section.title();
+  const empty = section.rows.length === 0;
+  const count = empty ? null : sectionCount(section, pages);
 
   return (
-    <section data-ui="ClassView:section" className="flex flex-col gap-1">
-      <button
-        type="button"
-        className="flex cursor-pointer items-center gap-1 text-left text-surface-400 hover:text-surface-200"
-        aria-expanded={open}
-        onClick={() => setOpen((shown) => !shown)}
+    <section
+      data-ui="ClassView:section"
+      className="flex flex-col gap-1 border-t border-surface-700/40 pt-2 first:border-t-0 first:pt-0"
+    >
+      <div
+        /* DS-GROUND: opaque, since the rows scroll under it rather than past it. */
+        className={twMerge(
+          "sticky top-0 z-10 flex items-center gap-1.5 py-0.5",
+          view.frame === "shell" ? "bg-surface-900" : "bg-surface-950",
+        )}
       >
-        <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
-        <span className="text-xs font-medium tracking-wide uppercase">{title}</span>
-      </button>
-      {open && section.rows.length === 0 && (
-        <span className="pl-3 text-meta text-surface-400">
-          {m.workshop_bin_section_none_empty()}
-        </span>
-      )}
-      {open && section.rows.length > 0 && (
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-1 text-left text-surface-300 hover:text-surface-100"
+          aria-expanded={open}
+          onClick={() => toggle(id, !open)}
+        >
+          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+          <span className="text-xs font-medium tracking-wide uppercase">{title}</span>
+        </button>
+        {count !== null && <span className="text-meta text-surface-400 tabular-nums">{count}</span>}
+        {empty && (
+          <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>
+        )}
+      </div>
+      {open && !empty && (
         <div className="pl-3 font-mono text-mono-row">
           <SectionBody section={section} pages={pages} view={view} title={title} />
         </div>
@@ -91,19 +153,13 @@ function SectionBody({ section, pages, view, title }: SectionProps & { title: st
         roots={section.rows}
         rootOwner={view.classHash}
         label={title}
-        initialExpanded={section.other ? undefined : section.rows.map(rowKey)}
+        initialExpanded={section.rows.map(rowKey)}
       />
     );
   }
 
   if (section.widget === undefined) {
-    return (
-      <div className="flex flex-col">
-        {section.rows.map((row) => (
-          <FieldRow key={rowKey(row)} row={row} />
-        ))}
-      </div>
-    );
+    return <FieldRows rows={section.rows} owner={view.classHash} />;
   }
 
   const Widget = WIDGETS[section.widget];
@@ -117,24 +173,10 @@ function NamedFields({ section, pages }: WidgetProps) {
     .map((name) => byField(nameHash(name)))
     .filter((row): row is BinRow => row !== undefined);
 
-  if (drawn.length === 0) return <None />;
-  return (
-    <div className="flex flex-col">
-      {drawn.map((row) => (
-        <FieldRow key={rowKey(row)} row={row} />
-      ))}
-    </div>
-  );
+  return <FieldRows rows={drawn} />;
 }
 
-/** One row per element of the containers the section placed, as the tree draws them. */
-function ElementRows({ section, pages, view }: WidgetProps) {
-  return (
-    <SectionTree
-      view={view}
-      roots={elementsOf(section.rows, pages)}
-      rootOwner={null}
-      label={section.title()}
-    />
-  );
+/** One field row per element of the containers the section placed, each opening in place. */
+function ElementRows({ section, pages }: WidgetProps) {
+  return <FieldRows rows={elementsOf(section.rows, pages)} />;
 }

@@ -87,10 +87,11 @@ interface ClipPickerProps {
 
 /** Which clip of the graph poses the skin, or none. */
 function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
-  const nameOf = (held: string | null) =>
-    held === BIND_POSE
-      ? m.workshop_bin_mesh_preview_bind_label()
-      : (clips.find((clip) => clip.hash === held)?.name ?? "");
+  const nameOf = (held: string | null) => {
+    if (held === BIND_POSE) return m.workshop_bin_mesh_preview_bind_label();
+    const clip = clips.find((each) => each.hash === held);
+    return clip === undefined ? "" : clipName(clip);
+  };
 
   return (
     <Select.Root
@@ -112,7 +113,7 @@ function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
             <Select.Item value={BIND_POSE}>{m.workshop_bin_mesh_preview_bind_label()}</Select.Item>
             {clips.map((clip) => (
               <Select.Item key={clip.hash} value={clip.hash}>
-                {clip.name}
+                {clipName(clip)}
               </Select.Item>
             ))}
           </Select.Popup>
@@ -120,4 +121,10 @@ function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
       </Select.Portal>
     </Select.Root>
   );
+}
+
+/** A clip's key as a reader picks it, which says unnamed rather than showing the bare hash. */
+export function clipName(clip: AnimationClip): string {
+  if (clip.name !== clip.hash) return clip.name;
+  return m.workshop_bin_mesh_preview_unnamed_clip_label({ hash: clip.hash.slice(2) });
 }

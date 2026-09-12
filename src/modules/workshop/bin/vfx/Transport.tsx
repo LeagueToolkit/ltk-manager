@@ -2,6 +2,7 @@ import {
   ArrowCounterClockwiseIcon,
   CaretLineLeftIcon,
   CaretLineRightIcon,
+  GaugeIcon,
   PauseIcon,
   PlayIcon,
 } from "@phosphor-icons/react";
@@ -117,6 +118,7 @@ export function Transport({
 
       {!mini && (
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
+          <GaugeIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-surface-400" />
           <Slider
             className="w-20"
             aria-label={m.workshop_bin_preview_speed_label()}

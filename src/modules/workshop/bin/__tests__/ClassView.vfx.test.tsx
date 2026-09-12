@@ -443,7 +443,7 @@ beforeEach(() => {
   /* The arrangement is the project's, so a pane one case opened would stay open for the next. */
   useWorkshopEditorStore.setState({ byProject: {} });
   /* Defaults is app-wide and persisted, so a case that turns it on would turn it on for the next. */
-  useWorkshopLayoutStore.setState({ inspectorDefaults: false });
+  useWorkshopLayoutStore.setState({ inspectorDefaults: false, openSections: {} });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_read") {
@@ -805,7 +805,7 @@ describe("The emitter table", () => {
     renderSystem();
     await showTable(userEvent.setup());
 
-    expect(await screen.findByText(MATERIAL_PATH)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: MATERIAL_PATH })).toBeInTheDocument();
   });
 
   it("draws a colour's swatch and strip, as the value rows draw them", async () => {

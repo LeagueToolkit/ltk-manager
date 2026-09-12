@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
+import { useWorkshopLayoutStore } from "@/stores";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -90,10 +91,12 @@ const ROOTS: BinRow[] = [
   field("loadscreen", embed("CensoredImage", 1)),
   field("skinMeshProperties", embed("SkinMeshDataProperties", 4)),
   field("skinAnimationProperties", embed("SkinAnimationProperties", 1)),
-  field("idleParticlesEffects", list(1)),
+  field("idleParticlesEffects", list(2)),
   field("mResourceResolver", link(RESOLVER, null)),
   field("skinAudioProperties", embed("SkinAudioProperties", 1)),
   field("healthBarData", embed("CharacterHealthBarDataRecord", 0)),
+  field("armorMaterial", { type: "string", value: "Stone" }),
+  field("emoteLoadout", list(0)),
 ];
 
 const at = (name: string) => nameHash(name).slice(2);
@@ -102,6 +105,7 @@ const OVERRIDES = `${MESH}.${at("materialOverride")}`;
 const OVERRIDE = `${OVERRIDES}[0]`;
 const EFFECTS = at("idleParticlesEffects");
 const EFFECT = `${EFFECTS}[0]`;
+const NAMED_EFFECT = `${EFFECTS}[1]`;
 const RESOURCE_MAP = at("resourceMap");
 
 /** Every page the projected read answers, by the entry and path it was asked under. */
@@ -147,6 +151,23 @@ const PAGES: Record<string, BinRows> = {
       embed("SkinCharacterDataProperties_CharacterIdleEffect", 3),
       "element",
     ),
+    row(
+      ENTRY,
+      NAMED_EFFECT,
+      "[1]",
+      embed("SkinCharacterDataProperties_CharacterIdleEffect", 2),
+      "element",
+    ),
+  ]),
+  [`${ENTRY}:${NAMED_EFFECT}`]: page([
+    row(ENTRY, `${NAMED_EFFECT}.${at("effectName")}`, "effectName", {
+      type: "string",
+      value: "NamedOnly",
+    }),
+    row(ENTRY, `${NAMED_EFFECT}.${at("boneName")}`, "boneName", {
+      type: "string",
+      value: "C_Buffbone_Glb_Center_Loc",
+    }),
   ]),
   [`${ENTRY}:${EFFECT}`]: page([
     row(ENTRY, `${EFFECT}.${at("effectKey")}`, "effectKey", {
@@ -161,6 +182,10 @@ const PAGES: Record<string, BinRows> = {
     row(ENTRY, `${EFFECT}.${at("boneName")}`, "boneName", {
       type: "string",
       value: "L_Wing",
+    }),
+    row(ENTRY, `${EFFECT}.${at("targetBoneName")}`, "targetBoneName", {
+      type: "string",
+      value: "R_Hand",
     }),
   ]),
   [`${RESOLVER}:`]: page([
@@ -240,6 +265,7 @@ function renderSkin() {
 }
 
 beforeEach(() => {
+  useWorkshopLayoutStore.setState({ openSections: {} });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_read") {
@@ -285,6 +311,14 @@ beforeEach(() => {
   });
 });
 
+/** The first material override's group, once the read has answered its fields. */
+async function overrideGroup(): Promise<HTMLElement> {
+  await screen.findByText("submesh");
+  const group = document.querySelector<HTMLElement>("[data-ui='OverrideRows:override']");
+  if (group === null) throw new Error("no override group drawn");
+  return group;
+}
+
 /** What the object pane measures, which happy-dom runs no layout to answer. */
 let paneWidth = 0;
 const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
@@ -314,6 +348,7 @@ describe("ClassView over a skin", () => {
       "Animation",
       "VFX",
       "Audio",
+      "Health bar",
       "Other",
     ]) {
       expect(screen.getByRole("button", { name: title })).toBeInTheDocument();
@@ -323,7 +358,23 @@ describe("ClassView over a skin", () => {
   it("draws the identity fields in the cell their own rows draw", () => {
     renderSkin();
 
-    expect(screen.getByDisplayValue("Smolder")).toBeInTheDocument();
+    expect(screen.getByText("Smolder")).toBeInTheDocument();
+    expect(screen.getByText("Stone")).toBeInTheDocument();
+  });
+
+  it("remembers a folded section for the next skin it opens", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Identity" }));
+    cleanup();
+    renderSkin();
+
+    expect(screen.getByRole("button", { name: "Identity" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("Smolder")).toBeNull();
   });
 
   it("names each icon under its own tile, the loadscreen's image included", async () => {
@@ -354,30 +405,67 @@ describe("ClassView over a skin", () => {
     ).toBeInTheDocument();
   });
 
-  /* The rows themselves are virtualized, which a zero-height test viewport draws none of. */
-  it("draws the material overrides as a tree over the elements the read answered", async () => {
+  it("titles each material override by the submesh it dresses, over its own field rows", async () => {
     renderSkin();
 
-    expect(await screen.findByRole("tree", { name: "Material overrides" })).toBeInTheDocument();
+    const override = await overrideGroup();
+
+    expect(within(override).getAllByText("Body")).toHaveLength(2);
+    expect(within(override).getByText("[0]")).toBeInTheDocument();
+    expect(within(override).getByText("submesh")).toBeInTheDocument();
+    expect(within(override).queryByText("SkinMeshDataProperties_MaterialOverride")).toBeNull();
+  });
+
+  it("points the preview at an override's submesh while the pointer is on it", async () => {
+    renderSkin();
+    const user = userEvent.setup();
+    const [title] = within(await overrideGroup()).getAllByText("Body");
+
+    await user.hover(title);
+    expect(title.closest("[data-ui='OverrideRows:override']")?.className).toContain(
+      "bg-accent-500/10",
+    );
+
+    await user.unhover(title);
+    expect(title.closest("[data-ui='OverrideRows:override']")?.className).not.toContain(
+      "bg-accent-500/10",
+    );
   });
 
   it("carries the system's chip on an effect row, joined through the resolver", async () => {
     renderSkin();
 
-    expect(await screen.findByText(SYSTEM_PATH)).toBeInTheDocument();
+    const chip = await screen.findByRole("button", { name: SYSTEM_PATH });
+    expect(chip).toHaveTextContent(/^Smolder_Base_Idle$/);
     expect(screen.getByText("L_Wing")).toBeInTheDocument();
+    expect(screen.getByText("R_Hand")).toBeInTheDocument();
   });
 
-  it("draws what no section names as a tree of its own", () => {
+  it("names an effect that carries no key by its effectName", async () => {
     renderSkin();
 
-    expect(screen.getByRole("tree", { name: "Other" })).toBeInTheDocument();
+    expect(await screen.findByText("NamedOnly")).toBeInTheDocument();
+    expect(screen.getByText("C_Buffbone_Glb_Center_Loc")).toBeInTheDocument();
+  });
+
+  it("counts the effects on the VFX header", async () => {
+    renderSkin();
+
+    const header = screen.getByRole("button", { name: "VFX" }).parentElement;
+    expect(header).toHaveTextContent("VFX2");
+  });
+
+  it("draws what no section names as field rows", () => {
+    renderSkin();
+
+    expect(screen.getByText("emoteLoadout")).toBeInTheDocument();
+    expect(screen.queryByRole("tree", { name: "Other" })).toBeNull();
   });
 
   it("reads the resolver through the handle the file is already open on", async () => {
     renderSkin();
 
-    await screen.findByText(SYSTEM_PATH);
+    await screen.findByRole("button", { name: SYSTEM_PATH });
     const entries = mockInvoke.mock.calls
       .filter(([command]) => command === "bin_read")
       .map(([, args]) => (args as { entry: string }).entry);

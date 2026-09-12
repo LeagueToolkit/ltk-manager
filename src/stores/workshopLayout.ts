@@ -291,6 +291,8 @@ export const useSetLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.setLay
 export const useSidebarView = () => useWorkshopLayoutStore((s) => s.sidebarView);
 export const useShowSidebarView = () => useWorkshopLayoutStore((s) => s.showSidebarView);
 export const useOpenSections = () => useWorkshopLayoutStore((s) => s.openSections);
+/** Whether section `id` was left open or shut, and undefined where it never was either. */
+export const useSectionOpen = (id: string) => useWorkshopLayoutStore((s) => s.openSections[id]);
 export const useToggleSection = () => useWorkshopLayoutStore((s) => s.toggleSection);
 export const useSectionHeights = () => useWorkshopLayoutStore((s) => s.sectionHeights);
 export const useSetSectionHeight = () => useWorkshopLayoutStore((s) => s.setSectionHeight);

@@ -4,6 +4,7 @@
 
 | Date       | Change                                              |
 | ---------- | --------------------------------------------------- |
+| 2026-09-13 | Draw every layout section as field rows             |
 | 2026-09-12 | Band a rich value and drop the inspector's tabs     |
 | 2026-09-12 | Flag the timeline's playhead and trace the pointer  |
 | 2026-09-11 | Draw the random spread as lanes and a density edge  |
@@ -13,7 +14,6 @@
 | 2026-09-08 | Wrap the emitter cards into the pane                |
 | 2026-09-08 | Arrange the shell's panes as a split tree           |
 | 2026-09-08 | Size the emitter card and filter the strip by name  |
-| 2026-09-08 | Give the curve dock its table and probability tabs  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -389,8 +389,10 @@ costs nothing a user can see.
 it is nested.
 
 Every widget here is drawn before it is editable, and the read-only one is the editable one at
-rest: a number and a string sit in their fields and a bool in its checkbox from the first read,
-so nothing on the row moves when editing lands. A field draws its border at rest rather than
+rest: a number sits in its field and a bool in its checkbox from the first read, so nothing on
+the row moves when editing lands. A string that names nothing is the exception and draws as its
+text. A field around a short name reads the way a link chip does, so the box would say a string
+opens something, and the field it edits in arrives with editing. A field draws its border at rest rather than
 under the pointer, because a value that only becomes a field on hover reads until then as text
 laid over the row. What a read-only widget does not take is focus, since a document of them
 would otherwise be a tab order thousands of stops long.
@@ -919,17 +921,28 @@ The file tab keeps its blocks. A layout is the object tab's, per ADR-0028.
 
 A layout places every depth-zero field of the object in a section. A field with a purpose-built
 widget takes it, and every other field takes the cell its row would draw. A field the layout
-does not name falls into a last section, Other, drawn by the tree rooted at those fields and
-expandable as in Properties. So a field the game adds in a patch is on screen the day the schema
+does not name falls into a last section, Other, drawn as the field rows of those fields, a struct
+among them opening in place. So a field the game adds in a patch is on screen the day the schema
 changes, and a layout is a placement rather than a whitelist.
 
-A section whose list is empty keeps its header and draws a muted None under it, so a reader
-tells an empty list from a field the class lacks, and every object of one class has one section
-order. Sections collapse, and open by default.
+**A layout draws one kind of row.** Every section of named fields, every list and Other draw
+`FieldRow`, the row [the inspector](#the-inspector) draws, and every one of them shares a name
+column measured over the names the layout draws. A nested row indents inside that column, so a
+value starts at one x at every depth. A tree with its kind tags beside a field row without them
+is two grammars for one reader, and its name column starting at a second x is what made a pane
+of both read as ragged.
+
+A section whose list is empty keeps its header and draws a muted None beside its title, so a
+reader tells an empty list from a field the class lacks, and every object of one class has one
+section order. A list section and Other carry their count there instead. The header sticks to the
+top of the column while its rows scroll, and a rule divides it from the section above.
+
+Sections collapse and open by default. A section a reader folds stays folded for every object of
+that class, app-wide, because the section a modder never reads is a property of their work
+rather than of the file.
 
 A section the tree draws opens the fields the layout named for it, and a reader sees one level
-of each without a click. Other opens none of its own, as in Properties. A tree section scrolls at
-twelve rows, so no one section owns the page.
+of each without a click. A tree section scrolls at twelve rows, so no one section owns the page.
 
 ### The registry
 
@@ -938,10 +951,11 @@ carries no inheritance. It names its fields by name, and a frontend FNV-1a turns
 row's hash at module load, checked by a test over known pairs.
 
 A section names one widget or none. `rows` is the elements of the containers the section placed,
-each as the row [the tree](#the-blocks) draws, which is what a list takes. `override-rows` is the
-same over a list one level down, which is how the skin reaches the mesh's material overrides.
-`icons`, `mesh` and `effect-table` are the skin's own, and `emitters` the particle system's, each
-reading the fields of one class. `fields` draws the sub-fields a section names under the row it
+each a field row that opens in place, which is what a list takes. `override-rows` is the same over
+a list one level down, which is how the skin reaches the mesh's material overrides, and it titles
+each override by the submesh it dresses rather than by its class. `icons`, `mesh` and
+`effect-table` are the skin's own, and `emitters` the particle system's, each reading the fields
+of one class. `fields` draws the sub-fields a section names under the row it
 placed, which is what a one-field embed such as `skinAnimationProperties` takes. `tree` is the
 tree rooted at the section's own fields, which is what a nested structure takes. A section that
 names no widget draws each of its fields in the cell that row would draw.
@@ -1042,8 +1056,21 @@ costs an open of its own, which is what the skin's VFX table does to reach its r
 
 A texture cell draws by the row's kind. A `file` takes the chip and swatch a row takes, a
 `string` that resolves as [a string that names a thing](#a-string-that-names-a-thing) takes the
-same, and a path neither side holds draws as text. The skin's icons and mesh textures draw as
-tiles, because the textures are what those sections are opened for.
+same, and a path neither side holds draws as text. The skin's icons draw as tiles, because the
+pictures are what that section is opened for. The mesh's textures are field rows with the swatch
+a `file` takes, the way an override's texture draws, since the preview beside them already draws
+what they dress.
+
+A path is cut inside its folder where the column runs out, so the root that names the champion
+and the file name both stay. The whole path is on the chip's hover. The side a `file` chip
+answered on carries its mark, a layer's glyph or an archive's, and names itself in full on hover.
+
+An idle effect is keyed by `effectKey`, or by the hash of its `effectName` where it carries no
+key, and one the resolver answers for neither draws its name. Its row carries the bone it sits
+on and, after an arrow, the bone it aims at. The system's chip reads its last segment alone,
+the whole path on its card, because every effect of a skin shares the folder its systems sit in
+and a column of that folder hides the one word that tells the rows apart. An object link
+anywhere else is cut inside its folder, as a `file` path is.
 
 A widget of named cells draws the fields it names and no others, which is what the icons, the
 mesh and the VFX join do. Everything else a class carries is reachable through the rows and
@@ -1051,12 +1078,12 @@ through Properties.
 
 ### The layouts
 
-| Class                                               | Sections                                                                                      |
-| --------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other |
-| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Animation, VFX, Audio, Other, beside a preview     |
-| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                            |
-| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                           |
+| Class                                               | Sections                                                                                              |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `StaticMaterialDef`                                 | Identity, Samplers, Params and Switches as rows, Macros and Techniques as nested trees, Other         |
+| `SkinCharacterDataProperties`, and its TFT subclass | Identity, Icons, Mesh, Material overrides, Animation, VFX, Audio, Health bar, Other, beside a preview |
+| `VfxSystemDefinitionData`                           | Identity, Emitters as a strip of cards or as a table, Audio, Other                                    |
+| `AnimationGraphData`                                | Clips as a table, Masks, Tracks, Sync groups, Other                                                   |
 
 The material, the skin and the particle system are the registered layouts, with the value rows
 beside them. The animation graph table follows.
@@ -1070,6 +1097,16 @@ and a child set naming bones spawns on the joints it names. The transport under 
 sets its speed and names it: an idle clip first, and the bind pose where the graph holds none. A
 graph the skin's own file does not declare is read out of the files it links, which is where the
 engine finds it. The camera frames the character when it lands, and again on Frame the character.
+A clip no table names reads as unnamed with its hash, rather than as the bare hash.
+
+**The inspector and the character point at each other.** The pointer on a material override
+dims every submesh but the one it dresses, and a click on the character dims the same way and
+scrolls that submesh's override into view, marked while it holds. A click that misses the
+character lets go. The ray is cast on the click alone, because casting it on every move of the
+pointer would skin the whole mesh each time.
+
+The skin's shell writes the object's path on the header row beside its class, because the class
+only says what kind of object the tab holds and a skin tab is opened to read one skin.
 
 ### The emitter strip
 
@@ -1440,7 +1477,7 @@ pane, and past the cap a name is cut in its middle, as a lane's is.
 off the tables `model.ts` holds. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
 random range reads `min .. max`. Which unit a field carries is a table written by hand, as the
 groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. A path
-reads its file name whole and its folder dimmed, cut from its start where the column runs out.
+reads its file name whole and its folder dimmed, cut inside the folder where the column runs out.
 
 **A curve and a colour ramp draw on a plate of one width.** Both sit in the value column on the
 row's own line, at the width every other plate down the pane takes, so a row keeps one height

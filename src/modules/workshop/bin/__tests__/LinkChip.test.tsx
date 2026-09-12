@@ -167,10 +167,10 @@ describe("StringValue", () => {
     expect(screen.getByRole("button", { name: path })).toBeInTheDocument();
   });
 
-  it("draws the field for a string that names nothing", () => {
+  it("draws the text of a string that names nothing", () => {
     renderString("Justicar Aatrox", targets([]));
 
-    expect(screen.getByDisplayValue("Justicar Aatrox")).toBeInTheDocument();
+    expect(screen.getByText("Justicar Aatrox")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
   });
 });

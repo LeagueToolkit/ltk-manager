@@ -122,9 +122,24 @@ export function SkinShell({ placed, pages, view, entry }: SkinShellProps) {
 
   return (
     <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
-      <ShellHeader kind="skin" />
+      <ShellHeader
+        kind="skin"
+        crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
+      />
       <ShellPaneTree kind="skin" content={content} />
     </div>
+  );
+}
+
+/** The object's own path on the header row, beside the class that only types it. */
+function ObjectPath({ path }: { path: string }) {
+  return (
+    <span
+      data-ui="ClassView:object-path"
+      className="min-w-0 truncate px-1 font-mono text-meta text-code text-surface-200 select-text"
+    >
+      {path}
+    </span>
   );
 }
 
