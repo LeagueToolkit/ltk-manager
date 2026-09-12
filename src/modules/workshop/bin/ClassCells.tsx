@@ -229,37 +229,65 @@ interface FieldRowProps {
   width?: string;
   /** The class the field is read on, for the revisions its card draws. */
   owner?: string | null;
+  /** The roll rail's segment, which only a layout with a roll to draw gives it. */
+  rail?: ReactNode;
 }
 
 /**
- * One field on a line of its own: its name, and the box its value is shaped as.
+ * One field as its name and the box its value is shaped as, on one line or on two.
  *
  * "A row is shaped as its input" in docs/ux/BIN_EDITOR.md. The name is the field card's
  * trigger, and every layout drawing field rows draws this one.
  */
-export function FieldRow({ row, width = "w-40", owner = null }: FieldRowProps) {
+export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowProps) {
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
   const document = use(RowDocumentContext);
   const folds = family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
   const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
+  const mark = useValueMark(rowKey(row));
+  const name = <FieldName row={row} width={width} owner={owner} caret={caret} />;
+  const nested = document !== null && folds && open && (
+    <NestedRows document={document} row={row} width={width} />
+  );
+
+  /* The dynamics rather than the keys, so the row does not fall to two lines under a
+     reader once the read lands. "A value the column cannot hold takes a band under its
+     name" in docs/ux/BIN_EDITOR.md. */
+  if (family !== null && mark?.curve === true) {
+    return (
+      <>
+        {/* DS-VEIL, DS-RADIUS */}
+        <div
+          className="relative flex flex-col rounded-sm px-1.5 pb-0.5 hover:bg-surface-veil-soft"
+          data-row-key={rowKey(row)}
+        >
+          {rail}
+          <span className="flex min-h-6 min-w-0 items-center">{name}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <ValueCell row={row} shaped banded railed={rail !== undefined} />
+          </span>
+        </div>
+        {nested}
+      </>
+    );
+  }
 
   return (
     <>
       {/* DS-VEIL, DS-RADIUS */}
       <div
-        className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+        className="relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
         data-row-key={rowKey(row)}
       >
-        <FieldName row={row} width={width} owner={owner} caret={caret} />
-        {family !== null && <ValueCell row={row} shaped />}
+        {rail}
+        {name}
+        {family !== null && <ValueCell row={row} shaped railed={rail !== undefined} />}
         {family === null && axes !== null && <AxisCells values={axes} />}
         {family === null && axes === null && <RowValue row={row} />}
       </div>
-      {document !== null && folds && open && (
-        <NestedRows document={document} row={row} width={width} />
-      )}
+      {nested}
     </>
   );
 }
@@ -367,11 +395,24 @@ function FieldName({ row, width, owner, caret }: FieldNameProps) {
  * answered the keys, and the mark where it read only that there are some. `shaped` is a
  * field row, whose vector takes tinted columns and whose scalar carries its unit.
  */
-export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boolean }) {
+export function ValueCell({
+  row,
+  shaped = false,
+  banded = false,
+  railed = false,
+}: {
+  row: BinRow;
+  shaped?: boolean;
+  /** The cell has the row's own band to itself, so its curve is drawn at that width. */
+  banded?: boolean;
+  /** The layout draws a roll rail, which already says when the table is re-rolled. */
+  railed?: boolean;
+}) {
   const mark = useValueMark(rowKey(row));
   const keys = sparkKeys(mark);
   const { aim } = useCurveDock();
   const chain = useCurveChain(row.name);
+  const stretch = banded && keys.length > 0;
 
   /* Both of Riot's editors put the constant inline and the triggers after it, so a reader
      tuning a value sees what it is worth and reaches the rest of it from the same row. The
@@ -380,12 +421,19 @@ export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boole
     <span className="flex min-w-0 flex-1 items-center gap-2">
       <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
       {mark?.curve === true && (
-        <span className="flex shrink-0 items-center gap-0.5">
-          <Trigger label={m.workshop_bin_show_curve_action()} onClick={() => aim({ row, chain })}>
+        <span
+          className={twMerge("flex items-center gap-0.5", stretch ? "min-w-0 flex-1" : "shrink-0")}
+        >
+          <Trigger
+            label={m.workshop_bin_show_curve_action()}
+            className={twMerge(stretch && "min-w-0 flex-1")}
+            onClick={() => aim({ row, chain })}
+          >
             {keys.length > 0 && (
               <Sparkline
                 keys={keys}
                 label={m.workshop_bin_curve_keys_label({ count: keys.length })}
+                wide={stretch}
               />
             )}
             {keys.length === 0 && (
@@ -397,7 +445,7 @@ export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boole
               />
             )}
           </Trigger>
-          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} />
+          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
         </span>
       )}
     </span>
@@ -415,19 +463,23 @@ function RandomChip({
   mark,
   chain,
   shaped,
+  railed,
 }: {
   row: BinRow;
   mark: ValueMark | undefined;
   chain: string;
   shaped: boolean;
+  railed: boolean;
 }) {
   const { aim } = useCurveDock();
   const draw = randomDraw(mark);
   const summary = draw === null ? null : drawSummary(draw);
   if (mark === undefined || (mark.slots !== undefined && summary === null)) return null;
 
+  /* A rail already says a per-frame table where the layout draws one, per "The row's two
+     triggers" in docs/ux/BIN_EDITOR.md, so the chip reads the shape rather than saying it twice. */
   const flickers =
-    summary !== null && summary.kind !== "broken" && rerollsEveryFrame(ownField(row));
+    !railed && summary !== null && summary.kind !== "broken" && rerollsEveryFrame(ownField(row));
   /* The value column draws the range already where it could read one. */
   const ranged = shaped && markRanges(mark) !== null;
   const text = summary === null ? null : summaryText(summary, mark.family, ranged);

@@ -4,6 +4,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { leafHolding } from "@/modules/editor";
 
 import { useShellLayout, useShellMaximizedLeaf } from "../state";
+import { ChanceReadout } from "./ChancePin";
 import type { LayoutPages, ViewContext } from "./ClassCells";
 import type { PlacedSection } from "./classLayouts";
 import { Sections } from "./ClassSections";
@@ -182,7 +183,12 @@ export function VfxShell({ placed, pages, view, system, drawable }: ShellProps) 
       },
       inspector: {
         body: <InspectorPane placed={others} pages={pages} view={view} />,
-        actions: <InspectorDefaults />,
+        actions: (
+          <>
+            <ChanceReadout />
+            <InspectorDefaults />
+          </>
+        ),
       },
       preview: {
         body: <PreviewPane drawable={drawable} transport={timelineShown ? "none" : "mini"} />,

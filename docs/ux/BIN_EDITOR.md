@@ -4,6 +4,7 @@
 
 | Date       | Change                                              |
 | ---------- | --------------------------------------------------- |
+| 2026-09-12 | Band a rich value and drop the inspector's tabs     |
 | 2026-09-12 | Flag the timeline's playhead and trace the pointer  |
 | 2026-09-11 | Draw the random spread as lanes and a density edge  |
 | 2026-09-11 | Draw a value's random spread on its graph           |
@@ -13,7 +14,6 @@
 | 2026-09-08 | Arrange the shell's panes as a split tree           |
 | 2026-09-08 | Size the emitter card and filter the strip by name  |
 | 2026-09-08 | Give the curve dock its table and probability tabs  |
-| 2026-09-08 | Draw a colour curve as a gradient of its stops      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -68,6 +68,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Particle timeline     | Available   | Lanes under one playhead, on checkpoints. ADR-0037               |
 | Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                  |
 | Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
+| Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
 | In-document search    | Planned     | The bar's `@` scope over the open rows                           |
 | Leaf editing          | Proposed    | The primitive widgets, and the patch that carries an edit        |
 | Container editing     | Proposed    | Add, remove, reorder, and a `Map` key                            |
@@ -1020,9 +1021,8 @@ would read as the whole value. The first level of the value read answers `consta
 `dynamics` together, so the mark costs no call of its own.
 
 A field row draws the shape rather than the mark, in every layout that draws field rows: an
-animated row takes its curve across the value column beside the constant, per
-[the inspector](#the-inspector). A table cell keeps the mark, and so does a field row whose keys
-the read has not answered.
+animated row takes its curve on a band under its name, per [the inspector](#the-inspector). A table
+cell keeps the mark, and so does a field row whose keys the read has not answered.
 
 ### What a layout reads
 
@@ -1091,10 +1091,10 @@ emitter, the square opens the texture it draws, and a chip opens the emitter at 
 the read has not answered the fields of still opens, on no group, because a card that does nothing
 when clicked reads as a card that is broken.
 
-A chip opens the group under the strip, one group at a time, each field in the cell its own row
-draws. The strip opens on the first emitter's first group, because the read has answered every
-field by then and an empty panel says nothing. Reading an emitter whole is Properties, which is
-the whole object.
+A chip scrolls the panel under the strip to that group, which draws the emitter's other groups
+above and below it, each field in the cell its own row draws. The strip opens on the first emitter
+at its first group, because the read has answered every field by then and an empty panel says
+nothing. Reading an emitter whole is Properties, which is the whole object.
 
 **The card is sized to its name.** A card a reader cannot tell from the next one is worth nothing
 however many of them fit, so the width is what a typical emitter name reads in rather than what
@@ -1237,7 +1237,7 @@ The timeline is the particle shell's fifth pane, per ADR-0037. It reads the run 
 above the panes, and it draws one lane per emitter under one playhead.
 
 ```
-TIMELINE  [Filter    ]  < > >  0.42 / 1.60 s  [--|---] 1x  [Loop]
+TIMELINE  [Filter  ]  < > >  0.42 / 1.60 s  [--|--] 1x [Loop]  Chance [==|--] 0.55
 
                              0     .25   .5    .75   1.0   1.25
                              |-----|-----[=====]-----|-----|
@@ -1252,7 +1252,8 @@ v [*] Burst       [3] (o) S        [###]~~~               120
 ```
 
 **The transport row.** Step back, play and step forward, the playhead over the run's span as
-`0.42 / 1.60 s`, the speed, the loop switch and the Histogram switch. The speed is a slider with
+`0.42 / 1.60 s`, the speed, the loop switch, the Histogram switch and the chance pin of
+[the random spread](#the-random-spread). The speed is a slider with
 detents at 0.05, 0.1,
 0.25, 0.5, 1, 1.5 and 2. The name filter at the row's left narrows the lanes, as the strip's filter
 narrows the cards. The seed and the rig are the viewport's, per [the viewer](#the-viewer).
@@ -1284,7 +1285,7 @@ emitter into the inspector, under a banner naming the child system and an Open s
 own tab, and opens the card of the emitter carrying it. Dragging a bar's edge to write
 `timeBeforeFirstEmission` and `lifetime` belongs to [leaf editing](#editing).
 
-**A child's emitter reads as the system's own.** Its groups draw under the same tabs, Defaults
+**A child's emitter reads as the system's own.** Its groups draw under the same headers, Defaults
 lists what it leaves unauthored, its curves take the curve pane, and a followed field crosses
 between a child and the system's emitters. A struct opened on one is open on the other, held by
 its path under the emitter. The banner is the one difference on screen. Lanes nest one level,
@@ -1334,8 +1335,8 @@ a step back costs one frame, and a loop's wrap costs no replay from zero.
 | `[`, `]`                | The next speed detent down or up  |
 | Esc                     | Restore a maximized pane          |
 
-**The preview carries a mini transport while no timeline shows**: play, a scrub and the time, with
-the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
+**The preview carries a mini transport while no timeline shows**: play, a scrub, the time and the
+chance pin, with the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
 the mini transport, and its Emitters section keeps the strip.
 
 ### The viewer
@@ -1396,30 +1397,42 @@ plays on its own clock under its own transport, and it has no timeline.
 
 ### The inspector
 
-The inspector draws the target the crumb names. For an emitter it draws its groups under a row of
-tabs pinned to the pane's top: All, then one per group the emitter sets. A child lane's emitter
-draws the same, under the banner of [the timeline](#the-timeline). All draws every group,
-each a section that folds, and a group's tab draws that group alone. The emitter's crumb segment
-and a card's name pick All, and a group's tab, a card's chip and the crumb's group menu pick that
-group. A section reads its curves as it scrolls into view, and a folded section reads none. The read is bounded by what is on screen, per
-[what a layout reads](#what-a-layout-reads).
+The inspector draws the target the crumb names. For an emitter it draws every group the emitter
+sets, each a section that folds under a header that sticks to the pane's top while its rows scroll.
+A child lane's emitter draws the same, under the banner of [the timeline](#the-timeline). The
+emitter's crumb segment and a card's name open the emitter, and a card's chip and the crumb's group
+menu scroll to a group and leave the rest drawn, so a reader holding Birth against Scale keeps
+both. A section reads its curves as it scrolls into view, and a folded section reads none. The read
+is bounded by what is on screen, per [what a layout reads](#what-a-layout-reads).
 
 ```
-INSPECTOR   Orb [0]                              [ ] Defaults
-[All] [Emission] [Birth] [Scale] [Colour] [Texture] [Render]
----------------------------------------------------------------
-v EMISSION
-  rate               1                    ___/''''
-  particleLifetime   0.25 .. 0.4 s
-  lifetime           1 s
-  isSingleParticle   [x]
-v BIRTH
-  birthScale0        x 40        y 40        z 40
-  birthColor         [##########] 3 stops
-v RENDER
-  blendMode          Add
-  miscRenderFlags    DisableZBuffer
+INSPECTOR  Orb [0] / Birth v          Chance 0.55   Defaults ( )
+----------------------------------------------------------------
+ v EMISSION
+     rate                    [5          ] /s
+     particleLifetime        [0.7        ] s
+     lifetime                [4.25       ] s
+ v BIRTH
+     birthOrbitalVelocity    [x 0  ][y 5  ][z 0  ]
+   | birthVelocity
+   | [x -200 .. 0 ][y 0 .. 5  ][z 0       ]        2 channels
+   ! birthColor
+   ! [######### gradient #########]               A 0.1 .. 1
+ v POSITION
+   > SpawnShape            VfxShapeLegacy
+   | EmitterPosition
+   | [x 0        ][y 0 .. 20 ][z 0        ]           Y uniform
+     isGroundLayer           [x]
+ v SCALE
+     scale0
+     [~~~~~~~~~~~~~~ curve ~~~~~~~~~~~~~~~]            animated
+
+|  a field the birth roll reaches   !  a field that rerolls every frame
 ```
+
+**The crumb holds still and the header moves.** The crumb's group segment names the group last
+picked, so the menu's own trigger never changes label under the pointer, and the sticky header
+names the group on screen.
 
 **A field keeps its own name.** A row reads `particleLifetime`, the name ritobin, the tree and the
 meta wiki use. The name's hover card carries the declared type, the default and the wiki's written
@@ -1429,30 +1442,49 @@ pane, and past the cap a name is cut in its middle, as a lane's is.
 **A value reads as what it means.** An enum reads its name, and a flags field reads its named bits,
 off the tables `model.ts` holds. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
 random range reads `min .. max`. Which unit a field carries is a table written by hand, as the
-groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. An
-animated row draws its curve across the value column beside the constant, and a click on it aims
-the curve pane. An animated colour's band takes the value column too. A path reads its file name
-whole and its folder dimmed, cut from its start where the column runs out.
+groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. A path
+reads its file name whole and its folder dimmed, cut from its start where the column runs out.
+
+**A value the column cannot hold takes a band under its name.** A curve, a colour ramp and a range
+the axis columns would cut drop to a line of their own, which runs from the row's own indent to the
+pane's right padding, so a value inside an opened struct stays visibly inside it. The name keeps
+the line above, the shape chip sits at the band's right end, and one fill and one menu cover both
+lines, because the two lines are one row. A scalar, a flag and a vector of constants stay on one
+line. A click on a band aims the curve pane, and a click on the name opens the field card.
+
+**The roll rail says when a value is rolled.** A gutter at the pane's left edge, outside the fold
+carets and outside every indent, carries a segment beside each field whose tables draw more than
+one value and whose roll has a time of its own: the accent for the one birth roll that every
+`birth` field and `particleLifetime` share, and the warning tone for a table the engine re-rolls
+every frame, per [the random spread](#the-random-spread). A field that is random under neither
+clock keeps its chip and takes no segment, because the rail answers when a value is drawn rather
+than whether it is random. A segment breaks where a row the rail does not reach sits between two it
+does, so the rail never claims a row it does not describe, and it crosses a group boundary because
+the birth roll does. A folded section draws no segment, because a segment belongs to a row. The
+rail is a mark and not a control, so nothing is clicked on it. A click on the rail lights every row
+of the roll and focuses the transport's chance slider.
 
 **A struct opens in place.** A pointer, an embed or a list row carries a caret in the row's gutter
-and opens into its own field rows, indented under it and read on open. A struct inside one opens
-the same way. A row starts folded, and an open one stays open on the next emitter, held by its path
-under the emitter, because a reader comparing spawn shapes walks the lanes.
+and opens into its own field rows, indented under it and read on open. It reads the class it holds
+where its value would be and past the name column's measured edge, because the column is arithmetic
+over names and the value column of a struct is empty. A struct inside one opens the same way. A row
+starts folded, and an open one stays open on the next emitter, held by its path under the emitter,
+because a reader comparing spawn shapes walks the lanes.
 
 **Defaults** in the inspector's header adds every field the class declares and the emitter does
 not author, dimmed at its default.
 
-**Random at birth** heads All where the emitter randomizes anything: every `birth` field and
-`particleLifetime` whose tables draw more than one value, each with what it draws and its shape,
-under the one roll they share. A row aims the dock's graph, and the section carries the pin of
-[the random spread](#the-random-spread). It reads the birth fields alone, which are the only ones
-the birth roll reaches, so a folded group's other fields stay unread.
+**The chance belongs to the run, and the header reads it.** The slider sits in the transport, per
+[the random spread](#the-random-spread), and the header carries the pinned value while a pin holds.
+A reading with no run has no birth to pin and the header carries nothing.
 
 **A row is shaped as its input.** The inspector is read-only, and each widget is the box
 [leaf editing](#editing) turns into an input.
 
 The row is `FieldRow` and `ValueCell`, and every layout that draws field rows draws these, the
-skin's inspector and the stacked layouts included. The group tabs are the particle system's own.
+skin's inspector and the stacked layouts included. The band is theirs too. The roll rail, the
+sticky header and the group menu are the particle system's own, because a birth roll and a group
+are things only an emitter has.
 
 ## The curve panel
 
@@ -1545,8 +1577,8 @@ The chip says what is random in the fewest words the row leaves it. Where the va
 draws the range, as the inspector's does, the chip names the shape: `uniform`, `split`, `custom`,
 `linked` for channels drawing one table over one base, and a count of channels that differ.
 Anywhere else it carries the range itself, `XYZ 10 .. 20`. A table on a per-frame field reads
-`random every frame` in the warning tone, and a set the game cannot read reads `broken` in the
-danger tone.
+`random every frame` in the warning tone, which the inspector leaves to its roll rail, and a set
+the game cannot read reads `broken` in the danger tone.
 
 Both are drawn only where the row has dynamics, which is one condition rather than two: the
 probability tables are a field inside the dynamics, so a value with no curve has no tables either.
@@ -1673,21 +1705,23 @@ pin marked on it. A colour that animates draws its ramp at chance 0, at 1, and a
 lane, which moves every lane's marker together, because one roll serves every channel. It pins
 every birth of the whole run, children included, and the viewport says so in its corner with a
 cross that lets it go. The run keeps drawing its own rolls under a pin, so letting go returns the
-same run. [The inspector](#the-inspector)'s section carries the same slider.
+same run. The transport carries the same slider, per [the timeline](#the-timeline), because the
+pin belongs to the run rather than to any one reading of it, and
+[the inspector](#the-inspector)'s header reads the pinned value.
 
 The `probabilityTables` chip in the toolbar carries the one-roll sentence as its tooltip, and is
 drawn only where the value has tables.
 
 A table on `Color` or `scale0` re-rolls every frame and every channel, and the toolbar warns of it.
-Those two are the only fields that do. The toolbar is the only place that says so: the Problems
-panel's `vfx/per-frame-random` and `vfx/broken-random` are held back while their findings are too
-noisy to draw.
+Those two are the only fields that do. The toolbar and the inspector's roll rail are the only
+places that say so: the Problems panel's `vfx/per-frame-random` and `vfx/broken-random` are held
+back while their findings are too noisy to draw.
 
 ### Where a curve is drawn small
 
-A field row draws a sparkline across its value column beside the constant, in every layout that
-draws field rows. It is the first place a reader sees the shape of a `ValueFloat` without leaving
-the row. It carries no axis and no number: it answers whether a value moves rather than what it is
+A field row draws a sparkline on a band under its name, in every layout that draws field rows, and
+the band is what gives it a width worth reading. It is the first place a reader sees the shape of a
+`ValueFloat` without leaving the row. It carries no axis and no number: it answers whether a value moves rather than what it is
 worth. Its channels share one colour at that size, where the graph tells them apart.
 
 A table cell keeps the mark. The same rule over the emitter table's four value columns is 240
