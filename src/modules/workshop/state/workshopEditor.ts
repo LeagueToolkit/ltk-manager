@@ -56,6 +56,15 @@ export interface ObjectRevealRequest {
   readonly token: number;
 }
 
+/** A row menu's request that one open rules document sit on a line. */
+export interface IgnoreLineRevealRequest {
+  readonly documentId: string;
+  /** One-based, as the document's own gutter counts. */
+  readonly line: number;
+  /** Bumped per request. Asking twice for the same line is two moves. */
+  readonly token: number;
+}
+
 /**
  * A file tab's request that one object tab open with its dock on a row.
  *
@@ -153,6 +162,8 @@ export interface ProjectEditor {
   reveal: RevealRequest | null;
   /** The pending object request, which at most one open bin answers. */
   revealObject: ObjectRevealRequest | null;
+  /** The pending line request, which at most one open rules document answers. */
+  revealIgnoreLine: IgnoreLineRevealRequest | null;
   /** The pending curve request, which at most one open object tab answers. */
   aimCurve: CurveAimRequest | null;
   /**
@@ -292,6 +303,9 @@ interface WorkshopEditorStore {
   revealObject: (projectPath: string, documentId: string, objectHash: string) => void;
   /** Drops the object request with `token`. A settled request reaches no later open. */
   settleObjectReveal: (projectPath: string, token: number) => void;
+  revealIgnoreLine: (projectPath: string, documentId: string, line: number) => void;
+  /** Drops the line request with `token`. A settled request reaches no later open. */
+  settleIgnoreLineReveal: (projectPath: string, token: number) => void;
   aimCurve: (projectPath: string, documentId: string, row: BinRow, chain: string) => void;
   /** Drops the curve request with `token`. A settled request reaches no later open. */
   settleCurveAim: (projectPath: string, token: number) => void;
@@ -319,6 +333,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   collapsed: {},
   reveal: null,
   revealObject: null,
+  revealIgnoreLine: null,
   aimCurve: null,
   shells: SHELL_ROOTS,
   maximizedLeafId: null,
@@ -1274,6 +1289,27 @@ export const useWorkshopEditorStore = create<WorkshopEditorStore>()((set, get) =
       (state) =>
         updateProject(state, projectPath, (editor) =>
           editor.revealObject?.token === token ? { ...editor, revealObject: null } : editor,
+        ) ?? state,
+    ),
+
+  revealIgnoreLine: (projectPath, documentId, line) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) => ({
+          ...editor,
+          revealIgnoreLine: {
+            documentId,
+            line,
+            token: (editor.revealIgnoreLine?.token ?? 0) + 1,
+          },
+        })) ?? state,
+    ),
+
+  settleIgnoreLineReveal: (projectPath, token) =>
+    set(
+      (state) =>
+        updateProject(state, projectPath, (editor) =>
+          editor.revealIgnoreLine?.token === token ? { ...editor, revealIgnoreLine: null } : editor,
         ) ?? state,
     ),
 

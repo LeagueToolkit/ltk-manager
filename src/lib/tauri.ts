@@ -450,10 +450,11 @@ export const api = {
 
   // A project's ignore rules, on tauri-specta.
   ignoreRules: {
-    read: (projectPath: string) => commands.getProjectIgnoreRules(projectPath).then(toResult),
+    read: (projectPath: string, at: string | null) =>
+      commands.getProjectIgnoreRules(projectPath, at).then(toResult),
     recommended: () => commands.recommendedIgnoreRules().then(toResult),
-    save: (projectPath: string, text: string) =>
-      commands.saveProjectIgnoreRules(projectPath, text).then(toResult),
+    save: (projectPath: string, at: string | null, text: string) =>
+      commands.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
     addRecommended: (projectPath: string) =>
       commands.addRecommendedIgnoreRules(projectPath).then(toResult),
   },

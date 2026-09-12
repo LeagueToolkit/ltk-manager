@@ -31,11 +31,11 @@ function problemOf(error: AppError | null): IgnoreRuleProblem | null {
  * backend is the only thing that can say so, which is why a blocked buffer is
  * a rejected save rather than a check this side ran first.
  */
-export function useIgnoreRulesEditor() {
+export function useIgnoreRulesEditor(at: string | null) {
   const project = useProjectContext();
   const client = useQueryClient();
 
-  const rules = useQuery(projectQueries.ignoreRules(project.path));
+  const rules = useQuery(projectQueries.ignoreRules(project.path, at));
   const save = useMutation(ignoreRuleMutations.save(client));
   const addRecommended = useMutation(ignoreRuleMutations.addRecommended(client));
 
@@ -46,13 +46,13 @@ export function useIgnoreRulesEditor() {
 
   const saved = rules.data?.text ?? null;
 
-  /* Reloaded when the project changes rather than when the query answers, so a
+  /* Reloaded when the file changes rather than when the query answers, so a
      focus refetch cannot swallow what the author has typed since. */
   useEffect(() => {
     setBuffer(null);
     setRefused(null);
     setFailed(null);
-  }, [project.path]);
+  }, [project.path, at]);
 
   const text = buffer ?? saved ?? "";
   const differs = buffer !== null && buffer !== (saved ?? "");
@@ -61,7 +61,7 @@ export function useIgnoreRulesEditor() {
     if (buffer === null) return;
     const attempted = buffer;
     save.mutate(
-      { projectPath: project.path, text: attempted },
+      { projectPath: project.path, at, text: attempted },
       {
         onSuccess: () => {
           setRefused(null);

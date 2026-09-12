@@ -5,10 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ContextMenu } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
-import type { ContentEntry } from "@/lib/tauri";
+import type { LayerContent } from "@/lib/tauri";
 
-import { previewDocument } from "../documents/contentDocument";
+import { ignoreRulesDocument, previewDocument } from "../documents/contentDocument";
 import { useContentTreeNav, useStickyTreeRows } from "../hooks";
+import { MODIGNORE_FILE_NAME } from "../ignore-rules";
 import {
   useCollapsedDirs,
   useOpenDocumentTab,
@@ -38,14 +39,17 @@ const ROW_HEIGHT = 24;
 const CONTENT_TOP = 4;
 
 interface ContentTreeProps {
-  entries: readonly ContentEntry[];
-  layerName: string;
+  layer: LayerContent;
 }
 
-export function ContentTree({ entries, layerName }: ContentTreeProps) {
+export function ContentTree({ layer }: ContentTreeProps) {
+  const layerName = layer.name;
   const project = useProjectContext();
   const projectPath = project.path;
-  const tree = useMemo(() => buildContentTree(entries), [entries]);
+  const tree = useMemo(
+    () => buildContentTree(layer.entries, layer.ignoredDirectories),
+    [layer.entries, layer.ignoredDirectories],
+  );
   const dirFileCounts = useMemo(() => buildDirFileCounts(tree), [tree]);
   /* What the user shut, not what is open. A rescan that adds a directory finds
      it absent here and renders it expanded, which is the default the tree
@@ -60,7 +64,14 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
 
   const openTab = useOpenDocumentTab();
   const openFile = useCallback(
-    (node: FileNode) =>
+    (node: FileNode) => {
+      /* A nested `.modignore` opens as rules rather than as bytes, which is the
+         only way the tree reaches one. */
+      if (node.name === MODIGNORE_FILE_NAME) {
+        openTab(ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`));
+        return;
+      }
+
       openTab(
         previewDocument({
           kind: "layer",
@@ -68,7 +79,8 @@ export function ContentTree({ entries, layerName }: ContentTreeProps) {
           layer: layerName,
           path: node.entry.relativePath,
         }),
-      ),
+      );
+    },
     [openTab, projectPath, layerName],
   );
 

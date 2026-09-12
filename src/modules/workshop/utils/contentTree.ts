@@ -1,4 +1,4 @@
-import type { ContentEntry } from "@/lib/tauri";
+import type { ContentEntry, IgnoredDirectory, IgnoreMatch } from "@/lib/tauri";
 
 import { compareNames } from "./naturalOrder";
 
@@ -10,6 +10,8 @@ export interface DirNode {
   readonly name: string;
   /** Path relative to the layer root, POSIX-style, no trailing slash. */
   readonly path: string;
+  /** What leaves the directory out of a package, null for one that ships. */
+  readonly ignoredBy: IgnoreMatch | null;
   readonly children: ContentTreeNode[];
 }
 
@@ -29,11 +31,17 @@ export interface FileNode {
  * single row naming the whole run, the way an editor's explorer does. Those
  * rows carry no information of their own and cost one indent level each.
  */
-export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeNode[] {
-  const root: DirNode = { type: "dir", name: "", path: "", children: [] };
+export function buildContentTree(
+  entries: readonly ContentEntry[],
+  ignoredDirectories: readonly IgnoredDirectory[] = [],
+): ContentTreeNode[] {
+  const root: DirNode = { type: "dir", name: "", path: "", ignoredBy: null, children: [] };
   /* Every directory by its path, the way the game browser's builder keys its
   own. Scanning the siblings already placed costs a large layer whole seconds. */
   const dirs = new Map<string, DirNode>([["", root]]);
+  const ignored = new Map(
+    ignoredDirectories.map((directory) => [directory.relativePath, directory.ignoredBy]),
+  );
 
   for (const entry of entries) {
     const segments = entry.relativePath.split("/").filter((s) => s.length > 0);
@@ -46,7 +54,13 @@ export function buildContentTree(entries: readonly ContentEntry[]): ContentTreeN
 
       let next = dirs.get(childPath);
       if (!next) {
-        next = { type: "dir", name: segment, path: childPath, children: [] };
+        next = {
+          type: "dir",
+          name: segment,
+          path: childPath,
+          ignoredBy: ignored.get(childPath) ?? null,
+          children: [],
+        };
         (cursor.children as ContentTreeNode[]).push(next);
         dirs.set(childPath, next);
       }
@@ -89,7 +103,15 @@ function foldChains(nodes: readonly ContentTreeNode[]): ContentTreeNode[] {
       only = onlyChildDir(deepest);
     }
 
-    return { type: "dir", name, path: deepest.path, children: foldChains(deepest.children) };
+    return {
+      type: "dir",
+      name,
+      path: deepest.path,
+      /* The deepest of a run, because a rule that took a directory above it
+         took every directory under that one with it. */
+      ignoredBy: deepest.ignoredBy,
+      children: foldChains(deepest.children),
+    };
   });
 }
 

@@ -102,7 +102,7 @@ fn a_broken_nested_file_does_not_block_the_root_one() {
     )
     .unwrap();
 
-    project.write_ignore_rules("*.psd\n").unwrap();
+    project.write_ignore_rules(None, "*.psd\n").unwrap();
 
     assert_eq!(
         fs::read_to_string(project.ignore_file()).unwrap(),
@@ -115,7 +115,9 @@ fn a_blocked_save_writes_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     let project = make_project(tmp.path(), Some("*.psd\n"));
 
-    let error = project.write_ignore_rules("*.psd\na{b\n").unwrap_err();
+    let error = project
+        .write_ignore_rules(None, "*.psd\na{b\n")
+        .unwrap_err();
 
     assert_matches!(
         error,
@@ -171,11 +173,51 @@ fn reading_a_project_with_no_file_names_the_path_it_would_take() {
     let tmp = tempfile::tempdir().unwrap();
     let project = make_project(tmp.path(), None);
 
-    let rules = project.ignore_rules().unwrap();
+    let rules = project.ignore_rules(None).unwrap();
 
     assert_eq!(rules.text, None);
     assert!(rules.path.ends_with(MODIGNORE_FILE_NAME));
     assert!(!rules.missing_recommended.is_empty());
+}
+
+#[test]
+fn a_nested_file_reads_and_writes_at_its_own_path() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = make_project(tmp.path(), Some("*.psd\n"));
+    let at = Some("content/base/.modignore");
+
+    project.write_ignore_rules(at, "*.png\n").unwrap();
+    let rules = project.ignore_rules(at).unwrap();
+
+    assert_eq!(rules.text.as_deref(), Some("*.png\n"));
+    assert_eq!(
+        fs::read_to_string(project.ignore_file()).unwrap(),
+        "*.psd\n",
+        "the root file is untouched"
+    );
+    assert!(
+        rules.missing_recommended.is_empty(),
+        "the default anchors to the root, so nothing is missing here"
+    );
+}
+
+#[test]
+fn a_path_that_is_not_a_modignore_inside_the_project_is_refused() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = make_project(tmp.path(), None);
+
+    for at in [
+        "../.modignore",
+        "content/../../.modignore",
+        "content/base/mod.config.json",
+        "content/base",
+    ] {
+        assert_matches!(
+            project.ignore_rules(Some(at)),
+            Err(AppError::InvalidPath(_)),
+            "{at}"
+        );
+    }
 }
 
 /// The default is written once, so an import that lands on a project carrying

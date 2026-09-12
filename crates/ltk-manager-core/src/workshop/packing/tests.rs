@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::events::NullEventSink;
+use crate::workshop::WorkshopError;
 use assert_matches::assert_matches;
 use indexmap::IndexMap;
 use ltk_mod_project::ModProjectLayer;

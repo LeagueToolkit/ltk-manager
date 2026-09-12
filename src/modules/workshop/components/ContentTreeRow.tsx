@@ -1,7 +1,9 @@
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { memo } from "react";
 
 import { Tooltip } from "@/components";
+import { m } from "@/i18n";
+import type { IgnoreMatch } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
@@ -22,6 +24,36 @@ const ROW_STATE_CLASSES =
   "aria-selected:bg-accent-500/15 aria-selected:text-accent-100 " +
   "aria-selected:hover:bg-accent-500/25 " +
   "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500/70";
+const EXCLUDED_ROW_CLASSES = "text-surface-400 hover:text-surface-300";
+
+/**
+ * The mark on a row a rule leaves out, naming the rule it came from.
+ *
+ * The tooltip hangs off the mark rather than off the row, because a file row's
+ * kind glyph already owns one and a row-level hover would nest them.
+ */
+function ExcludedMark({ rule }: { rule: IgnoreMatch }) {
+  const subject = m.workshop_ignore_excluded_hint({ pattern: rule.pattern });
+  const where =
+    rule.line === null
+      ? m.workshop_ignore_excluded_source_hint({ source: rule.source })
+      : m.workshop_ignore_excluded_rule_hint({ source: rule.source, line: rule.line });
+
+  return (
+    <Tooltip
+      content={
+        <span className="flex flex-col">
+          <span>{subject}</span>
+          <span>{where}</span>
+        </span>
+      }
+    >
+      <span className="shrink-0 text-surface-500" aria-label={`${subject} ${where}`}>
+        <EyeSlashIcon className="h-3.5 w-3.5" />
+      </span>
+    </Tooltip>
+  );
+}
 
 interface TreeRowProps {
   node: ContentTreeNode;
@@ -149,7 +181,12 @@ function DirRow({
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
+      className={twMerge(
+        "w-full cursor-pointer text-left",
+        ROW_BASE_CLASSES,
+        ROW_STATE_CLASSES,
+        node.ignoredBy && EXCLUDED_ROW_CLASSES,
+      )}
     >
       <IndentRails depth={depth} />
       <CaretRightIcon
@@ -160,8 +197,10 @@ function DirRow({
       />
       <FolderGlyph unknown={false} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
-        {fileCount}
+      {/* A folder keeps its count: what it holds is true whether or not it ships. */}
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        <span className="text-[0.625rem] text-surface-500 tabular-nums">{fileCount}</span>
+        {node.ignoredBy && <ExcludedMark rule={node.ignoredBy} />}
       </span>
     </button>
   );
@@ -190,6 +229,7 @@ function FileRow({
 }: FileRowProps) {
   const descriptor = describeFileKind(node.entry.kind);
   const Icon = descriptor.icon;
+  const excluded = node.entry.ignoredBy;
 
   return (
     <div
@@ -204,7 +244,12 @@ function FileRow({
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
+      className={twMerge(
+        "cursor-pointer",
+        ROW_BASE_CLASSES,
+        ROW_STATE_CLASSES,
+        excluded && EXCLUDED_ROW_CLASSES,
+      )}
     >
       <IndentRails depth={depth} />
       {/* Reserve chevron slot on files so file and dir names stay column-aligned. */}
@@ -212,15 +257,25 @@ function FileRow({
       <Tooltip content={descriptor.label}>
         <span
           className="shrink-0"
-          style={{ color: `var(${descriptor.tintToken})` }}
+          /* DS-KIND-HUE: the hue names the kind, and an excluded row has none to name. */
+          style={excluded ? undefined : { color: `var(${descriptor.tintToken})` }}
           aria-label={descriptor.label}
         >
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <Icon
+            className={twMerge("h-3.5 w-3.5", excluded && "text-surface-500")}
+            strokeWidth={1.75}
+          />
         </span>
       </Tooltip>
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 font-mono text-[0.625rem] text-surface-400 tabular-nums">
-        {formatBytes(Number(node.entry.sizeBytes))}
+      {/* A size is a fact about what ships, so a row that ships nothing gives the seat up. */}
+      <span className="ml-auto shrink-0">
+        {excluded && <ExcludedMark rule={excluded} />}
+        {!excluded && (
+          <span className="font-mono text-[0.625rem] text-surface-400 tabular-nums">
+            {formatBytes(Number(node.entry.sizeBytes))}
+          </span>
+        )}
       </span>
     </div>
   );
