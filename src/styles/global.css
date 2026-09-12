@@ -576,7 +576,8 @@ samp {
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--accent-500) 30%, transparent);
+  background: color-mix(in oklab, var(--accent-500) 62%, transparent);
+  color: var(--surface-50);
 }
 
 /* Inherited, so every field and editable surface takes it from here. */

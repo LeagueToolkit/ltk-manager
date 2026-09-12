@@ -1379,13 +1379,14 @@ The project row opens Ignore rules as a document, so it sits beside a layer whil
 works. Its tab glyph is the slashed eye on a new `doc-ignore` slate token, the one unsaturated
 glyph among the document hues (DS-KIND-HUE).
 
-The text sits left with a sticky syntax rail of about 220px beside it, which folds to a
-disclosure below roughly 560px. A mono gutter carries the line numbers the tooltips cite. The
+The text fills the document and a mono gutter carries the line numbers the tooltips cite. The
 toolbar is a `.modignore` chip, Add missing recommended rules where entries are missing, and the
 save state.
 
-The buffer and the rail are divided by a hairline and nothing else, per "A text document sits on
-the ground" below.
+The syntax is a bar along the bottom rather than a rail beside the text: four patterns and three
+rules are two wrapped lines, where a rail spent a fifth of the pane on them and disappeared
+entirely at the width that most needed the room. It collapses to its own header, and the wiki
+link sits at the end of that header whether it is open or not.
 
 It autosaves, following the Strings document, so the tab's dirty state is reserved for a save
 that is blocked or failed.

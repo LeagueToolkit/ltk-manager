@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { Button, Code, EmptyState, Spinner } from "@/components";
 import { m } from "@/i18n";
-import { DocumentToolbar, type EditorDocumentProps, type TextSaveState } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, SaveStatus } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
 import { projectQueries } from "../api";
@@ -14,7 +14,7 @@ import {
   useSettleIgnoreLineReveal,
 } from "../state";
 import { MODIGNORE_FILE_NAME } from "./ignoreLine";
-import { SyntaxRail } from "./SyntaxRail";
+import { SyntaxBar } from "./SyntaxBar";
 import { useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
 
 /** One `.modignore` of the project as text, saving itself as edited. */
@@ -82,7 +82,11 @@ export function IgnoreRulesDocument({
             </Button>
           )}
         </div>
-        <SaveStatus state={editor.saveState} onRetry={editor.saveNow} />
+        <SaveStatus
+          state={editor.saveState}
+          blockedHint={m.workshop_ignore_blocked_hint()}
+          onRetry={editor.saveNow}
+        />
       </DocumentToolbar>
 
       <Body editor={editor} documentId={documentId} at={at} />
@@ -114,10 +118,7 @@ function Body({ editor, documentId, at }: BodyProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1">
-        <Buffer editor={editor} documentId={documentId} />
-        <SyntaxRail />
-      </div>
+      <Buffer editor={editor} documentId={documentId} />
       {editor.problem && (
         <p className="shrink-0 border-t border-danger/40 px-3 py-1.5 text-meta text-danger-text">
           {m.workshop_ignore_problem_hint({
@@ -126,6 +127,7 @@ function Body({ editor, documentId, at }: BodyProps) {
           })}
         </p>
       )}
+      <SyntaxBar />
     </div>
   );
 }
@@ -227,42 +229,4 @@ function NoFile({ editor }: { editor: Editor }) {
       </div>
     </div>
   );
-}
-
-interface SaveStatusProps {
-  state: TextSaveState;
-  onRetry: () => void;
-}
-
-/* Quiet when clean, as in the strings document: saving is the document's job
-   rather than an event, and only a held-back edit is worth a word. */
-function SaveStatus({ state, onRetry }: SaveStatusProps) {
-  if (state === "pending" || state === "saving") {
-    return <Spinner size="sm" className="h-3 w-3 shrink-0" />;
-  }
-
-  if (state === "blocked") {
-    /* DS-TEXT */
-    return (
-      <span className="shrink-0 text-[0.6875rem] text-warning-text select-none">
-        {m.workshop_ignore_blocked_hint()}
-      </span>
-    );
-  }
-
-  if (state === "failed") {
-    return (
-      <span className="flex shrink-0 items-center gap-1.5">
-        {/* DS-TEXT */}
-        <span className="text-[0.6875rem] text-danger-text select-none">
-          {m.workshop_ignore_save_failed_hint()}
-        </span>
-        <Button variant="ghost" size="xs" compact onClick={onRetry}>
-          {m.workshop_ignore_retry_action()}
-        </Button>
-      </span>
-    );
-  }
-
-  return null;
 }
