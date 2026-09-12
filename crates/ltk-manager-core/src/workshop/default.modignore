@@ -1,0 +1,66 @@
+# .modignore
+# Files under content/ that are left out when this project is packed or tested.
+# One pattern per line, in .gitignore syntax: https://git-scm.com/docs/gitignore
+#
+#   *.psd             every .psd file, in any folder
+#   scratch/          every folder named scratch, and all it holds
+#   /base/notes.txt   one file, counted from content/
+#   !keep.psd         brings back a file an earlier line left out
+#
+# Patterns start at content/, use / even on Windows, and ignore letter case.
+
+# Ritobin text sources, converted into .bin
+*.py
+*.ritobin
+*.rito
+
+# Maya scenes, swatch previews and incremental saves
+*.ma
+*.mb
+.mayaSwatches/
+incrementalSave/
+
+# Blender scenes and their numbered backups
+*.blend
+*.blend[0-9]*
+
+# 3ds Max scenes
+*.max
+
+# Model interchange formats, converted into .skn, .skl, .scb and .sco
+*.fbx
+*.gltf
+*.glb
+*.obj
+*.mtl
+*.dae
+
+# Image and texturing sources, exported into .tex and .dds
+*.psd
+*.psb
+*.xcf
+*.kra
+*.spp
+*.sbs
+*.sbsar
+*.pdn
+*.clip
+
+# Operating system files
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+._*
+
+# Version control and editor folders
+.git/
+.svn/
+.vscode/
+.idea/
+
+# Backups and temporary files
+*.bak
+*.tmp
+*.swp
+*~

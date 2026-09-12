@@ -1,5 +1,7 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "workshop.IGNORE_RULE_PATTERN.description": "Line {line}: {message}",
+  "workshop.IGNORE_RULE_PATTERN.title": "That ignore rule cannot be read",
   "workshop.LAYER_FILE_CONFLICT.description": [
     {
       "declarations": [
@@ -541,6 +543,34 @@
   "workshop_game_source_label": "Game",
   "workshop_game_wads_action": "List the game WADs",
   "workshop_game_wads_label": "Game WADs",
+  "workshop_ignore_add_recommended_action": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Add 1 missing recommended rule",
+        "countPlural=other": "Add {count} missing recommended rules"
+      }
+    }
+  ],
+  "workshop_ignore_blocked_hint": "Fix the rule to save",
+  "workshop_ignore_buffer_label": "Ignore rules",
+  "workshop_ignore_empty_description": "Everything under content/ is packed into your mod, sources included. These rules leave out the files the game never loads.",
+  "workshop_ignore_empty_title": "No ignore rules yet",
+  "workshop_ignore_form_anchored_label": "One file, counted from content/",
+  "workshop_ignore_form_extension_label": "Every file with that extension, in any folder",
+  "workshop_ignore_form_folder_label": "A folder and everything under it",
+  "workshop_ignore_form_negation_label": "Brings back a file an earlier line left out",
+  "workshop_ignore_problem_hint": "Line {line}: {message}",
+  "workshop_ignore_retry_action": "Retry",
+  "workshop_ignore_rule_anchor_hint": "Patterns start at content/, not at the project folder.",
+  "workshop_ignore_rule_case_hint": "Matching ignores letter case.",
+  "workshop_ignore_rule_separator_hint": "Use / as the separator, on Windows too.",
+  "workshop_ignore_save_failed_hint": "Save failed",
+  "workshop_ignore_syntax_link_action": "Read the full syntax",
+  "workshop_ignore_syntax_title": "Syntax",
+  "workshop_ignore_title": "Ignore rules",
+  "workshop_ignore_write_default_action": "Write the recommended rules",
   "workshop_nav_label": "Workshop",
   "workshop_objects_browse_action": "Browse objects",
   "workshop_objects_building_label": "Indexing the game's bin objects…",

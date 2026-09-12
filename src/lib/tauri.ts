@@ -100,6 +100,8 @@ export type {
   PropertyKind,
   RowNode,
 } from "@/lib/bindings.gen";
+// The ignore rules' type, per ADR-0029.
+export type { IgnoreRules } from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
@@ -444,6 +446,16 @@ export const api = {
     checkInstallMismatch: () => commands.checkInstallMismatch().then(toResult),
     switchLeagueInstall: (installRoot: string) =>
       commands.switchLeagueInstall(installRoot).then(toResult),
+  },
+
+  // A project's ignore rules, on tauri-specta.
+  ignoreRules: {
+    read: (projectPath: string) => commands.getProjectIgnoreRules(projectPath).then(toResult),
+    recommended: () => commands.recommendedIgnoreRules().then(toResult),
+    save: (projectPath: string, text: string) =>
+      commands.saveProjectIgnoreRules(projectPath, text).then(toResult),
+    addRecommended: (projectPath: string) =>
+      commands.addRecommendedIgnoreRules(projectPath).then(toResult),
   },
 
   // Workshop

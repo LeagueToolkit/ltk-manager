@@ -1,10 +1,11 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
-    AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, ImportFantomeArgs,
-    ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs, ValidationResult,
-    WorkshopLayerInfo, WorkshopProject, WorkshopState,
+    AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, IgnoreRules,
+    ImportFantomeArgs, ImportGitRepoArgs, PackProjectArgs, PackResult, SaveProjectConfigArgs,
+    ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
 };
+use chrono::Local;
 use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_manager_core::hashtables::WadPathResolverState;
@@ -53,6 +54,56 @@ pub fn save_project_config(
     workshop: State<WorkshopState>,
 ) -> IpcResult<WorkshopProject> {
     workshop.0.save_config(args).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_ignore_rules(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.ignore_rules())
+        .into()
+}
+
+/// The starter rules, for the empty state that draws them before writing them.
+#[tauri::command]
+#[specta::specta]
+pub fn recommended_ignore_rules() -> IpcResult<String> {
+    IpcResult::Ok {
+        value: RECOMMENDED_IGNORE_RULES.to_string(),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn save_project_ignore_rules(
+    project_path: String,
+    text: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.write_ignore_rules(&text))
+        .into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_recommended_ignore_rules(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    let today = Local::now().date_naive();
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.add_recommended_ignore_rules(today))
+        .into()
 }
 
 #[tauri::command]

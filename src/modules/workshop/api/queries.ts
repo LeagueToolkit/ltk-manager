@@ -5,6 +5,7 @@ import {
   api,
   type AppError,
   type ContentTree,
+  type IgnoreRules,
   type Run,
   type StringKeySearchResult,
   type ValidationResult,
@@ -77,6 +78,26 @@ export const projectQueries = {
             return path ? convertFileSrc(path) : "";
           }
         : skipToken,
+      staleTime: Infinity,
+    }),
+
+  /* Refetched on focus the way the content tree is, because the file is as
+     editable from outside the app as the layer beside it. */
+  ignoreRules: (projectPath: string | undefined) =>
+    queryOptions<IgnoreRules, AppError>({
+      queryKey: workshopKeys.ignoreRules(projectPath ?? ""),
+      queryFn: projectPath
+        ? async () => unwrapForQuery(await api.ignoreRules.read(projectPath))
+        : skipToken,
+      refetchOnWindowFocus: true,
+      staleTime: CONTENT_SCAN_STALE_MS,
+    }),
+
+  /* A constant the backend owns, so one fetch a session is the whole cost. */
+  recommendedIgnoreRules: () =>
+    queryOptions<string, AppError>({
+      queryKey: workshopKeys.recommendedIgnoreRules(),
+      queryFn: async () => unwrapForQuery(await api.ignoreRules.recommended()),
       staleTime: Infinity,
     }),
 

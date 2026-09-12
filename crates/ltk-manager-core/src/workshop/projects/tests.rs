@@ -512,3 +512,60 @@ fn parse_github_url_trailing_slash_and_git() {
     assert_eq!(owner, "owner");
     assert_eq!(repo, "repo");
 }
+
+/// A project starts with the recommended rules, so nothing ships an author's
+/// sources before they have met the file.
+#[test]
+fn a_new_project_starts_with_the_recommended_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (workshop, config) = make_workshop(tmp.path());
+
+    workshop
+        .create_project(
+            &config,
+            CreateProjectArgs {
+                name: "new-mod".to_string(),
+                display_name: "New Mod".to_string(),
+                description: "A mod".to_string(),
+                authors: vec!["Author".to_string()],
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        fs::read_to_string(tmp.path().join("new-mod").join(".modignore")).unwrap(),
+        crate::workshop::RECOMMENDED_IGNORE_RULES
+    );
+}
+
+#[test]
+fn a_fantome_import_starts_with_the_recommended_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let archive = tmp.path().join("mod.fantome");
+    make_full_fantome_zip(&archive);
+    let (workshop, config) = make_workshop(tmp.path());
+
+    let project = import(&workshop, &config, &archive, "imported");
+
+    assert_eq!(
+        fs::read_to_string(project.join(".modignore")).unwrap(),
+        crate::workshop::RECOMMENDED_IGNORE_RULES
+    );
+}
+
+#[test]
+fn a_modpkg_import_starts_with_the_recommended_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let package = tmp.path().join("packed-mod.modpkg");
+    make_modpkg_with_readme(&package, "packed-mod");
+    let (workshop, config) = make_workshop(tmp.path());
+
+    workshop
+        .import_from_modpkg(&config, &package.display().to_string())
+        .unwrap();
+
+    assert_eq!(
+        fs::read_to_string(tmp.path().join("packed-mod").join(".modignore")).unwrap(),
+        crate::workshop::RECOMMENDED_IGNORE_RULES
+    );
+}

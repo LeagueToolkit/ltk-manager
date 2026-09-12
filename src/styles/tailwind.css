@@ -78,6 +78,8 @@
   --color-doc-game-text: var(--ltk-doc-game-text);
   --color-doc-problems: var(--ltk-doc-problems);
   --color-doc-problems-text: var(--ltk-doc-problems-text);
+  --color-doc-ignore: var(--ltk-doc-ignore);
+  --color-doc-ignore-text: var(--ltk-doc-ignore-text);
   --color-channel-1: var(--ltk-channel-1);
   --color-channel-1-text: var(--ltk-channel-1-text);
   --color-channel-2: var(--ltk-channel-2);

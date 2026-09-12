@@ -11,6 +11,8 @@ export {
   gameDocument,
   gameWadDocument,
   gameWadsDocument,
+  IGNORE_RULES_DOCUMENT_ID,
+  ignoreRulesDocument,
   layerTitle,
   objectDocument,
   objectDocumentId,

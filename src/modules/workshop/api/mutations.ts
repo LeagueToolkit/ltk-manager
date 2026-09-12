@@ -6,6 +6,7 @@ import {
   type AppError,
   type CreateProjectArgs,
   type FantomePeekResult,
+  type IgnoreRules,
   type ImportFantomeArgs,
   type ImportGitRepoArgs,
   type PackProjectArgs,
@@ -36,6 +37,22 @@ export interface SaveStringOverridesVariables {
   projectPath: string;
   layerName: string;
   stringOverrides: Record<string, Record<string, string>>;
+}
+
+export interface SaveIgnoreRulesVariables {
+  projectPath: string;
+  text: string;
+}
+
+/**
+ * Put the rules a write answered with over the cached ones.
+ *
+ * The tree reads the same file, so a write that changed what ships invalidates
+ * it rather than patching it: what a rule excludes is the backend's to decide.
+ */
+function putIgnoreRules(client: QueryClient, projectPath: string, saved: IgnoreRules): void {
+  client.setQueryData(workshopKeys.ignoreRules(projectPath), saved);
+  client.invalidateQueries({ queryKey: workshopKeys.contentTree(projectPath) });
 }
 
 /** Put a freshly made project at the front of the list. */
@@ -141,6 +158,26 @@ export const projectMutations = {
   pack: () =>
     mutationOptions<PackResult, AppError, PackProjectArgs>({
       mutationFn: async (args) => unwrapForQuery(await api.packWorkshopProject(args)),
+    }),
+} as const;
+
+/** Writes against a project's `.modignore`. */
+export const ignoreRuleMutations = {
+  /* The document reports a blocked save on the line it names, so a toast over
+     the top of it would say the same thing twice. */
+  save: (client: QueryClient) =>
+    mutationOptions<IgnoreRules, AppError, SaveIgnoreRulesVariables>({
+      meta: { silentError: true },
+      mutationFn: async ({ projectPath, text }) =>
+        unwrapForQuery(await api.ignoreRules.save(projectPath, text)),
+      onSuccess: (saved, { projectPath }) => putIgnoreRules(client, projectPath, saved),
+    }),
+
+  addRecommended: (client: QueryClient) =>
+    mutationOptions<IgnoreRules, AppError, string>({
+      mutationFn: async (projectPath) =>
+        unwrapForQuery(await api.ignoreRules.addRecommended(projectPath)),
+      onSuccess: (saved, projectPath) => putIgnoreRules(client, projectPath, saved),
     }),
 } as const;
 

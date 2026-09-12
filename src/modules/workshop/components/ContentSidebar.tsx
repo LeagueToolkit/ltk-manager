@@ -1,5 +1,6 @@
 import {
   CubeIcon,
+  EyeSlashIcon,
   FolderOpenIcon,
   GearSixIcon,
   GitBranchIcon,
@@ -43,6 +44,8 @@ import {
   detailsDocument,
   GAME_DOCUMENT_ID,
   gameDocument,
+  IGNORE_RULES_DOCUMENT_ID,
+  ignoreRulesDocument,
   OBJECTS_DOCUMENT_ID,
   objectsDocument,
   PROBLEMS_DOCUMENT_ID,
@@ -287,6 +290,18 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
           onClick={() => openDocument(objectsDocument())}
           aria-label={m.workshop_objects_title()}
           className={twMerge(activeId === OBJECTS_DOCUMENT_ID && activeDocumentClass)}
+        />
+      </Tooltip>
+
+      <Tooltip content={m.workshop_ignore_title()}>
+        <IconButton
+          icon={<EyeSlashIcon weight="bold" className="h-4 w-4" />}
+          variant="ghost"
+          size="sm"
+          compact
+          onClick={() => openDocument(ignoreRulesDocument())}
+          aria-label={m.workshop_ignore_title()}
+          className={twMerge(activeId === IGNORE_RULES_DOCUMENT_ID && activeDocumentClass)}
         />
       </Tooltip>
 

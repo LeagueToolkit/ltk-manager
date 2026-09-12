@@ -116,6 +116,11 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
+	getProjectIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath }),
+	/**  The starter rules, for the empty state that draws them before writing them. */
+	recommendedIgnoreRules: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("recommended_ignore_rules"),
+	saveProjectIgnoreRules: (projectPath: string, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, text }),
+	addRecommendedIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_recommended_ignore_rules", { projectPath }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -748,6 +753,16 @@ export type IdleEffect = {
 	targetBone: string,
 	/**  `Position`, the effect's offset from its joint. */
 	position: [(number | null), (number | null), (number | null)],
+};
+
+/**  A project's root ignore rules, as the editor reads them. */
+export type IgnoreRules = {
+	/**  Absolute path of the project's `.modignore`, whether or not one exists. */
+	path: string,
+	/**  The file's text, null when the project has no file. */
+	text: string | null,
+	/**  Recommended patterns the file lacks, in the order the default lists them. */
+	missingRecommended: string[],
 };
 
 /**  The record the manager keeps for one game that went wrong. */
@@ -1386,5 +1401,7 @@ object: VfxObject | null } |
  */
 export type WorkshopError = 
 /**  One or more files already exist in the target layer directory. */
-{ kind: "LAYER_FILE_CONFLICT"; conflicts: string[] };
+{ kind: "LAYER_FILE_CONFLICT"; conflicts: string[] } | 
+/**  A `.modignore` line the matcher cannot compile, which held its save back. */
+{ kind: "IGNORE_RULE_PATTERN"; line: number; message: string };
 
