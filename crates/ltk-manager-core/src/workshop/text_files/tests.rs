@@ -5,7 +5,7 @@ use assert_matches::assert_matches;
 /// A project directory holding nothing but `content/`.
 fn make_project(dir: &Path) -> ProjectDir {
     fs::create_dir_all(dir.join("content")).unwrap();
-    ProjectDir::open(&dir.display().to_string()).unwrap()
+    ProjectDir::open(dir.display().to_string()).unwrap()
 }
 
 #[test]

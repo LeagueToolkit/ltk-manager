@@ -105,7 +105,7 @@ impl ProjectDir {
                 .path()
                 .try_as_utf8("project path")
                 .ok()
-                .and_then(|root| find_license_file(root))
+                .and_then(find_license_file)
                 .map(|found| found.into_std_path_buf())
                 .unwrap_or_else(|| self.path().join(LICENSE_FILE_NAMES[0])),
         }
