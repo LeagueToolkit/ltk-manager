@@ -17,6 +17,7 @@ import type {
   HashtableSyncProgress,
   HashtableSyncReport,
   HashtableUpdateCheck,
+  MetaSchemaVersion,
 } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import {
@@ -61,6 +62,18 @@ function updateLabel(count: number): string {
    The schema is not a table and has no row of its own to mark, which is why it
    is named here rather than folded into `behind`. */
 const SCHEMA_LABEL = "Meta schema";
+
+/** How far a meta schema database reaches, in the words the patch notes use. */
+function schemaLabel(version: MetaSchemaVersion): string {
+  return version.patch ? `patch ${version.patch}` : `build ${version.build}`;
+}
+
+/* The stamp is on the hash lists behind the database rather than on the schema,
+   and the publisher moves the two on schedules of their own, so a database that
+   has gained patches can carry the stamp it was first published under. */
+function hashSourceLabel(version: MetaSchemaVersion): string {
+  return `Hash lists read ${formatUpdatedAt(version.generation)}`;
+}
 
 function behindLabels(updates: HashtableUpdateCheck): string[] {
   const labels = updates.behind.map((update) => tableLabel(update.id));
@@ -265,9 +278,9 @@ export function CacheSection() {
               </ul>
               {/* Beside the list rather than in it: the schema is not a table
                   and carries none of the columns the rows draw. */}
-              <p className="text-xs text-surface-500">
-                {SCHEMA_LABEL} {formatUpdatedAt(status.schema)}
-                {updates?.schemaBehind && ` → ${formatUpdatedAt(updates.schemaBehind)}`}
+              <p className="text-xs text-surface-500" title={hashSourceLabel(status.schema)}>
+                {SCHEMA_LABEL} {schemaLabel(status.schema)}
+                {updates?.schemaBehind && ` → ${schemaLabel(updates.schemaBehind)}`}
               </p>
               {status.missing.length > 0 && (
                 <p className="text-xs text-surface-500">

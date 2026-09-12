@@ -13,6 +13,7 @@ use ltk_manager_core::hashtables::{
 use ltk_manager_core::meta_schema::{
     self,
     cache::{MetaSchemaCache, PublishedDb},
+    MetaSchemaVersion,
 };
 use ltk_manager_core::mods::{HealthSweepState, SweepScope};
 use ltk_manager_core::problems::BinNames;
@@ -29,7 +30,7 @@ const SYNC_USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"))
 pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
     off_thread(|| {
         let tables = HashtableCache::shared()?.status()?;
-        Ok(tables.with_schema(meta_schema::shared(None).generation().to_owned()))
+        Ok(tables.with_schema(meta_schema::shared(None).version()))
     })
     .await
 }
@@ -53,7 +54,7 @@ pub async fn check_hashtable_updates() -> IpcResult<HashtableUpdateCheck> {
 ///
 /// Best-effort, so a publisher that is down costs the card a line rather than
 /// its whole answer.
-fn check_meta_schema() -> Option<String> {
+fn check_meta_schema() -> Option<MetaSchemaVersion> {
     let cache = MetaSchemaCache::discover()
         .inspect_err(|e| tracing::debug!("No meta schema cache to check: {e}"))
         .ok()?;

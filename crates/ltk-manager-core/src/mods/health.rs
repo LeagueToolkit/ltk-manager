@@ -120,7 +120,11 @@ pub struct HealthCheckBasis {
     /// What the meta schema database held, absent where none was open.
     ///
     /// It decides `bin/property-type` outright, so a check taken against
-    /// another database was a claim about other types.
+    /// another database was a claim about other types. The database's own bytes
+    /// rather than the stamp it carries, because the publisher restamps the
+    /// hash tables behind it on a schedule of its own - a database that has
+    /// gained two patches can still carry the stamp it was first published
+    /// under.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub schema: Option<String>,
@@ -333,7 +337,7 @@ impl ModLibrary {
                 .and_then(|cache| cache.generation()),
             schema: Some(
                 crate::meta_schema::shared(GameBuild::installed(config))
-                    .generation()
+                    .digest()
                     .to_owned(),
             ),
         }

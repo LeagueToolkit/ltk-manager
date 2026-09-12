@@ -25,6 +25,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
+use crate::meta_schema::MetaSchemaVersion;
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
 pub use ltk_mimir_cache::Table;
@@ -188,19 +189,18 @@ pub struct HashtableCacheStatus {
     pub tables: Vec<HashtableStatus>,
     /// Ids from [`Table::ALL`] absent from the manifest.
     pub missing: Vec<String>,
-    /// The generation of the meta schema database a check would read.
+    /// The meta schema database a check would read.
     ///
     /// The cached copy where a sync has installed one, and the snapshot this
     /// build ships otherwise, so it is never absent.
-    #[serde(default)]
-    pub schema: String,
+    pub schema: MetaSchemaVersion,
 }
 
 impl HashtableCacheStatus {
     /// Name the meta schema database beside what the tables hold.
     #[must_use]
-    pub fn with_schema(mut self, generation: String) -> Self {
-        self.schema = generation;
+    pub fn with_schema(mut self, version: MetaSchemaVersion) -> Self {
+        self.schema = version;
         self
     }
 }
@@ -246,13 +246,13 @@ pub struct HashtableUpdateCheck {
     /// one sync covers both.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
-    pub schema_behind: Option<String>,
+    pub schema_behind: Option<MetaSchemaVersion>,
 }
 
 impl HashtableUpdateCheck {
     /// Fold what the meta schema database check found into this report.
     #[must_use]
-    pub fn with_schema(mut self, behind: Option<String>) -> Self {
+    pub fn with_schema(mut self, behind: Option<MetaSchemaVersion>) -> Self {
         self.up_to_date &= behind.is_none();
         self.schema_behind = behind;
         self
@@ -411,7 +411,7 @@ impl HashtableCache {
             generated_at: manifest.as_ref().map(|m| m.generated_at.clone()),
             tables,
             missing,
-            schema: String::new(),
+            schema: MetaSchemaVersion::default(),
         })
     }
 

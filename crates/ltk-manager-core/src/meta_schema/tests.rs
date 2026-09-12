@@ -26,6 +26,10 @@ fn published() -> String {
           "formatVersion": 1,
           "hashSource": { "fetchedAt": "2026-08-24T03:56:00Z" },
           "latest": 8104348,
+          "versions": [
+            { "patch": "16.16", "build": 8049184 },
+            { "patch": "16.17", "build": 8104348 }
+          ],
           "classes": {
             "0x16d88f43": {
               "name": "FloatTextIconData",
@@ -452,6 +456,73 @@ fn bytes_that_are_not_the_database_are_refused() {
 #[test]
 fn the_generation_is_the_publishers_own_stamp() {
     assert_eq!(schema().generation(), "2026-08-24T03:56:00Z");
+}
+
+/// Story: the Settings card says which database is held, and the reader knows
+/// the patch. The generation is the stamp on the hash tables behind it, which
+/// the publisher moves on a schedule of its own, so a database that has gained
+/// two patches can still carry the stamp it was first published under.
+#[test]
+fn the_version_names_the_patch_of_the_newest_build_described() {
+    let version = schema().version();
+
+    assert_eq!(version.patch.as_deref(), Some("16.17"));
+    assert_eq!(version.build, 8_104_348);
+    assert_eq!(version.generation, "2026-08-24T03:56:00Z");
+}
+
+/// Story: a stored verdict names the database it was a claim about. The wiki
+/// publishes a patch without rereading the hash tables behind it, so the stamp
+/// the database carries is the same one it was first published under, and a
+/// sweep comparing stamps would leave every verdict standing.
+#[test]
+fn a_database_that_gained_a_patch_under_one_stamp_is_another_database() {
+    let gained = published().replace(
+        r#"{ "patch": "16.17", "build": 8104348 }"#,
+        r#"{ "patch": "16.17", "build": 8104348 },
+            { "patch": "16.18", "build": 8200000 }"#,
+    );
+
+    let before = schema();
+    let after = MetaSchema::parse(gained.as_bytes()).expect("the published shape");
+
+    assert_eq!(
+        before.generation(),
+        after.generation(),
+        "the publisher's stamp did not move"
+    );
+    assert_ne!(before.digest(), after.digest());
+}
+
+#[test]
+fn a_patch_past_the_newest_build_does_not_name_the_database() {
+    let json = published().replace(
+        r#"{ "patch": "16.17", "build": 8104348 }"#,
+        r#"{ "patch": "16.17", "build": 8104348 },
+            { "patch": "16.18", "build": 8200000 }"#,
+    );
+
+    let version = MetaSchema::parse(json.as_bytes())
+        .expect("the published shape")
+        .version();
+
+    assert_eq!(
+        version.patch.as_deref(),
+        Some("16.17"),
+        "a patch no revision describes is not one the database reaches"
+    );
+}
+
+#[test]
+fn a_database_naming_no_patches_is_named_by_its_build() {
+    let json = published().replace(r#""versions""#, r#""unreadVersions""#);
+
+    let version = MetaSchema::parse(json.as_bytes())
+        .expect("the patches are not the schema")
+        .version();
+
+    assert_eq!(version.patch, None);
+    assert_eq!(version.build, 8_104_348);
 }
 
 /// The two vocabularies are exact inverses, which is what keeps a finding's

@@ -16,6 +16,7 @@ fn published_at(fetched_at: &str, latest: u32) -> Vec<u8> {
           "formatVersion": 1,
           "hashSource": {{ "fetchedAt": "{fetched_at}" }},
           "latest": {latest},
+          "versions": [{{ "patch": "16.17", "build": {latest} }}],
           "classes": {{
             "0x16d88f43": {{
               "name": "FloatTextIconData",
@@ -251,14 +252,13 @@ fn a_check_names_the_database_held_and_the_one_published() {
     assert_eq!(cache.generation().as_deref(), Some("2026-08-24T03:56:00Z"));
 
     let published_now = published_at("2026-09-01T00:00:00Z", 9_100_000);
-    assert_eq!(
-        cache
-            .check(&Serving::body(published_now, "etag-2"))
-            .unwrap()
-            .as_deref(),
-        Some("2026-09-01T00:00:00Z"),
-        "the database that is out"
-    );
+    let coming = cache
+        .check(&Serving::body(published_now, "etag-2"))
+        .unwrap()
+        .expect("the database that is out");
+    assert_eq!(coming.build, 9_100_000, "how far the one published reaches");
+    assert_eq!(coming.patch.as_deref(), Some("16.17"));
+    assert_eq!(coming.generation, "2026-09-01T00:00:00Z");
     assert_eq!(
         cache.check(&Serving::unchanged()).unwrap(),
         None,

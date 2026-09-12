@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
-use super::{MetaSchema, MetaSchemaError};
+use super::{MetaSchema, MetaSchemaError, MetaSchemaVersion};
 use crate::hashtables::HashtableCache;
 use crate::problems::GameBuild;
 use crate::utils::fs::atomic_write;
@@ -138,7 +138,7 @@ impl MetaSchemaCache {
         Ok(MetaSchemaSyncReport { installed: true })
     }
 
-    /// The published database's generation, when it is not the cached one.
+    /// The published database's version, when it is not the cached one.
     ///
     /// Installs nothing, like [`HashtableCache::check`]. Costs the body when it
     /// has moved, since the tag is the only exact signal the publisher gives.
@@ -148,12 +148,12 @@ impl MetaSchemaCache {
     /// # Errors
     ///
     /// Fails when the publisher cannot be reached - see [`RefreshError`].
-    pub fn check(&self, fetch: &dyn FetchDb) -> Result<Option<String>, RefreshError> {
+    pub fn check(&self, fetch: &dyn FetchDb) -> Result<Option<MetaSchemaVersion>, RefreshError> {
         let held = self.stamp();
         let Fetched::Body { json, .. } = fetch.fetch(held.as_ref().and_then(Stamp::tag))? else {
             return Ok(None);
         };
-        Ok(Some(MetaSchema::parse(&json)?.generation().to_owned()))
+        Ok(Some(MetaSchema::parse(&json)?.version()))
     }
 
     /// What the cached database is, as the publisher stamped it.
