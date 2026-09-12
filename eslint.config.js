@@ -103,7 +103,8 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-explicit-any": "warn",
       "react/prop-types": "off",
-      "simple-import-sort/imports": "error",
+      /* Import order is oxfmt's `sortImports`, so `pnpm format` fixes it and
+         `format:check` gates it. Two owners would fight over the same lines. */
       "simple-import-sort/exports": "error",
     },
   },

@@ -41,6 +41,12 @@ import { useToast } from "@/components/Toast";
 import { ModCard } from "@/modules/library/components";
 ```
 
+**Import order belongs to `oxfmt`.** `sortImports` in `.oxfmtrc.json` puts builtins first, then
+external packages, then `@/` internals, then relative paths, one blank line between groups.
+`pnpm format` writes that order and `format:check` gates it, so a file whose imports drifted -
+a rebase or a merge resolution, neither of which runs the pre-commit hook - is fixed by
+`pnpm format` rather than by hand.
+
 ## State Consumption - Hooks Over Prop Drilling
 
 **Consume global state (hooks, queries, stores) directly in the component that needs it.** Do not drill Zustand state, TanStack Query data, or mutation callbacks through intermediate components as props.
