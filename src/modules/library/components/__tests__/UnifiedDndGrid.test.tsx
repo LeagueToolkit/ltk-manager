@@ -67,10 +67,8 @@ beforeEach(() => {
 });
 
 describe("UnifiedDndGrid", () => {
-  /* Picking a mod disables the drag, and the grid used to answer that by
-     rendering a second tree without the dnd contexts. That remounted every
-     card, and `VirtualCards` starts each mount at one column - so a press that
-     only picked a mod flashed the whole grid through a single column. */
+  /* Picking a mod disables the drag, and a second tree without the dnd contexts
+     would remount every card on a press that only picked one. */
   it("keeps its cards mounted when the drag is disabled under them", () => {
     const { rerender } = renderWithProviders(grid(false));
     const first = screen.getAllByTestId("card")[0];
