@@ -24,6 +24,7 @@ export * from "./HoverCard";
 export * from "./icons";
 export * from "./Kbd";
 export * from "./ListEditor";
+export * from "./MarkdownView";
 export * from "./Menu";
 export * from "./MultiSelect";
 export * from "./NumberField";

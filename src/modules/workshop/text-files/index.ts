@@ -1,4 +1,3 @@
-export { MarkdownView } from "./MarkdownView";
 export { ProjectTextDocument } from "./ProjectTextDocument";
 export {
   lacksTemplateSection,

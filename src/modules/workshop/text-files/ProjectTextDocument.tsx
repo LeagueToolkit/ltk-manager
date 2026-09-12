@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import { Button, Code, EmptyState, SegmentedControl, Spinner } from "@/components";
+import { Button, Code, EmptyState, MarkdownView, SegmentedControl, Spinner } from "@/components";
 import { m } from "@/i18n";
 import {
   DocumentToolbar,
@@ -13,7 +13,6 @@ import {
 
 import type { ContentDocumentOf } from "../documents/contentDocument";
 import { useSetDocumentDirty } from "../state";
-import { MarkdownView } from "./MarkdownView";
 import { lacksTemplateSection, type TextFileKind, textFileKind } from "./textFileKind";
 import { useProjectTextEditor } from "./useProjectTextEditor";
 
