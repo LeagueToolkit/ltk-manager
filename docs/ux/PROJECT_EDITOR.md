@@ -1384,6 +1384,9 @@ disclosure below roughly 560px. A mono gutter carries the line numbers the toolt
 toolbar is a `.modignore` chip, Add missing recommended rules where entries are missing, and the
 save state.
 
+The buffer and the rail are divided by a hairline and nothing else, per "A text document sits on
+the ground" below.
+
 It autosaves, following the Strings document, so the tab's dirty state is reserved for a save
 that is blocked or failed.
 
@@ -1484,6 +1487,16 @@ never opened the document.
 
 A project with no readme draws a card offering to write one, which writes the heading and
 nothing else when it is taken.
+
+### A text document sits on the ground
+
+Every document whose body is text a creator edits - the readme, its rendered half, the ignore
+rules and its syntax rail - draws on `surface-950` with no padding around it and no inset frame
+of its own. The tab is the frame, and what divides two halves is a hairline.
+
+A bordered, rounded box inset in a padded document is a frame drawn inside a frame, which costs
+a text surface the width it exists to give, and which reads as a card in a place where nothing
+is being lifted off the page.
 
 ### What a save guards
 

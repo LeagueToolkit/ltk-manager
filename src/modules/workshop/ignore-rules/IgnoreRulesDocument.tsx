@@ -114,7 +114,7 @@ function Body({ editor, documentId, at }: BodyProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1 gap-3 p-3">
+      <div className="flex min-h-0 flex-1">
         <Buffer editor={editor} documentId={documentId} />
         <SyntaxRail />
       </div>
@@ -154,11 +154,11 @@ function Buffer({ editor, documentId }: { editor: Editor; documentId: string }) 
 
   return (
     /* DS-MONO-SIZE: mono end to end, so the tier is on the surface. */
-    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-surface-700 bg-surface-900 font-mono text-mono-row">
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-950 font-mono text-mono-row">
       <div
         ref={gutter}
         aria-hidden
-        className="shrink-0 overflow-hidden bg-surface-950/40 py-2 pr-2 pl-3 text-right leading-relaxed text-surface-500 select-none"
+        className="shrink-0 overflow-hidden bg-surface-900/40 py-2 pr-2 pl-3 text-right leading-relaxed text-surface-500 select-none"
       >
         {Array.from({ length: lines }, (_, index) => (
           <div
