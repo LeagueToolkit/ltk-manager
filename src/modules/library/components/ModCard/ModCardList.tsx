@@ -33,7 +33,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
     skinhackInfoOpen,
     setSkinhackInfoOpen,
     onCardClick,
-    onCardContextMenu,
     onSelectionToggle,
   } = view;
 
@@ -70,7 +69,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
   const row = (
     <div
       onClick={onCardClick}
-      onContextMenu={onCardContextMenu}
       className={twMerge(
         "group flex items-center gap-4 rounded-lg border p-4 transition-[translate,box-shadow,background-color,border-color,opacity,filter] duration-150 ease-out",
         "hover:opacity-100 hover:saturate-100",

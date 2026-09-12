@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | A right click reads a card and no longer picks it          |
 | 2026-09-12 | The details tab, which folds the three mod dialogs in      |
 | 2026-09-12 | The documents panel, its two tabs and what it persists     |
 | 2026-09-07 | The library selects by gesture, and select mode is retired |
@@ -26,7 +27,7 @@ ctrl-click or shift-click rather than by a mode to switch into first.
 - A bare press means the one thing a user came to the library for
 - Picking a set costs no mode, no button and no round trip through the toolbar
 - A mouse-only reader finds the checkbox without knowing the modifier
-- Every command a selection carries is on the bar and on the right click, and they cannot drift
+- Every command a selection carries is on the bar, which is up whenever a selection is
 - Nothing acts on a mod the reader cannot see
 
 ## Feature status
@@ -38,7 +39,6 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Selection by gesture   | Available | Ctrl-click picks, shift-click ranges, no mode to enter        |
 | The checkbox           | Available | On the hovered card, and on every card under a selection      |
 | The floating bar       | Available | Five commands, while the selection is non-empty               |
-| The selection's menu   | Available | The same five on a right click over a selected card           |
 | Select all             | Available | The toolbar button, toggling all visible against clear        |
 | All visible Enable     | Available | On the button's caret, beside Disable                         |
 | Enable and disable     | Available | A bare press on a card, and a switch on a list row            |
@@ -124,18 +124,16 @@ what is left.
 
 ## What a right click opens
 
-**A right click over a selected card opens what the selection carries.** The five commands, under
-a label naming the count. This is the same list the bar draws, from the same place, so the two
-ways into a bulk action cannot come to offer different ones.
+**A right click opens the card's own menu, whatever is picked.** The same list the kebab draws,
+because which pixel was hit never changes what opens. A reader who has picked eleven mods and
+right-clicks one of them is asking about that mod, not about the eleven.
 
-**A right click outside the selection selects that card alone.** The pick collapses onto the card
-under the pointer and the card's own menu opens, so a command always acts on what was pressed.
-The menu is decided before the pick moves, which is why collapsing onto a card does not turn the
-menu into the selection's.
+**A right click reads the card and never writes the pick.** It selects nothing, deselects nothing
+and collapses nothing, so the set a reader assembled survives asking a question about one of its
+members. Picking is the checkbox's and the modifiers', which are the gestures that say so.
 
-**The kebab is always the card's own menu.** It is per-card by construction, and it draws the same
-list as the card's right click does with nothing selected. Neither closes while a selection
-exists.
+**The selection's own commands are the bar's.** The bar is up for as long as a selection is, and it
+carries all five, so nothing is out of reach once the right click stops offering them.
 
 **A right click on the library ground offers New Folder.** The ground is not a card, so it neither
 reads nor changes the selection.
@@ -283,8 +281,9 @@ not also drop the selection.
 | Is there a marquee?                             | No. It competes with drag-to-reorder for one press          |
 | What does the toolbar button do?                | Select all visible, or clear once they all are              |
 | Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection           |
-| Does a right click inside the pick keep it?     | Yes, and it opens what the selection carries                |
-| Does a right click outside the pick keep it?    | No. It collapses onto that card and opens the card's menu   |
+| Does a right click change the pick?             | No. It reads the card and leaves the selection alone        |
+| What does a right click open over a pick?       | The card's own menu, the same one the kebab draws           |
+| Where do a selection's own commands live?       | The floating bar, which is up whenever a selection is       |
 | Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there      |
 | Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                           |
 | Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press                |
@@ -303,8 +302,8 @@ not also drop the selection.
 ## Open questions
 
 1. What does a selection do about folders? Moving a picked set into a folder is the obvious sixth
-   command, and it needs a destination the bar has nowhere to put. A submenu on the right click
-   is the cheap half, and the bar is the half nobody has designed.
+   command, and it needs a destination the bar has nowhere to put. The right click is no longer
+   the cheap half, since it carries no selection commands at all, so the bar is the whole problem.
 2. Does the keyboard reach a range? Enter and Space carry their modifiers, so a focused card
    picks and ranges the way a click does. What has no answer is arrowing between cards, which the
    grid does not offer at all.

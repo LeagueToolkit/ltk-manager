@@ -34,7 +34,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     setSkinhackInfoOpen,
     onCardClick,
     onCardKeyDown,
-    onCardContextMenu,
     onSelectionToggle,
   } = view;
 
@@ -86,7 +85,6 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
     <div
       onClick={onCardClick}
       onKeyDown={onCardKeyDown}
-      onContextMenu={onCardContextMenu}
       role="button"
       tabIndex={isInteractive ? 0 : -1}
       aria-pressed={mod.enabled}

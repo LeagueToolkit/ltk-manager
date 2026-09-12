@@ -40,7 +40,6 @@ import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
 
-import { SelectionMenuItems } from "../SelectionMenuItems";
 import type { ModCardView } from "./useModCardController";
 
 type CardVariant = "grid" | "list";
@@ -219,9 +218,8 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
 /**
  * The card's menu on its right click, over the whole card rather than a target.
  *
- * A press inside the selection opens what the selection carries, and a press
- * outside it collapses the pick onto this card and opens the card's own. Per
- * "What a right click opens" in `docs/ux/LIBRARY.md`.
+ * The same commands the kebab opens, whatever is picked. Per "What a right
+ * click opens" in `docs/ux/LIBRARY.md`.
  *
  * Renders the card itself through `render`, so the trigger is the card and the
  * grid keeps the child it was sizing.
@@ -243,8 +241,7 @@ export function ModCardContextMenu({
       <ContextMenu.Portal>
         <ContextMenu.Positioner>
           <ContextMenu.Popup>
-            {view.menuScope === "selection" && <SelectionMenuItems />}
-            {view.menuScope === "card" && <ModCardMenuItems view={view} />}
+            <ModCardMenuItems view={view} />
           </ContextMenu.Popup>
         </ContextMenu.Positioner>
       </ContextMenu.Portal>

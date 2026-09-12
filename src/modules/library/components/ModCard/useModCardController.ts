@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
@@ -17,9 +16,6 @@ import { usePatcherRunning } from "@/modules/patcher";
 import { useLibrarySelectionStore } from "../../state";
 
 const ROOT_FOLDER_ID = "root";
-
-/** Which commands a card's right click opens: its own, or the selection's. */
-export type MenuScope = "card" | "selection";
 
 type Modifiers = Pick<React.MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">;
 
@@ -64,8 +60,6 @@ export interface ModCardView {
   hasSelection: boolean;
   isSelected: boolean;
   inEnabledState: boolean;
-  /** Which commands the right click landed on, decided before the pick moved under it. */
-  menuScope: MenuScope;
   /** Whether the mod cannot be used at all, which is not the same as being off. */
   blocked: boolean;
   isInteractive: boolean;
@@ -74,7 +68,6 @@ export interface ModCardView {
   setSkinhackInfoOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onCardKeyDown: (e: React.KeyboardEvent) => void;
-  onCardContextMenu: () => void;
   onSelectionToggle: () => void;
   onToggle: (modId: string, enabled: boolean) => void;
   onUninstall: () => void;
@@ -101,8 +94,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
   const toggleSelection = useLibrarySelectionStore((s) => s.toggle);
   const selectRangeTo = useLibrarySelectionStore((s) => s.selectRangeTo);
-  const selectOnly = useLibrarySelectionStore((s) => s.selectOnly);
-  const [menuScope, setMenuScope] = useState<MenuScope>("card");
 
   const {
     isFlagged,
@@ -195,17 +186,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     activateCard(e);
   }
 
-  /* Read before the pick moves, so a right click that collapses the selection
-     onto this card still opens the card's own commands. */
-  function handleCardContextMenu() {
-    if (isSelected) {
-      setMenuScope("selection");
-      return;
-    }
-    setMenuScope("card");
-    selectOnly(mod.id);
-  }
-
   const blocked = isFlagged;
   const inEnabledState = mod.enabled && !blocked;
   const isInteractive = !blocked && !disabled;
@@ -229,7 +209,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     hasSelection,
     isSelected,
     inEnabledState,
-    menuScope,
     blocked,
     isInteractive,
     cursorClass,
@@ -237,7 +216,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     setSkinhackInfoOpen,
     onCardClick: handleCardClick,
     onCardKeyDown: handleCardKeyDown,
-    onCardContextMenu: handleCardContextMenu,
     onSelectionToggle: () => toggleSelection(mod.id),
     onToggle: handleToggle,
     onUninstall: handleUninstall,
