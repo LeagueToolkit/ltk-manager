@@ -116,9 +116,7 @@ impl Workshop {
         );
         fs::write(project_dir.join("README.md"), readme_content)?;
 
-        let dir = ProjectDir::open(project_dir)?;
-        dir.write_default_ignore_rules()?;
-        dir.load()
+        start_project(project_dir)
     }
 
     /// Get a single workshop project by path.
@@ -293,11 +291,7 @@ impl Workshop {
 
         long_paths::verify_unpacked(project_dir, ImportRoot::Workshop)?;
 
-        /* An archive carries no ignore file, and a creator who adds sources to
-        what it unpacked wants what a new project gets. */
-        let dir = ProjectDir::open(project_dir)?;
-        dir.write_default_ignore_rules()?;
-        dir.load()
+        start_project(project_dir)
     }
 
     fn emit_fantome_progress(&self, progress: FantomeImportProgress) {
@@ -338,9 +332,7 @@ impl Workshop {
             return Err(modpkg_import_error(e));
         }
 
-        let dir = ProjectDir::open(project_dir)?;
-        dir.write_default_ignore_rules()?;
-        dir.load()
+        start_project(project_dir)
     }
 
     /// Import a project from a GitHub repository by downloading and extracting its tarball.
@@ -445,6 +437,16 @@ impl Workshop {
                 message: message.map(String::from),
             }));
     }
+}
+
+/// Give a project this side just made its starter files, and read it back.
+///
+/// A git import does not come here. The repository carries whatever its author
+/// chose, including no ignore rules at all.
+fn start_project(project_dir: impl AsRef<Path>) -> AppResult<WorkshopProject> {
+    let dir = ProjectDir::open(project_dir.as_ref())?;
+    dir.write_default_ignore_rules()?;
+    dir.load()
 }
 
 /// Parse a GitHub URL and extract the owner and repo name.

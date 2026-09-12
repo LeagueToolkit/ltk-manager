@@ -50,8 +50,6 @@
   --ltk-doc-strings: #34d399;
   --ltk-doc-game: #fb7185;
   --ltk-doc-problems: #f97316;
-  /* Unsaturated among six hues, because the rules are the one document that
-     describes the others rather than holding content of its own. */
   --ltk-doc-ignore: #94a3b8;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
-import { screen, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,8 +9,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WorkshopProject } from "@/lib/tauri";
 import { DocumentToolbarSlotContext } from "@/modules/editor";
 import { mockInvoke } from "@/test/mocks/tauri";
-import { renderWithProviders } from "@/test/utils";
+import { createTestQueryClient, renderWithProviders } from "@/test/utils";
 
+import { workshopKeys } from "../../api";
 import { ProjectProvider } from "../../components/ProjectContext";
 import { ignoreRulesDocument } from "../../documents";
 import { IgnoreRulesDocument } from "../IgnoreRulesDocument";
@@ -107,6 +109,18 @@ function draw() {
   return renderWithProviders(<Harness />);
 }
 
+/** The same document over a client the caller can watch. */
+function drawWatched() {
+  const client = createTestQueryClient();
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  render(
+    <QueryClientProvider client={client}>
+      <Harness />
+    </QueryClientProvider>,
+  );
+  return { invalidate };
+}
+
 describe("IgnoreRulesDocument", () => {
   beforeEach(() => {
     vi.useRealTimers();
@@ -135,6 +149,21 @@ describe("IgnoreRulesDocument", () => {
       projectPath: PROJECT_PATH,
       text: "*.psd\n*.fbx",
     });
+  });
+
+  /* The tree draws what the rules exclude, so a save is a fact about it. */
+  it("invalidates the content tree when a save lands", async () => {
+    const user = userEvent.setup();
+    const { invalidate } = drawWatched();
+
+    const buffer = await screen.findByRole("textbox", { name: "Ignore rules" });
+    await user.type(buffer, "*.fbx");
+
+    await waitFor(() =>
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: workshopKeys.contentTree(PROJECT_PATH),
+      }),
+    );
   });
 
   it("marks the line a refused pattern sits on and stops saving", async () => {

@@ -8,10 +8,7 @@ mod projects;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
-pub use ignore_rules::{
-    IgnoreRuleProblem, IgnoreRules, RECOMMENDED_IGNORE_RULES, ignore_rule_problem,
-    missing_recommended_rules, with_recommended_rules,
-};
+pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};

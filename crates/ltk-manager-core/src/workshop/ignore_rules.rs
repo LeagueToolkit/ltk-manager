@@ -37,11 +37,11 @@ pub struct IgnoreRules {
 /// its own right, because the only buffer it answers for is one a save
 /// refused.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IgnoreRuleProblem {
+struct IgnoreRuleProblem {
     /// One-based line number, as the gutter counts.
-    pub line: u32,
+    line: u32,
     /// What the matcher says is wrong with the pattern.
-    pub message: String,
+    message: String,
 }
 
 impl ProjectDir {
@@ -51,6 +51,11 @@ impl ProjectDir {
     }
 
     /// Read the project's root ignore rules.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Io`](crate::error::AppError::Io) when the file exists and
+    /// cannot be read. A project with no file is not an error.
     pub fn ignore_rules(&self) -> AppResult<IgnoreRules> {
         let path = self.ignore_file();
         let text = match fs::read_to_string(&path) {
@@ -90,6 +95,11 @@ impl ProjectDir {
     ///
     /// A project with no file gets the whole default instead, so the action
     /// reads the same either way.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`write_ignore_rules`](Self::write_ignore_rules) fails on,
+    /// which a file the creator has already broken reaches.
     pub fn add_recommended_ignore_rules(&self, today: NaiveDate) -> AppResult<IgnoreRules> {
         let current = self.ignore_rules()?;
         let Some(text) = current.text else {
@@ -121,16 +131,19 @@ impl ProjectDir {
 /// files under `content/`, which an editor of the root file is not editing and
 /// must not be held up by, so the buffer is compiled against a root that is
 /// not on disk.
-pub fn ignore_rule_problem(text: &str) -> Option<IgnoreRuleProblem> {
+fn ignore_rule_problem(text: &str) -> Option<IgnoreRuleProblem> {
     let Err(error) = ModIgnore::parse(&unwritten_root(), text) else {
         return None;
     };
 
-    let ModIgnoreError::Pattern { source, .. } = error else {
-        return None;
+    let rendered = match &error {
+        ModIgnoreError::Pattern { source, .. } => source.to_string(),
+        /* The root does not exist, so nothing is read and no other variant can
+        arise. Reported rather than dropped, because a swallowed error would
+        pass a buffer the pack then refuses. */
+        other => other.to_string(),
     };
 
-    let rendered = source.to_string();
     let (line, message) = split_line_prefix(&rendered).unwrap_or((1, rendered.as_str()));
 
     Some(IgnoreRuleProblem {
@@ -140,7 +153,7 @@ pub fn ignore_rule_problem(text: &str) -> Option<IgnoreRuleProblem> {
 }
 
 /// The recommended patterns `text` does not already hold, comments aside.
-pub fn missing_recommended_rules(text: &str) -> Vec<String> {
+fn missing_recommended_rules(text: &str) -> Vec<String> {
     let held: Vec<&str> = patterns_of(text).collect();
 
     patterns_of(RECOMMENDED_IGNORE_RULES)
@@ -150,7 +163,7 @@ pub fn missing_recommended_rules(text: &str) -> Vec<String> {
 }
 
 /// `text` with the recommended patterns it lacks appended, dated `today`.
-pub fn with_recommended_rules(text: &str, today: NaiveDate) -> String {
+fn with_recommended_rules(text: &str, today: NaiveDate) -> String {
     let missing = missing_recommended_rules(text);
     if missing.is_empty() {
         return text.to_string();
@@ -190,11 +203,15 @@ fn split_line_prefix(rendered: &str) -> Option<(u32, &str)> {
 }
 
 /// A project root that is not on disk, so no nested `.modignore` is read.
+///
+/// Named freshly each call rather than fixed, because a fixed name under a
+/// world-writable temporary directory is a name something else can create, and
+/// a stray file under it would block every save citing a file no creator has.
 fn unwritten_root() -> Utf8PathBuf {
     std::env::temp_dir()
         .try_into_utf8("temporary directory")
         .unwrap_or_else(|_| Utf8PathBuf::from("."))
-        .join("ltk-manager-unwritten-project")
+        .join(format!("ltk-manager-unwritten-{}", uuid::Uuid::new_v4()))
 }
 
 #[cfg(test)]

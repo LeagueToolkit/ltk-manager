@@ -28,7 +28,7 @@ const RULES = [
 export function SyntaxRail() {
   return (
     <>
-      <aside className="hidden w-[220px] shrink-0 overflow-y-auto scrollbar-md select-none @[560px]:block">
+      <aside className="hidden w-55 shrink-0 overflow-y-auto scrollbar-md select-none @[560px]:block">
         <Card />
       </aside>
 

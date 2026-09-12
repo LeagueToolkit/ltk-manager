@@ -295,7 +295,7 @@ function ProjectRow({ onOpenFolder }: ProjectRowProps) {
 
       <Tooltip content={m.workshop_ignore_title()}>
         <IconButton
-          icon={<EyeSlashIcon className="h-4 w-4" />}
+          icon={<EyeSlashIcon weight="bold" className="h-4 w-4" />}
           variant="ghost"
           size="sm"
           compact

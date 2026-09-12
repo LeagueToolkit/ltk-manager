@@ -89,7 +89,7 @@ fn a_pattern_that_does_not_compile_names_its_line() {
 /// The buffer is what an editor holds, so a nested file the project does hold
 /// cannot fail a save of the root one.
 #[test]
-fn validation_reads_the_buffer_alone() {
+fn a_broken_nested_file_does_not_block_the_root_one() {
     let tmp = tempfile::tempdir().unwrap();
     let project = make_project(tmp.path(), None);
     fs::write(
@@ -102,7 +102,12 @@ fn validation_reads_the_buffer_alone() {
     )
     .unwrap();
 
-    assert_eq!(ignore_rule_problem("*.psd\n"), None);
+    project.write_ignore_rules("*.psd\n").unwrap();
+
+    assert_eq!(
+        fs::read_to_string(project.ignore_file()).unwrap(),
+        "*.psd\n"
+    );
 }
 
 #[test]

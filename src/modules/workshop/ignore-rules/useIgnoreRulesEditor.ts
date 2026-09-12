@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import type { AppError } from "@/lib/tauri";
+import type { AppError, WorkshopError } from "@/lib/tauri";
 
 import { ignoreRuleMutations, projectQueries } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
@@ -14,17 +14,13 @@ const SAVE_DELAY_MS = 600;
 export type IgnoreSaveState = "clean" | "pending" | "saving" | "blocked" | "failed";
 
 /** The line the matcher refused, as the gutter and the footer read it. */
-export interface IgnoreRuleProblem {
-  /** One-based, as the gutter counts. */
-  line: number;
-  message: string;
-}
+export type IgnoreRuleProblem = Extract<WorkshopError, { kind: "IGNORE_RULE_PATTERN" }>;
 
 /** The line a save was refused over, or null for any other failure. */
 function problemOf(error: AppError | null): IgnoreRuleProblem | null {
   if (error?.code !== "WORKSHOP") return null;
   if (error.error.kind !== "IGNORE_RULE_PATTERN") return null;
-  return { line: error.error.line, message: error.error.message };
+  return error.error;
 }
 
 /**
@@ -105,8 +101,6 @@ export function useIgnoreRulesEditor() {
   }
 
   return {
-    /** The path of the file being edited, for the toolbar's chip. */
-    path: rules.data?.path ?? null,
     /** Whether the project has a file at all. The empty state turns on this. */
     exists: saved !== null,
     text,

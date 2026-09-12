@@ -120,11 +120,12 @@ function Buffer({ editor }: { editor: Editor }) {
   const gutter = useRef<HTMLDivElement>(null);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-surface-700 bg-surface-900">
+    /* DS-MONO-SIZE: mono end to end, so the tier is on the surface. */
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-surface-700 bg-surface-900 font-mono text-mono-row">
       <div
         ref={gutter}
         aria-hidden
-        className="shrink-0 overflow-hidden bg-surface-950/40 py-2 pr-2 pl-3 text-right font-mono text-code leading-relaxed text-surface-500 select-none"
+        className="shrink-0 overflow-hidden bg-surface-950/40 py-2 pr-2 pl-3 text-right leading-relaxed text-surface-500 select-none"
       >
         {Array.from({ length: lines }, (_, index) => (
           <div
@@ -146,7 +147,7 @@ function Buffer({ editor }: { editor: Editor }) {
         onScroll={(event) => {
           if (gutter.current) gutter.current.scrollTop = event.currentTarget.scrollTop;
         }}
-        className="min-w-0 flex-1 resize-none bg-transparent py-2 pr-2 pl-2 font-mono text-code leading-relaxed text-surface-200 outline-none scrollbar-md"
+        className="min-w-0 flex-1 resize-none bg-transparent py-2 pr-2 pl-2 leading-relaxed text-surface-200 outline-none scrollbar-md"
       />
     </div>
   );
@@ -165,7 +166,7 @@ function NoFile({ editor }: { editor: Editor }) {
     <div className="relative min-h-0 flex-1 overflow-hidden">
       <pre
         aria-hidden
-        className="h-full overflow-hidden p-3 font-mono text-code leading-relaxed whitespace-pre text-surface-500 select-none"
+        className="h-full overflow-hidden p-3 font-mono text-mono-row leading-relaxed whitespace-pre text-surface-500 select-none"
       >
         {recommended.data ?? ""}
       </pre>
