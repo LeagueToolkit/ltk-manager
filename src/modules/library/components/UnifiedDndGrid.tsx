@@ -8,9 +8,6 @@ import { useLibraryDndSensors, useUnifiedDnd } from "@/modules/library/api";
 import { dropLineFor, noSorting, parseSortableFolderId } from "@/modules/library/utils";
 
 import { DndDragOverlay } from "./DndDragOverlay";
-import { FolderCard } from "./FolderCard";
-import { FolderRow } from "./FolderRow";
-import { ModCard } from "./ModCard";
 import { RemoveFromFolderZone } from "./RemoveFromFolderZone";
 import { SortableFolderCard } from "./SortableFolderCard";
 import { SortableFolderRow } from "./SortableFolderRow";
@@ -31,6 +28,17 @@ interface UnifiedDndGridProps {
   onReorder: (modIds: string[]) => void;
 }
 
+/**
+ * No sensor, so no gesture reaches a card and no drag can begin.
+ *
+ * A disabled grid keeps the whole dnd tree mounted and takes its activators
+ * away instead of rendering a second tree without them. Swapping the tree
+ * remounts every card, and `VirtualCards` measures its column count on mount -
+ * so a press that only picked a mod rebuilt the grid and flashed it through one
+ * column on the way back.
+ */
+const NO_SENSORS: ReturnType<typeof useLibraryDndSensors> = [];
+
 export function UnifiedDndGrid({
   folders,
   rootMods,
@@ -39,76 +47,6 @@ export function UnifiedDndGrid({
   dndDisabled,
   onReorder,
 }: UnifiedDndGridProps) {
-  if (dndDisabled) {
-    return (
-      <StaticGrid
-        folders={folders}
-        rootMods={rootMods}
-        modsByFolder={modsByFolder}
-        viewMode={viewMode}
-      />
-    );
-  }
-
-  return (
-    <DndGrid
-      folders={folders}
-      rootMods={rootMods}
-      modsByFolder={modsByFolder}
-      viewMode={viewMode}
-      onReorder={onReorder}
-    />
-  );
-}
-
-interface StaticGridProps {
-  folders: LibraryFolder[];
-  rootMods: InstalledMod[];
-  modsByFolder: Map<string, InstalledMod[]>;
-  viewMode: "grid" | "list";
-}
-
-function StaticGrid({ folders, rootMods, modsByFolder, viewMode }: StaticGridProps) {
-  const cells = useMemo<Cell[]>(
-    () => [
-      ...folders.map((folder) => ({
-        kind: "folder" as const,
-        key: folder.id,
-        folder,
-        mods: modsByFolder.get(folder.id) ?? [],
-      })),
-      ...rootMods.map((mod) => ({ kind: "mod" as const, key: mod.id, mod })),
-    ],
-    [folders, modsByFolder, rootMods],
-  );
-
-  return (
-    <VirtualCards
-      items={cells}
-      keyOf={(cell) => cell.key}
-      viewMode={viewMode}
-      renderItem={(cell) => {
-        if (cell.kind === "mod") {
-          return <ModCard mod={cell.mod} viewMode={viewMode} />;
-        }
-        if (viewMode === "list") {
-          return <FolderRow folder={cell.folder} mods={cell.mods} dndDisabled />;
-        }
-        return <FolderCard folder={cell.folder} mods={cell.mods} />;
-      }}
-    />
-  );
-}
-
-interface DndGridProps {
-  folders: LibraryFolder[];
-  rootMods: InstalledMod[];
-  modsByFolder: Map<string, InstalledMod[]>;
-  viewMode: "grid" | "list";
-  onReorder: (modIds: string[]) => void;
-}
-
-function DndGrid({ folders, rootMods, modsByFolder, viewMode, onReorder }: DndGridProps) {
   const {
     folderOrder,
     orderedRootMods,
@@ -153,7 +91,7 @@ function DndGrid({ folders, rootMods, modsByFolder, viewMode, onReorder }: DndGr
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={dndDisabled ? NO_SENSORS : sensors}
       collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
