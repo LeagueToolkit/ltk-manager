@@ -27,6 +27,10 @@ tables?: string,
  * What the meta schema database held, absent where none was open.
  *
  * It decides `bin/property-type` outright, so a check taken against
- * another database was a claim about other types.
+ * another database was a claim about other types. The database's own bytes
+ * rather than the stamp it carries, because the publisher restamps the
+ * hash tables behind it on a schedule of its own - a database that has
+ * gained two patches can still carry the stamp it was first published
+ * under.
  */
 schema?: string, };

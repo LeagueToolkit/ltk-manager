@@ -33,6 +33,9 @@ struct Published {
     hash_source: HashSource,
     /// The newest build any revision names.
     latest: u32,
+    /// The patches it describes, oldest first.
+    #[serde(default)]
+    versions: Vec<PublishedVersion>,
     classes: HashMap<String, PublishedClass>,
 }
 
@@ -41,6 +44,14 @@ struct Published {
 struct HashSource {
     /// When the upstream hash tables behind this database were read.
     fetched_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishedVersion {
+    /// The patch a player names, as `<major>.<minor>`.
+    patch: String,
+    /// The content build that patch shipped.
+    build: u32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,8 +95,27 @@ const FORMAT_VERSION: u32 = 1;
 #[derive(Debug)]
 pub struct MetaSchema {
     generation: String,
+    digest: String,
     latest: u32,
+    patch: Option<String>,
     classes: HashMap<BinHash, ParsedClass>,
+}
+
+/// What one meta schema database is, as the cache card names it.
+///
+/// The patch rather than the generation: the publisher restamps the hash tables
+/// on their own schedule, so a database gains patches between two stamps.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct MetaSchemaVersion {
+    /// The patch naming the newest build it describes, absent where it names none.
+    pub patch: Option<String>,
+    /// That build, which is as far as the database reaches.
+    pub build: u32,
+    /// When the upstream hash tables behind it were read.
+    pub generation: String,
 }
 
 #[derive(Debug)]
@@ -408,9 +438,19 @@ impl MetaSchema {
             })
             .collect();
 
+        let latest = published.latest;
+        let patch = published
+            .versions
+            .into_iter()
+            .filter(|version| version.build <= latest)
+            .max_by_key(|version| version.build)
+            .map(|version| version.patch);
+
         Ok(Self {
             generation: published.hash_source.fetched_at,
-            latest: published.latest,
+            digest: crate::diagnostics::binary_id::content_hash(json),
+            latest,
+            patch,
             classes,
         })
     }
@@ -522,6 +562,26 @@ impl MetaSchema {
     #[must_use]
     pub fn generation(&self) -> &str {
         &self.generation
+    }
+
+    /// This database's own bytes, as the hex digits a stored basis compares.
+    ///
+    /// What makes one database another: the generation is a stamp on the hash
+    /// tables behind it, and the publisher moves the two on schedules of their
+    /// own.
+    #[must_use]
+    pub fn digest(&self) -> &str {
+        &self.digest
+    }
+
+    /// What this database is, as the cache card names it.
+    #[must_use]
+    pub fn version(&self) -> MetaSchemaVersion {
+        MetaSchemaVersion {
+            patch: self.patch.clone(),
+            build: self.latest,
+            generation: self.generation.clone(),
+        }
     }
 
     /// How many classes it describes.

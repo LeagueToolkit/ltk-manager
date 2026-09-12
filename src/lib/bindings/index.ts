@@ -124,6 +124,7 @@ export type { LibraryFolder } from "./LibraryFolder";
 export type { LibraryRepairReport } from "./LibraryRepairReport";
 export type { LinkedBinOffenderInfo } from "./LinkedBinOffenderInfo";
 export type { LinkedBinWarningPayload } from "./LinkedBinWarningPayload";
+export type { MetaSchemaVersion } from "./MetaSchemaVersion";
 export type { MigrationPhase } from "./MigrationPhase";
 export type { MigrationProgress } from "./MigrationProgress";
 export type { ModArchiveFormat } from "./ModArchiveFormat";
