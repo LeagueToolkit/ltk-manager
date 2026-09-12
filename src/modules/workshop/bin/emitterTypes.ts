@@ -8,7 +8,7 @@ import type { EmitterModel, SystemModel } from "./vfx/model";
 export type EmitterMode = "cards" | "table";
 
 /** What the inspector draws, which is the crumb segment last aimed at. */
-export type InspectorTarget = "system" | "emitter" | "group";
+export type InspectorTarget = "system" | "emitter";
 
 /** A child system's emitter a lane selected, which the inspector draws in place of the card. */
 export interface ChildChoice {

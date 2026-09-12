@@ -14,6 +14,32 @@ const MIDDLE = 0.5;
 const STEP = 0.01;
 
 /**
+ * The chance the run is pinned at, which a reading of the values carries while a pin holds.
+ *
+ * The slider belongs to the transport, per "The chance belongs to the run, and the header
+ * reads it" in docs/ux/BIN_EDITOR.md, so this says what is pinned and never sets it.
+ */
+export function ChanceReadout({ className }: { className?: string }) {
+  const run = use(VfxRunContext);
+  if (run === null || run.pinned === null) return null;
+
+  return (
+    <span
+      data-ui="ChanceReadout"
+      className={twMerge(
+        "flex shrink-0 items-center gap-1 font-sans text-meta text-surface-400 select-none",
+        className,
+      )}
+    >
+      {m.workshop_bin_random_chance_label()}
+      <span className="font-mono text-code text-accent-300 tabular-nums">
+        {run.pinned.toFixed(2)}
+      </span>
+    </span>
+  );
+}
+
+/**
  * The chance the run pins every birth at: a slider sets it and the cross lets it go.
  *
  * Nothing outside a run, where there is no birth to pin.

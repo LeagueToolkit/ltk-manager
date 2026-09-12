@@ -221,7 +221,7 @@ function EmitterCard({ card, open }: { card: EmitterCardData; open: EmitterGroup
             /* DS-RADIUS, DS-VEIL */
             className={twMerge(
               "cursor-pointer truncate rounded-sm px-1 py-px text-left",
-              open === each.group && aimed === "group"
+              open === each.group
                 ? "bg-accent-500/15 text-accent-300"
                 : "text-surface-400 hover:bg-surface-veil hover:text-surface-200",
             )}

@@ -51,7 +51,7 @@ export function ShellCrumb({ system }: { system: string }) {
       {card !== undefined && group !== null && (
         <>
           <CrumbCaret />
-          <GroupSegment card={card} group={group} on={target === "group"} />
+          <GroupSegment card={card} group={group} />
         </>
       )}
     </nav>
@@ -86,16 +86,14 @@ function CrumbSegment({
   );
 }
 
-/** The last segment, which is a menu of the groups the emitter sets. */
-function GroupSegment({
-  card,
-  group,
-  on,
-}: {
-  card: EmitterCardData;
-  group: EmitterGroup;
-  on: boolean;
-}) {
+/**
+ * The last segment, which is a menu of the groups the emitter sets.
+ *
+ * It names the group last picked and never the one on screen, so its own label holds
+ * still under the pointer. "The crumb holds still and the header moves" in
+ * docs/ux/BIN_EDITOR.md.
+ */
+function GroupSegment({ card, group }: { card: EmitterCardData; group: EmitterGroup }) {
   const { chooseGroup } = useEmitters();
 
   return (
@@ -105,10 +103,7 @@ function GroupSegment({
           <button
             type="button"
             /* DS-RADIUS, DS-VEIL */
-            className={twMerge(
-              "flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5",
-              on ? "bg-accent-500/15 text-accent-300" : "text-surface-400 hover:bg-surface-veil",
-            )}
+            className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-surface-400 hover:bg-surface-veil"
           >
             {GROUP_TITLE[group]()}
             <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0" />

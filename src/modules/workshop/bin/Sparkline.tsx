@@ -1,3 +1,5 @@
+import { twMerge } from "@/utils";
+
 import { plotOf } from "./curvePlot";
 import type { CurveKey } from "./valueRows";
 
@@ -13,8 +15,17 @@ const HEIGHT = 14;
  * reader goes for the numbers. The channels share one colour at this size, where the
  * dock's graph tells them apart.
  */
-export function Sparkline({ keys, label }: { keys: readonly CurveKey[]; label: string }) {
-  const plot = plotOf(keys, { width: WIDTH, height: HEIGHT, margin: 0 });
+export function Sparkline({
+  keys,
+  label,
+  wide = false,
+}: {
+  keys: readonly CurveKey[];
+  label: string;
+  /** The line takes the rest of its band, as a field row's own line gives it. */
+  wide?: boolean;
+}) {
+  const plot = plotOf(keys, { width: WIDTH, height: HEIGHT, margin: wide ? 1 : 0 });
   if (plot === null || plot.lines.length === 0) return null;
 
   return (
@@ -23,7 +34,12 @@ export function Sparkline({ keys, label }: { keys: readonly CurveKey[]; label: s
       aria-label={label}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="none"
-      className="h-3.5 w-10 shrink-0 text-surface-400"
+      /* DS-GROUND, DS-VEIL, DS-RADIUS: an inset plate, so the line sits under the row rather
+         than on it. */
+      className={twMerge(
+        "shrink-0 text-surface-400",
+        wide ? "h-5 w-48 rounded-sm border border-surface-veil bg-surface-950/40" : "h-3.5 w-10",
+      )}
     >
       {plot.lines.map((points, at) => (
         <polyline

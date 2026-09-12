@@ -157,7 +157,6 @@ function choice(over: Partial<EmitterChoice> = {}): EmitterChoice {
     read: "bands",
     spark: [],
     report: vi.fn(),
-    reportInView: vi.fn(),
     openRows: new Set(),
     toggleRow: vi.fn(),
     ...over,

@@ -500,11 +500,6 @@ function declaredAsked(): string[] {
     .flatMap(([, args]) => (args as { objectHashes: string[] }).objectHashes);
 }
 
-/** The inspector's bar of group names, which the crumb's own nav is told apart from. */
-function jumpBar() {
-  return within(screen.getByRole("navigation", { name: "The groups this emitter sets" }));
-}
-
 /** A box `height` tall from `top`, as the layout a test stands in for measures one. */
 function rect(top: number, height: number): DOMRect {
   const box = { x: 0, y: top, top, bottom: top + height, left: 0, right: 100, width: 100, height };
@@ -525,12 +520,19 @@ function cardChip(group: string): HTMLElement {
   return held;
 }
 
-/** The inspector line a field's name sits on, which holds that field's own controls. */
+/**
+ * The inspector line a field's name sits on, which holds that field's own controls.
+ *
+ * Retried rather than awaited once, because the curve pane lists the same field names and
+ * can answer the first match before the inspector has drawn a row at all.
+ */
 async function fieldRow(name: string): Promise<HTMLElement> {
-  const cells = await screen.findAllByText(name);
-  const line = cells.map((cell) => cell.closest<HTMLElement>("[data-row-key]")).find(Boolean);
-  if (line == null) throw new Error(name);
-  return line;
+  return await waitFor(() => {
+    const cells = screen.getAllByText(name);
+    const line = cells.map((cell) => cell.closest<HTMLElement>("[data-row-key]")).find(Boolean);
+    if (line == null) throw new Error(name);
+    return line;
+  });
 }
 
 describe("ClassView over a particle system", () => {
@@ -637,35 +639,16 @@ describe("ClassView over a particle system", () => {
     expect(await screen.findByText("lifetime")).toBeInTheDocument();
   });
 
-  it("names every group the emitter sets in a bar of its own, and no other", async () => {
-    renderSystem();
-    await screen.findByText("lifetime");
-
-    for (const group of ["Emission", "Birth", "Position", "Texture", "Render", "Material"]) {
-      expect(jumpBar().getByRole("button", { name: group })).toBeInTheDocument();
-    }
-    expect(jumpBar().queryByRole("button", { name: "Scale" })).toBeNull();
-  });
-
-  it("draws only the group its tab names, and every group again from All", async () => {
+  it("leaves every group drawn when a chip picks one, because picking scrolls rather than filters", async () => {
     renderSystem();
     const user = userEvent.setup();
     await screen.findByText("lifetime");
 
-    await user.click(jumpBar().getByRole("button", { name: "Position" }));
+    await user.click(cardChip("Position"));
 
     expect(await screen.findByText("SpawnShape")).toBeInTheDocument();
-    expect(screen.queryByText("lifetime")).toBeNull();
-    expect(screen.queryByText("blendMode")).toBeNull();
-
-    await user.click(jumpBar().getByRole("button", { name: "All" }));
-
-    expect(await screen.findByText("lifetime")).toBeInTheDocument();
+    expect(screen.getByText("lifetime")).toBeInTheDocument();
     expect(screen.getByText("blendMode")).toBeInTheDocument();
-    expect(jumpBar().getByRole("button", { name: "All" })).toHaveAttribute(
-      "aria-current",
-      "location",
-    );
   });
 
   it("draws every group the emitter sets at once, each a section of its own", async () => {
@@ -740,17 +723,21 @@ describe("ClassView over a particle system", () => {
     expect(await screen.findByRole("img", { name: "Animated" })).toBeInTheDocument();
   });
 
-  it("marks the group a card's chip chooses in the jump bar", async () => {
+  it("scrolls to the group a card's chip chooses", async () => {
+    const scrolled = vi.fn();
+    const native = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrolled;
+    onTestFinished(() => {
+      Element.prototype.scrollIntoView = native;
+    });
     renderSystem();
     const user = userEvent.setup();
     await screen.findByText("SpawnShape");
+    scrolled.mockClear();
 
     await user.click(cardChip("Position"));
 
-    expect(jumpBar().getByRole("button", { name: "Position" })).toHaveAttribute(
-      "aria-current",
-      "location",
-    );
+    expect(scrolled.mock.contexts).toContain(section("Position").closest("section"));
   });
 
   it("dims an emitter its own field disables", async () => {
@@ -900,14 +887,12 @@ describe("The shell frame", () => {
     expect(scrolled.mock.contexts).toContain(section("Emission").closest("section"));
   });
 
-  it("names the group scrolled into view on the crumb's last segment", async () => {
+  it("holds the crumb's group segment still while the pane scrolls", async () => {
     renderSystem();
     await screen.findByText("lifetime");
-    const titles = jumpBar()
-      .getAllByRole("button")
-      .map((each) => each.textContent ?? "")
-      .filter((title) => title !== "All");
-    const sections = titles.map((title) => section(title).closest("section") as HTMLElement);
+    const sections = ["Emission", "Birth", "Position"].map(
+      (title) => section(title).closest("section") as HTMLElement,
+    );
     const pane = sections[0]?.parentElement as HTMLElement;
 
     /* The first section scrolled up until its last sliver shows, the second under it. */
@@ -925,8 +910,8 @@ describe("The shell frame", () => {
 
     fireEvent.scroll(pane);
 
-    expect(await crumb().findByRole("button", { name: titles[1] })).toBeInTheDocument();
-    expect(crumb().queryByRole("button", { name: titles[0] })).not.toBeInTheDocument();
+    expect(crumb().getByRole("button", { name: "Emission" })).toBeInTheDocument();
+    expect(crumb().queryByRole("button", { name: "Birth" })).not.toBeInTheDocument();
   });
 
   it("aims the crumb at the emitter when a card names itself", async () => {
@@ -1033,7 +1018,8 @@ describe("The shell frame", () => {
     await user.click(await line.findByRole("button", { name: "Show curve" }));
     await screen.findByText("Glow [0] . rate");
 
-    await user.click(jumpBar().getByRole("button", { name: "Position" }));
+    await user.click(crumb().getByRole("button", { name: "Emission" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Position" }));
 
     expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
     expect(screen.getByText("Glow [0] . rate")).toBeInTheDocument();
@@ -1096,17 +1082,14 @@ describe("The shell frame", () => {
     expect(onShowInProperties).toHaveBeenCalledWith(`${ENTRY}:${GLOW}.${at("lifetime")}`);
   });
 
-  it("marks the group a chip chooses in the inspector's jump bar", async () => {
+  it("names the group a chip chooses on the crumb's last segment", async () => {
     renderSystem();
     const user = userEvent.setup();
     await showCards(user);
 
     await user.click(cardChip("Position"));
 
-    expect(jumpBar().getByRole("button", { name: "Position" })).toHaveAttribute(
-      "aria-current",
-      "location",
-    );
+    expect(await crumb().findByRole("button", { name: "Position" })).toBeInTheDocument();
   });
 
   it("draws the panel under the strip once the pane is too narrow for a shell", async () => {
@@ -1130,10 +1113,6 @@ describe("The shell frame", () => {
     await resizeTo(NARROW);
 
     expect(screen.getByText("VfxShapeSphere")).toBeInTheDocument();
-    expect(jumpBar().getByRole("button", { name: "Position" })).toHaveAttribute(
-      "aria-current",
-      "location",
-    );
     expect(
       screen.queryByRole("navigation", { name: "What the inspector draws" }),
     ).not.toBeInTheDocument();

@@ -229,6 +229,8 @@ interface FieldRowProps {
   width?: string;
   /** The class the field is read on, for the revisions its card draws. */
   owner?: string | null;
+  /** The roll rail's segment, which only a layout with a roll to draw gives it. */
+  rail?: ReactNode;
 }
 
 /**
@@ -237,29 +239,32 @@ interface FieldRowProps {
  * "A row is shaped as its input" in docs/ux/BIN_EDITOR.md. The name is the field card's
  * trigger, and every layout drawing field rows draws this one.
  */
-export function FieldRow({ row, width = "w-40", owner = null }: FieldRowProps) {
+export function FieldRow({ row, width = "w-40", owner = null, rail }: FieldRowProps) {
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
   const document = use(RowDocumentContext);
   const folds = family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
   const caret = document !== null && folds && <FoldCaret open={open} onToggle={toggle} />;
+  const name = <FieldName row={row} width={width} owner={owner} caret={caret} />;
+  const nested = document !== null && folds && open && (
+    <NestedRows document={document} row={row} width={width} />
+  );
 
   return (
     <>
       {/* DS-VEIL, DS-RADIUS */}
       <div
-        className="flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
+        className="relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft"
         data-row-key={rowKey(row)}
       >
-        <FieldName row={row} width={width} owner={owner} caret={caret} />
-        {family !== null && <ValueCell row={row} shaped />}
+        {rail}
+        {name}
+        {family !== null && <ValueCell row={row} shaped railed={rail !== undefined} />}
         {family === null && axes !== null && <AxisCells values={axes} />}
         {family === null && axes === null && <RowValue row={row} />}
       </div>
-      {document !== null && folds && open && (
-        <NestedRows document={document} row={row} width={width} />
-      )}
+      {nested}
     </>
   );
 }
@@ -367,7 +372,16 @@ function FieldName({ row, width, owner, caret }: FieldNameProps) {
  * answered the keys, and the mark where it read only that there are some. `shaped` is a
  * field row, whose vector takes tinted columns and whose scalar carries its unit.
  */
-export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boolean }) {
+export function ValueCell({
+  row,
+  shaped = false,
+  railed = false,
+}: {
+  row: BinRow;
+  shaped?: boolean;
+  /** The layout draws a roll rail, which already says when the table is re-rolled. */
+  railed?: boolean;
+}) {
   const mark = useValueMark(rowKey(row));
   const keys = sparkKeys(mark);
   const { aim } = useCurveDock();
@@ -386,6 +400,7 @@ export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boole
               <Sparkline
                 keys={keys}
                 label={m.workshop_bin_curve_keys_label({ count: keys.length })}
+                wide={shaped}
               />
             )}
             {keys.length === 0 && (
@@ -397,7 +412,7 @@ export function ValueCell({ row, shaped = false }: { row: BinRow; shaped?: boole
               />
             )}
           </Trigger>
-          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} />
+          <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
         </span>
       )}
     </span>
@@ -415,19 +430,23 @@ function RandomChip({
   mark,
   chain,
   shaped,
+  railed,
 }: {
   row: BinRow;
   mark: ValueMark | undefined;
   chain: string;
   shaped: boolean;
+  railed: boolean;
 }) {
   const { aim } = useCurveDock();
   const draw = randomDraw(mark);
   const summary = draw === null ? null : drawSummary(draw);
   if (mark === undefined || (mark.slots !== undefined && summary === null)) return null;
 
+  /* A rail already says a per-frame table where the layout draws one, per "The row's two
+     triggers" in docs/ux/BIN_EDITOR.md, so the chip reads the shape rather than saying it twice. */
   const flickers =
-    summary !== null && summary.kind !== "broken" && rerollsEveryFrame(ownField(row));
+    !railed && summary !== null && summary.kind !== "broken" && rerollsEveryFrame(ownField(row));
   /* The value column draws the range already where it could read one. */
   const ranged = shaped && markRanges(mark) !== null;
   const text = summary === null ? null : summaryText(summary, mark.family, ranged);

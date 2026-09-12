@@ -73,8 +73,6 @@ export interface EmitterChoice {
   readonly spark: readonly BinRow[];
   /** A section says how much of it is worth reading, which is what bounds the read. */
   readonly report: (group: EmitterGroup, read: SectionRead) => void;
-  /** The inspector of card `key` says which group it has in view, null before it measures. */
-  readonly reportInView: (key: string, group: EmitterGroup | null) => void;
   /** The struct and list rows held open, by their path under the emitter, on every emitter. */
   readonly openRows: ReadonlySet<string>;
   readonly toggleRow: (path: string) => void;
@@ -108,7 +106,6 @@ const NO_EMITTERS: EmitterChoice = {
   read: "bands",
   spark: NO_MARKED,
   report: () => {},
-  reportInView: () => {},
   openRows: NO_OPEN_ROWS,
   toggleRow: () => {},
 };
@@ -139,7 +136,6 @@ export function useEmitterChoice(
   const childCard = useChildCard(document, child);
   const [mode, setMode] = useState<EmitterMode>("cards");
   const [filter, setFilter] = useState("");
-  const [viewed, setViewed] = useState<Chosen | null>(null);
   const [jumpRequest, setJumpRequest] = useState(0);
   const [openRows, setOpenRows] = useState(NO_OPEN_ROWS);
   const toggleRow = useCallback((path: string) => {
@@ -166,12 +162,10 @@ export function useEmitterChoice(
     [child, rootOpen, childChosen, childCard],
   );
   const card = child === null ? root : childCard;
-  const inView = viewed !== null && viewed.key === card?.key ? viewed.group : null;
-  const group = card === undefined ? null : (inView ?? open?.group ?? null);
-
-  const reportInView = useCallback((key: string, next: EmitterGroup | null) => {
-    setViewed((last) => (last?.key === key && last.group === next ? last : { key, group: next }));
-  }, []);
+  /* The group last picked, never the one on screen, so the crumb's own segment holds still
+     while a reader scrolls. "The crumb holds still and the header moves" in
+     docs/ux/BIN_EDITOR.md. */
+  const group = card === undefined ? null : (open?.group ?? null);
 
   /* A group of the child's own card keeps the child, and a card of the system leaves it. */
   const childKey = childCard?.key;
@@ -183,7 +177,7 @@ export function useEmitterChoice(
         setChild(null);
         setChosen(next);
       }
-      setTarget("group");
+      setTarget("emitter");
       setJumpRequest((count) => count + 1);
     },
     [childKey],
@@ -226,10 +220,9 @@ export function useEmitterChoice(
   /* A stack draws the panel under the strip, so its table takes the panel's place. A
      shell draws it in the column beside, where a table takes neither. */
   const drawn = frame === "shell" || mode === "cards";
-  const focus = open?.group ?? null;
   const shown = useMemo(
-    () => (drawn ? shownGroups(target, card, focus) : NO_GROUPS),
-    [drawn, target, card, focus],
+    () => (drawn ? shownGroups(target, card) : NO_GROUPS),
+    [drawn, target, card],
   );
   const marked = useMemo(
     () => [
@@ -269,7 +262,6 @@ export function useEmitterChoice(
       read: DRAWN_READ,
       spark,
       report,
-      reportInView,
       openRows,
       toggleRow,
     }),
@@ -293,7 +285,6 @@ export function useEmitterChoice(
       marked,
       spark,
       report,
-      reportInView,
       openRows,
       toggleRow,
     ],
@@ -330,15 +321,13 @@ export function useEmitterMarks(
 /**
  * The groups one target draws, which is what the inspector holds and what it marks.
  *
- * An emitter target draws every group it sets and a group target the one its tab names,
- * per "The inspector" in docs/ux/BIN_EDITOR.md.
+ * An emitter draws every group it sets whichever one the crumb names, because picking a
+ * group scrolls to it. "The inspector" in docs/ux/BIN_EDITOR.md.
  */
 function shownGroups(
   target: InspectorTarget,
   card: EmitterCardData | undefined,
-  group: EmitterGroup | null,
 ): readonly GroupedRows[] {
   if (target === "system" || card === undefined) return NO_GROUPS;
-  if (target === "group") return card.groups.filter((each) => each.group === group);
   return card.groups;
 }

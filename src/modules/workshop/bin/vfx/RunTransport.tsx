@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { ChancePin } from "../ChancePin";
 import { useRunClock, useVfxRun } from "./run";
 import { Playhead, Transport } from "./Transport";
 
@@ -34,6 +35,7 @@ export function RunTransport({ variant, scrub = true, children, className }: Run
       playhead={<RunPlayhead scrub={scrub} />}
     >
       {children}
+      <ChancePin className="ml-2 shrink" />
     </Transport>
   );
 }
