@@ -23,10 +23,14 @@ class RefusedError extends Error {
 }
 
 /** The hook over one file, with the save the test watches. */
-function draw(saved: string | null, save: (text: string) => Promise<unknown>) {
+function draw(
+  saved: string | null | undefined,
+  save: (text: string) => Promise<unknown>,
+  reader: (error: unknown) => Refusal | null = refusalOf,
+) {
   return renderHook(
-    (props: { saved: string | null; file: string }) =>
-      useTextDocumentEditor<unknown, Refusal>({ ...props, save, refusalOf }),
+    (props: { saved: string | null | undefined; file: string }) =>
+      useTextDocumentEditor<unknown, Refusal>({ ...props, save, refusalOf: reader }),
     { initialProps: { saved, file: "one" } },
   );
 }
@@ -197,5 +201,87 @@ describe("useTextDocumentEditor", () => {
 
     expect(result.current.text).toBe("");
     expect(result.current.saveState).toBe("clean");
+  });
+
+  it("takes no edit before the file is read", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const { result, rerender } = draw(undefined, save);
+
+    act(() => result.current.setText("typed into a file nobody has read"));
+
+    expect(result.current.text).toBe("");
+    await settle(DELAY_MS * 4);
+    expect(save).not.toHaveBeenCalled();
+
+    rerender({ saved: "what the file holds\n", file: "one" });
+    expect(result.current.text).toBe("what the file holds\n");
+  });
+
+  it("writes a buffer once while the file lags behind it", async () => {
+    const save = vi.fn().mockResolvedValue(undefined);
+    const { result } = draw("one\n", save);
+
+    act(() => result.current.setText("two"));
+    await settle();
+    expect(save).toHaveBeenCalledOnce();
+
+    /* The file still reports the old text, and the buffer is not rewritten. */
+    await settle(DELAY_MS * 4);
+    expect(save).toHaveBeenCalledOnce();
+    expect(result.current.saveState).toBe("clean");
+  });
+
+  it("carries on after a save that throws where it stands", async () => {
+    const save = vi.fn(() => {
+      throw new Error("the bridge is gone");
+    });
+    const { result } = draw("one\n", save);
+
+    act(() => result.current.setText("two"));
+    await settle();
+
+    expect(result.current.saveState).toBe("failed");
+
+    act(() => result.current.setText("three"));
+    await settle();
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("carries on when the refusal reader throws", async () => {
+    const save = vi.fn().mockRejectedValue("not an error at all");
+    const reader = () => {
+      throw new TypeError("read a field off nothing");
+    };
+    const { result } = draw("one\n", save, reader);
+
+    act(() => result.current.setText("two"));
+    await settle();
+
+    expect(result.current.saveState).toBe("failed");
+    expect(result.current.refusal).toBeNull();
+  });
+
+  it("leaves the new file alone when a save for the old one answers late", async () => {
+    let land: (reason: unknown) => void = () => {};
+    const save = vi.fn(() => new Promise<void>((_, reject) => (land = reject)));
+    const { result, rerender } = draw("one\n", save);
+
+    act(() => result.current.setText("two"));
+    await settle();
+    expect(result.current.saveState).toBe("saving");
+
+    rerender({ saved: "other\n", file: "two" });
+    await act(async () => {
+      land(new RefusedError(9));
+    });
+
+    expect(result.current.saveState).toBe("clean");
+    expect(result.current.refusal).toBeNull();
+
+    /* The new file's buffer saves on its own, rather than waiting on a write
+       that belonged to the file before it. */
+    act(() => result.current.setText("edited"));
+    await settle();
+    expect(save).toHaveBeenCalledTimes(2);
   });
 });
