@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude      |
 | 2026-09-11 | Maximize a panel from its tab                                           |
 | 2026-09-10 | Give the location and the box the explorer bar's first row              |
 | 2026-09-10 | Set a details row's height, and grab a column boundary that holds       |
@@ -14,7 +15,6 @@
 | 2026-09-09 | Draw a game explorer as tiles, over one location and one selection      |
 | 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere           |
 | 2026-09-05 | Browse the install's objects as a tree, and open one as a tab           |
-| 2026-09-05 | Sniff unnamed chunks, filter by class, and match the project's objects  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1057,6 +1057,7 @@ whatever the editor grid holds.
 | Mod details          | Opens the metadata editor as a document                      |
 | Game index           | Opens the game browser as a document                         |
 | Objects              | Opens the objects browser as a document                      |
+| Ignore rules         | Opens the project's `.modignore` as a document               |
 | Open project folder  | Shows the project directory in the file manager              |
 | Source control (Git) | Version control for the declarative data. Under construction |
 
@@ -1129,6 +1130,10 @@ search is the one exception, and it reads every layer.
 - **Open in VS Code**, on a property bin, when the ritobin integration is set up
 - **Copy Name** and **Copy Relative Path**
 - **Reveal in Explorer**, on the row's own path
+- **Ignore this file**, **Ignore this folder** and **Ignore all `.ext` files**, each writing
+  one line into the project's `.modignore`
+- **Stop ignoring** on a dimmed row the app's own line excluded, or **Show rule** where a
+  broader pattern did
 - **Delete**, on `Del`
 
 #### Deleting a row
@@ -1271,6 +1276,145 @@ These constraints hold wherever it draws.
 - `role="grid"` for a flat list of one directory. A table that keeps the hierarchy stays
   `role="tree"`, because `role="treegrid"` changes what the arrow keys mean and a tree needs
   those keys for expand and collapse
+
+## Ignore rules
+
+A mod project can hold a `.modignore`, and everything that packs the project already reads it.
+Pack filters through it, Test builds the overlay through the same filter, and one pattern that
+does not parse fails the whole pack. What the manager adds is the surface for it, so a package
+stops shipping the Photoshop file next to the textures exported from it.
+
+The rules are gitignore syntax over `content/`. The one thing a creator guesses wrong is where a
+pattern starts, so it is written into the file's own header, repeated on the syntax card, and
+named here: a root pattern anchors at `content/`, which makes `/base/notes.txt` a file in the
+base layer and `/content/base/notes.txt` a match for nothing.
+
+The reasons, the source per default entry and the precedent from other tools are in
+`docs/research/modignore-in-project-editor.md`.
+
+### The file the UI writes
+
+Every action writes `<project>/.modignore`, the root file, whatever layer the row sat in.
+
+A `.modignore` works in any directory under `content/`, anchored at its own directory, and the
+deeper file wins for its subtree. That is a power a project can use and not a choice the app
+makes on a creator's behalf. One file is one place to look when a mod ships a file it should
+not have, where a per-layer file turns that question into a walk. GitHub Desktop writes the
+root `.gitignore` for the same reason.
+
+A nested file is still readable. The tree draws a row for it and the row opens the same
+document against that file.
+
+### The default a project starts with
+
+A new project, a fantome import and a modpkg import are all written a starter file. The text is
+one constant, and it lists the source formats and the editor files that no game path uses,
+grouped under comment headings under a header of four worked examples. The comments are the
+teaching material, which is why the file is not a bare list.
+
+A git import keeps whatever the repository holds, including nothing. The repository is its
+author's, and a file written into a working tree the app did not create is a diff the creator
+did not ask for.
+
+A project that already exists is never written to. The offer lives in the document's empty
+state and in the problems rule, so a creator who deleted an entry on purpose is not given it
+back behind their back.
+
+### What the tree draws
+
+The tree shows dot-entries. A `.mayaSwatches` folder that the packer ships needs a row to act
+on, and hiding it left the default file as the only handling it got.
+
+An excluded row dims. The name drops to `text-surface-400` and the file-kind glyph loses its
+hue for `text-surface-500`, because the hue is the half of a glyph that carries at that size.
+The trailing seat swaps the size for a slashed eye, since a size is a fact about what ships.
+The tooltip hangs off that mark rather than off the row, because the kind glyph already owns
+one, and it names the pattern, the file it came from and its line.
+
+A pruned folder dims, expands, and dims every row inside it.
+
+Nothing else changes. A folder counts what it holds, so one holding a single excluded file out
+of four still reads 4. Rows keep their alphabetical place and a search result carries the same
+treatment. What ships is a property of a row, not a reason to move it.
+
+### The three actions
+
+The row menu holds Ignore this file, Ignore this folder, and Ignore all `.ext` files, in their
+own group above Delete.
+
+| Action                  | What it writes              |
+| ----------------------- | --------------------------- |
+| Ignore this file        | `/<layer>/<relative path>`  |
+| Ignore this folder      | `/<layer>/<relative path>/` |
+| Ignore all `.ext` files | `*.ext`                     |
+
+A path is anchored and names its layer because the file is the root one. An unanchored
+`notes.txt` would match that name in every layer, which is a wider promise than the row the
+creator clicked. Any segment holding `*`, `?`, `[`, `{`, `!` or `#`, or a leading space, is
+escaped with a `\`, since the matcher reads those as syntax.
+
+An extension is written raw. A creator who asks for every `.psd` means every `.psd`.
+
+A toast reports the literal line written, in a `Code` chip, with one sentence of what it means,
+and carries Undo and Open rules. The creator learns the syntax by reading what the app writes.
+
+### Stop ignoring
+
+A dimmed row whose own anchored line the app wrote offers Stop ignoring, which deletes that
+line.
+
+Where a broader pattern matched, the menu reads Show rule instead and opens the document at the
+line that matched. The rule is a decision the creator made about a class of files, and deleting
+it from a row would take out more than the row.
+
+Nothing generates a `!` line. A negation cannot re-include a file under an excluded directory,
+which is git's rule and the matcher's, so an offer to bring one back would fail for exactly the
+rows a creator is most likely to try it on.
+
+### The document
+
+The project row opens Ignore rules as a document, so it sits beside a layer while the creator
+works. Its tab glyph is the slashed eye on a new `doc-ignore` slate token, the one unsaturated
+glyph among the document hues (DS-KIND-HUE).
+
+The text sits left with a sticky syntax rail of about 220px beside it, which folds to a
+disclosure below roughly 560px. A mono gutter carries the line numbers the tooltips cite. The
+toolbar is a `.modignore` chip, Add missing recommended rules where entries are missing, and the
+save state.
+
+It autosaves, following the Strings document, so the tab's dirty state is reserved for a save
+that is blocked or failed.
+
+A save is blocked by a line the matcher cannot compile. The failing line marks its number in
+`danger-text` and the matcher's own message sits in a footer strip beside the save state. The
+backend is what compiles a pattern, so a blocked buffer is a refused write rather than a check
+this side ran first, and the file on disk is unchanged.
+
+**Add missing recommended rules** appends the entries of the default the file does not already
+hold, under a comment naming the day, and leaves everything else alone. Comparison is by pattern
+text. It is an action and never fires on its own.
+
+A project with no file at all renders the default as ghost text behind a centred card, so the
+creator reads what the button writes before pressing it.
+
+### What Pack reports
+
+The pack result carries the count of what the rules left out and the list, made project-relative,
+with a pruned folder as one row and a link to the document. A creator finding an empty layer in a
+package is the failure this closes.
+
+A layer the rules empty is a warning in the pre-flight list, in the shape the other pre-flight
+warnings take. A pattern that does not parse keeps its line number through the pack.
+
+The problems pass gains one rule, for a project with no ignore file at all, whose fix writes the
+default. No rule reports an unignored source file, so a creator who dropped an entry is not told
+twice. The pass and its repairs skip what the rules exclude, because a file that does not ship
+cannot break the game.
+
+### Freshness
+
+A save or an action invalidates the content tree query, which refetches on window focus. An edit
+made in another editor lands when the app is next focused. There is no watcher.
 
 ## The explorers
 
@@ -2041,6 +2185,7 @@ already fills it with a layer name. The rule above sets when that field shows.
 | Mod details  | The project metadata form                          |
 | Layer files  | The file tree of one layer                         |
 | Strings      | The override table for one layer and locale        |
+| Ignore rules | The project's `.modignore` as text                 |
 | Game index   | Every archive of the install, folded into one tree |
 | Game WADs    | The list of the install's archives                 |
 | Game archive | The file tree of one archive of the install        |

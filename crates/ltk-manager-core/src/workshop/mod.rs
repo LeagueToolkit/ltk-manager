@@ -1,5 +1,6 @@
 mod chunk_names;
 mod content;
+mod ignore_rules;
 pub mod layer;
 mod layers;
 mod packing;
@@ -7,6 +8,10 @@ mod projects;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
+pub use ignore_rules::{
+    IgnoreRuleProblem, IgnoreRules, RECOMMENDED_IGNORE_RULES, ignore_rule_problem,
+    missing_recommended_rules, with_recommended_rules,
+};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
@@ -33,6 +38,10 @@ pub enum WorkshopError {
     /// One or more files already exist in the target layer directory.
     #[error("File(s) already exist in target layer: {conflicts:?}")]
     LayerFileConflict { conflicts: Vec<String> },
+
+    /// A `.modignore` line the matcher cannot compile, which held its save back.
+    #[error("Invalid ignore rule on line {line}: {message}")]
+    IgnoreRulePattern { line: u32, message: String },
 }
 
 /// Managed struct that encapsulates workshop operations.

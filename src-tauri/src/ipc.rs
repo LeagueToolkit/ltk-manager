@@ -52,6 +52,11 @@ migrated![
     telemetry_identity,
     reset_telemetry_secret,
     track_ui_error,
+    // Workshop ignore rules
+    get_project_ignore_rules,
+    recommended_ignore_rules,
+    save_project_ignore_rules,
+    add_recommended_ignore_rules,
     // Launcher
     check_install_mismatch,
     switch_league_install,

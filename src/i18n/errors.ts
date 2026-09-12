@@ -209,6 +209,10 @@ export function describeWorkshopError(error: WorkshopError): ErrorCopy {
       title: m["workshop.LAYER_FILE_CONFLICT.title"](),
       ...(conflicts.length > 0 && { description: conflictSentence(conflicts) }),
     }))
+    .with({ kind: "IGNORE_RULE_PATTERN" }, ({ line, message }) => ({
+      title: m["workshop.IGNORE_RULE_PATTERN.title"](),
+      description: m["workshop.IGNORE_RULE_PATTERN.description"]({ line, message }),
+    }))
     .exhaustive();
 }
 

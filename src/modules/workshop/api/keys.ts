@@ -12,6 +12,8 @@ export const workshopKeys = {
     [...workshopKeys.layerInfo(path), JSON.stringify([...layerNames].sort())] as const,
   contentTree: (path: string) => [...workshopKeys.project(path), "contentTree"] as const,
   problems: (path: string) => [...workshopKeys.project(path), "problems"] as const,
+  ignoreRules: (path: string) => [...workshopKeys.project(path), "ignoreRules"] as const,
+  recommendedIgnoreRules: () => [...workshopKeys.all, "recommendedIgnoreRules"] as const,
   stringKeySearch: (query: string) => [...workshopKeys.all, "stringKeySearch", query] as const,
   stringValues: (keys: readonly string[]) => [...workshopKeys.all, "stringValues", keys] as const,
   gameExtractPlan: (targets: readonly unknown[] | null) =>

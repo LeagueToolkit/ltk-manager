@@ -1,4 +1,5 @@
 import {
+  EyeSlashIcon,
   FileArchiveIcon,
   FilesIcon,
   MagnifyingGlassIcon,
@@ -28,6 +29,7 @@ import {
   useExtractActions,
   wadBasename,
 } from "../gameBrowser";
+import { IgnoreRulesDocument } from "../ignore-rules";
 import { ObjectsDocument, useRevealInObjects } from "../objectsBrowser";
 import { assetPath, PreviewDocument } from "../preview";
 import { ProblemsDocument } from "../problems";
@@ -74,6 +76,11 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         context: layerTitle(project, document.layerName),
       }),
       component: StringsDocument,
+    },
+    "ignore-rules": {
+      icon: () => <EyeSlashIcon className="h-4 w-4 shrink-0 text-doc-ignore-text" />,
+      label: () => ({ title: m.workshop_ignore_title(), path: project.path }),
+      component: IgnoreRulesDocument,
     },
     problems: {
       icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,

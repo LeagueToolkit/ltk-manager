@@ -116,7 +116,9 @@ impl Workshop {
         );
         fs::write(project_dir.join("README.md"), readme_content)?;
 
-        ProjectDir::open(project_dir)?.load()
+        let dir = ProjectDir::open(project_dir)?;
+        dir.write_default_ignore_rules()?;
+        dir.load()
     }
 
     /// Get a single workshop project by path.
@@ -291,7 +293,11 @@ impl Workshop {
 
         long_paths::verify_unpacked(project_dir, ImportRoot::Workshop)?;
 
-        ProjectDir::open(project_dir)?.load()
+        /* An archive carries no ignore file, and a creator who adds sources to
+        what it unpacked wants what a new project gets. */
+        let dir = ProjectDir::open(project_dir)?;
+        dir.write_default_ignore_rules()?;
+        dir.load()
     }
 
     fn emit_fantome_progress(&self, progress: FantomeImportProgress) {
@@ -332,7 +338,9 @@ impl Workshop {
             return Err(modpkg_import_error(e));
         }
 
-        ProjectDir::open(project_dir)?.load()
+        let dir = ProjectDir::open(project_dir)?;
+        dir.write_default_ignore_rules()?;
+        dir.load()
     }
 
     /// Import a project from a GitHub repository by downloading and extracting its tarball.

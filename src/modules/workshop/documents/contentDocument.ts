@@ -24,6 +24,10 @@ interface ProblemsDoc extends EditorDocumentBase {
   kind: "problems";
 }
 
+interface IgnoreRulesDoc extends EditorDocumentBase {
+  kind: "ignore-rules";
+}
+
 interface GameDoc extends EditorDocumentBase {
   kind: "game";
 }
@@ -79,6 +83,7 @@ export type ContentDocument =
   | FilesDoc
   | StringsDoc
   | ProblemsDoc
+  | IgnoreRulesDoc
   | GameDoc
   | GameWadsDoc
   | GameWadDoc
@@ -106,6 +111,13 @@ export function filesDocument(layerName: string): ContentDocument {
 
 export function stringsDocument(layerName: string, locale: string): ContentDocument {
   return { id: `strings:${layerName}:${locale}`, kind: "strings", layerName, locale };
+}
+
+/** A project has one root `.modignore`, so its document needs nothing to key on. */
+export const IGNORE_RULES_DOCUMENT_ID = "ignore-rules";
+
+export function ignoreRulesDocument(): ContentDocumentOf<"ignore-rules"> {
+  return { id: IGNORE_RULES_DOCUMENT_ID, kind: "ignore-rules" };
 }
 
 /** A run covers the whole project, so its document needs nothing to key on. */

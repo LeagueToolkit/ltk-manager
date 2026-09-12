@@ -50,12 +50,16 @@
   --ltk-doc-strings: #34d399;
   --ltk-doc-game: #fb7185;
   --ltk-doc-problems: #f97316;
+  /* Unsaturated among six hues, because the rules are the one document that
+     describes the others rather than holding content of its own. */
+  --ltk-doc-ignore: #94a3b8;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
   --ltk-doc-strings-text: var(--ltk-doc-strings);
   --ltk-doc-game-text: var(--ltk-doc-game);
   --ltk-doc-problems-text: var(--ltk-doc-problems);
+  --ltk-doc-ignore-text: var(--ltk-doc-ignore);
 
   /* The folder of a tree row. */
   --ltk-folder: #dcb67a;
@@ -96,6 +100,7 @@
   --ltk-doc-strings-text: color-mix(in srgb, var(--ltk-doc-strings) 50%, black);
   --ltk-doc-game-text: color-mix(in srgb, var(--ltk-doc-game) 50%, black);
   --ltk-doc-problems-text: color-mix(in srgb, var(--ltk-doc-problems) 50%, black);
+  --ltk-doc-ignore-text: color-mix(in srgb, var(--ltk-doc-ignore) 50%, black);
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
