@@ -26,8 +26,7 @@ interface DocumentsSidebarProps {
 }
 
 /**
- * What one mod is, its readme, and the library's licenses, in a panel the
- * reader opened.
+ * What one installed mod is, in a panel the reader opened.
  *
  * Draws on the page ground with a hairline, the way the toolbar and the session
  * bar already do, which is what lets a rendered document sit on the ground with
@@ -81,7 +80,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
           </Tooltip>
         </div>
 
-        <Header tab={tab} mod={openMod} />
+        <Header mod={openMod} />
 
         <Tabs.Panel value="details" className="mt-0 flex min-h-0 flex-1 flex-col">
           <DetailsTab mod={openMod} missing={missing} />
@@ -90,7 +89,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
           <ReadmeTab mod={openMod} missing={missing} />
         </Tabs.Panel>
         <Tabs.Panel value="licenses" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <LicensesTab mods={mods} />
+          <LicensesTab mod={openMod} missing={missing} />
         </Tabs.Panel>
       </Tabs.Root>
     </div>
@@ -104,18 +103,17 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
  * the pointer as one mod's name gives way to another's, and a long one has
  * somewhere to go.
  */
-function Header({ tab, mod }: { tab: DocumentsTab; mod: InstalledMod | null }) {
+function Header({ mod }: { mod: InstalledMod | null }) {
   return (
     <div className="flex shrink-0 items-center border-b border-surface-700 px-3 py-2 select-none">
       <p className="min-w-0 flex-1 truncate text-row font-medium text-surface-200 select-text">
-        {headerTitle(tab, mod)}
+        {headerTitle(mod)}
       </p>
     </div>
   );
 }
 
-function headerTitle(tab: DocumentsTab, mod: InstalledMod | null): string {
-  if (tab === "licenses") return m.library_documents_library_wide_label();
+function headerTitle(mod: InstalledMod | null): string {
   if (mod) return mod.displayName;
   return m.library_documents_no_mod_title();
 }

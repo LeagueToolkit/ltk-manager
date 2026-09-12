@@ -13,15 +13,19 @@ beforeEach(() => {
 });
 
 describe("the toolbar toggle", () => {
-  /* The tab a panel opens on follows the intent of what opened it, and the
-     toolbar's intent is library-wide. */
-  it("opens the panel on the tab that needs no mod", async () => {
+  /* Every tab answers for one mod, so the toolbar has no tab of its own to land
+     on and reopens wherever the reader left the panel. */
+  it("reopens on the mod and the tab the panel was left on", async () => {
+    useLibrarySidebarStore.setState({ open: false, tab: "licenses", modId: "a" });
     render(<DocumentsToggle />);
 
     await userEvent.click(screen.getByRole("button", { name: "Documents" }));
 
-    expect(useLibrarySidebarStore.getState().open).toBe(true);
-    expect(useLibrarySidebarStore.getState().tab).toBe("licenses");
+    expect(useLibrarySidebarStore.getState()).toMatchObject({
+      open: true,
+      tab: "licenses",
+      modId: "a",
+    });
   });
 
   it("closes the panel again and says which state it is in", async () => {

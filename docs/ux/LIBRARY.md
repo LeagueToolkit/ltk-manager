@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | The licenses tab follows the open mod, like the other two  |
 | 2026-09-12 | A right click reads a card and no longer picks it          |
 | 2026-09-12 | The details tab, which folds the three mod dialogs in      |
 | 2026-09-12 | The documents panel, its two tabs and what it persists     |
@@ -55,7 +56,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | The documents panel    | Available | A right-edge panel on a seam, closed until asked for          |
 | The details tab        | Available | One mod's cover, facts, layers, WAD footprint and edit form   |
 | The readme tab         | Available | One mod's readme, opened from that card's menu                |
-| The licenses tab       | Available | Every mod's license name, grouped, a row expanding to text    |
+| The licenses tab       | Available | One mod's license name, its link, and the text it ships       |
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
 | Marquee selection      | Proposed  | Competes with drag-to-reorder for the same press              |
 | Folder moves on a pick | Proposed  | A selection carries no destination today                      |
@@ -166,14 +167,14 @@ makes it concrete. The selection is session state and is never written to disk.
 ## The documents panel
 
 The Library's right edge holds a panel with three tabs: **Details**, which answers what one
-installed mod is, **Readme**, which renders that mod's own readme, and **Licenses**, which lists
-every installed mod and what it is licensed under. It is closed until a reader opens it, and
-opening it narrows the grid rather than covering the cards.
+installed mod is, **Readme**, which renders that mod's own readme, and **Licenses**, which names
+what that mod is licensed under. All three answer for the one mod the panel holds. It is closed
+until a reader opens it, and opening it narrows the grid rather than covering the cards.
 
-**Three affordances open it, at the two scopes a menu has.** The toolbar's Documents toggle is
-library-wide and lands on Licenses, which needs no mod and is already full. A card's `Details`
-item aims the panel at that mod and lands on Details, and its `Readme` item lands on Readme. The
-tab a panel opens on follows the intent of what opened it.
+**A card's menu aims the panel, and the toolbar only shows or hides it.** The `Details` item lands
+on Details and the `Readme` item lands on Readme, so the tab follows the intent of what opened it.
+The toolbar's Documents toggle names no mod of its own, so it reopens on the mod and the tab the
+panel was last left on.
 
 There is no gesture on the card itself. A bare press is the switch, so a double-press would flip
 `enabled` twice on the way to a readme, and the selection is a set with no notion of one readable
@@ -233,21 +234,24 @@ about a mod becomes a section of Details rather than a tab of its own.
 
 ### The licenses tab
 
-The tab is library-wide and does not follow whichever mod the Readme tab holds. That is what
-makes it an audit rather than a line: every all-rights-reserved mod in one block, every
-undeclared one in another. Rows group by license name and the tab searches, over the mod's name
-and the license's alike.
+The tab answers for the mod the panel holds, the way Readme does. A reader asking what they are
+allowed to do with a mod is asking about the mod in front of them, and a list of every other mod's
+license is not the answer to that question.
+
+It draws the name the mod declares, the link beside it where there is one, and the text the
+archive carries.
 
 Three states are told apart, because the middle one is the common one:
 
-- a mod that declares a name and carries the file, which expands to its text
-- a mod that declares a name and carries **no** file, which says so on expanding
-- a mod that declares neither, which reads as not declared and has nothing to expand
+- a mod that declares a name and carries the file, which shows its text
+- a mod that declares a name and carries **no** file, which says exactly that
+- a mod that declares neither, which reads as undeclared and opens no archive at all
 
 The name costs nothing, because it rides in the `mod.config.json` a listing already opens. The
-text is on disk for neither format, so expanding a row mounts that mod's archive, and the answer
-is held for the session and never written to disk. A license renders preformatted rather than as
-Markdown, because it is a hard-wrapped plain-text file and Markdown mangles it.
+text is on disk for neither format, so reading it mounts that mod's archive, and the answer is
+held for the session and never written to disk. That is why a mod naming no license is worth
+telling apart early: there is nothing to mount for it. A license renders preformatted rather than
+as Markdown, because it is a hard-wrapped plain-text file and Markdown mangles it.
 
 ### What survives, and what the width does
 
@@ -272,32 +276,32 @@ not also drop the selection.
 
 ## Decided questions
 
-| Question                                        | Answer                                                      |
-| ----------------------------------------------- | ----------------------------------------------------------- |
-| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in         |
-| What does a bare click do under a selection?    | Switches that mod, as it always does                        |
-| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                       |
-| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                          |
-| Is there a marquee?                             | No. It competes with drag-to-reorder for one press          |
-| What does the toolbar button do?                | Select all visible, or clear once they all are              |
-| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection           |
-| Does a right click change the pick?             | No. It reads the card and leaves the selection alone        |
-| What does a right click open over a pick?       | The card's own menu, the same one the kebab draws           |
-| Where do a selection's own commands live?       | The floating bar, which is up whenever a selection is       |
-| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there      |
-| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                           |
-| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press                |
-| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see              |
-| Is the selection written to disk?               | No. It is session state                                     |
-| Does the documents panel cover the cards?       | No, above 760px. It narrows the grid and floats below it    |
-| What opens it, and on which tab?                | The toolbar on Licenses, a card's menu on Details or Readme |
-| Where does a mod's metadata get edited?         | In the Details tab, in place. No dialog is left to open     |
-| Does Details replace the card's layer popover?  | No. That is a different gesture at a different scope        |
-| When is a mod's WAD footprint analysed?         | On the first expand of its fold, never on drawing the tab   |
-| Does the Readme item hide for a mod with none?  | No. Presence is unknown until the archive opens             |
-| Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held         |
-| Does the licenses tab follow the opened mod?    | No. It is library-wide, which is what makes it an audit     |
-| Is a license text cached to disk?               | No. It is read once per session and held in memory          |
+| Question                                        | Answer                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------- |
+| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in        |
+| What does a bare click do under a selection?    | Switches that mod, as it always does                       |
+| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                      |
+| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                         |
+| Is there a marquee?                             | No. It competes with drag-to-reorder for one press         |
+| What does the toolbar button do?                | Select all visible, or clear once they all are             |
+| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection          |
+| Does a right click change the pick?             | No. It reads the card and leaves the selection alone       |
+| What does a right click open over a pick?       | The card's own menu, the same one the kebab draws          |
+| Where do a selection's own commands live?       | The floating bar, which is up whenever a selection is      |
+| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there     |
+| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                          |
+| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press               |
+| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see             |
+| Is the selection written to disk?               | No. It is session state                                    |
+| Does the documents panel cover the cards?       | No, above 760px. It narrows the grid and floats below it   |
+| What opens it, and on which tab?                | A card's menu on Details or Readme. The toolbar reopens it |
+| Where does a mod's metadata get edited?         | In the Details tab, in place. No dialog is left to open    |
+| Does Details replace the card's layer popover?  | No. That is a different gesture at a different scope       |
+| When is a mod's WAD footprint analysed?         | On the first expand of its fold, never on drawing the tab  |
+| Does the Readme item hide for a mod with none?  | No. Presence is unknown until the archive opens            |
+| Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held        |
+| Does the licenses tab follow the opened mod?    | Yes. Every tab in the panel answers for the one mod        |
+| Is a license text cached to disk?               | No. It is read once per session and held in memory         |
 
 ## Open questions
 

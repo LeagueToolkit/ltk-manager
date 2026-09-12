@@ -36,7 +36,7 @@ interface LibrarySidebarStore extends SidebarView {
    * from a width the reader chose.
    */
   split: Record<string, number> | null;
-  /** Open the panel on the library-wide tab, or close it. */
+  /** Show the panel, or hide it, on whichever tab it was left. */
   toggle: () => void;
   close: () => void;
   showTab: (tab: DocumentsTab) => void;
@@ -83,14 +83,13 @@ export const useLibrarySidebarStore = create<LibrarySidebarStore>()(
 
       return {
         open: false,
-        /* The toolbar's own tab: it needs no mod and is full on first open. */
-        tab: "licenses",
+        tab: "details",
         modId: null,
         pending: null,
         dirty: false,
         split: null,
 
-        toggle: () => requestView({ ...view(), open: !get().open, tab: "licenses" }),
+        toggle: () => requestView({ ...view(), open: !get().open }),
         close: () => requestView({ ...view(), open: false }),
         showTab: (tab) => requestView({ ...view(), open: true, tab }),
         showDetails: (modId) => requestView({ open: true, tab: "details", modId }),

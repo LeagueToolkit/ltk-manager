@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -117,51 +117,36 @@ describe("the readme tab", () => {
 });
 
 describe("the licenses tab", () => {
-  const mods = [
-    mod("a", "Alpha", { name: "MIT", url: null }),
-    mod("b", "Beta", { name: "MIT", url: null }),
-    mod("c", "Gamma", null),
-  ];
+  const licensed = mod("a", "Alpha", { name: "MIT", url: "https://opensource.org/mit" });
 
   beforeEach(() => {
-    useLibrarySidebarStore.setState({ tab: "licenses" });
+    useLibrarySidebarStore.setState({ tab: "licenses", modId: "a" });
   });
 
-  it("lists every installed mod under the license it declares", () => {
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
+  it("names the license the open mod declares, and links it", () => {
+    licenseText.mockResolvedValue(answers({ state: "present", text: "MIT License" }));
+
+    renderWithProviders(<DocumentsSidebar mods={[licensed]} />);
 
     expect(screen.getByText("MIT")).toBeInTheDocument();
-    expect(screen.getByText("Not declared")).toBeInTheDocument();
-    for (const name of ["Alpha", "Beta", "Gamma"]) {
-      expect(screen.getByText(name)).toBeInTheDocument();
-    }
+    expect(screen.getByRole("link", { name: "https://opensource.org/mit" })).toBeInTheDocument();
   });
 
-  it("does not follow whichever mod the readme tab holds", () => {
-    useLibrarySidebarStore.setState({ modId: "a" });
-
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-
-    expect(screen.getByText("Gamma")).toBeInTheDocument();
-  });
-
-  it("expands a row to its license text, preformatted", async () => {
+  it("reads the text out of that mod's own archive", async () => {
     licenseText.mockResolvedValue(answers({ state: "present", text: "MIT License\n\nAs is." }));
 
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-    await userEvent.click(screen.getByRole("button", { name: /Alpha/ }));
+    renderWithProviders(<DocumentsSidebar mods={[licensed]} />);
 
     expect(await screen.findByText(/MIT License/)).toBeInTheDocument();
     expect(licenseText).toHaveBeenCalledWith("a");
   });
 
-  /* The middle state is the common one, and telling it from silence is the
-     whole point of the gallery. */
+  /* The middle state is the common one, and telling it from silence is why
+     three states are told apart rather than two. */
   it("says a mod names a license and ships no text for it", async () => {
     licenseText.mockResolvedValue(answers({ state: "absent" }));
 
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-    await userEvent.click(screen.getByRole("button", { name: /Alpha/ }));
+    renderWithProviders(<DocumentsSidebar mods={[licensed]} />);
 
     expect(
       await screen.findByText("This mod names a license and ships no text for it"),
@@ -171,40 +156,40 @@ describe("the licenses tab", () => {
   it("says so rather than reading as unlicensed when the archive will not open", async () => {
     licenseText.mockResolvedValue(answers({ state: "unreadable", reason: "not a zip" }));
 
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-    await userEvent.click(screen.getByRole("button", { name: /Alpha/ }));
+    renderWithProviders(<DocumentsSidebar mods={[licensed]} />);
 
     expect(await screen.findByText(/its license cannot be read/)).toBeInTheDocument();
   });
 
-  it("offers nothing to expand for a mod that declares no license", () => {
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
+  /* A name costs nothing, because it rides in the config a listing already
+     opens. A text costs one archive mount, so a mod that names none is not
+     worth opening an archive for. */
+  it("mounts no archive for a mod that declares no license", () => {
+    renderWithProviders(<DocumentsSidebar mods={[mod("a", "Alpha", null)]} />);
 
-    expect(screen.queryByRole("button", { name: /Gamma/ })).toBeNull();
+    expect(screen.getByText("No license declared")).toBeInTheDocument();
+    expect(licenseText).not.toHaveBeenCalled();
   });
 
-  it("reads one mod's license at most once", async () => {
-    licenseText.mockResolvedValue(answers({ state: "present", text: "MIT License" }));
+  it("follows the mod the panel holds rather than the whole library", () => {
+    useLibrarySidebarStore.setState({ modId: "b" });
+    licenseText.mockResolvedValue(answers({ state: "present", text: "GPL" }));
 
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-    const row = screen.getByRole("button", { name: /Alpha/ });
-    await userEvent.click(row);
-    await screen.findByText(/MIT License/);
-    await userEvent.click(row);
-    await userEvent.click(row);
-    await screen.findByText(/MIT License/);
+    renderWithProviders(
+      <DocumentsSidebar mods={[licensed, mod("b", "Beta", { name: "GPL-3.0", url: null })]} />,
+    );
 
-    expect(licenseText).toHaveBeenCalledOnce();
+    expect(screen.getByText("GPL-3.0")).toBeInTheDocument();
+    expect(screen.queryByText("MIT")).toBeNull();
   });
 
-  it("filters rows by mod name and by license name alike", async () => {
-    renderWithProviders(<DocumentsSidebar mods={mods} />);
-    const search = screen.getByRole("searchbox");
+  it("says how to open one when the panel holds no mod", () => {
+    useLibrarySidebarStore.setState({ modId: null });
 
-    await userEvent.type(search, "mit");
+    renderWithProviders(<DocumentsSidebar mods={[licensed]} />);
 
-    await waitFor(() => expect(screen.queryByText("Gamma")).toBeNull());
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    expect(screen.getByText("Open a mod from its card menu")).toBeInTheDocument();
+    expect(licenseText).not.toHaveBeenCalled();
   });
 });
 
