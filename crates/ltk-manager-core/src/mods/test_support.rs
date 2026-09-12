@@ -282,30 +282,11 @@ pub(crate) fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
 /// A modpkg's archive is the mod, so anything that reads one has to mount it —
 /// a stub of made-up bytes proves nothing about the path under test.
 pub(crate) fn make_modpkg(path: &Path, name: &str) {
-    let source = tempfile::tempdir().unwrap();
-    let wad_dir = source
-        .path()
-        .join("content")
-        .join("base")
-        .join("Aatrox.wad.client")
-        .join("data");
-    fs::create_dir_all(&wad_dir).unwrap();
-    fs::write(wad_dir.join("skin0.bin"), b"content bytes").unwrap();
-    fs::write(
-        source.path().join("mod.config.json"),
-        serde_json::to_string_pretty(&mod_project_named(name)).unwrap(),
-    )
-    .unwrap();
-
-    let project_dir = camino::Utf8PathBuf::from_path_buf(source.path().to_path_buf()).unwrap();
-    let writer = std::io::BufWriter::new(fs::File::create(path).unwrap());
-    ltk_mod_project::ProjectPacker::new(mod_project_named(name), project_dir)
-        .pack(ltk_mod_project::modpkg::ModpkgFormat::new(writer))
-        .unwrap();
+    make_modpkg_with_documents(path, name, None, None);
 }
 
-/// [`make_modpkg`] carrying a readme and a license, which the packer picks up
-/// out of the project root the same way a creator's own pack does.
+/// [`make_modpkg`] carrying a readme and a license, picked up out of the
+/// project root the same way a creator's own pack picks them up.
 pub(crate) fn make_modpkg_with_documents(
     path: &Path,
     name: &str,

@@ -366,7 +366,7 @@ impl ModLibrary {
     /// an error.
     pub fn get_mod_readme(&self, config: &Config, mod_id: &str) -> AppResult<ModDocument> {
         self.with_index(config, |storage_dir, index| {
-            read_readme(storage_dir, entry_of(index, mod_id)?)
+            Ok(read_readme(storage_dir, entry_of(index, mod_id)?))
         })
     }
 
@@ -378,7 +378,7 @@ impl ModLibrary {
     /// does.
     pub fn get_mod_license_text(&self, config: &Config, mod_id: &str) -> AppResult<ModDocument> {
         self.with_index(config, |storage_dir, index| {
-            read_license(storage_dir, entry_of(index, mod_id)?)
+            Ok(read_license(storage_dir, entry_of(index, mod_id)?))
         })
     }
 }

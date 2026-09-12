@@ -11,6 +11,7 @@
 use crate::error::{AppError, AppResult};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use fs_err as fs;
+use ltk_fantome::FantomeReader;
 use ltk_modpkg::{Modpkg, error::ModpkgError};
 use serde::Serialize;
 use std::path::Path;
@@ -53,34 +54,20 @@ impl ModDocument {
 
 /// An installed mod's readme, extracted from its archive if it is not on disk yet.
 ///
-/// # Errors
-///
-/// Fails only where the answer itself cannot be formed. An archive that refuses
-/// to open is [`ModDocument::Unreadable`] rather than an error, because it is
-/// one mod's answer and not the library's.
-pub(crate) fn read_readme(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<ModDocument> {
-    let mod_dir = entry.mod_dir(storage_dir);
-    let cached = mod_dir.join(README_FILE);
+/// An archive that refuses to open is [`ModDocument::Unreadable`] rather than an
+/// error, because it is one mod's answer and not the library's.
+pub(crate) fn read_readme(storage_dir: &Path, entry: &LibraryModEntry) -> ModDocument {
+    let cached = entry.mod_dir(storage_dir).join(README_FILE);
     if cached.exists() {
-        return Ok(match fs::read(&cached) {
+        return match fs::read(&cached) {
             Ok(bytes) => ModDocument::from_bytes(bytes),
             Err(error) => ModDocument::Unreadable {
                 reason: error.to_string(),
             },
-        });
+        };
     }
 
-    let archive_path = entry.archive_path(storage_dir);
-    if !archive_path.exists() {
-        return Ok(ModDocument::Unreadable {
-            reason: format!("{} is not beside the mod", archive_path.display()),
-        });
-    }
-
-    let extracted = match entry.format {
-        ModArchiveFormat::Modpkg => modpkg_readme(&archive_path),
-        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => fantome_readme(&archive_path),
-    };
+    let extracted = read_from_archive(storage_dir, entry, modpkg_readme, fantome_readme);
 
     // A readme found in the archive is written where the modpkg import writes
     // one, so the next ask never opens the archive again.
@@ -90,7 +77,7 @@ pub(crate) fn read_readme(storage_dir: &Path, entry: &LibraryModEntry) -> AppRes
         tracing::warn!(mod_id = %entry.id, %error, "readme not cached");
     }
 
-    Ok(extracted)
+    extracted
 }
 
 /// An installed mod's license text, read out of its archive and not kept.
@@ -98,22 +85,34 @@ pub(crate) fn read_readme(storage_dir: &Path, entry: &LibraryModEntry) -> AppRes
 /// A license is consulted once and rarely re-consulted, so nothing is written
 /// beside the mod. What is cheap enough to hold for a session is the reader's
 /// to hold.
+pub(crate) fn read_license(storage_dir: &Path, entry: &LibraryModEntry) -> ModDocument {
+    read_from_archive(storage_dir, entry, modpkg_license, fantome_license)
+}
+
+/// One document out of the mod's archive, by whichever reader its format asks for.
 ///
-/// # Errors
-///
-/// Fails only where the answer itself cannot be formed, as [`read_readme`] does.
-pub(crate) fn read_license(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<ModDocument> {
+/// An unpacked mod has no archive, because `set_mod_storage` deletes it. Per
+/// "The details tab" in docs/ux/LIBRARY.md.
+fn read_from_archive(
+    storage_dir: &Path,
+    entry: &LibraryModEntry,
+    from_modpkg: fn(&Path) -> ModDocument,
+    from_fantome: fn(&Path) -> ModDocument,
+) -> ModDocument {
     let archive_path = entry.archive_path(storage_dir);
     if !archive_path.exists() {
-        return Ok(ModDocument::Unreadable {
+        if !entry.is_packed() {
+            return ModDocument::Absent;
+        }
+        return ModDocument::Unreadable {
             reason: format!("{} is not beside the mod", archive_path.display()),
-        });
+        };
     }
 
-    Ok(match entry.format {
-        ModArchiveFormat::Modpkg => modpkg_license(&archive_path),
-        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => fantome_license(&archive_path),
-    })
+    match entry.format {
+        ModArchiveFormat::Modpkg => from_modpkg(&archive_path),
+        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => from_fantome(&archive_path),
+    }
 }
 
 /// The `_meta_/readme.md` chunk of a modpkg.
@@ -171,13 +170,15 @@ fn fantome_license(archive_path: &Path) -> ModDocument {
 }
 
 /// Open `archive_path` as a fantome and read one `META/` entry out of it.
-fn read_fantome<E: std::fmt::Display>(
+fn read_fantome(
     archive_path: &Path,
-    read: impl FnOnce(&mut ltk_fantome::FantomeReader<fs::File>) -> Result<Option<Vec<u8>>, E>,
+    read: impl FnOnce(
+        &mut FantomeReader<fs::File>,
+    ) -> Result<Option<Vec<u8>>, ltk_fantome::FantomeExtractError>,
 ) -> ModDocument {
     let opened = fs::File::open(archive_path)
         .map_err(|error| error.to_string())
-        .and_then(|file| ltk_fantome::FantomeReader::new(file).map_err(|error| error.to_string()));
+        .and_then(|file| FantomeReader::new(file).map_err(|error| error.to_string()));
 
     let mut reader = match opened {
         Ok(reader) => reader,
@@ -202,7 +203,7 @@ pub(crate) fn entry_of<'index>(
         .mods
         .iter()
         .find(|entry| entry.id == mod_id)
-        .ok_or_else(|| AppError::Other(format!("No installed mod with id {mod_id}")))
+        .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))
 }
 
 #[cfg(test)]
