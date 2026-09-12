@@ -13,6 +13,7 @@ import {
   type CurveAimRequest,
   EMPTY_EDITOR,
   type HistoryEntry,
+  type IgnoreLineRevealRequest,
   NO_COLLAPSED_DIRS,
   type ObjectRevealRequest,
   type RevealRequest,
@@ -484,6 +485,33 @@ export function useRevealObject() {
     (documentId: string, objectHash: string) => revealObject(projectPath, documentId, objectHash),
     [revealObject, projectPath],
   );
+}
+
+/** The pending line request aimed at `documentId`, or null for a tab nobody aimed. */
+export function useIgnoreLineRevealRequest(documentId: string): IgnoreLineRevealRequest | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealIgnoreLine;
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Ask the open rules document `documentId` to sit on `line`. */
+export function useRevealIgnoreLine() {
+  const projectPath = useProjectPath();
+  const revealIgnoreLine = useWorkshopEditorStore((s) => s.revealIgnoreLine);
+  return useCallback(
+    (documentId: string, line: number) => revealIgnoreLine(projectPath, documentId, line),
+    [revealIgnoreLine, projectPath],
+  );
+}
+
+/** Drop the line request with `token`. The document it addressed has answered it. */
+export function useSettleIgnoreLineReveal() {
+  const projectPath = useProjectPath();
+  const settle = useWorkshopEditorStore((s) => s.settleIgnoreLineReveal);
+  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
 }
 
 /** The pending curve request aimed at `documentId`, or null for a tab nobody aimed. */

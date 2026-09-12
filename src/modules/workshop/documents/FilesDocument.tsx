@@ -98,7 +98,7 @@ export function FilesDocument({
         </Tooltip>
       </DocumentToolbar>
 
-      <FilesBody layer={layer} layerName={layerName} />
+      <FilesBody layer={layer} />
     </div>
   );
 }
@@ -110,10 +110,9 @@ function RefreshIcon({ spinning }: { spinning: boolean }) {
 
 interface FilesBodyProps {
   layer: LayerContent | null;
-  layerName: string;
 }
 
-function FilesBody({ layer, layerName }: FilesBodyProps) {
+function FilesBody({ layer }: FilesBodyProps) {
   if (!layer) {
     return (
       <EmptyState
@@ -134,5 +133,5 @@ function FilesBody({ layer, layerName }: FilesBodyProps) {
     );
   }
 
-  return <ContentTree entries={layer.entries} layerName={layerName} />;
+  return <ContentTree layer={layer} />;
 }

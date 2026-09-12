@@ -9,6 +9,7 @@ use ltk_meta::path::PropertyPath;
 use ltk_meta::property::NoMeta;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
+use ltk_mod_project::MODIGNORE_FILE_NAME;
 use std::io::Cursor;
 use std::sync::Arc;
 
@@ -51,7 +52,7 @@ fn patch(objects: &[(&str, &str)], patched: &str) -> Vec<u8> {
 
 /// The layer under `dir` as the frontend lists it, named through no table.
 fn listed(dir: &Path, name: &str) -> LayerContent {
-    scan_layer(dir, name)
+    scan_layer(dir, name, None)
         .unwrap()
         .named(&ResolvedNames::default())
 }
@@ -92,14 +93,22 @@ fn scan_layer_classifies_known_extensions() {
 }
 
 #[test]
-fn scan_layer_skips_dotfiles() {
+fn scan_layer_lists_dot_entries() {
     let dir = tempfile::tempdir().unwrap();
     touch(&dir.path().join(".DS_Store"), b"junk");
+    touch(&dir.path().join(".mayaSwatches/swatch.png"), b"png");
     touch(&dir.path().join("visible.png"), b"png");
 
     let layer = listed(dir.path(), "base");
-    assert_eq!(layer.entries.len(), 1);
-    assert_eq!(layer.entries[0].relative_path, "visible.png");
+    let paths: Vec<_> = layer
+        .entries
+        .iter()
+        .map(|e| e.relative_path.as_str())
+        .collect();
+    assert_eq!(
+        paths,
+        [".DS_Store", ".mayaSwatches/swatch.png", "visible.png"]
+    );
 }
 
 #[test]
@@ -238,4 +247,129 @@ fn a_layer_bin_carries_its_objects_and_every_other_file_none() {
     );
     assert!(objects("assets/skin0.dds").is_empty(), "not a bin");
     assert_eq!(base.file_count, 4);
+}
+
+/// A project holding `rules` at its root and `files` under `content/base`.
+fn ignoring(dir: &Path, rules: &str, files: &[&str]) -> LayerContent {
+    touch(&dir.join(MODIGNORE_FILE_NAME), rules.as_bytes());
+    for file in files {
+        touch(&dir.join("content/base").join(file), b"x");
+    }
+
+    let workshop = Workshop::new(Arc::new(NullEventSink));
+    let tree = workshop
+        .get_project_content_tree(dir.to_str().unwrap())
+        .unwrap();
+    tree.layers.into_iter().next().unwrap()
+}
+
+/// What excluded `path`, or `None` where nothing did.
+fn excluded_by<'a>(layer: &'a LayerContent, path: &str) -> Option<&'a IgnoreMatch> {
+    layer
+        .entries
+        .iter()
+        .find(|entry| entry.relative_path == path)
+        .unwrap_or_else(|| panic!("{path} has no row"))
+        .ignored_by
+        .as_ref()
+}
+
+#[test]
+fn an_excluded_row_names_the_rule_that_excluded_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let layer = ignoring(
+        tmp.path(),
+        "# working files\n*.psd\n.mayaSwatches/\n",
+        &["splash.psd", "splash.tex", ".mayaSwatches/swatch.png"],
+    );
+
+    let psd = excluded_by(&layer, "splash.psd").expect("the .psd is excluded");
+    assert_eq!(psd.pattern, "*.psd");
+    assert_eq!(psd.source, MODIGNORE_FILE_NAME);
+    assert_eq!(psd.line, Some(2));
+
+    assert!(excluded_by(&layer, "splash.tex").is_none());
+
+    let directories: Vec<_> = layer
+        .ignored_directories
+        .iter()
+        .map(|dir| (dir.relative_path.as_str(), dir.ignored_by.pattern.as_str()))
+        .collect();
+    assert_eq!(directories, [(".mayaSwatches", ".mayaSwatches/")]);
+}
+
+#[test]
+fn a_pruned_directory_marks_its_descendants() {
+    let tmp = tempfile::tempdir().unwrap();
+    let layer = ignoring(
+        tmp.path(),
+        "scratch/\n",
+        &["scratch/deep/notes.txt", "ships.bin"],
+    );
+
+    let descendant = excluded_by(&layer, "scratch/deep/notes.txt").expect("under a pruned folder");
+    assert_eq!(
+        descendant.pattern, "scratch/",
+        "the folder's own rule, not one of its own"
+    );
+
+    let pruned: Vec<_> = layer
+        .ignored_directories
+        .iter()
+        .map(|dir| dir.relative_path.as_str())
+        .collect();
+    assert_eq!(pruned, ["scratch", "scratch/deep"]);
+    assert!(excluded_by(&layer, "ships.bin").is_none());
+}
+
+#[test]
+fn a_rule_from_a_nested_file_names_that_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path()
+            .join("content/base/textures")
+            .join(MODIGNORE_FILE_NAME),
+        b"*.png\n",
+    );
+
+    let layer = ignoring(tmp.path(), "*.psd\n", &["textures/skin0.png"]);
+
+    let nested = excluded_by(&layer, "textures/skin0.png").expect("the nested rule holds");
+    assert_eq!(nested.pattern, "*.png");
+    assert_eq!(nested.source, "content/base/textures/.modignore");
+    assert_eq!(nested.line, Some(1));
+}
+
+/// The row menu offers to stop ignoring where the rule is the row's own
+/// anchored line, which it decides by comparing the two strings.
+#[test]
+fn an_anchored_rule_is_reported_exactly_as_it_was_written() {
+    let tmp = tempfile::tempdir().unwrap();
+    let layer = ignoring(
+        tmp.path(),
+        "/base/textures/wip/\n/base/splash.psd\n",
+        &["textures/wip/rough.png", "splash.psd"],
+    );
+
+    assert_eq!(
+        excluded_by(&layer, "splash.psd").map(|rule| rule.pattern.as_str()),
+        Some("/base/splash.psd")
+    );
+    assert_eq!(
+        layer
+            .ignored_directories
+            .iter()
+            .map(|dir| dir.ignored_by.pattern.as_str())
+            .collect::<Vec<_>>(),
+        ["/base/textures/wip/"]
+    );
+}
+
+#[test]
+fn a_project_whose_rules_do_not_compile_still_lists_its_files() {
+    let tmp = tempfile::tempdir().unwrap();
+    let layer = ignoring(tmp.path(), "a{b\n", &["splash.psd"]);
+
+    assert_eq!(layer.file_count, 1);
+    assert!(excluded_by(&layer, "splash.psd").is_none());
 }

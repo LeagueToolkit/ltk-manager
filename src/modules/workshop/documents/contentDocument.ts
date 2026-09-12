@@ -26,6 +26,8 @@ interface ProblemsDoc extends EditorDocumentBase {
 
 interface IgnoreRulesDoc extends EditorDocumentBase {
   kind: "ignore-rules";
+  /** The file's project-relative path, absent for the project's root rules. */
+  at?: string;
 }
 
 interface GameDoc extends EditorDocumentBase {
@@ -113,11 +115,13 @@ export function stringsDocument(layerName: string, locale: string): ContentDocum
   return { id: `strings:${layerName}:${locale}`, kind: "strings", layerName, locale };
 }
 
-/** A project has one root `.modignore`, so its document needs nothing to key on. */
+/** The project's root `.modignore`, the one file every project has. */
 export const IGNORE_RULES_DOCUMENT_ID = "ignore-rules";
 
-export function ignoreRulesDocument(): ContentDocumentOf<"ignore-rules"> {
-  return { id: IGNORE_RULES_DOCUMENT_ID, kind: "ignore-rules" };
+/** The rules at project-relative `at`, or the project's root file for none. */
+export function ignoreRulesDocument(at?: string): ContentDocumentOf<"ignore-rules"> {
+  if (at === undefined) return { id: IGNORE_RULES_DOCUMENT_ID, kind: "ignore-rules" };
+  return { id: `${IGNORE_RULES_DOCUMENT_ID}:${at}`, kind: "ignore-rules", at };
 }
 
 /** A run covers the whole project, so its document needs nothing to key on. */

@@ -19,6 +19,7 @@ function entry(relativePath: string, sizeBytes = 0): ContentEntry {
     sizeBytes: BigInt(sizeBytes),
     kind: "unknown",
     objects: [],
+    ignoredBy: null,
   };
 }
 
@@ -125,6 +126,38 @@ describe("buildContentTree", () => {
     expect(odd.name).toBe("odd");
     const file = odd.children[0] as FileNode;
     expect(file.name).toBe("path.bin");
+  });
+});
+
+describe("buildContentTree ignore state", () => {
+  const rule = { pattern: "wip/", source: ".modignore", line: 3 };
+
+  it("gives a directory the rule that leaves it out", () => {
+    const tree = buildContentTree(
+      [entry("textures/wip/rough.png"), entry("textures/skin0.tex")],
+      [{ relativePath: "textures/wip", ignoredBy: rule }],
+    );
+
+    const textures = tree[0] as DirNode;
+    expect(textures.ignoredBy).toBeNull();
+    expect((textures.children[0] as DirNode).ignoredBy).toEqual(rule);
+  });
+
+  it("carries the rule onto the row a folded run drew", () => {
+    const tree = buildContentTree(
+      [entry("a/b/c/rough.png")],
+      [{ relativePath: "a/b/c", ignoredBy: rule }],
+    );
+
+    const folded = tree[0] as DirNode;
+    expect(folded.name).toBe("a/b/c");
+    expect(folded.ignoredBy).toEqual(rule);
+  });
+
+  it("leaves every directory unmarked where the project has no rules", () => {
+    const tree = buildContentTree([entry("textures/skin0.tex")]);
+
+    expect((tree[0] as DirNode).ignoredBy).toBeNull();
   });
 });
 

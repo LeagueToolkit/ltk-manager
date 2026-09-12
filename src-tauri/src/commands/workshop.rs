@@ -56,16 +56,18 @@ pub fn save_project_config(
     workshop.0.save_config(args).into()
 }
 
+/// Read the `.modignore` at project-relative `at`, or the root file for none.
 #[tauri::command]
 #[specta::specta]
 pub fn get_project_ignore_rules(
     project_path: String,
+    at: Option<String>,
     workshop: State<WorkshopState>,
 ) -> IpcResult<IgnoreRules> {
     workshop
         .0
         .project(&project_path)
-        .and_then(|project| project.ignore_rules())
+        .and_then(|project| project.ignore_rules(at.as_deref()))
         .into()
 }
 
@@ -78,17 +80,19 @@ pub fn recommended_ignore_rules() -> IpcResult<String> {
     }
 }
 
+/// Write the `.modignore` at project-relative `at`, or the root file for none.
 #[tauri::command]
 #[specta::specta]
 pub fn save_project_ignore_rules(
     project_path: String,
+    at: Option<String>,
     text: String,
     workshop: State<WorkshopState>,
 ) -> IpcResult<IgnoreRules> {
     workshop
         .0
         .project(&project_path)
-        .and_then(|project| project.write_ignore_rules(&text))
+        .and_then(|project| project.write_ignore_rules(at.as_deref(), &text))
         .into()
 }
 

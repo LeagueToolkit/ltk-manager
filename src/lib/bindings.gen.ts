@@ -116,10 +116,12 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
-	getProjectIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath }),
+	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
+	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
 	/**  The starter rules, for the empty state that draws them before writing them. */
 	recommendedIgnoreRules: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("recommended_ignore_rules"),
-	saveProjectIgnoreRules: (projectPath: string, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, text }),
+	/**  Write the `.modignore` at project-relative `at`, or the root file for none. */
+	saveProjectIgnoreRules: (projectPath: string, at: string | null, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, at, text }),
 	addRecommendedIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_recommended_ignore_rules", { projectPath }),
 	/**
 	 *  The install the client's League session runs from, against the one the
@@ -755,13 +757,17 @@ export type IdleEffect = {
 	position: [(number | null), (number | null), (number | null)],
 };
 
-/**  A project's root ignore rules, as the editor reads them. */
+/**  One `.modignore` of a project, as the editor reads it. */
 export type IgnoreRules = {
-	/**  Absolute path of the project's `.modignore`, whether or not one exists. */
+	/**  Absolute path of the file, whether or not one exists. */
 	path: string,
-	/**  The file's text, null when the project has no file. */
+	/**  The file's text, null when the file does not exist. */
 	text: string | null,
-	/**  Recommended patterns the file lacks, in the order the default lists them. */
+	/**
+	 *  Recommended patterns the file lacks, in the order the default lists them.
+	 * 
+	 *  Empty for anything but the root file, whose anchor the default assumes.
+	 */
 	missingRecommended: string[],
 };
 

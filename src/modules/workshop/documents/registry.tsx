@@ -79,7 +79,11 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
     },
     "ignore-rules": {
       icon: () => <EyeSlashIcon className="h-4 w-4 shrink-0 text-doc-ignore-text" />,
-      label: () => ({ title: m.workshop_ignore_title(), path: project.path }),
+      label: (document) => ({
+        title: m.workshop_ignore_title(),
+        context: document.at,
+        path: document.at ?? project.path,
+      }),
       component: IgnoreRulesDocument,
     },
     problems: {

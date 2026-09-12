@@ -8,16 +8,20 @@ import { twMerge } from "@/utils";
 
 import { projectQueries } from "../api";
 import type { ContentDocumentOf } from "../documents/contentDocument";
-import { useSetDocumentDirty } from "../state";
+import {
+  useIgnoreLineRevealRequest,
+  useSetDocumentDirty,
+  useSettleIgnoreLineReveal,
+} from "../state";
 import { SyntaxRail } from "./SyntaxRail";
 import { type IgnoreSaveState, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
 
-/** The project's ignore rules as text, saving themselves as edited. */
+/** One `.modignore` of the project as text, saving itself as edited. */
 export function IgnoreRulesDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"ignore-rules">>) {
-  const editor = useIgnoreRulesEditor();
+  const editor = useIgnoreRulesEditor(document.at ?? null);
   const setDocumentDirty = useSetDocumentDirty();
 
   const documentId = document.id;
@@ -78,14 +82,20 @@ export function IgnoreRulesDocument({
         <SaveStatus state={editor.saveState} onRetry={editor.saveNow} />
       </DocumentToolbar>
 
-      <Body editor={editor} />
+      <Body editor={editor} documentId={documentId} nested={document.at !== undefined} />
     </div>
   );
 }
 
 type Editor = ReturnType<typeof useIgnoreRulesEditor>;
 
-function Body({ editor }: { editor: Editor }) {
+interface BodyProps {
+  editor: Editor;
+  documentId: string;
+  nested: boolean;
+}
+
+function Body({ editor, documentId, nested }: BodyProps) {
   if (editor.isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -94,12 +104,14 @@ function Body({ editor }: { editor: Editor }) {
     );
   }
 
-  if (!editor.exists) return <NoFile editor={editor} />;
+  /* The default anchors to content/, so only the root file is offered it. A
+     nested file that has gone missing is written back by typing in it. */
+  if (!editor.exists && !nested) return <NoFile editor={editor} />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 gap-3 p-3">
-        <Buffer editor={editor} />
+        <Buffer editor={editor} documentId={documentId} />
         <SyntaxRail />
       </div>
       {editor.problem && (
@@ -115,9 +127,26 @@ function Body({ editor }: { editor: Editor }) {
 }
 
 /** The buffer, its line numbers, and the one number a refusal marks. */
-function Buffer({ editor }: { editor: Editor }) {
+function Buffer({ editor, documentId }: { editor: Editor; documentId: string }) {
   const lines = useMemo(() => editor.text.split("\n").length, [editor.text]);
   const gutter = useRef<HTMLDivElement>(null);
+  const buffer = useRef<HTMLTextAreaElement>(null);
+
+  const requested = useIgnoreLineRevealRequest(documentId);
+  const settleReveal = useSettleIgnoreLineReveal();
+  const text = editor.text;
+
+  /* Answered against the text on screen, so a rule shown from the tree lands on
+     its line rather than on whatever the buffer held before the file loaded. */
+  useEffect(() => {
+    const area = buffer.current;
+    if (!requested || !area) return;
+
+    const [from, to] = lineRange(text, requested.line);
+    area.focus();
+    area.setSelectionRange(from, to);
+    settleReveal(requested.token);
+  }, [requested, text, settleReveal]);
 
   return (
     /* DS-MONO-SIZE: mono end to end, so the tier is on the surface. */
@@ -140,6 +169,7 @@ function Buffer({ editor }: { editor: Editor }) {
       </div>
 
       <textarea
+        ref={buffer}
         value={editor.text}
         spellCheck={false}
         aria-label={m.workshop_ignore_buffer_label()}
@@ -151,6 +181,14 @@ function Buffer({ editor }: { editor: Editor }) {
       />
     </div>
   );
+}
+
+/** Where one-based `line` starts and ends in `text`, as a selection. */
+function lineRange(text: string, line: number): [number, number] {
+  const lines = text.split("\n");
+  const at = Math.min(Math.max(line, 1), lines.length) - 1;
+  const from = lines.slice(0, at).reduce((total, held) => total + held.length + 1, 0);
+  return [from, from + (lines[at]?.length ?? 0)];
 }
 
 /**

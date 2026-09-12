@@ -83,11 +83,11 @@ export const projectQueries = {
 
   /* Refetched on focus the way the content tree is, because the file is as
      editable from outside the app as the layer beside it. */
-  ignoreRules: (projectPath: string | undefined) =>
+  ignoreRules: (projectPath: string | undefined, at: string | null = null) =>
     queryOptions<IgnoreRules, AppError>({
-      queryKey: workshopKeys.ignoreRules(projectPath ?? ""),
+      queryKey: workshopKeys.ignoreRules(projectPath ?? "", at),
       queryFn: projectPath
-        ? async () => unwrapForQuery(await api.ignoreRules.read(projectPath))
+        ? async () => unwrapForQuery(await api.ignoreRules.read(projectPath, at))
         : skipToken,
       refetchOnWindowFocus: true,
       staleTime: CONTENT_SCAN_STALE_MS,

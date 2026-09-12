@@ -1,16 +1,14 @@
-use super::ignore_rules::split_line_prefix;
+use super::ignore_rules::{ignore_error, project_relative};
 use super::{
     IgnoredEntry, PackFormat, PackProjectArgs, PackResult, ProjectDir, ValidationResult, Workshop,
-    WorkshopError, WorkshopProject, is_valid_project_name,
+    WorkshopProject, is_valid_project_name,
 };
-use crate::error::{AppError, AppResult, Utf8PathRefExt};
+use crate::error::{AppError, AppResult};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use ltk_mod_project::fantome::FantomeFormat;
 use ltk_mod_project::modpkg::ModpkgFormat;
-use ltk_mod_project::{
-    ModIgnore, ModIgnoreError, ModProject, PackError, PackReport, PackageFormat, ProjectPacker,
-};
+use ltk_mod_project::{ModIgnore, ModProject, PackError, PackReport, PackageFormat, ProjectPacker};
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
@@ -104,19 +102,6 @@ impl ProjectDir {
             warnings,
         })
     }
-
-    /// The rules a pack of this project filters through.
-    ///
-    /// # Errors
-    ///
-    /// Whatever the pack itself would raise: `AppError::InvalidPath` for a
-    /// project path no archive format stores, [`WorkshopError::PackIgnorePattern`]
-    /// for a pattern the matcher refuses, and `AppError::PackFailed` for a
-    /// `.modignore` that cannot be read.
-    fn ignore_filter(&self) -> AppResult<ModIgnore> {
-        let root = self.path().try_as_utf8("project path")?;
-        ModIgnore::load(root).map_err(|error| ignore_error(error, root))
-    }
 }
 
 /// What a layer directory holds once the rules have had it.
@@ -155,26 +140,6 @@ fn layer_contents(layer_dir: &Path, ignore: Option<&ModIgnore>) -> LayerContents
     }
 }
 
-/// A refused `.modignore` pattern as the frontend reads it, with its line.
-///
-/// The file is named relative to `project_root`, the form the creator knows it
-/// by. Every other failure keeps the crate's own rendering.
-fn ignore_error(error: ModIgnoreError, project_root: &Utf8Path) -> AppError {
-    let ModIgnoreError::Pattern { path, source } = &error else {
-        return AppError::PackFailed(error.to_string());
-    };
-
-    let rendered = source.to_string();
-    let (line, message) = split_line_prefix(&rendered).unwrap_or((1, rendered.as_str()));
-
-    WorkshopError::PackIgnorePattern {
-        path: project_relative(path, project_root),
-        line,
-        message: message.to_string(),
-    }
-    .into()
-}
-
 /// A pack failure as the frontend reads it.
 ///
 /// A refused pattern is the one case with a field to carry, since
@@ -184,14 +149,6 @@ fn pack_error<E: std::error::Error>(error: PackError<E>, project_root: &Utf8Path
         PackError::Ignore(ignore) => ignore_error(ignore, project_root),
         other => AppError::PackFailed(other.to_string()),
     }
-}
-
-/// `path` under `base`, forward-slashed so both platforms read alike.
-fn project_relative(path: &Utf8Path, base: &Utf8Path) -> String {
-    path.strip_prefix(base)
-        .unwrap_or(path)
-        .as_str()
-        .replace('\\', "/")
 }
 
 /// `report`'s exclusions as the dialog lists them.

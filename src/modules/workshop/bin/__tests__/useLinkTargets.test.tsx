@@ -163,8 +163,10 @@ describe("layerDeclarations and joinDeclarations", () => {
                 classHash: "0x1",
               },
             ],
+            ignoredBy: null,
           },
         ],
+        ignoredDirectories: [],
       },
     ],
   };

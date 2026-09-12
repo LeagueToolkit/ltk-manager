@@ -1,13 +1,13 @@
 //! Per "Ignore rules" in docs/ux/PROJECT_EDITOR.md.
 
 use super::{ProjectDir, WorkshopError};
-use crate::error::{AppResult, Utf8PathExt};
-use camino::Utf8PathBuf;
+use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
+use camino::{Utf8Path, Utf8PathBuf};
 use chrono::NaiveDate;
 use fs_err as fs;
 use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore, ModIgnoreError};
 use serde::Serialize;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 /// The starter rules a new project and an archive import are given.
 ///
@@ -16,18 +16,20 @@ use std::path::PathBuf;
 /// entry. The header is the teaching material, so it travels with the rules.
 pub const RECOMMENDED_IGNORE_RULES: &str = include_str!("default.modignore");
 
-/// A project's root ignore rules, as the editor reads them.
+/// One `.modignore` of a project, as the editor reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoreRules {
-    /// Absolute path of the project's `.modignore`, whether or not one exists.
+    /// Absolute path of the file, whether or not one exists.
     pub path: String,
-    /// The file's text, null when the project has no file.
+    /// The file's text, null when the file does not exist.
     pub text: Option<String>,
     /// Recommended patterns the file lacks, in the order the default lists them.
+    ///
+    /// Empty for anything but the root file, whose anchor the default assumes.
     pub missing_recommended: Vec<String>,
 }
 
@@ -50,14 +52,30 @@ impl ProjectDir {
         self.path().join(MODIGNORE_FILE_NAME)
     }
 
-    /// Read the project's root ignore rules.
+    /// The `.modignore` at project-relative `at`, or the root file for `None`.
     ///
     /// # Errors
     ///
-    /// [`AppError::Io`](crate::error::AppError::Io) when the file exists and
-    /// cannot be read. A project with no file is not an error.
-    pub fn ignore_rules(&self) -> AppResult<IgnoreRules> {
-        let path = self.ignore_file();
+    /// [`AppError::InvalidPath`] for anything that is not a `.modignore`
+    /// inside the project, which is what an editor can ask for by path.
+    fn ignore_file_at(&self, at: Option<&str>) -> AppResult<PathBuf> {
+        let Some(at) = at else {
+            return Ok(self.ignore_file());
+        };
+
+        let inside = contained_ignore_path(at)
+            .ok_or_else(|| AppError::InvalidPath(format!("{at} is not a {MODIGNORE_FILE_NAME}")))?;
+        Ok(self.path().join(inside))
+    }
+
+    /// Read one of the project's `.modignore` files.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::Io`] when the file exists and cannot be read, and whatever
+    /// `ignore_file_at` refuses. A file that does not exist is not an error.
+    pub fn ignore_rules(&self, at: Option<&str>) -> AppResult<IgnoreRules> {
+        let path = self.ignore_file_at(at)?;
         let text = match fs::read_to_string(&path) {
             Ok(text) => Some(text),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
@@ -66,19 +84,23 @@ impl ProjectDir {
 
         Ok(IgnoreRules {
             path: path.display().to_string(),
-            missing_recommended: missing_recommended_rules(text.as_deref().unwrap_or_default()),
+            missing_recommended: match at {
+                None => missing_recommended_rules(text.as_deref().unwrap_or_default()),
+                Some(_) => Vec::new(),
+            },
             text,
         })
     }
 
-    /// Write `text` over the project's root ignore rules.
+    /// Write `text` over one of the project's `.modignore` files.
     ///
     /// # Errors
     ///
     /// [`WorkshopError::IgnoreRulePattern`] when a line does not compile, in
     /// which case nothing is written: one bad pattern fails the whole pack, so
     /// it must not reach disk.
-    pub fn write_ignore_rules(&self, text: &str) -> AppResult<IgnoreRules> {
+    pub fn write_ignore_rules(&self, at: Option<&str>, text: &str) -> AppResult<IgnoreRules> {
+        let path = self.ignore_file_at(at)?;
         if let Some(problem) = ignore_rule_problem(text) {
             return Err(WorkshopError::IgnoreRulePattern {
                 line: problem.line,
@@ -87,8 +109,21 @@ impl ProjectDir {
             .into());
         }
 
-        fs::write(self.ignore_file(), text)?;
-        self.ignore_rules()
+        fs::write(path, text)?;
+        self.ignore_rules(at)
+    }
+
+    /// The rules a pack of this project filters through.
+    ///
+    /// # Errors
+    ///
+    /// Whatever the pack itself would raise: [`AppError::InvalidPath`] for a
+    /// project path no archive format stores,
+    /// [`WorkshopError::PackIgnorePattern`] for a pattern the matcher refuses,
+    /// and [`AppError::PackFailed`] for a `.modignore` that cannot be read.
+    pub(crate) fn ignore_filter(&self) -> AppResult<ModIgnore> {
+        let root = self.path().try_as_utf8("project path")?;
+        ModIgnore::load(root).map_err(|error| ignore_error(error, root))
     }
 
     /// Append the recommended patterns the file lacks, dated `today`.
@@ -101,12 +136,12 @@ impl ProjectDir {
     /// Whatever [`write_ignore_rules`](Self::write_ignore_rules) fails on,
     /// which a file the creator has already broken reaches.
     pub fn add_recommended_ignore_rules(&self, today: NaiveDate) -> AppResult<IgnoreRules> {
-        let current = self.ignore_rules()?;
+        let current = self.ignore_rules(None)?;
         let Some(text) = current.text else {
-            return self.write_ignore_rules(RECOMMENDED_IGNORE_RULES);
+            return self.write_ignore_rules(None, RECOMMENDED_IGNORE_RULES);
         };
 
-        self.write_ignore_rules(&with_recommended_rules(&text, today))
+        self.write_ignore_rules(None, &with_recommended_rules(&text, today))
     }
 
     /// Write the recommended rules, leaving a file that already exists alone.
@@ -123,6 +158,51 @@ impl ProjectDir {
         fs::write(path, RECOMMENDED_IGNORE_RULES)?;
         Ok(())
     }
+}
+
+/// `relative` as a path under a project root, or `None` for anything else.
+///
+/// A path reaching here came off the wire, so it is rebuilt from its ordinary
+/// components alone: `..`, a root and a drive prefix all answer `None`, and so
+/// does a name the project's tooling does not read as rules.
+fn contained_ignore_path(relative: &str) -> Option<PathBuf> {
+    let mut inside = PathBuf::new();
+    for component in Path::new(relative).components() {
+        let Component::Normal(part) = component else {
+            return None;
+        };
+        inside.push(part);
+    }
+
+    (inside.file_name()? == MODIGNORE_FILE_NAME).then_some(inside)
+}
+
+/// A refused `.modignore` pattern as the frontend reads it, with its line.
+///
+/// The file is named relative to `project_root`, the form the creator knows it
+/// by. Every other failure keeps the crate's own rendering.
+pub(super) fn ignore_error(error: ModIgnoreError, project_root: &Utf8Path) -> AppError {
+    let ModIgnoreError::Pattern { path, source } = &error else {
+        return AppError::PackFailed(error.to_string());
+    };
+
+    let rendered = source.to_string();
+    let (line, message) = split_line_prefix(&rendered).unwrap_or((1, rendered.as_str()));
+
+    WorkshopError::PackIgnorePattern {
+        path: project_relative(path, project_root),
+        line,
+        message: message.to_string(),
+    }
+    .into()
+}
+
+/// `path` under `base`, forward-slashed so both platforms read alike.
+pub(super) fn project_relative(path: &Utf8Path, base: &Utf8Path) -> String {
+    path.strip_prefix(base)
+        .unwrap_or(path)
+        .as_str()
+        .replace('\\', "/")
 }
 
 /// The first line of `text` the matcher cannot compile.
