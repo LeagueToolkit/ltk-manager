@@ -17,11 +17,25 @@ import {
   type ContentDocument,
   detailsDocument,
   DETAILS_DOCUMENT_ID,
+  gameDocument,
   ignoreRulesDocument,
   IGNORE_RULES_DOCUMENT_ID,
+  objectsDocument,
+  problemsDocument,
   projectTextDocument,
   README_DOCUMENT_ID,
 } from "../documents";
+
+/**
+ * The document a view stands in for, which the panel is too narrow to draw whole.
+ *
+ * `title` is the document's own name rather than the view's. Search draws half of
+ * the game browser, so the tab its menu offers is the game index.
+ */
+export interface WideForm {
+  title: string;
+  document: () => ContentDocument;
+}
 
 /** One view the rail offers, and the panel beside it fills with. */
 export interface RailView {
@@ -29,6 +43,7 @@ export interface RailView {
   /** The panel's title, and the rail button's tooltip and accessible name. */
   title: string;
   icon: ReactNode;
+  wide?: WideForm;
 }
 
 /** One document the rail's lower group opens, which belongs to the whole project. */
@@ -56,21 +71,25 @@ export function railViews(): readonly RailView[] {
       id: "search",
       title: m.workshop_sidebar_search_title(),
       icon: <MagnifyingGlassIcon weight="bold" className="h-5 w-5" />,
+      wide: { title: m.workshop_sidebar_game_title(), document: gameDocument },
     },
     {
       id: "problems",
       title: m.workshop_sidebar_problems_title(),
       icon: <WarningDiamondIcon className="h-5 w-5" />,
+      wide: { title: m.workshop_sidebar_problems_title(), document: problemsDocument },
     },
     {
       id: "objects",
       title: m.workshop_objects_title(),
       icon: <CubeIcon className="h-5 w-5" />,
+      wide: { title: m.workshop_objects_title(), document: objectsDocument },
     },
     {
       id: "game",
       title: m.workshop_sidebar_game_title(),
       icon: <LeagueIcon className="h-5 w-5" />,
+      wide: { title: m.workshop_sidebar_game_title(), document: gameDocument },
     },
     {
       id: "source",

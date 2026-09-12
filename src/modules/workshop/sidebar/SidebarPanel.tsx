@@ -10,6 +10,7 @@ import { ProblemsDocument } from "../problems";
 import { GameIndexView } from "./GameIndexView";
 import { GameSearchView } from "./GameSearchView";
 import { railViews } from "./railViews";
+import { SidebarViewMenu } from "./SidebarViewMenu";
 import { SourceControlView } from "./SourceControlView";
 
 /**
@@ -32,11 +33,12 @@ export function SidebarPanel(props: ContentSidebarProps) {
     >
       <div
         data-ui="SidebarPanel:title"
-        className="flex h-9 shrink-0 items-center border-b border-surface-700/50 px-3"
+        className="flex h-9 shrink-0 items-center gap-1.5 border-b border-surface-700/50 pr-1.5 pl-3"
       >
-        <span className="truncate text-[0.6875rem] font-medium tracking-wide text-surface-300 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium tracking-wide text-surface-300 uppercase">
           {title}
         </span>
+        <SidebarViewMenu />
       </div>
 
       {/* `empty:hidden` rather than a conditional, because what fills this row

@@ -745,6 +745,8 @@
   "workshop_sidebar_explorer_title": "Explorer",
   "workshop_sidebar_folder_action": "Open project folder",
   "workshop_sidebar_game_title": "Game index",
+  "workshop_sidebar_menu_label": "View actions",
+  "workshop_sidebar_open_tab_action": "Open {title} in a tab",
   "workshop_sidebar_problems_title": "Problems",
   "workshop_sidebar_rail_label": "Project views",
   "workshop_sidebar_search_title": "Search",

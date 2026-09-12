@@ -39,10 +39,13 @@ the editor grid holds, and pressing the showing view's own icon is what hides th
 Objects - draws that document's own box, counts and actions there rather than losing them. A view
 with no document of its own draws into the same row through `DocumentToolbar`.
 
-**The wide forms stay documents.** The game browser's grid and details list need a surface, so
-`gameDocument()` and `objectsDocument()` still open as tabs from the command palette, and the
-Game index view draws the tree half alone. A scoped game browser is still a document, because two
-of them side by side is the point of it.
+**The wide forms stay documents, and the view names its own.** The game browser's grid and
+details list need a surface, so `gameDocument()` and `objectsDocument()` still open as tabs, and
+the Game index view draws the tree half alone. A view that stands in for a document declares it
+as `wide` on its `railViews()` entry, and the panel header's kebab opens it. The `wide` title is
+the document's rather than the view's, because Search draws half of the game browser and an item
+reading "Open Search in a tab" would name a tab that does not exist. A scoped game browser is
+still a document, because two of them side by side is the point of it.
 
 ## Consequences
 

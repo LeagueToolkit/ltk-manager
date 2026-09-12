@@ -1065,9 +1065,13 @@ hides the panel, and pressing any icon while the panel is hidden reopens it on t
 The rail itself never hides, so the routes into a project are on screen whatever the editor
 grid holds. ADR-0038 is why the rail sits outside the panel it drives.
 
-A view is a place a user looks rather than work they hold, so none of them is a tab. The
-wide forms stay reachable: the game browser and the objects browser each open as a document
-from the command palette, where the grid and the details list have the width they need.
+The panel header names the showing view and carries its kebab. The kebab holds what the view
+offers that its body has no room for, and a view with nothing to offer draws none.
+
+A view is a place a user looks rather than work they hold, so none of them is a tab. Where a
+view is the narrow half of a document, the panel header's kebab opens that document, and the
+item names the document rather than the view: Search offers the game index, because the find
+results are one half of that browser. The command palette opens the same documents.
 
 The lower group is the project's own documents, under a rule that marks them as a different
 kind from the views above.

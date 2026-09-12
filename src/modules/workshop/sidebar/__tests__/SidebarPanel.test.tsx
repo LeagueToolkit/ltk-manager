@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -13,6 +14,7 @@ import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../components/ProjectContext";
+import { GAME_DOCUMENT_ID } from "../../documents";
 import { SidebarPanel } from "../SidebarPanel";
 
 const PROJECT: WorkshopProject = {
@@ -91,6 +93,26 @@ describe("SidebarPanel", () => {
       "Source control",
     );
     expect(sectionHeaders(container)).toEqual([]);
+  });
+
+  /* Search over the game index, because its wide form is the browser it draws
+     half of - the item names the document rather than the view it sits on. */
+  it("opens the view's wide form from the header's kebab", async () => {
+    useWorkshopLayoutStore.setState({ sidebarView: "search" });
+    renderPanel();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "View actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Open Game index in a tab" }));
+
+    const editor = useWorkshopEditorStore.getState().byProject[PROJECT.path];
+    expect(Object.keys(editor?.documents ?? {})).toContain(GAME_DOCUMENT_ID);
+  });
+
+  it("draws no kebab for a view that stands in for nothing", () => {
+    renderPanel();
+
+    expect(screen.queryByRole("button", { name: "View actions" })).toBeNull();
   });
 
   it("gives the search view's box the header's toolbar row", () => {
