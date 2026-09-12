@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-12 | An unbidden panel is told from one the reader opened         |
 | 2026-09-07 | The panel names a selection, and select mode is retired      |
 | 2026-09-04 | The list ends in a line the informative findings fold under  |
 | 2026-09-03 | An archive repair reads the archive where it lies            |
@@ -474,6 +475,12 @@ a panel this size.
 
 **It still reflows nothing.** A panel that pushed the cards aside would move the one somebody was
 reaching for.
+
+That is a rule about a panel that arrives unbidden. Findings come looking for a reader, so
+whatever they push aside is pushed aside at a moment the reader did not choose. A panel the reader
+opened is a different object: the reflow is the answer to their own press, and they close it the
+moment it is in the way. The Library's own documents panel reflows for exactly that reason - see
+"The documents panel" in [LIBRARY.md](LIBRARY.md).
 
 **A selection does not withhold it.** The panel did step aside for a reader picking mods while it
 was a sheet over the grid, which was a sheet fighting the cards being picked from. A centred

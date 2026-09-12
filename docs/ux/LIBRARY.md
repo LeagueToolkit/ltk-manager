@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | The documents panel, its two tabs and what it persists     |
 | 2026-09-07 | The library selects by gesture, and select mode is retired |
 | 2026-09-07 | First draft of this document                               |
 
@@ -50,6 +51,9 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
+| The documents panel    | Available | A right-edge panel on a seam, closed until asked for          |
+| The readme tab         | Available | One mod's readme, opened from that card's menu                |
+| The licenses tab       | Available | Every mod's license name, grouped, a row expanding to text    |
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
 | Marquee selection      | Proposed  | Competes with drag-to-reorder for the same press              |
 | Folder moves on a pick | Proposed  | A selection carries no destination today                      |
@@ -159,24 +163,109 @@ Navigating away from the library clears the selection. A pick carried to another
 would let `Uninstall N` act on mods the reader cannot see, and a folder drilldown is the case that
 makes it concrete. The selection is session state and is never written to disk.
 
+## The documents panel
+
+The Library's right edge holds a panel with two tabs: **Readme**, which renders one installed
+mod's own readme, and **Licenses**, which lists every installed mod and what it is licensed
+under. It is closed until a reader opens it, and opening it narrows the grid rather than covering
+the cards.
+
+**Two affordances open it, at the two scopes a menu has.** The toolbar's Documents toggle is
+library-wide and lands on Licenses, which needs no mod and is already full. A card's `Readme`
+item aims the panel at that mod and lands on Readme. The tab a panel opens on follows the intent
+of what opened it.
+
+There is no gesture on the card itself. A bare press is the switch, so a double-press would flip
+`enabled` twice on the way to a readme, and the selection is a set with no notion of one readable
+pick.
+
+**The panel names what it holds in its own header.** A reader who opened a readme, toggled six
+switches and came back still knows what they are reading. The name is not on the tab, where the
+strip would shift under the pointer as one mod's name gave way to another's.
+
+**The Readme item is always offered.** Whether a mod has a readme is not known until its archive
+opens, so an item that hid without one would cost either a flag persisted for every installed mod
+or an archive opened per card. A mod with no readme shows the panel's own empty state.
+
+**An absent readme and an unreadable archive are two answers.** The second says the mod's archive
+is not answering, which is a mod that may not work at all, and reporting it as a mod whose author
+wrote nothing is a silent lie about something the reader has installed. The same holds for a
+license.
+
+**A readme renders as GitHub Flavoured Markdown, with a stranger's file in mind.** Raw HTML and
+inline scripts are not rendered, an external link opens in the system browser, and no image
+resolves - a mod directory is not a project, so a relative path has nothing to point at and the
+image degrades to its alt text. A readme holding one heading renders as one heading: any
+threshold is wrong for somebody, and an author who wrote only a title still chose to write a
+file.
+
+**Uninstalling the open mod clears the panel rather than closing it.** The panel stays at its
+width and says the mod is gone, so there is no stale content and no layout change nobody asked
+for. Opening another mod is the likely next act.
+
+### The licenses tab
+
+The tab is library-wide and does not follow whichever mod the Readme tab holds. That is what
+makes it an audit rather than a line: every all-rights-reserved mod in one block, every
+undeclared one in another. Rows group by license name and the tab searches, over the mod's name
+and the license's alike.
+
+Three states are told apart, because the middle one is the common one:
+
+- a mod that declares a name and carries the file, which expands to its text
+- a mod that declares a name and carries **no** file, which says so on expanding
+- a mod that declares neither, which reads as not declared and has nothing to expand
+
+The name costs nothing, because it rides in the `mod.config.json` a listing already opens. The
+text is on disk for neither format, so expanding a row mounts that mod's archive, and the answer
+is held for the session and never written to disk. A license renders preformatted rather than as
+Markdown, because it is a hard-wrapped plain-text file and Markdown mangles it.
+
+### What survives, and what the width does
+
+The seam between the grid and the panel drags to resize, within a minimum that keeps both halves
+usable, and **the width outlives a restart**. Whether the panel was open, and which mod it held,
+do not: the Library opens closed and full width every session. Persisting the open state boots a
+reader into a narrower grid they had forgotten about, and persisting the mod needs a fallback for
+one uninstalled between sessions.
+
+Below 760px of window the panel floats over the grid instead of pushing it, so the feature is
+reachable at any size and the cards never squeeze to nothing. That figure is the panel at the
+width it asks for beside the grid's own floor. Under it one of the two would be at its minimum,
+and a grid squeezed to a single column has stopped being a grid.
+
+**The panel draws on the page ground with a hairline**, which is what the toolbar and the session
+bar already do, and what lets a rendered document sit on the ground without an inset frame of its
+own. The tab strip therefore has no rung to mark itself with and leans on that hairline and on
+type.
+
+Escape and `Ctrl+A` stay with the library underneath. The panel is not modal, so leaving it does
+not also drop the selection.
+
 ## Decided questions
 
-| Question                                        | Answer                                                    |
-| ----------------------------------------------- | --------------------------------------------------------- |
-| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in       |
-| What does a bare click do under a selection?    | Switches that mod, as it always does                      |
-| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                     |
-| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                        |
-| Is there a marquee?                             | No. It competes with drag-to-reorder for one press        |
-| What does the toolbar button do?                | Select all visible, or clear once they all are            |
-| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection         |
-| Does a right click inside the pick keep it?     | Yes, and it opens what the selection carries              |
-| Does a right click outside the pick keep it?    | No. It collapses onto that card and opens the card's menu |
-| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there    |
-| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                         |
-| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press              |
-| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see            |
-| Is the selection written to disk?               | No. It is session state                                   |
+| Question                                        | Answer                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------- |
+| Is there a mode to enter before picking?        | No. Ctrl-click and shift-click are the whole way in         |
+| What does a bare click do under a selection?    | Switches that mod, as it always does                        |
+| Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                       |
+| Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                          |
+| Is there a marquee?                             | No. It competes with drag-to-reorder for one press          |
+| What does the toolbar button do?                | Select all visible, or clear once they all are              |
+| Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection           |
+| Does a right click inside the pick keep it?     | Yes, and it opens what the selection carries                |
+| Does a right click outside the pick keep it?    | No. It collapses onto that card and opens the card's menu   |
+| Is the kebab closed while a selection exists?   | No. It is the card's menu, and the card is still there      |
+| Do Enable and Disable spend the selection?      | No. Check health and Uninstall do                           |
+| Can a mod be reordered while a pick is up?      | No. The drag and the pick are the same press                |
+| Does the selection survive leaving the library? | No. It would act on mods the reader cannot see              |
+| Is the selection written to disk?               | No. It is session state                                     |
+| Does the documents panel cover the cards?       | No, above 760px. It narrows the grid and floats below it    |
+| What opens it, and on which tab?                | The toolbar on Licenses, a card's menu on that mod's Readme |
+| Does the Readme item hide for a mod with none?  | No. Presence is unknown until the archive opens             |
+| Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held         |
+| Does the licenses tab follow the opened mod?    | No. It is library-wide, which is what makes it an audit     |
+| Is a license text cached to disk?               | No. It is read once per session and held in memory          |
 
 ## Open questions
 
