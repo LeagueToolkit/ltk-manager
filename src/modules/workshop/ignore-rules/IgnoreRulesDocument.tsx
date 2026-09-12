@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { Button, Code, EmptyState, Spinner } from "@/components";
 import { m } from "@/i18n";
-import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, type TextSaveState } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
 import { projectQueries } from "../api";
@@ -15,7 +15,7 @@ import {
 } from "../state";
 import { MODIGNORE_FILE_NAME } from "./ignoreLine";
 import { SyntaxRail } from "./SyntaxRail";
-import { type IgnoreSaveState, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
+import { useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
 
 /** One `.modignore` of the project as text, saving itself as edited. */
 export function IgnoreRulesDocument({
@@ -230,7 +230,7 @@ function NoFile({ editor }: { editor: Editor }) {
 }
 
 interface SaveStatusProps {
-  state: IgnoreSaveState;
+  state: TextSaveState;
   onRetry: () => void;
 }
 
