@@ -1679,9 +1679,9 @@ The `probabilityTables` chip in the toolbar carries the one-roll sentence as its
 drawn only where the value has tables.
 
 A table on `Color` or `scale0` re-rolls every frame and every channel, and the toolbar warns of it.
-Those two are the only fields that do. The Problems
-panel carries the same two faults for the whole mod: `vfx/per-frame-random` warns of a random
-table on those two fields, and `vfx/broken-random` reports a set the game crashes on or reads as 0.
+Those two are the only fields that do. The toolbar is the only place that says so: the Problems
+panel's `vfx/per-frame-random` and `vfx/broken-random` are held back while their findings are too
+noisy to draw.
 
 ### Where a curve is drawn small
 
