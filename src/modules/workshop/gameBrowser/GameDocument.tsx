@@ -70,7 +70,7 @@ import { useGameSearchRevealTarget } from "./useGameSearchReveal";
 import { useSourcePreview } from "./useSourcePreview";
 
 /** What the whole install's explorer keeps its location and selection under. */
-const EXPLORER_ID = "game";
+export const EXPLORER_ID = "game";
 
 /**
  * The root game browser: every archive of the installed game, folded into one
@@ -302,7 +302,7 @@ function SearchField({ boxRef }: SearchFieldProps) {
 }
 
 /** What the find turned up, and how much of it the answer carries. */
-function MatchCount({ result }: { result: GameFindResult }) {
+export function MatchCount({ result }: { result: GameFindResult }) {
   const formatted = result.total.toLocaleString();
 
   if (result.hits.length < result.total) {
@@ -315,7 +315,8 @@ function MatchCount({ result }: { result: GameFindResult }) {
 
   return m.workshop_game_matches_label({ count: result.total, formatted });
 }
-function GameIndexTree() {
+/** The install's directories, read one level at a time as they open. */
+export function GameIndexTree() {
   const filter = useExplorerFilter(EXPLORER_ID);
   /* Opt-in, where the scoped browser opts out: a whole-game tree is too large
      to hold at once, so a directory is read when it is first opened. */

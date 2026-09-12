@@ -23,7 +23,7 @@ const SIDE_OPTIONS = [
   { value: "right" as const, label: "Right" },
 ];
 
-/** Where the layers explorer sits in the content browser, and whether it shows at all. */
+/** Which edge the primary side panel docks to, and whether it shows at all. */
 export function ContentLayoutPopover() {
   const layerPanelSide = useLayerPanelSide();
   const setLayerPanelSide = useSetLayerPanelSide();
@@ -54,14 +54,14 @@ export function ContentLayoutPopover() {
             <FilterSection>
               <Checkbox
                 size="sm"
-                label="Show layers explorer"
+                label="Show side panel"
                 checked={layerPanelOpen}
                 onCheckedChange={setLayerPanelOpen}
               />
             </FilterSection>
 
             {layerPanelOpen && (
-              <FilterSection title="Layers explorer position">
+              <FilterSection title="Side panel position">
                 <SegmentedControl
                   options={SIDE_OPTIONS}
                   value={layerPanelSide}

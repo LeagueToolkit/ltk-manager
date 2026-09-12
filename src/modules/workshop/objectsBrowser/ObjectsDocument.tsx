@@ -26,6 +26,7 @@ import {
   useToggleFindPrefix,
   useToggleObjectPrefix,
 } from "../state";
+import { focusRows } from "../utils/focusRows";
 import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,
@@ -76,21 +77,6 @@ export function ObjectsDocument({ active }: EditorDocumentProps<ContentDocumentO
       {searching && <FindResults />}
     </div>
   );
-}
-
-/* The browse tree stays mounted under `hidden` during a search. The visible tree is
-   the one whose rows take focus. */
-function focusRows(body: HTMLElement | null) {
-  if (!body) return;
-
-  const rows = body.querySelectorAll<HTMLElement>('[data-tree-rows] [data-treeitem-index="0"]');
-  const first = [...rows].find((row) => row.offsetParent !== null);
-  if (first) {
-    first.focus();
-    return;
-  }
-  const trees = body.querySelectorAll<HTMLElement>('[role="tree"]');
-  [...trees].find((tree) => tree.offsetParent !== null)?.focus();
 }
 
 /** How many objects the install declares, from the root's answer. */

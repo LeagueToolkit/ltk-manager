@@ -4,7 +4,12 @@ export { ExtractRunner } from "./ExtractRunner";
 export { archiveTarget, chunkTarget } from "./extractTargets";
 export { fileKindFromPath } from "./fileKind";
 export { GameWadsErrorState } from "./GameBrowserStates";
-export { GameDocument } from "./GameDocument";
+export {
+  EXPLORER_ID as GAME_EXPLORER_ID,
+  GameDocument,
+  GameIndexTree,
+  MatchCount,
+} from "./GameDocument";
 export { GameFindResults } from "./GameFindResults";
 export { GameWadDocument } from "./GameWadDocument";
 export { GameWadsDocument } from "./GameWadsDocument";
@@ -14,9 +19,10 @@ export { gameQueries, objectIndexQueries } from "./queries";
 export * from "./sourceIndex";
 export { SourceTree } from "./SourceTree";
 export { type ExtractHow, useExtractActions } from "./useExtractActions";
+export { useGameFind } from "./useGameFind";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./useGameIndex";
 export { useGameSearch } from "./useGameSearch";
-export { useRevealGameSearch } from "./useGameSearchReveal";
+export { useGameSearchRevealTarget, useRevealGameSearch } from "./useGameSearchReveal";
 export { useGameWadEntries } from "./useGameWadEntries";
 export { useGameWads } from "./useGameWads";
 export {

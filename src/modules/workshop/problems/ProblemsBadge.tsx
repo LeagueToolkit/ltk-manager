@@ -1,9 +1,8 @@
 import { SeverityGlyph, Tooltip } from "@/components";
+import { useShowSidebarView } from "@/stores";
 
 import { useProjectProblems } from "../api";
 import { useProjectContext } from "../components/ProjectContext";
-import { problemsDocument } from "../documents/contentDocument";
-import { useOpenDocument } from "../state";
 import { countBySeverity, isMuted, type SeverityCounts } from "./problemGroups";
 import { useMutedRules } from "./runCatalogue";
 
@@ -21,7 +20,7 @@ export function ProblemsBadge() {
   const project = useProjectContext();
   const { data: run } = useProjectProblems(project.path);
   const muted = useMutedRules();
-  const openDocument = useOpenDocument();
+  const showView = useShowSidebarView();
 
   if (!run) return null;
 
@@ -35,7 +34,7 @@ export function ProblemsBadge() {
     <Tooltip content="Open Problems">
       <button
         type="button"
-        onClick={() => openDocument(problemsDocument())}
+        onClick={() => showView("problems")}
         aria-label={`${worst.count} ${worst.noun}, open Problems`}
         className="flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs text-surface-200 transition-colors outline-none hover:bg-surface-veil focus-visible:ring-1 focus-visible:ring-accent-500/60"
       >

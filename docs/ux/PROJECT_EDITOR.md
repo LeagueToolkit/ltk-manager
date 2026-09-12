@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-09-12 | Fill the primary side panel from a rail of views                        |
 | 2026-09-12 | Write a project's readme beside its rendered half                       |
 | 2026-09-12 | Report what the ignore rules left out of a package                      |
 | 2026-09-12 | Read and write a project's ignore rules, and dim what they exclude      |
@@ -14,8 +15,6 @@
 | 2026-09-10 | Walk an explorer's directories with the navigation arrows               |
 | 2026-09-10 | Step a tile's name with its size, and gather the bar behind one control |
 | 2026-09-09 | Pin a tab to the front of its strip, out of reach of a batch close      |
-| 2026-09-09 | Draw a game explorer as tiles, over one location and one selection      |
-| 2026-09-09 | Lock a group, so an open that did not name it lands elsewhere           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -154,34 +153,37 @@ The screen has four regions.
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │ ← →  ⌕ Workshop / Charizard Smolder X  v1.0.0   ⬓ ▷ Test  ⬚ Pack    ⋮  │
-├────────────────┬──────────────────────────────────┬────────────────────┤
-│  info  dir  ⑂  │ ⧉ charizard_circle.tex  ×    ⬓   │ base           446 │
-├────────────────┼──────────────────────────────────┼────────────────────┤
-│ ▾ CONTENT    2 │                                  │ ▾ assets           │
-│   ▪ Base       │                                  │   ▾ characters     │
-│   ▫ test       │          editor surface          │     ▾ hud          │
-│ ▾ WADS       1 │                                  │       circle.tex   │
-│   Smolder.wad  │                                  │       square.tex   │
-│ ▾ STRINGS    1 │                                  ├────────────────────┤
-│   default    1 │                                  │ INSPECTOR          │
-│                │                                  │ 14.1 KB · DDS      │
-└────────────────┴──────────────────────────────────┴────────────────────┘
-  primary                 editor surface               secondary
+├───┬────────────┬──────────────────────────────────┬────────────────────┤
+│ ▤ │ EXPLORER   │ ⧉ charizard_circle.tex  ×    ⬓   │ base           446 │
+│ ⌕ ├────────────┼──────────────────────────────────┼────────────────────┤
+│ ⚠ │ ▾ CONTENT 2│                                  │ ▾ assets           │
+│ ▣ │   ▪ Base   │                                  │   ▾ characters     │
+│ ⬡ │   ▫ test   │          editor surface          │     ▾ hud          │
+│ ⑂ │ ▾ WADS   1 │                                  │       circle.tex   │
+│   │  Smolder   │                                  │       square.tex   │
+│   │ ▾ STRINGS 1│                                  ├────────────────────┤
+│ ⓘ │  default 1 │                                  │ INSPECTOR          │
+│ ▦ │            │                                  │ 14.1 KB · DDS      │
+└───┴────────────┴──────────────────────────────────┴────────────────────┘
+ rail   primary            editor surface               secondary
 ```
 
 1. The project header names the project and holds the actions that apply to the whole
    project.
-2. The primary side panel is the navigation stack. It answers the question "what can I
-   change in this mod?"
-3. The editor surface holds the open documents behind a tab row.
-4. The secondary side panel holds the file tree of the selected layer, and the inspector
+2. The rail is the column of views down the outer edge. It answers the question "where do I
+   look?"
+3. The primary side panel holds the view the rail selected. It answers the question "what
+   can I change in this mod?"
+4. The editor surface holds the open documents behind a tab row.
+5. The secondary side panel holds the file tree of the selected layer, and the inspector
    for the selected file. It answers the question "which file?"
 
-Regions 2 to 4 together are the **content browser**. The project header is above the content
+Regions 2 to 5 together are the **content browser**. The project header is above the content
 browser and is not part of it. The code uses the same name for the same region.
 
 A user can hide each side panel. The layout control in the project header sets which side
-each panel takes, and which panel shows.
+each panel takes, and which panel shows. The rail takes the same side as the primary panel
+and stays on screen while that panel is hidden.
 
 This arrangement is the default. The [panel layout](#the-panel-layout) lets a user build a
 custom arrangement instead.
@@ -1043,25 +1045,43 @@ structure around a result, and the game browser's box does the same for its own 
 is the route straight to one thing. The two shapes answer different questions, and one
 candidate array feeds both.
 
-## Primary side panel
+## The rail
 
-The primary side panel is the map of the project. It shows every route into the mod, so a
-new user reads the whole surface at one look.
+The rail is a column of icons down the content browser's outer edge. Each one of the upper
+group fills the primary side panel with a view of its own, and the panel shows one of them
+at a time. This is the shape Visual Studio Code uses, and most users know it already.
 
-### Project row
+| View           | What the panel fills with                                    |
+| -------------- | ------------------------------------------------------------ |
+| Explorer       | Content, WADs and Strings, the sections below                |
+| Search         | Every file of the install the pattern matches                |
+| Problems       | Everything the manager's checks found in this project        |
+| Objects        | Every object the install declares, as a tree over its paths  |
+| Game index     | The install's own directories, read one level at a time      |
+| Source control | Version control for the declarative data. Under construction |
 
-The top row holds the routes that stay on screen whatever the selected layer is, and
-whatever the editor grid holds.
+The showing view's icon carries an accent mark on the window's own edge. Pressing that icon
+hides the panel, and pressing any icon while the panel is hidden reopens it on that view.
+The rail itself never hides, so the routes into a project are on screen whatever the editor
+grid holds. ADR-0038 is why the rail sits outside the panel it drives.
 
-| Control              | Meaning                                                      |
-| -------------------- | ------------------------------------------------------------ |
-| Mod details          | Opens the metadata editor as a document                      |
-| Game index           | Opens the game browser as a document                         |
-| Objects              | Opens the objects browser as a document                      |
-| Readme               | Opens the project's `README.md` as a document                |
-| Ignore rules         | Opens the project's `.modignore` as a document               |
-| Open project folder  | Shows the project directory in the file manager              |
-| Source control (Git) | Version control for the declarative data. Under construction |
+The panel header names the showing view and carries its kebab. The kebab holds what the view
+offers that its body has no room for, and a view with nothing to offer draws none.
+
+A view is a place a user looks rather than work they hold, so none of them is a tab. Where a
+view is the narrow half of a document, the panel header's kebab opens that document, and the
+item names the document rather than the view: Search offers the game index, because the find
+results are one half of that browser. The command palette opens the same documents.
+
+The lower group is the project's own documents, under a rule that marks them as a different
+kind from the views above.
+
+| Control             | Meaning                                         |
+| ------------------- | ----------------------------------------------- |
+| Mod details         | Opens the metadata editor as a document         |
+| Readme              | Opens the project's `README.md` as a document   |
+| Ignore rules        | Opens the project's `.modignore` as a document  |
+| Open project folder | Shows the project directory in the file manager |
 
 The metadata editor holds the display name, the version, the description, the thumbnail,
 the categorization and the authors. It is a document and not a dialog, so a user can keep
@@ -1070,6 +1090,13 @@ it open beside a layer and switch between the two.
 Source control gives a mod a history. A user can see what changed since the last known good
 build, and can return to it. This suits a mod project, because the layers hold text data
 definitions as well as binary assets. The implementation is out of scope for this document.
+
+## Primary side panel
+
+The primary side panel holds one view of the rail's list. Its header names that view, and
+under the header is the row the view draws its own chrome into - a search box, a count, the
+actions the view carries. The Explorer view is the map of the project, and its sections are
+below.
 
 ### Content
 
@@ -1110,8 +1137,8 @@ editor surface. This is the shape that Visual Studio Code uses, and most users k
 already.
 
 The panel holds no other view today. It is still a generic host and not a file tree with a
-border, so it accepts any panel from the [panel types](#panel-types) list. The primary side
-panel accepts the same list, and a user can put the file tree there instead.
+border, so it accepts any panel from the [panel types](#panel-types) list. What the primary
+panel holds comes from [the rail](#the-rail) instead.
 
 This is the cheap form of the [panel layout](#the-panel-layout). A user chooses which panel
 hosts which view, and a sash sets the width.
@@ -3367,12 +3394,9 @@ no new layout code. The editor surface is not on the list, because it is the gri
 the panels and not a view: it appears once for each leaf of the split tree. Read
 [A tab drag creates a panel](#a-tab-drag-creates-a-panel).
 
-- The project map, which holds Content, WADs and Strings
+- Every view [the rail](#the-rail) offers the primary panel
 - The file tree of the selected layer
 - The asset inspector
-- The game browser
-- The [objects browser](#objects-browser)
-- The [problems list](PROJECT_PROBLEMS.md#the-problems-panel), when it arrives
 - The merged layer view, when it arrives
 
 ### A tab drag creates a panel
