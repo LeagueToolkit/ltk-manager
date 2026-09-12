@@ -1,14 +1,4 @@
-import {
-  BookOpenTextIcon,
-  CubeIcon,
-  EyeSlashIcon,
-  FolderOpenIcon,
-  GearSixIcon,
-  GitBranchIcon,
-  MagnifyingGlassIcon,
-  PlusIcon,
-  WarningDiamondIcon,
-} from "@phosphor-icons/react";
+import { GearSixIcon, PlusIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
 
@@ -16,14 +6,12 @@ import {
   Checkbox,
   FilterSection,
   IconButton,
-  LeagueIcon,
-  PlayerTitleIcon,
   Popover,
   SegmentedControl,
   Tooltip,
   useToast,
 } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { errorSummary } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import { SidePanel, type SidePanelSection } from "@/modules/editor";
 import {
@@ -36,27 +24,9 @@ import {
   useToggleSection,
   useWadSort,
 } from "@/stores";
-import { twMerge } from "@/utils";
 
 import { workshopKeys } from "../api/keys";
-import { useProjectActions } from "../api/useProjectActions";
-import {
-  DETAILS_DOCUMENT_ID,
-  detailsDocument,
-  GAME_DOCUMENT_ID,
-  gameDocument,
-  IGNORE_RULES_DOCUMENT_ID,
-  ignoreRulesDocument,
-  OBJECTS_DOCUMENT_ID,
-  objectsDocument,
-  PROBLEMS_DOCUMENT_ID,
-  problemsDocument,
-  projectTextDocument,
-  README_DOCUMENT_ID,
-} from "../documents";
-import { useRevealGameSearch } from "../gameBrowser";
 import { CreateLayerDialog, useCreateLayer } from "../layers";
-import { useActiveDocumentId, useOpenDocument } from "../state";
 import { buildLayerWads } from "../utils/contentTree";
 import { compareNames } from "../utils/naturalOrder";
 import { ContentLayerList } from "./ContentLayerList";
@@ -75,10 +45,7 @@ const SORT_OPTIONS = [
   { value: "size" as const, label: "Size" },
 ];
 
-/* The tint a route in the project row takes while its document is the active one. */
-const activeDocumentClass = "bg-accent-500/15 text-accent-100 hover:bg-accent-500/25";
-
-interface ContentSidebarProps {
+export interface ContentSidebarProps {
   project: WorkshopProject;
   contentLayers: readonly LayerContent[];
   selectedLayer: LayerContent | null;
@@ -99,7 +66,6 @@ export function ContentSidebar({
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  const projectActions = useProjectActions(project);
   const openSections = useOpenSections();
   const toggleSection = useToggleSection();
   const sectionHeights = useSectionHeights();
@@ -207,13 +173,7 @@ export function ContentSidebar({
     .map((section) => section.id);
 
   return (
-    <aside
-      data-ui="ContentSidebar"
-      /* DS-GROUND: an island inside the fold sits a rung below it. */
-      className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-950 select-none"
-    >
-      <ProjectRow onOpenFolder={projectActions.handleOpenLocation} />
-
+    <div data-ui="ContentSidebar" className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <SidePanel
         sections={sections}
         openIds={openIds}
@@ -229,132 +189,6 @@ export function ContentSidebar({
         isPending={createLayer.isPending}
         existingNames={project.layers.map((l) => l.name)}
       />
-    </aside>
-  );
-}
-
-interface ProjectRowProps {
-  onOpenFolder: () => void;
-}
-
-/** The routes that belong to the whole project, above the explorers that belong to one layer. */
-function ProjectRow({ onOpenFolder }: ProjectRowProps) {
-  const openDocument = useOpenDocument();
-  const activeId = useActiveDocumentId();
-  const revealGameSearch = useRevealGameSearch();
-
-  return (
-    <div
-      data-ui="ContentSidebar:project-row"
-      className="flex h-9 shrink-0 items-center gap-1.5 border-b border-surface-700/50 px-2"
-    >
-      <Tooltip content="Mod details">
-        <IconButton
-          icon={<PlayerTitleIcon className="h-6 w-6" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(detailsDocument())}
-          aria-label="Mod details"
-          className={twMerge(activeId === DETAILS_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content="Problems">
-        <IconButton
-          icon={<WarningDiamondIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(problemsDocument())}
-          aria-label="Problems"
-          className={twMerge(activeId === PROBLEMS_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content="Game index">
-        <IconButton
-          icon={<LeagueIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(gameDocument())}
-          aria-label="Game index"
-          className={twMerge(activeId === GAME_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content={m.workshop_objects_title()}>
-        <IconButton
-          icon={<CubeIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(objectsDocument())}
-          aria-label={m.workshop_objects_title()}
-          className={twMerge(activeId === OBJECTS_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content={m.workshop_readme_title()}>
-        <IconButton
-          icon={<BookOpenTextIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(projectTextDocument("readme"))}
-          aria-label={m.workshop_readme_title()}
-          className={twMerge(activeId === README_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content={m.workshop_ignore_title()}>
-        <IconButton
-          icon={<EyeSlashIcon weight="bold" className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={() => openDocument(ignoreRulesDocument())}
-          aria-label={m.workshop_ignore_title()}
-          className={twMerge(activeId === IGNORE_RULES_DOCUMENT_ID && activeDocumentClass)}
-        />
-      </Tooltip>
-
-      <Tooltip content="Search the game files">
-        <IconButton
-          icon={<MagnifyingGlassIcon weight="bold" className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={revealGameSearch}
-          aria-label="Search the game files"
-        />
-      </Tooltip>
-
-      <Tooltip content="Open project folder">
-        <IconButton
-          icon={<FolderOpenIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          onClick={onOpenFolder}
-          aria-label="Open project folder"
-        />
-      </Tooltip>
-
-      {/* Left enabled, because Tooltip renders its trigger and a disabled button
-          takes no pointer events - aria-disabled says what disabled would. */}
-      <Tooltip content="Source control - under construction">
-        <IconButton
-          icon={<GitBranchIcon className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          aria-disabled="true"
-          aria-label="Source control"
-          className="cursor-default text-surface-500 hover:bg-surface-veil-soft active:bg-surface-veil-soft"
-        />
-      </Tooltip>
     </div>
   );
 }

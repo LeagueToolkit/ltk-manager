@@ -1,15 +1,14 @@
 import { type RefObject, useCallback, useEffect } from "react";
 import { create } from "zustand";
 
-import { gameDocument } from "../documents/contentDocument";
-import { useOpenDocument } from "../state";
+import { useShowSidebarView } from "@/stores";
 
 interface GameSearchRevealStore {
   /**
    * Bumped by every route into the game search.
    *
    * The box focuses when this moves past what it has answered, which is what
-   * `Ctrl+Shift+F` has to do even while the game document is already showing.
+   * `Ctrl+Shift+F` has to do even while the search view is already showing.
    * A counter rather than a flag, so two reveals in a row both land.
    */
   reveal: number;
@@ -26,15 +25,15 @@ const useRevealStore = create<GameSearchRevealStore>()((set) => ({
   answer: (reveal) => set({ answered: reveal }),
 }));
 
-/** Open the game index document and focus its search box. */
+/** Show the search view and focus its box. */
 export function useRevealGameSearch(): () => void {
-  const openDocument = useOpenDocument();
+  const showView = useShowSidebarView();
   const bump = useRevealStore((state) => state.bump);
 
   return useCallback(() => {
-    openDocument(gameDocument());
+    showView("search");
     bump();
-  }, [openDocument, bump]);
+  }, [showView, bump]);
 }
 
 /**

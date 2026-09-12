@@ -28,6 +28,7 @@ import {
   layerTitle,
   useContentEditors,
 } from "../documents";
+import { SidebarPanel, SidebarRail } from "../sidebar";
 import {
   useLayoutTree,
   useMaximizedLeafId,
@@ -42,7 +43,6 @@ import {
 } from "../state";
 import { isProjectUnconfigured } from "../utils/project";
 import { ContentLeaf } from "./ContentLeaf";
-import { ContentSidebar } from "./ContentSidebar";
 import { LayerFileDropOverlay } from "./LayerFileDropOverlay";
 
 interface ContentBrowserProps {
@@ -147,7 +147,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       maxSize="40%"
       className="flex h-full min-h-0 w-full min-w-0 flex-col"
     >
-      <ContentSidebar
+      <SidebarPanel
         project={project}
         contentLayers={contentLayers}
         selectedLayer={selectedLayer}
@@ -209,6 +209,10 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
 
   return (
     <div data-ui="ContentBrowser" className="relative flex h-full min-h-0 rounded-xl px-1.5 pb-1.5">
+      {/* Outside the Group the panel is a share of, because the rail answers for
+          the project rather than for the panel and stays while that panel is hidden. */}
+      {layerPanelSide === "left" && <SidebarRail />}
+
       {/* Keyed by side because defaultLayout is read at mount alone. A flip
           remounts the Group, and the id-keyed sizes reapply in the new order. */}
       {layerPanelOpen && (
@@ -225,6 +229,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
         </Group>
       )}
       {!layerPanelOpen && surface}
+
+      {layerPanelSide === "right" && <SidebarRail />}
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
     </div>
   );

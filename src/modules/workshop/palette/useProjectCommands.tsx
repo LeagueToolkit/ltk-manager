@@ -210,7 +210,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
       },
       {
         id: "view.toggleSidebar",
-        title: layerPanelOpen ? "Hide the layers explorer" : "Show the layers explorer",
+        title: layerPanelOpen ? "Hide the side panel" : "Show the side panel",
         group: "View",
         keywords: ["sidebar", "panel"],
         icon: <SidebarSimpleIcon weight="bold" className={GLYPH} />,

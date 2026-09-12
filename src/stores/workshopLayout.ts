@@ -5,9 +5,12 @@ import type { CameraPreset } from "@/modules/viewport";
 
 import { keepUnversioned } from "./storage";
 
-/** Which edge of the content browser the layers explorer docks to. */
+/** Which edge of the content browser the primary side panel docks to. */
 type LayerPanelSide = "left" | "right";
 type WadSort = "name" | "size";
+
+/** Which view the rail has the primary side panel showing, ADR-0038. */
+type SidebarViewId = "explorer" | "search" | "problems" | "objects" | "game" | "source";
 
 /** How a preview draws the run: shaded, as its triangle edges alone, or edges over shading. */
 type PreviewWireframe = "off" | "only" | "overlay";
@@ -84,6 +87,8 @@ interface ExplorerSort {
 interface WorkshopLayoutStore extends PreviewDisplay {
   layerPanelSide: LayerPanelSide;
   layerPanelOpen: boolean;
+  /** The view the rail last selected, which reopening the panel returns to. */
+  sidebarView: SidebarViewId;
   /** Open state per explorer section, keyed by section id. Absent means default. */
   openSections: Record<string, boolean>;
   /** Body height per explorer section, in px, once a boundary has been dragged. */
@@ -150,6 +155,8 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   setExplorerColumn: (column: keyof ExplorerColumns, width: number) => void;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
+  /** Show `sidebarView` in the primary side panel, opening the panel if it is hidden. */
+  showSidebarView: (sidebarView: SidebarViewId) => void;
   toggleSection: (id: string, open: boolean) => void;
   setSectionHeight: (id: string, height: number) => void;
   setBrowserSplit: (browserSplit: Record<string, number>) => void;
@@ -193,6 +200,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     (set) => ({
       layerPanelSide: "left",
       layerPanelOpen: true,
+      sidebarView: "explorer",
       openSections: {},
       sectionHeights: {},
       browserSplit: null,
@@ -218,6 +226,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
         set((state) => ({ explorerColumns: { ...state.explorerColumns, [column]: width } })),
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
+      showSidebarView: (sidebarView) => set({ layerPanelOpen: true, sidebarView }),
       toggleSection: (id, open) =>
         set((state) => ({ openSections: { ...state.openSections, [id]: open } })),
       setSectionHeight: (id, height) =>
@@ -258,6 +267,7 @@ export type {
   PreviewDisplay,
   PreviewWireframe,
   ProjectEditorKey,
+  SidebarViewId,
   TabOpenMode,
   WadSort,
 };
@@ -278,6 +288,8 @@ export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPane
 export const useSetLayerPanelSide = () => useWorkshopLayoutStore((s) => s.setLayerPanelSide);
 export const useLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.layerPanelOpen);
 export const useSetLayerPanelOpen = () => useWorkshopLayoutStore((s) => s.setLayerPanelOpen);
+export const useSidebarView = () => useWorkshopLayoutStore((s) => s.sidebarView);
+export const useShowSidebarView = () => useWorkshopLayoutStore((s) => s.showSidebarView);
 export const useOpenSections = () => useWorkshopLayoutStore((s) => s.openSections);
 export const useToggleSection = () => useWorkshopLayoutStore((s) => s.toggleSection);
 export const useSectionHeights = () => useWorkshopLayoutStore((s) => s.sectionHeights);

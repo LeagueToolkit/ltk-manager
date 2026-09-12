@@ -7,13 +7,14 @@ import { twMerge } from "@/utils";
 interface TreeSearchBoxProps {
   value: string;
   onChange: (value: string) => void;
-  regex: boolean;
-  onRegexChange: (regex: boolean) => void;
+  /** Absent where the box narrows rows already on screen, which no regex reaches. */
+  regex?: boolean;
+  onRegexChange?: (regex: boolean) => void;
   /** The box's own name, and its placeholder as the pattern reads plain. */
   label: string;
   /** The placeholder while the pattern reads as a regex. */
-  regexLabel: string;
-  regexToggleLabel: string;
+  regexLabel?: string;
+  regexToggleLabel?: string;
   clearLabel: string;
   /** `Enter` or `ArrowDown`, which hand the keyboard to the rows below. */
   onCommit: () => void;
@@ -66,7 +67,7 @@ export function TreeSearchBox({
           aria-label={label}
           autoComplete="off"
           spellCheck={false}
-          className="h-6 pr-14 pl-7 text-xs select-text"
+          className={twMerge("h-6 pl-7 text-xs select-text", onRegexChange ? "pr-14" : "pr-7")}
         />
         <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
           {value && (
@@ -83,21 +84,23 @@ export function TreeSearchBox({
               className="h-4 w-4"
             />
           )}
-          <Tooltip content={regexToggleLabel}>
-            <button
-              type="button"
-              aria-pressed={regex}
-              onClick={() => onRegexChange(!regex)}
-              className={twMerge(
-                "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[0.625rem] text-surface-400 transition-colors",
-                /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
-                regex &&
-                  "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
-              )}
-            >
-              .*
-            </button>
-          </Tooltip>
+          {onRegexChange && (
+            <Tooltip content={regexToggleLabel}>
+              <button
+                type="button"
+                aria-pressed={regex}
+                onClick={() => onRegexChange(!regex)}
+                className={twMerge(
+                  "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-[0.625rem] text-surface-400 transition-colors",
+                  /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
+                  regex &&
+                    "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
+                )}
+              >
+                .*
+              </button>
+            </Tooltip>
+          )}
         </span>
       </Field.Root>
       {children}

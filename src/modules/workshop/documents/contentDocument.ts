@@ -147,7 +147,7 @@ export function projectTextDocument(file: ProjectTextFile): ContentDocumentOf<"t
 /** A run covers the whole project, so its document needs nothing to key on. */
 export const PROBLEMS_DOCUMENT_ID = "problems";
 
-export function problemsDocument(): ContentDocument {
+export function problemsDocument(): ContentDocumentOf<"problems"> {
   return { id: PROBLEMS_DOCUMENT_ID, kind: "problems" };
 }
 
@@ -174,7 +174,7 @@ export function gameWadDocument(wadName: string): ContentDocument {
 /** The install has one tree of objects. Its browser needs nothing to key on. */
 export const OBJECTS_DOCUMENT_ID = "objects";
 
-export function objectsDocument(): ContentDocument {
+export function objectsDocument(): ContentDocumentOf<"objects"> {
   return { id: OBJECTS_DOCUMENT_ID, kind: "objects" };
 }
 
