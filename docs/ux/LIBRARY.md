@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-12 | The details tab, which folds the three mod dialogs in      |
 | 2026-09-12 | The documents panel, its two tabs and what it persists     |
 | 2026-09-07 | The library selects by gesture, and select mode is retired |
 | 2026-09-07 | First draft of this document                               |
@@ -52,6 +53,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
 | The documents panel    | Available | A right-edge panel on a seam, closed until asked for          |
+| The details tab        | Available | One mod's cover, facts, layers, WAD footprint and edit form   |
 | The readme tab         | Available | One mod's readme, opened from that card's menu                |
 | The licenses tab       | Available | Every mod's license name, grouped, a row expanding to text    |
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
@@ -165,21 +167,21 @@ makes it concrete. The selection is session state and is never written to disk.
 
 ## The documents panel
 
-The Library's right edge holds a panel with two tabs: **Readme**, which renders one installed
-mod's own readme, and **Licenses**, which lists every installed mod and what it is licensed
-under. It is closed until a reader opens it, and opening it narrows the grid rather than covering
-the cards.
+The Library's right edge holds a panel with three tabs: **Details**, which answers what one
+installed mod is, **Readme**, which renders that mod's own readme, and **Licenses**, which lists
+every installed mod and what it is licensed under. It is closed until a reader opens it, and
+opening it narrows the grid rather than covering the cards.
 
-**Two affordances open it, at the two scopes a menu has.** The toolbar's Documents toggle is
-library-wide and lands on Licenses, which needs no mod and is already full. A card's `Readme`
-item aims the panel at that mod and lands on Readme. The tab a panel opens on follows the intent
-of what opened it.
+**Three affordances open it, at the two scopes a menu has.** The toolbar's Documents toggle is
+library-wide and lands on Licenses, which needs no mod and is already full. A card's `Details`
+item aims the panel at that mod and lands on Details, and its `Readme` item lands on Readme. The
+tab a panel opens on follows the intent of what opened it.
 
 There is no gesture on the card itself. A bare press is the switch, so a double-press would flip
 `enabled` twice on the way to a readme, and the selection is a set with no notion of one readable
 pick.
 
-**The panel names what it holds in its own header.** A reader who opened a readme, toggled six
+**The panel names what it holds in its own header.** A reader who opened a mod, toggled six
 switches and came back still knows what they are reading. The name is not on the tab, where the
 strip would shift under the pointer as one mod's name gave way to another's.
 
@@ -202,6 +204,34 @@ file.
 **Uninstalling the open mod clears the panel rather than closing it.** The panel stays at its
 width and says the mod is gone, so there is no stale content and no layout change nobody asked
 for. Opening another mod is the likely next act.
+
+### The details tab
+
+Details is one mod's whole answer: its cover, who wrote it, what it says it does, the categories
+it carries, the layers it switches, the game WADs it patches, and where it sits on disk. Three
+modal dialogs answered those separately before. Each covered the library, each was dismissed
+before the next could open, and none of them could be read beside the grid.
+
+**The cover runs the panel's full width.** A mod's thumbnail is the thing a reader remembers it
+by, and a column's top is the one place a jump in scale costs nothing. A mod with no art keeps
+the cover and falls back to the letter plate its card draws, because a panel whose first element
+comes and goes per mod reads as broken rather than as adaptive.
+
+**Editing happens in the tab rather than over it.** The Edit press swaps the read sections for the
+form in place, and Save and Cancel sit in a band pinned to the panel's foot. The cover stays,
+because the thumbnail picker is part of the form and the cover is where a thumbnail is.
+
+**Nothing autosaves, and nothing is lost silently.** The panel is not modal, so a reader can press
+another card, another tab or the close button with a half-typed name still in the form. Each of
+those asks first, and cancelling leaves the panel where it was.
+
+**The WAD footprint analyses on its first expand.** The dialog took that gate from its own portal,
+which drew nothing at all while closed. A section in a scrolling tab has no such gate, so the fold
+is the gate and a library nobody expands runs no analysis.
+
+**Three tabs is the ceiling.** The strip fits Details, Readme and Licenses at the width the panel
+asks for. A fourth needs either truncation or a scroller, so anything else a reader wants to know
+about a mod becomes a section of Details rather than a tab of its own.
 
 ### The licenses tab
 
@@ -261,7 +291,10 @@ not also drop the selection.
 | Does the selection survive leaving the library? | No. It would act on mods the reader cannot see              |
 | Is the selection written to disk?               | No. It is session state                                     |
 | Does the documents panel cover the cards?       | No, above 760px. It narrows the grid and floats below it    |
-| What opens it, and on which tab?                | The toolbar on Licenses, a card's menu on that mod's Readme |
+| What opens it, and on which tab?                | The toolbar on Licenses, a card's menu on Details or Readme |
+| Where does a mod's metadata get edited?         | In the Details tab, in place. No dialog is left to open     |
+| Does Details replace the card's layer popover?  | No. That is a different gesture at a different scope        |
+| When is a mod's WAD footprint analysed?         | On the first expand of its fold, never on drawing the tab   |
 | Does the Readme item hide for a mod with none?  | No. Presence is unknown until the archive opens             |
 | Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held         |
 | Does the licenses tab follow the opened mod?    | No. It is library-wide, which is what makes it an audit     |

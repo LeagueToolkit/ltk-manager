@@ -33,8 +33,6 @@ interface SortableModListProps {
   viewMode: "grid" | "list";
   onReorder: (modIds: string[]) => void;
   disabled?: boolean;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
   className?: string;
   folderId?: string;
 }
@@ -44,8 +42,6 @@ export function SortableModList({
   viewMode,
   onReorder,
   disabled,
-  onViewDetails,
-  onEditMetadata,
   className,
   folderId,
 }: SortableModListProps) {
@@ -71,14 +67,7 @@ export function SortableModList({
         keyOf={(mod) => mod.id}
         viewMode={viewMode}
         className={className}
-        renderItem={(mod) => (
-          <ModCard
-            mod={mod}
-            viewMode={viewMode}
-            onViewDetails={onViewDetails}
-            onEditMetadata={onEditMetadata}
-          />
-        )}
+        renderItem={(mod) => <ModCard mod={mod} viewMode={viewMode} />}
       />
     );
   }
@@ -105,8 +94,6 @@ export function SortableModList({
               mod={mod}
               viewMode={viewMode}
               dropLine={dropLineFor(dropLine, mod.id)}
-              onViewDetails={onViewDetails}
-              onEditMetadata={onEditMetadata}
             />
           )}
         />

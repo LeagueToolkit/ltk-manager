@@ -20,8 +20,6 @@ interface SortableFolderRowProps {
   /** The gap a mod would land in among the folder's own mods. */
   modDropLine?: LingeringSlot;
   sortDisabled?: boolean;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 export function SortableFolderRow({
@@ -31,8 +29,6 @@ export function SortableFolderRow({
   dropLine = NO_DROP_LINE,
   modDropLine,
   sortDisabled,
-  onViewDetails,
-  onEditMetadata,
 }: SortableFolderRowProps) {
   const reorderDisabled = useReorderDisabled();
   const disabled = sortDisabled || reorderDisabled;
@@ -77,14 +73,7 @@ export function SortableFolderRow({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <FolderRow
-            folder={folder}
-            mods={mods}
-            modDropLine={modDropLine}
-            dndDisabled={false}
-            onViewDetails={onViewDetails}
-            onEditMetadata={onEditMetadata}
-          />
+          <FolderRow folder={folder} mods={mods} modDropLine={modDropLine} dndDisabled={false} />
         </div>
       </div>
     </div>

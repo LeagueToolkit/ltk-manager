@@ -47,7 +47,6 @@ const LEARN_LINKS: StandingLink[] = [
   },
 ];
 
-/** The link opens in the browser through the shell plugin, which is where every outside link goes. */
 /** The project's posts, then the links that stand whether or not it has posted. */
 export function NewsTile() {
   const { data: posts, error, refetch } = useAnnouncements();

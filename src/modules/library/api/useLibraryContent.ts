@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
@@ -46,8 +46,6 @@ export function useLibraryContent({
 }: UseLibraryContentArgs) {
   const { viewMode } = useLibraryViewMode();
   const isPatcherActive = usePatcherRunning();
-  const [detailsMod, setDetailsMod] = useState<InstalledMod | null>(null);
-  const [editMod, setEditMod] = useState<InstalledMod | null>(null);
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
   const sort = useLibrarySort();
@@ -145,14 +143,5 @@ export function useLibraryContent({
     sortedModsByFolder,
   ]);
 
-  return {
-    viewMode,
-    dndDisabled,
-    hasSelection,
-    contentView,
-    detailsMod,
-    setDetailsMod,
-    editMod,
-    setEditMod,
-  };
+  return { viewMode, dndDisabled, hasSelection, contentView };
 }

@@ -1,6 +1,6 @@
 # A mod's details in the sidebar — Implementation Plan
 
-> Status: **proposed**. Depends on the documents sidebar (`feat/library-documents-sidebar`, EPIC #547).
+> Status: **implemented**. Depends on the documents sidebar (`feat/library-documents-sidebar`, EPIC #547).
 > Design source: [The documents panel](../ux/LIBRARY.md#the-documents-panel), and section 10 of
 > `docs/research/library-readme-sidebar.md` for the decisions the panel already carries.
 

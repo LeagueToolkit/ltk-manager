@@ -27,7 +27,6 @@ vi.mock("../ModCardParts", () => ({
   ModPills: () => null,
   SkinhackInfoDialog: () => null,
 }));
-vi.mock("../ModWadFootprintDialog", () => ({ ModWadFootprintDialog: () => null }));
 
 function view(): ModCardView {
   return {
@@ -50,8 +49,6 @@ function view(): ModCardView {
     cursorClass: "",
     skinhackInfoOpen: false,
     setSkinhackInfoOpen: vi.fn(),
-    wadFootprintOpen: false,
-    setWadFootprintOpen: vi.fn(),
     onCardClick: vi.fn(),
     onCardKeyDown: vi.fn(),
     onCardContextMenu: vi.fn(),

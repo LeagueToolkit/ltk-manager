@@ -57,7 +57,7 @@ a rebase or a merge resolution, neither of which runs the pre-commit hook - is f
 
 TanStack Query deduplicates identical queries, so multiple components calling the same hook is efficient and correct.
 
-**Exception:** Props are appropriate for coordinating parent-owned UI state (e.g., `onViewDetails` that opens a sibling dialog, `onReorder` where reorder target varies by context).
+**Exception:** Props are appropriate for coordinating parent-owned UI state (e.g., `onReorder`, where the reorder target varies by context).
 
 ## Where a Store Lives
 

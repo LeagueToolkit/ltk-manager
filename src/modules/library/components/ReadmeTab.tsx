@@ -25,8 +25,8 @@ export function ReadmeTab({ mod, missing }: ReadmeTabProps) {
       <Body>
         <EmptyState
           size="sm"
-          title={m.library_readme_removed_title()}
-          description={m.library_readme_removed_description()}
+          title={m.library_documents_removed_title()}
+          description={m.library_documents_removed_description()}
         />
       </Body>
     );

@@ -6,8 +6,7 @@ import { type ModCardProps, useModCardController } from "./useModCardController"
 
 /* Memoised because a drag re-renders every card's sortable wrapper each time the
    target changes, and the card under it is the expensive half. Every prop is
-   stable per card - the mod comes from the query cache and both callbacks are
-   setState. */
+   stable per card, since the mod comes from the query cache. */
 export const ModCard = memo(function ModCard(props: ModCardProps) {
   const view = useModCardController(props);
 

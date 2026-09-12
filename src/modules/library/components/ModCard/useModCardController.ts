@@ -26,8 +26,6 @@ type Modifiers = Pick<React.MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">;
 export interface ModCardProps {
   mod: InstalledMod;
   viewMode: "grid" | "list";
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 /**
@@ -74,8 +72,6 @@ export interface ModCardView {
   cursorClass: string;
   skinhackInfoOpen: boolean;
   setSkinhackInfoOpen: (open: boolean) => void;
-  wadFootprintOpen: boolean;
-  setWadFootprintOpen: (open: boolean) => void;
   onCardClick: (e: React.MouseEvent) => void;
   onCardKeyDown: (e: React.KeyboardEvent) => void;
   onCardContextMenu: () => void;
@@ -86,19 +82,13 @@ export interface ModCardView {
   onCopyId: () => void;
   onOpenLocation: () => void;
   onRemoveFromFolder: () => void;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 /**
  * Owns all of a mod card's interaction logic and the UI state that must be shared
  * between the card body, toggle control, context menu, and skinhack dialog
  */
-export function useModCardController({
-  mod,
-  onViewDetails,
-  onEditMetadata,
-}: ModCardProps): ModCardView {
+export function useModCardController({ mod }: ModCardProps): ModCardView {
   const { data: thumbnailUrl } = useModThumbnail(mod.id);
   const toast = useToast();
   const toggleMod = useToggleMod();
@@ -121,7 +111,6 @@ export function useModCardController({
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
-  const [wadFootprintOpen, setWadFootprintOpen] = useState(false);
   const disabled = isFlagged || patcherRunning;
   // A patcher run owns the library. Being unusable is not the same thing, and is
   // the state most in need of a menu.
@@ -246,8 +235,6 @@ export function useModCardController({
     cursorClass,
     skinhackInfoOpen,
     setSkinhackInfoOpen,
-    wadFootprintOpen,
-    setWadFootprintOpen,
     onCardClick: handleCardClick,
     onCardKeyDown: handleCardKeyDown,
     onCardContextMenu: handleCardContextMenu,
@@ -258,7 +245,5 @@ export function useModCardController({
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,
     onRemoveFromFolder: handleRemoveFromFolder,
-    onViewDetails,
-    onEditMetadata,
   };
 }

@@ -29,8 +29,6 @@ interface UnifiedDndGridProps {
   viewMode: "grid" | "list";
   dndDisabled: boolean;
   onReorder: (modIds: string[]) => void;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
 export function UnifiedDndGrid({
@@ -40,8 +38,6 @@ export function UnifiedDndGrid({
   viewMode,
   dndDisabled,
   onReorder,
-  onViewDetails,
-  onEditMetadata,
 }: UnifiedDndGridProps) {
   if (dndDisabled) {
     return (
@@ -50,8 +46,6 @@ export function UnifiedDndGrid({
         rootMods={rootMods}
         modsByFolder={modsByFolder}
         viewMode={viewMode}
-        onViewDetails={onViewDetails}
-        onEditMetadata={onEditMetadata}
       />
     );
   }
@@ -63,8 +57,6 @@ export function UnifiedDndGrid({
       modsByFolder={modsByFolder}
       viewMode={viewMode}
       onReorder={onReorder}
-      onViewDetails={onViewDetails}
-      onEditMetadata={onEditMetadata}
     />
   );
 }
@@ -74,18 +66,9 @@ interface StaticGridProps {
   rootMods: InstalledMod[];
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-function StaticGrid({
-  folders,
-  rootMods,
-  modsByFolder,
-  viewMode,
-  onViewDetails,
-  onEditMetadata,
-}: StaticGridProps) {
+function StaticGrid({ folders, rootMods, modsByFolder, viewMode }: StaticGridProps) {
   const cells = useMemo<Cell[]>(
     () => [
       ...folders.map((folder) => ({
@@ -106,25 +89,10 @@ function StaticGrid({
       viewMode={viewMode}
       renderItem={(cell) => {
         if (cell.kind === "mod") {
-          return (
-            <ModCard
-              mod={cell.mod}
-              viewMode={viewMode}
-              onViewDetails={onViewDetails}
-              onEditMetadata={onEditMetadata}
-            />
-          );
+          return <ModCard mod={cell.mod} viewMode={viewMode} />;
         }
         if (viewMode === "list") {
-          return (
-            <FolderRow
-              folder={cell.folder}
-              mods={cell.mods}
-              dndDisabled
-              onViewDetails={onViewDetails}
-              onEditMetadata={onEditMetadata}
-            />
-          );
+          return <FolderRow folder={cell.folder} mods={cell.mods} dndDisabled />;
         }
         return <FolderCard folder={cell.folder} mods={cell.mods} />;
       }}
@@ -138,19 +106,9 @@ interface DndGridProps {
   modsByFolder: Map<string, InstalledMod[]>;
   viewMode: "grid" | "list";
   onReorder: (modIds: string[]) => void;
-  onViewDetails?: (mod: InstalledMod) => void;
-  onEditMetadata?: (mod: InstalledMod) => void;
 }
 
-function DndGrid({
-  folders,
-  rootMods,
-  modsByFolder,
-  viewMode,
-  onReorder,
-  onViewDetails,
-  onEditMetadata,
-}: DndGridProps) {
+function DndGrid({ folders, rootMods, modsByFolder, viewMode, onReorder }: DndGridProps) {
   const {
     folderOrder,
     orderedRootMods,
@@ -215,8 +173,6 @@ function DndGrid({
                   mod={cell.mod}
                   viewMode={viewMode}
                   dropLine={dropLineFor(dropLine, cell.mod.id)}
-                  onViewDetails={onViewDetails}
-                  onEditMetadata={onEditMetadata}
                 />
               );
             }
@@ -229,8 +185,6 @@ function DndGrid({
                   sortDisabled={isDraggingMod || isDraggingFolderMod}
                   dropLine={dropLineFor(folderDropLine, cell.key)}
                   modDropLine={folderModDropLine}
-                  onViewDetails={onViewDetails}
-                  onEditMetadata={onEditMetadata}
                 />
               );
             }

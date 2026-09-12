@@ -754,12 +754,13 @@ if the gap proves to matter.
 
 ### 10.7 `ExternalLink` is fixed here, and the confirmation is filed separately
 
-Section 6.3 - an external link reaches no system browser today, against what #536's decision table
-and `PROJECT_EDITOR.md:1479` both describe. The fix lands in `ExternalLink` itself, so every caller
-gets it, and it ships with this work because a stranger's readme is what makes it urgent.
+Section 6.3 - an external link reaches no system browser today, against `PROJECT_EDITOR.md:1479`,
+which states that one does. The fix lands in `ExternalLink` itself, so every caller gets it, and it
+ships with this work because a stranger's readme is what makes it urgent.
 
-The confirmation dialog is its own issue with its own design pass, and `PROJECT_EDITOR.md` loses
-the sentence it cannot currently back until that lands.
+The confirmation is a separate claim and a separate issue. `PROJECT_EDITOR.md` promises only the
+system browser, which this work makes true. #536's decision table is where "links open confirmed"
+is written, and that is the line waiting on the dialog's own design pass.
 
 Taken over filing the whole gap separately, which ships an untrusted surface on an unverified link
 path. Taken over building the dialog here, which puts a modal's design on a Library feature's
@@ -907,5 +908,6 @@ confidently showing a mod that does not exist.
   reader opens.
 - DS-GROUND's rung table gains the Library panel beside the toolbar and the session bar as a
   surface sharing the ground rather than rising off it.
-- `PROJECT_EDITOR.md:1479` loses its claim about a confirmation until the dialog issue lands.
+- #536's decision table holds the only written promise of a confirmation, and it waits on the
+  dialog issue. `PROJECT_EDITOR.md:1479` promises the system browser alone.
 - #542 gains a note scoping "shows nothing at all" to the panel body.

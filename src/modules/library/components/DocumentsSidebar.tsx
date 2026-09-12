@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
 import { type DocumentsTab, useLibrarySidebarStore } from "@/modules/library/state";
 
+import { DetailsTab } from "./DetailsTab";
 import { LicensesTab } from "./LicensesTab";
 import { ReadmeTab } from "./ReadmeTab";
 
@@ -25,7 +26,8 @@ interface DocumentsSidebarProps {
 }
 
 /**
- * The Library's readme and licenses, as a panel the reader opened.
+ * What one mod is, its readme, and the library's licenses, in a panel the
+ * reader opened.
  *
  * Draws on the page ground with a hairline, the way the toolbar and the session
  * bar already do, which is what lets a rendered document sit on the ground with
@@ -39,6 +41,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
   const modId = useLibrarySidebarStore((s) => s.modId);
 
   const openMod = mods.find((mod) => mod.id === modId) ?? null;
+  const missing = modId !== null && openMod === null;
   const panel = useRef<HTMLDivElement>(null);
 
   /* Focus lands on the panel rather than on its chrome, so the reader's first
@@ -62,6 +65,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
       >
         <div className="flex shrink-0 items-center border-b border-surface-700 select-none">
           <Tabs.List variant="plain" className="min-w-0 flex-1 overflow-x-auto scrollbar-sm">
+            <Tabs.Tab value="details">{m.library_documents_details_tab()}</Tabs.Tab>
             <Tabs.Tab value="readme">{m.library_documents_readme_tab()}</Tabs.Tab>
             <Tabs.Tab value="licenses">{m.library_documents_licenses_tab()}</Tabs.Tab>
           </Tabs.List>
@@ -79,8 +83,11 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
 
         <Header tab={tab} mod={openMod} />
 
+        <Tabs.Panel value="details" className="mt-0 flex min-h-0 flex-1 flex-col">
+          <DetailsTab mod={openMod} missing={missing} />
+        </Tabs.Panel>
         <Tabs.Panel value="readme" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <ReadmeTab mod={openMod} missing={modId !== null && openMod === null} />
+          <ReadmeTab mod={openMod} missing={missing} />
         </Tabs.Panel>
         <Tabs.Panel value="licenses" className="mt-0 flex min-h-0 flex-1 flex-col">
           <LicensesTab mods={mods} />

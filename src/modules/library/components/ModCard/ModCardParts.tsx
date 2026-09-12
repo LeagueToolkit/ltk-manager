@@ -6,11 +6,9 @@ import {
   FolderIcon,
   FolderMinusIcon,
   FolderOpenIcon,
-  HardDrivesIcon,
   HeartbeatIcon,
   InfoIcon,
   PackageIcon,
-  PencilSimpleIcon,
   ShieldWarningIcon,
   SpinnerGapIcon,
   TrashIcon,
@@ -29,6 +27,7 @@ import {
   Tooltip,
   useToast,
 } from "@/components";
+import { m } from "@/i18n";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
 import {
   useCheckModHealth,
@@ -148,7 +147,7 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
         icon={<PackageIcon className="h-4 w-4" weight="bold" />}
         disabled={view.storageChangePending}
       >
-        Storage
+        {m.library_mod_storage_label()}
       </Menu.SubmenuTrigger>
       <Menu.Portal>
         <Menu.SubmenuPositioner>
@@ -162,14 +161,14 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
                 icon={<FolderIcon className="h-4 w-4" weight="bold" />}
                 closeOnClick
               >
-                Project
+                {m.library_mod_storage_project_label()}
               </Menu.RadioItem>
               <Menu.RadioItem
                 value="archive"
                 icon={<ArchiveIcon className="h-4 w-4" weight="bold" />}
                 closeOnClick
               >
-                Archive
+                {m.library_mod_storage_archive_label()}
               </Menu.RadioItem>
             </Menu.RadioGroup>
           </Menu.Popup>
@@ -270,49 +269,28 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
           icon={<ShieldWarningIcon className="h-4 w-4" weight="bold" />}
           onClick={() => view.setSkinhackInfoOpen(true)}
         >
-          What is a skinhack?
+          {m.library_mod_skinhack_action()}
         </Menu.Item>
       )}
-      {!isFlagged && (
-        <Menu.Item
-          icon={<InfoIcon className="h-4 w-4" weight="bold" />}
-          onClick={() => view.onViewDetails?.(mod)}
-        >
-          View Details
-        </Menu.Item>
-      )}
-      {!isFlagged && (
-        <Menu.Item
-          icon={<PencilSimpleIcon className="h-4 w-4" weight="bold" />}
-          onClick={() => view.onEditMetadata?.(mod)}
-        >
-          Edit Metadata
-        </Menu.Item>
-      )}
+      {!isFlagged && <ModCardDetailsItem modId={mod.id} />}
       <ModCardReadmeItem modId={mod.id} />
       <Menu.Item
         icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
         onClick={view.onOpenLocation}
       >
-        Open Location
+        {m.library_mod_open_location_action()}
       </Menu.Item>
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
-      <Menu.Item
-        icon={<HardDrivesIcon className="h-4 w-4" weight="bold" />}
-        onClick={() => view.setWadFootprintOpen(true)}
-      >
-        WAD Footprint
-      </Menu.Item>
       <ModCardHealthItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
-        Copy ID
+        {m.library_mod_copy_id_action()}
       </Menu.Item>
       {isInUserFolder && (
         <Menu.Item
           icon={<FolderMinusIcon className="h-4 w-4" weight="bold" />}
           onClick={view.onRemoveFromFolder}
         >
-          Remove from folder
+          {m.library_mod_remove_from_folder_action()}
         </Menu.Item>
       )}
       <Menu.Separator />
@@ -321,9 +299,29 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
         variant="danger"
         onClick={view.onUninstall}
       >
-        Uninstall
+        {m.library_mod_uninstall_action()}
       </Menu.Item>
     </>
+  );
+}
+
+/**
+ * Open this mod into the documents panel, on what it is.
+ *
+ * One item where there were three. The facts, the metadata form and the WAD
+ * footprint are sections of one tab, and a menu that listed them separately was
+ * offering three routes to the same panel.
+ */
+function ModCardDetailsItem({ modId }: { modId: string }) {
+  const showDetails = useLibrarySidebarStore((s) => s.showDetails);
+
+  return (
+    <Menu.Item
+      icon={<InfoIcon className="h-4 w-4" weight="bold" />}
+      onClick={() => showDetails(modId)}
+    >
+      {m.library_mod_details_action()}
+    </Menu.Item>
   );
 }
 
@@ -342,7 +340,7 @@ function ModCardReadmeItem({ modId }: { modId: string }) {
       icon={<BookOpenTextIcon className="h-4 w-4" weight="bold" />}
       onClick={() => showReadme(modId)}
     >
-      Readme
+      {m.library_mod_readme_action()}
     </Menu.Item>
   );
 }
@@ -361,7 +359,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   if (readiness === "syncing") {
     return (
       <Menu.Item icon={<SpinnerGapIcon className="h-4 w-4 animate-spin" weight="bold" />} disabled>
-        Syncing hashtables…
+        {m.library_mod_hashtables_syncing_label()}
       </Menu.Item>
     );
   }
@@ -369,7 +367,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   if (readiness === "unsynced") {
     return (
       <Menu.Item icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />} disabled>
-        Hashtables not synced
+        {m.library_mod_hashtables_unsynced_label()}
       </Menu.Item>
     );
   }
@@ -412,7 +410,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
       disabled={checkModHealth.isPending}
       onClick={handleCheckHealth}
     >
-      Check Health
+      {m.library_mod_health_action()}
     </Menu.Item>
   );
 }

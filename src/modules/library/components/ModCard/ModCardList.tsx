@@ -16,7 +16,6 @@ import {
   ModPills,
   SkinhackInfoDialog,
 } from "./ModCardParts";
-import { ModWadFootprintDialog } from "./ModWadFootprintDialog";
 import type { ModCardView } from "./useModCardController";
 
 export function ModCardList({ view }: { view: ModCardView }) {
@@ -156,11 +155,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
         <ModCardMenu view={view} />
       </div>
       <SkinhackInfoDialog open={skinhackInfoOpen} onOpenChange={setSkinhackInfoOpen} />
-      <ModWadFootprintDialog
-        view={view}
-        open={view.wadFootprintOpen}
-        onOpenChange={view.setWadFootprintOpen}
-      />
     </ModCardContextMenu>
   );
 }
