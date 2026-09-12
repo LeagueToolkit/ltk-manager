@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,6 +62,14 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
+/** What a toast's description reads as once drawn. */
+function drawn(description: ReactNode): string {
+  const { container, unmount } = render(<>{description}</>);
+  const text = container.textContent ?? "";
+  unmount();
+  return text;
+}
+
 function actions() {
   return renderHook(() => useIgnoreRowActions(), { wrapper }).result;
 }
@@ -92,8 +100,8 @@ describe("useIgnoreRowActions", () => {
     });
 
     expect(file).toBe("# sources\n*.psd\n/base/textures/skin0_src.psd\n");
-    expect(raised.at(-1)?.title).toBe("/base/textures/skin0_src.psd");
-    expect(raised.at(-1)?.description).toBe("This file is left out of packages.");
+    expect(raised.at(-1)?.title).toBe("Added to ignore rules");
+    expect(drawn(raised.at(-1)?.description)).toBe("/base/textures/skin0_src.psd This one file.");
   });
 
   it("takes the line back out when the toast's Undo is used", async () => {
@@ -103,6 +111,7 @@ describe("useIgnoreRowActions", () => {
       await result.current.ignore("*.tex", "extension");
     });
     expect(file).toBe("# sources\n*.psd\n*.tex\n");
+    expect(drawn(raised.at(-1)?.description)).toBe("*.tex Every .tex file, in every layer.");
 
     await act(async () => undoToast?.());
     await waitFor(() => expect(file).toBe("# sources\n*.psd\n"));

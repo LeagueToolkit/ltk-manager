@@ -13,6 +13,7 @@ import {
   useSetDocumentDirty,
   useSettleIgnoreLineReveal,
 } from "../state";
+import { MODIGNORE_FILE_NAME } from "./ignoreLine";
 import { SyntaxRail } from "./SyntaxRail";
 import { type IgnoreSaveState, useIgnoreRulesEditor } from "./useIgnoreRulesEditor";
 
@@ -21,7 +22,8 @@ export function IgnoreRulesDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"ignore-rules">>) {
-  const editor = useIgnoreRulesEditor(document.at ?? null);
+  const at = document.at ?? null;
+  const editor = useIgnoreRulesEditor(at);
   const setDocumentDirty = useSetDocumentDirty();
 
   const documentId = document.id;
@@ -64,7 +66,8 @@ export function IgnoreRulesDocument({
     >
       <DocumentToolbar active={active}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Code className="shrink-0">.modignore</Code>
+          {/* Two rules documents carry the same title, so the path is what tells them apart. */}
+          <Code className="shrink-0">{at ?? MODIGNORE_FILE_NAME}</Code>
           {editor.missingRecommended.length > 0 && editor.exists && (
             <Button
               variant="ghost"
@@ -82,7 +85,7 @@ export function IgnoreRulesDocument({
         <SaveStatus state={editor.saveState} onRetry={editor.saveNow} />
       </DocumentToolbar>
 
-      <Body editor={editor} documentId={documentId} nested={document.at !== undefined} />
+      <Body editor={editor} documentId={documentId} at={at} />
     </div>
   );
 }
@@ -92,10 +95,11 @@ type Editor = ReturnType<typeof useIgnoreRulesEditor>;
 interface BodyProps {
   editor: Editor;
   documentId: string;
-  nested: boolean;
+  /** The file's project-relative path, null for the project's root rules. */
+  at: string | null;
 }
 
-function Body({ editor, documentId, nested }: BodyProps) {
+function Body({ editor, documentId, at }: BodyProps) {
   if (editor.isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -106,7 +110,7 @@ function Body({ editor, documentId, nested }: BodyProps) {
 
   /* The default anchors to content/, so only the root file is offered it. A
      nested file that has gone missing is written back by typing in it. */
-  if (!editor.exists && !nested) return <NoFile editor={editor} />;
+  if (!editor.exists && at === null) return <NoFile editor={editor} />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -186,9 +190,9 @@ function Buffer({ editor, documentId }: { editor: Editor; documentId: string }) 
 /** Where one-based `line` starts and ends in `text`, as a selection. */
 function lineRange(text: string, line: number): [number, number] {
   const lines = text.split("\n");
-  const at = Math.min(Math.max(line, 1), lines.length) - 1;
-  const from = lines.slice(0, at).reduce((total, held) => total + held.length + 1, 0);
-  return [from, from + (lines[at]?.length ?? 0)];
+  const index = Math.min(Math.max(line, 1), lines.length) - 1;
+  const from = lines.slice(0, index).reduce((total, held) => total + held.length + 1, 0);
+  return [from, from + (lines[index]?.length ?? 0)];
 }
 
 /**

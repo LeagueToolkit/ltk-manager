@@ -139,16 +139,13 @@ interface IgnoreItemsProps {
 /**
  * What the row offers to do to the project's rules.
  *
- * A row a rule already reached offers to undo it or to go read it, and never
- * both: a `!` line cannot bring back a file under an excluded folder, so an
- * exception written for the reader would work in one case and silently fail in
- * the other.
+ * Per "Ignore rules" in docs/ux/PROJECT_EDITOR.md.
  */
 function IgnoreItems({ node, layerName }: IgnoreItemsProps) {
   const { ignore, stopIgnoring, openRules } = useIgnoreRowActions();
 
-  const relativePath = node.type === "dir" ? node.path : node.entry.relativePath;
   const isDir = node.type === "dir";
+  const relativePath = isDir ? node.path : node.entry.relativePath;
   const rule: IgnoreMatch | null = isDir ? node.ignoredBy : node.entry.ignoredBy;
 
   if (rule) {

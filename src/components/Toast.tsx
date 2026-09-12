@@ -319,7 +319,8 @@ export function useToast() {
     () => ({
       toast: (options: {
         title?: string;
-        description?: string;
+        /** Markup where a value is quoted inside the sentence, per DS-CODE-CHIP. */
+        description?: ReactNode;
         type?: ToastType;
         timeout?: number;
         action?: ToastAction;
@@ -330,7 +331,10 @@ export function useToast() {
         const type = options.type ?? "info";
         const timeout = options.timeout ?? 5000;
         if (options.notify && options.title) {
-          addNotification({ title: options.title, description: options.description, type });
+          /* The notification center stores what it can serialise, so a drawn
+             description reaches the toast alone. */
+          const stored = typeof options.description === "string" ? options.description : undefined;
+          addNotification({ title: options.title, description: stored, type });
         }
         return toastManager.add({
           title: options.title,

@@ -68,6 +68,14 @@ describe("removeIgnoreLine", () => {
   it("leaves a file holding no such line alone", () => {
     expect(removeIgnoreLine("*.tex\n", "*.psd")).toBe("*.tex\n");
   });
+
+  /* A quoted trailing space is part of the name, so trimming the line before
+     comparing it would leave the row it names ignored forever. */
+  it("takes out a line whose trailing space the backslash quotes", () => {
+    const line = fileIgnoreLine("base", "notes.txt ");
+
+    expect(removeIgnoreLine(appendIgnoreLine("*.psd\n", line), line)).toBe("*.psd\n");
+  });
 });
 
 describe("isOwnLine", () => {

@@ -40,7 +40,7 @@ pub struct LayerContent {
 }
 
 /// A directory the rules leave out, along with everything under it.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
@@ -266,7 +266,7 @@ impl IgnoreFilter<'_> {
     /// What leaves `relative_path`, under `layer`, out of a package.
     ///
     /// Parents are consulted, because the scan lists what a pack prunes rather
-    /// than pruning it, so a row under an excluded directory is reached.
+    /// than pruning it.
     fn matched(&self, layer: &str, relative_path: &str, is_dir: bool) -> Option<IgnoreMatch> {
         let in_content = Utf8PathBuf::from(layer).join(relative_path);
         let ModIgnoreMatch::Ignore(rule) = self.rules.matched_with_parents(&in_content, is_dir)

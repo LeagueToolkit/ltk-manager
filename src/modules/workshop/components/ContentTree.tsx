@@ -9,6 +9,7 @@ import type { LayerContent } from "@/lib/tauri";
 
 import { ignoreRulesDocument, previewDocument } from "../documents/contentDocument";
 import { useContentTreeNav, useStickyTreeRows } from "../hooks";
+import { MODIGNORE_FILE_NAME } from "../ignore-rules";
 import {
   useCollapsedDirs,
   useOpenDocumentTab,
@@ -33,9 +34,6 @@ import { TreeStickyBand } from "./TreeStickyBand";
 /** Fixed row height (px). Used by the virtualizer so we can precompute row
  * positions without per-row measurement. */
 const ROW_HEIGHT = 24;
-
-/** What a row has to be named to open as rules rather than as bytes. */
-const MODIGNORE_FILE_NAME = ".modignore";
 
 /* The `py-1` above the first row, which the pinned band reads the scroll past. */
 const CONTENT_TOP = 4;

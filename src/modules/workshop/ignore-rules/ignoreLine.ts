@@ -1,15 +1,18 @@
-import type { IgnoreMatch } from "@/lib/tauri";
-
 /**
  * The `.modignore` lines the row menu writes - per "Ignore rules" in
  * docs/ux/PROJECT_EDITOR.md.
  */
 
+import type { IgnoreMatch } from "@/lib/tauri";
+
 /** Characters the matcher reads as syntax rather than as a name. */
 const SYNTAX = /[\\*?[{!#]/g;
 
-/** The project's root file, as a rule names the file it came from. */
-const ROOT_FILE = ".modignore";
+/**
+ * What every file of rules is called, which is also the root file's own
+ * project-relative path.
+ */
+export const MODIGNORE_FILE_NAME = ".modignore";
 
 /** One path segment as a pattern that means that name and nothing else. */
 function escapeSegment(segment: string): string {
@@ -64,12 +67,22 @@ export function removeIgnoreLine(text: string, line: string): string {
   const lines = text.split("\n");
   let at = -1;
   for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index]!.trimEnd() === line) at = index;
+    if (parsedAs(lines[index]!) === line) at = index;
   }
   if (at < 0) return text;
 
   lines.splice(at, 1);
   return lines.join("\n");
+}
+
+/**
+ * `line` as the matcher reads it, which is what a reported pattern compares to.
+ *
+ * Trailing whitespace goes, unless a backslash quotes it and so makes it part
+ * of the name.
+ */
+function parsedAs(line: string): string {
+  return line.endsWith("\\ ") ? line : line.trimEnd();
 }
 
 /** A row, as the little a line needs to know about it. */
@@ -86,7 +99,7 @@ export interface IgnoreRow {
  * and neither can be taken back by deleting one line.
  */
 export function isOwnLine(rule: IgnoreMatch, layerName: string, row: IgnoreRow): boolean {
-  if (rule.source !== ROOT_FILE) return false;
+  if (rule.source !== MODIGNORE_FILE_NAME) return false;
 
   const own = row.isDir
     ? folderIgnoreLine(layerName, row.relativePath)

@@ -29,12 +29,16 @@ function fileRow(node: FileNode) {
   );
 }
 
+const row = () => screen.getByRole("treeitem");
+
 describe("TreeRow", () => {
-  it("names the rule that excluded a file, and where the rule lives", () => {
+  it("dims a file a rule leaves out, and gives its size seat to the mark", () => {
     const rule: IgnoreMatch = { pattern: "*.psd", source: ".modignore", line: 14 };
     render(fileRow({ type: "file", name: "splash.psd", entry: entry("splash.psd", rule) }));
 
-    expect(screen.getByLabelText("Not packed: *.psd, .modignore line 14")).toBeInTheDocument();
+    expect(row().className).toContain("text-surface-400");
+    expect(screen.getByLabelText("Not packed: *.psd .modignore, line 14")).toBeInTheDocument();
+    expect(screen.queryByText("12 B")).not.toBeInTheDocument();
   });
 
   it("names a nested file where that is what matched", () => {
@@ -46,17 +50,18 @@ describe("TreeRow", () => {
     render(fileRow({ type: "file", name: "skin0.png", entry: entry("skin0.png", rule) }));
 
     expect(
-      screen.getByLabelText("Not packed: *.png, content/base/.modignore line 2"),
+      screen.getByLabelText("Not packed: *.png content/base/.modignore, line 2"),
     ).toBeInTheDocument();
   });
 
-  it("leaves a row that ships unmarked", () => {
+  it("leaves a row that ships unmarked, with its size", () => {
     render(fileRow({ type: "file", name: "skin0.tex", entry: entry("skin0.tex", null) }));
 
     expect(screen.queryByLabelText(/Not packed/)).not.toBeInTheDocument();
+    expect(screen.getByText("12 B")).toBeInTheDocument();
   });
 
-  it("marks a pruned folder the way it marks a file", () => {
+  it("marks a pruned folder and keeps the count of what it holds", () => {
     const node: DirNode = {
       type: "dir",
       name: "wip",
@@ -70,7 +75,7 @@ describe("TreeRow", () => {
         depth={0}
         isExpanded
         isSelected={false}
-        dirFileCount={2}
+        dirFileCount={12}
         onToggle={() => {}}
         onSelect={() => {}}
         height={24}
@@ -79,6 +84,7 @@ describe("TreeRow", () => {
       />,
     );
 
-    expect(screen.getByLabelText("Not packed: wip/, .modignore line 5")).toBeInTheDocument();
+    expect(screen.getByLabelText("Not packed: wip/ .modignore, line 5")).toBeInTheDocument();
+    expect(screen.getByText("12")).toBeInTheDocument();
   });
 });

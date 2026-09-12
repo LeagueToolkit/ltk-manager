@@ -5,6 +5,7 @@ export {
   folderIgnoreLine,
   type IgnoreRow,
   isOwnLine,
+  MODIGNORE_FILE_NAME,
   removeIgnoreLine,
 } from "./ignoreLine";
 export { IgnoreRulesDocument } from "./IgnoreRulesDocument";
