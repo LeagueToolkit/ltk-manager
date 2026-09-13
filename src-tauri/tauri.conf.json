@@ -71,7 +71,8 @@
         "https://github.com/LeagueToolkit/ltk-manager/releases/download/updater/latest.json"
       ],
       "windows": {
-        "installMode": "passive"
+        "installMode": "passive",
+        "installerArgs": ["/NS"]
       }
     }
   }
