@@ -76,6 +76,20 @@ describe("RunTransport", () => {
     expect(run.setPlaying).toHaveBeenCalledWith(true);
   });
 
+  it("types the run's speed to three places and nudges it from the arrows", async () => {
+    const { run } = fakeRun();
+    render(
+      <VfxRunContext value={run}>
+        <RunTransport />
+      </VfxRunContext>,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Playback speed" })).toHaveValue("1.000");
+
+    await userEvent.click(screen.getByRole("button", { name: "Faster" }));
+    expect(run.setSpeed).toHaveBeenLastCalledWith(1.1);
+  });
+
   it("leaves the scrub out where the host draws a ruler", () => {
     const { run } = fakeRun();
     render(
