@@ -193,8 +193,10 @@ function ObjectRow({
           <ClassCard classHash={first.classHash} name={classLabel(first.class, first.classHash)} />
         </span>
       )}
-      <span className="ml-auto min-w-0 shrink-10 truncate pl-2 text-[0.625rem] text-surface-400">
-        <Source node={node} />
+      <span className="ml-auto min-w-0 shrink-10 pl-2 text-[0.625rem] text-surface-400">
+        <span className="block max-w-32 truncate">
+          <Source node={node} />
+        </span>
       </span>
       {node.layers.map((layer) => (
         <span key={layer.name} className="flex shrink-0 items-center gap-1 text-[0.625rem]">
@@ -232,7 +234,9 @@ const LIST_DELAY = 600;
  * declarations" in docs/ux/PROJECT_EDITOR.md. A click pins the list and leaves the row alone.
  */
 function FilesChip({ node }: { node: ObjectRowNode }) {
-  const label = m.workshop_objects_files_label({ count: node.declarations.length });
+  const label = m.workshop_objects_files_label({
+    count: node.declarations.length,
+  });
   const layerTitle = (layer: string) =>
     node.layers.find((mark) => mark.name === layer)?.title ?? layer;
 
