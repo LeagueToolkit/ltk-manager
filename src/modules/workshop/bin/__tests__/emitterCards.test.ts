@@ -53,6 +53,7 @@ const SYSTEM: SystemModel = {
   emitters: [EMBER, SPARK_MODEL],
   transform: null,
   dragMotion: 0,
+  buildUpTime: 0,
 };
 
 const CHILD: ChildChoice = { path: "3.0", parent: null, system: SYSTEM, emitter: SPARK_MODEL };

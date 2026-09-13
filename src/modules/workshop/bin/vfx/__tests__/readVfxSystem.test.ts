@@ -95,6 +95,40 @@ describe("readVfxSystem", () => {
     expect(readVfxSystem(system([])).dragMotion).toBe(DRAG_MOTION.stepped);
   });
 
+  it("reads buildUpTime off the system, and none where it is not written", () => {
+    const built: VfxSystem = {
+      ...system([]),
+      root: struct(nameHash("VfxSystemDefinitionData"), { buildUpTime: number(5) }),
+    };
+
+    expect(readVfxSystem(built).buildUpTime).toBe(5);
+    expect(readVfxSystem(system([])).buildUpTime).toBe(0);
+  });
+
+  it("reads emitterLinger and the direction stretch, at their schema defaults where unwritten", () => {
+    const [bare, written] = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({
+          emitterLinger: number(3),
+          directionVelocityScale: number(0.005),
+          directionVelocityMinScale: number(0),
+        }),
+      ]),
+    ).emitters;
+
+    expect([
+      bare.emitterLinger,
+      bare.directionVelocityScale,
+      bare.directionVelocityMinScale,
+    ]).toEqual([0, 0, 1]);
+    expect([
+      written.emitterLinger,
+      written.directionVelocityScale,
+      written.directionVelocityMinScale,
+    ]).toEqual([3, 0.005, 0]);
+  });
+
   it("reads the complex list before the simple one and numbers them across both", () => {
     const model = readVfxSystem(
       system(

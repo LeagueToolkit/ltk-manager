@@ -33,6 +33,7 @@ import {
   displacement,
   facingAt,
   FIRST_RIG,
+  flightTime,
   landed,
   originAt,
   phaseAt,
@@ -170,7 +171,9 @@ export interface Driver extends Source {
   readonly pool: Pool;
   /** Where the simulation stands, in seconds since the system started. */
   readonly time: number;
-  /** Seconds into the current run, which is the emitters' own age and wraps with a loop. */
+  /** Seconds into the current run, which the timeline stands at and which wraps with a loop. */
+  readonly phase: number;
+  /** The emitters' own age, which is the phase plus the seconds the run built up before it. */
   readonly elapsed: number;
   /** Where the rig has the system at this moment, under the definition's own transform. */
   readonly origin: Point;
@@ -234,10 +237,10 @@ export function createDriver(seed: number): Driver {
   const pool = createPool(POOL_CAP);
   const stepper: Stepper = variableStepper();
   let system = emptySystem(null);
-  let span = systemSpan(system);
-  let tail = lingerTail(system);
-  let world = worldOf(system);
   let rig: RigModel = FIRST_RIG.rig;
+  let span = systemSpan(system);
+  let tail = lingerTail(system, flightTime(rig.motion));
+  let world = worldOf(system);
   let rng = new Rng(seed);
   let states: EmitterState[] = [];
   const yaw = new Float32Array(FRAME_SLOTS);
@@ -256,12 +259,15 @@ export function createDriver(seed: number): Driver {
   /** Where the origin stood at the end of the last step, so a step knows its own travel. */
   let origin: Point = originAt(rig.motion, 0, rig.height);
 
+  /** The build-up's own clock and age while one runs, which the driver reports in their place. */
+  let building: { now: number; age: number } | null = null;
+
   relane();
 
   function run(frameTime: number): void {
     for (const step of stepper.advance(frameTime)) {
       const reached = phaseAt(rig, step.now, span, tail);
-      if (reached < phase) replay();
+      if (reached < phase) replay(step.now - step.dt);
       phase = reached;
 
       const now = originAt(rig.motion, reached, rig.height);
@@ -357,15 +363,49 @@ export function createDriver(seed: number): Driver {
     multiplyInto(world.basis, yaw, orientation);
   }
 
+  /**
+   * The system's `buildUpTime` simulated up to `until`, the clock the run starts from.
+   *
+   * The system becomes visible where the run starts, so it has already played that long by
+   * its first drawn step. The rig stands where it is and faces as it does at `reached`
+   * throughout, and nothing is tallied or kept, so the timeline opens on what the build-up
+   * left.
+   */
+  function buildUp(until: number, reached: number): void {
+    const steps = Math.round(system.buildUpTime / SEEK_STEP);
+    if (steps === 0) return;
+
+    orientInto(reached);
+    const stood = place(world, origin);
+    for (let at = 1; at <= steps; at += 1) {
+      const now = until - (steps - at) * SEEK_STEP;
+      building = { now, age: at * SEEK_STEP };
+      const placed: SystemStep = {
+        dt: SEEK_STEP,
+        now,
+        origin: stood,
+        moved: STILL,
+        yaw,
+        world: world.basis,
+        stopped: false,
+        pinned: lineage.pinned,
+      };
+      stepEmitters(pool, system, placed, rng, states);
+      children.step(driver, system, SEEK_STEP, now);
+    }
+    building = null;
+  }
+
   /* A loop starts the effect over without touching the seed, so the run stays one
      stream and a seek that crosses the boundary reproduces both passes. */
-  function replay(): void {
+  function replay(until: number): void {
     pool.count = 0;
     children.clear();
     lineage.births.length = 0;
     states = createEmitterStates(system.emitters);
     origin = originAt(rig.motion, 0, rig.height);
     lanes.wrap();
+    buildUp(until, 0);
   }
 
   /* The serials start over with the stream, because a child's own stream is seeded off the
@@ -380,6 +420,7 @@ export function createDriver(seed: number): Driver {
     states = createEmitterStates(system.emitters);
     phase = 0;
     origin = originAt(rig.motion, 0, rig.height);
+    buildUp(0, 0);
     orientInto(0);
     relane();
   }
@@ -387,10 +428,13 @@ export function createDriver(seed: number): Driver {
   const driver: Driver = {
     pool,
     get time() {
-      return stepper.now;
+      return building?.now ?? stepper.now;
+    },
+    get phase() {
+      return phaseAt(rig, stepper.now, span, tail);
     },
     get elapsed() {
-      return phaseAt(rig, stepper.now, span, tail);
+      return building?.age ?? phaseAt(rig, stepper.now, span, tail) + system.buildUpTime;
     },
     get origin() {
       return place(world, origin);
@@ -433,7 +477,7 @@ export function createDriver(seed: number): Driver {
       const same = addressTheSame(system.emitters, next.emitters);
       system = next;
       span = systemSpan(next);
-      tail = lingerTail(next);
+      tail = lingerTail(next, flightTime(rig.motion));
       world = worldOf(next);
       /* The span is the run a still rig loops on, so the phase moves with an edit for the
          same reason it moves with a tune. */
@@ -450,6 +494,7 @@ export function createDriver(seed: number): Driver {
       pool.count = 0;
       children.clear();
       lineage.births.length = 0;
+      buildUp(stepper.now, phase);
     },
 
     /*
@@ -461,6 +506,7 @@ export function createDriver(seed: number): Driver {
     steer(next) {
       const turned = next.motion.kind !== rig.motion.kind;
       rig = next;
+      tail = lingerTail(system, flightTime(next.motion));
       lineage.joints = next.joints ?? null;
       marks.clear();
 
@@ -505,3 +551,6 @@ function turn(world: World, vector: Point): Point {
 }
 
 const TURNED = new Float32Array(3);
+
+/** The travel of a step that moves nothing, which every build-up step takes. */
+const STILL: Point = [0, 0, 0];

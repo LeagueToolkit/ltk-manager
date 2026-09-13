@@ -49,7 +49,14 @@ import {
 import { emptySystem } from "./systemModel";
 
 /** The system's own fields. */
-const SYSTEM = { transform: nameHash("transform"), flags: nameHash("flags") } as const;
+const SYSTEM = {
+  transform: nameHash("transform"),
+  flags: nameHash("flags"),
+  buildUpTime: nameHash("buildUpTime"),
+} as const;
+
+/** `directionVelocityMinScale`'s schema default, which a bin writing `0` departs from. */
+const DIRECTION_MIN_SCALE_DEFAULT = 1;
 
 /** `flags`' schema default, which leaves `kAnalyticDragMotion` off. */
 const FLAGS_DEFAULT = 0xd4;
@@ -81,6 +88,7 @@ const FIELD = {
   worldAcceleration: nameHash("worldAcceleration"),
   bindWeight: nameHash("bindWeight"),
   particleLinger: nameHash("particleLinger"),
+  emitterLinger: nameHash("emitterLinger"),
   lingerType: nameHash("particleLingerType"),
   linger: nameHash("Linger"),
   palette: nameHash("paletteDefinition"),
@@ -109,6 +117,8 @@ const FIELD = {
   birthRotationalAcceleration: nameHash("birthRotationalAcceleration"),
   rotationEnabled: nameHash("isRotationEnabled"),
   directionOriented: nameHash("isDirectionOriented"),
+  directionVelocityScale: nameHash("directionVelocityScale"),
+  directionVelocityMinScale: nameHash("directionVelocityMinScale"),
   scale0: nameHash("scale0"),
   birthScale0: nameHash("birthScale0"),
   color: nameHash("Color"),
@@ -186,6 +196,7 @@ function readSystem(root: VfxValue, entry: string | null, name: string | null): 
     emitters,
     transform: matrix(field(root, SYSTEM.transform)),
     dragMotion: (flags & ANALYTIC_DRAG_MOTION) !== 0 ? DRAG_MOTION.analytic : DRAG_MOTION.stepped,
+    buildUpTime: Math.max(number(field(root, SYSTEM.buildUpTime)) ?? 0, 0),
   };
 }
 
@@ -244,6 +255,7 @@ function readEmitter(
     uniformScale: flag(field(node, FIELD.uniformScale)),
 
     particleLinger: number(field(node, FIELD.particleLinger)) ?? 0,
+    emitterLinger: number(field(node, FIELD.emitterLinger)) ?? 0,
     lingerType: lingerType(field(node, FIELD.lingerType)),
     linger: readLinger(field(node, FIELD.linger)),
 
@@ -270,6 +282,9 @@ function readEmitter(
     pivotUp: legacySimple?.scaleUpFromOrigin === true,
     rotationEnabled: flag(field(node, FIELD.rotationEnabled)),
     directionOriented: flag(field(node, FIELD.directionOriented)),
+    directionVelocityScale: number(field(node, FIELD.directionVelocityScale)) ?? 0,
+    directionVelocityMinScale:
+      number(field(node, FIELD.directionVelocityMinScale)) ?? DIRECTION_MIN_SCALE_DEFAULT,
 
     scale0: curve(field(node, FIELD.scale0), DEFAULT.one3),
     birthScale0: curve(field(node, FIELD.birthScale0), DEFAULT.one3),

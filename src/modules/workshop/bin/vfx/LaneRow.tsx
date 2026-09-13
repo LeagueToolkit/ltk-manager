@@ -67,7 +67,7 @@ export const LaneRow = memo(function LaneRow({
     const { driver } = run;
     /* The list grows in place, so the count is what says a new bar is owed. */
     const births = driver.births().slice(0, spawned);
-    return childBars(births, row.lane, driver.time - driver.elapsed);
+    return childBars(births, row.lane, driver.time - driver.phase);
   }, [row, run, spawned]);
   const selected =
     row.kind === "emitter"

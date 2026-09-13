@@ -576,6 +576,11 @@ export interface EmitterModel {
    * [`lingerSeconds`] applies.
    */
   readonly particleLinger: number;
+  /**
+   * `emitterLinger`, the system age a stopped emitter waits past before it finishes, before
+   * the cap [`stopWaitSeconds`] applies.
+   */
+  readonly emitterLinger: number;
   /** `particleLingerType`, how those seconds are applied and what finishes the emitter. */
   readonly lingerType: LingerType;
   /** `Linger`, what a lingering particle reads in place of its emitter's curves. */
@@ -640,6 +645,10 @@ export interface EmitterModel {
   readonly rotationEnabled: boolean;
   /** `isDirectionOriented`: the quad's up is where the particle is travelling. */
   readonly directionOriented: boolean;
+  /** `directionVelocityScale`: how far a direction-oriented particle stretches per unit of speed. */
+  readonly directionVelocityScale: number;
+  /** `directionVelocityMinScale`: the least stretch a direction-oriented particle takes. */
+  readonly directionVelocityMinScale: number;
 
   /** Sampled per frame against the particle's age. */
   readonly scale0: ValueCurve;
@@ -675,7 +684,7 @@ export interface EmitterModel {
   readonly pass: number;
   /** `miscRenderFlags`, the bits of [`MISC_RENDER_FLAG`]. */
   readonly miscRenderFlags: number;
-  /** `isGroundLayer`: the emitter draws in the ground layer's display list. */
+  /** `isGroundLayer`: the emitter draws in the ground layer's display list, flat on the ground. */
   readonly groundLayer: boolean;
   /**
    * `alphaRef`, over 255, and zero for an emitter whose alpha test is compiled out.
@@ -740,4 +749,6 @@ export interface SystemModel {
   readonly transform: readonly number[] | null;
   /** Whether the particles step through their drag or ease out by `kAnalyticDragMotion`. */
   readonly dragMotion: DragMotion;
+  /** `buildUpTime`, the seconds a run simulates before it is first drawn. */
+  readonly buildUpTime: number;
 }

@@ -9,7 +9,7 @@ import { NoColorSpace, NoToneMapping, SRGBColorSpace, type ToneMapping } from "t
  * `space.ts`, which a module that never draws reads without ThreeJS.
  */
 
-export { AXIS_SIGN, CHAMPION_HEIGHT, FORWARD, UNITS_PER_METRE } from "./space";
+export { AXIS_SIGN, CHAMPION_HEIGHT, FORWARD, GROUND_LEVEL, UNITS_PER_METRE } from "./space";
 
 /** The stage's textures are authored in sRGB, which is what the sampler decodes them from. */
 export const TEXTURE_COLOR_SPACE = SRGBColorSpace;

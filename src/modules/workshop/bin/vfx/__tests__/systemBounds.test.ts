@@ -14,7 +14,14 @@ const STILL: RigModel = { motion: { kind: "still" }, life: "once", height: 100 }
 const FLYING: RigModel = { motion: flightPath(1200, 800), life: "loop", height: 100 };
 
 function systemOf(...emitters: EmitterModel[]): SystemModel {
-  return { entry: null, name: null, emitters, transform: null, dragMotion: DRAG_MOTION.stepped };
+  return {
+    entry: null,
+    name: null,
+    emitters,
+    transform: null,
+    dragMotion: DRAG_MOTION.stepped,
+    buildUpTime: 0,
+  };
 }
 
 function drawnOf(emitter: EmitterModel, path = ""): DrawnEmitter {

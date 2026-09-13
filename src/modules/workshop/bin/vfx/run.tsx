@@ -21,7 +21,7 @@ import {
 } from "../../state";
 import { createDriver, type Driver } from "./driver";
 import type { SystemModel } from "./model";
-import { FIRST_RIG, type RigChoice, runLength } from "./rig";
+import { FIRST_RIG, flightTime, type RigChoice, runLength } from "./rig";
 import { lingerTail, systemSpan } from "./systemModel";
 import { useVfxSystem } from "./useVfxSystem";
 
@@ -146,7 +146,7 @@ export function useClockOf(run: VfxRun | null): number | null {
     [subscribe],
   );
   return useSyncExternalStore(paced, () =>
-    driver === undefined ? null : Math.round(driver.elapsed / READOUT_STEP) * READOUT_STEP,
+    driver === undefined ? null : Math.round(driver.phase / READOUT_STEP) * READOUT_STEP,
   );
 }
 
@@ -181,7 +181,14 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
 
   const driver = useMemo(() => createDriver(seed), [seed]);
   const span = useMemo(
-    () => (system === null ? 1 : runLength(rig.rig.motion, systemSpan(system), lingerTail(system))),
+    () =>
+      system === null
+        ? 1
+        : runLength(
+            rig.rig.motion,
+            systemSpan(system),
+            lingerTail(system, flightTime(rig.rig.motion)),
+          ),
     [system, rig],
   );
 
@@ -234,7 +241,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       if (dt > 0) {
         const { speed: rate, loop: range, span: length } = pace.current;
         driver.advance(dt * rate);
-        if (range !== null && driver.elapsed >= Math.min(range.to, length)) driver.seek(range.from);
+        if (range !== null && driver.phase >= Math.min(range.to, length)) driver.seek(range.from);
         notify();
       }
       frame = requestAnimationFrame(tick);
@@ -254,7 +261,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
   useEffect(
     () => () => {
       const { memory, driver: held } = latest.current;
-      remember(key, { ...memory, playhead: held.elapsed });
+      remember(key, { ...memory, playhead: held.phase });
     },
     [key, remember],
   );
@@ -273,7 +280,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
   const step = useCallback(
     (frames: number) => {
       setPlaying(false);
-      seek(driver.elapsed + frames * FRAME);
+      seek(driver.phase + frames * FRAME);
     },
     [driver, seek],
   );

@@ -3,7 +3,14 @@ import type { EmitterModel, SystemModel, ValueCurve } from "./model";
 
 /** A system with nothing in it, which is what an unreadable object draws as. */
 export function emptySystem(entry: string | null): SystemModel {
-  return { entry, name: null, emitters: [], transform: null, dragMotion: DRAG_MOTION.stepped };
+  return {
+    entry,
+    name: null,
+    emitters: [],
+    transform: null,
+    dragMotion: DRAG_MOTION.stepped,
+    buildUpTime: 0,
+  };
 }
 
 /**
@@ -52,21 +59,37 @@ export function systemSpan(system: SystemModel): number {
 }
 
 /**
- * How long the last particle plays on after the system is stopped, in seconds.
+ * How long the last particle plays on after a stop `stoppedAt` seconds into the run.
  *
- * The longest linger any emitter grants, which is what a stop leaves alive, so a run that
- * ends in a stop reaches that far past it.
+ * The longest wait for [`stopWaitSeconds`] plus the linger any emitter grants, which is what
+ * a stop leaves alive, so a run that ends in a stop reaches that far past it. The system's
+ * age at the stop includes its build-up.
  */
-export function lingerTail(system: SystemModel): number {
+export function lingerTail(system: SystemModel, stoppedAt: number): number {
+  const age = stoppedAt + system.buildUpTime;
   let tail = 0;
   for (const emitter of system.emitters) {
-    if (!emitter.disabled) tail = Math.max(tail, lingerSeconds(emitter));
+    if (emitter.disabled) continue;
+    const wait = Math.max(stopWaitSeconds(emitter) - age, 0);
+    tail = Math.max(tail, wait + lingerSeconds(emitter));
   }
   return tail;
 }
 
-/** The seconds the engine caps a linger at, past the particle lifetime it adds them to. */
+/** The seconds the engine caps a linger at, past the lifetime it adds them to. */
 const LINGER_GRACE = 10;
+
+/**
+ * The system age past which a stopped emitter counts as finished, which is `emitterLinger` capped.
+ *
+ * A complex emitter caps at its own `lifetime` plus ten seconds, uncapped for one that never
+ * stops, and a simple one at ten. The age is the system's own and not the time since the
+ * stop, so a stop issued past it grants no wait at all.
+ */
+export function stopWaitSeconds(emitter: EmitterModel): number {
+  const lifetime = emitter.simple ? 0 : (emitter.lifetime ?? Infinity);
+  return Math.min(lifetime + LINGER_GRACE, Math.max(emitter.emitterLinger, 0));
+}
 
 /**
  * How long a finished emitter's particles are given, which is `particleLinger` capped.

@@ -4,7 +4,7 @@ import type { Mesh } from "three";
 
 import type { SceneColors } from "./sceneColors";
 import { useGroundTexture } from "./useGroundTexture";
-import { CHAMPION_HEIGHT, UNITS_PER_METRE } from "./world";
+import { CHAMPION_HEIGHT, GROUND_LEVEL, UNITS_PER_METRE } from "./world";
 
 /** How far the ground reaches, which is what a champion-scale effect plays out over. */
 const GROUND = CHAMPION_HEIGHT * 16;
@@ -53,7 +53,7 @@ export function Stage({
 
   return (
     <group>
-      <mesh position={[0, GROUND_DROP, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, GROUND_LEVEL + GROUND_DROP, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[GROUND, GROUND]} />
         {/* The token fill is what an install missing the map's kit piece draws.
 

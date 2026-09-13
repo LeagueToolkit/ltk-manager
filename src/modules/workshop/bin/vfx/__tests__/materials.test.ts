@@ -60,6 +60,7 @@ const EVERY_MODE = Object.values(BLEND_MODE) as BlendMode[];
 const FLAT: DepthOffset = { bias: [0, 0], pushPull: 0 };
 const BILLBOARD: QuadOrientation = {
   billboard: true,
+  directed: false,
   ray: false,
   plane: SIMPLE_ORIENTATION.camera,
   unitQuad: false,
@@ -207,6 +208,7 @@ const PLAIN_LAYERS: QuadLayers = {
   reflection: null,
   reflectionTexture: null,
   soft: null,
+  ground: false,
 };
 
 const PASSING = { alphaRef: 0, depthTest: true };
@@ -539,6 +541,7 @@ describe("quadMaterial defines", () => {
   it("carries RAY without BILLBOARD for a ray on SIMPLE_ORIENTATION.camera", () => {
     const ray: QuadOrientation = {
       billboard: false,
+      directed: false,
       ray: true,
       plane: SIMPLE_ORIENTATION.camera,
       unitQuad: false,
@@ -548,6 +551,38 @@ describe("quadMaterial defines", () => {
 
     expect(quad.defines).toHaveProperty("RAY");
     expect(quad.defines).not.toHaveProperty("BILLBOARD");
+  });
+
+  it("carries DIRECTED for a direction-oriented billboard alone", () => {
+    const directed = quadMaterial(
+      BLEND_MODE.add,
+      null,
+      FLAT,
+      { ...BILLBOARD, directed: true },
+      PLAIN_LAYERS,
+      PASSING,
+    );
+
+    expect(directed.defines).toHaveProperty("DIRECTED");
+    expect(
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).defines,
+    ).not.toHaveProperty("DIRECTED");
+  });
+
+  it("lays a ground-layer emitter on the ground on every draw path", () => {
+    const ground = { ...PLAIN_LAYERS, ground: true };
+
+    for (const material of [
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, ground, PASSING),
+      meshMaterial(BLEND_MODE.add, null, [0, 0], ground, PASSING, FrontSide),
+      attachedMaterial(BLEND_MODE.add, null, [0, 0], ground, PASSING, FrontSide),
+      ribbonMaterial(BLEND_MODE.add, null, [0, 0], ground, PASSING),
+    ]) {
+      expect(material.defines).toHaveProperty("GROUND_LAYER");
+    }
+    expect(
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).defines,
+    ).not.toHaveProperty("GROUND_LAYER");
   });
 
   it("carries HAS_MAP once its texture has arrived", () => {

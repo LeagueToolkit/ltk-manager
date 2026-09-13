@@ -43,6 +43,7 @@ import {
   legacyRoll,
   spinOf,
   standingFrameInto,
+  stretchOf,
 } from "../particleRead";
 import { createPool, FRAME_SLOTS, type Pool, spawn, UV, uvAt } from "../pool";
 import { type Motion, originAt, type Point } from "../rig";
@@ -105,6 +106,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     particleLocalOrientation: false,
     uniformScale: false,
     particleLinger: 0,
+    emitterLinger: 0,
     lingerType: LINGER_TYPE.maxLifetimeAfterEmitterDies,
     linger: null,
     palette: null,
@@ -129,6 +131,8 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     pivotUp: false,
     rotationEnabled: false,
     directionOriented: false,
+    directionVelocityScale: 0,
+    directionVelocityMinScale: 1,
     scale0: flat(1, 1, 1),
     birthScale0: flat(1, 1, 1),
     color: flat(1, 1, 1, 1),
@@ -175,7 +179,7 @@ function run(
   facing: Point = FORWARD,
   dragMotion: DragMotion = DRAG_MOTION.stepped,
 ): Run {
-  const system = { entry: null, name: null, emitters, transform: null, dragMotion };
+  const system = { entry: null, name: null, emitters, transform: null, dragMotion, buildUpTime: 0 };
   const pool = createPool(capacity);
   const state = createEmitterStates(emitters);
   const stepper = fixedRateStepper(1 / dt);
@@ -957,6 +961,34 @@ describe("the UV layers", () => {
   });
 });
 
+describe("the direction stretch", () => {
+  const moving = {
+    birthVelocity: flat(0, 100, 0),
+    directionOriented: true,
+    directionVelocityScale: 0.05,
+  };
+
+  it("stretches a direction-oriented particle by its speed, held at the least stretch", () => {
+    const fast = run([emitterOf(moving)], 1);
+    fast.step(2);
+    expect(stretchOf(fast.pool, 0, fast.emitters[0])).toBeCloseTo(5, 5);
+
+    const held = run([emitterOf({ ...moving, directionVelocityMinScale: 8 })], 1);
+    held.step(2);
+    expect(stretchOf(held.pool, 0, held.emitters[0])).toBe(8);
+  });
+
+  it("leaves a particle facing no travel, and a ray, unstretched", () => {
+    const still = run([emitterOf({ ...moving, birthVelocity: flat(0, 0, 0) })], 1);
+    still.step(2);
+    expect(stretchOf(still.pool, 0, still.emitters[0])).toBe(1);
+
+    const ray = run([emitterOf({ ...moving, quadType: QUAD_TYPE.ray })], 1);
+    ray.step(2);
+    expect(stretchOf(ray.pool, 0, ray.emitters[0])).toBe(1);
+  });
+});
+
 describe("particle linger", () => {
   /** One particle, born on the first quarter-second step, that would live a long time. */
   const lasting = { particleLifetime: flat(100), particleLinger: 1 };
@@ -1007,6 +1039,47 @@ describe("particle linger", () => {
 
     expect(sim.pool.lifetime[0]).toBe(100);
     expect(sim.state[0].finishedAt).toBeNull();
+  });
+
+  it("waits a stop out until the system's age passes emitterLinger", () => {
+    const sim = run([emitterOf({ ...lasting, emitterLinger: 2 })], 0.25, 256, 1, STILL, 1);
+    sim.step(8);
+    expect(sim.state[0].finishedAt).toBeNull();
+    expect(sim.pool.lifetime[0]).toBe(100);
+
+    sim.step();
+    expect(sim.state[0].finishedAt).toBe(2.25);
+    expect(sim.pool.lifetime[0]).toBe(1);
+  });
+
+  it("grants a stop issued past emitterLinger no wait, the age being the system's own", () => {
+    const sim = run([emitterOf({ ...lasting, emitterLinger: 0.5 })], 0.25, 256, 1, STILL, 1);
+    sim.step(4);
+
+    expect(sim.state[0].finishedAt).toBe(1);
+  });
+
+  it("holds a stopped fixed-after-stops emitter to emitterLinger rather than its lifetime", () => {
+    const sim = run(
+      [
+        emitterOf({
+          ...lasting,
+          lifetime: 5,
+          emitterLinger: 2,
+          lingerType: LINGER_TYPE.fixedLifetimeAfterEmitterStops,
+        }),
+      ],
+      0.25,
+      256,
+      1,
+      STILL,
+      1,
+    );
+    sim.step(8);
+    expect(sim.state[0].finishedAt).toBeNull();
+
+    sim.step();
+    expect(sim.state[0].finishedAt).toBe(2.25);
   });
 
   it("stops emitting once the system stops, and drops what has no linger at once", () => {

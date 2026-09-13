@@ -30,6 +30,7 @@ import {
   frameOf,
   type Source,
   standingFrameInto,
+  stretchOf,
 } from "./particleRead";
 import { FRAME_SLOTS, type Pool } from "./pool";
 import { type LayerDraws, layersOf } from "./uniforms";
@@ -215,7 +216,7 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
  * stands on the frame it was born in.
  *
  * The spawn frame is the one turn a scale reaches, and the returned scale is ones for the
- * two that discard it.
+ * two that discard it, but for the travel's own stretch along a direction-oriented `+Z`.
  */
 function face(
   pool: Pool,
@@ -233,6 +234,7 @@ function face(
        product changes sign under the mirror where a basis does not. */
     alongInto(pool.travel, at * 3, STANDING);
     turnOf(STANDING, TURN);
+    FRAME_SCALE[2] = stretchOf(pool, at, emitter);
     return FRAME_SCALE;
   }
 
