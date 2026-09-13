@@ -1,5 +1,12 @@
-import type { AnimationClip, AssetRef, IdleEffect, SkinModel, VfxSystem } from "@/lib/tauri";
-import { jointAnchor, type Pose } from "@/modules/viewport";
+import type {
+  AnimationClip,
+  AssetRef,
+  IdleEffect,
+  MaterialPreview,
+  SkinModel,
+  VfxSystem,
+} from "@/lib/tauri";
+import { jointAnchor, type Pose, type SubmeshDress } from "@/modules/viewport";
 
 import type { SystemModel } from "../vfx/model";
 import { readVfxSystem } from "../vfx/readVfxSystem";
@@ -20,19 +27,48 @@ function overrideKey(submesh: string): string {
   return `submesh:${submesh.toLowerCase()}`;
 }
 
-/** Every texture the skin draws with and this machine holds, keyed for `textureOf`. */
+/**
+ * The key a material's base texture is loaded under, one per material rather than per
+ * submesh, so its wrap and tiling are set on a texture only that material draws.
+ */
+function materialKey(material: MaterialPreview): string {
+  return `material:${material.hash}`;
+}
+
+/** Every texture the skin draws with and this machine holds, keyed for `dressOf`. */
 export function textureAssets(skin: SkinModel): Map<string, AssetRef> {
   const assets = new Map<string, AssetRef>();
+  const base = (material: MaterialPreview | null) => {
+    if (material?.base?.texture.asset)
+      assets.set(materialKey(material), material.base.texture.asset);
+  };
   if (skin.texture?.asset) assets.set(BASE_TEXTURE, skin.texture.asset);
+  base(skin.material);
   for (const override of skin.overrides) {
-    if (override.texture.asset) assets.set(overrideKey(override.submesh), override.texture.asset);
+    if (override.texture?.asset) assets.set(overrideKey(override.submesh), override.texture.asset);
+    base(override.material);
   }
   return assets;
 }
 
-/** The texture `submesh` draws with: its override's, then the skin's own. */
-export function textureOf<T>(textures: ReadonlyMap<string, T>, submesh: string): T | null {
-  return textures.get(overrideKey(submesh)) ?? textures.get(BASE_TEXTURE) ?? null;
+/**
+ * What `submesh` draws with, first match winning: its override's material, else its
+ * override's texture alone, else the skin's material, else the skin's texture.
+ */
+export function dressOf<T>(
+  skin: SkinModel,
+  textures: ReadonlyMap<string, T>,
+  submesh: string,
+): SubmeshDress<T> {
+  const key = submesh.toLowerCase();
+  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
+  const texture = textures.get(overrideKey(submesh)) ?? textures.get(BASE_TEXTURE) ?? null;
+  const material = override === null ? skin.material : override.material;
+  return {
+    material,
+    base: material === null ? null : (textures.get(materialKey(material)) ?? null),
+    texture,
+  };
 }
 
 /**

@@ -2,11 +2,16 @@ use std::io::Cursor;
 
 use glam::vec3;
 use ltk_hash::{Hash as _, WadHash};
-use ltk_meta::property::{Kind, NoMeta};
+use ltk_meta::property::{Kind, NoMeta, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
 use crate::bin_document::resolve::RESOURCE_MAP;
+use crate::material::{BaseRule, Blending};
+
+const BODY_MATERIAL: &str = "Characters/Ahri/Skins/Skin3/Materials/Body";
+const WINGS_MATERIAL: &str = "Characters/Ahri/Skins/Skin3/Materials/Wings";
+const WINGS: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Wings_TX_CM.tex";
 
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
@@ -73,13 +78,26 @@ fn skin() -> BinObject {
                     ),
                     (
                         MATERIAL_OVERRIDE,
-                        values::Container::from(vec![embedded(
-                            "SkinMeshDataProperties_MaterialOverride",
-                            vec![
-                                (SUBMESH, values::String::from("Cape").into()),
-                                (TEXTURE, values::String::from(CAPE).into()),
-                            ],
-                        )])
+                        values::Container::from(vec![
+                            embedded(
+                                "SkinMeshDataProperties_MaterialOverride",
+                                vec![
+                                    (SUBMESH, values::String::from("Cape").into()),
+                                    (TEXTURE, values::String::from(CAPE).into()),
+                                ],
+                            ),
+                            embedded(
+                                "SkinMeshDataProperties_MaterialOverride",
+                                vec![
+                                    (SUBMESH, values::String::from("Wings").into()),
+                                    (MATERIAL, values::ObjectLink::new(h(WINGS_MATERIAL)).into()),
+                                ],
+                            ),
+                            embedded(
+                                "SkinMeshDataProperties_MaterialOverride",
+                                vec![(SUBMESH, values::String::from("Hat").into())],
+                            ),
+                        ])
                         .into(),
                     ),
                 ],
@@ -100,6 +118,44 @@ fn skin() -> BinObject {
                 idle("Unmapped", "Root", [0.0; 3]),
             ]),
         )
+        .build()
+}
+
+/// The wings material: one colour map, alpha blended, in the shape the exporter writes.
+fn wings_material() -> BinObject {
+    let sampler = embedded(
+        "StaticMaterialShaderSamplerDef",
+        vec![
+            (
+                h("TextureName"),
+                values::String::from("Diffuse_Texture").into(),
+            ),
+            (
+                h("texturePath"),
+                values::WadChunkLink::new(WadHash::hash_str(WINGS).0).into(),
+            ),
+        ],
+    );
+    let pass = embedded(
+        "StaticMaterialPassDef",
+        vec![
+            (
+                h("shader"),
+                values::ObjectLink::new(h("Shaders/SkinnedMesh/Diffuse")).into(),
+            ),
+            (h("blendEnable"), values::Bool::new(true).into()),
+        ],
+    );
+    let technique = embedded(
+        "StaticMaterialTechniqueDef",
+        vec![
+            (h("name"), values::String::from("normal").into()),
+            (h("passes"), values::Container::from(vec![pass]).into()),
+        ],
+    );
+    BinObject::builder(h(WINGS_MATERIAL), h("StaticMaterialDef"))
+        .property(h("samplerValues"), values::Container::from(vec![sampler]))
+        .property(h("techniques"), values::Container::from(vec![technique]))
         .build()
 }
 
@@ -206,11 +262,15 @@ impl RowNames for Tables {
             if hash.0 == ATTACK_CHUNK {
                 visit(at, ATTACK);
             }
+            if *hash == WadHash::hash_str(WINGS) {
+                visit(at, WINGS);
+            }
         }
     }
 }
 
-/// A lookup that places every path this file names but the skeleton.
+/// A lookup that places every path this file names but the skeleton, and the one chunk
+/// no table names.
 struct Placed;
 
 impl AssetLookup for Placed {
@@ -219,11 +279,18 @@ impl AssetLookup for Placed {
             path: path.to_lowercase(),
         })
     }
+
+    fn locate_chunk(&self, hash: WadHash) -> Option<AssetRef> {
+        (hash.0 == UNNAMED_CHUNK).then(|| AssetRef::GameChunk {
+            wad: "Champions/Ahri.wad.client".to_owned(),
+            path_hash: format!("{UNNAMED_CHUNK:016x}"),
+        })
+    }
 }
 
 fn read_skin() -> SkinModel {
-    let document = document_of(vec![skin(), resolver(), system()]);
-    resolve_skin(&document, h(SKIN), &Tables, &Placed).unwrap()
+    let document = document_of(vec![skin(), resolver(), system(), wings_material()]);
+    resolve_skin(&document, h(SKIN), &Tables, &Placed, None).unwrap()
 }
 
 fn file(path: &str) -> Option<AssetRef> {
@@ -253,34 +320,69 @@ fn a_skin_names_its_mesh_and_its_skeleton() {
     );
 }
 
-/// A chunk no table names has only its hash to go on, and nothing to locate by.
+/// A chunk no table names has only its hash for a path, and the hash still places it.
 #[test]
-fn an_unnamed_chunk_keeps_its_hash_for_a_path() {
+fn an_unnamed_chunk_keeps_its_hash_for_a_path_and_is_placed_by_it() {
     let skin = read_skin();
 
     assert_eq!(
         skin.texture,
         Some(NamedAsset {
             path: format!("{UNNAMED_CHUNK:016x}"),
-            asset: None,
+            asset: Some(AssetRef::GameChunk {
+                wad: "Champions/Ahri.wad.client".to_owned(),
+                path_hash: format!("{UNNAMED_CHUNK:016x}"),
+            }),
         })
     );
 }
 
+/// An override naming neither a texture nor a material is no override at all.
 #[test]
-fn an_override_gives_its_submesh_a_texture() {
+fn an_override_gives_its_submesh_a_texture_or_a_material() {
     let skin = read_skin();
 
+    assert_eq!(skin.overrides.len(), 2);
+    assert_eq!(skin.overrides[0].submesh, "Cape");
     assert_eq!(
-        skin.overrides,
-        vec![SubmeshTexture {
-            submesh: "Cape".to_owned(),
-            texture: NamedAsset {
-                path: CAPE.to_owned(),
-                asset: file(CAPE),
-            },
-        }]
+        skin.overrides[0].texture,
+        Some(NamedAsset {
+            path: CAPE.to_owned(),
+            asset: file(CAPE),
+        })
     );
+    assert_eq!(skin.overrides[0].material, None);
+
+    let wings = &skin.overrides[1];
+    assert_eq!(wings.submesh, "Wings");
+    assert_eq!(wings.texture, None);
+    let material = wings.material.as_ref().expect("the wings' material");
+    assert_eq!(material.hash, hex(h(WINGS_MATERIAL)));
+    assert!(!material.missing);
+    let base = material.base.as_ref().expect("the wings' base texture");
+    assert_eq!(base.rule, BaseRule::Exact);
+    assert_eq!(base.texture.asset, file(WINGS));
+    assert_eq!(material.render_state.blending, Blending::Normal);
+}
+
+/// The skin's own `Material` is read like an override's, and a link the document does
+/// not declare comes back as an error material rather than as nothing.
+#[test]
+fn the_skins_material_link_is_read_and_a_missing_one_is_an_error_material() {
+    let mesh = embedded(
+        "SkinMeshDataProperties",
+        vec![(MATERIAL, values::ObjectLink::new(h(BODY_MATERIAL)).into())],
+    );
+    let bare = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties"))
+        .property(MESH_PROPERTIES, mesh)
+        .build();
+    let document = document_of(vec![bare]);
+
+    let skin = resolve_skin(&document, h(SKIN), &Tables, &Placed, None).unwrap();
+
+    let material = skin.material.expect("the skin's material");
+    assert!(material.missing);
+    assert_eq!(material.hash, hex(h(BODY_MATERIAL)));
 }
 
 #[test]
@@ -315,9 +417,10 @@ fn a_skin_that_names_nothing_answers_the_defaults() {
     let bare = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties")).build();
     let document = document_of(vec![bare]);
 
-    let skin = resolve_skin(&document, h(SKIN), &Tables, &Placed).unwrap();
+    let skin = resolve_skin(&document, h(SKIN), &Tables, &Placed, None).unwrap();
 
     assert_eq!(skin.mesh, None);
+    assert_eq!(skin.material, None);
     assert!((skin.scale - 1.0).abs() < f32::EPSILON);
     assert!(skin.idle_effects.is_empty());
     assert_eq!(skin.animation_graph, None);
@@ -327,7 +430,7 @@ fn a_skin_that_names_nothing_answers_the_defaults() {
 fn an_entry_that_is_no_object_is_not_found() {
     let document = document_of(vec![skin()]);
 
-    let err = resolve_skin(&document, h("Nowhere"), &Tables, &Placed).unwrap_err();
+    let err = resolve_skin(&document, h("Nowhere"), &Tables, &Placed, None).unwrap_err();
 
     assert!(matches!(err, BinDocumentError::NodeNotFound { .. }));
 }
@@ -459,6 +562,7 @@ fn every_field_hash_is_its_name() {
         (HIDDEN_SUBMESHES, "initialSubmeshToHide"),
         (MATERIAL_OVERRIDE, "materialOverride"),
         (SUBMESH, "submesh"),
+        (MATERIAL, "Material"),
         (ANIMATION_PROPERTIES, "skinAnimationProperties"),
         (ANIMATION_GRAPH, "animationGraphData"),
         (IDLE_EFFECTS, "idleParticlesEffects"),

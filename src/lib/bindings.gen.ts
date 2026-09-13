@@ -47,7 +47,8 @@ export const commands = {
 	 *  One skin of an open document, as a viewport draws it.
 	 * 
 	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
-	 *  digits.
+	 *  digits. The shader defs are read beside the skin, the project's copy first, and a
+	 *  read they refuse leaves every material on its own fields.
 	 */
 	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
 	/**
@@ -283,6 +284,34 @@ pathHash: string } |
  */
 { kind: "file"; path: string };
 
+/**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
+export type BaseRule = 
+/**  A static switch of the one shader that has such a switch names it. */
+"switchOverride" | 
+/**  Its name is one that means the albedo. */
+"exact" | 
+/**  Every albedo name held a placeholder, and another texture's path is a colour map. */
+"colorMapOverPlaceholder" | 
+/**  Every albedo name held a placeholder, which the engine samples too. */
+"exactPlaceholder" | 
+/**  Its name reads as an albedo and as nothing else. */
+"nameLike" | 
+/**  Its path is a colour map's, and its name is not something else. */
+"colorMapPath" | 
+/**  Its path is a colour map's, whatever its name. */
+"colorMapPathAnyName";
+
+/**  The texture a preview draws a material's main layer with. */
+export type BaseTexture = {
+	/**  The shader texture's name, which the sampler entry is keyed by. */
+	name: string,
+	texture: NamedAsset,
+	/**  Which rule picked it, from surest to a last resort. */
+	rule: BaseRule,
+	/**  The sampler's address modes, across and down. */
+	wrap: [Wrap, Wrap],
+};
+
 /**  Why a suspect is one, as the line under its name. */
 export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-verify" | "skipped" | "could-not-mount" | 
 /**  What an incident stored before the reason was written down reads as. */
@@ -416,6 +445,11 @@ export type BinaryId = {
 	hash: string,
 	built: number | null,
 };
+
+/**  The three blends a preview tells apart. */
+export type Blending = "opaque" | 
+/**  Source alpha over one minus source alpha, which most character materials are. */
+"normal" | "additive";
 
 /**  Coarse grouping for the UI. */
 export type Category = 
@@ -960,6 +994,67 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**
+ *  One `StaticMaterialDef` as a preview draws it, cut down to the slots one stock
+ *  material takes.
+ */
+export type MaterialPreview = {
+	/**  The material's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The material's path, where a table names it. */
+	name: string | null,
+	/**
+	 *  The document declares no object under the link, so every slot is empty and the
+	 *  submesh draws as an error rather than as a guess.
+	 */
+	missing: boolean,
+	/**
+	 *  `dynamicMaterial` is set, so the slots are the static values of an animated
+	 *  material.
+	 */
+	animated: boolean,
+	/**  The pass shader's `objectPath`, and none where the link resolves to nothing. */
+	shader: string | null,
+	/**
+	 *  The texture the material's main layer samples, and none for a material with no
+	 *  texture at all.
+	 */
+	base: BaseTexture | null,
+	/**  A colour the base is multiplied by, in the shader's own units. */
+	tint: [(number | null), (number | null), (number | null)] | null,
+	opacity: number | null,
+	/**  The alpha a fragment is discarded below. */
+	alphaTest: number | null,
+	/**  How many times the base tiles across the mesh. */
+	uvRepeat: [(number | null), (number | null)] | null,
+	/**  How far the base moves per second, in tiles. */
+	uvScroll: [(number | null), (number | null)] | null,
+	renderState: RenderState,
+	/**  Every drop, miss and fallback the read made, in the order it made them. */
+	warnings: MaterialWarning[],
+};
+
+/**  Something the engine does silently that a preview says out loud. */
+export type MaterialWarning = 
+/**  The shader defs were not opened, so no default texture, parameter or switch is known. */
+{ kind: "noShaderDefs" } | 
+/**  The material has no technique with a pass, so it draws with the defaults alone. */
+{ kind: "noPass" } | 
+/**  The pass links a shader the defs do not declare, `0x` and eight hex digits. */
+{ kind: "unresolvedShader"; hash: string } | 
+/**  A second pass the preview does not draw. */
+{ kind: "secondPass" } | 
+/**  A sampler entry the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredSampler"; name: string } | 
+/**  A parameter the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredParam"; name: string } | 
+/**  A switch the shader does not declare, which the engine ignores. */
+{ kind: "undeclaredSwitch"; name: string } | 
+/**  A `texturePath` written as a string, which the client drops for the default. */
+{ kind: "stringTexturePath"; name: string; path: string } | 
+/**  The base texture names a path nothing on this machine holds. */
+{ kind: "textureNotFound"; name: string; path: string };
+
 /**  A path a bin names, and where its bytes live. */
 export type NamedAsset = {
 	/**
@@ -1087,6 +1182,19 @@ export type ProjectTextFile =
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
 
+/**  How a pass's fragments reach the target, from the first pass's own fields. */
+export type RenderState = {
+	blending: Blending,
+	/**  `PREMULTIPLIED_ALPHA=1` among the macros. */
+	premultiplied: boolean,
+	/**  `cullEnable` is off, so both faces draw. */
+	doubleSided: boolean,
+	/**  The pass culls the winding the engine keeps by default, which an inverted hull does. */
+	inverted: boolean,
+	depthWrite: boolean,
+	depthTest: boolean,
+};
+
 /**
  *  What a file was when it was read, so a save can tell it has not moved.
  * 
@@ -1193,7 +1301,13 @@ export type Severity =
 /**  Known to break the patcher, should be fixed. */
 "bad";
 
-/**  A skin, as a viewport draws it. */
+/**
+ *  A skin, as a viewport draws it.
+ * 
+ *  A submesh picks what it draws with in the engine's order: its override's `Material`,
+ *  else its override's `texture`, else the skin's `Material`, else the skin's `texture`.
+ *  Section 1.3 of docs/research/static-material-studio-rendering.md.
+ */
 export type SkinModel = {
 	/**  The `.skn`, `skinMeshProperties.simpleSkin`. */
 	mesh: NamedAsset | null,
@@ -1201,8 +1315,10 @@ export type SkinModel = {
 	skeleton: NamedAsset | null,
 	/**  The texture a submesh draws with where no override names its own. */
 	texture: NamedAsset | null,
-	/**  The submeshes a `materialOverride` gives a texture of their own. */
-	overrides: SubmeshTexture[],
+	/**  The `Material` a submesh draws with where no override names its own. */
+	material: MaterialPreview | null,
+	/**  The submeshes a `materialOverride` gives a texture or a material of their own. */
+	overrides: SubmeshOverride[],
 	/**  The submeshes `initialSubmeshToHide` names, which the character starts without. */
 	hidden: string[],
 	/**  `skinScale`, which the character is drawn at. */
@@ -1258,12 +1374,14 @@ export type StoredVerdict_Serialize = {
 	hints: Hint[],
 };
 
-/**  One submesh a material override gives its own texture. */
-export type SubmeshTexture = {
+/**  One submesh a material override gives its own texture or material. */
+export type SubmeshOverride = {
 	/**  The submesh's name as the `.skn` spells it. */
 	submesh: string,
 	/**  The override's `texture`, which the submesh draws with in place of the skin's own. */
-	texture: NamedAsset,
+	texture: NamedAsset | null,
+	/**  The override's `Material`, which wins over every texture. */
+	material: MaterialPreview | null,
 };
 
 /**  A mod, or a workshop project, that the evidence implicates. */
@@ -1464,4 +1582,7 @@ export type WorkshopError =
 { kind: "PACK_IGNORE_PATTERN"; path: string; line: number; message: string } | 
 /**  A root text file that changed on disk under the buffer being saved. */
 { kind: "TEXT_FILE_CHANGED"; path: string };
+
+/**  A sampler's address mode, `addressU` and `addressV` on the wire. */
+export type Wrap = "repeat" | "clamp" | "mirror" | "border";
 

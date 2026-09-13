@@ -109,10 +109,17 @@ export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.
 // The skin preview's types, per ADR-0029.
 export type {
   AnimationClip,
+  BaseRule,
+  BaseTexture,
+  Blending,
   IdleEffect,
+  MaterialPreview,
+  MaterialWarning,
   NamedAsset,
+  RenderState,
   SkinModel,
-  SubmeshTexture,
+  SubmeshOverride,
+  Wrap,
 } from "@/lib/bindings.gen";
 /* The diagnostics types. A serde `default` or `skip_serializing_if` splits a type by
 phase, and a command answers the serialize side, so that side takes the plain name. */

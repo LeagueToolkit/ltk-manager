@@ -19,6 +19,8 @@ const TOKENS = {
   wire: "--color-accent-300",
   /* A character's submesh no texture reaches. */
   untextured: "--color-surface-500",
+  /* A character's submesh whose material link resolves to nothing. */
+  errored: "--color-danger",
 } as const;
 
 /** What the grid, the ground, the gizmo and an untextured mesh are painted in. */
@@ -54,6 +56,7 @@ export function sceneColors(): SceneColors {
     ink: read(TOKENS.ink),
     wire: read(TOKENS.wire),
     untextured: read(TOKENS.untextured),
+    errored: read(TOKENS.errored),
   };
 }
 

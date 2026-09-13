@@ -16,6 +16,7 @@ pub mod game_wads;
 pub mod hashtables;
 pub mod launcher;
 pub mod matcher;
+pub mod material;
 pub mod meta_schema;
 pub mod mods;
 pub mod object_index;

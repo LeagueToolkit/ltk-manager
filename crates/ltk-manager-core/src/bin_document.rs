@@ -22,8 +22,11 @@ use thiserror::Error;
 
 pub(crate) mod resolve;
 
-pub use resolve::{AssetLookup, hex, owned};
-pub(crate) use resolve::{EFFECT_KEY, Namer, chunk_asset, first_name, object_at, resolver_entries};
+pub use resolve::{AssetLookup, NamedAsset, hex, owned};
+pub(crate) use resolve::{
+    EFFECT_KEY, Fields, Locator, Namer, chunk_asset, fields_of, items, leaf, link, object_at,
+    resolver_entries, struct_of, text,
+};
 
 use crate::error::AppResult;
 use crate::meta_schema::{Expected, KindShape, SchemaAt};

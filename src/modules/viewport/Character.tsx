@@ -1,10 +1,9 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   Bone,
   BufferAttribute,
   BufferGeometry,
-  type Color,
   DoubleSide,
   Matrix4,
   MeshBasicMaterial,
@@ -21,6 +20,7 @@ import type { SceneClock } from "./clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "./meshBuffer";
 import { LOCAL_FLOATS, type Pose } from "./pose";
 import type { SkeletonModel } from "./skeletonBuffer";
+import { type DressColors, dressMaterial, type SubmeshDress } from "./submeshDress";
 import { AXIS_SIGN } from "./world";
 
 export interface CharacterProps {
@@ -28,10 +28,10 @@ export interface CharacterProps {
   readonly pose: Pose;
   /** The time the pose is sampled at, which whoever owns the scene advances. */
   readonly clock: SceneClock;
-  /** The texture a submesh draws with, by its name, and null for none. */
-  readonly textureOf: (submesh: string) => Texture | null;
-  /** What a submesh no texture reaches is drawn in. */
-  readonly untextured: Color;
+  /** What a submesh draws with, by its name. */
+  readonly dressOf: (submesh: string) => SubmeshDress;
+  /** What a submesh no texture or no material reaches is drawn in. */
+  readonly colors: DressColors;
   /** The submeshes the character is drawn without, matched without regard to case. */
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
@@ -62,8 +62,8 @@ export function Character({
   mesh,
   pose,
   clock,
-  textureOf,
-  untextured,
+  dressOf,
+  colors,
   hidden,
   scale,
   highlighted = null,
@@ -100,9 +100,10 @@ export function Character({
     };
   }, [skinned, rig]);
 
+  const scrolling = useRef<readonly Scrolling[]>([]);
   useLayoutEffect(() => {
-    dress(materials, drawn.ranges, { textureOf, untextured, hidden, highlighted });
-  }, [materials, drawn, textureOf, untextured, hidden, highlighted]);
+    scrolling.current = dress(materials, drawn.ranges, { dressOf, colors, hidden, highlighted });
+  }, [materials, drawn, dressOf, colors, hidden, highlighted]);
   useSubmeshPick(skinned, drawn.ranges, hidden, onSubmeshPick);
 
   useEffect(() => () => drawn.geometry.dispose(), [drawn]);
@@ -115,7 +116,7 @@ export function Character({
   useEffect(() => () => rig.skeleton.dispose(), [rig]);
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
-  useFrame(() => {
+  useFrame((_, delta) => {
     pose.localsInto(clock.time, locals);
     rig.bones.forEach((bone, slot) => {
       const at = slot * LOCAL_FLOATS;
@@ -123,6 +124,10 @@ export function Character({
       bone.quaternion.fromArray(locals, at + 3);
       bone.scale.fromArray(locals, at + 7);
     });
+    for (const { map, scroll } of scrolling.current) {
+      map.offset.x += scroll[0] * delta;
+      map.offset.y += scroll[1] * delta;
+    }
   });
 
   return (
@@ -169,36 +174,38 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 
 /** What a submesh's material is dressed from. */
 interface Dress {
-  readonly textureOf: (submesh: string) => Texture | null;
-  readonly untextured: Color;
+  readonly dressOf: (submesh: string) => SubmeshDress;
+  readonly colors: DressColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
 }
 
+/** A map the frame advances, in tiles per second. */
+interface Scrolling {
+  readonly map: Texture;
+  readonly scroll: readonly [number, number];
+}
+
 /**
- * Each submesh's material drawn with its texture, in `untextured` where it has none, and
- * not at all where the skin hides it. Every submesh but a highlighted one dims.
+ * Each submesh's material dressed as its skin says, and not at all where the skin hides
+ * it. Every submesh but a highlighted one dims. Answers the maps that scroll.
  */
 function dress(
   materials: readonly MeshBasicMaterial[],
   ranges: readonly MeshRange[],
-  { textureOf, untextured, hidden, highlighted }: Dress,
-): void {
+  { dressOf, colors, hidden, highlighted }: Dress,
+): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const lit = highlighted?.toLowerCase() ?? null;
+  const scrolling: Scrolling[] = [];
   ranges.forEach((range, at) => {
     const material = materials[at];
     material.visible = !skip.has(range.name.toLowerCase());
-    const map = textureOf(range.name);
-    if (material.map !== map) {
-      material.map = map;
-      /* A map arriving or leaving changes the program three compiles. */
-      material.needsUpdate = true;
-    }
-    if (map === null) material.color.copy(untextured);
-    else material.color.setRGB(1, 1, 1);
+    const scroll = dressMaterial(material, dressOf(range.name), colors);
+    if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
     if (lit !== null && range.name.toLowerCase() !== lit) material.color.multiplyScalar(DIMMED);
   });
+  return scrolling;
 }
 
 /**

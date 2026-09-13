@@ -38,7 +38,7 @@ import { foldedTime } from "./follow";
 import { IdleEffect } from "./IdleEffect";
 import { SkinChoiceContext, useSkinChoice } from "./skinChoice";
 import { skinQueries } from "./skinQueries";
-import { BIND_POSE, openingClip, systemModel, textureAssets, textureOf } from "./skinScene";
+import { BIND_POSE, dressOf, openingClip, systemModel, textureAssets } from "./skinScene";
 import { SkinTransport } from "./SkinTransport";
 import { useSkinKeys } from "./useSkinKeys";
 
@@ -143,7 +143,10 @@ function SkinScene({ skin, document, graphDocument }: SkinSceneProps) {
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const textures = useCharacterTextures(assets);
-  const textureFor = useCallback((submesh: string) => textureOf(textures, submesh), [textures]);
+  const dressFor = useCallback(
+    (submesh: string) => dressOf(skin, textures, submesh),
+    [skin, textures],
+  );
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
   const bounds = useMemo(
@@ -220,8 +223,8 @@ function SkinScene({ skin, document, graphDocument }: SkinSceneProps) {
             mesh={mesh.data}
             pose={pose}
             clock={clock}
-            textureOf={textureFor}
-            untextured={colors.untextured}
+            dressOf={dressFor}
+            colors={colors}
             hidden={skin.hidden}
             scale={scale}
             highlighted={submesh}

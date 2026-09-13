@@ -7,6 +7,7 @@ use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::game_wads::WadCache;
+use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::skin::{
     graph_clips, resolve_skin, search_linked, AnimationClip, GraphClips, SkinModel,
@@ -16,7 +17,8 @@ use tauri::{AppHandle, Manager};
 /// One skin of an open document, as a viewport draws it.
 ///
 /// `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
-/// digits.
+/// digits. The shader defs are read beside the skin, the project's copy first, and a
+/// read they refuse leaves every material on its own fields.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_skin(
@@ -26,8 +28,17 @@ pub async fn read_skin(
 ) -> IpcResult<SkinModel> {
     off_thread(move || {
         let entry = parse_entry(&entry)?;
+        let config = app_handle.state::<SettingsState>().config();
         read_resolved(&app_handle, document, |open, names, assets| {
-            Ok(resolve_skin(open, entry, names, assets)?)
+            let wads = app_handle.state::<WadCache>();
+            let shaders = assets.locate(SHADER_DEFS_PATH).and_then(|asset| {
+                asset
+                    .read(&config, &wads)
+                    .and_then(|bytes| Ok(BinDocument::parse(&bytes)?))
+                    .inspect_err(|e| tracing::debug!("No shader defs for a skin's materials: {e}"))
+                    .ok()
+            });
+            Ok(resolve_skin(open, entry, names, assets, shaders.as_ref())?)
         })
     })
     .await

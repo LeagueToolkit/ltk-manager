@@ -35,6 +35,7 @@ export { SceneCamera, type SceneCameraProps } from "./SceneCamera";
 export { type SceneColors, useSceneColors } from "./sceneColors";
 export { type JointModel, readSkeletonBuffer, type SkeletonModel } from "./skeletonBuffer";
 export { Stage } from "./Stage";
+export { type DressColors, type SubmeshDress } from "./submeshDress";
 export { useCharacterTextures } from "./useCharacterTextures";
 export { Viewport, type ViewportProps } from "./Viewport";
 export {
