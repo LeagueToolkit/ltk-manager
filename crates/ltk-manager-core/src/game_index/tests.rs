@@ -795,3 +795,25 @@ fn file_at_finds_a_file_by_its_path_and_nothing_for_another() {
     assert!(index.file_at("assets/characters/ahri/skin01.bin").is_none());
     assert!(index.file_at("aatrox.bin").is_none());
 }
+
+/// A path no table names is still a chunk the game reaches by the path's hash.
+#[test]
+fn unnamed_at_finds_a_chunk_no_hash_table_names_by_its_hash() {
+    let game = game_with(&[(
+        "A.wad.client",
+        &["assets/known.bin", "assets/hidden.bin", "assets/other.bin"],
+    )]);
+    let index = build(game.path(), &["assets/known.bin"]);
+
+    let hidden = path_hash("assets/hidden.bin");
+    let file = index.unnamed_at(hidden).unwrap();
+    assert_eq!(file.path, None);
+    assert_eq!(file.path_hash, hex_name(WadHash(hidden)));
+    assert_eq!(file.wad, "A.wad.client");
+
+    assert!(
+        index.unnamed_at(path_hash("assets/known.bin")).is_none(),
+        "a named chunk is in the tree, not the unnamed group"
+    );
+    assert!(index.unnamed_at(path_hash("assets/gone.bin")).is_none());
+}

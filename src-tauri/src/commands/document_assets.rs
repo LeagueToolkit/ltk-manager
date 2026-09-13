@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::game_index::built_game_index;
 use crate::error::{AppError, AppResult};
 use crate::state::SettingsState;
-use ltk_hash::BinHash;
+use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentId, BinDocuments, ProjectNames, RowNames,
 };
@@ -79,12 +79,25 @@ struct DocumentAssets<'a> {
 }
 
 impl AssetLookup for DocumentAssets<'_> {
+    /// The tree answers a path the tables name, and the unnamed group answers the
+    /// rest by the path's hash, which is how the game reaches a chunk either way.
     fn locate(&self, path: &str) -> Option<AssetRef> {
         if let Some(asset) = self.chunks.asset_at(path) {
             return Some(asset.clone());
         }
         /* Lowercase because that is the one spelling a resolved WAD path has. */
-        let file = self.index.as_ref()?.file_at(&path.to_lowercase())?;
+        let index = self.index.as_ref()?;
+        let file = index
+            .file_at(&path.to_lowercase())
+            .or_else(|| index.unnamed_at(WadHash::hash_str(path).0))?;
+        Some(AssetRef::GameChunk {
+            wad: file.wad,
+            path_hash: file.path_hash,
+        })
+    }
+
+    fn locate_chunk(&self, hash: WadHash) -> Option<AssetRef> {
+        let file = self.index.as_ref()?.unnamed_at(hash.0)?;
         Some(AssetRef::GameChunk {
             wad: file.wad,
             path_hash: file.path_hash,
