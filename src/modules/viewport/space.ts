@@ -28,6 +28,9 @@ export const AXIS_SIGN: readonly [number, number, number] = [-1, 1, 1];
  */
 export const FORWARD: readonly [number, number, number] = [0, 0, 1];
 
+/** The flat ground's height on the up axis, which a ground-layer emitter is laid on. */
+export const GROUND_LEVEL = 0;
+
 /** Engine units in one metre, which sets the camera's near plane and the grid's pitch. */
 export const UNITS_PER_METRE = 100;
 

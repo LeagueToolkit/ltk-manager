@@ -15,6 +15,7 @@ import {
   distortionUniforms,
   erosionDefines,
   erosionUniforms,
+  groundDefines,
   layerDefines,
   layerUniforms,
   multiplies,
@@ -34,6 +35,8 @@ import { cellSize } from "./uvTransform";
 export interface QuadOrientation {
   /** The quad faces the eye, spun about the view axis by its own rotation. */
   readonly billboard: boolean;
+  /** `isDirectionOriented` on a billboard: its up follows the travel as the eye sees it, and no roll. */
+  readonly directed: boolean;
   /** A ray: the quad lies along the particle's own `+Z`, and turns to face the eye about it. */
   readonly ray: boolean;
   /** A simple emitter's `orientation`: the world plane its quads lie in, if not the camera's. */
@@ -92,8 +95,10 @@ export function quadMaterial(
       ...softDefines(layers.soft),
       FALLOFF: "",
       ...(orientation.billboard ? { BILLBOARD: "" } : {}),
+      ...(orientation.directed ? { DIRECTED: "" } : {}),
       ...(orientation.ray ? { RAY: "" } : {}),
       PLANE: orientation.plane,
+      ...groundDefines(layers),
     },
     side: DoubleSide,
     depthTest: tests.depthTest,
@@ -141,6 +146,7 @@ export function meshMaterial(
       ...sheenDefines(layers.reflection, layers.reflectionTexture, SHEEN.drawn),
       ...softDefines(layers.soft),
       LOCK_ALPHA: layers.mode === UV_MODE.lockAlpha ? ALPHA_LOCK.unscrolled : ALPHA_LOCK.none,
+      ...groundDefines(layers),
     },
     side,
     depthTest: tests.depthTest,
@@ -235,6 +241,7 @@ export function ribbonMaterial(
       ...erosionDefines(layers.erosion, layers.erosionTexture),
       ...distortionDefines(layers.distortion, layers.normalTexture),
       ...softDefines(layers.soft),
+      ...groundDefines(layers),
     },
     side: DoubleSide,
     depthTest: tests.depthTest,

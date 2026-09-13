@@ -78,6 +78,8 @@ export interface QuadLayers {
   readonly reflectionTexture: Texture | null;
   /** `softParticleParams` where the draw path fades, from `fadeOf`, and null elsewhere. */
   readonly soft: SoftModel | null;
+  /** `isGroundLayer`: every vertex is laid on the ground. */
+  readonly ground: boolean;
 }
 
 /** Which of the emitter's optional passes this draw path compiles. */
@@ -111,7 +113,13 @@ export function layersOf(
     reflection: draws.sheen ? emitter.reflection : null,
     reflectionTexture: draws.sheen ? samplers.reflection : null,
     soft: draws.fade ? fadeOf(emitter) : null,
+    ground: emitter.groundLayer,
   };
+}
+
+/** `GROUND_LAYER` where the emitter draws in the ground layer. */
+export function groundDefines(layers: QuadLayers): Defines {
+  return layers.ground ? { GROUND_LAYER: "" } : {};
 }
 
 /** Which of a layer's axes are mirrored, as the shader's `mix` weights. */

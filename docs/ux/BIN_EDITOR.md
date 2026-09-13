@@ -1291,9 +1291,10 @@ v [*] Burst       [3] (o) S        [###]~~~               120
 
 **The transport row.** Step back, play and step forward, the playhead over the run's span as
 `0.42 / 1.60 s`, the speed, the loop switch, the Histogram switch and the chance pin of
-[the random spread](#the-random-spread). The speed is a slider with
-detents at 0.05, 0.1,
-0.25, 0.5, 1, 1.5 and 2. The name filter at the row's left narrows the lanes, as the strip's filter
+[the random spread](#the-random-spread). The speed is a number typed to three places, `1.000`
+by default, between 0.05 and 2, with a pair of arrows on its right that nudge it by 0.1, by 0.01
+under Alt and by 0.5 under Shift. The bracket keys walk it through 0.05, 0.1, 0.25, 0.5, 1, 1.5
+and 2. The name filter at the row's left narrows the lanes, as the strip's filter
 narrows the cards. The seed and the rig are the viewport's, per [the viewer](#the-viewer).
 
 **A lane is an emitter.** Its head carries its eye, a 20 px square of what the emitter draws, its

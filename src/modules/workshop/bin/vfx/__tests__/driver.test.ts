@@ -56,6 +56,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     particleLocalOrientation: false,
     uniformScale: false,
     particleLinger: 0,
+    emitterLinger: 0,
     lingerType: LINGER_TYPE.maxLifetimeAfterEmitterDies,
     linger: null,
     palette: null,
@@ -80,6 +81,8 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     pivotUp: false,
     rotationEnabled: false,
     directionOriented: false,
+    directionVelocityScale: 0,
+    directionVelocityMinScale: 1,
     scale0: constant(1, 1, 1),
     birthScale0: constant(10, 10, 10),
     color: constant(1, 1, 1, 1),
@@ -108,7 +111,14 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
 }
 
 function system(...emitters: EmitterModel[]): SystemModel {
-  return { entry: "0x1", name: null, emitters, transform: null, dragMotion: DRAG_MOTION.stepped };
+  return {
+    entry: "0x1",
+    name: null,
+    emitters,
+    transform: null,
+    dragMotion: DRAG_MOTION.stepped,
+    buildUpTime: 0,
+  };
 }
 
 /** A pool as a value two runs are compared by, which is the live range and nothing past it. */
@@ -212,6 +222,36 @@ describe("createDriver", () => {
     seeked.seek(0.5);
 
     expect(snapshot(seeked.pool)).toEqual(snapshot(run(model, 3, 30).pool));
+  });
+
+  it("opens on a system that has already played for its buildUpTime", () => {
+    const driver = driverFor({ ...system(emitter()), buildUpTime: 1 }, 3);
+    const born = driver.pool.birthTime.subarray(0, driver.pool.count);
+
+    expect(driver.pool.count).toBeGreaterThan(10);
+    expect(Math.max(...born)).toBeLessThanOrEqual(0);
+    expect(driver.phase).toBe(0);
+    expect(driver.elapsed).toBe(1);
+  });
+
+  it("puts a seek and the frames it replays in the same place through a build-up", () => {
+    const model = { ...system(emitter()), buildUpTime: 1 };
+    const seeked = driverFor(model, 3);
+    seeked.seek(0.5);
+
+    expect(snapshot(seeked.pool)).toEqual(snapshot(run(model, 3, 30).pool));
+  });
+
+  it("builds up again where a looping rig starts its run over", () => {
+    const model = { ...system(emitter()), buildUpTime: 1 };
+    const driver = driverFor(model, 3);
+    driver.steer({ motion: { kind: "still" }, life: "loop", height: 0 });
+
+    /* The span is the endless emitter's five seconds and one of particle life. */
+    for (let at = 0; at < 361; at += 1) driver.advance(1 / 60);
+
+    expect(driver.phase).toBeLessThan(0.05);
+    expect(driver.pool.count).toBeGreaterThan(10);
   });
 
   it("empties the pool on a restart", () => {

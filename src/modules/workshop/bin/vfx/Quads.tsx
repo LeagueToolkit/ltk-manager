@@ -25,6 +25,7 @@ import {
   particleBasisInto,
   type Source,
   spinOf,
+  stretchOf,
 } from "./particleRead";
 import { FRAME_SLOTS } from "./pool";
 import { type LayerDraws, layersOf } from "./uniforms";
@@ -91,6 +92,8 @@ export function Quads({ emitter, sources, samplers, rank, hidden }: QuadsProps) 
         { bias: emitter.depthBias, pushPull: emitter.depthPushPull },
         {
           billboard: facesTheCamera(emitter) || emitter.legacySimple !== null,
+          directed:
+            facesTheCamera(emitter) && emitter.directionOriented && emitter.legacySimple === null,
           ray: isRay(emitter) && emitter.legacySimple === null,
           plane: emitter.legacySimple?.orientation ?? SIMPLE_ORIENTATION.camera,
           unitQuad: isUnitQuad(emitter),
@@ -218,7 +221,7 @@ function write(
     centers[instance * 3 + 2] = PLACED.place[2] * AXIS_SIGN[2];
 
     sizes[instance * 3] = DRAWN.scale[0];
-    sizes[instance * 3 + 1] = DRAWN.scale[1];
+    sizes[instance * 3 + 1] = DRAWN.scale[1] * stretchOf(pool, at, emitter);
     sizes[instance * 3 + 2] = DRAWN.scale[2];
 
     colors[instance * 4] = DRAWN.color[0];

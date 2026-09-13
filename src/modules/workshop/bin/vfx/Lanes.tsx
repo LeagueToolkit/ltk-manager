@@ -156,8 +156,8 @@ export function Lanes() {
         ? ""
         : getComputedStyle(canvas.current).getPropertyValue(HISTOGRAM_TOKEN).trim();
     const paint = () => {
-      const x = xOf(view, width, driver.elapsed);
-      standLine([playhead.current, flag.current], chip.current, x, width, driver.elapsed);
+      const x = xOf(view, width, driver.phase);
+      standLine([playhead.current, flag.current], chip.current, x, width, driver.phase);
       const now = performance.now();
       if (now - drawn.current < REDRAW_MS) return;
       drawn.current = now;
@@ -331,7 +331,7 @@ export function Lanes() {
             <div
               ref={playhead}
               className="absolute inset-y-0 left-0 w-px bg-accent-400 shadow-[0_0_6px_var(--color-accent-500)]"
-              style={{ transform: `translateX(${xOf(view, width, driver.elapsed)}px)` }}
+              style={{ transform: `translateX(${xOf(view, width, driver.phase)}px)` }}
             />
           </div>
         </div>

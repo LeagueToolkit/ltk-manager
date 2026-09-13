@@ -7,10 +7,10 @@ import {
   PlayIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
-import { Button, Slider, Tooltip } from "@/components";
+import { Button, Slider, StepperField, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 /** How finely the scrub divides the window it spans, in seconds. */
 const SCRUB_STEP = 1 / 60;
@@ -19,14 +19,17 @@ const SCRUB_STEP = 1 / 60;
 const SLOWEST = 0.05;
 const FASTEST = 2;
 
-/** The slider's own step, finer than the snap so a detent has room to pull from. */
-const SPEED_STEP = 0.01;
+/** What the speed field's arrows move the rate by: plain, under Alt, and under Shift. */
+const SPEED_NUDGE = { step: 0.1, small: 0.01, large: 0.5 } as const;
 
-/** The rates the speed slider stops at on the way past them, and the keys walk. */
+/** The digits the speed is drawn to. */
+const SPEED_DECIMALS = 3;
+
+/** The speed reads with a point, as the `toFixed` readouts beside it do. */
+const SPEED_LOCALE = "en-US";
+
+/** The rates the bracket keys walk. */
 export const SPEED_DETENTS: readonly number[] = [0.05, 0.1, 0.25, 0.5, 1, 1.5, 2];
-
-/** How near a detent the handle snaps to it, in the slider's own units. */
-const SNAP = 0.04;
 
 /** The detent below or above `speed`, by `direction`, and the end of the row past it. */
 export function speedDetent(speed: number, direction: -1 | 1): number {
@@ -118,21 +121,26 @@ export function Transport({
 
       {!mini && (
         <div className="ml-2 flex shrink-0 items-center gap-1.5">
-          <GaugeIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-          <Slider
-            className="w-20"
+          <Tooltip content={m.workshop_bin_preview_speed_label()}>
+            <span className="flex shrink-0">
+              <GaugeIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
+            </span>
+          </Tooltip>
+          <StepperField
+            className="w-20 text-meta"
             aria-label={m.workshop_bin_preview_speed_label()}
+            increaseLabel={m.workshop_bin_preview_speed_up_action()}
+            decreaseLabel={m.workshop_bin_preview_speed_down_action()}
             value={speed}
             min={SLOWEST}
             max={FASTEST}
-            step={SPEED_STEP}
-            onValueChange={(next) => onSpeedChange(snapped(next))}
+            step={SPEED_NUDGE.step}
+            smallStep={SPEED_NUDGE.small}
+            largeStep={SPEED_NUDGE.large}
+            decimals={SPEED_DECIMALS}
+            locale={SPEED_LOCALE}
+            onValueChange={onSpeedChange}
           />
-          <Tooltip content={m.workshop_bin_preview_speed_label()}>
-            <span className="w-10 shrink-0 text-right font-mono text-meta text-code whitespace-nowrap text-surface-400 tabular-nums">
-              {m.workshop_bin_preview_speed_value({ value: speed.toFixed(2) })}
-            </span>
-          </Tooltip>
         </div>
       )}
 
@@ -201,9 +209,4 @@ function StepButton({
       </Button>
     </Tooltip>
   );
-}
-
-/** `speed` pulled onto the detent it is within `SNAP` of, else itself. */
-function snapped(speed: number): number {
-  return SPEED_DETENTS.find((detent) => Math.abs(detent - speed) <= SNAP) ?? speed;
 }

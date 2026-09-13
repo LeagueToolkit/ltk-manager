@@ -10,7 +10,7 @@ import type { Point } from "./rig";
 import type { Rng } from "./Rng";
 import { sampleCurve } from "./sampleCurve";
 import type { Step } from "./stepper";
-import { lingerSeconds, ROTATION_RATE } from "./systemModel";
+import { lingerSeconds, ROTATION_RATE, stopWaitSeconds } from "./systemModel";
 
 /** How many slots one emitter takes in the step's motion scratch. */
 const MOTION_SLOTS = 13;
@@ -304,11 +304,12 @@ function pushInto(fields: SampledFields, pool: Pool, at: number, dt: number): vo
 /**
  * The linger policy for one emitter this step.
  *
- * `kFixedLifetimeAfterEmitterStops` acts on the emitter's own end of emission, and the
- * other two wait on the system being stopped, which the rig issues. On the first step
- * an emitter is seen finished, its particles are marked lingering and the fixed kinds
- * rewrite each lifetime to the age plus the linger. The max kind caps each lifetime at
- * the linger instead, so an older particle is cut off early.
+ * A stopped system finishes an emitter once its age passes [`stopWaitSeconds`], whatever
+ * the kind. Unstopped, `kFixedLifetimeAfterEmitterStops` alone finishes on the emitter's
+ * own end of emission. On the first step an emitter is seen finished, its particles are
+ * marked lingering and the fixed kinds rewrite each lifetime to the age plus the linger.
+ * The max kind caps each lifetime at the linger instead, so an older particle is cut off
+ * early.
  */
 function settle(
   pool: Pool,
@@ -317,10 +318,11 @@ function settle(
   state: EmitterState,
   step: SystemStep,
 ): void {
-  const finished =
-    emitter.lingerType === LINGER_TYPE.fixedLifetimeAfterEmitterStops
-      ? emitter.lifetime !== null && state.age > emitter.lifetime
-      : step.stopped;
+  const finished = step.stopped
+    ? state.age > stopWaitSeconds(emitter)
+    : emitter.lingerType === LINGER_TYPE.fixedLifetimeAfterEmitterStops &&
+      emitter.lifetime !== null &&
+      state.age > emitter.lifetime;
   if (!finished) return;
 
   /* A finished emitter births nothing, so one pass settles every particle it will have. */

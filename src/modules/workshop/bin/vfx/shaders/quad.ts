@@ -1,4 +1,22 @@
+import { GROUND_LEVEL } from "@/modules/viewport";
+
 import { SHEEN } from "../uniforms";
+
+/**
+ * A world position stood on the ground under `GROUND_LAYER`, and left where it is elsewhere.
+ *
+ * Straight down, which is the reading of decision 2.51 of docs/plans/vfx-particle-renderer.md.
+ */
+export const GROUND = /* glsl */ `
+const float GROUND_LEVEL = ${GROUND_LEVEL.toFixed(1)};
+
+vec4 grounded(vec4 world) {
+#ifdef GROUND_LAYER
+  world.y = GROUND_LEVEL;
+#endif
+  return world;
+}
+`;
 
 /**
  * An arbitrary quad's uv off its corner, each row the weights of `(corner.x, corner.y, 1)`.
@@ -51,6 +69,12 @@ vec4 pushed(vec4 view) {
   return view;
 }
 
+${GROUND}
+
+vec4 viewed(vec3 world) {
+  return viewMatrix * grounded(modelMatrix * vec4(world, 1.0));
+}
+
 void main() {
   // The texture's first row is v = 0, so v runs down the quad.
   vUv = vec2(corner.x + 0.5, 0.5 - corner.y);
@@ -89,7 +113,7 @@ void main() {
     vec3 spunV = v * c + cross(w, v) * s;
     vec3 offset = spunU * (at.y * size.y) + spunV * (at.x * size.x);
     offset.x = -offset.x;
-    vec4 view = modelViewMatrix * vec4(center + offset, 1.0);
+    vec4 view = viewed(center + offset);
     gl_Position = projectionMatrix * pushed(view);
     return;
   }
@@ -99,12 +123,28 @@ void main() {
   // roll of its rotation reaches it, because the other two turn it out of that plane.
 #ifdef BILLBOARD
   {
+#ifdef DIRECTED
+    // The travel as the eye sees it is the quad's up, and the roll is ignored. Decision
+    // 2.51 of docs/plans/vfx-particle-renderer.md.
+    vec2 up = (mat3(viewMatrix) * basisY).xy;
+    up = dot(up, up) > 0.0 ? normalize(up) : vec2(0.0, 1.0);
+    vec2 offset = vec2(up.y, -up.x) * (at.x * size.x) + up * (at.y * size.y);
+#else
     vec2 turned = vec2(
       at.x * cos(roll) - at.y * sin(roll),
       at.x * sin(roll) + at.y * cos(roll)
     );
+    vec2 offset = turned * size.xy;
+#endif
+#ifdef GROUND_LAYER
+    // The view's own right and up in the world, so the corner can be stood on the ground.
+    vec3 eyeRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 eyeUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vec4 view = viewed(center + eyeRight * offset.x + eyeUp * offset.y);
+#else
     vec4 view = modelViewMatrix * vec4(center, 1.0);
-    view.xy += turned * size.xy;
+    view.xy += offset;
+#endif
     gl_Position = projectionMatrix * pushed(view);
     return;
   }
@@ -125,7 +165,7 @@ void main() {
     vec3 world = center
       + axis * (size.z + (corner.y + 0.5) * size.y)
       + across * (corner.x * size.x);
-    vec4 view = modelViewMatrix * vec4(world, 1.0);
+    vec4 view = viewed(world);
     gl_Position = projectionMatrix * pushed(view);
     return;
   }
@@ -133,7 +173,7 @@ void main() {
 
   vUv = vec2(dot(ARBITRARY_U, vec3(corner, 1.0)), dot(ARBITRARY_V, vec3(corner, 1.0)));
   vec3 world = center + basis[0] * (at.x * size.x) + basis[1] * (at.y * size.y);
-  vec4 view = modelViewMatrix * vec4(world, 1.0);
+  vec4 view = viewed(world);
   gl_Position = projectionMatrix * pushed(view);
 }
 `;

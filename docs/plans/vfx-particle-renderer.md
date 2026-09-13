@@ -2195,6 +2195,67 @@ wherever it does not bind the mult layer.
 editor binds no engine remap, so the texture would be the 1x1 transparent black whose alpha keeps
 the colour as it is. A sampler that changes no pixel is left out.
 
+### 2.51 A stop waits on `emitterLinger`, a system builds up before it draws, and travel stretches
+
+**A stopped emitter finishes once the system's age passes `emitterLinger`.** Under a soft stop the
+engine finishes an emitter when the system's age passes `min(lifetime + 10, emitterLinger)`, ten
+for a simple emitter, whatever its linger kind. The age is the system's and not the time since the
+stop, so a stop issued past `emitterLinger` grants no wait, and the default of `0` finishes an
+emitter at the stop itself. Unstopped, `kFixedLifetimeAfterEmitterStops` alone finishes on its own
+end of emission. `stopWaitSeconds` in `systemModel.ts` is the value and `settle` in `integrate.ts`
+reads it. Whether the engine means that clock is not established, and the user's pick was to
+reproduce it. `lingerTail` takes the moment of the stop, so a missile's run reaches the wait still
+owed where it lands. 3,657 emitters write the field over 192 bins, `1` on 36% and `0.5` on 22%.
+
+**`buildUpTime` is simulated before a run's first drawn step.** The engine fast-forwards a system
+by `buildUpTime` seconds when it becomes visible, and a preview system becomes visible where its
+run starts. `buildUp` in `driver.ts` steps the build-up at the seek step, the rig standing where it
+is, ahead of a rewind, a loop's replay and an edit that restarts the pool. How the engine steps a
+fast-forward is not established. `Driver.phase` is the timeline's place in the run and `elapsed`
+the emitters' age, which is the phase plus the build-up. 184 systems write it over 21 bins, `5` on
+43%, `0.25` and `0.5` on most of the rest.
+
+**A direction-oriented particle stretches with its speed.** No reading covers
+`directionVelocityScale`. The renderer takes `max(directionVelocityMinScale, speed *
+directionVelocityScale)` along the travel, `stretchOf` in `particleRead.ts`, on the up extent of a
+camera or arbitrary quad and on the `+Z` of a mesh. At the schema's defaults, `0` and `1`, the
+stretch is one. 1,651 emitters write the scale, most between `0.001` and `0.01`, and 251 write the
+minimum, `1.3` on 77%. Of 422 direction-oriented writers over 80 bins, 282 are camera quads, 130
+arbitrary quads, 6 rays and 4 meshes. The check that would refute the formula is `prestige_Sparks`
+in `characters/jinx/skins/skin40.bin`, four direction-oriented emitters writing a minimum of `0`
+and no scale, which draw at no length here.
+
+**A direction-oriented camera quad faces the eye with its up along the travel.** The camera quad's
+builder takes its axes from the particle's direction under `isDirectionOriented` and drops the
+roll. How it takes them is the reading: `DIRECTED` in the quad vertex shader lays the up along the
+travel as the view sees it and the side square to it in the view's plane. A direction-oriented
+camera quad drew as a plain billboard before this, so the stretch had nothing to lie along.
+
+**A ground-layer emitter is laid on the ground straight down.** `isGroundLayer` classifies the
+render pass alone, and the flattening lives in a `ground_layer` technique no reading covers. The
+user's pick was a vertical projection. `GROUND_LAYER` stands every vertex of a quad, a mesh, an
+attached mesh and a ribbon on `GROUND_LEVEL`. Of 2,549 ground-layer emitters over 60 bins, 1,346 are
+arbitrary quads, 529 meshes and 482 camera quads. A flat quad and a mesh draw alike under a top-down
+render and a vertical projection. A camera quad is where the two part: a top-down render would lay
+it flat, where this projects its eye-facing plane.
+
+**`isFollowingTerrain` is not built.** The engine adds `(terrain height now - height at spawn) *
+(1 - bindWeight)` to the drawn `Y`. The preview's ground is flat, so the term is zero everywhere.
+415 emitters write it, all `true`.
+
+**What to check on the screen**, after a full reload:
+
+- A system writing `buildUpTime` opens already full, and opens full again on each loop.
+- `sparks` in `aatrox_skins_skin10_skins_skin9.bin` streaks with its speed and faces its travel.
+- `SpikeGroundLine` and `Dustring` lie on the ground, the second being the camera quad case.
+- A stop from the rig on an emitter writing `emitterLinger` holds its particles to their natural
+  lives until the system's age passes the value.
+
+The user checked all of them on the screen, and every one reads right: build-up on the Nexus, the
+FeeneyPult and the laser turret, the stop wait on the Poro follower and the cauldron, the stretch
+on camera quads, arbitrary quads and a mesh, and the ground layer on arbitrary quads, camera quads
+and meshes.
+
 ### T1 — subdivided textures and the UV transform
 
 `texDiv`, `numFrames`, `startFrame`, `frameRate`, `birthFrameRate`, `isRandomStartFrame` are one
@@ -2418,8 +2479,8 @@ joined the field set for that, an emitter-level drift added to every particle's 
 
 The stop is the rig's: `stopAt` on `RigModel`, a switch and a slider in the rig popover, and it
 is what the game issues when a buff ends. A stopped system emits nothing more, and a particle
-with no linger authored vanishes at once, which is the engine's own default. `emitterLinger` is
-read by nothing here, and a caveat about which clock it is compared against is the reason.
+with no linger authored vanishes at once, which is the engine's own default. `emitterLinger`
+delays that finish on the system's own age, decision 2.51.
 
 Two things the reader takes from the schema rather than the registrar. `UseLingerRotation` is
 declared with the toggles' default of `kUseLingerRotation`, and the meta dump's own default for

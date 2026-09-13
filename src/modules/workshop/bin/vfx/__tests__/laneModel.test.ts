@@ -114,6 +114,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     timeBeforeFirstEmission: 0,
     particleLifetime: constant(0.5),
     particleLinger: 0,
+    emitterLinger: 0,
     blendMode: BLEND_MODE.add,
     pass: 0,
     miscRenderFlags: 0,

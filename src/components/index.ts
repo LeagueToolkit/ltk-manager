@@ -42,6 +42,7 @@ export * from "./Skeleton";
 export * from "./Slider";
 export * from "./Spinner";
 export * from "./Spotlight";
+export * from "./StepperField";
 export * from "./Switch";
 export * from "./Table";
 export * from "./Tabs";

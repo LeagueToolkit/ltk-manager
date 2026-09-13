@@ -40,6 +40,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     scaleOverride: [1, 1, 1],
     translationOverride: [0, 0, 0],
     particleLinger: 0,
+    emitterLinger: 0,
     lingerType: LINGER_TYPE.maxLifetimeAfterEmitterDies,
     blendMode: BLEND_MODE.add,
     pass: 0,
@@ -52,7 +53,14 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
 }
 
 function system(...emitters: EmitterModel[]): SystemModel {
-  return { entry: "0x1", name: null, emitters, transform: null, dragMotion: DRAG_MOTION.stepped };
+  return {
+    entry: "0x1",
+    name: null,
+    emitters,
+    transform: null,
+    dragMotion: DRAG_MOTION.stepped,
+    buildUpTime: 0,
+  };
 }
 
 const ORB = emitter({ index: 0, name: "Orb", listIndex: 0, pass: 1 });

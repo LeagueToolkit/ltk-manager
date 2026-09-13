@@ -1,5 +1,5 @@
 import { multiplyInto, standingInto, turnInto } from "./basis";
-import { LINGER_TYPE } from "./enums";
+import { LINGER_TYPE, QUAD_TYPE } from "./enums";
 import type { EmitterState } from "./integrate";
 import type { EmitterModel, ValueCurve } from "./model";
 import { FRAME_SLOTS, NOT_LINGERING, type Pool } from "./pool";
@@ -252,6 +252,30 @@ export function particleBasisInto(
   standingInto(pool.rotation, index * 3, legacyRoll(pool, index, emitter, frame.now), out);
   standingFrameInto(pool, index, emitter, frame, BORN_FRAME);
   multiplyInto(BORN_FRAME, out, out);
+}
+
+/**
+ * How far the particle at `index` stretches along its travel, and one where it faces none.
+ *
+ * `directionVelocityScale` per unit of speed, held at `directionVelocityMinScale` at the
+ * least, on the kinds `isDirectionOriented` turns. A ray is not one of them. The formula
+ * is the reading of decision 2.51 of docs/plans/vfx-particle-renderer.md.
+ */
+export function stretchOf(pool: Pool, index: number, emitter: EmitterModel): number {
+  if (
+    !emitter.directionOriented ||
+    emitter.quadType === QUAD_TYPE.ray ||
+    emitter.legacySimple !== null
+  ) {
+    return 1;
+  }
+  const speed = Math.hypot(
+    pool.travel[index * 3],
+    pool.travel[index * 3 + 1],
+    pool.travel[index * 3 + 2],
+  );
+  if (speed === 0) return 1;
+  return Math.max(emitter.directionVelocityMinScale, speed * emitter.directionVelocityScale);
 }
 
 /**

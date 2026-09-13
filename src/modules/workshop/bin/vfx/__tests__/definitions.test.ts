@@ -45,7 +45,14 @@ function emitterAt(index: number, over: Partial<EmitterModel> = {}): EmitterMode
 }
 
 function system(...emitters: EmitterModel[]): SystemModel {
-  return { entry: null, name: null, emitters, transform: null, dragMotion: DRAG_MOTION.stepped };
+  return {
+    entry: null,
+    name: null,
+    emitters,
+    transform: null,
+    dragMotion: DRAG_MOTION.stepped,
+    buildUpTime: 0,
+  };
 }
 
 function setOf(children: (SystemModel | null)[], over: Partial<ChildSetModel> = {}): ChildSetModel {
