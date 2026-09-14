@@ -213,6 +213,22 @@ fn initialize_first_run(app_handle: &tauri::AppHandle, settings_state: &Settings
 
     tracing::info!("Attempting auto-detection of League installation...");
 
+    // On macOS the game lives in a `.app` bundle the exe scan does not find;
+    // check the standard install location, which `GameDir::resolve` accepts.
+    #[cfg(target_os = "macos")]
+    {
+        let candidate = std::path::PathBuf::from("/Applications/League of Legends.app");
+        if candidate.join("Contents/LoL/Game/DATA").exists() {
+            tracing::info!("Auto-detected League bundle at {}", candidate.display());
+            settings.config.league_path = Some(candidate);
+            settings.first_run_complete = true;
+            if let Err(e) = crate::state::persist_settings(app_handle, &settings) {
+                tracing::error!("Failed to save auto-detected settings: {}", e);
+            }
+            return;
+        }
+    }
+
     if let Some(exe_path) = ltk_mod_core::auto_detect_league_path() {
         let path = std::path::Path::new(exe_path.as_str());
 

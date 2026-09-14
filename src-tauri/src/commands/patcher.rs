@@ -3,6 +3,7 @@ use crate::mods::{
     ChecksumMismatchInfo, ChecksumMismatchState, LinkedBinOffenderInfo, LinkedBinState,
     ModLibraryState,
 };
+#[cfg(target_os = "windows")]
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
@@ -167,7 +168,7 @@ pub(crate) fn start_patcher_inner(
     library: &State<ModLibraryState>,
     incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
-    if cfg!(not(target_os = "windows")) {
+    if cfg!(not(any(target_os = "windows", target_os = "macos"))) {
         return Err(PatcherError::UnsupportedPlatform.into());
     }
     let telemetry = crate::telemetry::state(app_handle);
@@ -230,15 +231,27 @@ pub(crate) fn start_patcher_inner(
 
     let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
 
-    let dll_path = crate::commands::diagnostics::resolve_patcher_dll(app_handle)
-        .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
-        .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
-    let patcher_binaries = PatcherBinaries::identify(
-        &dll_path,
-        &injector_exe,
-        option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
-        option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
-    );
+    // The injected hook DLL is a Windows-only binary; on macOS the host patches
+    // the game in-process, so there is no DLL to identify or compare.
+    #[cfg(target_os = "windows")]
+    let patcher_binaries = {
+        let dll_path = crate::commands::diagnostics::resolve_patcher_dll(app_handle)
+            .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
+            .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
+        PatcherBinaries::identify(
+            &dll_path,
+            &injector_exe,
+            option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
+            option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
+        )
+    };
+    #[cfg(not(target_os = "windows"))]
+    let patcher_binaries = {
+        // No DLL to point at; identify the host alone and leave the bundle
+        // comparison unevaluated (both expected hashes empty).
+        let no_dll = PathBuf::from("<none>");
+        PatcherBinaries::identify(&no_dll, &injector_exe, "", "")
+    };
 
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));

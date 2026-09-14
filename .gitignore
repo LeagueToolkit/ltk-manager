@@ -46,3 +46,6 @@ src/paraglide/
 
 # Windows
 nul
+
+# macOS injection host, staged by scripts/build-macos-host.sh
+/src-tauri/resources/ltk_patcher_host

@@ -1,5 +1,5 @@
 [workspace]
-members = ["src-tauri", "crates/ltk-manager-core", "crates/ltk-telemetry"]
+members = ["src-tauri", "crates/ltk-manager-core", "crates/ltk-telemetry", "crates/ltk-patcher-macos"]
 resolver = "2"
 
 # Dependencies only, so our own crates stay debuggable. A debug build parses

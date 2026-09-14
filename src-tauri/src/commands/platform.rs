@@ -16,7 +16,7 @@ pub struct PlatformSupport {
 pub fn get_platform_support() -> IpcResult<PlatformSupport> {
     IpcResult::ok(PlatformSupport {
         os: std::env::consts::OS.to_string(),
-        patcher_available: cfg!(target_os = "windows"),
+        patcher_available: cfg!(any(target_os = "windows", target_os = "macos")),
         hotkeys_available: cfg!(target_os = "windows"),
     })
 }
