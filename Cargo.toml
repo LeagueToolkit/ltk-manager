@@ -6,6 +6,7 @@ members = [
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
     "crates/ltk-manager-game",
+    "crates/ltk-patcher-macos",
     "crates/ltk-telemetry",
 ]
 resolver = "2"

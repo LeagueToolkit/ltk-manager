@@ -3103,6 +3103,7 @@ dependencies = [
  "image",
  "image_dds",
  "indexmap 2.14.0",
+ "libc",
  "lru",
  "ltk-declarations",
  "ltk-telemetry",
@@ -3169,6 +3170,15 @@ dependencies = [
  "tracing",
  "ts-rs",
  "xxhash-rust",
+]
+
+[[package]]
+name = "ltk-patcher-macos"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "libc",
+ "mach2",
 ]
 
 [[package]]
@@ -3586,6 +3596,15 @@ dependencies = [
  "cc",
  "libc",
  "pkg-config",
+]
+
+[[package]]
+name = "mach2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d640282b302c0bb0a2a8e0233ead9035e3bed871f0b7e81fe4a1ec829765db44"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
