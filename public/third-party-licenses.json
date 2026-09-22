@@ -2204,7 +2204,7 @@
     },
     {
       "name": "ltk-manager",
-      "version": "1.20.0",
+      "version": "1.20.1",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
         59
