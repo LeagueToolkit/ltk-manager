@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prototype:photo-mode": "vite --config prototypes/workshop/photo-mode/vite.config.ts --open /",
     "build": "pnpm generate:messages && tsc && vite build",
     "build:app": "pnpm build && node scripts/upload-source-maps.mjs",
     "preview": "vite preview",

@@ -1,0 +1,118 @@
+@import "@/styles/tailwind.css";
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-950);
+  color: var(--surface-100);
+  font-family: var(--face-sans);
+}
+
+button,
+select {
+  font: inherit;
+}
+
+.scene-sky {
+  background:
+    radial-gradient(
+      circle at 52% 30%,
+      color-mix(in srgb, var(--accent-500) 13%, transparent),
+      transparent 28%
+    ),
+    linear-gradient(165deg, var(--surface-700), var(--surface-900) 47%, var(--surface-950));
+}
+
+.scene-horizon {
+  background:
+    linear-gradient(
+      150deg,
+      transparent 22%,
+      color-mix(in srgb, var(--surface-500) 45%, transparent) 22% 30%,
+      transparent 30%
+    ),
+    linear-gradient(
+      35deg,
+      transparent 32%,
+      color-mix(in srgb, var(--surface-600) 60%, transparent) 32% 44%,
+      transparent 44%
+    );
+  filter: blur(0.5px);
+}
+
+.scene-floor {
+  background:
+    linear-gradient(
+      90deg,
+      transparent 49.7%,
+      color-mix(in srgb, var(--accent-500) 12%, transparent) 50%,
+      transparent 50.3%
+    ),
+    linear-gradient(
+      0deg,
+      transparent 49.7%,
+      color-mix(in srgb, var(--accent-500) 12%, transparent) 50%,
+      transparent 50.3%
+    );
+  background-size: 5rem 5rem;
+  mask-image: linear-gradient(to top, black, transparent 78%);
+  transform: perspective(24rem) rotateX(62deg) scale(1.5);
+  transform-origin: bottom;
+}
+
+.map-water {
+  fill: color-mix(in srgb, var(--accent-700) 54%, var(--surface-900));
+}
+
+.map-land {
+  fill: var(--surface-700);
+  stroke: var(--surface-500);
+}
+
+.map-lane {
+  fill: none;
+  stroke: color-mix(in srgb, var(--surface-200) 34%, transparent);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+
+.map-river {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent-500) 35%, transparent);
+  stroke-width: 18;
+  stroke-linecap: round;
+}
+
+.photo-flash {
+  animation: photo-flash 480ms ease-out both;
+}
+
+@keyframes photo-flash {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
