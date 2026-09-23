@@ -27,6 +27,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-my-mod",
 };
 
 /** The file on disk, which the mocked commands read and write. */

@@ -77,7 +77,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
       <DocumentToolbar active={active}>
         {hasChanges && (
           <Button variant="ghost" size="xs" compact onClick={editor.discard}>
-            Discard
+            {m.workshop_details_discard_action()}
           </Button>
         )}
         <Button
@@ -88,14 +88,14 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
           disabled={!hasChanges || !editor.canSave}
           loading={editor.isSaving}
         >
-          Save
+          {m.common_save_action()}
         </Button>
       </DocumentToolbar>
 
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-4xl space-y-5 p-5">
           <SectionCard
-            title="Identity"
+            title={m.workshop_details_identity_title()}
             icon={<PackageIcon className="h-4 w-4" />}
             panelClassName="bg-surface-800"
           >
@@ -105,7 +105,11 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
               <div className="min-w-0 flex-1 space-y-4">
                 <form.AppField name="displayName">
                   {(field) => (
-                    <field.TextField label="Display Name" required placeholder="My Awesome Mod" />
+                    <field.TextField
+                      label={m.workshop_details_display_name_label()}
+                      required
+                      placeholder={m.workshop_details_display_name_placeholder()}
+                    />
                   )}
                 </form.AppField>
 
@@ -119,13 +123,15 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
                       <Field.Root>
                         <Field.Label required>
                           <span className="inline-flex items-center gap-1.5">
-                            Version
+                            {m.workshop_details_version_label()}
                             <Tooltip content={<VersionHint />} side="right" sideOffset={6}>
                               <InfoIcon className="h-3.5 w-3.5 cursor-help text-surface-400" />
                             </Tooltip>
                           </span>
                         </Field.Label>
-                        <Field.Description>MAJOR.MINOR.PATCH (e.g. 1.0.0)</Field.Description>
+                        <Field.Description>
+                          {m.workshop_details_version_description()}
+                        </Field.Description>
                         <Field.Control
                           value={field.state.value}
                           onChange={(event) => field.handleChange(event.target.value)}
@@ -144,8 +150,8 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
                 <form.AppField name="description">
                   {(field) => (
                     <field.TextareaField
-                      label="Description"
-                      placeholder="A brief description of your mod..."
+                      label={m.workshop_details_description_label()}
+                      placeholder={m.workshop_details_description_placeholder()}
                       rows={3}
                     />
                   )}
@@ -179,7 +185,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
               /* The store files open documents under the project path, which a
                  rename moves. Re-key first, or the open tabs go with it. */
               moveDocuments(renamed.path);
-              navigate({ to: "/workshop/$projectName", params: { projectName: renamed.name } });
+              navigate({ to: "/workshop/$projectId", params: { projectId: renamed.id } });
             }}
           />
         </div>
@@ -191,17 +197,21 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
 function VersionHint() {
   return (
     <div className="max-w-56 space-y-1.5 py-1">
-      <p className="font-medium">Semantic Versioning</p>
+      <p className="font-medium">{m.workshop_details_semver_title()}</p>
       <p>
-        Format: <code className="text-accent-400">MAJOR.MINOR.PATCH</code>
+        <Marked text={m.workshop_details_semver_format_hint()}>
+          {(clause) => <code className="text-accent-400">{clause}</code>}
+        </Marked>
       </p>
       <ul className="list-inside list-disc space-y-0.5 text-surface-300">
-        <li>MAJOR - breaking changes</li>
-        <li>MINOR - new features</li>
-        <li>PATCH - bug fixes</li>
+        <li>{m.workshop_details_semver_major_hint()}</li>
+        <li>{m.workshop_details_semver_minor_hint()}</li>
+        <li>{m.workshop_details_semver_patch_hint()}</li>
       </ul>
       <p className="text-surface-400">
-        Pre-release: <code>1.0.0-beta.1</code>
+        <Marked text={m.workshop_details_semver_prerelease_hint()}>
+          {(clause) => <code>{clause}</code>}
+        </Marked>
       </p>
     </div>
   );

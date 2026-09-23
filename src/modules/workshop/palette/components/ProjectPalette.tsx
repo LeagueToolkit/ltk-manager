@@ -146,7 +146,7 @@ function useRunTarget(close: () => void) {
       /* The one row that leaves this editor rather than opening into it, which
          is what the crumb's own source is for. */
       if (target.kind === "project") {
-        openProject(target.name);
+        openProject(target.id);
         return;
       }
 

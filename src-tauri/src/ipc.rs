@@ -99,6 +99,15 @@ migrated![
     telemetry_identity,
     reset_telemetry_secret,
     track_ui_error,
+    // Workshop folders
+    inspect_project_folder,
+    open_project_folder,
+    record_project_opened,
+    get_opened_project_folders,
+    forget_project_folder,
+    relocate_project_folder,
+    convert_folder_to_project,
+    add_project_folders,
     // Workshop ignore rules
     get_project_ignore_rules,
     recommended_ignore_rules,

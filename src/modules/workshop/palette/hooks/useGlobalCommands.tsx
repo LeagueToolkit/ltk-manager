@@ -1,6 +1,7 @@
 import {
   ArrowsClockwiseIcon,
   FileZipIcon,
+  FolderOpenIcon,
   GearSixIcon,
   GitBranchIcon,
   PackageIcon,
@@ -9,6 +10,9 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
+import { m } from "@/i18n";
+
+import { useOpenFolder } from "../../folders/hooks/useOpenFolder";
 import { useRefreshGameIndex } from "../../gameBrowser";
 import { useProjectImports } from "../../imports/hooks/useProjectImports";
 import { useNewProjectDialog } from "../../state";
@@ -28,6 +32,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
   const navigate = useNavigate();
   const refreshGameIndex = useRefreshGameIndex();
   const imports = useProjectImports();
+  const openFolder = useOpenFolder();
   const openNewProjectDialog = useNewProjectDialog((s) => s.open);
 
   const refresh = refreshGameIndex.mutate;
@@ -36,55 +41,64 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
     () => [
       {
         id: "workshop.newProject",
-        title: "New project",
-        group: "Workshop",
+        title: m.workshop_command_new_project_action(),
+        group: m.workshop_nav_label(),
         shortcut: "Ctrl+N",
         keywords: ["create", "add", "blank"],
         icon: <PlusIcon weight="bold" className={GLYPH} />,
         run: openNewProjectDialog,
       },
       {
+        id: "workshop.openFolder",
+        title: m.workshop_folder_open_action(),
+        group: m.workshop_nav_label(),
+        shortcut: "Ctrl+O",
+        keywords: ["folder", "directory", "recent", "cslol"],
+        icon: <FolderOpenIcon weight="bold" className={GLYPH} />,
+        run: openFolder.pick,
+      },
+      {
         id: "workshop.importFantome",
-        title: "Import from Fantome",
-        group: "Workshop",
+        title: m.workshop_command_import_fantome_action(),
+        group: m.workshop_nav_label(),
         keywords: ["archive", "zip", "open"],
         icon: <FileZipIcon weight="bold" className={GLYPH} />,
         run: imports.fromFantome,
       },
       {
         id: "workshop.importModpkg",
-        title: "Import from Modpkg",
-        group: "Workshop",
+        title: m.workshop_command_import_modpkg_action(),
+        group: m.workshop_nav_label(),
         keywords: ["package", "open"],
         icon: <PackageIcon weight="bold" className={GLYPH} />,
         run: imports.fromModpkg,
       },
       {
         id: "workshop.importGitRepo",
-        title: "Import from a Git repository",
-        group: "Workshop",
+        title: m.workshop_command_import_git_action(),
+        group: m.workshop_nav_label(),
         keywords: ["clone", "github", "url"],
         icon: <GitBranchIcon weight="bold" className={GLYPH} />,
         run: imports.fromGitRepo,
       },
       {
         id: "game.rebuildIndex",
-        title: "Rebuild the game index",
-        group: "Game",
+        title: m.workshop_game_rebuild_action(),
+        group: m.workshop_game_source_label(),
         keywords: ["rescan", "refresh", "wad"],
         icon: <ArrowsClockwiseIcon className={GLYPH} />,
         run: () => refresh(),
       },
       {
         id: "settings.open",
-        title: "Open settings",
-        group: "Settings",
+        title: m.workshop_command_settings_open_action(),
+        group: m.workshop_command_settings_group_label(),
         shortcut: "Ctrl+,",
         keywords: ["preferences", "options"],
         icon: <GearSixIcon className={GLYPH} />,
         run: () => void navigate({ to: "/settings" }),
       },
     ],
-    [imports, navigate, openNewProjectDialog, refresh],
+    [imports, navigate, openFolder.pick, openNewProjectDialog, refresh],
   );
 }

@@ -1,10 +1,13 @@
 import { XIcon } from "@phosphor-icons/react";
 
+import { m } from "@/i18n";
 import { getMapLabel, getTagLabel } from "@/modules/library";
 
 import {
   useHasActiveWorkshopFilters,
+  useSetWorkshopLocation,
   useWorkshopFilterActions,
+  useWorkshopLocation,
   useWorkshopSelectedChampions,
   useWorkshopSelectedMaps,
   useWorkshopSelectedTags,
@@ -16,11 +19,24 @@ export function WorkshopActiveFilterChips() {
   const selectedMaps = useWorkshopSelectedMaps();
   const { toggleTag, toggleChampion, toggleMap, clearFilters } = useWorkshopFilterActions();
   const hasActive = useHasActiveWorkshopFilters();
+  const location = useWorkshopLocation();
+  const setLocation = useSetWorkshopLocation();
 
   if (!hasActive) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+      {location !== "all" && (
+        <Chip
+          label={
+            location === "opened"
+              ? m.workshop_filter_location_opened_label()
+              : m.workshop_folder_workshop_label()
+          }
+          color="tag"
+          onRemove={() => setLocation("all")}
+        />
+      )}
       {[...selectedTags].map((tag) => (
         <Chip
           key={`tag:${tag}`}
@@ -49,7 +65,7 @@ export function WorkshopActiveFilterChips() {
         onClick={clearFilters}
         className="cursor-pointer text-xs text-surface-400 hover:text-surface-200"
       >
-        Clear all
+        {m.workshop_filter_clear_all_action()}
       </button>
     </div>
   );

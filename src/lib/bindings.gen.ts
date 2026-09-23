@@ -396,6 +396,15 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
+	/**  Classify a folder picked with Open folder. */
+	inspectProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: FolderInspection }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("inspect_project_folder", { path }),
+	openProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_project_folder", { path }),
+	recordProjectOpened: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("record_project_opened", { path }),
+	getOpenedProjectFolders: () => __TAURI_INVOKE<({ ok: true; value: OpenedProjectFolder[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_opened_project_folders"),
+	forgetProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("forget_project_folder", { path }),
+	relocateProjectFolder: (oldPath: string, newPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("relocate_project_folder", { oldPath, newPath }),
+	convertFolderToProject: (args: ConvertFolderArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("convert_folder_to_project", { args }),
+	addProjectFolders: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFoldersReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_project_folders", { paths }),
 	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
 	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
 	/**  The starter rules, for the empty state that draws them before writing them. */
@@ -440,6 +449,12 @@ export const commands = {
 };
 
 /* Types */
+/**  What adding a folder of mods did with each one. */
+export type AddFoldersReport = {
+	added: WorkshopProject[],
+	failed: FolderFailure[],
+};
+
 /**  One field Add property offers for a holder. */
 export type AddableField = {
 	/**  `0x` and eight hex digits. */
@@ -1031,6 +1046,21 @@ export type Consequence =
 /**  The game did not survive. */
 "game-stopped";
 
+/**  Arguments for turning a folder into a project. */
+export type ConvertFolderArgs = {
+	path: string,
+	name: string,
+	displayName: string,
+	placement: ConvertPlacement,
+};
+
+/**  Where a converted folder's project lives. */
+export type ConvertPlacement = 
+/**  The folder itself becomes the project. */
+"inPlace" | 
+/**  A copy in the workshop folder becomes the project, and the folder is left alone. */
+"copy";
+
 /**  One diagnostic of the last apply, on the row it names. */
 export type DeclaredDiagnostic = {
 	/**
@@ -1395,6 +1425,19 @@ export type EvidenceMark =
 /**  Where a line of evidence came from. */
 export type EvidenceSource = "patcher" | "host" | "dll" | "game" | "client";
 
+/**  A fantome-layout folder, as the conversion would read it. */
+export type FantomeFolder = {
+	displayName: string,
+	suggestedName: string,
+	author: string | null,
+	version: string | null,
+	/**  Whether `META/info.json` was there to read the metadata from. */
+	hasInfo: boolean,
+	wads: FolderWad[],
+	/**  Whether a `RAW/` directory holds loose files. */
+	hasRaw: boolean,
+};
+
 /**  One field's type over one span of builds. */
 export type FieldRevision = {
 	/**  The first content build the revision holds for. */
@@ -1422,6 +1465,32 @@ export type FieldSchema = {
 	defaultValue: string | null,
 	/**  Oldest first. */
 	revisions: FieldRevision[],
+};
+
+/**  A folder the batch could not add, and why. */
+export type FolderFailure = {
+	path: string,
+	message: string,
+};
+
+/**  What a folder picked with Open folder holds. */
+export type FolderInspection = 
+/**  Nothing at the path. */
+{ kind: "missing" } | 
+/**  A folder with a project config, ready to open. */
+{ kind: "project"; project: WorkshopProject } | 
+/**  A mod in fantome layout, such as a cslol-manager install. */
+{ kind: "fantome"; layout: FantomeFolder } | 
+/**  A folder whose subfolders are projects or fantome mods. */
+{ kind: "parent"; projects: string[]; fantome: string[] } | 
+/**  A folder with none of the above, which can become an empty project. */
+{ kind: "plain"; suggestedName: string; displayName: string };
+
+/**  One entry of a fantome folder's `WAD/` directory. */
+export type FolderWad = {
+	name: string,
+	/**  A packed archive, which the conversion unpacks, rather than a directory it moves. */
+	packed: boolean,
 };
 
 /**  One file of the folded index, in the shape a single archive reads back. */
@@ -2502,6 +2571,17 @@ export type ObjectSearchResult = {
 	classes: ObjectClassHit[],
 };
 
+/**  An opened folder as the frontend lists it, whether or not it is still on disk. */
+export type OpenedProjectFolder = {
+	/**  The id the project's route names it by. */
+	id: string,
+	path: string,
+	displayName: string,
+	/**  Whether the folder or its config is gone. */
+	missing: boolean,
+	lastOpened: string | null,
+};
+
 /**  What the session was started for, without the paths a workshop one carries. */
 export type OriginKind = "library" | "workshop";
 
@@ -2666,6 +2746,13 @@ defines: string[]; vertex: StageProgram; pixel: StageProgram } |
  *  blob did not translate. Never a guess.
  */
 { kind: "failed"; reason: string };
+
+/**  Where a project lives relative to the workshop folder. */
+export type ProjectLocation = 
+/**  A direct child of the workshop folder. */
+"workshop" | 
+/**  A folder opened from anywhere else. */
+"opened";
 
 /**  One of a project's root text files, as the editor reads it. */
 export type ProjectText = {
@@ -3467,6 +3554,11 @@ export type Winding =
 /**  Counter-clockwise, `1`, the class default. */
 "ccw";
 
+export type WorkshopAuthor = {
+	name: string,
+	role: string | null,
+};
+
 /**
  *  Domain errors specific to workshop operations.
  * 
@@ -3498,6 +3590,48 @@ export type WorkshopError =
 { kind: "DECLARATIONS_INVALID"; path: string; message: string } | 
 /**  An edit the text of a declarations manifest cannot take. */
 { kind: "DECLARATIONS_UNEDITABLE"; path: string; reason: string };
+
+export type WorkshopLayer = {
+	name: string,
+	displayName: string,
+	priority: number,
+	description: string | null,
+	stringOverrides: { [key in string]: { [key in string]: string } },
+};
+
+/**  A workshop project displayed in the UI. */
+export type WorkshopProject = {
+	/**  Stable id the route names the project by, derived from its path */
+	id: string,
+	/**  Absolute path to the project directory */
+	path: string,
+	/**  Project slug name (directory name) */
+	name: string,
+	/**  Human-readable display name */
+	displayName: string,
+	/**  Semantic version string */
+	version: string,
+	/**  Project description */
+	description: string,
+	/**  List of authors */
+	authors: WorkshopAuthor[],
+	/**  Categorization tags */
+	tags: string[],
+	/**  Champion names this mod applies to */
+	champions: string[],
+	/**  Map identifiers this mod applies to */
+	maps: string[],
+	/**  Project layers */
+	layers: WorkshopLayer[],
+	/**  Path to thumbnail image if exists */
+	thumbnailPath: string | null,
+	/**  Last modification time */
+	lastModified: string,
+	/**  Whether the project sits in the workshop folder or was opened from elsewhere */
+	location: ProjectLocation,
+	/**  When the project was last opened in the editor */
+	lastOpened: string | null,
+};
 
 /**  A sampler's address mode, `addressU` and `addressV` on the wire. */
 export type Wrap = "repeat" | "clamp" | "mirror" | "border";

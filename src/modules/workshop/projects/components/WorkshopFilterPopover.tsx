@@ -1,5 +1,6 @@
 import {
   ArrowsDownUpIcon,
+  FolderSimpleIcon,
   FunnelIcon,
   MapTrifoldIcon,
   TagIcon,
@@ -19,6 +20,7 @@ import {
   Popover,
   Tooltip,
 } from "@/components";
+import { m } from "@/i18n";
 import {
   getMapIcon,
   getMapLabel,
@@ -37,7 +39,11 @@ import {
 } from "../../state";
 import { useWorkshopProjects } from "../api/useWorkshopProjects";
 import { useWorkshopFilterOptions } from "../hooks/useFilterOptions";
-import { WorkshopSortDirectionToggle, WorkshopSortOptions } from "./WorkshopSortOptions";
+import {
+  WorkshopLocationOptions,
+  WorkshopSortDirectionToggle,
+  WorkshopSortOptions,
+} from "./WorkshopSortOptions";
 
 function mergeUnique(wellKnown: string[], fromProjects: string[]): string[] {
   const seen = new Set(wellKnown);
@@ -86,7 +92,7 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
 
   return (
     <Popover.Root onOpenChange={onOpenChange}>
-      <Tooltip content="Sort and filter projects">
+      <Tooltip content={m.workshop_filter_trigger_label()}>
         <Popover.Trigger
           render={
             <IconButton
@@ -101,7 +107,7 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
               variant="ghost"
               size="xs"
               compact
-              aria-label="Sort and filter projects"
+              aria-label={m.workshop_filter_trigger_label()}
             />
           }
         />
@@ -111,16 +117,23 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
           {/* A rung under the DS-GROUND default for floating UI, so it reads apart
               from the surface-800 toolbar it drops out of. */}
           <Popover.Popup
-            aria-label="Sort and filter"
+            aria-label={m.workshop_filter_popup_label()}
             className="w-[38rem] overflow-hidden bg-surface-900 p-0 select-none"
           >
             <div className="max-h-[min(32rem,70vh)] divide-y divide-surface-600/50 overflow-y-auto">
               <FilterSection
-                title="Sort by"
+                title={m.workshop_explorer_sort_section_label()}
                 icon={<ArrowsDownUpIcon className="h-3.5 w-3.5" />}
                 action={<WorkshopSortDirectionToggle />}
               >
                 <WorkshopSortOptions />
+              </FilterSection>
+
+              <FilterSection
+                title={m.workshop_filter_location_label()}
+                icon={<FolderSimpleIcon className="h-3.5 w-3.5" />}
+              >
+                <WorkshopLocationOptions />
               </FilterSection>
 
               <div className="flex divide-x divide-surface-600/50">
@@ -132,7 +145,7 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
                         <ChampionIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-400" />
                         <Field.Control
                           type="text"
-                          placeholder="Search champions"
+                          placeholder={m.workshop_filter_champion_search_placeholder()}
                           value={champSearch}
                           onChange={(e) => setChampSearch(e.target.value)}
                           className="h-8 rounded-none border-0 border-b border-surface-600/50 bg-surface-950/40 pr-3 pl-9 text-xs select-text hover:border-accent-hover focus:border-accent-500 focus:ring-0"
@@ -149,12 +162,15 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
                       />
                     ))}
                     {filteredChampions.length === 0 && (
-                      <EmptyState size="xs" title="No champions found" />
+                      <EmptyState size="xs" title={m.workshop_filter_champion_empty()} />
                     )}
                   </FilterColumn>
                 )}
 
-                <FilterColumn title="Tags" icon={<TagIcon className="h-3.5 w-3.5" />}>
+                <FilterColumn
+                  title={m.workshop_filter_tags_label()}
+                  icon={<TagIcon className="h-3.5 w-3.5" />}
+                >
                   {tags.map((tag) => (
                     <FilterOption
                       key={tag}
@@ -166,7 +182,10 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
                   ))}
                 </FilterColumn>
 
-                <FilterColumn title="Maps" icon={<MapTrifoldIcon className="h-3.5 w-3.5" />}>
+                <FilterColumn
+                  title={m.workshop_filter_maps_label()}
+                  icon={<MapTrifoldIcon className="h-3.5 w-3.5" />}
+                >
                   {maps.map((map) => (
                     <FilterOption
                       key={map}
@@ -190,7 +209,7 @@ export function WorkshopFilterPopover({ onOpenChange }: WorkshopFilterPopoverPro
                   left={<XIcon weight="bold" className="h-3.5 w-3.5" />}
                   className="font-normal"
                 >
-                  Clear filters
+                  {m.workshop_filter_clear_action()}
                 </Button>
               </div>
             )}

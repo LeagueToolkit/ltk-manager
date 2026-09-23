@@ -15,7 +15,7 @@ import { Route as ModsRouteImport } from './routes/mods'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkshopIndexRouteImport } from './routes/workshop/index'
-import { Route as WorkshopProjectNameRouteImport } from './routes/workshop/$projectName'
+import { Route as WorkshopProjectIdRouteImport } from './routes/workshop/$projectId'
 import { Route as ModsFolderFolderIdRouteImport } from './routes/mods_.folder.$folderId'
 
 const WorkshopRoute = WorkshopRouteImport.update({
@@ -48,9 +48,9 @@ const WorkshopIndexRoute = WorkshopIndexRouteImport.update({
   path: '/',
   getParentRoute: () => WorkshopRoute,
 } as any)
-const WorkshopProjectNameRoute = WorkshopProjectNameRouteImport.update({
-  id: '/$projectName',
-  path: '/$projectName',
+const WorkshopProjectIdRoute = WorkshopProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
   getParentRoute: () => WorkshopRoute,
 } as any)
 const ModsFolderFolderIdRoute = ModsFolderFolderIdRouteImport.update({
@@ -65,7 +65,7 @@ export interface FileRoutesByFullPath {
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
-  '/workshop/$projectName': typeof WorkshopProjectNameRoute
+  '/workshop/$projectId': typeof WorkshopProjectIdRoute
   '/workshop/': typeof WorkshopIndexRoute
   '/mods/folder/$folderId': typeof ModsFolderFolderIdRoute
 }
@@ -74,7 +74,7 @@ export interface FileRoutesByTo {
   '/diagnostics': typeof DiagnosticsRoute
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
-  '/workshop/$projectName': typeof WorkshopProjectNameRoute
+  '/workshop/$projectId': typeof WorkshopProjectIdRoute
   '/workshop': typeof WorkshopIndexRoute
   '/mods/folder/$folderId': typeof ModsFolderFolderIdRoute
 }
@@ -85,7 +85,7 @@ export interface FileRoutesById {
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
-  '/workshop/$projectName': typeof WorkshopProjectNameRoute
+  '/workshop/$projectId': typeof WorkshopProjectIdRoute
   '/workshop/': typeof WorkshopIndexRoute
   '/mods_/folder/$folderId': typeof ModsFolderFolderIdRoute
 }
@@ -97,7 +97,7 @@ export interface FileRouteTypes {
     | '/mods'
     | '/settings'
     | '/workshop'
-    | '/workshop/$projectName'
+    | '/workshop/$projectId'
     | '/workshop/'
     | '/mods/folder/$folderId'
   fileRoutesByTo: FileRoutesByTo
@@ -106,7 +106,7 @@ export interface FileRouteTypes {
     | '/diagnostics'
     | '/mods'
     | '/settings'
-    | '/workshop/$projectName'
+    | '/workshop/$projectId'
     | '/workshop'
     | '/mods/folder/$folderId'
   id:
@@ -116,7 +116,7 @@ export interface FileRouteTypes {
     | '/mods'
     | '/settings'
     | '/workshop'
-    | '/workshop/$projectName'
+    | '/workshop/$projectId'
     | '/workshop/'
     | '/mods_/folder/$folderId'
   fileRoutesById: FileRoutesById
@@ -174,11 +174,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkshopIndexRouteImport
       parentRoute: typeof WorkshopRoute
     }
-    '/workshop/$projectName': {
-      id: '/workshop/$projectName'
-      path: '/$projectName'
-      fullPath: '/workshop/$projectName'
-      preLoaderRoute: typeof WorkshopProjectNameRouteImport
+    '/workshop/$projectId': {
+      id: '/workshop/$projectId'
+      path: '/$projectId'
+      fullPath: '/workshop/$projectId'
+      preLoaderRoute: typeof WorkshopProjectIdRouteImport
       parentRoute: typeof WorkshopRoute
     }
     '/mods_/folder/$folderId': {
@@ -192,12 +192,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface WorkshopRouteChildren {
-  WorkshopProjectNameRoute: typeof WorkshopProjectNameRoute
+  WorkshopProjectIdRoute: typeof WorkshopProjectIdRoute
   WorkshopIndexRoute: typeof WorkshopIndexRoute
 }
 
 const WorkshopRouteChildren: WorkshopRouteChildren = {
-  WorkshopProjectNameRoute: WorkshopProjectNameRoute,
+  WorkshopProjectIdRoute: WorkshopProjectIdRoute,
   WorkshopIndexRoute: WorkshopIndexRoute,
 }
 

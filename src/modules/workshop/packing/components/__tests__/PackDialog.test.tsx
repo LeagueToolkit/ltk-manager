@@ -42,6 +42,9 @@ const MOD: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-my-mod",
 };
 
 function result(ignored: IgnoredEntry[]): PackResult {

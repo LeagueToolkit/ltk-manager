@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { Button, Tooltip, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorMessage, errorSummary, m } from "@/i18n";
-import type { Incident, Suspect } from "@/lib/tauri";
+import { api, type Incident, type Suspect } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 
 import {
@@ -24,7 +24,7 @@ import {
   useRevealGameLog,
 } from "../api";
 import { hintText } from "../utils/hints";
-import { formatDuration, formatOrigin, projectNameFromPath } from "../utils/incident";
+import { formatDuration, formatOrigin } from "../utils/incident";
 import { EvidenceTimeline } from "./EvidenceTimeline";
 import { VerdictCard } from "./VerdictCard";
 
@@ -133,12 +133,15 @@ function OpenProjectButton({ projectPath }: { projectPath: string }) {
       variant="outline"
       size="xs"
       left={<ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />}
-      onClick={() =>
-        navigate({
-          to: "/workshop/$projectName",
-          params: { projectName: projectNameFromPath(projectPath) },
-        })
-      }
+      onClick={async () => {
+        const project = await api.getWorkshopProject(projectPath);
+        if (!project.ok) {
+          void navigate({ to: "/workshop" });
+          return;
+        }
+
+        void navigate({ to: "/workshop/$projectId", params: { projectId: project.value.id } });
+      }}
     >
       {m.diagnostics_suspect_open_action()}
     </Button>

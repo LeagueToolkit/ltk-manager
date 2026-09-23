@@ -2,3 +2,4 @@
 export * from "./errors";
 export { Marked } from "./Marked";
 export { m } from "@/paraglide/messages";
+export { getLocale } from "@/paraglide/runtime";

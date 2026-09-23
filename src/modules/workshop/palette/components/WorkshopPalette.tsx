@@ -39,7 +39,7 @@ export function WorkshopPalette(props: PaletteBranchProps) {
 
       onClose();
       if (target.kind === "command") target.command.run();
-      else if (target.kind === "project") openProject(target.name);
+      else if (target.kind === "project") openProject(target.id);
     },
     [onClose, openProject],
   );

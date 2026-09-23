@@ -18,6 +18,9 @@ function project(overrides: Partial<WorkshopProject> = {}): WorkshopProject {
     layers: [],
     thumbnailPath: null,
     lastModified: "2026-01-01T00:00:00Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "id-my-mod",
     ...overrides,
   };
 }

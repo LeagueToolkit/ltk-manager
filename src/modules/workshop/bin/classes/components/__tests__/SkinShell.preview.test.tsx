@@ -76,6 +76,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-preview",
 };
 const VIEW: ViewContext = {
   document: 1,
