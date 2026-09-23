@@ -41,6 +41,8 @@ interface UpdaterStore {
   setDialogOpen: (open: boolean) => void;
   /** Close a dialog the check opened, for a page already showing what it would. */
   dropCheckOpening: () => void;
+  /** Forget a downloaded installer, so the next install downloads again. */
+  dropDownload: () => void;
   isVersionSkipped: () => boolean;
   setSkipVersion: (skip: boolean) => void;
 }
@@ -117,6 +119,8 @@ const store = create<UpdaterStore>()((set, get) => ({
     set((state) =>
       state.dialogOpener === "check" ? { dialogOpen: false, dialogOpener: null } : state,
     ),
+
+  dropDownload: () => set({ downloaded: false, progress: 0 }),
 
   isVersionSkipped: () => {
     const { update, skippedVersion } = get();

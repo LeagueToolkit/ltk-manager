@@ -47,6 +47,11 @@ const INDEX = [
     title: "Start in tray unless update available",
   },
   {
+    id: "general.autoDownloadUpdates",
+    key: "autoDownloadUpdates",
+    title: m.settings_updates_auto_download_title(),
+  },
+  {
     id: "general.alwaysStartPatcher",
     key: "alwaysStartPatcher",
     title: "Always start patcher at launch",
