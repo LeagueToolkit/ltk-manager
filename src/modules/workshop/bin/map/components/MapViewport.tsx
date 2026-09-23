@@ -3,12 +3,11 @@ import {
   CastleTurretIcon,
   CloudSunIcon,
   FrameCornersIcon,
-  PaintBrushIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
-import { Button, IconButton, Menu, Tooltip } from "@/components";
+import { Button, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
 import {
@@ -183,7 +182,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           <ViewToggle
             label={m.workshop_bin_preview_shaders_label()}
             active={shaders}
-            icon={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+            icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
             onClick={() => setDisplay({ previewShaders: !shaders })}
           />
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />

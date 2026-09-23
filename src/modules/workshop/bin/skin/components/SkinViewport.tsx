@@ -8,7 +8,6 @@ import {
   GridFourIcon,
   MapTrifoldIcon,
   MountainsIcon,
-  PaintBrushIcon,
   SparkleIcon,
   StackIcon,
 } from "@phosphor-icons/react";
@@ -17,7 +16,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NoColorSpace } from "three";
 
-import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { ButtonGroup, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
 import {
@@ -600,7 +599,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               <ViewToggle
                 label={m.workshop_bin_preview_shaders_label()}
                 active={shaders}
-                icon={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+                icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
                 onClick={() => setDisplay({ previewShaders: !shaders })}
               />
               <BakeTangentsButton

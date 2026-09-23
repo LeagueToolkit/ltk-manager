@@ -413,7 +413,7 @@
   "workshop_bin_material_pane_elsewhere_empty": "Another file declares this material",
   "workshop_bin_material_pane_empty": "This skin draws with no material",
   "workshop_bin_material_pane_pick_label": "Material",
-  "workshop_bin_material_pane_shaders_action": "Draw with game shaders",
+  "workshop_bin_material_pane_shaders_action": "Draw with Hexshade",
   "workshop_bin_material_preview_failed_empty": "The material could not be read",
   "workshop_bin_material_preview_label": "Material preview",
   "workshop_bin_material_preview_loading_label": "Reading the material",
@@ -531,7 +531,7 @@
   "workshop_bin_path_label": "path",
   "workshop_bin_present_label": "present",
   "workshop_bin_preview_armature_label": "Armature",
-  "workshop_bin_preview_shaders_label": "Game shaders",
+  "workshop_bin_preview_shaders_label": "Hexshade",
   "workshop_bin_preview_armature_menu_label": "Armature options",
   "workshop_bin_preview_attachment_hint": [
     {
