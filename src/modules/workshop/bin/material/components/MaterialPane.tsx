@@ -1,8 +1,8 @@
-import { CaretDownIcon, CheckIcon, PaintBrushIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { use, useMemo, useState } from "react";
 
-import { Button, Menu } from "@/components";
+import { Button, HexshadeIcon, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow, SkinModel } from "@/lib/tauri";
 import { usePreviewShaders, useSetPreviewDisplay } from "@/stores";
@@ -189,7 +189,7 @@ function MaterialPicker({
   );
 }
 
-/** A way to turn the game's shaders on, since an edit shows on the character only under them. */
+/** A way to turn Hexshade on, since an edit shows on the character only under it. */
 function ShadersHint() {
   const shaders = usePreviewShaders();
   const setDisplay = useSetPreviewDisplay();
@@ -201,7 +201,7 @@ function ShadersHint() {
       size="xs"
       compact
       className="ml-auto"
-      left={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+      left={<HexshadeIcon className="h-4 w-4" />}
       onClick={() => setDisplay({ previewShaders: true })}
     >
       {m.workshop_bin_material_pane_shaders_action()}
