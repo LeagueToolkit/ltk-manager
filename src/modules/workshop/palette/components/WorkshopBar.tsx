@@ -13,6 +13,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import { Kbd } from "@/components";
 import { useClickOutside } from "@/hooks";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { useRevealGameSearch } from "../../gameBrowser";
@@ -112,6 +113,10 @@ export function WorkshopBar() {
     preventDefault: true,
     enableOnFormTags: true,
   });
+  useHotkeys("ctrl+r", () => openWith("projects"), {
+    preventDefault: true,
+    enableOnFormTags: true,
+  });
   useHotkeys("ctrl+shift+p", () => openWith("commands"), {
     preventDefault: true,
     enableOnFormTags: true,
@@ -186,7 +191,7 @@ export function WorkshopBar() {
       const only = filtered[0]!;
       event.preventDefault();
       close();
-      openProject(only.name);
+      openProject(only.id);
       return;
     }
 
@@ -299,8 +304,11 @@ interface IdleBarProps {
 function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
   const project = useOptionalProjectContext();
 
-  const name = project?.displayName ?? "Workshop";
-  const label = project === null ? "Filter the workshop" : `Search ${name}`;
+  const name = project?.displayName ?? m.workshop_nav_label();
+  const label =
+    project === null
+      ? m.workshop_bar_filter_label()
+      : m.workshop_bar_search_label({ project: name });
 
   return (
     <div className={twMerge(BOX, "border-surface-600 pr-1.5 hover:border-accent-hover")}>
@@ -312,7 +320,7 @@ function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
             to="/workshop"
             className="shrink-0 rounded-sm px-0.5 text-xs text-surface-400 transition-colors hover:text-surface-100"
           >
-            Workshop
+            {m.workshop_nav_label()}
           </Link>
           <span className="shrink-0 text-xs text-surface-500">/</span>
         </>
@@ -365,7 +373,7 @@ function FilterBox({
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
-        aria-label="Filter the workshop"
+        aria-label={m.workshop_bar_filter_label()}
         autoComplete="off"
         spellCheck={false}
         className="min-w-0 flex-1 bg-transparent text-sm text-surface-50 select-text placeholder:text-surface-400 focus:outline-none"
@@ -391,7 +399,7 @@ function BarFilter({ onOpenChange }: { onOpenChange: (open: boolean) => void }) 
 function BarTag() {
   const project = useOptionalProjectContext();
 
-  if (project) return <Tag>v{project.version}</Tag>;
+  if (project) return <Tag>{m.workshop_bin_version_label({ version: project.version })}</Tag>;
   return <ProjectCount />;
 }
 
@@ -400,8 +408,11 @@ function ProjectCount() {
   const filtered = useFilteredProjects();
 
   const total = projects?.length ?? 0;
-  if (filtered.length !== total) return <Tag>{`${filtered.length} of ${total}`}</Tag>;
-  return <Tag>{`${total} ${total === 1 ? "project" : "projects"}`}</Tag>;
+  if (filtered.length !== total) {
+    return <Tag>{m.workshop_bar_count_filtered_label({ shown: filtered.length, total })}</Tag>;
+  }
+
+  return <Tag>{m.workshop_folder_parent_projects_label({ count: total })}</Tag>;
 }
 
 function Tag({ children }: { children: ReactNode }) {

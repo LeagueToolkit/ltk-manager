@@ -2,6 +2,7 @@ export * from "./api";
 export * from "./bin";
 export * from "./components";
 export * from "./documents";
+export * from "./folders";
 export * from "./gameBrowser";
 export * from "./layers";
 export * from "./objectsBrowser";

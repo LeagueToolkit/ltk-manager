@@ -43,6 +43,8 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             session: null,
           },
         });
+      case "get_workshop_project":
+        return Promise.resolve({ ok: true, value: { id: "a1b2c3d4e5f6a7b8" } });
       case "incident_report":
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });
       case "incident_token":
@@ -101,7 +103,7 @@ describe("IncidentDetail", () => {
     expect(await screen.findByRole("button", { name: "Disabled" })).toBeDisabled();
   });
 
-  it("opens a workshop project by its directory name", async () => {
+  it("opens a workshop project by the id its path resolves to", async () => {
     mockBackend();
     const user = userEvent.setup();
     const incident = createMockIncident({
@@ -119,10 +121,12 @@ describe("IncidentDetail", () => {
 
     await user.click(screen.getByRole("button", { name: "Open" }));
 
-    expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/workshop/$projectName",
-      params: { projectName: "aatrox-justicar" },
-    });
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/workshop/$projectId",
+        params: { projectId: "a1b2c3d4e5f6a7b8" },
+      }),
+    );
   });
 
   it("draws a coded evidence line with its meaning", () => {

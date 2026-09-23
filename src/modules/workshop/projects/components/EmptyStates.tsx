@@ -1,9 +1,8 @@
-import { Link } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Download, FolderOpen, Hammer, Plus, Settings } from "lucide-react";
+import { Download, Hammer, Plus } from "lucide-react";
 
 import { Button, EmptyState } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 
 import { useImportFromModpkg } from "../../imports/api/useImportFromModpkg";
@@ -23,35 +22,13 @@ export function ErrorState({ error }: { error: AppError }) {
       <div className="mb-4 rounded-full bg-danger/10 p-4">
         <span className="text-2xl">⚠️</span>
       </div>
-      <h3 className="mb-1 text-lg font-medium text-surface-300">Failed to load projects</h3>
+      <h3 className="mb-1 text-lg font-medium text-surface-300">
+        {m.workshop_projects_error_title()}
+      </h3>
       <p className="mb-2 text-surface-500">{errorSummary(error)}</p>
-      <p className="text-sm text-surface-600">Error code: {error.code}</p>
-    </div>
-  );
-}
-
-export function NotConfiguredState() {
-  return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-16 items-center border-b border-surface-600 px-6">
-        <h2 className="text-xl font-semibold text-surface-100">Workshop</h2>
-      </header>
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-surface-800">
-            <FolderOpen className="h-10 w-10 text-surface-600" />
-          </div>
-          <h3 className="mb-1 text-lg font-medium text-surface-300">Workshop Not Configured</h3>
-          <p className="mb-4 max-w-sm text-surface-500">
-            Set up a workshop directory in Settings to start creating mod projects.
-          </p>
-          <Link to="/settings" search={{ focus: "workshop.workshopPath" }}>
-            <Button variant="filled" left={<Settings className="h-4 w-4" />}>
-              Open Settings
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <p className="text-sm text-surface-600">
+        {m.workshop_projects_error_code_label({ code: error.code })}
+      </p>
     </div>
   );
 }
@@ -63,7 +40,7 @@ export function NoProjectsState() {
   async function handleImport() {
     const file = await open({
       multiple: false,
-      filters: [{ name: "Mod Package", extensions: ["modpkg"] }],
+      filters: [{ name: m.workshop_projects_modpkg_filter_label(), extensions: ["modpkg"] }],
     });
     if (file) {
       importFromModpkg.mutate(file, {
@@ -75,19 +52,19 @@ export function NoProjectsState() {
   return (
     <EmptyState
       icon={<Hammer className="h-16 w-16" />}
-      title="No projects yet"
-      description="Create a new project or import an existing mod package"
+      title={m.workshop_projects_empty_title()}
+      description={m.workshop_projects_empty_description()}
       action={
         <>
           <Button variant="outline" onClick={handleImport} left={<Download className="h-4 w-4" />}>
-            Import
+            {m.workshop_projects_import_action()}
           </Button>
           <Button
             variant="filled"
             onClick={openNewProjectDialog}
             left={<Plus className="h-4 w-4" />}
           >
-            New Project
+            {m.workshop_projects_new_action()}
           </Button>
         </>
       }
@@ -96,5 +73,10 @@ export function NoProjectsState() {
 }
 
 export function NoSearchResultsState() {
-  return <EmptyState title="No projects found" description="Try adjusting your search query" />;
+  return (
+    <EmptyState
+      title={m.workshop_projects_no_results_title()}
+      description={m.workshop_projects_no_results_description()}
+    />
+  );
 }

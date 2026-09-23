@@ -3,6 +3,7 @@ import { type KeyboardEvent, type ReactElement, type ReactNode, useState } from 
 import { match } from "ts-pattern";
 
 import { Button, Checkbox, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
@@ -92,10 +93,10 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
         handleStop();
       }}
       disabled={stopPatcher.isPending}
-      title="Stop test"
+      title={m.workshop_card_stop_test_label()}
       className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
-      Testing
+      {m.workshop_card_testing_label()}
       <X className="h-3 w-3 opacity-60 group-hover/pill:opacity-100" />
     </button>
   );
@@ -109,7 +110,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             variant="ghost"
             size={viewMode === "list" ? "sm" : "md"}
             compact={viewMode === "grid"}
-            aria-label={`More options for ${project.displayName}`}
+            aria-label={m.workshop_card_options_label({ name: project.displayName })}
           />
         }
       />
@@ -178,8 +179,16 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
           <h3 className="font-medium text-surface-100">
             <span className="truncate">{project.displayName}</span>
           </h3>
-          <p className="truncate text-sm text-surface-500">
-            v{project.version} • {project.authors.map((a) => a.name).join(", ") || "Unknown author"}
+          <p className="flex min-w-0 items-center gap-1.5 text-sm text-surface-500">
+            <span className="truncate">
+              {m.workshop_card_meta_label({
+                version: project.version,
+                authors:
+                  project.authors.map((a) => a.name).join(", ") ||
+                  m.workshop_card_unknown_author_label(),
+              })}
+            </span>
+            <OpenedFolderPath project={project} />
           </p>
           <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
             <ProjectPills project={project} max={3} />
@@ -197,7 +206,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             left={<Package className="h-4 w-4" />}
             onClick={actions.handleOpenPackDialog}
           >
-            Pack
+            {m.workshop_pack_action()}
           </Button>
           {kebab}
         </div>
@@ -267,7 +276,10 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <h3 className="mb-1 truncate text-sm font-medium text-surface-100">
+          <h3
+            title={project.location === "opened" ? project.path : undefined}
+            className="mb-1 truncate text-sm font-medium text-surface-100"
+          >
             {project.displayName}
           </h3>
           <div className="mb-1 flex flex-wrap items-center gap-1.5 empty:hidden">
@@ -275,10 +287,12 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             <SuspectBadge projectPath={project.path} />
           </div>
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
-            <span>v{project.version}</span>
+            <span>{m.workshop_card_version_label({ version: project.version })}</span>
             <span>•</span>
             <span className="flex-1 truncate">
-              {project.authors.length > 0 ? project.authors[0].name : "Unknown"}
+              {project.authors.length > 0
+                ? project.authors[0].name
+                : m.workshop_card_unknown_label()}
             </span>
             {isTestingThis && stopPill}
           </div>
@@ -351,12 +365,12 @@ function renderTestButton({
         onClick={onTest}
         loading={isTesting}
       >
-        Test
+        {m.workshop_card_test_action()}
       </Button>
     ))
     .with({ kind: "building-this" }, () => (
       <Button variant="outline" size="sm" loading disabled>
-        Building…
+        {m.workshop_card_building_label()}
       </Button>
     ))
     .with({ kind: "running-this" }, () => (
@@ -372,20 +386,20 @@ function renderTestButton({
         }
         className="border-success/40 bg-success/10 text-success-text hover:border-success/60 hover:bg-success/20"
       >
-        {isStopping ? "Stopping…" : "Stop Test"}
+        {isStopping ? m.workshop_card_stopping_label() : m.workshop_card_stop_test_action()}
       </Button>
     ))
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
+      <Tooltip content={m.workshop_card_test_blocked_hint({ name: otherLabel })}>
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
-          Test
+          {m.workshop_card_test_action()}
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running - stop it first">
+      <Tooltip content={m.workshop_card_test_patcher_hint()}>
         <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
-          Test
+          {m.workshop_card_test_action()}
         </Button>
       </Tooltip>
     ))
@@ -429,7 +443,28 @@ function ProjectPills({
           {pill.label}
         </span>
       ))}
-      {overflow > 0 && <span className="text-[0.625rem] text-surface-500">+{overflow}</span>}
+      {overflow > 0 && (
+        <span className="text-[0.625rem] text-surface-500">
+          {m.workshop_card_pills_overflow_label({ count: overflow })}
+        </span>
+      )}
     </div>
+  );
+}
+
+/* Truncated from the left, so the folder name, which tells two paths apart, stays. */
+function OpenedFolderPath({ project }: { project: WorkshopProject }) {
+  if (project.location !== "opened") return null;
+
+  return (
+    <>
+      <span aria-hidden="true">•</span>
+      <span
+        title={project.path}
+        className="min-w-24 flex-1 truncate text-left font-mono text-code select-text [direction:rtl]"
+      >
+        <bdi>{project.path}</bdi>
+      </span>
+    </>
   );
 }

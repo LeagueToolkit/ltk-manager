@@ -72,6 +72,7 @@ import type {
   WorkshopProject,
 } from "@/lib/bindings";
 import type {
+  ConvertFolderArgs,
   IntegrationAction,
   MenuConflictPolicy,
   Tool,
@@ -171,6 +172,18 @@ export type {
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
+// The opened project folders' types, per ADR-0029.
+export type {
+  AddFoldersReport,
+  ConvertFolderArgs,
+  ConvertPlacement,
+  FantomeFolder,
+  FolderFailure,
+  FolderInspection,
+  FolderWad,
+  OpenedProjectFolder,
+  ProjectLocation,
+} from "@/lib/bindings.gen";
 // The shader pipeline's types, per ADR-0029.
 export type {
   Attribute,
@@ -690,6 +703,19 @@ export const api = {
       commands.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
     addRecommended: (projectPath: string) =>
       commands.addRecommendedIgnoreRules(projectPath).then(toResult),
+  },
+
+  // Folders opened as projects from anywhere on disk, on tauri-specta.
+  projectFolders: {
+    inspect: (path: string) => commands.inspectProjectFolder(path).then(toResult),
+    open: (path: string) => commands.openProjectFolder(path).then(toResult),
+    recordOpened: (path: string) => commands.recordProjectOpened(path).then(toResult),
+    list: () => commands.getOpenedProjectFolders().then(toResult),
+    forget: (path: string) => commands.forgetProjectFolder(path).then(toResult),
+    relocate: (oldPath: string, newPath: string) =>
+      commands.relocateProjectFolder(oldPath, newPath).then(toResult),
+    convert: (args: ConvertFolderArgs) => commands.convertFolderToProject(args).then(toResult),
+    addAll: (paths: readonly string[]) => commands.addProjectFolders([...paths]).then(toResult),
   },
 
   // A project's root text files, on tauri-specta.

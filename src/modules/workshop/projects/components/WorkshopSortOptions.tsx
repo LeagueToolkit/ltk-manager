@@ -1,11 +1,21 @@
-import { ArrowDownIcon, ArrowUpIcon, ClockIcon, TextAaIcon } from "@phosphor-icons/react";
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  ClockCounterClockwiseIcon,
+  ClockIcon,
+  TextAaIcon,
+} from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { Button, TogglePill } from "@/components";
+import { m } from "@/i18n";
 
 import {
+  useSetWorkshopLocation,
   useWorkshopFilterActions,
+  useWorkshopLocation,
   useWorkshopSort,
+  type WorkshopLocationFilter,
   type WorkshopSortDirection,
   type WorkshopSortField,
 } from "../../state";
@@ -18,25 +28,67 @@ interface SortOption {
   directionLabels: Record<WorkshopSortDirection, string>;
 }
 
-const SORT_OPTIONS: SortOption[] = [
-  {
-    field: "name",
-    label: "Name",
-    icon: <TextAaIcon weight="bold" className="h-4 w-4" />,
-    initialDirection: "asc",
-    directionLabels: { asc: "A–Z", desc: "Z–A" },
-  },
-  {
-    field: "lastModified",
-    label: "Last Modified",
-    icon: <ClockIcon weight="bold" className="h-4 w-4" />,
-    initialDirection: "desc",
-    directionLabels: { asc: "Oldest", desc: "Newest" },
-  },
-];
+function sortOptions(): SortOption[] {
+  const byDate = {
+    asc: m.workshop_sort_oldest_label(),
+    desc: m.workshop_sort_newest_label(),
+  };
+
+  return [
+    {
+      field: "lastOpened",
+      label: m.workshop_sort_recent_label(),
+      icon: <ClockCounterClockwiseIcon weight="bold" className="h-4 w-4" />,
+      initialDirection: "desc",
+      directionLabels: byDate,
+    },
+    {
+      field: "name",
+      label: m.workshop_explorer_sort_name_label(),
+      icon: <TextAaIcon weight="bold" className="h-4 w-4" />,
+      initialDirection: "asc",
+      directionLabels: {
+        asc: m.workshop_sort_name_asc_label(),
+        desc: m.workshop_sort_name_desc_label(),
+      },
+    },
+    {
+      field: "lastModified",
+      label: m.workshop_sort_modified_label(),
+      icon: <ClockIcon weight="bold" className="h-4 w-4" />,
+      initialDirection: "desc",
+      directionLabels: byDate,
+    },
+  ];
+}
 
 function reverse(direction: WorkshopSortDirection): WorkshopSortDirection {
   return direction === "asc" ? "desc" : "asc";
+}
+
+/** Which projects the grid lists by where they live. */
+export function WorkshopLocationOptions() {
+  const location = useWorkshopLocation();
+  const setLocation = useSetWorkshopLocation();
+
+  const options: { value: WorkshopLocationFilter; label: string }[] = [
+    { value: "all", label: m.workshop_filter_location_all_label() },
+    { value: "workshop", label: m.workshop_folder_workshop_label() },
+    { value: "opened", label: m.workshop_filter_location_opened_label() },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((option) => (
+        <TogglePill
+          key={option.value}
+          label={option.label}
+          active={location === option.value}
+          onClick={() => setLocation(option.value)}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function WorkshopSortOptions() {
@@ -53,7 +105,7 @@ export function WorkshopSortOptions() {
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {SORT_OPTIONS.map((option) => (
+      {sortOptions().map((option) => (
         <TogglePill
           key={option.field}
           label={option.label}
@@ -70,7 +122,7 @@ export function WorkshopSortOptions() {
 export function WorkshopSortDirectionToggle() {
   const sort = useWorkshopSort();
   const { setSort } = useWorkshopFilterActions();
-  const option = SORT_OPTIONS.find((o) => o.field === sort.field);
+  const option = sortOptions().find((o) => o.field === sort.field);
 
   if (!option) return null;
 

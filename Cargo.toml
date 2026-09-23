@@ -83,7 +83,7 @@ slug = "0.1"
 
 # The IPC boundary sits on a pre-release pin: `specta` and `tauri-specta` are
 # published as release candidates only, and the three crates must move together.
-specta = { version = "=2.0.0-rc.25", features = ["derive"] }
+specta = { version = "=2.0.0-rc.25", features = ["derive", "chrono", "indexmap"] }
 specta-typescript = "0.0.12"
 tauri-specta = { version = "=2.0.0-rc.25", features = ["typescript"] }
 

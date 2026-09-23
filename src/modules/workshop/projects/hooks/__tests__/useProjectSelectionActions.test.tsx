@@ -22,6 +22,9 @@ function project(name: string): WorkshopProject {
     layers: [],
     thumbnailPath: null,
     lastModified: "2026-08-21T21:14:02Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "project-id",
   };
 }
 

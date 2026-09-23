@@ -76,7 +76,7 @@ const projects = [
     name: "Settings Demo",
     path: "Someone",
     icon: null,
-    target: { kind: "project", name: "settings-demo" },
+    target: { kind: "project", id: "settings-demo" },
   }),
 ];
 

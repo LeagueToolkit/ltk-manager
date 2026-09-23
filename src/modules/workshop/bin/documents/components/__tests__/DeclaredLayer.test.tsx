@@ -37,6 +37,9 @@ const PROJECT: WorkshopProject = {
   ],
   thumbnailPath: null,
   lastModified: "2026-09-21T10:00:00Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-jade-teemo",
 } as WorkshopProject;
 
 const DECLARED: DeclaredState = {

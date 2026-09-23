@@ -20,6 +20,9 @@ function project(overrides: Partial<WorkshopProject> = {}): WorkshopProject {
     layers: [],
     thumbnailPath: null,
     lastModified: "2026-08-21T21:14:02Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "id-charizard-smolder",
     ...overrides,
   };
 }
@@ -53,14 +56,14 @@ describe("projectRow", () => {
     expect(row.name).not.toContain("-");
   });
 
-  it("targets the slug the route takes rather than the title", () => {
+  it("targets the id the route takes rather than the title", () => {
     expect(projectRow(project()).target).toEqual({
       kind: "project",
-      name: "charizard-smolder",
+      id: "id-charizard-smolder",
     });
   });
 
-  it("keys the row by the slug, which is unique across the workshop", () => {
-    expect(projectRow(project()).id).toBe("project:charizard-smolder");
+  it("keys the row by the id, which is unique across the workshop", () => {
+    expect(projectRow(project()).id).toBe("project:id-charizard-smolder");
   });
 });
