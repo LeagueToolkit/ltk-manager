@@ -900,7 +900,7 @@ separators do not carry.
 | Card              | Rows | Verdict                                                      |
 | ----------------- | ---- | ------------------------------------------------------------ |
 | League of Legends | 4    | Two groups. It draws a `Separator` today, per the count test |
-| Startup and tray  | 6    | Two groups. Renamed from `System Tray & Autostart`           |
+| Startup and tray  | 7    | Three groups. Renamed from `System Tray & Autostart`         |
 | Import            | -    | An action card, and not a row list                           |
 
 The tab goes single-column. `Startup and tray` runs the full width once it has groups, which leaves
@@ -920,6 +920,7 @@ Card `Startup and tray`:
 | ------- | ---------------------------------------------------------------------------------------------------------- |
 | Startup | Auto run, and its dependent Start in tray unless update available. Always start patcher at launch. Open on |
 | Tray    | Minimize to system tray, Start minimized to tray                                                           |
+| Updates | Download updates automatically                                                                             |
 
 ### The rest
 

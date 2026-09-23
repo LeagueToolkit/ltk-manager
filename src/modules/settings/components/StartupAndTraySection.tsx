@@ -1,7 +1,9 @@
 import { MonitorIcon } from "@phosphor-icons/react";
 
 import { SectionCard, SegmentedControl, Switch } from "@/components";
+import { m } from "@/i18n";
 import type { OpenOn, Settings } from "@/lib/tauri";
+import { discardDownload } from "@/modules/updater";
 
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
@@ -18,6 +20,11 @@ interface StartupAndTraySectionProps {
 }
 
 export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectionProps) {
+  const saveAutoDownload = (checked: boolean) => {
+    onSave({ ...settings, autoDownloadUpdates: checked });
+    if (!checked) void discardDownload();
+  };
+
   return (
     <SectionCard title="Startup and tray" icon={<MonitorIcon className="h-5 w-5" />}>
       <SettingGroup id="general.startup" title="Startup">
@@ -91,6 +98,16 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
               checked={settings.startInTray}
               onCheckedChange={(checked) => onSave({ ...settings, startInTray: checked })}
             />
+          }
+        />
+      </SettingGroup>
+
+      <SettingGroup id="general.updates" title={m.settings_updates_title()}>
+        <SettingRow
+          setting="autoDownloadUpdates"
+          description={m.settings_updates_auto_download_description()}
+          control={
+            <Switch checked={settings.autoDownloadUpdates} onCheckedChange={saveAutoDownload} />
           }
         />
       </SettingGroup>

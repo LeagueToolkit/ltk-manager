@@ -1,3 +1,4 @@
+export { discardDownload } from "./discardDownload";
 export { downloadUpdate } from "./downloadUpdate";
 export { updaterKeys } from "./keys";
 export { stripReleasePreamble } from "./releaseNotes";

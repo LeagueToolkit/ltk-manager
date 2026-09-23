@@ -74,7 +74,8 @@ function settled(promise: Promise<unknown>): Promise<void> {
 
 function RootLayout() {
   const { data: appInfo } = useAppInfo();
-  useUpdateCheck();
+  const { data: settings } = useSettings();
+  useUpdateCheck({ autoDownload: settings?.autoDownloadUpdates === true });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -114,7 +115,6 @@ function RootLayout() {
   }, [searchObjects]);
 
   const updateAtLaunch = useUpdaterFoundAtLaunch();
-  const { data: settings } = useSettings();
 
   useEffect(() => {
     if (updateAtLaunch && settings?.startInTrayUnlessUpdate) {
