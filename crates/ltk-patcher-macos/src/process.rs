@@ -136,18 +136,69 @@ impl Process {
     }
 
     /// The runtime load address of the main image (its ASLR slide plus the
-    /// file base), read from the process's first VM region.
+    /// file base).
+    ///
+    /// cslol assumes the very first VM region is the main image's `__TEXT` and
+    /// subtracts the file base. That is fragile: `__PAGEZERO` (a 4 GiB
+    /// unreadable guard at address 0) is also a region, and whether
+    /// `mach_vm_region_recurse` yields it first varies by OS version. Instead we
+    /// walk regions and take the first readable one whose bytes start with a
+    /// 64-bit Mach-O magic — that is the main executable's `__TEXT`.
     pub fn base(&mut self) -> Result<u64> {
         if let Some(base) = self.base {
             return Ok(base);
         }
+        const MH_MAGIC_64: u32 = 0xFEED_FACF;
+        const MH_CIGAM_64: u32 = 0xCFFA_EDFE;
+
+        let mut address: mach_vm_address_t = 0;
+        for _ in 0..4096 {
+            let mut size: mach_vm_size_t = 0;
+            let mut nesting_depth: u32 = 0;
+            let mut info = vm_region_submap_info_64::default();
+            let mut count: mach2::message::mach_msg_type_number_t =
+                (std::mem::size_of::<vm_region_submap_info_64>() / std::mem::size_of::<u32>())
+                    as u32;
+            let kr = unsafe {
+                mach_vm_region_recurse(
+                    self.task,
+                    &mut address,
+                    &mut size,
+                    &mut nesting_depth,
+                    &mut info as *mut _ as *mut i32,
+                    &mut count,
+                )
+            };
+            if kr != KERN_SUCCESS {
+                return Err(ProcessError::Region(kr));
+            }
+
+            if let Ok(bytes) = self.read(address, 4) {
+                let magic = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+                if (magic == MH_MAGIC_64 || magic == MH_CIGAM_64) && address >= IMAGE_FILE_BASE {
+                    let base = address - IMAGE_FILE_BASE;
+                    self.base = Some(base);
+                    return Ok(base);
+                }
+            }
+
+            address = match address.checked_add(size) {
+                Some(next) if next > address => next,
+                _ => break,
+            };
+        }
+        Err(ProcessError::Region(0))
+    }
+
+    /// The raw runtime address of the process's first VM region, and the base
+    /// cslol's simpler heuristic would have derived from it. Diagnostic only.
+    pub fn first_region_base(&self) -> Result<(u64, u64)> {
         let mut address: mach_vm_address_t = 0;
         let mut size: mach_vm_size_t = 0;
         let mut nesting_depth: u32 = 0;
         let mut info = vm_region_submap_info_64::default();
         let mut count: mach2::message::mach_msg_type_number_t =
-            (std::mem::size_of::<vm_region_submap_info_64>()
-                / std::mem::size_of::<u32>()) as u32;
+            (std::mem::size_of::<vm_region_submap_info_64>() / std::mem::size_of::<u32>()) as u32;
         let kr = unsafe {
             mach_vm_region_recurse(
                 self.task,
@@ -161,9 +212,7 @@ impl Process {
         if kr != KERN_SUCCESS {
             return Err(ProcessError::Region(kr));
         }
-        let base = address - IMAGE_FILE_BASE;
-        self.base = Some(base);
-        Ok(base)
+        Ok((address, address.wrapping_sub(IMAGE_FILE_BASE)))
     }
 
     /// Add the runtime slide to a file vmaddr.

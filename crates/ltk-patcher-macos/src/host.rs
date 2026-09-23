@@ -41,6 +41,27 @@ pub fn serve(input: impl BufRead + Send + 'static, output: Box<dyn Write + Send>
 /// Executable-path suffix identifying a running League process.
 const GAME_SUFFIX: &str = "/LeagueofLegends";
 
+/// Where the host records what it resolved and wrote, so a crash can be
+/// diagnosed after the fact. World-readable so the (root) worker's lines are
+/// visible to the user who launched the app.
+const DIAG_LOG: &str = "/tmp/ltk_patcher_host.log";
+
+/// Append one timestamped line to the diagnostic log (best effort).
+fn diag(line: &str) {
+    use std::io::Write;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(DIAG_LOG)
+    {
+        let _ = writeln!(f, "[{stamp}] {line}");
+    }
+}
+
 /// Hook flag bits, matching `ltk-manager-core`'s `patcher::host::hook_flags`.
 const FLAG_DISABLE_VERIFY: u32 = 1;
 const FLAG_DISABLE_FILE: u32 = 2;
@@ -181,7 +202,16 @@ fn run_session(
         }
     };
 
-    if let Err(e) = patch::scan_and_patch(&mut process, &config.prefix, options_from_flags(config.flags)) {
+    let mode = patch::PatchMode::from_env();
+    diag(&format!("=== session: game pid={pid}, mode={mode:?} ==="));
+    let mut log = |line: String| {
+        diag(&line);
+        emitter.dll(pid, "info", &format!("macpatch: {line}"));
+    };
+    let result = patch::scan_and_patch(&mut process, &config.prefix, options_from_flags(config.flags), mode, &mut log);
+    drop(log);
+    if let Err(e) = result {
+        diag(&format!("patch FAILED: {e}"));
         emitter.status(State::Failed, &e.to_string());
         *scanning = false;
         return;

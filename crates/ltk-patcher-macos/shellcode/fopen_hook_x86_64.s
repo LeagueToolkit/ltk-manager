@@ -5,12 +5,11 @@
 
 .set buffer_size, 0x200
 
-# Register assignments:
-# %r12 = filename
-# %r13 = mode  
-# %r14 = filename_len
+# %r12 = filename, %r13 = mode, %r14 = filename_len
+# The data region (fopen pointer + prefix) is reached through the absolute
+# pointer baked into Ldata_ptr at the end of the shellcode.
 
-.p2align 8
+.p2align 4
 _fopen_hook_shellcode_beg:
 Lsetup:
     push    %rbp
@@ -19,51 +18,52 @@ Lsetup:
     push    %r13
     push    %r14
     sub     $buffer_size, %rsp
-    mov     %rdi, %r12              # filename = arg0
-    mov     %rsi, %r13              # mode = arg1
+    mov     %rdi, %r12
+    mov     %rsi, %r13
 
 Lcheck_args_not_null:
-    test    %r12, %r12              # if (!filename)
+    test    %r12, %r12
     je      Lcall_with_filename
-    test    %r13, %r13              # if (!mode)
+    test    %r13, %r13
     je      Lcall_with_filename
 
 Lcheck_mode_eq_rb:
-    cmpb    $'r', (%r13)            # if (mode[0] != 'r')
+    cmpb    $'r', (%r13)
     jne     Lcall_with_filename
-    cmpb    $'b', 1(%r13)           # if (mode[1] != 'b')
+    cmpb    $'b', 1(%r13)
     jne     Lcall_with_filename
-    cmpb    $0, 2(%r13)             # if (mode[2] != '\0')
+    cmpb    $0, 2(%r13)
     jne     Lcall_with_filename
 
 Lget_filename_length:
-    xor     %r14, %r14              # filename_len = 0
-    mov     %r12, %rdi              # ptr = filename
+    xor     %r14, %r14
+    mov     %r12, %rdi
     Lget_filename_length_continue:
         movzbl  (%rdi), %eax
         test    %al, %al
         je      Lget_filename_length_break
-        inc     %r14                # filename_len++
+        inc     %r14
         inc     %rdi
-        cmp     $0x80, %r14         # if (filename_len >= 128)
+        cmp     $0x80, %r14
         jge     Lcall_with_filename
         jmp     Lget_filename_length_continue
 Lget_filename_length_break:
 
 Lcheck_suffix:
-    cmp     $7, %r14                # if (filename_len < 7) // strlen(".client")
+    cmp     $7, %r14
     jl      Lcall_with_filename
 
-    lea     (%r12, %r14, 1), %rdi   # ptr = filename + filename_len - 7
+    lea     (%r12, %r14, 1), %rdi
     sub     $7, %rdi
-    mov     (%rdi), %rax            # load 8 bytes
-    movabs  $0x00746E65696C632E, %rcx   # ".client\0" in little-endian
+    mov     (%rdi), %rax
+    movabs  $0x00746E65696C632E, %rcx   # ".client\0"
     cmp     %rcx, %rax
     jne     Lcall_with_filename
 
 Lwrite_prefix:
-    mov     %rsp, %rdi              # dst = buffer
-    lea     Lprefix(%rip), %rsi     # src = prefix
+    mov     %rsp, %rdi                  # dst = buffer
+    mov     Ldata_ptr(%rip), %rsi       # rsi = data region address
+    add     $8, %rsi                    # src = data + 8 = prefix string
     Lwrite_prefix_continue:
         lodsb
         stosb
@@ -71,8 +71,8 @@ Lwrite_prefix:
         jne     Lwrite_prefix_continue
 
 Lwrite_filename:
-    dec     %rdi                    # dst = buffer[strlen(buffer)]
-    mov     %r12, %rsi              # src = filename
+    dec     %rdi
+    mov     %r12, %rsi
     Lwrite_filename_continue:
         lodsb
         stosb
@@ -80,18 +80,20 @@ Lwrite_filename:
         jne     Lwrite_filename_continue
 
 Lcall_with_buffer:
-    mov     %rsp, %rdi              # arg0 = buffer
-    mov     %r13, %rsi              # arg1 = mode
-    mov     Lfopen_org_ref(%rip), %rax
-    call    *(%rax)                 # Stack is 16-byte aligned here
+    mov     %rsp, %rdi
+    mov     %r13, %rsi
+    mov     Ldata_ptr(%rip), %rax       # rax = data region address
+    mov     (%rax), %rax                # rax = *(data) = &fopen (GOT addr)
+    call    *(%rax)
     test    %rax, %rax
     jne     Lreturn
 
 Lcall_with_filename:
-    mov     %r12, %rdi              # arg0 = filename
-    mov     %r13, %rsi              # arg1 = mode
-    mov     Lfopen_org_ref(%rip), %rax
-    call    *(%rax)                 # Stack is 16-byte aligned here
+    mov     %r12, %rdi
+    mov     %r13, %rsi
+    mov     Ldata_ptr(%rip), %rax
+    mov     (%rax), %rax
+    call    *(%rax)
 
 Lreturn:
     add     $buffer_size, %rsp
@@ -101,11 +103,7 @@ Lreturn:
     pop     %rbp
     ret
 
-.p2align 8
+.p2align 3
+Ldata_ptr:
+    .quad   0x1122334455667788
 _fopen_hook_shellcode_end:
-
-Lfopen_org_ref:
-    .quad   0x11223344556677
-
-Lprefix:
-    .quad   0x11223344556677

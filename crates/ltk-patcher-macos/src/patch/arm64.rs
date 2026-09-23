@@ -40,8 +40,15 @@ pub fn find_wad_verify(text: &[u8], text_addr: u64) -> Option<u64> {
     Some((bl_pc as i64 + offset * 4) as u64)
 }
 
-/// Encode `adrp x16, page ; ldr x16, [x16, off] ; br x16` so the rewritten
-/// `fopen` stub loads the shellcode pointer from `to` and jumps to it.
+/// Encode `adrp x16, page ; add x16, x16, #lo12 ; br x16` — a *direct* branch
+/// from the rewritten `fopen` stub to `to` (the shellcode address).
+///
+/// A direct branch replaces cslol's load-a-pointer-and-branch, which encodes
+/// the pointer slot's offset in a 64-bit `LDR` scaled by 8 — and so silently
+/// truncates it when the slot is not 8-aligned. `wad_verify` on shipping builds
+/// is only 4-aligned, so its `+8` pointer slot is unaligned and that stub jumps
+/// through the wrong address. `ADD` has no alignment constraint, so branching
+/// straight to the shellcode avoids the whole problem.
 pub fn import_stub(from: u64, to: u64) -> Result<Vec<u8>, PatchError> {
     let page_diff = ((to & !0xFFF) as i64 - (from & !0xFFF) as i64) >> 12;
     if !(-0x10_0000..=0xF_FFFF).contains(&page_diff) {
@@ -52,12 +59,12 @@ pub fn import_stub(from: u64, to: u64) -> Result<Vec<u8>, PatchError> {
     let immlo = (imm21 & 0x3) << 29;
     let immhi = ((imm21 >> 2) & 0x7_FFFF) << 5;
     let adrp: u32 = 0x9000_0010 | immhi | immlo;
-    let ldr: u32 = 0xF940_0210 | (((to & 0xFFF) >> 3) as u32) << 10;
+    let add: u32 = 0x9100_0210 | (((to & 0xFFF) as u32) << 10);
     let br: u32 = 0xD61F_0200;
 
     let mut out = Vec::with_capacity(12);
     out.extend_from_slice(&adrp.to_le_bytes());
-    out.extend_from_slice(&ldr.to_le_bytes());
+    out.extend_from_slice(&add.to_le_bytes());
     out.extend_from_slice(&br.to_le_bytes());
     Ok(out)
 }
@@ -83,27 +90,30 @@ mod tests {
         assert_eq!(found, bl_pc - 32);
     }
 
-    /// The stub encoding must round-trip through the same adrp/ldr math the
-    /// Mach-O reader uses to decode `__stubs`.
+    /// The direct-branch stub must resolve back to `to` — including for an
+    /// unaligned target, which the old LDR-based stub could not encode.
     #[test]
-    fn import_stub_round_trips() {
-        let from = 0x1_0000_8000u64;
-        let to = 0x1_0000_9008u64;
-        let bytes = import_stub(from, to).unwrap();
-        let adrp = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
-        let ldr = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+    fn import_stub_direct_branch_round_trips() {
+        for to in [0x1_0000_9008u64, 0x1_0168_7464u64 /* unaligned +4 */] {
+            let from = 0x1_0000_8000u64;
+            let bytes = import_stub(from, to).unwrap();
+            let adrp = u32::from_le_bytes(bytes[0..4].try_into().unwrap());
+            let add = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+            let br = u32::from_le_bytes(bytes[8..12].try_into().unwrap());
 
-        let immlo = ((adrp & 0x6000_0000) >> 29) as u64;
-        let immhi = ((adrp & 0x00FF_FFE0) >> 5) as u64;
-        let imm = (immhi << 2) | immlo;
-        let sign = if imm & 0x10_0000 != 0 {
-            0xFFFF_FFFF_FFE0_0000u64
-        } else {
-            0
-        };
-        let relative = (sign | imm) << 12;
-        let page = from.wrapping_add(relative) & !0xFFF;
-        let page_offset = (((ldr >> 10) & 0xFFF) as u64) << 3;
-        assert_eq!(page + page_offset, to);
+            let immlo = ((adrp & 0x6000_0000) >> 29) as u64;
+            let immhi = ((adrp & 0x00FF_FFE0) >> 5) as u64;
+            let imm = (immhi << 2) | immlo;
+            let sign = if imm & 0x10_0000 != 0 {
+                0xFFFF_FFFF_FFE0_0000u64
+            } else {
+                0
+            };
+            let relative = (sign | imm) << 12;
+            let page = from.wrapping_add(relative) & !0xFFF;
+            let add_imm = ((add >> 10) & 0xFFF) as u64;
+            assert_eq!(page + add_imm, to, "target {to:#x}");
+            assert_eq!(br, 0xD61F_0200);
+        }
     }
 }

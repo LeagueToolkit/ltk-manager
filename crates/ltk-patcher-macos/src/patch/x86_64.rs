@@ -34,18 +34,19 @@ pub fn find_wad_verify(text: &[u8], text_addr: u64) -> Option<u64> {
     Some((call_end as i64 + disp) as u64)
 }
 
-/// Encode `jmp [rip + rel32]` so the rewritten `fopen` stub jumps through the
-/// pointer stored at `to`.
+/// Encode `jmp rel32 ; nop` — a *direct* relative branch from the rewritten
+/// `fopen` stub to `to` (the shellcode address), filling the 6-byte stub.
 pub fn import_stub(from: u64, to: u64) -> Result<Vec<u8>, PatchError> {
-    let offset = to as i64 - (from as i64 + 6);
+    // `E9 rel32` is 5 bytes; rel is relative to the end of that instruction.
+    let offset = to as i64 - (from as i64 + 5);
     if offset < i32::MIN as i64 || offset > i32::MAX as i64 {
         return Err(PatchError::StubOffsetTooBig);
     }
     let rel = offset as i32 as u32;
     let mut out = Vec::with_capacity(6);
-    out.push(0xFF);
-    out.push(0x25);
+    out.push(0xE9);
     out.extend_from_slice(&rel.to_le_bytes());
+    out.push(0x90); // nop, padding the 6-byte stub
     Ok(out)
 }
 
@@ -71,12 +72,13 @@ mod tests {
     }
 
     #[test]
-    fn import_stub_encodes_rip_relative_jump() {
+    fn import_stub_encodes_direct_relative_jump() {
         let from = 0x1_0000_4000u64;
         let to = 0x1_0000_5008u64;
         let bytes = import_stub(from, to).unwrap();
-        assert_eq!(&bytes[0..2], &[0xFF, 0x25]);
-        let rel = i32::from_le_bytes(bytes[2..6].try_into().unwrap()) as i64;
-        assert_eq!(from as i64 + 6 + rel, to as i64);
+        assert_eq!(bytes[0], 0xE9);
+        assert_eq!(bytes[5], 0x90);
+        let rel = i32::from_le_bytes(bytes[1..5].try_into().unwrap()) as i64;
+        assert_eq!(from as i64 + 5 + rel, to as i64);
     }
 }

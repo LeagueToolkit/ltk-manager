@@ -18,10 +18,13 @@ mod x86_64;
 #[cfg(target_arch = "x86_64")]
 use x86_64 as arch;
 
-/// Size of the copied `fopen` hook shellcode; the pointer and prefix follow it.
-pub const FOPEN_HOOK_LEN: usize = 0x100;
-/// Max overlay prefix length the shellcode's fixed buffer holds (with the NUL).
+/// Max overlay prefix length the shellcode's fixed stack buffer holds, with the
+/// NUL. The data region is `8` (the fopen pointer) plus this.
 pub const PREFIX_MAX: usize = 0x100;
+
+/// The shellcode ends with an 8-byte `.quad` literal (`Ldata_ptr`) that we patch
+/// to the absolute address of the data region.
+const SHELLCODE_DATA_PTR_LEN: usize = 8;
 
 extern "C" {
     static fopen_hook_shellcode_beg: u8;
@@ -139,6 +142,48 @@ fn scan(process: &mut Process) -> Result<Targets, PatchError> {
     })
 }
 
+/// Which writes to apply. Lets us bisect a crash: `VerifyOnly` writes just the
+/// `wad_verify` override, `FileOnly` just the `fopen` redirect, `Probe` writes
+/// nothing (read-only, for confirming resolution on a live process).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PatchMode {
+    Full,
+    VerifyOnly,
+    FileOnly,
+    Probe,
+    /// Full machinery, but with an empty overlay prefix so the shellcode opens
+    /// every file at its original path — no mods, no redirection. Isolates the
+    /// hook mechanism (allocated executable shellcode + stub redirect) from the
+    /// redirected content: if this loads, the mechanism works and the crash is
+    /// in the served WADs; if it crashes, the mechanism itself is the problem.
+    Passthrough,
+}
+
+impl PatchMode {
+    /// The requested mode, from the env var `LTK_PATCH_MODE` or, failing that,
+    /// the file `/tmp/ltk_patch_mode`. The file makes the mode selectable
+    /// without relaunching the app from a shell (LaunchServices drops env vars).
+    pub fn from_env() -> Self {
+        let from_env = std::env::var("LTK_PATCH_MODE").ok();
+        let raw = from_env.or_else(|| {
+            std::fs::read_to_string("/tmp/ltk_patch_mode")
+                .ok()
+                .map(|s| s.trim().to_string())
+        });
+        match raw.as_deref() {
+            Some("verify") => PatchMode::VerifyOnly,
+            Some("file") => PatchMode::FileOnly,
+            Some("probe") => PatchMode::Probe,
+            Some("passthrough") => PatchMode::Passthrough,
+            _ => PatchMode::Full,
+        }
+    }
+}
+
+fn hexdump(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect::<Vec<_>>().join(" ")
+}
+
 /// Write the shellcode, the `wad_verify` override, and the redirected `fopen`
 /// stub into the process.
 fn apply(
@@ -146,63 +191,125 @@ fn apply(
     targets: &Targets,
     prefix: &[u8],
     options: PatchOptions,
+    mode: PatchMode,
+    log: &mut dyn FnMut(String),
 ) -> Result<(), PatchError> {
+    let base = process.base()?;
+    log(format!("image base = {base:#x} (slide {base:#x} - 0x100000000 = {:#x})", base as i64 - 0x1_0000_0000));
+    if let Ok((raw, naive)) = process.first_region_base() {
+        log(format!("first VM region addr = {raw:#x}; cslol-naive base would be {naive:#x}"));
+    }
+
     let ptr_wad_verify = process.rebase(targets.off_wad_verify)?;
     let ptr_fopen_ptr = process.rebase(targets.off_fopen_ptr)?;
     let ptr_fopen_stub = process.rebase(targets.off_fopen_stub)?;
+    log(format!(
+        "targets: wad_verify off={:#x} -> {ptr_wad_verify:#x}; fopen_ptr off={:#x} -> {ptr_fopen_ptr:#x}; fopen_stub off={:#x} -> {ptr_fopen_stub:#x}",
+        targets.off_wad_verify, targets.off_fopen_ptr, targets.off_fopen_stub
+    ));
 
-    // The file redirect and the verify bypass share one trampoline: the
-    // redirected `fopen` stub jumps through an 8-byte slot that must sit within
-    // adrp range of the stub, so it reuses the bytes right after `wad_verify`'s
-    // patched prologue. That means serving modded files always overwrites
-    // `wad_verify` too — the same coupling cslol relies on.
-    if !options.disable_file {
-        // Shellcode payload: [shellcode 0x100][fopen_org_ptr u64][prefix ..].
-        let ptr_fopen_hook = process.allocate((FOPEN_HOOK_LEN + 8 + PREFIX_MAX) as u64)?;
+    // Read back what is really there now, to confirm we resolved live memory to
+    // the expected code (the wad_verify prologue and the fopen stub).
+    match process.read(ptr_wad_verify, 16) {
+        Ok(b) => log(format!("wad_verify now: {}", hexdump(&b))),
+        Err(e) => log(format!("wad_verify read failed: {e}")),
+    }
+    match process.read(ptr_fopen_stub, 12) {
+        Ok(b) => log(format!("fopen_stub now: {}", hexdump(&b))),
+        Err(e) => log(format!("fopen_stub read failed: {e}")),
+    }
+    match process.read(ptr_fopen_ptr, 8) {
+        Ok(b) => log(format!("fopen_ptr value now: {}", hexdump(&b))),
+        Err(e) => log(format!("fopen_ptr read failed: {e}")),
+    }
 
-        let mut payload = vec![0u8; FOPEN_HOOK_LEN + 8 + PREFIX_MAX];
-        payload[..FOPEN_HOOK_LEN].copy_from_slice(shellcode());
-        payload[FOPEN_HOOK_LEN..FOPEN_HOOK_LEN + 8].copy_from_slice(&ptr_fopen_ptr.to_le_bytes());
-        payload[FOPEN_HOOK_LEN + 8..FOPEN_HOOK_LEN + 8 + prefix.len()].copy_from_slice(prefix);
+    if mode == PatchMode::Probe {
+        log("probe mode: no writes performed".to_string());
+        return Ok(());
+    }
 
-        process.mark_writable(ptr_fopen_hook, payload.len() as u64)?;
-        process.write(ptr_fopen_hook, &payload)?;
-        process.mark_executable(ptr_fopen_hook, payload.len() as u64)?;
+    let want_file = !options.disable_file && mode != PatchMode::VerifyOnly;
+    let want_verify_only = mode == PatchMode::VerifyOnly
+        || (options.disable_file && !options.disable_verify);
 
-        // wad_verify payload: [return-true prologue][fopen_hook_ptr u64].
-        let mut wad_payload = arch::wad_verify_payload().to_vec();
-        wad_payload.extend_from_slice(&ptr_fopen_hook.to_le_bytes());
+    // macOS 27 / Apple Silicon refuses to execute freshly `mach_vm_allocate`d
+    // memory, so the shellcode cannot live in an allocated region. It goes into
+    // existing signed `__text` instead — the dead body of `wad_verify`, right
+    // after the return-true prologue we write over its entry. The `fopen`
+    // pointer and the overlay prefix are plain *data*, which allocated memory
+    // holds fine, and the shellcode reads them through an absolute pointer we
+    // patch into it. The `fopen` stub is redirected with a direct branch to the
+    // shellcode (no unaligned pointer slot).
+    let prologue = arch::wad_verify_payload();
+    if want_file {
+        let sc = shellcode();
+        let data_ptr_off = sc.len() - SHELLCODE_DATA_PTR_LEN;
+
+        // Passthrough uses an empty prefix, so the shellcode runs but opens
+        // every path unchanged — the hook mechanism without the redirection.
+        let eff_prefix: &[u8] = if mode == PatchMode::Passthrough { &[] } else { prefix };
+        if mode == PatchMode::Passthrough {
+            log("passthrough: empty prefix, files open unredirected".to_string());
+        }
+
+        // Data region (read-only data, not executed): [fopen_ptr u64][prefix..].
+        let data_region = process.allocate((8 + PREFIX_MAX) as u64)?;
+        let mut data = vec![0u8; 8 + PREFIX_MAX];
+        data[..8].copy_from_slice(&ptr_fopen_ptr.to_le_bytes());
+        data[8..8 + eff_prefix.len()].copy_from_slice(eff_prefix);
+        process.write(data_region, &data)?;
+        log(format!("wrote data region at {data_region:#x} (fopen_ptr + prefix)"));
+
+        // The shellcode, with its trailing Ldata_ptr literal pointed at the data
+        // region, laid out after the return-true prologue inside wad_verify.
+        let mut shell = sc.to_vec();
+        shell[data_ptr_off..].copy_from_slice(&data_region.to_le_bytes());
+
+        let mut wad_payload = prologue.to_vec();
+        wad_payload.extend_from_slice(&shell);
+        let shellcode_addr = ptr_wad_verify + prologue.len() as u64;
 
         process.mark_writable(ptr_wad_verify, wad_payload.len() as u64)?;
         process.write(ptr_wad_verify, &wad_payload)?;
         process.mark_executable(ptr_wad_verify, wad_payload.len() as u64)?;
+        log(format!(
+            "wrote wad_verify: return-true + {}-byte shellcode into __text (shellcode @ {shellcode_addr:#x})",
+            shell.len()
+        ));
 
-        let jump_slot = ptr_wad_verify + arch::WAD_VERIFY_PROLOGUE_LEN as u64;
-        let stub = arch::import_stub(ptr_fopen_stub, jump_slot)?;
+        let stub = arch::import_stub(ptr_fopen_stub, shellcode_addr)?;
         process.mark_writable(ptr_fopen_stub, stub.len() as u64)?;
         process.write(ptr_fopen_stub, &stub)?;
         process.mark_executable(ptr_fopen_stub, stub.len() as u64)?;
-    } else if !options.disable_verify {
+        log(format!("redirected fopen stub -> shellcode ({})", hexdump(&stub)));
+    } else if want_verify_only {
         // No modded files, but still bypass the WAD signature check.
-        let wad_payload = arch::wad_verify_payload();
-        process.mark_writable(ptr_wad_verify, wad_payload.len() as u64)?;
-        process.write(ptr_wad_verify, wad_payload)?;
-        process.mark_executable(ptr_wad_verify, wad_payload.len() as u64)?;
+        process.mark_writable(ptr_wad_verify, prologue.len() as u64)?;
+        process.write(ptr_wad_verify, prologue)?;
+        process.mark_executable(ptr_wad_verify, prologue.len() as u64)?;
+        log("wrote + protected wad_verify override (verify-only)".to_string());
     }
 
+    log("patch applied".to_string());
     Ok(())
 }
 
-/// Scan the process and apply the patch.
+/// Scan the process and apply the patch, logging each step through `log`.
 pub fn scan_and_patch(
     process: &mut Process,
     prefix: &[u8],
     options: PatchOptions,
+    mode: PatchMode,
+    log: &mut dyn FnMut(String),
 ) -> Result<(), PatchError> {
     let got = shellcode().len();
-    if got != FOPEN_HOOK_LEN {
+    // The shellcode must fit in the dead body of `wad_verify` after the
+    // return-true prologue. On shipping builds that body is ~264 bytes; a
+    // miscompiled or oversized shellcode would overrun into the next function.
+    if got < 32 || got + arch::wad_verify_payload().len() > 272 {
         return Err(PatchError::ShellcodeMiscompiled { got });
     }
+    log(format!("patch mode = {mode:?}, arch cputype = {:#x}, shellcode = {got} bytes", arch::CPU_TYPE));
     let targets = scan(process)?;
-    apply(process, &targets, prefix, options)
+    apply(process, &targets, prefix, options, mode, log)
 }
