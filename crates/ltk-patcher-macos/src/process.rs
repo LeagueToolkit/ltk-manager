@@ -68,6 +68,16 @@ pub struct Process {
     path: String,
 }
 
+/// Whether `pid` has exited. Uses only the pid, so it works after the task
+/// port is gone (e.g. a patch thread abandoned mid-hang still holds the port).
+pub fn pid_exited(pid: u32) -> bool {
+    let ret = unsafe { libc::kill(pid as i32, 0) };
+    if ret == 0 {
+        return false;
+    }
+    io_errno() == libc::ESRCH
+}
+
 impl Drop for Process {
     fn drop(&mut self) {
         if self.task != MACH_PORT_NULL {
@@ -250,11 +260,7 @@ impl Process {
     /// Whether the process has exited. `kill(pid, 0)` probes for existence
     /// without sending a signal; `ESRCH` means the pid is gone.
     pub fn is_exited(&self) -> bool {
-        let ret = unsafe { libc::kill(self.pid as i32, 0) };
-        if ret == 0 {
-            return false;
-        }
-        io_errno() == libc::ESRCH
+        pid_exited(self.pid)
     }
 
     pub fn allocate(&self, size: u64) -> Result<u64> {

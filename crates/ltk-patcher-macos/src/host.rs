@@ -185,7 +185,7 @@ fn options_from_flags(flags: u32) -> PatchOptions {
 
 /// Patch one game process and wait for it to exit.
 fn run_session(
-    emitter: &Emitter,
+    emitter: &Arc<Emitter>,
     config: &Config,
     commands: &Receiver<Command>,
     pid: u32,
@@ -193,7 +193,7 @@ fn run_session(
 ) {
     emitter.status(State::Injecting, GAME_FOUND);
 
-    let mut process = match Process::open(pid) {
+    let process = match Process::open(pid) {
         Ok(p) => p,
         Err(e) => {
             emitter.status(State::Failed, &format!("open process: {e}"));
@@ -204,17 +204,40 @@ fn run_session(
 
     let mode = patch::PatchMode::from_env();
     diag(&format!("=== session: game pid={pid}, mode={mode:?} ==="));
-    let mut log = |line: String| {
-        diag(&line);
-        emitter.dll(pid, "info", &format!("macpatch: {line}"));
-    };
-    let result = patch::scan_and_patch(&mut process, &config.prefix, options_from_flags(config.flags), mode, &mut log);
-    drop(log);
-    if let Err(e) = result {
-        diag(&format!("patch FAILED: {e}"));
-        emitter.status(State::Failed, &e.to_string());
-        *scanning = false;
-        return;
+
+    // Patch on a watchdog thread. If the game exits mid-patch a mach call can
+    // block forever; without this, one such game freezes the host and every
+    // later game goes unpatched. On timeout we abandon the thread (it unblocks
+    // and drops the task port once the game is fully gone) and keep scanning.
+    let patch_emitter = Arc::clone(&emitter);
+    let prefix = config.prefix.clone();
+    let flags = config.flags;
+    let (done_tx, done_rx) = mpsc::channel::<Result<(), String>>();
+    std::thread::spawn(move || {
+        let mut process = process;
+        let mut log = |line: String| {
+            diag(&line);
+            patch_emitter.dll(pid, "info", &format!("macpatch: {line}"));
+        };
+        let result = patch::scan_and_patch(&mut process, &prefix, options_from_flags(flags), mode, &mut log);
+        let _ = done_tx.send(result.map_err(|e| e.to_string()));
+    });
+
+    match done_rx.recv_timeout(Duration::from_secs(20)) {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => {
+            diag(&format!("patch FAILED: {e}"));
+            emitter.status(State::Failed, &e);
+            *scanning = false;
+            return;
+        }
+        Err(_) => {
+            // Timed out: the game most likely exited while being patched. Keep
+            // scanning so the next game is caught.
+            diag(&format!("patch timed out for pid={pid} (game likely exited mid-patch); recovering"));
+            emitter.status(State::Injecting, SCANNING_FOR_GAME);
+            return;
+        }
     }
 
     emitter.status(State::Injected, "patched");
@@ -238,7 +261,7 @@ fn run_session(
             }
         }
 
-        if process.is_exited() {
+        if process::pid_exited(pid) {
             emitter.status(State::Exited, "game exit");
             return;
         }

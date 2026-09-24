@@ -196,9 +196,6 @@ fn apply(
 ) -> Result<(), PatchError> {
     let base = process.base()?;
     log(format!("image base = {base:#x} (slide {base:#x} - 0x100000000 = {:#x})", base as i64 - 0x1_0000_0000));
-    if let Ok((raw, naive)) = process.first_region_base() {
-        log(format!("first VM region addr = {raw:#x}; cslol-naive base would be {naive:#x}"));
-    }
 
     let ptr_wad_verify = process.rebase(targets.off_wad_verify)?;
     let ptr_fopen_ptr = process.rebase(targets.off_fopen_ptr)?;
