@@ -86,15 +86,15 @@ export function blendState(mode: BlendMode): BlendState {
 /**
  * The modes whose quads have to be drawn back to front.
  *
- * An additive, a min and a max blend are order-independent, so only the modes that read
+ * An additive, a min and a max blend are order-independent, and so is a subtract, which
+ * scales the target by `1 - src` and so multiplies. Only the modes that mix the source over
  * what is already in the target pay for the sort.
  */
 export function sortsBackToFront(mode: BlendMode): boolean {
   return (
     mode === BLEND_MODE.alpha ||
     mode === BLEND_MODE.premultipliedAlpha ||
-    mode === BLEND_MODE.targetAlpha ||
-    mode === BLEND_MODE.subtract
+    mode === BLEND_MODE.targetAlpha
   );
 }
 

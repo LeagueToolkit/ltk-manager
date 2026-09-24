@@ -75,6 +75,25 @@ describe("sampleShape", () => {
     expect(held.velocity[1]).toBeCloseTo(1, 6);
   });
 
+  it("applies a legacy shape's first turn first", () => {
+    /* +X turned about Z reaches +Y, which a turn about Y then leaves. The other order ends
+       on -Z. */
+    const sample = offsetOf({
+      kind: "legacy",
+      offset: flat(0, 0, 0),
+      translation: flat(0, 0, 0),
+      angles: [flat(90), flat(90)],
+      axes: [
+        [0, 0, 1],
+        [0, 1, 0],
+      ],
+    });
+
+    expect(sample.velocity[0]).toBeCloseTo(0, 6);
+    expect(sample.velocity[1]).toBeCloseTo(1, 6);
+    expect(sample.velocity[2]).toBeCloseTo(0, 6);
+  });
+
   it("lands a surface sphere on its radius and sends the velocity outward", () => {
     for (let seed = 1; seed < 20; seed += 1) {
       const held = offsetOf({ kind: "sphere", radius: 50, volume: false }, seed);
@@ -98,7 +117,6 @@ describe("sampleShape", () => {
     expect(inside).toBe(true);
   });
 
-  /* A small seed's first draws are small, so the spread is looked for across wide ones. */
   const WIDE = 0x1000193;
 
   it("lands a surface cylinder on its radius, its height running up from the emitter", () => {
@@ -124,16 +142,29 @@ describe("sampleShape", () => {
     expect(inside).toBe(true);
   });
 
-  it("lands a surface box on one of its side faces", () => {
+  it("lands a surface box on all six sides, its +Z face turned about Y and then Z", () => {
     const faces = new Set<string>();
-    for (let seed = 1; seed < 40; seed += 1) {
-      const held = offsetOf({ kind: "box", size: [1, 2, 3], volume: false }, seed);
-      expect(Math.max(Math.abs(held.at[0]), Math.abs(held.at[2]))).toBeCloseTo(3, 3);
-      faces.add(
-        Math.abs(held.at[0]) > 2.99 ? `x${Math.sign(held.at[0])}` : `z${Math.sign(held.at[2])}`,
-      );
+    for (let seed = 1; seed < 200; seed += 1) {
+      const sample = offsetOf({ kind: "box", size: [1, 2, 3], volume: false }, seed);
+      const axis = sample.at.findIndex((value) => Math.abs(Math.abs(value) - 3) < 1e-3);
+      expect(axis).toBeGreaterThanOrEqual(0);
+      faces.add(`${"xyz"[axis]}${Math.sign(sample.at[axis])}`);
     }
-    expect(faces.size).toBe(4);
+    expect(faces.size).toBe(6);
+  });
+
+  it("puts a surface sphere's poles on Z, turning about Y before Z", () => {
+    /* A point `(R cos a cos b, R cos a sin b, -R sin a)`: |z| averages 2/pi of the radius
+       and |y| (2/pi)^2 of it. */
+    let y = 0;
+    let z = 0;
+    for (let seed = 1; seed < 400; seed += 1) {
+      const sample = offsetOf({ kind: "sphere", radius: 1, volume: false }, seed);
+      y += Math.abs(sample.at[1]);
+      z += Math.abs(sample.at[2]);
+    }
+    expect(z / 399).toBeCloseTo(2 / Math.PI, 1);
+    expect(y / 399).toBeCloseTo((2 / Math.PI) ** 2, 1);
   });
 
   it("fills a volume box inside its size and turns nothing", () => {

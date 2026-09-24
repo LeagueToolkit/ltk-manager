@@ -22,6 +22,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     listIndex: index,
     name: `spark ${index}`,
     disabled: false,
+    culled: null,
     rate: flat(0),
     particleLifetime: flat(100),
     lifetime: null,

@@ -9,26 +9,28 @@ import type { DrawnEmitter } from "../../utils/definitions";
 import { useVfxTextures } from "../useVfxTextures";
 
 vi.mock("../../../../../preview/utils/assetRef", () => ({
-  previewUrl: (_asset: unknown, width?: number) => `https://asset.test/texture?w=${width}`,
+  previewUrl: (asset: { pathHash: string }, width?: number) =>
+    `https://asset.test/${asset.pathHash}?w=${width}`,
 }));
 
-const named = {
-  path: "texture.dds",
-  asset: { kind: "gameChunk", wad: "test", pathHash: "texture" },
-};
+function named(pathHash: string) {
+  return { path: `${pathHash}.dds`, asset: { kind: "gameChunk", wad: "test", pathHash } };
+}
+
+function emitterNaming(base: string, mult: string, color: string): EmitterModel {
+  return {
+    texture: named(base),
+    multTexture: named(mult),
+    colorTexture: named(color),
+    palette: null,
+    erosion: null,
+    distortion: null,
+    reflection: null,
+  } as unknown as EmitterModel;
+}
+
 const drawn = [
-  {
-    key: "emitter",
-    emitter: {
-      texture: named,
-      multTexture: named,
-      colorTexture: named,
-      palette: null,
-      erosion: null,
-      distortion: null,
-      reflection: null,
-    } as unknown as EmitterModel,
-  },
+  { key: "emitter", emitter: emitterNaming("base", "mult", "color") },
 ] as DrawnEmitter[];
 
 afterEach(() => {
@@ -70,4 +72,47 @@ it("does not start queued texture work after its preview is removed", async () =
   unmount();
   await act(async () => pending[0]!(new Texture<HTMLImageElement>()));
   expect(load).toHaveBeenCalledTimes(2);
+});
+
+it("loads a url once for every slot and emitter naming it", async () => {
+  const pending: ((texture: Texture<HTMLImageElement>) => void)[] = [];
+  const load = vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
+    pending.push(onLoad!);
+    return new Texture<HTMLImageElement>();
+  });
+  const shared = [
+    { key: "0", emitter: emitterNaming("spark", "spark", "spark") },
+    { key: "1", emitter: emitterNaming("spark", "spark", "spark") },
+  ] as DrawnEmitter[];
+  const { result } = renderHook(() => useVfxTextures(shared));
+  expect(load).toHaveBeenCalledOnce();
+
+  const spark = new Texture<HTMLImageElement>();
+  await act(async () => pending[0]!(spark));
+
+  expect(result.current.get("0")).toMatchObject({ base: spark, mult: spark, color: spark });
+  expect(result.current.get("1")).toMatchObject({ base: spark, mult: spark, color: spark });
+});
+
+it("keeps every texture across an edit that moves no asset", async () => {
+  const pending: ((texture: Texture<HTMLImageElement>) => void)[] = [];
+  const load = vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
+    pending.push(onLoad!);
+    return new Texture<HTMLImageElement>();
+  });
+  const { result, rerender } = renderHook(({ definitions }) => useVfxTextures(definitions), {
+    initialProps: { definitions: drawn },
+  });
+  await act(async () => {
+    for (const land of pending) land(new Texture<HTMLImageElement>());
+  });
+  const loaded = result.current.get("emitter");
+
+  const edited = [
+    { key: "emitter", emitter: emitterNaming("base", "mult", "color") },
+  ] as DrawnEmitter[];
+  rerender({ definitions: edited });
+
+  expect(load).toHaveBeenCalledTimes(3);
+  expect(result.current.get("emitter")).toBe(loaded);
 });

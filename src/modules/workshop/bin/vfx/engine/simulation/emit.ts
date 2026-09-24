@@ -87,7 +87,7 @@ export function emit(
        here, and the emitter's space stores what the integrator then moves. The whole
        local placement is turned by the spawn frame, and so is the birth velocity. */
     sampleShape(emitter.shape, rng, t01, chance, BORN);
-    const surface = step.surfaces?.get(emitter);
+    const surface = step.surfaces?.get(index);
     const onSurface = surface?.sample(state.age, rng, SURFACE_BIRTH) ?? false;
     if (onSurface) {
       for (let axis = 0; axis < 3; axis += 1) BORN.offset[axis] += SURFACE_BIRTH.position[axis];

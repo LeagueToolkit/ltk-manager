@@ -54,7 +54,7 @@ export function useVfxHost() {
   );
   const loaded = useQueries({
     queries: steps.map((clip) => viewportQueries.clip(clip.animation?.asset ?? null)),
-    combine: (results) => results.map((result) => result.data),
+    combine: clipData,
   });
   const mesh = useQuery(viewportQueries.mesh(model?.mesh?.asset ?? null));
   const skeleton = useQuery(viewportQueries.skeleton(model?.skeleton?.asset ?? null));
@@ -186,4 +186,9 @@ export function VfxHost({ host, children }: { readonly host: Host; readonly chil
       {children}
     </Character>
   );
+}
+
+/* Module scope, so the query keeps its combined result rather than a new array per render. */
+function clipData<T>(results: readonly { data: T }[]): T[] {
+  return results.map((result) => result.data);
 }

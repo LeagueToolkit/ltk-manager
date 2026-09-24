@@ -79,8 +79,7 @@ import { Notice } from "../../vfx/preview/components/Notice";
 import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
 import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
-import { distorts } from "../../vfx/rendering/utils/drawKind";
-import { fades } from "../../vfx/rendering/utils/softParticle";
+import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
 import { useSkinKeys } from "../hooks/useSkinKeys";
@@ -399,8 +398,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* The map's systems play whatever the skin's own switch says, and stay out of `loaded`,
      whose change is a seek of every effect the skin wears. */
   const played = [...(effects ? worn : []), ...mapParticles.map((group) => group.system)];
-  const warps = played.some((model) => model?.emitters.some(distorts) ?? false);
-  const softens = played.some((model) => model?.emitters.some(fades) ?? false);
+  const { warps, softens } = passesOf(played);
 
   /* A clip changing starts the pose and every idle effect over together, so an effect
      rides the clip from its first frame. The pose a preview mounts on keeps the time the

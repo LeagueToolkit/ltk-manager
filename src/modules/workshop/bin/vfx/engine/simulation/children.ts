@@ -598,7 +598,7 @@ function advance(child: Child, dt: number, now: number, lineage: Lineage): void 
     world: child.world.basis,
     stopped: child.stopped,
     pinned: lineage.pinned,
-    surfaces: lineage.surfaces,
+    surfaces: lineage.surfaces.get(child.path),
   };
   stepEmitters(child.pool, child.system, step, child.rng, child.states);
   child.children.step(child, child.system, dt, now);

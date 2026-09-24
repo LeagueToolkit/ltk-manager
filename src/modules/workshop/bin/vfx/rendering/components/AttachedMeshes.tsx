@@ -25,6 +25,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { distorts } from "../utils/drawKind";
+import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { DISTORTION_LAYER, PARTICLE_LAYER } from "../utils/frame";
 import { attachedMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
@@ -133,15 +134,18 @@ export function AttachedMeshes({ emitter, sources, samplers, rank, hidden }: Att
     }
   }, [slots, twins, rank, emitter]);
 
-  useFrame(() => {
+  useFrame((state) => {
+    const stamp = state.gl.info.render.frame;
     let used = 0;
     if (!hidden && !emitter.disabled) {
       for (const source of sources) {
         const pool = source.pool;
         const frame = frameOf(source, emitter);
         const time = frame.now;
-        for (let at = 0; at < pool.count && used < slots.length; at += 1) {
-          if (pool.emitter[at] !== emitter.index) continue;
+        const buckets = bucketsOf(pool, stamp);
+        const [first, last] = bucketRange(buckets, emitter.index);
+        for (let listed = first; listed < last && used < slots.length; listed += 1) {
+          const at = buckets.order[listed];
           const { mesh, material } = slots[used];
           const twin = twins[used];
           const uniforms = material.uniforms;

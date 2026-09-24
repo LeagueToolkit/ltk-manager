@@ -16,7 +16,8 @@ export class Rng {
   #state: number;
 
   constructor(seed: number) {
-    this.#state = (seed | 0) === 0 ? NONZERO : seed | 0;
+    const mixed = fmix32(seed | 0);
+    this.#state = mixed === 0 ? NONZERO : mixed;
   }
 
   /** The next draw, from zero inclusive to one exclusive. */
@@ -40,4 +41,20 @@ export class Rng {
     copy.#state = this.#state;
     return copy;
   }
+}
+
+/**
+ * MurmurHash3's 32-bit finaliser, which spreads neighbouring seeds across the whole state.
+ *
+ * A xorshift's first draws follow its seed's high bits, so seeds 1337 and 1338 would open
+ * on nearly the same value without it.
+ */
+function fmix32(value: number): number {
+  let mixed = value;
+  mixed ^= mixed >>> 16;
+  mixed = Math.imul(mixed, 0x85ebca6b);
+  mixed ^= mixed >>> 13;
+  mixed = Math.imul(mixed, 0xc2b2ae35);
+  mixed ^= mixed >>> 16;
+  return mixed | 0;
 }

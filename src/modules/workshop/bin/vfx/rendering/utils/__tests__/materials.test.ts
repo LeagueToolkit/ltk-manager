@@ -190,6 +190,7 @@ describe("sortsBackToFront", () => {
     expect(sortsBackToFront(BLEND_MODE.add)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.min)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.max)).toBe(false);
+    expect(sortsBackToFront(BLEND_MODE.subtract)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.none)).toBe(false);
   });
 });

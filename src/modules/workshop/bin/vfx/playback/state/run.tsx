@@ -262,8 +262,10 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
      span, changes the next frame rather than restarting the loop and dropping one. */
   const pace = useRef({ speed, loop, span });
   pace.current = { speed, loop, span };
+  /* An edit hands over a new system, and restarting the loop on it drops a frame of time. */
+  const loaded = system !== null;
   useEffect(() => {
-    if (!visible || !playing || system === null) return;
+    if (!visible || !playing || !loaded) return;
     let last: number | null = null;
     let frame = 0;
     const tick = (now: number) => {
@@ -279,7 +281,7 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [driver, playing, system, notify, visible]);
+  }, [driver, playing, loaded, notify, visible]);
 
   /* Written on the way out rather than as it changes, off the values the last render
      held, so the store hears one memory per tab rather than one per frame. */

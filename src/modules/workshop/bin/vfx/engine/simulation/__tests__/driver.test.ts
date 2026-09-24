@@ -35,6 +35,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     listIndex: 0,
     name: "smoke",
     disabled: false,
+    culled: null,
     rate: constant(20),
     particleLifetime: constant(1),
     lifetime: null,
@@ -294,32 +295,53 @@ describe("createDriver", () => {
     expect(driver.pool.velocity[born * 3 + 2]).toBeCloseTo(0, 3);
   });
 
-  it("starts over when an edit adds or removes an emitter", () => {
+  it("replays to the current phase when an edit adds or removes an emitter", () => {
+    const next = system(emitter(), emitter({ index: 1, listIndex: 1, name: "spark" }));
     const driver = run(system(emitter()), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
+    const phase = driver.phase;
 
-    driver.swap(system(emitter(), emitter({ index: 1, listIndex: 1, name: "spark" })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(driver.phase).toBeCloseTo(phase, 9);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
   });
 
-  it("starts over when an edit replaces one emitter of the same count", () => {
+  it("replays to the current phase when an edit replaces one emitter of the same count", () => {
     const spark = emitter({ index: 1, listIndex: 1, name: "spark" });
+    const next = system(emitter(), emitter({ index: 1, listIndex: 1, name: "ember" }));
     const driver = run(system(emitter(), spark), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.swap(system(emitter(), emitter({ index: 1, listIndex: 1, name: "ember" })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
   });
 
-  it("starts over when an emitter moves between the two lists", () => {
+  it("replays to the current phase when an emitter moves between the two lists", () => {
+    const next = system(emitter({ simple: true }));
     const driver = run(system(emitter()), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.swap(system(emitter({ simple: true })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
+  });
+
+  it("keeps the checkpoints across an edit to what only the draw reads", () => {
+    /* A play at 30 Hz writes checkpoints a 60 Hz replay from zero would not reproduce. */
+    const played = () => {
+      const driver = driverFor(system(emitter()), 3);
+      for (let at = 0; at < 90; at += 1) driver.advance(1 / 30);
+      return driver;
+    };
+    const plain = played();
+    plain.seek(plain.phase);
+    const edited = played();
+    edited.swap(system(emitter({ blendMode: 1 })));
+    edited.seek(edited.phase);
+    const replayed = driverFor(system(emitter()), 3);
+    replayed.seek(plain.phase);
+
+    expect(snapshot(edited.pool)).toEqual(snapshot(plain.pool));
+    expect(snapshot(edited.pool)).not.toEqual(snapshot(replayed.pool));
   });
 
   it("holds the phase when an edit shortens a looping run", () => {

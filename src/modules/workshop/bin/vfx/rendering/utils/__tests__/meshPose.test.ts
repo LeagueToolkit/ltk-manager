@@ -1,5 +1,5 @@
 import { Matrix4, Vector3 } from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createPose } from "@/modules/viewport";
 
@@ -21,6 +21,32 @@ describe("meshPose", () => {
 
     palette.write(1, 0);
     expect(Array.from(data.slice(32, 48))).toEqual(Array.from(data.slice(0, 16)));
+    palette.texture.dispose();
+  });
+
+  it("copies the row of a particle whose rounded age another particle of the frame has", () => {
+    const pose = createPose(SKELETON, CLIP);
+    const palette = meshPose(pose);
+    palette.write(0, 0.5);
+    const posed = vi.spyOn(pose, "worldInto");
+    palette.write(1, 0.5 + 1e-4);
+
+    const data = palette.texture.image.data as Float32Array;
+    const rowFloats = data.length / 512;
+    expect(posed).not.toHaveBeenCalled();
+    expect(Array.from(data.slice(rowFloats, 2 * rowFloats))).toEqual(
+      Array.from(data.slice(0, rowFloats)),
+    );
+    palette.texture.dispose();
+  });
+
+  it("uploads only the rows of the particles drawn", () => {
+    const palette = meshPose(createPose(SKELETON, CLIP));
+    palette.write(0, 0);
+    palette.write(1, 0.5);
+    palette.commit(2);
+
+    expect(palette.texture.updateRanges).toHaveLength(2);
     palette.texture.dispose();
   });
 

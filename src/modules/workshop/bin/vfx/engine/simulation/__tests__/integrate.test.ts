@@ -84,6 +84,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     listIndex: 0,
     name: "spark",
     disabled: false,
+    culled: null,
     rate: flat(0),
     particleLifetime: flat(100),
     lifetime: null,

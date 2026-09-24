@@ -6,7 +6,7 @@ import { analyticOffset } from "../utils/analyticDrag";
 import { identityInto, multiplyInto, standingInto, turnInto } from "../utils/basis";
 import type { Rng } from "../utils/Rng";
 import { sampleCurve } from "../utils/sampleCurve";
-import type { EmissionSurfaces } from "./emissionSurface";
+import type { SystemSurfaces } from "./emissionSurface";
 import { emit } from "./emit";
 import { applyFields, type NoiseClock, prepareFields, type SampledFields } from "./forceFields";
 import { age01, clamp01, life01, sampled, sampleScalar } from "./particleRead";
@@ -51,7 +51,8 @@ let MOTION = new Float32Array(0);
 
 /** One step, and where the rig had the system's origin while it ran. */
 export interface SystemStep extends Step {
-  readonly surfaces?: EmissionSurfaces;
+  /** The emitters of this system that emit from a loaded surface, by index. */
+  readonly surfaces?: SystemSurfaces;
   /** Where the origin stands at the end of the step, which is where a spawn lands. */
   readonly origin: Point;
   /** How far the origin travelled over the step. */

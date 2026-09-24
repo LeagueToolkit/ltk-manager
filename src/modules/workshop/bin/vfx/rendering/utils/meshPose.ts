@@ -9,13 +9,27 @@ export interface MeshPose {
   readonly source: Pose;
   readonly texture: DataTexture;
   write(instance: number, time: number): void;
+  /** Upload the rows of the first `instances` particles, which is all a draw of that many reads. */
+  commit(instances: number): void;
 }
 
-/** The pose palette shared by the solid, distortion and wireframe draws. */
+/** The step a particle's age is rounded to, so particles of one frame share one palette. */
+const POSE_STEP = 1 / 60;
+
+/** The most rows uploaded one by one, past which one upload of the whole texture is cheaper. */
+const RANGED_ROWS = 32;
+
+/**
+ * The pose palette shared by the solid, distortion and wireframe draws.
+ *
+ * One row per particle. A row whose rounded age another row of the frame already has is
+ * copied from it rather than posed again, and a commit uploads only the rows drawn.
+ */
 export function meshPose(pose: Pose): MeshPose {
   const { skeleton } = pose;
   const count = Math.max(1, skeleton.influences.length);
-  const data = new Float32Array(count * MESHES_PER_EMITTER * 16);
+  const rowFloats = count * 16;
+  const data = new Float32Array(rowFloats * MESHES_PER_EMITTER);
   const texture = new DataTexture(data, count * 4, MESHES_PER_EMITTER, RGBAFormat, FloatType);
 
   const world = new Float32Array(16);
@@ -23,22 +37,54 @@ export function meshPose(pose: Pose): MeshPose {
   const inverse = new Matrix4();
   const mirror = new Matrix4().makeScale(...AXIS_SIGN);
 
+  /* The row each rounded age of the frame was posed into, and the age each row has. */
+  const rowOf = new Map<number, number>();
+  const stepOf = new Float64Array(MESHES_PER_EMITTER).fill(Number.NaN);
+
+  function poseInto(instance: number, time: number): void {
+    for (let influence = 0; influence < count; influence += 1) {
+      const slot = skeleton.influences[influence];
+      if (slot === undefined) {
+        matrix.identity();
+      } else {
+        matrix.fromArray(pose.worldInto(slot, time, world));
+        matrix.multiply(inverse.fromArray(skeleton.joints[slot].inverseBind));
+        matrix.premultiply(mirror).multiply(mirror);
+      }
+
+      matrix.toArray(data, (instance * count + influence) * 16);
+    }
+  }
+
   return {
     source: pose,
     texture,
     write(instance, time) {
-      for (let influence = 0; influence < count; influence += 1) {
-        const slot = skeleton.influences[influence];
-        if (slot === undefined) {
-          matrix.identity();
-        } else {
-          matrix.fromArray(pose.worldInto(slot, time, world));
-          matrix.multiply(inverse.fromArray(skeleton.joints[slot].inverseBind));
-          matrix.premultiply(mirror).multiply(mirror);
-        }
+      if (instance === 0) rowOf.clear();
 
-        matrix.toArray(data, (instance * count + influence) * 16);
+      const step = Math.round(time / POSE_STEP);
+      const previous = stepOf[instance];
+      if (rowOf.get(previous) === instance) rowOf.delete(previous);
+      stepOf[instance] = step;
+
+      const row = rowOf.get(step);
+      if (row === undefined) {
+        poseInto(instance, step * POSE_STEP);
+        rowOf.set(step, instance);
+        return;
       }
+      if (row !== instance)
+        data.copyWithin(instance * rowFloats, row * rowFloats, (row + 1) * rowFloats);
+    },
+    commit(instances) {
+      if (instances <= 0) return;
+
+      texture.clearUpdateRanges();
+      if (instances <= RANGED_ROWS) {
+        for (let row = 0; row < instances; row += 1)
+          texture.addUpdateRange(row * rowFloats, rowFloats);
+      }
+      texture.needsUpdate = true;
     },
   };
 }

@@ -26,11 +26,12 @@ import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend
 import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts, drawsAsQuad, facesTheCamera, isRay, isUnitQuad } from "../utils/drawKind";
+import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { quadMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair } from "./drawPair";
 
 /** Scratch the appearance pass writes into, reused across every particle of a frame. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
@@ -139,17 +140,21 @@ export function Quads({
   useFrame((state) => {
     if (!drawn) {
       buffers.geometry.instanceCount = 0;
+      showPair(pair, false);
       return;
     }
 
+    const stamp = state.gl.info.render.frame;
     const frames = sources.map((source) => frameOf(source, emitter));
     sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
 
     let held = 0;
     sources.forEach((source, from) => {
       const pool = source.pool;
-      for (let at = 0; at < pool.count && held < room; at += 1) {
-        if (pool.emitter[at] !== emitter.index) continue;
+      const buckets = bucketsOf(pool, stamp);
+      const [first, last] = bucketRange(buckets, emitter.index);
+      for (let listed = first; listed < last && held < room; listed += 1) {
+        const at = buckets.order[listed];
         picked.order[held] = at;
         picked.owner[held] = from;
         picked.drawing[held] = held;
@@ -172,6 +177,7 @@ export function Quads({
 
     write(sources, frames, emitter, picked, held, buffers);
     buffers.geometry.instanceCount = held;
+    showPair(pair, held > 0);
   });
 
   return <DrawPair pair={pair} geometry={buffers.geometry} material={material} rank={rank} />;

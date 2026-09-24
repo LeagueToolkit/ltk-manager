@@ -67,3 +67,16 @@ export function DrawPair({ pair, geometry, material, rank, edges }: DrawPairProp
     </>
   );
 }
+
+/**
+ * Show both objects of `pair` only while they draw something.
+ *
+ * three binds an object's program and uploads its uniforms before it finds a draw of zero
+ * instances, so an emitter hidden, culled or empty this frame is taken out of the render list.
+ */
+export function showPair<T extends Object3D>(pair: DrawPair<T>, drawing: boolean): void {
+  const solid = pair.solid.current;
+  if (solid !== null) solid.visible = drawing && pair.wire.shaded;
+  const twin = pair.twin.current;
+  if (twin !== null) twin.visible = drawing;
+}

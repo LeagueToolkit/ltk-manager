@@ -32,11 +32,12 @@ import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
 import { distorts } from "../utils/drawKind";
+import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { meshMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { useDrawPair } from "./drawPair";
+import { showPair, useDrawPair } from "./drawPair";
 
 /** Scratch the frame reuses, so a draw allocates nothing per particle. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
@@ -122,6 +123,7 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
     if (!drawn) {
       held.count = 0;
       if (twin !== null) twin.count = 0;
+      showPair(pair, false);
       return;
     }
 
@@ -129,13 +131,16 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
     const turns = [buffers.uvTurn, buffers.uvTurnMult];
     const shifts = [buffers.uvShift, buffers.uvShiftMult];
 
+    const stamp = state.gl.info.render.frame;
     let instance = 0;
     for (const source of sources) {
       const pool = source.pool;
       const frame = frameOf(source, emitter);
       const time = frame.now;
-      for (let at = 0; at < pool.count && instance < MESHES_PER_EMITTER; at += 1) {
-        if (pool.emitter[at] !== emitter.index) continue;
+      const buckets = bucketsOf(pool, stamp);
+      const [first, last] = bucketRange(buckets, emitter.index);
+      for (let listed = first; listed < last && instance < MESHES_PER_EMITTER; listed += 1) {
+        const at = buckets.order[listed];
         appearance(pool, at, emitter, time, DRAWN);
         premultiplyInto(emitter, DRAWN.color);
 
@@ -182,8 +187,9 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
 
     held.count = instance;
     if (twin !== null) twin.count = instance;
+    showPair(pair, instance > 0);
     if (instance === 0) return;
-    if (buffers.pose) buffers.pose.texture.needsUpdate = true;
+    buffers.pose?.commit(instance);
     for (const attribute of [buffers.instanceMatrix, tint, erode, ...turns, ...shifts]) {
       written(attribute, instance);
     }

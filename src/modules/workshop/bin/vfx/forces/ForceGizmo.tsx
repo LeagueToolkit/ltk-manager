@@ -58,12 +58,44 @@ export function ForceGizmo({ system, emitter, force, handle, edit }: Props) {
   } | null>(null);
   const cameraEnabled = useRef(true);
 
+  /* A pointer reports more moves than frames, and each preview replays the run, so the
+     drag previews its latest value once per frame. */
+  const previewFrame = useRef<{ frame: number; next: SystemModel; time: number } | null>(null);
+
+  function preview(next: SystemModel, time: number) {
+    if (previewFrame.current !== null) {
+      previewFrame.current.next = next;
+      previewFrame.current.time = time;
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const latest = previewFrame.current;
+      previewFrame.current = null;
+      if (latest === null) {
+        return;
+      }
+
+      driver.swap(latest.next);
+      driver.seek(latest.time);
+    });
+    previewFrame.current = { frame, next, time };
+  }
+
+  function cancelPreview() {
+    if (previewFrame.current !== null) {
+      cancelAnimationFrame(previewFrame.current.frame);
+      previewFrame.current = null;
+    }
+  }
+
   function restore(value?: number[]) {
     const held = drag.current;
     if (held === null) {
       return;
     }
 
+    cancelPreview();
     drag.current = null;
     transform.current?.reset();
     setGeneration((value) => value + 1);
@@ -164,8 +196,7 @@ export function ForceGizmo({ system, emitter, force, handle, edit }: Props) {
     }
 
     held.value = value;
-    driver.swap(previewForceValue(system, force, property.name, value));
-    driver.seek(held.time);
+    preview(previewForceValue(system, force, property.name, value), held.time);
     if (property.name === "radius") {
       sphere.current?.scale.setScalar(value[0]);
     } else if (property.name === "Position") {

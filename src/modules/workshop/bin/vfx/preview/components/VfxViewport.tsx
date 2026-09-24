@@ -4,7 +4,7 @@ import {
   FrameCornersIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { use, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -37,6 +37,7 @@ import { createStatsFeed, Stats, StatsProbe } from "../../rendering/components/S
 import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
+import type { AssetLoad } from "../../rendering/utils/assetLoad";
 import { type DrawnEmitter, drawnEmitters } from "../../rendering/utils/definitions";
 import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/drawKind";
 import { fades } from "../../rendering/utils/softParticle";
@@ -78,7 +79,13 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     setPinned,
   } = useVfxRun();
   const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
-  const textures = useVfxTextures(drawn);
+  const firstLoad = useRef({ drawn, landed: false, over: false });
+  firstLoad.current.drawn = drawn;
+  const reportTextures = useCallback((load: AssetLoad) => {
+    const first = firstLoad.current;
+    if (load.pending === 0 && first.drawn.length > 0) first.landed = true;
+  }, []);
+  const textures = useVfxTextures(drawn, reportTextures);
   const meshes = useVfxMeshes(drawn);
   const host = useVfxHost();
 
@@ -112,7 +119,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const undrawn = useMemo(() => undrawnKinds(system), [system]);
   const customMaterials = drawn.filter(({ emitter }) => emitter.customMaterial !== null).length;
   const attached = useMemo(() => attachmentCount(system), [system]);
-  const warps = useMemo(() => (system?.emitters ?? []).some(distorts), [system]);
+  const warps = useMemo(() => drawn.some((definition) => distorts(definition.emitter)), [drawn]);
   const softens = useMemo(() => drawn.some((definition) => fades(definition.emitter)), [drawn]);
 
   const hiddenOf = (definition: DrawnEmitter) =>
@@ -121,7 +128,9 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   /* A texture lands some frames after the run starts, and a one-shot effect can be over
      by then, so the run starts again as each lands while it is still inside its first
      pass. Past that the reader has seen it play, and a restart would take that away. A
-     run resumed where a tab left it is one the reader has already watched.
+     run resumed where a tab left it is one the reader has already watched. Only the first
+     load restarts: a texture an edit brings in lands on a run the reader is editing, which
+     decision 2.5 keeps.
 
      The span is read through a ref rather than a dependency: it moves with the rig, and
      a rig the reader is dragging would otherwise start the effect over on every frame of
@@ -129,7 +138,11 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const reach = useRef(span);
   reach.current = span;
   useEffect(() => {
+    const first = firstLoad.current;
+    if (first.over) return;
+
     if (!resumed && driver.time <= reach.current) restart();
+    if (first.landed) first.over = true;
   }, [driver, resumed, restart, textures]);
 
   if (pending) return <Notice text={m.workshop_bin_preview_loading_label()} />;

@@ -24,6 +24,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts, trailFacesTheCamera } from "../utils/drawKind";
+import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import {
@@ -37,7 +38,7 @@ import {
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair } from "./drawPair";
 
 /** How many points one strand holds, which caps its share of its pool. */
 const TRAIL_POINTS = 1024;
@@ -109,6 +110,8 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
   useFrame((state) => {
     if (!drawn || trail === null) {
       buffers.geometry.setDrawRange(0, 0);
+      buffers.edgeGeometry.setDrawRange(0, 0);
+      showPair(pair, false);
       return;
     }
 
@@ -121,7 +124,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
     CURSOR.vertex = 0;
     CURSOR.index = 0;
     for (const source of sources) {
-      strandInto(source, emitter);
+      strandInto(source, emitter, state.gl.info.render.frame);
       writeTrail(
         STRAND,
         {
@@ -136,6 +139,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
       );
     }
     commitRibbon(buffers, CURSOR);
+    showPair(pair, CURSOR.index > 0);
   });
 
   return (
@@ -150,13 +154,15 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
 }
 
 /** One source's particles of `emitter` as a strand, into `STRAND`, in the order they were born. */
-function strandInto(source: Source, emitter: EmitterModel): void {
+function strandInto(source: Source, emitter: EmitterModel, stamp: number): void {
   const pool = source.pool;
   const frame = frameOf(source, emitter);
   const time = frame.now;
   let held = 0;
-  for (let at = 0; at < pool.count && held < TRAIL_POINTS; at += 1) {
-    if (pool.emitter[at] !== emitter.index) continue;
+  const buckets = bucketsOf(pool, stamp);
+  const [first, last] = bucketRange(buckets, emitter.index);
+  for (let listed = first; listed < last && held < TRAIL_POINTS; listed += 1) {
+    const at = buckets.order[listed];
     ORDER[held] = at;
     held += 1;
   }
