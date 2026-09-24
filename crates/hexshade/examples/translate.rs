@@ -1,12 +1,13 @@
 //! Translate one shader out of an installed `ShaderCache.dx11.wad.client`.
 //!
 //! ```text
-//! cargo run -p hexshade --example translate -- <wad> <object path> <out dir> [--id N | NAME=VALUE ...]
+//! cargo run -p hexshade --example translate -- <wad> <object path | vs file,ps file> <out dir> [--id N | NAME=VALUE ...]
 //! ```
 //!
 //! Writes `<out dir>/<stage>.glsl` and `<out dir>/<stage>.json` for both stages. With
 //! `--id`, the record of that shader id is taken from both TOCs. Otherwise the defines
-//! select the permutation as the engine would.
+//! select the permutation as the engine would. Two HLSL files joined by a comma name an
+//! engine shader, `ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs,...LIT_UBER_PS.ps`.
 
 use fs_err as fs;
 use std::io::BufReader;
@@ -15,7 +16,7 @@ use std::path::Path;
 use hexshade::bundle::{
     bundle_path, chunk_hash, index_in_bundle, permutation, read_toc, record, toc_path,
 };
-use hexshade::{Defines, Stage, translate};
+use hexshade::{Defines, ShaderPath, Stage, translate};
 use ltk_wad::Wad;
 
 fn main() {
@@ -53,7 +54,10 @@ fn main() {
     fs::create_dir_all(out_dir).expect("the out dir");
 
     for stage in [Stage::Vertex, Stage::Pixel] {
-        let toc_path = toc_path(object_path, stage);
+        let toc_path = match object_path.split_once(',') {
+            Some((vertex, pixel)) => ShaderPath::Hlsl { vertex, pixel }.toc_path(stage),
+            None => toc_path(object_path, stage),
+        };
         let toc = read_toc(&read(&toc_path)).expect("a TOC");
         let id = match by_id {
             Some(id) => id,

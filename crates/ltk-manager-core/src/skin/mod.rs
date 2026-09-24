@@ -35,6 +35,10 @@ const SKELETON: BinHash = BinHash(0xb14c_976e);
 const TEXTURE: BinHash = BinHash(0x3c64_68f4);
 /// `SkinMeshDataProperties.skinScale`.
 const SKIN_SCALE: BinHash = BinHash(0xa1f8_05da);
+/// `SkinMeshDataProperties.selfIllumination`.
+const SELF_ILLUMINATION: BinHash = BinHash(0x252f_6884);
+/// `SkinMeshDataProperties.emissiveTexture`.
+const EMISSIVE_TEXTURE: BinHash = BinHash(0x9a93_4591);
 /// `SkinMeshDataProperties.initialSubmeshToHide`.
 const HIDDEN_SUBMESHES: BinHash = BinHash(0x80b7_f78f);
 /// `SkinMeshDataProperties.materialOverride`.
@@ -203,6 +207,8 @@ pub struct SkinModel {
     pub skeleton: Option<NamedAsset>,
     /// The texture a submesh draws with where no override names its own.
     pub texture: Option<NamedAsset>,
+    /// `emissiveTexture`, the emissive mask of a submesh with no material.
+    pub emissive_texture: Option<NamedAsset>,
     /// The `Material` a submesh draws with where no override names its own.
     pub material: Option<MaterialPreview>,
     /// The submeshes a `materialOverride` gives a texture or a material of their own.
@@ -211,6 +217,8 @@ pub struct SkinModel {
     pub hidden: Vec<String>,
     /// `skinScale`, which the character is drawn at.
     pub scale: f32,
+    /// `selfIllumination`, added to the character's ambient light. Zero by default.
+    pub self_illumination: f32,
     /// `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits.
     pub animation_graph: Option<String>,
     /// `idleParticlesEffects`, in the order the skin lists them.
@@ -527,6 +535,7 @@ pub fn resolve_skin(
         mesh: locator.asset(mesh_field(SIMPLE_SKIN)),
         skeleton: locator.asset(mesh_field(SKELETON)),
         texture: locator.asset(mesh_field(TEXTURE)),
+        emissive_texture: locator.asset(mesh_field(EMISSIVE_TEXTURE)),
         material: material(mesh_field(MATERIAL)),
         overrides: items(mesh_field(MATERIAL_OVERRIDE))
             .iter()
@@ -552,6 +561,7 @@ pub fn resolve_skin(
             Some(Leaf::F32(scale)) => scale,
             _ => 1.0,
         },
+        self_illumination: f32_of(mesh_field(SELF_ILLUMINATION), 0.0),
         animation_graph: fields_of(skin.get(&ANIMATION_PROPERTIES))
             .and_then(|animation| link(animation.get(&ANIMATION_GRAPH)))
             .map(hex),

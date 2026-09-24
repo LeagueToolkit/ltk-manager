@@ -70,6 +70,7 @@ fn skin() -> BinObject {
                     (SKELETON, values::String::from(SKL).into()),
                     (TEXTURE, values::WadChunkLink::new(UNNAMED_CHUNK).into()),
                     (SKIN_SCALE, values::F32::new(1.5).into()),
+                    (SELF_ILLUMINATION, values::F32::new(0.75).into()),
                     (
                         HIDDEN_SUBMESHES,
                         values::String::from("Wings, Cape  Hat").into(),
@@ -684,6 +685,7 @@ fn the_hidden_submeshes_are_read_apart_on_spaces_and_commas() {
 
     assert_eq!(skin.hidden, ["Wings", "Cape", "Hat"]);
     assert!((skin.scale - 1.5).abs() < f32::EPSILON);
+    assert!((skin.self_illumination - 0.75).abs() < f32::EPSILON);
 }
 
 #[test]
@@ -891,6 +893,8 @@ fn a_skin_that_names_nothing_answers_the_defaults() {
     assert_eq!(skin.mesh, None);
     assert_eq!(skin.material, None);
     assert!((skin.scale - 1.0).abs() < f32::EPSILON);
+    assert!(skin.self_illumination.abs() < f32::EPSILON);
+    assert_eq!(skin.emissive_texture, None);
     assert!(skin.idle_effects.is_empty());
     assert_eq!(skin.animation_graph, None);
 }
@@ -1244,6 +1248,8 @@ fn every_field_hash_is_its_name() {
         (SKELETON, "skeleton"),
         (TEXTURE, "texture"),
         (SKIN_SCALE, "skinScale"),
+        (SELF_ILLUMINATION, "selfIllumination"),
+        (EMISSIVE_TEXTURE, "emissiveTexture"),
         (HIDDEN_SUBMESHES, "initialSubmeshToHide"),
         (MATERIAL_OVERRIDE, "materialOverride"),
         (SUBMESH, "submesh"),

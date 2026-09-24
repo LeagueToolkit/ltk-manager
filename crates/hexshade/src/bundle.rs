@@ -40,6 +40,15 @@ pub fn toc_path(object_path: &str, stage: Stage) -> String {
     )
 }
 
+/// The chunk path of an engine shader's `TOC3.0`, from the stage's HLSL file.
+///
+/// `file` is `ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs`, which the engine appends
+/// `-dx11` to and hashes lowercase, as it does a generated one.
+#[must_use]
+pub fn hlsl_toc_path(file: &str) -> String {
+    format!("{}-dx11", file.to_lowercase())
+}
+
 /// The chunk path of the bundle holding record `shader_id` of the TOC at `toc_path`.
 #[must_use]
 pub fn bundle_path(toc_path: &str, shader_id: u32) -> String {

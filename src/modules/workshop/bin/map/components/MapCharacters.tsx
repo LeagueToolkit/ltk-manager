@@ -14,14 +14,17 @@ import {
   sequencePose,
   type SkeletonModel,
   type SubmeshBinding,
+  type SubmeshProgram,
   useAssetTextures,
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
+import { usePreviewShaders } from "@/stores";
 
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
+import { useSkinPrograms } from "../../skin/hooks/useSkinPrograms";
 import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { bindingOf, playlistOf, textureAssets } from "../../skin/utils/skinScene";
 import { mapQueries } from "../api/mapQueries";
@@ -119,16 +122,20 @@ function ReadSkin({ document, ...props }: SkinProps & { readonly document: BinDo
   const skin = useQuery(skinQueries.skin(document, nameHash(props.skin)));
   const graphRead = useQuery(skinQueries.graph(document, skin.data?.animationGraph ?? null));
   if (skin.data === undefined) return null;
-  return <PlacedSkin {...props} model={skin.data} graph={graphRead.data ?? null} />;
+  return (
+    <PlacedSkin {...props} document={document} model={skin.data} graph={graphRead.data ?? null} />
+  );
 }
 
 interface PlacedSkinProps extends SkinProps {
+  /** The skin's bin, which the programs of its materials are read from. */
+  readonly document: BinDocumentId;
   readonly model: SkinModel;
   /** The skin's graph, and null while it reads and where the skin names none. */
   readonly graph: AnimationGraph | null;
 }
 
-function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps) {
+function PlacedSkin({ document, model, graph, characters, clock, colors }: PlacedSkinProps) {
   const mesh = useQuery(viewportQueries.mesh(model.mesh?.asset ?? null));
   const bones = useQuery(viewportQueries.skeleton(model.skeleton?.asset ?? null));
   const assets = useMemo(() => textureAssets(model), [model]);
@@ -137,6 +144,7 @@ function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps
     (submesh: string) => bindingOf(model, textures, submesh),
     [model, textures],
   );
+  const program = useSkinPrograms(document, model, usePreviewShaders());
   const groups = useMemo(() => [...charactersByAnimation(characters)], [characters]);
 
   if (mesh.data === undefined || bones.data === undefined) return null;
@@ -150,6 +158,7 @@ function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps
       skeleton={bones.data}
       model={model}
       bindingOf={binding}
+      programOf={program}
       clock={clock}
       colors={colors}
     />
@@ -165,6 +174,7 @@ interface PosedCharactersProps {
   readonly skeleton: SkeletonModel;
   readonly model: SkinModel;
   readonly bindingOf: (submesh: string) => SubmeshBinding;
+  readonly programOf: (submesh: string) => SubmeshProgram | null;
   readonly clock: SceneClock;
   readonly colors: SceneColors;
 }
@@ -178,6 +188,7 @@ function PosedCharacters({
   skeleton,
   model,
   bindingOf: binding,
+  programOf: program,
   clock,
   colors,
 }: PosedCharactersProps) {
@@ -212,9 +223,11 @@ function PosedCharacters({
         pose={pose}
         clock={clock}
         bindingOf={binding}
+        programOf={program}
         colors={colors}
         hidden={model.hidden}
         scale={model.scale ?? 1}
+        selfIllumination={model.selfIllumination ?? 0}
       />
     </group>
   ));

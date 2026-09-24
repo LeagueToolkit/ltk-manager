@@ -52,6 +52,7 @@ function skin(): SkinModel {
     mesh: null,
     skeleton: null,
     texture: null,
+    emissiveTexture: null,
     material: preview(BODY),
     overrides: [
       { submesh: "Eyes", texture: null, material: preview(EYES) },
@@ -59,6 +60,7 @@ function skin(): SkinModel {
     ],
     hidden: [],
     scale: null,
+    selfIllumination: null,
     animationGraph: null,
     idleEffects: [],
     effectSystems: [],

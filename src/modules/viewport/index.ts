@@ -77,6 +77,7 @@ export {
   previewSkeleton,
 } from "./hexshade/previewMeshes";
 export {
+  blackTexel,
   createProgramMaterial,
   type ReadyProgram,
   type SubmeshProgram,

@@ -156,10 +156,8 @@ export function bindingOf<T>(
   textures: ReadonlyMap<string, T>,
   submesh: string,
 ): SubmeshBinding<T> {
-  const key = submesh.toLowerCase();
-  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
   const texture = textures.get(overrideKey(submesh)) ?? textures.get(BASE_TEXTURE) ?? null;
-  const material = override === null ? skin.material : override.material;
+  const material = submeshMaterial(skin, submesh);
   return {
     material,
     base: material === null ? null : (textures.get(materialKey(material)) ?? null),
@@ -189,11 +187,16 @@ export function programOf<T>(
   textures: ReadonlyMap<string, T>,
   submesh: string,
 ): SubmeshProgram<T> | null {
-  const key = submesh.toLowerCase();
-  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
-  const material = override === null ? skin.material : override.material;
+  const material = submeshMaterial(skin, submesh);
   if (material === null) return null;
   return programWith(programs.find((each) => each?.hash === material.hash) ?? null, textures);
+}
+
+/** The material `submesh` draws with: its override's, else the skin's, and null for neither. */
+export function submeshMaterial(skin: SkinModel, submesh: string): MaterialPreview | null {
+  const key = submesh.toLowerCase();
+  const override = skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
+  return override === null ? skin.material : override.material;
 }
 
 /**

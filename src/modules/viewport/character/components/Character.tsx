@@ -34,7 +34,7 @@ import { AXIS_SIGN } from "../../scene/utils/world";
 import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
-import { lightFrom, lightGridUniforms, patchLightGrid } from "../utils/lightGridShading";
+import { gridLitMaterial, lightFrom, lightGridUniforms } from "../utils/lightGridShading";
 import {
   type FallbackColors,
   applyBinding,
@@ -64,6 +64,8 @@ export interface CharacterProps {
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
   readonly scale: number;
+  /** `selfIllumination`, added to the character's ambient light. */
+  readonly selfIllumination?: number;
   /** The submesh drawn at full strength while every other one dims, and null to dim none. */
   readonly highlighted?: string | null;
   /** A mask's weight per joint slot, which dims every vertex it does not weigh, and null to dim none. */
@@ -113,6 +115,7 @@ export function Character({
   colors,
   hidden,
   scale,
+  selfIllumination = 0,
   highlighted = null,
   jointWeights = null,
   onSubmeshPick,
@@ -128,19 +131,21 @@ export function Character({
   const ambient = useMemo(() => lightGridUniforms(), []);
   const shaded = useMemo<readonly ShadingModels[]>(
     () =>
-      drawn.ranges.map(() => {
-        const lit = new MeshLambertMaterial({ side: DoubleSide, vertexColors: true });
-        patchLightGrid(lit, ambient);
-        return { lit, unlit: new MeshBasicMaterial({ side: DoubleSide, vertexColors: true }) };
-      }),
+      drawn.ranges.map(() => ({
+        lit: gridLitMaterial(ambient),
+        unlit: new MeshBasicMaterial({ side: DoubleSide, vertexColors: true }),
+      })),
     [drawn, ambient],
   );
-  const environment = useMemo(() => new EngineEnvironment(), []);
+  /* A map scene draws dozens of characters. */
+  const environment = useMemo(() => new EngineEnvironment("uniform"), []);
   const { grid: lightGrid, sun } = useCharacterLight();
   useLayoutEffect(() => {
     environment.grid = lightGrid;
     environment.light = sun;
-  }, [environment, lightGrid, sun]);
+    environment.selfIllumination = selfIllumination;
+    ambient.selfIllumination.value = selfIllumination;
+  }, [environment, ambient, lightGrid, sun, selfIllumination]);
   const view = useViewMode();
   const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {

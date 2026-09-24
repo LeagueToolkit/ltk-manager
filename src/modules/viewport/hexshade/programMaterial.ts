@@ -51,6 +51,7 @@ import type {
   ProgramRead,
   ResolvedPass,
   Sidecar,
+  StageProgram,
   TextureDimension,
   UniformBlock,
   Wrap,
@@ -146,22 +147,21 @@ const WRAPPING: Record<Wrap, Wrapping> = {
 /**
  * `program` as a material three draws, bound to `environment`'s buffers.
  *
- * The GLSL arrives with its own `#version`, which three writes itself. Every engine
- * block of either stage is one of the environment's `UniformsGroup`s. The material's own
- * `$Globals` is a plain `vec4` array uniform instead, packed from its parameters and
- * runtime switches at the sidecar's offsets, because three uploads a group once per
- * frame and the block carries what changes per draw. Each combined sampler is bound to
- * the texture of its name, a neutral grey where the pass names none this machine holds,
- * and transparent black for the engine's shared ones, which the remap ramp then leaves
- * alone.
+ * The GLSL carries a `#version` line, and three writes that line itself. Every engine
+ * block of either stage reads the environment's bytes through its `BufferBinding`. The
+ * material's `$Globals` is a plain `vec4` array uniform under either binding, packed
+ * from its parameters and runtime switches at the sidecar's offsets. Each combined
+ * sampler is bound to the texture of its name. A texture this machine does not have is
+ * a neutral grey, and an engine shared texture is transparent black, which the remap
+ * ramp leaves unchanged.
  */
 export function createProgramMaterial(
   program: SubmeshProgram,
   environment: EngineEnvironment,
 ): RawShaderMaterial {
   const { pass, program: ready } = program;
-  const vertex = globalsAsUniform(ready.vertex.glsl);
-  const pixel = globalsAsUniform(ready.pixel.glsl);
+  const vertex = inlinedStage(ready.vertex, environment);
+  const pixel = inlinedStage(ready.pixel, environment);
   const material = new RawShaderMaterial({
     name: pass.shader ?? "",
     glslVersion: GLSL3,
@@ -176,21 +176,29 @@ export function createProgramMaterial(
   const members = new Map<string, GlobalsMember[]>();
   const samplers = new Map<string, string[]>();
   const uniforms: Record<string, IUniform> = material.uniforms;
-  const stages: readonly (readonly [Sidecar, number])[] = [
-    [ready.vertex.sidecar, vertex.extent],
-    [ready.pixel.sidecar, pixel.extent],
+  const stages: readonly (readonly [Sidecar, ReadonlyMap<string, InlinedBlock>])[] = [
+    [ready.vertex.sidecar, vertex.blocks],
+    [ready.pixel.sidecar, pixel.blocks],
   ];
-  material.uniformsGroups = stages.flatMap(([sidecar, extent]) => {
+  material.uniformsGroups = stages.flatMap(([sidecar, inlined]) => {
     for (const binding of sidecar.textures) {
       const held = samplers.get(binding.name) ?? [];
       held.push(...binding.samplers.map((sampler) => sampler.glslName));
       samplers.set(binding.name, held);
     }
     return sidecar.blocks.flatMap((block) => {
-      if (block.name !== GLOBALS) return [environment.group(block)];
-      /* As long as the array the stage declares, which drops the unused tail the
-         translation drops, since GL takes exactly the array's length. */
-      const data = new Float32Array(extent * VEC4_FLOATS);
+      const declared = inlined.get(block.glslName);
+      if (block.name !== GLOBALS) {
+        if (environment.binding === "group") return [environment.group(block)];
+        if (declared !== undefined) {
+          uniforms[block.glslName] = { value: environment.array(block, declared) };
+        }
+        return [];
+      }
+
+      /* The length the stage declares, without the unused tail the translation cuts.
+         GL takes exactly the array's length. */
+      const data = new Float32Array((declared?.extent ?? 0) * VEC4_FLOATS);
       data.set(globalsData(block, pass).subarray(0, data.length));
       uniforms[block.glslName] = { value: data };
       for (const member of block.members) {
@@ -393,29 +401,53 @@ export function withoutVersion(source: string): string {
   return source.replace(/^#version[^\n]*\n/, "");
 }
 
-/**
- * `source` with its `$Globals` block declared as a `vec4` array uniform of the block's
- * GLSL name and every read of the block through that array, with the array's length.
- *
- * The translation declares every buffer as one std140 block of `vec4 m[N]` behind an
- * instance name, and an array uniform of the same `N` reads at the same indices. A stage
- * without the block is answered as it is, with a length of zero.
- */
-export function globalsAsUniform(source: string): { source: string; extent: number } {
-  const declared = GLOBALS_BLOCK.exec(source);
-  if (declared === null) return { source, extent: 0 };
-  const [whole, name = "", scalar = "", extent = "", instance = ""] = declared;
-  return {
-    source: source
-      .replace(whole, `uniform ${scalar} ${name}[${extent}];`)
-      .replaceAll(`${instance}.m[`, `${name}[`),
-    extent: Number(extent),
-  };
+/** A block that a stage reads as an array uniform of the block's GLSL name. */
+export interface InlinedBlock {
+  readonly element: "vec4" | "ivec4" | "uvec4";
+  /** The array's length. The translation cuts it after the last element the stage reads. */
+  readonly extent: number;
 }
 
-/** The translated `$Globals` block: its GLSL name, element type, extent and instance. */
-const GLOBALS_BLOCK =
-  /layout\(std140\) uniform (Globals_(?:vs|ps))\n\{\n\s+([iu]?vec4) m\[(\d+)\];\n\} (\w+);/;
+/** A translated stage's source with its inlined blocks, and each inlined block by GLSL name. */
+export interface InlinedStage {
+  readonly source: string;
+  readonly blocks: ReadonlyMap<string, InlinedBlock>;
+}
+
+/**
+ * `source` with each block in `names` declared as an array uniform of the block's GLSL
+ * name, and every read of the block through that array.
+ *
+ * The translation declares every buffer as one std140 block of `vec4 m[N]` behind an
+ * instance name. An array uniform of the same `N` reads at the same indices. A block the
+ * stage does not declare is not in the answer.
+ */
+export function blocksAsUniforms(source: string, names: ReadonlySet<string>): InlinedStage {
+  const blocks = new Map<string, InlinedBlock>();
+  let inlined = source;
+  for (const [whole, name = "", element = "", extent = "", instance = ""] of source.matchAll(
+    BLOCK,
+  )) {
+    if (!names.has(name)) continue;
+
+    inlined = inlined
+      .replace(whole, `uniform ${element} ${name}[${extent}];`)
+      .replace(new RegExp(`\\b${instance}\\.m\\[`, "g"), `${name}[`);
+    blocks.set(name, { element: element as InlinedBlock["element"], extent: Number(extent) });
+  }
+  return { source: inlined, blocks };
+}
+
+/** `stage` with `$Globals` inlined, and every other block as well under the `uniform` binding. */
+function inlinedStage(stage: StageProgram, environment: EngineEnvironment): InlinedStage {
+  const names = stage.sidecar.blocks
+    .filter((block) => block.name === GLOBALS || environment.binding === "uniform")
+    .map((block) => block.glslName);
+  return blocksAsUniforms(stage.glsl, new Set(names));
+}
+
+/** A translated block: its GLSL name, element type, extent and instance. */
+const BLOCK = /layout\(std140\) uniform (\w+)\n\{\n\s+([iu]?vec4) m\[(\d+)\];\n\} (\w+);/g;
 
 /** An opaque mid-grey, drawn for a material texture nothing holds. */
 const GREY: readonly [number, number, number, number] = [128, 128, 128, 255];
@@ -424,6 +456,11 @@ const GREY: readonly [number, number, number, number] = [128, 128, 128, 255];
 const BLACK: readonly [number, number, number, number] = [0, 0, 0, 0];
 
 const neutrals = new Map<string, Texture>();
+
+/** One transparent black texel, bound where an asset has no mask texture. */
+export function blackTexel(): Texture {
+  return neutral("texture2d", BLACK);
+}
 
 /** One texel of `rgba` in the shape `dimension` samples, made once per shape and colour. */
 function neutral(

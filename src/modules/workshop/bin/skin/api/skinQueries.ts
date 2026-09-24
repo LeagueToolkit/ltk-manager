@@ -8,6 +8,7 @@ import {
   type BinDocumentId,
   type ClipHeader,
   type MaterialProgram,
+  type PassProgram,
   type SkinModel,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
@@ -37,6 +38,23 @@ export const skinQueries = {
                 await api.bin.readMaterialPrograms({ kind: "document", document }, entries, {
                   lowQuality: false,
                 }),
+              ),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * The engine's default program for a submesh its skin names no material for, read
+   * through `document`, and nothing for a null document.
+   */
+  defaultProgram: (document: BinDocumentId | null) =>
+    queryOptions<PassProgram, AppError>({
+      queryKey: ["skin-default-program", document],
+      queryFn:
+        document === null
+          ? skipToken
+          : async () =>
+              unwrapForQuery(
+                await api.bin.readDefaultSkinnedProgram(document, { lowQuality: false }),
               ),
       staleTime: Infinity,
       retry: false,

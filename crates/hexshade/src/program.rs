@@ -71,6 +71,40 @@ pub enum ProgramError {
     },
 }
 
+/// Where a shader's two stages are compiled in the shader cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderPath<'a> {
+    /// A `CustomShaderDef`'s object path, `Shaders/SkinnedMesh/Diffuse_Bloom`, compiled
+    /// under `ASSETS/Shaders/Generated/`.
+    Generated(&'a str),
+    /// An engine shader's HLSL file per stage, such as
+    /// `ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs` and `LIT_UBER_PS.ps`.
+    Hlsl { vertex: &'a str, pixel: &'a str },
+}
+
+impl<'a> ShaderPath<'a> {
+    /// The chunk path of the `TOC3.0` of `stage`.
+    #[must_use]
+    pub fn toc_path(self, stage: Stage) -> String {
+        match self {
+            Self::Generated(object_path) => bundle::toc_path(object_path, stage),
+            Self::Hlsl { vertex, pixel } => bundle::hlsl_toc_path(match stage {
+                Stage::Vertex => vertex,
+                Stage::Pixel => pixel,
+            }),
+        }
+    }
+
+    /// The name an error gives the shader of `stage`.
+    fn name(self, stage: Stage) -> &'a str {
+        match (self, stage) {
+            (Self::Generated(object_path), _) => object_path,
+            (Self::Hlsl { vertex, .. }, Stage::Vertex) => vertex,
+            (Self::Hlsl { pixel, .. }, Stage::Pixel) => pixel,
+        }
+    }
+}
+
 /// A shader's two stages for one define list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Program {
@@ -126,8 +160,7 @@ impl<'a> ShaderCache<'a> {
         }
     }
 
-    /// The program `defines` select of the shader at `object_path`, the
-    /// `CustomShaderDef`'s `Shaders/SkinnedMesh/Diffuse_Bloom`.
+    /// The program of `shader` for the permutation `defines` select.
     ///
     /// # Errors
     ///
@@ -135,26 +168,26 @@ impl<'a> ShaderCache<'a> {
     /// `defines`, or when a blob does not translate. Never a guess.
     pub fn program(
         &mut self,
-        object_path: &str,
+        shader: ShaderPath<'_>,
         defines: &Defines,
     ) -> Result<Program, ProgramError> {
         Ok(Program {
-            vertex: self.stage(object_path, Stage::Vertex, defines)?,
-            pixel: self.stage(object_path, Stage::Pixel, defines)?,
+            vertex: self.stage(shader, Stage::Vertex, defines)?,
+            pixel: self.stage(shader, Stage::Pixel, defines)?,
         })
     }
 
     fn stage(
         &mut self,
-        object_path: &str,
+        shader: ShaderPath<'_>,
         stage: Stage,
         defines: &Defines,
     ) -> Result<StageProgram, ProgramError> {
-        let toc_path = bundle::toc_path(object_path, stage);
+        let toc_path = shader.toc_path(stage);
         let id = bundle::permutation(self.toc(&toc_path, stage)?, defines).ok_or_else(|| {
             ProgramError::NoPermutation {
                 stage,
-                shader: object_path.to_owned(),
+                shader: shader.name(stage).to_owned(),
                 defines: defines.clone(),
             }
         })?;
@@ -180,7 +213,7 @@ impl<'a> ShaderCache<'a> {
                 .translated(blob, stage)
                 .map_err(|error| ProgramError::Translate {
                     stage,
-                    shader: object_path.to_owned(),
+                    shader: shader.name(stage).to_owned(),
                     id,
                     error,
                 })?;

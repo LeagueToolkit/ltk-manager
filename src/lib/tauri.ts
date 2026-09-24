@@ -628,6 +628,8 @@ export const api = {
       entries: readonly string[],
       options: ProgramOptions,
     ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
+    readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
+      commands.readDefaultSkinnedProgram(document, options).then(toResult),
     bakeSkinTangents: (document: BinDocumentId, entry: string) =>
       commands.bakeSkinTangents(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>

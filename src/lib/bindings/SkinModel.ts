@@ -26,6 +26,10 @@ skeleton: NamedAsset | null,
  */
 texture: NamedAsset | null, 
 /**
+ * `emissiveTexture`, the emissive mask of a submesh with no material.
+ */
+emissiveTexture: NamedAsset | null, 
+/**
  * The `Material` a submesh draws with where no override names its own.
  */
 material: MaterialPreview | null, 
@@ -41,6 +45,10 @@ hidden: Array<string>,
  * `skinScale`, which the character is drawn at.
  */
 scale: number, 
+/**
+ * `selfIllumination`, added to the character's ambient light. Zero by default.
+ */
+selfIllumination: number, 
 /**
  * `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits.
  */

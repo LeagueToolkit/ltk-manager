@@ -152,3 +152,33 @@ fn a_pass_without_a_shader_fails_before_any_lookup() {
     assert_eq!(pass.pass.shader, None);
     assert!(matches!(pass.program, ProgramRead::Failed { .. }));
 }
+
+#[test]
+fn the_default_skinned_program_is_lit_uber_with_a_texture_per_submesh() {
+    let mut read =
+        |asset: &AssetRef| -> AppResult<Vec<u8>> { panic!("nothing is located: {asset:?}") };
+
+    let default = read_default_skinned_program(
+        &(),
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    );
+
+    assert_eq!(default.pass.shader.as_deref(), Some(LIT_UBER_NAME));
+    let names: Vec<&str> = default
+        .pass
+        .textures
+        .iter()
+        .map(|texture| texture.name.as_str())
+        .collect();
+    assert_eq!(names, [LIT_UBER_DIFFUSE, LIT_UBER_EMISSIVE]);
+    assert_eq!(
+        default.program,
+        ProgramRead::Failed {
+            reason: "Nothing on this machine holds \
+                     assets/shaders/hlsl/skinnedmesh/lit_uber_vs.vs-dx11"
+                .to_owned(),
+        }
+    );
+}

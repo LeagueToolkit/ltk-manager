@@ -15,6 +15,14 @@ fn a_toc_path_is_lowercase_with_the_hyphen_separator() {
 }
 
 #[test]
+fn an_hlsl_toc_path_is_the_file_lowercase_with_the_hyphen_separator() {
+    assert_eq!(
+        hlsl_toc_path("ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs"),
+        "assets/shaders/hlsl/skinnedmesh/lit_uber_vs.vs-dx11"
+    );
+}
+
+#[test]
 fn a_bundle_path_names_the_hundred_its_record_falls_in() {
     assert_eq!(bundle_path("toc", 0), "toc_0");
     assert_eq!(bundle_path("toc", 99), "toc_0");

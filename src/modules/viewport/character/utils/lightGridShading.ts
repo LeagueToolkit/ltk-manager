@@ -1,22 +1,23 @@
-import type { MeshLambertMaterial, WebGLProgramParametersWithUniforms } from "three";
+import { DoubleSide, MeshLambertMaterial, type WebGLProgramParametersWithUniforms } from "three";
 
 import { CUBE_FACES, type LightGrid, sceneCubeAt } from "../../assets/parsing/lightGridBuffer";
 
 /**
  * The uniforms a lit character material reads its map's baked ambient from.
  *
- * `cube` is in the scene's space, so its +X and -X faces are the engine's swapped across
- * the mirrored axis. `on` is 0 where no grid lights the character, which leaves ThreeJS's
- * own lights in charge.
+ * `cube` is in the scene's space. Its +X and -X faces are the engine's, swapped across
+ * the mirrored axis. `on` is 0 where no grid lights the character, and ThreeJS's lights
+ * shade it there. `selfIllumination` is the skin's, which `scale.y` weighs.
  */
 export interface LightGridUniforms {
   readonly cube: { value: Float32Array };
   readonly scale: { value: [number, number] };
+  readonly selfIllumination: { value: number };
   readonly on: { value: number };
 }
 
-/** The key every patched material shares, so all of them draw with one program. */
-const PROGRAM_KEY = "light-grid-1";
+/** The key every patched material shares. All of them draw with one program. */
+const PROGRAM_KEY = "light-grid-2";
 
 const VERTEX_DECLARATIONS = /* glsl */ `
 uniform vec3 lightGridCube[${CUBE_FACES}];
@@ -36,16 +37,21 @@ vLightGrid = gridWeight.x * lightGridCube[ gridNormal.x < 0.0 ? 1 : 0 ]
 
 const FRAGMENT_DECLARATIONS = /* glsl */ `
 uniform vec2 lightGridScale;
+uniform float lightGridSelfIllumination;
 uniform float lightGridOn;
 varying vec3 vLightGrid;
 `;
 
-/* The game multiplies a gamma albedo by a gamma light and draws the product, so the light
-   crosses to linear before it meets a linear albedo. No self-illumination is drawn, which
-   is the term `lightGridScale.y` weighs. */
+/* The game's light is `clamp(ambient * LIGHTGRID_SCALE.x + SELF_ILLUMINATION *
+   LIGHTGRID_SCALE.y)`, multiplied by a gamma albedo. The light is in gamma space here too,
+   and is converted to linear before it multiplies the linear albedo. */
 const FRAGMENT_LIGHT = /* glsl */ `
 if ( lightGridOn > 0.5 ) {
-  vec3 gridLight = clamp( vLightGrid * lightGridScale.x, 0.0, 1.0 );
+  vec3 gridLight = clamp(
+    vLightGrid * lightGridScale.x + lightGridSelfIllumination * lightGridScale.y,
+    0.0,
+    1.0
+  );
   outgoingLight = diffuseColor.rgb * sRGBTransferEOTF( vec4( gridLight, 1.0 ) ).rgb;
 }
 `;
@@ -55,20 +61,22 @@ export function lightGridUniforms(): LightGridUniforms {
   return {
     cube: { value: new Float32Array(CUBE_FACES * 3) },
     scale: { value: [0, 0] },
+    selfIllumination: { value: 0 },
     on: { value: 0 },
   };
 }
 
 /**
- * Light `material` from the ambient cube `uniforms` hold, where they hold one.
+ * Light `material` from the ambient cube in `uniforms`, where a grid sets one.
  *
- * Replaces the whole lit colour rather than adding to it, because the game's character
- * shader reads no sun and no other light where a grid lights it.
+ * The cube replaces the whole lit colour. The game's character shader reads no sun and no
+ * other light under a grid.
  */
 export function patchLightGrid(material: MeshLambertMaterial, uniforms: LightGridUniforms): void {
   material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
     shader.uniforms.lightGridCube = uniforms.cube;
     shader.uniforms.lightGridScale = uniforms.scale;
+    shader.uniforms.lightGridSelfIllumination = uniforms.selfIllumination;
     shader.uniforms.lightGridOn = uniforms.on;
     shader.vertexShader = inject(
       shader.vertexShader,
@@ -85,6 +93,13 @@ export function patchLightGrid(material: MeshLambertMaterial, uniforms: LightGri
     );
   };
   material.customProgramCacheKey = () => PROGRAM_KEY;
+}
+
+/** A double-sided, vertex-coloured character material lit by the grid in `uniforms`. */
+export function gridLitMaterial(uniforms: LightGridUniforms): MeshLambertMaterial {
+  const material = new MeshLambertMaterial({ side: DoubleSide, vertexColors: true });
+  patchLightGrid(material, uniforms);
+  return material;
 }
 
 /**

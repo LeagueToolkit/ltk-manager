@@ -1,4 +1,11 @@
-import { Matrix4, type Uniform } from "three";
+import {
+  Matrix4,
+  Object3D,
+  PerspectiveCamera,
+  type RawShaderMaterial,
+  type Uniform,
+  type WebGLRenderer,
+} from "three";
 import { describe, expect, it } from "vitest";
 
 import type { UniformBlock } from "@/lib/tauri";
@@ -37,69 +44,79 @@ describe("EngineEnvironment", () => {
   });
 });
 
+const member = (name: string, offset: number) => ({
+  name,
+  offset,
+  size: 16,
+  used: true,
+  scalar: "float" as const,
+  rows: 1,
+  columns: 4,
+  elements: 0,
+  rowMajor: false,
+});
+
+const GLOBALS: UniformBlock = {
+  name: "$Globals",
+  glslName: "Globals_ps",
+  size: 32,
+  members: [member("BAKED_LIGHT_SCALE_AND_BIAS", 0), member("Tint", 16)],
+};
+
+/** A translated block of `extent` elements behind the instance `<name>_i`. */
+function declared(glslName: string, element: string, extent: number): string {
+  return `layout(std140) uniform ${glslName}\n{\n    ${element} m[${extent}];\n} ${glslName}_i;`;
+}
+
+/** A material of one pass whose stages declare `vertex` and `pixel` and nothing else. */
+function programMaterial(
+  environment: EngineEnvironment,
+  vertex: readonly (readonly [UniformBlock, string])[],
+  pixel: readonly (readonly [UniformBlock, string])[],
+): RawShaderMaterial {
+  const stage = (blocks: readonly (readonly [UniformBlock, string])[]) => ({
+    id: 1,
+    glsl: [...blocks.map(([, glsl]) => glsl), "void main() {}"].join("\n"),
+    cached: false,
+    sidecar: { blocks: blocks.map(([block]) => block), textures: [], attributes: [] },
+  });
+  return createProgramMaterial(
+    {
+      material: "0x1",
+      pass: {
+        shader: "Shaders/StaticMesh/DefaultEnv_Flat",
+        defines: [],
+        runtimeSwitches: [],
+        textures: [],
+        params: [{ name: "Tint", value: [1, 2, 3, 4], source: "material" }],
+        state: {
+          blendEnable: false,
+          srcColor: "one",
+          dstColor: "zero",
+          srcAlpha: "one",
+          dstAlpha: "zero",
+          cullEnable: true,
+          windingToCull: "ccw",
+          depthEnable: true,
+          depthCompareFunc: 3,
+          writeMask: 31,
+        },
+        schema: null,
+      },
+      program: { kind: "ready", defines: [], vertex: stage(vertex), pixel: stage(pixel) },
+      textures: new Map(),
+    },
+    environment,
+  );
+}
+
 describe("EngineEnvironment.draw", () => {
   it("writes the mesh's light map transform into the material's globals and flags the upload", () => {
     const environment = new EngineEnvironment();
-    const member = (name: string, offset: number) => ({
-      name,
-      offset,
-      size: 16,
-      used: true,
-      scalar: "float" as const,
-      rows: 1,
-      columns: 4,
-      elements: 0,
-      rowMajor: false,
-    });
-    const globals: UniformBlock = {
-      name: "$Globals",
-      glslName: "Globals_ps",
-      size: 32,
-      members: [member("BAKED_LIGHT_SCALE_AND_BIAS", 0), member("Tint", 16)],
-    };
-    const stage = { id: 1, glsl: "void main() {}", cached: false };
-    const pixel = {
-      ...stage,
-      glsl: [
-        "layout(std140) uniform Globals_ps",
-        "{",
-        "    vec4 m[2];",
-        "} Globals_i;",
-        "void main() {}",
-      ].join("\n"),
-    };
-    const material = createProgramMaterial(
-      {
-        material: "0x1",
-        pass: {
-          shader: "Shaders/StaticMesh/DefaultEnv_Flat",
-          defines: [],
-          runtimeSwitches: [],
-          textures: [],
-          params: [{ name: "Tint", value: [1, 2, 3, 4], source: "material" }],
-          state: {
-            blendEnable: false,
-            srcColor: "one",
-            dstColor: "zero",
-            srcAlpha: "one",
-            dstAlpha: "zero",
-            cullEnable: true,
-            windingToCull: "ccw",
-            depthEnable: true,
-            depthCompareFunc: 3,
-            writeMask: 31,
-          },
-          schema: null,
-        },
-        program: {
-          kind: "ready",
-          defines: [],
-          vertex: { ...stage, sidecar: { blocks: [], textures: [], attributes: [] } },
-          pixel: { ...pixel, sidecar: { blocks: [globals], textures: [], attributes: [] } },
-        },
-        textures: new Map(),
-      },
+    const material = programMaterial(
       environment,
+      [],
+      [[GLOBALS, declared("Globals_ps", "vec4", 2)]],
     );
 
     material.uniformsNeedUpdate = false;
@@ -113,6 +130,72 @@ describe("EngineEnvironment.draw", () => {
       0.5, 0.25, 0.125, 0, 1, 2, 3, 4,
     ]);
     expect(material.uniformsNeedUpdate).toBe(true);
+  });
+});
+
+describe("EngineEnvironment under the uniform binding", () => {
+  const INSTANCE: UniformBlock = {
+    name: "VFXDynamicPerParticleInstanceCBVS",
+    glslName: "VFXDynamicPerParticleInstanceCBVS_vs",
+    size: 48,
+    members: [],
+  };
+  const vertex = [
+    [BLOCK, declared("PerFrameVertexCB_vs", "vec4", 6)],
+    [INSTANCE, declared("VFXDynamicPerParticleInstanceCBVS_vs", "uvec4", 3)],
+  ] as const;
+
+  it("binds every buffer as an array uniform over bytes each material of the object shares", () => {
+    const environment = new EngineEnvironment("uniform");
+
+    const material = programMaterial(environment, vertex, []);
+    const other = programMaterial(environment, vertex, []);
+
+    expect(material.uniformsGroups).toEqual([]);
+    expect(material.vertexShader).toContain("uniform vec4 PerFrameVertexCB_vs[6];");
+    const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array;
+    expect(frame).toHaveLength(24);
+    expect(other.uniforms["PerFrameVertexCB_vs"]?.value.buffer).toBe(frame.buffer);
+    expect(material.uniforms["VFXDynamicPerParticleInstanceCBVS_vs"]?.value).toBeInstanceOf(
+      Uint32Array,
+    );
+  });
+
+  it("writes a frame into the material's array uniform and flags its upload on every draw", () => {
+    const environment = new EngineEnvironment("uniform");
+    const material = programMaterial(environment, vertex, []);
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 3.5);
+    material.uniformsNeedUpdate = false;
+    environment.draw(material);
+
+    const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array | undefined;
+    expect(frame?.[20]).toBe(3.5);
+    expect(material.uniformsNeedUpdate).toBe(true);
+  });
+
+  it("writes the skin's self-illumination into every colour channel of SELF_ILLUMINATION", () => {
+    const perDraw: UniformBlock = {
+      name: "CharacterPerDrawPS",
+      glslName: "CharacterPerDrawPS_ps",
+      size: 256,
+      members: [],
+    };
+    const environment = new EngineEnvironment("uniform");
+    environment.selfIllumination = 0.5;
+    const material = programMaterial(
+      environment,
+      [],
+      [[perDraw, declared(perDraw.glslName, "vec4", 3)]],
+    );
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+
+    const values = material.uniforms["CharacterPerDrawPS_ps"]?.value as Float32Array | undefined;
+    expect(Array.from(values?.subarray(0, 4) ?? [])).toEqual([0.5, 0.5, 0.5, 0]);
+    expect(values?.[9]).toBe(1);
   });
 });
 

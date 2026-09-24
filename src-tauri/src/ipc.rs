@@ -74,6 +74,7 @@ migrated![
     // Skin preview
     read_skin,
     read_material_programs,
+    read_default_skinned_program,
     bake_skin_tangents,
     read_map,
     read_map_particles,

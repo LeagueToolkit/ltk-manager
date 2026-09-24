@@ -27,7 +27,7 @@ pub use crate::cache::TranslationCache;
 pub use crate::defines::Defines;
 pub use crate::glsl::Applied;
 pub use crate::program::{
-    Program, ProgramError, ShaderCache, ShaderSource, SourceError, StageProgram,
+    Program, ProgramError, ShaderCache, ShaderPath, ShaderSource, SourceError, StageProgram,
 };
 pub use crate::reflection::{
     Attribute, BlockMember, MemberScalar, SamplerBinding, Sidecar, TextureBinding,

@@ -5,12 +5,16 @@
 //! the two blobs, per section 4.1 of docs/research/static-material-studio-rendering.md.
 
 use hexshade::bundle::chunk_hash;
-use hexshade::{Defines, ShaderCache, ShaderSource, SourceError, StageProgram, TranslationCache};
+use hexshade::{
+    Defines, ShaderCache, ShaderPath, ShaderSource, SourceError, StageProgram, TranslationCache,
+};
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
 use ltk_manager_core::error::AppResult;
 use ltk_manager_core::material::MaterialWarning;
-use ltk_manager_core::material::pass::{MaterialKind, ResolvedPass, resolve_passes};
+use ltk_manager_core::material::pass::{
+    MaterialKind, PassState, PassTexture, ResolvedPass, SamplerState, TextureSource, resolve_passes,
+};
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +24,22 @@ const STUDIO_DEFINES: [(&str, &str); 2] = [("DISABLE_FOW", "1"), ("DISABLE_SHADO
 /// The blend weights a skinned mesh's vertices carry, which the studio's geometry has.
 const SKINNED_DEFINES: [(&str, &str); 1] = [("NUM_BLEND_WEIGHTS", "4")];
 const LOW_QUALITY_DEFINES: [(&str, &str); 1] = [("LOW_QUALITY_MODE", "1")];
+
+/// `LIT_UBER`, the engine's shader for a skinned submesh its skin covers with no
+/// `StaticMaterialDef`.
+const LIT_UBER: ShaderPath<'static> = ShaderPath::Hlsl {
+    vertex: "ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs",
+    pixel: "ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_PS.ps",
+};
+
+/// The shader name of the `LIT_UBER` pass.
+pub const LIT_UBER_NAME: &str = "SkinnedMesh/LIT_UBER";
+
+/// The submesh's colour texture, `DIFFUSE_MAP__TX` in the bytecode.
+pub const LIT_UBER_DIFFUSE: &str = "DIFFUSE_MAP";
+
+/// The skin's emissive texture. Its green channel replaces the grid light of a texel.
+pub const LIT_UBER_EMISSIVE: &str = "EMISSIVE_MAP";
 
 /// What the studio adds to a pass's define list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -145,6 +165,48 @@ pub fn read_programs(
         .collect()
 }
 
+/// The pass the engine draws a skinned submesh with where its skin names no material,
+/// with its program.
+///
+/// The pass is `LIT_UBER`'s base permutation, without the normal, gloss or roughness maps
+/// that select its other features. Its textures name no asset. Each submesh binds its
+/// colour texture and the skin's emissive texture by name.
+pub fn read_default_skinned_program(
+    assets: &dyn AssetLookup,
+    options: ProgramOptions,
+    translations: &TranslationCache,
+    read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
+) -> PassProgram {
+    let pass = ResolvedPass {
+        shader: Some(LIT_UBER_NAME.to_owned()),
+        defines: Vec::new(),
+        runtime_switches: Vec::new(),
+        textures: [LIT_UBER_DIFFUSE, LIT_UBER_EMISSIVE]
+            .into_iter()
+            .map(|name| PassTexture {
+                name: name.to_owned(),
+                texture: None,
+                source: TextureSource::Fallback,
+                sampler: SamplerState::default(),
+            })
+            .collect(),
+        params: Vec::new(),
+        state: PassState::default(),
+        schema: None,
+    };
+
+    let mut source = AssetChunks { assets, read };
+    let mut cache = ShaderCache::new(&mut source, translations);
+    let program = translated(
+        LIT_UBER,
+        &pass,
+        MaterialKind::SkinnedMesh,
+        options,
+        &mut cache,
+    );
+    PassProgram { pass, program }
+}
+
 /// The shader cache's chunks as the resolution locates them, by hash first, since the
 /// bundle chunks have no name any table carries, and by path where a table names it.
 struct AssetChunks<'a> {
@@ -193,6 +255,17 @@ fn program_of(
             reason: "The pass links no shader the defs declare".to_owned(),
         };
     };
+    translated(ShaderPath::Generated(shader), pass, kind, options, cache)
+}
+
+/// The program of `shader` that the define list of `pass` selects.
+fn translated(
+    shader: ShaderPath<'_>,
+    pass: &ResolvedPass,
+    kind: MaterialKind,
+    options: ProgramOptions,
+    cache: &mut ShaderCache<'_>,
+) -> ProgramRead {
     let defines = define_list(pass, kind, options);
 
     match cache.program(shader, &defines) {

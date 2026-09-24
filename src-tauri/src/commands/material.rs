@@ -15,7 +15,9 @@ use ltk_manager_core::material::defs::ShaderDefsCache;
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
-use ltk_manager_game::program::{read_programs, MaterialProgram, ProgramOptions, Resolution};
+use ltk_manager_game::program::{
+    read_programs, MaterialProgram, PassProgram, ProgramOptions, Resolution,
+};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
@@ -98,6 +100,43 @@ pub async fn read_material_programs(
                 })
             }
         }
+    })
+    .await
+}
+
+/// The pass the engine draws a skinned submesh with where its skin names no material,
+/// with `LIT_UBER` translated.
+///
+/// The shader cache is the one `document` resolves against. Translations are cached as
+/// [`read_material_programs`] caches them.
+///
+/// # Errors
+///
+/// Fails when no document is open under `document`.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_default_skinned_program(
+    document: BinDocumentId,
+    options: ProgramOptions,
+    app_handle: AppHandle,
+) -> IpcResult<PassProgram> {
+    off_thread(move || {
+        let translations = TranslationCache::new(
+            get_app_data_dir(&app_handle)
+                .map(|dir| dir.join("shaders"))
+                .as_deref(),
+        );
+        read_resolved(&app_handle, document, |_, _, assets| {
+            let config = app_handle.state::<SettingsState>().config();
+            let wads = app_handle.state::<WadCache>();
+            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            Ok(ltk_manager_game::program::read_default_skinned_program(
+                assets,
+                options,
+                &translations,
+                &mut read,
+            ))
+        })
     })
     .await
 }

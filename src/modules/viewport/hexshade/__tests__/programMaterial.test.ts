@@ -16,7 +16,7 @@ import type { PassState, ResolvedPass, UniformBlock } from "@/lib/tauri";
 
 import {
   applyPassState,
-  globalsAsUniform,
+  blocksAsUniforms,
   globalsData,
   sideOf,
   withoutVersion,
@@ -150,23 +150,23 @@ describe("sideOf", () => {
   });
 });
 
-describe("globalsAsUniform", () => {
-  it("declares the block as an array uniform of its name and reads through it", () => {
-    const source = [
-      "layout(std140) uniform Globals_ps",
-      "{",
-      "    vec4 m[3];",
-      "} Globals_i;",
-      "",
-      "layout(std140) uniform PerFramePixelCB_ps",
-      "{",
-      "    uvec4 m[30];",
-      "} PerFramePixelCB_i;",
-      "",
-      "void main() { float a = Globals_i.m[0u].x + PerFramePixelCB_i.m[1u].y; }",
-    ].join("\n");
+describe("blocksAsUniforms", () => {
+  const source = [
+    "layout(std140) uniform Globals_ps",
+    "{",
+    "    vec4 m[3];",
+    "} Globals_i;",
+    "",
+    "layout(std140) uniform PerFramePixelCB_ps",
+    "{",
+    "    uvec4 m[30];",
+    "} PerFramePixelCB_i;",
+    "",
+    "void main() { float a = Globals_i.m[0u].x + PerFramePixelCB_i.m[1u].y; }",
+  ].join("\n");
 
-    expect(globalsAsUniform(source)).toEqual({
+  it("declares a named block as an array uniform of its name and reads through it", () => {
+    expect(blocksAsUniforms(source, new Set(["Globals_ps"]))).toEqual({
       source: [
         "uniform vec4 Globals_ps[3];",
         "",
@@ -177,12 +177,41 @@ describe("globalsAsUniform", () => {
         "",
         "void main() { float a = Globals_ps[0u].x + PerFramePixelCB_i.m[1u].y; }",
       ].join("\n"),
-      extent: 3,
+      blocks: new Map([["Globals_ps", { element: "vec4", extent: 3 }]]),
     });
   });
 
+  it("inlines every named block with the block's element type", () => {
+    const inlined = blocksAsUniforms(source, new Set(["Globals_ps", "PerFramePixelCB_ps"]));
+
+    expect(inlined.source).toContain("uniform uvec4 PerFramePixelCB_ps[30];");
+    expect(inlined.source).toContain("Globals_ps[0u].x + PerFramePixelCB_ps[1u].y");
+    expect(inlined.blocks.get("PerFramePixelCB_ps")).toEqual({ element: "uvec4", extent: 30 });
+  });
+
+  it("reads through an instance whose name ends another's without touching the longer one", () => {
+    const nested = [
+      "layout(std140) uniform CB_ps",
+      "{",
+      "    vec4 m[1];",
+      "} CB_i;",
+      "layout(std140) uniform DrawCB_ps",
+      "{",
+      "    vec4 m[1];",
+      "} DrawCB_i;",
+      "void main() { float a = CB_i.m[0u].x + DrawCB_i.m[0u].x; }",
+    ].join("\n");
+
+    expect(blocksAsUniforms(nested, new Set(["CB_ps"])).source).toContain(
+      "CB_ps[0u].x + DrawCB_i.m[0u].x",
+    );
+  });
+
   it("leaves a stage without the block alone", () => {
-    expect(globalsAsUniform("void main() {}")).toEqual({ source: "void main() {}", extent: 0 });
+    expect(blocksAsUniforms("void main() {}", new Set(["Globals_ps"]))).toEqual({
+      source: "void main() {}",
+      blocks: new Map(),
+    });
   });
 });
 

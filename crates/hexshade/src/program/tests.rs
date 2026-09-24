@@ -45,7 +45,7 @@ fn a_missing_toc_names_the_chunk_path() {
     let translations = TranslationCache::default();
 
     let error = ShaderCache::new(&mut chunks, &translations)
-        .program(SHADER, &Defines::default())
+        .program(ShaderPath::Generated(SHADER), &Defines::default())
         .unwrap_err();
 
     assert_eq!(
@@ -65,8 +65,12 @@ fn each_toc_and_bundle_is_read_once_per_cache() {
     let translations = TranslationCache::default();
 
     let mut cache = ShaderCache::new(&mut chunks, &translations);
-    let first = cache.program(SHADER, &Defines::default()).unwrap_err();
-    let second = cache.program(SHADER, &Defines::default()).unwrap_err();
+    let first = cache
+        .program(ShaderPath::Generated(SHADER), &Defines::default())
+        .unwrap_err();
+    let second = cache
+        .program(ShaderPath::Generated(SHADER), &Defines::default())
+        .unwrap_err();
 
     assert!(
         matches!(first, ProgramError::NoRecord { id: 0, .. }),
@@ -77,4 +81,27 @@ fn each_toc_and_bundle_is_read_once_per_cache() {
         "{second}"
     );
     assert_eq!(chunks.reads, HashMap::from([(toc, 1), (bundle, 1)]));
+}
+
+#[test]
+fn an_hlsl_shader_reads_the_toc_of_each_stage_file() {
+    let mut chunks = Chunks::default();
+    let translations = TranslationCache::default();
+    let shader = ShaderPath::Hlsl {
+        vertex: "ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_VS.vs",
+        pixel: "ASSETS/Shaders/HLSL/SkinnedMesh/LIT_UBER_PS.ps",
+    };
+
+    let error = ShaderCache::new(&mut chunks, &translations)
+        .program(shader, &Defines::default())
+        .unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "Nothing on this machine holds assets/shaders/hlsl/skinnedmesh/lit_uber_vs.vs-dx11"
+    );
+    assert_eq!(
+        shader.toc_path(Stage::Pixel),
+        "assets/shaders/hlsl/skinnedmesh/lit_uber_ps.ps-dx11"
+    );
 }

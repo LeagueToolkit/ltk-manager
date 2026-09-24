@@ -244,6 +244,18 @@ export const commands = {
 	 */
 	readMaterialPrograms: (source: MaterialSource, entries: string[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_material_programs", { source, entries, options }),
 	/**
+	 *  The pass the engine draws a skinned submesh with where its skin names no material,
+	 *  with `LIT_UBER` translated.
+	 * 
+	 *  The shader cache is the one `document` resolves against. Translations are cached as
+	 *  [`read_material_programs`] caches them.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when no document is open under `document`.
+	 */
+	readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: PassProgram }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_default_skinned_program", { document, options }),
+	/**
 	 *  Tangents saved into the viewed skin's project-layer mesh.
 	 * 
 	 *  # Errors
@@ -3503,6 +3515,8 @@ export type SkinModel = {
 	skeleton: NamedAsset | null,
 	/**  The texture a submesh draws with where no override names its own. */
 	texture: NamedAsset | null,
+	/**  `emissiveTexture`, the emissive mask of a submesh with no material. */
+	emissiveTexture: NamedAsset | null,
 	/**  The `Material` a submesh draws with where no override names its own. */
 	material: MaterialPreview | null,
 	/**  The submeshes a `materialOverride` gives a texture or a material of their own. */
@@ -3511,6 +3525,8 @@ export type SkinModel = {
 	hidden: string[],
 	/**  `skinScale`, which the character is drawn at. */
 	scale: number | null,
+	/**  `selfIllumination`, added to the character's ambient light. Zero by default. */
+	selfIllumination: number | null,
 	/**  `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits. */
 	animationGraph: string | null,
 	/**  `idleParticlesEffects`, in the order the skin lists them. */

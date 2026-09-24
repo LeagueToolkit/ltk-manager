@@ -23,66 +23,102 @@ import {
 } from "../assets/parsing/lightGridBuffer";
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
-import { programGlobals } from "./programMaterial";
+import { type InlinedBlock, programGlobals } from "./programMaterial";
 
 /**
- * The engine's own constant buffers, written once per frame for every program material of
- * one object.
+ * How a program material reads the environment's buffers.
  *
- * Every buffer but `$Globals` has one layout in every shipped blob, so each is one
- * `Float32Array` of the buffer's bytes that every material of the object binds through
- * the same `UniformsGroup`, and a member is written at the byte offset section 3.2 of
+ * `group` binds each buffer through one `UniformsGroup` that every material of the object
+ * shares. A group takes one renderer binding point until it is disposed. A WebGL2 context
+ * on ANGLE has 24 binding points. `uniform` declares each buffer as an array uniform of
+ * the material over the same bytes, and takes no binding point.
+ */
+export type BufferBinding = "group" | "uniform";
+
+/**
+ * The engine's constant buffers for the program materials of one object, written once per
+ * frame.
+ *
+ * Every buffer but `$Globals` has one layout in every shipped blob. Each is one
+ * `Float32Array` of the buffer's bytes, which every material of the object reads through
+ * its `BufferBinding`. A member is written at the byte offset section 3.2 of
  * docs/research/static-material-studio-rendering.md lists. A buffer the studio has no
- * value for stays zero. The matrices are written as the rows the shader's `dp4` reads, so
- * the clip transform is D3D's, whose `z` the translated shader maps to GL's.
+ * value for stays zero. The matrices are written as the rows the shader's `dp4` reads.
+ * The clip transform is D3D's, and the translated shader maps its `z` to GL's.
  *
- * A skinned mesh's vertices land in the world through `BONES`, which carry the object's
- * own transform, so its clip transform is the camera's alone. A static mesh's shader
- * multiplies by a `WORLD_MATRIX` the material packs as the identity, so its clip
- * transform carries the object's, and the camera is stated in the object's space.
+ * A skinned mesh's `BONES` carry the object's transform, and its clip transform is the
+ * camera's alone. A static mesh's shader multiplies by a `WORLD_MATRIX` the material packs
+ * as the identity. Its clip transform carries the object's, and the camera is stated in
+ * the object's space.
  *
- * `$Globals` is no group at all but each material's own array uniform, because three
- * uploads a group once per frame and keeps a binding point per group for its life, and
- * the block carries what changes per draw for one of hundreds of materials.
+ * `$Globals` is an array uniform of each material under either binding. It carries what
+ * changes per draw for one of hundreds of materials, and three uploads a group once per
+ * frame.
  */
 export class EngineEnvironment {
   /** The sun the pixel buffer states, which a map's own replaces. */
   light: SunLight = DEFAULT_SUN;
   /** The map's baked ambient, which lights a character in place of the sun where it holds one. */
   grid: LightGrid | null = null;
+  /** The skin's `selfIllumination`, written to each colour channel of `SELF_ILLUMINATION`. */
+  selfIllumination = 0;
 
-  private readonly held = new Map<string, HeldBlock>();
+  private readonly buffers = new Map<string, BlockBuffer>();
   private readonly clip = new Matrix4();
   private readonly inverse = new Matrix4();
   private readonly identity = new Matrix4();
   private readonly eye = new Vector3();
   private frame = -1;
 
+  constructor(readonly binding: BufferBinding = "group") {}
+
   /** The group `block` binds through, one per block name for the object's life. */
   group(block: UniformBlock): UniformsGroup {
-    const found = this.held.get(block.glslName);
-    if (found !== undefined) return found.group;
-    const data = new Float32Array(block.size / FLOAT_BYTES);
-    const group = new UniformsGroup().setName(block.glslName);
-    group.add(new Uniform(data));
-    this.held.set(block.glslName, { group, data, base: block.name });
-    return group;
+    const buffer = this.bufferOf(block);
+    if (buffer.group === null) {
+      buffer.group = new UniformsGroup().setName(block.glslName);
+      buffer.group.add(new Uniform(buffer.data));
+    }
+    return buffer.group;
+  }
+
+  /**
+   * The bytes of `block` as a typed array of the elements a stage declares it with.
+   *
+   * The array is a view of the environment's bytes, not a copy. Every material that reads
+   * the block reads each write.
+   */
+  array(
+    block: UniformBlock,
+    { element, extent }: InlinedBlock,
+  ): Float32Array | Int32Array | Uint32Array {
+    const { data } = this.bufferOf(block);
+    const length = Math.min(extent * VEC4_FLOATS, data.length);
+
+    /* The shader converts an integer element to a float with `uintBitsToFloat`. An
+       integer view keeps the bits of each float unconverted. */
+    if (element === "uvec4") return new Uint32Array(data.buffer, data.byteOffset, length);
+    if (element === "ivec4") return new Int32Array(data.buffer, data.byteOffset, length);
+    return data.subarray(0, length);
   }
 
   /**
    * The light maps of the mesh about to draw written over `material`'s `$Globals` and
    * bound to its samplers.
    *
-   * A light map and its scale and bias belong to the mesh, while `$Globals` and the
-   * samplers belong to the material, which every mesh of it shares. Three uploads a
-   * material's uniforms again when it is told they moved, so a mesh that moves either
-   * lands before its draw.
+   * A light map and its scale and bias belong to the mesh. `$Globals` and the samplers
+   * belong to the material, which every mesh of it shares. Three uploads a material's
+   * uniforms again only when `uniformsNeedUpdate` is set, and a change of either sets it.
+   * Under the `uniform` binding the buffers are material uniforms as well, and every draw
+   * sets it.
    */
   draw(material: Material, lights: MeshLights | null = null): void {
     const globals = programGlobals(material);
     if (globals === undefined) return;
     const program = material as RawShaderMaterial;
     const uniforms: Record<string, IUniform> = program.uniforms;
+    if (this.binding === "uniform") program.uniformsNeedUpdate = true;
+
     for (const [channel, member, texture] of LIGHT_CHANNELS) {
       const light = lights?.[channel] ?? null;
       for (const at of globals.members.get(member) ?? []) {
@@ -115,7 +151,7 @@ export class EngineEnvironment {
     }
   }
 
-  /** Every held buffer written for `object` as `camera` sees it, once per frame. */
+  /** Every buffer written for `object` as `camera` sees it, once per frame. */
   write(renderer: WebGLRenderer, camera: Camera, object: Object3D, time: number): void {
     if (renderer.info.render.frame === this.frame) return;
     this.frame = renderer.info.render.frame;
@@ -125,15 +161,15 @@ export class EngineEnvironment {
       this.clip.multiply(object.matrixWorld);
       this.eye.applyMatrix4(this.inverse.copy(object.matrixWorld).invert());
     }
-    for (const { data, base } of this.held.values()) {
+    for (const { data, base } of this.buffers.values()) {
       const write = WRITERS[base];
       if (write !== undefined) write(data, this, camera, object, time);
     }
   }
 
   dispose(): void {
-    for (const { group } of this.held.values()) group.dispose();
-    this.held.clear();
+    for (const { group } of this.buffers.values()) group?.dispose();
+    this.buffers.clear();
   }
 
   /** The rows of the clip transform with a D3D depth range. */
@@ -155,10 +191,25 @@ export class EngineEnvironment {
   writeIdentity(out: Float32Array, at: number): void {
     writeRows(out, at, this.identity);
   }
+
+  /** The environment's buffer for `block`, created on the block's first bind. */
+  private bufferOf(block: UniformBlock): BlockBuffer {
+    const found = this.buffers.get(block.glslName);
+    if (found !== undefined) return found;
+
+    const made: BlockBuffer = {
+      group: null,
+      data: new Float32Array(block.size / FLOAT_BYTES),
+      base: block.name,
+    };
+    this.buffers.set(block.glslName, made);
+    return made;
+  }
 }
 
-interface HeldBlock {
-  readonly group: UniformsGroup;
+interface BlockBuffer {
+  /** The group the block binds through, and null under the `uniform` binding. */
+  group: UniformsGroup | null;
   readonly data: Float32Array;
   /** The engine's name for the block, which says what to write into it. */
   readonly base: string;
@@ -206,6 +257,7 @@ type Writer = (
 ) => void;
 
 const FLOAT_BYTES = 4;
+const VEC4_FLOATS = 4;
 
 /** The light map transform of a mesh without one, reading its `uv1` as it is. */
 const UNIT_SCALE: readonly [number, number] = [1, 1];
@@ -373,6 +425,8 @@ const WRITERS: Record<string, Writer> = {
     environment.writeIdentity(out, 44);
   },
   CharacterPerDrawPS: (out, environment) => {
+    const { selfIllumination } = environment;
+    writeVector(out, 0, selfIllumination, selfIllumination, selfIllumination);
     /* `kGrassFade.w` multiplies every fragment's alpha, so anything but one draws nothing. */
     out[7] = 1;
     /* `LIGHTGRID_SCALE`: the grid's own scale is already in its cube. */
