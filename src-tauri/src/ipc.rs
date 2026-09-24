@@ -45,6 +45,8 @@ migrated![
     bin_dependencies,
     bin_choices,
     class_schema,
+    class_docs,
+    sync_meta_docs,
     // Bin editor: edits
     bin_edit,
     bin_undo,

@@ -1,4 +1,13 @@
 {
+  "settings_about_app_name": "LTK Manager",
+  "settings_about_description": "LTK Manager is part of the LeagueToolkit project. It provides a graphical interface for managing League of Legends mods using the modpkg format.",
+  "settings_about_documentation_action": "Documentation",
+  "settings_about_github_action": "View on GitHub",
+  "settings_about_licenses_action": "Third-Party Licenses",
+  "settings_about_meta_wiki_description": "Class and property documentation in the bin editor comes from the *LoL Meta Wiki*, under CC BY-SA 4.0.",
+  "settings_about_open_log_action": "Open Log File",
+  "settings_about_title": "About",
+  "settings_about_version_label": "Version {version}",
   "settings_builtins_base_skins_all": "Every champion",
   "settings_builtins_base_skins_description": "Every skin of a champion in scope shows its base skin, a mod's where one replaces it.",
   "settings_builtins_base_skins_hint": "Only on your screen, for every player. A mod made for one skin keeps that skin. Every champion puts each champion archive in the overlay, about 16 GB, so the first patch after choosing it takes a while.",

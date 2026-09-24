@@ -74,6 +74,20 @@ export const commands = {
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
 	/**
+	 *  The wiki's prose for one class and every property it or a base of it declares.
+	 * 
+	 *  Read from the cache, never the network. `None` where nothing is documented.
+	 *  `class_hash` is `0x` and eight hex digits.
+	 */
+	classDocs: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassDocs | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_docs", { classHash }),
+	/**
+	 *  Refresh the cached documentation once per session, and answer the session's revision.
+	 * 
+	 *  The revision moves when a newer copy lands. A publisher that cannot be reached leaves the
+	 *  cached copy and the revision as they were.
+	 */
+	syncMetaDocs: () => __TAURI_INVOKE<({ ok: true; value: number }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sync_meta_docs"),
+	/**
 	 *  Apply one edit to an open document, answering what the edit reports beside the change.
 	 * 
 	 *  Every id over the asset reads the edit, and nothing reaches the disk before [`bin_save`].
@@ -1014,6 +1028,14 @@ export type ClassChoice = {
 	derivesFrom: string | null,
 };
 
+/**  The wiki's prose for one class and for the properties it and its bases declare. */
+export type ClassDocs = {
+	/**  The class's own prose. Absent where the wiki documents only properties. */
+	class: Doc | null,
+	/**  Keyed by the property's hash, `0x` and eight hex digits. */
+	properties: { [key in string]: PropertyDocs },
+};
+
 /**  One class as the class card draws it: its name, and its fields typed at one build. */
 export type ClassSchema = {
 	/**  The class as the database names it. */
@@ -1464,6 +1486,16 @@ export type DiagnosticReport_Serialize = {
 	appVersion: string,
 	/**  All checks in display order. */
 	checks: Check_Serialize[],
+};
+
+/**  What the wiki writes about one class or one property, each part markdown. */
+export type Doc = {
+	/**  The body. Absent where the entry carries notes or examples alone. */
+	description: string | null,
+	/**  Short caveats, one paragraph each. */
+	notes: string[],
+	/**  Worked examples, one block each. */
+	examples: string[],
 };
 
 /**  What a landed [`BinEdit`] answers beside the change itself. */
@@ -3100,6 +3132,15 @@ export type ProjectTextFile =
 "readme" | 
 /**  The terms the mod is shared under, which both pack formats ship. */
 "license";
+
+/**  The wiki's prose for one property, and the class whose page carries it. */
+export type PropertyDocs = {
+	/**  The declaring class as the wiki names it, or its hash where no name is known. */
+	owner: string,
+	/**  The property as the wiki names it, or its hash where no name is known. */
+	name: string,
+	doc: Doc,
+};
 
 /**
  *  The 27 kinds `ltk_meta` reads, as they cross IPC.

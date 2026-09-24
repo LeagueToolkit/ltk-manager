@@ -7,7 +7,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BinRow, ClassSchema, WorkshopProject } from "@/lib/tauri";
+import type { BinRow, ClassDocs, ClassSchema, WorkshopProject } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -100,6 +100,21 @@ const SCHEMA: ClassSchema = {
   ],
 };
 
+const DOCS: ClassDocs = {
+  class: { description: "What a skin **is**.", notes: [], examples: [] },
+  properties: {
+    "0x0000000a": {
+      owner: "SkinCharacterDataPropertiesBase",
+      name: "championSkinName",
+      doc: {
+        description: "The champion, as [the character](/classes/characterrecord) names it.",
+        notes: ["Case-insensitive."],
+        examples: [],
+      },
+    },
+  },
+};
+
 /* The class card offers Find all references, which opens a document of the project the
    card is mounted in. */
 const PROJECT: WorkshopProject = {
@@ -141,6 +156,8 @@ beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
     if (command === "class_schema") return Promise.resolve({ ok: true, value: SCHEMA });
+    if (command === "class_docs") return Promise.resolve({ ok: true, value: DOCS });
+    if (command === "sync_meta_docs") return Promise.resolve({ ok: true, value: 0 });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
   Object.defineProperty(navigator, "clipboard", {
@@ -439,6 +456,16 @@ describe("the class card", () => {
     });
   });
 
+  it("reads the wiki's prose for the class", async () => {
+    renderLine(line(embed));
+
+    await userEvent.hover(screen.getByText("SkinCharacterDataProperties"));
+    const card = await screen.findByRole("tooltip", { name: "SkinCharacterDataProperties" }, HOVER);
+
+    expect(await within(card).findByText("is", { selector: "strong" })).toBeInTheDocument();
+    expect(mockInvoke).toHaveBeenCalledWith("class_docs", { classHash: SKIN_CLASS });
+  });
+
   it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
     mockInvoke.mockImplementation(() => Promise.resolve({ ok: true, value: null }));
     renderLine(
@@ -523,6 +550,33 @@ describe("the field card", () => {
     await userEvent.click(screen.getByText("championSkinName"));
     expect(onToggle).toHaveBeenCalledWith(`${ENTRY}:0000000a`);
     expect(screen.queryByRole("button", { name: "Copy name" })).toBeNull();
+  });
+
+  it("reads the wiki's prose for the field, and links to the class the wiki writes it on", async () => {
+    renderLine(line(expandable));
+
+    await userEvent.hover(screen.getByText("championSkinName"));
+    const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
+
+    expect(await within(card).findByText("Case-insensitive.")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "the character" })).toHaveAttribute(
+      "href",
+      "https://meta-wiki.leaguetoolkit.dev/classes/characterrecord",
+    );
+    expect(within(card).getByRole("link", { name: /meta wiki/ })).toHaveAttribute(
+      "href",
+      "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdatapropertiesbase/#championskinname",
+    );
+  });
+
+  it("draws no prose or wiki link for a field the wiki has not written about", async () => {
+    renderLine(line(row({ name: "iconCircle", path: "0000000b" })));
+
+    await userEvent.hover(screen.getByText("iconCircle"));
+    const card = await screen.findByRole("tooltip", { name: "iconCircle" }, HOVER);
+
+    expect(await within(card).findByText("since 5229820")).toBeInTheDocument();
+    expect(within(card).queryByRole("link")).toBeNull();
   });
 
   it("says a field the schema has no line for is not declared", async () => {

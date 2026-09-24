@@ -22,7 +22,7 @@ vi.mock("../useForces", () => ({
   }),
 }));
 vi.mock("../../../classes/hooks/useClassSchema", () => ({
-  useClassSchema: () => ({ data: { build: fixture.build } }),
+  useClassSchema: () => ({ data: { build: fixture.build, fields: [] } }),
 }));
 vi.mock("../../../documents/components/DeclaredLayer", () => ({ DeclaredRowState: () => null }));
 
