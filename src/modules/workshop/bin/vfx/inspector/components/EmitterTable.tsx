@@ -16,6 +16,8 @@ import {
   ValueCell,
   type WidgetProps,
 } from "../../../classes/components/ClassCells";
+import { FieldCard, schemaDeclared } from "../../../classes/components/FieldCard";
+import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { nameHash } from "../../../shared/utils/binHash";
 import { RowValue } from "../../../tree/components/BinRow";
 import { rowKey } from "../../../tree/utils/binRows";
@@ -30,6 +32,9 @@ interface Column {
   readonly width: string;
   readonly draw: (row: BinRow | undefined, pages: LayoutPages) => ReactNode;
 }
+
+/** The class of every emitter in the table, which declares the fields its columns show. */
+const EMITTER = nameHash("VfxEmitterDefinitionData");
 
 /** The link under the custom material, which is the object that column draws. */
 const MATERIAL = nameHash("Material");
@@ -109,12 +114,11 @@ export function EmitterTable({ section, pages, view }: WidgetProps) {
             columns={ADDRESSED.map((column) => ({
               id: column.field,
               header: () => (
-                <span
-                  title={column.field}
-                  className={twMerge("shrink-0 truncate font-sans", column.width)}
-                >
-                  {emitterLabel(column.hash, column.field)}
-                </span>
+                <ColumnHeader
+                  field={column.field}
+                  hash={column.hash}
+                  className={twMerge("shrink-0 font-sans", column.width)}
+                />
               ),
               cell: ({ row }) => {
                 const fields = fieldsOf(pages.get(row.id));
@@ -134,6 +138,29 @@ export function EmitterTable({ section, pages, view }: WidgetProps) {
         </div>
       </div>
     </ValueMarksContext>
+  );
+}
+
+interface ColumnHeaderProps {
+  field: string;
+  hash: string;
+  className: string;
+}
+
+/** A column header that opens the field card for the column's emitter field. */
+function ColumnHeader({ field, hash, className }: ColumnHeaderProps) {
+  const { data: schema } = useClassSchema(EMITTER);
+
+  return (
+    <FieldCard
+      classHash={EMITTER}
+      fieldHash={hash}
+      name={field}
+      label={emitterLabel(hash, field)}
+      unnamed={false}
+      declared={schemaDeclared(schema, hash)}
+      triggerClassName={className}
+    />
   );
 }
 

@@ -14,6 +14,8 @@ interface MarkdownViewProps {
   text: string;
   /** The directory a relative image path is resolved against. */
   root: string | null;
+  /** The base URL for relative links. Without it, a relative link renders as plain text. */
+  linkBase?: string;
   className?: string;
 }
 
@@ -25,8 +27,8 @@ interface MarkdownViewProps {
  * mod as readily as from the project's own author, and this webview runs with
  * the app's privileges.
  */
-export function MarkdownView({ text, root, className }: MarkdownViewProps) {
-  const components = useMemo(() => renderers(root), [root]);
+export function MarkdownView({ text, root, linkBase, className }: MarkdownViewProps) {
+  const components = useMemo(() => renderers(root, linkBase), [root, linkBase]);
 
   return (
     <div className={twMerge("min-w-0 text-row text-surface-300", className)}>
@@ -37,7 +39,7 @@ export function MarkdownView({ text, root, className }: MarkdownViewProps) {
   );
 }
 
-function renderers(root: string | null): Components {
+function renderers(root: string | null, linkBase: string | undefined): Components {
   return {
     h1: ({ children }) => (
       <h1 className="mt-5 mb-2 text-lg font-medium text-surface-100 first:mt-0">{children}</h1>
@@ -94,12 +96,12 @@ function renderers(root: string | null): Components {
       if (!resolved) return <span className="text-meta text-surface-500">{alt ?? ""}</span>;
       return <img src={resolved} alt={alt ?? ""} className="mb-2 max-w-full rounded-md" />;
     },
-    /* A relative href survives react-markdown's own transform, and there is
-       nothing beside a document for it to mean, so only what the system can
-       open is drawn as a link. */
+    /* react-markdown keeps a relative href as written. Without `linkBase` it has no
+       target, so only an href the system can open renders as a link. */
     a: ({ href, children }) => {
-      if (!href || !isLeavable(href)) return <span>{children}</span>;
-      return <ExternalLink href={href}>{children}</ExternalLink>;
+      const resolved = href && linkBase ? resolveLink(href, linkBase) : href;
+      if (!resolved || !isLeavable(resolved)) return <span>{children}</span>;
+      return <ExternalLink href={resolved}>{children}</ExternalLink>;
     },
   };
 }
@@ -119,4 +121,13 @@ function relativeImage(src: string, root: string | null): string | null {
   if (parts.some((part) => part === "..")) return null;
 
   return convertFileSrc(`${root}/${parts.join("/")}`);
+}
+
+/** `href` resolved against `base`, or `href` unchanged when the two form no valid URL. */
+function resolveLink(href: string, base: string): string {
+  try {
+    return new URL(href, base).href;
+  } catch {
+    return href;
+  }
 }

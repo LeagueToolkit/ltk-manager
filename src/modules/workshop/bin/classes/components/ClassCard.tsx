@@ -3,12 +3,10 @@ import { errorSummary, m } from "@/i18n";
 import type { AppError, ClassSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { useClassDocs } from "../hooks/useClassDocs";
 import { useClassSchema } from "../hooks/useClassSchema";
-
-/** The wiki addresses a class by its name, lowercased, and serves no page for a hash. */
-function wikiUrl(name: string): string {
-  return `https://meta-wiki.leaguetoolkit.dev/classes/${name.toLowerCase()}/`;
-}
+import { classPageUrl } from "../utils/metaWiki";
+import { DocProse } from "./DocProse";
 
 interface ClassCardProps {
   /** `0x` and eight hex digits. */
@@ -29,7 +27,7 @@ export function ClassCard({ classHash, name }: ClassCardProps) {
   return (
     <HoverCard
       label={label}
-      className="w-80"
+      className="w-max max-w-md min-w-80"
       content={<ClassCardBody classHash={classHash} name={name} />}
     >
       <span
@@ -60,16 +58,25 @@ function ClassCardBody({ classHash, name }: ClassCardProps) {
           {classHash}
         </Code>
       </header>
+      <ClassDoc classHash={classHash} />
       <footer className="flex items-center justify-between gap-3">
         <Basis pending={isPending} error={error} schema={data} />
         {name !== null && (
-          <ExternalLink href={wikiUrl(name)} className="shrink-0">
+          <ExternalLink href={classPageUrl(name)} className="shrink-0">
             {m.workshop_bin_meta_wiki_action()}
           </ExternalLink>
         )}
       </footer>
     </div>
   );
+}
+
+/** The wiki's documentation for the class itself. Renders nothing when the wiki has none. */
+function ClassDoc({ classHash }: { classHash: string }) {
+  const { data } = useClassDocs(classHash);
+
+  if (!data?.class) return null;
+  return <DocProse doc={data.class} />;
 }
 
 interface BasisProps {

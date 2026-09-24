@@ -3118,6 +3118,7 @@ dependencies = [
  "indexmap 2.14.0",
  "lru",
  "ltk-declarations",
+ "ltk-meta-docs",
  "ltk-telemetry",
  "ltk_anim",
  "ltk_fantome",
@@ -3182,6 +3183,22 @@ dependencies = [
  "tracing",
  "ts-rs",
  "xxhash-rust",
+]
+
+[[package]]
+name = "ltk-meta-docs"
+version = "0.1.0"
+dependencies = [
+ "fs-err",
+ "ltk_hash",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "ts-rs",
 ]
 
 [[package]]

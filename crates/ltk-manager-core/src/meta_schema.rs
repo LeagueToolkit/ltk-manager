@@ -604,6 +604,25 @@ impl MetaSchema {
         self.walk_hierarchy(class, bases, &mut find, 0)
     }
 
+    /// `class` and then its bases, in the order [`MetaSchema::find_in_hierarchy`] visits them.
+    ///
+    /// Only `class` where the database does not describe it.
+    #[must_use]
+    pub fn lineage(&self, class: BinHash, build: Option<GameBuild>) -> Vec<BinHash> {
+        let mut lineage = Vec::new();
+        let bases = BasesAt::Build(self.content_build(build));
+        self.walk_hierarchy(
+            class,
+            bases,
+            &mut |owner| {
+                lineage.push(owner);
+                None::<()>
+            },
+            0,
+        );
+        lineage
+    }
+
     /// [`MetaSchema::find_in_hierarchy`] from `depth` bases up.
     fn walk_hierarchy<T>(
         &self,

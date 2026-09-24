@@ -13,6 +13,7 @@ import {
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { FieldCard, schemaDeclared } from "../../classes/components/FieldCard";
 import { useClassSchema } from "../../classes/hooks/useClassSchema";
 import { Sparkline } from "../../curves/components/Sparkline";
 import { CurveDockContext } from "../../curves/state/curveTarget";
@@ -48,7 +49,8 @@ export function ForceControl({
   const edit = use(LeafEditContext);
   const preview = useForcePreview();
   const dock = use(CurveDockContext);
-  const { data: schema } = useClassSchema(nameHash(force.definition.className));
+  const classHash = nameHash(force.definition.className);
+  const { data: schema } = useClassSchema(classHash);
   const held = forceValue(force, property);
   const refusal = edit?.refused.get(`${force.row.entry}:${held.leaf?.path ?? force.row.path}`);
   const known = held.authored || schema?.build === FORCE_DEFAULT_BUILD;
@@ -115,12 +117,16 @@ export function ForceControl({
             !held.authored && "text-surface-400",
           )}
         >
-          <span
-            className="block truncate leading-6"
-            title={`${property.name}${held.authored ? "" : ` · ${m.workshop_bin_force_default_label()}`}`}
-          >
-            {property.label()}
-          </span>
+          <FieldCard
+            classHash={classHash}
+            fieldHash={nameHash(property.name)}
+            name={property.name}
+            label={property.label()}
+            unnamed={false}
+            declared={schemaDeclared(schema, nameHash(property.name))}
+            defaultValue={held.authored || !known ? null : JSON.stringify(held.value)}
+            triggerClassName="block leading-6"
+          />
         </Table.Head>
         <Table.Cell className="border-b-0 px-2 py-0">
           <div className="flex min-w-0 flex-col gap-1">

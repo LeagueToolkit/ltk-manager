@@ -1,11 +1,14 @@
-import { Code, HoverCard, SeverityGlyph, Spinner } from "@/components";
+import { Code, ExternalLink, HoverCard, SeverityGlyph, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
+import type { ClassSchema, DeclaredKind, FieldRevision } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { CutText } from "../../shared/components/CutText";
 import { shapeTag } from "../../values/utils/kindTag";
+import { useClassDocs } from "../hooks/useClassDocs";
 import { useClassSchema } from "../hooks/useClassSchema";
+import { fieldPageUrl } from "../utils/metaWiki";
+import { DocProse } from "./DocProse";
 
 interface FieldCardProps {
   /** The class the field is read on. Null where the row's parent declares none. */
@@ -26,13 +29,6 @@ interface FieldCardProps {
    * carries no default, so nothing fills it and the card draws no line for it.
    */
   defaultValue?: string | null;
-  /**
-   * The wiki's written doc for the field, the card's other unfilled slot.
-   *
-   * `meta-wiki.leaguetoolkit.dev` holds the prose and the schema snapshot does not, so
-   * the card links the class and draws no doc of its own.
-   */
-  doc?: string | null;
   triggerClassName?: string;
   /** The name fills its box and is cut in the middle, rather than at its end. */
   cut?: boolean;
@@ -42,7 +38,7 @@ interface FieldCardProps {
  * A field name, and what the schema says about it while the pointer is on it.
  *
  * "The field card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
- * is when its query runs.
+ * is when its queries run. The wiki documentation for the field is looked up by `classHash`.
  */
 export function FieldCard({
   classHash,
@@ -52,14 +48,13 @@ export function FieldCard({
   unnamed,
   declared,
   defaultValue = null,
-  doc = null,
   triggerClassName,
   cut = false,
 }: FieldCardProps) {
   return (
     <HoverCard
       label={label}
-      className="w-72"
+      className="w-max max-w-md min-w-72"
       content={
         <FieldCardBody
           classHash={classHash}
@@ -68,7 +63,6 @@ export function FieldCard({
           unnamed={unnamed}
           declared={declared}
           defaultValue={defaultValue}
-          doc={doc}
         />
       }
     >
@@ -93,7 +87,6 @@ function FieldCardBody({
   unnamed,
   declared,
   defaultValue = null,
-  doc = null,
 }: FieldCardProps) {
   return (
     <div data-ui="FieldCard" className="flex flex-col gap-2">
@@ -107,8 +100,9 @@ function FieldCardBody({
       </header>
       <DeclaredLine declared={declared} />
       <DefaultLine value={defaultValue} />
-      <DocLine text={doc} />
+      {classHash !== null && <FieldDoc classHash={classHash} fieldHash={fieldHash} />}
       {classHash !== null && <Revisions classHash={classHash} fieldHash={fieldHash} />}
+      {classHash !== null && <FieldWikiLink classHash={classHash} fieldHash={fieldHash} />}
     </div>
   );
 }
@@ -125,10 +119,41 @@ function DefaultLine({ value }: { value: string | null }) {
   );
 }
 
-/** The wiki's prose for the field, and nothing at all until the schema carries it. */
-function DocLine({ text }: { text: string | null }) {
-  if (text === null) return null;
-  return <p className="text-surface-300 select-text">{text}</p>;
+interface FieldDocProps {
+  classHash: string;
+  fieldHash: string;
+}
+
+/** The wiki's documentation for the field. Renders nothing when the wiki has none. */
+function FieldDoc({ classHash, fieldHash }: FieldDocProps) {
+  const { data } = useClassDocs(classHash);
+  const property = data?.properties[fieldHash];
+
+  if (!property) return null;
+  return <DocProse doc={property.doc} />;
+}
+
+/** A link to the field's section on the wiki page of the class that documents it. */
+function FieldWikiLink({ classHash, fieldHash }: FieldDocProps) {
+  const { data } = useClassDocs(classHash);
+  const property = data?.properties[fieldHash];
+
+  if (!property) return null;
+  return (
+    <ExternalLink href={fieldPageUrl(property.owner, property.name)} className="self-start">
+      {m.workshop_bin_meta_wiki_action()}
+    </ExternalLink>
+  );
+}
+
+/** The kind `schema` declares for a field, for a card that has no file row to read it from. */
+export function schemaDeclared(
+  schema: ClassSchema | null | undefined,
+  fieldHash: string,
+): DeclaredKind | null {
+  const shape = schema?.fields.find((field) => field.hash === fieldHash)?.declared ?? null;
+  if (shape === null) return null;
+  return { shape, mismatch: false };
 }
 
 /** The schema's line for a field: its declared kind, or that it has none at this build. */

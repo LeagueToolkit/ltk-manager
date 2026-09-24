@@ -955,12 +955,13 @@ and the card. It reads and does nothing else, per `DS-MENU-SCOPE`: it carries no
 name under it takes no click of its own, so a click there expands the row like a click anywhere
 else on it. The pointer reaches into the card to scroll the field list and to select a hash.
 
-| Shows      | From                                                       |
-| ---------- | ---------------------------------------------------------- |
-| Name, hash | The tables, and the hex where no table names it            |
-| Declares   | How many objects of the install declare it, from the index |
-| Patch      | The patch the schema answered at, or that it has no line   |
-| Meta wiki  | A link to the class's page, where its fields are written   |
+| Shows      | From                                                                             |
+| ---------- | -------------------------------------------------------------------------------- |
+| Name, hash | The tables, and the hex where no table names it                                  |
+| Prose      | The wiki's documentation for the class, per [the wiki's prose](#the-wikis-prose) |
+| Declares   | How many objects of the install declare it, from the index                       |
+| Patch      | The patch the schema answered at, or that it has no line                         |
+| Meta wiki  | A link to the class's page, where its fields are written                         |
 
 The class name's actions are on [the row menu](#the-row-menu) where a row carries it, and on the
 object tab's kebab where no row does.
@@ -984,15 +985,42 @@ A field name is the same control as a class name: a card on hover after the tool
 closed by leaving it. The name draws under a dotted underline while the pointer is on it, which
 marks the card without making the name a second click target inside the row.
 
-| Shows      | From                                                                 |
-| ---------- | -------------------------------------------------------------------- |
-| Name, hash | The tables, and the hex where no table names it                      |
-| Declared   | The schema's kind for the field at this build                        |
-| Revisions  | The field's kinds across builds, as the schema's revisions hold them |
+| Shows      | From                                                                             |
+| ---------- | -------------------------------------------------------------------------------- |
+| Name, hash | The tables, and the hex where no table names it                                  |
+| Declared   | The schema's kind for the field at this build                                    |
+| Prose      | The wiki's documentation for the field, per [the wiki's prose](#the-wikis-prose) |
+| Revisions  | The field's kinds across builds, as the schema's revisions hold them             |
+| Meta wiki  | A link to the field's section on the wiki page that documents it, if any         |
+
+Every field name that opens this card - a tree row, a class view row, the VFX inspector's rows,
+the emitter table's column headers and the force rows - shows the same documentation.
 
 Copy name and Copy field hash are on [the row menu](#the-row-menu).
 
 The kind shown on the row stays the file's kind, per [The property row](#the-property-row).
+
+### The wiki's prose
+
+The LoL Meta Wiki documents some classes and their properties with a description, notes and
+examples, each in markdown. A card shows this text below the schema lines, and long text scrolls
+inside the card. A relative link in the text opens on the wiki. A class or field without
+documentation shows no documentation section.
+
+A field is documented on the class that declares it, which is often a base of the class the row
+is read on - `mMesh` of a `VfxPrimitiveMesh` is documented on `VfxPrimitiveMeshBase`. The card
+checks the row's class and then its bases in the schema, uses the first documentation it finds,
+and links to that class's page.
+
+The app fetches all documentation in one request to `/v1/docs/all` and caches it in the meta
+schema database's directory. The first card opened in a session starts a background refresh. The
+refresh sends at most one request every six hours across sessions, with the cached copy's tag, so
+the wiki returns `304` with no body when nothing changed. A card reads the cached copy immediately
+and reads again when a newer copy is installed. Offline, cards read the cached copy, and a machine
+that never reached the wiki shows no documentation.
+
+The documentation is CC BY-SA 4.0 under the wiki's developer tooling exception, which requires
+attribution. The About section credits the wiki.
 
 ### Find all references
 

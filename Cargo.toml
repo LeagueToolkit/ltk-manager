@@ -6,6 +6,7 @@ members = [
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
     "crates/ltk-manager-game",
+    "crates/ltk-meta-docs",
     "crates/ltk-telemetry",
 ]
 resolver = "2"
@@ -39,6 +40,7 @@ ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "67019
 hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
+ltk-meta-docs = { path = "crates/ltk-meta-docs" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.11", features = ["serde"] }

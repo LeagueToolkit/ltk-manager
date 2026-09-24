@@ -14,12 +14,19 @@ publish = false
 # onto `tauri-specta` one module at a time.
 # The `ts-rs` impl features belong with the derive rather than with the shell
 # that consumes it, so this crate builds and tests on its own.
-ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl", "dep:specta"]
+ts = [
+    "dep:ts-rs",
+    "ts-rs/chrono-impl",
+    "ts-rs/indexmap-impl",
+    "dep:specta",
+    "ltk-meta-docs/ts",
+]
 
 [dependencies]
 ritoclient = { workspace = true }
 
 ltk-declarations = { workspace = true }
+ltk-meta-docs = { workspace = true }
 ltk_anim = { workspace = true }
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }

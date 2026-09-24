@@ -142,6 +142,20 @@ fn class_cards_include_inherited_constructor_fields() {
 }
 
 #[test]
+fn a_lineage_runs_from_the_class_to_its_bases() {
+    let schema = derived_schema();
+
+    assert_eq!(
+        schema.lineage(DERIVED, Some(AFTER_RETYPE)),
+        [DERIVED, FLOAT_TEXT_ICON_DATA]
+    );
+    assert_eq!(
+        schema.lineage(BinHash(0x0bad_cafe), None),
+        [BinHash(0x0bad_cafe)]
+    );
+}
+
+#[test]
 fn constructor_defaults_distinguish_null_from_missing() {
     let null: PublishedRevision = serde_json::from_str(r#"{"from":1,"default":null}"#).unwrap();
     let missing: PublishedRevision = serde_json::from_str(r#"{"from":1}"#).unwrap();

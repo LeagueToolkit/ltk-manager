@@ -124,6 +124,7 @@ export type {
   ChoiceQuery,
   Choices,
   ClassChoice,
+  ClassDocs,
   ClassSchema,
   DeclaredDiagnostic,
   DeclaredDiagnosticKind,
@@ -138,6 +139,7 @@ export type {
   Declaring,
   Dependency,
   DependencyEdit,
+  Doc,
   EditOutcome,
   EditRejection,
   FieldRevision,
@@ -153,6 +155,7 @@ export type {
   ObjectEdit,
   ObjectName,
   ObjectSkip,
+  PropertyDocs,
   PropertyKind,
   ReadOnly,
   RowDeclaration,
@@ -614,6 +617,8 @@ export const api = {
     dependencies: (document: BinDocumentId) => commands.binDependencies(document).then(toResult),
     close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
     classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
+    classDocs: (classHash: string) => commands.classDocs(classHash).then(toResult),
+    syncMetaDocs: () => commands.syncMetaDocs().then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>
       commands.readVfxSystem(document, entry).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>

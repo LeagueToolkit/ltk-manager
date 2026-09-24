@@ -1244,13 +1244,16 @@ describe("ClassView over a particle system", () => {
 
 describe("The emitter table", () => {
   it("names each column by the field it draws", async () => {
+    const user = userEvent.setup();
     renderSystem();
-    await showTable(userEvent.setup());
+    await showTable(user);
 
     expect(screen.getByText("Emitter Name")).toBeInTheDocument();
-    expect(screen.getByText("Initial Color")).toBeInTheDocument();
-    expect(screen.getByTitle("birthColor")).toHaveTextContent("Initial Color");
     expect(screen.getByText("Spawn Shape")).toBeInTheDocument();
+
+    await user.hover(screen.getByText("Initial Color"));
+    const card = await screen.findByRole("tooltip", { name: "Initial Color" }, { timeout: 2000 });
+    expect(within(card).getByText("birthColor")).toBeInTheDocument();
   });
 
   it("draws the class of a pointer field, which is what the row draws", async () => {
