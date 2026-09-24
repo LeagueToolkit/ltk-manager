@@ -2,8 +2,19 @@ import { CaretDownIcon, CubeTransparentIcon } from "@phosphor-icons/react";
 
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
-import { takesWireOverlay, VIEW_MODES, type ViewMode } from "@/modules/viewport";
-import { usePreviewViewMode, usePreviewWireOverlay, useSetPreviewDisplay } from "@/stores";
+import {
+  ANTI_ALIASING_MODES,
+  type AntiAliasing,
+  takesWireOverlay,
+  VIEW_MODES,
+  type ViewMode,
+} from "@/modules/viewport";
+import {
+  usePreviewAntiAliasing,
+  usePreviewViewMode,
+  usePreviewWireOverlay,
+  useSetPreviewDisplay,
+} from "@/stores";
 
 const MODE_LABEL: Record<ViewMode, () => string> = {
   lit: m.workshop_bin_preview_view_lit_label,
@@ -12,10 +23,20 @@ const MODE_LABEL: Record<ViewMode, () => string> = {
   wireframe: m.workshop_bin_preview_view_wireframe_label,
 };
 
-/** The preview's view mode, and the wireframe overlay a lit or untextured mode takes. */
+const ANTI_ALIASING_LABEL: Record<AntiAliasing, () => string> = {
+  off: m.workshop_bin_preview_anti_aliasing_off_label,
+  fxaa: m.workshop_bin_preview_anti_aliasing_fxaa_label,
+  smaa: m.workshop_bin_preview_anti_aliasing_smaa_label,
+};
+
+/**
+ * The preview's view mode, the wireframe overlay a lit or untextured mode takes, and how
+ * the frame's edges are smoothed.
+ */
 export function ViewModeMenu() {
   const mode = usePreviewViewMode();
   const overlay = usePreviewWireOverlay();
+  const antiAliasing = usePreviewAntiAliasing();
   const setDisplay = useSetPreviewDisplay();
 
   return (
@@ -55,6 +76,20 @@ export function ViewModeMenu() {
             >
               {m.workshop_bin_preview_view_wire_overlay_label()}
             </Menu.CheckboxItem>
+            <Menu.Separator />
+            <Menu.Group>
+              <Menu.GroupLabel>{m.workshop_bin_preview_anti_aliasing_label()}</Menu.GroupLabel>
+              <Menu.RadioGroup
+                value={antiAliasing}
+                onValueChange={(each) => setDisplay({ previewAntiAliasing: each as AntiAliasing })}
+              >
+                {ANTI_ALIASING_MODES.map((each) => (
+                  <Menu.RadioItem key={each} value={each}>
+                    {ANTI_ALIASING_LABEL[each]()}
+                  </Menu.RadioItem>
+                ))}
+              </Menu.RadioGroup>
+            </Menu.Group>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

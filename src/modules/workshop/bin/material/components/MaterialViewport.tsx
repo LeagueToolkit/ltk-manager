@@ -29,6 +29,7 @@ import {
   Viewport,
 } from "@/modules/viewport";
 import {
+  usePreviewAntiAliasing,
   usePreviewCamera,
   usePreviewGround,
   usePreviewMaterialShape,
@@ -87,6 +88,7 @@ export default function MaterialViewport({ document, entry }: MaterialViewportPr
   const turntable = usePreviewTurntable();
   const held = useHeldValue();
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const ground = usePreviewGround();
   const setDisplay = useSetPreviewDisplay();
   const [fitToken, setFitToken] = useState(0);
@@ -104,6 +106,7 @@ export default function MaterialViewport({ document, entry }: MaterialViewportPr
   return (
     <div data-ui="MaterialViewport" className="relative min-h-0 flex-1">
       <Viewport
+        antiAliasing={antiAliasing}
         stage={ground}
         textured={false}
         camera={camera}

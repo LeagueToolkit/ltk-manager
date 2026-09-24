@@ -10,6 +10,7 @@ import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { edgesOf, useFitCamera, Viewport } from "@/modules/viewport";
 import {
+  usePreviewAntiAliasing,
   usePreviewCamera,
   usePreviewGizmo,
   usePreviewGround,
@@ -94,6 +95,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const gizmo = usePreviewGizmo();
   const stats = usePreviewStats();
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
   const setDisplay = useSetPreviewDisplay();
@@ -157,6 +159,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     <div data-ui="VfxViewport" className="flex min-h-0 flex-1 flex-col select-none">
       <div className="relative min-h-0 flex-1">
         <Viewport
+          antiAliasing={antiAliasing}
           stage={ground}
           textured={midlane}
           camera={camera}

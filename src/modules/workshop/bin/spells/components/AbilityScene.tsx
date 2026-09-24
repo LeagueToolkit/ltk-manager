@@ -18,7 +18,12 @@ import {
   useSceneColors,
   Viewport,
 } from "@/modules/viewport";
-import { usePreviewCamera, usePreviewGround, usePreviewMidlane } from "@/stores";
+import {
+  usePreviewAntiAliasing,
+  usePreviewCamera,
+  usePreviewGround,
+  usePreviewMidlane,
+} from "@/stores";
 
 import { bindingOf, textureAssets } from "../../skin/utils/skinScene";
 import { Passes } from "../../vfx/rendering/components/Passes";
@@ -76,6 +81,7 @@ export function AbilityScene({
   );
   const colors = useSceneColors();
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
   const bounds = useMemo(() => {
@@ -131,7 +137,7 @@ export function AbilityScene({
     <div data-ui="AbilityPreview" className="flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-64 flex-1">
         <div className="absolute inset-0">
-          <Viewport stage={ground} textured={midlane} camera={camera}>
+          <Viewport antiAliasing={antiAliasing} stage={ground} textured={midlane} camera={camera}>
             <AbilityClock
               clock={clock}
               playing={playing && ready}

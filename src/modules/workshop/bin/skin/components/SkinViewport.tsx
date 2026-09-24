@@ -40,21 +40,22 @@ import {
 } from "@/modules/viewport";
 import {
   type PreviewDisplay,
+  usePreviewAmbientOcclusion,
+  usePreviewAntiAliasing,
   usePreviewArmature,
-  usePreviewCamera,
   usePreviewBackdrop,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
-  usePreviewGround,
+  usePreviewCamera,
   usePreviewFacing,
+  usePreviewGround,
   usePreviewJointNames,
   usePreviewMidlane,
   usePreviewMove,
   usePreviewMoveMode,
   usePreviewPlacedOn,
   usePreviewPlacement,
-  usePreviewAmbientOcclusion,
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
@@ -199,6 +200,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   } = useBackdropFlags(backdropSource);
   const midlane = usePreviewMidlane();
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
   const armature = usePreviewArmature();
@@ -435,6 +437,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         className="relative min-h-0 flex-1 outline-none"
       >
         <Viewport
+          antiAliasing={antiAliasing}
           renderer="shared"
           gizmo={!controlsHidden}
           stage={ground}

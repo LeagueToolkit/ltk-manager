@@ -107,6 +107,11 @@ export {
   occlusionSamples,
 } from "./scene/utils/ambientOcclusion";
 export {
+  ANTI_ALIASING_MODES,
+  type AntiAliasing,
+  DEFAULT_ANTI_ALIASING,
+} from "./scene/utils/antiAliasing";
+export {
   type DepthOfField,
   type Fog,
   NO_POST_EFFECTS,
