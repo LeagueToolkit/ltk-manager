@@ -25,6 +25,8 @@ export interface MaterialPreviewProps {
   asset: AssetRef;
   /** The `StaticMaterialDef` object the preview draws. */
   entry: string | null;
+  /** The backend no longer holds `document`, so the tab reopens it. */
+  onNotOpen?: () => void;
 }
 
 /**
@@ -33,7 +35,7 @@ export interface MaterialPreviewProps {
  *
  * A material no skin of the file draws with takes the shape, and no toggle.
  */
-export function MaterialPreview({ document, asset, entry }: MaterialPreviewProps) {
+export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialPreviewProps) {
   const linking = useLinkingSkin(document, entry);
   const onShape = usePreviewMaterialOnShape();
   const setDisplay = useSetPreviewDisplay();
@@ -49,6 +51,7 @@ export function MaterialPreview({ document, asset, entry }: MaterialPreviewProps
         document={document}
         asset={asset}
         entry={entry}
+        onNotOpen={onNotOpen}
         linking={linking}
         onShape={onShape}
       />
@@ -77,6 +80,7 @@ function Subject({
   document,
   asset,
   entry,
+  onNotOpen,
   linking,
   onShape,
 }: MaterialPreviewProps & { linking: LinkingSkin; onShape: boolean }) {
@@ -84,7 +88,9 @@ function Subject({
     return <Notice text={m.workshop_bin_material_preview_loading_label()} />;
   }
   if (!onShape && linking.status === "skin") {
-    return <SkinPreview document={document} asset={asset} entry={linking.entry} />;
+    return (
+      <SkinPreview document={document} asset={asset} entry={linking.entry} onNotOpen={onNotOpen} />
+    );
   }
   return (
     <Suspense fallback={<Notice text={m.workshop_bin_material_preview_loading_label()} />}>

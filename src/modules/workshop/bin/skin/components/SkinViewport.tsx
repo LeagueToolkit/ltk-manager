@@ -128,6 +128,8 @@ export interface SkinViewportProps {
   readonly asset: AssetRef;
   /** The skin object, `0x` and eight hex digits. */
   readonly entry: string;
+  /** The backend no longer holds `document`, so the tab reopens it. */
+  readonly onNotOpen?: () => void;
 }
 
 /**
@@ -137,9 +139,16 @@ export interface SkinViewportProps {
  * idle effect table reads a foreign resolver. Every other graph is read through the
  * skin's own document, which looks in the files it links.
  */
-export default function SkinViewport({ document, asset, entry }: SkinViewportProps) {
+export default function SkinViewport({ document, asset, entry, onNotOpen }: SkinViewportProps) {
   const { skin: read, source, opener } = useSkinGraphSource(document, asset, entry);
+  /* The store evicts the least recently used asset at capacity, so a tab left in the
+     background can hold an id that no longer reads. A reopen issues a fresh one. */
+  const notOpen = read.error?.code === "BIN_NOT_OPEN";
+  useEffect(() => {
+    if (notOpen) onNotOpen?.();
+  }, [notOpen, onNotOpen]);
 
+  if (notOpen) return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
   if (read.error !== null) return <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />;
   if (read.data === undefined) {
     return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;

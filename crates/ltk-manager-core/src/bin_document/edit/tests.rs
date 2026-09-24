@@ -818,3 +818,43 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
         .unwrap();
     assert!(!store.undo(id).unwrap(), "a reload drops the undo stack");
 }
+
+#[test]
+fn closing_every_id_keeps_a_tree_with_unsaved_edits_for_the_next_open() {
+    let store = BinDocuments::default();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("content/base")).unwrap();
+    fs::write(dir.path().join("content/base/a.bin"), bytes_of(&bin())).unwrap();
+    let layer = AssetRef::Layer {
+        project: dir.path().to_string_lossy().into_owned(),
+        layer: "base".to_owned(),
+        path: "a.bin".to_owned(),
+    };
+    let read = || layer.read(&crate::config::Config::default(), &Default::default());
+    let edited_tab = store.open(layer.clone(), read).unwrap();
+    store
+        .patch(edited_tab, edited(), &field("scale"), float(4.0))
+        .unwrap();
+    let loose = AssetRef::File {
+        path: "b.bin".to_owned(),
+    };
+    let clean_tab = store.open(loose.clone(), || Ok(bytes_of(&bin()))).unwrap();
+
+    store.close_all();
+
+    assert!(!store.is_open(edited_tab));
+    assert!(!store.is_open(clean_tab));
+    let reopened = store
+        .open(layer, || panic!("the edited tree was parsed again"))
+        .unwrap();
+    let seen = store.read(reopened, |open| Ok(scale_of(open))).unwrap();
+    assert_eq!(seen, values::F32::new(4.0).into());
+    let parses = std::cell::Cell::new(0);
+    store
+        .open(loose, || {
+            parses.set(parses.get() + 1);
+            Ok(bytes_of(&bin()))
+        })
+        .unwrap();
+    assert_eq!(parses.get(), 1, "the clean tree left the store");
+}

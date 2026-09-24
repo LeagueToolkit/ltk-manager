@@ -119,10 +119,24 @@ interface FramePreviewProps {
 export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
   if (kind === "map") return <MapPreview document={view.document} />;
   if (kind === "material") {
-    return <MaterialPreview document={view.document} asset={view.asset} entry={entry} />;
+    return (
+      <MaterialPreview
+        document={view.document}
+        asset={view.asset}
+        entry={entry}
+        onNotOpen={view.onNotOpen}
+      />
+    );
   }
   if (kind === "skin") {
-    return <SkinPreview document={view.document} asset={view.asset} entry={entry} />;
+    return (
+      <SkinPreview
+        document={view.document}
+        asset={view.asset}
+        entry={entry}
+        onNotOpen={view.onNotOpen}
+      />
+    );
   }
   return <VfxPreview drawable={drawable} frame={view.frame} />;
 }

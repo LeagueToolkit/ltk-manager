@@ -25,6 +25,8 @@ export interface RetainedCache<K, V> {
   readonly get: (key: K, create: () => V) => V;
   /** Hold `key`'s value until the returned release runs. */
   readonly hold: (key: K) => () => void;
+  /** The value under `key` where one is cached, created by nothing. */
+  readonly peek: (key: K) => V | undefined;
 }
 
 export function createRetainedCache<K, V>(dispose: (value: V) => void): RetainedCache<K, V> {
@@ -66,6 +68,8 @@ export function createRetainedCache<K, V>(dispose: (value: V) => void): Retained
         if (entry.holders === 0) lapse(key, entry);
       };
     },
+
+    peek: (key) => entries.get(key)?.value,
   };
 }
 

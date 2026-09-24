@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { type ColorSpace, RepeatWrapping, Texture, TextureLoader, type Wrapping } from "three";
+import { type ColorSpace, ImageLoader, RepeatWrapping, Texture, type Wrapping } from "three";
 
 import { previewMipsUrl, previewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
@@ -89,6 +89,23 @@ interface TextureSet {
   readonly dispose: () => void;
 }
 
+/** The pixels of one file at one width, which any number of textures are built on. */
+type Pixels =
+  | { readonly kind: "chain"; readonly levels: readonly ImageBitmap[] }
+  | { readonly kind: "image"; readonly image: HTMLImageElement };
+
+/** One file's decode, shared by every set asking for it at that width. */
+interface ImageLoad {
+  readonly pixels: Promise<Pixels>;
+  /** The pixels once they landed, and null before. */
+  landed: Pixels | null;
+  closed: boolean;
+}
+
+/* Keyed by the file and the width rather than by colour space, so the set Hexshade reads
+   raw builds on the pixels the lit set already decoded, and only the upload repeats. */
+const IMAGES = createRetainedCache<string, ImageLoad>(closeImage);
+
 /* A second view of the same map takes the textures the first uploaded, rather than
    fetching and decoding the set again. */
 const TEXTURE_SETS = createRetainedCache<string, TextureSet>((set) => set.dispose());
@@ -143,8 +160,11 @@ function createTextureSet(
      bytes, and what the second replaced, which nothing draws once it has. */
   const widths = new Map<string, number>();
   const superseded: Texture[] = [];
+  /* Keys whose first wave found the whole texture already decoded, so the second has
+     nothing to add. */
+  const whole = new Set<string>();
+  const releases: (() => void)[] = [];
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  const loader = new TextureLoader();
   let frame = 0;
   let pending = assets.size;
   let failed = 0;
@@ -186,10 +206,18 @@ function createTextureSet(
   const load = (
     key: string,
     asset: AssetRef,
-    width: number | undefined,
+    asked: number | undefined,
     done: (ok: boolean) => void,
   ) => {
-    const url = previewUrl(asset, width);
+    const preview = previewWidth !== undefined && asked === previewWidth;
+    const ready = preview && IMAGES.peek(imageKey(asset, fullWidth, mips))?.landed != null;
+    const width = ready ? fullWidth : asked;
+    if (ready) whole.add(key);
+
+    const at = imageKey(asset, width, mips);
+    const image = IMAGES.get(at, () => readImage(asset, width, mips));
+    releases.push(IMAGES.hold(at));
+
     let settled = false;
     const finish = (ok: boolean) => {
       if (settled) return;
@@ -199,29 +227,23 @@ function createTextureSet(
       done(ok);
     };
     const timer = setTimeout(() => {
-      console.error("Gave up on a texture that never answered:", url);
+      console.error("Gave up on a texture that never answered:", previewUrl(asset, width));
       finish(false);
     }, REQUEST_TIMEOUT_MS);
     timers.add(timer);
 
-    const landed = (texture: Texture) => {
-      if (!live || settled) {
-        texture.dispose();
-        return;
-      }
-      take(key, texture);
-      finish(true);
-    };
-    const failed = (error: unknown) => {
-      if (!live) return;
-      console.error("Failed to read a texture:", error);
-      finish(false);
-    };
-
-    const image = () => loader.load(url, landed, undefined, failed);
-    /* A PNG or a TGA has no chain to answer with, so it arrives as the image it is. */
-    if (mips) loadMips(previewMipsUrl(asset, width)).then(landed, image);
-    else image();
+    image.pixels.then(
+      (pixels) => {
+        if (!live || settled) return;
+        take(key, textureOf(pixels));
+        finish(true);
+      },
+      (error: unknown) => {
+        if (!live) return;
+        console.error("Failed to read a texture:", error);
+        finish(false);
+      },
+    );
   };
 
   /** One wave over `entries`, no more than `concurrency` of them in flight. */
@@ -262,6 +284,7 @@ function createTextureSet(
    * same bytes decoded and uploaded twice.
    */
   const sharpens = (key: string): boolean => {
+    if (whole.has(key)) return false;
     const landed = widths.get(key);
     if (landed === undefined || previewWidth === undefined) return true;
     if (fullWidth !== undefined && landed >= fullWidth) return false;
@@ -273,7 +296,7 @@ function createTextureSet(
     if (!ok) failed += 1;
     tell();
   };
-  const whole = () => {
+  const sharpen = () => {
     const queue = [...assets].filter(([key]) => sharpens(key));
     pending -= assets.size - queue.length;
     tell();
@@ -285,7 +308,7 @@ function createTextureSet(
     started = true;
 
     if (previewWidth === undefined) wave([...assets], fullWidth, count, () => {});
-    else wave([...assets], previewWidth, () => {}, whole);
+    else wave([...assets], previewWidth, () => {}, sharpen);
   };
 
   return {
@@ -313,22 +336,77 @@ function createTextureSet(
       for (const timer of timers) clearTimeout(timer);
       for (const texture of loaded.values()) texture.dispose();
       for (const texture of superseded) texture.dispose();
+      for (const release of releases) release();
       listeners.clear();
       reports.clear();
     },
   };
 }
 
+/** What `IMAGES` holds under one file at one width. */
+function imageKey(asset: AssetRef, width: number | undefined, mips: boolean): string {
+  return JSON.stringify([asset, width ?? null, mips]);
+}
+
+function readImage(asset: AssetRef, width: number | undefined, mips: boolean): ImageLoad {
+  const image = async (): Promise<Pixels> => ({
+    kind: "image",
+    image: await new ImageLoader().loadAsync(previewUrl(asset, width)),
+  });
+  /* A PNG or a TGA has no chain to answer with, so it arrives as the image it is. */
+  const pixels = mips ? loadChain(previewMipsUrl(asset, width)).catch(image) : image();
+
+  const load: ImageLoad = { pixels, landed: null, closed: false };
+  pixels.then(
+    (landed) => {
+      if (load.closed) closePixels(landed);
+      else load.landed = landed;
+    },
+    () => {},
+  );
+  return load;
+}
+
+function closeImage(load: ImageLoad): void {
+  load.closed = true;
+  if (load.landed !== null) closePixels(load.landed);
+}
+
+/** A bitmap keeps its pixels until it is closed, where an image lets the browser drop them. */
+function closePixels(pixels: Pixels): void {
+  if (pixels.kind === "chain") {
+    for (const level of pixels.levels) level.close();
+  }
+}
+
 /**
- * A texture drawing every level of the chain `url` answers, as the file stores them.
+ * A texture drawing `pixels`, every level of a chain as the file stores them.
  *
  * A chain of one level is the whole file, so the GPU builds its mipmaps as for any image.
  */
-async function loadMips(url: string): Promise<Texture> {
+function textureOf(pixels: Pixels): Texture {
+  if (pixels.kind === "image") {
+    const texture = new Texture(pixels.image);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  const texture = new Texture(pixels.levels[0]);
+  if (pixels.levels.length > 1) {
+    /* ThreeJS uploads any image source level by level and types the levels as canvases. */
+    texture.mipmaps = pixels.levels as unknown as HTMLCanvasElement[];
+    texture.generateMipmaps = false;
+  }
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** Every level of the chain `url` answers, decoded. */
+async function loadChain(url: string): Promise<Pixels> {
   const answer = await fetch(url);
   if (!answer.ok) throw new Error(await answer.text());
   const levels = readMipBuffer(await answer.arrayBuffer());
-  const images = await Promise.all(
+  const bitmaps = await Promise.all(
     levels.map(({ png }) =>
       createImageBitmap(new Blob([png], { type: "image/png" }), {
         premultiplyAlpha: "none",
@@ -336,16 +414,5 @@ async function loadMips(url: string): Promise<Texture> {
       }),
     ),
   );
-  const texture = new Texture(images[0]);
-  if (images.length > 1) {
-    /* ThreeJS uploads any image source level by level and types the levels as canvases. */
-    texture.mipmaps = images as unknown as HTMLCanvasElement[];
-    texture.generateMipmaps = false;
-  }
-  texture.needsUpdate = true;
-  /* A bitmap keeps its pixels until it is closed, where an image lets the browser drop them. */
-  texture.addEventListener("dispose", () => {
-    for (const image of images) image.close();
-  });
-  return texture;
+  return { kind: "chain", levels: bitmaps };
 }

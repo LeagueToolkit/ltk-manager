@@ -25,6 +25,13 @@ mod tray;
 mod updater;
 mod workshop;
 
+use ltk_manager_core::bin_document::BinDocuments;
+use tauri::webview::PageLoadEvent;
+use tauri::Manager;
+
+/// The one window the frontend runs in, as `tauri.conf.json` leaves it unlabelled.
+const MAIN_WINDOW: &str = "main";
+
 fn main() {
     // Before logging, so a panic while that is still being set up is reported.
     telemetry::install_panic_hook();
@@ -71,6 +78,16 @@ fn main() {
         })
         .manage(logging_guards)
         .setup(setup::run)
+        /* A reload runs no cleanup, so the handles the last page held are dropped here,
+        before the new page can open any. */
+        .on_page_load(|webview, payload| {
+            if payload.event() != PageLoadEvent::Started || webview.label() != MAIN_WINDOW {
+                return;
+            }
+            if let Some(documents) = webview.try_state::<BinDocuments>() {
+                documents.close_all();
+            }
+        })
         .invoke_handler(ipc::invoke_handler(tauri::generate_handler![
             // App
             commands::get_app_info,

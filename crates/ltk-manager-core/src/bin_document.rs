@@ -154,6 +154,15 @@ struct Held {
     holders: usize,
 }
 
+impl Held {
+    /// Whether the tree has no unsaved edits. A tree a save holds for writing counts as dirty.
+    fn is_clean(&self) -> bool {
+        self.document
+            .try_read()
+            .is_some_and(|open| !open.is_dirty())
+    }
+}
+
 impl Store {
     /// Leave room for one more asset, evicting the least recently used clean tree.
     ///
@@ -163,16 +172,11 @@ impl Store {
         if self.held.len() < self.held.cap().get() {
             return;
         }
-        /* A tree a save holds for writing counts as dirty. */
         let clean = self
             .held
             .iter()
             .rev()
-            .find(|(_, held)| {
-                held.document
-                    .try_read()
-                    .is_some_and(|open| !open.is_dirty())
-            })
+            .find(|(_, held)| held.is_clean())
             .map(|(asset, _)| asset.clone());
         match clean {
             Some(asset) => {
@@ -180,6 +184,15 @@ impl Store {
                 self.ids.retain(|_, over| *over != asset);
             }
             None => self.held.resize(self.held.cap().saturating_add(1)),
+        }
+    }
+
+    /// Bring a store grown past its bound by dirty trees back toward it.
+    fn shrink(&mut self) {
+        let (len, cap, bound) = (self.held.len(), self.held.cap(), self.bound);
+        if cap > bound && len < cap.get() {
+            self.held
+                .resize(NonZeroUsize::new(len).map_or(bound, |len| len.max(bound)));
         }
     }
 
@@ -661,13 +674,32 @@ impl BinDocuments {
         });
         if last {
             store.held.pop(&asset);
-            let (len, cap, bound) = (store.held.len(), store.held.cap(), store.bound);
-            if cap > bound && len < cap.get() {
-                store
-                    .held
-                    .resize(NonZeroUsize::new(len).map_or(bound, |len| len.max(bound)));
-            }
+            store.shrink();
         }
+    }
+
+    /// Drop every id, as a frontend that reloaded has lost every handle it held.
+    ///
+    /// A clean tree leaves the store. A tree with unsaved edits stays with no holder, so
+    /// the next open over its asset takes it up with the edits in it.
+    pub fn close_all(&self) {
+        let mut store = self.inner.lock();
+        store.ids.clear();
+
+        let clean: Vec<AssetRef> = store
+            .held
+            .iter()
+            .filter(|(_, held)| held.is_clean())
+            .map(|(asset, _)| asset.clone())
+            .collect();
+        for asset in &clean {
+            store.held.pop(asset);
+        }
+        for (_, held) in store.held.iter_mut() {
+            held.holders = 0;
+        }
+
+        store.shrink();
     }
 
     /// Whether `id` reads. Asking does not touch the recency order.
