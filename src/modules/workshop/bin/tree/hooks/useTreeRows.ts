@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { BinDocumentId, BinRow } from "@/lib/tauri";
+import type { BinDocumentId, BinRow, Dependency } from "@/lib/tauri";
 
 import { type ChildrenRequest, useBinChildren } from "../../documents/hooks/useBinDocument";
 import type { RowGroup } from "../../links/hooks/useLinkTargets";
+import type { ObjectDraft } from "../state/newObject";
 import {
+  DEPENDENCIES_KEY,
+  type DependencyLines,
   flattenRows,
   type InsertAt,
   isUnder,
@@ -52,6 +55,10 @@ export interface TreeRowsOptions {
   rootEntry: string | null;
   /** The one insert line open, if any. */
   insertAt?: InsertAt | null;
+  /** The new object being named after a file's roots, if any. */
+  newObject?: ObjectDraft | null;
+  /** The header's dependencies, pinned over a file's roots. Null where the tree pins none. */
+  dependencies?: readonly Dependency[] | null;
 }
 
 /**
@@ -69,12 +76,17 @@ export function useTreeRows({
   editable,
   rootEntry,
   insertAt = null,
+  newObject = null,
+  dependencies = null,
 }: TreeRowsOptions): TreeRows {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(initialExpanded));
   const [pages, setPages] = useState<ReadonlyMap<string, number>>(() => new Map());
 
   const requests = useMemo<ChildrenRequest[]>(
-    () => [...expanded].map((key) => ({ key, pages: pages.get(key) ?? 1 })),
+    () =>
+      [...expanded]
+        .filter((key) => key !== DEPENDENCIES_KEY)
+        .map((key) => ({ key, pages: pages.get(key) ?? 1 })),
     [expanded, pages],
   );
   const { loaded, notOpen } = useBinChildren(document, requests);
@@ -83,6 +95,10 @@ export function useTreeRows({
     if (notOpen) onNotOpen();
   }, [notOpen, onNotOpen]);
 
+  const pinned = useMemo<DependencyLines | null>(
+    () => (dependencies === null ? null : { list: dependencies, document }),
+    [dependencies, document],
+  );
   const visible = useMemo(
     () =>
       flattenRows(
@@ -90,17 +106,32 @@ export function useTreeRows({
         expanded,
         (key) => loaded.get(key),
         rootOwner,
-        editable ? { document, rootEntry, insertAt } : null,
+        editable ? { document, rootEntry, insertAt, newObject } : null,
+        pinned,
       ),
-    [roots, expanded, loaded, rootOwner, editable, document, rootEntry, insertAt],
+    [
+      roots,
+      expanded,
+      loaded,
+      rootOwner,
+      editable,
+      document,
+      rootEntry,
+      insertAt,
+      newObject,
+      pinned,
+    ],
   );
 
   const groups = useMemo<RowGroup[]>(
     () => [
       { key: "", rows: roots },
+      ...(dependencies === null
+        ? []
+        : [{ key: DEPENDENCIES_KEY, rows: dependencies.map(dependencyLinkRow) }]),
       ...[...loaded].map(([key, children]) => ({ key, rows: children.rows })),
     ],
-    [roots, loaded],
+    [roots, loaded, dependencies],
   );
 
   const toggle = useCallback((key: string) => {
@@ -151,6 +182,24 @@ export function useTreeRows({
   }, []);
 
   return { visible, loaded, groups, toggle, expand, requestMore, reach, remap };
+}
+
+/**
+ * A dependency as the `file` row a link check reads, lowercased as the tables spell a chunk
+ * path, which is the spelling the install's lookup answers under.
+ */
+export function dependencyLinkRow({ path }: Dependency): BinRow {
+  return {
+    entry: "",
+    path: "",
+    label: "",
+    node: "element",
+    name: path,
+    unnamed: false,
+    kind: null,
+    value: { type: "wadChunkLink", hash: "", path: path.toLowerCase() },
+    declared: null,
+  };
 }
 
 /** Ask for a node's next page while the line under its rows is on screen. */

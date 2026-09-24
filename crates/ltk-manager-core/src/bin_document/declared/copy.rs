@@ -2,7 +2,7 @@
 //! declared in its place. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
 
 use indexmap::IndexMap;
-use ltk_declarations::{Edit as ManifestEdit, Operation, ValueText};
+use ltk_declarations::{Edit as ManifestEdit, ModuleChoice, Operation, ValueText};
 use ltk_game_data::{Reference, Value};
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
@@ -88,6 +88,7 @@ impl BinDocument {
                     entry: name.clone(),
                     path: PropertyPath::new(key).ok()?,
                     operation: Operation::Set(ValueText::try_from(&value).ok()?),
+                    module: ModuleChoice::Auto,
                 })
             })
             .collect();
@@ -148,6 +149,7 @@ impl BinDocument {
                 } else {
                     Operation::Set(text.clone())
                 },
+                module: ModuleChoice::Auto,
             });
         });
         let edit = edit.ok_or_else(nameless)?;

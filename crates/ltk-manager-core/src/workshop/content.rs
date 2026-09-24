@@ -105,6 +105,8 @@ pub struct ContentObject {
 #[serde(rename_all = "snake_case")]
 pub enum WorkshopFileKind {
     Animation,
+    /// A layer's game data declarations manifest, which [`LeagueFileKind`] has no kind for.
+    GameData,
     Jpeg,
     LightGrid,
     LuaObj,
@@ -161,6 +163,7 @@ impl From<WorkshopFileKind> for LeagueFileKind {
     fn from(value: WorkshopFileKind) -> Self {
         match value {
             WorkshopFileKind::Animation => Self::Animation,
+            WorkshopFileKind::GameData => Self::Unknown,
             WorkshopFileKind::Jpeg => Self::Jpeg,
             WorkshopFileKind::LightGrid => Self::LightGrid,
             WorkshopFileKind::LuaObj => Self::LuaObj,
@@ -435,7 +438,11 @@ fn scan_layer(
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
-        let kind = WorkshopFileKind::from(LeagueFileKind::from_extension(extension));
+        let kind = if ltk_game_data::MANIFEST_NAMES.contains(&relative_path.as_str()) {
+            WorkshopFileKind::GameData
+        } else {
+            WorkshopFileKind::from(LeagueFileKind::from_extension(extension))
+        };
 
         let declared = if kind == WorkshopFileKind::PropertyBin {
             declarations(dent.path()).unwrap_or_else(|e| {

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-09-24 | Read a layer's game data manifest as an outline                       |
 | 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
 | 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
@@ -119,6 +120,8 @@ This table holds every major feature of the editor. A status word has one meanin
 | Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
 | Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`        |
 | Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
+| Game data document     | In progress | Outline and raw text, read-only. Apply diagnostics remain          |
+| Declarations view      | In progress | Layers, modules and entries in the rail. Load errors only          |
 
 ## Scope
 
@@ -152,6 +155,30 @@ Property bin links come first in the editor. PTCH targeting follows it.
 
 Both are future additions. The editor design for them comes later, and this document does
 not describe one yet.
+
+### Game data
+
+A layer's `game_data` manifest opens as a document of its own, from its row in the layer
+files or from the Declarations view. The document has two views.
+
+| View    | What it shows                                                       |
+| ------- | ------------------------------------------------------------------- |
+| Outline | Each module, the entries it names, and each signed key with a value |
+| Raw     | The manifest's text, read-only, with its line numbers               |
+
+A module is named by its place in the manifest, `Module 1`, until the manifest spells a name
+for it. A `target` module shows the chunk it names.
+
+A key's Go to row, or `Enter` on the key, opens the game bin that declares the entry, on the
+row the key reaches. The object index gives the chunk: the one a `target` module names, else
+the first in the index's order. A path through a map key reveals the map's own row.
+
+A manifest that does not load opens on its text, with the line the error names marked and
+selected. The error is under the text. The outline and the view follow the file: a declared
+edit and a return to the window both read it again.
+
+Both views read. The manifest is edited through the declared bin (ADR-0042), or outside the
+app.
 
 ## Layout
 
@@ -1083,6 +1110,7 @@ at a time. This is the shape Visual Studio Code uses, and most users know it alr
 | Search         | Every file of the install the pattern matches                |
 | Problems       | Everything the manager's checks found in this project        |
 | Objects        | Every object the install declares, as a tree over its paths  |
+| Declarations   | Each layer's game data modules and the entries they declare  |
 | Game index     | The install's own directories, read one level at a time      |
 | Source control | Version control for the declarative data. Under construction |
 

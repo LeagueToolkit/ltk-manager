@@ -1,30 +1,51 @@
-import { CaretDownIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, LockSimpleIcon } from "@phosphor-icons/react";
 
 import { Button, Code, Menu, SeverityGlyph, Tooltip } from "@/components";
-import { m } from "@/i18n";
-import type { BinDocumentId, DeclaredDiagnostic, DeclaredMark, DeclaredState } from "@/lib/tauri";
+import { m, readOnlyDescription } from "@/i18n";
+import type {
+  BinDocumentId,
+  DeclaredDiagnostic,
+  DeclaredMark,
+  DeclaredState,
+  LinkChange,
+  ObjectChange,
+  ReadOnly,
+} from "@/lib/tauri";
 
 import { layerTitle } from "../../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../../layers/components/LayerGlyph";
 import { useProjectContext } from "../../../projects/state/ProjectContext";
-import { useSelectedLayerName, useSelectLayer } from "../../../state";
+import {
+  useSelectedLayerName,
+  useSelectedModule,
+  useSelectLayer,
+  useSetUseDeclarations,
+} from "../../../state";
 import { useDeclareInto, useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
 import { diagnosticSeverity, diagnosticText } from "../utils/declaredDiagnostics";
+import { moduleLabel } from "../utils/declaredModule";
+import { DeclaredModuleChip } from "./DeclaredModuleChip";
 
 interface DeclaredLayerChipProps {
   document: BinDocumentId;
   declared: DeclaredState;
+  /** The gate the document stands behind, `declarationsOff` or null. */
+  readOnly: ReadOnly | null;
 }
 
 /**
- * The layer a declared document's edits write to, and the menu that switches it. The
- * choice is the project's selected layer, so it holds across tabs and sessions.
- * "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * The layer a declared document's edits write to, and the menu that switches it and turns
+ * the project's declarations on and off. The layer is the project's selected layer, so it
+ * holds across tabs and sessions. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
  */
-export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps) {
+export function DeclaredLayerChip({ document, declared, readOnly }: DeclaredLayerChipProps) {
   const project = useProjectContext();
   const selectLayer = useSelectLayer();
-  useDeclareInto(document, declared, useSelectedLayerName());
+  const setUseDeclarations = useSetUseDeclarations();
+  useDeclareInto(document, declared, useSelectedLayerName(), useSelectedModule());
+
+  const hint =
+    readOnly === null ? m.workshop_bin_declares_into_hint() : readOnlyDescription(readOnly);
 
   return (
     <span className="flex shrink-0 items-center gap-1">
@@ -32,7 +53,7 @@ export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps
         diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
       />
       <Menu.Root>
-        <Tooltip content={m.workshop_bin_declares_into_hint()}>
+        <Tooltip content={hint}>
           <Menu.Trigger
             render={
               <Button
@@ -40,7 +61,7 @@ export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps
                 size="xs"
                 compact
                 aria-label={m.workshop_bin_declares_into_label()}
-                left={<LayerGlyph layerName={declared.layer} />}
+                left={<ChipGlyph layer={declared.layer} locked={readOnly !== null} />}
                 right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
               >
                 {layerTitle(project, declared.layer)}
@@ -54,6 +75,10 @@ export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps
               data-ui="DeclaredLayerMenu"
               className="max-h-96 w-56 overflow-y-auto scrollbar-md"
             >
+              <Menu.CheckboxItem checked={readOnly === null} onCheckedChange={setUseDeclarations}>
+                {m.workshop_bin_declarations_toggle_label()}
+              </Menu.CheckboxItem>
+              <Menu.Separator />
               <Menu.RadioGroup
                 value={declared.layer}
                 onValueChange={(layer) => selectLayer(layer as string)}
@@ -68,8 +93,19 @@ export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>
+      <span aria-hidden="true" className="text-surface-500 select-none">
+        /
+      </span>
+      <DeclaredModuleChip document={document} declared={declared} readOnly={readOnly} />
     </span>
   );
+}
+
+/** The chosen layer's glyph, or a lock while declarations are off. */
+function ChipGlyph({ layer, locked }: { layer: string; locked: boolean }) {
+  if (locked) return <LockSimpleIcon className="h-3.5 w-3.5" />;
+
+  return <LayerGlyph layerName={layer} />;
 }
 
 interface DeclaredDiagnosticsMarkProps {
@@ -134,6 +170,76 @@ export function DeclaredRowState({ rowKey }: { rowKey: string }) {
   );
 }
 
+/**
+ * The mark on an object row the chosen layer creates or removes: the layer's glyph for a
+ * creation, and a `removed` tag for a removal. ADR-0049.
+ */
+export function ObjectChangeMark({ change, layer }: { change: ObjectChange; layer: string }) {
+  const title = layerTitle(useProjectContext(), layer);
+  if (change === "created") {
+    return (
+      <ChangeMark layer={layer} label={m.workshop_bin_object_created_label({ layer: title })} />
+    );
+  }
+  return (
+    <ChangeMark
+      removed
+      layer={layer}
+      label={m.workshop_bin_object_removed_label({ layer: title })}
+    />
+  );
+}
+
+/** The mark on a dependency row the chosen layer adds or removes, drawn as an object's. ADR-0050. */
+export function LinkChangeMark({ change, layer }: { change: LinkChange; layer: string }) {
+  const title = layerTitle(useProjectContext(), layer);
+  if (change === "added") {
+    return (
+      <ChangeMark layer={layer} label={m.workshop_bin_dependency_added_label({ layer: title })} />
+    );
+  }
+  return (
+    <ChangeMark
+      removed
+      layer={layer}
+      label={m.workshop_bin_dependency_removed_label({ layer: title })}
+    />
+  );
+}
+
+interface ChangeMarkProps {
+  layer: string;
+  label: string;
+  /** A removal, which carries a `removed` tag after the glyph. */
+  removed?: boolean;
+}
+
+function ChangeMark({ layer, label, removed = false }: ChangeMarkProps) {
+  if (!removed) {
+    return (
+      <Tooltip content={label}>
+        <span role="img" aria-label={label} className="flex shrink-0">
+          {/* DS-KIND-HUE */}
+          <LayerGlyph layerName={layer} className="h-3 w-3" />
+        </span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip content={label}>
+      <span
+        aria-label={label}
+        className="flex shrink-0 items-center gap-1 text-meta text-surface-400 select-none"
+      >
+        {/* DS-KIND-HUE */}
+        <LayerGlyph layerName={layer} className="h-3 w-3" />
+        {m.workshop_bin_object_removed_tag()}
+      </span>
+    </Tooltip>
+  );
+}
+
 /** The mark on a row a declaration of the chosen layer touches, with the game's value on hover. */
 export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
   const project = useProjectContext();
@@ -144,6 +250,12 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
       content={
         <span className="flex flex-col gap-1">
           <span>{label}</span>
+          <span className="flex items-baseline gap-1.5">
+            {m.workshop_bin_declared_module_label()}
+            <span className="text-surface-100">
+              {moduleLabel({ index: mark.module, name: mark.moduleName })}
+            </span>
+          </span>
           {mark.whole && <span>{m.workshop_bin_declared_whole_hint()}</span>}
           {mark.reference !== null && (
             <span className="flex items-baseline gap-1.5">

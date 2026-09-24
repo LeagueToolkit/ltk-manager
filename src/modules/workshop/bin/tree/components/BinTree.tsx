@@ -1,6 +1,7 @@
 import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
+  use,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +11,7 @@ import {
 
 import { ContextMenu } from "@/components";
 import { NO_OVERSCROLL } from "@/hooks";
-import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, BinRow, Dependency } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
@@ -20,12 +21,16 @@ import type { TreeFocus } from "../hooks/useBinEdit";
 import { type TreeReveal, useReveal } from "../hooks/useReveal";
 import { useRowWindow } from "../hooks/useRowWindow";
 import { useNextPages, useTreeRows } from "../hooks/useTreeRows";
+import { type DependencyEditing, DependencyEditingContext } from "../state/dependencyEditing";
+import { NewObjectContext } from "../state/newObject";
 import { createGuideStore, GuideStoreContext } from "../state/treeGuides";
 import {
   addLineKey,
   childCount,
+  DEPENDENCIES_KEY,
   type InsertAt,
   lineParent,
+  NEW_OBJECT_KEY,
   nameColumns,
   rowKey,
   type VisibleRow,
@@ -34,6 +39,9 @@ import { AddItemLine } from "./AddItemLine";
 import { AddPropertyLine } from "./AddPropertyLine";
 import { BinContextMenu } from "./BinContextMenu";
 import { BinRowLine, MoreRow } from "./BinRow";
+import { DependencyMenu } from "./DependencyMenu";
+import { DependenciesRow, DependencyAddLine, DependencyRow } from "./DependencyRows";
+import { NewObjectLine } from "./NewObjectLine";
 import { TreeContexts } from "./TreeContexts";
 
 export type { TreeReveal } from "../hooks/useReveal";
@@ -69,6 +77,10 @@ interface BinTreeProps {
   editable?: boolean;
   /** The object the roots are properties of, whose add line follows them. */
   rootEntry?: string | null;
+  /** The header's dependencies, pinned over a file's roots. Null where the tree pins none. */
+  dependencies?: readonly Dependency[] | null;
+  /** A count the header's dependencies button raises, which opens and scrolls to that row. */
+  dependenciesReveal?: number;
 }
 
 const NO_KEYS: readonly string[] = [];
@@ -97,9 +109,12 @@ export function BinTree({
   onOpenObject,
   editable = false,
   rootEntry = null,
+  dependencies = null,
+  dependenciesReveal = 0,
 }: BinTreeProps) {
   /* The one insert line open inside a list or a map. */
   const [insertAt, setInsertAt] = useState<InsertAt | null>(null);
+  const newObject = use(NewObjectContext)?.draft ?? null;
   const {
     visible,
     loaded,
@@ -118,6 +133,8 @@ export function BinTree({
     editable,
     rootEntry,
     insertAt,
+    newObject,
+    dependencies,
   });
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -172,6 +189,34 @@ export function BinTree({
     if (focusKey !== null && visible.some((line) => line.key === focusKey)) scrollToKey(focusKey);
   }, [focusKey, scrollToKey, visible]);
 
+  /* A new object's line draws after every object, so it is scrolled to once per draft. */
+  const scrolledDraft = useRef<typeof newObject>(null);
+  useEffect(() => {
+    if (newObject === null || scrolledDraft.current === newObject) return;
+    if (!visible.some((line) => line.key === NEW_OBJECT_KEY)) return;
+    scrolledDraft.current = newObject;
+    scrollToKey(NEW_OBJECT_KEY);
+  }, [newObject, scrollToKey, visible]);
+
+  /* The pinned row is always drawn, so the reveal scrolls at once. Keyed on the count, so
+     each press of the header's button reveals again. */
+  const revealedDependencies = useRef(0);
+  useEffect(() => {
+    if (dependenciesReveal === revealedDependencies.current) return;
+    revealedDependencies.current = dependenciesReveal;
+    expand([DEPENDENCIES_KEY]);
+    scrollToKey(DEPENDENCIES_KEY);
+    requestAnimationFrame(() =>
+      scrollRef.current?.querySelector<HTMLElement>("[data-dependencies-row]")?.focus(),
+    );
+  }, [dependenciesReveal, expand, scrollToKey]);
+
+  const [editingDependency, setEditingDependency] = useState<number | null>(null);
+  const dependencyEditing = useMemo<DependencyEditing>(
+    () => ({ index: editingDependency, start: setEditingDependency }),
+    [editingDependency],
+  );
+
   const inView = useMemo(
     () => lines.flatMap((line) => (line.kind === "row" ? [line.row] : [])),
     [lines],
@@ -213,71 +258,87 @@ export function BinTree({
       editable={editable}
       focus={focus}
     >
-      <GuideStoreContext value={guides}>
-        <ContextMenu.Root>
-          <ContextMenu.Trigger
-            ref={scrollRef}
-            role="tree"
-            aria-label={label}
-            className={twMerge(
-              "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
-              maxRows === undefined && "min-h-0 flex-1",
-            )}
-            style={
-              {
-                "--bin-name-cols": nameCols,
-                maxHeight:
-                  maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
-              } as CSSProperties
-            }
-            onContextMenu={handleContextMenu}
-            onPointerDown={(event) => standOn(event.target)}
-            onFocus={(event) => standOn(event.target)}
-            onMouseOver={(event) => {
-              const line = lineAt(event.target);
-              guides.set({ hover: line === null ? null : lineParent(line) });
-            }}
-            onMouseLeave={() => guides.set({ hover: null })}
-            onScroll={stirImages}
-            {...NO_OVERSCROLL}
-          >
-            <div className="relative w-full" style={{ height: totalSize }}>
-              {items.map((item) => {
-                const line = visible[item.index];
-                if (!line) return null;
-                return (
-                  <div
-                    key={item.key}
-                    ref={measureElement}
-                    data-index={item.index}
-                    className="absolute top-0 left-0 w-full"
-                    style={{ transform: `translateY(${item.start}px)` }}
-                  >
-                    {line.kind === "row" && (
-                      <BinRowLine
-                        line={line}
-                        focused={line.key === focused}
-                        error={loaded.get(line.key)?.error}
-                        onToggle={toggle}
-                        onOpenObject={onOpenObject}
-                      />
-                    )}
-                    {line.kind === "more" && <MoreRow line={line} />}
-                    {line.kind === "add" && line.target.kind === "property" && (
-                      <AddPropertyLine line={line} autoFocus={line.key === focusKey} />
-                    )}
-                    {line.kind === "add" && line.target.kind !== "property" && (
-                      <AddItemLine line={line} autoFocus={line.key === focusKey} />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </ContextMenu.Trigger>
+      <DependencyEditingContext value={dependencyEditing}>
+        <GuideStoreContext value={guides}>
+          <ContextMenu.Root>
+            <ContextMenu.Trigger
+              ref={scrollRef}
+              role="tree"
+              aria-label={label}
+              className={twMerge(
+                "overflow-auto px-1 py-1 font-mono outline-none scrollbar-md select-none",
+                maxRows === undefined && "min-h-0 flex-1",
+              )}
+              style={
+                {
+                  "--bin-name-cols": nameCols,
+                  maxHeight:
+                    maxRows === undefined ? undefined : rowHeight * maxRows + SCROLLER_PADDING,
+                } as CSSProperties
+              }
+              onContextMenu={handleContextMenu}
+              onPointerDown={(event) => standOn(event.target)}
+              onFocus={(event) => standOn(event.target)}
+              onMouseOver={(event) => {
+                const line = lineAt(event.target);
+                guides.set({ hover: line === null ? null : lineParent(line) });
+              }}
+              onMouseLeave={() => guides.set({ hover: null })}
+              onScroll={stirImages}
+              {...NO_OVERSCROLL}
+            >
+              <div className="relative w-full" style={{ height: totalSize }}>
+                {items.map((item) => {
+                  const line = visible[item.index];
+                  if (!line) return null;
+                  return (
+                    <div
+                      key={item.key}
+                      ref={measureElement}
+                      data-index={item.index}
+                      className="absolute top-0 left-0 w-full"
+                      style={{ transform: `translateY(${item.start}px)` }}
+                    >
+                      {line.kind === "row" && (
+                        <BinRowLine
+                          line={line}
+                          focused={line.key === focused}
+                          error={loaded.get(line.key)?.error}
+                          onToggle={toggle}
+                          onOpenObject={onOpenObject}
+                        />
+                      )}
+                      {line.kind === "more" && <MoreRow line={line} />}
+                      {line.kind === "dependencies" && (
+                        <DependenciesRow line={line} onToggle={toggle} />
+                      )}
+                      {line.kind === "dependency" && <DependencyRow line={line} />}
+                      {line.kind === "add" && line.target.kind === "dependency" && (
+                        <DependencyAddLine line={line} autoFocus={line.key === focusKey} />
+                      )}
+                      {line.kind === "add" && line.target.kind === "property" && (
+                        <AddPropertyLine line={line} autoFocus={line.key === focusKey} />
+                      )}
+                      {line.kind === "add" &&
+                        line.target.kind !== "property" &&
+                        line.target.kind !== "object" &&
+                        line.target.kind !== "dependency" && (
+                          <AddItemLine line={line} autoFocus={line.key === focusKey} />
+                        )}
+                      {line.kind === "add" && line.target.kind === "object" && (
+                        <NewObjectLine line={line} draft={line.target.draft} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </ContextMenu.Trigger>
 
-          <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
-        </ContextMenu.Root>
-      </GuideStoreContext>
+            <BinContextMenu line={menuLine} objectName={objectName} onOpenObject={onOpenObject} />
+            <DependencyMenu line={menuLine} />
+          </ContextMenu.Root>
+        </GuideStoreContext>
+      </DependencyEditingContext>
     </TreeContexts>
   );
 }

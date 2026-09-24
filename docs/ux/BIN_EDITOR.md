@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects       |
 | 2026-09-21 | Copy a whole object or struct as a declaration                  |
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference  |
 | 2026-09-21 | Draw what an apply reports on the row it names                  |
@@ -13,7 +14,6 @@
 | 2026-09-17 | Draw a patch bin's records under the objects they target        |
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`                |
 | 2026-09-14 | Search an open bin from the bar's `@` scope                     |
-| 2026-09-14 | Find an embedded class's uses and an object's incoming links    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -400,10 +400,11 @@ fn bin_open(asset: AssetRef, name: Option<String>) -> BinDocumentHandle;
 fn bin_close(document: DocumentId);
 ```
 
-Two guards sit behind that. The store is bounded to eight documents and evicts the least
+Two guards sit behind that. The store is bounded to thirty-two documents and evicts the least
 recently used, and eviction refuses to drop a document with unsaved edits. A frontend that
-crashes therefore costs the memory of eight trees and no more, and a bug in the close path
-costs nothing a user can see.
+crashes therefore costs the memory of thirty-two trees and no more, and a bug in the close path
+costs nothing a user can see. A call on an evicted document reopens it and is sent again on the
+fresh id.
 
 ## The value kinds
 
@@ -671,12 +672,12 @@ vector as the row draws them.
 The document's own row in the tab strip carries what the file is, and follows the
 [document chrome](PROJECT_EDITOR.md#document-chrome) rule of one row per leaf.
 
-| Shows        | From                                                     |
-| ------------ | -------------------------------------------------------- |
-| Objects      | The object count                                         |
-| Version      | `Bin::version`, and `PTCH` where `is_override` is set    |
-| Dependencies | The count, expanding to the list                         |
-| Save state   | The strings editor's `SaveStatus`, on an editable source |
+| Shows        | From                                                               |
+| ------------ | ------------------------------------------------------------------ |
+| Objects      | The object count                                                   |
+| Version      | `Bin::version`, and `PTCH` where `is_override` is set              |
+| Dependencies | The count, opening the pinned row of [Dependencies](#dependencies) |
+| Save state   | The strings editor's `SaveStatus`, on an editable source           |
 
 A `PTCH` bin patches objects rather than declaring them, and the header says so, because the
 same block drawn under different semantics is the kind of thing a user has to be told once.
@@ -2229,6 +2230,7 @@ The rule falls out of `AssetRef` and needs no new state.
 | `Layer`                    | Editable  | The project's own file                              |
 | `GameChunk`                | Read-only | Inside the install, which the manager never writes  |
 | `GameChunk` with a project | Declared  | An edit writes the project's declarations. ADR-0042 |
+| The same, declarations off | Read-only | The project's declarations draw applied, no edit    |
 | `File`                     | Read-only | Anywhere on disk, and owned by nobody the app knows |
 
 A game chunk carries its project when it opens from that project's game tree. The same chunk
@@ -2261,6 +2263,15 @@ The chip opens on the layer last used for the project, else `base`, and switches
 project's layers in build order. A declaration another layer holds draws applied and
 carries no mark.
 
+**Use game data declarations** is a per-project setting in `.ltk/editor.json`, flipped from
+the chip's menu or the command bar. A project that has not chosen reads it as on when a layer
+already holds a `game_data.yaml`, `.yml`, `.toml` or `.json`, and as off otherwise. Off, the
+document still draws the declarations applied with their marks, so the view matches the
+build, and takes no edit. The chip stays with a lock in place of the layer glyph, the module
+chip beside it is disabled, `+ Object` is gone, and the row menu drops the object edits,
+**Paste reference**, **Merge reference** and **Move to module**. A strip under the toolbar
+offers **Copy into layer** and **Declare edits**, which turns the setting on.
+
 An edit is on disk once it answers, so a declared document has no unsaved state and no save
 status. The entry is spelled by its name from the tables, else by its hash. An undo over a
 manifest edited since, by hand or from another tab, is refused and leaves the file as it is.
@@ -2280,6 +2291,8 @@ Every row edit lands as the declaration that says it.
 | Give an option a value, or clear it       | The option's value, or `null`          |
 | Give a pointer a class, or set it to null | A struct pin, or `null`                |
 | Add a property                            | A set of the new property              |
+| Add a dependency                          | `links: [path]` in a `target` module   |
+| Remove a dependency                       | `-links: [path]` in a `target` module  |
 
 A declaration is checked before it stands. The project's declarations apply again, and the
 value under the edit has to come out as the edit left it. Where the keys above do not, the
@@ -2291,9 +2304,38 @@ form reproduces is refused, and the manifest is left as it was.
 
 A map is compared by its entries in any order, because an addition lands at the end of one.
 
+An object is created and removed through an `objects` entry of a `target` module for the
+chunk (ADR-0049).
+
+| Action                  | Where                        | Declaration                                  |
+| ----------------------- | ---------------------------- | -------------------------------------------- |
+| Duplicate as new object | An object row's menu         | `<name>: {clone: <object>}`                  |
+| `+ Object`              | The toolbar, beside the chip | `<name>: {class: <class>}`                   |
+| Remove object           | An object row's menu         | `<object>: {remove: true}`, or drops a clone |
+| Restore object          | A removed object row's menu  | Drops the `remove: true`                     |
+
+A new object is named on a line after the file's objects, never in a dialog. `+ Object`
+opens it on a class search: the classes the file holds first, then every class the schema
+knows. A duplicate opens it on the name. The name starts as `Mods/<mod>/<source or class>`,
+the prefix the game-data reference suggests, with the caret at its end. Enter declares the
+object, and Escape steps back to the class or closes the line. A name the chunk holds
+already is refused on the line under the name, which stays open.
+
+Removing an object the layer created drops its creation, so no `remove: true` is written
+for it. An object the layer removes keeps its row, struck through with a `removed` mark: it
+opens nothing, takes no edit, and its menu offers Restore object and Copy path. An object
+the layer creates carries the layer's glyph on its row. A creation or a removal the apply
+skips draws its reason on the object's row, or beside the chip where the chunk holds no
+such object.
+
 Three edits are refused with the reason. A path through a field no table names has no
 spelling in a declaration, and neither has a map key the file holds twice. No declaration
 removes a property, so Remove property is disabled and its menu item carries the reason.
+
+An added property takes the type the schema gives it at the install's build. Where the meta
+database does not describe the install's build yet, it takes the type at the newest build the
+database names (league-mod ADR-0033), and draws as information. A field no build of the
+database knows is refused with that reason.
 
 What the apply reports draws on the row it names, over every layer of the project and not
 the chosen one alone. A skipped key draws a warning with its reason, the key as the manifest
@@ -2531,6 +2573,32 @@ that crosses tabs undoes work a user is not looking at.
 An undo is a patch, and it saves like one. A text field holding an uncommitted change takes the
 keystroke as the field's own undo.
 
+### Dependencies
+
+A `PROP` bin's dependency list draws as a row pinned over its objects, folded, with the count.
+The header's count opens it and moves to it. Each dependency is a row of the tree, and a `PTCH`
+has none.
+
+| Part         | What it does                                                                             |
+| ------------ | ---------------------------------------------------------------------------------------- |
+| The chip     | The brex spelling where one folds the path, else the path, resolved as a `file` link     |
+| The hover    | The full path, and the layer or archive that holds it, or the missing mark               |
+| Click, Enter | Opens the file                                                                           |
+| The menu     | Open file, Open file beside, Copy path, Edit path, Move up, Move down, Remove dependency |
+| The add line | Closes the list. A path or its brex spelling, added at the end                           |
+
+Copy path copies the path, never its brex spelling. Edit path opens the full path in place, F2
+from the row. Typed brex expands to its path before it is saved, and a spelling that does not
+expand, an empty path and a path the list already names are refused on the line. `Alt+Up` and
+`Alt+Down` move a row, a drag onto another row moves it there, and Delete removes it. Each edit
+joins the tree's undo stack and saves as the delta of [ADR-0040](../adr/0040-a-bin-save-writes-the-edited-objects-over-the-bytes-it-opened.md)
+with the new list.
+
+A declared document adds at the end and removes, through the `links` and `-links` of a `target`
+module of the chunk (ADR-0050). Edit path, the moves and the drag are disabled, their reason on
+the menu item. A dependency the chosen layer adds carries its mark, and one it removes stays
+struck through at the end of the list with **Restore dependency**.
+
 ### What an edit cannot do
 
 - Change an object's path hash. It is the object's identity, and every link to it holds it
@@ -2577,7 +2645,7 @@ Targets, not measurements. Nothing here is measured until there is something to 
 | Open a bin of a few megabytes   | 100ms  |
 | Expand a node                   | 16ms   |
 | A committed edit, to save state | 50ms   |
-| Eight open documents, in memory | 200MB  |
+| One open document, in memory    | 25MB   |
 
 ## What has to land first
 
@@ -2604,30 +2672,27 @@ nothing about Tauri.
 `src-tauri/src/commands/bin.rs` is the seam, and `BinDocuments` is a third managed state
 beside `SettingsState` and `PatcherState`.
 
-| Command               | Answers                                                              |
-| --------------------- | -------------------------------------------------------------------- |
-| `bin_open`            | A handle, the header facts, and the root rows                        |
-| `bin_children`        | The rows under one address                                           |
-| `bin_read`            | The rows under each of several addresses, in one call                |
-| `bin_patch`           | The value the leaf held, or a rejection                              |
-| `bin_undo`            | Whether an edit was held to revert                                   |
-| `bin_redo`            | Whether an undone edit was held to apply                             |
-| `bin_reload`          | Nothing. Every id over the asset reads the file again                |
-| `bin_save`            | Nothing, or a refusal naming a file changed on disk                  |
-| `bin_addable_fields`  | The fields a holder's class and bases declare that it does not write |
-| `bin_add_property`    | Nothing, or a rejection                                              |
-| `bin_remove_property` | Nothing, or a rejection                                              |
-| `bin_item_classes`    | The classes an item, an option or a pointer at a path can hold       |
-| `bin_insert_item`     | The new item's path, or a rejection                                  |
-| `bin_remove_item`     | Nothing, or a rejection                                              |
-| `bin_move_item`       | The item's new path, or a rejection                                  |
-| `bin_set_key`         | The entry's new path, or a rejection                                 |
-| `bin_set_pointer`     | Nothing, or a rejection                                              |
-| `bin_roots`           | A file's rows at depth zero, read again after an edit                |
-| `bin_close`           | Nothing                                                              |
-| `class_schema`        | One class's fields and their declared kinds, at the install's build  |
-| `declared_objects`    | What declares each of a page's link and hash targets, in link order  |
-| `locate_game_files`   | The install's copy of each of a page's `file` targets                |
+| Command             | Answers                                                                |
+| ------------------- | ---------------------------------------------------------------------- |
+| `bin_open`          | A handle, the header facts, and the root rows                          |
+| `bin_children`      | The rows under one address                                             |
+| `bin_read`          | The rows under each of several addresses, in one call                  |
+| `bin_edit`          | What the edit reports beside the change, or a rejection. ADR-0051      |
+| `bin_choices`       | The fields a holder can add, or the classes an object or an item takes |
+| `bin_undo`          | Whether an edit was held to revert                                     |
+| `bin_redo`          | Whether an undone edit was held to apply                               |
+| `bin_reload`        | Nothing. Every id over the asset reads the file again                  |
+| `bin_save`          | Nothing, or a refusal naming a file changed on disk                    |
+| `bin_roots`         | A file's rows at depth zero, read again after an edit                  |
+| `bin_close`         | Nothing                                                                |
+| `class_schema`      | One class's fields and their declared kinds, at the install's build    |
+| `declared_objects`  | What declares each of a page's link and hash targets, in link order    |
+| `locate_game_files` | The install's copy of each of a page's `file` targets                  |
+
+`bin_edit` takes one `BinEdit` per store method: `patch` answers the value the leaf held,
+`insertItem`, `moveItem` and `setKey` answer the item's new path, and an object create, a
+dependency insert and a module action answer the new hash, the position and the declared state.
+Every other edit answers `done`.
 
 An object tab is `bin_open` with an entry named, answering that object's rows at depth zero and
 the header facts of the object. A file tab and the object tabs over one asset share one held
@@ -2691,7 +2756,7 @@ its own.
 
 **The editing track.**
 
-1. **Leaf editing.** The primitive widgets on the Properties rows, `bin_patch`, validation,
+1. **Leaf editing.** The primitive widgets on the Properties rows, the `patch` edit, validation,
    autosave as a delta (ADR-0040), the refusal of a file changed on disk, undo. Layer sources
    only
 2. **Container editing.** Add, remove, reorder, and a `Map` key. This is where the complexity
@@ -2728,14 +2793,14 @@ result is a mod rather than a modified install.
 | ---------------------------------------------------------------------------- |
 | What does a `Matrix44` look like when a user actually has to change one?     |
 | Should two layers' copies of one bin be comparable, and is that this doc's?  |
-| Is eight open documents the right bound, or should it follow the tab strip?  |
 | Is a `{k}` map subscript worth emitting before one is confirmed in game?     |
 | Should an edit be offerable as a patch record once `ltk_meta` can write one? |
 | Does a child lane's emitter take edits in its parent's tab, or only its own? |
 
 ### Answered
 
-| Question                                                                  | Answer                                                                                                                            |
-| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Does a search inside one open bin belong here, or in the project bar?     | The project bar, as its `@` scope. "Why one control" is the bar's rule, and a bin tab with a box of its own is a second control   |
-| Does a class view get to hide the properties it handles, or only reorder? | Neither. A layout places every field, and what it does not name falls into Other. Properties is the same rows as a tree. ADR-0030 |
+| Question                                                                    | Answer                                                                                                                            |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Does a search inside one open bin belong here, or in the project bar?       | The project bar, as its `@` scope. "Why one control" is the bar's rule, and a bin tab with a box of its own is a second control   |
+| Does a class view get to hide the properties it handles, or only reorder?   | Neither. A layout places every field, and what it does not name falls into Other. Properties is the same rows as a tree. ADR-0030 |
+| Is eight open documents the right bound, or should it follow the tab strip? | Thirty-two, above the tabs a user keeps open. A call on an evicted document reopens it. ADR-0026                                  |

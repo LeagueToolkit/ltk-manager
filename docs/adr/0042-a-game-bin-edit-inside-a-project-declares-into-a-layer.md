@@ -1,6 +1,7 @@
 # ADR-0042: A game bin edit inside a project declares into a layer
 
-- **Status:** Accepted
+- **Status:** Accepted. Adding and removing an object is superseded by
+  [ADR-0049](0049-a-declared-document-creates-and-removes-objects-through-a-target-module.md)
 - **Date:** 2026-09-19
 - **Crates:** `ltk-manager-core`, `src-tauri`, frontend
 - **Related:** [ADR-0012](0012-the-overlay-merges-a-mod-over-the-games-copy.md), whose merge this
@@ -53,7 +54,8 @@ else its hex hash.
 **The manager edits `game_data.yaml` in place, through a lossless syntax tree.** An edit to a
 path some `entries` module already sets, in dotted or block form, replaces that value where it
 stands. A new key joins the last `entries` module naming the entry, else a new trailing module.
-A hand-written `target` module is edited only where the key already exists. Comments, order and
+[ADR-0048](0048-a-declared-edit-joins-the-module-the-reader-chose.md) supersedes where a new key
+goes, and keeps this rule as its Automatic choice. A hand-written `target` module is edited only where the key already exists. Comments, order and
 the spelling of every other key are kept. An undo restores the text before the edit. A write
 compares the file on disk with the text the document read and refuses on a difference.
 

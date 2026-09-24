@@ -7,7 +7,11 @@ import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { LayerContent } from "@/lib/tauri";
 
-import { ignoreRulesDocument, previewDocument } from "../../documents/utils/contentDocument";
+import {
+  declarationsDocument,
+  ignoreRulesDocument,
+  previewDocument,
+} from "../../documents/utils/contentDocument";
 import { useContentTreeNav, useStickyTreeRows } from "../../hooks";
 import { MODIGNORE_FILE_NAME } from "../../ignore-rules";
 import { useProjectContext } from "../../projects/state/ProjectContext";
@@ -64,17 +68,21 @@ export function ContentTree({ layer }: ContentTreeProps) {
   const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
 
   const documentFor = useCallback(
-    (node: FileNode) =>
+    (node: FileNode) => {
       /* A nested `.modignore` opens as rules rather than as bytes, which is the
          only way the tree reaches one. */
-      node.name === MODIGNORE_FILE_NAME
-        ? ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`)
-        : previewDocument({
-            kind: "layer",
-            project: projectPath,
-            layer: layerName,
-            path: node.entry.relativePath,
-          }),
+      if (node.name === MODIGNORE_FILE_NAME) {
+        return ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`);
+      }
+      if (node.entry.kind === "game_data") return declarationsDocument(layerName);
+
+      return previewDocument({
+        kind: "layer",
+        project: projectPath,
+        layer: layerName,
+        path: node.entry.relativePath,
+      });
+    },
     [projectPath, layerName],
   );
 

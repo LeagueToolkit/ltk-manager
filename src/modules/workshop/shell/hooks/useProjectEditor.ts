@@ -5,6 +5,7 @@ import type { BinRow } from "@/lib/tauri";
 import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import { usePreviewOnClick } from "@/stores/workshopLayout";
 
+import type { SelectedModule } from "../../bin/documents/state/editorFile";
 import {
   isShellPaneId,
   openShellPanes,
@@ -495,6 +496,37 @@ export function useSelectLayer() {
   return useCallback(
     (layerName: string) => selectLayer(projectPath, layerName),
     [selectLayer, projectPath],
+  );
+}
+
+/** The project's "Use game data declarations" choice, undefined where it made none. */
+export function useUseDeclarationsChoice(projectPath: string | undefined): boolean | undefined {
+  return useWorkshopEditorStore((s) =>
+    projectPath === undefined ? undefined : s.byProject[projectPath]?.useDeclarations,
+  );
+}
+
+export function useSetUseDeclarations() {
+  const projectPath = useProjectPath();
+  const setUseDeclarations = useWorkshopEditorStore((s) => s.setUseDeclarations);
+  return useCallback(
+    (on: boolean) => setUseDeclarations(projectPath, on),
+    [setUseDeclarations, projectPath],
+  );
+}
+
+/** The module a declared document's new keys join, null for the default placement. ADR-0048. */
+export function useSelectedModule(): SelectedModule | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).selectedModule);
+}
+
+export function useSelectModule() {
+  const projectPath = useProjectPath();
+  const selectModule = useWorkshopEditorStore((s) => s.selectModule);
+  return useCallback(
+    (selected: SelectedModule | null) => selectModule(projectPath, selected),
+    [selectModule, projectPath],
   );
 }
 

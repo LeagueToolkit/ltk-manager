@@ -560,7 +560,17 @@ impl MetaSchema {
         field: BinHash,
         build: GameBuild,
     ) -> Option<Expected<'_>> {
-        let content = build.content();
+        self.expected_at(class, field, build.content())
+    }
+
+    /// The field as `class` or a base of it declares it at the newest build any revision
+    /// names.
+    #[must_use]
+    pub fn newest_expected(&self, class: BinHash, field: BinHash) -> Option<Expected<'_>> {
+        self.expected_at(class, field, self.latest)
+    }
+
+    fn expected_at(&self, class: BinHash, field: BinHash, content: u32) -> Option<Expected<'_>> {
         let (property, revision) = self.walk_hierarchy(
             class,
             BasesAt::Build(content),

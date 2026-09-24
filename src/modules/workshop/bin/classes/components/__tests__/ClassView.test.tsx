@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
+import { editCall, isEdit, landed, sentEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -338,12 +339,7 @@ describe("ClassView over a material whose shader answers", () => {
           ],
         });
       }
-      if (command === "bin_edit_property" || command === "bin_remove_item") {
-        return Promise.resolve({ ok: true, value: null });
-      }
-      if (command === "bin_patch") {
-        return Promise.resolve({ ok: true, value: args?.value });
-      }
+      if (command === "bin_edit") return landed();
       return read!(command, args);
     });
   });
@@ -383,31 +379,33 @@ describe("ClassView over a material whose shader answers", () => {
     await user.type(field, "0.5{Enter}");
 
     const paramValues = nameHash("paramValues");
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 7,
-      entry: ENTRY,
-      holder: "",
-      field: paramValues,
-      edits: [
-        {
-          type: "insertItem",
-          path: "",
-          item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
-        },
-        { type: "ensureProperty", path: "[1]", field: nameHash("name") },
-        {
-          type: "setLeaf",
-          path: `[1].${nameHash("name").slice(2)}`,
-          value: { type: "string", value: "Alpha" },
-        },
-        { type: "ensureProperty", path: "[1]", field: nameHash("value") },
-        {
-          type: "setLeaf",
-          path: `[1].${nameHash("value").slice(2)}`,
-          value: { type: "vector", values: [0.5, 0, 0, 0] },
-        },
-      ],
-    });
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: paramValues,
+        edits: [
+          {
+            type: "insertItem",
+            path: "",
+            item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
+          },
+          { type: "ensureProperty", path: "[1]", field: nameHash("name") },
+          {
+            type: "setLeaf",
+            path: `[1].${nameHash("name").slice(2)}`,
+            value: { type: "string", value: "Alpha" },
+          },
+          { type: "ensureProperty", path: "[1]", field: nameHash("value") },
+          {
+            type: "setLeaf",
+            path: `[1].${nameHash("value").slice(2)}`,
+            value: { type: "vector", values: [0.5, 0, 0, 0] },
+          },
+        ],
+      }),
+    );
   });
 
   it("holds a parameter's value while it is typed, then writes it and lets it go", async () => {
@@ -428,12 +426,14 @@ describe("ClassView over a material whose shader answers", () => {
     await user.keyboard("{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
-        document: 7,
-        entry: ENTRY,
-        path: `${PARAM_PATH}.${nameHash("value").slice(2)}`,
-        value: { type: "vector", values: [5, 0, 0, 0] },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(7, {
+          kind: "patch",
+          entry: ENTRY,
+          path: `${PARAM_PATH}.${nameHash("value").slice(2)}`,
+          value: { type: "vector", values: [5, 0, 0, 0] },
+        }),
+      ),
     );
     await waitFor(() => expect(useHeldValueStore.getState().held).toBeNull());
   });
@@ -447,26 +447,29 @@ describe("ClassView over a material whose shader answers", () => {
     await user.click(menus.at(-1)!);
     await user.click(await screen.findByRole("menuitem", { name: "Use the shader default" }));
 
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 7,
-      entry: ENTRY,
-      holder: "",
-      field: nameHash("paramValues"),
-      edits: [{ type: "removeItem", path: "[0]" }],
-    });
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: nameHash("paramValues"),
+        edits: [{ type: "removeItem", path: "[0]" }],
+      }),
+    );
   });
   it("marks an edited row and takes it back to the value it held", async () => {
     const fallback = mockInvoke.getMockImplementation()!;
     const valuePath = `${PARAM_PATH}.${nameHash("value").slice(2)}`;
     let power = 4;
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "bin_patch") {
-        power = (args!.value as { values: number[] }).values[0] ?? 0;
-        return Promise.resolve({ ok: true, value: args?.value });
+      const patched = sentEdit(command, args, "patch");
+      if (patched !== null) {
+        power = (patched.value as { values: number[] }).values[0] ?? 0;
+        return landed();
       }
-      if (command === "bin_edit_property") {
+      if (isEdit(command, args, "editProperty")) {
         power = 4;
-        return Promise.resolve({ ok: true, value: null });
+        return landed();
       }
       if (command === "bin_read") {
         const paths = (args?.paths ?? []) as string[];
@@ -491,20 +494,22 @@ describe("ClassView over a material whose shader answers", () => {
     await user.type(field, "5{Enter}");
     await user.click(await screen.findByRole("button", { name: "Back to 4, 0, 0, 0" }));
 
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 7,
-      entry: ENTRY,
-      holder: "",
-      field: nameHash("paramValues"),
-      edits: [
-        { type: "ensureProperty", path: "[0]", field: nameHash("value") },
-        {
-          type: "setLeaf",
-          path: `[0].${nameHash("value").slice(2)}`,
-          value: { type: "vector", values: [4, 0, 0, 0] },
-        },
-      ],
-    });
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: nameHash("paramValues"),
+        edits: [
+          { type: "ensureProperty", path: "[0]", field: nameHash("value") },
+          {
+            type: "setLeaf",
+            path: `[0].${nameHash("value").slice(2)}`,
+            value: { type: "vector", values: [4, 0, 0, 0] },
+          },
+        ],
+      }),
+    );
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument(),
     );

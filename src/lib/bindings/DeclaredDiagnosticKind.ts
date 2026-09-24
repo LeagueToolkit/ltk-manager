@@ -3,4 +3,4 @@
 /**
  * The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it.
  */
-export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | "overrideRecordSkipped" | "linkRemovalUnmatched" | "propertyEditSkipped" | "schemaFallback" | "referenceUnreadable" | "unknown";
+export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | "overrideRecordSkipped" | "linkRemovalUnmatched" | "propertyEditSkipped" | "schemaFallback" | "referenceUnreadable" | "objectSkipped" | "unknown";

@@ -19,7 +19,14 @@ type LayerPanelSide = "left" | "right";
 type WadSort = "name" | "size";
 
 /** Which view the rail has the primary side panel showing, ADR-0038. */
-type SidebarViewId = "explorer" | "search" | "problems" | "objects" | "game" | "source";
+type SidebarViewId =
+  | "explorer"
+  | "search"
+  | "problems"
+  | "objects"
+  | "declarations"
+  | "game"
+  | "source";
 
 /**
  * What a viewport draws around the run, and how the inspector lists a class.

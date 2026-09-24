@@ -3,4 +3,4 @@
 /**
  * Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md.
  */
-export type ReadOnly = "install" | "loose" | "patch";
+export type ReadOnly = "install" | "loose" | "patch" | "declarationsOff";

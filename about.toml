@@ -23,4 +23,6 @@ accepted = [
     # The workspace crates, which cargo-about lists alongside their dependencies
     "GPL-3.0-or-later",
     "AGPL-3.0-or-later",
+    # brex, which spells packed bin names. GPLv3 section 13 permits the combination.
+    "AGPL-3.0-only",
 ]

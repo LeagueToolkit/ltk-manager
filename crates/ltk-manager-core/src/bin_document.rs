@@ -21,17 +21,21 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod declared;
+mod dependencies;
 mod edit;
 mod find;
 mod items;
 mod properties;
 mod property_edit;
 mod records;
+mod requests;
 pub(crate) mod resolve;
 
 pub use declared::{
-    BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredMark,
-    DeclaredSign, DeclaredState, GameCopy, RowDeclaration, SkipReason,
+    BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
+    DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,
+    DeclaredState, Declaring, GameCopy, LinkChange, NewObject, ObjectChange, ObjectSkip,
+    RowDeclaration, SkipReason,
 };
 pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
@@ -39,6 +43,7 @@ pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
 pub use property_edit::ValueEdit;
 pub use records::TARGET_PATH;
+pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, ObjectEdit};
 
 pub use resolve::{
     AssetLookup, Fields, NamedAsset, Namer, fields_of, hex, items, leaf, link, owned, struct_of,
@@ -52,10 +57,12 @@ use crate::object_index::{CacheNames, ObjectDeclaration};
 use crate::preview::AssetRef;
 use crate::problems::rules::bin_property_type::table::TypeSpec;
 use crate::problems::walk;
-use crate::workshop::LayerChunks;
+use crate::workshop::{LayerChunks, ModuleAction};
 
 /// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.
-pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(8).unwrap();
+///
+/// Above the tabs a user keeps open, so a tab's tree is evicted only past that many assets.
+pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(32).unwrap();
 
 /// The id one open of a document is addressed by.
 ///
@@ -508,6 +515,111 @@ impl BinDocuments {
         self.edit(id, |document| document.set_pointer(entry, path, class))
     }
 
+    /// Declare a new object named `name` in the document under `id`, answering its path hash.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::create_object`] raises.
+    pub fn create_object(
+        &self,
+        id: BinDocumentId,
+        name: &str,
+        origin: &NewObject,
+    ) -> Result<BinHash, BinDocumentError> {
+        self.edit(id, |document| document.create_object(name, origin))
+    }
+
+    /// Declare the removal of the object `entry` in the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::remove_object`] raises.
+    pub fn remove_object(&self, id: BinDocumentId, entry: BinHash) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.remove_object(entry))
+    }
+
+    /// Take back the removal of the object `entry` in the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::restore_object`] raises.
+    pub fn restore_object(
+        &self,
+        id: BinDocumentId,
+        entry: BinHash,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.restore_object(entry))
+    }
+
+    /// Put the dependency `text` names into the list of the document under `id` at `index`,
+    /// the end where `index` is `None`, answering its position.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::insert_dependency`] raises.
+    pub fn insert_dependency(
+        &self,
+        id: BinDocumentId,
+        index: Option<usize>,
+        text: &str,
+    ) -> Result<usize, BinDocumentError> {
+        self.edit(id, |document| document.insert_dependency(index, text))
+    }
+
+    /// Take the dependency at `index` out of the list of the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::remove_dependency`] raises.
+    pub fn remove_dependency(
+        &self,
+        id: BinDocumentId,
+        index: usize,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.remove_dependency(index))
+    }
+
+    /// Move the dependency at `from` to `to` in the list of the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::move_dependency`] raises.
+    pub fn move_dependency(
+        &self,
+        id: BinDocumentId,
+        from: usize,
+        to: usize,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.move_dependency(from, to))
+    }
+
+    /// Replace the dependency at `index` of the document under `id` with the one `text` names.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::set_dependency`] raises.
+    pub fn set_dependency(
+        &self,
+        id: BinDocumentId,
+        index: usize,
+        text: &str,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.set_dependency(index, text))
+    }
+
+    /// Take back the chosen layer's removal of the dependency `path` of the document under `id`.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::add_property`], with what [`BinDocument::restore_dependency`] raises.
+    pub fn restore_dependency(
+        &self,
+        id: BinDocumentId,
+        path: &str,
+    ) -> Result<(), BinDocumentError> {
+        self.edit(id, |document| document.restore_dependency(path))
+    }
+
     /// What the document under `id` says beside its rows, or `None` for one that declares
     /// nothing.
     ///
@@ -521,7 +633,7 @@ impl BinDocuments {
         Ok(self.held(id)?.1.read().declared_state())
     }
 
-    /// Write the edits that follow on the document under `id` to `layer`.
+    /// Write the edits that follow on the document under `id` to `module` of `layer`.
     ///
     /// # Errors
     ///
@@ -531,8 +643,28 @@ impl BinDocuments {
         &self,
         id: BinDocumentId,
         layer: &str,
+        module: DeclaredModuleChoice,
     ) -> Result<DeclaredState, BinDocumentError> {
-        self.held(id)?.1.write().declare_into(layer)
+        self.held(id)?.1.write().declare_into(layer, module)
+    }
+
+    /// Apply `action` to the manifest of `layer` through the document under `id`, whose
+    /// undo reverts it.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
+    /// [`BinDocument::declared_module_action`] raises.
+    pub fn declared_module_action(
+        &self,
+        id: BinDocumentId,
+        layer: &str,
+        action: &ModuleAction,
+    ) -> Result<DeclaredState, BinDocumentError> {
+        self.edit(id, |document| {
+            document.declared_module_action(layer, action)
+        })
     }
 
     /// Declare the row at `path` under `entry` of the document under `id` as the game-copy
@@ -540,7 +672,8 @@ impl BinDocuments {
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, and with what
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
+    /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
     /// [`BinDocument::declare_reference`] raises.
     pub fn declare_reference(
         &self,
@@ -550,10 +683,27 @@ impl BinDocuments {
         reference: &str,
         merge: bool,
     ) -> Result<(), BinDocumentError> {
-        self.held(id)?
-            .1
-            .write()
-            .declare_reference(entry, path, reference, merge)
+        self.edit(id, |document| {
+            document.declare_reference(entry, path, reference, merge)
+        })
+    }
+
+    /// Take edits on the document under `id` as declarations, or refuse them, answering the
+    /// gate it then stands behind. Every id over the asset reads the change.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, and with
+    /// [`BinDocumentError::Declaring`] for a document that declares nothing.
+    pub fn set_declaring(
+        &self,
+        id: BinDocumentId,
+        declaring: Declaring,
+    ) -> Result<Option<ReadOnly>, BinDocumentError> {
+        let (asset, document) = self.held(id)?;
+        let mut document = document.write();
+        document.set_declaring(declaring)?;
+        Ok(document.read_only(&asset))
     }
 
     /// Revert the latest edit of the document under `id`, answering whether one was held.
@@ -721,6 +871,8 @@ pub struct BinDocument {
     base: Vec<u8>,
     /// Every object a patch touched since the base was read.
     touched: IndexSet<BinHash>,
+    /// A patch changed the header's dependency list since the base was read.
+    dependencies_touched: bool,
     /// The edits an undo reverts, the latest last, at most [`UNDO_DEPTH`].
     undo: VecDeque<edit::Edit>,
     /// The edits a redo applies again, the latest undone last.
@@ -743,6 +895,7 @@ impl BinDocument {
             file: BinFile::from_reader(&mut Cursor::new(&base))?,
             base,
             touched: IndexSet::new(),
+            dependencies_touched: false,
             undo: VecDeque::new(),
             redo: Vec::new(),
             declared: None,
@@ -762,7 +915,7 @@ impl BinDocument {
                 kind: BinFileKind::Prop,
                 version: Some(bin.version),
                 objects: bin.objects.len(),
-                dependencies: bin.dependencies.clone(),
+                dependencies: self.dependency_rows(),
                 patches: 0,
                 deleted: Vec::new(),
             },
@@ -866,25 +1019,43 @@ impl BinDocument {
     /// tables miss.
     #[must_use]
     pub fn roots(&self, names: &dyn RowNames, schema: Option<SchemaAt<'_>>) -> Vec<BinRow> {
+        /* A declared document keeps the rows of the objects its layer removes, which draw
+        struck through and hold no rows under them. ADR-0049. */
+        let removed: Vec<&BinObject> = self
+            .declared
+            .as_ref()
+            .map(|declared| declared.removed().collect())
+            .unwrap_or_default();
         let objects = self.file.objects();
         let targets = self.targets();
         let mut wanted = Wanted::default();
         wanted.entries.extend(objects.keys().copied());
-        wanted.entries.extend(targets.keys().copied());
         wanted
-            .classes
-            .extend(objects.values().map(|object| object.class_hash));
+            .entries
+            .extend(removed.iter().map(|object| object.path_hash));
+        wanted.entries.extend(targets.keys().copied());
+        wanted.classes.extend(
+            objects
+                .values()
+                .chain(removed.iter().copied())
+                .map(|object| object.class_hash),
+        );
         let named = wanted.resolve(names, schema);
 
         let targets = targets
             .iter()
             .map(|(&target, records)| records::target_row(target, records.len(), &named));
+        let removed = removed
+            .into_iter()
+            .map(|object| (object.path_hash, object.class_hash, 0));
         objects
             .values()
-            .map(|object| {
-                let (name, unnamed) = named.entry(object.path_hash);
+            .map(|object| (object.path_hash, object.class_hash, object.properties.len()))
+            .chain(removed)
+            .map(|(entry, class_hash, len)| {
+                let (name, unnamed) = named.entry(entry);
                 BinRow {
-                    entry: hex(object.path_hash),
+                    entry: hex(entry),
                     path: String::new(),
                     label: String::new(),
                     node: RowNode::Object,
@@ -892,9 +1063,9 @@ impl BinDocument {
                     unnamed,
                     kind: None,
                     value: BinValue::Struct {
-                        class_hash: hex(object.class_hash),
-                        class: named.classes.get(&object.class_hash).cloned(),
-                        len: object.properties.len(),
+                        class_hash: hex(class_hash),
+                        class: named.classes.get(&class_hash).cloned(),
+                        len,
                     },
                     declared: None,
                 }
@@ -1105,11 +1276,35 @@ pub struct BinHeader {
     pub version: Option<u32>,
     /// The objects the file declares. For a `PTCH`, the objects it adds.
     pub objects: usize,
-    pub dependencies: Vec<String>,
+    pub dependencies: Vec<Dependency>,
     /// The patch records of a `PTCH`.
     pub patches: usize,
     /// The objects a `PTCH` deletes, in file order.
     pub deleted: Vec<ObjectName>,
+}
+
+/// One dependency a `PROP` names, as its path and its brex spelling.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct Dependency {
+    /// The archive path as the file writes it.
+    pub path: String,
+    /// The path in brex, which folds the repeated terms of a packed bin name. Absent where
+    /// the path repeats nothing.
+    pub packed: Option<String>,
+}
+
+impl Dependency {
+    /// The dependency at `path`, with its brex spelling where that folds anything.
+    #[must_use]
+    pub fn new(path: String) -> Self {
+        let packed = brex::encode(&path).ok().filter(|packed| *packed != path);
+
+        Self { path, packed }
+    }
 }
 
 /// One object by hash, and by path where a table names it.

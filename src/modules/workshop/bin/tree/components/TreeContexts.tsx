@@ -50,7 +50,7 @@ export function TreeContexts({
   const linkOpen = useWarmLinkOpen(linkTargets);
   const marks = useValueMarks(document, inView);
   const edit = useBinEditor(document, asset, editable, focus);
-  const declared = useDeclaredRows(document);
+  const declared = useDeclaredRows(document, editable);
 
   return (
     <LinkAssetContext value={asset}>

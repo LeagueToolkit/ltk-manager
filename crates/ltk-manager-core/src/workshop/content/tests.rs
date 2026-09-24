@@ -92,6 +92,37 @@ fn scan_layer_classifies_known_extensions() {
 }
 
 #[test]
+fn a_manifest_at_the_layer_root_is_game_data_and_one_below_it_is_not() {
+    let dir = tempfile::tempdir().unwrap();
+    touch(
+        &dir.path().join("game_data.yaml"),
+        b"version: 1
+modules: []
+",
+    );
+    touch(
+        &dir.path().join("sources/game_data.yaml"),
+        b"version: 1
+",
+    );
+
+    let layer = listed(dir.path(), "base");
+    let kinds: Vec<(&str, WorkshopFileKind)> = layer
+        .entries
+        .iter()
+        .map(|entry| (entry.relative_path.as_str(), entry.kind))
+        .collect();
+
+    assert_eq!(
+        kinds,
+        [
+            ("game_data.yaml", WorkshopFileKind::GameData),
+            ("sources/game_data.yaml", WorkshopFileKind::Unknown),
+        ]
+    );
+}
+
+#[test]
 fn scan_layer_lists_dot_entries() {
     let dir = tempfile::tempdir().unwrap();
     touch(&dir.path().join(".DS_Store"), b"junk");

@@ -3,7 +3,7 @@
 //! Every method here reads ranges from a fresh parse of the text and returns a
 //! new text. None edits the tree.
 
-use ltk_game_data::{EntryName, Sign};
+use ltk_game_data::{EntryName, ModuleName, Sign};
 use ltk_meta::path::Segment;
 use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Mapping, MappingEntry, Sequence, SyntaxKind, YamlNode};
@@ -11,11 +11,12 @@ use yaml_edit::{Document, Mapping, MappingEntry, Sequence, SyntaxKind, YamlNode}
 use crate::document_text::DocumentText;
 use crate::locate::{self, Site};
 use crate::syntax::{self, Node};
-use crate::{Edit, Operation, Refusal, ValueText};
+use crate::{Edit, ModuleChoice, Operation, Refusal, ValueText};
 
 impl DocumentText {
-    /// The text with `edit` applied.
-    pub(crate) fn apply(&self, edit: &Edit) -> Result<Self, Refusal> {
+    /// The text with `edit` applied, and the index of the module holding the key it wrote.
+    /// `None` for a drop, which writes no key.
+    pub(crate) fn apply(&self, edit: &Edit) -> Result<(Self, Option<usize>), Refusal> {
         let site = Site {
             chunk_hash: edit.chunk_hash,
             entry: edit.entry.object_hash(),
@@ -25,49 +26,143 @@ impl DocumentText {
         let value = edit.operation.value().map(ValueText::as_str);
 
         if self.is_blank() {
-            return Ok(match value {
-                Some(value) => new_manifest(&edit.entry, &site, value),
-                None => self.clone(),
-            });
+            return match (value, &edit.module) {
+                (None, _) => Ok((self.clone(), None)),
+                (Some(_), ModuleChoice::Index(index)) => Err(Refusal::NoModule(*index)),
+                (Some(value), ModuleChoice::Auto) => {
+                    Ok((new_manifest(None, &edit.entry, &site, value), Some(0)))
+                }
+                (Some(value), ModuleChoice::New(name)) => Ok((
+                    new_manifest(name.as_ref(), &edit.entry, &site, value),
+                    Some(0),
+                )),
+            };
         }
 
         let doc = self.parse()?;
-        match (&edit.operation, locate::last_key(&doc, &site), value) {
-            (Operation::Set(_), Some(key), Some(value)) => self.replace_value(&key, value),
-            (Operation::Add(_) | Operation::Remove(_), Some(_), Some(value)) => {
-                self.merge(&site, value)
+        let key = locate::last_key(&doc, &site);
+        let holder = key
+            .as_ref()
+            .and_then(|key| locate::module_of(&doc, key.syntax()));
+        match (&edit.operation, key, value) {
+            (Operation::Set(_), Some(key), Some(value)) => {
+                Ok((self.replace_value(&key, value)?, holder))
             }
-            (Operation::Drop(_), Some(key), _) => Ok(self.drop_key(&doc, &key)),
-            (_, None, Some(value)) => self.insert(&doc, &site, &edit.entry, value),
-            (_, _, None) => Ok(self.clone()),
+            (Operation::Add(_) | Operation::Remove(_), Some(_), Some(value)) => {
+                Ok((self.merge(&site, value)?, holder))
+            }
+            (Operation::Drop(_), Some(key), _) => Ok((self.drop_key(&doc, &key), None)),
+            (_, None, Some(value)) => self
+                .insert(&doc, &site, &edit.entry, value, &edit.module)
+                .map(|(text, module)| (text, Some(module))),
+            (_, _, None) => Ok((self.clone(), None)),
         }
     }
 
-    /// The text with a key for `site` added where a new key goes.
+    /// The text with a key for `site` added in the module `choice` names, and that module's
+    /// index.
     fn insert(
         &self,
         doc: &Document,
         site: &Site<'_>,
         entry: &EntryName,
         value: &str,
+        choice: &ModuleChoice,
+    ) -> Result<(Self, usize), Refusal> {
+        let created = locate::last_object(doc, site.chunk_hash, site.entry).and_then(|object| {
+            Some((
+                locate::module_of(doc, object.syntax())?,
+                locate::creation(&object)?,
+            ))
+        });
+        if let Some((index, object)) = created {
+            return Ok((self.insert_set(&object, site, value)?, index));
+        }
+
+        match choice {
+            ModuleChoice::Auto => {}
+            ModuleChoice::Index(index) => {
+                let entries = locate::entries_at(doc, *index)?;
+                let text = self.insert_in_entries(
+                    &entries,
+                    site,
+                    &syntax::spell_key(entry.as_str()),
+                    value,
+                )?;
+                return Ok((text, *index));
+            }
+            ModuleChoice::New(name) => {
+                let index = locate::module_items(doc).len();
+                let module = module_text(name.as_ref(), entry, site, value);
+                return Ok((self.append_module(doc, &module)?, index));
+            }
+        }
+
+        if let Some((index, body)) = locate::last_entries_body(doc, site.entry) {
+            let (block, rest) = locate::deepest_block(&body, &site.segments);
+            let text = self.insert_entry(&block, &key_for(site.sign, rest), value)?;
+            return Ok((text, index));
+        }
+        if let Some((index, entries)) = locate::trailing_entries(doc) {
+            let text =
+                self.insert_in_entries(&entries, site, &syntax::spell_key(entry.as_str()), value)?;
+            return Ok((text, index));
+        }
+        let index = locate::module_items(doc).len();
+        let module = module_text(None, entry, site, value);
+        Ok((self.append_module(doc, &module)?, index))
+    }
+
+    /// The text with a key for `site` in `entries`, an `entries` module's mapping: in the
+    /// deepest block of the entry's last body there, else in a new body keyed `spelled`.
+    pub(crate) fn insert_in_entries(
+        &self,
+        entries: &Mapping,
+        site: &Site<'_>,
+        spelled: &str,
+        value: &str,
     ) -> Result<Self, Refusal> {
-        if let Some(body) = locate::last_entries_body(doc, site.entry) {
+        if let Some(body) = locate::entry_keys(entries, site.entry)
+            .iter()
+            .rev()
+            .find_map(syntax::mapping_value)
+        {
             let (block, rest) = locate::deepest_block(&body, &site.segments);
             return self.insert_entry(&block, &key_for(site.sign, rest), value);
         }
-        if let Some(entries) = locate::trailing_entries(doc) {
-            let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
-            return self.insert_entry(
-                &entries,
-                &syntax::spell_key(entry.as_str()),
-                body.trim_end(),
-            );
+        let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+        self.insert_entry(entries, spelled, body.trim_end())
+    }
+
+    /// The text with a key for `site` in the `set` of `object`, a creation's body.
+    fn insert_set(&self, object: &Mapping, site: &Site<'_>, value: &str) -> Result<Self, Refusal> {
+        if let Some(set) = object.get_mapping("set") {
+            let (block, rest) = locate::deepest_block(&set, &site.segments);
+            return self.insert_entry(&block, &key_for(site.sign, rest), value);
         }
-        self.append_module(doc, &module_text(entry, site, value))
+
+        let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+        self.insert_entry(object, "set", body.trim_end())
     }
 
     /// The text with `key: value` as the last entry of `mapping`.
-    fn insert_entry(&self, mapping: &Mapping, key: &str, value: &str) -> Result<Self, Refusal> {
+    pub(crate) fn insert_entry(
+        &self,
+        mapping: &Mapping,
+        key: &str,
+        value: &str,
+    ) -> Result<Self, Refusal> {
+        self.insert_entry_commented(mapping, key, value, None)
+    }
+
+    /// As [`DocumentText::insert_entry`], `comment` beside the key's line in a block mapping.
+    pub(crate) fn insert_entry_commented(
+        &self,
+        mapping: &Mapping,
+        key: &str,
+        value: &str,
+        comment: Option<&str>,
+    ) -> Result<Self, Refusal> {
         let entries = syntax::entries(mapping);
         let (Some(first), Some(last), false) =
             (entries.first(), entries.last(), mapping.is_flow_style())
@@ -81,12 +176,12 @@ impl DocumentText {
         };
         Ok(self.insert_lines(
             syntax::line_end(last.syntax()),
-            &syntax::layout_entry(key, value, self.column(first.syntax()), None),
+            &syntax::layout_entry(key, value, self.column(first.syntax()), comment),
         ))
     }
 
     /// The text with `item` as the last element of `list`.
-    fn insert_item(&self, list: &Sequence, item: &str) -> Result<Self, Refusal> {
+    pub(crate) fn insert_item(&self, list: &Sequence, item: &str) -> Result<Self, Refusal> {
         let items = syntax::sequence_entries(list.syntax());
         let (Some(first), Some(last), false) = (items.first(), items.last(), list.is_flow_style())
         else {
@@ -104,7 +199,7 @@ impl DocumentText {
     }
 
     /// The text with `module` as the last item of `modules`.
-    fn append_module(&self, doc: &Document, module: &str) -> Result<Self, Refusal> {
+    pub(crate) fn append_module(&self, doc: &Document, module: &str) -> Result<Self, Refusal> {
         let root = doc.as_mapping().ok_or(Refusal::RootNotMapping)?;
         let Some((entry, list)) = locate::modules(doc) else {
             let at = syntax::entries(&root)
@@ -144,7 +239,7 @@ impl DocumentText {
     /// which keeps the comment beside it. Otherwise the entry's lines are laid
     /// out again, the key spelled as before and the comment on its first line
     /// kept.
-    fn replace_value(&self, entry: &MappingEntry, value: &str) -> Result<Self, Refusal> {
+    pub(crate) fn replace_value(&self, entry: &MappingEntry, value: &str) -> Result<Self, Refusal> {
         let node = entry.syntax();
         let in_flow = node
             .parent()
@@ -216,9 +311,9 @@ impl DocumentText {
     }
 
     /// The text without `entry`, and without every body, block and module it
-    /// leaves empty. A module left holding only its `target` is empty.
+    /// leaves empty. A module left holding only its `target` or its `name` is empty.
     /// Removing the last module leaves `modules: []`.
-    fn drop_key(&self, doc: &Document, entry: &MappingEntry) -> Self {
+    pub(crate) fn drop_key(&self, doc: &Document, entry: &MappingEntry) -> Self {
         let modules = locate::modules(doc).map(|(entry, _)| entry.syntax().clone());
         let module_mappings: Vec<Node> = locate::module_mappings(doc)
             .iter()
@@ -238,10 +333,12 @@ impl DocumentText {
                 .collect();
             let empty = if module_mappings.contains(&container) {
                 left.iter().all(|child| {
-                    MappingEntry::cast(child.clone())
-                        .and_then(|entry| syntax::key_string(&entry))
-                        .as_deref()
-                        == Some("target")
+                    matches!(
+                        MappingEntry::cast(child.clone())
+                            .and_then(|entry| syntax::key_string(&entry))
+                            .as_deref(),
+                        Some("target" | "name")
+                    )
                 })
             } else {
                 left.is_empty()
@@ -266,21 +363,17 @@ impl DocumentText {
             }
             removed = owner;
         }
+        if locate::module_items(doc).contains(&removed) && !node_in_flow(&removed) {
+            let (start, end) = self.module_span(&removed);
+            return self.splice(start, end, "");
+        }
         self.cut(&removed)
     }
 
     /// The text without `node`: its lines in a block collection, its text and
     /// one separating comma in a flow one.
-    fn cut(&self, node: &Node) -> Self {
-        let in_flow = node.parent().is_some_and(|container| {
-            container.children_with_tokens().any(|child| {
-                matches!(
-                    child.kind(),
-                    SyntaxKind::LEFT_BRACE | SyntaxKind::LEFT_BRACKET
-                )
-            })
-        });
-        if !in_flow {
+    pub(crate) fn cut(&self, node: &Node) -> Self {
+        if !node_in_flow(node) {
             return self.replace_lines(node, "");
         }
 
@@ -306,8 +399,20 @@ impl DocumentText {
     }
 }
 
+/// Whether `node` stands in a flow collection.
+fn node_in_flow(node: &Node) -> bool {
+    node.parent().is_some_and(|container| {
+        container.children_with_tokens().any(|child| {
+            matches!(
+                child.kind(),
+                SyntaxKind::LEFT_BRACE | SyntaxKind::LEFT_BRACKET
+            )
+        })
+    })
+}
+
 /// A signed key for `segments`, spelled.
-fn key_for(sign: Sign, segments: &[Segment<'_>]) -> String {
+pub(crate) fn key_for(sign: Sign, segments: &[Segment<'_>]) -> String {
     let path = segments
         .iter()
         .map(ToString::to_string)
@@ -317,18 +422,27 @@ fn key_for(sign: Sign, segments: &[Segment<'_>]) -> String {
 }
 
 /// A manifest holding one module, which declares one key.
-fn new_manifest(entry: &EntryName, site: &Site<'_>, value: &str) -> DocumentText {
-    DocumentText::new(format!(
-        "version: 1\nmodules:\n{}",
-        syntax::layout_item(&module_text(entry, site, value), 2)
-    ))
+fn new_manifest(
+    name: Option<&ModuleName>,
+    entry: &EntryName,
+    site: &Site<'_>,
+    value: &str,
+) -> DocumentText {
+    DocumentText::with_module(&module_text(name, entry, site, value))
 }
 
-/// An `entries` module declaring one key, as a standalone document.
-fn module_text(entry: &EntryName, site: &Site<'_>, value: &str) -> String {
+/// An `entries` module declaring one key, as a standalone document, `name` first.
+fn module_text(
+    name: Option<&ModuleName>,
+    entry: &EntryName,
+    site: &Site<'_>,
+    value: &str,
+) -> String {
     let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
     let named = syntax::layout_entry(&syntax::spell_key(entry.as_str()), body.trim_end(), 0, None);
-    syntax::layout_entry("entries", named.trim_end(), 0, None)
+    let mut module = name.map(syntax::name_line).unwrap_or_default();
+    module.push_str(&syntax::layout_entry("entries", named.trim_end(), 0, None));
+    module
 }
 
 /// Where a flow collection's last element ends: before the whitespace ahead

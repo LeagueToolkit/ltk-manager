@@ -84,6 +84,8 @@
   --color-doc-readme-text: var(--ltk-doc-readme-text);
   --color-doc-license: var(--ltk-doc-license);
   --color-doc-license-text: var(--ltk-doc-license-text);
+  --color-doc-declarations: var(--ltk-doc-declarations);
+  --color-doc-declarations-text: var(--ltk-doc-declarations-text);
   --color-channel-1: var(--ltk-channel-1);
   --color-channel-1-text: var(--ltk-channel-1-text);
   --color-channel-2: var(--ltk-channel-2);

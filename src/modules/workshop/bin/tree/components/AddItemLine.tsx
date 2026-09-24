@@ -35,7 +35,14 @@ export function AddItemLine({ line, autoFocus }: AddItemLineProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const { target } = line;
-  if (edit === null || target.kind === "property") return null;
+  if (
+    edit === null ||
+    target.kind === "property" ||
+    target.kind === "object" ||
+    target.kind === "dependency"
+  ) {
+    return null;
+  }
 
   const inserting = edit;
   async function send(text: string): Promise<boolean> {
@@ -60,7 +67,9 @@ export function AddItemLine({ line, autoFocus }: AddItemLineProps) {
 }
 
 /** What a line is typed or pressed in: a key, a class, or nothing for a leaf item. */
-function fieldOf(target: Exclude<LineTarget, { kind: "property" }>): "key" | "class" | "press" {
+function fieldOf(
+  target: Exclude<LineTarget, { kind: "property" } | { kind: "object" } | { kind: "dependency" }>,
+): "key" | "class" | "press" {
   if (target.kind === "entry") return "key";
   if (target.kind === "pointer") return "class";
   return holdsClass(target.itemKind) ? "class" : "press";
@@ -251,7 +260,8 @@ function ClassField({ line, edit, autoFocus, error, send, onType }: FieldProps) 
   );
 }
 
-function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
+/** A class suggestion as a line of a class list: its name, and whether the file holds it. */
+export function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
   let note: string | null = null;
   if (suggestion.kind === "typed") note = m.workshop_bin_class_typed_label();
   else if (suggestion.choice.held) note = m.workshop_bin_class_held_label();
