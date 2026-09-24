@@ -3783,6 +3783,11 @@ export type ValueEdit =
 { type: "ensureProperty"; path: string; field: string } | 
 /**  Give a null pointer its class. A non-null pointer retains its fields. */
 { type: "ensurePointer"; path: string; class: string } | 
+/**
+ *  Swap a pointer's class, keeping the fields both classes declare with one type. A
+ *  null class clears the pointer.
+ */
+{ type: "replacePointer"; path: string; class: string | null } | 
 /**  Insert an item into a list, map or option. */
 { type: "insertItem"; path: string; item: NewItem } | 
 /**  Remove an item from a list, map or option. */

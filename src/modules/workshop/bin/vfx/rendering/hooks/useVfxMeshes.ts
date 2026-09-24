@@ -156,6 +156,11 @@ export function animationOf(model: MeshModel, key: string): NamedAsset | null {
   return variants[hash % variants.length];
 }
 
+/** The unposed geometry a mesh model draws, for a surface drawing it outside a run. */
+export async function loadMeshGeometry(model: MeshModel): Promise<BufferGeometry> {
+  return geometryOf(readMeshBuffer(await buffer(model.asset, "geometry")), model);
+}
+
 async function loadMesh(model: MeshModel, key: string): Promise<MeshBuffers> {
   const animation = animationOf(model, key);
   const [bytes, skeletonBytes, clipBytes] = await Promise.all([

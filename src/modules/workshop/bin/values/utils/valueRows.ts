@@ -51,7 +51,12 @@ const SINGLE_DEFAULT = 1;
 /** The family a row's value belongs to, or null for every other value. */
 export function valueFamily(value: BinValue): ValueFamily | null {
   if (value.type !== "struct") return null;
-  return FAMILY.get(value.classHash) ?? null;
+  return classFamily(value.classHash);
+}
+
+/** The family a class belongs to, or null for every other class. */
+export function classFamily(classHash: string): ValueFamily | null {
+  return FAMILY.get(classHash) ?? null;
 }
 
 /** One stop of a colour's dynamics: when it lands, and the channels there, each 0 to 1. */

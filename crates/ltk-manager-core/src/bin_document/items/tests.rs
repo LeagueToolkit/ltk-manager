@@ -9,7 +9,7 @@ use ltk_hash::Hash as _;
 use ltk_meta::Bin;
 
 use super::*;
-use crate::bin_document::PropertyKind;
+use crate::bin_document::{PropertyKind, ValueEdit};
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
 
@@ -67,10 +67,22 @@ fn schema() -> MetaSchema {
           "classes": {{ {}, {}, {}, {}, {} }}
         }}"#,
         class("SkinData", &[], &skin),
-        class("InnerData", &[], ""),
-        class("DerivedData", &["InnerData"], ""),
+        class(
+            "InnerData",
+            &[],
+            &field("shared", ["F32", "0x0", "0x0", "0x0"])
+        ),
+        class(
+            "DerivedData",
+            &["InnerData"],
+            &field("own", ["U32", "0x0", "0x0", "0x0"]),
+        ),
         class("DeeperData", &["DerivedData"], ""),
-        class("UnrelatedData", &[], ""),
+        class(
+            "UnrelatedData",
+            &[],
+            &field("shared", ["U32", "0x0", "0x0", "0x0"]),
+        ),
     );
     MetaSchema::parse(json.as_bytes()).unwrap()
 }
@@ -87,7 +99,7 @@ fn floats(items: &[f32]) -> values::Container {
 }
 
 /// A bin with one object of `SkinData` holding a list, a list2, a pointer list, an embed
-/// list, two maps, two options and two pointers.
+/// list, two maps, two options and three pointers.
 fn document() -> BinDocument {
     let names = values::Map::new(
         Kind::Hash,
@@ -122,6 +134,17 @@ fn document() -> BinDocument {
         )
         .property(h("mesh"), values::Struct::default())
         .property(h("falloff"), empty("DerivedData"))
+        .property(
+            h("shape"),
+            values::Struct {
+                class_hash: h("DerivedData"),
+                properties: IndexMap::from([
+                    (h("shared"), values::F32::new(2.0).into()),
+                    (h("own"), values::U32::new(3).into()),
+                    (h("stray"), values::String::new("kept?".to_owned()).into()),
+                ]),
+            },
+        )
         .build();
     let mut out = Cursor::new(Vec::new());
     Bin::new([object], std::iter::empty::<&str>())
@@ -411,6 +434,124 @@ fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
     );
     assert!(document.undo().unwrap());
     assert_eq!(value(&document, "falloff"), &empty("DerivedData").into());
+}
+
+/// The fields the pointer at `field` holds, in the order it holds them.
+fn pointer_fields(document: &BinDocument, field: &str) -> Vec<BinHash> {
+    match value(document, field) {
+        PropertyValueEnum::Struct(pointer) => pointer.properties.keys().copied().collect(),
+        other => panic!("{field} is no pointer: {other:?}"),
+    }
+}
+
+#[test]
+fn a_replaced_class_keeps_the_fields_both_classes_declare_alike() {
+    let schema = schema();
+    let at = schema.at(Some(BUILD));
+    let mut document = document();
+    let shape = wire(h("shape"));
+    let held = value(&document, "shape").clone();
+
+    document
+        .replace_pointer(entry(), &shape, Some("DerivedData"), at)
+        .unwrap();
+    assert!(
+        !document.is_dirty(),
+        "the class it holds already is no edit"
+    );
+
+    document
+        .replace_pointer(entry(), &shape, Some("DeeperData"), at)
+        .unwrap();
+    assert_eq!(pointer_fields(&document, "shape"), [h("shared"), h("own")]);
+
+    document
+        .replace_pointer(entry(), &shape, Some("InnerData"), at)
+        .unwrap();
+    assert_eq!(pointer_fields(&document, "shape"), [h("shared")]);
+
+    document
+        .replace_pointer(entry(), &shape, Some("UnrelatedData"), at)
+        .unwrap();
+    assert_eq!(
+        pointer_fields(&document, "shape"),
+        [],
+        "a field the next class declares with another type is dropped"
+    );
+
+    document.replace_pointer(entry(), &shape, None, at).unwrap();
+    assert_eq!(value(&document, "shape"), &values::Struct::default().into());
+
+    for _ in 0..4 {
+        assert!(document.undo().unwrap());
+    }
+    assert_eq!(value(&document, "shape"), &held);
+    assert_eq!(
+        rejection(document.replace_pointer(entry(), &wire(h("weights")), None, at)),
+        EditRejection::NotAPointer
+    );
+}
+
+#[test]
+fn a_mesh_primitive_keeps_its_mesh_across_the_mesh_classes() {
+    let schema = crate::meta_schema::shared(Some(BUILD));
+    let at = schema.at(Some(BUILD));
+    let mesh = values::Embedded(empty("VfxMeshDefinitionData"));
+    let object = BinObject::builder(h(SKIN), h("VfxEmitterDefinitionData"))
+        .property(
+            h("primitive"),
+            values::Struct {
+                class_hash: h("VfxPrimitiveMesh"),
+                properties: IndexMap::from([
+                    (h("mMesh"), mesh.into()),
+                    (h("AlignYawToCamera"), values::Bool::new(true).into()),
+                ]),
+            },
+        )
+        .build();
+    let mut out = Cursor::new(Vec::new());
+    Bin::new([object], std::iter::empty::<&str>())
+        .to_writer(&mut out)
+        .unwrap();
+    let mut document = BinDocument::parse(out.into_inner()).unwrap();
+    let primitive = wire(h("primitive"));
+
+    document
+        .replace_pointer(entry(), &primitive, Some("VfxPrimitiveAttachedMesh"), at)
+        .unwrap();
+    assert_eq!(
+        pointer_fields(&document, "primitive"),
+        [h("mMesh"), h("AlignYawToCamera")]
+    );
+
+    document
+        .replace_pointer(entry(), &primitive, Some("VfxPrimitiveArbitraryTrail"), at)
+        .unwrap();
+    assert_eq!(pointer_fields(&document, "primitive"), []);
+}
+
+#[test]
+fn a_replaced_class_through_a_property_edit_is_one_undo() {
+    let schema = schema();
+    let mut document = document();
+    let replace = |class: &str| ValueEdit::ReplacePointer {
+        path: String::new(),
+        class: Some(class.to_owned()),
+    };
+
+    document
+        .edit_property(
+            entry(),
+            "",
+            &wire(h("mesh")),
+            vec![replace("InnerData"), replace("DerivedData")],
+            schema.at(Some(BUILD)),
+        )
+        .unwrap();
+    assert_eq!(value(&document, "mesh"), &empty("DerivedData").into());
+
+    assert!(document.undo().unwrap());
+    assert_eq!(value(&document, "mesh"), &values::Struct::default().into());
 }
 
 #[test]
