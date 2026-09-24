@@ -25,21 +25,18 @@ import { nameHash } from "../../shared/utils/binHash";
 import { RowValue } from "../../tree/components/BinRow";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { materialQueries } from "../api/materialQueries";
-import { componentCount, type DeclaredRow, paramDefault } from "../utils/declaredRows";
-import { warningText } from "../utils/materialWarnings";
 import {
-  DeclaredTable,
-  Heading,
-  type ListKind,
-  NAME_WIDTH,
-  nameColumn,
-  resetColumn,
-  setField,
   useElementField,
   useEntryWrite,
   useMaterialEntry,
   useOverride,
-} from "./DeclaredTable";
+} from "../hooks/useEntryEdits";
+import type { ListKind } from "../state/declaredTable";
+import { componentCount, type DeclaredRow, paramDefault } from "../utils/declaredRows";
+import { setField } from "../utils/entryEdits";
+import { warningText } from "../utils/materialWarnings";
+import { actionsColumn, Heading, NAME_WIDTH, nameColumn } from "./DeclaredRow";
+import { DeclaredTable } from "./DeclaredTable";
 import { LiveParam } from "./LiveParam";
 
 /** The fields of the three material list classes, by hash. */
@@ -350,7 +347,7 @@ const PARAM_COLUMNS: DataTableColumn<DeclaredRow<SchemaParam>>[] = [
     ),
     cell: ({ row }) => <ParamValue row={row.original} />,
   },
-  resetColumn(),
+  actionsColumn(),
 ];
 
 const SAMPLER_COLUMNS: DataTableColumn<DeclaredRow<SchemaTexture>>[] = [
@@ -369,7 +366,7 @@ const SAMPLER_COLUMNS: DataTableColumn<DeclaredRow<SchemaTexture>>[] = [
       cell: ({ row }) => <Address row={row.original} field={FIELD[address]} />,
     }),
   ),
-  resetColumn(),
+  actionsColumn(),
 ];
 
 const SWITCH_COLUMNS: DataTableColumn<DeclaredRow<SchemaSwitch>>[] = [
@@ -379,7 +376,7 @@ const SWITCH_COLUMNS: DataTableColumn<DeclaredRow<SchemaSwitch>>[] = [
     header: () => <Heading className={VALUE_WIDTH}>{m.workshop_bin_material_on_label()}</Heading>,
     cell: ({ row }) => <SwitchOn row={row.original} />,
   },
-  resetColumn(),
+  actionsColumn(),
 ];
 
 /* A macro is a map entry, whose row is named by its key and holds its value itself. */

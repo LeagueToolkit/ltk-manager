@@ -13,6 +13,7 @@ import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
 import { useHeldValueStore } from "../../../material/state/heldValue";
+import { useRowBaselineStore } from "../../../material/state/rowBaselines";
 import { nameHash } from "../../../shared/utils/binHash";
 import { materialLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
@@ -181,6 +182,7 @@ function renderView(onShowInProperties = vi.fn(), editable = false) {
 }
 
 beforeEach(() => {
+  useRowBaselineStore.setState({ baselines: new Map() });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_read") {
@@ -373,7 +375,7 @@ describe("ClassView over a material whose shader answers", () => {
   it("adds the material's own entry once the shader's default is edited", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
-    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    await screen.findAllByRole("button", { name: "More actions" });
 
     const field = screen.getByRole("textbox", { name: "Alpha X" });
     expect(field).toHaveValue("0.75");
@@ -411,7 +413,7 @@ describe("ClassView over a material whose shader answers", () => {
   it("holds a parameter's value while it is typed, then writes it and lets it go", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
-    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    await screen.findAllByRole("button", { name: "More actions" });
     const field = screen.getByRole("textbox", { name: "Fresnel_Power X" });
 
     await user.clear(field);
@@ -436,13 +438,14 @@ describe("ClassView over a material whose shader answers", () => {
     await waitFor(() => expect(useHeldValueStore.getState().held).toBeNull());
   });
 
-  it("takes an entry out when its row is reset", async () => {
+  it("takes an entry out when its row is set back to the shader default", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
     await screen.findByText("Fresnel_Power");
 
-    const resets = await screen.findAllByRole("button", { name: "Reset to the shader default" });
-    await user.click(resets.at(-1)!);
+    const menus = await screen.findAllByRole("button", { name: "More actions" });
+    await user.click(menus.at(-1)!);
+    await user.click(await screen.findByRole("menuitem", { name: "Use the shader default" }));
 
     expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
       document: 7,
@@ -451,5 +454,59 @@ describe("ClassView over a material whose shader answers", () => {
       field: nameHash("paramValues"),
       edits: [{ type: "removeItem", path: "[0]" }],
     });
+  });
+  it("marks an edited row and takes it back to the value it held", async () => {
+    const fallback = mockInvoke.getMockImplementation()!;
+    const valuePath = `${PARAM_PATH}.${nameHash("value").slice(2)}`;
+    let power = 4;
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === "bin_patch") {
+        power = (args!.value as { values: number[] }).values[0] ?? 0;
+        return Promise.resolve({ ok: true, value: args?.value });
+      }
+      if (command === "bin_edit_property") {
+        power = 4;
+        return Promise.resolve({ ok: true, value: null });
+      }
+      if (command === "bin_read") {
+        const paths = (args?.paths ?? []) as string[];
+        const answered = paths.map((path) => {
+          if (path !== PARAM_PATH) return ELEMENTS[path] ?? FIELDS[path] ?? page([]);
+          return page([
+            FIELDS[PARAM_PATH]!.rows[0]!,
+            row(valuePath, "value", { type: "vector", values: [power, 0, 0, 0] }),
+          ]);
+        });
+        return Promise.resolve({ ok: true, value: answered });
+      }
+      return fallback(command, args);
+    });
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findAllByRole("button", { name: "More actions" });
+    const field = screen.getByRole("textbox", { name: "Fresnel_Power X" });
+    expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument();
+
+    await user.clear(field);
+    await user.type(field, "5{Enter}");
+    await user.click(await screen.findByRole("button", { name: "Back to 4, 0, 0, 0" }));
+
+    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
+      document: 7,
+      entry: ENTRY,
+      holder: "",
+      field: nameHash("paramValues"),
+      edits: [
+        { type: "ensureProperty", path: "[0]", field: nameHash("value") },
+        {
+          type: "setLeaf",
+          path: `[0].${nameHash("value").slice(2)}`,
+          value: { type: "vector", values: [4, 0, 0, 0] },
+        },
+      ],
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument(),
+    );
   });
 });
