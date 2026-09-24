@@ -372,7 +372,11 @@ function useSubmeshPick(
   hidden: readonly string[],
   onPick: ((submesh: string | null) => void) | undefined,
 ): void {
-  const element = useThree((state) => state.gl.domElement);
+  /* The element the fibre listens on, since a shared renderer's canvas is drawn into by
+     every viewport sharing it. */
+  const element = useThree(
+    (state) => (state.events.connected as HTMLElement | undefined) ?? state.gl.domElement,
+  );
   const camera = useThree((state) => state.camera);
 
   useEffect(() => {

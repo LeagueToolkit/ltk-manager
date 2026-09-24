@@ -127,6 +127,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
     <>
       <div data-ui="MapViewport" className="relative min-h-0 flex-1">
         <Viewport
+          renderer="shared"
           stage={false}
           textured={false}
           backdrop={source}

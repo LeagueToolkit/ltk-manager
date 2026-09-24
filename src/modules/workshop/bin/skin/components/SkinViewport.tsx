@@ -178,9 +178,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* The skin's own document stands for its project, whose layer answers before the
      install for a map the creator has replaced. */
   const shaders = usePreviewShaders();
+  /* A document answers from its own file's project, as `LayerChunks::of` reads it. */
+  const project = asset.kind === "layer" ? asset.project : null;
   const backdropSource = useMemo(
-    () => (backdrop === null ? null : { map: backdrop, document, shaders }),
-    [backdrop, document, shaders],
+    () => (backdrop === null ? null : { map: backdrop, document, project, shaders }),
+    [backdrop, document, project, shaders],
   );
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
@@ -437,6 +439,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         className="relative min-h-0 flex-1 outline-none"
       >
         <Viewport
+          renderer="shared"
           gizmo={!controlsHidden}
           stage={ground}
           textured={midlane}

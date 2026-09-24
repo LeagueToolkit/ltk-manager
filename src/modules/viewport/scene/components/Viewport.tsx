@@ -1,14 +1,16 @@
-import { Canvas, type RootState } from "@react-three/fiber";
+import { Canvas, type RootState, useFrame } from "@react-three/fiber";
 import {
   type ComponentProps,
   type ReactNode,
+  type RefObject,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { WebGLRenderer, type WebGLRendererParameters } from "three";
+import { Vector2, type WebGLRendererParameters } from "three";
 
 import { useContentVisible, useResizeObserver } from "@/hooks";
 
@@ -25,6 +27,15 @@ import {
   NO_AMBIENT_OCCLUSION,
 } from "../utils/ambientOcclusion";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
+import {
+  createOpaqueRenderer,
+  holdsSharedRenderer,
+  releaseSharedRenderer,
+  type RendererLease,
+  type RendererUse,
+  sharedRenderer,
+  takeSharedRenderer,
+} from "../utils/sharedRenderer";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
 import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
@@ -37,6 +48,13 @@ import { Sun } from "./Sun";
 export interface ViewportProps {
   /** Whether this surface spends frames, including while its canvas remains mounted. */
   readonly active?: boolean;
+  /**
+   * Which renderer the scene draws with, its own unless said otherwise.
+   *
+   * A shared one falls back to its own where another viewport drawing with it is on
+   * screen at the same time, which remounts the scene once.
+   */
+  readonly renderer?: RendererUse;
   /** A fixed pixel ratio for small preview surfaces. */
   readonly dpr?: number;
   /** The orientation control is drawn over the scene. */
@@ -98,23 +116,6 @@ interface CanvasDefaults {
 }
 
 /**
- * A renderer on a drawing buffer with no alpha channel.
- *
- * ThreeJS asks the canvas for an alpha channel whatever its own `alpha` says, and a
- * compositor then shows the pane through wherever a blend left the alpha short of one.
- */
-function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRenderer {
-  const surface = canvas as HTMLCanvasElement;
-  const context = surface.getContext("webgl2", {
-    alpha: false,
-    antialias: true,
-    stencil: false,
-    powerPreference,
-  });
-  return new WebGLRenderer({ canvas: surface, context: context ?? undefined });
-}
-
-/**
  * A scene in the engine's frame: the camera and its orbit, the colour space and the stage.
  *
  * What a preview draws is its children, so a particle system, a character, or a character
@@ -124,6 +125,7 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  */
 export function Viewport({
   active = true,
+  renderer = "own",
   dpr,
   gizmo = true,
   stage,
@@ -155,14 +157,34 @@ export function Viewport({
   const measure = useResizeObserver<HTMLDivElement>((element) => {
     setSized(element.clientWidth > 0 && element.clientHeight > 0);
   });
+  const box = useRef<HTMLDivElement | null>(null);
+  const hold = useCallback(
+    (element: HTMLDivElement) => {
+      box.current = element;
+      return measure(element);
+    },
+    [measure],
+  );
   const running = active && visible && sized;
   const root = useRef<RootState | null>(null);
+  const [lease] = useState<RendererLease>(() => ({ running: false }));
+  const [fellBack, setFellBack] = useState(false);
+  const shares = renderer === "shared" && !fellBack;
   const runningNow = useRef(running);
   // Canvas skips configuration at zero size, so hidden panes stop the root directly.
   useLayoutEffect(() => {
     runningNow.current = running;
+    lease.running = running;
     if (root.current !== null) setRunning(root.current, running);
-  }, [running]);
+  }, [lease, running]);
+  /* A layout cleanup, so a tab replacing this one in the same commit finds it let go. */
+  useLayoutEffect(
+    () => () => {
+      lease.running = false;
+      releaseSharedRenderer(lease);
+    },
+    [lease],
+  );
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
@@ -183,12 +205,13 @@ export function Viewport({
 
   return (
     <div
-      ref={measure}
+      ref={hold}
       /* ThreeJS pins the canvas at the size last measured, a frame behind the box. */
       className="relative size-full [&_canvas]:size-full!"
     >
       {(started || running) && (
         <Canvas
+          key={shares ? "shared" : "own"}
           dpr={dpr}
           resize={MEASURE}
           frameloop={running ? "always" : "never"}
@@ -198,7 +221,12 @@ export function Viewport({
             far: CAMERA.far,
             fov: CAMERA.fov,
           }}
-          gl={opaqueRenderer}
+          eventSource={shares ? (box as RefObject<HTMLDivElement>) : undefined}
+          gl={({ canvas, powerPreference }: CanvasDefaults) =>
+            shares
+              ? sharedRenderer(powerPreference)
+              : createOpaqueRenderer(canvas as HTMLCanvasElement, powerPreference)
+          }
           onCreated={(state) => {
             root.current = state;
             setRunning(state, runningNow.current);
@@ -208,6 +236,16 @@ export function Viewport({
           }}
         >
           <color attach="background" args={[colors.backdrop]} />
+          {shares && (
+            <SharedRendererClaim
+              lease={lease}
+              box={box}
+              onTaken={() => {
+                releaseSharedRenderer(lease);
+                setFellBack(true);
+              }}
+            />
+          )}
           <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
           <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
@@ -240,6 +278,47 @@ export function Viewport({
     </div>
   );
 }
+
+interface SharedRendererClaimProps {
+  readonly lease: RendererLease;
+  readonly box: RefObject<HTMLDivElement | null>;
+  /** Another viewport on screen draws with the shared renderer, so this one needs its own. */
+  readonly onTaken: () => void;
+}
+
+/**
+ * Take the shared renderer before a frame draws, where another viewport had it.
+ *
+ * Run in the frame rather than in an effect, because a tab switch hides one viewport and
+ * shows another in one commit, and only by the frame has the hidden one stopped running.
+ * A viewport on screen that still holds it keeps it, and this one falls back.
+ */
+function SharedRendererClaim({ lease, box, onTaken }: SharedRendererClaimProps) {
+  useFrame(({ gl, size, viewport, setFrameloop }) => {
+    if (!holdsSharedRenderer(lease) && takeSharedRenderer(lease) === null) {
+      setFrameloop("never");
+      onTaken();
+      return;
+    }
+
+    const canvas = gl.domElement;
+    if (box.current !== null && canvas.parentNode !== box.current) box.current.append(canvas);
+
+    /* The fibre sizes the renderer only when its own box changes, and another viewport
+       may have drawn with it at another size since. */
+    if (gl.getPixelRatio() !== viewport.dpr) gl.setPixelRatio(viewport.dpr);
+    gl.getSize(DRAWN_SIZE);
+    if (DRAWN_SIZE.x !== size.width || DRAWN_SIZE.y !== size.height) {
+      gl.setSize(size.width, size.height);
+    }
+  }, CLAIM_PRIORITY);
+  return null;
+}
+
+/** Ahead of every other frame callback, so the claim lands before anything draws. */
+const CLAIM_PRIORITY = -1000;
+
+const DRAWN_SIZE = new Vector2();
 
 function setRunning(root: RootState, running: boolean): void {
   const state = root.get();

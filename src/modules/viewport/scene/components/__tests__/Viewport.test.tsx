@@ -26,7 +26,7 @@ vi.mock("@/hooks", async (original) => ({
   ...(await original<typeof import("@/hooks")>()),
   useResizeObserver: (callback: typeof measure) => {
     measure = callback;
-    return undefined;
+    return () => undefined;
   },
 }));
 vi.mock("../../hooks/sceneColors", () => ({ useSceneColors: () => ({}) }));
