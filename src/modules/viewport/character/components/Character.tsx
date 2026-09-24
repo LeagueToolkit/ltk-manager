@@ -27,7 +27,7 @@ import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
-import { useLightGrid } from "../../scene/state/lightGridContext";
+import { useCharacterLight } from "../../scene/state/characterLightContext";
 import { useViewMode } from "../../scene/state/viewModeContext";
 import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
@@ -136,10 +136,11 @@ export function Character({
     [drawn, ambient],
   );
   const environment = useMemo(() => new EngineEnvironment(), []);
-  const lightGrid = useLightGrid();
+  const { grid: lightGrid, sun } = useCharacterLight();
   useLayoutEffect(() => {
     environment.grid = lightGrid;
-  }, [environment, lightGrid]);
+    environment.light = sun;
+  }, [environment, lightGrid, sun]);
   const view = useViewMode();
   const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {

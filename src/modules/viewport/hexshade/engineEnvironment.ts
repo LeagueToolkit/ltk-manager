@@ -259,13 +259,12 @@ function sunDirectionFor(light: SunLight, object: Object3D): readonly [number, n
 /**
  * The ambient cube of `LIGHTGRID_COLORS`, `+X -X +Y -Y +Z -Z`, which the vertex shader
  * weighs by the squared normal into `COLOR0` and the pixel shader scales by
- * `LIGHTGRID_SCALE.x`.
+ * `LIGHTGRID_SCALE.x`, for a map that bakes no light grid.
  *
- * No shipped map on the Rift carries a light grid, so the cube is built off the map's
- * sun properties as their names read: the sky lights the face up, the ground the face
- * down and the horizon the four sides, all at the sky's scale, and a face the sun meets
- * rises toward the sun's light by how squarely it meets it, as the shadow complement of
- * the pixel buffer does. Inferred from the field names, not traced.
+ * As `MapLightingInfo::SetupLighting` builds it: the sky lights the face up, the ground
+ * the face down and the horizon the four sides, all at the sky's scale, and the sun adds
+ * its light by how squarely a face meets it. The game divides the cube by its brightest
+ * channel and scales it back by the same, which is this cube unscaled.
  */
 export function ambientCube(
   light: SunLight,
@@ -281,10 +280,8 @@ export function ambientCube(
       face[0] * direction[0] + face[1] * direction[1] + face[2] * direction[2],
       0,
     );
-    const lit = (channel: number) => {
-      const shaded = (base[channel] ?? 0) * skyScale;
-      return shaded + Math.max((color[channel] ?? 0) * sunScale - shaded, 0) * facing;
-    };
+    const lit = (channel: number) =>
+      (base[channel] ?? 0) * skyScale + (color[channel] ?? 0) * sunScale * facing;
     return [lit(0), lit(1), lit(2)];
   });
 }

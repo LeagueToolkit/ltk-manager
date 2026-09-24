@@ -20,7 +20,7 @@ import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
-import { LightGridContext } from "../state/lightGridContext";
+import { type CharacterLight, CharacterLightContext } from "../state/characterLightContext";
 import { ViewModeContext } from "../state/viewModeContext";
 import {
   type AmbientOcclusion,
@@ -147,6 +147,8 @@ export function Viewport({
   const colors = useSceneColors();
   const map = useMapBackdrop(backdrop);
   const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
+  const grid = map.geometry === null ? null : map.lightGrid;
+  const characterLight = useMemo<CharacterLight>(() => ({ grid, sun: light }), [grid, light]);
   const edges = edgesOf(viewMode, wireOverlay);
   const view = useMemo(
     () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
@@ -268,11 +270,11 @@ export function Viewport({
               />
             </>
           )}
-          <LightGridContext value={map.geometry === null ? null : map.lightGrid}>
+          <CharacterLightContext value={characterLight}>
             <CameraPresetContext value={camera}>
               <ViewModeContext value={view}>{children}</ViewModeContext>
             </CameraPresetContext>
-          </LightGridContext>
+          </CharacterLightContext>
           {(drawsPostEffects(effects) || drawsAmbientOcclusion(occlusion)) && (
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}

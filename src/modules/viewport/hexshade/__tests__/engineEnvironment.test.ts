@@ -117,7 +117,7 @@ describe("EngineEnvironment.draw", () => {
 });
 
 describe("ambientCube", () => {
-  it("lights the faces by sky, ground and horizon at the sky's scale, rising to the sun where it falls", () => {
+  it("lights the faces by sky, ground and horizon at the sky's scale, adding the sun where it falls", () => {
     const cube = ambientCube(
       {
         ...DEFAULT_SUN,
@@ -132,7 +132,7 @@ describe("ambientCube", () => {
       [0, 1, 0],
     );
 
-    expect(cube[2]).toEqual([1, 0.5, 0.2]);
+    expect(cube[2]).toEqual([1.2, 0.7, 0.2]);
     expect(cube[3]).toEqual([0.1, 0.1, 0.1]);
     expect(cube[0]).toEqual([0.4, 0.4, 0.4]);
   });
