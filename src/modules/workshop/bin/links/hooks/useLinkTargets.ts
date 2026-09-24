@@ -30,7 +30,7 @@ import {
 import { useOpenDocumentAs } from "../../../state";
 import { stringQueries } from "../../../string-overrides/api/queries";
 import { nameHash } from "../../shared/utils/binHash";
-import { chunkPath, decideObjectLink, type LayerCopy } from "../utils/linkDecision";
+import { chunkPath, decideFileLink, decideObjectLink, type LayerCopy } from "../utils/linkDecision";
 
 /** One group of rows checked together: a node's rows, or the tab's roots. */
 export interface RowGroup {
@@ -104,6 +104,20 @@ export function useObjectOpen(hash: string | null): ((intent: OpenIntent) => voi
   if (decision.kind === "chip") return (intent) => open(decision.document, intent);
   if (decision.kind === "warm") return (intent) => wantOpen(hash, intent);
   return null;
+}
+
+/**
+ * What opens the chunk `path` names from the enclosing tree, or null where nothing holds it:
+ * the layer's copy, else the install's. Compared lowercased, as the tables spell a chunk path.
+ */
+export function useChunkOpen(path: string): ((intent: OpenIntent) => void) | null {
+  const targets = useLinkTargets();
+  const chunk = path.toLowerCase();
+  const layer = useLayerCopy(chunk);
+  const open = useOpenDocumentAs();
+  const decision = decideFileLink(chunk, targets, layer);
+  if (decision.kind !== "chip") return null;
+  return (intent) => open(decision.document, intent);
 }
 
 /**

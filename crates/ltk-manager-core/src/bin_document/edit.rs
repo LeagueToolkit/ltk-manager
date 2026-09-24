@@ -15,7 +15,7 @@ use ltk_meta::{BinDelta, BinFile, BinObject, BinStream, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
-use super::{BinDocument, BinDocumentError, PropertyKind, Step, hex, inlines, is_null};
+use super::{BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hex, inlines, is_null};
 use crate::error::AppResult;
 use crate::preview::AssetRef;
 use crate::utils::fs::atomic_write;
@@ -76,6 +76,8 @@ pub(super) enum Edit {
         path: String,
         value: values::Struct,
     },
+    /// Set the header's dependency list to `paths`.
+    Dependencies { paths: Vec<String> },
 }
 
 /// The value a leaf edit sets, in the shape its widget holds.
@@ -183,11 +185,22 @@ pub enum EditRejection {
     ValueHeld,
     /// The list holds no such position.
     NoSuchIndex,
+    /// A dependency path that is empty.
+    EmptyPath,
+    /// A dependency typed in brex that does not expand to one path.
+    MalformedBrex,
+    /// The list names the dependency already.
+    DependencyExists,
     /// The path runs through a field no table names, or a key a map holds twice, which no
     /// declaration spells. ADR-0042.
     NamelessPath,
     /// No declaration expresses the edit. ADR-0042.
     Undeclarable,
+    /// The schema gives no type for a property the game's copy omits, as at a game build
+    /// newer than the meta database. ADR-0042.
+    Untypable,
+    /// The chunk holds an object of that name.
+    ObjectExists,
 }
 
 impl fmt::Display for EditRejection {
@@ -212,8 +225,13 @@ impl fmt::Display for EditRejection {
             Self::MissingKey => f.write_str("the entry names no key"),
             Self::ValueHeld => f.write_str("the node holds a value already"),
             Self::NoSuchIndex => f.write_str("the list holds no such position"),
+            Self::EmptyPath => f.write_str("the path is empty"),
+            Self::MalformedBrex => f.write_str("the brex spelling expands to no path"),
+            Self::DependencyExists => f.write_str("the list names the dependency already"),
             Self::NamelessPath => f.write_str("no declaration spells the path"),
             Self::Undeclarable => f.write_str("no declaration expresses the edit"),
+            Self::Untypable => f.write_str("the schema types no such property at this build"),
+            Self::ObjectExists => f.write_str("the chunk holds an object of that name"),
         }
     }
 }
@@ -231,6 +249,8 @@ pub enum ReadOnly {
     Loose,
     /// A `PTCH` layer. No edit writes a patch record.
     Patch,
+    /// A game chunk inside a project whose game data declarations are off. ADR-0042.
+    DeclarationsOff,
 }
 
 impl fmt::Display for ReadOnly {
@@ -239,6 +259,7 @@ impl fmt::Display for ReadOnly {
             Self::Install => "a file of the installed game",
             Self::Loose => "a file outside every project",
             Self::Patch => "a patch layer",
+            Self::DeclarationsOff => "a game file of a project with declarations off",
         })
     }
 }
@@ -248,8 +269,11 @@ impl BinDocument {
     #[must_use]
     pub fn read_only(&self, asset: &AssetRef) -> Option<ReadOnly> {
         match (asset, &self.file) {
-            (AssetRef::GameChunk { .. }, _) if self.declares() => None,
-            (AssetRef::GameChunk { .. }, _) => Some(ReadOnly::Install),
+            (AssetRef::GameChunk { .. }, _) => match self.declaring() {
+                Some(Declaring::On) => None,
+                Some(Declaring::Off) => Some(ReadOnly::DeclarationsOff),
+                None => Some(ReadOnly::Install),
+            },
             (AssetRef::File { .. }, _) => Some(ReadOnly::Loose),
             (AssetRef::Layer { .. }, BinFile::Override(_)) => Some(ReadOnly::Patch),
             (AssetRef::Layer { .. }, BinFile::Prop(_)) => None,
@@ -265,7 +289,7 @@ impl BinDocument {
     /// Whether a patch touched the tree since the base was read.
     #[must_use]
     pub fn is_dirty(&self) -> bool {
-        !self.touched.is_empty()
+        !self.touched.is_empty() || self.dependencies_touched
     }
 
     /// Set the leaf at `path` under `entry` to `value`, answering the value it held.
@@ -383,6 +407,7 @@ impl BinDocument {
             Edit::MoveItem { entry, path, to } => self.shift_item(entry, &path, to),
             Edit::SetKey { entry, path, key } => self.swap_key(entry, &path, key),
             Edit::SetPointer { entry, path, value } => self.swap_pointer(entry, &path, value),
+            Edit::Dependencies { paths } => self.swap_dependencies(paths),
         }
     }
 
@@ -434,6 +459,7 @@ impl BinDocument {
         atomic_write(path, &bytes)?;
         self.base = bytes;
         self.touched.clear();
+        self.dependencies_touched = false;
         Ok(())
     }
 
@@ -450,6 +476,9 @@ impl BinDocument {
         let mut delta = BinDelta::new();
         for object in self.touched.iter().filter_map(|hash| bin.objects.get(hash)) {
             delta.replace(object.clone());
+        }
+        if self.dependencies_touched {
+            delta.set_dependencies(bin.dependencies.iter().cloned());
         }
         stream.write_patched(&delta, &mut out).map_err(unwritable)?;
         Ok(out)

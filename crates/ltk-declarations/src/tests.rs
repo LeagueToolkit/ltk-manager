@@ -52,6 +52,7 @@ fn edit_in(chunk: &str, entry: &str, path: &str, op: Operation) -> Edit {
         entry: EntryName::try_from(entry).unwrap(),
         path: PropertyPath::new(path).unwrap(),
         operation: op,
+        module: ModuleChoice::Auto,
     }
 }
 
@@ -377,7 +378,6 @@ modules:
         skinMeshProperties.selfIllumination: 0.37 # game 0.0
         iconCircle: assets/characters/jade_teemo/hud/jade_teemo_circle_301.tex # circle
 
-  # Hand-written target edit.
 "
     );
 }

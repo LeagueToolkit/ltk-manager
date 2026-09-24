@@ -11,6 +11,7 @@ import {
   PlayIcon,
   PushPinIcon,
   PushPinSlashIcon,
+  SealCheckIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -20,8 +21,10 @@ import {
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
+import { m } from "@/i18n";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
+import { useDeclarationsOn } from "../../bin/documents/hooks/useDeclared";
 import {
   detailsDocument,
   gameDocument,
@@ -44,6 +47,7 @@ import {
   useResetLayout,
   useSetDocumentPinned,
   useSetLeafLocked,
+  useSetUseDeclarations,
   useSplitWithDocument,
 } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
@@ -86,6 +90,9 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const setLayerPanelOpen = useSetLayerPanelOpen();
   const revealGameSearch = useRevealGameSearch();
 
+  const declarationsOn = useDeclarationsOn(project.path) === true;
+  const setUseDeclarations = useSetUseDeclarations();
+
   const layerCount = project.layers.length;
 
   return useMemo<readonly ProjectCommand[]>(() => {
@@ -119,6 +126,16 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         keywords: ["explorer", "reveal", "directory"],
         icon: <FolderOpenIcon className={GLYPH} />,
         run: actions.handleOpenLocation,
+      },
+      {
+        id: "project.useDeclarations",
+        title: declarationsOn
+          ? m.workshop_bin_declarations_stop_action()
+          : m.workshop_bin_declarations_toggle_label(),
+        group: "Project",
+        keywords: ["game data", "declare", "game_data.yaml", "read-only"],
+        icon: <SealCheckIcon className={GLYPH} />,
+        run: () => setUseDeclarations(!declarationsOn),
       },
       {
         id: "project.delete",
@@ -291,6 +308,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     activeLeafLocked,
     global,
     group,
+    declarationsOn,
     layerCount,
     layerPanelOpen,
     openDocument,
@@ -299,6 +317,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     setDocumentPinned,
     setLayerPanelOpen,
     setLeafLocked,
+    setUseDeclarations,
     splitWithDocument,
     testState.kind,
   ]);

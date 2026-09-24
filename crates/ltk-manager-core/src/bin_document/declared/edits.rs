@@ -6,8 +6,8 @@
 //! edit has to come out as the edited tree holds it. A plan that does not is replaced by a set
 //! of the whole value, which drops the signed keys beside it.
 
-use ltk_declarations::{Edit as ManifestEdit, Operation, ValueText};
-use ltk_game_data::{Sign, Value};
+use ltk_declarations::{Edit as ManifestEdit, ModuleChoice, Operation, ValueText};
+use ltk_game_data::{PropertySkipReason, Sign, Value};
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, values};
@@ -83,9 +83,12 @@ impl BinDocument {
         let mut attempts: Vec<_> = keys.into_iter().chain(plans.whole).collect();
         attempts.dedup();
 
+        let untyped_before = self.untypable_keys(entry);
+        let mut untyped = false;
         for plan in attempts {
             let written = self.write_plan(&plan)?;
             self.reapply()?;
+            untyped |= self.untypable_keys(entry) > untyped_before;
             if self
                 .value_at(entry, &plans.scope)
                 .is_some_and(|applied| same_value(applied, &expected))
@@ -105,7 +108,28 @@ impl BinDocument {
                     .map_err(declaring)?;
             }
         }
+        if untyped {
+            return Err(BinDocumentError::EditRejected {
+                address: format!("{}:{}", hex(entry), plans.scope),
+                rejection: EditRejection::Untypable,
+            });
+        }
         Err(undeclarable(entry, &plans.scope))
+    }
+
+    /// The count of keys on `entry` the last apply skipped for want of a type.
+    fn untypable_keys(&self, entry: BinHash) -> usize {
+        self.declared.as_ref().map_or(0, |declared| {
+            declared
+                .raised
+                .iter()
+                .filter_map(|raised| raised.diagnostic.property.as_ref())
+                .filter(|property| {
+                    matches!(property.reason, PropertySkipReason::Untypable)
+                        && property.entry.object_hash() == entry
+                })
+                .count()
+        })
     }
 
     /// Write every edit of `plan` to the chosen layer's manifest as one text change.
@@ -184,6 +208,7 @@ impl BinDocument {
                     entry: entry_name(entry, &names),
                     path: path.clone(),
                     operation,
+                    module: ModuleChoice::Auto,
                 };
                 let set = Value::render(held, &names)
                     .ok()
@@ -353,6 +378,13 @@ fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> 
         Edit::SetKey { entry, path, key } => (*entry, Change::Rekeyed { path, old: key }),
         /* No declaration takes a property away. */
         Edit::InsertProperty { entry, holder, .. } => return Err(undeclarable(*entry, holder)),
+        /* A declared document takes a dependency edit as a link edit, never through here. */
+        Edit::Dependencies { .. } => {
+            return Err(BinDocumentError::EditRejected {
+                address: super::super::dependencies::ADDRESS.to_owned(),
+                rejection: EditRejection::Undeclarable,
+            });
+        }
     })
 }
 

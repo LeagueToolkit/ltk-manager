@@ -5,6 +5,7 @@ import { api, type AssetRef, type BinDocumentId } from "@/lib/tauri";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { queueForSave } from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
+import { useDocumentCall } from "./useDocumentCall";
 
 /**
  * The undo and redo keys of a tab over `document`, for its container's `onKeyDown`.
@@ -18,6 +19,7 @@ export function useUndoKeys(
   editable: boolean,
 ): (event: KeyboardEvent<HTMLElement>) => void {
   const invalidate = useInvalidateBinReads();
+  const call = useDocumentCall(document);
   const key = assetKey(asset);
 
   return useCallback(
@@ -31,13 +33,13 @@ export function useUndoKeys(
 
       event.preventDefault();
       const run = step === "undo" ? api.bin.undo : api.bin.redo;
-      void run(document).then((result) => {
+      void call((id) => run(id)).then(({ result, id }) => {
         if (!result.ok || !result.value) return;
-        queueForSave(key, document);
+        queueForSave(key, id);
         invalidate();
       });
     },
-    [document, editable, invalidate, key],
+    [call, editable, invalidate, key],
   );
 }
 

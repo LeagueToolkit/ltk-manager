@@ -1,4 +1,5 @@
 import {
+  ArrowsLeftRightIcon,
   ArrowsMergeIcon,
   ClipboardTextIcon,
   CodeBlockIcon,
@@ -6,28 +7,39 @@ import {
 } from "@phosphor-icons/react";
 import { use } from "react";
 
-import { ContextMenu, useToast } from "@/components";
+import { ContextMenu, Menu, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
-import { api, type BinRow } from "@/lib/tauri";
+import { api, type BinDocumentId, type BinRow, type DeclaredMark } from "@/lib/tauri";
 
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
-import { useCopyDeclaration, useDeclares, useRowDeclaration } from "../hooks/useDeclared";
+import { rowKey } from "../../tree/utils/binRows";
+import {
+  useCopyDeclaration,
+  useDeclaredMark,
+  useDeclaredState,
+  useDeclaresEdits,
+  useModuleAction,
+  useRowDeclaration,
+} from "../hooks/useDeclared";
+import { useDocumentCall } from "../hooks/useDocumentCall";
 import { useCopiedReference, useRememberReference } from "../state/copiedReference";
+import { moduleLabel } from "../utils/declaredModule";
 
 /**
  * A row's declaration and reference actions: Copy as declaration and Copy reference on any
- * bin, and Paste reference and Merge reference on a declared document. "Declaring from a game
- * bin" in docs/ux/BIN_EDITOR.md.
+ * bin, and Paste reference, Move to module and Merge reference on a declared document that
+ * takes edits. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
  */
 export function DeclarationMenuItems({ row }: { row: BinRow }) {
   const document = use(RowDocumentContext);
-  const declares = useDeclares();
+  const declares = useDeclaresEdits();
   const copy = useCopyToClipboard();
   const remember = useRememberReference();
   const copied = useCopiedReference();
   const invalidate = useInvalidateBinReads();
+  const call = useDocumentCall(document);
   const toast = useToast();
 
   const spelled = useRowDeclaration(document, row.entry, row.path);
@@ -42,7 +54,16 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
 
   function declare(merge: boolean) {
     if (document === null || copied === null) return;
-    void api.bin.declareReference(document, row.entry, row.path, copied, merge).then((result) => {
+    const declared = call((id) =>
+      api.bin.edit(id, {
+        kind: "declareReference",
+        entry: row.entry,
+        path: row.path,
+        reference: copied,
+        merge,
+      }),
+    );
+    void declared.then(({ result }) => {
       if (!result.ok) {
         toast.error(m.workshop_bin_reference_failed_title(), errorSummary(result.error));
         return;
@@ -85,6 +106,7 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
           {m.workshop_bin_paste_reference_action()}
         </ContextMenu.Item>
       )}
+      {declares && !object && <MoveToModuleSubmenu row={row} />}
       {declares && !object && merges && (
         <ContextMenu.Item
           icon={<ArrowsMergeIcon />}
@@ -97,5 +119,65 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
       )}
       <ContextMenu.Separator />
     </>
+  );
+}
+
+/**
+ * Move the row's declaration to another module of its layer: every signed key of its path.
+ * Drawn only on a row a declaration of the chosen layer touches. ADR-0048.
+ */
+function MoveToModuleSubmenu({ row }: { row: BinRow }) {
+  const document = use(RowDocumentContext);
+  const declared = useDeclaredMark(rowKey(row));
+  if (document === null || declared === null) return null;
+
+  return <MoveToModule document={document} mark={declared.mark} layer={declared.layer} />;
+}
+
+interface MoveToModuleProps {
+  document: BinDocumentId;
+  mark: DeclaredMark;
+  layer: string;
+}
+
+function MoveToModule({ document, mark, layer }: MoveToModuleProps) {
+  const state = useDeclaredState(document);
+  const act = useModuleAction(document);
+  const targets = (state?.modules ?? []).filter(
+    (module) => module.takesKeys && module.index !== mark.module,
+  );
+
+  return (
+    <Menu.SubmenuRoot>
+      <Menu.SubmenuTrigger
+        icon={<ArrowsLeftRightIcon />}
+        disabled={targets.length === 0}
+        title={targets.length === 0 ? m.workshop_bin_move_to_module_empty() : undefined}
+      >
+        {m.workshop_bin_move_to_module_action()}
+      </Menu.SubmenuTrigger>
+      <Menu.Portal>
+        <Menu.SubmenuPositioner>
+          <Menu.Popup data-ui="DeclarationMenuItems:move-to-module">
+            {targets.map((module) => (
+              <Menu.Item
+                key={module.index}
+                onClick={() =>
+                  void act(layer, {
+                    kind: "moveKeys",
+                    module: mark.module,
+                    entry: mark.entry,
+                    path: mark.property,
+                    to: module.index,
+                  })
+                }
+              >
+                {moduleLabel(module)}
+              </Menu.Item>
+            ))}
+          </Menu.Popup>
+        </Menu.SubmenuPositioner>
+      </Menu.Portal>
+    </Menu.SubmenuRoot>
   );
 }

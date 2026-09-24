@@ -27,7 +27,8 @@ import {
 import { useOpenDocumentAs } from "../../../state";
 import { useCurveDock } from "../../curves/state/curveTarget";
 import { DeclarationMenuItems } from "../../documents/components/DeclarationMenuItems";
-import { useDeclares } from "../../documents/hooks/useDeclared";
+import { ObjectMenuItems } from "../../documents/components/ObjectMenuItems";
+import { useDeclaredObject, useDeclares } from "../../documents/hooks/useDeclared";
 import {
   type LinkTargets,
   useLayerCopy,
@@ -86,8 +87,27 @@ export function BinContextMenu({
   const edit = use(BinEditContext);
   const declares = useDeclares();
   const openTarget = useObjectOpen(row?.node === "target" ? row.entry : null);
+  const change = useDeclaredObject(row?.node === "object" ? row.entry : "")?.change ?? null;
 
   if (row === null || line?.kind !== "row") return null;
+  /* A removed object's row offers its restore and its path, and nothing that reads it. */
+  if (change === "removed") {
+    return (
+      <ContextMenu.Portal>
+        <ContextMenu.Positioner>
+          <ContextMenu.Popup className="w-56">
+            <ObjectMenuItems row={row} />
+            <ContextMenu.Item
+              icon={<PathIcon />}
+              onClick={() => void copy(row.name, m.workshop_bin_path_label())}
+            >
+              {m.workshop_bin_copy_path_action()}
+            </ContextMenu.Item>
+          </ContextMenu.Popup>
+        </ContextMenu.Positioner>
+      </ContextMenu.Portal>
+    );
+  }
   const edits = edit === null ? [] : rowEdits(line);
   const object = row.node === "object";
   const target = row.node === "target";
@@ -193,6 +213,7 @@ export function BinContextMenu({
             );
           })}
           {edits.length > 0 && <ContextMenu.Separator />}
+          <ObjectMenuItems row={row} />
           <DeclarationMenuItems row={row} />
           <ContextMenu.Item
             icon={<PathIcon />}

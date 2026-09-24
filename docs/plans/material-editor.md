@@ -18,8 +18,8 @@ starts from that code and adds no translation work.
 - **Shells are data.** `ShellKind` in `bin/shell/utils/shellPanes.ts` is `vfx | skin | map`, and
   ADR-0036 makes a new shell a pane set, a default tree and one frame component.
   `ClassView.tsx` picks the frame by `layout.shell` and hosts one preview through a portal.
-- **The backend owns the document.** `useLeafEdit` sends `bin_patch`, `bin_edit_property`,
-  `bin_insert_item` and `bin_remove_item`, invalidates the `DOCUMENT_READS` roots of
+- **The backend owns the document.** `useLeafEdit` sends `patch`, `editProperty`, `insertItem`
+  and `removeItem` edits through `bin_edit` (ADR-0051), invalidates the `DOCUMENT_READS` roots of
   `tree/hooks/useBinEdit.ts`, and the save queue writes 600 ms after the last patch (ADR-0040).
   Undo is `bin_undo` and `bin_redo`.
 - **The program read already sees unsaved edits.** `read_material_programs` with
@@ -80,7 +80,7 @@ authority, and the committed value comes back through it.
 
 **A drag previews locally and commits on release.** The same pattern as the force gizmo
 (`previewForceValue`): the overlay lives in the preview until the pointer is released, then one
-`bin_patch` lands, the query refetches, and the overlay is dropped. One release is one undo step.
+`patch` edit lands, the query refetches, and the overlay is dropped. One release is one undo step.
 
 **A program's material survives a value edit.** The frontend keys the built material by the pass
 and its two shader ids. A refetch with the same ids writes the new values into the existing
@@ -213,7 +213,7 @@ material hash, shader and both stage ids, refreshes textures, pass state and `$G
 on a refetch, and draws a held value on every program of its material. `ProgramGlobals.members`
 now keeps every stage's location of a member, which also fixes a light map written to one stage
 only. The held value lives in `material/state/heldValue.ts`. `LiveParam` scrubs through base-ui's
-`NumberField.ScrubArea`, commits one `bin_patch` on release, blur or Enter, and lets the held
+`NumberField.ScrubArea`, commits one `patch` edit on release, blur or Enter, and lets the held
 value go once the program reads refetch. Not built: a held value on the Objects grid tiles, and
 the colour rule's switch between the two controls.
 

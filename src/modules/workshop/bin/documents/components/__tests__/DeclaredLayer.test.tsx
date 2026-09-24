@@ -7,11 +7,12 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BinRow, DeclaredState, WorkshopProject } from "@/lib/tauri";
+import type { BinRow, DeclaredModuleChoice, DeclaredState, WorkshopProject } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
+import { EMPTY_EDITOR, useWorkshopEditorStore } from "../../../../state";
 import { BinRowLine } from "../../../tree/components/BinRow";
 import type { RowLine } from "../../../tree/utils/binRows";
 import { DeclaredRowsContext, useDeclaredRows } from "../../hooks/useDeclared";
@@ -44,8 +45,28 @@ const PROJECT: WorkshopProject = {
 
 const DECLARED: DeclaredState = {
   layer: "base",
+  module: { kind: "auto" },
+  modules: [
+    { index: 0, name: null, takesKeys: true },
+    { index: 1, name: "Glow", takesKeys: true },
+    { index: 2, name: null, takesKeys: false },
+  ],
   layers: ["base", "chroma"],
-  marks: [{ entry: ENTRY, path: GLOW, sign: "set", whole: false, reference: null, game: "0.0" }],
+  marks: [
+    {
+      entry: ENTRY,
+      path: GLOW,
+      property: "skinMeshProperties.selfIllumination",
+      module: 1,
+      moduleName: "Glow",
+      sign: "set",
+      whole: false,
+      reference: null,
+      game: "0.0",
+    },
+  ],
+  objects: [],
+  links: [],
   diagnostics: [
     {
       entry: ENTRY,
@@ -54,6 +75,7 @@ const DECLARED: DeclaredState = {
       key: "skinMeshProperties.selfIllumination",
       kind: "propertyEditSkipped",
       reason: "kindMismatch",
+      object: null,
       detail: null,
     },
     {
@@ -63,6 +85,7 @@ const DECLARED: DeclaredState = {
       key: "-links",
       kind: "linkRemovalUnmatched",
       reason: null,
+      object: null,
       detail: null,
     },
   ],
@@ -105,18 +128,29 @@ function glowLine(path: string): RowLine {
 }
 
 function MarkedRows({ children }: { children: ReactNode }) {
-  return <DeclaredRowsContext value={useDeclaredRows(DOCUMENT)}>{children}</DeclaredRowsContext>;
+  return (
+    <DeclaredRowsContext value={useDeclaredRows(DOCUMENT, true)}>{children}</DeclaredRowsContext>
+  );
 }
 
 let declared: DeclaredState | null;
 
 beforeEach(() => {
+  useWorkshopEditorStore.setState({ byProject: { [PROJECT.path]: EMPTY_EDITOR } });
   declared = DECLARED;
+  useWorkshopEditorStore.getState().selectModule(PROJECT.path, null);
+  useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_declared") return Promise.resolve({ ok: true, value: declared });
     if (command === "bin_declare_into") {
-      declared = { ...DECLARED, layer: args?.layer as string, marks: [], diagnostics: [] };
+      declared = {
+        ...DECLARED,
+        layer: args?.layer as string,
+        module: args?.module as DeclaredModuleChoice,
+        marks: [],
+        diagnostics: [],
+      };
       return Promise.resolve({ ok: true, value: declared });
     }
     return Promise.reject(new Error(`unexpected command ${command}`));
@@ -183,11 +217,100 @@ describe("the toolbar of a declared document", () => {
       expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
         document: DOCUMENT,
         layer: "chroma",
+        module: { kind: "auto" },
       }),
     );
     expect(
       await screen.findByRole("button", { name: "Layer the edits declare into" }),
     ).toHaveTextContent("Chroma");
+  });
+
+  it("keeps the chip, locked, while the project's declarations are off", async () => {
+    render(
+      <BinEditState
+        document={DOCUMENT}
+        asset={asset}
+        readOnly="declarationsOff"
+        onReload={() => {}}
+      />,
+      { wrapper: Providers },
+    );
+
+    expect(
+      await screen.findByRole("button", { name: "Layer the edits declare into" }),
+    ).toHaveTextContent("Base");
+    expect(screen.getByRole("button", { name: "Module the edits declare into" })).toBeDisabled();
+    expect(await screen.findAllByRole("img", { name: "1 apply diagnostic" })).toHaveLength(1);
+  });
+
+  it("turns the project's declarations on from the chip's menu", async () => {
+    const user = userEvent.setup();
+    render(
+      <BinEditState
+        document={DOCUMENT}
+        asset={asset}
+        readOnly="declarationsOff"
+        onReload={() => {}}
+      />,
+      { wrapper: Providers },
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Layer the edits declare into" }));
+    const toggle = await screen.findByRole("menuitemcheckbox", {
+      name: "Use game data declarations",
+    });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await user.click(toggle);
+
+    expect(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.useDeclarations).toBe(true);
+  });
+
+  it("names the module the edits join, automatic until one is picked", async () => {
+    const user = userEvent.setup();
+    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
+      wrapper: Providers,
+    });
+
+    const chip = await screen.findByRole("button", { name: "Module the edits declare into" });
+    expect(chip).toHaveTextContent("Automatic");
+
+    await user.click(chip);
+    expect(await screen.findByRole("menuitemradio", { name: "Module 1" })).toBeEnabled();
+    expect(screen.getByRole("menuitemradio", { name: "Module 3" })).toBeDisabled();
+    await user.click(screen.getByRole("menuitemradio", { name: "Glow" }));
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
+        document: DOCUMENT,
+        layer: "base",
+        module: { kind: "index", index: 1 },
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Module the edits declare into" }),
+    ).toHaveTextContent("Glow");
+  });
+
+  it("starts a new module from a name typed in place", async () => {
+    const user = userEvent.setup();
+    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
+      wrapper: Providers,
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Module the edits declare into" }));
+    await user.click(await screen.findByRole("button", { name: "New module" }));
+    await user.type(screen.getByRole("textbox", { name: "Module name" }), "Blue{Enter}");
+
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
+        document: DOCUMENT,
+        layer: "base",
+        module: { kind: "new", name: "Blue" },
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Module the edits declare into" }),
+    ).toHaveTextContent("Blue");
   });
 
   it("keeps the lock on a game bin that declares nothing", async () => {

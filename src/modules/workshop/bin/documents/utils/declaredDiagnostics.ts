@@ -1,7 +1,12 @@
 import { match } from "ts-pattern";
 
 import { m } from "@/i18n";
-import type { DeclaredDiagnostic, DeclaredDiagnosticKind, SkipReason } from "@/lib/tauri";
+import type {
+  DeclaredDiagnostic,
+  DeclaredDiagnosticKind,
+  ObjectSkip,
+  SkipReason,
+} from "@/lib/tauri";
 
 /** Why a declared key was skipped, for a reader. Every reason `ltk_game_data` names has a line. */
 export function skipReasonText(reason: SkipReason): string {
@@ -32,6 +37,17 @@ export function skipReasonText(reason: SkipReason): string {
     .exhaustive();
 }
 
+/** Why an object's creation or removal was skipped, for a reader. */
+export function objectSkipText(reason: ObjectSkip): string {
+  return match(reason)
+    .with("objectExists", () => m.workshop_bin_declared_object_exists())
+    .with("sourceMissing", () => m.workshop_bin_declared_object_source_missing())
+    .with("unknownClass", () => m.workshop_bin_declared_object_unknown_class())
+    .with("removalUnmatched", () => m.workshop_bin_declared_object_removal_unmatched())
+    .with("unknown", () => m.workshop_bin_declared_object_skipped())
+    .exhaustive();
+}
+
 function kindText(kind: DeclaredDiagnosticKind): string {
   return match(kind)
     .with("overrideUnreadable", () => m.workshop_bin_declared_override_unreadable())
@@ -41,13 +57,16 @@ function kindText(kind: DeclaredDiagnosticKind): string {
     .with("propertyEditSkipped", () => m.workshop_bin_declared_skip_unknown())
     .with("schemaFallback", () => m.workshop_bin_declared_schema_fallback())
     .with("referenceUnreadable", () => m.workshop_bin_declared_reference_unreadable())
+    .with("objectSkipped", () => m.workshop_bin_declared_object_skipped())
     .with("unknown", () => m.workshop_bin_declared_diagnostic_unknown())
     .exhaustive();
 }
 
 /** What a diagnostic says: the skip's reason where it is one, else its category. */
 export function diagnosticText(diagnostic: DeclaredDiagnostic): string {
-  return diagnostic.reason !== null ? skipReasonText(diagnostic.reason) : kindText(diagnostic.kind);
+  if (diagnostic.reason !== null) return skipReasonText(diagnostic.reason);
+  if (diagnostic.object !== null) return objectSkipText(diagnostic.object);
+  return kindText(diagnostic.kind);
 }
 
 /** A typing from the game's copy is information. Every other diagnostic lost something. */

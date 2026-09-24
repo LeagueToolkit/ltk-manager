@@ -471,7 +471,8 @@ impl BinDocument {
     }
 }
 
-/// The path an edit addresses: the node it acts on, and the holder of an insert.
+/// The path an edit addresses: the node it acts on, and the holder of an insert. Empty for
+/// the header.
 fn landing(edit: &Edit) -> &str {
     match edit {
         Edit::RemoveItem { path, .. }
@@ -482,6 +483,7 @@ fn landing(edit: &Edit) -> &str {
         | Edit::ReplaceProperty { path, .. }
         | Edit::RemoveProperty { path, .. } => path,
         Edit::InsertItem { holder, .. } | Edit::InsertProperty { holder, .. } => holder,
+        Edit::Dependencies { .. } => "",
     }
 }
 

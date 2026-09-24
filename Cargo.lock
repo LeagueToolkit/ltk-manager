@@ -509,6 +509,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "brex"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e96de1d16a2ebe2d1622b24fbdbb20b1b620dea4cda9ca2290ba45eb80209b3"
+dependencies = [
+ "itertools",
+ "nom",
+ "test_each_file",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3094,6 +3106,7 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "base64 0.22.1",
+ "brex",
  "camino",
  "chrono",
  "filetime",
@@ -3206,9 +3219,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_fantome"
-version = "0.14.2"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d3a2cd7b24ddc68173c41eb2efbe3ae2a9c017f19fece8d556ffa4e1eb96701"
+checksum = "89f645ac15275ba651785c4d04ae57072f207ebd9a8c0ddd2e29125b1dc287d4"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3237,9 +3250,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_game_data"
-version = "0.6.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d4cf42966953e7e98a8df8f4439b35da781982528e75c4c835d82631396a394"
+checksum = "a7bc0eb27406523698b8456bd4b0c10935fe89e1c6a92fa1d2b7506db851b611"
 dependencies = [
  "camino",
  "glam",
@@ -3406,9 +3419,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mod_project"
-version = "0.14.0"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bd662e0ab7abc648e364880028d640bc7529c31e9f75638bc891af6fe46375d"
+checksum = "8b64ac1f83066dc41586d5169306ca9d809d8830320bd74f414adeb23f430362"
 dependencies = [
  "camino",
  "ignore",
@@ -3433,9 +3446,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_modpkg"
-version = "0.12.2"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b9290dfc767bed1669b101bae5959d83c887a6e1943522ffd45c1746f93f596"
+checksum = "1cf6088e36cbc5b321cb83b43920c3abc14b37215f175d643859c944e991abbf"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3454,9 +3467,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cecb0d157a75e034f8f1491f97092d13ac13618ee911e61661bc4c7b16c5c3af"
+checksum = "0415e5f15cbb727190df0cc6b094db5dd171239fa5982c130a635fc1cc21fd67"
 dependencies = [
  "byteorder",
  "camino",
@@ -6672,6 +6685,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "test_each_file"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44619e49a1f62888c271dc50533f036363a7936f99c7cb467ca9d45224cf83b3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "unicode-ident",
 ]
 
 [[package]]

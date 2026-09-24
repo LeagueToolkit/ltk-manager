@@ -356,6 +356,25 @@ fn a_patch_schema_says_nothing_where_the_database_is_silent() {
     assert_eq!(at.expected(BinHash(0x1), M_OFFSET), None);
 }
 
+/// Story: a field the game's copy omits on a patch the database has not caught up with
+/// takes the type the newest described build gives it.
+#[test]
+fn a_patch_schema_falls_back_to_the_newest_described_build() {
+    let schema = Arc::new(schema());
+    let newest = PatchSchema::new(
+        Arc::clone(&schema),
+        Some(GameBuild::new(16, 99, schema.latest())),
+    );
+    let past = PatchSchema::new(Arc::clone(&schema), Some(GameBuild::new(17, 1, 9_000_000)));
+    let unbuilt = PatchSchema::new(schema, None);
+
+    let at_newest = newest.expected(FLOAT_TEXT_ICON_DATA, M_OFFSET);
+    assert!(at_newest.is_some());
+    assert_eq!(past.fallback(FLOAT_TEXT_ICON_DATA, M_OFFSET), at_newest);
+    assert_eq!(unbuilt.fallback(FLOAT_TEXT_ICON_DATA, M_OFFSET), at_newest);
+    assert_eq!(past.fallback(FLOAT_TEXT_ICON_DATA, BinHash(0x1)), None);
+}
+
 /// Story: an edit names the class of the object it lands on, and most of that class's
 /// fields are its bases'.
 #[test]

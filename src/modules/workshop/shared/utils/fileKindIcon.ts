@@ -1,3 +1,4 @@
+import { BracketsCurlyIcon } from "@phosphor-icons/react";
 import { Box, File, FileCode2, FileText, Image, PersonStanding, Sun, Volume2 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -54,6 +55,11 @@ function fileKindDescriptors(): FileKindDescriptors {
       tintToken: BIN_TINT,
     },
     preload: { icon: FileCode2, label: "Preload", tintToken: DATA_TINT },
+    game_data: {
+      icon: BracketsCurlyIcon,
+      label: "Game Data Declarations",
+      tintToken: "--ltk-doc-declarations-text",
+    },
 
     // Text / strings
     riot_string_table: { icon: FileText, label: "Riot String Table", tintToken: DATA_TINT },

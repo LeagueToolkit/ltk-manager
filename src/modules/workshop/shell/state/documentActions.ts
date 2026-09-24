@@ -107,6 +107,8 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
             layout: state.layout,
             activeLeafId: state.activeLeafId,
             selectedLayer: state.selectedLayer,
+            useDeclarations: state.useDeclarations,
+            selectedModule: state.selectedModule ?? null,
             previewIds: state.previewIds,
             pinned: state.pinned,
             shells: state.shells,

@@ -104,7 +104,7 @@ export function ClassView({
 }: ClassViewProps) {
   const invalidate = useInvalidateBinReads();
   const edits = useLeafEdit(document, asset, invalidate, onNotOpen);
-  const declared = useDeclaredRows(document);
+  const declared = useDeclaredRows(document, editable);
   const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
   const pages = useLayoutRead(document, placed);
 

@@ -861,7 +861,7 @@ fn a_prop_header_carries_its_version_and_dependencies() {
             kind: BinFileKind::Prop,
             version: Some(3),
             objects: 3,
-            dependencies: vec!["common.bin".to_owned()],
+            dependencies: vec![Dependency::new("common.bin".to_owned())],
             patches: 0,
             deleted: Vec::new(),
         }
@@ -902,6 +902,36 @@ fn the_store_evicts_the_least_recently_used_asset_past_its_capacity() {
     assert_ne!(first, second);
     assert_eq!(store.asset_of(second), None);
     assert_eq!(store.asset_of(third), Some(asset("c.bin")));
+}
+
+#[test]
+fn a_tree_read_or_edited_recently_outlives_a_burst_of_opens_at_capacity() {
+    let store = BinDocuments::new(NonZeroUsize::new(3).unwrap());
+    let bytes = prop_bytes();
+
+    let idle = store.open(asset("idle.bin"), || Ok(bytes.clone())).unwrap();
+    let read = store.open(asset("read.bin"), || Ok(bytes.clone())).unwrap();
+    let edited = store
+        .open(asset("edited.bin"), || Ok(bytes.clone()))
+        .unwrap();
+    store.read(read, |_| Ok(())).unwrap();
+    /* A loose asset refuses the edit, after the edit has touched its tree. */
+    assert!(store.undo(edited).is_err());
+
+    for burst in 0..8 {
+        let passing = store
+            .open(asset(&format!("burst{burst}.bin")), || Ok(bytes.clone()))
+            .unwrap();
+        store.read(passing, |_| Ok(())).unwrap();
+        store.close(passing);
+    }
+
+    assert!(store.is_open(read));
+    assert!(store.is_open(edited));
+    assert!(
+        !store.is_open(idle),
+        "the burst takes only the least recently used tree"
+    );
 }
 
 #[test]
@@ -1340,4 +1370,23 @@ fn the_headers_dependencies_hash_as_wad_paths() {
     patch.to_writer(&mut out).unwrap();
     let patch = BinDocument::parse(out.into_inner()).unwrap();
     assert!(patch.dependency_hashes().is_empty());
+}
+
+#[test]
+fn a_packed_dependency_carries_its_brex_spelling() {
+    let packed = Dependency::new(
+        "DATA/Characters/TwistedFate/TwistedFate_Skins_Skin0_Skins_Skin1_Skins_Skin2.bin".into(),
+    );
+
+    assert_eq!(
+        packed.packed.as_deref(),
+        Some("DATA/Characters/TwistedFate/TwistedFate❮_Skins{_Skin{0→2}}❯.bin")
+    );
+}
+
+#[test]
+fn a_plain_dependency_carries_no_brex_spelling() {
+    let plain = Dependency::new("DATA/Characters/TwistedFate/TwistedFate.bin".into());
+
+    assert_eq!(plain.packed, None);
 }

@@ -4,11 +4,13 @@ import type {
   BinRow,
   BinRows,
   BinValue,
+  Dependency,
   PropertyKind,
   RowNode,
 } from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
+import type { ObjectDraft } from "../state/newObject";
 
 /** How many rows one children call answers. A longer container asks again. */
 export const PAGE_SIZE = 500;
@@ -138,7 +140,11 @@ export type LineTarget =
   | { readonly kind: "option"; readonly itemKind: PropertyKind }
   | { readonly kind: "entry"; readonly keyKind: PropertyKind; readonly valueKind: PropertyKind }
   /** The class of a null pointer. */
-  | { readonly kind: "pointer" };
+  | { readonly kind: "pointer" }
+  /** A new object of the file, named on the line. ADR-0049. */
+  | { readonly kind: "object"; readonly draft: ObjectDraft }
+  /** A new dependency of the file, typed as a path or its brex spelling. */
+  | { readonly kind: "dependency" };
 
 /** What an add line under a row holding `value` writes, or null where it takes none. */
 export function lineTarget(value: BinValue): LineTarget | null {
@@ -341,6 +347,24 @@ export type VisibleRow =
       readonly pending: boolean;
     }
   | {
+      /** The pinned row the header's dependencies fold under. */
+      readonly kind: "dependencies";
+      readonly key: string;
+      readonly depth: 0;
+      readonly count: number;
+      readonly expanded: boolean;
+    }
+  | {
+      /** One dependency of the header, `index` in its list. */
+      readonly kind: "dependency";
+      readonly key: string;
+      readonly depth: 1;
+      readonly index: number;
+      readonly dependency: Dependency;
+      /** How many dependencies the list holds, the ones a declared layer removes included. */
+      readonly count: number;
+    }
+  | {
       readonly kind: "add";
       readonly key: string;
       readonly document: BinDocumentId;
@@ -378,6 +402,31 @@ export interface AddLines {
   readonly rootEntry: string | null;
   /** The one insert line open, if any. */
   readonly insertAt?: InsertAt | null;
+  /** The new object being named, whose line follows a file's roots. */
+  readonly newObject?: ObjectDraft | null;
+}
+
+/** The key of the line a new object is named on. */
+export const NEW_OBJECT_KEY = "new-object:add";
+
+/**
+ * The key of the pinned dependencies row, shaped as an object's key so the guides read it.
+ * No entry hash spells `dependencies`, so no object row shares it.
+ */
+export const DEPENDENCIES_KEY = "dependencies:";
+
+/** The key of the line a new dependency is typed on. */
+export const DEPENDENCY_ADD_KEY = addLineKey(DEPENDENCIES_KEY);
+
+/** The key of the dependency at `index`. */
+export function dependencyKey(index: number): string {
+  return `${DEPENDENCIES_KEY}${index}`;
+}
+
+/** The header's dependencies as the tree pins them over its roots. */
+export interface DependencyLines {
+  readonly list: readonly Dependency[];
+  readonly document: BinDocumentId;
 }
 
 /**
@@ -388,6 +437,7 @@ export interface AddLines {
  * a time (ADR-0026). A node expanded before its children answer draws as loading. A node
  * with more rows than answered draws a request for the rest under what it has.
  * `rootOwner` is the class the roots are properties of, which an object tab's roots are.
+ * `dependencies` pins the header's list over the roots, folded under one row.
  */
 export function flattenRows(
   roots: readonly BinRow[],
@@ -395,8 +445,10 @@ export function flattenRows(
   childrenOf: (key: string) => LoadedChildren | undefined,
   rootOwner: string | null = null,
   adds: AddLines | null = null,
+  dependencies: DependencyLines | null = null,
 ): VisibleRow[] {
-  const out: VisibleRow[] = [];
+  const out: VisibleRow[] =
+    dependencies === null ? [] : dependencyLines(dependencies, expanded, adds !== null);
   const editable = adds !== null;
   const insertAt = adds?.insertAt ?? null;
 
@@ -477,6 +529,55 @@ export function flattenRows(
       path: "",
       depth: 0,
       target: { kind: "property" },
+      index: null,
+    });
+  }
+  if (adds?.newObject && adds.rootEntry === null) {
+    out.push({
+      kind: "add",
+      key: NEW_OBJECT_KEY,
+      document: adds.document,
+      entry: "",
+      path: "",
+      depth: 0,
+      target: { kind: "object", draft: adds.newObject },
+      index: null,
+    });
+  }
+  return out;
+}
+
+/** The pinned dependencies row, and under it when open each dependency and the add line. */
+function dependencyLines(
+  { list, document }: DependencyLines,
+  expanded: ReadonlySet<string>,
+  editable: boolean,
+): VisibleRow[] {
+  const open = expanded.has(DEPENDENCIES_KEY);
+  const out: VisibleRow[] = [
+    { kind: "dependencies", key: DEPENDENCIES_KEY, depth: 0, count: list.length, expanded: open },
+  ];
+  if (!open) return out;
+
+  list.forEach((dependency, index) => {
+    out.push({
+      kind: "dependency",
+      key: dependencyKey(index),
+      depth: 1,
+      index,
+      dependency,
+      count: list.length,
+    });
+  });
+  if (editable) {
+    out.push({
+      kind: "add",
+      key: DEPENDENCY_ADD_KEY,
+      document,
+      entry: "",
+      path: "",
+      depth: 1,
+      target: { kind: "dependency" },
       index: null,
     });
   }
@@ -597,7 +698,11 @@ export function lineParent(line: VisibleRow): string | null {
     case "more":
       return line.parent;
     case "add":
-      return rowKey(line);
+      return line.target.kind === "dependency" ? DEPENDENCIES_KEY : rowKey(line);
+    case "dependencies":
+      return null;
+    case "dependency":
+      return DEPENDENCIES_KEY;
   }
 }
 

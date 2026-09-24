@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AssetRef, BinRow } from "@/lib/tauri";
+import { isEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { useLeafEdit } from "../useLeafEdit";
@@ -19,7 +20,7 @@ beforeEach(() => {
 describe("useLeafEdit", () => {
   it("reopens an evicted document and sends the edit again on the fresh id", async () => {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "bin_edit_property" && args?.document === 3) {
+      if (isEdit(command, args, "editProperty") && args?.document === 3) {
         return Promise.resolve({ ok: false, error: { code: "BIN_NOT_OPEN", id: 3 } });
       }
       return Promise.resolve({ ok: true, value: null });
@@ -35,8 +36,11 @@ describe("useLeafEdit", () => {
     expect(landed).toBe(true);
     expect(reopen).toHaveBeenCalledOnce();
     expect(mockInvoke).toHaveBeenLastCalledWith(
-      "bin_edit_property",
-      expect.objectContaining({ document: 9 }),
+      "bin_edit",
+      expect.objectContaining({
+        document: 9,
+        edit: expect.objectContaining({ kind: "editProperty" }),
+      }),
     );
   });
 

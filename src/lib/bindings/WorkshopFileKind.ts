@@ -5,4 +5,4 @@
  * manually — the upstream enum is small and stable, and mirroring lets us
  * export a TypeScript union without fighting external crate attributes.
  */
-export type WorkshopFileKind = "animation" | "jpeg" | "light_grid" | "lua_obj" | "map_geometry" | "png" | "tga" | "preload" | "property_bin" | "property_bin_override" | "riot_string_table" | "simple_skin" | "skeleton" | "static_mesh_ascii" | "static_mesh_binary" | "svg" | "texture" | "texture_dds" | "unknown" | "world_geometry" | "wwise_bank" | "wwise_package";
+export type WorkshopFileKind = "animation" | "game_data" | "jpeg" | "light_grid" | "lua_obj" | "map_geometry" | "png" | "tga" | "preload" | "property_bin" | "property_bin_override" | "riot_string_table" | "simple_skin" | "skeleton" | "static_mesh_ascii" | "static_mesh_binary" | "svg" | "texture" | "texture_dds" | "unknown" | "world_geometry" | "wwise_bank" | "wwise_package";

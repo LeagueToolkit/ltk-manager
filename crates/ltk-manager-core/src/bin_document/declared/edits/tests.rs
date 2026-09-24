@@ -745,3 +745,104 @@ fn a_property_added_is_a_set_the_schema_types() {
     assert_eq!(lines.len(), 1, "{lines:?}");
     assert!(lines[0].starts_with(&format!("{name}: ")), "{lines:?}");
 }
+
+/// The document, with `more` named, on a schema read at `build`.
+fn declared_at(dir: &std::path::Path, more: &[&'static str], build: GameBuild) -> BinDocument {
+    let mut names = vec![SKIN];
+    names.extend_from_slice(more);
+    let context = DeclareContext {
+        project: project(dir),
+        schema: PatchSchema::new(schema(), Some(build)),
+        game: Game::naming(&names),
+    };
+    BinDocument::declare(game_bin(), ltk_game_data::path_hash(CHUNK), context).unwrap()
+}
+
+/// Add each named field Add property offers on the skin object, on a fresh document at
+/// `build`, answering the field's name beside the manifest lines it wrote. Each add is
+/// undone, and a refused or undone add leaves no manifest.
+fn add_each_offered(build: GameBuild) -> Vec<(String, Result<Vec<String>, BinDocumentError>)> {
+    let at = schema();
+    let offered = declared(tempfile::tempdir().unwrap().path())
+        .addable_fields(h(SKIN), "", at.at(Some(BUILD)))
+        .unwrap();
+
+    offered
+        .fields
+        .iter()
+        .filter_map(|offer| {
+            let name: &'static str = Box::leak(offer.name.clone()?.into_boxed_str());
+            let mut more = vec![name];
+            more.extend(
+                offer
+                    .class
+                    .clone()
+                    .map(|class| -> &'static str { Box::leak(class.into_boxed_str()) }),
+            );
+            let dir = tempfile::tempdir().unwrap();
+            let mut document = declared_at(dir.path(), &more, build);
+
+            let outcome = document
+                .add_property(
+                    h(SKIN),
+                    "",
+                    crate::bin_document::NewProperty::Declared {
+                        field: offer.hash.clone(),
+                    },
+                    at.at(Some(BUILD)),
+                )
+                .map(|()| body(dir.path(), SKIN));
+            if outcome.is_ok() {
+                assert!(document.undo().unwrap());
+            }
+            assert!(
+                !dir.path().join("content/base/game_data.yaml").exists(),
+                "{name} leaves a manifest"
+            );
+            Some((name.to_owned(), outcome))
+        })
+        .collect()
+}
+
+#[test]
+fn every_offered_property_declares_as_one_set_and_undoes() {
+    let outcomes = add_each_offered(BUILD);
+
+    let kinds = [
+        "idleParticlesEffects",
+        "healthBarData",
+        "ChromaData",
+        "iconCircle",
+        "uncensoredIconCircles",
+        "PersistentEffectConditions",
+        "iconAvatar",
+        "mResourceResolver",
+        "skinParent",
+    ];
+    for kind in kinds {
+        assert!(
+            outcomes.iter().any(|(name, _)| name == kind),
+            "the fixture offers no {kind}"
+        );
+    }
+    for (name, outcome) in outcomes {
+        let lines = outcome.unwrap_or_else(|error| panic!("{name}: {error:?}"));
+        assert_eq!(lines.len(), 1, "{name}: {lines:?}");
+        assert!(
+            lines[0]
+                .to_lowercase()
+                .starts_with(&format!("{}: ", name.to_lowercase())),
+            "{name}: {lines:?}"
+        );
+    }
+}
+
+#[test]
+fn a_property_added_past_the_databases_newest_build_declares_through_the_fallback() {
+    let past = GameBuild::new(99, 1, u32::MAX);
+
+    for (name, outcome) in add_each_offered(past) {
+        let lines = outcome.unwrap_or_else(|error| panic!("{name}: {error:?}"));
+        assert_eq!(lines.len(), 1, "{name}: {lines:?}");
+    }
+}

@@ -1,5 +1,8 @@
 import type { ProjectTextFile } from "@/lib/tauri";
 
+/** The query root of every project's declarations outline, which a declared edit leaves stale. */
+export const DECLARATIONS_OUTLINE_ROOT = ["declarations-outline"] as const;
+
 export const workshopKeys = {
   all: ["workshop"] as const,
   projects: () => [...workshopKeys.all, "projects"] as const,

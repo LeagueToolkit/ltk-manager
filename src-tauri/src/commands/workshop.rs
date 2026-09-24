@@ -2,10 +2,10 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, CreateProjectArgs,
-    FantomePeekResult, FolderInspection, IgnoreRules, ImportFantomeArgs, ImportGitRepoArgs,
-    OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText, ProjectTextFile, Revision,
-    SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState,
-    RECOMMENDED_IGNORE_RULES,
+    DeclarationsLayer, FantomePeekResult, FolderInspection, IgnoreRules, ImportFantomeArgs,
+    ImportGitRepoArgs, OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText,
+    ProjectTextFile, Revision, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
+    WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
 };
 use chrono::Local;
 use fs_err as fs;
@@ -231,6 +231,20 @@ pub fn save_project_text(
         .0
         .project(&project_path)
         .and_then(|project| project.write_project_text(file, &text, expected))
+        .into()
+}
+
+/// Every layer's declarations manifest as modules, entries and keys, in build order.
+#[tauri::command]
+#[specta::specta]
+pub fn declarations_outline(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<Vec<DeclarationsLayer>> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.declarations_outline())
         .into()
 }
 

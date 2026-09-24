@@ -53,6 +53,7 @@
   --ltk-doc-ignore: #94a3b8;
   --ltk-doc-readme: #e879f9;
   --ltk-doc-license: #a3e635;
+  --ltk-doc-declarations: #2dd4bf;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
@@ -62,6 +63,7 @@
   --ltk-doc-ignore-text: var(--ltk-doc-ignore);
   --ltk-doc-readme-text: var(--ltk-doc-readme);
   --ltk-doc-license-text: var(--ltk-doc-license);
+  --ltk-doc-declarations-text: var(--ltk-doc-declarations);
 
   /* The folder of a tree row. */
   --ltk-folder: #dcb67a;
@@ -105,6 +107,7 @@
   --ltk-doc-ignore-text: color-mix(in srgb, var(--ltk-doc-ignore) 50%, black);
   --ltk-doc-readme-text: color-mix(in srgb, var(--ltk-doc-readme) 50%, black);
   --ltk-doc-license-text: color-mix(in srgb, var(--ltk-doc-license) 50%, black);
+  --ltk-doc-declarations-text: color-mix(in srgb, var(--ltk-doc-declarations) 50%, black);
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);

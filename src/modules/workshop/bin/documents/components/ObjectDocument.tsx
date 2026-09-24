@@ -62,6 +62,7 @@ import { useBinDocument, useObjectRoots } from "../hooks/useBinDocument";
 import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
+import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
 
 /** The shells whose layout takes edits in place. The map's is a reader's view alone. */
 const EDITABLE_SHELLS: ReadonlySet<ShellKind> = new Set(["vfx", "skin", "material"]);
@@ -253,6 +254,9 @@ function OpenObject({
           onShowInFile={narrow ? showFile : undefined}
         />
       </DocumentToolbar>
+      {handle.readOnly === "declarationsOff" && (
+        <DeclarationsOffNotice asset={asset} file={file} subject={objectPath} />
+      )}
       <ShellHeaderContext value={slots}>
         <CurveDockContext value={dock}>
           <Group id="object" orientation="vertical" className="flex min-h-0 flex-1 flex-col">

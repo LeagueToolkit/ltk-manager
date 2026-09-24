@@ -1,4 +1,5 @@
-import { LockSimpleIcon } from "@phosphor-icons/react";
+import { LockSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import { use } from "react";
 
 import { Button, Tooltip, useToast } from "@/components";
 import { errorSummary, m, readOnlyDescription } from "@/i18n";
@@ -8,6 +9,7 @@ import { SaveStatus } from "@/modules/editor";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { forgetBinSave, retryBinSave, useBinSave } from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
+import { NewObjectContext } from "../../tree/state/newObject";
 import { useDeclaredState } from "../hooks/useDeclared";
 import { DeclaredLayerChip } from "./DeclaredLayer";
 
@@ -22,13 +24,44 @@ interface BinEditStateProps {
 
 /**
  * What a bin tab's toolbar says about editing: the gate it stands behind, the layer it
- * declares into, or its autosave.
+ * declares into, or its autosave. A declared document with declarations off keeps its chip,
+ * which is where they turn back on.
  */
 export function BinEditState({ document, asset, readOnly, onReload }: BinEditStateProps) {
   const declared = useDeclaredState(document);
+  if (declared !== null && (readOnly === null || readOnly === "declarationsOff")) {
+    return (
+      <span className="flex shrink-0 items-center gap-1">
+        <NewObjectAction />
+        <DeclaredLayerChip document={document} declared={declared} readOnly={readOnly} />
+      </span>
+    );
+  }
   if (readOnly !== null) return <ReadOnlyMark gate={readOnly} />;
-  if (declared !== null) return <DeclaredLayerChip document={document} declared={declared} />;
   return <AutosaveStatus document={document} asset={asset} onReload={onReload} />;
+}
+
+/**
+ * The toolbar's `+ Object`, which opens the class line after the file's objects. ADR-0049.
+ * Absent where the document provides no draft, as a read-only one does.
+ */
+function NewObjectAction() {
+  const drafts = use(NewObjectContext);
+  if (drafts === null) return null;
+
+  return (
+    <Tooltip content={m.workshop_bin_new_object_hint()}>
+      <Button
+        variant="ghost"
+        size="xs"
+        compact
+        left={<PlusIcon weight="bold" className="h-3 w-3" />}
+        onClick={() => drafts.start({ kind: "class" })}
+      >
+        {m.workshop_bin_new_object_action()}
+      </Button>
+    </Tooltip>
+  );
 }
 
 interface AutosaveStatusProps {

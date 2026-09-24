@@ -36,8 +36,17 @@ import { ObjectGlyph } from "../../../shared/components/ObjectGlyph";
 import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
-import { DeclaredDiagnosticsMark, DeclaredRowMark } from "../../documents/components/DeclaredLayer";
-import { useDeclaredMark, useDeclares, useRowDiagnostics } from "../../documents/hooks/useDeclared";
+import {
+  DeclaredDiagnosticsMark,
+  DeclaredRowMark,
+  ObjectChangeMark,
+} from "../../documents/components/DeclaredLayer";
+import {
+  useDeclaredMark,
+  useDeclaredObject,
+  useDeclares,
+  useRowDiagnostics,
+} from "../../documents/hooks/useDeclared";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
 import { CutText } from "../../shared/components/CutText";
@@ -135,9 +144,11 @@ const FOCUS_TARGET =
 export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: RowLineProps) {
   const { row, depth, expanded, loading } = line;
   const edit = use(BinEditContext);
-  const expandable = canExpand(row, edit !== null);
+  /* An object the chosen layer removes draws as its row alone: nothing under it, no edit. */
+  const removed = useDeclaredObject(objectEntry(row))?.change === "removed";
+  const expandable = !removed && canExpand(row, edit !== null);
   const declares = useDeclares();
-  const edits = edit === null ? NO_EDITS : rowEdits(line);
+  const edits = edit === null || removed ? NO_EDITS : rowEdits(line);
   const rowRef = useRef<HTMLDivElement>(null);
   const focusHere = edit !== null && edit.focusKey === line.key;
 
@@ -200,7 +211,7 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
               onAct={() => edit.run(line, kind)}
             />
           ))}
-      {row.node === "object" && onOpenObject && (
+      {row.node === "object" && onOpenObject && !removed && (
         <OpenObjectAction onOpen={(intent) => onOpenObject(row, intent)} />
       )}
       {row.node === "target" && <OpenTargetAction hash={row.entry} />}
@@ -215,7 +226,7 @@ interface RowActionProps {
 }
 
 /** A hover action of an editable row, which leaves the row's own click alone. */
-function RowAction({ label, icon: Glyph, onAct }: RowActionProps) {
+export function RowAction({ label, icon: Glyph, onAct }: RowActionProps) {
   return (
     <Tooltip content={label}>
       <button
@@ -349,6 +360,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { row, owner, depth } = line;
   const { edit, refusal } = useRowEdit(line.key);
   const declared = useDeclaredMark(line.key);
+  const objectChange = useDeclaredObject(objectEntry(row));
   const reported = useRowDiagnostics(line.key);
   /* A target is an object of another file, drawn as the heading its records sit under. */
   const target = row.node === "target";
@@ -363,6 +375,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
     object ? "font-medium text-surface-100" : "text-surface-200",
     element && "text-surface-400",
     row.unnamed && "text-surface-300",
+    objectChange?.change === "removed" && "text-surface-400 line-through",
   );
 
   return (
@@ -418,11 +431,17 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         </Tooltip>
       )}
       {declared && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      {objectChange && <ObjectChangeMark change={objectChange.change} layer={objectChange.layer} />}
       <DeclaredDiagnosticsMark diagnostics={reported} />
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
     </span>
   );
+}
+
+/** The entry an object row stands for, and none for any other row. */
+function objectEntry(row: BinRow): string {
+  return row.node === "object" ? row.entry : "";
 }
 
 /** The row's kind in ritobin's words, and the Problems mark where the schema declares another. */

@@ -12,6 +12,11 @@ mod text_files;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
+pub use declarations::{
+    DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
+    DeclaredObjectEdit, LineSpan, ModuleSelector,
+};
+pub use declarations::{ManifestChange, ModuleAction};
 pub use folders::{
     AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
     FolderInspection, FolderWad,
