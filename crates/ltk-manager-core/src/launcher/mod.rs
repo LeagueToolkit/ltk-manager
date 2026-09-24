@@ -17,6 +17,7 @@ mod types;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use parking_lot::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
@@ -42,6 +43,30 @@ pub use types::{
 /// `riotclientservices.exe` running is *normal* and must never block a launch,
 /// only this one does.
 pub const LEAGUE_CLIENT_EXE: &str = "leagueclient.exe";
+
+/// Lowercase basename of the League game.
+pub const LEAGUE_GAME_EXE: &str = "league of legends.exe";
+
+/// How often [`wait_for_game_exit`] reads the process table.
+const GAME_EXIT_POLL: Duration = Duration::from_millis(100);
+
+/// Block until the League game has exited, or `timeout` passes.
+///
+/// A killed game keeps its archives mapped until Windows has torn the process
+/// down, and an overlay build before then cannot replace them. Returns whether
+/// the game is gone.
+pub fn wait_for_game_exit(timeout: Duration) -> bool {
+    let start = Instant::now();
+
+    while ritoclient::processes::is_running(LEAGUE_GAME_EXE) {
+        if start.elapsed() >= timeout {
+            return false;
+        }
+        std::thread::sleep(GAME_EXIT_POLL);
+    }
+
+    true
+}
 
 /// The product and patchline the manager launches by default.
 ///

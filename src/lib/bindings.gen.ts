@@ -1836,7 +1836,9 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  *  A modded archive was in the game, and a texture far larger than what it
  *  replaces raises the odds of an allocation failing.
  */
-"large-textures";
+"large-textures" | 
+/**  An overlay file was held open, usually by a game still running. */
+"close-game";
 
 /**  One effect a skin wears for as long as the character stands. */
 export type IdleEffect = {
@@ -2914,6 +2916,11 @@ export type OverlayErrorCategory =
 "CORRUPT" | 
 /**  An `ltk_overlay` invariant broke. Nothing the user did; report it. */
 "BUG" | 
+/**
+ *  An overlay file is held open by another process, usually a game still
+ *  running on the old overlay. Closing it helps.
+ */
+"FILE_IN_USE" | 
 /**  An IO, parse or archive failure with no category of its own. */
 "OTHER";
 

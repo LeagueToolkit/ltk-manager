@@ -185,6 +185,7 @@ function overlayTitle(category: OverlayErrorCategory): string {
     .with("WAD_LIMIT", () => m["error.OVERLAY.WAD_LIMIT.title"]())
     .with("CORRUPT", () => m["error.OVERLAY.CORRUPT.title"]())
     .with("BUG", () => m["error.OVERLAY.BUG.title"]())
+    .with("FILE_IN_USE", () => m["error.OVERLAY.FILE_IN_USE.title"]())
     .with("OTHER", () => m["error.OVERLAY.title"]())
     .exhaustive();
 }

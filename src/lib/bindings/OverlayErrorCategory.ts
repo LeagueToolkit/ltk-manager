@@ -7,4 +7,4 @@
  * so records and IPC responses carry this while the detail stays in the
  * message.
  */
-export type OverlayErrorCategory = "GAME_DIR" | "MOD_CONTENT" | "WAD_LIMIT" | "CORRUPT" | "BUG" | "OTHER";
+export type OverlayErrorCategory = "GAME_DIR" | "MOD_CONTENT" | "WAD_LIMIT" | "CORRUPT" | "BUG" | "FILE_IN_USE" | "OTHER";

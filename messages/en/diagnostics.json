@@ -88,6 +88,7 @@
   "diagnostics_suspects_title": "Suspects",
   "diagnostics_telemetry_row_description": "Send anonymous reports when a game session ends badly, or when the manager hits an error it did not expect. No account, no address, no file paths and no mod names.",
   "diagnostics_token_build_failed_title": "Couldn't build the token",
+  "hint.close-game": "Close League of Legends and wait for it to exit, then start the patcher again.",
   "hint.check-game-path": "Check the League of Legends installation path in Settings.",
   "hint.copy-report": "Copy the report when you ask for help.",
   "hint.disable-suspect": "A mod that references a file it does not ship stops the read. Disable the suspect and play again.",

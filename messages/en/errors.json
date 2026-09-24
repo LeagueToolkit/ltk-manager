@@ -61,6 +61,7 @@
   "error.MOD_NOT_FOUND.title": "Mod not found: {modId}",
   "error.OVERLAY.BUG.title": "Overlay Builder Bug",
   "error.OVERLAY.CORRUPT.title": "Corrupt Game Files",
+  "error.OVERLAY.FILE_IN_USE.title": "Overlay File In Use",
   "error.OVERLAY.GAME_DIR.title": "Game Install Problem",
   "error.OVERLAY.MOD_CONTENT.title": "Mod Content Problem",
   "error.OVERLAY.WAD_LIMIT.title": "Mod Too Large",

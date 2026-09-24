@@ -57,6 +57,7 @@ describe("describeError", () => {
     ["WAD_LIMIT", m["error.OVERLAY.WAD_LIMIT.title"]()],
     ["CORRUPT", m["error.OVERLAY.CORRUPT.title"]()],
     ["BUG", m["error.OVERLAY.BUG.title"]()],
+    ["FILE_IN_USE", m["error.OVERLAY.FILE_IN_USE.title"]()],
     ["OTHER", m["error.OVERLAY.title"]()],
   ] as [OverlayErrorCategory, string][])("titles a %s overlay failure", (category, title) => {
     expect(describeError({ code: "OVERLAY", category, detail: "chunk mismatch" })).toEqual({

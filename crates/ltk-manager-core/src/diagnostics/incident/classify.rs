@@ -750,13 +750,15 @@ impl GameRecord {
 ///
 /// Only the categories whose remedy is not a rebuild get their own hints: a
 /// wrong game directory is fixed in Settings, corrupt game files by a repair,
-/// and a builder bug by an update or a report. Everything else, including a
+/// a builder bug by an update or a report, and a file held open by closing the
+/// game. Everything else, including a
 /// record from before the category was kept, keeps the rebuild hint.
 fn build_failure_hints(category: Option<OverlayErrorCategory>) -> &'static [Hint] {
     match category {
         Some(OverlayErrorCategory::GameDir) => &[Hint::CheckGamePath],
         Some(OverlayErrorCategory::Corrupt) => &[Hint::RebuildOverlay, Hint::RepairInstall],
         Some(OverlayErrorCategory::Bug) => &[Hint::UpdateManager, Hint::CopyReport],
+        Some(OverlayErrorCategory::FileInUse) => &[Hint::CloseGame],
         _ => &[Hint::RebuildOverlay],
     }
 }
