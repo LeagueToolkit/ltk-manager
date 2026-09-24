@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import type { MapPath } from "@/lib/tauri";
 import type {
   AmbientOcclusion,
+  AntiAliasing,
   CameraPreset,
   PlacementMode,
   PostEffects,
@@ -53,6 +54,8 @@ interface PreviewDisplay {
   previewPostEffects: PostEffects | null;
   /** The ambient occlusion of every backdrop, and null for each map's own. */
   previewAmbientOcclusion: AmbientOcclusion | null;
+  /** How every viewport smooths the edges of its finished frame. */
+  previewAntiAliasing: AntiAliasing;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -236,6 +239,8 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
+  /* The game's own default, `DEFAULT_ANTI_ALIASING`, kept a literal so the store loads no renderer. */
+  previewAntiAliasing: "fxaa",
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
@@ -429,6 +434,7 @@ export const usePreviewBackdropStructures = () =>
 export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
+export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.previewAntiAliasing);
 export const usePreviewAmbientOcclusion = () =>
   useWorkshopLayoutStore((s) => s.previewAmbientOcclusion);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);

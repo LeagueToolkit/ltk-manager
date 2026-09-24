@@ -18,11 +18,12 @@ import {
   Viewport,
 } from "@/modules/viewport";
 import {
+  usePreviewAmbientOcclusion,
+  usePreviewAntiAliasing,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
   usePreviewCamera,
-  usePreviewAmbientOcclusion,
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
@@ -103,6 +104,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   );
 
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
   const particles = usePreviewBackdropParticles();
@@ -125,6 +127,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
     <>
       <div data-ui="MapViewport" className="relative min-h-0 flex-1">
         <Viewport
+          antiAliasing={antiAliasing}
           renderer="shared"
           stage={false}
           textured={false}
