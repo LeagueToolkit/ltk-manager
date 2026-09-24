@@ -8,7 +8,6 @@ import {
   GridFourIcon,
   MapTrifoldIcon,
   MountainsIcon,
-  PaintBrushIcon,
   SparkleIcon,
   StackIcon,
 } from "@phosphor-icons/react";
@@ -17,7 +16,7 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NoColorSpace } from "three";
 
-import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { ButtonGroup, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
 import {
@@ -129,6 +128,8 @@ export interface SkinViewportProps {
   readonly asset: AssetRef;
   /** The skin object, `0x` and eight hex digits. */
   readonly entry: string;
+  /** The backend no longer holds `document`, so the tab reopens it. */
+  readonly onNotOpen?: () => void;
 }
 
 /**
@@ -138,9 +139,16 @@ export interface SkinViewportProps {
  * idle effect table reads a foreign resolver. Every other graph is read through the
  * skin's own document, which looks in the files it links.
  */
-export default function SkinViewport({ document, asset, entry }: SkinViewportProps) {
+export default function SkinViewport({ document, asset, entry, onNotOpen }: SkinViewportProps) {
   const { skin: read, source, opener } = useSkinGraphSource(document, asset, entry);
+  /* The store evicts the least recently used asset at capacity, so a tab left in the
+     background can hold an id that no longer reads. A reopen issues a fresh one. */
+  const notOpen = read.error?.code === "BIN_NOT_OPEN";
+  useEffect(() => {
+    if (notOpen) onNotOpen?.();
+  }, [notOpen, onNotOpen]);
 
+  if (notOpen) return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
   if (read.error !== null) return <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />;
   if (read.data === undefined) {
     return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
@@ -179,9 +187,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* The skin's own document stands for its project, whose layer answers before the
      install for a map the creator has replaced. */
   const shaders = usePreviewShaders();
+  /* A document answers from its own file's project, as `LayerChunks::of` reads it. */
+  const project = asset.kind === "layer" ? asset.project : null;
   const backdropSource = useMemo(
-    () => (backdrop === null ? null : { map: backdrop, document, shaders }),
-    [backdrop, document, shaders],
+    () => (backdrop === null ? null : { map: backdrop, document, project, shaders }),
+    [backdrop, document, project, shaders],
   );
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
@@ -438,6 +448,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         className="relative min-h-0 flex-1 outline-none"
       >
         <Viewport
+          renderer="shared"
           gizmo={!controlsHidden}
           stage={ground}
           textured={midlane}
@@ -600,7 +611,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               <ViewToggle
                 label={m.workshop_bin_preview_shaders_label()}
                 active={shaders}
-                icon={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+                icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
                 onClick={() => setDisplay({ previewShaders: !shaders })}
               />
               <BakeTangentsButton

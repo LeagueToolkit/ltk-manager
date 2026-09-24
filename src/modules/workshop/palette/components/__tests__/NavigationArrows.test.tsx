@@ -36,6 +36,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-mine",
 };
 
 function store() {
@@ -92,8 +95,8 @@ describe("NavigationArrows", () => {
     await userEvent.click(screen.getByRole("button", { name: "Forward" }));
 
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/workshop/$projectName",
-      params: { projectName: "mine" },
+      to: "/workshop/$projectId",
+      params: { projectId: "id-mine" },
     });
   });
 
@@ -138,8 +141,8 @@ describe("NavigationArrows", () => {
     thumb("mouseup", 4);
 
     expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/workshop/$projectName",
-      params: { projectName: "mine" },
+      to: "/workshop/$projectId",
+      params: { projectId: "id-mine" },
     });
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });

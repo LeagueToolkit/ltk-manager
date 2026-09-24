@@ -122,6 +122,7 @@ function withDetail(title: string, detail: string): ErrorCopy {
 /** Why a bin takes no edit, as the gate it stands behind. */
 export function readOnlyDescription(gate: ReadOnly): string {
   return match(gate)
+    .with("declarationsOff", () => m["error.BIN_READ_ONLY.declarationsOff.description"]())
     .with("install", () => m["error.BIN_READ_ONLY.install.description"]())
     .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
     .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
@@ -163,7 +164,16 @@ export function editRejection(rejection: EditRejection): string {
     .with({ reason: "valueHeld" }, () => m["error.BIN_EDIT_REJECTED.valueHeld.description"]())
     .with({ reason: "namelessPath" }, () => m["error.BIN_EDIT_REJECTED.namelessPath.description"]())
     .with({ reason: "undeclarable" }, () => m["error.BIN_EDIT_REJECTED.undeclarable.description"]())
+    .with({ reason: "untypable" }, () => m["error.BIN_EDIT_REJECTED.untypable.description"]())
     .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
+    .with({ reason: "objectExists" }, () => m["error.BIN_EDIT_REJECTED.objectExists.description"]())
+    .with({ reason: "emptyPath" }, () => m["error.BIN_EDIT_REJECTED.emptyPath.description"]())
+    .with({ reason: "malformedBrex" }, () =>
+      m["error.BIN_EDIT_REJECTED.malformedBrex.description"](),
+    )
+    .with({ reason: "dependencyExists" }, () =>
+      m["error.BIN_EDIT_REJECTED.dependencyExists.description"](),
+    )
     .exhaustive();
 }
 
@@ -175,6 +185,7 @@ function overlayTitle(category: OverlayErrorCategory): string {
     .with("WAD_LIMIT", () => m["error.OVERLAY.WAD_LIMIT.title"]())
     .with("CORRUPT", () => m["error.OVERLAY.CORRUPT.title"]())
     .with("BUG", () => m["error.OVERLAY.BUG.title"]())
+    .with("FILE_IN_USE", () => m["error.OVERLAY.FILE_IN_USE.title"]())
     .with("OTHER", () => m["error.OVERLAY.title"]())
     .exhaustive();
 }

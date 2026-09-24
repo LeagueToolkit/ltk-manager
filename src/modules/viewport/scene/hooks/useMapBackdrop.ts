@@ -72,12 +72,28 @@ export interface BackdropSource {
   /** Any open document of that project, and null outside one. */
   readonly document: BinDocumentId | null;
   /**
+   * The project directory `document` answers from, and null for one answering from the
+   * install alone.
+   *
+   * Present, every source naming the same project shares the reads, so another skin of
+   * it opens on a map already read. Absent, the reads are `document`'s own.
+   */
+  readonly project?: string | null;
+  /**
    * The map's `.mapgeo` where the scene has already found it, such as a copy a project
    * ships. Absent, the install's is looked up.
    */
   readonly geometry?: AssetRef;
   /** The map's materials draw with the game's own shaders, translated. */
   readonly shaders?: boolean;
+}
+
+/** Who answers a map's reads through a document, which is what two sources share them by. */
+type ReadScope = { readonly project: string | null } | { readonly document: BinDocumentId | null };
+
+function readScope(source: BackdropSource | null): ReadScope {
+  if (source?.project !== undefined) return { project: source.project };
+  return { document: source?.document ?? null };
 }
 
 /** One map the install can draw a backdrop from. */
@@ -172,11 +188,18 @@ export const backdropQueries = {
     }),
 
   /* Each input is named rather than reached through a source object, so the key holds
-     exactly what the read closes over. The paths are the buffer's own string table, so
-     their identity is stable for as long as the answer is. */
-  model: (map: MapPath | null, document: BinDocumentId | null, paths: readonly string[] | null) =>
+     what the answer depends on. The scope stands in for the document, because every
+     document of one project answers alike. The paths are the buffer's own string table,
+     so their identity is stable for as long as the answer is. */
+  model: (
+    map: MapPath | null,
+    document: BinDocumentId | null,
+    scope: ReadScope,
+    paths: readonly string[] | null,
+  ) =>
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the scope keys the document
     queryOptions<MapModel>({
-      queryKey: [...BACKDROP_ROOT, "model", map, document, paths],
+      queryKey: [...BACKDROP_ROOT, "model", map, scope, paths],
       queryFn: async () => {
         if (map === null || paths === null)
           return { materials: [], sun: null, postEffects: null, ssao: null };
@@ -194,10 +217,12 @@ export const backdropQueries = {
   programs: (
     materials: AssetRef | null,
     document: BinDocumentId | null,
+    scope: ReadScope,
     paths: readonly string[] | null,
   ) =>
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the scope keys the document
     queryOptions<(MaterialProgram | null)[]>({
-      queryKey: [...BACKDROP_ROOT, "programs", materials, document, paths],
+      queryKey: [...BACKDROP_ROOT, "programs", materials, scope, paths],
       queryFn: async () => {
         if (materials === null || paths === null) return [];
         const answer = await api.bin.readMaterialPrograms(
@@ -344,6 +369,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     backdropQueries.programs(
       shaders ? (materialsFile.data ?? null) : null,
       source?.document ?? null,
+      readScope(source),
       geometry.data?.materials ?? null,
     ),
   );
@@ -422,6 +448,7 @@ function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry |
     backdropQueries.model(
       source?.map ?? null,
       source?.document ?? null,
+      readScope(source),
       geometry?.materials ?? null,
     ),
   );

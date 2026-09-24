@@ -10,7 +10,7 @@ use crate::mods::{
 };
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{IncidentStoreState, SettingsState};
-use crate::workshop::{Workshop, WorkshopState};
+use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_core::diagnostics::store::IncidentStore;
 use ltk_manager_core::events::EventSink;
 use std::sync::Arc;
@@ -27,7 +27,11 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let settings_state = SettingsState::new(&app_handle);
     let patcher_state = PatcherState::new();
     let events: Arc<dyn EventSink> = Arc::new(TauriEventSink::new(app_handle.clone()));
-    let workshop = WorkshopState(Workshop::new(Arc::clone(&events)));
+    let registry = match crate::state::get_app_data_dir(&app_handle) {
+        Some(dir) => ProjectRegistry::load(dir.join(ProjectRegistry::FILE_NAME)),
+        None => ProjectRegistry::default(),
+    };
+    let workshop = WorkshopState(Workshop::new(Arc::clone(&events)).with_registry(registry));
 
     initialize_first_run(&app_handle, &settings_state);
 

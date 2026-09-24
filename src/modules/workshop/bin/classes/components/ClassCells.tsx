@@ -46,7 +46,7 @@ import { chunkPath, decideFileLink } from "../../links/utils/linkDecision";
 import { CutText } from "../../shared/components/CutText";
 import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../tree/components/BinRow";
 import { BinTree } from "../../tree/components/BinTree";
-import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
+import { LeafEditContext, type Reopen } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, useRowFold } from "../../tree/state/rowFold";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { canExpand, childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
@@ -73,7 +73,7 @@ export interface ViewContext {
   /** The name of the object an entry hash addresses, for the path a cell copies. */
   readonly objectName: (entry: string) => string;
   /** The backend holds no document with this id. The caller reopens it. */
-  readonly onNotOpen: () => void;
+  readonly onNotOpen: Reopen;
   /** The frame it is drawn in, which a widget with two halves reads to place them. */
   readonly frame: LayoutFrame;
 }

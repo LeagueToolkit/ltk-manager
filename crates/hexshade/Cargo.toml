@@ -3,7 +3,7 @@ name = "hexshade"
 version = "0.1.0"
 description = "Hexshade, the game's DXBC shaders as GLSL ES 3.00 programs a WebGL renderer binds"
 edition = "2024"
-license = "GPL-3.0-or-later"
+license = "AGPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 

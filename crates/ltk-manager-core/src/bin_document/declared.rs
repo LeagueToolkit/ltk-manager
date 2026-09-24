@@ -10,24 +10,29 @@ use std::fmt;
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ltk_declarations::Edit as ManifestEdit;
-use ltk_game_data::{Edit, EntryName, Module, Names, PropertyEdit, Selector, Sign, Value, apply};
+use ltk_declarations::{Edit as ManifestEdit, Manifest, ModuleChoice};
+use ltk_game_data::{
+    Edit, EntryName, Module, ModuleName, Names, ObjectEdit, PropertyEdit, Selector, Sign, Value,
+    apply,
+};
 use ltk_hash::{BinHash, WadHash};
 use ltk_meta::path::{FieldNames, MapKey, PropertyPath, Subscript, ValuePath};
 use ltk_meta::walk::TreeValue as _;
 use ltk_meta::{Bin, BinFile, BinObject, PropertyValueEnum};
 use ltk_mod_project::{ModProjectLayer, game_data::load_layer};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub use self::copy::RowDeclaration;
 use self::diagnostics::Raised;
-pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, SkipReason};
+pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, ObjectSkip, SkipReason};
+pub use self::links::{DeclaredLinkMark, LinkChange};
+pub use self::objects::{DeclaredObjectMark, NewObject, ObjectChange};
 use super::edit::UNDO_DEPTH;
 use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::PatchSchema;
 
-use crate::workshop::ProjectDir;
+use crate::workshop::{ModuleAction, ProjectDir};
 
 /// The layer a declared document writes to until a reader picks another.
 pub const BASE_LAYER: &str = ModProjectLayer::BASE_NAME;
@@ -53,18 +58,41 @@ pub struct DeclareContext {
     pub game: Arc<dyn GameCopy>,
 }
 
+/// Whether a declared document takes edits, the project's "Use game data declarations".
+///
+/// Off draws the same applied tree and marks, read-only.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum Declaring {
+    /// An edit lands as a declaration in the chosen layer.
+    On,
+    /// The document takes no edit.
+    #[default]
+    Off,
+}
+
 /// The declaring half of a [`BinDocument`] over a game chunk.
 pub(super) struct Declared {
     context: DeclareContext,
+    declaring: Declaring,
     chunk_hash: u64,
     /// The game's copy, which every apply starts from.
     game: Vec<u8>,
     /// The same copy as a tree, which a mark reads the game's value off.
     game_tree: Bin,
     layer: String,
+    /// The module of `layer` a new key joins.
+    module: DeclaredModuleChoice,
+    /// The modules of `layer`, as the last mark read them.
+    modules: Vec<DeclaredModuleSummary>,
     /// The project's layers in build order.
     layers: Vec<String>,
     marks: Vec<DeclaredMark>,
+    objects: Vec<DeclaredObjectMark>,
+    links: Vec<DeclaredLinkMark>,
     /// What the last apply reported, as it raised it and on the rows it names.
     raised: Vec<Raised>,
     diagnostics: Vec<DeclaredDiagnostic>,
@@ -89,6 +117,8 @@ struct TextEdit {
     layer: String,
     before: String,
     after: String,
+    /// The module the last key written landed in. `None` for a module action.
+    module: Option<usize>,
 }
 
 /// What a declared document says beside its rows.
@@ -100,12 +130,74 @@ struct TextEdit {
 pub struct DeclaredState {
     /// The layer an edit writes to.
     pub layer: String,
+    /// The module of `layer` a new key joins.
+    pub module: DeclaredModuleChoice,
+    /// The modules of `layer` in execution order.
+    pub modules: Vec<DeclaredModuleSummary>,
     /// The project's layers in build order.
     pub layers: Vec<String>,
     /// The rows a declaration of `layer` touches.
     pub marks: Vec<DeclaredMark>,
+    /// The objects a declaration of `layer` creates or removes.
+    pub objects: Vec<DeclaredObjectMark>,
+    /// The dependencies a declaration of `layer` adds or removes.
+    pub links: Vec<DeclaredLinkMark>,
     /// What the last apply reported, over every layer.
     pub diagnostics: Vec<DeclaredDiagnostic>,
+}
+
+/// The module a declared document's new keys join. ADR-0048.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum DeclaredModuleChoice {
+    /// The last `entries` module naming the entry, else the last module, else a new one.
+    #[default]
+    Auto,
+    /// The `entries` module at `index` of `modules`.
+    Index { index: usize },
+    /// A new trailing module, which the next key written makes, holding `name`.
+    New { name: Option<String> },
+}
+
+impl DeclaredModuleChoice {
+    /// The choice as the manifest writer takes it.
+    ///
+    /// # Errors
+    ///
+    /// [`AppError::ValidationFailed`] for an empty name.
+    pub fn to_module_choice(&self) -> AppResult<ModuleChoice> {
+        Ok(match self {
+            Self::Auto => ModuleChoice::Auto,
+            Self::Index { index } => ModuleChoice::Index(*index),
+            Self::New { name } => ModuleChoice::New(
+                name.as_deref()
+                    .map(ModuleName::try_from)
+                    .transpose()
+                    .map_err(|error| AppError::ValidationFailed(error.to_string()))?,
+            ),
+        })
+    }
+}
+
+/// One module of the chosen layer's manifest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct DeclaredModuleSummary {
+    /// The module's index in `modules`.
+    pub index: usize,
+    pub name: Option<String>,
+    /// An `entries` module, which takes new keys. A `target` module does not.
+    pub takes_keys: bool,
 }
 
 /// One row a declaration of the chosen layer touches.
@@ -119,6 +211,11 @@ pub struct DeclaredMark {
     pub entry: String,
     /// The row's path on the wire. Empty where the declared path reaches no row.
     pub path: String,
+    /// The property path the declaration names, as a module action takes it.
+    pub property: String,
+    /// The index of the module holding the declaration.
+    pub module: usize,
+    pub module_name: Option<String>,
     pub sign: DeclaredSign,
     /// The declaration sets a whole list or map, which no later change of the game's reaches.
     pub whole: bool,
@@ -173,12 +270,17 @@ impl BinDocument {
         };
         let mut declared = Declared {
             context,
+            declaring: Declaring::Off,
             chunk_hash,
             game,
             game_tree,
             layer: BASE_LAYER.to_owned(),
+            module: DeclaredModuleChoice::Auto,
+            modules: Vec::new(),
             layers: Vec::new(),
             marks: Vec::new(),
+            objects: Vec::new(),
+            links: Vec::new(),
             raised: Vec::new(),
             diagnostics: Vec::new(),
             undo: VecDeque::new(),
@@ -196,19 +298,44 @@ impl BinDocument {
     pub fn declared_state(&self) -> Option<DeclaredState> {
         self.declared.as_ref().map(|declared| DeclaredState {
             layer: declared.layer.clone(),
+            module: declared.module.clone(),
+            modules: declared.modules.clone(),
             layers: declared.layers.clone(),
             marks: declared.marks.clone(),
+            objects: declared.objects.clone(),
+            links: declared.links.clone(),
             diagnostics: declared.diagnostics.clone(),
         })
     }
 
-    /// Write the edits that follow to `layer`.
+    /// Whether the document takes edits, or `None` for one that declares nothing.
+    #[must_use]
+    pub fn declaring(&self) -> Option<Declaring> {
+        self.declared.as_ref().map(|declared| declared.declaring)
+    }
+
+    /// Take edits as declarations, or refuse them, from here on.
     ///
     /// # Errors
     ///
-    /// Fails with [`BinDocumentError::Declaring`] for a document that declares nothing and
-    /// for a layer the project does not hold.
-    pub fn declare_into(&mut self, layer: &str) -> Result<DeclaredState, BinDocumentError> {
+    /// Fails with [`BinDocumentError::Declaring`] for a document that declares nothing.
+    pub fn set_declaring(&mut self, declaring: Declaring) -> Result<(), BinDocumentError> {
+        self.declared.as_mut().ok_or_else(not_declared)?.declaring = declaring;
+        Ok(())
+    }
+
+    /// Write the edits that follow to `module` of `layer`. A module index the layer does
+    /// not hold as an `entries` module falls back to [`DeclaredModuleChoice::Auto`].
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::Declaring`] for a document that declares nothing, for
+    /// a layer the project does not hold and for an empty module name.
+    pub fn declare_into(
+        &mut self,
+        layer: &str,
+        module: DeclaredModuleChoice,
+    ) -> Result<DeclaredState, BinDocumentError> {
         let Self { declared, file, .. } = self;
         let declared = declared.as_mut().ok_or_else(not_declared)?;
         if !declared.layers.iter().any(|held| held == layer) {
@@ -216,8 +343,48 @@ impl BinDocument {
                 "The project holds no layer {layer}"
             ))));
         }
+        module.to_module_choice().map_err(declaring)?;
+
         layer.clone_into(&mut declared.layer);
+        declared.module = module;
         declared.mark(file);
+        Ok(self.declared_state().expect("the document declares"))
+    }
+
+    /// Apply `action` to the manifest of `layer`, as an edit an undo reverts.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::Declaring`] for a document that declares nothing, for
+    /// a layer the project does not hold, and with what
+    /// [`ProjectDir::apply_module_action`] raises.
+    pub fn declared_module_action(
+        &mut self,
+        layer: &str,
+        action: &ModuleAction,
+    ) -> Result<DeclaredState, BinDocumentError> {
+        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
+        if !declared.layers.iter().any(|held| held == layer) {
+            return Err(declaring(AppError::ValidationFailed(format!(
+                "The project holds no layer {layer}"
+            ))));
+        }
+
+        let change = declared
+            .context
+            .project
+            .apply_module_action(layer, action)
+            .map_err(declaring)?;
+        if let Some(change) = change {
+            declared.remember(TextEdit {
+                layer: layer.to_owned(),
+                before: change.before,
+                after: change.after,
+                module: None,
+            });
+        }
+
+        self.reapply()?;
         Ok(self.declared_state().expect("the document declares"))
     }
 
@@ -275,6 +442,7 @@ impl BinDocument {
         self.file = fresh.file;
         self.base = fresh.base;
         self.touched.clear();
+        self.dependencies_touched = false;
         Ok(())
     }
 }
@@ -337,9 +505,26 @@ impl Declared {
         Ok(bytes)
     }
 
-    /// Read the rows the chosen layer's declarations touch, against the applied `file`.
+    /// Read the rows the chosen layer's declarations touch and its modules, against the
+    /// applied `file`.
     fn mark(&mut self, file: &BinFile) {
+        self.read_marks(file);
+
+        if let DeclaredModuleChoice::Index { index } = self.module
+            && !self
+                .modules
+                .get(index)
+                .is_some_and(|module| module.takes_keys)
+        {
+            self.module = DeclaredModuleChoice::Auto;
+        }
+    }
+
+    fn read_marks(&mut self, file: &BinFile) {
         self.marks.clear();
+        self.modules.clear();
+        self.objects.clear();
+        self.links.clear();
         self.diagnostics = match file {
             BinFile::Prop(applied) => self
                 .raised
@@ -357,51 +542,128 @@ impl Declared {
         let Ok(Some(declarations)) = load_layer(root, &self.layer, &ignore).declarations else {
             return;
         };
+        self.modules = declarations
+            .modules
+            .iter()
+            .map(|module| DeclaredModuleSummary {
+                index: module.origin.module_index,
+                name: module.name.as_ref().map(|name| name.as_str().to_owned()),
+                takes_keys: matches!(module.selector, Selector::Entries(_)),
+            })
+            .collect();
         let BinFile::Prop(applied) = file else {
             return;
         };
         let held: Vec<BinHash> = applied.objects.keys().copied().collect();
+        self.links = links::link_marks(
+            &declarations.modules,
+            self.chunk_hash,
+            applied,
+            &self.game_tree,
+        );
 
         let mut marks = Vec::new();
+        let mut objects = Vec::new();
         self.context.game.with_names(&mut |names| {
             let names = RenderNames(names);
             for module in &declarations.modules {
                 for edit in edits_on(module, self.chunk_hash, &held) {
-                    for (name, properties) in &edit.entries {
+                    let sets = edit
+                        .objects
+                        .iter()
+                        .map(|(name, object)| (name, object.properties()));
+                    let entries = edit
+                        .entries
+                        .iter()
+                        .map(|(name, properties)| (name, properties.as_slice()));
+                    for (name, object) in &edit.objects {
+                        objects.extend(object_change(
+                            name.object_hash(),
+                            object,
+                            applied,
+                            &self.game_tree,
+                        ));
+                    }
+                    for (name, properties) in sets.chain(entries) {
                         let entry = name.object_hash();
                         let Some(object) = applied.objects.get(&entry) else {
                             continue;
                         };
                         let before = self.game_tree.objects.get(&entry);
                         for property in properties {
-                            marks.extend(marks_of(entry, object, before, property, &names));
+                            marks.extend(marks_of(entry, object, before, property, module, &names));
                         }
                     }
                 }
             }
         });
         self.marks = marks;
+        self.objects = objects;
+    }
+
+    /// The objects of the game's copy the chosen layer removes.
+    pub(super) fn removed(&self) -> impl Iterator<Item = &BinObject> {
+        self.objects
+            .iter()
+            .filter(|object| object.change == ObjectChange::Removed)
+            .filter_map(|object| {
+                self.game_tree
+                    .objects
+                    .values()
+                    .find(|held| hex(held.path_hash) == object.entry)
+            })
     }
 
     /// Apply `plan` to the chosen layer's manifest and write it, answering the texts an undo
     /// holds. `None` where the plan left the text as it was.
+    ///
+    /// Every edit joins the chosen module. A new module the first key makes takes the keys
+    /// after it.
     fn write(&self, plan: &[ManifestEdit]) -> AppResult<Option<TextEdit>> {
+        let mut choice = self.module.to_module_choice()?;
+        self.write_with(|manifest| {
+            let mut module = None;
+            for edit in plan {
+                let took = manifest.edit(&ManifestEdit {
+                    module: choice.clone(),
+                    ..edit.clone()
+                })?;
+                if let (ModuleChoice::New(_), Some(index)) = (&choice, took) {
+                    choice = ModuleChoice::Index(index);
+                }
+                module = took.or(module);
+            }
+            Ok(module)
+        })
+    }
+
+    /// Run `edit` on the chosen layer's manifest and write it, answering the texts an undo
+    /// holds. `None` where `edit` left the text as it was. `edit` answers the module holding
+    /// the last key it wrote.
+    fn write_with(
+        &self,
+        edit: impl FnOnce(&mut Manifest) -> Result<Option<usize>, ltk_declarations::Error>,
+    ) -> AppResult<Option<TextEdit>> {
         let mut manifest = self.context.project.declarations_manifest(&self.layer)?;
         let before = manifest.text().to_owned();
-        for edit in plan {
-            manifest.edit(edit)?;
-        }
+
+        let module = edit(&mut manifest)?;
         manifest.write()?;
         let after = manifest.text().to_owned();
         Ok((before != after).then(|| TextEdit {
             layer: self.layer.clone(),
             before,
             after,
+            module,
         }))
     }
 
-    /// Hold `edit` for an undo, which empties the redo stack.
+    /// Hold `edit` for an undo, which empties the redo stack. A new module the edit made
+    /// becomes the chosen one.
     fn remember(&mut self, edit: TextEdit) {
+        if let (DeclaredModuleChoice::New { .. }, Some(index)) = (&self.module, edit.module) {
+            self.module = DeclaredModuleChoice::Index { index };
+        }
         if self.undo.len() == UNDO_DEPTH {
             self.undo.pop_front();
         }
@@ -471,6 +733,27 @@ fn edits_on(module: &Module, chunk_hash: u64, entries: &[BinHash]) -> Vec<Edit> 
     }
 }
 
+/// What the object edit `object` of `entry` did, where the applied copy shows it: a creation
+/// the copy holds, or a removal of an object of the game's copy the applied one lacks.
+fn object_change(
+    entry: BinHash,
+    object: &ObjectEdit,
+    applied: &Bin,
+    game: &Bin,
+) -> Option<DeclaredObjectMark> {
+    let held = applied.objects.contains_key(&entry);
+    let change = match object {
+        ObjectEdit::Remove if !held && game.objects.contains_key(&entry) => ObjectChange::Removed,
+        ObjectEdit::Remove => return None,
+        _ if held => ObjectChange::Created,
+        _ => return None,
+    };
+    Some(DeclaredObjectMark {
+        entry: hex(entry),
+        change,
+    })
+}
+
 /// The marks one property edit leaves on `object`, the applied copy of `entry`.
 ///
 /// A set whose value is a block on a struct descends to the keys of the block, as the apply
@@ -480,6 +763,7 @@ fn marks_of(
     object: &BinObject,
     game: Option<&BinObject>,
     property: &PropertyEdit,
+    module: &Module,
     names: &RenderNames<'_>,
 ) -> Vec<DeclaredMark> {
     let block = match &property.value {
@@ -509,13 +793,16 @@ fn marks_of(
                 .ok()?;
                 Some(PropertyEdit { path, ..inner })
             })
-            .flat_map(|inner| marks_of(entry, object, game, &inner, names))
+            .flat_map(|inner| marks_of(entry, object, game, &inner, module, names))
             .collect();
     }
 
     vec![DeclaredMark {
         entry: hex(entry),
         path: wire_path(object, &property.path).unwrap_or_default(),
+        property: property.path.as_str().to_owned(),
+        module: module.origin.module_index,
+        module_name: module.name.as_ref().map(|name| name.as_str().to_owned()),
         sign: property.sign.into(),
         reference: property.value.reference().map(str::to_owned),
         whole: property.sign == Sign::Set
@@ -651,5 +938,7 @@ fn not_declared() -> BinDocumentError {
 mod copy;
 mod diagnostics;
 mod edits;
+mod links;
+mod objects;
 #[cfg(test)]
 mod tests;

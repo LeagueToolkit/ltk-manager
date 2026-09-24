@@ -226,6 +226,12 @@ project writes its edits as declarations — see ADR-0042. Not a **merge**, whic
 the mod ships.
 _Avoid_: patch, override
 
+**Module** — one item of a layer's `game_data.yaml` list of modules: an `entries` map of
+declarations by entry, or a `target` chunk with its edits, applied in list order. It may carry a
+`name`, which changes nothing about how it applies. A declared document writes its new keys to the
+module the reader chose, else to the last one naming the entry — see ADR-0048.
+_Avoid_: group, section
+
 **Game-copy reference** — a declaration's value spelled `!ref <entry>:<path>`, read from the game's
 copy of that entry at every build instead of copied into the mod. Not what Find references lists,
 which is the places a bin names an object, class or file.

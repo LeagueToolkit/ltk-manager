@@ -18,6 +18,7 @@ describe("classifyPatcherError", () => {
     ["WAD_LIMIT", m["error.OVERLAY.WAD_LIMIT.title"]()],
     ["CORRUPT", m["error.OVERLAY.CORRUPT.title"]()],
     ["BUG", m["error.OVERLAY.BUG.title"]()],
+    ["FILE_IN_USE", m["error.OVERLAY.FILE_IN_USE.title"]()],
     ["OTHER", m["error.OVERLAY.title"]()],
   ] as [OverlayErrorCategory, string][])("titles a %s failure", (category, title) => {
     expect(classifyPatcherError(overlayError(category, "chunk mismatch"))).toEqual({

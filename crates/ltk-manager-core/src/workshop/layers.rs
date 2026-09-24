@@ -264,13 +264,17 @@ impl ProjectDir {
     }
 }
 
-fn is_wad_entry(name: &str) -> bool {
+pub(super) fn is_wad_entry(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     lower.ends_with(".wad.client") || lower.ends_with(".wad") || lower.ends_with(".wad.mobile")
 }
 
 /// Extract a packed WAD file into `dst`, naming chunks through `resolver`.
-fn extract_wad_into_dir(src: &Path, dst: &Path, resolver: &impl PathResolver) -> AppResult<()> {
+pub(super) fn extract_wad_into_dir(
+    src: &Path,
+    dst: &Path,
+    resolver: &impl PathResolver,
+) -> AppResult<()> {
     fs::create_dir_all(dst)?;
 
     let file = fs::File::open(src)?;

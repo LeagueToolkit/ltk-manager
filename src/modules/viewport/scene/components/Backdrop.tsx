@@ -1,4 +1,4 @@
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
@@ -30,6 +30,7 @@ import {
 import { bindProgramTextures, createProgramMaterial } from "../../hexshade/programMaterial";
 import { programWith } from "../../hexshade/programTextures";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
+import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 import type { SunLight } from "../utils/sunLight";
 import {
@@ -52,6 +53,12 @@ const STONE = 0x9a958c;
 const INDICATOR_SHADER = /indicator/i;
 
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
+
+/* The buffers are 73 MiB on Summoner's Rift, so a viewport opening on a map another has
+   drawn draws the buffers that one uploaded rather than uploading them again. */
+const GEOMETRIES = createRetainedCache<MapGeometry, BufferGeometry>((geometry) =>
+  geometry.dispose(),
+);
 
 /** One material of the array, and what it has to be rebound to when its texture lands. */
 interface Bound {
@@ -128,21 +135,7 @@ export function Backdrop({
 }) {
   const clock = useThree((state) => state.clock);
   const held = useRef<Mesh>(null);
-  const geometry = useMemo(() => {
-    const held = new BufferGeometry();
-    held.setAttribute("position", new BufferAttribute(map.positions, 3));
-    held.setAttribute("normal", new BufferAttribute(map.normals, 3));
-    held.setAttribute("uv", new BufferAttribute(map.uv0, 2));
-    if (map.uv1 !== null) held.setAttribute("uv1", new BufferAttribute(map.uv1, 2));
-    held.setIndex(new BufferAttribute(map.indices, 1));
-    for (const [name, of] of PROGRAM_ATTRIBUTES) {
-      const attribute = held.getAttribute(of);
-      if (attribute !== undefined) held.setAttribute(name, attribute);
-    }
-    /* Over 2.04 million vertices, so it is computed with the geometry and never again. */
-    held.computeBoundingSphere();
-    return held;
-  }, [map]);
+  const geometry = useRetained(GEOMETRIES, map, () => mapGeometry(map));
 
   const colors = useMemo(() => ({ untextured: new Color(STONE), errored: new Color(STONE) }), []);
   const environment = useMemo(() => new EngineEnvironment(), []);
@@ -243,12 +236,12 @@ export function Backdrop({
   /* Written here rather than beside the array they index, because a render the fibre
      throws away would leave the geometry pointing into an array the mesh never took, and
      ThreeJS draws no group whose material index the array does not reach. */
-  useLayoutEffect(() => {
-    geometry.clearGroups();
-    for (const group of drawn.groups) {
-      geometry.addGroup(group.startIndex, group.indexCount, group.material);
-    }
-  }, [geometry, drawn]);
+  useLayoutEffect(() => writeGroups(geometry, drawn), [geometry, drawn]);
+  /* Another viewport of the same map shares the geometry and may have written its own
+     groups, so they are claimed back before a frame draws. */
+  useFrame(() => {
+    if (geometry.userData.drawn !== drawn) writeGroups(geometry, drawn);
+  });
 
   /* What each material was last bound to, so a wave of arrivals rebinds the few that
      moved rather than all 183 once a frame. Indexed by `bound`, because two entries of
@@ -284,7 +277,6 @@ export function Backdrop({
     }
   }, [bound, programTextures]);
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
   useEffect(() => () => materials.forEach((material) => material.dispose()), [materials]);
 
   return (
@@ -329,4 +321,30 @@ const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
 
 function isProgram(material: Bound["material"]): material is RawShaderMaterial {
   return (material as RawShaderMaterial).isRawShaderMaterial === true;
+}
+
+/** The whole map as one geometry, its groups written by whichever backdrop draws it. */
+function mapGeometry(map: MapGeometry): BufferGeometry {
+  const held = new BufferGeometry();
+  held.setAttribute("position", new BufferAttribute(map.positions, 3));
+  held.setAttribute("normal", new BufferAttribute(map.normals, 3));
+  held.setAttribute("uv", new BufferAttribute(map.uv0, 2));
+  if (map.uv1 !== null) held.setAttribute("uv1", new BufferAttribute(map.uv1, 2));
+  held.setIndex(new BufferAttribute(map.indices, 1));
+  for (const [name, of] of PROGRAM_ATTRIBUTES) {
+    const attribute = held.getAttribute(of);
+    if (attribute !== undefined) held.setAttribute(name, attribute);
+  }
+  /* Over 2.04 million vertices, so it is computed with the geometry and never again. */
+  held.computeBoundingSphere();
+  return held;
+}
+
+/** Point `geometry`'s groups at the runs `drawn` draws, and mark it as drawn's. */
+function writeGroups(geometry: BufferGeometry, drawn: Drawn): void {
+  geometry.clearGroups();
+  for (const group of drawn.groups) {
+    geometry.addGroup(group.startIndex, group.indexCount, group.material);
+  }
+  geometry.userData.drawn = drawn;
 }

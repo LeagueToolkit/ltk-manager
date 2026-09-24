@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { IconButton, Tooltip } from "@/components";
+import { m } from "@/i18n";
 
 import { contentEditors } from "../../documents";
 import { useWorkshopProjects } from "../../projects/api/useWorkshopProjects";
@@ -101,9 +102,9 @@ function useWalkHistory(): (delta: number) => void {
         return;
       }
 
-      /* A stop holds the directory, and the route takes the slug. */
+      /* A stop holds the directory, and the route takes the id. */
       const project = projects?.find((candidate) => candidate.path === entry.project);
-      if (project) openProject(project.name);
+      if (project) openProject(project.id);
 
       /* The store put the tab back. Where the stop names a directory inside an
          explorer, that is the other half of the same stop. */
@@ -123,7 +124,7 @@ interface ArrowProps {
 function Arrow({ direction, entry, onClick }: ArrowProps) {
   const title = useStopTitle(entry);
   const back = direction === "back";
-  const label = back ? "Back" : "Forward";
+  const label = back ? m.workshop_history_back_action() : m.workshop_history_forward_action();
 
   const button = (
     <IconButton
@@ -148,7 +149,11 @@ function Arrow({ direction, entry, onClick }: ArrowProps) {
 
   if (entry === null) return button;
 
-  return <Tooltip content={`${label} to ${title} (${back ? "Alt+←" : "Alt+→"})`}>{button}</Tooltip>;
+  const hint = back
+    ? m.workshop_history_back_hint({ title })
+    : m.workshop_history_forward_hint({ title });
+
+  return <Tooltip content={hint}>{button}</Tooltip>;
 }
 
 /** The directory a location stop names, and null at the source's own root. */
@@ -170,8 +175,8 @@ function useStopTitle(entry: HistoryEntry | null): string {
   const project = projects?.find((candidate) => candidate.path === stop?.project) ?? null;
   const editors = useMemo(() => (project ? contentEditors(project) : null), [project]);
 
-  if (entry === null || entry.kind === "list") return "the workshop";
-  if (!project || !editors || !document) return "where you were";
+  if (entry === null || entry.kind === "list") return m.workshop_history_workshop_label();
+  if (!project || !editors || !document) return m.workshop_history_unknown_label();
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
@@ -184,5 +189,7 @@ function useStopTitle(entry: HistoryEntry | null): string {
     ? (stopSegment(entry.location.path) ?? definition.label(document as never).title)
     : definition.label(document as never).title;
 
-  return project.path === here?.path ? title : `${title} in ${project.displayName}`;
+  return project.path === here?.path
+    ? title
+    : m.workshop_history_elsewhere_label({ title, project: project.displayName });
 }

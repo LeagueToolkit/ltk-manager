@@ -12,6 +12,7 @@ use specta::datatype::{DataType, Enum, Field, Variant};
 use ts_rs::TS;
 
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
+use ltk_manager_core::error::message_with_sources;
 pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
@@ -364,7 +365,7 @@ impl From<AppError> for AppErrorResponse {
             },
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),
-                detail: e.to_string(),
+                detail: message_with_sources(&e),
             },
             AppError::UntrustedDomain(domain) => Self::UntrustedDomain { domain },
         }

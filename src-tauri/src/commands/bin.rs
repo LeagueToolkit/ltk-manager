@@ -13,9 +13,9 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
-    AddableFields, BinDocumentHandle, BinDocumentId, BinDocuments, BinFindResult, BinRow, BinRows,
-    ClassChoice, DeclareContext, DeclaredState, GameCopy, LeafValue, NewItem, NewProperty,
-    ProjectNames, RowDeclaration, RowNames, ValueEdit,
+    BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow, BinRows,
+    ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice, DeclaredState, Declaring,
+    Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, RowDeclaration, RowNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -23,7 +23,7 @@ use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema, PatchSchema};
 use ltk_manager_core::object_index::{parse_hash, CacheNames, ObjectIndexSnapshot};
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
-use ltk_manager_core::workshop::ProjectDir;
+use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
 use tauri::{AppHandle, Manager};
 
 /// The window an object open reads its properties under: every one of them. A class
@@ -198,255 +198,55 @@ pub async fn bin_read(
     .await
 }
 
-/// Set one leaf of an open document, answering the value it held.
+/// Apply one edit to an open document, answering what the edit reports beside the change.
 ///
-/// `entry` is the object's hash as `0x` and eight hex digits, and `path` the wire form of
-/// the leaf's property path. Every id over the asset reads the edit. Nothing reaches the
-/// disk before [`bin_save`].
+/// Every id over the asset reads the edit, and nothing reaches the disk before [`bin_save`].
+/// ADR-0051.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_patch(
+pub async fn bin_edit(
     document: BinDocumentId,
-    entry: String,
-    path: String,
-    value: LeafValue,
+    edit: BinEdit,
     app_handle: AppHandle,
-) -> IpcResult<LeafValue> {
+) -> IpcResult<EditOutcome> {
     off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        Ok(app_handle
-            .state::<BinDocuments>()
-            .patch(document, entry, &path, value)?)
-    })
-    .await
-}
-
-/// Edit one property's subtree as one undoable declaration or binary change.
-///
-/// # Errors
-///
-/// Refuses closed or read-only documents, invalid edits, and failed declaration writes.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_edit_property(
-    document: BinDocumentId,
-    entry: String,
-    holder: String,
-    field: String,
-    edits: Vec<ValueEdit>,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
         let (schema, build) = installed_schema(&app_handle);
-        Ok(app_handle.state::<BinDocuments>().edit_property(
-            document,
-            entry,
-            &holder,
-            &field,
-            edits,
-            schema.at(build),
-        )?)
-    })
-    .await
-}
-
-/// The fields the holder at `path` of an open document can take, out of the meta schema.
-///
-/// `path` is empty for the object itself. The fields are the ones the holder's class and
-/// its bases declare at the install's build, less the ones the holder writes.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_addable_fields(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    app_handle: AppHandle,
-) -> IpcResult<AddableFields> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.addable_fields(entry, &path, schema.at(build))?)
-        })
-    })
-    .await
-}
-
-/// Add a property to the end of the holder at `path` of an open document.
-///
-/// A declared field starts at the schema's published default, and a custom one at its
-/// kind's zero value. Nothing reaches the disk before [`bin_save`].
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_add_property(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    property: NewProperty,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        let (schema, build) = installed_schema(&app_handle);
-        Ok(app_handle.state::<BinDocuments>().add_property(
-            document,
-            entry,
-            &path,
-            property,
-            schema.at(build),
-        )?)
-    })
-    .await
-}
-
-/// Take the property at `path` of an open document out of its holder.
-///
-/// The game reads the field's default in its place. Nothing reaches the disk before
-/// [`bin_save`].
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_remove_property(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        Ok(app_handle
+        app_handle
             .state::<BinDocuments>()
-            .remove_property(document, entry, &path)?)
+            .apply(document, edit, schema.at(build))
     })
     .await
 }
 
-/// The classes an item of the list, map or option at `path` can hold, or the pointer at it.
-///
-/// The classes its items hold come first, then the class the meta schema declares for the
-/// field at the install's build, then the classes deriving from that one.
+/// What an add line of an open document offers, out of the meta schema at the install's
+/// build. ADR-0051.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_item_classes(
+pub async fn bin_choices(
     document: BinDocumentId,
-    entry: String,
-    path: String,
+    query: ChoiceQuery,
     app_handle: AppHandle,
-) -> IpcResult<Vec<ClassChoice>> {
+) -> IpcResult<Choices> {
     off_thread(move || {
-        let entry = parse_entry(&entry)?;
         let (schema, build) = installed_schema(&app_handle);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.item_classes(entry, &path, schema.at(build))?)
-        })
-    })
-    .await
-}
-
-/// Put an item into the list, map or option at `path` of an open document, answering the
-/// new item's path.
-///
-/// An embed naming no class takes the class the holder holds or the meta schema declares.
-/// Nothing reaches the disk before [`bin_save`].
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_insert_item(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    item: NewItem,
-    app_handle: AppHandle,
-) -> IpcResult<String> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        let (schema, build) = installed_schema(&app_handle);
-        Ok(app_handle.state::<BinDocuments>().insert_item(
-            document,
-            entry,
-            &path,
-            item,
-            schema.at(build),
-        )?)
-    })
-    .await
-}
-
-/// Take the item at `path` of an open document out of its list, map or option.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_remove_item(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        Ok(app_handle
+        app_handle
             .state::<BinDocuments>()
-            .remove_item(document, entry, &path)?)
+            .choices(document, query, schema.at(build))
     })
     .await
 }
 
-/// Move the item at `path` of an open document to `to` in its list, answering its new path.
+/// The header's dependencies of an open document, as its rows draw them.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_move_item(
+pub async fn bin_dependencies(
     document: BinDocumentId,
-    entry: String,
-    path: String,
-    to: usize,
     app_handle: AppHandle,
-) -> IpcResult<String> {
+) -> IpcResult<Vec<Dependency>> {
     off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        Ok(app_handle
+        app_handle
             .state::<BinDocuments>()
-            .move_item(document, entry, &path, to)?)
-    })
-    .await
-}
-
-/// Set the key of the map entry at `path` of an open document, answering its new path.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_set_key(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    key: String,
-    app_handle: AppHandle,
-) -> IpcResult<String> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        Ok(app_handle
-            .state::<BinDocuments>()
-            .set_key(document, entry, &path, &key)?)
-    })
-    .await
-}
-
-/// Give the null pointer at `path` of an open document a class, or set a pointer to null
-/// where `class_name` is absent.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_set_pointer(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    class_name: Option<String>,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_entry(&entry)?;
-        Ok(app_handle.state::<BinDocuments>().set_pointer(
-            document,
-            entry,
-            &path,
-            class_name.as_deref(),
-        )?)
+            .read(document, |open| Ok(open.dependency_rows()))
     })
     .await
 }
@@ -467,12 +267,6 @@ pub async fn bin_roots(document: BinDocumentId, app_handle: AppHandle) -> IpcRes
         })
     })
     .await
-}
-
-/// An object hash as `0x` and eight hex digits, or the validation failure naming the text.
-fn parse_entry(text: &str) -> Result<ltk_hash::BinHash, AppError> {
-    parse_hash(text)
-        .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {text}")))
 }
 
 /// Write an open document's edits to its layer file, as a delta over the bytes it opened.
@@ -554,18 +348,53 @@ pub async fn bin_declared(
     .await
 }
 
-/// Write the edits that follow on a declared document to `layer`. ADR-0042.
+/// Write the edits that follow on a declared document to `module` of `layer`. ADR-0042,
+/// ADR-0048.
 #[tauri::command]
 #[specta::specta]
 pub async fn bin_declare_into(
     document: BinDocumentId,
     layer: String,
+    module: DeclaredModuleChoice,
     app_handle: AppHandle,
 ) -> IpcResult<DeclaredState> {
     off_thread(move || {
         Ok(app_handle
             .state::<BinDocuments>()
-            .declare_into(document, &layer)?)
+            .declare_into(document, &layer, module)?)
+    })
+    .await
+}
+
+/// Apply a module action to the manifest of `layer` of the project at `project_path`, with no
+/// document to undo it. ADR-0048.
+#[tauri::command]
+#[specta::specta]
+pub async fn declarations_module_action(
+    project_path: String,
+    layer: String,
+    action: ModuleAction,
+) -> IpcResult<()> {
+    off_thread(move || {
+        ProjectDir::open(&project_path)?.apply_module_action(&layer, &action)?;
+        Ok(())
+    })
+    .await
+}
+
+/// Take edits on a declared document as declarations, or refuse them, answering the gate
+/// it then stands behind. The project's "Use game data declarations". ADR-0042.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_set_declaring(
+    document: BinDocumentId,
+    declaring: Declaring,
+    app_handle: AppHandle,
+) -> IpcResult<Option<ReadOnly>> {
+    off_thread(move || {
+        Ok(app_handle
+            .state::<BinDocuments>()
+            .set_declaring(document, declaring)?)
     })
     .await
 }
@@ -589,28 +418,6 @@ pub async fn bin_row_declaration(
         app_handle.state::<BinDocuments>().read(document, |open| {
             Ok(open.row_declaration(entry, &path, &names)?)
         })
-    })
-    .await
-}
-
-/// Declare the row at `path` under `entry` of a declared document as `reference`, a game-copy
-/// reference, or with `merge` add it to the row's list or map. ADR-0042.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_declare_reference(
-    document: BinDocumentId,
-    entry: String,
-    path: String,
-    reference: String,
-    merge: bool,
-    app_handle: AppHandle,
-) -> IpcResult<()> {
-    off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        Ok(app_handle
-            .state::<BinDocuments>()
-            .declare_reference(document, entry, &path, &reference, merge)?)
     })
     .await
 }

@@ -4,6 +4,7 @@ import { DocumentToolbarSlotContext } from "@/modules/editor";
 import { useSidebarView } from "@/stores";
 
 import { ContentSidebar, type ContentSidebarProps } from "../../content/components/ContentSidebar";
+import { DeclarationsView } from "../../declarations";
 import { objectsDocument, problemsDocument } from "../../documents";
 import { ObjectsDocument } from "../../objectsBrowser";
 import { ProblemsDocument } from "../../problems";
@@ -66,6 +67,7 @@ function SidebarBody(props: ContentSidebarProps) {
     return <ProblemsDocument document={problemsDocument()} active />;
   }
   if (view === "objects") return <ObjectsDocument document={objectsDocument()} active />;
+  if (view === "declarations") return <DeclarationsView />;
   if (view === "game") return <GameIndexView />;
   if (view === "source") return <SourceControlView />;
   return <ContentSidebar {...props} />;

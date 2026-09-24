@@ -32,6 +32,7 @@ function twoDocumentState(): PersistedProjectEditor {
     layout,
     activeLeafId: layout.id,
     selectedLayer: "base",
+    selectedModule: null,
     previewIds: {},
     pinned: [],
     shells: defaultShellArrangements(),
@@ -40,12 +41,41 @@ function twoDocumentState(): PersistedProjectEditor {
 
 describe("editorFile", () => {
   describe("round trip", () => {
+    it("carries the chosen module, and reads a mis-shaped one as none", () => {
+      const chosen = {
+        ...twoDocumentState(),
+        selectedModule: { layer: "base", kind: "new", name: "Glow" } as const,
+      };
+      expect(parseEditorFile(serializeEditorFile(chosen))).toEqual({ kind: "ok", state: chosen });
+
+      const raw = JSON.parse(serializeEditorFile(chosen)) as Record<string, unknown>;
+      raw.selectedModule = { layer: "base", kind: "index", index: -1 };
+      expect(parseEditorFile(JSON.stringify(raw))).toEqual({
+        kind: "ok",
+        state: { ...chosen, selectedModule: null },
+      });
+    });
+
     it("parses back what serializeEditorFile wrote", () => {
       const state = twoDocumentState();
 
       const parsed = parseEditorFile(serializeEditorFile(state));
 
       expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("carries the project's declarations choice across a reload", () => {
+      const state = { ...twoDocumentState(), useDeclarations: false };
+
+      const parsed = parseEditorFile(serializeEditorFile(state));
+
+      expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("leaves the declarations choice unmade in a file that never wrote one", () => {
+      const parsed = parseEditorFile(serializeEditorFile(twoDocumentState()));
+
+      expect(parsed.kind === "ok" && "useDeclarations" in parsed.state).toBe(false);
     });
 
     it("carries visual recipes across a project reload and drops malformed recipes", () => {
@@ -370,6 +400,12 @@ describe("editorFile", () => {
       });
 
       expect(state?.previewIds).toEqual({ [layout.id]: "details" });
+    });
+
+    it("drops a declarations choice that is not a boolean", () => {
+      const state = sanitizeEditorState({ ...twoDocumentState(), useDeclarations: "yes" });
+
+      expect(state).not.toHaveProperty("useDeclarations");
     });
 
     it("completes an entry that lost fields rather than crashing on it", () => {

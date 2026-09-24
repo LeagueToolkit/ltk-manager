@@ -72,13 +72,15 @@ import type {
   WorkshopProject,
 } from "@/lib/bindings";
 import type {
+  BinEdit,
+  ChoiceQuery,
+  ConvertFolderArgs,
+  Declaring,
   IntegrationAction,
   MenuConflictPolicy,
   Tool,
-  LeafValue,
-  NewItem,
-  NewProperty,
-  ValueEdit,
+  DeclaredModuleChoice,
+  ModuleAction,
   ProjectTextFile,
   ReferenceQuery,
   Revision,
@@ -110,6 +112,7 @@ export type {
   AddableFields,
   BinDocumentHandle,
   BinDocumentId,
+  BinEdit,
   BinFileKind,
   BinFindHit,
   BinFindResult,
@@ -118,22 +121,38 @@ export type {
   BinRow,
   BinRows,
   BinValue,
+  ChoiceQuery,
+  Choices,
   ClassChoice,
   ClassSchema,
   DeclaredDiagnostic,
   DeclaredDiagnosticKind,
   DeclaredKind,
+  DeclaredLinkMark,
   DeclaredMark,
+  DeclaredModuleChoice,
+  DeclaredModuleSummary,
+  DeclaredObjectMark,
   DeclaredSign,
   DeclaredState,
+  Declaring,
+  Dependency,
+  DependencyEdit,
+  EditOutcome,
   EditRejection,
   FieldRevision,
   FieldSchema,
   KindShape,
   LeafValue,
+  LinkChange,
+  ModuleAction,
   NewItem,
+  NewObject,
   NewProperty,
+  ObjectChange,
+  ObjectEdit,
   ObjectName,
+  ObjectSkip,
   PropertyKind,
   ReadOnly,
   RowDeclaration,
@@ -171,6 +190,18 @@ export type {
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
 export type { IgnoreRules } from "@/lib/bindings.gen";
+// The opened project folders' types, per ADR-0029.
+export type {
+  AddFoldersReport,
+  ConvertFolderArgs,
+  ConvertPlacement,
+  FantomeFolder,
+  FolderFailure,
+  FolderInspection,
+  FolderWad,
+  OpenedProjectFolder,
+  ProjectLocation,
+} from "@/lib/bindings.gen";
 // The shader pipeline's types, per ADR-0029.
 export type {
   Attribute,
@@ -206,6 +237,17 @@ export type {
   Winding,
 } from "@/lib/bindings.gen";
 export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen";
+// A project's declarations outline, per ADR-0029.
+export type {
+  DeclarationsLayer,
+  DeclarationsLoadError,
+  DeclaredEntry,
+  DeclaredKey,
+  DeclaredModule,
+  DeclaredObjectEdit,
+  LineSpan,
+  ModuleSelector,
+} from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // The skin preview's types, per ADR-0029.
@@ -553,50 +595,23 @@ export const api = {
       commands.binRead(document, entry, [...paths]).then(toResult),
     find: (document: BinDocumentId, entry: string | null, query: string) =>
       commands.binFind(document, entry, query).then(toResult),
-    patch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) =>
-      commands.binPatch(document, entry, path, value).then(toResult),
-    editProperty: (
-      document: BinDocumentId,
-      entry: string,
-      holder: string,
-      field: string,
-      edits: ValueEdit[],
-    ) => commands.binEditProperty(document, entry, holder, field, edits).then(toResult),
+    edit: (document: BinDocumentId, edit: BinEdit) =>
+      commands.binEdit(document, edit).then(toResult),
+    choices: (document: BinDocumentId, query: ChoiceQuery) =>
+      commands.binChoices(document, query).then(toResult),
     save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
     reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
     undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
     redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
     declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
-    declareInto: (document: BinDocumentId, layer: string) =>
-      commands.binDeclareInto(document, layer).then(toResult),
+    declareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) =>
+      commands.binDeclareInto(document, layer, module).then(toResult),
+    setDeclaring: (document: BinDocumentId, declaring: Declaring) =>
+      commands.binSetDeclaring(document, declaring).then(toResult),
     rowDeclaration: (document: BinDocumentId, entry: string, path: string) =>
       commands.binRowDeclaration(document, entry, path).then(toResult),
-    declareReference: (
-      document: BinDocumentId,
-      entry: string,
-      path: string,
-      reference: string,
-      merge: boolean,
-    ) => commands.binDeclareReference(document, entry, path, reference, merge).then(toResult),
     roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
-    addableFields: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binAddableFields(document, entry, path).then(toResult),
-    addProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) =>
-      commands.binAddProperty(document, entry, path, property).then(toResult),
-    removeProperty: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRemoveProperty(document, entry, path).then(toResult),
-    itemClasses: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binItemClasses(document, entry, path).then(toResult),
-    insertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) =>
-      commands.binInsertItem(document, entry, path, item).then(toResult),
-    removeItem: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRemoveItem(document, entry, path).then(toResult),
-    moveItem: (document: BinDocumentId, entry: string, path: string, to: number) =>
-      commands.binMoveItem(document, entry, path, to).then(toResult),
-    setKey: (document: BinDocumentId, entry: string, path: string, key: string) =>
-      commands.binSetKey(document, entry, path, key).then(toResult),
-    setPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) =>
-      commands.binSetPointer(document, entry, path, className).then(toResult),
+    dependencies: (document: BinDocumentId) => commands.binDependencies(document).then(toResult),
     close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
     classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>
@@ -692,12 +707,33 @@ export const api = {
       commands.addRecommendedIgnoreRules(projectPath).then(toResult),
   },
 
+  // Folders opened as projects from anywhere on disk, on tauri-specta.
+  projectFolders: {
+    inspect: (path: string) => commands.inspectProjectFolder(path).then(toResult),
+    open: (path: string) => commands.openProjectFolder(path).then(toResult),
+    recordOpened: (path: string) => commands.recordProjectOpened(path).then(toResult),
+    list: () => commands.getOpenedProjectFolders().then(toResult),
+    forget: (path: string) => commands.forgetProjectFolder(path).then(toResult),
+    relocate: (oldPath: string, newPath: string) =>
+      commands.relocateProjectFolder(oldPath, newPath).then(toResult),
+    convert: (args: ConvertFolderArgs) => commands.convertFolderToProject(args).then(toResult),
+    addAll: (paths: readonly string[]) => commands.addProjectFolders([...paths]).then(toResult),
+  },
+
   // A project's root text files, on tauri-specta.
   projectText: {
     read: (projectPath: string, file: ProjectTextFile) =>
       commands.getProjectText(projectPath, file).then(toResult),
     save: (projectPath: string, file: ProjectTextFile, text: string, expected: Revision | null) =>
       commands.saveProjectText(projectPath, file, text, expected).then(toResult),
+  },
+
+  // A project's game data declarations, on tauri-specta.
+  declarations: {
+    outline: (projectPath: string) => commands.declarationsOutline(projectPath).then(toResult),
+    /** A module action with no document to undo it, for a view of the manifest itself. */
+    moduleAction: (projectPath: string, layer: string, action: ModuleAction) =>
+      commands.declarationsModuleAction(projectPath, layer, action).then(toResult),
   },
 
   // Workshop

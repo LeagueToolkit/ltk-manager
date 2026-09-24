@@ -11,6 +11,7 @@ import {
 
 import { assetKey } from "../../../preview/utils/assetRef";
 import { noteRefused, queueForSave } from "../../../state";
+import { type Reopen, useDocumentCall } from "../../documents/hooks/useDocumentCall";
 import { rowKey } from "../utils/binRows";
 import type { TypedLeaf } from "../utils/leafText";
 
@@ -29,10 +30,23 @@ export interface LeafEdit {
 /** Leaf edits for layouts without tree navigation or structural actions. */
 export const LeafEditContext = createContext<LeafEdit | null>(null);
 
-/** Validated document mutations shared by the tree and class inspectors. */
-export function useLeafEdit(document: BinDocumentId, asset: AssetRef, invalidate: () => void) {
+export type { Reopen };
+
+/**
+ * Validated document mutations shared by the tree and class inspectors.
+ *
+ * Every edit goes through `useDocumentCall`, so one the store refuses as not open is sent
+ * once more on a fresh id. `reopen` overrides the enclosing tab's.
+ */
+export function useLeafEdit(
+  document: BinDocumentId,
+  asset: AssetRef,
+  invalidate: () => void,
+  reopen?: Reopen,
+) {
   const [refused, setRefused] = useState<ReadonlyMap<string, AppError>>(new Map());
   const key = assetKey(asset);
+  const send = useDocumentCall(document, reopen);
 
   const mark = useCallback((at: string, error: AppError | null) => {
     setRefused((previous) => {
@@ -51,10 +65,13 @@ export function useLeafEdit(document: BinDocumentId, asset: AssetRef, invalidate
     });
   }, []);
 
-  const landed = useCallback(() => {
-    queueForSave(key, document);
-    invalidate();
-  }, [document, invalidate, key]);
+  const landed = useCallback(
+    (id: BinDocumentId) => {
+      queueForSave(key, id);
+      invalidate();
+    },
+    [invalidate, key],
+  );
 
   const commit = useCallback(
     async (row: BinRow, typed: TypedLeaf) => {
@@ -65,64 +82,78 @@ export function useLeafEdit(document: BinDocumentId, asset: AssetRef, invalidate
         return false;
       }
 
-      const result = await api.bin.patch(document, row.entry, row.path, typed.leaf);
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, { kind: "patch", entry: row.entry, path: row.path, value: typed.leaf }),
+      );
       mark(at, result.ok ? null : result.error);
       if (!result.ok) {
         noteRefused(key);
         return false;
       }
 
-      landed();
+      landed(id);
       return true;
     },
-    [document, key, landed, mark],
+    [key, landed, mark, send],
   );
 
   const editProperty = useCallback(
     async (holder: BinRow, field: string, edits: ValueEdit[]) => {
-      const result = await api.bin.editProperty(document, holder.entry, holder.path, field, edits);
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, {
+          kind: "editProperty",
+          entry: holder.entry,
+          holder: holder.path,
+          field,
+          edits,
+        }),
+      );
       mark(rowKey(holder), result.ok ? null : result.error);
       if (!result.ok) {
         noteRefused(key);
         return false;
       }
 
-      landed();
+      landed(id);
       return true;
     },
-    [document, key, landed, mark],
+    [key, landed, mark, send],
   );
 
   const removeItem = useCallback(
     async (row: BinRow) => {
-      const result = await api.bin.removeItem(document, row.entry, row.path);
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, { kind: "removeItem", entry: row.entry, path: row.path }),
+      );
       mark(rowKey(row), result.ok ? null : result.error);
       if (!result.ok) {
         noteRefused(key);
         return false;
       }
 
-      landed();
+      landed(id);
       return true;
     },
-    [document, key, landed, mark],
+    [key, landed, mark, send],
   );
 
   const setPointer = useCallback(
     async (holder: BinRow, field: string, className: string | null) => {
       const path = [holder.path, field.slice(2)].filter(Boolean).join(".");
-      const result = await api.bin.setPointer(document, holder.entry, path, className);
+      const { result, id } = await send((id) =>
+        api.bin.edit(id, { kind: "setPointer", entry: holder.entry, path, className }),
+      );
       mark(`${holder.entry}:${path}`, result.ok ? null : result.error);
       if (!result.ok) {
         noteRefused(key);
         return false;
       }
 
-      landed();
+      landed(id);
       return true;
     },
-    [document, key, landed, mark],
+    [key, landed, mark, send],
   );
 
-  return { commit, refused, mark, landed, editProperty, removeItem, setPointer };
+  return { commit, refused, mark, landed, send, editProperty, removeItem, setPointer };
 }

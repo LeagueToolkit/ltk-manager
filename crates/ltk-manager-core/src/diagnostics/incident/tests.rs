@@ -154,7 +154,7 @@ fn a_build_failure_is_the_whole_story() {
 /// rebuild hint stays only where nothing more specific is known.
 #[test]
 fn a_build_failure_hints_at_the_category_remedy() {
-    let cases: [(Option<OverlayErrorCategory>, &[Hint]); 5] = [
+    let cases: [(Option<OverlayErrorCategory>, &[Hint]); 6] = [
         (Some(OverlayErrorCategory::GameDir), &[Hint::CheckGamePath]),
         (
             Some(OverlayErrorCategory::Corrupt),
@@ -168,6 +168,7 @@ fn a_build_failure_hints_at_the_category_remedy() {
             Some(OverlayErrorCategory::ModContent),
             &[Hint::RebuildOverlay],
         ),
+        (Some(OverlayErrorCategory::FileInUse), &[Hint::CloseGame]),
         (None, &[Hint::RebuildOverlay]),
     ];
 
@@ -1384,8 +1385,9 @@ fn a_hint_has_one_spelling_and_one_number() {
     assert_eq!(Hint::code(Hint::RebuildOverlay), 3);
     assert_eq!(Hint::code(Hint::CheckGamePath), 4);
     assert_eq!(Hint::code(Hint::LargeTextures), 19);
+    assert_eq!(Hint::code(Hint::CloseGame), 20);
     assert_eq!(Hint::from_code(0), None);
-    assert_eq!(Hint::from_code(20), None);
+    assert_eq!(Hint::from_code(21), None);
 }
 
 /// An incident stored by an earlier build holds each hint as a sentence, and

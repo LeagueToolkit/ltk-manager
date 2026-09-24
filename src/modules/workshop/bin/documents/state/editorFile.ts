@@ -24,6 +24,23 @@ import {
 } from "../../shell/utils/shellPanes";
 import { type AbilityRecipe, readAbilities } from "../../spells/utils/abilityRecipe";
 
+/**
+ * The module of one layer's `game_data.yaml` that a declared document's new keys join, by its
+ * index, or a new one the next edit makes. ADR-0048.
+ */
+export type SelectedModule =
+  | { readonly layer: string; readonly kind: "index"; readonly index: number }
+  | { readonly layer: string; readonly kind: "new"; readonly name: string | null };
+
+/** Whether two stored module choices are the same choice. */
+export function sameSelectedModule(a: SelectedModule | null, b: SelectedModule | null): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.layer !== b.layer) return false;
+  if (a.kind === "index" && b.kind === "index") return a.index === b.index;
+  if (a.kind === "new" && b.kind === "new") return a.name === b.name;
+  return false;
+}
+
 /** The slice of one project's editor that survives a restart. */
 export interface PersistedProjectEditor {
   abilities?: readonly AbilityRecipe[];
@@ -31,6 +48,10 @@ export interface PersistedProjectEditor {
   layout: LayoutNode;
   activeLeafId: string;
   selectedLayer: string | null;
+  /** The project's "Use game data declarations" choice, absent until the reader makes one. */
+  useDeclarations?: boolean;
+  /** Null for the default placement. Absent in a file written before modules were chosen. */
+  selectedModule?: SelectedModule | null;
   /** Each group's ephemeral tab, as leaf id to document id. Empty where none holds one. */
   previewIds: PreviewIds;
   /** The pinned documents, which lead the strip that holds them. */
@@ -79,6 +100,8 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       layout: state.layout,
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
+      useDeclarations: state.useDeclarations,
+      selectedModule: state.selectedModule ?? null,
       previewIds: state.previewIds,
       pinned: state.pinned,
       shells: state.shells,
@@ -170,11 +193,25 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     layout,
     activeLeafId,
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
+    ...(typeof entry.useDeclarations === "boolean"
+      ? { useDeclarations: entry.useDeclarations }
+      : {}),
+    selectedModule: readSelectedModule(entry.selectedModule),
     previewIds: readPreviewIds(entry, layout),
     pinned,
     shells: sanitizeShells(entry),
     ...(entry.abilities === undefined ? {} : { abilities: readAbilities(entry.abilities) }),
   };
+}
+
+const selectedModuleSchema = z.discriminatedUnion("kind", [
+  z.object({ layer: z.string(), kind: z.literal("index"), index: z.number().int().nonnegative() }),
+  z.object({ layer: z.string(), kind: z.literal("new"), name: z.string().min(1).nullable() }),
+]) satisfies z.ZodType<SelectedModule>;
+
+/** The chosen module out of an untrusted entry, null where it is absent or mis-shaped. */
+function readSelectedModule(value: unknown): SelectedModule | null {
+  return selectedModuleSchema.safeParse(value).success ? (value as SelectedModule) : null;
 }
 
 /**

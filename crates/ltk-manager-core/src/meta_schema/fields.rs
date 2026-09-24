@@ -96,6 +96,21 @@ impl MetaSchema {
             .find(|declared| declared.field == field)
     }
 
+    /// Every class the database knows, at any build, sorted by name. An unnamed class sorts
+    /// last.
+    #[must_use]
+    pub fn classes(&self) -> Vec<BinHash> {
+        let mut classes: Vec<_> = self
+            .classes
+            .iter()
+            .map(|(class, parsed)| (*class, parsed.name.as_deref()))
+            .collect();
+        classes.sort_by_cached_key(|(class, name)| {
+            (name.is_none(), name.map(str::to_lowercase), class.0)
+        });
+        classes.into_iter().map(|(class, _)| class).collect()
+    }
+
     /// Every class deriving from `class` through any number of bases, sorted by name.
     ///
     /// Read at `build` as [`MetaSchema::declared_fields`] reads it. An unnamed class sorts
@@ -170,5 +185,11 @@ impl<'a> SchemaAt<'a> {
     #[must_use]
     pub fn derived_classes(self, class: BinHash) -> Vec<BinHash> {
         self.schema.derived_classes(class, self.build)
+    }
+
+    /// Every class the database knows. See [`MetaSchema::classes`].
+    #[must_use]
+    pub fn classes(self) -> Vec<BinHash> {
+        self.schema.classes()
     }
 }

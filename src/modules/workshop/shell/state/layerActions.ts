@@ -1,10 +1,13 @@
+import { type SelectedModule, sameSelectedModule } from "../../bin/documents/state/editorFile";
 import type { EditorSet } from "./editorRoot";
 import { NO_COLLAPSED_DIRS } from "./projectEditor";
 import { setProject } from "./projectUpdate";
 
-/** What the layer panels read: the selected layer, the shut directories, a scroll. */
+/** What the layer panels read: the selected layer and module, the shut directories, a scroll. */
 export interface LayerActions {
   selectLayer: (projectPath: string, layerName: string) => void;
+  setUseDeclarations: (projectPath: string, on: boolean) => void;
+  selectModule: (projectPath: string, selected: SelectedModule | null) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
   openDirs: (projectPath: string, layerName: string, paths: readonly string[]) => void;
   reveal: (projectPath: string, layerName: string, path: string) => void;
@@ -16,6 +19,18 @@ export function createLayerActions(set: EditorSet): LayerActions {
     selectLayer: (projectPath, layerName) =>
       setProject(set, projectPath, (editor) =>
         editor.selectedLayer === layerName ? null : { ...editor, selectedLayer: layerName },
+      ),
+
+    setUseDeclarations: (projectPath, on) =>
+      setProject(set, projectPath, (editor) =>
+        editor.useDeclarations === on ? null : { ...editor, useDeclarations: on },
+      ),
+
+    selectModule: (projectPath, selected) =>
+      setProject(set, projectPath, (editor) =>
+        sameSelectedModule(editor.selectedModule, selected)
+          ? null
+          : { ...editor, selectedModule: selected },
       ),
 
     toggleCollapsed: (projectPath, layerName, path) =>

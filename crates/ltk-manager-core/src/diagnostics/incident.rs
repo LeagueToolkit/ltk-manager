@@ -1405,6 +1405,8 @@ pub enum Hint {
     /// A modded archive was in the game, and a texture far larger than what it
     /// replaces raises the odds of an allocation failing.
     LargeTextures,
+    /// An overlay file was held open, usually by a game still running.
+    CloseGame,
 }
 
 impl Hint {
@@ -1430,6 +1432,7 @@ impl Hint {
             Self::Elevate => 17,
             Self::Signature => 18,
             Self::LargeTextures => 19,
+            Self::CloseGame => 20,
         }
     }
 

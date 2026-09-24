@@ -215,6 +215,9 @@ pub struct Settings {
     /// When starting in tray, show the window if an update is available. Default: false.
     #[serde(default)]
     pub start_in_tray_unless_update: bool,
+    /// Whether a release downloads as soon as a check finds it, to install at quit. Default: true.
+    #[serde(default = "default_true")]
+    pub auto_download_updates: bool,
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
@@ -299,6 +302,7 @@ impl Default for Settings {
             start_in_tray: false,
             auto_run: false,
             start_in_tray_unless_update: false,
+            auto_download_updates: true,
             always_start_patcher: false,
             open_on: OpenOn::default(),
             launch_mode: LaunchMode::default(),

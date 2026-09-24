@@ -2,6 +2,7 @@ import { WarningIcon } from "@phosphor-icons/react";
 import { type ReactNode, useCallback, useRef } from "react";
 import { create } from "zustand";
 
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { Button } from "./Button";
@@ -30,6 +31,8 @@ export interface ConfirmDialogProps {
   onConfirm: () => void;
   /** Whether the answer is still being acted on, which spins the confirm button. */
   pending?: boolean;
+  /** Hold the confirm button until the reader has done what the body asks. */
+  confirmDisabled?: boolean;
   tone?: ConfirmTone;
   /** The glyph beside the heading. */
   icon?: ReactNode;
@@ -51,9 +54,10 @@ export function ConfirmDialog({
   heading,
   description,
   confirmLabel,
-  cancelLabel = "Cancel",
+  cancelLabel = m.common_cancel_action(),
   onConfirm,
   pending,
+  confirmDisabled = false,
   tone = "danger",
   icon,
   size = "sm",
@@ -91,7 +95,7 @@ export function ConfirmDialog({
         <Button variant="ghost" onClick={onClose} disabled={pending}>
           {cancelLabel}
         </Button>
-        <Button variant="danger" onClick={onConfirm} loading={pending}>
+        <Button variant="danger" onClick={onConfirm} loading={pending} disabled={confirmDisabled}>
           {confirmLabel}
         </Button>
       </Dialog.Footer>

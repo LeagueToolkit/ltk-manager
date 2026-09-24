@@ -1,8 +1,9 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
-    AddFilesReport, ContentTree, CreateProjectArgs, FantomePeekResult, IgnoreRules,
-    ImportFantomeArgs, ImportGitRepoArgs, PackProjectArgs, PackResult, ProjectText,
+    AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, CreateProjectArgs,
+    DeclarationsLayer, FantomePeekResult, FolderInspection, IgnoreRules, ImportFantomeArgs,
+    ImportGitRepoArgs, OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText,
     ProjectTextFile, Revision, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
     WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
 };
@@ -37,8 +38,98 @@ pub fn create_workshop_project(
 pub fn get_workshop_project(
     project_path: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.get_project(&project_path).into()
+    let config = settings.config();
+    workshop.0.get_project(&config, &project_path).into()
+}
+
+/// Classify a folder picked with Open folder.
+#[tauri::command]
+#[specta::specta]
+pub fn inspect_project_folder(
+    path: String,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+) -> IpcResult<FolderInspection> {
+    let config = settings.config();
+    workshop.0.inspect_folder(&config, &path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn open_project_folder(
+    path: String,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+) -> IpcResult<WorkshopProject> {
+    let config = settings.config();
+    workshop.0.open_folder(&config, &path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn record_project_opened(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
+    workshop.0.record_opened(&path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_opened_project_folders(
+    workshop: State<WorkshopState>,
+) -> IpcResult<Vec<OpenedProjectFolder>> {
+    IpcResult::Ok {
+        value: workshop.0.opened_folders(),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn forget_project_folder(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
+    workshop.0.forget_folder(&path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn relocate_project_folder(
+    old_path: String,
+    new_path: String,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+) -> IpcResult<WorkshopProject> {
+    let config = settings.config();
+    workshop
+        .0
+        .relocate_folder(&config, &old_path, &new_path)
+        .into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn convert_folder_to_project(
+    args: ConvertFolderArgs,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
+) -> IpcResult<WorkshopProject> {
+    let config = settings.config();
+    let resolver = resolvers.get();
+    workshop.0.convert_folder(&config, args, &resolver).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_project_folders(
+    paths: Vec<String>,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
+) -> IpcResult<AddFoldersReport> {
+    let config = settings.config();
+    let resolver = resolvers.get();
+    IpcResult::Ok {
+        value: workshop.0.add_folders(&config, paths, &resolver),
+    }
 }
 
 #[tauri::command]
@@ -143,13 +234,33 @@ pub fn save_project_text(
         .into()
 }
 
+/// Every layer's declarations manifest as modules, entries and keys, in build order.
+#[tauri::command]
+#[specta::specta]
+pub fn declarations_outline(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<Vec<DeclarationsLayer>> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.declarations_outline())
+        .into()
+}
+
 #[tauri::command]
 pub fn rename_workshop_project(
     project_path: String,
     new_name: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.rename_project(&project_path, &new_name).into()
+    let config = settings.config();
+    workshop
+        .0
+        .rename_project(&project_path, &new_name)
+        .map(|project| workshop.0.describe(&config, project))
+        .into()
 }
 
 #[tauri::command]

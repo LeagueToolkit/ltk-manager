@@ -113,6 +113,9 @@
   "settings_target_copy_link_action": "Copy link",
   "settings_target_id_label": "ID",
   "settings_target_link_label": "link",
+  "settings_updates_auto_download_description": "A new version downloads in the background and installs when you quit LTK Manager. When off, it downloads only when you press Update Now.",
+  "settings_updates_auto_download_title": "Download updates automatically",
+  "settings_updates_title": "Updates",
   "settings_welcome_description": "To get started, please configure your League of Legends installation path below. You can use auto-detection or browse to the folder manually.",
   "settings_welcome_title": "Welcome to LTK Manager!"
 }

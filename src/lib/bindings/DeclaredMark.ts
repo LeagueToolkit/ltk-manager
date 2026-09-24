@@ -12,7 +12,15 @@ entry: string,
 /**
  * The row's path on the wire. Empty where the declared path reaches no row.
  */
-path: string, sign: DeclaredSign, 
+path: string, 
+/**
+ * The property path the declaration names, as a module action takes it.
+ */
+property: string, 
+/**
+ * The index of the module holding the declaration.
+ */
+module: number, moduleName: string | null, sign: DeclaredSign, 
 /**
  * The declaration sets a whole list or map, which no later change of the game's reaches.
  */

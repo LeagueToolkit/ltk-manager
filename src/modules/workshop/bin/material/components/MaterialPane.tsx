@@ -1,20 +1,23 @@
-import { CaretDownIcon, CheckIcon, PaintBrushIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 
-import { Button, Menu } from "@/components";
-import { m } from "@/i18n";
-import type { BinRow, SkinModel } from "@/lib/tauri";
+import { Button, HexshadeIcon, Menu } from "@/components";
+import { errorSummary, m } from "@/i18n";
+import type { AssetRef, BinRow, SkinModel } from "@/lib/tauri";
 import { usePreviewShaders, useSetPreviewDisplay } from "@/stores";
 
 import { AlsoCheck, type ViewContext } from "../../classes/components/ClassCells";
 import { Sections } from "../../classes/components/ClassSections";
 import { useLayoutRead } from "../../classes/hooks/useLayoutRead";
 import { materialLayout, placeRows } from "../../classes/utils/classLayouts";
-import { useBinRead } from "../../documents/hooks/useBinRead";
+import { useBinDocument } from "../../documents/hooks/useBinDocument";
+import { useBinReadState } from "../../documents/hooks/useBinRead";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { SkinChoiceContext } from "../../skin/state/skinChoice";
+import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
+import { LeafEditContext, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { objectKey, PAGE_SIZE } from "../../tree/utils/binRows";
 import { Notice } from "../../vfx/preview/components/Notice";
 
@@ -25,6 +28,8 @@ export interface SkinMaterial {
   readonly hash: string;
   /** The material's path, or its hash where no table names it. */
   readonly name: string;
+  /** The linked file declaring the material, and null where the skin's own file does. */
+  readonly source: AssetRef | null;
 }
 
 /** Every material `skin` draws with and the file declares, the body's first. */
@@ -32,7 +37,11 @@ export function skinMaterials(skin: SkinModel): SkinMaterial[] {
   const seen = new Map<string, SkinMaterial>();
   for (const material of [skin.material, ...skin.overrides.map((each) => each.material)]) {
     if (material === null || material.missing || seen.has(material.hash)) continue;
-    seen.set(material.hash, { hash: material.hash, name: material.name ?? material.hash });
+    seen.set(material.hash, {
+      hash: material.hash,
+      name: material.name ?? material.hash,
+      source: material.source ?? null,
+    });
   }
   return [...seen.values()];
 }
@@ -100,16 +109,67 @@ export function MaterialPane({ view, entry }: MaterialPaneProps) {
         />
         <ShadersHint />
       </div>
-      <MaterialSections key={current} view={view} entry={current} />
+      <MaterialSections
+        key={current}
+        view={view}
+        entry={current}
+        source={materials.find((each) => each.hash === current)?.source ?? null}
+      />
     </div>
   );
 }
 
+interface MaterialSectionsProps {
+  view: ViewContext;
+  entry: string;
+  /** The linked file declaring the material, and null where the view's own document does. */
+  source: AssetRef | null;
+}
+
+/** The sections of the material `entry`, read out of the document that declares it. */
+function MaterialSections({ view, entry, source }: MaterialSectionsProps) {
+  if (source === null) return <MaterialRows view={view} entry={entry} />;
+  return <LinkedMaterialRows view={view} entry={entry} source={source} />;
+}
+
+/**
+ * The material out of the linked file declaring it, held open beside the skin's own, with
+ * edits of its own that land in that file.
+ */
+function LinkedMaterialRows({ view, entry, source }: MaterialSectionsProps & { source: AssetRef }) {
+  const { state, reopen } = useBinDocument(source, entry);
+  const editable = use(LeafEditContext) !== null;
+  const invalidate = useInvalidateBinReads();
+  const document = state.status === "open" ? state.handle.document : null;
+  const edits = useLeafEdit(document ?? view.document, source, invalidate, reopen);
+  const linked = useMemo<ViewContext | null>(
+    () => (document === null ? null : { ...view, document, asset: source, onNotOpen: reopen }),
+    [view, document, source, reopen],
+  );
+
+  if (state.status === "failed") return <Notice text={errorSummary(state.error)} />;
+  if (state.status !== "open" || linked === null) {
+    return <Notice text={m.workshop_bin_material_preview_loading_label()} />;
+  }
+
+  const writable = editable && state.handle.readOnly === null;
+  return (
+    <LeafEditContext value={writable ? edits : null}>
+      <MaterialRows view={linked} entry={entry} />
+    </LeafEditContext>
+  );
+}
+
 /** The sections of the material `entry`, read out of the view's own document. */
-function MaterialSections({ view, entry }: { view: ViewContext; entry: string }) {
+function MaterialRows({ view, entry }: { view: ViewContext; entry: string }) {
   const root = objectKey(entry);
-  const read = useBinRead(view.document, [{ key: root, rows: PAGE_SIZE }]);
-  const roots = read.get(root)?.rows;
+  const read = useBinReadState(view.document, [{ key: root, rows: PAGE_SIZE }]);
+  const roots = read.pages.get(root)?.rows;
+  const notOpen = read.error?.code === "BIN_NOT_OPEN";
+  const { onNotOpen } = view;
+  useEffect(() => {
+    if (notOpen) void onNotOpen();
+  }, [notOpen, onNotOpen]);
   const placed = useMemo(() => placeRows(roots ?? [], materialLayout), [roots]);
   const pages = useLayoutRead(view.document, placed);
   const own = useMemo<ViewContext>(
@@ -124,6 +184,9 @@ function MaterialSections({ view, entry }: { view: ViewContext; entry: string })
     [root, roots, pages],
   );
 
+  if (read.error !== null && !notOpen && roots === undefined) {
+    return <Notice text={errorSummary(read.error)} />;
+  }
   if (roots === undefined) {
     return <Notice text={m.workshop_bin_material_preview_loading_label()} />;
   }
@@ -189,7 +252,7 @@ function MaterialPicker({
   );
 }
 
-/** A way to turn the game's shaders on, since an edit shows on the character only under them. */
+/** A way to turn Hexshade on, since an edit shows on the character only under it. */
 function ShadersHint() {
   const shaders = usePreviewShaders();
   const setDisplay = useSetPreviewDisplay();
@@ -201,7 +264,7 @@ function ShadersHint() {
       size="xs"
       compact
       className="ml-auto"
-      left={<PaintBrushIcon weight="bold" className="h-4 w-4" />}
+      left={<HexshadeIcon className="h-4 w-4" />}
       onClick={() => setDisplay({ previewShaders: true })}
     >
       {m.workshop_bin_material_pane_shaders_action()}

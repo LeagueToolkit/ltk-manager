@@ -226,6 +226,22 @@ jobs:
           prerelease: ${{ steps.version.outputs.prerelease }}
           updaterJsonPreferNsis: true
 
+      # The wiki links releases/latest/download/<STABLE>, which needs one asset
+      # name shared by every release. A pre-release is never `latest`.
+      - name: Upload installer under a fixed name
+        if: steps.version.outputs.prerelease == 'false'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          SETUP="LTK.Manager_${{ steps.version.outputs.version }}_x64-setup.exe"
+          STABLE="LTK.Manager_x64-setup.exe"
+
+          gh release download "$TAG" --pattern "$SETUP" --dir "$RUNNER_TEMP" --clobber
+          cp "$RUNNER_TEMP/$SETUP" "$RUNNER_TEMP/$STABLE"
+          gh release upload "$TAG" "$RUNNER_TEMP/$STABLE" --clobber
+
       # The pinned manifest is what every install checks, so a pre-release never reaches it.
       - name: Update updater release
         if: steps.version.outputs.prerelease == 'false'

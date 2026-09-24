@@ -1,0 +1,229 @@
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { Code, EmptyState, SegmentedControl, Spinner } from "@/components";
+import { m } from "@/i18n";
+import type { DeclarationsLayer, LineSpan } from "@/lib/tauri";
+import { DocumentToolbar, type EditorDocumentProps, TextBuffer } from "@/modules/editor";
+import { twMerge } from "@/utils";
+
+import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import type { OpenIntent } from "../../palette/utils/types";
+import { useProjectContext } from "../../projects/state/ProjectContext";
+import { declarationQueries } from "../api/queries";
+import { useGoToDeclaredRow } from "../hooks/useGoToDeclaredRow";
+import { useOutlineRevealRequest, useSettleOutlineReveal } from "../state/outlineReveal";
+import { selectionOf } from "../utils/lineSpan";
+import { itemSpan, type OutlineNode, type OutlineShape } from "../utils/outlineTree";
+import { DeclarationsTree } from "./DeclarationsTree";
+
+type View = "outline" | "raw";
+
+const DOCUMENT_SHAPE: OutlineShape = { layers: false, keys: true };
+
+/**
+ * One layer's `game_data` manifest, as an outline of what it declares or as its text.
+ *
+ * Per "Game data" in docs/ux/PROJECT_EDITOR.md.
+ */
+export function DeclarationsDocument({
+  document,
+  active,
+}: EditorDocumentProps<ContentDocumentOf<"declarations">>) {
+  const project = useProjectContext();
+  const outline = useQuery(declarationQueries.outline(project.path));
+  const layer = outline.data?.find((held) => held.layer === document.layerName) ?? null;
+
+  const [chosen, setChosen] = useState<View | null>(null);
+  const view: View = chosen ?? (layer?.error ? "raw" : "outline");
+  const [selected, setSelected] = useState<OutlineNode | null>(null);
+
+  const request = useOutlineRevealRequest(document.id);
+  useEffect(() => {
+    if (request) setChosen("outline");
+  }, [request]);
+
+  return (
+    <div
+      data-ui="DeclarationsDocument"
+      className="@container flex min-h-0 flex-1 flex-col bg-surface-950"
+    >
+      <DocumentToolbar active={active}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {layer?.file && <Code className="shrink-0">{layer.file}</Code>}
+        </div>
+        <SegmentedControl
+          size="xs"
+          aria-label={m.workshop_declarations_view_label()}
+          value={view}
+          onChange={setChosen}
+          options={[
+            { value: "outline", label: m.workshop_declarations_outline_action() },
+            { value: "raw", label: m.workshop_declarations_raw_action() },
+          ]}
+        />
+      </DocumentToolbar>
+
+      <Body
+        documentId={document.id}
+        layer={layer}
+        isLoading={outline.isLoading}
+        view={view}
+        selected={selected}
+        onSelect={setSelected}
+      />
+    </div>
+  );
+}
+
+interface BodyProps {
+  documentId: string;
+  layer: DeclarationsLayer | null;
+  isLoading: boolean;
+  view: View;
+  selected: OutlineNode | null;
+  onSelect: (node: OutlineNode | null) => void;
+}
+
+function Body({ documentId, layer, isLoading, view, selected, onSelect }: BodyProps) {
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (layer?.text == null) {
+    return (
+      <EmptyState
+        size="sm"
+        title={m.workshop_declarations_empty_title()}
+        description={m.workshop_declarations_empty_description()}
+      />
+    );
+  }
+
+  const error = layer.error;
+  const span = error?.span ?? (selected ? itemSpan(selected) : null);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {view === "outline" && (
+        <OutlineView documentId={documentId} layer={layer} onSelect={onSelect} />
+      )}
+      {view === "raw" && <RawText text={layer.text} span={span} errorLine={error?.span?.line} />}
+      {error && (
+        <p className="shrink-0 border-t border-danger/40 px-3 py-1.5 text-meta text-danger-text select-text">
+          {error.message}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function OutlineView({
+  documentId,
+  layer,
+  onSelect,
+}: {
+  documentId: string;
+  layer: DeclarationsLayer;
+  onSelect: (node: OutlineNode | null) => void;
+}) {
+  const goTo = useGoToDeclaredRow();
+  const request = useOutlineRevealRequest(documentId);
+  const settle = useSettleOutlineReveal();
+  const layers = useMemo(() => [layer], [layer]);
+
+  const open = useCallback(
+    (node: OutlineNode, intent: OpenIntent) => {
+      if (node.type === "key")
+        goTo({ module: node.module, entry: node.entry, key: node.key }, intent);
+      if (node.type === "entry")
+        goTo({ module: node.module, entry: node.entry, key: null }, intent);
+    },
+    [goTo],
+  );
+
+  if (layer.error === null && layer.modules.length === 0) {
+    return (
+      <EmptyState
+        size="sm"
+        title={m.workshop_declarations_no_modules_title()}
+        description={m.workshop_declarations_no_modules_description()}
+      />
+    );
+  }
+
+  return (
+    <DeclarationsTree
+      layers={layers}
+      shape={DOCUMENT_SHAPE}
+      ariaLabel={m.workshop_declarations_outline_label()}
+      onOpen={open}
+      openBranches={false}
+      reveal={request}
+      onRevealed={settle}
+      onSelect={onSelect}
+    />
+  );
+}
+
+interface RawTextProps {
+  text: string;
+  /** The range to select once the text draws. */
+  span: LineSpan | null;
+  /** The line a load error names, marked in the gutter. */
+  errorLine: number | undefined;
+}
+
+/** The manifest's text, read-only, with its line numbers. */
+function RawText({ text, span, errorLine }: RawTextProps) {
+  const lines = useMemo(() => text.split("\n").length, [text]);
+  const gutter = useRef<HTMLDivElement>(null);
+  const buffer = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const area = buffer.current;
+    if (!span || !area) return;
+
+    const [from, to] = selectionOf(text, span);
+    area.focus();
+    area.setSelectionRange(from, to);
+  }, [text, span]);
+
+  return (
+    /* DS-MONO-SIZE: mono end to end, so the tier is on the surface. */
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden bg-surface-950 font-mono text-mono-row">
+      <div
+        ref={gutter}
+        aria-hidden
+        className="shrink-0 overflow-hidden bg-surface-900/40 py-2 pr-2 pl-3 text-right leading-relaxed text-surface-500 select-none"
+      >
+        {Array.from({ length: lines }, (_, index) => (
+          <div
+            key={index}
+            className={twMerge(errorLine === index + 1 && "font-medium text-danger-text")}
+          >
+            {index + 1}
+          </div>
+        ))}
+      </div>
+
+      <TextBuffer
+        value={text}
+        onChange={() => undefined}
+        readOnly
+        ariaLabel={m.workshop_declarations_raw_label()}
+        spellCheck={false}
+        bufferRef={buffer}
+        onScroll={(scrollTop) => {
+          if (gutter.current) gutter.current.scrollTop = scrollTop;
+        }}
+        wrapperClassName="bg-transparent"
+        className="py-2 pr-2 pl-2 leading-relaxed"
+      />
+    </div>
+  );
+}

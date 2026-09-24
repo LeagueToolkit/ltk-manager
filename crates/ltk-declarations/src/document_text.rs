@@ -18,6 +18,14 @@ impl DocumentText {
         Self(text.into())
     }
 
+    /// A manifest holding `module`, a standalone module document, as its one module.
+    pub(crate) fn with_module(module: &str) -> Self {
+        Self(format!(
+            "version: 1\nmodules:\n{}",
+            syntax::layout_item(module, 2)
+        ))
+    }
+
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
@@ -94,6 +102,17 @@ impl DocumentText {
         } else {
             self.splice(at, at, &format!("\n{lines}"))
         }
+    }
+
+    /// The text with `node` replaced by `lines`, whose first line is padded to the column
+    /// `node` starts at. What stands before `node` on its first line, such as a list
+    /// item's dash, is kept.
+    pub(crate) fn replace_entry(&self, node: &Node, lines: &str) -> Self {
+        let start = syntax::start(node);
+        let pad = self
+            .column(node)
+            .min(lines.len() - lines.trim_start_matches(' ').len());
+        self.splice(start, syntax::line_end(node), &lines[pad..])
     }
 
     /// The text with the lines `node` spans replaced by `lines`.

@@ -757,6 +757,7 @@ sentence, and a stored code this build does not know reads as nothing. Neither i
 | `update-driver`      | Update the graphics driver        | A graphics fault                                                          |
 | `open-project`       | Open the project                  | A workshop test, whenever a path or an archive is named                   |
 | `check-game-path`    | Check the League path             | The overlay build could not read the game directory                       |
+| `close-game`         | Close League                      | The overlay build could not replace a file another process held open      |
 | `texture-dimensions` | Check the texture dimensions      | A texture failure                                                         |
 | `free-memory`        | Close what else is running        | Out of memory                                                             |
 | `large-textures`     | Disable a mod with huge textures  | Out of memory, with a modded archive in the game                          |

@@ -98,6 +98,8 @@ function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEdit
     layout: editor.layout,
     activeLeafId: editor.activeLeafId,
     selectedLayer: editor.selectedLayer,
+    useDeclarations: editor.useDeclarations,
+    selectedModule: editor.selectedModule,
     previewIds: editor.previewIds,
     pinned: editor.pinned,
     shells: editor.shells,
@@ -115,6 +117,8 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.layout === b.layout &&
     a.activeLeafId === b.activeLeafId &&
     a.selectedLayer === b.selectedLayer &&
+    a.useDeclarations === b.useDeclarations &&
+    a.selectedModule === b.selectedModule &&
     a.previewIds === b.previewIds &&
     a.pinned === b.pinned &&
     a.shells === b.shells &&

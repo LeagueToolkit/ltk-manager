@@ -29,6 +29,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-09-12T00:00:00Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-aurelion",
 };
 
 function renderRail() {

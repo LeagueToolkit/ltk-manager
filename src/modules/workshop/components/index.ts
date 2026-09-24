@@ -10,7 +10,6 @@ export {
   LoadingState,
   NoProjectsState,
   NoSearchResultsState,
-  NotConfiguredState,
 } from "../projects/components/EmptyStates";
 export { NewProjectDialog } from "../projects/components/NewProjectDialog";
 export { ProjectActions } from "../projects/components/ProjectActions";

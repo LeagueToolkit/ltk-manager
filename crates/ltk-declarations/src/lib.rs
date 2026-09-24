@@ -7,11 +7,23 @@
 //! - An edit to a key some module already declares, in dotted or block form,
 //!   replaces that key's value where it stands. Where several modules declare
 //!   it, the last one is edited.
-//! - A new key joins the last `entries` module naming the entry, inside the
-//!   deepest block its path runs through. An entry no `entries` module names
-//!   joins the last module where that is an `entries` module, else a new
-//!   trailing `entries` module.
-//! - A `target` module is edited only where the key already exists.
+//! - A new key joins the module the edit's [`ModuleChoice`] names, inside the
+//!   deepest block its path runs through (ADR-0048). With no choice it joins
+//!   the last `entries` module naming the entry, else the last module where
+//!   that is an `entries` module, else a new trailing `entries` module.
+//! - A `target` module is edited only where the key already exists, except for
+//!   an object it creates: a new key of that object joins the object's `set`,
+//!   whatever module the choice names (ADR-0049).
+//! - An [`ObjectEdit`] replaces the body of the last `objects` entry naming the
+//!   object in a `target` module of the chunk. A new entry joins the last
+//!   `target` module of the chunk, else a new trailing `target` module.
+//! - A [`LinkEdit`] adds an item to the `links` or `-links` list of the last
+//!   `target` module of the chunk, else of a new trailing `target` module. It
+//!   drops the chunk's opposite item of the same path instead where one exists.
+//!
+//! A module holds at least one entry, so a new module is made by the edit that
+//! fills it, [`ModuleChoice::New`]. The module actions rename, remove and
+//! reorder modules, and move an entry's keys from one module to another.
 //!
 //! Comments, blank lines, key order and the spelling of every other key are
 //! kept. Each edited text loads through [`ltk_game_data::load_declarations`]
@@ -19,7 +31,7 @@
 //! the bytes read and refuses on a difference.
 //!
 //! ```
-//! use ltk_declarations::{Edit, Manifest, Operation, ValueText};
+//! use ltk_declarations::{Edit, Manifest, ModuleChoice, Operation, ValueText};
 //!
 //! let layer = tempfile::tempdir()?;
 //! let mut manifest = Manifest::read(layer.path())?;
@@ -28,6 +40,7 @@
 //!     entry: "Characters/Teemo/Skins/Skin0".try_into()?,
 //!     path: "skinMeshProperties.selfIllumination".parse()?,
 //!     operation: Operation::Set(ValueText::new("0.37")?),
+//!     module: ModuleChoice::Auto,
 //! })?;
 //! manifest.write()?;
 //!
@@ -48,8 +61,12 @@
 
 mod document_text;
 mod edit;
+mod layout;
 mod line_ending;
+mod link;
 mod locate;
+mod module;
+mod object;
 mod syntax;
 #[cfg(test)]
 mod tests;
@@ -58,10 +75,13 @@ use std::path::{Path, PathBuf};
 
 use fs_err as fs;
 use ltk_game_data::{
-    Declarations, EntryName, Error as GameDataError, ErrorKind as GameDataErrorKind,
-    MANIFEST_NAMES, Sign, Value, load_declarations,
+    BinHash, ClassName, Declarations, EntryName, Error as GameDataError,
+    ErrorKind as GameDataErrorKind, LinkPath, MANIFEST_NAMES, ModuleName, Sign, Target, Value,
+    load_declarations,
 };
 use ltk_meta::path::PropertyPath;
+
+pub use self::layout::{Binding, BodyAt, KeyLayout, Layout};
 
 use self::document_text::DocumentText;
 use self::line_ending::LineEnding;
@@ -161,6 +181,22 @@ impl Operation {
     }
 }
 
+/// The module an edit's new key joins. ltk-manager ADR-0048.
+///
+/// A key some module already declares is edited where it stands, whichever
+/// module is chosen.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub enum ModuleChoice {
+    /// The last `entries` module naming the entry, else the last module where
+    /// that is an `entries` module, else a new trailing `entries` module.
+    #[default]
+    Auto,
+    /// The module at this index of `modules`, which is an `entries` module.
+    Index(usize),
+    /// A new trailing `entries` module, holding this name where one is given.
+    New(Option<ModuleName>),
+}
+
 /// One edit of one property of one entry, as a document showing one chunk
 /// makes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +211,8 @@ pub struct Edit {
     pub path: PropertyPath,
     /// What the edit does.
     pub operation: Operation,
+    /// The module a new key joins.
+    pub module: ModuleChoice,
 }
 
 impl Edit {
@@ -186,6 +224,79 @@ impl Edit {
     }
 }
 
+/// What a declaration does to one object of a chunk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ObjectOperation {
+    /// Create the object as a copy of an object of the chunk: `clone`.
+    Clone(EntryName),
+    /// Create an object of a class, holding no property: `class`.
+    Construct(ClassName),
+    /// Remove the object: `remove: true`.
+    Remove,
+    /// Drop the object's entry, its `set` with it. A module it leaves empty goes with it.
+    /// Dropping an object nothing declares changes nothing.
+    Drop,
+}
+
+impl ObjectOperation {
+    /// The object body the operation writes, as YAML text. `None` for a drop.
+    fn body(&self) -> Option<String> {
+        match self {
+            Self::Clone(source) => Some(format!("clone: {}", syntax::spell_key(source.as_str()))),
+            Self::Construct(class) => Some(format!("class: {}", syntax::spell_key(class.as_str()))),
+            Self::Remove => Some("remove: true".to_owned()),
+            Self::Drop => None,
+        }
+    }
+}
+
+/// One edit of one object of one chunk: an entry of a `target` module's `objects`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObjectEdit {
+    /// The chunk, spelled as a new `target` module names it.
+    pub target: Target,
+    /// The object, spelled as a new entry of `objects` names it.
+    pub entry: EntryName,
+    /// What the edit does.
+    pub operation: ObjectOperation,
+}
+
+/// The list of a binding body a dependency path stands in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LinkSign {
+    /// `links`, or its alias `+links`: the chunk gains the dependency.
+    Add,
+    /// `-links`: the chunk loses the dependency.
+    Remove,
+}
+
+/// What a declaration does to one dependency of a chunk.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LinkOperation {
+    /// Add the dependency: an item of `links`. Where the chunk's `-links` names the path,
+    /// that item is dropped instead. A path `links` already names writes nothing.
+    Add,
+    /// Remove the dependency: an item of `-links`. Where the chunk's `links` names the path,
+    /// that item is dropped instead. A path `-links` already names writes nothing.
+    Remove,
+    /// Drop every item naming the path from the lists of this sign. A list or a module it
+    /// leaves empty goes with it.
+    Drop(LinkSign),
+}
+
+/// One edit of one dependency of one chunk: an item of a `target` module's link lists.
+///
+/// A path compares without regard to ASCII case, as the apply compares it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LinkEdit {
+    /// The chunk, spelled as a new `target` module names it.
+    pub target: Target,
+    /// The dependency, as the file writes it.
+    pub path: LinkPath,
+    /// What the edit does.
+    pub operation: LinkOperation,
+}
+
 /// The modules `edits` write into a layer with no manifest, in order, as the list items that
 /// stand under a manifest's `modules` key. `None` where they write nothing, or where the text
 /// cannot take one of them.
@@ -194,7 +305,7 @@ pub fn module_text(edits: &[Edit]) -> Option<String> {
     const MODULES: &str = "modules:\n";
     let mut text = DocumentText::default();
     for edit in edits {
-        text = text.apply(edit).ok()?;
+        text = text.apply(edit).ok()?.0;
     }
     let (_, modules) = text.as_str().split_once(MODULES)?;
     let lines: Vec<&str> = modules
@@ -230,6 +341,18 @@ pub enum Refusal {
     /// The edited text does not load. The writer placed the edit wrongly.
     #[error("the edited text does not load: {0}")]
     DoesNotLoad(String),
+    /// `modules` holds no module at this index.
+    #[error("the manifest holds no module {0}")]
+    NoModule(usize),
+    /// The module at this index is a `target` module, which takes no new key.
+    #[error("module {0} is not an `entries` module")]
+    NotEntriesModule(usize),
+    /// The module declares nothing for the entry or the path to move.
+    #[error("the module declares no such key")]
+    NoKey,
+    /// The module a key moves to already declares it.
+    #[error("the destination module already declares the key")]
+    DeclaredInDestination,
 }
 
 /// A failure to read, edit or write a manifest.
@@ -369,24 +492,107 @@ impl Manifest {
         })
     }
 
-    /// Apply one edit to the held text.
+    /// Apply one edit to the held text, answering the index of the module that holds the
+    /// key it wrote. `None` for a drop, which writes no key.
     ///
     /// # Errors
     ///
     /// [`Error::Invalid`] for a manifest that does not load before the edit,
     /// and [`Error::Uneditable`] for an edit the text cannot take. Either
     /// leaves the text as it was.
-    pub fn edit(&mut self, edit: &Edit) -> Result<(), Error> {
+    pub fn edit(&mut self, edit: &Edit) -> Result<Option<usize>, Error> {
+        self.change(|text| text.apply(edit))
+    }
+
+    /// Give the module at `module` the name `name`, or take its name away.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::edit`], with [`Refusal::NoModule`] for an index `modules` does not
+    /// hold.
+    pub fn rename_module(&mut self, module: usize, name: Option<&ModuleName>) -> Result<(), Error> {
+        self.change(|text| Ok((text.rename_module(module, name)?, ())))
+    }
+
+    /// Remove the module at `module` and every key it declares.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::rename_module`].
+    pub fn remove_module(&mut self, module: usize) -> Result<(), Error> {
+        self.change(|text| Ok((text.remove_module(module)?, ())))
+    }
+
+    /// Move the module at `module` to stand at `to` in execution order.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::rename_module`], with [`Refusal::ModulesNotBlock`] for a flow
+    /// `modules` list.
+    pub fn move_module(&mut self, module: usize, to: usize) -> Result<(), Error> {
+        self.change(|text| Ok((text.move_module(module, to)?, ())))
+    }
+
+    /// Move the keys of `entry` from the `entries` module at `module` to the one at `to`:
+    /// every signed key of `path`, or the entry's whole body where `path` is `None`.
+    ///
+    /// The module at `module` goes where the move leaves it empty, which shifts every
+    /// later index down by one.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::rename_module`], with [`Refusal::NotEntriesModule`] for a `target`
+    /// module, [`Refusal::NoKey`] where `module` declares nothing to move, and
+    /// [`Refusal::DeclaredInDestination`] where `to` already declares a moved key.
+    pub fn move_keys(
+        &mut self,
+        module: usize,
+        entry: BinHash,
+        path: Option<&PropertyPath>,
+        to: usize,
+    ) -> Result<(), Error> {
+        self.change(|text| Ok((text.move_keys(module, entry, path, to)?, ())))
+    }
+
+    /// Replace the held text with what `change` makes of it, where that loads.
+    fn change<T>(
+        &mut self,
+        change: impl FnOnce(&DocumentText) -> Result<(DocumentText, T), Refusal>,
+    ) -> Result<T, Error> {
+        self.declarations()?;
+        let (text, outcome) = change(&self.text).map_err(|reason| self.uneditable(reason))?;
+        if let Err(error) = self.load(&text) {
+            return Err(self.uneditable(Refusal::DoesNotLoad(error.to_string())));
+        }
+        self.text = text;
+        Ok(outcome)
+    }
+
+    /// Apply one object edit to the held text.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::edit`].
+    pub fn edit_object(&mut self, edit: &ObjectEdit) -> Result<(), Error> {
         self.declarations()?;
         let text = self
             .text
-            .apply(edit)
+            .apply_object(edit)
             .map_err(|reason| self.uneditable(reason))?;
         if let Err(error) = self.load(&text) {
             return Err(self.uneditable(Refusal::DoesNotLoad(error.to_string())));
         }
         self.text = text;
         Ok(())
+    }
+
+    /// Apply one link edit to the held text.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::edit`].
+    pub fn edit_link(&mut self, edit: &LinkEdit) -> Result<(), Error> {
+        self.change(|text| Ok((text.apply_link(edit)?, ())))
     }
 
     /// Replace the held text with `text`, which an undo holds from before an edit.

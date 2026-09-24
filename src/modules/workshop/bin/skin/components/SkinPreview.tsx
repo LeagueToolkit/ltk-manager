@@ -19,6 +19,8 @@ export interface SkinPreviewProps {
   asset: AssetRef;
   /** The skin object, `0x` and eight hex digits, and null where the view holds no row. */
   entry: string | null;
+  /** The backend no longer holds `document`, so the tab reopens it. */
+  onNotOpen?: () => void;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface SkinPreviewProps {
  *
  * ADR-0035 for the drawing and ADR-0036 for where it sits.
  */
-export function SkinPreview({ document, asset, entry }: SkinPreviewProps) {
+export function SkinPreview({ document, asset, entry, onNotOpen }: SkinPreviewProps) {
   return (
     <div
       data-ui="SkinPreview"
@@ -37,7 +39,7 @@ export function SkinPreview({ document, asset, entry }: SkinPreviewProps) {
       {entry === null && <Notice text={m.workshop_bin_mesh_preview_missing_empty()} />}
       {entry !== null && (
         <Suspense fallback={<Notice text={m.workshop_bin_mesh_preview_loading_label()} />}>
-          <SkinViewport document={document} asset={asset} entry={entry} />
+          <SkinViewport document={document} asset={asset} entry={entry} onNotOpen={onNotOpen} />
         </Suspense>
       )}
     </div>

@@ -1,4 +1,5 @@
 import {
+  BracketsCurlyIcon,
   EyeSlashIcon,
   FileArchiveIcon,
   FilesIcon,
@@ -17,6 +18,7 @@ import type { EditorDocumentDefinition, EditorRegistry } from "@/modules/editor"
 import { ObjectDocument } from "../../bin/documents/components/ObjectDocument";
 import { FilesDocument } from "../../content/components/FilesDocument";
 import { useRevealInLayerFiles } from "../../content/hooks/useRevealInLayerFiles";
+import { DeclarationsDocument } from "../../declarations/components/DeclarationsDocument";
 import {
   archiveTarget,
   chunkPath,
@@ -96,6 +98,15 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
         path: document.at ?? project.path,
       }),
       component: IgnoreRulesDocument,
+    },
+    declarations: {
+      icon: () => <BracketsCurlyIcon className="h-4 w-4 shrink-0 text-doc-declarations-text" />,
+      label: (document) => ({
+        title: m.workshop_declarations_title(),
+        layer: layerTitle(project, document.layerName),
+        path: `${project.path}/content/${document.layerName}`,
+      }),
+      component: DeclarationsDocument,
     },
     text: {
       icon: (document) => textFileKind(document.file).icon(glyphClass(document.file)),

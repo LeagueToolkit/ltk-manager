@@ -1,5 +1,6 @@
 import {
   BookOpenTextIcon,
+  BracketsCurlyIcon,
   CubeIcon,
   EyeSlashIcon,
   GitBranchIcon,
@@ -84,6 +85,11 @@ export function railViews(): readonly RailView[] {
       title: m.workshop_objects_title(),
       icon: <CubeIcon className="h-5 w-5" />,
       wide: { title: m.workshop_objects_title(), document: objectsDocument },
+    },
+    {
+      id: "declarations",
+      title: m.workshop_sidebar_declarations_title(),
+      icon: <BracketsCurlyIcon className="h-5 w-5" />,
     },
     {
       id: "game",

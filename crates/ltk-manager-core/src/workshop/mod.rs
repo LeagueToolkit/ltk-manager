@@ -1,16 +1,28 @@
 mod chunk_names;
 mod content;
 mod declarations;
+mod folders;
 mod ignore_rules;
 pub mod layer;
 mod layers;
 mod packing;
 mod projects;
+mod registry;
 mod text_files;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
+pub use declarations::{
+    DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
+    DeclaredObjectEdit, LineSpan, ModuleSelector,
+};
+pub use declarations::{ManifestChange, ModuleAction};
+pub use folders::{
+    AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
+    FolderInspection, FolderWad,
+};
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
+pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 
 use crate::config::Config;
@@ -83,11 +95,26 @@ pub enum WorkshopError {
 /// can change at runtime.
 pub struct Workshop {
     events: Arc<dyn EventSink>,
+    registry: ProjectRegistry,
 }
 
 impl Workshop {
     pub fn new(events: Arc<dyn EventSink>) -> Self {
-        Self { events }
+        Self {
+            events,
+            registry: ProjectRegistry::default(),
+        }
+    }
+
+    /// Keep opened folders and recent times in `registry` rather than in memory.
+    #[must_use]
+    pub fn with_registry(mut self, registry: ProjectRegistry) -> Self {
+        self.registry = registry;
+        self
+    }
+
+    pub(crate) fn registry(&self) -> &ProjectRegistry {
+        &self.registry
     }
 
     pub(crate) fn events(&self) -> &Arc<dyn EventSink> {
@@ -157,9 +184,12 @@ impl ProjectDir {
 /// A workshop project displayed in the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopProject {
+    /// Stable id the route names the project by, derived from its path
+    pub id: String,
     /// Absolute path to the project directory
     pub path: String,
     /// Project slug name (directory name)
@@ -184,10 +214,29 @@ pub struct WorkshopProject {
     pub thumbnail_path: Option<String>,
     /// Last modification time
     pub last_modified: DateTime<Utc>,
+    /// Whether the project sits in the workshop folder or was opened from elsewhere
+    pub location: ProjectLocation,
+    /// When the project was last opened in the editor
+    pub last_opened: Option<DateTime<Utc>>,
+}
+
+/// Where a project lives relative to the workshop folder.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectLocation {
+    /// A direct child of the workshop folder.
+    #[default]
+    Workshop,
+    /// A folder opened from anywhere else.
+    Opened,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopAuthor {
@@ -197,6 +246,7 @@ pub struct WorkshopAuthor {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayer {
@@ -204,7 +254,6 @@ pub struct WorkshopLayer {
     pub display_name: String,
     pub priority: i32,
     pub description: Option<String>,
-    #[serde(default)]
     pub string_overrides: IndexMap<String, IndexMap<String, String>>,
 }
 
@@ -441,6 +490,7 @@ fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
     let maps = mod_project.maps.iter().map(|m| m.to_string()).collect();
 
     Ok(WorkshopProject {
+        id: ProjectKey::of(project_dir).id(),
         path: project_dir.display().to_string(),
         name: mod_project.name,
         display_name: mod_project.display_name,
@@ -453,6 +503,8 @@ fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
         layers,
         thumbnail_path,
         last_modified,
+        location: ProjectLocation::default(),
+        last_opened: None,
     })
 }
 

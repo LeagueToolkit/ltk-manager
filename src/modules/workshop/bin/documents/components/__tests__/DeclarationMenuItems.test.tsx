@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ContextMenu, ToastProvider } from "@/components";
 import type { BinRow, DeclaredMark, RowDeclaration } from "@/lib/tauri";
+import { editCall, isEdit, landed } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -33,9 +34,25 @@ const ROW: BinRow = {
 
 const NO_MARKS: ReadonlyMap<string, DeclaredMark> = new Map();
 
-function Menu({ declares, row = ROW }: { declares: boolean; row?: BinRow }) {
+interface MenuProps {
+  declares: boolean;
+  row?: BinRow;
+  /** The tree takes edits, false for a document with declarations off. */
+  editable?: boolean;
+}
+
+function Menu({ declares, row = ROW, editable = true }: MenuProps) {
   const [client] = useState(() => createTestQueryClient());
-  const rows = declares ? { layer: "base", marks: NO_MARKS, diagnostics: new Map() } : null;
+  const rows = declares
+    ? {
+        layer: "base",
+        marks: NO_MARKS,
+        diagnostics: new Map(),
+        objects: new Map(),
+        links: new Map(),
+        editable,
+      }
+    : null;
   const wrap = (children: ReactNode) => (
     <QueryClientProvider client={client}>
       <ToastProvider>
@@ -81,9 +98,9 @@ beforeEach(() => {
   useCopiedReferenceStore.setState({ reference: null });
   writeText.mockClear();
   mockInvoke.mockReset();
-  mockInvoke.mockImplementation((command: string) => {
+  mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     if (command === "bin_row_declaration") return Promise.resolve({ ok: true, value: spelled });
-    if (command === "bin_declare_reference") return Promise.resolve({ ok: true, value: null });
+    if (isEdit(command, args, "declareReference")) return landed();
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
 });
@@ -124,6 +141,16 @@ describe("the declaration actions of a row", () => {
     expect(screen.queryByRole("menuitem", { name: "Merge reference" })).toBeNull();
   });
 
+  it("offers no paste or merge on a declared document that takes no edit", async () => {
+    useCopiedReferenceStore.setState({ reference: REFERENCE });
+    render(<Menu declares editable={false} />);
+    await openMenu();
+
+    await screen.findByRole("menuitem", { name: "Copy reference" });
+    expect(screen.queryByRole("menuitem", { name: "Paste reference" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Merge reference" })).toBeNull();
+  });
+
   it("merges the copied reference into a map of a declared document", async () => {
     useCopiedReferenceStore.setState({ reference: REFERENCE });
     render(<Menu declares />);
@@ -132,13 +159,15 @@ describe("the declaration actions of a row", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Merge reference" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_reference", {
-        document: DOCUMENT,
-        entry: ROW.entry,
-        path: ROW.path,
-        reference: REFERENCE,
-        merge: true,
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(DOCUMENT, {
+          kind: "declareReference",
+          entry: ROW.entry,
+          path: ROW.path,
+          reference: REFERENCE,
+          merge: true,
+        }),
+      ),
     );
   });
 

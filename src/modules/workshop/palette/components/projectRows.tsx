@@ -2,14 +2,13 @@ import { useQueries } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 
 import { projectDetailsQueries } from "../../projects/api/queries";
 import { useWorkshopProjects } from "../../projects/api/useWorkshopProjects";
 import { buildCandidate } from "../utils/candidate";
 import type { PaletteCandidate } from "../utils/types";
-
-const NO_AUTHOR = "Unknown author";
 
 /**
  * One project as a row.
@@ -20,14 +19,14 @@ export function projectRow(project: WorkshopProject, thumbnailUrl?: string): Pal
   const authors = project.authors.map((author) => author.name).join(", ");
 
   return buildCandidate({
-    id: `project:${project.name}`,
+    id: `project:${project.id}`,
     source: "projects",
     name: project.displayName,
-    path: authors.length > 0 ? authors : NO_AUTHOR,
-    trailing: `v${project.version}`,
+    path: authors.length > 0 ? authors : m.workshop_project_unknown_author_label(),
+    trailing: m.workshop_bin_version_label({ version: project.version }),
     keywords: project.name.toLowerCase(),
     icon: <ProjectGlyph project={project} thumbnailUrl={thumbnailUrl} />,
-    target: { kind: "project", name: project.name },
+    target: { kind: "project", id: project.id },
   });
 }
 
@@ -62,16 +61,20 @@ export function useProjectRows(): readonly PaletteCandidate[] {
 }
 
 function byNewest(a: WorkshopProject, b: WorkshopProject): number {
-  return Date.parse(b.lastModified) - Date.parse(a.lastModified);
+  return recency(b) - recency(a);
+}
+
+/** When a project was last opened, or last changed when it never was. */
+function recency(project: WorkshopProject): number {
+  return Date.parse(project.lastOpened ?? project.lastModified);
 }
 
 /** What a project row runs, and what the filter's one remaining match runs. */
-export function useOpenProject(): (name: string) => void {
+export function useOpenProject(): (id: string) => void {
   const navigate = useNavigate();
 
   return useCallback(
-    (name: string) =>
-      void navigate({ to: "/workshop/$projectName", params: { projectName: name } }),
+    (id: string) => void navigate({ to: "/workshop/$projectId", params: { projectId: id } }),
     [navigate],
   );
 }
@@ -84,7 +87,7 @@ interface ProjectGlyphProps {
 /* The card's plate at the size of an icon, so a row of projects reads in the
    same rhythm as a row of files. A project with no thumbnail falls back to its
    initial, which is what the card does. */
-function ProjectGlyph({ project, thumbnailUrl }: ProjectGlyphProps) {
+export function ProjectGlyph({ project, thumbnailUrl }: ProjectGlyphProps) {
   if (thumbnailUrl) {
     return <img src={thumbnailUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />;
   }

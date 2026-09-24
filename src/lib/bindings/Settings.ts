@@ -50,6 +50,10 @@ autoRun: boolean,
  */
 startInTrayUnlessUpdate: boolean, 
 /**
+ * Whether a release downloads as soon as a check finds it, to install at quit. Default: true.
+ */
+autoDownloadUpdates: boolean, 
+/**
  * Always start the patcher automatically on launch. Default: false.
  */
 alwaysStartPatcher: boolean, 

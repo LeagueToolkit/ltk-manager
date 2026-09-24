@@ -54,8 +54,8 @@ export interface ProjectCommand {
 export type PaletteTarget =
   | {
       readonly kind: "project";
-      /** The slug the route takes, which is the directory rather than the title. */
-      readonly name: string;
+      /** The id the route takes, derived from the project's path. */
+      readonly id: string;
     }
   | { readonly kind: "layerFile"; readonly layerName: string; readonly path: string }
   | {

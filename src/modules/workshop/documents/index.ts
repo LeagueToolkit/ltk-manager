@@ -6,6 +6,7 @@ export { contentEditors, documentDefinition, useContentEditors } from "./state/r
 export {
   type ContentDocument,
   type ContentDocumentOf,
+  declarationsDocument,
   declaringFileContext,
   DETAILS_DOCUMENT_ID,
   detailsDocument,

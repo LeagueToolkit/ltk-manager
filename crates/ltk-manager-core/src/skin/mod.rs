@@ -1015,13 +1015,16 @@ pub fn search_linked_materials(
     if missing.is_empty() {
         return;
     }
-    walk_linked(linked, assets, read, &mut |_, document| {
+    walk_linked(linked, assets, read, &mut |asset, document| {
         for material in &mut missing {
             let Some(hash) = parse_hex(&material.hash) else {
                 continue;
             };
             if document.object_at(hash).is_some() {
-                **material = linked_material(document, hash, &locator, shaders);
+                **material = MaterialPreview {
+                    source: Some(asset.clone()),
+                    ..linked_material(document, hash, &locator, shaders)
+                };
             }
         }
         missing.retain(|material| material.missing);

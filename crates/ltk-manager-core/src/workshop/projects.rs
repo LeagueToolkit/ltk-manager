@@ -1,7 +1,7 @@
 use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
-    SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
+    ProjectKey, SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -19,43 +19,48 @@ use ltk_mod_project::{
     ImportError, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, ProjectImporter,
 };
 use ltk_modpkg::Modpkg;
+use std::collections::HashSet;
 use std::path::Path;
 
 impl Workshop {
-    /// Get all workshop projects from the configured workshop directory.
+    /// Every project the workshop knows: the workshop folder's children and the opened folders.
+    ///
+    /// An opened folder whose config is gone is left out here, and
+    /// [`Workshop::opened_folders`] is what still lists it.
     pub fn get_projects(&self, config: &Config) -> AppResult<Vec<WorkshopProject>> {
-        let workshop_path = self.workshop_dir(config)?;
-
-        if !workshop_path.exists() {
-            return Ok(Vec::new());
-        }
-
         let mut projects = Vec::new();
+        let mut seen = HashSet::new();
 
-        for entry in fs::read_dir(&workshop_path)? {
-            let entry = entry?;
-            let path = entry.path();
+        if let Some(workshop_path) = config.workshop_path.as_deref()
+            && workshop_path.exists()
+        {
+            for entry in fs::read_dir(workshop_path)? {
+                let path = entry?.path();
+                if !path.is_dir() {
+                    continue;
+                }
 
-            if !path.is_dir() {
-                continue;
-            }
-
-            let Ok(project_dir) = ProjectDir::open(&path) else {
-                continue;
-            };
-            if project_dir.config_file().is_none() {
-                continue;
-            }
-
-            match project_dir.load() {
-                Ok(project) => projects.push(project),
-                Err(e) => {
-                    tracing::warn!("Skipping invalid project at {}: {}", path.display(), e);
+                if let Some(project) = load_listed(&path) {
+                    seen.insert(ProjectKey::of(&path));
+                    projects.push(project);
                 }
             }
         }
 
-        // Sort by last modified (newest first)
+        for path in self.registry().opened_paths() {
+            if !seen.insert(ProjectKey::of(&path)) {
+                continue;
+            }
+
+            if let Some(project) = load_listed(&path) {
+                projects.push(project);
+            }
+        }
+
+        let mut projects: Vec<_> = projects
+            .into_iter()
+            .map(|project| self.describe(config, project))
+            .collect();
         projects.sort_by_key(|p| std::cmp::Reverse(p.last_modified));
 
         Ok(projects)
@@ -117,8 +122,9 @@ impl Workshop {
     }
 
     /// Get a single workshop project by path.
-    pub fn get_project(&self, project_path: &str) -> AppResult<WorkshopProject> {
-        ProjectDir::open(project_path)?.load()
+    pub fn get_project(&self, config: &Config, project_path: &str) -> AppResult<WorkshopProject> {
+        let project = ProjectDir::open(project_path)?.load()?;
+        Ok(self.describe(config, project))
     }
 
     /// Save project configuration changes.
@@ -181,7 +187,13 @@ impl Workshop {
         mod_project.name = new_name;
         new_dir.write_config(&mod_project)?;
 
-        new_dir.load()
+        let project = new_dir.load()?;
+        if self.registry().is_opened(&ProjectKey::of(old_dir.path())) {
+            self.registry()
+                .relocate(old_dir.path(), new_dir.path(), &project.display_name)?;
+        }
+
+        Ok(project)
     }
 
     /// Delete a workshop project.
@@ -194,6 +206,7 @@ impl Workshop {
         }
 
         fs::remove_dir_all(project_dir.path())?;
+        self.registry().forget(project_dir.path())?;
         Ok(())
     }
 
@@ -433,6 +446,20 @@ impl Workshop {
                 stage,
                 message: message.map(String::from),
             }));
+    }
+}
+
+/// Load the project at `path` for the listing, or `None` when it has no config or does not load.
+fn load_listed(path: &Path) -> Option<WorkshopProject> {
+    let project_dir = ProjectDir::open(path).ok()?;
+    project_dir.config_file()?;
+
+    match project_dir.load() {
+        Ok(project) => Some(project),
+        Err(e) => {
+            tracing::warn!("Skipping invalid project at {}: {}", path.display(), e);
+            None
+        }
     }
 }
 

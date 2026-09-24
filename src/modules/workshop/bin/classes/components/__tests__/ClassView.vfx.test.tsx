@@ -18,6 +18,7 @@ import type {
   WorkshopProject,
 } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
+import { editCall, isEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -359,6 +360,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-skin",
 };
 
 /** A pane a shell fits in, and one that falls back to the stack. */
@@ -567,7 +571,9 @@ describe("ClassView over a particle system", () => {
     await userEvent.click(screen.getByRole("button", { name: "Clear property search" }));
     expect(await screen.findByText("Blend Mode")).toBeInTheDocument();
     expect(search).toHaveFocus();
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+    expect(mockInvoke.mock.calls.some(([command, args]) => isEdit(command, args, "patch"))).toBe(
+      false,
+    );
   });
 
   it("restores folded sections after a property search", async () => {
@@ -586,20 +592,32 @@ describe("ClassView over a particle system", () => {
   });
 
   it("marks an inspector constant after its declaration is accepted", async () => {
-    let declared: DeclaredState = { layer: "base", layers: ["base"], marks: [], diagnostics: [] };
+    let declared: DeclaredState = {
+      layer: "base",
+      module: { kind: "auto" },
+      modules: [],
+      layers: ["base"],
+      marks: [],
+      objects: [],
+      links: [],
+      diagnostics: [],
+    };
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
       if (command === "bin_declared") {
         return Promise.resolve({ ok: true, value: declared });
       }
 
-      if (command === "bin_patch") {
+      if (isEdit(command, args, "patch")) {
         declared = {
           ...declared,
           marks: [
             {
               entry: ENTRY,
               path: `${RATE}.${at("constantValue")}`,
+              property: "rate.constantValue",
+              module: 0,
+              moduleName: null,
               sign: "set",
               whole: false,
               reference: null,
@@ -626,8 +644,12 @@ describe("ClassView over a particle system", () => {
     const read = mockInvoke.getMockImplementation()!;
     const declared: DeclaredState = {
       layer: "base",
+      module: { kind: "auto" },
+      modules: [],
       layers: ["base"],
       marks: [],
+      objects: [],
+      links: [],
       diagnostics: [
         {
           entry: ENTRY,
@@ -636,6 +658,7 @@ describe("ClassView over a particle system", () => {
           key: "complexEmitterDefinitionData[0].lifetime",
           kind: "propertyEditSkipped",
           reason: "kindMismatch",
+          object: null,
           detail: null,
         },
       ],
@@ -672,7 +695,7 @@ describe("ClassView over a particle system", () => {
   it("patches an inspector leaf, refreshes its reads and queues the document save", async () => {
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "bin_patch" || command === "bin_save") {
+      if (command === "bin_edit" || command === "bin_save") {
         return Promise.resolve({ ok: true, value: null });
       }
 
@@ -686,12 +709,14 @@ describe("ClassView over a particle system", () => {
     await userEvent.type(field, "4{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
-        document: 9,
-        entry: ENTRY,
-        path: `${GLOW}.${at("lifetime")}`,
-        value: { type: "float", value: 4 },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(9, {
+          kind: "patch",
+          entry: ENTRY,
+          path: `${GLOW}.${at("lifetime")}`,
+          value: { type: "float", value: 4 },
+        }),
+      ),
     );
     await waitFor(() => expect(asked().length).toBeGreaterThan(readsBefore));
     await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
@@ -709,12 +734,14 @@ describe("ClassView over a particle system", () => {
     await userEvent.type(field, "6{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
-        document: 9,
-        entry: ENTRY,
-        path: `${RATE}.${at("constantValue")}`,
-        value: { type: "float", value: 6 },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(9, {
+          kind: "patch",
+          entry: ENTRY,
+          path: `${RATE}.${at("constantValue")}`,
+          value: { type: "float", value: 6 },
+        }),
+      ),
     );
   });
 
@@ -752,7 +779,7 @@ describe("ClassView over a particle system", () => {
         });
       }
 
-      if (command === "bin_edit_property") {
+      if (isEdit(command, args, "editProperty")) {
         saved = true;
         return Promise.resolve({ ok: true, value: null });
       }
@@ -795,16 +822,20 @@ describe("ClassView over a particle system", () => {
       );
     const orderBeforeEdit = rowOrder();
     expect(input).toHaveValue("");
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_edit_property")).toBe(false);
+    expect(
+      mockInvoke.mock.calls.some(([command, args]) => isEdit(command, args, "editProperty")),
+    ).toBe(false);
 
     await userEvent.type(input, "2.5{Enter}");
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 9,
-      entry: ENTRY,
-      holder: GLOW,
-      field: nameHash("emitterLinger"),
-      edits: [{ type: "setLeaf", path: "[0]", value: { type: "float", value: 2.5 } }],
-    });
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(9, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: GLOW,
+        field: nameHash("emitterLinger"),
+        edits: [{ type: "setLeaf", path: "[0]", value: { type: "float", value: 2.5 } }],
+      }),
+    );
     expect(await screen.findByDisplayValue("2.5")).not.toHaveAttribute("placeholder");
     expect(rowOrder()).toEqual(orderBeforeEdit);
     expect(within(await fieldRow("period")).getByPlaceholderText("0")).toBe(period);
@@ -843,7 +874,7 @@ describe("ClassView over a particle system", () => {
     let constant = false;
 
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "bin_set_pointer") {
+      if (isEdit(command, args, "setPointer")) {
         constant = true;
         return Promise.resolve({ ok: true, value: null });
       }
@@ -869,15 +900,17 @@ describe("ClassView over a particle system", () => {
 
     await userEvent.click(await rate.findByRole("button", { name: "Use constant value" }));
 
-    expect(mockInvoke).toHaveBeenCalledWith("bin_set_pointer", {
-      document: 9,
-      entry: ENTRY,
-      path: RATE_CURVE,
-      className: null,
-    });
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_remove_property")).toBe(
-      false,
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(9, {
+        kind: "setPointer",
+        entry: ENTRY,
+        path: RATE_CURVE,
+        className: null,
+      }),
     );
+    expect(
+      mockInvoke.mock.calls.some(([command, args]) => isEdit(command, args, "removeProperty")),
+    ).toBe(false);
     await waitFor(() =>
       expect(rate.getByRole("button", { name: "Use constant value" })).toHaveAttribute(
         "aria-pressed",
@@ -929,12 +962,14 @@ describe("ClassView over a particle system", () => {
     await userEvent.type(field, "0.5{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
-        document: 9,
-        entry: ENTRY,
-        path: `${BIRTH_COLOR}.${at("constantValue")}`,
-        value: { type: "vector", values: [0.5, 0, 0, 1] },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(9, {
+          kind: "patch",
+          entry: ENTRY,
+          path: `${BIRTH_COLOR}.${at("constantValue")}`,
+          value: { type: "vector", values: [0.5, 0, 0, 1] },
+        }),
+      ),
     );
   });
 
@@ -946,7 +981,9 @@ describe("ClassView over a particle system", () => {
     await userEvent.type(field, "NaN{Enter}");
 
     await waitFor(() => expect(field).toHaveAttribute("aria-invalid", "true"));
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+    expect(mockInvoke.mock.calls.some(([command, args]) => isEdit(command, args, "patch"))).toBe(
+      false,
+    );
   });
 
   it("draws every section of the layout, in its order", () => {
@@ -1516,7 +1553,9 @@ describe("The shell frame", () => {
 
     await userEvent.click(section("Render", false));
     expect(await screen.findByText("Blend Mode")).toBeInTheDocument();
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_patch")).toBe(false);
+    expect(mockInvoke.mock.calls.some(([command, args]) => isEdit(command, args, "patch"))).toBe(
+      false,
+    );
   });
 
   it("reveals default-only sections during search and preserves an explicit expansion", async () => {

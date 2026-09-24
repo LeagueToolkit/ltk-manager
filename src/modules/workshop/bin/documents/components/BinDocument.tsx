@@ -33,10 +33,13 @@ import {
   useWarmLinkOpen,
 } from "../../links/hooks/useLinkTargets";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
+import { NewObjectContext, useNewObjectDraft } from "../../tree/state/newObject";
 import { objectKey, rowKey, sortedRoots, targetKey } from "../../tree/utils/binRows";
-import { useBinDocument, useFileRoots } from "../hooks/useBinDocument";
+import { useBinDocument, useFileDependencies, useFileRoots } from "../hooks/useBinDocument";
+import { useDeclaredState } from "../hooks/useDeclared";
 import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
+import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
 
 interface BinDocumentProps {
   /** The editor's id for the tab, which a reveal request names. */
@@ -114,8 +117,17 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const roots = useMemo(() => sortedRoots(read), [read]);
   const rootByKey = useMemo(() => new Map(roots.map((row) => [rowKey(row), row])), [roots]);
 
+  const dependencies = useFileDependencies(handle);
+  const prop = handle.header.kind === "prop";
+  const [dependenciesReveal, setDependenciesReveal] = useState(0);
+  const declaredState = useDeclaredState(handle.document);
+  const removedLinks = declaredState?.links.filter((link) => link.change === "removed").length ?? 0;
+
   const narrow = useNarrowToolbar();
   const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  /* Only a declared document that takes edits creates an object. ADR-0049. */
+  const newObject = useNewObjectDraft();
+  const declares = declaredState !== null && handle.readOnly === null;
   useLendOpenBin(documentId, handle.document, null);
 
   /* A bin holding one object opens it expanded. */
@@ -177,33 +189,46 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
       className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
       onKeyDown={undoKeys}
     >
-      <DocumentToolbar active={active}>
-        <BinFacts document={handle.document} header={handle.header} narrow={narrow} />
-        <BinEditState
-          document={handle.document}
-          asset={asset}
-          readOnly={handle.readOnly}
-          onReload={reopen}
-        />
-        {actions}
-      </DocumentToolbar>
-      <CurveDockContext value={dock}>
-        <BinTree
-          document={handle.document}
-          asset={asset}
-          roots={roots}
-          rootOwner={null}
-          label={name}
-          initialExpanded={initialExpanded}
-          reveal={reveal}
-          objectName={(entry) =>
-            (rootByKey.get(objectKey(entry)) ?? rootByKey.get(targetKey(entry)))?.name ?? entry
-          }
-          onNotOpen={reopen}
-          onOpenObject={openObject}
-          editable={handle.readOnly === null}
-        />
-      </CurveDockContext>
+      <NewObjectContext value={declares ? newObject : null}>
+        <DocumentToolbar active={active}>
+          <BinFacts
+            document={handle.document}
+            header={handle.header}
+            dependencies={dependencies.length - removedLinks}
+            narrow={narrow}
+            onDependencies={() => setDependenciesReveal((count) => count + 1)}
+          />
+          <BinEditState
+            document={handle.document}
+            asset={asset}
+            readOnly={handle.readOnly}
+            onReload={reopen}
+          />
+          {actions}
+        </DocumentToolbar>
+        {handle.readOnly === "declarationsOff" && (
+          <DeclarationsOffNotice asset={asset} file={file} subject={name} />
+        )}
+        <CurveDockContext value={dock}>
+          <BinTree
+            document={handle.document}
+            asset={asset}
+            roots={roots}
+            rootOwner={null}
+            label={name}
+            initialExpanded={initialExpanded}
+            reveal={reveal}
+            objectName={(entry) =>
+              (rootByKey.get(objectKey(entry)) ?? rootByKey.get(targetKey(entry)))?.name ?? entry
+            }
+            onNotOpen={reopen}
+            onOpenObject={openObject}
+            editable={handle.readOnly === null}
+            dependencies={prop ? dependencies : null}
+            dependenciesReveal={dependenciesReveal}
+          />
+        </CurveDockContext>
+      </NewObjectContext>
     </div>
   );
 }
@@ -211,12 +236,16 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
 interface BinFactsProps {
   document: BinDocumentId;
   header: BinHeader;
+  /** How many dependencies the file holds now, which an edit changes from the header's. */
+  dependencies: number;
   /** The toolbar has room for the count and what opens, and for none of the rest. */
   narrow: boolean;
+  /** Open the tree's pinned dependencies row and move to it. */
+  onDependencies: () => void;
 }
 
 /** What the file is, in the row its tab owns: the count, the version, the dependencies. */
-function BinFacts({ document, header, narrow }: BinFactsProps) {
+function BinFacts({ document, header, dependencies, narrow, onDependencies }: BinFactsProps) {
   return (
     <span className="flex min-w-0 items-center gap-2 text-meta text-surface-400 select-none">
       <span>{m.workshop_bin_objects_label({ count: header.objects })}</span>
@@ -229,7 +258,13 @@ function BinFacts({ document, header, narrow }: BinFactsProps) {
       {header.kind === "prop" && (
         <>
           <Dot />
-          <Dependencies paths={header.dependencies} />
+          <button
+            type="button"
+            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-surface-200"
+            onClick={onDependencies}
+          >
+            {m.workshop_bin_dependencies_label({ count: dependencies })}
+          </button>
         </>
       )}
       {header.kind === "patch" && (
@@ -251,40 +286,6 @@ function BinFacts({ document, header, narrow }: BinFactsProps) {
         </>
       )}
     </span>
-  );
-}
-
-/** The dependency count, opening to the list of paths. */
-function Dependencies({ paths }: { paths: readonly string[] }) {
-  const label = m.workshop_bin_dependencies_label({ count: paths.length });
-  if (paths.length === 0) return <span>{label}</span>;
-
-  return (
-    <Popover.Root>
-      <Popover.Trigger
-        render={
-          <button
-            type="button"
-            className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-surface-200"
-          />
-        }
-      >
-        {label}
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={8}>
-          <Popover.Popup aria-label={label} className="max-w-md p-2">
-            <ul className="flex flex-col gap-0.5 font-mono text-code text-surface-200 select-text">
-              {paths.map((path) => (
-                <li key={path} className="truncate">
-                  {path}
-                </li>
-              ))}
-            </ul>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
   );
 }
 
@@ -311,7 +312,7 @@ function Deleted({ document, objects }: DeletedProps) {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={8}>
-          <Popover.Popup aria-label={label} className="max-w-md p-2">
+          <Popover.Popup aria-label={label} className="max-w-md p-2 text-meta">
             <DeletedLinks document={document} objects={objects} />
           </Popover.Popup>
         </Popover.Positioner>

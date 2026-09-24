@@ -7,6 +7,8 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
+import type { ChoiceQuery } from "@/lib/tauri";
+import { editCall, isEdit } from "@/test/binEdit";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -20,7 +22,7 @@ import { AddPropertyLine } from "../AddPropertyLine";
 import { ASSET, DOCUMENT, ENTRY, NO_FOCUS, PROJECT, renderRow, row } from "./binEditFixtures";
 
 function patches() {
-  return mockInvoke.mock.calls.filter(([command]) => command === "bin_patch");
+  return mockInvoke.mock.calls.filter(([command, args]) => isEdit(command, args, "patch"));
 }
 
 beforeEach(() => {
@@ -43,15 +45,12 @@ describe("a leaf of an editable document", () => {
 
     await waitFor(() =>
       expect(patches()).toEqual([
-        [
-          "bin_patch",
-          {
-            document: DOCUMENT,
-            entry: ENTRY,
-            path: "0000000a",
-            value: { type: "float", value: 2.25 },
-          },
-        ],
+        editCall(DOCUMENT, {
+          kind: "patch",
+          entry: ENTRY,
+          path: "0000000a",
+          value: { type: "float", value: 2.25 },
+        }),
       ]),
     );
     await waitFor(
@@ -99,15 +98,12 @@ describe("a leaf of an editable document", () => {
 
     await waitFor(() =>
       expect(patches()).toEqual([
-        [
-          "bin_patch",
-          {
-            document: DOCUMENT,
-            entry: ENTRY,
-            path: "0000000a",
-            value: { type: "bool", value: true },
-          },
-        ],
+        editCall(DOCUMENT, {
+          kind: "patch",
+          entry: ENTRY,
+          path: "0000000a",
+          value: { type: "bool", value: true },
+        }),
       ]),
     );
   });
@@ -142,15 +138,12 @@ describe("a leaf drawn as a chip", () => {
 
     await waitFor(() =>
       expect(patches()).toEqual([
-        [
-          "bin_patch",
-          {
-            document: DOCUMENT,
-            entry: ENTRY,
-            path: "0000000a",
-            value: { type: "objectLink", text: "Characters/Aatrox" },
-          },
-        ],
+        editCall(DOCUMENT, {
+          kind: "patch",
+          entry: ENTRY,
+          path: "0000000a",
+          value: { type: "objectLink", text: "Characters/Aatrox" },
+        }),
       ]),
     );
     expect(screen.queryByDisplayValue("Characters/Aatrox")).toBeNull();
@@ -213,8 +206,10 @@ describe("the add line", () => {
   }
 
   beforeEach(() => {
-    mockInvoke.mockImplementation((command: string) => {
-      if (command === "bin_addable_fields") return Promise.resolve({ ok: true, value: ADDABLE });
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === "bin_choices" && (args?.query as ChoiceQuery).kind === "addableFields") {
+        return Promise.resolve({ ok: true, value: { kind: "fields", fields: ADDABLE } });
+      }
       return Promise.resolve({ ok: true, value: null });
     });
   });
@@ -228,12 +223,14 @@ describe("the add line", () => {
     await userEvent.click(await screen.findByRole("option", { name: /birthScale/ }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_add_property", {
-        document: DOCUMENT,
-        entry: ENTRY,
-        path: "",
-        property: { kind: "declared", field: "0x0000000a" },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(DOCUMENT, {
+          kind: "addProperty",
+          entry: ENTRY,
+          path: "",
+          property: { kind: "declared", field: "0x0000000a" },
+        }),
+      ),
     );
     await waitFor(() => expect(to).toHaveBeenCalledWith(`${ENTRY}:0000000a`, null));
     expect(input).toHaveValue("");
@@ -248,17 +245,19 @@ describe("the add line", () => {
     await userEvent.keyboard("{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_add_property", {
-        document: DOCUMENT,
-        entry: ENTRY,
-        path: "",
-        property: {
-          kind: "custom",
-          field: "mySpeed",
-          shape: { kind: "f32", key: null, value: null },
-          class: null,
-        },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(DOCUMENT, {
+          kind: "addProperty",
+          entry: ENTRY,
+          path: "",
+          property: {
+            kind: "custom",
+            field: "mySpeed",
+            shape: { kind: "f32", key: null, value: null },
+            class: null,
+          },
+        }),
+      ),
     );
   });
 });
@@ -270,11 +269,13 @@ describe("the remove action of a property row", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove property" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_remove_property", {
-        document: DOCUMENT,
-        entry: ENTRY,
-        path: "0000000a",
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(DOCUMENT, {
+          kind: "removeProperty",
+          entry: ENTRY,
+          path: "0000000a",
+        }),
+      ),
     );
   });
 });

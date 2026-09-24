@@ -91,6 +91,7 @@ impl BinDocument {
             file: BinFile::Prop(Bin::new([object], std::iter::empty::<&str>())),
             base: Vec::new(),
             touched: IndexSet::new(),
+            dependencies_touched: false,
             undo: VecDeque::new(),
             redo: Vec::new(),
             declared: None,

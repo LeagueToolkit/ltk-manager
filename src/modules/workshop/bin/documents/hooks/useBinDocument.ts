@@ -19,13 +19,18 @@ import {
   type BinRow,
   type BinRows,
   type ClassChoice,
+  type Declaring,
+  type Dependency,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { assetKey } from "../../../preview/utils/assetRef";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { flushBinSave, isQueuedThrough } from "../../../state";
+import { expectKind } from "../../shared/utils/expectKind";
 import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
+import { useDeclarationsOn } from "./useDeclared";
+import { registerReopen, sendOn } from "./useDocumentCall";
 
 export type BinOpenState =
   | { readonly status: "opening" }
@@ -37,51 +42,86 @@ export type BinOpenState =
  *
  * The open and the close are explicit over IPC (ADR-0026). `entry` narrows the open to
  * one object of the file (ADR-0028), `0x` and eight hex digits. `reopen` asks for a
- * fresh handle and keeps the old one on screen until it answers. A document the store
- * evicted is reopened this way.
+ * fresh handle and keeps the old one on screen until it answers, and resolves with the
+ * fresh id, or null where the open failed. A document the store evicted is reopened this way,
+ * and every open id registers it, so `sendOn` reopens and resends a call the store refuses.
+ *
+ * A declared document follows the project's "Use game data declarations", and its handle's
+ * `readOnly` is the gate the backend answers for it.
  */
 export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
-): { state: BinOpenState; reopen: () => void } {
+): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
   /* A game chunk opened inside a project declares into it (ADR-0042). */
   const project = useOptionalProjectContext()?.path;
   const opened =
     asset.kind === "gameChunk" && project !== undefined ? { ...asset, project } : asset;
   const declarationProject = opened.kind === "gameChunk" ? opened.project : undefined;
   const key = `${declarationProject ?? ""}:${assetKey(asset)}:${entry ?? ""}`;
+  const declaring: Declaring =
+    useDeclarationsOn(declarationProject ?? undefined) === true ? "on" : "off";
 
-  const latest = useRef({ asset: opened, entry });
-  latest.current = { asset: opened, entry };
+  const latest = useRef({ asset: opened, entry, declaring });
+  latest.current = { asset: opened, entry, declaring };
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
   const heldKey = useRef(key);
+  /* The reopens waiting on the next open to land. */
+  const waiting = useRef<((id: BinDocumentId | null) => void)[]>([]);
+  useEffect(
+    () => () => {
+      for (const resolve of waiting.current) resolve(null);
+      waiting.current = [];
+    },
+    [],
+  );
+
+  /* Calls refused together share one open: a reopen already waiting takes the rest. */
+  const reopen = useCallback(
+    () =>
+      new Promise<BinDocumentId | null>((resolve) => {
+        const pending = waiting.current.length > 0;
+        waiting.current.push(resolve);
+        if (!pending) setGeneration((count) => count + 1);
+      }),
+    [],
+  );
 
   /* Keyed by what the reference names. A new object for the same asset is not a reopen. */
   useEffect(() => {
     let live = true;
     let opened: BinDocumentId | null = null;
+    let unregister = () => {};
     const same = heldKey.current === key;
     heldKey.current = key;
     setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
-    void api.bin.open(latest.current.asset, latest.current.entry).then((result) => {
-      if (!live) {
-        if (result.ok) void api.bin.close(result.value.document);
-        return;
-      }
-      if (result.ok) {
-        opened = result.value.document;
-        setState({ status: "open", handle: result.value });
-        return;
-      }
-      setState({ status: "failed", error: result.error });
-    });
+    void openGated(latest.current.asset, latest.current.entry, () => latest.current.declaring).then(
+      (result) => {
+        if (!live) {
+          if (result.ok) void api.bin.close(result.value.document);
+          return;
+        }
+        const settled = waiting.current;
+        waiting.current = [];
+        if (result.ok) {
+          opened = result.value.document;
+          unregister = registerReopen(opened, reopen);
+          setState({ status: "open", handle: result.value });
+          for (const resolve of settled) resolve(opened);
+          return;
+        }
+        setState({ status: "failed", error: result.error });
+        for (const resolve of settled) resolve(null);
+      },
+    );
 
     const held = assetKey(latest.current.asset);
     return () => {
       live = false;
+      unregister();
       if (opened === null) return;
       const closing = opened;
       /* The last id over a tree takes its edits with it, so a queued save lands first. */
@@ -91,10 +131,47 @@ export function useBinDocument(
         void api.bin.close(closing);
       }
     };
-  }, [key, generation]);
+  }, [key, generation, reopen]);
 
-  const reopen = useCallback(() => setGeneration((count) => count + 1), []);
+  const openId = state.status === "open" ? state.handle.document : null;
+  const declared = state.status === "open" && Boolean(state.handle.declared);
+  useEffect(() => {
+    if (openId === null || !declared) return;
+
+    void api.bin.setDeclaring(openId, declaring).then((result) => {
+      if (!result.ok) {
+        /* The reopen sets the gate again as it opens. */
+        if (result.error.code === "BIN_NOT_OPEN") void reopen();
+        return;
+      }
+      setState((previous) => {
+        if (previous.status !== "open" || previous.handle.document !== openId) return previous;
+        if (previous.handle.readOnly === result.value) return previous;
+
+        return { status: "open", handle: { ...previous.handle, readOnly: result.value } };
+      });
+    });
+  }, [declared, declaring, openId, reopen]);
+
   return { state, reopen };
+}
+
+/**
+ * Open `asset`, and set a declared document's gate before the handle is drawn, so an open
+ * with declarations on never draws read-only first. `declaring` is read once the open lands.
+ */
+async function openGated(
+  asset: AssetRef,
+  entry: string | null,
+  declaring: () => Declaring,
+): Promise<Awaited<ReturnType<typeof api.bin.open>>> {
+  const opened = await api.bin.open(asset, entry);
+  if (!opened.ok || !opened.value.declared) return opened;
+
+  const gate = await api.bin.setDeclaring(opened.value.document, declaring());
+  if (!gate.ok) return opened;
+
+  return { ok: true, value: { ...opened.value, readOnly: gate.value } };
 }
 
 export const binKeys = {
@@ -116,7 +193,16 @@ export const binQueries = {
   fileRoots: (document: BinDocumentId, opened: readonly BinRow[]) =>
     queryOptions<readonly BinRow[], AppError>({
       queryKey: ["bin-file-roots", document],
-      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      queryFn: async () => unwrapForQuery((await sendOn(document, api.bin.roots)).result),
+      initialData: opened,
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** A file's header dependencies, standing on what the open answered until an edit. */
+  dependencies: (document: BinDocumentId, opened: readonly Dependency[]) =>
+    queryOptions<readonly Dependency[], AppError>({
+      queryKey: ["bin-dependencies", document],
+      queryFn: async () => unwrapForQuery((await sendOn(document, api.bin.dependencies)).result),
       initialData: opened,
       staleTime: Infinity,
       retry: false,
@@ -138,7 +224,12 @@ export const binQueries = {
   addable: (document: BinDocumentId, entry: string, path: string) =>
     queryOptions<AddableFields, AppError>({
       queryKey: ["bin-addable", document, entry, path],
-      queryFn: async () => unwrapForQuery(await api.bin.addableFields(document, entry, path)),
+      queryFn: async () => {
+        const { result: answer } = await sendOn(document, (id) =>
+          api.bin.choices(id, { kind: "addableFields", entry, path }),
+        );
+        return unwrapForQuery(expectKind(answer, "fields")).fields;
+      },
       staleTime: Infinity,
       retry: false,
     }),
@@ -146,7 +237,25 @@ export const binQueries = {
   itemClasses: (document: BinDocumentId, entry: string, path: string) =>
     queryOptions<ClassChoice[], AppError>({
       queryKey: ["bin-item-classes", document, entry, path],
-      queryFn: async () => unwrapForQuery(await api.bin.itemClasses(document, entry, path)),
+      queryFn: async () => {
+        const { result: answer } = await sendOn(document, (id) =>
+          api.bin.choices(id, { kind: "itemClasses", entry, path }),
+        );
+        return unwrapForQuery(expectKind(answer, "classes")).classes;
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The classes a new object can take: the ones the file holds, then every class the schema knows. */
+  objectClasses: (document: BinDocumentId) =>
+    queryOptions<ClassChoice[], AppError>({
+      queryKey: ["bin-object-classes", document],
+      queryFn: async () => {
+        const { result: answer } = await sendOn(document, (id) =>
+          api.bin.choices(id, { kind: "objectClasses" }),
+        );
+        return unwrapForQuery(expectKind(answer, "classes")).classes;
+      },
       staleTime: Infinity,
       retry: false,
     }),
@@ -155,12 +264,19 @@ export const binQueries = {
     queryOptions<readonly BinRow[], AppError>({
       queryKey: ["bin-roots", document, entry],
       queryFn: async () =>
-        unwrapForQuery(await api.bin.children(document, entry, "", 0, WHOLE)).rows,
+        unwrapForQuery(
+          (await sendOn(document, (id) => api.bin.children(id, entry, "", 0, WHOLE))).result,
+        ).rows,
       initialData: opened,
       staleTime: Infinity,
       retry: false,
     }),
 };
+
+/** The dependencies a file open pins over its rows, read again after an edit. */
+export function useFileDependencies(handle: BinDocumentHandle): readonly Dependency[] {
+  return useQuery(binQueries.dependencies(handle.document, handle.header.dependencies)).data;
+}
 
 /** The rows a file open draws at depth zero, read again after an edit. */
 export function useFileRoots(handle: BinDocumentHandle): readonly BinRow[] {

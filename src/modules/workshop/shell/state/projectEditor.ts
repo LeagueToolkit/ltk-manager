@@ -3,6 +3,7 @@
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import { type LayoutNode, singleLeaf } from "@/modules/editor/layout";
 
+import type { SelectedModule } from "../../bin/documents/state/editorFile";
 import {
   defaultShellArrangements,
   type ShellArrangements,
@@ -22,7 +23,7 @@ import type { PreviewIds } from "./previewTabs";
 /**
  * Everything the editor holds for one project.
  *
- * `documents`, `layout`, `activeLeafId` and `selectedLayer` persist, written to
+ * `documents`, `layout`, `activeLeafId`, `selectedLayer` and `selectedModule` persist, written to
  * the project's own `.ltk/editor.json` by `useEditorPersistence`. The rest is
  * rebuilt each run: a dirty flag belongs to an editor that is currently
  * mounted, and neither the shut directories nor a pending scroll are worth
@@ -44,6 +45,10 @@ export interface ProjectEditor {
    * strip is empty or the active tab belongs to no layer.
    */
   selectedLayer: string | null;
+  /** The project's "Use game data declarations" choice, absent until the reader makes one. */
+  useDeclarations?: boolean;
+  /** The module of `selectedLayer` a declared document writes to, null for the default placement. */
+  selectedModule: SelectedModule | null;
   /**
    * The ephemeral tab of each group, which that group's next open replaces.
    *
@@ -100,6 +105,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   layout: ROOT,
   activeLeafId: ROOT.id,
   selectedLayer: null,
+  selectedModule: null,
   previewIds: {},
   dirty: new Set(),
   pinned: [],

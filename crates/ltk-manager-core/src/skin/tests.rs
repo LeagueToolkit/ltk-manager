@@ -1159,6 +1159,7 @@ fn a_material_the_skin_lacks_is_looked_for_in_the_files_it_links() {
 
     let body = model.material.expect("the skin's material");
     assert!(!body.missing);
+    assert_eq!(body.source, file(CAC));
     assert_eq!(
         body.base.as_ref().map(|base| base.texture.asset.clone()),
         Some(file(WINGS))

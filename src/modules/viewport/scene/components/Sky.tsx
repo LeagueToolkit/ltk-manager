@@ -1,11 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { type CubeTexture, SRGBColorSpace } from "three";
 
 import { previewCubeUrl } from "@/lib/previewUrl";
+import type { AssetRef } from "@/lib/tauri";
 
 import { loadCubeTexture } from "../../shared/utils/cubeTexture";
+import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { backdropQueries } from "../hooks/useMapBackdrop";
+
+/** One sky's load, shared by every viewport drawing it. */
+interface SkyLoad {
+  readonly texture: () => CubeTexture | null;
+  readonly subscribe: (listener: () => void) => () => void;
+  readonly dispose: () => void;
+}
+
+const SKIES = createRetainedCache<string, SkyLoad>((sky) => sky.dispose());
 
 /**
  * The sky behind a map backdrop, in place of the stage's flat colour.
@@ -17,28 +28,53 @@ import { backdropQueries } from "../hooks/useMapBackdrop";
  */
 export function Sky() {
   const asset = useQuery(backdropQueries.sky()).data ?? null;
-  const [sky, setSky] = useState<CubeTexture | null>(null);
+  if (asset === null) return null;
+  return <SkyOf asset={asset} />;
+}
 
-  useEffect(() => {
-    if (asset === null) return;
-    let live = true;
-    let held: CubeTexture | null = null;
+function SkyOf({ asset }: { asset: AssetRef }) {
+  const sky = useRetained(SKIES, JSON.stringify(asset), () => loadSky(asset));
+  const texture = useSyncExternalStore(sky.subscribe, sky.texture);
+  if (texture === null) return null;
+  return <primitive attach="background" object={texture} />;
+}
+
+function loadSky(asset: AssetRef): SkyLoad {
+  let live = true;
+  let started = false;
+  let held: CubeTexture | null = null;
+  const listeners = new Set<() => void>();
+
+  const start = () => {
+    if (started) return;
+    started = true;
+
     void loadCubeTexture(previewCubeUrl(asset)).then((cube) => {
       if (cube === null) return;
       if (!live) {
         cube.dispose();
         return;
       }
+
       cube.colorSpace = SRGBColorSpace;
       held = cube;
-      setSky(cube);
+      for (const listener of listeners) listener();
     });
-    return () => {
+  };
+
+  return {
+    texture: () => held,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      start();
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    dispose: () => {
       live = false;
       held?.dispose();
-      setSky(null);
-    };
-  }, [asset]);
-
-  return sky === null ? null : <primitive attach="background" object={sky} />;
+      listeners.clear();
+    },
+  };
 }

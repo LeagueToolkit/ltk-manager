@@ -12,6 +12,7 @@ function diagnostic(overrides: Partial<DeclaredDiagnostic>): DeclaredDiagnostic 
     key: "tags",
     kind: "propertyEditSkipped",
     reason: null,
+    object: null,
     detail: null,
     ...overrides,
   };
@@ -24,6 +25,15 @@ describe("diagnosticText", () => {
     );
     expect(diagnosticText(diagnostic({ reason: "indexOutOfRange" }))).toBe(
       "The list in the game's copy holds no item at that index.",
+    );
+  });
+
+  it("says why an object was not created or removed", () => {
+    expect(diagnosticText(diagnostic({ kind: "objectSkipped", object: "sourceMissing" }))).toBe(
+      "The chunk holds no source to copy when the module starts.",
+    );
+    expect(diagnosticText(diagnostic({ kind: "objectSkipped", object: "objectExists" }))).toBe(
+      "The chunk already holds an object of this name.",
     );
   });
 

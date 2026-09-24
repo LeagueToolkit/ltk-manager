@@ -7,7 +7,7 @@ use ltk_hash::Hash as _;
 use ltk_meta::property::values;
 
 use super::*;
-use crate::bin_document::LeafValue;
+use crate::bin_document::{BinDocuments, LeafValue, ReadOnly};
 use crate::meta_schema;
 use crate::preview::AssetRef;
 
@@ -197,6 +197,9 @@ fn a_hand_written_manifest_applies_and_marks_the_row_it_touches() {
         [DeclaredMark {
             entry: hex(h(SKIN)),
             path: glow_path(),
+            property: "skinMeshProperties.selfIllumination".to_owned(),
+            module: 0,
+            module_name: None,
             sign: DeclaredSign::Set,
             whole: false,
             reference: None,
@@ -308,11 +311,13 @@ fn a_declaration_of_another_layer_applies_with_no_mark() {
         .cloned();
     assert_eq!(name, Some(values::String::new("Jade".to_owned()).into()));
 
-    let state = document.declare_into("chroma").unwrap();
+    let state = document
+        .declare_into("chroma", DeclaredModuleChoice::Auto)
+        .unwrap();
     assert_eq!(state.layer, "chroma");
     assert_eq!(state.marks.len(), 1);
     assert_matches!(
-        document.declare_into("missing"),
+        document.declare_into("missing", DeclaredModuleChoice::Auto),
         Err(BinDocumentError::Declaring(_))
     );
 }
@@ -321,7 +326,9 @@ fn a_declaration_of_another_layer_applies_with_no_mark() {
 fn an_edit_lands_in_the_chosen_layer() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));
-    document.declare_into("chroma").unwrap();
+    document
+        .declare_into("chroma", DeclaredModuleChoice::Auto)
+        .unwrap();
 
     document
         .set_leaf(
@@ -379,26 +386,107 @@ fn an_edit_no_declaration_expresses_is_refused() {
     );
 }
 
-#[test]
-fn a_declared_game_chunk_takes_edits_and_a_bare_one_does_not() {
-    let dir = tempfile::tempdir().unwrap();
-    let document = declared(project(dir.path()));
-    let chunk = |project: Option<String>| AssetRef::GameChunk {
+fn teemo_chunk(project: Option<String>) -> AssetRef {
+    AssetRef::GameChunk {
         wad: "Champions/Teemo.wad.client".to_owned(),
         path_hash: format!("{:016x}", ltk_game_data::path_hash(CHUNK)),
         project,
-    };
+    }
+}
+
+#[test]
+fn a_declared_game_chunk_takes_edits_only_while_declaring_and_a_bare_one_never() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+    let inside = teemo_chunk(Some(dir.path().display().to_string()));
+
+    assert_eq!(document.read_only(&inside), Some(ReadOnly::DeclarationsOff));
+
+    document.set_declaring(Declaring::On).unwrap();
+    assert_eq!(document.read_only(&inside), None);
+
+    let mut bare = BinDocument::parse(game_bin()).unwrap();
+    assert_eq!(bare.read_only(&teemo_chunk(None)), Some(ReadOnly::Install));
+    assert_matches!(
+        bare.set_declaring(Declaring::On),
+        Err(BinDocumentError::Declaring(_))
+    );
+}
+
+#[test]
+fn the_store_refuses_every_declaring_edit_while_declarations_are_off() {
+    let dir = tempfile::tempdir().unwrap();
+    let project_dir = project(dir.path());
+    fs::write(
+        dir.path().join("content/base/game_data.yaml"),
+        format!("version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.37\n"),
+    )
+    .unwrap();
+    let before = manifest(dir.path(), "base");
+    let store = BinDocuments::new(std::num::NonZeroUsize::new(2).unwrap());
+    let id = store
+        .open_declared(
+            teemo_chunk(Some(dir.path().display().to_string())),
+            ltk_game_data::path_hash(CHUNK),
+            || {
+                let context = declared(project_dir).declared.take().unwrap().context;
+                Ok((game_bin(), context))
+            },
+        )
+        .unwrap();
 
     assert_eq!(
-        document.read_only(&chunk(Some(dir.path().display().to_string()))),
-        None
+        store.read_only(id).unwrap(),
+        Some(ReadOnly::DeclarationsOff)
     );
-    assert_eq!(
-        BinDocument::parse(game_bin())
-            .unwrap()
-            .read_only(&chunk(None)),
-        Some(super::super::ReadOnly::Install)
+    assert_matches!(
+        store.patch(id, h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 }),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
+    assert_matches!(
+        store.declare_reference(id, h(SKIN), &glow_path(), "0x1:a", false),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_matches!(
+        store.undo(id),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_matches!(
+        store.declared_module_action(id, "base", &ModuleAction::Remove { module: 0 }),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_matches!(
+        store.create_object(
+            id,
+            "Mods/jade-teemo/Glow",
+            &NewObject::Clone {
+                source: hex(h(SKIN)),
+            },
+        ),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_matches!(
+        store.remove_object(id, h(SKIN)),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_matches!(
+        store.restore_object(id, h(SKIN)),
+        Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
+    );
+    assert_eq!(manifest(dir.path(), "base"), before);
+    store
+        .read(id, |document| {
+            assert!((glow(document) - 0.37).abs() < f32::EPSILON);
+            assert_eq!(document.declared_state().unwrap().marks.len(), 1);
+            Ok(())
+        })
+        .unwrap();
+
+    assert_eq!(store.set_declaring(id, Declaring::On).unwrap(), None);
+    store
+        .patch(id, h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 })
+        .unwrap();
+    assert_ne!(manifest(dir.path(), "base"), before);
 }
 
 /// Times one re-apply over the largest `PROP` chunk of the champion archives, which is a
@@ -478,4 +566,152 @@ fn one_reapply_over_the_largest_skin_bin_is_timed() {
         bin.objects.len(),
         started.elapsed() / RUNS,
     );
+}
+
+/// A base layer of two `entries` modules: the glow of the skin, then a named one declaring
+/// an entry the chunk lacks.
+fn two_modules(dir: &Path) -> String {
+    let text = format!(
+        "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.5\n  - name: Later\n    entries:\n      Characters/Other:\n        q: 1\n"
+    );
+    fs::write(dir.join("content/base/game_data.yaml"), &text).unwrap();
+    text
+}
+
+fn skin_name_path() -> String {
+    format!("{:08x}", *h("championSkinName"))
+}
+
+#[test]
+fn an_edit_lands_in_the_chosen_module_and_its_mark_names_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let text = two_modules(dir.path());
+    let mut document = declared(project);
+
+    let state = document
+        .declare_into("base", DeclaredModuleChoice::Index { index: 1 })
+        .unwrap();
+    assert_eq!(
+        state.modules,
+        [
+            DeclaredModuleSummary {
+                index: 0,
+                name: None,
+                takes_keys: true,
+            },
+            DeclaredModuleSummary {
+                index: 1,
+                name: Some("Later".to_owned()),
+                takes_keys: true,
+            },
+        ]
+    );
+    document
+        .set_leaf(
+            h(SKIN),
+            &skin_name_path(),
+            LeafValue::String {
+                value: "Jade".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest(dir.path(), "base"),
+        format!("{text}      {SKIN}:\n        championSkinName: Jade\n")
+    );
+    let state = document.declared_state().unwrap();
+    let module_of = |path: &str| {
+        state
+            .marks
+            .iter()
+            .find(|mark| mark.path == path)
+            .map(|mark| (mark.module, mark.module_name.clone()))
+    };
+    assert_eq!(module_of(&glow_path()), Some((0, None)));
+    assert_eq!(
+        module_of(&skin_name_path()),
+        Some((1, Some("Later".to_owned())))
+    );
+}
+
+#[test]
+fn a_new_module_choice_makes_one_module_that_later_edits_join() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let text = two_modules(dir.path());
+    let mut document = declared(project);
+    document
+        .declare_into(
+            "base",
+            DeclaredModuleChoice::New {
+                name: Some("Name".to_owned()),
+            },
+        )
+        .unwrap();
+
+    document
+        .set_leaf(
+            h(SKIN),
+            &skin_name_path(),
+            LeafValue::String {
+                value: "Jade".to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        document.declared_state().unwrap().module,
+        DeclaredModuleChoice::Index { index: 2 }
+    );
+    document
+        .set_leaf(
+            h(SKIN),
+            &format!("{:08x}.{:08x}", *h("skinMeshProperties"), *h("texture")),
+            LeafValue::String {
+                value: "assets/jade.tex".to_owned(),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest(dir.path(), "base"),
+        format!(
+            "{text}  - name: Name\n    entries:\n      {SKIN}:\n        championSkinName: Jade\n        skinMeshProperties.texture: assets/jade.tex\n"
+        )
+    );
+}
+
+#[test]
+fn a_key_moved_between_modules_keeps_the_view_and_undoes() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let text = two_modules(dir.path());
+    let mut document = declared(project);
+
+    let state = document
+        .declared_module_action(
+            "base",
+            &ModuleAction::MoveKeys {
+                module: 0,
+                entry: SKIN.to_owned(),
+                path: Some("skinMeshProperties.selfIllumination".to_owned()),
+                to: 1,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        manifest(dir.path(), "base"),
+        format!(
+            "version: 1\nmodules:\n  - name: Later\n    entries:\n      Characters/Other:\n        q: 1\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.5\n"
+        )
+    );
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
+    assert_eq!(state.modules.len(), 1);
+    assert_eq!(state.marks[0].module_name.as_deref(), Some("Later"));
+
+    assert!(document.undo().unwrap());
+    assert_eq!(manifest(dir.path(), "base"), text);
+    assert_eq!(document.declared_state().unwrap().modules.len(), 2);
 }

@@ -4,6 +4,7 @@ use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, IncidentStoreState, SettingsState};
 use fs_err as fs;
+use ltk_manager_core::launcher::wait_for_game_exit;
 use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
@@ -38,7 +39,6 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
 
     patcher_state.wait_for_stop()?;
     kill_league_process();
-    std::thread::sleep(std::time::Duration::from_millis(500));
 
     tracing::info!("Hot reload: restarting patcher");
     start_patcher_inner(
@@ -309,7 +309,10 @@ fn try_lcu_reconnect_once(client: &reqwest::blocking::Client, lockfile: &Lockfil
     false
 }
 
-/// Kill the League of Legends game process.
+/// How long a killed game gets to release its archives.
+const GAME_EXIT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Kill the League of Legends game process and wait for it to exit.
 fn kill_league_process() {
     tracing::info!("Killing League of Legends process");
 
@@ -352,5 +355,12 @@ fn kill_league_process() {
         Err(e) => {
             tracing::warn!("Failed to spawn kill command: {}", e);
         }
+    }
+
+    if !wait_for_game_exit(GAME_EXIT_TIMEOUT) {
+        tracing::warn!(
+            "League of Legends still running {}s after the kill",
+            GAME_EXIT_TIMEOUT.as_secs()
+        );
     }
 }

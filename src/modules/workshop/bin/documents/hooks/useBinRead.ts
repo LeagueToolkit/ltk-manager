@@ -91,6 +91,12 @@ function loadedOf(
   return loaded;
 }
 
+/** The pages a projected read answered, and the first error a call of it met. */
+export interface BinReadState {
+  readonly pages: ReadonlyMap<string, BinRows>;
+  readonly error: AppError | null;
+}
+
 /**
  * The rows under every requested node, by key, in as few calls as the cap allows.
  *
@@ -107,6 +113,14 @@ export function useBinRead(
   document: BinDocumentId,
   requests: readonly ReadRequest[],
 ): ReadonlyMap<string, BinRows> {
+  return useBinReadState(document, requests).pages;
+}
+
+/** The same read, with the error a caller that cannot wait forever on a failed call reads. */
+export function useBinReadState(
+  document: BinDocumentId,
+  requests: readonly ReadRequest[],
+): BinReadState {
   const signature = signatureOf(requests);
   const batches = useMemo(() => readBatches(requestsOf(signature)), [signature]);
   const queries = useMemo(
@@ -120,7 +134,10 @@ export function useBinRead(
     [document, batches],
   );
   const combine = useCallback(
-    (results: UseQueryResult<BinRows[], AppError>[]) => loadedOf(batches, results),
+    (results: UseQueryResult<BinRows[], AppError>[]): BinReadState => ({
+      pages: loadedOf(batches, results),
+      error: results.find((result) => result.error !== null)?.error ?? null,
+    }),
     [batches],
   );
   return useQueries({ queries, combine });

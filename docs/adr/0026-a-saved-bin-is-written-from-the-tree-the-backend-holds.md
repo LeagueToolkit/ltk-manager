@@ -1,7 +1,8 @@
 # ADR-0026: A saved bin is written from the tree the backend holds
 
 - **Status:** Accepted (2026-09-05). The save sentence is superseded by
-  [ADR-0040](0040-a-bin-save-writes-the-edited-objects-over-the-bytes-it-opened.md)
+  [ADR-0040](0040-a-bin-save-writes-the-edited-objects-over-the-bytes-it-opened.md). The bound
+  is amended from eight to thirty-two documents (2026-09-24)
 - **Date:** 2026-09-05
 - **Crates:** `ltk-manager-core`, `src-tauri`
 - **Related:** [ADR-0027](0027-a-node-is-addressed-by-the-games-property-path.md), which names
@@ -33,8 +34,10 @@ the children of one node as rows, and closes the document. An edit is a patch ap
 in Rust, answered with the rows that changed. A save writes the `Bin` the backend holds, never a
 tree rebuilt from what the frontend drew.
 
-The store is bounded to eight open documents and evicts the least recently used. A frontend that
-crashes without closing costs the memory of eight trees and no more. The open and the close are
+The store is bounded to thirty-two open documents and evicts the least recently used. Every read
+and every edit marks its document the most recently used. A frontend that crashes without
+closing costs the memory of thirty-two trees and no more, and a reload of the page closes every
+clean tree. The open and the close are
 explicit over IPC. A tab closed without a close call is a leaked tree.
 
 ## Consequences
@@ -46,7 +49,11 @@ explicit over IPC. A tab closed without a close call is a leaked tree.
 - **Negative:** every expansion is an IPC round trip. The design budgets 16ms for one. A
   projection over an in-memory tree meets that with room.
 - **Negative:** a document evicted from the store while its tab is open answers its next call
-  with an error, and the frontend reopens it. Eviction refuses a document with unsaved edits. A
-  reopen costs no work.
+  with an error, and the frontend reopens it and sends the call again on the fresh id. Eviction
+  refuses a document with unsaved edits, so a reopen loses no edit. It loses the undo history of
+  a saved tree.
+- **Neutral:** every tree in the store is held by an open id, so an eviction always takes a tab's
+  tree. The bound sits above the tabs a user keeps open, and a burst of short opens, such as a
+  spell preview's, takes at most the least recently used tree.
 - **Neutral:** the hash tables name rows at projection time and not at parse time. A hashtable
   sync renames the rows a document draws next and leaves its tree alone.

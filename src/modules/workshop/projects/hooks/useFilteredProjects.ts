@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 
+import type { WorkshopProject } from "@/lib/tauri";
+
 import {
+  useWorkshopLocation,
   useWorkshopSearchQuery,
   useWorkshopSelectedChampions,
   useWorkshopSelectedMaps,
@@ -16,6 +19,7 @@ export function useFilteredProjects() {
   const selectedChampions = useWorkshopSelectedChampions();
   const selectedMaps = useWorkshopSelectedMaps();
   const sort = useWorkshopSort();
+  const location = useWorkshopLocation();
 
   return useMemo(() => {
     let result = projects;
@@ -27,6 +31,10 @@ export function useFilteredProjects() {
           project.displayName.toLowerCase().includes(query) ||
           project.name.toLowerCase().includes(query),
       );
+    }
+
+    if (location !== "all") {
+      result = result.filter((p) => p.location === location);
     }
 
     if (selectedTags.size > 0) {
@@ -48,11 +56,18 @@ export function useFilteredProjects() {
           return dir * a.displayName.localeCompare(b.displayName);
         case "lastModified":
           return dir * (new Date(a.lastModified).getTime() - new Date(b.lastModified).getTime());
+        case "lastOpened":
+          return dir * (recency(a) - recency(b));
         default:
           return 0;
       }
     });
 
     return sorted;
-  }, [projects, searchQuery, selectedTags, selectedChampions, selectedMaps, sort]);
+  }, [projects, searchQuery, location, selectedTags, selectedChampions, selectedMaps, sort]);
+}
+
+/* A project never opened sorts by when it last changed, so it lands among the others. */
+function recency(project: WorkshopProject): number {
+  return Date.parse(project.lastOpened ?? project.lastModified);
 }

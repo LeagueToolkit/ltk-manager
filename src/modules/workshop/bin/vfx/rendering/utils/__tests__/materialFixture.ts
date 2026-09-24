@@ -5,6 +5,7 @@ export function materialPreview(over: Partial<MaterialPreview> = {}): MaterialPr
     hash: "0x12345678",
     name: "Materials/Test",
     missing: false,
+    source: null,
     animated: false,
     shader: null,
     base: null,

@@ -156,6 +156,37 @@ export function FileChip({ hash, path }: FileChipProps) {
   );
 }
 
+interface DependencyChipProps {
+  /** The dependency as the file writes it, which opens and which the hover names in full. */
+  path: string;
+  /** What the chip reads: the brex spelling where one folds the path, else the path. */
+  label: string;
+}
+
+/**
+ * A header dependency as the chip a `file` link to it draws, resolved the same way: the
+ * layer's copy, else the install's, else missing. "Dependencies" in docs/ux/BIN_EDITOR.md.
+ */
+export function DependencyChip({ path, label }: DependencyChipProps) {
+  const targets = useLinkTargets();
+  const chunk = path.toLowerCase();
+  const layer = useLayerCopy(chunk);
+  const decision = decideFileLink(chunk, targets, layer);
+
+  if (decision.kind !== "chip") {
+    return <Text missing={decision.kind === "missing"} path={label} title={path} />;
+  }
+  return (
+    <ChunkChip
+      document={decision.document}
+      path={path}
+      label={label}
+      side={decision.side}
+      layerTitle={layer?.title}
+    />
+  );
+}
+
 interface StringValueProps {
   /** The string as the file holds it, which is what a miss draws and what a hit hashes. */
   text: string;
@@ -242,21 +273,23 @@ function StringCard({ text, line }: { text: string; line: string }) {
 
 interface ChunkChipProps {
   document: ContentDocumentOf<"preview">;
-  /** The chunk's path as the tables name it, which is the chip's label. */
+  /** The chunk's path as the tables name it. */
   path: string;
+  /** What the chip reads, the path where absent. */
+  label?: string;
   /** The word the chip carries: the layer's title, or the archive's name. */
   side?: string;
   layerTitle?: string;
 }
 
 /** A resolved chunk: its chip, its swatch or badge, and the side that answered. */
-function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
+function ChunkChip({ document, path, label = path, side, layerTitle }: ChunkChipProps) {
   const open = useOpenDocumentAs();
   const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} cut="path" onOpen={onOpen} />
+      <LinkChip label={label} whole={path} cut="path" onOpen={onOpen} />
       <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
       {side !== undefined && <SideTag side={side} layer={layerTitle !== undefined} />}
     </span>

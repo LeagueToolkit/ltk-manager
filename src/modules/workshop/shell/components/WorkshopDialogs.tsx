@@ -1,3 +1,5 @@
+import { AddFoldersDialog } from "../../folders/components/AddFoldersDialog";
+import { ConvertFolderDialog } from "../../folders/components/ConvertFolderDialog";
 import { ImportFantomeDialog } from "../../imports/components/ImportFantomeDialog";
 import { ImportGitRepoDialog } from "../../imports/components/ImportGitRepoDialog";
 import { BulkPackDialog } from "../../packing/components/BulkPackDialog";
@@ -19,6 +21,8 @@ export function WorkshopDialogs() {
   return (
     <>
       <NewProjectDialog />
+      <ConvertFolderDialog />
+      <AddFoldersDialog />
       <ImportFantomeDialog />
       <ImportGitRepoDialog />
       <PackDialog />

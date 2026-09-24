@@ -40,6 +40,7 @@ function material(hash: string, base: AssetRef | null): MaterialPreview {
     hash,
     name: null,
     missing: false,
+    source: null,
     animated: false,
     shader: null,
     base:

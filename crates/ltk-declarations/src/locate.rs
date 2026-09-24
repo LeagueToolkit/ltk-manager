@@ -4,17 +4,22 @@
 //! a module whose chunk is the edited one, directly or in its `edits` list. A
 //! key names a property by its full path, `skinMeshProperties.selfIllumination`,
 //! or by the part of it below an unsigned block key, `selfIllumination` under
-//! `skinMeshProperties:`.
+//! `skinMeshProperties:`. An object a `target` module creates takes its keys in
+//! the `set` of its `objects` entry.
 
 use ltk_game_data::{BinHash, EntryName, Sign, Target};
 use ltk_meta::path::{PropertyPath, Segment};
+use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Mapping, MappingEntry, Sequence, YamlNode};
 
-use crate::syntax;
+use crate::Refusal;
+use crate::syntax::{self, Node};
 
 /// The keys of a `target` module that are not entry names.
-const MODULE_KEYS: [&str; 8] = [
+const MODULE_KEYS: [&str; 10] = [
+    "name",
     "target",
+    "objects",
     "entries",
     "source",
     "edits",
@@ -60,23 +65,91 @@ pub(crate) fn module_mappings(doc: &Document) -> Vec<Mapping> {
 }
 
 /// The bodies declaring for `site`'s entry, in execution order.
+///
+/// Within one binding body a creation's `set` applies before the entry edits.
 fn bodies(doc: &Document, site: &Site<'_>) -> Vec<Mapping> {
     let mut bodies = Vec::new();
     for module in module_mappings(doc) {
         if let Some(entries) = module.get_mapping("entries") {
             bodies.extend(entry_bodies(&entries, site.entry, &[]));
-        } else if targets(&module, site.chunk_hash) {
-            bodies.extend(entry_bodies(&module, site.entry, &MODULE_KEYS));
-            if let Some(edits) = module.get_sequence("edits") {
-                for edit in edits.values() {
-                    if let Some(edit) = edit.as_mapping() {
-                        bodies.extend(entry_bodies(edit, site.entry, &MODULE_KEYS));
-                    }
-                }
-            }
+            continue;
+        }
+
+        for body in module_bodies(&module, site.chunk_hash) {
+            bodies.extend(
+                object_entries(&body, site.entry)
+                    .iter()
+                    .filter_map(creation)
+                    .filter_map(|object| object.get_mapping("set")),
+            );
+            bodies.extend(entry_bodies(&body, site.entry, &MODULE_KEYS));
         }
     }
     bodies
+}
+
+/// The binding bodies of a `target` module of the chunk `chunk_hash`: the module itself,
+/// else each item of its `edits`. None for another chunk's module or a `source` one.
+fn module_bodies(module: &Mapping, chunk_hash: u64) -> Vec<Mapping> {
+    if !targets(module, chunk_hash) || module.get("source").is_some() {
+        return Vec::new();
+    }
+
+    match module.get_sequence("edits") {
+        Some(edits) => edits
+            .values()
+            .filter_map(|edit| edit.as_mapping().cloned())
+            .collect(),
+        None => vec![module.clone()],
+    }
+}
+
+/// Every binding body of the `target` modules of the chunk `chunk_hash`, in execution order.
+pub(crate) fn target_bodies(doc: &Document, chunk_hash: u64) -> Vec<Mapping> {
+    module_mappings(doc)
+        .iter()
+        .flat_map(|module| module_bodies(module, chunk_hash))
+        .collect()
+}
+
+/// The binding bodies of the last module, where that module is a `target` module of the
+/// chunk `chunk_hash`.
+pub(crate) fn trailing_target_bodies(doc: &Document, chunk_hash: u64) -> Vec<Mapping> {
+    module_mappings(doc)
+        .last()
+        .map(|module| module_bodies(module, chunk_hash))
+        .unwrap_or_default()
+}
+
+/// The entries of a body's `objects` naming `entry`, a name or its hash alike.
+pub(crate) fn object_entries(body: &Mapping, entry: BinHash) -> Vec<MappingEntry> {
+    body.get_mapping("objects")
+        .map(|objects| {
+            syntax::entries(&objects)
+                .into_iter()
+                .filter(|candidate| names(candidate, entry, &[]))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The body of an `objects` entry that creates its object, by `clone` or by `class`.
+pub(crate) fn creation(object: &MappingEntry) -> Option<Mapping> {
+    syntax::mapping_value(object)
+        .filter(|body| body.get("clone").is_some() || body.get("class").is_some())
+}
+
+/// The last `objects` entry naming `entry` in a `target` module of the chunk `chunk_hash`.
+pub(crate) fn last_object(doc: &Document, chunk_hash: u64, entry: BinHash) -> Option<MappingEntry> {
+    target_bodies(doc, chunk_hash)
+        .iter()
+        .flat_map(|body| object_entries(body, entry))
+        .last()
+}
+
+/// Whether `body` declares for `entry`: creates it, or edits its properties.
+pub(crate) fn declares(body: &Mapping, entry: BinHash) -> bool {
+    !object_entries(body, entry).is_empty() || !entry_bodies(body, entry, &MODULE_KEYS).is_empty()
 }
 
 /// Whether a module's `target` is the chunk `chunk_hash` names.
@@ -150,19 +223,81 @@ fn is_prefix(prefix: &[Segment<'_>], segments: &[Segment<'_>]) -> bool {
             .all(|(a, b)| a.name_hash() == b.name_hash() && a.subscript == b.subscript)
 }
 
-/// The body of `entry` in the last `entries` module naming it.
-pub(crate) fn last_entries_body(doc: &Document, entry: BinHash) -> Option<Mapping> {
+/// The body of `entry` in the last `entries` module naming it, and that module's index.
+pub(crate) fn last_entries_body(doc: &Document, entry: BinHash) -> Option<(usize, Mapping)> {
     module_mappings(doc)
         .iter()
-        .filter_map(|module| module.get_mapping("entries"))
-        .flat_map(|entries| entry_bodies(&entries, entry, &[]))
+        .enumerate()
+        .filter_map(|(index, module)| Some((index, module.get_mapping("entries")?)))
+        .flat_map(|(index, entries)| {
+            entry_bodies(&entries, entry, &[])
+                .into_iter()
+                .map(move |body| (index, body))
+        })
         .last()
 }
 
-/// The entries mapping of the last module, where that module is an `entries`
-/// module.
-pub(crate) fn trailing_entries(doc: &Document) -> Option<Mapping> {
-    module_mappings(doc).last()?.get_mapping("entries")
+/// The entries mapping of the last module and its index, where that module is an
+/// `entries` module.
+pub(crate) fn trailing_entries(doc: &Document) -> Option<(usize, Mapping)> {
+    let mut modules = module_mappings(doc);
+    let index = modules.len().checked_sub(1)?;
+    Some((index, modules.pop()?.get_mapping("entries")?))
+}
+
+/// The `SEQUENCE_ENTRY` node of every module, in execution order.
+pub(crate) fn module_items(doc: &Document) -> Vec<Node> {
+    modules(doc)
+        .and_then(|(_, list)| list)
+        .map(|list| syntax::sequence_entries(list.syntax()))
+        .unwrap_or_default()
+}
+
+/// The mapping of the module at `index`.
+pub(crate) fn module_at(doc: &Document, index: usize) -> Result<Mapping, Refusal> {
+    module_mappings(doc)
+        .into_iter()
+        .nth(index)
+        .ok_or(Refusal::NoModule(index))
+}
+
+/// The entries mapping of the `entries` module at `index`.
+pub(crate) fn entries_at(doc: &Document, index: usize) -> Result<Mapping, Refusal> {
+    module_at(doc, index)?
+        .get_mapping("entries")
+        .ok_or(Refusal::NotEntriesModule(index))
+}
+
+/// The index of the module holding `node`.
+pub(crate) fn module_of(doc: &Document, node: &Node) -> Option<usize> {
+    let modules: Vec<Node> = module_mappings(doc)
+        .iter()
+        .map(|module| module.syntax().clone())
+        .collect();
+    node.ancestors()
+        .find_map(|ancestor| modules.iter().position(|module| *module == ancestor))
+}
+
+/// The keys of an `entries` mapping naming `entry`, a name or its hash alike.
+pub(crate) fn entry_keys(entries: &Mapping, entry: BinHash) -> Vec<MappingEntry> {
+    syntax::entries(entries)
+        .into_iter()
+        .filter(|candidate| names(candidate, entry, &[]))
+        .collect()
+}
+
+/// The keys declaring `segments` with `sign` in the bodies of `entry` under `entries`.
+pub(crate) fn keys_in_entries(
+    entries: &Mapping,
+    entry: BinHash,
+    sign: Sign,
+    segments: &[Segment<'_>],
+) -> Vec<MappingEntry> {
+    let mut found = Vec::new();
+    for body in entry_bodies(entries, entry, &[]) {
+        keys_in(&body, sign, segments, &mut found);
+    }
+    found
 }
 
 /// The deepest unsigned block under `mapping` whose key names a prefix of

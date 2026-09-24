@@ -9,6 +9,7 @@ use std::borrow::Cow;
 use std::fmt::Write as _;
 use std::str::FromStr as _;
 
+use ltk_game_data::ModuleName;
 use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Lang, Mapping, MappingEntry, SyntaxKind, YamlFile, YamlNode};
 
@@ -192,6 +193,11 @@ fn is_header(line: &str) -> bool {
     ((line.starts_with('!') || line.starts_with('&')) && !line.contains(' '))
         || line.starts_with('|')
         || line.starts_with('>')
+}
+
+/// A module's `name` key and its line end, the name spelled as a key is.
+pub(crate) fn name_line(name: &ModuleName) -> String {
+    format!("name: {}\n", spell_key(name.as_str()))
 }
 
 /// A key spelled so YAML reads it back as the same string.

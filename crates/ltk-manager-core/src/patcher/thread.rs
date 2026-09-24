@@ -14,7 +14,7 @@ use crate::config::Config;
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::SessionFailure;
 use crate::diagnostics::store::IncidentStore;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, message_with_sources};
 use crate::mods::ModLibrary;
 use crate::overlay::OverlayBuild;
 
@@ -161,7 +161,7 @@ impl PatcherThread {
                 self.observer.session_failed(SessionFailure::Build {
                     kind: e.kind(),
                     category: e.overlay_category(),
-                    message: e.to_string(),
+                    message: message_with_sources(&e),
                 });
                 self.events.error(e);
                 self.reset_to_idle();

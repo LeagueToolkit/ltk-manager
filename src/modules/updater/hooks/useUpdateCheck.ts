@@ -20,13 +20,14 @@ const REQUESTED_EVENT = "update-requested";
  *
  * - Checks shortly after mount, on an interval, and when the window comes back
  *   into view after a stale check
- * - Downloads a release the reader has not skipped, so installing is a restart
+ * - With `autoDownload`, downloads a release the reader has not skipped, so
+ *   installing is a restart and quitting installs it
  * - Opens the dialog when the tray's update entry is pressed
  *
  * A dev run checks nothing, and with `VITE_MOCK_UPDATE=1` it gets a stand-in
  * update instead, to exercise the titlebar cell and the changelog dialog.
  */
-export function useUpdateCheck({ delayMs = 3000 } = {}) {
+export function useUpdateCheck({ delayMs = 3000, autoDownload = false } = {}) {
   const checkForUpdate = useCheckForUpdate();
   const setDialogOpen = useUpdaterSetDialogOpen();
   const version = useUpdaterStore((s) => s.update?.version);
@@ -35,8 +36,8 @@ export function useUpdateCheck({ delayMs = 3000 } = {}) {
   useTauriEvent<null>(REQUESTED_EVENT, () => setDialogOpen(true));
 
   useEffect(() => {
-    if (version && !skipped) void downloadUpdate();
-  }, [version, skipped]);
+    if (autoDownload && version && !skipped) void downloadUpdate();
+  }, [autoDownload, version, skipped]);
 
   useEffect(() => {
     if (import.meta.env.DEV) {

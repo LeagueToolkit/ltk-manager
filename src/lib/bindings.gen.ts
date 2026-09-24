@@ -20,6 +20,22 @@ export const commands = {
 	 */
 	binOpen: (asset: AssetRef, entry: string | null) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open", { asset, entry }),
 	/**
+	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
+	 * 
+	 *  A document no patch touched writes nothing. ADR-0040.
+	 */
+	binSave: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_save", { document }),
+	/**
+	 *  Read an open document's file again, dropping the edits its tree held.
+	 * 
+	 *  Every id over the asset reads the file as it is on disk.
+	 */
+	binReload: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_reload", { document }),
+	/**  Drop one id. Its asset leaves the store with its last id. */
+	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
+	/**  The rows at depth zero of an open file, one per object, read again after an edit. */
+	binRoots: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: BinRow[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_roots", { document }),
+	/**
 	 *  The rows under one node of an open document, `offset` in and at most `limit` of them.
 	 * 
 	 *  `entry` is the object's hash as `0x` and eight hex digits. `path` is the wire form
@@ -43,34 +59,27 @@ export const commands = {
 	 *  an object tab draws. The project bar's `@` scope asks this of the active tab.
 	 */
 	binFind: (document: BinDocumentId, entry: string | null, query: string) => __TAURI_INVOKE<({ ok: true; value: BinFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_find", { document, entry, query }),
+	/**  The header's dependencies of an open document, as its rows draw them. */
+	binDependencies: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Dependency[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_dependencies", { document }),
 	/**
-	 *  Set one leaf of an open document, answering the value it held.
-	 * 
-	 *  `entry` is the object's hash as `0x` and eight hex digits, and `path` the wire form of
-	 *  the leaf's property path. Every id over the asset reads the edit. Nothing reaches the
-	 *  disk before [`bin_save`].
+	 *  What an add line of an open document offers, out of the meta schema at the install's
+	 *  build. ADR-0051.
 	 */
-	binPatch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) => __TAURI_INVOKE<({ ok: true; value: LeafValue }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_patch", { document, entry, path, value }),
+	binChoices: (document: BinDocumentId, query: ChoiceQuery) => __TAURI_INVOKE<({ ok: true; value: Choices }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_choices", { document, query }),
 	/**
-	 *  Edit one property's subtree as one undoable declaration or binary change.
+	 *  One class's fields and their declared kinds at the install's build.
 	 * 
-	 *  # Errors
-	 * 
-	 *  Refuses closed or read-only documents, invalid edits, and failed declaration writes.
+	 *  Read out of the meta schema. `None` for a class the schema does not describe.
+	 *  `class_hash` is `0x` and eight hex digits.
 	 */
-	binEditProperty: (document: BinDocumentId, entry: string, holder: string, field: string, edits: ValueEdit[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit_property", { document, entry, holder, field, edits }),
+	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
 	/**
-	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
+	 *  Apply one edit to an open document, answering what the edit reports beside the change.
 	 * 
-	 *  A document no patch touched writes nothing. ADR-0040.
+	 *  Every id over the asset reads the edit, and nothing reaches the disk before [`bin_save`].
+	 *  ADR-0051.
 	 */
-	binSave: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_save", { document }),
-	/**
-	 *  Read an open document's file again, dropping the edits its tree held.
-	 * 
-	 *  Every id over the asset reads the file as it is on disk.
-	 */
-	binReload: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_reload", { document }),
+	binEdit: (document: BinDocumentId, edit: BinEdit) => __TAURI_INVOKE<({ ok: true; value: EditOutcome }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit", { document, edit }),
 	/**
 	 *  Revert the latest edit of an open document's tree, answering whether one was held.
 	 * 
@@ -88,76 +97,26 @@ export const commands = {
 	 *  declares nothing. ADR-0042.
 	 */
 	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declared", { document }),
-	/**  Write the edits that follow on a declared document to `layer`. ADR-0042. */
-	binDeclareInto: (document: BinDocumentId, layer: string) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer }),
+	/**
+	 *  Take edits on a declared document as declarations, or refuse them, answering the gate
+	 *  it then stands behind. The project's "Use game data declarations". ADR-0042.
+	 */
+	binSetDeclaring: (document: BinDocumentId, declaring: Declaring) => __TAURI_INVOKE<({ ok: true; value: ReadOnly | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_declaring", { document, declaring }),
+	/**
+	 *  Write the edits that follow on a declared document to `module` of `layer`. ADR-0042,
+	 *  ADR-0048.
+	 */
+	binDeclareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer, module }),
 	/**
 	 *  The row at `path` under `entry` as the declaration and the game-copy reference an author
 	 *  would write for it, from any open bin. ADR-0042.
 	 */
 	binRowDeclaration: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: RowDeclaration }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_row_declaration", { document, entry, path }),
 	/**
-	 *  Declare the row at `path` under `entry` of a declared document as `reference`, a game-copy
-	 *  reference, or with `merge` add it to the row's list or map. ADR-0042.
+	 *  Apply a module action to the manifest of `layer` of the project at `project_path`, with no
+	 *  document to undo it. ADR-0048.
 	 */
-	binDeclareReference: (document: BinDocumentId, entry: string, path: string, reference: string, merge: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_reference", { document, entry, path, reference, merge }),
-	/**
-	 *  The fields the holder at `path` of an open document can take, out of the meta schema.
-	 * 
-	 *  `path` is empty for the object itself. The fields are the ones the holder's class and
-	 *  its bases declare at the install's build, less the ones the holder writes.
-	 */
-	binAddableFields: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: AddableFields }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_addable_fields", { document, entry, path }),
-	/**
-	 *  Add a property to the end of the holder at `path` of an open document.
-	 * 
-	 *  A declared field starts at the schema's published default, and a custom one at its
-	 *  kind's zero value. Nothing reaches the disk before [`bin_save`].
-	 */
-	binAddProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_add_property", { document, entry, path, property }),
-	/**
-	 *  Take the property at `path` of an open document out of its holder.
-	 * 
-	 *  The game reads the field's default in its place. Nothing reaches the disk before
-	 *  [`bin_save`].
-	 */
-	binRemoveProperty: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_property", { document, entry, path }),
-	/**
-	 *  The classes an item of the list, map or option at `path` can hold, or the pointer at it.
-	 * 
-	 *  The classes its items hold come first, then the class the meta schema declares for the
-	 *  field at the install's build, then the classes deriving from that one.
-	 */
-	binItemClasses: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: ClassChoice[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_item_classes", { document, entry, path }),
-	/**
-	 *  Put an item into the list, map or option at `path` of an open document, answering the
-	 *  new item's path.
-	 * 
-	 *  An embed naming no class takes the class the holder holds or the meta schema declares.
-	 *  Nothing reaches the disk before [`bin_save`].
-	 */
-	binInsertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_insert_item", { document, entry, path, item }),
-	/**  Take the item at `path` of an open document out of its list, map or option. */
-	binRemoveItem: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_remove_item", { document, entry, path }),
-	/**  Move the item at `path` of an open document to `to` in its list, answering its new path. */
-	binMoveItem: (document: BinDocumentId, entry: string, path: string, to: number) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_move_item", { document, entry, path, to }),
-	/**  Set the key of the map entry at `path` of an open document, answering its new path. */
-	binSetKey: (document: BinDocumentId, entry: string, path: string, key: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_key", { document, entry, path, key }),
-	/**
-	 *  Give the null pointer at `path` of an open document a class, or set a pointer to null
-	 *  where `class_name` is absent.
-	 */
-	binSetPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_pointer", { document, entry, path, className }),
-	/**  The rows at depth zero of an open file, one per object, read again after an edit. */
-	binRoots: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: BinRow[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_roots", { document }),
-	/**  Drop one id. Its asset leaves the store with its last id. */
-	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
-	/**
-	 *  One class's fields and their declared kinds at the install's build.
-	 * 
-	 *  Read out of the meta schema. `None` for a class the schema does not describe.
-	 *  `class_hash` is `0x` and eight hex digits.
-	 */
-	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
+	declarationsModuleAction: (projectPath: string, layer: string, action: ModuleAction) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declarations_module_action", { projectPath, layer, action }),
 	/**
 	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
 	 *  absent.
@@ -396,6 +355,15 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
+	/**  Classify a folder picked with Open folder. */
+	inspectProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: FolderInspection }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("inspect_project_folder", { path }),
+	openProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_project_folder", { path }),
+	recordProjectOpened: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("record_project_opened", { path }),
+	getOpenedProjectFolders: () => __TAURI_INVOKE<({ ok: true; value: OpenedProjectFolder[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_opened_project_folders"),
+	forgetProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("forget_project_folder", { path }),
+	relocateProjectFolder: (oldPath: string, newPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("relocate_project_folder", { oldPath, newPath }),
+	convertFolderToProject: (args: ConvertFolderArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("convert_folder_to_project", { args }),
+	addProjectFolders: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFoldersReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_project_folders", { paths }),
 	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
 	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
 	/**  The starter rules, for the empty state that draws them before writing them. */
@@ -411,6 +379,8 @@ export const commands = {
 	modifiedMs: number,
 	size: number,
 } | null) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_text", { projectPath, file, text, expected }),
+	/**  Every layer's declarations manifest as modules, entries and keys, in build order. */
+	declarationsOutline: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: DeclarationsLayer[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declarations_outline", { projectPath }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -440,6 +410,12 @@ export const commands = {
 };
 
 /* Types */
+/**  What adding a folder of mods did with each one. */
+export type AddFoldersReport = {
+	added: WorkshopProject[],
+	failed: FolderFailure[],
+};
+
 /**  One field Add property offers for a holder. */
 export type AddableField = {
 	/**  `0x` and eight hex digits. */
@@ -690,6 +666,58 @@ export type BinDocumentHandle = {
  */
 export type BinDocumentId = number;
 
+/**
+ *  One edit of an open document, one variant per store method.
+ * 
+ *  `entry` is an object's hash as `0x` and eight hex digits, and `path` the wire form of a
+ *  property path (ADR-0027), empty for the object itself.
+ */
+export type BinEdit = 
+/**  Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocuments::patch`]. */
+{ kind: "patch"; entry: string; path: string; value: LeafValue } | 
+/**  Edit one property's subtree as one undoable change. [`BinDocuments::edit_property`]. */
+{ kind: "editProperty"; entry: string; holder: string; field: string; edits: ValueEdit[] } | 
+/**  Add a property to the end of the holder at `path`. [`BinDocuments::add_property`]. */
+{ kind: "addProperty"; entry: string; path: string; property: NewProperty } | 
+/**  Take the property at `path` out of its holder. [`BinDocuments::remove_property`]. */
+{ kind: "removeProperty"; entry: string; path: string } | 
+/**
+ *  Put an item into the list, map or option at `path`, answering
+ *  [`EditOutcome::Path`]. [`BinDocuments::insert_item`].
+ */
+{ kind: "insertItem"; entry: string; path: string; item: NewItem } | 
+/**  Take the item at `path` out of its holder. [`BinDocuments::remove_item`]. */
+{ kind: "removeItem"; entry: string; path: string } | 
+/**
+ *  Move the item at `path` to `to`, answering [`EditOutcome::Path`].
+ *  [`BinDocuments::move_item`].
+ */
+{ kind: "moveItem"; entry: string; path: string; to: number } | 
+/**
+ *  Set the key of the map entry at `path`, answering [`EditOutcome::Path`].
+ *  [`BinDocuments::set_key`].
+ */
+{ kind: "setKey"; entry: string; path: string; key: string } | 
+/**
+ *  Give the null pointer at `path` a class, or set it to null where `class_name` is
+ *  absent. [`BinDocuments::set_pointer`].
+ */
+{ kind: "setPointer"; entry: string; path: string; className: string | null } | 
+/**
+ *  Declare the row at `path` as a game-copy reference, or with `merge` add it to the
+ *  row's list or map. [`BinDocuments::declare_reference`].
+ */
+{ kind: "declareReference"; entry: string; path: string; reference: string; merge: boolean } | 
+/**  Create, remove or restore an object of a declared document. ADR-0049. */
+{ kind: "object"; edit: ObjectEdit } | 
+/**  Edit the header's dependency list. ADR-0050. */
+{ kind: "dependency"; edit: DependencyEdit } | 
+/**
+ *  Apply a module action to the manifest of `layer`, answering [`EditOutcome::Declared`].
+ *  [`BinDocuments::declared_module_action`].
+ */
+{ kind: "moduleAction"; layer: string; action: ModuleAction };
+
 /**  Which kind of bin file a document holds. */
 export type BinFileKind = 
 /**  A `PROP`: the objects themselves. */
@@ -730,7 +758,7 @@ export type BinHeader = {
 	version: number | null,
 	/**  The objects the file declares. For a `PTCH`, the objects it adds. */
 	objects: number,
-	dependencies: string[],
+	dependencies: Dependency[],
 	/**  The patch records of a `PTCH`. */
 	patches: number,
 	/**  The objects a `PTCH` deletes, in file order. */
@@ -956,6 +984,25 @@ export type Check_Serialize = {
 	fixCommand?: string | null,
 };
 
+/**  A read of what an add line of an open document offers. */
+export type ChoiceQuery = 
+/**  The fields the holder at `path` can take, answering [`Choices::Fields`]. */
+{ kind: "addableFields"; entry: string; path: string } | 
+/**  The classes a new object can take, answering [`Choices::Classes`]. */
+{ kind: "objectClasses" } | 
+/**
+ *  The classes an item of the holder at `path`, or the pointer at it, can take,
+ *  answering [`Choices::Classes`].
+ */
+{ kind: "itemClasses"; entry: string; path: string };
+
+/**  The answer to a [`ChoiceQuery`]. */
+export type Choices = 
+/**  The fields a holder's class and bases declare that it does not write. */
+{ kind: "fields"; fields: AddableFields } | 
+/**  Classes, the ones the document holds first. */
+{ kind: "classes"; classes: ClassChoice[] };
+
 /**  One class a class line offers. */
 export type ClassChoice = {
 	/**  `0x` and eight hex digits. */
@@ -1031,6 +1078,43 @@ export type Consequence =
 /**  The game did not survive. */
 "game-stopped";
 
+/**  Arguments for turning a folder into a project. */
+export type ConvertFolderArgs = {
+	path: string,
+	name: string,
+	displayName: string,
+	placement: ConvertPlacement,
+};
+
+/**  Where a converted folder's project lives. */
+export type ConvertPlacement = 
+/**  The folder itself becomes the project. */
+"inPlace" | 
+/**  A copy in the workshop folder becomes the project, and the folder is left alone. */
+"copy";
+
+/**  One layer's declarations manifest, read for an outline. */
+export type DeclarationsLayer = {
+	layer: string,
+	/**  The manifest's path inside the layer, `None` for a layer with none. */
+	file: string | null,
+	/**  The manifest's text with `\r\n` read as `\n`, which every span indexes. */
+	text: string | null,
+	/**  Why the declarations do not load. `modules` is empty beside one. */
+	error: DeclarationsLoadError | null,
+	/**  The modules in execution order. */
+	modules: DeclaredModule[],
+};
+
+/**  Why a layer's declarations do not load, and where. */
+export type DeclarationsLoadError = {
+	message: string,
+	/**  The file the error is in, as the loader names it: the manifest's name or a source path. */
+	document: string | null,
+	/**  Where in the manifest, `None` for an error in another file or at no place. */
+	span: LineSpan | null,
+};
+
 /**  One diagnostic of the last apply, on the row it names. */
 export type DeclaredDiagnostic = {
 	/**
@@ -1050,6 +1134,8 @@ export type DeclaredDiagnostic = {
 	kind: DeclaredDiagnosticKind,
 	/**  Why a property edit was skipped. Absent for every other kind. */
 	reason: SkipReason | null,
+	/**  Why an object's creation or removal was skipped. Absent for every other kind. */
+	object: ObjectSkip | null,
 	/**  What a lower layer said, where it said something the codes do not carry. */
 	detail: string | null,
 };
@@ -1057,7 +1143,42 @@ export type DeclaredDiagnostic = {
 /**  The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it. */
 export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | "overrideRecordSkipped" | "linkRemovalUnmatched" | "propertyEditSkipped" | 
 /**  A property typed from the game's copy, the schema saying nothing. Information. */
-"schemaFallback" | "referenceUnreadable" | "unknown";
+"schemaFallback" | "referenceUnreadable" | 
+/**  An object's creation or removal that does not apply. */
+"objectSkipped" | "unknown";
+
+/**  One entry a module declares properties of, or one object it creates or removes. */
+export type DeclaredEntry = {
+	/**  The entry name as spelled. */
+	name: string,
+	/**  The object's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The edit of a `target` module the entry sits in, zero-based. */
+	edit: number,
+	/**  What an `objects` binding does to the object, `None` for an entry body. */
+	object: DeclaredObjectEdit | null,
+	/**  The line naming the entry. */
+	span: LineSpan | null,
+	keys: DeclaredKey[],
+};
+
+/**  One signed property key of an entry body. */
+export type DeclaredKey = {
+	/**  The key as the build reads it, sign included. */
+	key: string,
+	sign: DeclaredSign,
+	/**  The property path, without the sign. */
+	path: string,
+	/**  The value as YAML text: the manifest's own spelling where it is in the manifest. */
+	value: string,
+	/**
+	 *  The wire path of the row the key reaches, cut before the first map key, which only
+	 *  the bin itself can spell.
+	 */
+	row: string,
+	/**  From the key to the end of its value. */
+	span: LineSpan | null,
+};
 
 /**  What the schema declares for a field, beside whether the file's kind is that. */
 export type DeclaredKind = {
@@ -1069,12 +1190,24 @@ export type DeclaredKind = {
 	mismatch: boolean,
 };
 
+/**  What a declaration of the chosen layer does to one dependency of the chunk. */
+export type DeclaredLinkMark = {
+	/**  The dependency as the applied list spells it, or the game's list for a removal. */
+	path: string,
+	change: LinkChange,
+};
+
 /**  One row a declaration of the chosen layer touches. */
 export type DeclaredMark = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
 	/**  The row's path on the wire. Empty where the declared path reaches no row. */
 	path: string,
+	/**  The property path the declaration names, as a module action takes it. */
+	property: string,
+	/**  The index of the module holding the declaration. */
+	module: number,
+	moduleName: string | null,
 	sign: DeclaredSign,
 	/**  The declaration sets a whole list or map, which no later change of the game's reaches. */
 	whole: boolean,
@@ -1087,12 +1220,69 @@ export type DeclaredMark = {
 	game: string | null,
 };
 
+/**  One module of a manifest. */
+export type DeclaredModule = {
+	/**  The module's position in `modules`, zero-based. */
+	index: number,
+	/**  The module's own name, where the manifest spells one. */
+	name: string | null,
+	selector: ModuleSelector,
+	/**  The chunk a `target` module edits, as spelled. */
+	target: string | null,
+	/**  The path hash of the chunk a `target` module edits, 16 lowercase hex digits. */
+	targetHash: string | null,
+	/**
+	 *  The source file holding the module's edits. The spans of its entries and keys are
+	 *  `None`, since they sit in that file.
+	 */
+	source: string | null,
+	/**  The override files the module names, layer-relative. */
+	overrides: string[],
+	/**  The module's first line. */
+	span: LineSpan | null,
+	entries: DeclaredEntry[],
+};
+
+/**  The module a declared document's new keys join. ADR-0048. */
+export type DeclaredModuleChoice = 
+/**  The last `entries` module naming the entry, else the last module, else a new one. */
+{ kind: "auto" } | 
+/**  The `entries` module at `index` of `modules`. */
+{ kind: "index"; index: number } | 
+/**  A new trailing module, which the next key written makes, holding `name`. */
+{ kind: "new"; name: string | null };
+
+/**  One module of the chosen layer's manifest. */
+export type DeclaredModuleSummary = {
+	/**  The module's index in `modules`. */
+	index: number,
+	name: string | null,
+	/**  An `entries` module, which takes new keys. A `target` module does not. */
+	takesKeys: boolean,
+};
+
 /**  Every declaration of one object, with the path they share. */
 export type DeclaredObject = {
 	/**  The object's path, or its hash when no table names it. */
 	path: string,
 	/**  In archive order, and in the game index's tree order within one archive. */
 	declarations: ObjectDeclaration[],
+};
+
+/**  What an `objects` binding does to one object. */
+export type DeclaredObjectEdit = 
+/**  A copy of the entry `source`. */
+{ kind: "clone"; source: string } | 
+/**  A new object of `class`. */
+{ kind: "construct"; class: string } | 
+/**  The object's removal. */
+{ kind: "remove" };
+
+/**  What a declaration of the chosen layer does to one object of the chunk. */
+export type DeclaredObjectMark = {
+	/**  The object's path hash, `0x` and eight hex digits. */
+	entry: string,
+	change: ObjectChange,
 };
 
 /**  What declares each of a set of object hashes, beside the slot the index is in. */
@@ -1110,13 +1300,32 @@ export type DeclaredSign = "set" | "add" | "remove";
 export type DeclaredState = {
 	/**  The layer an edit writes to. */
 	layer: string,
+	/**  The module of `layer` a new key joins. */
+	module: DeclaredModuleChoice,
+	/**  The modules of `layer` in execution order. */
+	modules: DeclaredModuleSummary[],
 	/**  The project's layers in build order. */
 	layers: string[],
 	/**  The rows a declaration of `layer` touches. */
 	marks: DeclaredMark[],
+	/**  The objects a declaration of `layer` creates or removes. */
+	objects: DeclaredObjectMark[],
+	/**  The dependencies a declaration of `layer` adds or removes. */
+	links: DeclaredLinkMark[],
 	/**  What the last apply reported, over every layer. */
 	diagnostics: DeclaredDiagnostic[],
 };
+
+/**
+ *  Whether a declared document takes edits, the project's "Use game data declarations".
+ * 
+ *  Off draws the same applied tree and marks, read-only.
+ */
+export type Declaring = 
+/**  An edit lands as a declaration in the chosen layer. */
+"on" | 
+/**  The document takes no edit. */
+"off";
 
 /**
  *  One patcher binary as a decoded token presents it: the checksum, and the
@@ -1204,6 +1413,36 @@ export type DefineSource =
 /**  `StaticMaterialPassDef.shaderMacros`. */
 "pass";
 
+/**  One dependency a `PROP` names, as its path and its brex spelling. */
+export type Dependency = {
+	/**  The archive path as the file writes it. */
+	path: string,
+	/**
+	 *  The path in brex, which folds the repeated terms of a packed bin name. Absent where
+	 *  the path repeats nothing.
+	 */
+	packed: string | null,
+};
+
+/**  An edit of the header's dependency list. ADR-0050. */
+export type DependencyEdit = 
+/**
+ *  Put the dependency `text` names at `index`, the end where it is absent, answering
+ *  [`EditOutcome::Index`]. [`BinDocuments::insert_dependency`].
+ */
+{ kind: "insert"; index: number | null; text: string } | 
+/**  Take the dependency at `index` out. [`BinDocuments::remove_dependency`]. */
+{ kind: "remove"; index: number } | 
+/**  Move the dependency at `from` to `to`. [`BinDocuments::move_dependency`]. */
+{ kind: "move"; from: number; to: number } | 
+/**
+ *  Replace the dependency at `index` with the one `text` names.
+ *  [`BinDocuments::set_dependency`].
+ */
+{ kind: "set"; index: number; text: string } | 
+/**  Take back the chosen layer's removal of `path`. [`BinDocuments::restore_dependency`]. */
+{ kind: "restore"; path: string };
+
 /**  Full diagnostic report returned by `run_diagnostics`. */
 export type DiagnosticReport = DiagnosticReport_Serialize | DiagnosticReport_Deserialize;
 
@@ -1226,6 +1465,21 @@ export type DiagnosticReport_Serialize = {
 	/**  All checks in display order. */
 	checks: Check_Serialize[],
 };
+
+/**  What a landed [`BinEdit`] answers beside the change itself. */
+export type EditOutcome = 
+/**  Nothing beyond the change. */
+{ kind: "done" } | 
+/**  The value a patched leaf held. */
+{ kind: "previous"; value: LeafValue } | 
+/**  A created object's path hash, `0x` and eight hex digits. */
+{ kind: "object"; entry: string } | 
+/**  The path of an inserted or moved item, or of a rekeyed map entry. */
+{ kind: "path"; path: string } | 
+/**  The position of an inserted dependency. */
+{ kind: "index"; index: number } | 
+/**  The declared state after a module action. */
+{ kind: "declared"; state: DeclaredState };
 
 /**  Why a leaf edit's value does not fit the node it addresses. */
 export type EditRejection = 
@@ -1267,13 +1521,26 @@ export type EditRejection =
 { reason: "valueHeld" } | 
 /**  The list holds no such position. */
 { reason: "noSuchIndex" } | 
+/**  A dependency path that is empty. */
+{ reason: "emptyPath" } | 
+/**  A dependency typed in brex that does not expand to one path. */
+{ reason: "malformedBrex" } | 
+/**  The list names the dependency already. */
+{ reason: "dependencyExists" } | 
 /**
  *  The path runs through a field no table names, or a key a map holds twice, which no
  *  declaration spells. ADR-0042.
  */
 { reason: "namelessPath" } | 
 /**  No declaration expresses the edit. ADR-0042. */
-{ reason: "undeclarable" };
+{ reason: "undeclarable" } | 
+/**
+ *  The schema gives no type for a property the game's copy omits, as at a game build
+ *  newer than the meta database. ADR-0042.
+ */
+{ reason: "untypable" } | 
+/**  The chunk holds an object of that name. */
+{ reason: "objectExists" };
 
 /**  One key of the skin's resolver, and the system it stands for. */
 export type EffectSystem = {
@@ -1395,6 +1662,19 @@ export type EvidenceMark =
 /**  Where a line of evidence came from. */
 export type EvidenceSource = "patcher" | "host" | "dll" | "game" | "client";
 
+/**  A fantome-layout folder, as the conversion would read it. */
+export type FantomeFolder = {
+	displayName: string,
+	suggestedName: string,
+	author: string | null,
+	version: string | null,
+	/**  Whether `META/info.json` was there to read the metadata from. */
+	hasInfo: boolean,
+	wads: FolderWad[],
+	/**  Whether a `RAW/` directory holds loose files. */
+	hasRaw: boolean,
+};
+
 /**  One field's type over one span of builds. */
 export type FieldRevision = {
 	/**  The first content build the revision holds for. */
@@ -1422,6 +1702,32 @@ export type FieldSchema = {
 	defaultValue: string | null,
 	/**  Oldest first. */
 	revisions: FieldRevision[],
+};
+
+/**  A folder the batch could not add, and why. */
+export type FolderFailure = {
+	path: string,
+	message: string,
+};
+
+/**  What a folder picked with Open folder holds. */
+export type FolderInspection = 
+/**  Nothing at the path. */
+{ kind: "missing" } | 
+/**  A folder with a project config, ready to open. */
+{ kind: "project"; project: WorkshopProject } | 
+/**  A mod in fantome layout, such as a cslol-manager install. */
+{ kind: "fantome"; layout: FantomeFolder } | 
+/**  A folder whose subfolders are projects or fantome mods. */
+{ kind: "parent"; projects: string[]; fantome: string[] } | 
+/**  A folder with none of the above, which can become an empty project. */
+{ kind: "plain"; suggestedName: string; displayName: string };
+
+/**  One entry of a fantome folder's `WAD/` directory. */
+export type FolderWad = {
+	name: string,
+	/**  A packed archive, which the conversion unpacks, rather than a directory it moves. */
+	packed: boolean,
 };
 
 /**  One file of the folded index, in the shape a single archive reads back. */
@@ -1530,7 +1836,9 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  *  A modded archive was in the game, and a texture far larger than what it
  *  replaces raises the odds of an allocation failing.
  */
-"large-textures";
+"large-textures" | 
+/**  An overlay file was held open, usually by a game still running. */
+"close-game";
 
 /**  One effect a skin wears for as long as the character stands. */
 export type IdleEffect = {
@@ -1878,6 +2186,21 @@ export type LeafValue =
 /**  An object path, or `0x` and eight hex digits. */
 { type: "objectLink"; text: string };
 
+/**  A range of a text by one-based lines and one-based character columns, the end exclusive. */
+export type LineSpan = {
+	line: number,
+	column: number,
+	endLine: number,
+	endColumn: number,
+};
+
+/**  Whether a declaration adds a dependency or removes one. */
+export type LinkChange = 
+/**  A `links` item the applied list holds and the game's does not. */
+"added" | 
+/**  A `-links` item of a dependency of the game's list the applied one lacks. */
+"removed";
+
 /**  One character a map stands in its scene. */
 export type MapCharacter = {
 	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
@@ -2138,6 +2461,8 @@ export type MaterialPreview = {
 	 *  submesh draws as an error rather than as a guess.
 	 */
 	missing: boolean,
+	/**  The linked file declaring the material, and none where the document read does. */
+	source: AssetRef | null,
 	/**
 	 *  `dynamicMaterial` is set, so the slots are the static values of an animated
 	 *  material.
@@ -2266,6 +2591,30 @@ export type MissileSpec = {
 	initialTargetHeight: number | null,
 };
 
+/**
+ *  One module action on a layer's manifest, each module named by its index in `modules`.
+ *  ADR-0048.
+ */
+export type ModuleAction = 
+/**  Give the module a name, or take its name away with `None`. */
+{ kind: "rename"; module: number; name: string | null } | 
+/**  Remove the module and every key it declares. */
+{ kind: "remove"; module: number } | 
+/**  Move the module to stand at `to` in execution order. */
+{ kind: "move"; module: number; to: number } | 
+/**
+ *  Move the keys of `entry`, a name or a `0x` hash, to the `entries` module at `to`:
+ *  every signed key of the property path `path`, or the whole body where it is `None`.
+ */
+{ kind: "moveKeys"; module: number; entry: string; path: string | null; to: number };
+
+/**  Which selector a module holds. */
+export type ModuleSelector = 
+/**  One chunk, named by `target`. */
+"target" | 
+/**  Named entries in every chunk that declares them. */
+"entries";
+
 /**  A path a bin names, and where its bytes live. */
 export type NamedAsset = {
 	/**
@@ -2293,6 +2642,17 @@ export type NewItem = {
 	class: string | null,
 };
 
+/**  Where a new object of a declared document starts. */
+export type NewObject = 
+/**  A copy of an object the document holds: `clone`. */
+{ type: "clone"; 
+/**  The object copied, `0x` and eight hex digits. */
+source: string } | 
+/**  An object of a class holding no property: `class`. */
+{ type: "class"; 
+/**  The class, as a name or `0x` and eight hex digits. */
+class: string };
+
 /**  A property Add property writes: a field the schema declares, or one the reader shapes. */
 export type NewProperty = 
 /**  A field the holder's class or one of its bases declares, at its published default. */
@@ -2305,6 +2665,13 @@ field: string } |
 field: string; shape: KindShape; 
 /**  The class an embed holds, as a name or `0x` and eight hex digits. */
 class: string | null };
+
+/**  Whether a declaration creates an object or removes one. */
+export type ObjectChange = 
+/**  A `clone` or a `class` the applied copy holds. */
+"created" | 
+/**  A `remove: true` the applied copy no longer holds, of an object of the game's copy. */
+"removed";
 
 /**  One class an ambiguous `class:` term matched, offered as a completion. */
 export type ObjectClassHit = {
@@ -2352,6 +2719,18 @@ export type ObjectDirListing = {
 	/**  The objects at the prefix, in natural name order. */
 	objects: ObjectNodeEntry[],
 };
+
+/**  An object edit of a declared document. ADR-0049. */
+export type ObjectEdit = 
+/**
+ *  Declare a new object named `name`, answering [`EditOutcome::Object`].
+ *  [`BinDocuments::create_object`].
+ */
+{ kind: "create"; name: string; origin: NewObject } | 
+/**  Declare the removal of `entry`. [`BinDocuments::remove_object`]. */
+{ kind: "remove"; entry: string } | 
+/**  Take back the removal of `entry`. [`BinDocuments::restore_object`]. */
+{ kind: "restore"; entry: string };
 
 /**  What a full search of the objects found, given the slot the index is in. */
 export type ObjectFind = 
@@ -2502,6 +2881,20 @@ export type ObjectSearchResult = {
 	classes: ObjectClassHit[],
 };
 
+/**  Why an object edit does not apply, as `ltk_game_data` names it. */
+export type ObjectSkip = "objectExists" | "sourceMissing" | "unknownClass" | "removalUnmatched" | "unknown";
+
+/**  An opened folder as the frontend lists it, whether or not it is still on disk. */
+export type OpenedProjectFolder = {
+	/**  The id the project's route names it by. */
+	id: string,
+	path: string,
+	displayName: string,
+	/**  Whether the folder or its config is gone. */
+	missing: boolean,
+	lastOpened: string | null,
+};
+
 /**  What the session was started for, without the paths a workshop one carries. */
 export type OriginKind = "library" | "workshop";
 
@@ -2523,6 +2916,11 @@ export type OverlayErrorCategory =
 "CORRUPT" | 
 /**  An `ltk_overlay` invariant broke. Nothing the user did; report it. */
 "BUG" | 
+/**
+ *  An overlay file is held open by another process, usually a game still
+ *  running on the old overlay. Closing it helps.
+ */
+"FILE_IN_USE" | 
 /**  An IO, parse or archive failure with no category of its own. */
 "OTHER";
 
@@ -2667,6 +3065,13 @@ defines: string[]; vertex: StageProgram; pixel: StageProgram } |
  */
 { kind: "failed"; reason: string };
 
+/**  Where a project lives relative to the workshop folder. */
+export type ProjectLocation = 
+/**  A direct child of the workshop folder. */
+"workshop" | 
+/**  A folder opened from anywhere else. */
+"opened";
+
 /**  One of a project's root text files, as the editor reads it. */
 export type ProjectText = {
 	/**  Absolute path of the file, whether or not one exists. */
@@ -2707,7 +3112,9 @@ export type ReadOnly =
 /**  A file outside every project. */
 "loose" | 
 /**  A `PTCH` layer. No edit writes a patch record. */
-"patch";
+"patch" | 
+/**  A game chunk inside a project whose game data declarations are off. ADR-0042. */
+"declarationsOff";
 
 /**  The objects one file declares, as a reference query groups them. */
 export type ReferenceGroup = {
@@ -3467,6 +3874,11 @@ export type Winding =
 /**  Counter-clockwise, `1`, the class default. */
 "ccw";
 
+export type WorkshopAuthor = {
+	name: string,
+	role: string | null,
+};
+
 /**
  *  Domain errors specific to workshop operations.
  * 
@@ -3498,6 +3910,48 @@ export type WorkshopError =
 { kind: "DECLARATIONS_INVALID"; path: string; message: string } | 
 /**  An edit the text of a declarations manifest cannot take. */
 { kind: "DECLARATIONS_UNEDITABLE"; path: string; reason: string };
+
+export type WorkshopLayer = {
+	name: string,
+	displayName: string,
+	priority: number,
+	description: string | null,
+	stringOverrides: { [key in string]: { [key in string]: string } },
+};
+
+/**  A workshop project displayed in the UI. */
+export type WorkshopProject = {
+	/**  Stable id the route names the project by, derived from its path */
+	id: string,
+	/**  Absolute path to the project directory */
+	path: string,
+	/**  Project slug name (directory name) */
+	name: string,
+	/**  Human-readable display name */
+	displayName: string,
+	/**  Semantic version string */
+	version: string,
+	/**  Project description */
+	description: string,
+	/**  List of authors */
+	authors: WorkshopAuthor[],
+	/**  Categorization tags */
+	tags: string[],
+	/**  Champion names this mod applies to */
+	champions: string[],
+	/**  Map identifiers this mod applies to */
+	maps: string[],
+	/**  Project layers */
+	layers: WorkshopLayer[],
+	/**  Path to thumbnail image if exists */
+	thumbnailPath: string | null,
+	/**  Last modification time */
+	lastModified: string,
+	/**  Whether the project sits in the workshop folder or was opened from elsewhere */
+	location: ProjectLocation,
+	/**  When the project was last opened in the editor */
+	lastOpened: string | null,
+};
 
 /**  A sampler's address mode, `addressU` and `addressV` on the wire. */
 export type Wrap = "repeat" | "clamp" | "mirror" | "border";
