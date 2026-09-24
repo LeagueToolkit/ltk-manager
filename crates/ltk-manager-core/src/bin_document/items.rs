@@ -7,6 +7,7 @@
 use std::fmt::Write as _;
 use std::mem;
 
+use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::{BinObject, PropertyValueEnum};
@@ -18,7 +19,7 @@ use super::{
     BinDocument, BinDocumentError, EditRejection, EntryKey, Node, Step, descend, dot, hex, is_null,
     parse_steps, wire_key,
 };
-use crate::meta_schema::SchemaAt;
+use crate::meta_schema::{DeclaredField, SchemaAt};
 
 /// An item Add item writes into a list, a map or an option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +297,52 @@ impl BinDocument {
         Ok(())
     }
 
+    /// Swap the pointer at `path` under `entry` to the class `class` names, or to null
+    /// where `class` is `None`.
+    ///
+    /// A property stays where the held class and the new one declare its field with one
+    /// type, and every other property is dropped. A pointer holding `class` already is left
+    /// as it is.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] where the path reaches nothing, and
+    /// with [`BinDocumentError::EditRejected`] where it reaches no pointer and where the
+    /// class text is malformed.
+    pub fn replace_pointer(
+        &mut self,
+        entry: BinHash,
+        path: &str,
+        class: Option<&str>,
+        schema: SchemaAt<'_>,
+    ) -> Result<(), BinDocumentError> {
+        let refuse = |rejection| rejected(entry, path, rejection);
+        let class = class
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(bin_hash)
+            .transpose()
+            .map_err(refuse)?;
+        let Node::Value(PropertyValueEnum::Struct(pointer)) = self.node(entry, path)? else {
+            return Err(refuse(EditRejection::NotAPointer));
+        };
+        let held = (!is_null(pointer)).then_some(pointer.class_hash);
+        if held == class {
+            return Ok(());
+        }
+
+        let value = match class {
+            Some(class) => values::Struct {
+                class_hash: class,
+                properties: shared_properties(pointer, class, schema),
+            },
+            None => values::Struct::default(),
+        };
+        let inverse = self.swap_pointer(entry, path, value)?;
+        self.record(inverse)?;
+        Ok(())
+    }
+
     /// Put `value` into the holder at `holder`, answering the edit that takes it out.
     pub(super) fn put_item(
         &mut self,
@@ -498,6 +545,32 @@ fn rejected(entry: BinHash, path: &str, rejection: EditRejection) -> BinDocument
         address: format!("{}:{path}", hex(entry)),
         rejection,
     }
+}
+
+/// The properties of `pointer` whose field `class` declares with the type its own class does.
+fn shared_properties(
+    pointer: &values::Struct,
+    class: BinHash,
+    schema: SchemaAt<'_>,
+) -> IndexMap<BinHash, PropertyValueEnum> {
+    let held = schema.declared_fields(pointer.class_hash);
+    let next = schema.declared_fields(class);
+    let declared = |fields: &[DeclaredField<'_>], field: BinHash| {
+        fields
+            .iter()
+            .find(|declared| declared.field == field)
+            .map(|declared| (declared.shape, declared.class))
+    };
+
+    pointer
+        .properties
+        .iter()
+        .filter(|(field, _)| {
+            let before = declared(&held, **field);
+            before.is_some() && before == declared(&next, **field)
+        })
+        .map(|(field, value)| (*field, value.clone()))
+        .collect()
 }
 
 /// Put `value` into the list, map or option `node` is, answering the segment that reaches it.

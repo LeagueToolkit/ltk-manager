@@ -13,7 +13,7 @@ import {
 
 import { AlertBox, Button, Code } from "@/components";
 import { m, Marked } from "@/i18n";
-import type { BinRow } from "@/lib/tauri";
+import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { TreeSearchBox } from "../../../../shared/components/TreeSearchBox";
@@ -33,10 +33,12 @@ import { useEmitters } from "../state/emitterChoice";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
+  defaultField,
   type EmitterGroup,
   GROUP_TITLE,
   type GroupedRows,
   type InspectorGroup,
+  type InspectorProperty,
   inspectorGroups,
   inspectorProperties,
   unauthoredFields,
@@ -48,8 +50,10 @@ import {
   SECTION_FOLDED,
   SECTION_SHOWN,
 } from "../utils/emitterTypes";
+import { PRIMITIVE_FIELD } from "../utils/primitives";
 import { rowHasDefault } from "../utils/propertyDefaults";
 import { DefaultProperty } from "./DefaultProperty";
+import { PrimitiveProperty } from "./PrimitiveProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
@@ -386,6 +390,19 @@ function GroupSection({
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
+          if (property.hash === PRIMITIVE_FIELD && card !== undefined) {
+            return (
+              <PrimitiveProperty
+                key={key}
+                field={primitiveField(property, schema?.fields)}
+                holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
           if ("field" in property) {
             if (card === undefined) {
               return null;
@@ -445,6 +462,23 @@ function GroupSection({
         })}
     </section>
   );
+}
+
+/** The schema's reading of a property, and its bare name where the schema has none. */
+function primitiveField(
+  property: InspectorProperty,
+  fields: readonly FieldSchema[] | undefined,
+): DefaultField {
+  if ("field" in property) {
+    return property.field;
+  }
+
+  const declared = fields?.find((field) => field.hash === property.hash);
+  if (declared !== undefined) {
+    return defaultField(declared);
+  }
+
+  return { hash: property.hash, name: property.row.name, declared: null };
 }
 
 /**

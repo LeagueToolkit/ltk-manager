@@ -13,6 +13,7 @@ export type EmitterGroup =
   | "position"
   | "scale"
   | "colour"
+  | "primitive"
   | "texture"
   | "render"
   | "material"
@@ -119,6 +120,7 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "paletteDefinition",
     "particleColorTexture",
   ],
+  primitive: ["primitive"],
   texture: [
     "texture",
     "textureMult",
@@ -145,7 +147,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
   ],
   render: [
     "blendMode",
-    "primitive",
     "pass",
     "renderPhaseOverride",
     "alphaRef",
@@ -184,6 +185,7 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   position: m.workshop_bin_emitter_group_position_label,
   scale: m.workshop_bin_emitter_group_scale_label,
   colour: m.workshop_bin_emitter_group_colour_label,
+  primitive: m.workshop_bin_emitter_group_primitive_label,
   texture: m.workshop_bin_emitter_group_texture_label,
   render: m.workshop_bin_emitter_group_render_label,
   material: m.workshop_bin_emitter_group_material_label,
@@ -200,6 +202,7 @@ export const GROUP_ORDER: readonly EmitterGroup[] = [
   "position",
   "scale",
   "colour",
+  "primitive",
   "texture",
   "render",
   "material",
@@ -303,13 +306,18 @@ export function unauthoredFields(
   return fields
     .filter((field) => !authored.has(field.hash))
     .filter((field) => field.hash !== CARD.name && field.hash !== CARD.disabled)
-    .map((field) => ({
-      hash: field.hash,
-      name: field.name ?? field.hash,
-      declared: field.declared,
-      classHash: field.classHash,
-      defaultValue: field.defaultValue,
-    }));
+    .map(defaultField);
+}
+
+/** A field of the schema as a row drawn at its default reads it. */
+export function defaultField(field: FieldSchema): DefaultField {
+  return {
+    hash: field.hash,
+    name: field.name ?? field.hash,
+    declared: field.declared,
+    classHash: field.classHash,
+    defaultValue: field.defaultValue,
+  };
 }
 
 /** `groups` with every default under the group its field falls in, in card order. */

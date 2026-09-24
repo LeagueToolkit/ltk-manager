@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-24 | Pick an emitter's primitive, and sketch what it draws           |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects       |
 | 2026-09-21 | Copy a whole object or struct as a declaration                  |
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference  |
@@ -13,7 +14,6 @@
 | 2026-09-20 | Open a map's files on the map, and sort a file's objects        |
 | 2026-09-17 | Draw a patch bin's records under the objects they target        |
 | 2026-09-14 | Address a map entry whose key repeats as `{k}#n`                |
-| 2026-09-14 | Search an open bin from the bar's `@` scope                     |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -71,6 +71,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                  |
 | Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
 | Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
+| Primitive picker      | Available   | The primitive's class, its fields, and a sketch of what it draws |
 | In-document search    | Available   | The bar's `@` scope over the open rows                           |
 | Leaf editing          | In progress | The primitive widgets, and the patch that carries an edit        |
 | Property editing      | In progress | Add and remove a property inline, at the schema's default        |
@@ -1515,7 +1516,8 @@ strip left rather than matching the names a second time, so the two cannot drift
 
 The groups are Birth, Position, Render, Scale and Texture, the components both of Riot's editors
 draw, and Emission, Colour, Material and Effects for what the class carries and those five do not
-hold. Which fields each holds is a table written by hand, so a field the schema adds falls to
+hold. Primitive holds `primitive` alone, out of Render, because the class it names decides what
+every other group draws onto, per [the primitive](#the-primitive). Which fields each holds is a table written by hand, so a field the schema adds falls to
 Other and is on screen the day it appears rather than landing in a group by accident. Birth is
 the value a particle starts with and every other group is what it does over its life, which is
 the line that puts `birthScale0` under Birth and `scale0` under Scale.
@@ -1991,6 +1993,63 @@ The row is `FieldRow` and `ValueCell`, and every layout that draws field rows dr
 skin's inspector and the stacked layouts included. The plate is theirs too. The roll rail, the
 sticky header and the group menu are the particle system's own, because a birth roll and a group
 are things only an emitter has.
+
+### The primitive
+
+An emitter's `primitive` is the shape each of its particles draws as, and it is a group of its
+own. Its row is a picker over the classes deriving from `VfxLegacyPrimitiveBase`, grouped by what
+they draw, each with a line saying what that is. The trigger reads the class in the meta wiki's
+words, and the class name beside it is the class card, which carries the wiki's page for it.
+
+```
+v PRIMITIVE
+    Render Primitive       [Mesh v]  VfxPrimitiveMesh
+                           +----------------------+
+                           |  sketch, turning     |
+                           +----------------------+
+      Align Pitch To Camera  [ ]
+      Align Yaw To Camera    [x]
+      Mesh                   VfxMeshDefinitionData
+        Mesh Name            [ASSETS/Effects/orb.scb   ]
+        Submeshes To Draw    0 items
+```
+
+| Family         | Classes                                       |
+| -------------- | --------------------------------------------- |
+| Quads          | Camera quad, Camera unit quad, Arbitrary quad |
+| Rays and beams | Ray, Beam, Camera segment beam                |
+| Trails         | Camera trail, Arbitrary trail                 |
+| Meshes         | Mesh, Attached mesh                           |
+| Other          | Planar projection, Non-renderable             |
+
+**An emitter naming no primitive reads as a camera quad.** The engine draws one, so the trigger
+reads Camera quad, dashed as every default is, and Not set at the top of the list clears a held
+class back to it. A class the list does not carry reads as its own name and stays listed while the
+emitter holds it.
+
+**A swap keeps what both classes declare.** Picking a class writes it and keeps each field that the
+held class and the new one declare with one type, so Mesh to Attached mesh keeps `mMesh` and the
+two trail classes keep `mTrail`. Every other field is dropped. The swap is one edit, and an undo
+brings the dropped fields back.
+
+**Every field the class declares draws under it.** A field the file leaves out draws dimmed at its
+default, and its first edit writes it. An embed of the class - `mMesh`, `mTrail`, `mBeam`,
+`mProjection` - draws its name and class with its own fields indented under it, open rather than
+folded, and the first edit of one of those fields creates the embed on the way. The embeds draw
+after the class's own fields.
+
+**The sketch shows what the class draws.** A plate under the picker draws three particles and the
+geometry the class builds from them, with a camera turning about them once in twenty seconds. A
+camera quad stays square to the view, an arbitrary quad foreshortens as the camera passes, a ray
+and a beam turn about their own axis, a trail runs through its particles, a projection lays a
+decal on the ground, and a non-renderable draws the particles alone. The shapes follow the class
+pages on the meta wiki. A drag turns the sketch by hand, and reduced motion holds it still.
+
+**A mesh class draws its own mesh.** Mesh and Attached mesh draw the mesh the emitter names,
+through the viewer's loader and with its submesh choice, fitted to the plate and lit from above.
+An edit of `mMeshName` redraws it. A stand-in solid holds the place while the mesh loads and where
+no file resolves, which is where an attached mesh draws the unit it is attached to. The sketch
+paints a 2D canvas, so the inspector opens no second WebGL context beside the viewer.
 
 ## The curve panel
 

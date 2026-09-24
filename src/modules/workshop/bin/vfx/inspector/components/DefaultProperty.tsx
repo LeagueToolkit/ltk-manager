@@ -21,7 +21,12 @@ import { emitterLabel } from "../utils/emitterLabels";
 const CONSTANT_NAME = "constantValue";
 const CONSTANT_FIELD = nameHash(CONSTANT_NAME);
 
-/** A default or optional emitter value, authored through one property declaration. */
+/**
+ * A default or optional emitter value, authored through one property declaration.
+ *
+ * `within` is an embed of `holder` the file does not hold yet, which the field sits in, and
+ * an edit creates it on the way.
+ */
 export function DefaultProperty({
   field,
   holder,
@@ -29,6 +34,8 @@ export function DefaultProperty({
   owner,
   authored,
   rail,
+  within,
+  depth = 0,
 }: {
   field: DefaultField;
   holder: BinRow;
@@ -36,6 +43,8 @@ export function DefaultProperty({
   owner: string | null;
   authored?: BinRow;
   rail?: ReactNode;
+  within?: DefaultField;
+  depth?: number;
 }) {
   const edit = use(LeafEditContext);
   const document = use(RowDocumentContext);
@@ -68,7 +77,10 @@ export function DefaultProperty({
   const path = optional ? "[0]" : constant ? CONSTANT_FIELD.slice(2) : "";
   const unavailable = present && item === undefined;
   const insert = optional && authored?.value.type === "optional" && !authored.value.present;
-  const rowPath = [holder.path, field.hash.slice(2)].filter(Boolean).join(".");
+  const segment = within === undefined ? "" : field.hash.slice(2);
+  const rowPath = [holder.path, within?.hash.slice(2), field.hash.slice(2)]
+    .filter(Boolean)
+    .join(".");
   const scoped = useMemo<LeafEdit | null>(() => {
     if (edit?.editProperty === undefined || unavailable || value === null) {
       return null;
@@ -88,10 +100,14 @@ export function DefaultProperty({
         }
 
         const edits: ValueEdit[] = [];
+        if (within !== undefined) {
+          edits.push({ type: "ensureProperty", path: "", field: field.hash });
+        }
+
         if (constant) {
           edits.push({
             type: "ensureProperty",
-            path: "",
+            path: segment,
             field: CONSTANT_FIELD,
           });
         }
@@ -99,21 +115,33 @@ export function DefaultProperty({
         if (insert) {
           edits.push({
             type: "insertItem",
-            path: "",
+            path: segment,
             item: { index: null, key: null, class: null },
           });
         }
 
-        edits.push({ type: "setLeaf", path, value: typed.leaf });
-        return edit.editProperty!(holder, field.hash, edits);
+        edits.push({ type: "setLeaf", path: under(segment, path), value: typed.leaf });
+        return edit.editProperty!(holder, within?.hash ?? field.hash, edits);
       },
     };
-  }, [edit, holder, field.hash, path, rowPath, constant, insert, unavailable, value]);
+  }, [
+    edit,
+    holder,
+    field.hash,
+    within,
+    segment,
+    path,
+    rowPath,
+    constant,
+    insert,
+    unavailable,
+    value,
+  ]);
 
   const row: BinRow = {
     entry: holder.entry,
     path: rowPath,
-    label: `${holder.label}.${field.name}`,
+    label: [holder.label, within?.name, field.name].filter(Boolean).join("."),
     node: "property",
     name: field.name,
     unnamed: field.name === field.hash,
@@ -187,11 +215,14 @@ export function DefaultProperty({
                 label={emitterLabel(field.hash, field.name)}
                 tableLayout
                 width={width}
+                depth={depth}
                 owner={owner}
                 rail={rail}
                 valueSlot={valueSlot}
                 valueAction={
-                  dynamicsClass === null || edit?.editProperty === undefined ? undefined : (
+                  dynamicsClass === null ||
+                  edit?.editProperty === undefined ||
+                  within !== undefined ? undefined : (
                     <CurveToggle onConstant={() => {}} onCurve={() => void activateCurve()} />
                   )
                 }
@@ -202,4 +233,13 @@ export function DefaultProperty({
       </InputDefaultContext>
     </div>
   );
+}
+
+/** `path` under the field `segment` names, as a path relative to the edited property reads. */
+function under(segment: string, path: string): string {
+  if (segment === "" || path === "") {
+    return segment + path;
+  }
+
+  return path.startsWith("[") ? `${segment}${path}` : `${segment}.${path}`;
 }

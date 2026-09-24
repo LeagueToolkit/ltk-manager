@@ -172,10 +172,14 @@ SelectPopup.displayName = "Select.Popup";
 export interface SelectItemProps extends Omit<BaseSelect.Item.Props, "className"> {
   className?: string;
   children?: ReactNode;
+  /** A line under the item's text, which the trigger does not repeat. */
+  description?: ReactNode;
 }
 
 export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
-  ({ className, children, ...props }, ref) => {
+  ({ className, children, description, ...props }, ref) => {
+    const text = <BaseSelect.ItemText>{children}</BaseSelect.ItemText>;
+
     return (
       <BaseSelect.Item
         ref={ref}
@@ -190,7 +194,13 @@ export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         <BaseSelect.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
           <Check className="h-3.5 w-3.5" />
         </BaseSelect.ItemIndicator>
-        <BaseSelect.ItemText>{children}</BaseSelect.ItemText>
+        {description === undefined && text}
+        {description !== undefined && (
+          <span className="flex min-w-0 flex-col">
+            {text}
+            <span className="text-xs text-surface-400">{description}</span>
+          </span>
+        )}
       </BaseSelect.Item>
     );
   },

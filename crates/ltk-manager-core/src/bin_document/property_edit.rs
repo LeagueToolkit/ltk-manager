@@ -33,6 +33,9 @@ pub enum ValueEdit {
     EnsureProperty { path: String, field: String },
     /// Give a null pointer its class. A non-null pointer retains its fields.
     EnsurePointer { path: String, class: String },
+    /// Swap a pointer's class, keeping the fields both classes declare with one type. A
+    /// null class clears the pointer.
+    ReplacePointer { path: String, class: Option<String> },
     /// Insert an item into a list, map or option.
     InsertItem { path: String, item: NewItem },
     /// Remove an item from a list, map or option.
@@ -117,6 +120,10 @@ impl BinDocument {
                         PropertyValueEnum::Struct(value) if value.class_hash == class_hash => {}
                         _ => return Err(refused(entry, &path, EditRejection::NotAPointer)),
                     }
+                }
+                ValueEdit::ReplacePointer { path, class } => {
+                    let path = relative_path(&scope, &path);
+                    staged.replace_pointer(entry, &path, class.as_deref(), schema)?;
                 }
                 ValueEdit::InsertItem { path, item } => {
                     staged.insert_item(entry, &relative_path(&scope, &path), item, schema)?;
