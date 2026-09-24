@@ -74,17 +74,17 @@ export const commands = {
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
 	/**
-	 *  The wiki's prose for one class and every property it or a base of it declares.
+	 *  The wiki's documentation for one class and every property declared on it or its bases.
 	 * 
-	 *  Read from the cache, never the network. `None` where nothing is documented.
+	 *  Reads the cache only, never the network. `None` where nothing is documented.
 	 *  `class_hash` is `0x` and eight hex digits.
 	 */
 	classDocs: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassDocs | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_docs", { classHash }),
 	/**
-	 *  Refresh the cached documentation once per session, and answer the session's revision.
+	 *  Refresh the cached documentation once per session, and return the session's revision.
 	 * 
-	 *  The revision moves when a newer copy lands. A publisher that cannot be reached leaves the
-	 *  cached copy and the revision as they were.
+	 *  The revision increases when a newer copy is installed. When the publisher cannot be reached,
+	 *  the cached copy and the revision stay unchanged.
 	 */
 	syncMetaDocs: () => __TAURI_INVOKE<({ ok: true; value: number }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sync_meta_docs"),
 	/**
@@ -1028,9 +1028,9 @@ export type ClassChoice = {
 	derivesFrom: string | null,
 };
 
-/**  The wiki's prose for one class and for the properties it and its bases declare. */
+/**  The wiki's documentation for one class and the properties declared on it and its bases. */
 export type ClassDocs = {
-	/**  The class's own prose. Absent where the wiki documents only properties. */
+	/**  The documentation of the class itself. Absent when the wiki documents only properties. */
 	class: Doc | null,
 	/**  Keyed by the property's hash, `0x` and eight hex digits. */
 	properties: { [key in string]: PropertyDocs },
@@ -1488,9 +1488,9 @@ export type DiagnosticReport_Serialize = {
 	checks: Check_Serialize[],
 };
 
-/**  What the wiki writes about one class or one property, each part markdown. */
+/**  The wiki's documentation for one class or one property. Each part is markdown. */
 export type Doc = {
-	/**  The body. Absent where the entry carries notes or examples alone. */
+	/**  The main text. Absent when the entry has only notes or examples. */
 	description: string | null,
 	/**  Short caveats, one paragraph each. */
 	notes: string[],
@@ -3133,7 +3133,7 @@ export type ProjectTextFile =
 /**  The terms the mod is shared under, which both pack formats ship. */
 "license";
 
-/**  The wiki's prose for one property, and the class whose page carries it. */
+/**  The wiki's documentation for one property, and the class whose page documents it. */
 export type PropertyDocs = {
 	/**  The declaring class as the wiki names it, or its hash where no name is known. */
 	owner: string,

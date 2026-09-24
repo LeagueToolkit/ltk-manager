@@ -604,7 +604,7 @@ impl MetaSchema {
         self.walk_hierarchy(class, bases, &mut find, 0)
     }
 
-    /// `class` and then its bases, in the order [`MetaSchema::find_in_hierarchy`] asks them.
+    /// `class` and then its bases, in the order [`MetaSchema::find_in_hierarchy`] visits them.
     ///
     /// Only `class` where the database does not describe it.
     #[must_use]

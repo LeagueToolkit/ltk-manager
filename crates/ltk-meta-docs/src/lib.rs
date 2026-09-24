@@ -1,7 +1,7 @@
-//! The LoL Meta Wiki's prose about bin classes and their properties.
+//! The LoL Meta Wiki's documentation for bin classes and their properties.
 //!
 //! The wiki serves it at `/v1/docs/all` under CC BY-SA 4.0 with the League Toolkit Developer
-//! Tooling Exception, which asks a tool that shows it for attribution alone.
+//! Tooling Exception, which requires only attribution from a tool that displays it.
 
 use std::collections::{BTreeMap, HashMap};
 
@@ -15,14 +15,14 @@ pub use cache::{
     RefreshError,
 };
 
-/// What the wiki writes about one class or one property, each part markdown.
+/// The wiki's documentation for one class or one property. Each part is markdown.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct Doc {
-    /// The body. Absent where the entry carries notes or examples alone.
+    /// The main text. Absent when the entry has only notes or examples.
     pub description: Option<String>,
     /// Short caveats, one paragraph each.
     pub notes: Vec<String>,
@@ -31,7 +31,7 @@ pub struct Doc {
 }
 
 impl Doc {
-    /// Whether the entry says nothing at all.
+    /// Whether the entry has no text.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.description
@@ -42,20 +42,20 @@ impl Doc {
     }
 }
 
-/// The wiki's prose for one class and for the properties it and its bases declare.
+/// The wiki's documentation for one class and the properties declared on it and its bases.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassDocs {
-    /// The class's own prose. Absent where the wiki documents only properties.
+    /// The documentation of the class itself. Absent when the wiki documents only properties.
     pub class: Option<Doc>,
     /// Keyed by the property's hash, `0x` and eight hex digits.
     pub properties: BTreeMap<String, PropertyDocs>,
 }
 
-/// The wiki's prose for one property, and the class whose page carries it.
+/// The wiki's documentation for one property, and the class whose page documents it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -102,7 +102,7 @@ struct PublishedClass {
     properties: HashMap<String, PublishedDoc>,
 }
 
-/// One entry as the publisher writes it, which [`Doc`] is read out of.
+/// One entry in the published format, converted into a [`Doc`].
 #[derive(Deserialize)]
 struct PublishedDoc {
     #[serde(default)]
@@ -160,10 +160,11 @@ impl MetaDocs {
         self.classes.len()
     }
 
-    /// The prose for the first class of `lineage`, with the property prose of every class in it.
+    /// The documentation for the first class in `lineage`, with the property documentation of
+    /// every class in it.
     ///
-    /// `lineage` is the class and then its bases, nearest first, and a property documented on
-    /// two of them takes the nearer one's prose. `None` where none of them is documented.
+    /// `lineage` is the class and then its bases, nearest first. A property documented on two of
+    /// them uses the nearer class's text. `None` when none of them is documented.
     #[must_use]
     pub fn class_docs(&self, lineage: &[BinHash]) -> Option<ClassDocs> {
         let (class, _) = lineage.split_first()?;
@@ -191,7 +192,8 @@ impl MetaDocs {
     }
 }
 
-/// The hash a payload key stands for: the hash it spells, or the hash of the name it is.
+/// The hash for a payload key: the key parsed as hex when it starts with `0x`, otherwise the
+/// hash of the name.
 fn key_hash(key: &str) -> BinHash {
     key.strip_prefix("0x")
         .and_then(|hex| BinHash::from_str_radix(hex, 16).ok())
@@ -202,7 +204,7 @@ fn hex(hash: BinHash) -> String {
     format!("0x{:08x}", hash.0)
 }
 
-/// A list of markdown strings, where anything else in it is skipped rather than refused.
+/// A list of markdown strings. Entries that are not strings are skipped.
 fn strings<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
     let values = Option::<Vec<serde_json::Value>>::deserialize(deserializer)?;
     Ok(values

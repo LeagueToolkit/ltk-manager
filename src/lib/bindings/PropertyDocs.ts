@@ -2,7 +2,7 @@
 import type { Doc } from "./Doc";
 
 /**
- * The wiki's prose for one property, and the class whose page carries it.
+ * The wiki's documentation for one property, and the class whose page documents it.
  */
 export type PropertyDocs = { 
 /**

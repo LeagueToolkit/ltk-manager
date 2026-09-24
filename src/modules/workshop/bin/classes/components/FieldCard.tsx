@@ -38,7 +38,7 @@ interface FieldCardProps {
  * A field name, and what the schema says about it while the pointer is on it.
  *
  * "The field card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
- * is when its queries run, and the wiki's prose for the field is read off `classHash`.
+ * is when its queries run. The wiki documentation for the field is looked up by `classHash`.
  */
 export function FieldCard({
   classHash,
@@ -124,7 +124,7 @@ interface FieldDocProps {
   fieldHash: string;
 }
 
-/** The wiki's prose for the field, and nothing where the wiki has none. */
+/** The wiki's documentation for the field. Renders nothing when the wiki has none. */
 function FieldDoc({ classHash, fieldHash }: FieldDocProps) {
   const { data } = useClassDocs(classHash);
   const property = data?.properties[fieldHash];
@@ -133,7 +133,7 @@ function FieldDoc({ classHash, fieldHash }: FieldDocProps) {
   return <DocProse doc={property.doc} />;
 }
 
-/** The field's anchor on the page of the class the wiki documents it on. */
+/** A link to the field's section on the wiki page of the class that documents it. */
 function FieldWikiLink({ classHash, fieldHash }: FieldDocProps) {
   const { data } = useClassDocs(classHash);
   const property = data?.properties[fieldHash];
@@ -146,7 +146,7 @@ function FieldWikiLink({ classHash, fieldHash }: FieldDocProps) {
   );
 }
 
-/** The kind `schema` declares for a field, for a card that no file row stands behind. */
+/** The kind `schema` declares for a field, for a card that has no file row to read it from. */
 export function schemaDeclared(
   schema: ClassSchema | null | undefined,
   fieldHash: string,

@@ -7,10 +7,10 @@ import type { Doc } from "@/lib/tauri";
 import { META_WIKI } from "../utils/metaWiki";
 
 /**
- * The meta wiki's prose for a class or a field, as a card reads it.
+ * The meta wiki's documentation for a class or a field, inside a hover card.
  *
- * The description, then the notes and the examples under a label each. It scrolls inside
- * the card past a few paragraphs, and the wiki's relative links open on the wiki.
+ * Draws the description, then the notes and the examples, each under a label. Long text
+ * scrolls inside the card, and relative links open on the wiki.
  */
 export function DocProse({ doc }: { doc: Doc }) {
   return (

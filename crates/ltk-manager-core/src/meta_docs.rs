@@ -1,4 +1,5 @@
-//! The LoL Meta Wiki's documentation, held for the session and read along the schema's bases.
+//! The LoL Meta Wiki's documentation, cached for the session and looked up through a class's
+//! bases.
 
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -13,10 +14,10 @@ use crate::meta_schema::MetaSchema;
 use crate::meta_schema::cache::MetaSchemaCache;
 use crate::problems::GameBuild;
 
-/// The documentation for `class`, with the property prose of every base the schema gives it.
+/// The documentation for `class`, including the property documentation of its bases.
 ///
-/// Reads what is cached and never the network. `None` where nothing along the class's bases
-/// is documented, or nothing was fetched yet.
+/// Reads the cache only, never the network. `None` when neither the class nor any of its bases
+/// is documented, or when nothing was fetched yet.
 #[must_use]
 pub fn class_docs(
     schema: &MetaSchema,
@@ -27,11 +28,11 @@ pub fn class_docs(
     docs.class_docs(&schema.lineage(class, build))
 }
 
-/// Refresh the cached documentation once per session, and answer the session's revision.
+/// Refresh the cached documentation once per session, and return the session's revision.
 ///
-/// The revision moves each time a newer copy lands, so a reader keyed on it reads again.
-/// The cache asks the publisher at most once per [`ltk_meta_docs::REFRESH_INTERVAL`] across
-/// sessions, and a failure is logged and leaves the cached copy in place.
+/// The revision increases each time a newer copy is installed, so a query keyed on it fetches
+/// again. The cache sends at most one request per [`ltk_meta_docs::REFRESH_INTERVAL`] across
+/// sessions. A failure is logged, and the cached copy stays in place.
 pub fn sync(user_agent: &str) -> u32 {
     let mut synced = SYNCED.lock();
     if !*synced {
@@ -59,7 +60,8 @@ fn refresh(user_agent: &str) -> Option<MetaDocs> {
     }
 }
 
-/// Beside the meta schema database, since both come from the same publisher.
+/// The documentation cache, in the meta schema database's directory because both come from
+/// the same publisher.
 fn cache() -> Option<DocsCache> {
     MetaSchemaCache::discover()
         .inspect_err(|e| tracing::debug!("No meta wiki documentation cache: {e}"))
@@ -69,10 +71,11 @@ fn cache() -> Option<DocsCache> {
 
 static OPEN: Slot = Slot(Mutex::new(None));
 
-/// Held across a refresh, so readers asking at once send one request.
+/// Whether this session has refreshed. Locked during a refresh, so concurrent callers send one
+/// request.
 static SYNCED: Mutex<bool> = Mutex::new(false);
 
-/// Where the session's documentation is kept, read from the cache on first use.
+/// The session's documentation, loaded from the cache on first use.
 #[derive(Debug)]
 struct Slot(Mutex<Option<Open>>);
 

@@ -1,4 +1,4 @@
-//! The LoL Meta Wiki's documentation, for the class and field cards.
+//! Commands that serve the LoL Meta Wiki's documentation to the class and field cards.
 
 use super::bin::installed_schema;
 use super::off_thread;
@@ -7,12 +7,13 @@ use ltk_manager_core::meta_docs::{self, ClassDocs};
 use ltk_manager_core::object_index::parse_hash;
 use tauri::AppHandle;
 
-/// User agent sent with documentation requests, as the publisher asks of every client.
+/// User agent sent with documentation requests. The publisher asks clients to identify
+/// themselves.
 const USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"));
 
-/// The wiki's prose for one class and every property it or a base of it declares.
+/// The wiki's documentation for one class and every property declared on it or its bases.
 ///
-/// Read from the cache, never the network. `None` where nothing is documented.
+/// Reads the cache only, never the network. `None` where nothing is documented.
 /// `class_hash` is `0x` and eight hex digits.
 #[tauri::command]
 #[specta::specta]
@@ -26,10 +27,10 @@ pub async fn class_docs(class_hash: String, app_handle: AppHandle) -> IpcResult<
     .await
 }
 
-/// Refresh the cached documentation once per session, and answer the session's revision.
+/// Refresh the cached documentation once per session, and return the session's revision.
 ///
-/// The revision moves when a newer copy lands. A publisher that cannot be reached leaves the
-/// cached copy and the revision as they were.
+/// The revision increases when a newer copy is installed. When the publisher cannot be reached,
+/// the cached copy and the revision stay unchanged.
 #[tauri::command]
 #[specta::specta]
 pub async fn sync_meta_docs() -> IpcResult<u32> {

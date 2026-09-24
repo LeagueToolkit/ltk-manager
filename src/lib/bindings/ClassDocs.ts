@@ -3,11 +3,11 @@ import type { Doc } from "./Doc";
 import type { PropertyDocs } from "./PropertyDocs";
 
 /**
- * The wiki's prose for one class and for the properties it and its bases declare.
+ * The wiki's documentation for one class and the properties declared on it and its bases.
  */
 export type ClassDocs = { 
 /**
- * The class's own prose. Absent where the wiki documents only properties.
+ * The documentation of the class itself. Absent when the wiki documents only properties.
  */
 class: Doc | null, 
 /**

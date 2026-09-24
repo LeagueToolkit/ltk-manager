@@ -33,7 +33,7 @@ interface Column {
   readonly draw: (row: BinRow | undefined, pages: LayoutPages) => ReactNode;
 }
 
-/** The class every emitter of the table is, and so the class its columns are fields of. */
+/** The class of every emitter in the table, which declares the fields its columns show. */
 const EMITTER = nameHash("VfxEmitterDefinitionData");
 
 /** The link under the custom material, which is the object that column draws. */
@@ -147,7 +147,7 @@ interface ColumnHeaderProps {
   className: string;
 }
 
-/** A column's label, opening the field card of the emitter field the column draws. */
+/** A column header that opens the field card for the column's emitter field. */
 function ColumnHeader({ field, hash, className }: ColumnHeaderProps) {
   const { data: schema } = useClassSchema(EMITTER);
 

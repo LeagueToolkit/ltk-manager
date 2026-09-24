@@ -1,4 +1,4 @@
-//! The documentation as last fetched, and the conditional fetch that refreshes it.
+//! The cached documentation and the conditional request that refreshes it.
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -8,16 +8,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::{MetaDocs, ParseDocsError};
 
-/// How long a fetched copy is trusted before the publisher is asked again.
+/// How long a fetched copy is used before the documentation is requested again.
 ///
-/// The prose moves when a documentation pull request merges, which is days apart, and the
-/// publisher asks every client to cache what it fetches.
+/// The documentation changes when a documentation pull request is merged, usually days apart,
+/// and the publisher asks clients to cache responses.
 pub const REFRESH_INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
 
-/// What one conditional fetch came back with.
+/// The result of one conditional request.
 #[derive(Debug)]
 pub enum Fetched {
-    /// The publisher's copy is the one already cached.
+    /// The published copy matches the cached one.
     Unchanged,
     /// A payload, and the tag identifying it.
     Body { json: Vec<u8>, etag: Option<String> },
@@ -27,31 +27,31 @@ pub enum Fetched {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum FetchDocsError {
-    /// The request never produced a usable response.
+    /// The request failed or returned an error status.
     #[error("requesting {DOCS_URL}")]
     Request(#[source] reqwest::Error),
 
-    /// The response started and then stopped part-way through the body.
+    /// The response body could not be read completely.
     #[error("reading the body of {DOCS_URL}")]
     Body(#[source] reqwest::Error),
 }
 
-/// Where the published documentation is read from.
+/// A source of the published documentation.
 pub trait FetchDocs {
-    /// Fetch it, unless `known` is still the tag the publisher serves.
+    /// Fetch the documentation, unless `known` still matches the published tag.
     ///
     /// # Errors
     ///
-    /// Fails when the publisher cannot be reached or answers with an error - see
+    /// Fails when the publisher cannot be reached or returns an error - see
     /// [`FetchDocsError`].
     fn fetch(&self, known: Option<&str>) -> Result<Fetched, FetchDocsError>;
 }
 
-/// Why a refresh could not leave the cache better than it found it.
+/// Why a refresh failed.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum RefreshError {
-    /// The publisher could not be reached, or did not answer.
+    /// The publisher could not be reached, or returned an error.
     #[error(transparent)]
     Fetch(#[from] FetchDocsError),
 
@@ -59,19 +59,19 @@ pub enum RefreshError {
     #[error("writing the meta wiki documentation")]
     Write(#[from] std::io::Error),
 
-    /// The body arrived and is not documentation this build reads.
+    /// The response body is not documentation this build can parse.
     #[error("the meta wiki documentation that was served is not one this build reads")]
     Unusable(#[from] ParseDocsError),
 }
 
-/// What one refresh did.
+/// The outcome of one refresh.
 #[derive(Debug)]
 pub enum Refresh {
-    /// The cached copy was checked less than [`REFRESH_INTERVAL`] ago, so nothing was asked.
+    /// The cached copy was checked less than [`REFRESH_INTERVAL`] ago, so no request was sent.
     NotDue,
-    /// The publisher still serves the cached copy.
+    /// The published copy matches the cached one.
     Unchanged,
-    /// A new copy landed, parsed.
+    /// A new copy was installed.
     Installed(MetaDocs),
 }
 
@@ -93,7 +93,7 @@ impl DocsCache {
         &self.dir
     }
 
-    /// The cached documentation. `None` where none was fetched yet or the copy does not read.
+    /// The cached documentation. `None` when none was fetched yet or the copy does not parse.
     #[must_use]
     pub fn load(&self) -> Option<MetaDocs> {
         let json = fs::read(self.docs_path()).ok()?;
@@ -104,14 +104,14 @@ impl DocsCache {
 
     /// Bring the cached documentation up to date with the published copy.
     ///
-    /// **The publisher is asked at most once per [`REFRESH_INTERVAL`]**, and then with the
-    /// cached tag, so an unchanged copy costs a `304` and no body. A body is parsed before it
-    /// is installed, and a refused one leaves the cache and its tag alone.
+    /// **At most one request is sent per [`REFRESH_INTERVAL`]**, with the cached tag as
+    /// `If-None-Match`, so an unchanged copy returns `304` and no body. A body is parsed before
+    /// it is installed, and a body that does not parse leaves the cache and its tag unchanged.
     ///
     /// # Errors
     ///
-    /// Fails when the documentation cannot be fetched, when what arrives is not documentation
-    /// this build reads, and when the cache cannot be written - see [`RefreshError`].
+    /// Fails when the documentation cannot be fetched, when the response is not documentation
+    /// this build can parse, and when the cache cannot be written - see [`RefreshError`].
     pub fn refresh(&self, fetch: &dyn FetchDocs, now: SystemTime) -> Result<Refresh, RefreshError> {
         let cached = self.docs_path().is_file();
         let stamp = self.stamp().filter(|_| cached);
@@ -158,28 +158,31 @@ impl DocsCache {
     }
 }
 
-/// What the cached copy is and when the publisher was last asked about it.
+/// The cached copy's tag and the time of the last request.
 ///
-/// Its own file because the payload is the publisher's copy byte for byte.
+/// A separate file, so the payload file stays identical to the published copy.
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Stamp {
-    /// The entity tag the publisher served the cached copy under.
+    /// The entity tag the cached copy was served with.
     etag: Option<String>,
     /// Seconds since the Unix epoch.
     checked_at: u64,
 }
 
 impl Stamp {
-    /// A clock that moved back past the check reads as due, so it cannot hold a copy forever.
+    /// Whether a refresh at `now` sends a request.
+    ///
+    /// A clock set back before the last check counts as due, so a copy is never kept
+    /// indefinitely.
     fn is_due(&self, now: SystemTime) -> bool {
         let checked = UNIX_EPOCH + Duration::from_secs(self.checked_at);
         now.duration_since(checked)
             .map_or(true, |elapsed| elapsed >= REFRESH_INTERVAL)
     }
 
-    /// Best-effort: an unwritten stamp costs the next refresh a request, which is not worth
-    /// failing one that has already installed the payload.
+    /// Best-effort. A missing stamp causes one extra request on the next refresh, so a write
+    /// failure does not fail a refresh that already installed the payload.
     fn write(&self, path: &Path) {
         let stamped = serde_json::to_vec_pretty(self)
             .map_err(std::io::Error::from)
@@ -202,17 +205,17 @@ fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     fs::rename(&temporary, path)
 }
 
-/// The published documentation, over HTTP.
+/// The published documentation, fetched over HTTP.
 ///
-/// A conditional GET: the cached tag goes out as `If-None-Match`. Only a transport - a body
-/// it hands back is still the cache's to find readable.
+/// Sends a conditional GET with the cached tag as `If-None-Match`. It does not check the body,
+/// and the cache parses it.
 #[derive(Debug)]
 pub struct PublishedDocs {
     client: reqwest::blocking::Client,
 }
 
 impl PublishedDocs {
-    /// Talk to the publisher as `user_agent`.
+    /// A client that sends `user_agent` with every request.
     ///
     /// # Errors
     ///
@@ -253,20 +256,20 @@ impl FetchDocs for PublishedDocs {
     }
 }
 
-/// Every documented class's prose in one payload, per the publisher's guide for tools that
+/// All class documentation in one payload, the endpoint the API guide recommends for tools that
 /// bundle it.
 const DOCS_URL: &str = "https://meta-api.leaguetoolkit.dev/v1/docs/all";
 
-/// Whole-request budget. The payload is a few hundred kilobytes.
+/// Timeout for the whole request. The payload is a few hundred kilobytes.
 const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Budget for establishing the connection, separate from the download.
+/// Timeout for establishing the connection.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The payload as it was fetched, byte for byte.
+/// The payload as fetched, unmodified.
 const DOCS_FILENAME: &str = "meta-docs.json";
 
-/// The tag of that copy and when it was last checked.
+/// The tag of that copy and the time of the last check.
 const STAMP_FILENAME: &str = "meta-docs.stamp.json";
 
 #[cfg(test)]

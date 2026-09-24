@@ -4,7 +4,7 @@ use super::*;
 
 const PAYLOAD: &str = r#"{ "A": { "class": { "description": "A class." }, "properties": {} } }"#;
 
-/// A publisher that answers from a script and records the tag each request carried.
+/// A fake publisher that returns scripted responses and records the tag each request sent.
 struct Scripted {
     answers: RefCell<Vec<Fetched>>,
     asked: RefCell<Vec<Option<String>>>,

@@ -14,7 +14,7 @@ interface MarkdownViewProps {
   text: string;
   /** The directory a relative image path is resolved against. */
   root: string | null;
-  /** The URL a relative link is resolved against. Without one such a link draws as text. */
+  /** The base URL for relative links. Without it, a relative link renders as plain text. */
   linkBase?: string;
   className?: string;
 }
@@ -96,9 +96,8 @@ function renderers(root: string | null, linkBase: string | undefined): Component
       if (!resolved) return <span className="text-meta text-surface-500">{alt ?? ""}</span>;
       return <img src={resolved} alt={alt ?? ""} className="mb-2 max-w-full rounded-md" />;
     },
-    /* A relative href survives react-markdown's own transform, and means nothing
-       beside a document unless the caller names what it is relative to, so only what
-       the system can open is drawn as a link. */
+    /* react-markdown keeps a relative href as written. Without `linkBase` it has no
+       target, so only an href the system can open renders as a link. */
     a: ({ href, children }) => {
       const resolved = href && linkBase ? resolveLink(href, linkBase) : href;
       if (!resolved || !isLeavable(resolved)) return <span>{children}</span>;
@@ -124,7 +123,7 @@ function relativeImage(src: string, root: string | null): string | null {
   return convertFileSrc(`${root}/${parts.join("/")}`);
 }
 
-/** `href` against `base`, or `href` unchanged where the two make no URL. */
+/** `href` resolved against `base`, or `href` unchanged when the two form no valid URL. */
 function resolveLink(href: string, base: string): string {
   try {
     return new URL(href, base).href;

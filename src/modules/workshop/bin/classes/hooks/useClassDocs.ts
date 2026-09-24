@@ -9,11 +9,11 @@ export const classDocsKeys = {
     ["class-docs", classHash, revision] as const,
 };
 
-/** The meta wiki's prose, read out of the cache the backend keeps. */
+/** Queries for the meta wiki's documentation, read from the backend's cache. */
 export const classDocsQueries = {
-  /* The session's one request to the wiki, which the backend throttles across sessions
-     too, per "The wiki's prose" in docs/ux/BIN_EDITOR.md. Answers the revision a class
-     read is keyed on, so a copy that lands mid-session is read again. */
+  /* Refreshes the backend's cache once per session, per "The wiki's prose" in
+     docs/ux/BIN_EDITOR.md. Returns the revision that class queries are keyed on, so a copy
+     installed mid-session is fetched again. */
   sync: () =>
     queryOptions<number, AppError>({
       queryKey: classDocsKeys.sync(),
@@ -22,7 +22,7 @@ export const classDocsQueries = {
       gcTime: Infinity,
       retry: false,
     }),
-  /* Null for a class with nothing documented along its bases. */
+  /* Null when neither the class nor any of its bases is documented. */
   forClass: (classHash: string | null, revision: number | null) =>
     queryOptions<ClassDocs | null, AppError>({
       queryKey: classDocsKeys.class(classHash ?? "", revision),
@@ -35,10 +35,10 @@ export const classDocsQueries = {
 } as const;
 
 /**
- * The wiki's prose for one class and the fields it and its bases declare.
+ * The wiki's documentation for one class and the fields declared on it and its bases.
  *
- * Reads the cached copy at once and again when the session's refresh lands, keeping the
- * copy it has on screen until then.
+ * Reads the cached copy immediately, and again when the session's refresh installs a newer
+ * one. The previous result stays displayed until then.
  */
 export function useClassDocs(classHash: string | null) {
   const { data: revision = null } = useQuery(classDocsQueries.sync());

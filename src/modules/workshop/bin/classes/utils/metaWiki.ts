@@ -1,12 +1,12 @@
-/** Where the LoL Meta Wiki serves its pages, and what its relative links resolve against. */
+/** The LoL Meta Wiki's base URL, which is also the base for its relative links. */
 export const META_WIKI = "https://meta-wiki.leaguetoolkit.dev/";
 
-/** The wiki addresses a class by its name, lowercased. */
+/** A class's page URL. The wiki uses the lowercased class name. */
 export function classPageUrl(name: string): string {
   return `${META_WIKI}classes/${name.toLowerCase()}/`;
 }
 
-/** A property is an anchor on its declaring class's page, lowercased like the page. */
+/** A property's section URL: its declaring class's page, anchored at the lowercased name. */
 export function fieldPageUrl(owner: string, field: string): string {
   return `${classPageUrl(owner)}#${field.toLowerCase()}`;
 }

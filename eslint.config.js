@@ -136,7 +136,7 @@ export default tseslint.config(
           mode: "all",
           "jsx-attributes": {
             exclude: [
-              // Any slot's classes, `triggerClassName` as much as `className`.
+              // Every class-list prop, such as `className` and `triggerClassName`.
               ".*[cC]lassName",
               "data-ui",
               "to",

@@ -71,7 +71,7 @@ function ClassCardBody({ classHash, name }: ClassCardProps) {
   );
 }
 
-/** The wiki's prose for the class itself, and nothing where the wiki has none. */
+/** The wiki's documentation for the class itself. Renders nothing when the wiki has none. */
 function ClassDoc({ classHash }: { classHash: string }) {
   const { data } = useClassDocs(classHash);
 
