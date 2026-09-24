@@ -13,7 +13,13 @@ import {
   runLength,
   targetAt,
 } from "../model/rig";
-import { addressTheSame, emptySystem, lingerTail, systemSpan } from "../model/systemModel";
+import {
+  addressTheSame,
+  emptySystem,
+  lingerTail,
+  simulationEquals,
+  systemSpan,
+} from "../model/systemModel";
 import { flightInto, multiplyInto, turnInto, yawInto } from "../utils/basis";
 import { Rng } from "../utils/Rng";
 import { createCheckpoints } from "./checkpoints";
@@ -25,7 +31,7 @@ import {
   feedOf,
   snapshotByteLength,
 } from "./children";
-import type { EmissionSurfaces } from "./emissionSurface";
+import { type EmissionSurfaces, surfacesEquals } from "./emissionSurface";
 import {
   copyEmitterStates,
   createEmitterStates,
@@ -298,7 +304,7 @@ export function createDriver(
         world: world.basis,
         stopped: (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached),
         pinned: lineage.pinned,
-        surfaces: lineage.surfaces,
+        surfaces: lineage.surfaces.get(""),
       };
 
       stepEmitters(pool, system, placed, rng, states);
@@ -360,6 +366,9 @@ export function createDriver(
     phase = held.phase;
     origin = held.origin;
     children.restore(held.children);
+    /* A checkpoint can predate an edit to what only the draw reads, which a swap keeps it
+       across, so the restored children take the definitions current now. */
+    children.repoint(system);
     lineage.births.length = 0;
     for (const birth of held.births) lineage.births.push(birth);
     orientInto(phase);
@@ -406,7 +415,7 @@ export function createDriver(
         world: world.basis,
         stopped: false,
         pinned: lineage.pinned,
-        surfaces: lineage.surfaces,
+        surfaces: lineage.surfaces.get(""),
       };
       stepEmitters(pool, system, placed, rng, states);
       children.step(driver, system, SEEK_STEP, now);
@@ -482,37 +491,36 @@ export function createDriver(
       lineage.pinned = chance;
       marks.clear();
     },
+    /* The checkpoints contain births drawn before the surfaces or joints landed, so both
+       setters drop them and replay to the current phase. */
     setSurfaces(surfaces) {
-      if (lineage.surfaces === surfaces) return;
+      if (surfacesEquals(lineage.surfaces, surfaces)) return;
+
       lineage.surfaces = surfaces;
-      const time = stepper.now;
-      rewind();
-      const steps = Math.min(SEEK_STEPS, Math.floor(time / SEEK_STEP));
-      for (let at = 0; at < steps; at += 1) run(SEEK_STEP);
+      marks.clear();
+      driver.seek(driver.phase);
     },
     setMeshJoints(joints) {
-      if (lineage.meshJoints === joints) return;
+      if (jointsEquals(lineage.meshJoints, joints)) return;
 
       lineage.meshJoints = joints;
-      const time = stepper.now;
-      rewind();
-
-      const steps = Math.min(SEEK_STEPS, Math.floor(time / SEEK_STEP));
-      for (let at = 0; at < steps; at += 1) {
-        run(SEEK_STEP);
-      }
+      marks.clear();
+      driver.seek(driver.phase);
     },
 
     /*
      * Decision 2.5: an edit replaces the definition the emitters point at and the
      * particle pool is not consulted, so a live particle keeps its birth values and its
      * position and the next appearance pass reads the new definition. An edit that moves
-     * what an index addresses is the one case that restarts, because the pool's `emitter`
+     * what an index addresses is the one case that replays the run, because the pool's `emitter`
      * column would otherwise evaluate a live particle against another emitter's curves.
      * A child follows the same rule one level down.
      */
     swap(next) {
       const same = addressTheSame(system.emitters, next.emitters);
+      /* An edit to what only the draw reads leaves every checkpoint as the new definition
+         would have written it, so a seek after it restores one rather than replaying. */
+      const drawOnly = same && simulationEquals(system, next);
       system = next;
       span = systemSpan(next);
       tail = lingerTail(next, flightTime(rig.motion));
@@ -521,6 +529,11 @@ export function createDriver(
          same reason it moves with a tune. */
       phase = phaseAt(rig, stepper.now, span, tail);
       orientInto(phase);
+      if (drawOnly) {
+        children.repoint(next);
+        return;
+      }
+
       marks.clear();
       relane();
       if (same) {
@@ -528,11 +541,9 @@ export function createDriver(
         return;
       }
 
-      states = createEmitterStates(next.emitters);
-      pool.count = 0;
-      children.clear();
-      lineage.births.length = 0;
-      buildUp(stepper.now, phase);
+      /* The pool's `emitter` column no longer addresses the new list, so the run replays to
+         the current phase, which keeps the clock, the lanes and the particles in one run. */
+      driver.seek(phase);
     },
 
     /*
@@ -592,3 +603,13 @@ const TURNED = new Float32Array(3);
 
 /** The travel of a step that moves nothing, which every build-up step takes. */
 const STILL: Point = [0, 0, 0];
+
+/** The two maps resolve every mesh emitter's joints through the same lookup. */
+function jointsEquals(a: ReadonlyMap<string, Joints>, b: ReadonlyMap<string, Joints>): boolean {
+  if (a.size !== b.size) return false;
+
+  for (const [key, joints] of a) {
+    if (b.get(key) !== joints) return false;
+  }
+  return true;
+}

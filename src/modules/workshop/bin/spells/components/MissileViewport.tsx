@@ -149,7 +149,7 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
         <div className="absolute inset-0">
           <Viewport stage textured={false} camera={camera}>
             <Passes
-              warps={system.emitters.some(distorts)}
+              warps={drawn.some(({ emitter }) => distorts(emitter))}
               softens={drawn.some(({ emitter }) => fades(emitter))}
             />
             <Fit system={system} flight={flight} />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 
-import { type Edges, jointAnchor, useSceneColors } from "@/modules/viewport";
+import { type Edges, jointAnchor, type Pose, useSceneColors } from "@/modules/viewport";
 
 import type { Joints } from "../../engine/model/rig";
 import type { Driver } from "../../engine/simulation/driver";
@@ -55,18 +55,13 @@ export function VfxSystem({
 }: VfxSystemProps) {
   useEmissionSurfaces(drawn, driver);
   const joints = useMemo(() => {
-    const held = new Map<string, Joints>();
+    const lookups = new Map<string, Joints>();
     for (const [key, buffers] of meshes) {
       const pose = buffers.pose?.source;
-      if (pose === undefined) continue;
-
-      held.set(key, (name) => {
-        const slot = pose.jointNamed(name);
-        return slot < 0 ? null : jointAnchor(pose, slot, [0, 0, 0], 1);
-      });
+      if (pose !== undefined) lookups.set(key, jointsOf(pose));
     }
 
-    return held;
+    return lookups;
   }, [meshes]);
 
   useEffect(() => {
@@ -153,4 +148,20 @@ export function VfxSystem({
 
 function noneHidden(): boolean {
   return false;
+}
+
+/* One lookup per pose, so a mesh landing leaves the other emitters' lookups identical and
+   `driver.setMeshJoints` replays only when a pose was added or removed. */
+const JOINTS = new WeakMap<Pose, Joints>();
+
+function jointsOf(pose: Pose): Joints {
+  let joints = JOINTS.get(pose);
+  if (joints === undefined) {
+    joints = (name) => {
+      const slot = pose.jointNamed(name);
+      return slot < 0 ? null : jointAnchor(pose, slot, [0, 0, 0], 1);
+    };
+    JOINTS.set(pose, joints);
+  }
+  return joints;
 }

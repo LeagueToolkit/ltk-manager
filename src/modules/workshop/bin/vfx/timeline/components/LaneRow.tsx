@@ -130,7 +130,7 @@ export const LaneRow = memo(function LaneRow({
             <EyeSlashIcon
               weight="bold"
               role="img"
-              aria-label={m.workshop_bin_emitter_disabled_label()}
+              aria-label={offLabel(emitter)}
               className="h-3 w-3 shrink-0 text-surface-400"
             />
           )}
@@ -179,4 +179,11 @@ export const SIMPLE_TAG = 7;
 /** What a lane head's name and index take, as characters its width is fitted to. */
 export function laneLabel(emitter: EmitterModel): string {
   return `${emitter.name} [${emitter.listIndex}]${" ".repeat(emitter.simple ? SIMPLE_TAG : 0)}`;
+}
+
+/** Why the lane's emitter draws nothing: its `disabled` flag, or a gate the engine applies. */
+function offLabel(emitter: EmitterModel): string {
+  if (emitter.culled === "importance") return m.workshop_bin_emitter_low_spec_label();
+  if (emitter.culled === "colorblind") return m.workshop_bin_emitter_colorblind_only_label();
+  return m.workshop_bin_emitter_disabled_label();
 }

@@ -23,6 +23,17 @@ describe("Rng", () => {
     expect(draws(1, 16)).not.toEqual(draws(2, 16));
   });
 
+  it("opens neighbouring seeds on unrelated first draws", () => {
+    /* A reroll adds one to the seed, and the first draw is the first particle's roll. */
+    const first = [1337, 1338, 1339, 1340].map((seed) => new Rng(seed).unitFloat());
+
+    for (let a = 0; a < first.length; a += 1) {
+      for (let b = a + 1; b < first.length; b += 1) {
+        expect(Math.abs(first[a] - first[b])).toBeGreaterThan(0.01);
+      }
+    }
+  });
+
   it("draws from a seed of zero rather than sticking there", () => {
     const drawn = draws(0, 8);
     expect(new Set(drawn).size).toBe(drawn.length);

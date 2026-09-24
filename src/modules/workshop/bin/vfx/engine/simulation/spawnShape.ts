@@ -103,11 +103,11 @@ export function sampleShape(
   if (out.turned) turnInto(out.turn, out.offset, 0);
 }
 
-/** One more turn about `axis` composed onto the birth's, on its right. */
+/** One more turn about `axis`, applied after every turn composed before it (row-vector order). */
 function spin(out: Birth, axis: Point, radians: number): void {
   if (radians === 0) return;
   axisAngle(axis, radians, SPUN);
-  multiplyInto(out.turn, SPUN, out.turn);
+  multiplyInto(SPUN, out.turn, out.turn);
   out.turned = true;
 }
 

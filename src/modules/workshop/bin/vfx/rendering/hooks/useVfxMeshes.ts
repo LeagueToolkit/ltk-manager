@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
 
 import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
@@ -25,42 +25,99 @@ export type EmitterMeshes = ReadonlyMap<string, MeshBuffers>;
 
 const NONE: EmitterMeshes = new Map();
 
+/** One drawn emitter's mesh to load, and everything its buffers are built from. */
+interface MeshRequest {
+  readonly key: string;
+  readonly model: MeshModel;
+  readonly signature: string;
+}
+
+/** One emitter's loaded buffers, and the signature of the request they answer. */
+interface LoadedMesh {
+  readonly signature: string;
+  readonly buffers: MeshBuffers;
+}
+
+function meshRequests(drawn: readonly DrawnEmitter[]): MeshRequest[] {
+  return drawn.flatMap(({ key, emitter }) => {
+    const model = emitter.mesh;
+    if (model === null) return [];
+
+    const signature = JSON.stringify([
+      model.asset,
+      model.skinned,
+      model.skeleton?.asset ?? null,
+      animationOf(model, key)?.asset ?? null,
+      model.submeshes,
+      model.submeshesAlways,
+    ]);
+    return [{ key, model, signature }];
+  });
+}
+
+function disposeMesh(buffers: MeshBuffers): void {
+  buffers.geometry.dispose();
+  buffers.pose?.texture.dispose();
+}
+
 /**
  * The mesh each mesh emitter draws, off the same scheme its textures come from.
  *
  * The bytes never cross the JavaScript heap as anything but the one buffer, and the
- * decode is the viewport's `meshBuffer.ts` rather than a parser of its own (decision 2.2
- * of docs/plans/vfx-particle-renderer.md).
+ * decode is the viewport's `meshBuffer.ts` rather than a separate parser (decision 2.2
+ * of docs/plans/vfx-particle-renderer.md). The load follows what each emitter's buffers
+ * are built from rather than the identity of `drawn`, so an edit that leaves an emitter's
+ * mesh alone keeps its buffers and its pose.
  */
 export function useVfxMeshes(
   drawn: readonly DrawnEmitter[],
   report?: (load: AssetLoad) => void,
 ): EmitterMeshes {
   const [meshes, setMeshes] = useState<EmitterMeshes>(NONE);
+  const wanted = useMemo(() => meshRequests(drawn), [drawn]);
+  const signature = wanted.map((request) => `${request.key}|${request.signature}`).join("\n");
+  const latest = useRef(wanted);
+  latest.current = wanted;
+
+  /* Outlives one run of the load effect, so the next run keeps the buffers it still wants. */
+  const loaded = useRef(new Map<string, LoadedMesh>());
 
   useEffect(() => {
-    const batch = assetLoad(drawn.filter(({ emitter }) => emitter.mesh !== null).length, report);
-    if (drawn.length === 0) {
-      setMeshes(NONE);
-      return;
-    }
-
+    const requests = latest.current;
+    const previous = loaded.current;
+    const kept = new Map<string, LoadedMesh>();
+    const batch = assetLoad(requests.length, report);
     let live = true;
-    const loaded = new Map<string, MeshBuffers>();
 
-    for (const { key, emitter } of drawn) {
-      if (emitter.mesh === null) continue;
-      const mesh = emitter.mesh;
+    const owed: MeshRequest[] = [];
+    for (const request of requests) {
+      const current = previous.get(request.key);
+      if (current?.signature === request.signature) {
+        kept.set(request.key, current);
+        batch.done();
+      } else {
+        owed.push(request);
+      }
+    }
+    for (const [key, mesh] of previous) {
+      if (kept.get(key) !== mesh) disposeMesh(mesh.buffers);
+    }
+    loaded.current = kept;
 
-      void loadMesh(mesh, key)
+    const publish = () => {
+      setMeshes(new Map([...kept].map(([key, mesh]) => [key, mesh.buffers])));
+    };
+    publish();
+
+    for (const request of owed) {
+      void loadMesh(request.model, request.key)
         .then((buffers) => {
           if (!live) {
-            buffers.geometry.dispose();
-            buffers.pose?.texture.dispose();
+            disposeMesh(buffers);
             return;
           }
-          loaded.set(key, buffers);
-          setMeshes(new Map(loaded));
+          kept.set(request.key, { signature: request.signature, buffers });
+          publish();
           batch.done();
         })
         .catch(() => batch.done(true));
@@ -69,13 +126,16 @@ export function useVfxMeshes(
     return () => {
       live = false;
       batch.cancel();
-      for (const held of loaded.values()) {
-        held.geometry.dispose();
-        held.pose?.texture.dispose();
-      }
-      setMeshes(NONE);
     };
-  }, [drawn, report]);
+  }, [signature, report]);
+
+  useEffect(() => {
+    const acquired = loaded;
+    return () => {
+      for (const { buffers } of acquired.current.values()) disposeMesh(buffers);
+      acquired.current = new Map();
+    };
+  }, []);
 
   return meshes;
 }

@@ -210,7 +210,7 @@ export function standingFrameInto(
 }
 
 /** How far from the world's up a travel may lean before its side is taken off x instead. */
-const UPRIGHT = 0.99;
+const UPRIGHT = 0.99999;
 
 /** Scratch the particle's standing frame is read into, under its own turn. */
 const BORN_FRAME = new Float32Array(FRAME_SLOTS);

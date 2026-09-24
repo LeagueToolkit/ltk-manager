@@ -82,7 +82,7 @@ void main() {
   if (lit.a < alphaRef) discard;
   lit = softened(lit);
 #ifdef DISTORTS
-  gl_FragColor = warp != 0.0 ? warped(vUv, lit.a) : lit;
+  gl_FragColor = warped(vUv, lit.a);
 #else
   gl_FragColor = lit;
 #endif

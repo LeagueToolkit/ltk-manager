@@ -322,7 +322,7 @@ export function erosionUniforms(erosion: ErosionModel | null, texture: Texture |
   const rate = (feather: number) => 1 / Math.max(feather, LEAST_FEATHER);
   return {
     mapErosion: { value: texture },
-    erosionDefault: { value: erosion?.map?.asset == null ? WHITE : NOTHING },
+    erosionDefault: { value: erosion?.map == null ? WHITE : NOTHING },
     addressErosion: { value: erosion?.addressMode ?? 0 },
     erosionMix: { value: [mix[0] ?? 0, mix[1] ?? 0, mix[2] ?? 0, mix[3] ?? 0] },
     featherRate: { value: [rate(erosion?.featherIn ?? 0), rate(erosion?.featherOut ?? 0)] },

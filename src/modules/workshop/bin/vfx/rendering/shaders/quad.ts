@@ -64,8 +64,10 @@ varying vec2 vLookup;
 varying float vErode;
 
 // quad_vs's PARTICLE_DEPTH_PUSH_PULL. Decision 2.47 of docs/plans/vfx-particle-renderer.md.
+// An orthographic view has no ray from the eye, so the push runs along the view axis.
 vec4 pushed(vec4 view) {
-  view.xyz += normalize(view.xyz) * pushPull;
+  vec3 ray = isOrthographic ? vec3(0.0, 0.0, -1.0) : normalize(view.xyz);
+  view.xyz += ray * pushPull;
   return view;
 }
 
@@ -353,10 +355,17 @@ uniform vec4 softControl;
 uniform sampler2D sceneDepth;
 uniform vec2 depthRange;
 
+// An orthographic camera stores depth linearly, a perspective one as its reciprocal.
+float viewZOf(float depth) {
+  return isOrthographic
+    ? orthographicDepthToViewZ(depth, depthRange.x, depthRange.y)
+    : perspectiveDepthToViewZ(depth, depthRange.x, depthRange.y);
+}
+
 vec4 softened(vec4 lit) {
   float stored = texture2D(sceneDepth, gl_FragCoord.xy / viewport).r;
-  float scene = perspectiveDepthToViewZ(stored, depthRange.x, depthRange.y);
-  float here = perspectiveDepthToViewZ(gl_FragCoord.z, depthRange.x, depthRange.y);
+  float scene = viewZOf(stored);
+  float here = viewZOf(gl_FragCoord.z);
   vec2 through = clamp((here - scene - softParams.xy) * softParams.zw, 0.0, 1.0);
   vec2 eased = through * through * (3.0 - 2.0 * through);
   float fade = eased.x - eased.y;
@@ -474,7 +483,7 @@ void main() {
   lit = softened(shone(lit, texel.a));
 
 #ifdef DISTORTS
-  gl_FragColor = warp != 0.0 ? warped(placed, lit.a) : lit;
+  gl_FragColor = warped(placed, lit.a);
 #else
   gl_FragColor = lit;
 #endif

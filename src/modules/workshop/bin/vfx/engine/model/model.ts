@@ -499,6 +499,12 @@ export interface OrbitalFieldModel {
   readonly localSpace: boolean;
 }
 
+/**
+ * Why the engine would not instantiate an emitter at the preview's settings: Very High effects
+ * quality culls the low-spec `importance`, and the default palette culls a colourblind-only one.
+ */
+export type EmitterCull = "importance" | "colorblind";
+
 /** One emitter of a system, as the renderer reads it. */
 export interface EmitterModel {
   /** The shared static preview of `CustomMaterial`, and null for the particle shader. */
@@ -511,7 +517,10 @@ export interface EmitterModel {
   /** Its place in its own list, which is what the strip's own cards are keyed on. */
   readonly listIndex: number;
   readonly name: string;
+  /** The emitter is not instantiated: its `disabled` flag is set, or a gate in `culled` removed it. */
   readonly disabled: boolean;
+  /** The instantiation gate that removed the emitter from the preview, and null for none. */
+  readonly culled: EmitterCull | null;
 
   /** Particles per second, driven by the emitter's life. */
   readonly rate: ValueCurve;

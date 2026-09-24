@@ -5,6 +5,7 @@ import {
   FramebufferTexture,
   LinearFilter,
   type Object3D,
+  OrthographicCamera,
   PerspectiveCamera,
   RGBFormat,
   type Scene,
@@ -74,6 +75,9 @@ export function grabFrame(gl: WebGLRenderer): void {
     FRAME.dispose();
   }
 
+  /* three copies into whichever unit is active, and skips the bind when its cache already
+     has the texture on unit 0, so the copy can land in another material's sampler. */
+  gl.state.activeTexture(gl.getContext().TEXTURE0);
   gl.copyFramebufferToTexture(FRAME);
 }
 
@@ -89,14 +93,23 @@ export function grabDepth(gl: WebGLRenderer, scene: Scene, camera: Camera): void
   if (SCENE_TARGET.width !== width || SCENE_TARGET.height !== height) {
     SCENE_TARGET.setSize(width, height);
   }
-  if (camera instanceof PerspectiveCamera) DEPTH_RANGE.set(camera.near, camera.far);
+  if (camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera) {
+    DEPTH_RANGE.set(camera.near, camera.far);
+  }
 
   const background = scene.background;
   scene.background = null;
   camera.layers.set(SCENE_LAYER);
+  /* Only the depth is read, so the pass writes no colour. The lock keeps every material's
+     `colorWrite` from turning the writes back on. */
+  const color = gl.state.buffers.color;
+  color.setMask(false);
+  color.setLocked(true);
   gl.setRenderTarget(SCENE_TARGET);
   gl.render(scene, camera);
   gl.setRenderTarget(null);
+  color.setLocked(false);
+  color.setMask(true);
   scene.background = background;
 }
 

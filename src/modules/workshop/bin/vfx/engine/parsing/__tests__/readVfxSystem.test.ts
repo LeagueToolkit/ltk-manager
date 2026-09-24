@@ -1324,3 +1324,32 @@ describe("the force fields", () => {
     expect(absent.fields).toBeNull();
   });
 });
+
+describe("the instantiation gates", () => {
+  it("culls the low-spec importance, which Very High effects quality never spawns", () => {
+    const [lowSpec, rich, plain] = readVfxSystem(
+      system([emitter({ importance: number(4) }), emitter({ importance: number(5) }), emitter({})]),
+    ).emitters;
+
+    expect([lowSpec.culled, lowSpec.disabled]).toEqual(["importance", true]);
+    expect([rich.culled, rich.disabled]).toEqual([null, false]);
+    expect([plain.culled, plain.disabled]).toEqual([null, false]);
+  });
+
+  it("culls a colourblind-only emitter off the complex list alone", () => {
+    const model = readVfxSystem(
+      system(
+        [
+          emitter({ colorblindVisibility: number(2) }),
+          emitter({ colorblindVisibility: number(1) }),
+        ],
+        [emitter({ colorblindVisibility: number(2) })],
+      ),
+    );
+    const [colorblind, normal, simple] = model.emitters;
+
+    expect(colorblind.culled).toBe("colorblind");
+    expect(normal.culled).toBeNull();
+    expect(simple.culled).toBeNull();
+  });
+});

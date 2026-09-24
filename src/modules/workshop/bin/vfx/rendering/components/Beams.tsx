@@ -18,12 +18,13 @@ import {
   standingFrameInto,
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { multiplyInto, standingInto } from "../../engine/utils/basis";
+import { multiplyInto, standingInto, turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
+import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import {
@@ -38,7 +39,7 @@ import {
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair } from "./drawPair";
 
 /** How many beams one emitter draws across every source, which caps its share of the pools. */
 const BEAMS_PER_EMITTER = 256;
@@ -53,6 +54,7 @@ const CURSOR: Cursor = { vertex: 0, index: 0 };
 const EYE: [number, number, number] = [0, 0, 0];
 const SOURCE: [number, number, number] = [0, 0, 0];
 const TARGET: [number, number, number] = [0, 0, 0];
+const OFFSET = new Float32Array(3);
 const LOCAL: [number, number, number] = [0, 0, 0];
 const PARTICLE: BeamParticle = {
   scale: DRAWN.scale,
@@ -127,6 +129,8 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
   useFrame((state) => {
     if (!drawn || beam === null) {
       buffers.geometry.setDrawRange(0, 0);
+      buffers.edgeGeometry.setDrawRange(0, 0);
+      showPair(pair, false);
       return;
     }
 
@@ -138,6 +142,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
 
     CURSOR.vertex = 0;
     CURSOR.index = 0;
+    const stamp = state.gl.info.render.frame;
     const layers = { base: emitter.uv, mult: emitter.multUv };
     const segmented = emitter.quadType === QUAD_TYPE.cameraSegmentBeam;
     let held = 0;
@@ -146,10 +151,14 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       const origin = source.origin;
       const target = source.target;
       const frame = frameOf(source, emitter);
-      for (let axis = 0; axis < 3; axis += 1) {
-        SOURCE[axis] = origin[axis] + beam.sourceOffset[axis];
-        TARGET[axis] = target[axis] + beam.targetOffset[axis];
-      }
+      /* The offsets are local to the system, so they turn with it before landing on the
+         ends (`VfxRibbon_ShapesAndPrimitives.md` section 3.2). */
+      OFFSET.set(beam.sourceOffset);
+      turnInto(source.orientation, OFFSET, 0);
+      for (let axis = 0; axis < 3; axis += 1) SOURCE[axis] = origin[axis] + OFFSET[axis];
+      OFFSET.set(beam.targetOffset);
+      turnInto(source.orientation, OFFSET, 0);
+      for (let axis = 0; axis < 3; axis += 1) TARGET[axis] = target[axis] + OFFSET[axis];
       const ends: BeamEnds = {
         source: SOURCE,
         target: TARGET,
@@ -163,8 +172,10 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       );
       const bound = beam.colorBoundToDistance ? sampleCurve(beam.colorByDistance, length) : UNBOUND;
 
-      for (let at = 0; at < pool.count && held < BEAMS_PER_EMITTER; at += 1) {
-        if (pool.emitter[at] !== emitter.index) continue;
+      const buckets = bucketsOf(pool, stamp);
+      const [first, last] = bucketRange(buckets, emitter.index);
+      for (let listed = first; listed < last && held < BEAMS_PER_EMITTER; listed += 1) {
+        const at = buckets.order[listed];
         held += 1;
 
         const time = frame.now;
@@ -198,6 +209,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       }
     }
     commitRibbon(buffers, CURSOR);
+    showPair(pair, CURSOR.index > 0);
   });
 
   return (
