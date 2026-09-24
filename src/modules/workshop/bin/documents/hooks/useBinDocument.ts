@@ -37,13 +37,13 @@ export type BinOpenState =
  *
  * The open and the close are explicit over IPC (ADR-0026). `entry` narrows the open to
  * one object of the file (ADR-0028), `0x` and eight hex digits. `reopen` asks for a
- * fresh handle and keeps the old one on screen until it answers. A document the store
- * evicted is reopened this way.
+ * fresh handle and keeps the old one on screen until it answers, and resolves with the
+ * fresh id, or null where the open failed. A document the store evicted is reopened this way.
  */
 export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
-): { state: BinOpenState; reopen: () => void } {
+): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
   /* A game chunk opened inside a project declares into it (ADR-0042). */
   const project = useOptionalProjectContext()?.path;
   const opened =
@@ -57,6 +57,15 @@ export function useBinDocument(
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
   const heldKey = useRef(key);
+  /* The reopens waiting on the next open to land. */
+  const waiting = useRef<((id: BinDocumentId | null) => void)[]>([]);
+  useEffect(
+    () => () => {
+      for (const resolve of waiting.current) resolve(null);
+      waiting.current = [];
+    },
+    [],
+  );
 
   /* Keyed by what the reference names. A new object for the same asset is not a reopen. */
   useEffect(() => {
@@ -71,12 +80,16 @@ export function useBinDocument(
         if (result.ok) void api.bin.close(result.value.document);
         return;
       }
+      const settled = waiting.current;
+      waiting.current = [];
       if (result.ok) {
         opened = result.value.document;
         setState({ status: "open", handle: result.value });
+        for (const resolve of settled) resolve(opened);
         return;
       }
       setState({ status: "failed", error: result.error });
+      for (const resolve of settled) resolve(null);
     });
 
     const held = assetKey(latest.current.asset);
@@ -93,7 +106,14 @@ export function useBinDocument(
     };
   }, [key, generation]);
 
-  const reopen = useCallback(() => setGeneration((count) => count + 1), []);
+  const reopen = useCallback(
+    () =>
+      new Promise<BinDocumentId | null>((resolve) => {
+        waiting.current.push(resolve);
+        setGeneration((count) => count + 1);
+      }),
+    [],
+  );
   return { state, reopen };
 }
 

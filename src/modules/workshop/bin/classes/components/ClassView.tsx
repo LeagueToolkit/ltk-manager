@@ -24,7 +24,7 @@ import { preloadSkinViewport } from "../../skin/components/SkinPreview";
 import { SkinChoiceContext, useSkinChoice } from "../../skin/state/skinChoice";
 import { BinContextMenu } from "../../tree/components/BinContextMenu";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
-import { LeafEditContext, useLeafEdit } from "../../tree/hooks/useLeafEdit";
+import { LeafEditContext, type Reopen, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
 import { createRowRegistry, RowRegistryContext } from "../../tree/state/rowRegistry";
 import { rowKey, type RowLine } from "../../tree/utils/binRows";
@@ -76,7 +76,7 @@ interface ClassViewProps {
   /** The name of the object an entry hash addresses, for the path a cell copies. */
   objectName: (entry: string) => string;
   /** The backend holds no document with this id. The caller reopens it. */
-  onNotOpen: () => void;
+  onNotOpen: Reopen;
   /** Switch the tab to Properties and reveal the cell's row there. */
   onShowInProperties: (key: string) => void;
   /** The frame it settled on, which a host drawing a curve of its own has to know. */
@@ -103,7 +103,7 @@ export function ClassView({
   onFrame,
 }: ClassViewProps) {
   const invalidate = useInvalidateBinReads();
-  const edits = useLeafEdit(document, asset, invalidate);
+  const edits = useLeafEdit(document, asset, invalidate, onNotOpen);
   const declared = useDeclaredRows(document);
   const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
   const pages = useLayoutRead(document, placed);
