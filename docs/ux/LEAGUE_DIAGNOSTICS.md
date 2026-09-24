@@ -682,12 +682,15 @@ inferred, so it is a Lead. The verdict names no mod and says so plainly: a devic
 is the driver's, and the fix is a driver update or a display setting.
 
 **Stuck loading.** `League stopped at loading step N of 64.` Each `LOAD` marker is written
-before its step runs, and a step that never finishes holds the screen where it is. The last
-marker in the log is therefore the step that did not finish, and the percentage the player
-saw was `N / 64`. The verdict names the step's work from the table.
+before its step runs, and a step that never finishes holds the screen where it is. Only
+thirteen of the 64 steps write a marker, so the last one in the log starts a window that runs
+to the step before the next marker in the table. The step that did not finish is in that
+window, and the verdict says which steps it spans. The window is one step for 41, 52 and 59
+to 62, two for 42, 44, 53 and 63, three for 46 and 49, and four for 55. The verdict names
+the marker step's work from the table.
 Step 52 mounts the champions' archives, so its suspects are the mods that write a champion
-archive the DLL redirected. Step 62 builds the environment's cube array, so its suspects are
-the map mods. The other eleven name their work and no mod.
+archive the DLL redirected. Step 62 sets up the map's rendering, so its suspects are the map
+mods. The other eleven name their work and no mod.
 
 **An archive was skipped.** `One archive was left unmodded.` The lazy scan fails open for
 one file, so the game ran with every other mod and without this one, and the line names the

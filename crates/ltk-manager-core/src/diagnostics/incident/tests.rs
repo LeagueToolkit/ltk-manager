@@ -878,6 +878,16 @@ fn stuck_at_step_52_names_the_champion_mods_and_62_the_map_mods() {
 }
 
 #[test]
+fn a_stall_names_the_unmarked_steps_its_marker_covers() {
+    let cause = |code| classify(&stuck_at(code), &no_path).unwrap().verdict.cause;
+    assert!(cause("SEJ-9F31B5D0").ends_with("this is the step that did not finish."));
+    assert!(cause("SEJ-5F4B27D8").ends_with("the step that did not finish is 63 or 64."));
+    assert!(cause("SEJ-6B0D93F1").ends_with(
+        "steps 56 to 58 write no marker of their own, so the step that did not finish is one of 55 to 58."
+    ));
+}
+
+#[test]
 fn a_loading_screen_the_player_left_is_not_stuck() {
     let record = clean(stuck_at("SEJ-9F31B5D0"));
     assert_eq!(classify(&record, &no_path), None);

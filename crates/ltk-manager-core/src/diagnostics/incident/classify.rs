@@ -14,8 +14,20 @@ type VerdictRule = fn(&GameRecord, &ClassifyContext<'_>) -> Option<(Verdict, Vec
 /// The loading step that mounts the champions' archives.
 const CHAMPION_STEP: u8 = 52;
 
-/// The loading step that builds the environment's cube-map array.
+/// The loading step that sets up the map's rendering.
 const MAP_STEP: u8 = 62;
+
+/// The last loading step a marker for `step` covers, since the steps before the
+/// next marker in the table write none of their own.
+fn last_step_under_marker(step: u8) -> u8 {
+    log_codes::rows()
+        .filter_map(|row| match row.kind {
+            CodeKind::LoadStep(next) if next > step => Some(next - 1),
+            _ => None,
+        })
+        .min()
+        .unwrap_or(LOAD_STEPS)
+}
 
 /// A game that ended inside this many seconds under the lazy scan earns the
 /// up-front scan hint, and one that ended inside them with a redirected
@@ -556,8 +568,18 @@ impl GameRecord {
                     .and_then(|row| row.meaning.split_once(", "))
                     .map(|(_, work)| format!(", {work}"))
                     .unwrap_or_default();
+                let stalled = match last_step_under_marker(n) {
+                    last if last == n => String::from("this is the step that did not finish"),
+                    last if last == n + 1 => format!(
+                        "step {last} writes no marker of its own, so the step that did not finish is {n} or {last}"
+                    ),
+                    last => format!(
+                        "steps {} to {last} write no marker of their own, so the step that did not finish is one of {n} to {last}",
+                        n + 1
+                    ),
+                };
                 verdict.cause = format!(
-                    "League stopped at loading step {n} of {LOAD_STEPS}{work}. The marker is written before its step runs, so this is the step that did not finish."
+                    "League stopped at loading step {n} of {LOAD_STEPS}{work}. The marker is written before its step runs, and {stalled}."
                 );
                 verdict = verdict.with_subject(format!("step {n} of {LOAD_STEPS}"));
                 match n {
