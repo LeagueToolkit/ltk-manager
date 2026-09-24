@@ -4,6 +4,7 @@ import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
 import { readClipBuffer } from "../parsing/clipBuffer";
+import { readLightGridBuffer } from "../parsing/lightGridBuffer";
 import { readMapBuffer } from "../parsing/mapBuffer";
 import { readMeshBuffer } from "../parsing/meshBuffer";
 import { readSkeletonBuffer } from "../parsing/skeletonBuffer";
@@ -40,6 +41,17 @@ export const viewportQueries = {
       queryKey: ["viewport", "map", asset],
       queryFn:
         asset === null ? skipToken : async () => readMapBuffer(await fetchBuffer(asset, "map")),
+      staleTime: Infinity,
+      structuralSharing: false,
+      retry: false,
+    }),
+  lightGrid: (asset: AssetRef | null) =>
+    queryOptions({
+      queryKey: ["viewport", "lightGrid", asset],
+      queryFn:
+        asset === null
+          ? skipToken
+          : async () => readLightGridBuffer(await fetchBuffer(asset, "lightgrid")),
       staleTime: Infinity,
       structuralSharing: false,
       retry: false,

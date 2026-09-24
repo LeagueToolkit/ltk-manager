@@ -16,6 +16,11 @@ import {
 
 import type { UniformBlock } from "@/lib/tauri";
 
+import {
+  CUBE_FACES as GRID_FACES,
+  type LightGrid,
+  sceneCubeAt,
+} from "../assets/parsing/lightGridBuffer";
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
 import { programGlobals } from "./programMaterial";
@@ -43,6 +48,8 @@ import { programGlobals } from "./programMaterial";
 export class EngineEnvironment {
   /** The sun the pixel buffer states, which a map's own replaces. */
   light: SunLight = DEFAULT_SUN;
+  /** The map's baked ambient, which lights a character in place of the sun where it holds one. */
+  grid: LightGrid | null = null;
 
   private readonly held = new Map<string, HeldBlock>();
   private readonly clip = new Matrix4();
@@ -252,13 +259,12 @@ function sunDirectionFor(light: SunLight, object: Object3D): readonly [number, n
 /**
  * The ambient cube of `LIGHTGRID_COLORS`, `+X -X +Y -Y +Z -Z`, which the vertex shader
  * weighs by the squared normal into `COLOR0` and the pixel shader scales by
- * `LIGHTGRID_SCALE.x`.
+ * `LIGHTGRID_SCALE.x`, for a map that bakes no light grid.
  *
- * No shipped map on the Rift carries a light grid, so the cube is built off the map's
- * sun properties as their names read: the sky lights the face up, the ground the face
- * down and the horizon the four sides, all at the sky's scale, and a face the sun meets
- * rises toward the sun's light by how squarely it meets it, as the shadow complement of
- * the pixel buffer does. Inferred from the field names, not traced.
+ * As `MapLightingInfo::SetupLighting` builds it: the sky lights the face up, the ground
+ * the face down and the horizon the four sides, all at the sky's scale, and the sun adds
+ * its light by how squarely a face meets it. The game divides the cube by its brightest
+ * channel and scales it back by the same, which is this cube unscaled.
  */
 export function ambientCube(
   light: SunLight,
@@ -274,12 +280,32 @@ export function ambientCube(
       face[0] * direction[0] + face[1] * direction[1] + face[2] * direction[2],
       0,
     );
-    const lit = (channel: number) => {
-      const shaded = (base[channel] ?? 0) * skyScale;
-      return shaded + Math.max((color[channel] ?? 0) * sunScale - shaded, 0) * facing;
-    };
+    const lit = (channel: number) =>
+      (base[channel] ?? 0) * skyScale + (color[channel] ?? 0) * sunScale * facing;
     return [lit(0), lit(1), lit(2)];
   });
+}
+
+const gridColours = new Float32Array(GRID_FACES * 3);
+const gridCentre = new Vector3();
+
+/**
+ * The cube of the grid cell under the middle of `object`'s bounds, as the game picks it
+ * for a character, with no filtering between cells.
+ */
+function gridCube(grid: LightGrid, object: Object3D): readonly SunColor[] {
+  const geometry = (object as Partial<SkinnedMesh>).geometry;
+  if (geometry === undefined) gridCentre.setFromMatrixPosition(object.matrixWorld);
+  else {
+    if (geometry.boundingBox === null) geometry.computeBoundingBox();
+    geometry.boundingBox?.getCenter(gridCentre).applyMatrix4(object.matrixWorld);
+  }
+  sceneCubeAt(grid, gridCentre.x, gridCentre.z, gridColours);
+  return Array.from({ length: GRID_FACES }, (_, face) => [
+    gridColours[face * 3] ?? 0,
+    gridColours[face * 3 + 1] ?? 0,
+    gridColours[face * 3 + 2] ?? 0,
+  ]);
 }
 
 /** Each buffer's writer, at the member offsets of section 3.2, in floats. */
@@ -336,7 +362,10 @@ const WRITERS: Record<string, Writer> = {
   },
   CharacterPerDrawVertexCB: (out, environment, _camera, object) => {
     environment.writeIdentity(out, 0);
-    const cube = ambientCube(environment.light, sunDirectionFor(environment.light, object));
+    const cube =
+      environment.grid === null
+        ? ambientCube(environment.light, sunDirectionFor(environment.light, object))
+        : gridCube(environment.grid, object);
     cube.forEach(([r, g, b], face) => {
       writeVector(out, 16 + face * 4, r, g, b);
       out[16 + face * 4 + 3] = 1;
@@ -346,8 +375,9 @@ const WRITERS: Record<string, Writer> = {
   CharacterPerDrawPS: (out, environment) => {
     /* `kGrassFade.w` multiplies every fragment's alpha, so anything but one draws nothing. */
     out[7] = 1;
+    /* `LIGHTGRID_SCALE`: the grid's own scale is already in its cube. */
     out[8] = 1;
-    out[9] = 1;
+    out[9] = environment.grid?.fullBright ?? 1;
     environment.writeIdentity(out, 16);
     environment.writeIdentity(out, 32);
   },

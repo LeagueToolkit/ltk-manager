@@ -6,6 +6,7 @@
 //! the second.
 
 mod animation;
+mod light_grid;
 mod map;
 mod mesh;
 mod mips;
@@ -51,6 +52,8 @@ pub enum PreviewRequest {
     /// A texture's own mip chain from the smallest mipmap at least `min_width` wide down,
     /// as one buffer.
     Mips { min_width: Option<NonZeroU32> },
+    /// A map's baked light grid, as one ambient buffer.
+    LightGrid,
 }
 
 /// A decoded preview of one asset, ready for a webview to draw.
@@ -172,6 +175,10 @@ pub enum PreviewError {
     /// The clip bakes to more poses than one buffer holds.
     #[error("The animation is longer than one preview bakes")]
     AnimationTooLong,
+
+    /// The bytes are not a light grid the game reads.
+    #[error("Not a readable light grid: {0}")]
+    LightGridRead(&'static str),
 }
 
 impl AssetRef {
@@ -206,6 +213,7 @@ impl AssetRef {
             PreviewRequest::Mips { min_width } => {
                 return Ok(Preview::Buffer(mips::render(&bytes, min_width)?));
             }
+            PreviewRequest::LightGrid => return Ok(Preview::Buffer(light_grid::render(&bytes)?)),
         };
 
         let image = match self.file_kind(&bytes) {

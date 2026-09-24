@@ -1,0 +1,120 @@
+import type { MeshLambertMaterial, WebGLProgramParametersWithUniforms } from "three";
+
+import { CUBE_FACES, type LightGrid, sceneCubeAt } from "../../assets/parsing/lightGridBuffer";
+
+/**
+ * The uniforms a lit character material reads its map's baked ambient from.
+ *
+ * `cube` is in the scene's space, so its +X and -X faces are the engine's swapped across
+ * the mirrored axis. `on` is 0 where no grid lights the character, which leaves ThreeJS's
+ * own lights in charge.
+ */
+export interface LightGridUniforms {
+  readonly cube: { value: Float32Array };
+  readonly scale: { value: [number, number] };
+  readonly on: { value: number };
+}
+
+/** The key every patched material shares, so all of them draw with one program. */
+const PROGRAM_KEY = "light-grid-1";
+
+const VERTEX_DECLARATIONS = /* glsl */ `
+uniform vec3 lightGridCube[${CUBE_FACES}];
+varying vec3 vLightGrid;
+`;
+
+/* The ambient cube as the game's character vertex shader weighs it: the squared world
+   normal, each axis taking the face its sign points at. The bones are world space there,
+   and here the model matrix is a mirror and a uniform scale, so it turns a normal true. */
+const VERTEX_AMBIENT = /* glsl */ `
+vec3 gridNormal = normalize( mat3( modelMatrix ) * objectNormal );
+vec3 gridWeight = gridNormal * gridNormal;
+vLightGrid = gridWeight.x * lightGridCube[ gridNormal.x < 0.0 ? 1 : 0 ]
+  + gridWeight.y * lightGridCube[ gridNormal.y < 0.0 ? 3 : 2 ]
+  + gridWeight.z * lightGridCube[ gridNormal.z < 0.0 ? 5 : 4 ];
+`;
+
+const FRAGMENT_DECLARATIONS = /* glsl */ `
+uniform vec2 lightGridScale;
+uniform float lightGridOn;
+varying vec3 vLightGrid;
+`;
+
+/* The game multiplies a gamma albedo by a gamma light and draws the product, so the light
+   crosses to linear before it meets a linear albedo. No self-illumination is drawn, which
+   is the term `lightGridScale.y` weighs. */
+const FRAGMENT_LIGHT = /* glsl */ `
+if ( lightGridOn > 0.5 ) {
+  vec3 gridLight = clamp( vLightGrid * lightGridScale.x, 0.0, 1.0 );
+  outgoingLight = diffuseColor.rgb * sRGBTransferEOTF( vec4( gridLight, 1.0 ) ).rgb;
+}
+`;
+
+/** Uniforms for one material, unlit by any grid until `lightFrom` fills them. */
+export function lightGridUniforms(): LightGridUniforms {
+  return {
+    cube: { value: new Float32Array(CUBE_FACES * 3) },
+    scale: { value: [0, 0] },
+    on: { value: 0 },
+  };
+}
+
+/**
+ * Light `material` from the ambient cube `uniforms` hold, where they hold one.
+ *
+ * Replaces the whole lit colour rather than adding to it, because the game's character
+ * shader reads no sun and no other light where a grid lights it.
+ */
+export function patchLightGrid(material: MeshLambertMaterial, uniforms: LightGridUniforms): void {
+  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.uniforms.lightGridCube = uniforms.cube;
+    shader.uniforms.lightGridScale = uniforms.scale;
+    shader.uniforms.lightGridOn = uniforms.on;
+    shader.vertexShader = inject(
+      shader.vertexShader,
+      "#include <defaultnormal_vertex>",
+      VERTEX_DECLARATIONS,
+      VERTEX_AMBIENT,
+    );
+    shader.fragmentShader = inject(
+      shader.fragmentShader,
+      "#include <opaque_fragment>",
+      FRAGMENT_DECLARATIONS,
+      FRAGMENT_LIGHT,
+      true,
+    );
+  };
+  material.customProgramCacheKey = () => PROGRAM_KEY;
+}
+
+/**
+ * Fill `uniforms` from the grid cell under `x`, `z` in the scene's space, and turn them
+ * off where there is no grid. Answers the cell, so a caller can skip a frame that did
+ * not change it.
+ */
+export function lightFrom(
+  grid: LightGrid | null,
+  x: number,
+  z: number,
+  uniforms: LightGridUniforms,
+): number {
+  if (grid === null) {
+    uniforms.on.value = 0;
+    return -1;
+  }
+  const cell = sceneCubeAt(grid, x, z, uniforms.cube.value);
+  uniforms.scale.value = [1, grid.fullBright];
+  uniforms.on.value = 1;
+  return cell;
+}
+
+function inject(
+  source: string,
+  anchor: string,
+  declarations: string,
+  body: string,
+  before = false,
+): string {
+  const placed = before ? `${body}\n${anchor}` : `${anchor}\n${body}`;
+  return `${declarations}\n${source.replace(anchor, placed)}`;
+}

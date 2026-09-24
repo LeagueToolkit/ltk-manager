@@ -14,6 +14,7 @@ import {
 
 import { BACKDROP_ROOT } from "../../assets/api/placements";
 import { viewportQueries } from "../../assets/api/queries";
+import type { LightGrid } from "../../assets/parsing/lightGridBuffer";
 import {
   type MapGeometry,
   type MapLayer,
@@ -202,7 +203,7 @@ export const backdropQueries = {
       queryKey: [...BACKDROP_ROOT, "model", map, scope, paths],
       queryFn: async () => {
         if (map === null || paths === null)
-          return { materials: [], sun: null, postEffects: null, ssao: null };
+          return { materials: [], sun: null, postEffects: null, ssao: null, lightGrid: null };
         const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) throw answer.error;
         return answer.value;
@@ -278,6 +279,8 @@ export interface Backdrop {
   readonly postEffects: PostEffects | null;
   /** The ambient occlusion the map states, and null until it lands or where it states none. */
   readonly ambientOcclusion: AmbientOcclusion | null;
+  /** The ambient the map lights its characters with, and null where it bakes none. */
+  readonly lightGrid: LightGrid | null;
   /** The bytes are on their way. One map is 73 to 93 MiB, so this is seconds. */
   readonly loading: boolean;
   /** Why there is nothing to draw, for the one line a disabled option carries. */
@@ -303,6 +306,7 @@ const EMPTY: Backdrop = {
   sun: null,
   postEffects: null,
   ambientOcclusion: null,
+  lightGrid: null,
   loading: false,
   failure: null,
 };
@@ -344,6 +348,8 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     () => (model.data?.ssao == null ? null : ambientOcclusionOf(model.data.ssao)),
     [model.data],
   );
+
+  const lightGrid = useQuery(viewportQueries.lightGrid(model.data?.lightGrid ?? null)).data;
 
   const assets = useMemo(() => {
     const held = new Map<string, AssetRef>();
@@ -426,6 +432,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     sun,
     postEffects,
     ambientOcclusion,
+    lightGrid: lightGrid ?? null,
     loading: false,
     failure: null,
   };
