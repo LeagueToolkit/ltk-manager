@@ -2207,6 +2207,8 @@ export type MaterialPreview = {
 	 *  submesh draws as an error rather than as a guess.
 	 */
 	missing: boolean,
+	/**  The linked file declaring the material, and none where the document read does. */
+	source: AssetRef | null,
 	/**
 	 *  `dynamicMaterial` is set, so the slots are the static values of an animated
 	 *  material.

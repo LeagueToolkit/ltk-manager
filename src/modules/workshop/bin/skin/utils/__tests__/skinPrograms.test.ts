@@ -23,6 +23,7 @@ function preview(hash: string, missing = false): MaterialPreview {
     hash,
     name: null,
     missing,
+    source: null,
     animated: false,
     shader: null,
     base: null,

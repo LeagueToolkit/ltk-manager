@@ -24,6 +24,7 @@ use crate::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, fields_of,
     hex, items, leaf, link, object_at, struct_of, text,
 };
+use crate::preview::AssetRef;
 
 /// Where every `CustomShaderDef` lives, in `Shaders/Shaders.wad.client` and `Global.wad.client`.
 pub const SHADER_DEFS_PATH: &str = "data/shaders/shaders.bin";
@@ -239,6 +240,8 @@ pub struct MaterialPreview {
     /// The document declares no object under the link, so every slot is empty and the
     /// submesh draws as an error rather than as a guess.
     pub missing: bool,
+    /// The linked file declaring the material, and none where the document read does.
+    pub source: Option<AssetRef>,
     /// `dynamicMaterial` is set, so the slots are the static values of an animated
     /// material.
     pub animated: bool,
@@ -499,6 +502,7 @@ pub(crate) fn linked_material(
             hash: hex(hash),
             name: locator.entry_name(hash),
             missing: true,
+            source: None,
             animated: false,
             shader: None,
             base: None,
@@ -674,6 +678,7 @@ impl<'a> Reader<'a> {
             hash: hex(self.hash),
             name: self.locator.entry_name(self.hash),
             missing: false,
+            source: None,
             animated: struct_of(self.material.get(&DYNAMIC_MATERIAL)).is_some(),
             shader: shader.path,
             base,
