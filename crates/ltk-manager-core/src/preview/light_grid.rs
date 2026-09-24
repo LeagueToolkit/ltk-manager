@@ -77,8 +77,9 @@ pub fn render(bytes: &[u8]) -> Result<Vec<u8>, PreviewError> {
     ] {
         out.extend_from_slice(&value.to_le_bytes());
     }
-    for texel in grid.cells.chunks_exact(4) {
-        out.extend_from_slice(&[texel[2], texel[1], texel[0], u8::MAX]);
+    let (texels, _) = grid.cells.as_chunks::<4>();
+    for [b, g, r, _] in texels {
+        out.extend_from_slice(&[*r, *g, *b, u8::MAX]);
     }
     Ok(out)
 }
