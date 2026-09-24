@@ -51,6 +51,9 @@ const CUBE_FORM: &str = "cube";
 /// The [`FORM_PARAMETER`] value asking a texture for its own mip chain in one buffer.
 const MIPS_FORM: &str = "mips";
 
+/// The [`FORM_PARAMETER`] value asking a light grid for its ambient buffer.
+const LIGHT_GRID_FORM: &str = "lightgrid";
+
 /// Answer one preview request, whatever [`serve`] does.
 ///
 /// A panic here would otherwise unwind past the responder and drop it unused, and a
@@ -121,6 +124,7 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
         Some(MIPS_FORM) => Ok(PreviewRequest::Mips {
             min_width: requested_width(query)?,
         }),
+        Some(LIGHT_GRID_FORM) => Ok(PreviewRequest::LightGrid),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
     }
 }
@@ -295,6 +299,14 @@ mod tests {
     #[test]
     fn a_cube_form_asks_for_the_six_faces() {
         assert_eq!(requested(Some("as=cube")), Ok(PreviewRequest::Cube));
+    }
+
+    #[test]
+    fn a_light_grid_form_asks_for_the_ambient_buffer() {
+        assert_eq!(
+            requested(Some("as=lightgrid")),
+            Ok(PreviewRequest::LightGrid)
+        );
     }
 
     #[test]

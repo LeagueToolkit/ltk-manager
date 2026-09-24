@@ -16,6 +16,11 @@ import {
 
 import type { UniformBlock } from "@/lib/tauri";
 
+import {
+  CUBE_FACES as GRID_FACES,
+  type LightGrid,
+  sceneCubeAt,
+} from "../assets/parsing/lightGridBuffer";
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
 import { programGlobals } from "./programMaterial";
@@ -43,6 +48,8 @@ import { programGlobals } from "./programMaterial";
 export class EngineEnvironment {
   /** The sun the pixel buffer states, which a map's own replaces. */
   light: SunLight = DEFAULT_SUN;
+  /** The map's baked ambient, which lights a character in place of the sun where it holds one. */
+  grid: LightGrid | null = null;
 
   private readonly held = new Map<string, HeldBlock>();
   private readonly clip = new Matrix4();
@@ -282,6 +289,28 @@ export function ambientCube(
   });
 }
 
+const gridColours = new Float32Array(GRID_FACES * 3);
+const gridCentre = new Vector3();
+
+/**
+ * The cube of the grid cell under the middle of `object`'s bounds, as the game picks it
+ * for a character, with no filtering between cells.
+ */
+function gridCube(grid: LightGrid, object: Object3D): readonly SunColor[] {
+  const geometry = (object as Partial<SkinnedMesh>).geometry;
+  if (geometry === undefined) gridCentre.setFromMatrixPosition(object.matrixWorld);
+  else {
+    if (geometry.boundingBox === null) geometry.computeBoundingBox();
+    geometry.boundingBox?.getCenter(gridCentre).applyMatrix4(object.matrixWorld);
+  }
+  sceneCubeAt(grid, gridCentre.x, gridCentre.z, gridColours);
+  return Array.from({ length: GRID_FACES }, (_, face) => [
+    gridColours[face * 3] ?? 0,
+    gridColours[face * 3 + 1] ?? 0,
+    gridColours[face * 3 + 2] ?? 0,
+  ]);
+}
+
 /** Each buffer's writer, at the member offsets of section 3.2, in floats. */
 const WRITERS: Record<string, Writer> = {
   PerFrameVertexCB: (out, environment, camera, object, time) => {
@@ -336,7 +365,10 @@ const WRITERS: Record<string, Writer> = {
   },
   CharacterPerDrawVertexCB: (out, environment, _camera, object) => {
     environment.writeIdentity(out, 0);
-    const cube = ambientCube(environment.light, sunDirectionFor(environment.light, object));
+    const cube =
+      environment.grid === null
+        ? ambientCube(environment.light, sunDirectionFor(environment.light, object))
+        : gridCube(environment.grid, object);
     cube.forEach(([r, g, b], face) => {
       writeVector(out, 16 + face * 4, r, g, b);
       out[16 + face * 4 + 3] = 1;
@@ -346,8 +378,9 @@ const WRITERS: Record<string, Writer> = {
   CharacterPerDrawPS: (out, environment) => {
     /* `kGrassFade.w` multiplies every fragment's alpha, so anything but one draws nothing. */
     out[7] = 1;
+    /* `LIGHTGRID_SCALE`: the grid's own scale is already in its cube. */
     out[8] = 1;
-    out[9] = 1;
+    out[9] = environment.grid?.fullBright ?? 1;
     environment.writeIdentity(out, 16);
     environment.writeIdentity(out, 32);
   },

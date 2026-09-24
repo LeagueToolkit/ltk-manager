@@ -15,7 +15,7 @@ const FORM_PARAMETER = "as";
  * A buffer the scheme answers, each in the layout the Rust module of its name documents
  * under `crates/ltk-manager-core/src/preview/`.
  */
-export type PreviewForm = "geometry" | "map" | "skeleton" | "animation";
+export type PreviewForm = "geometry" | "map" | "skeleton" | "animation" | "lightgrid";
 
 /**
  * The URL an `<img>` draws this asset from.

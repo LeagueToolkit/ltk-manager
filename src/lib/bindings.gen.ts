@@ -2314,6 +2314,11 @@ export type MapModel = {
 	postEffects: MapPostEffects | null,
 	/**  Null where the map's container states no ambient occlusion, as all but one shipped map. */
 	ssao: MapSsao | null,
+	/**
+	 *  The `LightGrid.dat` the map lights its characters with, and null where it bakes
+	 *  none or nothing holds it.
+	 */
+	lightGrid: AssetRef | null,
 };
 
 /**  One particle system a map stands in its scene. */

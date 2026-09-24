@@ -20,6 +20,7 @@ import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
+import { LightGridContext } from "../state/lightGridContext";
 import { ViewModeContext } from "../state/viewModeContext";
 import {
   type AmbientOcclusion,
@@ -267,9 +268,11 @@ export function Viewport({
               />
             </>
           )}
-          <CameraPresetContext value={camera}>
-            <ViewModeContext value={view}>{children}</ViewModeContext>
-          </CameraPresetContext>
+          <LightGridContext value={map.geometry === null ? null : map.lightGrid}>
+            <CameraPresetContext value={camera}>
+              <ViewModeContext value={view}>{children}</ViewModeContext>
+            </CameraPresetContext>
+          </LightGridContext>
           {(drawsPostEffects(effects) || drawsAmbientOcclusion(occlusion)) && (
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}
