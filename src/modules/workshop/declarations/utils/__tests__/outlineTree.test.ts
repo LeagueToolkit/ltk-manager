@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import type { DeclarationsLayer } from "@/lib/tauri";
+import type { DeclarationsLayer, DeclaredModule } from "@/lib/tauri";
 
 import { selectionOf } from "../lineSpan";
 import {
+  addItemId,
   ancestorIds,
+  emptyItemId,
   entryItemId,
   flattenOutline,
   keyItemId,
   layerItemId,
+  linkItemId,
   moduleItemId,
+  moduleTally,
   moduleTitle,
+  overrideItemId,
+  pathColumn,
+  pathSegments,
 } from "../outlineTree";
 
 const LAYER: DeclarationsLayer = {
@@ -22,20 +29,24 @@ const LAYER: DeclarationsLayer = {
     {
       index: 0,
       name: null,
+      note: null,
       selector: "entries",
       target: null,
       targetHash: null,
       source: null,
       overrides: [],
+      links: { add: [], remove: [] },
       span: null,
       entries: [
         {
           name: "A/B",
+          knownName: null,
           hash: "0x00000001",
           edit: 0,
           object: null,
           span: null,
           keys: [{ key: "a", sign: "set", path: "a", value: "1", row: "", span: null }],
+          links: { add: [], remove: [] },
         },
       ],
     },
@@ -46,7 +57,11 @@ const EMPTY: DeclarationsLayer = { ...LAYER, layer: "chroma", file: null, module
 
 describe("flattenOutline", () => {
   it("draws a layer row above its modules and skips a layer with no manifest", () => {
-    const rows = flattenOutline([LAYER, EMPTY], () => false, { layers: true, keys: false });
+    const rows = flattenOutline([LAYER, EMPTY], () => false, {
+      layers: true,
+      keys: false,
+      adds: false,
+    });
 
     expect(rows.map((row) => [row.node.id, row.depth])).toEqual([
       [layerItemId("base"), 0],
@@ -55,11 +70,139 @@ describe("flattenOutline", () => {
     ]);
   });
 
+  it("ends every layer with a New module line where the shape adds, a layer with no manifest too", () => {
+    const rows = flattenOutline([LAYER, EMPTY], () => false, {
+      layers: true,
+      keys: false,
+      adds: true,
+    });
+
+    expect(rows.map((row) => [row.node.id, row.depth])).toEqual([
+      [layerItemId("base"), 0],
+      [moduleItemId("base", 0), 1],
+      [entryItemId("base", 0, 0), 2],
+      [addItemId("base"), 1],
+      [layerItemId("chroma"), 0],
+      [addItemId("chroma"), 1],
+    ]);
+  });
+
+  it("draws a line under a module that declares nothing", () => {
+    const empty = { ...LAYER.modules[0]!, name: "Particles", entries: [] };
+    const rows = flattenOutline([{ ...LAYER, modules: [empty] }], () => false, {
+      layers: false,
+      keys: true,
+      adds: false,
+    });
+
+    expect(rows.map((row) => row.node.id)).toEqual([
+      moduleItemId("base", 0),
+      emptyItemId("base", 0),
+    ]);
+  });
+
   it("leaves a shut branch's children out", () => {
     const shut = moduleItemId("base", 0);
-    const rows = flattenOutline([LAYER], (id) => id === shut, { layers: false, keys: true });
+    const rows = flattenOutline([LAYER], (id) => id === shut, {
+      layers: false,
+      keys: true,
+      adds: false,
+    });
 
     expect(rows.map((row) => row.node.id)).toEqual([shut]);
+  });
+});
+
+const TARGET: DeclaredModule = {
+  ...LAYER.modules[0]!,
+  index: 1,
+  selector: "target",
+  target: "data/maps/shipping/map11/map11.bin",
+  targetHash: "00112233aabbccdd",
+  overrides: ["overrides/a.ptch"],
+  links: { add: ["DATA/A.bin"], remove: ["DATA/B.bin"] },
+  entries: [
+    {
+      ...LAYER.modules[0]!.entries[0]!,
+      name: "Mods/jade/Switch",
+      object: { kind: "construct", class: "0xb9ce95d8", knownClass: null },
+      keys: [],
+    },
+    {
+      ...LAYER.modules[0]!.entries[0]!,
+      name: "Mods/jade/Old",
+      object: { kind: "remove" },
+      keys: [],
+    },
+  ],
+};
+
+describe("flattenOutline with overrides and links", () => {
+  it("draws overrides first and links last, in the order a build applies them", () => {
+    const layer = { ...LAYER, modules: [TARGET] };
+    const rows = flattenOutline([layer], () => false, { layers: false, keys: true, adds: false });
+
+    expect(rows.map((row) => row.node.id)).toEqual([
+      moduleItemId("base", 1),
+      overrideItemId("base", 1, 0),
+      entryItemId("base", 1, 0),
+      entryItemId("base", 1, 1),
+      linkItemId("base", 1, -1, "remove", 0),
+      linkItemId("base", 1, -1, "add", 0),
+    ]);
+  });
+
+  it("names the module above a module link and the entry above an entry link", () => {
+    expect(ancestorIds(linkItemId("base", 1, -1, "add", 0))).toEqual([
+      layerItemId("base"),
+      moduleItemId("base", 1),
+    ]);
+    expect(ancestorIds(linkItemId("base", 1, 2, "add", 0))).toEqual([
+      layerItemId("base"),
+      moduleItemId("base", 1),
+      entryItemId("base", 1, 2),
+    ]);
+  });
+});
+
+describe("moduleTally", () => {
+  it("counts edited, created and removed entries, keys, links and overrides", () => {
+    expect(moduleTally(TARGET)).toEqual({
+      edited: 0,
+      created: 1,
+      removed: 1,
+      keys: 0,
+      links: 2,
+      overrides: 1,
+    });
+  });
+});
+
+describe("pathColumn", () => {
+  it("is as wide as the longest signed key, up to a cap", () => {
+    const key = LAYER.modules[0]!.entries[0]!.keys[0]!;
+    const layer = (spelled: string) => ({
+      ...LAYER,
+      modules: [
+        {
+          ...LAYER.modules[0]!,
+          entries: [{ ...LAYER.modules[0]!.entries[0]!, keys: [{ ...key, key: spelled }] }],
+        },
+      ],
+    });
+
+    expect(pathColumn([layer("+resourceMap")])).toBe(12);
+    expect(pathColumn([layer("a".repeat(200))])).toBe(56);
+  });
+});
+
+describe("pathSegments", () => {
+  it("splits at the dots outside a map key", () => {
+    expect(pathSegments("skinMeshProperties.OutlineCategorySubmeshes")).toEqual([
+      "skinMeshProperties",
+      "OutlineCategorySubmeshes",
+    ]);
+    expect(pathSegments('a{"b.c"}.d[0].e')).toEqual(['a{"b.c"}', "d[0]", "e"]);
   });
 });
 

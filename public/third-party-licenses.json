@@ -2304,7 +2304,7 @@
     },
     {
       "name": "ltk_fantome",
-      "version": "0.14.4",
+      "version": "0.14.5",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2319,7 +2319,7 @@
     },
     {
       "name": "ltk_game_data",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2402,7 +2402,7 @@
     },
     {
       "name": "ltk_mod_project",
-      "version": "0.15.1",
+      "version": "0.15.2",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2410,7 +2410,7 @@
     },
     {
       "name": "ltk_modpkg",
-      "version": "0.12.4",
+      "version": "0.12.5",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2418,7 +2418,7 @@
     },
     {
       "name": "ltk_overlay",
-      "version": "0.14.0",
+      "version": "0.14.2",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44

@@ -170,6 +170,7 @@ export default tseslint.config(
               "setProperty",
               "removeProperty",
               "querySelector",
+              "closest",
               "getElementById",
               // A prefix or suffix test compares against a key, never copy.
               ".*\\.(startsWith|endsWith)",

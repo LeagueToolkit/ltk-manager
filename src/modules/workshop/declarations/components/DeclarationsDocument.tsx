@@ -1,7 +1,8 @@
+import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Code, EmptyState, SegmentedControl, Spinner } from "@/components";
+import { Button, Code, EmptyState, SegmentedControl, Spinner } from "@/components";
 import { m } from "@/i18n";
 import type { DeclarationsLayer, LineSpan } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, TextBuffer } from "@/modules/editor";
@@ -12,14 +13,26 @@ import type { OpenIntent } from "../../palette/utils/types";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { declarationQueries } from "../api/queries";
 import { useGoToDeclaredRow } from "../hooks/useGoToDeclaredRow";
-import { useOutlineRevealRequest, useSettleOutlineReveal } from "../state/outlineReveal";
+import { useOutlineActions } from "../hooks/useOutlineActions";
+import {
+  useOutlineRevealRequest,
+  useRevealOutlineItem,
+  useSettleOutlineReveal,
+} from "../state/outlineReveal";
 import { selectionOf } from "../utils/lineSpan";
-import { itemSpan, type OutlineNode, type OutlineShape } from "../utils/outlineTree";
+import {
+  isInGame,
+  itemSpan,
+  moduleItemId,
+  moduleTally,
+  type OutlineNode,
+  type OutlineShape,
+} from "../utils/outlineTree";
 import { DeclarationsTree } from "./DeclarationsTree";
 
 type View = "outline" | "raw";
 
-const DOCUMENT_SHAPE: OutlineShape = { layers: false, keys: true };
+const DOCUMENT_SHAPE: OutlineShape = { layers: false, keys: true, adds: true };
 
 /**
  * One layer's `game_data` manifest, as an outline of what it declares or as its text.
@@ -51,6 +64,7 @@ export function DeclarationsDocument({
       <DocumentToolbar active={active}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {layer?.file && <Code className="shrink-0">{layer.file}</Code>}
+          {layer !== null && layer.modules.length > 0 && <LayerTally layer={layer} />}
         </div>
         <SegmentedControl
           size="xs"
@@ -66,26 +80,55 @@ export function DeclarationsDocument({
 
       <Body
         documentId={document.id}
+        layerName={document.layerName}
         layer={layer}
         isLoading={outline.isLoading}
         view={view}
         selected={selected}
         onSelect={setSelected}
+        onShowInText={(node) => {
+          setSelected(node);
+          setChosen("raw");
+        }}
       />
     </div>
   );
 }
 
+/** What the layer's manifest declares, over every module. */
+function LayerTally({ layer }: { layer: DeclarationsLayer }) {
+  const keys = layer.modules.reduce((total, module) => total + moduleTally(module).keys, 0);
+
+  return (
+    <span className="min-w-0 truncate text-meta text-surface-400 select-none">
+      {m.workshop_declarations_modules_label({ count: layer.modules.length })}
+      {" · "}
+      {m.workshop_declarations_keys_label({ count: keys })}
+    </span>
+  );
+}
+
 interface BodyProps {
   documentId: string;
+  layerName: string;
   layer: DeclarationsLayer | null;
   isLoading: boolean;
   view: View;
   selected: OutlineNode | null;
   onSelect: (node: OutlineNode | null) => void;
+  onShowInText: (node: OutlineNode) => void;
 }
 
-function Body({ documentId, layer, isLoading, view, selected, onSelect }: BodyProps) {
+function Body({
+  documentId,
+  layerName,
+  layer,
+  isLoading,
+  view,
+  selected,
+  onSelect,
+  onShowInText,
+}: BodyProps) {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -100,6 +143,7 @@ function Body({ documentId, layer, isLoading, view, selected, onSelect }: BodyPr
         size="sm"
         title={m.workshop_declarations_empty_title()}
         description={m.workshop_declarations_empty_description()}
+        action={<NewModuleButton documentId={documentId} layerName={layerName} />}
       />
     );
   }
@@ -110,7 +154,12 @@ function Body({ documentId, layer, isLoading, view, selected, onSelect }: BodyPr
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {view === "outline" && (
-        <OutlineView documentId={documentId} layer={layer} onSelect={onSelect} />
+        <OutlineView
+          documentId={documentId}
+          layer={layer}
+          onSelect={onSelect}
+          onShowInText={onShowInText}
+        />
       )}
       {view === "raw" && <RawText text={layer.text} span={span} errorLine={error?.span?.line} />}
       {error && (
@@ -126,35 +175,29 @@ function OutlineView({
   documentId,
   layer,
   onSelect,
+  onShowInText,
 }: {
   documentId: string;
   layer: DeclarationsLayer;
   onSelect: (node: OutlineNode | null) => void;
+  onShowInText: (node: OutlineNode) => void;
 }) {
   const goTo = useGoToDeclaredRow();
+  const actions = useOutlineActions();
   const request = useOutlineRevealRequest(documentId);
   const settle = useSettleOutlineReveal();
   const layers = useMemo(() => [layer], [layer]);
 
   const open = useCallback(
     (node: OutlineNode, intent: OpenIntent) => {
-      if (node.type === "key")
-        goTo({ module: node.module, entry: node.entry, key: node.key }, intent);
-      if (node.type === "entry")
-        goTo({ module: node.module, entry: node.entry, key: null }, intent);
+      if (node.type !== "key" && node.type !== "entry") return;
+      if (!isInGame(node.entry)) return;
+
+      const key = node.type === "key" ? node.key : null;
+      goTo({ module: node.module, entry: node.entry, key }, intent);
     },
     [goTo],
   );
-
-  if (layer.error === null && layer.modules.length === 0) {
-    return (
-      <EmptyState
-        size="sm"
-        title={m.workshop_declarations_no_modules_title()}
-        description={m.workshop_declarations_no_modules_description()}
-      />
-    );
-  }
 
   return (
     <DeclarationsTree
@@ -163,6 +206,8 @@ function OutlineView({
       ariaLabel={m.workshop_declarations_outline_label()}
       onOpen={open}
       openBranches={false}
+      actions={actions}
+      onShowInText={onShowInText}
       reveal={request}
       onRevealed={settle}
       onSelect={onSelect}
@@ -225,5 +270,26 @@ function RawText({ text, span, errorLine }: RawTextProps) {
         className="py-2 pr-2 pl-2 leading-relaxed"
       />
     </div>
+  );
+}
+
+/** Start the layer's manifest with a module, whose name is typed once the outline shows it. */
+function NewModuleButton({ documentId, layerName }: { documentId: string; layerName: string }) {
+  const actions = useOutlineActions();
+  const reveal = useRevealOutlineItem();
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      left={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
+      onClick={() => {
+        void actions.create(layerName).then((landing) => {
+          if (landing !== null) reveal(documentId, moduleItemId(layerName, landing.index), true);
+        });
+      }}
+    >
+      {m.workshop_declarations_new_module_action()}
+    </Button>
   );
 }

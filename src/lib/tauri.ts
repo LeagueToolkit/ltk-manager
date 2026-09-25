@@ -252,6 +252,7 @@ export type {
   DeclarationsLoadError,
   DeclaredEntry,
   DeclaredKey,
+  DeclaredLinks,
   DeclaredModule,
   DeclaredObjectEdit,
   LineSpan,

@@ -3,6 +3,7 @@
 //! The meaning comes from `load_layer`, as a build reads it, and the place of each part from
 //! `ltk_declarations::Layout` over the manifest's text.
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::ops::Range;
 
@@ -10,7 +11,8 @@ use camino::Utf8Path;
 use fs_err as fs;
 use ltk_declarations::{Binding, BodyAt, Layout};
 use ltk_game_data::{
-    EntryName, Error as GameDataError, MANIFEST_NAMES, Module, ObjectEdit, PropertyEdit, Selector,
+    BinHash, EntryName, Error as GameDataError, LinkEdit, MANIFEST_NAMES, Module, ObjectEdit,
+    PropertyEdit, Selector,
 };
 use ltk_meta::path::{PropertyPath, Subscript};
 use ltk_mod_project::game_data::load_layer;
@@ -20,6 +22,7 @@ use serde::Serialize;
 use super::ProjectDir;
 use crate::bin_document::{DeclaredSign, hex};
 use crate::error::{AppResult, Utf8PathRefExt as _};
+use crate::object_index::ObjectNames;
 
 /// One layer's declarations manifest, read for an outline.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -90,6 +93,8 @@ pub struct DeclaredModule {
     pub index: u32,
     /// The module's own name, where the manifest spells one.
     pub name: Option<String>,
+    /// The comment lines directly above the module, without their `#`.
+    pub note: Option<String>,
     pub selector: ModuleSelector,
     /// The chunk a `target` module edits, as spelled.
     pub target: Option<String>,
@@ -100,6 +105,8 @@ pub struct DeclaredModule {
     pub source: Option<String>,
     /// The override files the module names, layer-relative.
     pub overrides: Vec<String>,
+    /// The dependencies a `target` module adds to and removes from its chunk, over every edit.
+    pub links: DeclaredLinks,
     /// The module's first line.
     pub span: Option<LineSpan>,
     pub entries: Vec<DeclaredEntry>,
@@ -114,6 +121,8 @@ pub struct DeclaredModule {
 pub struct DeclaredEntry {
     /// The entry name as spelled.
     pub name: String,
+    /// The path the hashtables give a name spelled as a hash, `None` for any other name.
+    pub known_name: Option<String>,
     /// The object's path hash, `0x` and eight hex digits.
     pub hash: String,
     /// The edit of a `target` module the entry sits in, zero-based.
@@ -123,21 +132,64 @@ pub struct DeclaredEntry {
     /// The line naming the entry.
     pub span: Option<LineSpan>,
     pub keys: Vec<DeclaredKey>,
+    /// The dependencies an `entries` module adds to and removes from each declaring chunk.
+    pub links: DeclaredLinks,
 }
 
 /// What an `objects` binding does to one object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredObjectEdit {
-    /// A copy of the entry `source`.
-    Clone { source: String },
-    /// A new object of `class`.
-    Construct { class: String },
+    /// A copy of the entry `source`, with the path the hashtables give a hash-spelled one.
+    Clone {
+        source: String,
+        known_source: Option<String>,
+    },
+    /// A new object of `class`, with the name the hashtables give a hash-spelled one.
+    Construct {
+        class: String,
+        known_class: Option<String>,
+    },
     /// The object's removal.
     Remove,
+}
+
+/// The dependencies a body adds to and removes from a chunk's link list. ADR-0050.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub struct DeclaredLinks {
+    /// The `links` items, in order.
+    pub add: Vec<String>,
+    /// The `-links` items, in order.
+    pub remove: Vec<String>,
+}
+
+impl DeclaredLinks {
+    /// Append the items of `edit`.
+    fn extend(&mut self, edit: &LinkEdit) {
+        self.add
+            .extend(edit.add.iter().map(|path| path.as_str().to_owned()));
+        self.remove
+            .extend(edit.remove.iter().map(|path| path.as_str().to_owned()));
+    }
+}
+
+impl From<&LinkEdit> for DeclaredLinks {
+    fn from(edit: &LinkEdit) -> Self {
+        let mut links = Self::default();
+        links.extend(edit);
+        links
+    }
 }
 
 /// One signed property key of an entry body.
@@ -162,23 +214,98 @@ pub struct DeclaredKey {
 }
 
 impl ProjectDir {
-    /// Every layer's declarations manifest, in build order.
+    /// Every layer's declarations manifest, in build order, with hash-spelled names looked
+    /// up in `names`.
     ///
     /// # Errors
     ///
     /// The project's config or its `.modignore` does not read. A manifest that does not load
     /// is reported on its layer.
-    pub fn declarations_outline(&self) -> AppResult<Vec<DeclarationsLayer>> {
+    pub fn declarations_outline(
+        &self,
+        names: &impl ObjectNames,
+    ) -> AppResult<Vec<DeclarationsLayer>> {
         let root = self.path().try_as_utf8("project directory")?;
         let mut layers = self.config()?.layers;
         layers.sort_by(ModProjectLayer::apply_order);
         let ignore = self.ignore_filter()?;
 
-        Ok(layers
+        let mut outline: Vec<DeclarationsLayer> = layers
             .iter()
             .map(|layer| layer_outline(root, &layer.name, &ignore))
-            .collect())
+            .collect();
+
+        name_hashes(&mut outline, names);
+        Ok(outline)
     }
+}
+
+/// Fill in the names `names` knows for the entries, clone sources and classes spelled as
+/// hashes.
+fn name_hashes(layers: &mut [DeclarationsLayer], names: &impl ObjectNames) {
+    let mut objects: Vec<BinHash> = Vec::new();
+    let mut classes: Vec<BinHash> = Vec::new();
+    for entry in layers
+        .iter()
+        .flat_map(|layer| &layer.modules)
+        .flat_map(|module| &module.entries)
+    {
+        objects.extend(spelled_hash(&entry.name));
+        match &entry.object {
+            Some(DeclaredObjectEdit::Clone { source, .. }) => objects.extend(spelled_hash(source)),
+            Some(DeclaredObjectEdit::Construct { class, .. }) => {
+                classes.extend(spelled_hash(class));
+            }
+            _ => {}
+        }
+    }
+
+    objects.sort_unstable();
+    objects.dedup();
+    classes.sort_unstable();
+    classes.dedup();
+    if objects.is_empty() && classes.is_empty() {
+        return;
+    }
+
+    let mut known: HashMap<BinHash, String> = HashMap::new();
+    names.for_each_entry(&objects, &mut |at, name| {
+        known.insert(objects[at], name.to_owned());
+    });
+    let known_classes: HashMap<BinHash, String> = classes
+        .into_iter()
+        .filter_map(|class| Some((class, names.class(class)?)))
+        .collect();
+    let lookup = |spelled: &str, table: &HashMap<BinHash, String>| {
+        spelled_hash(spelled).and_then(|hash| table.get(&hash).cloned())
+    };
+
+    for entry in layers
+        .iter_mut()
+        .flat_map(|layer| &mut layer.modules)
+        .flat_map(|module| &mut module.entries)
+    {
+        entry.known_name = lookup(&entry.name, &known);
+        match &mut entry.object {
+            Some(DeclaredObjectEdit::Clone {
+                source,
+                known_source,
+            }) => *known_source = lookup(source, &known),
+            Some(DeclaredObjectEdit::Construct { class, known_class }) => {
+                *known_class = lookup(class, &known_classes);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The hash a name spelled `0x` and eight hex digits stands for, the hash form an entry name
+/// and a class name share.
+fn spelled_hash(name: &str) -> Option<BinHash> {
+    EntryName::try_from(name)
+        .ok()
+        .filter(EntryName::is_hash)
+        .map(|name| name.object_hash())
 }
 
 /// The outline of the layer `layer` of the project at `root`.
@@ -291,24 +418,30 @@ impl Place<'_> {
         let index = module.origin.module_index;
         let source = module.origin.source.clone();
         let span = self.span(self.layout.and_then(|layout| layout.module(index)));
+        let note = self.layout.and_then(|layout| layout.module_note(index));
 
         /* A source module's entries sit in the source file, which this layout is not. */
         let inner = Place {
             layout: self.layout.filter(|_| source.is_none()),
         };
 
-        let (selector, target, overrides, entries) = match &module.selector {
+        let mut overrides = Vec::new();
+        let mut links = DeclaredLinks::default();
+        let (selector, target, entries) = match &module.selector {
             Selector::Entries(named) => {
                 let body = BodyAt::Entries { module: index };
                 let entries = named
                     .iter()
-                    .map(|(name, edit)| inner.entry(body, 0, name, None, &edit.properties))
+                    .map(|(name, edit)| {
+                        let mut entry = inner.entry(body, 0, name, None, &edit.properties);
+                        entry.links = DeclaredLinks::from(&edit.links);
+                        entry
+                    })
                     .collect();
-                (ModuleSelector::Entries, None, Vec::new(), entries)
+                (ModuleSelector::Entries, None, entries)
             }
             Selector::Target { target, edits } => {
                 let mut entries = Vec::new();
-                let mut overrides = Vec::new();
                 for (at, edit) in edits.iter().enumerate() {
                     let body = BodyAt::Target {
                         module: index,
@@ -321,21 +454,25 @@ impl Place<'_> {
                         let properties = object.properties();
                         entries.push(inner.entry(body, at, name, Some(object), properties));
                     }
+
                     overrides.extend(edit.overrides.iter().map(|path| path.as_str().to_owned()));
+                    links.extend(&edit.links);
                 }
-                (ModuleSelector::Target, Some(target), overrides, entries)
+                (ModuleSelector::Target, Some(target), entries)
             }
-            _ => (ModuleSelector::Target, None, Vec::new(), Vec::new()),
+            _ => (ModuleSelector::Target, None, Vec::new()),
         };
 
         DeclaredModule {
             index: count(index),
             name: module.name.as_ref().map(|name| name.as_str().to_owned()),
+            note,
             selector,
             target_hash: target.map(|target| format!("{:016x}", target.chunk_hash())),
             target: target.map(|target| target.as_str().to_owned()),
             source,
             overrides,
+            links,
             span,
             entries,
         }
@@ -364,11 +501,13 @@ impl Place<'_> {
 
         DeclaredEntry {
             name: name.as_str().to_owned(),
+            known_name: None,
             hash: hex(name.object_hash()),
             edit: count(edit),
             object: object.and_then(object_edit),
             span,
             keys,
+            links: DeclaredLinks::default(),
         }
     }
 
@@ -443,9 +582,11 @@ fn object_edit(object: &ObjectEdit) -> Option<DeclaredObjectEdit> {
     match object {
         ObjectEdit::Clone { source, .. } => Some(DeclaredObjectEdit::Clone {
             source: source.as_str().to_owned(),
+            known_source: None,
         }),
         ObjectEdit::Construct { class, .. } => Some(DeclaredObjectEdit::Construct {
             class: class.as_str().to_owned(),
+            known_class: None,
         }),
         ObjectEdit::Remove => Some(DeclaredObjectEdit::Remove),
         _ => None,

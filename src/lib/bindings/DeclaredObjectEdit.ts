@@ -3,4 +3,4 @@
 /**
  * What an `objects` binding does to one object.
  */
-export type DeclaredObjectEdit = { "kind": "clone", source: string, } | { "kind": "construct", class: string, } | { "kind": "remove" };
+export type DeclaredObjectEdit = { "kind": "clone", source: string, knownSource: string | null, } | { "kind": "construct", class: string, knownClass: string | null, } | { "kind": "remove" };

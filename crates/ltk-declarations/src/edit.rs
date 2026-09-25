@@ -311,8 +311,9 @@ impl DocumentText {
     }
 
     /// The text without `entry`, and without every body, block and module it
-    /// leaves empty. A module left holding only its `target` or its `name` is empty.
-    /// Removing the last module leaves `modules: []`.
+    /// leaves empty. A module left holding only its `target` or its `name` is empty,
+    /// except a named `entries` module, which keeps its name and `entries: {}`
+    /// (ltk-manager ADR-0054). Removing the last module leaves `modules: []`.
     pub(crate) fn drop_key(&self, doc: &Document, entry: &MappingEntry) -> Self {
         let modules = locate::modules(doc).map(|(entry, _)| entry.syntax().clone());
         let module_mappings: Vec<Node> = locate::module_mappings(doc)
@@ -354,6 +355,9 @@ impl DocumentText {
             }) else {
                 break;
             };
+            if let Some(kept) = self.empty_named_entries(&owner, &module_mappings) {
+                return kept;
+            }
             if Some(&owner) == modules.as_ref() {
                 let key = MappingEntry::cast(owner.clone())
                     .and_then(|entry| syntax::key_spelling(&entry))
@@ -368,6 +372,27 @@ impl DocumentText {
             return self.splice(start, end, "");
         }
         self.cut(&removed)
+    }
+
+    /// The text with the `entries` key `owner` holding `{}`, where `owner` is the `entries`
+    /// of a block module that has a `name`. `None` for any other key.
+    fn empty_named_entries(&self, owner: &Node, module_mappings: &[Node]) -> Option<Self> {
+        let key = MappingEntry::cast(owner.clone())?;
+        let module = owner.parent()?;
+        let named = syntax::entries(&Mapping::cast(module.clone())?)
+            .iter()
+            .any(|held| syntax::key_string(held).as_deref() == Some("name"));
+        if syntax::key_string(&key).as_deref() != Some("entries")
+            || !module_mappings.contains(&module)
+            || !named
+            || node_in_flow(owner)
+        {
+            return None;
+        }
+
+        let start = syntax::start(owner);
+        let colon = start + self.as_str()[start..].find(':')?;
+        Some(self.splice(colon + 1, syntax::line_end(owner), " {}\n"))
     }
 
     /// The text without `node`: its lines in a block collection, its text and

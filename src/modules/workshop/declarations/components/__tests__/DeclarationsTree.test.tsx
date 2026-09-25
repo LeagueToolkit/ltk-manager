@@ -6,21 +6,29 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DeclarationsLayer, DeclaredModule } from "@/lib/tauri";
 
+import type { OutlineActions } from "../../hooks/useOutlineActions";
 import { keyItemId, type OutlineShape } from "../../utils/outlineTree";
 import { DeclarationsTree } from "../DeclarationsTree";
 
 vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => ({
-    measure: () => {},
-    scrollToIndex: () => {},
-    getTotalSize: () => count * estimateSize(),
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, index) => ({
-        key: index,
-        index,
-        start: index * estimateSize(),
-      })),
-  }),
+  useVirtualizer: ({
+    count,
+    estimateSize,
+  }: {
+    count: number;
+    estimateSize: (index: number) => number;
+  }) => {
+    const sizes = Array.from({ length: count }, (_, index) => estimateSize(index));
+    const starts = sizes.map((_, index) => sizes.slice(0, index).reduce((a, b) => a + b, 0));
+
+    return {
+      measure: () => {},
+      scrollToIndex: () => {},
+      getTotalSize: () => sizes.reduce((a, b) => a + b, 0),
+      getVirtualItems: () =>
+        sizes.map((size, index) => ({ key: index, index, start: starts[index]!, size })),
+    };
+  },
 }));
 
 const SPAN = { line: 1, column: 1, endLine: 1, endColumn: 2 };
@@ -28,15 +36,18 @@ const SPAN = { line: 1, column: 1, endLine: 1, endColumn: 2 };
 const ENTRIES: DeclaredModule = {
   index: 0,
   name: null,
+  note: null,
   selector: "entries",
   target: null,
   targetHash: null,
   source: null,
   overrides: [],
+  links: { add: [], remove: [] },
   span: SPAN,
   entries: [
     {
       name: "Characters/Teemo/Skins/Skin0",
+      knownName: null,
       hash: "0x1234abcd",
       edit: 0,
       object: null,
@@ -59,6 +70,7 @@ const ENTRIES: DeclaredModule = {
           span: SPAN,
         },
       ],
+      links: { add: [], remove: [] },
     },
   ],
 };
@@ -80,7 +92,20 @@ const LAYER: DeclarationsLayer = {
   modules: [ENTRIES, TARGET],
 };
 
-const SHAPE: OutlineShape = { layers: false, keys: true };
+const SHAPE: OutlineShape = { layers: false, keys: true, adds: false };
+
+function actions(): OutlineActions {
+  return {
+    create: vi.fn(() => Promise.resolve(null)),
+    moveToNewModule: vi.fn(() => Promise.resolve(null)),
+    rename: vi.fn(),
+    move: vi.fn(() => Promise.resolve(null)),
+    remove: vi.fn(),
+    moveKeys: vi.fn(),
+    toggleWriteHere: vi.fn(),
+    writesHere: () => false,
+  };
+}
 
 function renderTree(overrides: Partial<Parameters<typeof DeclarationsTree>[0]> = {}) {
   const onOpen = vi.fn();
@@ -107,8 +132,11 @@ describe("DeclarationsTree", () => {
       expect.stringContaining("Module 1"),
       expect.stringContaining("Characters/Teemo/Skins/Skin0"),
       expect.stringContaining("skinMeshProperties.selfIllumination0.37"),
-      expect.stringContaining("+resourceMapTeemo_R: Characters/Jade/R …"),
-      expect.stringContaining("Module 2data/characters/teemo/skins/skin0.bin"),
+      expect.stringContaining(
+        "+resourceMap{Teemo_R: Characters/Jade/R, Teemo_Q: Characters/Jade/Q}",
+      ),
+      expect.stringContaining("Module 2skin0.bin"),
+      expect.stringContaining("Drag entries here"),
     ]);
   });
 
@@ -116,7 +144,8 @@ describe("DeclarationsTree", () => {
     const user = userEvent.setup();
     const { onOpen } = renderTree();
 
-    await user.click(screen.getAllByRole("button", { name: "Go to row" })[0]!);
+    /* The entry's own action comes first. */
+    await user.click(screen.getAllByRole("button", { name: "Go to row" })[1]!);
     const key = screen.getAllByRole("treeitem")[3]!;
     key.focus();
     await user.keyboard("{Enter}");
@@ -134,7 +163,8 @@ describe("DeclarationsTree", () => {
     screen.getAllByRole("treeitem")[0]!.focus();
     await user.keyboard("{ArrowLeft}");
 
-    expect(screen.getAllByRole("treeitem")).toHaveLength(2);
+    /* The second module, and the line saying it declares nothing. */
+    expect(screen.getAllByRole("treeitem")).toHaveLength(3);
   });
 
   it("selects a revealed item and settles the request", () => {
@@ -149,5 +179,78 @@ describe("DeclarationsTree", () => {
       expect.stringContaining("+resourceMap"),
     ]);
     expect(onRevealed).toHaveBeenCalledWith(7);
+  });
+
+  it("draws a module with what it edits, the comment above it and a tally", () => {
+    const noted = { ...TARGET, name: "Jade outline", note: "Outline on the base skin." };
+    renderTree({ layers: [{ ...LAYER, modules: [ENTRIES, noted] }] });
+
+    const module = screen.getAllByRole("treeitem").at(-2)!;
+
+    expect(module.textContent).toContain("Jade outline");
+    expect(module.textContent).toContain("skin0.bin");
+    expect(module.textContent).toContain("Outline on the base skin.");
+    expect(screen.getAllByRole("treeitem")[0]!.textContent).toContain("1 object · 2 keys");
+  });
+
+  it("offers no Go to row under an object the module creates", () => {
+    const entry = ENTRIES.entries[0]!;
+    const created: DeclaredModule = {
+      ...TARGET,
+      entries: [
+        {
+          ...entry,
+          name: "Mods/jade/Outline",
+          object: { kind: "construct", class: "StaticMaterialDef", knownClass: null },
+        },
+      ],
+    };
+    renderTree({ layers: [{ ...LAYER, modules: [created] }] });
+
+    expect(screen.getAllByRole("treeitem")).toHaveLength(4);
+    expect(screen.queryAllByRole("button", { name: "Go to row" })).toHaveLength(0);
+  });
+
+  it("renames a module in place from F2", async () => {
+    const user = userEvent.setup();
+    const held = actions();
+    renderTree({ actions: held });
+
+    screen.getAllByRole("treeitem")[0]!.focus();
+    await user.keyboard("{F2}");
+    await user.keyboard("Base look{Enter}");
+
+    expect(held.rename).toHaveBeenCalledWith("base", ENTRIES, "Base look");
+  });
+
+  it("moves a module down from Alt+ArrowDown", async () => {
+    const user = userEvent.setup();
+    const held = actions();
+    renderTree({ actions: held });
+
+    screen.getAllByRole("treeitem")[0]!.focus();
+    await user.keyboard("{Alt>}{ArrowDown}{/Alt}");
+
+    expect(held.move).toHaveBeenCalledWith("base", ENTRIES, 1);
+  });
+
+  it("adds a module from the New module line", async () => {
+    const user = userEvent.setup();
+    const held = actions();
+    renderTree({ shape: { ...SHAPE, adds: true }, actions: held });
+
+    await user.click(screen.getByText("New module"));
+
+    expect(held.create).toHaveBeenCalledWith("base");
+  });
+
+  it("says what a module that declares nothing takes", () => {
+    const empty: DeclaredModule = { ...ENTRIES, name: "Particles", entries: [] };
+    renderTree({ layers: [{ ...LAYER, modules: [empty] }] });
+
+    expect(screen.getAllByRole("treeitem").map((row) => row.textContent)).toEqual([
+      expect.stringContaining("Particles"),
+      expect.stringContaining("Drag entries here"),
+    ]);
   });
 });

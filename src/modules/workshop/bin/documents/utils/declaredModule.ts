@@ -83,7 +83,7 @@ export function choiceLabel(
 
 /**
  * The stored choice after `action`, so it names the same module. `removedSource` says a move
- * of keys left its source module empty, which takes it away.
+ * of keys left its unnamed source module empty, which takes it away.
  */
 export function followModuleAction(
   selected: SelectedModule | null,
@@ -95,6 +95,7 @@ export function followModuleAction(
   const index = selected.index;
 
   switch (action.kind) {
+    case "create":
     case "rename":
       return selected;
     case "remove":

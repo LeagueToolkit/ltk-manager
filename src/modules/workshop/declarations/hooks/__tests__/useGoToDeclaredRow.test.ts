@@ -26,22 +26,26 @@ const DECLARED: DeclaredObjects = {
 const MODULE: DeclaredModule = {
   index: 0,
   name: null,
+  note: null,
   selector: "target",
   target: "data/b.bin",
   targetHash: "bbbbbbbbbbbbbbbb",
   source: null,
   overrides: [],
+  links: { add: [], remove: [] },
   span: null,
   entries: [],
 };
 
 const ENTRY = {
   name: "Characters/Teemo/Skins/Skin0",
+  knownName: null,
   hash: "0x1234abcd",
   edit: 0,
   object: null,
   span: null,
   keys: [],
+  links: { add: [], remove: [] },
 };
 
 describe("declaringChunk", () => {

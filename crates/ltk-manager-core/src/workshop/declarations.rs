@@ -15,7 +15,7 @@ use super::{ProjectDir, WorkshopError};
 use crate::error::{AppError, AppResult};
 
 /// One module action on a layer's manifest, each module named by its index in `modules`.
-/// ADR-0048.
+/// ADR-0048, ADR-0054.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(
     tag = "kind",
@@ -26,6 +26,8 @@ use crate::error::{AppError, AppResult};
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 pub enum ModuleAction {
+    /// Add a module holding `name`, or none, and no entry at the end of `modules`.
+    Create { name: Option<String> },
     /// Give the module a name, or take its name away with `None`.
     Rename { module: usize, name: Option<String> },
     /// Remove the module and every key it declares.
@@ -67,14 +69,19 @@ impl ProjectDir {
         let mut manifest = self.declarations_manifest(layer)?;
         let before = manifest.text().to_owned();
 
+        let module_name = |name: &Option<String>| {
+            name.as_deref()
+                .map(ModuleName::try_from)
+                .transpose()
+                .map_err(|error| invalid(&error))
+        };
+
         match action {
+            ModuleAction::Create { name } => {
+                manifest.create_module(module_name(name)?.as_ref())?;
+            }
             ModuleAction::Rename { module, name } => {
-                let name = name
-                    .as_deref()
-                    .map(ModuleName::try_from)
-                    .transpose()
-                    .map_err(|error| invalid(&error))?;
-                manifest.rename_module(*module, name.as_ref())?;
+                manifest.rename_module(*module, module_name(name)?.as_ref())?;
             }
             ModuleAction::Remove { module } => manifest.remove_module(*module)?,
             ModuleAction::Move { module, to } => manifest.move_module(*module, *to)?,

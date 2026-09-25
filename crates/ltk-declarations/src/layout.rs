@@ -108,6 +108,36 @@ impl Layout {
         Some(start..self.first_line_end(start))
     }
 
+    /// The comment lines directly above the manifest's module `module`, without their `#`.
+    ///
+    /// These are the lines a module action carries with the module. A blank line or any
+    /// other line ends them, and `None` stands for a module with none.
+    #[must_use]
+    pub fn module_note(&self, module: usize) -> Option<String> {
+        let mapping = self.module_mapping(module)?;
+        let text = self.text.as_str();
+        let first_line = self.text.line_start(syntax::start(mapping.syntax()));
+
+        let mut lines = Vec::new();
+        let mut end = first_line;
+        while end > 0 {
+            let start = self.text.line_start(end - 1);
+            let Some(comment) = text[start..end].trim().strip_prefix('#') else {
+                break;
+            };
+
+            lines.push(comment.strip_prefix(' ').unwrap_or(comment).trim_end());
+            end = start;
+        }
+
+        if lines.is_empty() {
+            return None;
+        }
+
+        lines.reverse();
+        Some(lines.join("\n"))
+    }
+
     /// The key naming `entry` in the body at `body`.
     #[must_use]
     pub fn entry(&self, body: BodyAt, binding: Binding, entry: &EntryName) -> Option<Range<usize>> {
