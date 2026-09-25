@@ -11,8 +11,10 @@ import {
   type DeclaredObject,
   type DeclaredObjects,
   type GameFileEntry,
+  type LayerContent,
   type ObjectDeclaration,
   type ObjectIndexStatus,
+  type WorkshopProject,
 } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -22,7 +24,7 @@ import { layerTitle } from "../../../documents/utils/contentDocument";
 import { BUILDING_POLL_MS, gameKeys } from "../../../gameBrowser/api/keys";
 import { useWarmObjectIndex } from "../../../objectsBrowser/api/useObjectIndex";
 import type { OpenIntent } from "../../../palette/utils/types";
-import { assetKey } from "../../../preview/utils/assetRef";
+import { assetKey, assetProject } from "../../../preview/utils/assetRef";
 import {
   useOptionalProjectContext,
   useProjectContext,
@@ -422,30 +424,34 @@ export function useCheckLinkTargets(
 /** What a layer directory holding an archive's chunks is named. */
 const WAD_DIR_SUFFIX = ".wad.client";
 
+/** The layer every project has. At equal priority, any other layer overrides it. */
+const BASE_LAYER = "base";
+
+/** The priority `LayerChunks` stacks a layer the manifest does not declare at. */
+const UNDECLARED_PRIORITY = 0;
+
 /** The tree's asset, for the layer side of a `file` link. Null outside a tree. */
 export const LinkAssetContext = createContext<AssetRef | null>(null);
 
 /**
- * The layer's copy of `path`, where the tree's asset sits in a layer that holds one.
+ * The project's copy of `path`, when the tree's asset resolves in a project that has one.
  *
- * Matched without regard to case: a layer spells a path as its author spells it, and
- * the tables spell it lowercase.
+ * A layer file resolves in its project, and a game bin open in a project resolves in
+ * that project (ADR-0042). Matched without regard to case: a layer spells a path as its
+ * author spells it, and the tables spell it lowercase.
  */
 export function useLayerCopy(path: string | null): LayerCopy | null {
   const asset = use(LinkAssetContext);
   const project = useProjectContext();
-  const { data } = useProjectContentTree(asset?.kind === "layer" ? project.path : undefined);
+  const owned = asset !== null && assetProject(asset, project.path) !== null;
+  const { data } = useProjectContentTree(owned ? project.path : undefined);
 
   return useMemo(() => {
-    if (path === null || asset?.kind !== "layer" || !data) return null;
+    if (path === null || asset === null || !owned || !data) return null;
     const wanted = path.toLowerCase();
 
-    /* The document's own layer answers first, and any other layer after it. */
-    const ordered = [
-      ...data.layers.filter((candidate) => candidate.name === asset.layer),
-      ...data.layers.filter((candidate) => candidate.name !== asset.layer),
-    ];
-    for (const layer of ordered) {
+    const documentLayer = asset.kind === "layer" ? asset.layer : null;
+    for (const layer of lookupOrder(data.layers, documentLayer, project)) {
       const entry = layer.entries.find(
         (candidate) => entryChunkPath(candidate.relativePath)?.toLowerCase() === wanted,
       );
@@ -461,7 +467,34 @@ export function useLayerCopy(path: string | null): LayerCopy | null {
       };
     }
     return null;
-  }, [asset, data, path, project]);
+  }, [asset, owned, data, path, project]);
+}
+
+/**
+ * The order layers are searched for a path: the document's layer, then highest priority first.
+ *
+ * `LayerChunks` uses the same order: the higher priority wins, and at equal priority any
+ * other layer wins over `base`. The chip and the preview then show the same file.
+ */
+function lookupOrder(
+  layers: readonly LayerContent[],
+  documentLayer: string | null,
+  project: WorkshopProject,
+): LayerContent[] {
+  const priority = (name: string) =>
+    project.layers.find((layer) => layer.name === name)?.priority ?? UNDECLARED_PRIORITY;
+
+  const stacked = [...layers].sort(
+    (a, b) =>
+      priority(b.name) - priority(a.name) ||
+      Number(a.name === BASE_LAYER) - Number(b.name === BASE_LAYER) ||
+      b.name.localeCompare(a.name, undefined, { numeric: true }),
+  );
+
+  return [
+    ...stacked.filter((layer) => layer.name === documentLayer),
+    ...stacked.filter((layer) => layer.name !== documentLayer),
+  ];
 }
 
 /**

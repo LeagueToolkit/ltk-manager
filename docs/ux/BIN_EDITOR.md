@@ -896,6 +896,7 @@ The shared tables are a crawl of the retail game, so a path a mod author invents
 them. A project's own content names those, and a bin opened out of a layer reads both: every
 file of every layer at its path inside its archive, and every table the project's manifest
 declares. The project answers first, and only a hash it does not name reaches the shared tables.
+A game bin opened in a project for declarations (ADR-0042) reads that project's names too.
 
 The scan runs once with the parse and is held with the open document, so a file added while a
 document is open is named the next time it opens.
@@ -908,7 +909,9 @@ answers it. A hash no table names keeps its hex and no mark, because an unnamed 
 nothing about whether it is there.
 
 A layer's copy is found at the file's path inside its archive, which is the layer entry's own
-path without its leading archive directory. The document's own layer answers first.
+path without its leading archive directory. The document's own layer answers first. A game bin
+opened in a project is in no layer, so the highest-priority layer that has the file is used.
+That is the copy the game loads when the mod is enabled.
 
 A miss never builds the object index. A `link` a reader clicks says they want the target, and
 a string that happens to hash to nothing says nothing at all, so an absent index leaves every
