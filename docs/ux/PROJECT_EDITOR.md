@@ -3467,39 +3467,66 @@ the source tree.
 ### Object grid
 
 Tree and Grid show the same object directory. A grid folder opens its prefix. Breadcrumbs
-link every path segment, including folded prefixes, and Up opens the parent path. An object
-with children has a separate folder-and-count action inside its footer. Tiles default to
-128 pixels wide. The view options popover holds tile size and the thumbnail switch. Search
-shows matching objects as tiles. Reveal
-in Objects keeps the selected view. In Grid it opens the parent and scrolls to the focused
-tile. In Tree it expands the ancestors and focuses the row. View preferences survive editor
-layout remounts.
+link every path segment, including folded prefixes, and Up opens the parent path. Tiles
+default to 128 pixels wide. The view options popover contains tile size and the thumbnail switch.
+Search shows matching objects as tiles. Reveal in Objects keeps the selected view. In Grid it
+opens the parent and scrolls to the focused tile. In Tree it expands the ancestors and focuses
+the row. View preferences survive editor layout remounts.
+
+A tile has the explorer tile's layout: an art plate on the card surface, the name, and a second line with the
+class, or with the object count for a folder. The name wraps to two lines and is cut in the
+middle, because objects of one folder differ at the end of their names. The tile carries no
+footer. An object with children carries a folder-and-count badge on its art. The badge is a
+separate control that browses the children. The declaring file is in the tile's tooltip beside the path. A
+tile without a still draws its kind glyph: a sparkle for a particle system, a figure for a
+skin, a sphere for a material, and a cube for any other class.
 
 Switching from Tree to Grid carries the selected folder into its own directory. A selected
 object opens its parent grid and receives focus. A selected search hit stays in the search
-results. With no selection, the grid keeps its last location.
+results. With no selection, the grid keeps its last location. The grid writes the selection
+back: a focused tile selects its node, and a folder the grid moves to becomes the
+selection. Switching from Grid to Tree expands to the selection and focuses its row. A search
+keeps its hits in place in both directions.
 
-Thumbnails are on by default. Supported particles and skins get small stills, rendered as tiles
-enter view. A particle loops in a large anchored preview popover after a short hover or keyboard
-focus. The popover stays open across the pointer's move from tile to preview, and closes on
-leaving or Escape. The tile keeps its still. Reduced motion
-keeps the still. Opening a tile uses the same first declaration
-as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the projected
-box with five percent padding, using the same aspect ratio as the tile artwork.
+Thumbnails are on by default. Particle systems, skins and materials get small stills,
+rendered as tiles enter view. A tile the pointer rests on for 400 milliseconds plays in
+place: a particle system loops, a material turns on its sphere and a skin turns on a
+turntable. The tile plays until the pointer leaves it. Keyboard focus alone plays nothing.
+Space opens the tile under the pointer, or the focused tile, in a large anchored popover, and
+Space or Escape closes it. Reduced motion keeps the still on hover, and Space still plays the
+large preview, because the reader requested it. Opening a tile uses the same first
+declaration as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the
+projected box with five percent padding, using the same aspect ratio as the tile artwork.
+The preview canvas clears to the card surface, so a still and an empty plate share one
+colour one surface rung above the page ground.
 
 Skin captures wait two rendered frames after assets arrive, without a camera animation.
-Particle warm-up advances up to 0.8 seconds while assets load, stopping at the first visible
-burst, in batches capped at eight steps or two milliseconds per renderer per frame. A drained
-preview restarts after a quarter-second pause once every emitter's start time has passed.
-Texture requests fetch a single
-128-pixel mip rather than a chain for each still.
+Particle warm-up samples the system in batches capped at eight steps or two milliseconds per
+renderer per frame, and stops at the first visible burst. The sample runs for at least two
+seconds and at most ten, and for one second past the last emitter's start. A system with no
+particle alive at the end of its sample has nothing to preview. A drained preview restarts
+after a quarter-second pause once every emitter's start time has passed. Texture requests
+fetch a single 128-pixel mip rather than a chain for each still.
 
-Two retained canvases load and render previews in parallel. Only visible rows and one overscan row
-request work, and a hovered particle takes priority. The grid keeps at most 128 stills,
-requests 128-pixel texture mips with two texture loads per preview at a time, and uses a 4,096-particle
-root pool without seek checkpoints. Full geometry is still required. Failed previews
-keep their kind glyph with a failure indicator and a retry action. A loading indicator marks
-active jobs. Hidden documents and background windows stop preview work.
+A preview ends in one of three outcomes. A still replaces the glyph. Nothing to preview
+keeps the glyph with no mark: a particle system with no emitters or no burst, a skin
+without a mesh or a skeleton, a material with no translated pass and no texture on this
+machine. A material with no translated pass draws its base texture on the lit sphere, or the
+first texture its passes name. A failure keeps the glyph with a failure mark. The toolbar counts the failures among the tiles on screen and offers
+to render them again, and a failed tile's context menu retries that tile alone. Hovering a
+failed tile also tries it again. A save of a bin drops the stills of its objects.
+
+The objects document mounts two canvases above its grids, so a folder change, a search or a
+hidden tab keeps them and their compiled shader programs. An idle canvas stops drawing rather than
+unmounting. Only visible rows and one overscan row ask for stills, no new still starts
+during a scroll, and a played tile takes priority. Stills are kept for the session under the
+object, the project and the theme's ground, up to 512 of them. A still on screen is never
+evicted. The bin each preview reads stays open for ten seconds after its last preview, up to
+four bins, so objects of one file are parsed once. Previews draw at the display's pixel
+ratio, up to two. Texture requests take 128-pixel mips with two loads per preview at a time,
+and particles use a 4,096-particle root pool without seek checkpoints. Full geometry is still
+required. A loading indicator marks active jobs. Hidden documents and background windows stop
+preview work.
 
 ### A node with several declarations
 

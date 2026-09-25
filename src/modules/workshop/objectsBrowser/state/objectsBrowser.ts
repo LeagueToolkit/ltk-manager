@@ -68,8 +68,26 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
   setView: (view) =>
     set((state) => {
       const selected = state.selected;
-      if (view !== "grid" || state.display.view !== "tree" || selected === null) {
+      if (view === state.display.view || selected === null) {
         return { display: { ...state.display, view } };
+      }
+
+      /* The search results tree takes no reveal, so a search keeps its hits in place. */
+      if (view === "tree" && state.searchPattern.length > 0) {
+        return { display: { ...state.display, view } };
+      }
+
+      if (view === "tree") {
+        const token = state.revealToken + 1;
+        return {
+          display: { ...state.display, view },
+          expandedPrefixes: new Set([
+            ...state.expandedPrefixes,
+            ...ancestorPrefixes(selected.path),
+          ]),
+          revealToken: token,
+          reveal: { path: selected.path, token },
+        };
       }
 
       if (selected.type === "prefix") {
@@ -119,6 +137,7 @@ export const useExpandedObjectPrefixes = () => useObjectsBrowserStore((s) => s.e
 export const useObjectsDisplay = () => useObjectsBrowserStore((s) => s.display);
 export const useSetObjectsDisplay = () => useObjectsBrowserStore((s) => s.setDisplay);
 export const useSelectObjectNode = () => useObjectsBrowserStore((s) => s.selectNode);
+export const useSelectedObjectPath = () => useObjectsBrowserStore((s) => s.selected?.path ?? null);
 export const useSetObjectsView = () => useObjectsBrowserStore((s) => s.setView);
 export const useToggleObjectPrefix = () => useObjectsBrowserStore((s) => s.togglePrefix);
 export const useExpandObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandPrefixes);

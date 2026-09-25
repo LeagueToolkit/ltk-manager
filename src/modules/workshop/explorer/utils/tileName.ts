@@ -49,12 +49,17 @@ const NAME_INSET = 12;
  *
  * A game file differs from its neighbour at the end of the name, so both halves
  * are worth keeping and the cut goes between them. A longer name is cut to the
- * lines the tile reserves rather than clipped, which would drop the end that
+ * `lines` the tile reserves rather than clipped, which would drop the end that
  * tells two files apart.
  */
-export function fitName(name: string, width: number, type: NameType): string {
+export function fitName(
+  name: string,
+  width: number,
+  type: NameType,
+  lines: number = NAME_LINES,
+): string {
   const perLine = Math.max(6, Math.floor((width - NAME_INSET) / type.char));
-  const budget = perLine * NAME_LINES;
+  const budget = perLine * lines;
   if (name.length <= budget) return name;
 
   const head = Math.ceil((budget - 1) / 2);

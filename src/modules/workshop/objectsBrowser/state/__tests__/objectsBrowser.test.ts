@@ -51,3 +51,27 @@ it("gives repeated reveals distinct tokens after the previous request settles", 
   store.requestReveal(first.path);
   expect(useObjectsBrowserStore.getState().reveal!.token).toBeGreaterThan(first.token);
 });
+
+it("expands to the focused tile and reveals its row when switching back to tree", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.setDisplay({ view: "grid", location: "Characters/Annie/Skins" });
+  store.selectNode({ type: "object", id: "Characters/Annie/Skins/Skin0" });
+  store.setView("tree");
+  const state = useObjectsBrowserStore.getState();
+  expect(state.display.view).toBe("tree");
+  expect([...state.expandedPrefixes]).toEqual([
+    "Characters",
+    "Characters/Annie",
+    "Characters/Annie/Skins",
+  ]);
+  expect(state.reveal?.path).toBe("Characters/Annie/Skins/Skin0");
+});
+
+it("leaves a search tree without a reveal when switching back from grid", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.setDisplay({ view: "grid" });
+  store.setSearchPattern("Annie");
+  store.selectNode({ type: "object", id: "Characters/Annie/Skins/Skin0" });
+  store.setView("tree");
+  expect(useObjectsBrowserStore.getState().reveal).toBeNull();
+});

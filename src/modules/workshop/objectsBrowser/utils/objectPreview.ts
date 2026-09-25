@@ -16,9 +16,9 @@ export function objectPreviewKind(node: ObjectTreeNode): ObjectPreviewKind | nul
   return shell === "vfx" || shell === "skin" || shell === "material" ? shell : null;
 }
 
-/** Whether a hovered tile keeps drawing, which a still says less about than motion does. */
+/** Whether a hovered tile plays: a particle loops, and a character and a material turn. */
 export function playsOnHover(kind: ObjectPreviewKind | null): boolean {
-  return kind === "vfx" || kind === "material";
+  return kind !== null;
 }
 
 /** The declaration identity of a rendered object. */

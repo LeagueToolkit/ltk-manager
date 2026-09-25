@@ -1557,8 +1557,19 @@
   "workshop_objects_open_action": "Open",
   "workshop_objects_open_beside_action": "Open beside",
   "workshop_objects_overrides_label": "overrides",
+  "workshop_objects_preview_empty_label": "Nothing to preview",
   "workshop_objects_preview_failed_label": "Preview unavailable",
-  "workshop_objects_preview_retry_action": "Retry previews",
+  "workshop_objects_preview_retry_action": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Retry {count} preview",
+        "countPlural=other": "Retry {count} previews"
+      }
+    }
+  ],
+  "workshop_objects_preview_retry_one_action": "Retry preview",
   "workshop_objects_project_label": "Objects · {project}",
   "workshop_objects_regex_action": "Use regular expression",
   "workshop_objects_retry_action": "Retry",
@@ -1566,7 +1577,7 @@
   "workshop_objects_search_placeholder": "Search the objects",
   "workshop_objects_search_regex_placeholder": "Search the objects by regex",
   "workshop_objects_show_in_file_action": "Show in file",
-  "workshop_objects_thumbnails_hint": "Small previews for skins and particles. Hover a particle to play it.",
+  "workshop_objects_thumbnails_hint": "Small previews for skins, particles and materials. Hover a tile to play it, or press Space for a large preview.",
   "workshop_objects_title": "Objects",
   "workshop_objects_unnamed_label": "No object names yet — sync the hashtables in Settings",
   "workshop_objects_up_action": "Up",

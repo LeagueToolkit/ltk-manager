@@ -1,3 +1,4 @@
+import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Button, EmptyState, Spinner } from "@/components";
@@ -26,6 +27,7 @@ import {
   useSetObjectsSearchPattern,
   useSetObjectsSearchRegex,
   useSettleObjectsReveal,
+  useSelectObjectNode,
   useShutFindPrefixes,
   useToggleFindPrefix,
   useToggleObjectPrefix,
@@ -35,6 +37,7 @@ import { useObjectFind } from "../api/useObjectFind";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
 import { useLayerDeclarations } from "../hooks/useLayerDeclarations";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
+import { retryPreviews, useFailedInView } from "../state/previewStills";
 import {
   buildFindTree,
   ancestorPrefixes,
@@ -48,6 +51,7 @@ import {
   ObjectIndexFailedState,
   ObjectIndexUnnamedHint,
 } from "./ObjectIndexStates";
+import { ObjectPreviewPool } from "./ObjectPreviewPool";
 import { ObjectsGrid } from "./ObjectsGrid";
 import { ObjectsIndexGrid } from "./ObjectsIndexGrid";
 import { ObjectsTree } from "./ObjectsTree";
@@ -66,11 +70,17 @@ export function ObjectsDocument({
   const setView = useSetObjectsView();
   const setPattern = useSetObjectsSearchPattern();
   const reveal = useObjectsReveal();
+  const selectNode = useSelectObjectNode();
+  /* Selects the folder the grid opens, so a switch to Tree reveals it. */
+  const goTo = (path: string) => {
+    setDisplay({ location: path });
+    selectNode({ id: path, type: "prefix" });
+  };
   const descend = (path: string) => {
     setPattern("");
-    setDisplay({ location: path });
+    goTo(path);
   };
-  const up = () => setDisplay({ location: location.split("/").slice(0, -1).join("/") });
+  const up = () => goTo(location.split("/").slice(0, -1).join("/"));
 
   useEffect(() => {
     if (reveal !== null && view === "grid") {
@@ -84,11 +94,12 @@ export function ObjectsDocument({
     <div
       data-ui="ObjectsDocument"
       ref={bodyRef}
-      className="flex min-h-0 flex-1 flex-col bg-surface-950"
+      className="relative flex min-h-0 flex-1 flex-col bg-surface-950"
     >
       <DocumentToolbar active={active}>
         <SearchField onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
         {view === "tree" && <ObjectsStats />}
+        {view === "grid" && thumbnails && <RetryPreviews />}
         <ObjectsViewControls
           view={view}
           onViewChange={setView}
@@ -99,36 +110,56 @@ export function ObjectsDocument({
         />
       </DocumentToolbar>
 
-      {/* Hidden rather than unmounted. The browse tree's expanded prefixes survive a
-          search and back. */}
-      {view === "tree" && (
-        <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
-          <ObjectsIndexTree />
-        </div>
-      )}
-      {view === "grid" && !searching && (
-        <>
-          <SwitchOffHint />
-          <ObjectsIndexGrid
-            prefix={location}
+      <ObjectPreviewPool mounted={view === "grid" && thumbnails} active={active}>
+        {/* Hidden rather than unmounted. The browse tree's expanded prefixes survive a
+            search and back. */}
+        {view === "tree" && (
+          <div hidden={searching} className="flex min-h-0 flex-1 flex-col">
+            <ObjectsIndexTree />
+          </div>
+        )}
+        {view === "grid" && !searching && (
+          <>
+            <SwitchOffHint />
+            <ObjectsIndexGrid
+              prefix={location}
+              size={tileSize}
+              thumbnails={thumbnails}
+              onDescend={descend}
+              onUp={up}
+              canGoUp={location.length > 0}
+            />
+          </>
+        )}
+        {searching && (
+          <FindResults
+            grid={view === "grid"}
             size={tileSize}
-            thumbnails={thumbnails && active}
+            thumbnails={thumbnails}
             onDescend={descend}
             onUp={up}
-            canGoUp={location.length > 0}
           />
-        </>
-      )}
-      {searching && (
-        <FindResults
-          grid={view === "grid"}
-          size={tileSize}
-          thumbnails={thumbnails && active}
-          onDescend={descend}
-          onUp={up}
-        />
-      )}
+        )}
+      </ObjectPreviewPool>
     </div>
+  );
+}
+
+/** A retry button with the count of failed previews on screen. */
+function RetryPreviews() {
+  const failed = useFailedInView();
+  if (failed === 0) return null;
+
+  return (
+    <Button
+      size="xs"
+      compact
+      variant="ghost"
+      left={<ArrowClockwiseIcon weight="bold" className="size-3.5" />}
+      onClick={() => retryPreviews()}
+    >
+      {m.workshop_objects_preview_retry_action({ count: failed })}
+    </Button>
   );
 }
 

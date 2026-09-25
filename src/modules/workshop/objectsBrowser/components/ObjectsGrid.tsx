@@ -1,22 +1,67 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { Button, ContextMenu } from "@/components";
+import { ContextMenu } from "@/components";
 import { useContentVisible, useReducedMotion, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
-import type { ObjectsReveal } from "../../state";
+import { nameTypeFor } from "../../explorer/utils/tileName";
+import { type ObjectsReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
+import { usePreviewScope } from "../hooks/usePreviewScope";
+import {
+  retryPreviews,
+  stillKey,
+  usePinnedPreviews,
+  usePreviewOutcomes,
+} from "../state/previewStills";
 import { objectPreviewKey, objectPreviewKind, playsOnHover } from "../utils/objectPreview";
 import type { ObjectRowNode, ObjectTreeNode } from "../utils/objectTree";
-import { ObjectPreviewSlot } from "./ObjectPreviewSlot";
+import { type PreviewRequest, usePreviewPool } from "./ObjectPreviewPool";
+import type { ObjectPreviewJob } from "./ObjectPreviewSlot";
 import { ObjectsContextMenu } from "./ObjectsContextMenu";
-import { ObjectTile } from "./ObjectTile";
+import { ObjectTile, TILE_NAME_LINES } from "./ObjectTile";
 
-const MAX_STILLS = 128;
-const HOVER_MS = 180;
-const PREVIEW_CONCURRENCY = 2;
+/** Hover time before a tile's preview plays. */
+const HOVER_MS = 400;
+const TILE_SELECTOR = "[data-tile-index]";
+const CELL_GUTTER = 12;
+const TILE_PADDING = 6;
+const TILE_GAP = 4;
+/** Art height divided by art width. The preview canvases use the same ratio. */
+const ART_ASPECT = 0.72;
+
+/** The request built during render. The live tile is an index until the layout effect finds its element. */
+interface RequestDraft {
+  readonly request: PreviewRequest;
+  readonly live: {
+    readonly job: ObjectPreviewJob;
+    readonly mode: "tile" | "large";
+    readonly index: number;
+  } | null;
+}
+
+/** The draft with the live tile index replaced by its stage or anchor element. */
+function resolveRequest(
+  draft: RequestDraft | null,
+  root: HTMLElement | null,
+): PreviewRequest | null {
+  if (draft === null || draft.live === null || root === null) return draft?.request ?? null;
+
+  const { job, mode, index } = draft.live;
+  if (mode === "large") {
+    const anchor = root.querySelector<HTMLElement>(`[data-object-index="${index}"]`);
+    return anchor === null
+      ? draft.request
+      : { ...draft.request, live: { job, display: { mode, anchor } } };
+  }
+
+  const stage = root.querySelector<HTMLElement>(`[data-preview-stage="${index}"]`);
+  return stage === null
+    ? draft.request
+    : { ...draft.request, live: { job, display: { mode, stage } } };
+}
 
 interface ObjectsGridProps {
   nodes: readonly ObjectTreeNode[];
@@ -28,7 +73,12 @@ interface ObjectsGridProps {
   onRevealed?: (token: number) => void;
 }
 
-/** Virtualized object tiles with bounded parallel previews and delayed hover playback. */
+/**
+ * Virtualized object tiles, with stills rendered by the document's preview pool.
+ *
+ * Only visible rows request stills, and no request starts during a scroll. A hovered tile
+ * plays in place. Space opens the hovered tile, or the focused tile, in the large popover.
+ */
 export function ObjectsGrid({
   nodes,
   thumbnails,
@@ -44,37 +94,36 @@ export function ObjectsGrid({
   const visible = useContentVisible();
   const reducedMotion = useReducedMotion();
   const open = useOpenObjectNode();
+  const selectNode = useSelectObjectNode();
+  const selectedPath = useSelectedObjectPath();
+  const pool = usePreviewPool();
+  const scope = usePreviewScope();
+  const outcomes = usePreviewOutcomes();
   const items = useMemo(
     () => nodes.filter((node) => node.type === "object" || node.type === "prefix"),
     [nodes],
   );
+
   const tileWidth = zoomed(size);
-  const gap = zoomed(10);
-  const columns = Math.max(1, Math.floor((width + gap) / (tileWidth + gap)));
-  const artHeight = zoomed(Math.round(size * 0.72));
-  const captionHeight = zoomed(42);
-  const footerHeight = zoomed(24);
-  const rowHeight = artHeight + captionHeight + footerHeight + gap + 2;
+  const gutter = zoomed(CELL_GUTTER);
+  const nameType = nameTypeFor(size);
+  const artHeight = zoomed(Math.round((size - TILE_PADDING * 2) * ART_ASPECT));
+  const rowHeight =
+    artHeight + zoomed(nameType.line * (TILE_NAME_LINES + 1) + TILE_PADDING * 2 + TILE_GAP * 2);
+  const columns = Math.max(1, Math.floor((width + gutter) / (tileWidth + gutter)));
+
   const [focused, setFocused] = useState(0);
   const [aimed, setAimed] = useState<ObjectRowNode | null>(null);
   const [hovered, setHovered] = useState<ObjectRowNode | null>(null);
-  const [stills, setStills] = useState<ReadonlyMap<string, string | null>>(new Map());
+  const [expanded, setExpanded] = useState<ObjectRowNode | null>(null);
   const [menuNode, setMenuNode] = useState<ObjectTreeNode | null>(null);
-  const [revision, setRevision] = useState(0);
-  const [foreground, setForeground] = useState(() => !document.hidden);
 
   useEffect(() => {
-    const changed = () => setForeground(!document.hidden);
-    document.addEventListener("visibilitychange", changed);
-    return () => document.removeEventListener("visibilitychange", changed);
-  }, []);
-
-  useEffect(() => {
-    setStills(new Map());
     setAimed(null);
     setHovered(null);
-    setRevision((held) => held + 1);
+    setExpanded(null);
   }, [nodes]);
+
   const virtualizer = useVirtualizer({
     count: Math.ceil(items.length / columns),
     getScrollElement: () => scroll.current,
@@ -118,54 +167,77 @@ export function ObjectsGrid({
 
     return () => cancelAnimationFrame(frame);
   }, [reveal, rows, items, columns, visible, width, virtualizer, onRevealed]);
+
+  const keyOf = (node: ObjectRowNode) => stillKey(objectPreviewKey(node), scope);
   const inView = rows.flatMap((row) => items.slice(row.index * columns, (row.index + 1) * columns));
   const candidates = inView.filter(
     (node): node is ObjectRowNode => node.type === "object" && objectPreviewKind(node) !== null,
   );
-  const hoveredVisible =
-    hovered !== null &&
-    candidates.some((node) => objectPreviewKey(node) === objectPreviewKey(hovered));
-  const live =
-    hoveredVisible && !reducedMotion && playsOnHover(objectPreviewKind(hovered!)) ? hovered : null;
-  const enabled = thumbnails && visible && foreground;
-  const pending = candidates.filter((node) => !stills.has(objectPreviewKey(node)) && node !== live);
-  const wanted = enabled ? [...(live ? [live] : []), ...pending].slice(0, PREVIEW_CONCURRENCY) : [];
-  const heldSlots = useRef<(ObjectRowNode | null)[]>(Array(PREVIEW_CONCURRENCY).fill(null));
-  const slots = heldSlots.current.map((held) => wanted.find((node) => node === held) ?? null);
-  for (const node of wanted) {
-    if (!slots.includes(node)) {
-      slots[slots.indexOf(null)] = node;
-    }
+  const shownKeys = thumbnails ? candidates.map(keyOf).join("\n") : "";
+  const pinned = useMemo(() => new Set(shownKeys.split("\n").filter(Boolean)), [shownKeys]);
+  usePinnedPreviews(pinned);
+
+  const drawable = (node: ObjectRowNode | null): node is ObjectRowNode =>
+    node !== null &&
+    candidates.some((candidate) => candidate.id === node.id) &&
+    outcomes.get(keyOf(node))?.kind !== "empty";
+  const hoverPlays =
+    drawable(hovered) &&
+    hovered.id === aimed?.id &&
+    !reducedMotion &&
+    playsOnHover(objectPreviewKind(hovered));
+  let live: { node: ObjectRowNode; mode: "tile" | "large" } | null = null;
+  if (drawable(expanded)) {
+    live = { node: expanded, mode: "large" };
+  } else if (hoverPlays) {
+    live = { node: hovered, mode: "tile" };
   }
 
-  heldSlots.current = slots;
-  const jobKeys = new Set(wanted.map(objectPreviewKey));
-  const currentRequests = useRef(new Set<string>());
-  currentRequests.current = new Set([...jobKeys].map((key) => `${revision}:${key}`));
+  const stills = candidates
+    .filter((node) => !outcomes.has(keyOf(node)))
+    .map((node): ObjectPreviewJob => ({ key: keyOf(node), node }));
+  const admit = !virtualizer.isScrolling;
+  const liveKey = live === null ? "" : `${live.mode}:${keyOf(live.node)}`;
+  const signature = `${thumbnails}|${admit}|${liveKey}|${stills.map((job) => job.key).join("\n")}`;
 
-  const save = useCallback((key: string, image: string | null) => {
-    setStills((previous) => {
-      if (previous.has(key) && (previous.get(key) !== null || image === null)) {
-        return previous;
+  const dismiss = useCallback(() => setExpanded(null), []);
+  const draft = useRef<RequestDraft | null>(null);
+  draft.current = thumbnails
+    ? {
+        request: { live: null, stills, admit, onDismiss: dismiss },
+        live:
+          live === null
+            ? null
+            : {
+                job: { key: keyOf(live.node), node: live.node },
+                mode: live.mode,
+                index: items.indexOf(live.node),
+              },
       }
+    : null;
 
-      const next = new Map(previous);
-      next.set(key, image);
-      while (next.size > MAX_STILLS) {
-        next.delete(next.keys().next().value!);
-      }
+  useLayoutEffect(() => {
+    pool?.submit(resolveRequest(draft.current, scroll.current));
+  }, [pool, signature]);
 
-      return next;
-    });
-  }, []);
-  const onImage = useCallback(
-    (key: string, generation: number, image: string | null) => {
-      if (currentRequests.current.has(`${generation}:${key}`)) {
-        save(key, image);
-      }
+  useLayoutEffect(() => () => pool?.submit(null), [pool]);
+
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const descendRef = useRef(onDescend);
+  descendRef.current = onDescend;
+  const descend = useCallback((path: string) => descendRef.current(path), []);
+  const focusTile = useCallback(
+    (index: number) => {
+      setFocused(index);
+      const node = itemsRef.current[index];
+      if (node) selectNode(node);
     },
-    [save],
+    [selectNode],
   );
+  const openMenu = useCallback((index: number) => {
+    setMenuNode(itemsRef.current[index] ?? null);
+  }, []);
 
   const focus = (index: number) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
@@ -175,6 +247,23 @@ export function ObjectsGrid({
       scroll.current?.querySelector<HTMLElement>(`[data-object-index="${next}"]`)?.focus(),
     );
   };
+
+  const aimAt = (target: EventTarget | null) => {
+    const tile = target instanceof Element ? target.closest(TILE_SELECTOR) : null;
+    const node = tile === null ? undefined : items[Number(tile.getAttribute("data-tile-index"))];
+    const next = node?.type === "object" && objectPreviewKind(node) !== null ? node : null;
+    setAimed((current) => (current?.id === next?.id ? current : next));
+  };
+
+  const toggleLarge = () => {
+    const target = aimed ?? items[Math.min(focused, items.length - 1)];
+    if (target?.type !== "object" || objectPreviewKind(target) === null || !thumbnails) return;
+
+    setExpanded((current) => (current?.id === target.id ? null : target));
+  };
+
+  const menuKey = menuNode?.type === "object" ? keyOf(menuNode) : null;
+  const menuFailed = menuKey !== null && outcomes.get(menuKey)?.kind === "failed";
 
   return (
     <div data-ui="ObjectsGrid" className="relative flex min-h-0 flex-1 flex-col">
@@ -188,11 +277,10 @@ export function ObjectsGrid({
             aria-rowcount={Math.ceil(items.length / columns)}
             aria-colcount={columns}
             className="min-h-0 flex-1 overflow-auto p-2 select-none"
+            onPointerOver={(event) => aimAt(event.target)}
             onPointerLeave={() => setAimed(null)}
-            onBlur={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget)) {
-                setAimed(null);
-              }
+            onKeyUp={(event) => {
+              if (event.key === " ") event.preventDefault();
             }}
             onKeyDown={(event) => {
               const offsets: Record<string, number> = {
@@ -207,6 +295,9 @@ export function ObjectsGrid({
                 if (node?.type === "object") {
                   open(node, "beside");
                 }
+              } else if (event.key === " ") {
+                event.preventDefault();
+                toggleLarge();
               } else if (event.key === "Backspace" || (event.altKey && event.key === "ArrowUp")) {
                 event.preventDefault();
                 onUp();
@@ -219,6 +310,7 @@ export function ObjectsGrid({
               } else if (event.key === "Escape") {
                 setAimed(null);
                 setHovered(null);
+                setExpanded(null);
               }
             }}
           >
@@ -228,50 +320,38 @@ export function ObjectsGrid({
                   key={row.key}
                   role="row"
                   aria-rowindex={row.index + 1}
-                  className="absolute inset-x-0 grid"
-                  style={{
-                    transform: `translateY(${row.start}px)`,
-                    gridTemplateColumns: `repeat(${columns}, minmax(0, ${tileWidth}px))`,
-                    gap,
-                  }}
+                  className="absolute inset-x-0 flex"
+                  style={{ transform: `translateY(${row.start}px)`, gap: gutter }}
                 >
                   {items
                     .slice(row.index * columns, (row.index + 1) * columns)
                     .map((node, column) => {
                       const index = row.index * columns + column;
-                      const object = node.type === "object";
-                      const key = object ? objectPreviewKey(node) : null;
-                      const image = thumbnails && key !== null ? stills.get(key) : undefined;
-                      const aim = () =>
-                        setAimed(object && objectPreviewKind(node) !== null ? node : null);
+                      const key = node.type === "object" ? keyOf(node) : null;
+                      const outcome = thumbnails && key !== null ? outcomes.get(key) : undefined;
 
                       return (
-                        <div
+                        <ObjectTile
                           key={node.id}
-                          role="gridcell"
-                          aria-colindex={column + 1}
-                          onContextMenu={() => setMenuNode(node)}
-                        >
-                          <ObjectTile
-                            node={node}
-                            index={index}
-                            focused={index === Math.min(focused, items.length - 1)}
-                            artHeight={artHeight}
-                            captionHeight={captionHeight}
-                            footerHeight={footerHeight}
-                            image={image}
-                            loading={
-                              thumbnails && key !== null && jobKeys.has(key) && !stills.has(key)
-                            }
-                            onAim={aim}
-                            onLeave={() => setAimed(null)}
-                            onFocus={() => {
-                              setFocused(index);
-                              aim();
-                            }}
-                            onDescend={onDescend}
-                          />
-                        </div>
+                          node={node}
+                          index={index}
+                          column={column}
+                          width={tileWidth}
+                          artHeight={artHeight}
+                          nameType={nameType}
+                          focused={index === Math.min(focused, items.length - 1)}
+                          selected={node.id === selectedPath}
+                          outcome={outcome}
+                          loading={
+                            thumbnails &&
+                            key !== null &&
+                            outcome === undefined &&
+                            (pool?.running.has(key) ?? false)
+                          }
+                          onFocusTile={focusTile}
+                          onMenu={openMenu}
+                          onDescend={descend}
+                        />
                       );
                     })}
                 </div>
@@ -279,40 +359,12 @@ export function ObjectsGrid({
             </div>
           </div>
         </ContextMenu.Trigger>
-        <ObjectsContextMenu node={menuNode} onOpen={open} />
+        <ObjectsContextMenu
+          node={menuNode}
+          onOpen={open}
+          onRetryPreview={menuFailed ? () => retryPreviews([menuKey]) : undefined}
+        />
       </ContextMenu.Root>
-      {thumbnails && [...stills.values()].some((image) => image === null) && (
-        <div className="flex shrink-0 items-center justify-end border-t border-surface-veil-strong px-2 py-1">
-          <Button
-            size="xs"
-            compact
-            variant="ghost"
-            onClick={() => {
-              setStills((held) => new Map([...held].filter(([, image]) => image !== null)));
-              setRevision((held) => held + 1);
-            }}
-          >
-            {m.workshop_objects_preview_retry_action()}
-          </Button>
-        </div>
-      )}
-      {enabled &&
-        slots.map((job, slot) => (
-          <ObjectPreviewSlot
-            key={slot}
-            scroll={scroll}
-            targetIndex={job !== null && job === live ? items.indexOf(job) : null}
-            onEnter={() => setAimed(job)}
-            onLeave={() => setAimed(null)}
-            onClose={() => {
-              setAimed(null);
-              setHovered(null);
-            }}
-            node={job}
-            revision={revision}
-            onImage={onImage}
-          />
-        ))}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import {
+  ArrowClockwiseIcon,
   ArrowSquareOutIcon,
   FileIcon,
   HashIcon,
@@ -22,6 +23,8 @@ interface ObjectsContextMenuProps {
   /** The row the menu was opened on. Absent while it has never been opened. */
   node: ObjectTreeNode | null;
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
+  /** Retries the object's failed preview. Absent when the preview did not fail. */
+  onRetryPreview?: () => void;
 }
 
 /**
@@ -30,7 +33,7 @@ interface ObjectsContextMenuProps {
  * "What a row opens" in docs/ux/PROJECT_EDITOR.md. A prefix is a fold of the tree and
  * has a path to copy and nothing else.
  */
-export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
+export function ObjectsContextMenu({ node, onOpen, onRetryPreview }: ObjectsContextMenuProps) {
   const copy = useCopyToClipboard();
   const showInFile = useShowInFile();
   const find = useFindReferences();
@@ -74,6 +77,14 @@ export function ObjectsContextMenu({ node, onOpen }: ObjectsContextMenuProps) {
           >
             {m.workshop_objects_open_beside_action()}
           </ContextMenu.Item>
+          {onRetryPreview && (
+            <ContextMenu.Item
+              icon={<ArrowClockwiseIcon className="h-4 w-4" />}
+              onClick={onRetryPreview}
+            >
+              {m.workshop_objects_preview_retry_one_action()}
+            </ContextMenu.Item>
+          )}
           <ContextMenu.Separator />
           <ContextMenu.Item
             icon={<FileIcon className="h-4 w-4" />}

@@ -40,6 +40,15 @@ export function useBinSave(asset: string): BinSave {
   return useBinSavesStore((store) => store.saves[asset] ?? CLEAN);
 }
 
+/** Call `listener` with the key of each asset a save has written. */
+export function onBinSaved(listener: (asset: string) => void): () => void {
+  return useBinSavesStore.subscribe((store, previous) => {
+    for (const [asset, save] of Object.entries(store.saves)) {
+      if (save === CLEAN && previous.saves[asset]?.state === "saving") listener(asset);
+    }
+  });
+}
+
 /** Queue a save of `asset` through `document` after a patch landed, restarting the wait. */
 export function queueForSave(asset: string, document: BinDocumentId) {
   const held = saveQueue.get(asset);

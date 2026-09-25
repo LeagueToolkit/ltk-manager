@@ -35,10 +35,10 @@ describe("objectPreviewKind", () => {
 });
 
 describe("playsOnHover", () => {
-  it("keeps a hovered material and particle system drawing, and holds a character's still", () => {
+  it("plays every kind with a preview on hover, a character on its turntable", () => {
     expect(playsOnHover("material")).toBe(true);
     expect(playsOnHover("vfx")).toBe(true);
-    expect(playsOnHover("skin")).toBe(false);
+    expect(playsOnHover("skin")).toBe(true);
     expect(playsOnHover(null)).toBe(false);
   });
 });

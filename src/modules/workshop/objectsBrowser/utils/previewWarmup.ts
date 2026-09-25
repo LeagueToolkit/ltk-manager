@@ -1,19 +1,31 @@
-const SAMPLE_STEPS = 24;
 const STEP_SECONDS = 1 / 30;
 const STEPS_PER_FRAME = 8;
 const FRAME_BUDGET_MS = 2;
 
-/** A 0.8-second particle sample advanced in bounded batches, independent of display frame rate. */
+interface WarmupOptions {
+  /** Particle time sampled before the system counts as empty, in seconds. */
+  readonly seconds: number;
+  /** Whether a particle is alive, which ends the sample early. */
+  readonly hasContent?: () => boolean;
+  readonly now?: () => number;
+}
+
+/** Particle time sampled in bounded batches up to the first visible burst, independent of frame rate. */
 export function createPreviewWarmup(
   advance: (seconds: number) => void,
-  now = () => performance.now(),
-  hasContent?: () => boolean,
+  { seconds, hasContent = () => false, now = () => performance.now() }: WarmupOptions,
 ) {
-  let remaining = SAMPLE_STEPS;
+  let remaining = Math.max(1, Math.round(seconds / STEP_SECONDS));
+  let found = false;
 
   return {
+    /** The sample ended, by finding a burst or by running out of time. */
     get ready() {
       return remaining === 0;
+    },
+    /** A particle was alive when the sample stopped. */
+    get found() {
+      return found;
     },
     run() {
       const start = now();
@@ -24,7 +36,8 @@ export function createPreviewWarmup(
         remaining -= 1;
         steps += 1;
 
-        if (hasContent?.()) {
+        if (hasContent()) {
+          found = true;
           remaining = 0;
           break;
         }

@@ -1,10 +1,19 @@
 // @vitest-environment happy-dom
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { nameHash } from "../../../bin/shared/utils/binHash";
+import {
+  EMPTY_OUTCOME,
+  FAILED_OUTCOME,
+  type PreviewOutcome,
+  resetPreviewStills,
+  retryPreviews,
+} from "../../state/previewStills";
 import type { ObjectRowNode } from "../../utils/objectTree";
+import { ObjectPreviewPool } from "../ObjectPreviewPool";
 import { ObjectsGrid } from "../ObjectsGrid";
 
 const state = vi.hoisted(() => ({
@@ -12,9 +21,10 @@ const state = vi.hoisted(() => ({
   visible: true,
   row: 0,
   width: 180,
-  images: new Map<string, (image: string | null) => void>(),
+  reports: new Map<string, (outcome: PreviewOutcome) => void>(),
   open: vi.fn(),
   virtualizer: {
+    isScrolling: false,
     measure: vi.fn(),
     scrollToIndex: vi.fn(),
     getTotalSize: () => 472,
@@ -32,19 +42,28 @@ vi.mock("@tanstack/react-virtual", () => ({ useVirtualizer: () => state.virtuali
 vi.mock("../../../explorer/components/ExplorerSurface", () => ({
   useMeasuredWidth: () => state.width,
 }));
+vi.mock("../../../bin/documents/hooks/useBinDocument", () => ({
+  useBinDocument: () => ({ state: { status: "opening" }, reopen: vi.fn() }),
+}));
 vi.mock("../../hooks/useOpenObjectNode", () => ({ useOpenObjectNode: () => state.open }));
 vi.mock("../ObjectsContextMenu", () => ({ ObjectsContextMenu: () => null }));
 vi.mock("../ObjectPreviewWorker", () => ({
   default: ({
     node,
-    onImage,
+    playing,
+    onOutcome,
   }: {
     node: ObjectRowNode | null;
-    onImage: (image: string | null) => void;
+    playing: boolean;
+    onOutcome: (outcome: PreviewOutcome) => void;
   }) => {
     if (node === null) return null;
-    state.images.set(node.name, onImage);
-    return <output data-testid="worker">{node.name}</output>;
+    state.reports.set(node.name, onOutcome);
+    return (
+      <output data-testid="worker" data-playing={String(playing)}>
+        {node.name}
+      </output>
+    );
   },
 }));
 
@@ -72,9 +91,43 @@ function node(name: string): ObjectRowNode {
 
 const nodes = [node("First effect"), node("Second effect")];
 const noop = () => {};
-const grid = (thumbnails = true) => (
-  <ObjectsGrid nodes={nodes} thumbnails={thumbnails} onDescend={noop} onUp={noop} />
-);
+
+function grid({
+  thumbnails = true,
+  gridKey,
+  ...props
+}: Partial<ComponentProps<typeof ObjectsGrid>> & { gridKey?: string } = {}) {
+  return (
+    <ObjectPreviewPool mounted={thumbnails} active>
+      <ObjectsGrid
+        key={gridKey}
+        nodes={nodes}
+        thumbnails={thumbnails}
+        onDescend={noop}
+        onUp={noop}
+        {...props}
+      />
+    </ObjectPreviewPool>
+  );
+}
+
+const still = (name: string): PreviewOutcome => ({
+  kind: "image",
+  src: `data:image/webp;base64,${name}`,
+});
+const tileOf = (name: string) =>
+  screen.getByRole("button", { name: `${name} VfxSystemDefinitionData` });
+const workers = () => screen.queryAllByTestId("worker").map((worker) => worker.textContent);
+
+function report(name: string, outcome: PreviewOutcome) {
+  act(() => state.reports.get(name)!(outcome));
+}
+
+async function wait(ms = 0) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -82,7 +135,8 @@ beforeEach(() => {
   state.visible = true;
   state.reduced = false;
   state.width = 180;
-  state.images.clear();
+  state.reports.clear();
+  state.virtualizer.isScrolling = false;
   state.virtualizer.getVirtualItems = () => [
     { index: state.row, key: state.row, start: state.row * 236 },
   ];
@@ -90,223 +144,208 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  resetPreviewStills();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
 
-async function settle() {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(0);
-  });
-}
-
 it("does no rendering until thumbnails are requested and releases the worker when disabled", async () => {
-  const { rerender } = render(grid(false));
-  expect(screen.queryByTestId("worker")).toBeNull();
+  const { rerender } = render(grid({ thumbnails: false }));
+  expect(workers()).toEqual([]);
 
   rerender(grid());
-  await settle();
-  expect(screen.getByTestId("worker")).toHaveTextContent("First effect");
-  act(() => state.images.get("First effect")!("data:image/webp;base64,first"));
-  expect(screen.queryByTestId("worker")).toBeNull();
-  expect(
-    screen
-      .getByRole("button", { name: "First effect VfxSystemDefinitionData" })
-      .querySelector("img"),
-  ).not.toBeNull();
+  await wait();
+  expect(workers()).toEqual(["First effect"]);
+  report("First effect", still("first"));
+  expect(workers()).toEqual([]);
+  expect(tileOf("First effect").querySelector("img")).not.toBeNull();
 
-  rerender(grid(false));
-  expect(screen.queryByTestId("worker")).toBeNull();
+  rerender(grid({ thumbnails: false }));
+  expect(workers()).toEqual([]);
 });
 
 it("discards obsolete captures after scrolling and queues only the visible row", async () => {
   const { rerender } = render(grid());
-  await settle();
-  const obsolete = state.images.get("First effect")!;
+  await wait();
+  const obsolete = state.reports.get("First effect")!;
 
   state.row = 1;
   rerender(grid());
-  expect(screen.getByTestId("worker")).toHaveTextContent("Second effect");
-  act(() => obsolete("data:image/webp;base64,obsolete"));
-  expect(screen.getByTestId("worker")).toHaveTextContent("Second effect");
+  expect(workers()).toEqual(["Second effect"]);
+  act(() => obsolete(still("obsolete")));
+  expect(workers()).toEqual(["Second effect"]);
 
   state.row = 0;
   rerender(grid());
-  expect(screen.getByTestId("worker")).toHaveTextContent("First effect");
+  expect(workers()).toEqual(["First effect"]);
 });
 
-it("plays a focused particle after a dwell and stops it for reduced motion or hidden content", async () => {
-  const { rerender } = render(grid());
-  await settle();
-  act(() => state.images.get("First effect")!("data:image/webp;base64,first"));
-  fireEvent.focus(screen.getByRole("button", { name: "First effect VfxSystemDefinitionData" }));
-  expect(screen.queryByTestId("worker")).toBeNull();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(180);
-  });
-  expect(screen.getByTestId("worker")).toHaveTextContent("First effect");
+it("keeps stills across a remounted grid, as a folder change or a search does", async () => {
+  const { rerender } = render(grid({ gridKey: "first" }));
+  await wait();
+  report("First effect", still("first"));
 
+  rerender(grid({ gridKey: "second" }));
+  await wait();
+  expect(workers()).toEqual([]);
+  expect(tileOf("First effect").querySelector("img")).toHaveAttribute(
+    "src",
+    "data:image/webp;base64,first",
+  );
+});
+
+it("plays a hovered tile in place after a dwell, and not for focus or reduced motion", async () => {
+  const { rerender } = render(grid());
+  await wait();
+  report("First effect", still("first"));
+  const tile = tileOf("First effect");
+
+  fireEvent.focus(tile);
+  await wait(400);
+  expect(workers()).toEqual([]);
+
+  fireEvent.pointerOver(tile);
+  await wait(399);
+  expect(workers()).toEqual([]);
+  await wait(1);
+  const worker = screen.getByTestId("worker");
+  expect(tile.contains(worker)).toBe(true);
+  expect(worker).toHaveAttribute("data-playing", "true");
+  expect(screen.queryByRole("dialog")).toBeNull();
+
+  fireEvent.pointerLeave(screen.getByRole("grid"));
+  expect(workers()).toEqual([]);
+
+  fireEvent.pointerOver(tile);
   state.reduced = true;
   rerender(grid());
-  expect(screen.queryByTestId("worker")).toBeNull();
-  state.visible = false;
-  rerender(grid());
-  expect(screen.queryByTestId("worker")).toBeNull();
+  await wait(400);
+  expect(workers()).toEqual([]);
 });
 
-it("keeps playback in a large popover across the tile-to-popup gap and closes on leave", async () => {
+it("opens the focused tile in the large popover with Space and closes it with Escape", async () => {
   render(grid());
-  await settle();
-  act(() => state.images.get("First effect")!("data:image/webp;base64,first"));
-  const tile = screen.getByRole("button", { name: "First effect VfxSystemDefinitionData" });
-  fireEvent.pointerEnter(tile);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(180);
-  });
-  const worker = screen.getByTestId("worker");
-  const popup = screen.getByRole("dialog", { name: "First effect" });
-  expect(tile.contains(worker)).toBe(false);
-  expect(popup.contains(worker)).toBe(true);
-  expect(popup).toHaveClass("w-96");
-  act(() => state.images.get("First effect")!("data:image/webp;base64,live"));
-  fireEvent.pointerLeave(tile);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(100);
-  });
-  fireEvent.pointerEnter(popup);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(60_000);
-  });
-  expect(screen.getByTestId("worker")).toBe(worker);
+  await wait();
+  report("First effect", still("first"));
+  const tile = tileOf("First effect");
 
-  fireEvent.pointerLeave(popup);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(180);
-  });
-  expect(screen.queryByTestId("worker")).toBeNull();
-  expect(tile.querySelector("img")).not.toBeNull();
+  fireEvent.focus(tile);
+  fireEvent.keyDown(tile, { key: " " });
+  await wait();
+  const popup = screen.getByRole("dialog", { name: "First effect" });
+  expect(popup).toHaveClass("w-96");
+  expect(popup.contains(screen.getByTestId("worker"))).toBe(true);
+  expect(state.open).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(popup, { key: "Escape" });
+  await wait(300);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(workers()).toEqual([]);
 });
 
 it("scrolls and focuses a revealed tile without opening it, including a repeated reveal", async () => {
   state.width = 300;
   const settled = vi.fn();
   const { rerender } = render(
-    <ObjectsGrid
-      nodes={nodes}
-      thumbnails={false}
-      onDescend={noop}
-      onUp={noop}
-      reveal={{ path: nodes[1]!.id, token: 1 }}
-      onRevealed={settled}
-    />,
+    grid({ thumbnails: false, reveal: { path: nodes[1]!.id, token: 1 }, onRevealed: settled }),
   );
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(40);
-  });
-  const tile = screen.getByRole("button", { name: "Second effect VfxSystemDefinitionData" });
+  await wait(40);
+  const tile = tileOf("Second effect");
   expect(tile).toHaveFocus();
   expect(settled).toHaveBeenCalledWith(1);
   expect(state.open).not.toHaveBeenCalled();
 
   rerender(
-    <ObjectsGrid
-      nodes={nodes}
-      thumbnails={false}
-      onDescend={noop}
-      onUp={noop}
-      reveal={{ path: nodes[1]!.id, token: 2 }}
-      onRevealed={settled}
-    />,
+    grid({ thumbnails: false, reveal: { path: nodes[1]!.id, token: 2 }, onRevealed: settled }),
   );
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(40);
-  });
+  await wait(40);
   expect(settled).toHaveBeenLastCalledWith(2);
   expect(tile).toHaveFocus();
 });
 
-it("retries a failed still on hover and dismisses the popover with Escape", async () => {
+it("retries a failed still when its tile is hovered", async () => {
   render(grid());
-  await settle();
-  act(() => state.images.get("First effect")!(null));
-  const tile = screen.getByRole("button", { name: "First effect VfxSystemDefinitionData" });
-  fireEvent.pointerEnter(tile);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(180);
-  });
-  expect(screen.getByRole("dialog", { name: "First effect" })).toBeInTheDocument();
-  expect(screen.getByTestId("worker")).toHaveTextContent("First effect");
-  act(() => state.images.get("First effect")!("data:image/webp;base64,recovered"));
+  await wait();
+  report("First effect", FAILED_OUTCOME);
+  const tile = tileOf("First effect");
+  expect(tile).toHaveAttribute("aria-description", "Preview unavailable");
+
+  fireEvent.pointerOver(tile);
+  await wait(400);
+  expect(workers()).toEqual(["First effect"]);
+  report("First effect", still("recovered"));
   expect(tile.querySelector("img")).toHaveAttribute("src", "data:image/webp;base64,recovered");
-  fireEvent.keyDown(screen.getByRole("dialog", { name: "First effect" }), { key: "Escape" });
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(300);
-  });
-  expect(screen.queryByRole("dialog")).toBeNull();
-  expect(screen.queryByTestId("worker")).toBeNull();
 });
 
 it("settles an unanswered preview once and keeps opening the object available", async () => {
   render(grid());
-  await settle();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(15_000);
-  });
-  expect(screen.queryByTestId("worker")).toBeNull();
+  await wait();
+  await wait(15_000);
+  expect(workers()).toEqual([]);
 
-  fireEvent.click(screen.getByRole("button", { name: "First effect VfxSystemDefinitionData" }));
+  fireEvent.click(tileOf("First effect"));
   expect(state.open).toHaveBeenCalledWith(nodes[0], "default");
 });
 
 it("loads two previews concurrently and keeps the unfinished slot when another completes", async () => {
   state.width = 600;
   const many = [...nodes, node("Third effect"), node("Fourth effect")];
-  render(<ObjectsGrid nodes={many} thumbnails onDescend={noop} onUp={noop} />);
-  await settle();
-  expect(screen.getAllByTestId("worker").map((worker) => worker.textContent)).toEqual([
-    "First effect",
-    "Second effect",
-  ]);
+  render(grid({ nodes: many }));
+  await wait();
+  expect(workers()).toEqual(["First effect", "Second effect"]);
   const second = screen.getAllByTestId("worker")[1];
 
-  act(() => state.images.get("First effect")!("data:image/webp;base64,first"));
-  expect(screen.getAllByTestId("worker").map((worker) => worker.textContent)).toEqual([
-    "Third effect",
-    "Second effect",
-  ]);
+  report("First effect", still("first"));
+  expect(workers()).toEqual(["Third effect", "Second effect"]);
   expect(screen.getAllByTestId("worker")[1]).toBe(second);
 });
 
-it("shows failed previews and retries without discarding completed stills", async () => {
-  state.width = 300;
-  render(grid());
-  await settle();
-  act(() => {
-    state.images.get("First effect")!(null);
-    state.images.get("Second effect")!("data:image/webp;base64,second");
-  });
-  expect(
-    screen.getByRole("button", { name: "First effect VfxSystemDefinitionData" }),
-  ).toHaveAttribute("aria-description", "Preview unavailable");
-  fireEvent.click(screen.getByRole("button", { name: "Retry previews" }));
-  expect(screen.getByTestId("worker")).toHaveTextContent("First effect");
-  expect(
-    screen
-      .getByRole("button", { name: "Second effect VfxSystemDefinitionData" })
-      .querySelector("img"),
-  ).not.toBeNull();
+it("starts no still during a scroll and resumes once it settles", async () => {
+  state.width = 600;
+  state.virtualizer.isScrolling = true;
+  const many = [...nodes, node("Third effect")];
+  const { rerender } = render(grid({ nodes: many }));
+  await wait();
+  expect(workers()).toEqual([]);
+
+  state.virtualizer.isScrolling = false;
+  rerender(grid({ nodes: many }));
+  await wait();
+  expect(workers()).toEqual(["First effect", "Second effect"]);
 });
 
-it("keeps child navigation separate from opening an object and uses compact tile widths", () => {
+it("retries failed previews without discarding completed stills", async () => {
+  state.width = 300;
+  render(grid());
+  await wait();
+  report("First effect", FAILED_OUTCOME);
+  report("Second effect", still("second"));
+
+  act(() => retryPreviews());
+  await wait();
+  expect(workers()).toEqual(["First effect"]);
+  expect(tileOf("Second effect").querySelector("img")).not.toBeNull();
+});
+
+it("marks an object with nothing to draw without a failure, and a retry leaves it", async () => {
+  render(grid());
+  await wait();
+  report("First effect", EMPTY_OUTCOME);
+  expect(tileOf("First effect")).toHaveAttribute("aria-description", "Nothing to preview");
+
+  act(() => retryPreviews());
+  await wait();
+  expect(workers()).toEqual([]);
+});
+
+it("keeps child navigation separate from opening an object and sizes tiles to the setting", () => {
   const descend = vi.fn();
   const parent = { ...nodes[0]!, count: 12 };
-  render(<ObjectsGrid nodes={[parent]} thumbnails={false} onDescend={descend} onUp={noop} />);
+  render(grid({ nodes: [parent], thumbnails: false, onDescend: descend }));
   fireEvent.click(screen.getByRole("button", { name: "Browse 12 children" }));
   expect(descend).toHaveBeenCalledWith(parent.id);
   expect(state.open).not.toHaveBeenCalled();
-  expect(screen.getByRole("row")).toHaveStyle({
-    gridTemplateColumns: "repeat(1, minmax(0, 128px))",
-  });
+  expect(screen.getByRole("gridcell")).toHaveStyle({ width: "128px" });
   expect(
     screen
       .getByRole("button", { name: "Browse 12 children" })
