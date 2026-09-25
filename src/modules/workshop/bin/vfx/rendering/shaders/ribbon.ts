@@ -78,9 +78,8 @@ void main() {
   texel *= fetch(mapMult, vMultUv, vec4(0.0, 0.0, vMultCell), cellMult, addressMult);
 #endif
   texel.a *= eroding(vCell + vUv * cellSize);
-  vec4 lit = texel * vColor;
+  vec4 lit = softened(texel * vColor);
   if (lit.a < alphaRef) discard;
-  lit = softened(lit);
 #ifdef DISTORTS
   gl_FragColor = warped(vUv, lit.a);
 #else

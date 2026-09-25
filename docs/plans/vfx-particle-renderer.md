@@ -1833,7 +1833,8 @@ rim    = (1 - pow(facing, vFresnel.w)) * vFresnel.rgb
 Half of each under `REFLECTIVE` add `reflect(I, N)` and an opacity
 `lerp(vReflection.y, vReflection.z, 1 - pow(facing, vReflection.x))`. The mesh fragment shader
 adds `cube * opacity * lerp(1, vReflectionFColor.rgb, opacity)`
-and then `rim * alpha` to the colour, saturated, and leaves the alpha. The skinned mesh particle
+and then `rim * alpha` to the colour, and leaves the alpha. The alpha that carries the rim is
+taken before the erosion, and the colour saturates after the soft fade. The skinned mesh particle
 fragment shader scales both terms by the texture's alpha before the particle's colour, where the
 mesh fragment shader takes the drawn alpha. `REFLECTION_MAP` is a cube, bound at a fixed sampler
 slot. Neither the quad vertex nor the quad fragment shader names either constant, so the 2,227

@@ -223,8 +223,8 @@ If the translated and hand-written quads disagree beyond sampling differences, s
 the prelude is what this plan rests on.
 
 A headless Edge page ran the check over the `particle_shaders` dump. All 32 define sets and the
-four orientations match within 0.0014. The one case apart is an alpha-blended soft quad with an alpha test: the
-hand-written `FRAGMENT` discards before the soft fade, and `quad_ps` discards after it.
+four orientations match within 0.0014. The hand-written `FRAGMENT` alpha-tests after the soft fade,
+as `quad_ps` does.
 
 The prelude writes each layer's uv inside the atlas, with its cell already placed, frame 0 and an
 identity `TEXTURE_INFO`. Each layer keeps the flipbook the simulation plays for it, where the
@@ -272,15 +272,10 @@ and ribbons. On a mesh or an attached mesh it keeps the hand-written material.
 The same headless check compares every quad and ribbon set, and every mesh and attached set
 under the default uv mode, with the hand-written material, and the base and full mesh sets
 posed by their bones and on the ground. A mesh set under another uv mode, which the hand port
-draws differently, has to link and draw. 181 of 214 cases match within 4/255. Of the
-other 33, 32 are two differences in the hand port:
-
-- The alpha test before the soft fade (V3), 2 cases.
-- The rim and the reflection, which `mesh_ps` and `particle_ps` scale by the alpha before
-  erosion and the hand port by the eroded alpha, 30 cases.
-
-The last is a ground-layer mesh, whose flattened faces tie in depth and differ at 2 of 662
-pixels.
+draws differently, has to link and draw. 213 of 214 cases match within 4/255. The hand port
+carries the rim and the reflection by the alpha before the erosion and saturates the colour after
+the soft fade, as `mesh_ps` and `particle_ps` do. The case apart is a ground-layer mesh, whose
+flattened faces tie in depth and differ at 2 of 662 pixels.
 
 ### V7: soft particles and distortion
 
