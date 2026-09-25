@@ -27,11 +27,11 @@ import {
 /** How many previews load and render at once. Each slot has a separate canvas. */
 export const PREVIEW_CONCURRENCY = 2;
 
-/** How long a bin stays open after its last preview, so the next object from it skips the parse. */
-const KEEP_OPEN_MS = 10_000;
+/** How long a bin stays loaded after its last preview, so the next object from it skips the parse. */
+const UNLOAD_DELAY_MS = 10_000;
 
-/** How many bins stay open for previews at once. */
-const MAX_KEPT = 4;
+/** How many bins stay loaded for previews at once. */
+const MAX_LOADED = 4;
 
 /** What a grid asks the pool to render. */
 export interface PreviewRequest {
@@ -71,7 +71,7 @@ interface ObjectPreviewPoolProps {
  *
  * A folder change, a search keystroke or a hidden tab replaces the grid and keeps the
  * canvases and their compiled shader programs. An idle slot stops its frame loop and stays
- * mounted. The bins the slots read stay open for `KEEP_OPEN_MS` after their last job.
+ * mounted. The bins the slots read stay loaded for `UNLOAD_DELAY_MS` after their last job.
  */
 export function ObjectPreviewPool({ mounted, active, children }: ObjectPreviewPoolProps) {
   const visible = useContentVisible();
@@ -102,7 +102,7 @@ export function ObjectPreviewPool({ mounted, active, children }: ObjectPreviewPo
   latest.current = request;
   const dismiss = useCallback(() => latest.current?.onDismiss(), []);
 
-  const kept = useKeptBins(slots);
+  const loaded = useLoadedBins(slots);
 
   return (
     <PreviewPoolContext value={pool}>
@@ -119,8 +119,8 @@ export function ObjectPreviewPool({ mounted, active, children }: ObjectPreviewPo
             onDismiss={dismiss}
           />
         ))}
-      {kept.map(({ key, asset, entry }) => (
-        <BinKeeper key={key} asset={asset} entry={entry} />
+      {loaded.map(({ key, asset, entry }) => (
+        <BinLoader key={key} asset={asset} entry={entry} />
       ))}
     </PreviewPoolContext>
   );
@@ -139,7 +139,7 @@ function useForeground(): boolean {
   return foreground;
 }
 
-interface KeptBin {
+interface LoadedBin {
   readonly key: string;
   readonly asset: AssetRef;
   readonly entry: string;
@@ -147,17 +147,17 @@ interface KeptBin {
 }
 
 /**
- * The bins the slots read, kept open while a job reads them and for `KEEP_OPEN_MS` after.
+ * The bins the slots read, loaded while a job reads them and for `UNLOAD_DELAY_MS` after.
  *
  * The backend parses a bin only when no id has it open, so consecutive objects from one bin
  * share one parse.
  */
-function useKeptBins(slots: readonly (ObjectPreviewJob | null)[]): readonly KeptBin[] {
-  const [kept, setKept] = useState<readonly KeptBin[]>([]);
+function useLoadedBins(slots: readonly (ObjectPreviewJob | null)[]): readonly LoadedBin[] {
+  const [loaded, setLoaded] = useState<readonly LoadedBin[]>([]);
 
   useEffect(() => {
-    const keep = () =>
-      setKept((previous) => {
+    const refresh = () =>
+      setLoaded((previous) => {
         const now = Date.now();
         const byKey = new Map(previous.map((bin) => [bin.key, bin]));
         const busy = new Set<string>();
@@ -176,9 +176,9 @@ function useKeptBins(slots: readonly (ObjectPreviewJob | null)[]): readonly Kept
         }
 
         const next = [...byKey.values()]
-          .filter((bin) => busy.has(bin.key) || now - bin.used < KEEP_OPEN_MS)
+          .filter((bin) => busy.has(bin.key) || now - bin.used < UNLOAD_DELAY_MS)
           .sort((a, b) => b.used - a.used)
-          .slice(0, MAX_KEPT);
+          .slice(0, MAX_LOADED);
         const unchanged =
           next.length === previous.length &&
           next.every(
@@ -187,15 +187,15 @@ function useKeptBins(slots: readonly (ObjectPreviewJob | null)[]): readonly Kept
         return unchanged ? previous : next;
       });
 
-    keep();
-    const timer = window.setTimeout(keep, KEEP_OPEN_MS);
+    refresh();
+    const timer = window.setTimeout(refresh, UNLOAD_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [slots]);
 
-  return kept;
+  return loaded;
 }
 
-function BinKeeper({ asset, entry }: { asset: AssetRef; entry: string }) {
+function BinLoader({ asset, entry }: { asset: AssetRef; entry: string }) {
   useBinDocument(asset, entry);
   return null;
 }
