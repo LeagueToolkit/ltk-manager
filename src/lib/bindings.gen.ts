@@ -2638,10 +2638,15 @@ export type MaterialSource =
 /**  An open document, such as a skin's bin. */
 { kind: "document"; document: BinDocumentId } | 
 /**
- *  A bin read for the call, such as a map's `.materials.bin`, resolved against the
+ *  A bin read for the call, such as a file a skin links, resolved against the
  *  project of `document` where one is open and against the install alone otherwise.
  */
-{ kind: "file"; asset: AssetRef; document: BinDocumentId | null };
+{ kind: "file"; asset: AssetRef; document: BinDocumentId | null } | 
+/**
+ *  A map's `.materials.bin`, located as `read_map` locates it: in the project of
+ *  `document` first, where one is open, and in the install second.
+ */
+{ kind: "map"; map: MapPath; document: BinDocumentId | null };
 
 /**  Something the engine does silently that a preview says out loud. */
 export type MaterialWarning = 
