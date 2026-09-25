@@ -23,6 +23,7 @@ ts = [
 ]
 
 [dependencies]
+filetime = { workspace = true }
 ritoclient = { workspace = true }
 
 ltk-declarations = { workspace = true }
@@ -98,4 +99,3 @@ windows-sys = { workspace = true, features = [
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-filetime = { workspace = true }

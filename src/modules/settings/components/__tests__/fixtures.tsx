@@ -18,6 +18,8 @@ export function freshSettings(): Settings {
 interface RenderSettingsOptions {
   /** What the app currently holds, over the fresh values. */
   settings?: Partial<Settings>;
+  /** What other commands answer, by name. Any other command answers `null`. */
+  answers?: Record<string, unknown>;
 }
 
 /**
@@ -38,7 +40,7 @@ export function renderSettings(ui: ReactElement, options?: RenderSettingsOptions
   mockInvoke.mockImplementation((command: string) => {
     if (command === "get_settings") return Promise.resolve({ ok: true, value: current });
     if (command === "get_default_settings") return Promise.resolve({ ok: true, value: fresh });
-    return Promise.resolve({ ok: true, value: null });
+    return Promise.resolve({ ok: true, value: options?.answers?.[command] ?? null });
   });
 
   return render(ui, {

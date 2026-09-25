@@ -7,6 +7,8 @@
   the merge a built-in mod's chunks stay outside of.
   [ADR-0024](0024-a-setting-id-is-its-key-in-settings-json.md), whose flat file the
   `builtinMods` group departs from.
+  [ADR-0052](0052-a-map-skin-choice-copies-one-skins-environment-over-the-others.md), the first
+  built-in mod that declares properties rather than overriding chunks.
 
 ## Context and problem statement
 

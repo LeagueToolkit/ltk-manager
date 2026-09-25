@@ -11,6 +11,8 @@ import type {
   ChecksumMismatchInfo,
   ContentTree,
   CreateProjectArgs,
+  ForcibleMapSkin,
+  MapDecoration,
   CslolModInfo,
   EditModMetadataArgs,
   ExportScope,
@@ -410,6 +412,8 @@ export const api = {
   checkSetupRequired: () => invokeResult<boolean>("check_setup_required"),
   detectLeagueRunAsAdmin: () => invokeResult<boolean>("detect_league_run_as_admin"),
   listAvailableWads: () => invokeResult<string[]>("list_available_wads"),
+  listForcibleMapSkins: () => invokeResult<ForcibleMapSkin[]>("list_forcible_map_skins"),
+  listMapDecorations: () => invokeResult<MapDecoration[]>("list_map_decorations"),
 
   // Mods
   getInstalledMods: () => invokeResult<InstalledMod[]>("get_installed_mods"),

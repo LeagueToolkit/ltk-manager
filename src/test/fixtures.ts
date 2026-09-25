@@ -48,7 +48,13 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hideRiotClientOnLaunch: true,
     readGameLog: true,
     keepIncidents: 50,
-    builtinMods: { defaultWardSkins: false, baseSkins: "off" },
+    builtinMods: {
+      defaultWardSkins: false,
+      baseSkins: "off",
+      mapSkin: "game",
+      forcedMapSkin: "",
+      mapDecorations: {},
+    },
     ...overrides,
   };
 }

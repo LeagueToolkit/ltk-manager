@@ -5,6 +5,10 @@ export const settingsKeys = {
   setupRequired: () => [...settingsKeys.all, "setupRequired"] as const,
   appInfo: () => [...settingsKeys.all, "appInfo"] as const,
   availableWads: () => [...settingsKeys.all, "availableWads"] as const,
+  forcibleMapSkins: (leaguePath: string) =>
+    [...settingsKeys.all, "forcibleMapSkins", leaguePath] as const,
+  mapDecorations: (leaguePath: string) =>
+    [...settingsKeys.all, "mapDecorations", leaguePath] as const,
   leagueRunAsAdmin: () => [...settingsKeys.all, "leagueRunAsAdmin"] as const,
   hashtableCache: () => [...settingsKeys.all, "hashtableCache"] as const,
   hashtableUpdates: () => [...settingsKeys.all, "hashtableUpdates"] as const,

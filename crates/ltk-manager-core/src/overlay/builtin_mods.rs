@@ -1,7 +1,11 @@
 //! Mods the manager generates and injects above every other mod, per ADR-0043.
 
+mod baked_meshes;
 mod base_skins;
+mod game_maps;
 mod game_skins;
+mod map_decorations;
+mod map_skins;
 mod mod_skins;
 mod overrides;
 mod skin_bin;
@@ -15,7 +19,11 @@ use base_skins::BaseSkins;
 use fs_err as fs;
 use ltk_overlay::{EnabledMod, FsModContent};
 use ltk_wad::PathResolver;
+use map_decorations::MapDecorations;
+use map_skins::MapSkins;
 use overrides::Overrides;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::Path;
 use ward_skins::DefaultWardSkins;
 
@@ -58,7 +66,90 @@ fn enabled(settings: &BuiltinModSettings) -> Vec<Box<dyn BuiltinMod>> {
     if let Some(base_skins) = BaseSkins::of(settings.base_skins) {
         enabled.push(Box::new(base_skins));
     }
+    if let Some(map_skins) = MapSkins::of(settings) {
+        enabled.push(Box::new(map_skins));
+    }
+    if let Some(map_decorations) = MapDecorations::of(settings) {
+        enabled.push(Box::new(map_decorations));
+    }
     enabled
+}
+
+/// A map skin every game can be made to show.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ForcibleMapSkin {
+    /// The skin's `name`, which the setting stores.
+    pub name: String,
+    /// Each map archive holding a whole skin by that name, such as `Map11.wad.client`.
+    pub maps: Vec<String>,
+}
+
+/// A map decoration a mutator switches, which the map decorations mod can force off or on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct MapDecoration {
+    /// The mutator whose key switches the decoration, which the setting stores.
+    pub mutator: String,
+    /// Each map archive with a container holding it, such as `Map11.wad.client`.
+    pub maps: Vec<String>,
+}
+
+/// Every mutator a map container in `game_dir` switches decorations by, in name order.
+///
+/// Two spellings of one mutator are one decoration, since the game matches a key without case.
+///
+/// # Errors
+///
+/// Fails when the maps directory cannot be listed.
+pub fn map_decorations(game_dir: &GameDir) -> AppResult<Vec<MapDecoration>> {
+    let mut by_key: BTreeMap<String, MapDecoration> = BTreeMap::new();
+    for map in game_maps::read(game_dir)? {
+        for (_, controllers) in map_decorations::controllers_of(&map)? {
+            for controller in controllers {
+                let decoration = by_key
+                    .entry(controller.mutator.to_ascii_lowercase())
+                    .or_insert_with(|| MapDecoration {
+                        mutator: controller.mutator.clone(),
+                        maps: Vec::new(),
+                    });
+                if !decoration.maps.contains(&map.archive) {
+                    decoration.maps.push(map.archive.clone());
+                }
+            }
+        }
+    }
+    Ok(by_key.into_values().collect())
+}
+
+/// Every skin other than `Default` that a map in `game_dir` links and holds the geometry and
+/// materials of, by name.
+///
+/// # Errors
+///
+/// Fails when the maps directory cannot be listed.
+pub fn forcible_map_skins(game_dir: &GameDir) -> AppResult<Vec<ForcibleMapSkin>> {
+    let mut by_name: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for map in game_maps::read(game_dir)? {
+        for skin in map
+            .skins
+            .iter()
+            .filter(|skin| skin.complete && skin.name != "Default")
+        {
+            let maps = by_name.entry(skin.name.clone()).or_default();
+            if !maps.contains(&map.archive) {
+                maps.push(map.archive.clone());
+            }
+        }
+    }
+    Ok(by_name
+        .into_iter()
+        .map(|(name, maps)| ForcibleMapSkin { name, maps })
+        .collect())
 }
 
 /// How many built-in mods `settings` turns on, each one place above every other mod.
