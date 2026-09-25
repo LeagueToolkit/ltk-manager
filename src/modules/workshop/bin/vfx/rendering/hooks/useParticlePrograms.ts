@@ -23,6 +23,7 @@ import {
   programPasses,
   programTextureAssets,
   type ReadyProgram,
+  type SubmeshProgram,
   useAssetTextures,
 } from "@/modules/viewport";
 import { usePreviewShaders } from "@/stores";
@@ -90,9 +91,9 @@ export interface ParticleProgram {
   readonly draw: (renderer: WebGLRenderer, scene: unknown, camera: Camera) => void;
 }
 
-/** One attached particle's program material, and the environment its slot's bones write. */
+/** One attached particle's program materials, one per pass, and the environment its slot writes. */
 export interface SlotProgram {
-  readonly material: RawShaderMaterial;
+  readonly materials: readonly RawShaderMaterial[];
   readonly environment: EngineEnvironment;
 }
 
@@ -106,16 +107,17 @@ const NO_ASSETS = new Map();
 const NO_MATERIALS: readonly RawShaderMaterial[] = [];
 const NO_PROGRAMS: readonly ParticleProgram[] = [];
 const NO_SLOTS: readonly SlotProgram[] = [];
+const NO_PASSES: readonly SubmeshProgram[] = [];
 
 /**
  * The Hexshade materials `emitter` draws with on `draw`'s path while the game's shaders are
  * on, one per pass in draw order, and none while the hand-written material draws in their
  * place.
  *
- * An emitter with a custom material draws each pass of it that translated, on the quad
- * path alone. Any other draws through the engine pair of its kind. The hand-written
- * material draws while a program is read, while its textures load, while it compiles, and
- * wherever no program draws. A read that fails is logged by the backend.
+ * An emitter with a custom material draws each pass of it that translated. Any other draws
+ * through the engine pair of its kind. The hand-written material draws while a program is
+ * read, while its textures load, while it compiles, and wherever no program draws. A read
+ * that fails is logged by the backend.
  */
 export function useParticlePrograms(
   emitter: EmitterModel,
@@ -125,8 +127,7 @@ export function useParticlePrograms(
   document: BinDocumentId | null,
 ): readonly ParticleProgram[] {
   const shaders = usePreviewShaders();
-  const custom =
-    draw.path === "quad" && emitter.customMaterial !== null && !emitter.customMaterial.missing;
+  const custom = drawsCustom(emitter);
   const environment = useMemo(() => new EngineEnvironment("uniform"), []);
   useEffect(() => () => environment.dispose(), [environment]);
   useEffect(() => {
@@ -149,10 +150,16 @@ export function useParticlePrograms(
   }, [read, emitter, samplers, draw, environment]);
   useEffect(() => () => engine?.dispose(), [engine]);
 
-  const passes = useCustomMaterials(emitter, draw, document, shaders && custom, environment);
+  const passes = useCustomPasses(emitter, document, shaders && custom);
+  const customs = useMemo(
+    () => passes.map((pass) => customParticleMaterial(pass, emitter, draw, environment)),
+    [passes, emitter, draw, environment],
+  );
+  useEffect(() => () => disposeAll(customs), [customs]);
+
   const materials = useMemo(
-    () => (custom ? passes : engine === null ? NO_MATERIALS : [engine]),
-    [custom, passes, engine],
+    () => (custom ? customs : engine === null ? NO_MATERIALS : [engine]),
+    [custom, customs, engine],
   );
   const compiled = useCompiled(materials, geometry);
 
@@ -170,11 +177,12 @@ export function useParticlePrograms(
 }
 
 /**
- * One program material per slot of an attached emitter over the character's skin `geometry`,
- * once they compile, and none while the hand-written skin draws in their place.
+ * The program materials of each slot of an attached emitter over the character's skin
+ * `geometry`, once they compile, and none while the hand-written skin draws in their place.
  *
  * Each slot is a separate draw with a separate environment, which the slot's transform and
- * bones write.
+ * bones write. A slot draws each translated pass of the emitter's custom material, or the
+ * engine pair of its kind.
  */
 export function useAttachedPrograms(
   emitter: EmitterModel,
@@ -183,38 +191,54 @@ export function useAttachedPrograms(
   count: number,
   document: BinDocumentId | null,
 ): readonly SlotProgram[] {
-  const shaders = usePreviewShaders();
-  const read = useEngineRead(emitter, "attached", document, shaders && geometry !== null);
+  const shaders = usePreviewShaders() && geometry !== null;
+  const custom = drawsCustom(emitter);
+  const read = useEngineRead(emitter, "attached", document, shaders && !custom);
+  const passes = useCustomPasses(emitter, document, shaders && custom);
+
   const slots = useMemo(() => {
     const textures = read === null ? null : particleTextures(emitter, samplers);
-    if (read === null || textures === null) return NO_SLOTS;
-    return Array.from({ length: count }, () => {
+    const engine = read === null || textures === null ? null : { read, textures };
+    if (custom ? passes.length === 0 : engine === null) return NO_SLOTS;
+
+    return Array.from({ length: count }, (): SlotProgram => {
       const environment = new EngineEnvironment("uniform");
-      const material = particleProgramMaterial(
-        read,
-        emitter,
-        samplers,
-        textures,
-        ATTACHED_DRAW,
-        environment,
-        null,
-      );
-      return { material, environment };
+      environment.particle = { colorFactor: [1, 1, 1, 1], depthPushPull: emitter.depthPushPull };
+      const materials =
+        engine === null
+          ? passes.map((pass) => customParticleMaterial(pass, emitter, ATTACHED_DRAW, environment))
+          : [
+              particleProgramMaterial(
+                engine.read,
+                emitter,
+                samplers,
+                engine.textures,
+                ATTACHED_DRAW,
+                environment,
+                null,
+              ),
+            ];
+      return { materials, environment };
     });
-  }, [read, emitter, samplers, count]);
+  }, [custom, read, passes, emitter, samplers, count]);
   useEffect(
     () => () => {
       for (const slot of slots) {
-        slot.material.dispose();
+        disposeAll(slot.materials);
         slot.environment.dispose();
       }
     },
     [slots],
   );
 
-  const materials = useMemo(() => slots.map((slot) => slot.material), [slots]);
+  const materials = useMemo(() => slots.flatMap((slot) => slot.materials), [slots]);
   const compiled = useCompiled(materials, geometry);
   return compiled ? slots : NO_SLOTS;
+}
+
+/** The emitter names a custom material the read found, which draws in place of the engine pair. */
+function drawsCustom(emitter: EmitterModel): boolean {
+  return emitter.customMaterial !== null && !emitter.customMaterial.missing;
 }
 
 /** The engine pair `emitter` draws with on `path`, translated, and null where it draws none. */
@@ -234,14 +258,12 @@ function useEngineRead(
   }, [drawn, read]);
 }
 
-/** One material per translated pass of the emitter's custom material, in draw order. */
-function useCustomMaterials(
+/** Each translated pass of the emitter's custom material, in draw order, with its textures. */
+function useCustomPasses(
   emitter: EmitterModel,
-  draw: ParticleDraw,
   document: BinDocumentId | null,
   enabled: boolean,
-  environment: EngineEnvironment,
-): readonly RawShaderMaterial[] {
+): readonly SubmeshProgram[] {
   const preview = enabled ? emitter.customMaterial : null;
   const read = useQuery({
     ...particleQueries.material(document, preview?.hash ?? null, preview?.source ?? null),
@@ -254,20 +276,14 @@ function useCustomMaterials(
   );
   const textures = useAssetTextures(assets, RAW_TEXTURES);
 
-  const materials = useMemo(
-    () =>
-      programPasses(program, textures).map((pass) =>
-        customParticleMaterial(pass, emitter, draw, environment),
-      ),
-    [program, textures, emitter, draw, environment],
-  );
-  useEffect(
-    () => () => {
-      for (const material of materials) material.dispose();
-    },
-    [materials],
-  );
-  return materials.length === 0 ? NO_MATERIALS : materials;
+  return useMemo(() => {
+    const passes = programPasses(program, textures);
+    return passes.length === 0 ? NO_PASSES : passes;
+  }, [program, textures]);
+}
+
+function disposeAll(materials: readonly RawShaderMaterial[]): void {
+  for (const material of materials) material.dispose();
 }
 
 /**

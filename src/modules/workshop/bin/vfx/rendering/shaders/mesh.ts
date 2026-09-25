@@ -104,17 +104,24 @@ mat4 particleBone(float bone) {
 }
 #endif
 
-void pose(inout vec3 posedPosition, inout vec3 posedNormal) {
+/* The vertex's bones blended by its weights, and the identity where it names none. */
+mat4 poseOf() {
+  mat4 skin = mat4(1.0);
 #ifdef PARTICLE_SKINNING
   if (dot(skinWeight, vec4(1.0)) > 0.0) {
-    mat4 skin = mat4(0.0);
+    skin = mat4(0.0);
     for (int i = 0; i < 4; i++) {
       if (skinWeight[i] > 0.0) skin += skinWeight[i] * particleBone(skinIndex[i]);
     }
-    posedPosition = (skin * vec4(posedPosition, 1.0)).xyz;
-    posedNormal = mat3(skin) * posedNormal;
   }
 #endif
+  return skin;
+}
+
+void pose(inout vec3 posedPosition, inout vec3 posedNormal) {
+  mat4 skin = poseOf();
+  posedPosition = (skin * vec4(posedPosition, 1.0)).xyz;
+  posedNormal = mat3(skin) * posedNormal;
 }
 `;
 

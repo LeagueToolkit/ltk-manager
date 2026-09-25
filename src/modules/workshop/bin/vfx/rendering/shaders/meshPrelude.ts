@@ -19,6 +19,11 @@ import { GROUND, LAYER_UV } from "./quad";
  * The engine binds these once a draw, and a draw is one particle. `GROUND_LAYER` flattens the
  * vertex in the world under an identity `mWorld`, so the normal keeps its height as the
  * hand-written mesh keeps it. `PARTICLE_SKINNING` is `PARTICLE_POSE`'s.
+ *
+ * A skinned mesh material's stage places a vertex by its bones alone, and the engine's bones
+ * carry the particle's world. The prelude binds the vertex unposed wholly to bone 0, whose
+ * `BONES` rows are the world over the vertex's pose, so the stage works in the mesh's own
+ * space as it does in the game. `mWorld` is then the identity, as it is under the bones.
  */
 export const MESH_PRELUDE: VertexPrelude = {
   source: /* glsl */ `
@@ -56,27 +61,46 @@ void uvRows(vec3 turn, vec4 shift, vec2 about, vec2 mirrored, vec2 size, out vec
   v = vec4(along.y, across.y, origin.y, 0.0);
 }
 
-void enginePrelude() {
-  vec3 posedPosition = position;
-  vec3 posedNormal = normal;
-  pose(posedPosition, posedNormal);
-  engine_POSITION = vec4(posedPosition * AXIS, 1.0);
-  engine_NORMAL = vec4(posedNormal * AXIS, 0.0);
-  engine_TEXCOORD = vec4(uv, 0.0, 0.0);
+/* The four rows of \`matrix\`, as a \`dp4\` against a column vector reads a register. */
+void rowsOf(mat4 matrix, out vec4 rows[4]) {
+  for (int row = 0; row < 4; row++) {
+    rows[row] = vec4(matrix[0][row], matrix[1][row], matrix[2][row], matrix[3][row]);
+  }
+}
 
+void enginePrelude() {
   mat4 mirror = mat4(1.0);
   mirror[0][0] = AXIS.x;
   mirror[1][1] = AXIS.y;
   mirror[2][2] = AXIS.z;
   mat4 world = mirror * modelMatrix * instanceMatrix * mirror;
+
+  vec3 posedPosition = position;
+  vec3 posedNormal = normal;
+#if defined(READS_a_BLENDINDICES) && !defined(GROUND_LAYER)
+  mat4 bone = world * mirror * poseOf() * mirror;
+  world = mat4(1.0);
+#else
+  pose(posedPosition, posedNormal);
+  mat4 bone = mat4(1.0);
+#endif
+  engine_POSITION = vec4(posedPosition * AXIS, 1.0);
+  engine_NORMAL = vec4(posedNormal * AXIS, 0.0);
+  engine_TEXCOORD = vec4(uv, 0.0, 0.0);
+  engine_BLENDWEIGHT = vec4(1.0, 0.0, 0.0, 0.0);
+  engine_BLENDINDICES = vec4(0.0);
+
 #ifdef GROUND_LAYER
   engine_POSITION = world * engine_POSITION;
   engine_POSITION.y = GROUND_LEVEL * AXIS.y;
   engine_NORMAL = vec4(mat3(world) * engine_NORMAL.xyz, 0.0);
   world = mat4(1.0);
 #endif
-  for (int row = 0; row < 4; row++) {
-    engine_mWorld[row] = vec4(world[0][row], world[1][row], world[2][row], world[3][row]);
+  vec4 rows[4];
+  rowsOf(world, engine_mWorld);
+  rowsOf(bone, rows);
+  for (int row = 0; row < 3; row++) {
+    engine_BONES[row] = rows[row];
   }
 
   engine_kColorFactor[0] = tint;
@@ -88,9 +112,10 @@ void enginePrelude() {
   engine_cAlphaErosionParams[0] = vec4(lookup.z, erosionBand);
 }
 `,
-  inputs: ["a_POSITION", "a_NORMAL", "a_TEXCOORD"],
+  inputs: ["a_POSITION", "a_NORMAL", "a_TEXCOORD", "a_BLENDWEIGHT", "a_BLENDINDICES"],
   members: {
     mWorld: 4,
+    BONES: 3,
     kColorFactor: 1,
     vParticleUVTransform: 2,
     vParticleUVTransformMult: 2,

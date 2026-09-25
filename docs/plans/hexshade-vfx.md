@@ -137,10 +137,26 @@ black.
 factors. Blend modes 0 and 2 premultiply the colour by alpha on the CPU, in the vertex colour.
 
 **Custom particle materials** are `StaticMaterialDef`s of `type` 2 (`MaterialKind::Particles`),
-compiled under `assets/shaders/generated/`. Their vertex shaders read the same engine vertex
-format as `quad_vs`. `DefaultParticleQuadUnlit` and `VFX_Uber_StaticMesh_Unlit` carry runtime
-switches, which reach the shader as `$Globals` floats named `switch_<NAME>`. No shipped material
-that Hexshade has drawn so far uses them, so that path is covered by unit tests only.
+compiled under `assets/shaders/generated/`. `DefaultParticleQuadUnlit` and
+`VFX_Uber_StaticMesh_Unlit` carry runtime switches, which reach the shader as `$Globals` floats
+named `switch_<NAME>`. No shipped material that Hexshade has drawn so far uses them, so that
+path is covered by unit tests only.
+
+**The shader file a custom material names fixes its vertex layout.** No define or technique
+follows the primitive. Measured over the 174 champion WADs, Map11 and Common, 1,200 emitters
+link a custom material, and those the table leaves out link one no scanned WAD declares:
+
+| Emitters                    | Material kind | Vertex inputs                                                     |
+| --------------------------- | ------------- | ----------------------------------------------------------------- |
+| 8 arbitrary quads           | Particles     | the `quad_vs` layout                                              |
+| 9 meshes, on `.scb` files   | Particles     | the `mesh_vs` layout, placed by `CharacterPerDrawVertexCB.mWorld` |
+| 864 meshes, on `.skn` files | SkinnedMesh   | the skin streams, placed by `BonesCB.BONES` alone                 |
+| 289 attached meshes         | SkinnedMesh   | the skin streams, placed by `BonesCB.BONES` alone                 |
+
+None of them reads `kColorFactor`, the uv rows, `COLOR_LOOKUP_UV` or the erosion members, and
+`PARTICLE_COLOR_FACTOR` is declared but unread. `EMITTER_DEPTH_PUSH_PULL` is read by all of them.
+`HKG_Eyes_Blink_Mat` and two `AlphaBlend_Additive_Scroll_Packed` materials write
+`depthCompareFunc` 0, which both usual orderings read as never.
 
 ## Decisions
 
@@ -260,14 +276,20 @@ meshes draw with `skinnedmesh/particle_vs` and `particle_ps` on the skinned envi
 The engine binds a mesh particle's members once a draw, and a draw is one particle. The mesh
 prelude writes them per instance: `mWorld`, `kColorFactor`, both layers'
 `vParticleUVTransform` rows, `COLOR_LOOKUP_UV` and the erosion drive in
-`cAlphaErosionParams.x`. `spliceVertexProgram` writes a member over a copy of its block, and
-`splicePixelProgram` reads a pixel-stage member from a flat varying. The prelude states the
-vertex in the engine's space, so the reflection samples the cube map on the engine's axes.
+`cAlphaErosionParams.x`. A stage reads a block through an accessor, which answers a member's
+registers from the prelude, and the pixel stage's accessor from a flat varying. The prelude
+states the vertex in the engine's space, so the reflection samples the cube map on the engine's
+axes.
 
 An attached mesh draws one slot per particle, so each slot writes its members as uniforms and
 takes a separate environment. The environment folds a detached skin's transform into
-the clip transform, as three draws it. A custom material draws its translated passes on quads
-and ribbons. On a mesh or an attached mesh it keeps the hand-written material.
+the clip transform, as three draws it.
+
+A custom material draws its translated passes on every path, a later pass on a twin of the
+instanced mesh or of the slot's skin. On a mesh, the prelude binds a stage that reads the skin
+streams wholly to bone 0, whose `BONES` rows are the particle's world over the vertex's pose, so
+the stage deforms the vertex in the mesh's own space as the engine does. A skin's own bones
+place an attached mesh's material.
 
 The same headless check compares every quad and ribbon set, and every mesh and attached set
 under the default uv mode, with the hand-written material, and the base and full mesh sets
@@ -276,6 +298,13 @@ draws differently, has to link and draw. 213 of 214 cases match within 4/255. Th
 carries the rim and the reflection by the alpha before the erosion and saturates the colour after
 the soft fade, as `mesh_ps` and `particle_ps` do. The case apart is a ground-layer mesh, whose
 flattened faces tie in depth and differ at 2 of 662 pixels.
+
+The check also draws 60 distinct custom materials from the survey on the paths their emitters
+take, the mesh posed and unposed, and requires each to draw inside the silhouette the
+hand-written material covers. 50 do. The rest draw what their shaders ask:
+`depthCompareFunc` 0 draws nothing, a vertex deform in world units reaches past the silhouette,
+and `HKG_RM_LavaLamp` discards outside blobs the fixture mesh does not reach. With the depth
+test forced to less-equal, `HKG_Eyes_Blink_Mat` draws inside the silhouette.
 
 ### V7: soft particles and distortion
 

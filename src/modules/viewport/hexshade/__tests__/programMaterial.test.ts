@@ -293,8 +293,8 @@ describe("createProgramMaterial with a prelude's members", () => {
   it("writes a member over the vertex stage's copy of its block", () => {
     const material = made();
 
-    expect(material.vertexShader).toContain("hexshade_Globals_vs[1] = engine_kColorFactor[0];");
-    expect(material.vertexShader).not.toContain("hexshade_Globals_vs[0] =");
+    expect(material.vertexShader).toContain("if (at == 1) value = engine_kColorFactor[0];");
+    expect(material.vertexShader).not.toContain("if (at == 0)");
     expect(material.vertexShader).not.toContain("= engine_mWorld[0];");
   });
 
@@ -304,10 +304,10 @@ describe("createProgramMaterial with a prelude's members", () => {
     expect(material.vertexShader).toContain("flat out vec4 hexshade_COLOR_LOOKUP_UV_0;");
     expect(material.vertexShader).toContain("flat out vec4 hexshade_cAlphaErosionParams_0;");
     expect(material.fragmentShader).toContain(
-      "hexshade_Globals_ps[0].yz = hexshade_COLOR_LOOKUP_UV_0.xy;",
+      "if (at == 0) value.yz = hexshade_COLOR_LOOKUP_UV_0.xy;",
     );
     expect(material.fragmentShader).toContain(
-      "hexshade_Globals_ps[1] = hexshade_cAlphaErosionParams_0;",
+      "if (at == 1) value = hexshade_cAlphaErosionParams_0;",
     );
   });
 });

@@ -6,13 +6,14 @@ import {
   FrontSide,
   type Material,
   Matrix4,
+  type Mesh,
   MeshBasicMaterial,
   type ShaderMaterial,
   SkinnedMesh,
 } from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
-import { type CharacterSkin, useCharacterSkin } from "@/modules/viewport";
+import { type CharacterSkin, passTwin, useCharacterSkin } from "@/modules/viewport";
 
 import type { EmitterModel } from "../../engine/model/model";
 import {
@@ -84,9 +85,10 @@ interface Slot {
  * A scene with no character draws none. Decisions 2.18 and 2.35 of
  * docs/plans/vfx-particle-renderer.md.
  *
- * With the game's shaders on, each particle draws the skin through the translated
- * `skinnedmesh/particle` or `particle_distortion` pair once it is ready, a material and an
- * environment per slot, and through the hand-written material until then.
+ * With the game's shaders on, each particle draws the skin through each translated pass of the
+ * emitter's custom material, or through the `skinnedmesh/particle` or `particle_distortion`
+ * pair, once they are ready, with materials and an environment per slot, and through the
+ * hand-written material until then.
  */
 export function AttachedMeshes({
   emitter,
@@ -151,11 +153,13 @@ export function AttachedMeshes({
   );
   useEffect(() => {
     if (programs.length !== slots.length) return;
-    const previous = slots.map((slot, at) => bindSlot(slot, programs[at]));
+    const bound = slots.map((slot, at) => bindSlot(slot, programs[at]));
     return () => {
       slots.forEach((slot, at) => {
-        slot.mesh.material = previous[at] ?? slot.mesh.material;
+        const { previous, twins } = bound[at] ?? { previous: slot.mesh.material, twins: [] };
+        slot.mesh.material = previous;
         slot.mesh.onBeforeRender = noDraw;
+        for (const twin of twins) slot.mesh.remove(twin);
       });
     };
   }, [slots, programs]);
@@ -187,7 +191,7 @@ export function AttachedMeshes({
           const { mesh, material } = slots[used];
           const twin = twins[used];
           const uniforms = material.uniforms;
-          const program = programs[used]?.material;
+          const program = programs[used]?.materials;
           appearance(pool, at, emitter, time, DRAWN);
           premultiplyInto(emitter, DRAWN.color);
           const tint = uniforms.particleTint.value as number[];
@@ -216,13 +220,15 @@ export function AttachedMeshes({
           sourcesScrollInto(emitter, sources, uniforms.paletteScroll.value as number[]);
           if (program !== undefined) {
             colorLookupInto(emitter, pool, at, through, LOOKUP, 0);
-            writeSlotMembers(program, {
-              color: DRAWN.color,
-              rows: ROWS,
-              lookup: LOOKUP,
-              drive: uniforms.particleErode.value as number,
-            });
-            writePaletteScroll(program, uniforms.paletteScroll.value as number[]);
+            for (const pass of program) {
+              writeSlotMembers(pass, {
+                color: DRAWN.color,
+                rows: ROWS,
+                lookup: LOOKUP,
+                drive: uniforms.particleErode.value as number,
+              });
+              writePaletteScroll(pass, uniforms.paletteScroll.value as number[]);
+            }
           }
 
           mesh.scale.set(DRAWN.scale[0], DRAWN.scale[1], DRAWN.scale[2]);
@@ -272,20 +278,42 @@ function skinOf(skin: CharacterSkin, material: Material, drawn: readonly boolean
   return mesh;
 }
 
-/**
- * Bind `program` to `slot` on each submesh its lists leave in, with the environment written for
- * the slot before each draw. The materials it replaces come back for the cleanup.
- */
-function bindSlot(slot: Slot, program: SlotProgram | undefined): Material | Material[] {
-  const previous = slot.mesh.material;
-  if (program === undefined) return previous;
+/** What `bindSlot` changed on a slot: the materials it replaced and the pass twins it added. */
+interface BoundSlot {
+  readonly previous: Material | Material[];
+  readonly twins: readonly Mesh[];
+}
 
-  slot.mesh.material = slot.drawn.map((kept) => (kept ? program.material : SKIPPED));
-  slot.mesh.onBeforeRender = (renderer, _scene, camera, _geometry, material) => {
+/**
+ * Bind each pass of `program` to `slot` on each submesh its lists leave in, the first on the
+ * slot's skin and each later one on a twin under it, with the environment written for the slot
+ * before each draw.
+ */
+function bindSlot(slot: Slot, program: SlotProgram | undefined): BoundSlot {
+  const previous = slot.mesh.material;
+  const [first, ...later] = program?.materials ?? [];
+  if (program === undefined || first === undefined) return { previous, twins: [] };
+
+  const draw: Mesh["onBeforeRender"] = (renderer, _scene, camera, _geometry, material) => {
     program.environment.write(renderer, camera, slot.mesh, 0);
     program.environment.draw(material);
   };
-  return previous;
+  slot.mesh.material = submeshMaterials(slot, first);
+  slot.mesh.onBeforeRender = draw;
+  const twins = later.map((material, at) => {
+    const twin = passTwin(slot.mesh, at + 1);
+    twin.material = submeshMaterials(slot, material);
+    twin.onBeforeRender = draw;
+    twin.layers.mask = slot.mesh.layers.mask;
+    slot.mesh.add(twin);
+    return twin;
+  });
+  return { previous, twins };
+}
+
+/** `material` on each submesh the slot's lists leave in. */
+function submeshMaterials(slot: Slot, material: Material): Material[] {
+  return slot.drawn.map((kept) => (kept ? material : SKIPPED));
 }
 
 /** `twin`'s own material disposed, and nothing for the shared `SKIPPED` stand-in. */

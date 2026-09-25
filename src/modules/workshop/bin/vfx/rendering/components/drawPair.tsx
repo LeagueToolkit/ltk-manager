@@ -1,6 +1,7 @@
 import { type RefObject, useEffect, useRef } from "react";
 import {
   type BufferGeometry,
+  InstancedMesh,
   type LineSegments,
   Mesh,
   type Object3D,
@@ -92,7 +93,8 @@ export function showPair<T extends Object3D>(pair: DrawPair<T>, drawing: boolean
 
 /**
  * `programs` drawn on `solid`: the first pass on the solid and each later pass on a twin under
- * it, each writing its engine buffers before it draws. The caller swaps the solid's material.
+ * it, each writing its engine buffers before it draws. An instanced solid's twins draw as many
+ * instances as it does. The caller swaps the solid's material.
  */
 export function useProgramDraw(
   solid: RefObject<Object3D | null>,
@@ -109,6 +111,13 @@ export function useProgramDraw(
       const twin = passTwin(mesh, at + 1);
       twin.material = later.material;
       twin.onBeforeRender = later.draw;
+      if (twin instanceof InstancedMesh && mesh instanceof InstancedMesh) {
+        twin.onBeforeRender = (renderer, scene, camera) => {
+          twin.instanceMatrix = mesh.instanceMatrix;
+          twin.count = mesh.count;
+          later.draw(renderer, scene, camera);
+        };
+      }
       twin.layers.mask = mesh.layers.mask;
       mesh.add(twin);
       return twin;

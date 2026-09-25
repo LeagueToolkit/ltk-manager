@@ -4,7 +4,8 @@
  *
  * `source` is appended after the stage. It declares the attributes and uniforms it reads,
  * and `void enginePrelude()`, which writes each engine input to the `vec4` global named
- * for it: `a_TEXCOORD1` is written as `engine_TEXCOORD1`. The splice declares those globals.
+ * for it: `a_TEXCOORD1` is written as `engine_TEXCOORD1`. The splice declares those globals,
+ * and defines `READS_a_TEXCOORD1` where the stage declares that input.
  */
 export interface VertexPrelude {
   readonly source: string;
@@ -59,9 +60,9 @@ const COMPONENTS = "xyzw";
  * prelude does not write reads what an absent stream reads. The stage's inputs stop being
  * attributes. The geometry feeds only the prelude's inputs.
  *
- * The stage reads a block `slots.vertex` reaches through a copy of it, which each member's
- * registers overwrite. A member in `slots.pixel` leaves through a flat output
- * `splicePixelProgram` reads.
+ * The stage reads a block `slots.vertex` reaches through an accessor, which answers each
+ * member's registers from the prelude and the rest from the bound block. A member in
+ * `slots.pixel` leaves through a flat output `splicePixelProgram` reads.
  */
 export function spliceVertexProgram(
   glsl: string,
@@ -75,7 +76,7 @@ export function spliceVertexProgram(
       return `${type} ${name} = ${type}(${ABSENT[name] ?? ZERO});`;
     })
     .replace(MAIN, `void ${RENAMED_MAIN}()`);
-  const copies = withCopies(stage, slots.vertex, engineMember);
+  const reads = withAccessors(stage, slots.vertex, engineMember);
   const varyings = varyingRegisters(slots.pixel);
 
   const engine = [
@@ -84,21 +85,21 @@ export function spliceVertexProgram(
       ([member, registers]) => `vec4 engine_${member}[${registers}];`,
     ),
     ...varyings.map(({ member, index }) => `flat out vec4 ${varyingName(member, index)};`),
+    ...[...declared.keys()].map((input) => `#define READS_${input}`),
   ].join("\n");
   const writes = [
     ...prelude.inputs.flatMap((input) => {
       const type = declared.get(input);
       return type === undefined ? [] : [`${input} = ${type}(${engineName(input)});`];
     }),
-    ...copies.writes,
     ...varyings.map(
       ({ member, index }) => `${varyingName(member, index)} = ${engineMember(member, index)};`,
     ),
   ];
 
-  return `${copies.source}
+  return `${reads.source}
 ${engine}
-
+${reads.accessors}
 ${prelude.source}
 void main()
 {
@@ -110,64 +111,94 @@ ${indented(writes)}    ${RENAMED_MAIN}();
 
 /**
  * `glsl`, a translated pixel stage, reading each member in `slots` from the flat output
- * `spliceVertexProgram` hands it, over a copy of its block.
+ * `spliceVertexProgram` hands it, through an accessor over its block.
  */
 export function splicePixelProgram(glsl: string, slots: readonly MemberSlot[]): string {
   if (slots.length === 0) return glsl;
 
-  const copies = withCopies(glsl.replace(MAIN, `void ${RENAMED_MAIN}()`), slots, varyingName);
+  const reads = withAccessors(glsl, slots, varyingName);
   const inputs = varyingRegisters(slots).map(
     ({ member, index }) => `flat in vec4 ${varyingName(member, index)};`,
   );
 
-  return `${copies.source}
+  return `${reads.source}
 ${inputs.join("\n")}
-
-void main()
-{
-${indented(copies.writes)}    ${RENAMED_MAIN}();
-}
-`;
+${reads.accessors}`;
 }
 
 /**
- * `source` reading each block `slots` reaches through a copy of it, and the lines that fill
- * each copy: the bound block, then every register of its members, read from `value`.
+ * `source` reading each block `slots` reaches through an accessor, and the accessors, which
+ * answer each register of a member from `value` and every other from the bound block.
  *
- * A register past the array's length is one the translation cut as unread.
+ * The accessor is declared beside the block and defined apart, after whatever `value` reads.
+ * It costs a comparison per member register, where a copy of the block would cost every
+ * register per invocation. A register past the array's length is one the translation cut as
+ * unread.
  */
-function withCopies(
+function withAccessors(
   source: string,
   slots: readonly MemberSlot[],
   value: (member: string, register: number) => string,
-): { readonly source: string; readonly writes: readonly string[] } {
-  let copied = source;
-  const writes: string[] = [];
+): { readonly source: string; readonly accessors: string } {
+  let read = source;
+  const accessors: string[] = [];
   for (const array of new Set(slots.map((slot) => slot.array))) {
-    const found = new RegExp(`^uniform (\\w+) ${array}\\[(\\d+)\\];$`, "m").exec(copied);
+    const found = new RegExp(`^uniform (\\w+) ${array}\\[(\\d+)\\];$`, "m").exec(read);
     if (found === null) continue;
 
     const [declaration, element = "vec4", extent = "0"] = found;
-    const copy = `hexshade_${array}`;
-    copied = copied
-      .replace(new RegExp(`(?<!uniform \\w+ )\\b${array}\\[`, "g"), `${copy}[`)
-      .replace(declaration, `${declaration}\n${element} ${copy}[${extent}];`);
-    writes.push(`${copy} = ${array};`);
+    const accessor = `hexshade_${array}`;
+    const signature = `${element} ${accessor}(int at)`;
+    read = throughAccessor(read, array, accessor).replace(
+      declaration,
+      `${declaration}\n${signature};`,
+    );
 
-    for (const slot of slots.filter((each) => each.array === array)) {
-      for (const register of registersOf(slot)) {
-        if (register.register >= Number(extent)) continue;
-
-        const read = asElement(element, value(slot.member, register.memberRegister));
-        writes.push(
-          register.target === COMPONENTS
-            ? `${copy}[${register.register}] = ${read};`
-            : `${copy}[${register.register}].${register.target} = ${read}.${register.source};`,
-        );
-      }
-    }
+    const answers = slots
+      .filter((each) => each.array === array)
+      .flatMap((slot) => registersOf(slot).map((register) => ({ slot, register })))
+      .filter(({ register }) => register.register < Number(extent))
+      .map(({ slot, register }) => {
+        const answer = asElement(element, value(slot.member, register.memberRegister));
+        return register.target === COMPONENTS
+          ? `if (at == ${register.register}) value = ${answer};`
+          : `if (at == ${register.register}) value.${register.target} = ${answer}.${register.source};`;
+      });
+    accessors.push(`${signature}
+{
+    ${element} value = ${array}[at];
+${indented(answers)}    return value;
+}
+`);
   }
-  return { source: copied, writes };
+  return { source: read, accessors: accessors.join("\n") };
+}
+
+/** `source` with every read of `array[index]` made a call of `accessor(int(index))`. */
+function throughAccessor(source: string, array: string, accessor: string): string {
+  const opening = new RegExp(`(?<!uniform \\w+ )\\b${array}\\[`, "g");
+  let out = "";
+  let from = 0;
+  for (let match = opening.exec(source); match !== null; match = opening.exec(source)) {
+    const start = match.index + match[0].length;
+    const end = closingBracket(source, start);
+    const index = throughAccessor(source.slice(start, end), array, accessor);
+    out += `${source.slice(from, match.index)}${accessor}(int(${index}))`;
+    from = end + 1;
+    opening.lastIndex = from;
+  }
+  return out + source.slice(from);
+}
+
+/** Where the bracket opened just before `start` closes, past any it holds. */
+function closingBracket(source: string, start: number): number {
+  let depth = 1;
+  for (let at = start; at < source.length; at += 1) {
+    if (source[at] === "[") depth += 1;
+    if (source[at] === "]") depth -= 1;
+    if (depth === 0) return at;
+  }
+  throw new Error(`an index at ${start} never closes`);
 }
 
 /** One register a slot covers, and the components of it the member fills. */

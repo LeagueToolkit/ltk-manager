@@ -68,6 +68,15 @@ describe("spliceVertexProgram", () => {
     expect(spliced).not.toContain("a_NORMAL");
   });
 
+  it("names each input the stage declares to the prelude", () => {
+    const spliced = spliceVertexProgram(STAGE, PRELUDE);
+    const prelude = spliced.indexOf("void enginePrelude()");
+
+    expect(spliced.indexOf("#define READS_a_COLOR")).toBeGreaterThan(-1);
+    expect(spliced.indexOf("#define READS_a_TEXCOORD1")).toBeLessThan(prelude);
+    expect(spliced).not.toContain("READS_a_NORMAL");
+  });
+
   it("declares the prelude's inputs as the attributes the geometry feeds", () => {
     const spliced = spliceVertexProgram(STAGE, PRELUDE);
 
@@ -98,40 +107,40 @@ const MEMBERS_PRELUDE: VertexPrelude = {
 };
 
 describe("spliceVertexProgram with members", () => {
-  it("reads the stage's block through a copy the prelude's member overwrites", () => {
+  it("reads the stage's block through an accessor the prelude's member answers", () => {
     const spliced = spliceVertexProgram(GLOBALS_STAGE, MEMBERS_PRELUDE, {
       vertex: [{ member: "kColorFactor", array: "Globals_vs", offset: 32, size: 16 }],
       pixel: [],
     });
-    const main = spliced.slice(spliced.lastIndexOf("void main()"));
 
-    expect(spliced).toContain("uniform vec4 Globals_vs[3];");
-    expect(spliced).toContain("vec4 hexshade_Globals_vs[3];");
-    expect(spliced).toContain("hexshade_Globals_vs[0u].x");
-    expect(spliced).toContain("v_TEXCOORD = hexshade_Globals_vs[2u]");
+    expect(spliced).toContain("uniform vec4 Globals_vs[3];\nvec4 hexshade_Globals_vs(int at);");
+    expect(spliced).toContain("hexshade_Globals_vs(int(0u)).x");
+    expect(spliced).toContain("v_TEXCOORD = hexshade_Globals_vs(int(2u))");
     expect(spliced).toContain("vec4 engine_kColorFactor[1];");
-    expect(main).toContain("hexshade_Globals_vs = Globals_vs;");
-    expect(main).toContain("hexshade_Globals_vs[2] = engine_kColorFactor[0];");
-    expect(main.indexOf("enginePrelude();")).toBeLessThan(main.indexOf("hexshade_Globals_vs[2]"));
+    expect(spliced).toContain("    vec4 value = Globals_vs[at];");
+    expect(spliced).toContain("    if (at == 2) value = engine_kColorFactor[0];");
+    expect(spliced.indexOf("vec4 engine_kColorFactor[1];")).toBeLessThan(
+      spliced.indexOf("vec4 hexshade_Globals_vs(int at)\n"),
+    );
   });
 
-  it("writes a member narrower than a register into its components alone", () => {
+  it("answers a member narrower than a register in its components alone", () => {
     const spliced = spliceVertexProgram(GLOBALS_STAGE, MEMBERS_PRELUDE, {
       vertex: [{ member: "lookup", array: "Globals_vs", offset: 4, size: 8 }],
       pixel: [],
     });
 
-    expect(spliced).toContain("hexshade_Globals_vs[0].yz = engine_lookup[0].xy;");
+    expect(spliced).toContain("if (at == 0) value.yz = engine_lookup[0].xy;");
   });
 
-  it("writes each register of a wider member, and none past what the stage declares", () => {
+  it("answers each register of a wider member, and none past what the stage declares", () => {
     const spliced = spliceVertexProgram(GLOBALS_STAGE, MEMBERS_PRELUDE, {
       vertex: [{ member: "uvRows", array: "Globals_vs", offset: 32, size: 48 }],
       pixel: [],
     });
 
-    expect(spliced).toContain("hexshade_Globals_vs[2] = engine_uvRows[0];");
-    expect(spliced).not.toContain("hexshade_Globals_vs[3] =");
+    expect(spliced).toContain("if (at == 2) value = engine_uvRows[0];");
+    expect(spliced).not.toContain("if (at == 3)");
   });
 
   it("keeps an integer-declared block's bits", () => {
@@ -140,8 +149,21 @@ describe("spliceVertexProgram with members", () => {
       pixel: [],
     });
 
-    expect(spliced).toContain("uvec4 hexshade_Frame_vs[2];");
-    expect(spliced).toContain("hexshade_Frame_vs[1] = floatBitsToUint(engine_drive[0]);");
+    expect(spliced).toContain("uvec4 hexshade_Frame_vs(int at);");
+    expect(spliced).toContain("if (at == 1) value = floatBitsToUint(engine_drive[0]);");
+  });
+
+  it("reads an index that indexes in turn to its own closing bracket", () => {
+    const spliced = spliceVertexProgram(
+      GLOBALS_STAGE.replace("Globals_vs[2u]", "Globals_vs[uint(Frame_vs[0u].x)]"),
+      MEMBERS_PRELUDE,
+      {
+        vertex: [{ member: "kColorFactor", array: "Globals_vs", offset: 32, size: 16 }],
+        pixel: [],
+      },
+    );
+
+    expect(spliced).toContain("v_TEXCOORD = hexshade_Globals_vs(int(uint(Frame_vs[0u].x))) +");
   });
 
   it("hands a member the pixel stage reads to it through a flat output", () => {
@@ -154,6 +176,7 @@ describe("spliceVertexProgram with members", () => {
     expect(spliced).toContain("flat out vec4 hexshade_drive_0;");
     expect(main).toContain("hexshade_drive_0 = engine_drive[0];");
     expect(spliced).not.toContain("hexshade_Globals_vs");
+    expect(spliced).toContain("Globals_vs[0u].x");
   });
 });
 
@@ -177,15 +200,16 @@ describe("splicePixelProgram", () => {
       { member: "drive", array: "Globals_ps", offset: 64, size: 16 },
       { member: "lookup", array: "Globals_ps", offset: 84, size: 8 },
     ]);
-    const main = spliced.slice(spliced.lastIndexOf("void main()"));
+    const accessor = spliced.indexOf("vec4 hexshade_Globals_ps(int at)\n");
 
-    expect(spliced).toContain("flat in vec4 hexshade_drive_0;");
-    expect(spliced).toContain("flat in vec4 hexshade_lookup_0;");
-    expect(spliced).toContain("SV_Target = hexshade_Globals_ps[4u] * hexshade_Globals_ps[5u].x;");
-    expect(main).toContain("hexshade_Globals_ps = Globals_ps;");
-    expect(main).toContain("hexshade_Globals_ps[4] = hexshade_drive_0;");
-    expect(main).toContain("hexshade_Globals_ps[5].yz = hexshade_lookup_0.xy;");
-    expect(main.indexOf("hexshade_Globals_ps[5]")).toBeLessThan(main.indexOf("hexshade_main();"));
+    expect(spliced.indexOf("flat in vec4 hexshade_drive_0;")).toBeLessThan(accessor);
+    expect(spliced.indexOf("flat in vec4 hexshade_lookup_0;")).toBeLessThan(accessor);
+    expect(spliced).toContain(
+      "SV_Target = hexshade_Globals_ps(int(4u)) * hexshade_Globals_ps(int(5u)).x;",
+    );
+    expect(spliced).toContain("if (at == 4) value = hexshade_drive_0;");
+    expect(spliced).toContain("if (at == 5) value.yz = hexshade_lookup_0.xy;");
+    expect(spliced.match(/void main\(\)/g)).toHaveLength(1);
   });
 
   it("leaves a stage no member reaches as it is", () => {

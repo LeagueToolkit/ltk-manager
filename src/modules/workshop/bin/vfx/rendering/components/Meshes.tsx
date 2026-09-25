@@ -99,8 +99,9 @@ export interface MeshesProps {
  * same two layer transforms a quad does. `AlignYawToCamera` and `AlignPitchToCamera`
  * turn that matrix toward the eye on the axis each names.
  *
- * With the game's shaders on, the instances draw through the translated `mesh` or
- * `distortion_mesh` pair once it is ready, and through the hand-written material until then.
+ * With the game's shaders on, the instances draw through each translated pass of the
+ * emitter's custom material, or through the `mesh` or `distortion_mesh` pair, once they are
+ * ready, and through the hand-written material until then.
  */
 export function Meshes({
   emitter,
@@ -155,7 +156,7 @@ export function Meshes({
 
     const scroll = material.uniforms.paletteScroll.value as number[];
     sourcesScrollInto(emitter, sources, scroll);
-    if (program !== null) writePaletteScroll(program.material, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
     const turns = [buffers.uvTurn, buffers.uvTurnMult];
     const lookups = lookup.array as Float32Array;
     const shifts = [buffers.uvShift, buffers.uvShiftMult];
