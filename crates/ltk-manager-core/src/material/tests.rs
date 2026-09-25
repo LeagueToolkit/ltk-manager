@@ -433,7 +433,7 @@ fn a_tint_outside_the_guard_is_an_offset_colour_and_not_a_tint() {
 }
 
 #[test]
-fn the_pass_params_win_over_the_materials() {
+fn the_material_params_win_over_the_passes() {
     let material = body().passes(vec![pass(
         SHADER_PATH,
         vec![(
@@ -442,7 +442,7 @@ fn the_pass_params_win_over_the_materials() {
         )],
     )]);
 
-    assert_eq!(read(material, None).tint, Some([2.0, 2.0, 2.0]));
+    assert_eq!(read(material, None).tint, Some([1.0, 0.5, 0.25]));
 }
 
 /// The names a shader does not declare are what the engine ignores, and each is a warning.

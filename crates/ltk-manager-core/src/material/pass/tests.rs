@@ -373,7 +373,7 @@ fn a_pass_without_the_defs_carries_no_schema() {
 }
 
 #[test]
-fn a_pass_value_writes_over_the_material_value() {
+fn a_material_value_writes_over_the_pass_value() {
     let material = body().passes(vec![pass(
         SHADER_PATH,
         vec![(
@@ -385,8 +385,8 @@ fn a_pass_value_writes_over_the_material_value() {
     let resolved = resolve(material, Some(&shaders()));
     let tint = &only_pass(&resolved).params[0];
 
-    assert_eq!(tint.value, [0.0, 0.0, 1.0, 1.0]);
-    assert_eq!(tint.source, ParamSource::Pass);
+    assert_eq!(tint.value, [1.0, 0.5, 0.25, 1.0]);
+    assert_eq!(tint.source, ParamSource::Material);
 }
 
 #[test]

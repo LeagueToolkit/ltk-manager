@@ -898,12 +898,12 @@ impl<'a> Reader<'a> {
         switches
     }
 
-    /// Every parameter by name: the shader's defaults, then the material's values, then
-    /// the pass's, an entry with no value writing zeros.
+    /// Every parameter by name: the shader's defaults, then the pass's values, then the
+    /// material's, an entry with no value writing zeros. The material's value wins.
     fn params(&mut self, pass: Option<&Fields>, shader: &ShaderDef) -> Params {
         let mut set = HashMap::new();
-        let entries = structs(self.material.get(&PARAM_VALUES))
-            .chain(structs(pass.and_then(|pass| pass.get(&PARAM_VALUES))));
+        let entries = structs(pass.and_then(|pass| pass.get(&PARAM_VALUES)))
+            .chain(structs(self.material.get(&PARAM_VALUES)));
         for fields in entries {
             let Some(name) = text(fields.get(&NAME)) else {
                 continue;
