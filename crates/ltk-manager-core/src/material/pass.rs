@@ -551,12 +551,13 @@ impl<'a> Reader<'a> {
         textures
     }
 
-    /// Every physical parameter of section 11.6: the shader's default, then the
-    /// material's entries scattered through their logical masks, then the pass's.
+    /// Every physical parameter of section 11.6: the shader's default, then the pass's
+    /// entries, then the material's, each scattered through its logical mask. The
+    /// material's value wins.
     fn pass_params(&mut self, pass: &Fields, shader: &ShaderDef) -> Vec<PassParam> {
         let entries = [
-            (ParamSource::Material, self.material.get(&PARAM_VALUES)),
             (ParamSource::Pass, pass.get(&PARAM_VALUES)),
+            (ParamSource::Material, self.material.get(&PARAM_VALUES)),
         ];
 
         if !shader.declared {
