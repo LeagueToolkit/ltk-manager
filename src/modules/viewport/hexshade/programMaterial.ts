@@ -21,7 +21,6 @@ import {
   MirroredRepeatWrapping,
   NearestFilter,
   NearestMipmapNearestFilter,
-  NeverDepth,
   NoBlending,
   NotEqualDepth,
   OneFactor,
@@ -136,9 +135,12 @@ const BLEND_FACTORS = {
 /**
  * `depthCompareFunc` as three's depth modes, the D3D comparison enum less one, which is
  * what the class default of 3 being less-or-equal says. Inferred from that one value.
+ *
+ * 0 reads as the default rather than as never: the VFX materials that write it, such as
+ * `HKG_Eyes_Blink_Mat`, draw in the game.
  */
 const DEPTH_MODES: readonly DepthModes[] = [
-  NeverDepth,
+  LessEqualDepth,
   LessDepth,
   EqualDepth,
   LessEqualDepth,

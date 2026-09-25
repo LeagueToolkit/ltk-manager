@@ -144,6 +144,15 @@ describe("applyPassState", () => {
     expect(material.depthFunc).toBe(GreaterDepth);
     expect(material.depthWrite).toBe(false);
   });
+
+  it("depth-tests a pass writing a compare of 0 as the class default", () => {
+    const material = new RawShaderMaterial();
+
+    applyPassState(material, { ...OPAQUE, depthCompareFunc: 0 });
+
+    expect(material.depthTest).toBe(true);
+    expect(material.depthFunc).toBe(LessEqualDepth);
+  });
 });
 
 describe("sideOf", () => {

@@ -156,8 +156,8 @@ link a custom material, and those the table leaves out link one no scanned WAD d
 None of them reads `kColorFactor`, the uv rows, `COLOR_LOOKUP_UV` or the erosion members, and
 `PARTICLE_COLOR_FACTOR` is declared but unread. `EMITTER_DEPTH_PUSH_PULL` is read by all of them.
 `HKG_Eyes_Blink_Mat` and two `AlphaBlend_Additive_Scroll_Packed` materials write
-`depthCompareFunc` 0, which the D3D comparison order less one and the GL order both read as
-never.
+`depthCompareFunc` 0. The D3D comparison order less one reads 0 as never, but these materials
+draw in the game, so a pass writing 0 depth-tests as the class default, less-or-equal.
 
 ## Decisions
 
@@ -302,10 +302,9 @@ flattened faces tie in depth and differ at 2 of 662 pixels.
 
 The check also draws 60 distinct custom materials from the survey on the paths their emitters
 take, the mesh posed and unposed, and requires each to draw inside the silhouette the
-hand-written material covers. 50 do. The rest draw what their shaders ask:
-`depthCompareFunc` 0 draws nothing, a vertex deform in world units reaches past the silhouette,
-and `HKG_RM_LavaLamp` discards outside blobs the fixture mesh does not reach. With the depth
-test forced to less-equal, `HKG_Eyes_Blink_Mat` draws inside the silhouette.
+hand-written material covers. 51 do. The rest draw what their shaders ask: a vertex deform
+in world units reaches past the silhouette, and `HKG_RM_LavaLamp` discards outside blobs the
+fixture mesh does not reach.
 
 ### V7: soft particles and distortion
 
