@@ -37,6 +37,23 @@ pnpm tauri dev
 pnpm dev
 ```
 
+### macOS: build the injection host first
+
+On macOS the patcher is a separate helper binary (`ltk_patcher_host`) built from
+the `ltk-patcher-macos` crate and staged as a bundled resource. Build it once
+before `pnpm tauri dev` (and again whenever that crate changes):
+
+```bash
+pnpm build:mac-host
+```
+
+Applying mods reads and writes the game's process memory, which needs root, so
+the host asks for your administrator password once per app run (via a system
+prompt). See `crates/ltk-patcher-macos/README.md` for how it works, its
+limitations, and attribution. `pnpm build:mac-host` builds a universal binary
+when both `aarch64-apple-darwin` and `x86_64-apple-darwin` Rust targets are
+installed (`rustup target add …`), otherwise the host architecture only.
+
 ### Verbose Backend Logging
 
 ```bash
