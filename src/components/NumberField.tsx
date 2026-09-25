@@ -22,6 +22,10 @@ interface NumberFieldProps {
   format?: Intl.NumberFormatOptions;
   /** A label before the input that changes the value when dragged sideways. */
   scrub?: ReactNode;
+  /** Classes for the label that scrubs, merged over its own. */
+  scrubClassName?: string;
+  /** Classes for the element holding the label and the input, merged over its own. */
+  rootClassName?: string;
   /** Whether the field is disabled. */
   disabled?: boolean;
   "aria-label"?: string;
@@ -39,6 +43,8 @@ export function NumberField({
   step,
   format,
   scrub,
+  scrubClassName,
+  rootClassName,
   disabled,
   "aria-label": ariaLabel,
   className,
@@ -53,13 +59,16 @@ export function NumberField({
       step={step}
       format={format}
       disabled={disabled}
-      className={scrub === undefined ? undefined : "flex min-w-0 items-center"}
+      className={
+        twMerge(scrub !== undefined && "flex min-w-0 items-center", rootClassName) || undefined
+      }
     >
       {scrub !== undefined && (
         <BaseNumberField.ScrubArea
           className={twMerge(
             "shrink-0 px-0.5 text-surface-400 select-none",
             !disabled && "cursor-ew-resize hover:text-surface-200",
+            scrubClassName,
           )}
         >
           {scrub}
