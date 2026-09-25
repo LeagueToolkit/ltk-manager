@@ -1,16 +1,24 @@
 import { type Color, DoubleSide, ShaderMaterial, type Side, type Texture, Vector4 } from "three";
 
-import { type BlendMode, type SimpleOrientation, UV_MODE } from "../../engine/model/enums";
+import {
+  type BlendMode,
+  SIMPLE_ORIENTATION,
+  type SimpleOrientation,
+  UV_MODE,
+} from "../../engine/model/enums";
+import type { EmitterModel } from "../../engine/model/model";
 import { ATTACHED_VERTEX, MESH_VERTEX } from "../shaders/mesh";
 import { FRAGMENT, VERTEX } from "../shaders/quad";
 import { RIBBON_FRAGMENT, RIBBON_VERTEX } from "../shaders/ribbon";
 import { drawState, type FragmentTests } from "./blend";
 import { customMaterial } from "./customMaterial";
+import { facesTheCamera, isRay, isUnitQuad } from "./drawKind";
 import {
   ALPHA_LOCK,
   colorDefines,
   colorUniforms,
   type DepthBias,
+  type Defines,
   type DepthOffset,
   distortionDefines,
   distortionUniforms,
@@ -60,6 +68,37 @@ const PIVOT_UP = 0.5;
 const REACH = 2;
 const UNIT_REACH = 1;
 
+/** How the quads of `emitter` turn, off its primitive kind and its simple definition. */
+export function quadOrientation(emitter: EmitterModel): QuadOrientation {
+  const simple = emitter.legacySimple;
+  return {
+    billboard: facesTheCamera(emitter) || simple !== null,
+    directed: facesTheCamera(emitter) && emitter.directionOriented && simple === null,
+    ray: isRay(emitter) && simple === null,
+    plane: simple?.orientation ?? SIMPLE_ORIENTATION.camera,
+    unitQuad: isUnitQuad(emitter),
+    pivotUp: emitter.pivotUp,
+  };
+}
+
+/** The defines `QUAD_CORNER` places a corner by. */
+export function orientationDefines(orientation: QuadOrientation): Defines {
+  return {
+    ...(orientation.billboard ? { BILLBOARD: "" } : {}),
+    ...(orientation.directed ? { DIRECTED: "" } : {}),
+    ...(orientation.ray ? { RAY: "" } : {}),
+    PLANE: orientation.plane,
+  };
+}
+
+/** The uniforms `QUAD_CORNER` places a corner by. */
+export function orientationUniforms(orientation: QuadOrientation) {
+  return {
+    reach: { value: orientation.unitQuad ? UNIT_REACH : REACH },
+    pivot: { value: orientation.pivotUp ? PIVOT_UP : 0 },
+  };
+}
+
 /**
  * The material one emitter's quads draw with.
  *
@@ -93,17 +132,13 @@ export function quadMaterial(
       ...layerUniforms(texture, layers, tests),
       ...softUniforms(mode, layers.soft),
       pushPull: { value: depth.pushPull },
-      reach: { value: orientation.unitQuad ? UNIT_REACH : REACH },
-      pivot: { value: orientation.pivotUp ? PIVOT_UP : 0 },
+      ...orientationUniforms(orientation),
     },
     defines: {
       ...layerDefines(texture, layers),
       ...softDefines(layers.soft),
       FALLOFF: "",
-      ...(orientation.billboard ? { BILLBOARD: "" } : {}),
-      ...(orientation.directed ? { DIRECTED: "" } : {}),
-      ...(orientation.ray ? { RAY: "" } : {}),
-      PLANE: orientation.plane,
+      ...orientationDefines(orientation),
       ...groundDefines(layers),
     },
     side: DoubleSide,

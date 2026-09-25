@@ -87,7 +87,7 @@ fn main() {
 
     if json {
         let document = BinDocument::parse(bytes).expect("parse bin");
-        let system = resolve_system(&document, wanted, &(), &()).expect("resolve system");
+        let system = resolve_system(&document, wanted, &(), &(), None).expect("resolve system");
         println!("{}", serde_json::to_string(&system).expect("serialize"));
         return;
     }

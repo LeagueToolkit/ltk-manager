@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import type { LineSegments, Mesh } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import { BEAM_MODE, QUAD_TYPE } from "../../engine/model/enums";
@@ -20,6 +21,7 @@ import {
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { multiplyInto, standingInto, turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
+import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
@@ -27,6 +29,8 @@ import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { RIBBON_DRAW } from "../utils/particleDraws";
+import { writePaletteScroll } from "../utils/particleProgram";
 import {
   type BeamEnds,
   type BeamParticle,
@@ -39,7 +43,7 @@ import {
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, showPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair, useProgramDraw } from "./drawPair";
 
 /** How many beams one emitter draws across every source, which caps its share of the pools. */
 const BEAMS_PER_EMITTER = 256;
@@ -87,6 +91,8 @@ export interface BeamsProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /**
@@ -98,8 +104,11 @@ export interface BeamsProps {
  * `mAnimatedColorWithDistance` at the beam's raw length. The segment beam draws the same
  * quad, and its ribs are not built. Its erosion drive stands at zero, which its builder
  * writes in place of the particle's.
+ *
+ * With the game's shaders on, the beams draw through the translated `quad` or `distortion`
+ * pair once it is ready, and through the hand-written material until then.
  */
-export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) {
+export function Beams({ emitter, sources, samplers, rank, hidden, document = null }: BeamsProps) {
   const beam = emitter.beam;
   const buffers = useMemo(() => ribbonBuffers(BEAMS_PER_EMITTER * 4), []);
   const material = useMemo(
@@ -123,6 +132,8 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
   );
 
   const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
+  const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && beam !== null && emitter.mesh === null;
 
@@ -134,7 +145,9 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       return;
     }
 
-    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
+    const scroll = material.uniforms.paletteScroll.value as number[];
+    sourcesScrollInto(emitter, sources, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
     const eye = state.camera.position;
     EYE[0] = eye.x * AXIS_SIGN[0];
     EYE[1] = eye.y * AXIS_SIGN[1];
@@ -216,7 +229,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
     <DrawPair
       pair={pair}
       geometry={buffers.geometry}
-      material={material}
+      material={programs[0]?.material ?? material}
       rank={rank}
       edges={buffers.edgeGeometry}
     />

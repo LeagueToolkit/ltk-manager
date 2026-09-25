@@ -2,9 +2,9 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import type { Mesh } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
-import { SIMPLE_ORIENTATION } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import {
   age01,
@@ -21,17 +21,20 @@ import {
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { mirrorInto, multiplyInto } from "../../engine/utils/basis";
+import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend";
 import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
-import { distorts, drawsAsQuad, facesTheCamera, isRay, isUnitQuad } from "../utils/drawKind";
+import { distorts, drawsAsQuad } from "../utils/drawKind";
 import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
-import { quadMaterial } from "../utils/materials";
+import { quadMaterial, quadOrientation } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { quadDraw } from "../utils/particleDraws";
+import { writePaletteScroll } from "../utils/particleProgram";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, showPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair, useProgramDraw } from "./drawPair";
 
 /** Scratch the appearance pass writes into, reused across every particle of a frame. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
@@ -75,6 +78,8 @@ export interface QuadsProps {
   hidden: boolean;
   /** How many particles the buffers hold, which a scene of many small systems lowers. */
   room?: number;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /**
@@ -84,6 +89,11 @@ export interface QuadsProps {
  * matrix per particle reaches the GPU. A camera quad takes its roll alone, an arbitrary
  * quad and a ray the basis the CPU builds for the particle, and a simple emitter's quad
  * the world plane its `orientation` names.
+ *
+ * With the game's shaders on, the quads draw through the translated programs once they are
+ * ready: the engine's `quad` or `distortion` pair, or each pass of a custom material, a later
+ * pass on a twin of the mesh. The hand-written material draws until then and wherever none
+ * can.
  */
 export function Quads({
   emitter,
@@ -92,32 +102,30 @@ export function Quads({
   rank,
   hidden,
   room = QUADS_PER_EMITTER,
+  document = null,
 }: QuadsProps) {
   const buffers = useMemo(() => quadBuffers(room), [room]);
+  const orientation = useMemo(() => quadOrientation(emitter), [emitter]);
   const material = useMemo(
     () =>
       quadMaterial(
         emitter.blendMode,
         samplers.base,
         { bias: emitter.depthBias, pushPull: emitter.depthPushPull },
-        {
-          billboard: facesTheCamera(emitter) || emitter.legacySimple !== null,
-          directed:
-            facesTheCamera(emitter) && emitter.directionOriented && emitter.legacySimple === null,
-          ray: isRay(emitter) && emitter.legacySimple === null,
-          plane: emitter.legacySimple?.orientation ?? SIMPLE_ORIENTATION.camera,
-          unitQuad: isUnitQuad(emitter),
-          pivotUp: emitter.pivotUp,
-        },
+        orientation,
         layersOf(emitter, samplers, DRAWS),
         fragmentTests(emitter),
       ),
-    [emitter, samplers],
+    [emitter, samplers, orientation],
   );
 
   useEffect(() => () => buffers.geometry.dispose(), [buffers]);
 
   const pair = useDrawPair<Mesh>(material, distorts(emitter));
+  const draw = useMemo(() => quadDraw(orientation), [orientation]);
+  const programs = useParticlePrograms(emitter, samplers, draw, buffers.geometry, document);
+  const program = programs[0] ?? null;
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && drawsAsQuad(emitter);
   const sorted =
@@ -146,7 +154,9 @@ export function Quads({
 
     const stamp = state.gl.info.render.frame;
     const frames = sources.map((source) => frameOf(source, emitter));
-    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
+    const scroll = material.uniforms.paletteScroll.value as number[];
+    sourcesScrollInto(emitter, sources, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
 
     let held = 0;
     sources.forEach((source, from) => {
@@ -180,7 +190,14 @@ export function Quads({
     showPair(pair, held > 0);
   });
 
-  return <DrawPair pair={pair} geometry={buffers.geometry} material={material} rank={rank} />;
+  return (
+    <DrawPair
+      pair={pair}
+      geometry={buffers.geometry}
+      material={program?.material ?? material}
+      rank={rank}
+    />
+  );
 }
 
 /** Each particle's centre, scale and colour, in the order the sort left them. */

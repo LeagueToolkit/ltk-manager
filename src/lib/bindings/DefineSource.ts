@@ -4,4 +4,4 @@
  * The stages the define list is built from, in the order the engine runs them, later
  * winning.
  */
-export type DefineSource = "material" | "feature" | "switch" | "pass";
+export type DefineSource = "material" | "feature" | "switch" | "pass" | "emitter";

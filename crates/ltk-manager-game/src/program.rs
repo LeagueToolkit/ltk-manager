@@ -13,7 +13,8 @@ use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
 use ltk_manager_core::error::AppResult;
 use ltk_manager_core::material::MaterialWarning;
 use ltk_manager_core::material::pass::{
-    MaterialKind, PassState, PassTexture, ResolvedPass, SamplerState, TextureSource, resolve_passes,
+    Define, DefineSource, MaterialKind, PassState, PassTexture, ResolvedPass, SamplerState,
+    TextureSource, resolve_passes,
 };
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,190 @@ pub const LIT_UBER_DIFFUSE: &str = "DIFFUSE_MAP";
 
 /// The skin's emissive texture. Its green channel replaces the grid light of a texel.
 pub const LIT_UBER_EMISSIVE: &str = "EMISSIVE_MAP";
+
+/// An engine particle shader pair, which the mesh an emitter resolves and its uv mode pick.
+///
+/// The `particle_shaders` example finds each file in an installed shader cache.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum ParticleShader {
+    /// `quad_vs` and `quad_ps`, for every emitter without a mesh.
+    Quad,
+    /// A quad under `uvMode` 2, `LOCK_ALPHA`.
+    QuadFixedAlphaUv,
+    /// A quad under `uvMode` 1, `SCREEN_SPACE`.
+    QuadScreenSpaceUv,
+    /// A quad with a `SLICE_RANGE`, `quad_vs` with `quad_ps_slice`.
+    QuadSlice,
+    /// `mesh_vs` and `mesh_ps`, for a mesh emitter and a `REFLECTIVE` quad.
+    Mesh,
+    /// A mesh with a `SLICE_RANGE`, `mesh_vs` with `mesh_ps_slice`.
+    MeshSlice,
+    /// `skinnedmesh/particle_vs` and `particle_ps`, for a mesh attached to a character.
+    AttachedMesh,
+    /// An attached mesh with a `SLICE_RANGE`, `particle_vs` with `particle_ps_slice`.
+    AttachedMeshSlice,
+    /// `distortion_vs` and `distortion_ps`, for a distorting emitter without a mesh.
+    Distortion,
+    /// `distortion_mesh_vs` and `distortion_mesh_ps`, for a distorting mesh emitter.
+    DistortionMesh,
+    /// `skinnedmesh/particle_distortion_vs` and `particle_distortion_ps`, for a distorting
+    /// attached mesh.
+    DistortionAttachedMesh,
+}
+
+impl ParticleShader {
+    /// Every pair, in declaration order.
+    pub const ALL: [Self; 11] = [
+        Self::Quad,
+        Self::QuadFixedAlphaUv,
+        Self::QuadScreenSpaceUv,
+        Self::QuadSlice,
+        Self::Mesh,
+        Self::MeshSlice,
+        Self::AttachedMesh,
+        Self::AttachedMeshSlice,
+        Self::Distortion,
+        Self::DistortionMesh,
+        Self::DistortionAttachedMesh,
+    ];
+
+    /// The HLSL file of each stage in the shader cache.
+    #[must_use]
+    pub const fn path(self) -> ShaderPath<'static> {
+        let (vertex, pixel) = match self {
+            Self::Quad => (QUAD_VS, "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_PS.ps"),
+            Self::QuadFixedAlphaUv => (
+                "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_VS_FixedAlphaUV.vs",
+                "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_PS_FixedAlphaUV.ps",
+            ),
+            Self::QuadScreenSpaceUv => (
+                "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_ScreenSpaceUV.vs",
+                "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_ScreenSpaceUV.ps",
+            ),
+            Self::QuadSlice => (
+                QUAD_VS,
+                "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_PS_Slice.ps",
+            ),
+            Self::Mesh => (MESH_VS, "ASSETS/Shaders/HLSL/ParticleSystem/MESH_PS.ps"),
+            Self::MeshSlice => (
+                MESH_VS,
+                "ASSETS/Shaders/HLSL/ParticleSystem/MESH_PS_Slice.ps",
+            ),
+            Self::AttachedMesh => (
+                ATTACHED_MESH_VS,
+                "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_PS.ps",
+            ),
+            Self::AttachedMeshSlice => (
+                ATTACHED_MESH_VS,
+                "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_PS_Slice.ps",
+            ),
+            Self::Distortion => (
+                "ASSETS/Shaders/HLSL/ParticleSystem/DISTORTION_VS.vs",
+                "ASSETS/Shaders/HLSL/ParticleSystem/DISTORTION_PS.ps",
+            ),
+            Self::DistortionMesh => (
+                "ASSETS/Shaders/HLSL/ParticleSystem/DISTORTION_MESH_VS.vs",
+                "ASSETS/Shaders/HLSL/ParticleSystem/DISTORTION_MESH_PS.ps",
+            ),
+            Self::DistortionAttachedMesh => (
+                "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_DISTORTION_VS.vs",
+                "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_DISTORTION_PS.ps",
+            ),
+        };
+        ShaderPath::Hlsl { vertex, pixel }
+    }
+
+    /// The shader name a pass of the pair carries, such as `ParticleSystem/QUAD`.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Quad => "ParticleSystem/QUAD",
+            Self::QuadFixedAlphaUv => "ParticleSystem/QUAD_FixedAlphaUV",
+            Self::QuadScreenSpaceUv => "ParticleSystem/QUAD_ScreenSpaceUV",
+            Self::QuadSlice => "ParticleSystem/QUAD_Slice",
+            Self::Mesh => "ParticleSystem/MESH",
+            Self::MeshSlice => "ParticleSystem/MESH_Slice",
+            Self::AttachedMesh => "SkinnedMesh/PARTICLE",
+            Self::AttachedMeshSlice => "SkinnedMesh/PARTICLE_Slice",
+            Self::Distortion => "ParticleSystem/DISTORTION",
+            Self::DistortionMesh => "ParticleSystem/DISTORTION_MESH",
+            Self::DistortionAttachedMesh => "SkinnedMesh/PARTICLE_DISTORTION",
+        }
+    }
+}
+
+const QUAD_VS: &str = "ASSETS/Shaders/HLSL/ParticleSystem/QUAD_VS.vs";
+const MESH_VS: &str = "ASSETS/Shaders/HLSL/ParticleSystem/MESH_VS.vs";
+const ATTACHED_MESH_VS: &str = "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_VS.vs";
+
+/// A define the engine sets on a particle shader from the emitter's fields, as `NAME=1`.
+///
+/// `DISABLE_FOW` is the studio's, and `MASKED` and `COLORPALETTE_COLORBLIND` are never set
+/// in a preview, so none of the three is here.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum ParticleDefine {
+    /// `alphaRef` is not zero.
+    AlphaTest,
+    /// An erosion definition is present.
+    AlphaErosion,
+    /// The mult layer is present.
+    MultPass,
+    /// A mesh under `uvMode` 2, `LOCK_ALPHA`.
+    SeparateAlphaUv,
+    /// A mesh under `uvMode` 1, `SCREEN_SPACE`.
+    ScreenSpaceUv,
+    /// A mesh under `uvMode` 3, 4 or 5, the local-space modes.
+    LocalSpaceUv,
+    /// A palette definition is present.
+    PalettizeTextures,
+    /// A soft particle definition is present.
+    SoftParticles,
+    /// A reflection definition is present.
+    Reflective,
+    /// A mesh reads its vertex colours.
+    UseVertexColors,
+}
+
+impl ParticleDefine {
+    /// Every define, in declaration order.
+    pub const ALL: [Self; 10] = [
+        Self::AlphaTest,
+        Self::AlphaErosion,
+        Self::MultPass,
+        Self::SeparateAlphaUv,
+        Self::ScreenSpaceUv,
+        Self::LocalSpaceUv,
+        Self::PalettizeTextures,
+        Self::SoftParticles,
+        Self::Reflective,
+        Self::UseVertexColors,
+    ];
+
+    /// The define's name in the bytecode's TOC.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::AlphaTest => "ALPHA_TEST",
+            Self::AlphaErosion => "ALPHA_EROSION",
+            Self::MultPass => "MULT_PASS",
+            Self::SeparateAlphaUv => "SEPARATE_ALPHA_UV",
+            Self::ScreenSpaceUv => "SCREEN_SPACE_UV",
+            Self::LocalSpaceUv => "LOCAL_SPACE_UV",
+            Self::PalettizeTextures => "PALETTIZE_TEXTURES",
+            Self::SoftParticles => "SOFT_PARTICLES",
+            Self::Reflective => "REFLECTIVE",
+            Self::UseVertexColors => "USE_VERTEX_COLORS",
+        }
+    }
+}
 
 /// What the studio adds to a pass's define list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -216,6 +401,58 @@ pub fn read_default_skinned_program(
         &mut cache,
     );
     PassProgram { pass, program }
+}
+
+/// An engine particle shader's pass for the defines an emitter sets, with its program.
+///
+/// The pass names no texture and keeps the class's default state. An emitter binds its
+/// textures by the bytecode's names and blends by its `blendMode`.
+pub fn read_particle_program(
+    assets: &dyn AssetLookup,
+    shader: ParticleShader,
+    defines: &[ParticleDefine],
+    options: ProgramOptions,
+    translations: &TranslationCache,
+    read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
+) -> PassProgram {
+    let pass = particle_pass(shader, defines);
+
+    let mut source = AssetChunks { assets, read };
+    let mut cache = ShaderCache::new(&mut source, translations);
+    let program = translated(
+        shader.path(),
+        &pass,
+        MaterialKind::Particles,
+        options,
+        &mut cache,
+    );
+    if let ProgramRead::Failed { reason } = &program {
+        tracing::warn!(shader = shader.name(), "No particle program: {reason}");
+    }
+    PassProgram { pass, program }
+}
+
+fn particle_pass(shader: ParticleShader, defines: &[ParticleDefine]) -> ResolvedPass {
+    let mut defines = defines.to_vec();
+    defines.sort_unstable();
+    defines.dedup();
+
+    ResolvedPass {
+        shader: Some(shader.name().to_owned()),
+        defines: defines
+            .into_iter()
+            .map(|define| Define {
+                name: define.name().to_owned(),
+                value: "1".to_owned(),
+                source: DefineSource::Emitter,
+            })
+            .collect(),
+        runtime_switches: Vec::new(),
+        textures: Vec::new(),
+        params: Vec::new(),
+        state: PassState::default(),
+        schema: None,
+    }
 }
 
 /// The shader cache's chunks as the resolution locates them, by hash first, since the

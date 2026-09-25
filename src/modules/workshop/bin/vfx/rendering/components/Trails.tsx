@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import { type LineSegments, type Mesh, Vector3 } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import { TRAIL_MODE } from "../../engine/model/enums";
@@ -20,6 +21,7 @@ import {
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { AXIS, axisInto, multiplyInto, standingInto } from "../../engine/utils/basis";
+import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
@@ -27,6 +29,8 @@ import { distorts, trailFacesTheCamera } from "../utils/drawKind";
 import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { RIBBON_DRAW } from "../utils/particleDraws";
+import { writePaletteScroll } from "../utils/particleProgram";
 import {
   commitRibbon,
   type Cursor,
@@ -38,7 +42,7 @@ import {
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, showPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair, useProgramDraw } from "./drawPair";
 
 /** How many points one strand holds, which caps its share of its pool. */
 const TRAIL_POINTS = 1024;
@@ -69,6 +73,8 @@ export interface TrailsProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /**
@@ -78,8 +84,11 @@ export interface TrailsProps {
  * birth tiling and the odometer at its birth. A camera trail expands across the view and
  * its tangent, and an arbitrary one along each particle's own `+X`, so it stands however
  * the particle was turned.
+ *
+ * With the game's shaders on, the ribbon draws through the translated `quad` or `distortion`
+ * pair once it is ready, and through the hand-written material until then.
  */
-export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps) {
+export function Trails({ emitter, sources, samplers, rank, hidden, document = null }: TrailsProps) {
   const trail = emitter.trail;
   const buffers = useMemo(() => ribbonBuffers(TRAIL_VERTICES), []);
   const material = useMemo(
@@ -103,6 +112,8 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
   );
 
   const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
+  const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && trail !== null;
   const facesEye = trailFacesTheCamera(emitter);
@@ -115,7 +126,9 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
       return;
     }
 
-    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
+    const scroll = material.uniforms.paletteScroll.value as number[];
+    sourcesScrollInto(emitter, sources, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
     state.camera.getWorldDirection(LOOKING);
     VIEW[0] = LOOKING.x * AXIS_SIGN[0];
     VIEW[1] = LOOKING.y * AXIS_SIGN[1];
@@ -146,7 +159,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden }: TrailsProps
     <DrawPair
       pair={pair}
       geometry={buffers.geometry}
-      material={material}
+      material={programs[0]?.material ?? material}
       rank={rank}
       edges={buffers.edgeGeometry}
     />

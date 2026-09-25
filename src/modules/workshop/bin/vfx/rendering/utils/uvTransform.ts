@@ -128,3 +128,40 @@ export function cellSize(layer: UvLayer): [number, number] {
     1 / Math.max(Math.round(layer.book.divisions[1]), 1),
   ];
 }
+
+/**
+ * `draw` over `layer` placed in the particle's cell, as the rows of the engine's
+ * `vParticleUVTransform` into `out` from `at`: `u` is row 0 against `(u, v, 1)` and `v` is
+ * row 1, each padded to four floats. It is the quad fragment's `layerUv` and the cell, and
+ * so affine.
+ */
+export function uvRowsInto(
+  draw: UvDraw,
+  layer: UvLayer,
+  out: Float32Array | number[],
+  at = 0,
+): void {
+  const [width, height] = cellSize(layer);
+  const [centerU, centerV] = layer.center;
+  const cos = Math.cos(draw.turn);
+  const sin = Math.sin(draw.turn);
+  const mirrorU = layer.flipU ? -1 : 1;
+  const mirrorV = layer.flipV ? -1 : 1;
+
+  /* The turn and the scale about the centre, then the scroll, as `(u, v) -> A (u, v) + b`. */
+  const uu = draw.scaleU * cos;
+  const uv = -draw.scaleV * sin;
+  const vu = draw.scaleU * sin;
+  const vv = draw.scaleV * cos;
+  const bu = centerU + draw.offsetU - uu * centerU - uv * centerV;
+  const bv = centerV + draw.offsetV - vu * centerU - vv * centerV;
+
+  out[at] = uu * mirrorU * width;
+  out[at + 1] = uv * mirrorU * width;
+  out[at + 2] = draw.cellU + (layer.flipU ? 1 - bu : bu) * width;
+  out[at + 3] = 0;
+  out[at + 4] = vu * mirrorV * height;
+  out[at + 5] = vv * mirrorV * height;
+  out[at + 6] = draw.cellV + (layer.flipV ? 1 - bv : bv) * height;
+  out[at + 7] = 0;
+}

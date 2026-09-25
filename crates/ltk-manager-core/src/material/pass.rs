@@ -191,7 +191,7 @@ pub struct SchemaSwitch {
 pub struct Define {
     pub name: String,
     pub value: String,
-    /// The last of the four stages that set it.
+    /// The last stage that set it.
     pub source: DefineSource,
 }
 
@@ -211,6 +211,8 @@ pub enum DefineSource {
     Switch,
     /// `StaticMaterialPassDef.shaderMacros`.
     Pass,
+    /// Set by the engine for the emitter that draws an engine particle shader.
+    Emitter,
 }
 
 /// A static switch the shader reads as a `$Globals` float rather than a define.

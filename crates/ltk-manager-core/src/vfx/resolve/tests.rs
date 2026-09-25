@@ -216,7 +216,7 @@ impl AssetLookup for Placed {
 
 /// The system of the fixture, resolved against the tables and the one placed path.
 fn resolved() -> VfxSystem {
-    resolve_system(&document(), h(SYSTEM), &named(), &Placed).unwrap()
+    resolve_system(&document(), h(SYSTEM), &named(), &Placed, None).unwrap()
 }
 
 #[test]
@@ -234,17 +234,56 @@ fn custom_materials_use_the_shared_preview_reader_once_per_link() {
     let document = document_of(vec![system, material]);
     let names = named();
 
-    let resolved = resolve_system(&document, h(SYSTEM), &names, &Placed).unwrap();
-    let expected = crate::material::resolve_material(
-        &document,
-        material_hash,
-        &names,
-        &Placed,
-        Some(&document),
-    )
-    .unwrap();
+    let resolved = resolve_system(&document, h(SYSTEM), &names, &Placed, None).unwrap();
+    let expected =
+        crate::material::resolve_material(&document, material_hash, &names, &Placed, None).unwrap();
 
     assert_eq!(resolved.materials, [expected]);
+}
+
+#[test]
+fn a_custom_materials_shader_resolves_in_the_shader_defs() {
+    const SHADER: &str = "Shaders/Particles/Custom_Glow";
+    let material_hash = h("Materials/Custom");
+    let system = BinObject::builder(h(SYSTEM), h("VfxSystemDefinitionData"))
+        .property(
+            h("CustomMaterial"),
+            embedded(
+                "VfxMaterialDefinitionData",
+                vec![(MATERIAL, values::ObjectLink::new(material_hash).into())],
+            ),
+        )
+        .build();
+    let pass = embedded(
+        "StaticMaterialPassDef",
+        vec![(h("shader"), values::ObjectLink::new(h(SHADER)).into())],
+    );
+    let technique = embedded(
+        "StaticMaterialTechniqueDef",
+        vec![
+            (h("name"), values::String::from("normal").into()),
+            (h("passes"), values::Container::from(vec![pass]).into()),
+        ],
+    );
+    let material = BinObject::builder(material_hash, h("StaticMaterialDef"))
+        .property(h("techniques"), values::Container::from(vec![technique]))
+        .build();
+    let document = document_of(vec![system, material]);
+    let defs = document_of(vec![
+        BinObject::builder(h(SHADER), h("CustomShaderDef"))
+            .property(h("objectPath"), values::String::from(SHADER))
+            .build(),
+    ]);
+
+    let with_defs = resolve_system(&document, h(SYSTEM), &named(), &Placed, Some(&defs)).unwrap();
+    let without = resolve_system(&document, h(SYSTEM), &named(), &Placed, None).unwrap();
+
+    assert_eq!(with_defs.materials[0].shader.as_deref(), Some(SHADER));
+    assert!(with_defs.materials[0].warnings.is_empty());
+    assert_eq!(
+        without.materials[0].shader, None,
+        "the tables do not name the shader, so only the defs do"
+    );
 }
 
 #[test]
@@ -260,8 +299,14 @@ fn an_unresolved_custom_material_keeps_the_missing_preview() {
         )
         .build();
 
-    let resolved =
-        resolve_system(&document_of(vec![system]), h(SYSTEM), &named(), &Placed).unwrap();
+    let resolved = resolve_system(
+        &document_of(vec![system]),
+        h(SYSTEM),
+        &named(),
+        &Placed,
+        None,
+    )
+    .unwrap();
 
     assert_eq!(resolved.materials.len(), 1);
     assert_eq!(resolved.materials[0].hash, hex(material_hash));
@@ -274,8 +319,14 @@ fn a_material_field_on_another_class_adds_no_custom_preview() {
         .property(MATERIAL, values::ObjectLink::new(h("Materials/Other")))
         .build();
 
-    let resolved =
-        resolve_system(&document_of(vec![system]), h(SYSTEM), &named(), &Placed).unwrap();
+    let resolved = resolve_system(
+        &document_of(vec![system]),
+        h(SYSTEM),
+        &named(),
+        &Placed,
+        None,
+    )
+    .unwrap();
 
     assert!(resolved.materials.is_empty());
     assert_eq!(MATERIAL_DEFINITION, h("VfxMaterialDefinitionData"));
@@ -496,7 +547,7 @@ fn a_map_keys_a_named_hash_by_its_name_and_an_unnamed_one_by_its_hex() {
 
 #[test]
 fn an_entry_the_document_does_not_hold_is_an_error() {
-    let error = resolve_system(&document(), h("Vfx/Nowhere"), &named(), &()).unwrap_err();
+    let error = resolve_system(&document(), h("Vfx/Nowhere"), &named(), &(), None).unwrap_err();
 
     assert!(
         matches!(error, BinDocumentError::NodeNotFound { .. }),
@@ -513,7 +564,8 @@ fn a_tree_past_the_value_cap_is_refused_rather_than_truncated() {
         )
         .build();
 
-    let error = resolve_system(&document_of(vec![wide]), h(SYSTEM), &named(), &()).unwrap_err();
+    let error =
+        resolve_system(&document_of(vec![wide]), h(SYSTEM), &named(), &(), None).unwrap_err();
 
     assert!(
         matches!(error, BinDocumentError::ReadTooLarge),
@@ -531,7 +583,8 @@ fn a_tree_past_the_depth_cap_is_refused() {
         .property(h("deep"), nest)
         .build();
 
-    let error = resolve_system(&document_of(vec![deep]), h(SYSTEM), &named(), &()).unwrap_err();
+    let error =
+        resolve_system(&document_of(vec![deep]), h(SYSTEM), &named(), &(), None).unwrap_err();
 
     assert!(
         matches!(error, BinDocumentError::ReadTooDeep),
@@ -631,7 +684,7 @@ fn an_effect_key_outside_a_child_identifier_stays_a_hash() {
         child(),
         resolver("Vfx/Scope", &[("Spark_Key", h(CHILD))]),
     ];
-    let system = resolve_system(&document_of(objects), h(KEYED), &named(), &()).unwrap();
+    let system = resolve_system(&document_of(objects), h(KEYED), &named(), &(), None).unwrap();
     let key = field(field(&system.root, "child"), "effectKey");
 
     assert!(matches!(key, VfxValue::Hash { .. }), "{key:?}");
@@ -641,7 +694,7 @@ fn an_effect_key_outside_a_child_identifier_stays_a_hash() {
 fn keyed_child(resolvers: Vec<BinObject>) -> VfxValue {
     let mut objects = vec![keyed("Spark_Key"), child()];
     objects.extend(resolvers);
-    let system = resolve_system(&document_of(objects), h(KEYED), &named(), &()).unwrap();
+    let system = resolve_system(&document_of(objects), h(KEYED), &named(), &(), None).unwrap();
     field(field(&system.root, "child"), "effectKey").clone()
 }
 

@@ -6,6 +6,6 @@ import type { DefineSource } from "./DefineSource";
  */
 export type Define = { name: string, value: string, 
 /**
- * The last of the four stages that set it.
+ * The last stage that set it.
  */
 source: DefineSource, };

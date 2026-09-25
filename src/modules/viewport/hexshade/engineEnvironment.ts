@@ -1,10 +1,13 @@
 import {
   type Camera,
   DataTexture,
+  DetachedBindMode,
   type IUniform,
   type Material,
   Matrix4,
   type Object3D,
+  OrthographicCamera,
+  PerspectiveCamera,
   type RawShaderMaterial,
   type SkinnedMesh,
   type Texture,
@@ -23,6 +26,7 @@ import {
 } from "../assets/parsing/lightGridBuffer";
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
+import { elementView, floatsOf } from "./blockViews";
 import { type InlinedBlock, programGlobals } from "./programMaterial";
 
 /**
@@ -47,9 +51,10 @@ export type BufferBinding = "group" | "uniform";
  * The clip transform is D3D's, and the translated shader maps its `z` to GL's.
  *
  * A skinned mesh's `BONES` carry the object's transform, and its clip transform is the
- * camera's alone. A static mesh's shader multiplies by a `WORLD_MATRIX` the material packs
- * as the identity. Its clip transform carries the object's, and the camera is stated in
- * the object's space.
+ * camera's alone. A skinned mesh bound detached draws at its transform over the bones, as
+ * three draws it, so its clip transform carries that. A static mesh's shader multiplies by a
+ * `WORLD_MATRIX` the material packs as the identity. Its clip transform carries the
+ * object's, and the camera is stated in the object's space.
  *
  * `$Globals` is an array uniform of each material under either binding. It carries what
  * changes per draw for one of hundreds of materials, and three uploads a group once per
@@ -62,6 +67,8 @@ export class EngineEnvironment {
   grid: LightGrid | null = null;
   /** The skin's `selfIllumination`, written to each colour channel of `SELF_ILLUMINATION`. */
   selfIllumination = 0;
+  /** The particle emitter the object draws, which a particle material's instance buffer reads. */
+  particle: ParticleEmitter | null = null;
 
   private readonly buffers = new Map<string, BlockBuffer>();
   private readonly clip = new Matrix4();
@@ -93,13 +100,7 @@ export class EngineEnvironment {
     { element, extent }: InlinedBlock,
   ): Float32Array | Int32Array | Uint32Array {
     const { data } = this.bufferOf(block);
-    const length = Math.min(extent * VEC4_FLOATS, data.length);
-
-    /* The shader converts an integer element to a float with `uintBitsToFloat`. An
-       integer view keeps the bits of each float unconverted. */
-    if (element === "uvec4") return new Uint32Array(data.buffer, data.byteOffset, length);
-    if (element === "ivec4") return new Int32Array(data.buffer, data.byteOffset, length);
-    return data.subarray(0, length);
+    return elementView(data.subarray(0, Math.min(extent * VEC4_FLOATS, data.length)), element);
   }
 
   /**
@@ -122,8 +123,8 @@ export class EngineEnvironment {
     for (const [channel, member, texture] of LIGHT_CHANNELS) {
       const light = lights?.[channel] ?? null;
       for (const at of globals.members.get(member) ?? []) {
-        const block = uniforms[at.block]?.value;
-        if (!(block instanceof Float32Array)) continue;
+        const block = floatsOf(uniforms[at.block]?.value);
+        if (block === null) continue;
         const scale = light?.scale ?? UNIT_SCALE;
         const bias = light?.bias ?? NO_BIAS;
         if (
@@ -157,7 +158,7 @@ export class EngineEnvironment {
     this.frame = renderer.info.render.frame;
     this.clip.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.eye.setFromMatrixPosition(camera.matrixWorld);
-    if (!isSkinned(object)) {
+    if (!isSkinned(object) || object.bindMode === DetachedBindMode) {
       this.clip.multiply(object.matrixWorld);
       this.eye.applyMatrix4(this.inverse.copy(object.matrixWorld).invert());
     }
@@ -213,6 +214,14 @@ interface BlockBuffer {
   readonly data: Float32Array;
   /** The engine's name for the block, which says what to write into it. */
   readonly base: string;
+}
+
+/** What an emitter's draw writes to `VFXDynamicPerParticleInstanceCBVS`. */
+export interface ParticleEmitter {
+  /** `PARTICLE_COLOR_FACTOR`, which a particle material multiplies its colour by. */
+  readonly colorFactor: readonly [number, number, number, number];
+  /** `EMITTER_DEPTH_PUSH_PULL`, the emitter's `DepthPushPull`. */
+  readonly depthPushPull: number;
 }
 
 /** The light maps one mesh is lit by, each with the transform its `uv1` reads through. */
@@ -390,6 +399,7 @@ const WRITERS: Record<string, Writer> = {
     out[15] = 1;
     writeVector(out, 16, complement[0] ?? 0, complement[1] ?? 0, complement[2] ?? 0);
     out[19] = 1;
+    writeDepthConversion(out, 20, camera);
     writeVector(out, 24, sun[0] ?? 0, sun[1] ?? 0, sun[2] ?? 0);
     out[27] = 1;
     writeVector(out, 29, direction[0], direction[1], direction[2]);
@@ -435,6 +445,14 @@ const WRITERS: Record<string, Writer> = {
     environment.writeIdentity(out, 16);
     environment.writeIdentity(out, 32);
   },
+  /* `DYNAMIC_PARTICLE_ENABLE_MASK` stays zero, which keeps the shader off the dynamic
+     particle buffers the preview has none of. */
+  VFXDynamicPerParticleInstanceCBVS: (out, environment) => {
+    const particle = environment.particle;
+    if (particle === null) return;
+    out.set(particle.colorFactor, 4);
+    out[10] = particle.depthPushPull;
+  },
   BonesCB: (out, _environment, _camera, object) => {
     if (!isSkinned(object)) return;
     /* The skeleton's matrices are the bones' world transforms over their inverse binds,
@@ -463,6 +481,24 @@ export function writeRows(out: Float32Array, at: number, matrix: Matrix4): void 
     }
   }
 }
+
+/** `cDepthConversionParams`, the eye distance of a stored depth `d` as `1 / (d * y + x)`. */
+function writeDepthConversion(out: Float32Array, at: number, camera: Camera): void {
+  if (camera instanceof PerspectiveCamera) {
+    out[at] = 1 / camera.near;
+    out[at + 1] = 1 / camera.far - 1 / camera.near;
+    return;
+  }
+
+  /* An orthographic depth is linear. `1 / (x + y d)` is `span / ORTHO_SLOPE + span d` to
+     within `ORTHO_SLOPE`, and a gap only ever subtracts the constant term. */
+  const span = camera instanceof OrthographicCamera ? camera.far - camera.near : 1;
+  out[at] = ORTHO_SLOPE / span;
+  out[at + 1] = -(ORTHO_SLOPE * ORTHO_SLOPE) / span;
+}
+
+/** How far the reciprocal of an orthographic depth strays from a line, as a fraction. */
+const ORTHO_SLOPE = 1e-3;
 
 function writeVector(out: Float32Array, at: number, x: number, y: number, z: number): void {
   out[at] = x;

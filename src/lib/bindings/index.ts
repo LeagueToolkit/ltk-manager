@@ -184,6 +184,8 @@ export type { PackFormat } from "./PackFormat";
 export type { PackProjectArgs } from "./PackProjectArgs";
 export type { PackResult } from "./PackResult";
 export type { ParamSource } from "./ParamSource";
+export type { ParticleDefine } from "./ParticleDefine";
+export type { ParticleShader } from "./ParticleShader";
 export type { PassParam } from "./PassParam";
 export type { PassProgram } from "./PassProgram";
 export type { PassState } from "./PassState";

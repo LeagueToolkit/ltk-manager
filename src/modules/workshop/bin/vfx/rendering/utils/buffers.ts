@@ -117,8 +117,11 @@ export interface MeshBuffers {
   readonly instanceMatrix: InstancedBufferAttribute;
   /** Four per mesh, straight multiplied onto the texture's sample. */
   readonly tint: InstancedBufferAttribute;
-  /** One per mesh: the erosion drive, the map value its kept band opens at. */
-  readonly erode: InstancedBufferAttribute;
+  /**
+   * Three per mesh: where the colour ramp is read, which a translated pair reads, and the
+   * erosion drive, the map value its kept band opens at.
+   */
+  readonly lookup: InstancedBufferAttribute;
   /** The two layers' transforms, as a quad carries them. */
   readonly uvTurn: InstancedBufferAttribute;
   readonly uvShift: InstancedBufferAttribute;
@@ -139,7 +142,7 @@ export function meshBuffers(geometry: BufferGeometry): MeshBuffers {
   const written = {
     instanceMatrix: new InstancedBufferAttribute(new Float32Array(count * 16), 16),
     tint: new InstancedBufferAttribute(new Float32Array(count * 4), 4),
-    erode: new InstancedBufferAttribute(new Float32Array(count), 1),
+    lookup: new InstancedBufferAttribute(new Float32Array(count * 3), 3),
     uvTurn: new InstancedBufferAttribute(new Float32Array(count * 3), 3),
     uvShift: new InstancedBufferAttribute(new Float32Array(count * 4), 4),
     uvTurnMult: new InstancedBufferAttribute(new Float32Array(count * 3), 3),

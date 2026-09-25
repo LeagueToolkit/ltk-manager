@@ -93,6 +93,8 @@ import {
   type BinDocumentId,
   commands,
   type MaterialSource,
+  type ParticleDefine,
+  type ParticleShader,
   type ProgramOptions,
 } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
@@ -223,6 +225,8 @@ export type {
   MaterialSource,
   MemberScalar,
   ParamSource,
+  ParticleDefine,
+  ParticleShader,
   PassParam,
   PassProgram,
   PassState,
@@ -640,6 +644,12 @@ export const api = {
     ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
     readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
       commands.readDefaultSkinnedProgram(document, options).then(toResult),
+    readParticleProgram: (
+      document: BinDocumentId | null,
+      shader: ParticleShader,
+      defines: readonly ParticleDefine[],
+      options: ProgramOptions,
+    ) => commands.readParticleProgram(document, shader, [...defines], options).then(toResult),
     bakeSkinTangents: (document: BinDocumentId, entry: string) =>
       commands.bakeSkinTangents(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>

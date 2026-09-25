@@ -10,6 +10,7 @@ import {
   Vector3,
 } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import type { EmitterModel, MeshModel } from "../../engine/model/model";
@@ -27,17 +28,21 @@ import {
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS, type Pool } from "../../engine/simulation/pool";
 import { alongInto, mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
+import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
+import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { meshMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { meshDraw } from "../utils/particleDraws";
+import { writePaletteScroll } from "../utils/particleProgram";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { showPair, useDrawPair } from "./drawPair";
+import { showPair, useDrawPair, useProgramDraw } from "./drawPair";
 
 /** Scratch the frame reuses, so a draw allocates nothing per particle. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
@@ -66,6 +71,9 @@ const PLACED = drawnPlace();
 const ORBIT = new Quaternion();
 const ORBIT_FRAME = new Float32Array(FRAME_SLOTS);
 
+/** The floats of `lookup` per instance: the ramp's two, then the erosion drive. */
+const LOOKUP_FLOATS = 3;
+
 /** The rim, the reflection and the soft fade a mesh's shader compiles, and no ramp. */
 const DRAWS: LayerDraws = { ramp: false, sheen: true, fade: true };
 
@@ -79,6 +87,8 @@ export interface MeshesProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /**
@@ -88,9 +98,21 @@ export interface MeshesProps {
  * one matrix per particle rather than writing three arrays, and hands the fragment the
  * same two layer transforms a quad does. `AlignYawToCamera` and `AlignPitchToCamera`
  * turn that matrix toward the eye on the axis each names.
+ *
+ * With the game's shaders on, the instances draw through each translated pass of the
+ * emitter's custom material, or through the `mesh` or `distortion_mesh` pair, once they are
+ * ready, and through the hand-written material until then.
  */
-export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: MeshesProps) {
-  const { geometry, tint, erode } = buffers;
+export function Meshes({
+  emitter,
+  sources,
+  buffers,
+  samplers,
+  rank,
+  hidden,
+  document = null,
+}: MeshesProps) {
+  const { geometry, tint, lookup } = buffers;
   const material = useMemo(() => {
     const material = meshMaterial(
       emitter.blendMode,
@@ -108,6 +130,11 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
   }, [emitter, samplers, buffers.pose]);
 
   const pair = useDrawPair<InstancedMesh>(material, distorts(emitter));
+  const bones = buffers.pose?.texture ?? null;
+  const draw = useMemo(() => meshDraw(bones), [bones]);
+  const programs = useParticlePrograms(emitter, samplers, draw, geometry, document);
+  const program = programs[0] ?? null;
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled;
 
@@ -127,8 +154,11 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
       return;
     }
 
-    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
+    const scroll = material.uniforms.paletteScroll.value as number[];
+    sourcesScrollInto(emitter, sources, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
     const turns = [buffers.uvTurn, buffers.uvTurnMult];
+    const lookups = lookup.array as Float32Array;
     const shifts = [buffers.uvShift, buffers.uvShiftMult];
 
     const stamp = state.gl.info.render.frame;
@@ -147,6 +177,8 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
         const age = time - pool.birthTime[at];
         buffers.pose?.write(instance, age);
         const through = age01(pool, at, time);
+        colorLookupInto(emitter, pool, at, through, lookups, instance * LOOKUP_FLOATS);
+        lookups[instance * LOOKUP_FLOATS + 2] = erosionDrive(pool, at, emitter, time);
         for (let layer = 0; layer < turns.length; layer += 1) {
           const over = layerOf(emitter, layer);
           if (over === null) continue;
@@ -180,7 +212,6 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
 
         held.setMatrixAt(instance, PLACE.compose(AT, TURN, SPREAD));
         tint.setXYZW(instance, DRAWN.color[0], DRAWN.color[1], DRAWN.color[2], DRAWN.color[3]);
-        erode.setX(instance, erosionDrive(pool, at, emitter, time));
         instance += 1;
       }
     }
@@ -190,7 +221,7 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
     showPair(pair, instance > 0);
     if (instance === 0) return;
     buffers.pose?.commit(instance);
-    for (const attribute of [buffers.instanceMatrix, tint, erode, ...turns, ...shifts]) {
+    for (const attribute of [buffers.instanceMatrix, tint, lookup, ...turns, ...shifts]) {
       written(attribute, instance);
     }
   });
@@ -199,7 +230,8 @@ export function Meshes({ emitter, sources, buffers, samplers, rank, hidden }: Me
     <>
       <instancedMesh
         ref={pair.solid}
-        args={[geometry, material, MESHES_PER_EMITTER]}
+        args={[geometry, undefined, MESHES_PER_EMITTER]}
+        material={program?.material ?? material}
         visible={pair.wire.shaded}
         renderOrder={rank}
         frustumCulled={false}

@@ -17,7 +17,8 @@ use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::map::MapPath;
 use ltk_manager_game::program::{
-    read_programs, MaterialProgram, PassProgram, ProgramOptions, Resolution,
+    read_programs, MaterialProgram, ParticleDefine, ParticleShader, PassProgram, ProgramOptions,
+    Resolution,
 };
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -71,11 +72,7 @@ pub async fn read_material_programs(
             .iter()
             .map(|entry| parse_hash(entry).unwrap_or_else(|| BinHash::hash_str(entry)))
             .collect();
-        let translations = TranslationCache::new(
-            get_app_data_dir(&app_handle)
-                .map(|dir| dir.join("shaders"))
-                .as_deref(),
-        );
+        let translations = translations(&app_handle);
         let programs = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
             let config = app_handle.state::<SettingsState>().config();
             let wads = app_handle.state::<WadCache>();
@@ -140,11 +137,7 @@ pub async fn read_default_skinned_program(
     app_handle: AppHandle,
 ) -> IpcResult<PassProgram> {
     off_thread(move || {
-        let translations = TranslationCache::new(
-            get_app_data_dir(&app_handle)
-                .map(|dir| dir.join("shaders"))
-                .as_deref(),
-        );
+        let translations = translations(&app_handle);
         read_resolved(&app_handle, document, |_, _, assets| {
             let config = app_handle.state::<SettingsState>().config();
             let wads = app_handle.state::<WadCache>();
@@ -158,6 +151,51 @@ pub async fn read_default_skinned_program(
         })
     })
     .await
+}
+
+/// An engine particle shader's pass for the defines an emitter sets, translated.
+///
+/// The shader cache is the one `document` resolves against, and the install's alone where
+/// it is none. Translations are cached as [`read_material_programs`] caches them.
+///
+/// # Errors
+///
+/// Fails when the names or the project chunks the resolution reads are unavailable.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_particle_program(
+    document: Option<BinDocumentId>,
+    shader: ParticleShader,
+    defines: Vec<ParticleDefine>,
+    options: ProgramOptions,
+    app_handle: AppHandle,
+) -> IpcResult<PassProgram> {
+    off_thread(move || {
+        let translations = translations(&app_handle);
+        with_resolution(&app_handle, document, |_, assets| {
+            let config = app_handle.state::<SettingsState>().config();
+            let wads = app_handle.state::<WadCache>();
+            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            Ok(ltk_manager_game::program::read_particle_program(
+                assets,
+                shader,
+                &defines,
+                options,
+                &translations,
+                &mut read,
+            ))
+        })
+    })
+    .await
+}
+
+/// The translations kept under the app's data directory, or none kept where it has none.
+fn translations(app_handle: &AppHandle) -> TranslationCache {
+    TranslationCache::new(
+        get_app_data_dir(app_handle)
+            .map(|dir| dir.join("shaders"))
+            .as_deref(),
+    )
 }
 
 /// The shader defs `assets` locates, parsed once per version of the file, or none where

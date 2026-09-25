@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ADDRESS_MODE } from "../../../engine/model/enums";
 import { plainUvLayer, type UvLayer, type ValueCurve } from "../../../engine/model/model";
 import { createPool, type Pool, spawn, UV, uvAt } from "../../../engine/simulation/pool";
-import { cellSize, uvDraw, uvTransformInto } from "../uvTransform";
+import { cellSize, uvDraw, uvRowsInto, uvTransformInto } from "../uvTransform";
 
 function flat(...constant: number[]): ValueCurve {
   return { constant, keys: [], tables: [] };
@@ -193,5 +193,43 @@ describe("cellSize", () => {
 
   it("refuses to divide by a grid of nothing", () => {
     expect(cellSize(layerOf({}, { divisions: [0, 0] }))).toEqual([1, 1]);
+  });
+});
+
+describe("uvRowsInto", () => {
+  it("states the layer's transform, placed in its cell, as two rows over (u, v, 1)", () => {
+    const layer = layerOf({ center: [0.4, 0.6], flipU: true }, { divisions: [2, 1] });
+    const draw = {
+      turn: 0.3,
+      scaleU: 0.8,
+      scaleV: 1.2,
+      offsetU: 0.1,
+      offsetV: -0.2,
+      cellU: 0.5,
+      cellV: 0,
+    };
+    /* The quad fragment's `layerUv`, then the cell. */
+    const atlas = (u: number, v: number) => {
+      const placedU = (u - 0.4) * 0.8;
+      const placedV = (v - 0.6) * 1.2;
+      const turnedU = placedU * Math.cos(0.3) - placedV * Math.sin(0.3) + 0.4 + 0.1;
+      const turnedV = placedU * Math.sin(0.3) + placedV * Math.cos(0.3) + 0.6 - 0.2;
+      return [0.5 + (1 - turnedU) * 0.5, turnedV];
+    };
+
+    const rows = new Float32Array(8);
+    uvRowsInto(draw, layer, rows);
+
+    for (const [u, v] of [
+      [0, 0],
+      [1, 0],
+      [0.3, 0.9],
+      [2, -1],
+    ] as const) {
+      const [x = 0, y = 0] = atlas(u, v);
+      expect(rows[0] * u + rows[1] * v + rows[2]).toBeCloseTo(x, 5);
+      expect(rows[4] * u + rows[5] * v + rows[6]).toBeCloseTo(y, 5);
+    }
+    expect([rows[3], rows[7]]).toEqual([0, 0]);
   });
 });

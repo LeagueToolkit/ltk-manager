@@ -263,6 +263,17 @@ export const commands = {
 	 */
 	readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: PassProgram }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_default_skinned_program", { document, options }),
 	/**
+	 *  An engine particle shader's pass for the defines an emitter sets, translated.
+	 * 
+	 *  The shader cache is the one `document` resolves against, and the install's alone where
+	 *  it is none. Translations are cached as [`read_material_programs`] caches them.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the names or the project chunks the resolution reads are unavailable.
+	 */
+	readParticleProgram: (document: number | null, shader: ParticleShader, defines: ParticleDefine[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: PassProgram }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_particle_program", { document, shader, defines, options }),
+	/**
 	 *  Tangents saved into the viewed skin's project-layer mesh.
 	 * 
 	 *  # Errors
@@ -1452,7 +1463,7 @@ export type DecodedIncident = {
 export type Define = {
 	name: string,
 	value: string,
-	/**  The last of the four stages that set it. */
+	/**  The last stage that set it. */
 	source: DefineSource,
 };
 
@@ -1468,7 +1479,9 @@ export type DefineSource =
 /**  A compile-time static switch, `1` on and `0` off. */
 "switch" | 
 /**  `StaticMaterialPassDef.shaderMacros`. */
-"pass";
+"pass" | 
+/**  Set by the engine for the emitter that draws an engine particle shader. */
+"emitter";
 
 /**  One dependency a `PROP` names, as its path and its brex spelling. */
 export type Dependency = {
@@ -3080,6 +3093,66 @@ export type ParamSource =
 "material" | 
 /**  `StaticMaterialPassDef.paramValues`. */
 "pass";
+
+/**
+ *  A define the engine sets on a particle shader from the emitter's fields, as `NAME=1`.
+ * 
+ *  `DISABLE_FOW` is the studio's, and `MASKED` and `COLORPALETTE_COLORBLIND` are never set
+ *  in a preview, so none of the three is here.
+ */
+export type ParticleDefine = 
+/**  `alphaRef` is not zero. */
+"ALPHA_TEST" | 
+/**  An erosion definition is present. */
+"ALPHA_EROSION" | 
+/**  The mult layer is present. */
+"MULT_PASS" | 
+/**  A mesh under `uvMode` 2, `LOCK_ALPHA`. */
+"SEPARATE_ALPHA_UV" | 
+/**  A mesh under `uvMode` 1, `SCREEN_SPACE`. */
+"SCREEN_SPACE_UV" | 
+/**  A mesh under `uvMode` 3, 4 or 5, the local-space modes. */
+"LOCAL_SPACE_UV" | 
+/**  A palette definition is present. */
+"PALETTIZE_TEXTURES" | 
+/**  A soft particle definition is present. */
+"SOFT_PARTICLES" | 
+/**  A reflection definition is present. */
+"REFLECTIVE" | 
+/**  A mesh reads its vertex colours. */
+"USE_VERTEX_COLORS";
+
+/**
+ *  An engine particle shader pair, which the mesh an emitter resolves and its uv mode pick.
+ * 
+ *  The `particle_shaders` example finds each file in an installed shader cache.
+ */
+export type ParticleShader = 
+/**  `quad_vs` and `quad_ps`, for every emitter without a mesh. */
+"quad" | 
+/**  A quad under `uvMode` 2, `LOCK_ALPHA`. */
+"quadFixedAlphaUv" | 
+/**  A quad under `uvMode` 1, `SCREEN_SPACE`. */
+"quadScreenSpaceUv" | 
+/**  A quad with a `SLICE_RANGE`, `quad_vs` with `quad_ps_slice`. */
+"quadSlice" | 
+/**  `mesh_vs` and `mesh_ps`, for a mesh emitter and a `REFLECTIVE` quad. */
+"mesh" | 
+/**  A mesh with a `SLICE_RANGE`, `mesh_vs` with `mesh_ps_slice`. */
+"meshSlice" | 
+/**  `skinnedmesh/particle_vs` and `particle_ps`, for a mesh attached to a character. */
+"attachedMesh" | 
+/**  An attached mesh with a `SLICE_RANGE`, `particle_vs` with `particle_ps_slice`. */
+"attachedMeshSlice" | 
+/**  `distortion_vs` and `distortion_ps`, for a distorting emitter without a mesh. */
+"distortion" | 
+/**  `distortion_mesh_vs` and `distortion_mesh_ps`, for a distorting mesh emitter. */
+"distortionMesh" | 
+/**
+ *  `skinnedmesh/particle_distortion_vs` and `particle_distortion_ps`, for a distorting
+ *  attached mesh.
+ */
+"distortionAttachedMesh";
 
 /**  One `ShaderPhysicalParameter` after the material's and the pass's values wrote into it. */
 export type PassParam = {

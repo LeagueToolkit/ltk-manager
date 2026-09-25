@@ -32,10 +32,113 @@ export const ARBITRARY_UV: readonly [Weights, Weights] = [
 
 type Weights = readonly [number, number, number];
 
-export const VERTEX = /* glsl */ `
+/**
+ * Where one quad corner lands in the world, and its uv before either layer's transform.
+ *
+ * Reads the instanced attributes of `quadBuffers`, `reach` and `pivot`, and three's
+ * `modelMatrix`, `viewMatrix` and `cameraPosition`, which the stage including it declares.
+ * The hand-written quad and the Hexshade quad prelude share it, so both place a corner alike.
+ */
+export const QUAD_CORNER = /* glsl */ `
 const vec3 ARBITRARY_U = vec3(${ARBITRARY_UV[0].join(", ")});
 const vec3 ARBITRARY_V = vec3(${ARBITRARY_UV[1].join(", ")});
 
+${GROUND}
+
+vec2 cornerUv() {
+#if PLANE >= 1 || defined(BILLBOARD) || defined(RAY)
+  // The texture's first row is v = 0, so v runs down the quad.
+  return vec2(corner.x + 0.5, 0.5 - corner.y);
+#else
+  return vec2(dot(ARBITRARY_U, vec3(corner, 1.0)), dot(ARBITRARY_V, vec3(corner, 1.0)));
+#endif
+}
+
+vec4 cornerWorld() {
+  // The corner, lifted so the quad grows from its base where the emitter asks, and
+  // reaching to the whole of scale0, which is a half-extent.
+  vec2 at = vec2(corner.x, corner.y + pivot) * reach;
+
+  // A simple emitter's world plane: the table's U and V in the engine's space, spun
+  // about their normal, then mirrored.
+#if PLANE >= 1
+  {
+#if PLANE == 2
+    vec3 u = vec3(1.0, 0.0, 0.0);
+#else
+    vec3 u = vec3(0.0, 1.0, 0.0);
+#endif
+#if PLANE == 3
+    vec3 v = vec3(1.0, 0.0, 0.0);
+#else
+    vec3 v = vec3(0.0, 0.0, -1.0);
+#endif
+    vec3 w = cross(v, u);
+    // The roll arrives mirrored for the view axis, so it is put back first.
+    float turn = -roll;
+    float c = cos(turn);
+    float s = sin(turn);
+    vec3 spunU = u * c + cross(w, u) * s;
+    vec3 spunV = v * c + cross(w, v) * s;
+    vec3 offset = spunU * (at.y * size.y) + spunV * (at.x * size.x);
+    offset.x = -offset.x;
+    return grounded(modelMatrix * vec4(center + offset, 1.0));
+  }
+#endif
+
+  // A camera quad spans the view's right and up vectors and faces the eye. Only the roll of
+  // its rotation reaches it, because the other two turn it out of that plane.
+#ifdef BILLBOARD
+  {
+#ifdef DIRECTED
+    // The travel as the eye sees it is the quad's up, and the roll is ignored. Decision
+    // 2.51 of docs/plans/vfx-particle-renderer.md.
+    vec2 up = (mat3(viewMatrix) * basisY).xy;
+    up = dot(up, up) > 0.0 ? normalize(up) : vec2(0.0, 1.0);
+    vec2 offset = vec2(up.y, -up.x) * (at.x * size.x) + up * (at.y * size.y);
+#else
+    vec2 turned = vec2(
+      at.x * cos(roll) - at.y * sin(roll),
+      at.x * sin(roll) + at.y * cos(roll)
+    );
+    vec2 offset = turned * size.xy;
+#endif
+    vec3 eyeRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
+    vec3 eyeUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+#ifdef GROUND_LAYER
+    return grounded(modelMatrix * vec4(center + eyeRight * offset.x + eyeUp * offset.y, 1.0));
+#else
+    vec4 origin = modelMatrix * vec4(center, 1.0);
+    return vec4(origin.xyz + eyeRight * offset.x + eyeUp * offset.y, 1.0);
+#endif
+  }
+#endif
+
+  // The basis the particle stands on, built on the CPU, as the viewport sees it.
+  mat3 basis = mat3(basisX, basisY, basisZ);
+
+#ifdef RAY
+  {
+    // A ray lies along the particle's own +Z and rolls about it to face the eye: scale.x
+    // across, scale.y along, and scale.z where its near edge starts along the axis. The
+    // mirrored space flips a cross product, so the engine's across is the negation of
+    // this one.
+    vec3 axis = basis[2];
+    vec3 aside = cross(axis, cameraPosition - center);
+    vec3 across = dot(aside, aside) > 0.0 ? -normalize(aside) : basis[0];
+    vec3 world = center
+      + axis * (size.z + (corner.y + 0.5) * size.y)
+      + across * (corner.x * size.x);
+    return grounded(modelMatrix * vec4(world, 1.0));
+  }
+#endif
+
+  vec3 world = center + basis[0] * (at.x * size.x) + basis[1] * (at.y * size.y);
+  return grounded(modelMatrix * vec4(world, 1.0));
+}
+`;
+
+export const VERTEX = /* glsl */ `
 attribute vec2 corner;
 attribute vec3 center;
 attribute vec3 size;
@@ -71,15 +174,10 @@ vec4 pushed(vec4 view) {
   return view;
 }
 
-${GROUND}
-
-vec4 viewed(vec3 world) {
-  return viewMatrix * grounded(modelMatrix * vec4(world, 1.0));
-}
+${QUAD_CORNER}
 
 void main() {
-  // The texture's first row is v = 0, so v runs down the quad.
-  vUv = vec2(corner.x + 0.5, 0.5 - corner.y);
+  vUv = cornerUv();
   vColor = color;
   vTurn = uvTurn;
   vShift = uvShift;
@@ -88,95 +186,7 @@ void main() {
   vLookup = lookup.xy;
   vErode = lookup.z;
 
-  // The corner, lifted so the quad grows from its base where the emitter asks, and
-  // reaching to the whole of scale0, which is a half-extent.
-  vec2 at = vec2(corner.x, corner.y + pivot) * reach;
-
-  // A simple emitter's world plane: the table's U and V in the engine's space, spun
-  // about their normal, then mirrored.
-#if PLANE >= 1
-  {
-#if PLANE == 2
-    vec3 u = vec3(1.0, 0.0, 0.0);
-#else
-    vec3 u = vec3(0.0, 1.0, 0.0);
-#endif
-#if PLANE == 3
-    vec3 v = vec3(1.0, 0.0, 0.0);
-#else
-    vec3 v = vec3(0.0, 0.0, -1.0);
-#endif
-    vec3 w = cross(v, u);
-    // The roll arrives mirrored for the view axis, so it is put back first.
-    float turn = -roll;
-    float c = cos(turn);
-    float s = sin(turn);
-    vec3 spunU = u * c + cross(w, u) * s;
-    vec3 spunV = v * c + cross(w, v) * s;
-    vec3 offset = spunU * (at.y * size.y) + spunV * (at.x * size.x);
-    offset.x = -offset.x;
-    vec4 view = viewed(center + offset);
-    gl_Position = projectionMatrix * pushed(view);
-    return;
-  }
-#endif
-
-  // A camera quad expands in view space, which is what makes it face the eye. Only the
-  // roll of its rotation reaches it, because the other two turn it out of that plane.
-#ifdef BILLBOARD
-  {
-#ifdef DIRECTED
-    // The travel as the eye sees it is the quad's up, and the roll is ignored. Decision
-    // 2.51 of docs/plans/vfx-particle-renderer.md.
-    vec2 up = (mat3(viewMatrix) * basisY).xy;
-    up = dot(up, up) > 0.0 ? normalize(up) : vec2(0.0, 1.0);
-    vec2 offset = vec2(up.y, -up.x) * (at.x * size.x) + up * (at.y * size.y);
-#else
-    vec2 turned = vec2(
-      at.x * cos(roll) - at.y * sin(roll),
-      at.x * sin(roll) + at.y * cos(roll)
-    );
-    vec2 offset = turned * size.xy;
-#endif
-#ifdef GROUND_LAYER
-    // The view's own right and up in the world, so the corner can be stood on the ground.
-    vec3 eyeRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-    vec3 eyeUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-    vec4 view = viewed(center + eyeRight * offset.x + eyeUp * offset.y);
-#else
-    vec4 view = modelViewMatrix * vec4(center, 1.0);
-    view.xy += offset;
-#endif
-    gl_Position = projectionMatrix * pushed(view);
-    return;
-  }
-#endif
-
-  // The basis the particle stands on, built on the CPU, as the viewport sees it.
-  mat3 basis = mat3(basisX, basisY, basisZ);
-
-#ifdef RAY
-  {
-    // A ray lies along the particle's own +Z and rolls about it to face the eye: scale.x
-    // across, scale.y along, and scale.z where its near edge starts along the axis. The
-    // mirrored space flips a cross product, so the engine's across is the negation of
-    // this one.
-    vec3 axis = basis[2];
-    vec3 aside = cross(axis, cameraPosition - center);
-    vec3 across = dot(aside, aside) > 0.0 ? -normalize(aside) : basis[0];
-    vec3 world = center
-      + axis * (size.z + (corner.y + 0.5) * size.y)
-      + across * (corner.x * size.x);
-    vec4 view = viewed(world);
-    gl_Position = projectionMatrix * pushed(view);
-    return;
-  }
-#endif
-
-  vUv = vec2(dot(ARBITRARY_U, vec3(corner, 1.0)), dot(ARBITRARY_V, vec3(corner, 1.0)));
-  vec3 world = center + basis[0] * (at.x * size.x) + basis[1] * (at.y * size.y);
-  vec4 view = viewed(world);
-  gl_Position = projectionMatrix * pushed(view);
+  gl_Position = projectionMatrix * pushed(viewMatrix * cornerWorld());
 }
 `;
 
@@ -310,13 +320,18 @@ vec4 colored(vec4 texel, vec2 lookup) {
 `;
 
 /**
- * The rim and the reflection added over the colour, as `mesh_ps` saturates them.
+ * The rim and the reflection added over the colour, as `mesh_ps` and `particle_ps` add them.
  *
- * `SHEEN` names the alpha that carries them.
+ * `SHEEN` names the alpha that carries them, as `SHEEN` in uniforms.ts states it.
+ * `saturated` clamps the colour after the soft fade, where both shaders clamp it.
  */
 const SHEEN_FRAGMENT = /* glsl */ `
 #if SHEEN == ${SHEEN.none}
-vec4 shone(vec4 lit, float texelAlpha) {
+vec4 shone(vec4 lit, float texelAlpha, float drawnAlpha) {
+  return lit;
+}
+
+vec4 saturated(vec4 lit) {
   return lit;
 }
 #else
@@ -326,15 +341,20 @@ uniform vec3 reflectionTint;
 varying vec3 vRim;
 varying vec4 vReflect;
 
-vec4 shone(vec4 lit, float texelAlpha) {
-  float carrier = SHEEN == ${SHEEN.texel} ? texelAlpha : lit.a;
+vec4 shone(vec4 lit, float texelAlpha, float drawnAlpha) {
+  float carrier = SHEEN == ${SHEEN.texel} ? texelAlpha : drawnAlpha;
   vec3 mirrored = vec3(0.0);
 #ifdef REFLECTS
   mirrored = textureCube(mapReflection, vReflect.xyz).rgb * vReflect.w
     * mix(vec3(1.0), reflectionTint, vReflect.w);
   if (SHEEN == ${SHEEN.texel}) mirrored *= texelAlpha;
 #endif
-  lit.rgb = clamp(lit.rgb + mirrored + vRim * carrier, 0.0, 1.0);
+  lit.rgb += mirrored + vRim * carrier;
+  return lit;
+}
+
+vec4 saturated(vec4 lit) {
+  lit.rgb = clamp(lit.rgb, 0.0, 1.0);
   return lit;
 }
 #endif
@@ -385,6 +405,25 @@ uniform vec4 wireColor;
 #endif
 `;
 
+/**
+ * One layer's coordinate, in cells: the 2x3 matrix.
+ *
+ * The scale and the rotation act about `uvTransformCenter` and the scroll translates
+ * after them. A flip mirrors the result within the cell, a post-multiply, so a flipped
+ * layer's scroll runs the other way. The fragment pass and the Hexshade quad prelude share
+ * it.
+ */
+export const LAYER_UV = /* glsl */ `
+vec2 layerUv(vec2 uv, vec3 turn, vec4 shift, vec2 about, vec2 mirrored) {
+  vec2 placed = (uv - about) * turn.yz;
+  float c = cos(turn.x);
+  float s = sin(turn.x);
+  placed = vec2(placed.x * c - placed.y * s, placed.x * s + placed.y * c);
+  placed += about + shift.xy;
+  return mix(placed, 1.0 - placed, mirrored);
+}
+`;
+
 /*
  * The fragment pass a quad and a mesh share, each with its own vertex shader in front.
  *
@@ -416,21 +455,7 @@ varying vec3 vTurnMult;
 varying vec4 vShiftMult;
 varying vec2 vLookup;
 
-/*
- * One layer's coordinate, in cells: the 2x3 matrix.
- *
- * The scale and the rotation act about \`uvTransformCenter\` and the scroll translates
- * after them. A flip mirrors the result within the cell, a post-multiply, so a flipped
- * layer's scroll runs the other way.
- */
-vec2 layerUv(vec2 uv, vec3 turn, vec4 shift, vec2 about, vec2 mirrored) {
-  vec2 placed = (uv - about) * turn.yz;
-  float c = cos(turn.x);
-  float s = sin(turn.x);
-  placed = vec2(placed.x * c - placed.y * s, placed.x * s + placed.y * c);
-  placed += about + shift.xy;
-  return mix(placed, 1.0 - placed, mirrored);
-}
+${LAYER_UV}
 
 ${FETCH}
 ${COLOR}
@@ -476,11 +501,12 @@ void main() {
 #ifdef HAS_MAP_MULT
   texel *= fetch(mapMult, atMult, vShiftMult, cellMult, addressMult);
 #endif
+  float uneroded = texel.a;
   texel.a *= share;
 
   vec4 lit = texel * vColor;
+  lit = saturated(softened(shone(lit, uneroded, uneroded * vColor.a)));
   if (lit.a < alphaRef) discard;
-  lit = softened(shone(lit, texel.a));
 
 #ifdef DISTORTS
   gl_FragColor = warped(placed, lit.a);

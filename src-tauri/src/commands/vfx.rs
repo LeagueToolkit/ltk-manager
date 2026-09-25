@@ -4,6 +4,7 @@
 //! every reference resolved rather than a window of rows.
 
 use super::document_assets::{parse_entry, read_resolved};
+use super::material::shader_defs;
 use super::off_thread;
 use crate::error::IpcResult;
 use ltk_manager_core::bin_document::BinDocumentId;
@@ -23,7 +24,14 @@ pub async fn read_vfx_system(
     off_thread(move || {
         let entry = parse_entry(&entry)?;
         read_resolved(&app_handle, document, |open, names, assets| {
-            Ok(resolve_system(open, entry, names, assets)?)
+            let shaders = shader_defs(&app_handle, assets);
+            Ok(resolve_system(
+                open,
+                entry,
+                names,
+                assets,
+                shaders.as_deref(),
+            )?)
         })
     })
     .await

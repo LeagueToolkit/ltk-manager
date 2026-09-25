@@ -484,7 +484,7 @@ describe("ARBITRARY_UV", () => {
 });
 
 describe("meshBuffers", () => {
-  it("places the tint and the drive on the geometry it is given, as the attributes it returns", () => {
+  it("places the tint and the lookup on the geometry it is given, as the attributes it returns", () => {
     const geometry = new BufferGeometry();
     const buffers = meshBuffers(geometry);
 
@@ -492,14 +492,14 @@ describe("meshBuffers", () => {
     expect(geometry.getAttribute("instanceMatrix")).toBe(buffers.instanceMatrix);
     expect(buffers.instanceMatrix.itemSize).toBe(16);
     expect(geometry.getAttribute("tint")).toBe(buffers.tint);
-    expect(geometry.getAttribute("erode")).toBe(buffers.erode);
+    expect(geometry.getAttribute("lookup")).toBe(buffers.lookup);
     expect(geometry.getAttribute("uvTurn")).toBe(buffers.uvTurn);
     expect(geometry.getAttribute("uvShift")).toBe(buffers.uvShift);
     expect(geometry.getAttribute("uvTurnMult")).toBe(buffers.uvTurnMult);
     expect(geometry.getAttribute("uvShiftMult")).toBe(buffers.uvShiftMult);
     expect(buffers.tint.count).toBe(MESHES_PER_EMITTER);
     expect(buffers.tint.itemSize).toBe(4);
-    expect(buffers.erode.itemSize).toBe(1);
+    expect(buffers.lookup.itemSize).toBe(3);
     expect(buffers.uvTurn.itemSize).toBe(3);
     expect(buffers.uvShift.itemSize).toBe(4);
   });
