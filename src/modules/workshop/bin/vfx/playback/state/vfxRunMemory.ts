@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
-import type { BinDocumentId } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 
+import { assetKey, assetProject } from "../../../../preview/utils/assetRef";
 import type { RigChoice } from "../../engine/model/rig";
 
 /** The in and the out a run loops between, in seconds of the run's own phase. */
@@ -23,6 +24,8 @@ export interface VfxRunMemory {
   readonly muted: readonly number[];
   readonly soloed: readonly number[];
   readonly loop: LoopRange | null;
+  /** The chance every birth reads its tables at, null for a run left to its draws. */
+  readonly pinned: number | null;
   /** Seconds into the run the tab left it at, which a tab that reopens it seeks to. */
   readonly playhead: number;
 }
@@ -34,9 +37,16 @@ interface VfxRunMemoryStore {
   forget: (key: string) => void;
 }
 
-/** The key one system's run is kept under: its document and its entry. */
-export function vfxRunKey(document: BinDocumentId, entry: string): string {
-  return `${document}:${entry}`;
+/**
+ * The key one system's run is kept under: the file it was read from and its entry.
+ *
+ * The backend issues a fresh document id per open, so a file is what a reopened tab
+ * finds its run by. A bare id keys a run with no file behind it, which lasts one open.
+ */
+export function vfxRunKey(source: AssetRef | BinDocumentId, entry: string): string {
+  if (typeof source === "number") return `open:${source}:${entry}`;
+
+  return `${assetProject(source, null) ?? ""}:${assetKey(source)}:${entry}`;
 }
 
 export const useVfxRunMemoryStore = create<VfxRunMemoryStore>()((set) => ({

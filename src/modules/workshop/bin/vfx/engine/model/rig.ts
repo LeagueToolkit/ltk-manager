@@ -120,8 +120,11 @@ export interface RigChoice {
   readonly rig: RigModel;
 }
 
-/** The rig a viewport opens on, which is the one that moves nothing. */
+/** The rig a driver starts on and a thumbnail draws with, which moves nothing and plays once. */
 export const FIRST_RIG: RigChoice = { preset: "still", rig: RIG_PRESETS.still };
+
+/** The rig a particle system's run opens on: the burst, which moves nothing and replays. */
+export const OPENING_RIG: RigChoice = { preset: "burst", rig: RIG_PRESETS.burst };
 
 /** Where the origin stands `time` seconds into a run, `height` off the ground. */
 export function originAt(motion: Motion, time: number, height = 0): Point {

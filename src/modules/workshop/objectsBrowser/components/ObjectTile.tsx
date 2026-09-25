@@ -1,4 +1,6 @@
 import {
+  ArrowsInSimpleIcon,
+  ArrowsOutSimpleIcon,
   CaretRightIcon,
   CubeIcon,
   FolderIcon,
@@ -9,9 +11,9 @@ import {
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
-import { memo } from "react";
+import { memo, useRef } from "react";
 
-import { Button, Tooltip } from "@/components";
+import { Button, IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -47,14 +49,20 @@ interface ObjectTileProps {
   onFocusTile: (index: number) => void;
   onMenu: (index: number) => void;
   onDescend: (path: string) => void;
+  /** Whether the large popover shows this tile. */
+  expanded?: boolean;
+  /** Open the large popover on the tile at an index, or close it for null. Absent for a tile with no preview. */
+  onExpand?: (index: number | null) => void;
 }
 
 /**
  * One object or folder of the objects grid: its art, its name and its class.
  *
  * The art shows the still, or the kind glyph when there is none. The preview pool places a
- * playing canvas in `data-preview-stage`. The children badge is a sibling of the tile button,
- * because a button cannot contain another button.
+ * playing canvas in `data-preview-stage`. The children badge and the expand button are
+ * siblings of the tile button, because a button cannot contain another button. The expand
+ * button shows while the pointer rests on the tile, while it has focus, and while its large
+ * popover is open.
  */
 function ObjectTileInner({
   node,
@@ -70,6 +78,8 @@ function ObjectTileInner({
   onFocusTile,
   onMenu,
   onDescend,
+  expanded = false,
+  onExpand,
 }: ObjectTileProps) {
   const open = useOpenObjectNode();
   const object = node.type === "object";
@@ -81,7 +91,7 @@ function ObjectTileInner({
       aria-colindex={column + 1}
       data-ui="ObjectTile"
       data-tile-index={index}
-      className="relative min-w-0"
+      className="group relative min-w-0"
       style={{ width }}
       onContextMenu={() => onMenu(index)}
     >
@@ -175,11 +185,65 @@ function ObjectTileInner({
           </Tooltip>
         </span>
       )}
+      {onExpand !== undefined && (
+        <span
+          className="pointer-events-none absolute inset-x-1.5 top-1.5 flex items-start justify-end p-1"
+          style={{ height: artHeight }}
+        >
+          <ExpandButton index={index} expanded={expanded} onExpand={onExpand} />
+        </span>
+      )}
     </div>
   );
 }
 
 export const ObjectTile = memo(ObjectTileInner);
+
+interface ExpandButtonProps {
+  index: number;
+  expanded: boolean;
+  onExpand: (index: number | null) => void;
+}
+
+/**
+ * The tile's toggle for the large popover.
+ *
+ * A press outside the popover closes it before this button's click lands, so the click
+ * reads whether the popover was open at the press rather than when the click fires.
+ */
+function ExpandButton({ index, expanded, onExpand }: ExpandButtonProps) {
+  const openAtPress = useRef(false);
+  const label = expanded
+    ? m.workshop_objects_preview_close_action()
+    : m.workshop_objects_preview_expand_action();
+  const hint = expanded ? label : m.workshop_objects_preview_expand_hint();
+  const Glyph = expanded ? ArrowsInSimpleIcon : ArrowsOutSimpleIcon;
+
+  return (
+    <Tooltip content={hint}>
+      <IconButton
+        variant="ghost"
+        size="xs"
+        compact
+        tabIndex={-1}
+        aria-label={label}
+        aria-pressed={expanded}
+        onPointerDown={() => {
+          openAtPress.current = expanded;
+        }}
+        onClick={(event) => {
+          const wasOpen = event.detail === 0 ? expanded : openAtPress.current;
+          onExpand(wasOpen ? null : index);
+        }}
+        className={twMerge(
+          "pointer-events-auto rounded-sm bg-scrim text-surface-200 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-scrim hover:text-surface-50",
+          expanded && "text-accent-300 opacity-100",
+        )}
+        icon={<Glyph weight="bold" className="size-3.5" />}
+      />
+    </Tooltip>
+  );
+}
 
 function TileGlyph({ node }: { node: ObjectPrefixNode | ObjectRowNode }) {
   if (node.type === "prefix") {

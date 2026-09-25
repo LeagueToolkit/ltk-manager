@@ -1,7 +1,7 @@
 import type { CameraControlsImpl } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useRef } from "react";
-import { OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
+import { Frustum, Matrix4, OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
 
 import { useReducedMotion } from "@/hooks";
 
@@ -154,9 +154,49 @@ export function useFitCamera(
   );
 }
 
+/**
+ * Whether the scene's camera shows the middle of `bounds`, and null before it has controls.
+ *
+ * The pose is read off the controls rather than the camera, whose matrices lag a pose set
+ * this frame.
+ */
+export function useSeesBounds(): (bounds: Bounds | null) => boolean | null {
+  const camera = useThree((state) => state.camera);
+  const controls = useThree((state) => state.controls) as CameraControlsImpl | null;
+
+  return useCallback(
+    (bounds: Bounds | null) => {
+      if (bounds === null || controls === null) return null;
+      if (!(camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera)) {
+        return null;
+      }
+
+      const probe = camera.clone();
+      probe.position.copy(controls.getPosition(POSITION));
+      probe.lookAt(controls.getTarget(TARGET));
+      probe.updateMatrixWorld();
+      probe.updateProjectionMatrix();
+      SEEN.setFromProjectionMatrix(
+        VIEW.multiplyMatrices(probe.projectionMatrix, probe.matrixWorldInverse),
+      );
+
+      MIDDLE.set(
+        (bounds.min[0] + bounds.max[0]) / 2,
+        (bounds.min[1] + bounds.max[1]) / 2,
+        (bounds.min[2] + bounds.max[2]) / 2,
+      );
+      return SEEN.containsPoint(MIDDLE);
+    },
+    [camera, controls],
+  );
+}
+
 /** Scratch the look is measured in, one per module rather than one per fit. */
 const POSITION = new Vector3();
 const TARGET = new Vector3();
+const MIDDLE = new Vector3();
+const VIEW = new Matrix4();
+const SEEN = new Frustum();
 
 /** Which way the camera will lie from its target, and where it faces for one standing on it. */
 function lookOf(

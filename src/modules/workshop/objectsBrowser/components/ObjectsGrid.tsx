@@ -10,7 +10,10 @@ import { nameTypeFor } from "../../explorer/utils/tileName";
 import { type ObjectsReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import { usePreviewScope } from "../hooks/usePreviewScope";
+import { useRestPreview } from "../hooks/useRestPreview";
 import {
+  isNoBurst,
+  isRetriable,
   retryPreviews,
   stillKey,
   usePinnedPreviews,
@@ -77,7 +80,9 @@ interface ObjectsGridProps {
  * Virtualized object tiles, with stills rendered by the document's preview pool.
  *
  * Only visible rows request stills, and no request starts during a scroll. A hovered tile
- * plays in place. Space opens the hovered tile, or the focused tile, in the large popover.
+ * plays in place. A tile's expand button, or Space on the hovered or focused tile, opens the
+ * large popover, which also plays a particle system whose sample missed its burst. A keyboard
+ * move that rests on a particle system opens its preview tab.
  */
 export function ObjectsGrid({
   nodes,
@@ -99,6 +104,7 @@ export function ObjectsGrid({
   const pool = usePreviewPool();
   const scope = usePreviewScope();
   const outcomes = usePreviewOutcomes();
+  const restPreview = useRestPreview(scroll);
   const items = useMemo(
     () => nodes.filter((node) => node.type === "object" || node.type === "prefix"),
     [nodes],
@@ -177,17 +183,21 @@ export function ObjectsGrid({
   const pinned = useMemo(() => new Set(shownKeys.split("\n").filter(Boolean)), [shownKeys]);
   usePinnedPreviews(pinned);
 
-  const drawable = (node: ObjectRowNode | null): node is ObjectRowNode =>
-    node !== null &&
-    candidates.some((candidate) => candidate.id === node.id) &&
-    outcomes.get(keyOf(node))?.kind !== "empty";
+  const drawable = (node: ObjectRowNode | null, mode: "tile" | "large"): node is ObjectRowNode => {
+    if (node === null || !candidates.some((candidate) => candidate.id === node.id)) {
+      return false;
+    }
+
+    const outcome = outcomes.get(keyOf(node));
+    return outcome?.kind !== "empty" || (mode === "large" && isNoBurst(outcome));
+  };
   const hoverPlays =
-    drawable(hovered) &&
+    drawable(hovered, "tile") &&
     hovered.id === aimed?.id &&
     !reducedMotion &&
     playsOnHover(objectPreviewKind(hovered));
   let live: { node: ObjectRowNode; mode: "tile" | "large" } | null = null;
-  if (drawable(expanded)) {
+  if (drawable(expanded, "large")) {
     live = { node: expanded, mode: "large" };
   } else if (hoverPlays) {
     live = { node: hovered, mode: "tile" };
@@ -238,6 +248,10 @@ export function ObjectsGrid({
   const openMenu = useCallback((index: number) => {
     setMenuNode(itemsRef.current[index] ?? null);
   }, []);
+  const expandTile = useCallback((index: number | null) => {
+    const node = index === null ? undefined : itemsRef.current[index];
+    setExpanded(node?.type === "object" ? node : null);
+  }, []);
 
   const focus = (index: number) => {
     const next = Math.max(0, Math.min(items.length - 1, index));
@@ -246,6 +260,7 @@ export function ObjectsGrid({
     requestAnimationFrame(() =>
       scroll.current?.querySelector<HTMLElement>(`[data-object-index="${next}"]`)?.focus(),
     );
+    restPreview(items[next]);
   };
 
   const aimAt = (target: EventTarget | null) => {
@@ -263,7 +278,7 @@ export function ObjectsGrid({
   };
 
   const menuKey = menuNode?.type === "object" ? keyOf(menuNode) : null;
-  const menuFailed = menuKey !== null && outcomes.get(menuKey)?.kind === "failed";
+  const menuRetriable = menuKey !== null && isRetriable(outcomes.get(menuKey));
 
   return (
     <div data-ui="ObjectsGrid" className="relative flex min-h-0 flex-1 flex-col">
@@ -329,6 +344,9 @@ export function ObjectsGrid({
                       const index = row.index * columns + column;
                       const key = node.type === "object" ? keyOf(node) : null;
                       const outcome = thumbnails && key !== null ? outcomes.get(key) : undefined;
+                      const previewable =
+                        thumbnails && node.type === "object" && objectPreviewKind(node) !== null;
+                      const onExpand = previewable ? expandTile : undefined;
 
                       return (
                         <ObjectTile
@@ -351,6 +369,8 @@ export function ObjectsGrid({
                           onFocusTile={focusTile}
                           onMenu={openMenu}
                           onDescend={descend}
+                          expanded={node.id === expanded?.id}
+                          onExpand={onExpand}
                         />
                       );
                     })}
@@ -362,7 +382,7 @@ export function ObjectsGrid({
         <ObjectsContextMenu
           node={menuNode}
           onOpen={open}
-          onRetryPreview={menuFailed ? () => retryPreviews([menuKey]) : undefined}
+          onRetryPreview={menuRetriable ? () => retryPreviews([menuKey]) : undefined}
         />
       </ContextMenu.Root>
     </div>

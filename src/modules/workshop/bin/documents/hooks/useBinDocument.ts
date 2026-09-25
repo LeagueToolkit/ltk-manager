@@ -38,6 +38,17 @@ export type BinOpenState =
   | { readonly status: "failed"; readonly error: AppError };
 
 /**
+ * When an unmounted caller's id is closed: at once, or after `LINGER_MS`.
+ *
+ * The backend drops a parsed tree with its last id, so a lingering id keeps the tree for
+ * the next open of the same file, such as a tab that replaces this one with another object.
+ */
+export type BinRelease = "now" | "lingering";
+
+/** How long a lingering id stays open past its caller. */
+const LINGER_MS = 10_000;
+
+/**
  * One asset held open as a bin document for as long as the caller is mounted.
  *
  * The open and the close are explicit over IPC (ADR-0026). `entry` narrows the open to
@@ -52,6 +63,7 @@ export type BinOpenState =
 export function useBinDocument(
   asset: AssetRef,
   entry: string | null = null,
+  release: BinRelease = "now",
 ): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
   /* A game chunk opened inside a project declares into it (ADR-0042). */
   const project = useOptionalProjectContext()?.path;
@@ -70,13 +82,18 @@ export function useBinDocument(
   const heldKey = useRef(key);
   /* The reopens waiting on the next open to land. */
   const waiting = useRef<((id: BinDocumentId | null) => void)[]>([]);
+  /* Declared before the open's effect, so its cleanup has run by the time that one's does. */
+  const unmounting = useRef(false);
   useEffect(
     () => () => {
+      unmounting.current = true;
       for (const resolve of waiting.current) resolve(null);
       waiting.current = [];
     },
     [],
   );
+  const lingers = useRef(release === "lingering");
+  lingers.current = release === "lingering";
 
   /* Calls refused together share one open: a reopen already waiting takes the rest. */
   const reopen = useCallback(
@@ -127,6 +144,8 @@ export function useBinDocument(
       /* The last id over a tree takes its edits with it, so a queued save lands first. */
       if (isQueuedThrough(held, closing)) {
         void flushBinSave(held).finally(() => void api.bin.close(closing));
+      } else if (unmounting.current && lingers.current) {
+        setTimeout(() => void api.bin.close(closing), LINGER_MS);
       } else {
         void api.bin.close(closing);
       }

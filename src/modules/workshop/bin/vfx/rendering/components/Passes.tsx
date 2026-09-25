@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import type { Camera } from "three";
 
 import {
+  bindFrameTargets,
   DISTORTION_LAYER,
   grabDepth,
   grabFrame,
@@ -30,12 +31,12 @@ export interface PassesProps {
  */
 export function Passes({ warps, softens }: PassesProps) {
   const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
   useEffect(() => {
     camera.layers.enable(PARTICLE_LAYER);
   }, [camera]);
-  /* The grabs hold viewport-sized textures for the module's life, so a closed viewport
-     hands them back. */
-  useEffect(() => releaseFrame, []);
+  /* The grabs keep viewport-sized textures per renderer, so a closed viewport frees them. */
+  useEffect(() => () => releaseFrame(gl), [gl]);
 
   return <FramePasses warps={warps} softens={softens} />;
 }
@@ -58,6 +59,7 @@ function FramePasses({ warps, softens }: PassesProps) {
 
   useFrame((state) => {
     const camera = state.camera;
+    bindFrameTargets(gl);
     if (softens) grabDepth(gl, scene, camera);
     seeColour(camera);
     gl.render(scene, camera);

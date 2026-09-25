@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -8,12 +8,14 @@ import { nameHash } from "../../../bin/shared/utils/binHash";
 import {
   EMPTY_OUTCOME,
   FAILED_OUTCOME,
+  NO_BURST_OUTCOME,
   type PreviewOutcome,
   resetPreviewStills,
   retryPreviews,
 } from "../../state/previewStills";
 import type { ObjectRowNode } from "../../utils/objectTree";
 import { ObjectPreviewPool } from "../ObjectPreviewPool";
+import type { ObjectsContextMenu } from "../ObjectsContextMenu";
 import { ObjectsGrid } from "../ObjectsGrid";
 
 const state = vi.hoisted(() => ({
@@ -23,6 +25,8 @@ const state = vi.hoisted(() => ({
   width: 180,
   reports: new Map<string, (outcome: PreviewOutcome) => void>(),
   open: vi.fn(),
+  rest: vi.fn(),
+  menu: null as { onRetryPreview?: () => void } | null,
   virtualizer: {
     isScrolling: false,
     measure: vi.fn(),
@@ -46,7 +50,13 @@ vi.mock("../../../bin/documents/hooks/useBinDocument", () => ({
   useBinDocument: () => ({ state: { status: "opening" }, reopen: vi.fn() }),
 }));
 vi.mock("../../hooks/useOpenObjectNode", () => ({ useOpenObjectNode: () => state.open }));
-vi.mock("../ObjectsContextMenu", () => ({ ObjectsContextMenu: () => null }));
+vi.mock("../../hooks/useRestPreview", () => ({ useRestPreview: () => state.rest }));
+vi.mock("../ObjectsContextMenu", () => ({
+  ObjectsContextMenu: (props: ComponentProps<typeof ObjectsContextMenu>) => {
+    state.menu = props;
+    return null;
+  },
+}));
 vi.mock("../ObjectPreviewWorker", () => ({
   default: ({
     node,
@@ -136,6 +146,7 @@ beforeEach(() => {
   state.reduced = false;
   state.width = 180;
   state.reports.clear();
+  state.menu = null;
   state.virtualizer.isScrolling = false;
   state.virtualizer.getVirtualItems = () => [
     { index: state.row, key: state.row, start: state.row * 236 },
@@ -243,6 +254,33 @@ it("opens the focused tile in the large popover with Space and closes it with Es
   expect(workers()).toEqual([]);
 });
 
+it("opens a tile in the large popover from its expand button, and a second press closes it", async () => {
+  render(grid());
+  await wait();
+  report("First effect", still("first"));
+
+  const [expand] = screen.getAllByRole("button", { name: "Large preview" });
+  fireEvent.pointerDown(expand!);
+  fireEvent.click(expand!, { detail: 1 });
+  await wait();
+  const popup = screen.getByRole("dialog", { name: "First effect" });
+  expect(popup.contains(screen.getByTestId("worker"))).toBe(true);
+  expect(state.open).not.toHaveBeenCalled();
+
+  const close = screen.getByRole("button", { name: "Close large preview" });
+  expect(close).toHaveAttribute("aria-pressed", "true");
+  fireEvent.pointerDown(close);
+  fireEvent.click(close, { detail: 1 });
+  await wait(300);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("offers no expand button while thumbnails are off", () => {
+  render(grid({ thumbnails: false }));
+
+  expect(screen.queryByRole("button", { name: "Large preview" })).toBeNull();
+});
+
 it("scrolls and focuses a revealed tile without opening it, including a repeated reveal", async () => {
   state.width = 300;
   const settled = vi.fn();
@@ -336,6 +374,57 @@ it("marks an object with nothing to draw without a failure, and a retry leaves i
   act(() => retryPreviews());
   await wait();
   expect(workers()).toEqual([]);
+});
+
+it("plays a missed burst in the large popover with Space, and not on hover", async () => {
+  render(grid());
+  await wait();
+  report("First effect", NO_BURST_OUTCOME);
+  const tile = tileOf("First effect");
+  expect(tile).toHaveAttribute("aria-description", "Nothing to preview");
+
+  fireEvent.pointerOver(tile);
+  await wait(400);
+  expect(workers()).toEqual([]);
+
+  fireEvent.pointerLeave(screen.getByRole("grid"));
+  fireEvent.focus(tile);
+  fireEvent.keyDown(tile, { key: " " });
+  await wait();
+  const popup = screen.getByRole("dialog", { name: "First effect" });
+  expect(popup.contains(screen.getByTestId("worker"))).toBe(true);
+
+  report("First effect", NO_BURST_OUTCOME);
+  expect(screen.getByTestId("worker")).toHaveAttribute("data-playing", "true");
+  expect(within(popup).queryByText("Nothing to preview")).toBeNull();
+
+  report("First effect", still("late"));
+  expect(tile.querySelector("img")).toHaveAttribute("src", "data:image/webp;base64,late");
+});
+
+it("retries a missed burst from its tile's menu", async () => {
+  render(grid());
+  await wait();
+  report("First effect", NO_BURST_OUTCOME);
+  expect(workers()).toEqual([]);
+
+  fireEvent.contextMenu(tileOf("First effect"));
+  act(() => state.menu?.onRetryPreview?.());
+  await wait();
+  expect(workers()).toEqual(["First effect"]);
+});
+
+it("hands a keyboard move to the rest preview and leaves focus on the grid", async () => {
+  state.width = 300;
+  render(grid({ thumbnails: false }));
+  const first = tileOf("First effect");
+
+  fireEvent.focus(first);
+  fireEvent.keyDown(first, { key: "ArrowRight" });
+  await wait(40);
+  expect(state.rest).toHaveBeenLastCalledWith(nodes[1]);
+  expect(tileOf("Second effect")).toHaveFocus();
+  expect(state.open).not.toHaveBeenCalled();
 });
 
 it("keeps child navigation separate from opening an object and sizes tiles to the setting", () => {

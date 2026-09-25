@@ -3,7 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 
 import type { AssetRef, ReadOnly } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
@@ -22,6 +22,11 @@ let opened: BinOpenState | null = null;
 
 function Open() {
   opened = useBinDocument(ASSET, "0x12345678").state;
+  return null;
+}
+
+function Lingering() {
+  opened = useBinDocument(ASSET, "0x12345678", "lingering").state;
   return null;
 }
 
@@ -92,6 +97,30 @@ it("opens game data in the current mod project and reopens when that project cha
       entry: "0x12345678",
     }),
   );
+  expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
+});
+
+it("closes a lingering document ten seconds after its caller unmounts", async () => {
+  const { unmount } = render(<Lingering />, { wrapper: Queries });
+  await waitFor(() => expect(opened?.status).toBe("open"));
+
+  vi.useFakeTimers();
+  try {
+    unmount();
+    expect(mockInvoke).not.toHaveBeenCalledWith("bin_close", { document: 1 });
+
+    vi.advanceTimersByTime(10_000);
+    expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("closes a document at once when its caller unmounts", async () => {
+  const { unmount } = render(<Open />, { wrapper: Queries });
+  await waitFor(() => expect(opened?.status).toBe("open"));
+
+  unmount();
   expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
 });
 

@@ -9,4 +9,4 @@ export {
   PreviewPane,
   type PreviewTransport,
 } from "./preview/components/PreviewPane";
-export { TimelinePane } from "./timeline/components/TimelinePane";
+export { TimelinePane, TimelineTransport } from "./timeline/components/TimelinePane";

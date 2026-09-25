@@ -3551,10 +3551,17 @@ keeps its hits in place in both directions.
 Thumbnails are on by default. Particle systems, skins and materials get small stills,
 rendered as tiles enter view. A tile the pointer rests on for 400 milliseconds plays in
 place: a particle system loops, a material turns on its sphere and a skin turns on a
-turntable. The tile plays until the pointer leaves it. Keyboard focus alone plays nothing.
-Space opens the tile under the pointer, or the focused tile, in a large anchored popover, and
-Space or Escape closes it. Reduced motion keeps the still on hover, and Space still plays the
-large preview, because the reader requested it. Opening a tile uses the same first
+turntable. The tile plays until the pointer leaves it. Keyboard focus plays nothing in the
+tile, and a particle system the keyboard selection rests on opens as the preview tab, as
+[What a row opens](#what-a-row-opens) describes.
+A tile with a preview carries an expand button in its art's top right corner, shown while the
+pointer rests on the tile, while the tile has focus, and while its popover is open. The button
+opens the tile in a large anchored popover, and a second press, Escape or a press outside closes
+it. Space does the same for the tile under the pointer, or the focused tile, and the button's
+tooltip names the key. A click on the tile itself still opens the preview tab. The popover also
+plays a particle system whose sample saw no burst, so the reader can watch it, and a burst it
+shows becomes the tile's still. Reduced motion keeps the still on hover, and the button and
+Space still play the large preview, because the reader requested it. Opening a tile uses the same first
 declaration as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the
 projected box with five percent padding, using the same aspect ratio as the tile artwork.
 The preview canvas clears to the card surface, so a still and an empty plate share one
@@ -3562,19 +3569,29 @@ colour one surface rung above the page ground.
 
 Skin captures wait two rendered frames after assets arrive, without a camera animation.
 Particle warm-up samples the system in batches capped at eight steps or two milliseconds per
-renderer per frame, and stops at the first visible burst. The sample runs for at least two
-seconds and at most ten, and for one second past the last emitter's start. A system with no
-particle alive at the end of its sample has nothing to preview. A drained preview restarts
-after a quarter-second pause once every emitter's start time has passed. Texture requests
-fetch a single 128-pixel mip rather than a chain for each still.
+renderer per frame, and searches for the first drawn particle. A particle counts only when its
+emitter draws in a preview with no character, so an emitter that only spawns children, or one
+that draws the character it is attached to, counts for nothing. The search runs for at least
+two seconds and at most ten, and for one second past the last emitter's start. A found burst
+then settles until its oldest drawn particle is a third through its life, for at most 0.4
+seconds, and the capture counts its two frames from the end of the sample. A system with no
+drawn particle during its sample has no burst. A drained preview restarts after a
+quarter-second pause once every emitter's start time has passed. A preview draws the scene's
+depth pass whenever an emitter has a soft fade, as the object tab does, and resolves custom
+materials through the bin the system is read from. Texture requests fetch a single 128-pixel
+mip rather than a chain for each still.
 
 A preview ends in one of three outcomes. A still replaces the glyph. Nothing to preview
 keeps the glyph with no mark: a particle system with no emitters or no burst, a skin
 without a mesh or a skeleton, a material with no translated pass and no texture on this
 machine. A material with no translated pass draws its base texture on the lit sphere, or the
-first texture its passes name. A failure keeps the glyph with a failure mark. The toolbar counts the failures among the tiles on screen and offers
-to render them again, and a failed tile's context menu retries that tile alone. Hovering a
-failed tile also tries it again. A save of a bin drops the stills of its objects.
+first texture its passes name. A failure keeps the glyph with a failure mark. A job fails after
+fifteen seconds without progress, where progress is the bin opening and each asset load
+landing, so a large particle system still loading its textures is not failed. A throw from the
+simulation is a failure too. The toolbar counts the failures among the tiles on screen and
+offers to render them again. A tile's context menu retries that tile alone when it failed or
+when its particle system had no burst. Hovering a failed tile also tries it again. A save of a
+bin drops the stills of its objects.
 
 The objects document mounts two canvases above its grids, so a folder change, a search or a
 hidden tab keeps them and their compiled shader programs. An idle canvas stops drawing rather than
@@ -3605,6 +3622,13 @@ the node row. A node only the project declares has no row. The tree's nodes are 
 An object row opens its declaration as an [object tab](BIN_EDITOR.md#the-object-tab): a
 preview on click, a pinned tab on double click, `Ctrl+Enter` beside. A directory row toggles on
 click. A node that is both opens on click, and expands from its caret or the Right arrow alone.
+
+The arrow keys, `Home` and `End` move the selection through the tree and the grid, and `Enter`
+opens the selection as a click does. A particle system the keyboard selection rests on for
+250 milliseconds opens as the preview tab, the way a click previews it, and focus stays in the
+browser, so the next key keeps browsing. Other kinds of object open only on `Enter`. With
+preview on click off, the keys only select. An open that splits the browser's group remounts
+the browser, and the selection is revealed and focused again.
 
 | Item              | Does                                               |
 | ----------------- | -------------------------------------------------- |

@@ -4,11 +4,19 @@ import { createPortal } from "react-dom";
 import { ErrorBoundary, Popover } from "@/components";
 import { m } from "@/i18n";
 
-import { FAILED_OUTCOME, type PreviewOutcome, savePreviewOutcome } from "../state/previewStills";
+import {
+  FAILED_OUTCOME,
+  isNoBurst,
+  type PreviewOutcome,
+  savePreviewOutcome,
+} from "../state/previewStills";
 import type { ObjectRowNode } from "../utils/objectTree";
 import type { PreviewJob } from "../utils/previewSlots";
+import { PreviewSettled } from "./PreviewSettled";
 
 const ObjectPreviewWorker = lazy(() => import("./ObjectPreviewWorker"));
+
+/** How long a job may go without progress before it fails: the bin opening, an asset landing. */
 const JOB_TIMEOUT_MS = 15_000;
 
 /** One preview job of the objects grid. */
@@ -31,7 +39,12 @@ interface ObjectPreviewSlotProps {
   onDismiss: () => void;
 }
 
-/** One bounded renderer slot, docked for stills or shown over a tile or in the large popover. */
+/**
+ * One bounded renderer slot, docked for stills or shown over a tile or in the large popover.
+ *
+ * A job fails after `JOB_TIMEOUT_MS` without progress. The large popover keeps drawing a
+ * particle system whose sample missed its burst, so the reader can watch it play.
+ */
 export function ObjectPreviewSlot({ job, display, generation, onDismiss }: ObjectPreviewSlotProps) {
   const key = job?.key ?? null;
   /* Incremented when the slot takes a new key, so a key assigned again ignores its last outcome. */
@@ -48,10 +61,11 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
     element.setAttribute("aria-hidden", "true");
     return element;
   });
-  const [settled, setSettled] = useState<{ request: string; kind: PreviewOutcome["kind"] } | null>(
-    null,
-  );
-  const shown = settled?.request === request ? settled.kind : null;
+  const [settled, setSettled] = useState<{ request: string; outcome: PreviewOutcome } | null>(null);
+  const shownOutcome = settled?.request === request ? settled.outcome : null;
+  const shown = shownOutcome?.kind ?? null;
+  const replaying = display.mode === "large" && isNoBurst(shownOutcome ?? undefined);
+  const [beat, setBeat] = useState(0);
 
   useLayoutEffect(() => {
     current.current = request;
@@ -66,7 +80,7 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
       parent.appendChild(surface);
     }
 
-    surface.style.opacity = shown === "image" ? "1" : "0";
+    surface.style.opacity = shown === "image" || replaying ? "1" : "0";
   });
   useLayoutEffect(() => () => surface.remove(), [surface]);
 
@@ -74,21 +88,25 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
     (outcome: PreviewOutcome) => {
       if (key === null || current.current !== request) return;
 
-      setSettled({ request, kind: outcome.kind });
+      setSettled({ request, outcome });
       savePreviewOutcome(key, outcome);
     },
     [key, request],
   );
+
+  const progress = useCallback(() => {
+    if (current.current === request) setBeat((count) => count + 1);
+  }, [request]);
 
   useEffect(() => {
     if (key === null || shown !== null) return;
 
     const timer = window.setTimeout(() => report(FAILED_OUTCOME), JOB_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [key, shown, report]);
+  }, [key, shown, report, beat]);
 
   const large = display.mode === "large" ? display : null;
-  const drawing = shown !== "failed" && shown !== "empty";
+  const drawing = shown !== "failed" && (shown !== "empty" || replaying);
 
   return (
     <>
@@ -132,7 +150,7 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
                 {shown === "failed" && (
                   <PopupStatus label={m.workshop_objects_preview_failed_label()} />
                 )}
-                {shown === "empty" && (
+                {shown === "empty" && !replaying && (
                   <PopupStatus label={m.workshop_objects_preview_empty_label()} />
                 )}
               </div>
@@ -141,12 +159,16 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
         </Popover.Portal>
       </Popover.Root>
       {createPortal(
-        <ErrorBoundary key={generation} fallback={() => null}>
+        <ErrorBoundary
+          key={generation}
+          fallback={() => <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={report} />}
+        >
           <Suspense fallback={null}>
             <ObjectPreviewWorker
               node={drawing ? (job?.node ?? null) : null}
               playing={display.mode !== "dock"}
               onOutcome={report}
+              onProgress={progress}
             />
           </Suspense>
         </ErrorBoundary>,

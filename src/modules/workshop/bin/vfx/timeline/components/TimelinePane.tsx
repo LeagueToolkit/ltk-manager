@@ -1,8 +1,9 @@
-import { ErrorBoundary, Field, TogglePill } from "@/components";
+import { ChartBarIcon } from "@phosphor-icons/react";
+
+import { ErrorBoundary, IconButton, Separator, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { useSetPreviewDisplay, useTimelineHistogram } from "@/stores";
 
-import { useEmitters } from "../../inspector/state/emitterChoice";
 import { RunTransport } from "../../playback/components/RunTransport";
 import { useVfxRun } from "../../playback/state/run";
 import { Notice } from "../../preview/components/Notice";
@@ -14,7 +15,7 @@ export interface TimelinePaneProps {
   drawable: boolean;
 }
 
-/** The timeline pane: the transport row over one lane per emitter (ADR-0037). */
+/** The timeline pane: one lane per emitter, under the transport its strip carries (ADR-0037). */
 export function TimelinePane({ drawable }: TimelinePaneProps) {
   if (!drawable) return <Notice text={m.workshop_bin_preview_pane_empty()} />;
   return (
@@ -35,48 +36,39 @@ function Timeline() {
 
   return (
     <div data-ui="TimelinePane" className="flex min-h-0 flex-1 flex-col select-none">
-      <TransportRow />
       <Lanes />
     </div>
   );
 }
 
-/** The run's controls, "The transport row" in docs/ux/BIN_EDITOR.md, the name filter first. */
-function TransportRow() {
-  const run = useVfxRun();
-  const { filter, setFilter } = useEmitters();
+/**
+ * The run's controls in the timeline pane's strip, "The transport row" in
+ * docs/ux/BIN_EDITOR.md.
+ *
+ * The strip carries them after the pane tabs, so the lanes keep the row a separate transport
+ * row would take. The view switches sit at the far end.
+ */
+export function TimelineTransport() {
   const histogram = useTimelineHistogram();
   const setDisplay = useSetPreviewDisplay();
-  const looping = run.rig.rig.life === "loop";
 
   return (
-    <div className="flex shrink-0 items-center border-b border-surface-700/50 pl-2">
-      <Field.Control
-        className="h-6 w-40 shrink-0 px-2 font-sans text-meta"
-        aria-label={m.workshop_bin_emitter_filter_label()}
-        placeholder={m.workshop_bin_emitter_filter_placeholder()}
-        value={filter}
-        onChange={(event) => setFilter(event.target.value)}
-      />
-      <RunTransport className="min-w-0 flex-1 justify-end" scrub={false}>
-        <TogglePill
-          size="xs"
-          label={m.workshop_bin_preview_loop_label()}
-          active={looping}
-          onClick={() =>
-            run.setRig({
-              preset: run.rig.preset,
-              rig: { ...run.rig.rig, life: looping ? "once" : "loop" },
-            })
-          }
-        />
-        <TogglePill
-          size="xs"
-          label={m.workshop_bin_timeline_histogram_label()}
-          active={histogram}
-          onClick={() => setDisplay({ timelineHistogram: !histogram })}
-        />
+    <>
+      <Separator orientation="vertical" className="mx-1 h-4" />
+      <RunTransport className="min-w-0 flex-1 py-0 pl-0" scrub={false}>
+        <Tooltip content={m.workshop_bin_timeline_histogram_label()}>
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            aria-label={m.workshop_bin_timeline_histogram_label()}
+            aria-pressed={histogram}
+            className="text-surface-400 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
+            icon={<ChartBarIcon weight="bold" className="h-4 w-4" />}
+            onClick={() => setDisplay({ timelineHistogram: !histogram })}
+          />
+        </Tooltip>
       </RunTransport>
-    </div>
+    </>
   );
 }

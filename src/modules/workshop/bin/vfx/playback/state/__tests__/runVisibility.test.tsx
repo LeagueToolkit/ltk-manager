@@ -47,7 +47,7 @@ it.each([false, true])("refreshes an edited system with playing=%s", (playing) =
   }
 
   const view = () => (
-    <VfxRunProvider document={935} entry="0x1">
+    <VfxRunProvider document={935} asset={null} entry="0x1">
       <Capture />
     </VfxRunProvider>
   );
@@ -102,7 +102,7 @@ it("pauses a hidden document's simulation and resumes without catching up hidden
   }
   const view = (visible: boolean) => (
     <ContentVisibilityContext value={visible}>
-      <VfxRunProvider document={934} entry="0x1">
+      <VfxRunProvider document={934} asset={null} entry="0x1">
         <Capture />
       </VfxRunProvider>
     </ContentVisibilityContext>

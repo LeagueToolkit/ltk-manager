@@ -1,61 +1,14 @@
 // @vitest-environment happy-dom
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { FIRST_RIG } from "../../../engine/model/rig";
-import { createDriver } from "../../../engine/simulation/driver";
-import { type VfxRun, VfxRunContext } from "../../state/run";
+import { fakeRun } from "../../state/__tests__/fakeRun";
+import { VfxRunContext } from "../../state/run";
 import { RunTransport } from "../RunTransport";
 
-/** A run standing at zero over an empty system, with every action a spy. */
-function fakeRun(): { run: VfxRun; tick: () => void } {
-  const listeners = new Set<() => void>();
-  const driver = createDriver(1);
-  const run: VfxRun = {
-    document: 1,
-    system: null,
-    error: null,
-    pending: false,
-    driver,
-    playing: false,
-    speed: 1,
-    seed: 1,
-    rig: FIRST_RIG,
-    muted: new Set(),
-    soloed: new Set(),
-    loop: null,
-    pinned: null,
-    span: 2,
-    resumed: false,
-    fitRequest: 0,
-    requestFit: vi.fn(),
-    setPlaying: vi.fn(),
-    setSpeed: vi.fn(),
-    setRig: vi.fn(),
-    reroll: vi.fn(),
-    toggleMuted: vi.fn(),
-    toggleSoloed: vi.fn(),
-    setMuted: vi.fn(),
-    setSoloed: vi.fn(),
-    setLoop: vi.fn(),
-    setPinned: vi.fn(),
-    seek: vi.fn(),
-    step: vi.fn(),
-    restart: vi.fn(),
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-  return {
-    run,
-    tick: () => {
-      for (const listener of listeners) listener();
-    },
-  };
-}
+const readout = () => screen.getByRole("timer", { name: "Playhead time" });
 
 describe("RunTransport", () => {
   it("draws the run's playhead off the clock, and its controls off the run", async () => {
@@ -66,12 +19,12 @@ describe("RunTransport", () => {
       </VfxRunContext>,
     );
 
-    expect(screen.getByText("0.00 / 2.00 s")).toBeInTheDocument();
+    expect(readout()).toHaveTextContent("0.00 / 2.00 s");
     expect(screen.getByRole("slider", { name: "Playhead" })).toBeInTheDocument();
 
     run.driver.advance(0.5);
     await act(async () => tick());
-    expect(screen.getByText("0.50 / 2.00 s")).toBeInTheDocument();
+    expect(readout()).toHaveTextContent("0.50 / 2.00 s");
 
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(run.setPlaying).toHaveBeenCalledWith(true);
@@ -100,6 +53,51 @@ describe("RunTransport", () => {
     );
 
     expect(screen.queryByRole("slider", { name: "Playhead" })).not.toBeInTheDocument();
-    expect(screen.getByText("0.00 / 2.00 s")).toBeInTheDocument();
+    expect(readout()).toHaveTextContent("0.00 / 2.00 s");
+  });
+
+  it("switches the loop from its toggle, lit while the run loops", async () => {
+    const { run } = fakeRun();
+    render(
+      <VfxRunContext value={run}>
+        <RunTransport variant="mini" />
+      </VfxRunContext>,
+    );
+
+    const loop = screen.getByRole("button", { name: "Loop" });
+    expect(loop).toHaveAttribute("aria-pressed", String(run.looping));
+
+    await userEvent.click(loop);
+    expect(run.setLooping).toHaveBeenCalledWith(!run.looping);
+  });
+
+  it("restarts the run and plays it from the Restart button", async () => {
+    const { run } = fakeRun();
+    render(
+      <VfxRunContext value={run}>
+        <RunTransport />
+      </VfxRunContext>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Restart" }));
+
+    expect(run.restart).toHaveBeenCalledTimes(1);
+    expect(run.setPlaying).toHaveBeenCalledWith(true);
+  });
+
+  it("pauses the clock while the mini scrub moves, and lets it run once the move commits", () => {
+    const { run } = fakeRun();
+    render(
+      <VfxRunContext value={run}>
+        <RunTransport variant="mini" />
+      </VfxRunContext>,
+    );
+
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Playhead" }), { key: "ArrowRight" });
+
+    expect(run.beginScrub).toHaveBeenCalled();
+    expect(run.seek).toHaveBeenCalled();
+    expect(run.endScrub).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
   });
 });

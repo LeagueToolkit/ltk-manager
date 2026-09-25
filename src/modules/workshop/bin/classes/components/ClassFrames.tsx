@@ -1,4 +1,4 @@
-import { type ReactNode, lazy, Suspense, useMemo, useState } from "react";
+import { type ReactNode, lazy, Suspense, use, useMemo, useState } from "react";
 
 import { RetainedContent } from "@/components";
 import type { BinDocumentId } from "@/lib/tauri";
@@ -7,6 +7,7 @@ import { leafHolding } from "@/modules/editor";
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
+import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
 import { MaterialPane } from "../../material/components/MaterialPane";
@@ -24,7 +25,7 @@ import { ClipTabs } from "../../skin/components/ClipTable";
 import { SkinPreview } from "../../skin/components/SkinPreview";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
-import { PreviewPane, RunKeys, TimelinePane, VfxRunProvider } from "../../vfx";
+import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
 import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
@@ -66,7 +67,7 @@ export function RunHost({
 }) {
   if (!drawable) return children;
   return (
-    <VfxRunProvider document={document} entry={entry}>
+    <VfxRunProvider document={document} asset={use(LinkAssetContext)} entry={entry}>
       <RunKeys>{children}</RunKeys>
     </VfxRunProvider>
   );
@@ -75,17 +76,19 @@ export function RunHost({
 /**
  * Every section down one scrolling column, which is the frame a layout draws in by default.
  *
- * `hero` stands above the sections, which is where a shell's preview goes when the pane is
- * too narrow for the shell.
+ * `hero` sits above the column and out of its scroll, which is where a shell's preview goes
+ * when the pane is too narrow for the shell.
  */
 export function Stack({ placed, pages, view, hero }: FrameProps & { hero?: ReactNode }) {
   return (
-    <div
-      data-ui="ClassView:stack"
-      className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 scrollbar-md"
-    >
+    <div data-ui="ClassView:stack" className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       {hero}
-      <Sections placed={placed} pages={pages} view={view} />
+      <div
+        data-ui="ClassView:stack-sections"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto scrollbar-md"
+      >
+        <Sections placed={placed} pages={pages} view={view} />
+      </div>
     </div>
   );
 }
@@ -95,8 +98,8 @@ export function Hero({ children }: { children: ReactNode }) {
   return (
     <div
       data-ui="ClassView:hero"
-      /* DS-GROUND */
-      className="flex h-[min(60vh,32rem)] shrink-0 flex-col overflow-hidden rounded-md border border-surface-700/50 bg-surface-900"
+      /* DS-GROUND. The floor keeps the transport and the controls usable in a short pane. */
+      className="flex h-[min(50%,32rem)] min-h-48 shrink-0 flex-col overflow-hidden rounded-md border border-surface-700/50 bg-surface-900"
     >
       {children}
     </div>
@@ -379,7 +382,11 @@ export function VfxShell({ placed, pages, view, system, drawable, preview }: She
         actions: <ChanceReadout />,
       },
       preview: { body: preview },
-      timeline: { body: <TimelinePane drawable={drawable} /> },
+      timeline: {
+        body: <TimelinePane drawable={drawable} />,
+        actions: drawable && <TimelineTransport />,
+        actionsWidth: "rest",
+      },
     }),
     [emitters, others, pages, view, drawable, preview],
   );
