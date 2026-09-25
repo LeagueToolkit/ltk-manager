@@ -1,9 +1,9 @@
 import skinhackMark from "@/assets/game/skinhack.png";
+import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
-import { scanRejectionCause } from "@/modules/patcher";
 import { twMerge } from "@/utils";
 
-import { isSkinhackRejection, verdictTitle } from "../utils/incident";
+import { isSkinhackRejection, verdictCause, verdictTitle } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
 import { VerdictGlyph } from "./VerdictGlyph";
 
@@ -55,13 +55,11 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           <ConsequenceChip consequence={verdict.consequence} />
           {incident.dismissed && (
             <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
-              Dismissed
+              {m.diagnostics_dismissed_label()}
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm leading-relaxed text-surface-300">
-          {scanRejectionCause(incident)}
-        </p>
+        <p className="mt-1 text-sm leading-relaxed text-surface-300">{verdictCause(incident)}</p>
         {verdict.subject && (
           /* An inset inside a card is the one place a lower rung is right: DS-GROUND. */
           <p

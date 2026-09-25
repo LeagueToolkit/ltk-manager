@@ -10,6 +10,7 @@ import type { ScanMode } from "./ScanMode";
 import type { ScanStatus } from "./ScanStatus";
 import type { SessionFailure } from "./SessionFailure";
 import type { SessionOrigin } from "./SessionOrigin";
+import type { ShaderFailure } from "./ShaderFailure";
 import type { SkippedArchive } from "./SkippedArchive";
 import type { Suspect } from "./Suspect";
 import type { Verdict } from "./Verdict";
@@ -43,7 +44,11 @@ scanStatusCode: string | null,
  * How many archives the scan rejected. The verdict names the first, so
  * the rest is what a reader still has to be told about.
  */
-scanRejected: number, phase: GamePhase, game: GameInfo | null, ending: Ending, 
+scanRejected: number, 
+/**
+ * What the log says about the shaders, on a shader verdict.
+ */
+shader: ShaderFailure | null, phase: GamePhase, game: GameInfo | null, ending: Ending, 
 /**
  * Set when the session failed before any game, which is the whole story.
  */

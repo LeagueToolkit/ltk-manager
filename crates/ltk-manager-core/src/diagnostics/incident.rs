@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::binary_id::PatcherBinaries;
 use super::exit_status;
-use super::game_log::{CodeSighting, GameLogFacts, Record};
+use super::game_log::{CodeSighting, GameLogFacts, LogMessage, MessageSighting, Record};
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
 use crate::error::{ErrorKind, OverlayErrorCategory};
 use crate::patcher::injector::WadScanFailure;
@@ -260,6 +260,8 @@ pub enum VerdictKind {
     EndedWithoutReason,
     /// The game ran from another install than the overlay was built for.
     WrongInstall,
+    /// A shader did not compile, or a material had no pipeline to draw with.
+    ShaderFailed,
 }
 
 /// What a verdict cost the player, which is a fact whatever the manager makes
@@ -491,6 +493,9 @@ pub struct Incident {
     /// the rest is what a reader still has to be told about.
     #[serde(default)]
     pub scan_rejected: u16,
+    /// What the log says about the shaders, on a shader verdict.
+    #[serde(default)]
+    pub shader: Option<ShaderFailure>,
     #[serde(default)]
     pub phase: GamePhase,
     pub game: Option<GameInfo>,
@@ -503,6 +508,21 @@ pub struct Incident {
     pub suspects: Vec<Suspect>,
     /// The user has seen it and closed the line.
     pub dismissed: bool,
+}
+
+/// The shaders a game log reports as failed, as facts the frontend puts into words.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct ShaderFailure {
+    /// Shader variants that did not compile, each counted once.
+    pub variants: u16,
+    /// Every failed variant named no vertex shader.
+    pub unnamed_programs: bool,
+    /// The pipeline a material was drawn without, as League wrote it.
+    pub missing_pipeline: Option<String>,
 }
 
 /// A session that failed before any game ran.
@@ -769,6 +789,7 @@ impl VerdictKind {
             Self::OverlayBuildFailed => 15,
             Self::InjectionHostFailed => 16,
             Self::WrongInstall => 17,
+            Self::ShaderFailed => 18,
         }
     }
 
@@ -792,6 +813,7 @@ impl VerdictKind {
             15 => Self::OverlayBuildFailed,
             16 => Self::InjectionHostFailed,
             17 => Self::WrongInstall,
+            18 => Self::ShaderFailed,
             _ => return None,
         })
     }
@@ -820,6 +842,7 @@ impl VerdictKind {
             Self::ArchiveSkipped => "Archive Verification Skipped",
             Self::EndedWithoutReason => "Unexplained Game Exit",
             Self::WrongInstall => "Wrong League Install",
+            Self::ShaderFailed => "Shader Compilation Failure",
         }
     }
 
@@ -843,7 +866,8 @@ impl VerdictKind {
             | Self::OutOfMemory
             | Self::GraphicsFault
             | Self::EndedWithoutReason
-            | Self::WrongInstall => Consequence::GameStopped,
+            | Self::WrongInstall
+            | Self::ShaderFailed => Consequence::GameStopped,
             Self::StuckLoading => Consequence::GameHung,
             Self::ArchiveSkipped => Consequence::ArchiveDropped,
         }
@@ -1407,6 +1431,9 @@ pub enum Hint {
     LargeTextures,
     /// An overlay file was held open, usually by a game still running.
     CloseGame,
+    /// A shader failed with no programs named, which a shader definition
+    /// outside the game's shaders bin reads as.
+    ShaderDefinition,
 }
 
 impl Hint {
@@ -1433,6 +1460,7 @@ impl Hint {
             Self::Signature => 18,
             Self::LargeTextures => 19,
             Self::CloseGame => 20,
+            Self::ShaderDefinition => 21,
         }
     }
 

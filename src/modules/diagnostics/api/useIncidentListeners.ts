@@ -5,13 +5,13 @@ import { useToast } from "@/components";
 import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { scanRejectionCause, useRebuildOverlayAction } from "@/modules/patcher";
+import { useRebuildOverlayAction } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
 import { useIncidentLineStore, useInstallMismatchStore } from "@/stores";
 import { slashed } from "@/utils";
 
 import { offersRebuild } from "../utils/hints";
-import { isInformational } from "../utils/incident";
+import { isInformational, verdictCause } from "../utils/incident";
 import { diagnosticsKeys } from "./keys";
 
 /**
@@ -55,7 +55,7 @@ export function useIncidentListeners() {
     toast.toast({
       type: toastTypeFor(incident),
       title: incident.verdict.title,
-      description: scanRejectionCause(incident),
+      description: verdictCause(incident),
       notify: true,
       action: {
         label: m.diagnostics_incident_details_action(),

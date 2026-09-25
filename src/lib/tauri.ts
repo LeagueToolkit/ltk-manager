@@ -336,6 +336,7 @@ export type {
   ScanStatus,
   SessionFailure,
   Severity,
+  ShaderFailure,
   SkippedArchive,
   Suspect,
   UiError,

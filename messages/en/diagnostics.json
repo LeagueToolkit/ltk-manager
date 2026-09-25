@@ -81,6 +81,28 @@
   "diagnostics_reset_identity_hint": "Breaks the link to everything reported so far, at once rather than at midnight.",
   "diagnostics_scan_eager_label": "eager scan",
   "diagnostics_scan_lazy_label": "lazy scan",
+  "diagnostics_shader_compile_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "League could not compile {count} shader variant.",
+        "countPlural=other": "League could not compile {count} shader variants."
+      }
+    }
+  ],
+  "diagnostics_shader_compile_pipeline_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "League could not compile {count} shader variant, and then drew a material that had no pipeline.",
+        "countPlural=other": "League could not compile {count} shader variants, and then drew a material that had no pipeline."
+      }
+    }
+  ],
+  "diagnostics_shader_pipeline_description": "League drew a material that had no pipeline.",
+  "diagnostics_shader_unnamed_description": "The failed compiles name no vertex shader. League builds shader programs only for the CustomShaderDef objects in data/shaders/shaders.bin, so a mod that defines a shader in any other bin replaces the game's copy with one that has no programs.",
   "diagnostics_skinhack_title": "Skinhack detection triggered",
   "diagnostics_suspect_disable_action": "Disable",
   "diagnostics_suspect_disabled_label": "Disabled",
@@ -111,6 +133,7 @@
   "hint.repair-game": "Repair the install in the Riot Client, because the scan objected to a file the game ships.",
   "hint.repair-install": "Repair the install in the Riot Client when the rebuild does not help.",
   "hint.scan-up-front": "Turn on Scan every WAD up front, because the DLL scanned archives on demand and the game ended inside its first minute.",
+  "hint.shader-definition": "Remove the CustomShaderDef that the mod defines outside data/shaders/shaders.bin, and keep the material's link to the game's shader.",
   "hint.signature": "The host ran elevated, so check the DLL's signature and whether an antivirus blocked it.",
   "hint.start-first": "Start the patcher before League.",
   "hint.system-checks": "Run the System checks on the Diagnostics page.",

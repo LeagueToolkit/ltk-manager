@@ -1,0 +1,107 @@
+000000.000| ALWAYS| Logging started at 2026-09-25T12:46:41.127
+000000.000| ALWAYS|   CFG| CrashHandler(Sentry)
+000000.000| ALWAYS|  SNTR| Sentry process GUID: 00000000-0000-0000-0000-000000000000
+000000.197| ALWAYS|   CFG| Command Line:  "0.0.0.0 0 AAAA 0" "-Product=LoL" "-PlayerID=0" "-GameID=0" "-PlayerNameMode=ALIAS" "-LNPBlob=AAAA" "-GameBaseDir=C:\Riot Games\League of Legends" "-Region=EUW" "-PlatformID=EUW1" "-Locale=en_US" "-SkipBuild" "-EnableCrashpad=true" "-DisableCrashUploading" "-RiotClientPort=0" "-RiotClientAuthToken=AAAA"
+000000.626| ALWAYS| Live Profiling enabled. Will overwrite old RPD.
+000000.627| ALWAYS|   CFG| Build Version: Version 16.19.821.7343 (Sep 23 2026/15:56:18) [PUBLIC] <Releases/16.19> ChangeList: 8217343
+000000.630| ALWAYS|   CFG| Content Version: 16.19.8217343+branch.releases-16-19.content.release
+000000.656| ALWAYS| LCURemotingClient: Initializing on port 0
+000000.658| ALWAYS| LCURemotingClient: Connected to app process.
+000000.659| ALWAYS|  FLOW| Initializing Renderer
+000000.659| ALWAYS| r3dRenderLayer::Init enter
+000000.659| ALWAYS| r3dRenderLayer::Init() exit successfully
+000001.338| ALWAYS| Using X3D Platform: DX11
+000001.393| ALWAYS|  STRT| GameClientApplicationSessionID: STRT
+000001.603| ALWAYS| GameStartData::GameID=0
+000001.604| ALWAYS|  CONN| Starting Multiplayer Session: PlayerClient GameID(0) ServerAddress(0.0.0.0:0) SummonerID(0)
+000001.725| ALWAYS|  ROST| CONNECTION READY | TeamOrder 0) 'Someone#EUW' **LOCAL** - Champion(Rengar) SkinID(0) TeamBuilderRole(NONE) PUUID(00000000-0000-0000-0000-000000000000) ConnectionState(Connected)
+000001.973| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines:
+000001.973| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4TRANSITION=1
+Global Defines:
+000001.973| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:   ASSETS/Shaders/HLSL/SkinnedMesh/SOLID_COLOR_PS.ps
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines:
+000001.973| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1GENERATE_SHADOW_MAP=1NUM_BLEND_WEIGHTS=4
+Global Defines:
+000001.978| ALWAYS| Set focus to app
+000001.987| ALWAYS|  FLOW| Completed  State Transition: Pushing Gameplay Current Topmost State: Gameplay
+000002.140| ALWAYS|  FLOW| Loading Started
+000003.165| ALWAYS|  LOAD| SEJ-1A4F7C20
+000003.169| ALWAYS|  LOAD| SEJ-3B8E0D91
+000003.171| ALWAYS|  LOAD| SEJ-5C2A6F38
+000003.171| ALWAYS|  LOAD| SEJ-7D9B14EE
+000003.173| ALWAYS|  LOAD| SEJ-2E60A8C7
+000003.173| ALWAYS|  LOAD| SEJ-9F31B5D0
+000003.209| ALWAYS|  LOAD| SEJ-4A7C2E89
+000003.209| ALWAYS|  LOAD| SEJ-6B0D93F1
+000003.209| ALWAYS|  LOAD| SEJ-8C5E1A4B
+000003.273| ALWAYS|  LOAD| SEJ-7A6C39E2
+000003.346| ALWAYS|  LOAD| SEJ-1D2F86A3
+000003.360| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.360| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4TRANSITION=1
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.360| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:   ASSETS/Shaders/HLSL/SkinnedMesh/SOLID_COLOR_PS.ps
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.360| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1GENERATE_SHADOW_MAP=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.601| ALWAYS|  LOAD| SEJ-3E9A0C57
+000003.604| ALWAYS|  LOAD| SEJ-5F4B27D8
+000003.604| ALWAYS|  FLOW| Loading Ended
+000003.608| ALWAYS|  FLOW| Data Load Complete
+000003.614| ALWAYS|  FLOW| Start Main Loop
+000003.666| ALWAYS|  FLOW| Switching Game State from GAMESTATE_PREGAME to GAMESTATE_SPAWN for reason Received StartSpawn packet.
+000003.704| ALWAYS|  FLOW| Spawning completed
+000003.709| ALWAYS|  FLOW| SEJ-BC89AC41
+000003.709| ALWAYS|  FLOW| SEJ-6671BCAD
+000003.872| ALWAYS|  FLOW| Switching Game State from GAMESTATE_SPAWN to GAMESTATE_GAMELOOP for reason Received Game Start Packet.
+000003.876| ALWAYS|  FLOW| SEJ-8711AB1A 0.0192901
+000003.900| ALWAYS|  FLOW| SEJ-9651ACAB
+000003.901| ALWAYS|  FLOW| SEJ-B2890C00
+000003.913| ALWAYS| GAMESTATE_GAMELOOP UpdateVis
+000003.914| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.914| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4TRANSITION=1
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.914| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:   ASSETS/Shaders/HLSL/SkinnedMesh/SOLID_COLOR_PS.ps
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.914| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1GENERATE_SHADOW_MAP=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.914| ALWAYS| Material Missing Pipeline: 822941f5adffbcc
+000003.915|  ERROR| SentryHandleException

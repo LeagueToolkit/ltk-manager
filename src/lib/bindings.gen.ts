@@ -1934,7 +1934,12 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  */
 "large-textures" | 
 /**  An overlay file was held open, usually by a game still running. */
-"close-game";
+"close-game" | 
+/**
+ *  A shader failed with no programs named, which a shader definition
+ *  outside the game's shaders bin reads as.
+ */
+"shader-definition";
 
 /**  One effect a skin wears for as long as the character stands. */
 export type IdleEffect = {
@@ -1998,6 +2003,8 @@ export type Incident_Deserialize = {
 	 *  the rest is what a reader still has to be told about.
 	 */
 	scanRejected?: number,
+	/**  What the log says about the shaders, on a shader verdict. */
+	shader?: ShaderFailure | null,
 	phase?: GamePhase,
 	game: GameInfo | null,
 	ending: Ending,
@@ -2041,6 +2048,8 @@ export type Incident_Serialize = {
 	 *  the rest is what a reader still has to be told about.
 	 */
 	scanRejected: number,
+	/**  What the log says about the shaders, on a shader verdict. */
+	shader: ShaderFailure | null,
 	phase: GamePhase,
 	game: GameInfo | null,
 	ending: Ending,
@@ -3543,6 +3552,16 @@ export type Severity =
 /**  Known to break the patcher, should be fixed. */
 "bad";
 
+/**  The shaders a game log reports as failed, as facts the frontend puts into words. */
+export type ShaderFailure = {
+	/**  Shader variants that did not compile, each counted once. */
+	variants: number,
+	/**  Every failed variant named no vertex shader. */
+	unnamedPrograms: boolean,
+	/**  The pipeline a material was drawn without, as League wrote it. */
+	missingPipeline: string | null,
+};
+
 /**
  *  The parameters, textures and switches a `CustomShaderDef` declares, with its defaults.
  * 
@@ -3877,7 +3896,9 @@ export type VerdictKind =
  */
 "skinhack-detected" | "overlay-disabled" | "unmodded" | "missing-data" | "corrupt-archive" | "texture-failed" | "out-of-memory" | "graphics-fault" | "stuck-loading" | "archive-skipped" | "ended-without-reason" | 
 /**  The game ran from another install than the overlay was built for. */
-"wrong-install";
+"wrong-install" | 
+/**  A shader did not compile, or a material had no pipeline to draw with. */
+"shader-failed";
 
 /**  What the manager concluded from one game. */
 export type Verdict_Deserialize = StoredVerdict_Deserialize;

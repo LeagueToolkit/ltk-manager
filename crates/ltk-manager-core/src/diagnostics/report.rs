@@ -2,7 +2,7 @@
 
 use std::fmt::Write;
 
-use super::incident::{EvidenceSource, GamePhase, Incident};
+use super::incident::{EvidenceSource, GamePhase, Incident, VerdictKind};
 use crate::patcher::SessionOrigin;
 
 impl Incident {
@@ -54,8 +54,13 @@ impl Incident {
                 self.scan_rejected
             );
         }
+        if let Some(line) = self.shader_line() {
+            let _ = writeln!(out, "Shaders: {line}");
+        }
         if let Some(subject) = &self.verdict.subject {
-            let label = if subject.starts_with("step ") {
+            let label = if self.verdict.kind == VerdictKind::ShaderFailed {
+                "Defines"
+            } else if subject.starts_with("step ") {
                 "Step"
             } else if self.subject_is_archive() {
                 "Archive"
@@ -122,6 +127,21 @@ impl Incident {
             }
         }
         out
+    }
+
+    fn shader_line(&self) -> Option<String> {
+        let shader = self.shader.as_ref()?;
+        let mut parts = Vec::new();
+        if shader.variants > 0 {
+            parts.push(format!("{} variant(s) did not compile", shader.variants));
+        }
+        if shader.unnamed_programs {
+            parts.push("no vertex shader named".to_string());
+        }
+        if let Some(pipeline) = &shader.missing_pipeline {
+            parts.push(format!("pipeline {pipeline} missing"));
+        }
+        Some(parts.join(", "))
     }
 
     fn ending_line(&self) -> String {
@@ -225,7 +245,9 @@ impl Incident {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::incident::{Evidence, EvidenceCode, fixtures};
+    use crate::diagnostics::incident::{
+        Evidence, EvidenceCode, ShaderFailure, Verdict, VerdictKind, fixtures,
+    };
 
     fn report() -> String {
         fixtures::incident("2026-08-21T21-14-02", "2026-08-21T21:14:02+00:00").report_text(
@@ -366,5 +388,26 @@ mod tests {
         let text = incident.report_text("1.14.0", None, &[]);
         assert!(text.contains("\nArchive: Aatrox.wad.client\n"));
         assert_eq!(text.matches("Archive:").count(), 1);
+    }
+
+    /// A shader verdict has no cause sentence of its own, so the facts print
+    /// on a line, and its subject is the pass defines.
+    #[test]
+    fn a_shader_verdict_prints_its_facts_and_its_defines() {
+        let mut incident = fixtures::incident("2026-09-25T12-46-41", "2026-09-25T12:46:45+00:00");
+        incident.verdict = Verdict::new(VerdictKind::ShaderFailed, "")
+            .with_subject("FEATURE_DISPLACEMENT=1 NUM_BLEND_WEIGHTS=4");
+        incident.shader = Some(ShaderFailure {
+            variants: 4,
+            unnamed_programs: true,
+            missing_pipeline: Some("822941f5adffbcc".to_string()),
+        });
+
+        let text = incident.report_text("1.22.0", None, &[]);
+        assert!(text.contains(
+            "Verdict: Shader Compilation Failure (the game stopped)\n\
+             Shaders: 4 variant(s) did not compile, no vertex shader named, pipeline 822941f5adffbcc missing\n\
+             Defines: FEATURE_DISPLACEMENT=1 NUM_BLEND_WEIGHTS=4\n"
+        ), "{text}");
     }
 }

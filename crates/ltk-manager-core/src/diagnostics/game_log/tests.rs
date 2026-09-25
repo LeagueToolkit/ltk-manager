@@ -10,6 +10,7 @@ const CLEAN: &str = include_str!("../fixtures/clean_game_r3dlog.txt");
 const CRASH_TRUNCATED: &[u8] = include_bytes!("../fixtures/crash_truncated_r3dlog.bin");
 const DEVICE_ERROR: &str = include_str!("../fixtures/device_error_r3dlog.txt");
 const MISSING_DATA: &str = include_str!("../fixtures/missing_data_r3dlog.txt");
+const SHADER_FAILURE: &str = include_str!("../fixtures/shader_failure_r3dlog.txt");
 const STUCK_LOADING: &str = include_str!("../fixtures/stuck_loading_r3dlog.txt");
 const WAD_MOUNT: &str = include_str!("../fixtures/wad_mount_r3dlog.txt");
 
@@ -362,6 +363,83 @@ fn continuation_lines_join_the_sighting_of_their_record() {
             "000001.912|  ERROR| ALE-18967994 FATAL ERROR. WadFile mount failed",
         ],
         "the excerpt keeps the detail lines under their record"
+    );
+}
+
+#[test]
+fn a_failed_shader_compile_is_sighted_with_its_programs_and_defines() {
+    let facts = read(SHADER_FAILURE);
+    let compiles: Vec<&MessageSighting> = facts
+        .messages
+        .iter()
+        .filter(|sighting| sighting.message == LogMessage::ShaderCompileFailed)
+        .collect();
+    assert_eq!(compiles.len(), 12);
+
+    let first = compiles[0];
+    assert!((first.at - 1.973).abs() < 1e-9);
+    assert!(first.line.ends_with("Failed to compile shader."));
+    assert_eq!(first.detail.len(), 4);
+    assert_eq!(first.detail_value("Vertex Shader"), Some(""));
+    assert_eq!(first.detail_value("Pixel Shader"), Some(""));
+    assert_eq!(
+        first.detail_value("Pass Defines"),
+        Some("FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4")
+    );
+    assert_eq!(first.detail_value("Global Defines"), Some(""));
+    assert_eq!(
+        compiles[2].detail_value("Pixel Shader"),
+        Some("ASSETS/Shaders/HLSL/SkinnedMesh/SOLID_COLOR_PS.ps")
+    );
+    assert!(
+        facts
+            .codes
+            .iter()
+            .all(|sighting| sighting.detail.is_empty())
+    );
+}
+
+#[test]
+fn a_missing_pipeline_is_sighted_with_its_hash() {
+    let facts = read(SHADER_FAILURE);
+    let missing = facts.messages.last().expect("the missing pipeline");
+    assert_eq!(missing.message, LogMessage::MissingPipeline);
+    assert_eq!(missing.missing_pipeline(), Some("822941f5adffbcc"));
+    assert!(missing.detail.is_empty());
+    assert_eq!(facts.messages[0].missing_pipeline(), None);
+
+    let tail = facts.excerpt.last().expect("an excerpt");
+    assert!(tail.ends_with("SentryHandleException"), "{tail}");
+    assert!(
+        facts.excerpt.iter().any(|line| line
+            == "Pass Defines:   FEATURE_DISPLACEMENT=1GENERATE_SHADOW_MAP=1NUM_BLEND_WEIGHTS=4"),
+        "the excerpt keeps the detail lines under their record"
+    );
+}
+
+#[test]
+fn a_record_the_reader_does_not_know_is_no_message() {
+    let facts = read(CLEAN);
+    assert!(facts.messages.is_empty());
+}
+
+#[test]
+fn message_sightings_are_bounded() {
+    let mut log = String::from("000000.000| ALWAYS| Logging started at 2026-08-17T07:26:15.487\n");
+    for n in 0..200 {
+        log.push_str(&format!(
+            "{:010.3}| ALWAYS| Failed to compile shader.\nPass Defines:   N={n}\n",
+            f64::from(n)
+        ));
+    }
+    let facts = read(&log);
+    assert_eq!(facts.messages.len(), MAX_MESSAGES);
+    assert_eq!(
+        facts
+            .messages
+            .last()
+            .and_then(|m| m.detail_value("Pass Defines")),
+        Some("N=199")
     );
 }
 
