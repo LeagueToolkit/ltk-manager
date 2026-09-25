@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { Texture, TextureLoader } from "three";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import type { EmitterModel } from "../../../engine/model/model";
 import type { DrawnEmitter } from "../../utils/definitions";
@@ -33,12 +33,22 @@ const drawn = [
   { key: "emitter", emitter: emitterNaming("base", "mult", "color") },
 ] as DrawnEmitter[];
 
+/* The cache keeps a released texture for a grace period, which a test runs out so the
+   next one starts on an empty cache. */
+const RELEASE_GRACE_MS = 15_000;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+});
+
 afterEach(() => {
   cleanup();
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
-it("limits small previews to two texture requests and disposes late arrivals after cancellation", async () => {
+it("limits small previews to two texture requests and disposes textures and late arrivals after the grace", async () => {
   const pending: ((texture: Texture<HTMLImageElement>) => void)[] = [];
   const load = vi.spyOn(TextureLoader.prototype, "load").mockImplementation((_url, onLoad) => {
     pending.push(onLoad!);
@@ -54,6 +64,9 @@ it("limits small previews to two texture requests and disposes late arrivals aft
   expect(load).toHaveBeenCalledTimes(3);
 
   unmount();
+  expect(disposed).not.toHaveBeenCalled();
+
+  vi.advanceTimersByTime(RELEASE_GRACE_MS);
   expect(disposed).toHaveBeenCalledOnce();
   const late = new Texture<HTMLImageElement>();
   const lateDisposed = vi.spyOn(late, "dispose");

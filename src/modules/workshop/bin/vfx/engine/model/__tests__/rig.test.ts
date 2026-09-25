@@ -8,6 +8,7 @@ import {
   flightPath,
   landed,
   type Motion,
+  OPENING_RIG,
   originAt,
   phaseAt,
   RIG_PRESETS,
@@ -232,8 +233,15 @@ describe("landed", () => {
   });
 });
 
+describe("OPENING_RIG", () => {
+  it("opens a run on the burst, which moves nothing and replays the run", () => {
+    expect(OPENING_RIG).toEqual({ preset: "burst", rig: RIG_PRESETS.burst });
+    expect(OPENING_RIG.rig.life).toBe("loop");
+  });
+});
+
 describe("RIG_PRESETS", () => {
-  it("opens on the rig that moves nothing and plays through once", () => {
+  it("plays the rig that moves nothing through once", () => {
     expect(RIG_PRESETS.still).toEqual({
       motion: { kind: "still" },
       life: "once",

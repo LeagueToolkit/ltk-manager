@@ -10,10 +10,10 @@ import { useWorkshopLayoutStore } from "@/stores";
 
 import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE } from "../../../engine/model/enums";
 import { type EmitterModel, POINT_SHAPE, type SystemModel } from "../../../engine/model/model";
-import { FIRST_RIG } from "../../../engine/model/rig";
 import { createDriver } from "../../../engine/simulation/driver";
 import { type EmitterChoice, EmitterChoiceContext } from "../../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../../inspector/utils/emitterTypes";
+import { fakeRun as runFixture } from "../../../playback/state/__tests__/fakeRun";
 import { type VfxRun, VfxRunContext } from "../../../playback/state/run";
 import { Lanes } from "../Lanes";
 
@@ -101,44 +101,11 @@ const CARDS = [
   card({ key: "burst", index: 2 }),
 ];
 
-/** A run over `SYSTEM` standing at zero, with every action a spy. */
+/** A paused run over `SYSTEM` at zero, with every action a spy. */
 function fakeRun(over: Partial<VfxRun> = {}): VfxRun {
   const driver = createDriver(1);
   driver.swap(SYSTEM);
-  return {
-    system: SYSTEM,
-    document: 1,
-    error: null,
-    pending: false,
-    driver,
-    playing: false,
-    speed: 1,
-    seed: 1,
-    rig: FIRST_RIG,
-    muted: new Set(),
-    soloed: new Set(),
-    loop: null,
-    pinned: null,
-    span: 2,
-    resumed: false,
-    fitRequest: 0,
-    requestFit: vi.fn(),
-    setPlaying: vi.fn(),
-    setSpeed: vi.fn(),
-    setRig: vi.fn(),
-    reroll: vi.fn(),
-    toggleMuted: vi.fn(),
-    toggleSoloed: vi.fn(),
-    setMuted: vi.fn(),
-    setSoloed: vi.fn(),
-    setLoop: vi.fn(),
-    setPinned: vi.fn(),
-    seek: vi.fn(),
-    step: vi.fn(),
-    restart: vi.fn(),
-    subscribe: () => () => {},
-    ...over,
-  };
+  return runFixture({ system: SYSTEM, driver, ...over }).run;
 }
 
 function choice(over: Partial<EmitterChoice> = {}): EmitterChoice {
@@ -333,10 +300,12 @@ describe("Lanes", () => {
     const flag = screen.getByText("0.00");
 
     fireEvent.pointerDown(flag, { button: 0, clientX: 0 });
+    expect(run.beginScrub).toHaveBeenCalledTimes(1);
     fireEvent.pointerMove(flag, { clientX: 30 });
     fireEvent.pointerUp(flag, { button: 0, clientX: 30 });
 
     expect(run.seek).toHaveBeenCalledTimes(1);
+    expect(run.endScrub).toHaveBeenCalledTimes(1);
     expect(run.setLoop).not.toHaveBeenCalled();
   });
 
@@ -346,24 +315,44 @@ describe("Lanes", () => {
     expect(screen.getByRole("group", { name: "Timeline ruler" })).toHaveTextContent(/s$/);
   });
 
-  it("sets the loop range from a drag along the ruler", () => {
+  it("scrubs live from the press of a plain drag along the ruler, with the clock paused", () => {
     const { run } = renderLanes();
     const ruler = screen.getByRole("group", { name: "Timeline ruler" });
 
     fireEvent.pointerDown(ruler, { button: 0, clientX: 0 });
+    expect(run.beginScrub).toHaveBeenCalledTimes(1);
+    expect(run.seek).toHaveBeenCalledTimes(1);
+
+    fireEvent.pointerMove(ruler, { clientX: 2 });
     fireEvent.pointerMove(ruler, { clientX: 40 });
+    expect(run.seek).toHaveBeenCalledTimes(3);
+    expect(run.endScrub).not.toHaveBeenCalled();
+
     fireEvent.pointerUp(ruler, { button: 0, clientX: 40 });
+    expect(run.endScrub).toHaveBeenCalledTimes(1);
+    expect(run.seek).toHaveBeenCalledTimes(3);
+    expect(run.setLoop).not.toHaveBeenCalled();
+  });
+
+  it("sets the loop range from a Shift drag along the ruler", () => {
+    const { run } = renderLanes();
+    const ruler = screen.getByRole("group", { name: "Timeline ruler" });
+
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 0, shiftKey: true });
+    fireEvent.pointerMove(ruler, { clientX: 40, shiftKey: true });
+    fireEvent.pointerUp(ruler, { button: 0, clientX: 40, shiftKey: true });
 
     expect(run.setLoop).toHaveBeenCalledWith(expect.objectContaining({ from: 0 }));
     expect(run.seek).not.toHaveBeenCalled();
+    expect(run.beginScrub).not.toHaveBeenCalled();
   });
 
-  it("drops a ruler drag the pointer cancels, and seeks on the next press", () => {
+  it("drops a Shift drag the pointer cancels, and seeks on the next press", () => {
     const { run } = renderLanes();
     const ruler = screen.getByRole("group", { name: "Timeline ruler" });
 
-    fireEvent.pointerDown(ruler, { button: 0, clientX: 0 });
-    fireEvent.pointerMove(ruler, { clientX: 40 });
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 0, shiftKey: true });
+    fireEvent.pointerMove(ruler, { clientX: 40, shiftKey: true });
     fireEvent.pointerCancel(ruler);
     expect(run.setLoop).not.toHaveBeenCalled();
     expect(screen.queryByRole("img", { name: /Loop/ })).not.toBeInTheDocument();
@@ -373,16 +362,30 @@ describe("Lanes", () => {
     expect(run.seek).toHaveBeenCalledTimes(1);
   });
 
+  it("ends a ruler scrub the pointer cancels", () => {
+    const { run } = renderLanes();
+    const ruler = screen.getByRole("group", { name: "Timeline ruler" });
+
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 10 });
+    fireEvent.pointerCancel(ruler);
+    fireEvent.pointerMove(ruler, { clientX: 30 });
+
+    expect(run.endScrub).toHaveBeenCalledTimes(1);
+    expect(run.seek).toHaveBeenCalledTimes(1);
+  });
+
   it("stops a track drag seeking once the pointer cancels", () => {
     const { run } = renderLanes();
     const track = screen.getByRole("group", { name: "Orb lane" });
 
     fireEvent.pointerDown(track, { button: 0, clientX: 10 });
+    expect(run.beginScrub).toHaveBeenCalledTimes(1);
     fireEvent.pointerMove(track, { clientX: 20 });
     fireEvent.pointerCancel(track);
     fireEvent.pointerMove(track, { clientX: 30 });
 
     expect(run.seek).toHaveBeenCalledTimes(2);
+    expect(run.endScrub).toHaveBeenCalledTimes(1);
   });
 
   it("drags the loop's out by its edge, and the whole range by its band", () => {

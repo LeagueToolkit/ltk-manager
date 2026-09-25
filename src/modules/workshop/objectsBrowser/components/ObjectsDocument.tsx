@@ -407,6 +407,8 @@ function FindResults({
               /* Per pattern. A fresh search opens at its first hit rather than where the
                last one was read to. */
               scrollKey={`objects-find:${regex ? "re" : "text"}:${pattern}`}
+              reveal={reveal}
+              onRevealed={settle}
             />
           )}
         </div>

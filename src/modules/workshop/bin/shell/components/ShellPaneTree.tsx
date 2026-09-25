@@ -50,8 +50,10 @@ const PANE = "flex min-h-0 min-w-0 flex-1 flex-col border border-surface-700/50 
 export interface ShellPane {
   body: ReactNode;
   onFocus?: () => void;
-  /** Drawn at the right end of the strip while this pane is the open one. */
+  /** Drawn in the strip after the tabs while this pane is the open one. */
   actions?: ReactNode;
+  /** Whether the actions sit at the strip's right end, the default, or take the rest of it. */
+  actionsWidth?: "end" | "rest";
 }
 
 /** What each pane of a `K` shell draws, one body per pane it holds, which the tree places. */
@@ -174,6 +176,7 @@ function PaneLeaf<K extends ShellKind>({
           onClose={(id) => isShellPaneId(id) && close(leaf.id, id)}
           onMaximize={() => toggleMaximized(leaf.id)}
           actions={active === null ? null : bodies[active]?.actions}
+          actionsWidth={active === null ? undefined : bodies[active]?.actionsWidth}
         />
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {panes.map((pane) => (

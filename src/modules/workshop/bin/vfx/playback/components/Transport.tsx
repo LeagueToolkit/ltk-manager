@@ -5,11 +5,12 @@ import {
   GaugeIcon,
   PauseIcon,
   PlayIcon,
+  RepeatIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { Button, Slider, StepperField, Tooltip } from "@/components";
-import { m } from "@/i18n";
+import { Button, IconButton, Separator, Slider, StepperField, Tooltip } from "@/components";
+import { m, Marked } from "@/i18n";
 import { twMerge } from "@/utils";
 
 /** How finely the scrub divides the window it spans, in seconds. */
@@ -50,6 +51,9 @@ export interface TransportProps {
   onRestart?: () => void;
   /** Drawn as a step back and a step forward around play when given, in whole frames. */
   onStep?: (frames: number) => void;
+  /** Whether the run starts over at its end, drawn as a toggle when `onLoopingChange` is given. */
+  looping?: boolean;
+  onLoopingChange?: (looping: boolean) => void;
   /** `mini` is play, the scrub and the time alone, "The timeline" in docs/ux/BIN_EDITOR.md. */
   variant?: "full" | "mini";
   /**
@@ -59,13 +63,19 @@ export interface TransportProps {
    * it alone and never the row around it.
    */
   playhead: ReactNode;
-  /** What a host carries after the transport's own controls. */
+  /** What a host carries after the transport's controls, placed by the host. */
   children?: ReactNode;
   /** The host's edge, since the row sits under a viewport in one and over the lanes in another. */
   className?: string;
 }
 
-/** The transport of a run: play, the steps, the playhead the host draws, and the speed. */
+/**
+ * The transport of a run, in two groups a hairline divides.
+ *
+ * The first moves the playhead: the steps, play and restart around the time. The second is
+ * how the run plays: the loop and the speed. Play is the one filled control, so the row
+ * reads from it outward.
+ */
 export function Transport({
   playing,
   speed,
@@ -73,79 +83,132 @@ export function Transport({
   onSpeedChange,
   onRestart,
   onStep,
+  looping = false,
+  onLoopingChange,
   variant = "full",
   playhead,
   children,
   className,
 }: TransportProps) {
-  const transport = playing
-    ? m.workshop_bin_preview_pause_action()
-    : m.workshop_bin_preview_play_action();
   const mini = variant === "mini";
+  const steps = !mini && onStep !== undefined;
+  const loops = onLoopingChange !== undefined;
 
   return (
     <div
       data-ui="Transport"
-      className={twMerge("flex shrink-0 items-center gap-2 px-2 py-1.5 select-none", className)}
+      className={twMerge("flex shrink-0 items-center gap-1.5 px-2 py-1 select-none", className)}
     >
-      {!mini && onStep && (
-        <StepButton label={m.workshop_bin_preview_step_back_action()} onClick={() => onStep(-1)}>
-          <CaretLineLeftIcon weight="bold" className="h-4 w-4" />
-        </StepButton>
-      )}
-
-      <Button
-        variant="ghost"
-        size="xs"
-        compact
-        aria-label={transport}
-        onClick={() => onPlayingChange(!playing)}
-      >
-        {playing && <PauseIcon weight="bold" className="h-4 w-4" />}
-        {!playing && <PlayIcon weight="bold" className="h-4 w-4" />}
-      </Button>
-
-      {!mini && onStep && (
-        <StepButton label={m.workshop_bin_preview_step_forward_action()} onClick={() => onStep(1)}>
-          <CaretLineRightIcon weight="bold" className="h-4 w-4" />
-        </StepButton>
-      )}
-
-      {!mini && onRestart && (
-        <StepButton label={m.workshop_bin_preview_restart_action()} onClick={onRestart}>
-          <ArrowCounterClockwiseIcon weight="bold" className="h-4 w-4" />
-        </StepButton>
-      )}
+      <div className="flex shrink-0 items-center gap-0.5">
+        {steps && (
+          <StepButton label={m.workshop_bin_preview_step_back_action()} onClick={() => onStep(-1)}>
+            <CaretLineLeftIcon weight="bold" className="h-4 w-4" />
+          </StepButton>
+        )}
+        <PlayButton playing={playing} onPlayingChange={onPlayingChange} />
+        {steps && (
+          <StepButton
+            label={m.workshop_bin_preview_step_forward_action()}
+            onClick={() => onStep(1)}
+          >
+            <CaretLineRightIcon weight="bold" className="h-4 w-4" />
+          </StepButton>
+        )}
+        {!mini && onRestart && (
+          <StepButton label={m.workshop_bin_preview_restart_action()} onClick={onRestart}>
+            <ArrowCounterClockwiseIcon weight="bold" className="h-4 w-4" />
+          </StepButton>
+        )}
+      </div>
 
       {playhead}
 
-      {!mini && (
-        <div className="ml-2 flex shrink-0 items-center gap-1.5">
-          <Tooltip content={m.workshop_bin_preview_speed_label()}>
-            <span className="flex shrink-0">
-              <GaugeIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
-            </span>
-          </Tooltip>
-          <StepperField
-            className="w-20 text-meta"
-            aria-label={m.workshop_bin_preview_speed_label()}
-            increaseLabel={m.workshop_bin_preview_speed_up_action()}
-            decreaseLabel={m.workshop_bin_preview_speed_down_action()}
-            value={speed}
-            min={SLOWEST}
-            max={FASTEST}
-            step={SPEED_NUDGE.step}
-            smallStep={SPEED_NUDGE.small}
-            largeStep={SPEED_NUDGE.large}
-            decimals={SPEED_DECIMALS}
-            locale={SPEED_LOCALE}
-            onValueChange={onSpeedChange}
-          />
-        </div>
-      )}
+      {(loops || !mini) && <Separator orientation="vertical" className="mx-1 h-4" />}
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {loops && <LoopToggle looping={looping} onLoopingChange={onLoopingChange} />}
+        {!mini && <SpeedField speed={speed} onSpeedChange={onSpeedChange} />}
+      </div>
 
       {children}
     </div>
+  );
+}
+
+/** Play or pause, the transport's one filled control. */
+function PlayButton({
+  playing,
+  onPlayingChange,
+}: Pick<TransportProps, "playing" | "onPlayingChange">) {
+  const label = playing
+    ? m.workshop_bin_preview_pause_action()
+    : m.workshop_bin_preview_play_action();
+  const hint = playing ? m.workshop_bin_preview_pause_hint() : m.workshop_bin_preview_play_hint();
+  const Glyph = playing ? PauseIcon : PlayIcon;
+
+  return (
+    <Tooltip content={hint}>
+      <IconButton
+        variant="filled"
+        size="xs"
+        compact
+        aria-label={label}
+        icon={<Glyph weight="fill" className="h-4 w-4" />}
+        onClick={() => onPlayingChange(!playing)}
+      />
+    </Tooltip>
+  );
+}
+
+/** The loop switch, lit while the run starts over at its end. */
+function LoopToggle({
+  looping,
+  onLoopingChange,
+}: {
+  looping: boolean;
+  onLoopingChange: (looping: boolean) => void;
+}) {
+  return (
+    <Tooltip content={m.workshop_bin_preview_loop_hint()}>
+      <IconButton
+        variant="ghost"
+        size="xs"
+        compact
+        aria-label={m.workshop_bin_preview_loop_label()}
+        aria-pressed={looping}
+        className="text-surface-400 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
+        icon={<RepeatIcon weight="bold" className="h-4 w-4" />}
+        onClick={() => onLoopingChange(!looping)}
+      />
+    </Tooltip>
+  );
+}
+
+/** The rate typed to three places, under the gauge that names it. */
+function SpeedField({ speed, onSpeedChange }: Pick<TransportProps, "speed" | "onSpeedChange">) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <Tooltip content={m.workshop_bin_preview_speed_label()}>
+        <span className="flex shrink-0">
+          <GaugeIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
+        </span>
+      </Tooltip>
+      <StepperField
+        className="w-20 text-meta"
+        aria-label={m.workshop_bin_preview_speed_label()}
+        increaseLabel={m.workshop_bin_preview_speed_up_action()}
+        decreaseLabel={m.workshop_bin_preview_speed_down_action()}
+        value={speed}
+        min={SLOWEST}
+        max={FASTEST}
+        step={SPEED_NUDGE.step}
+        smallStep={SPEED_NUDGE.small}
+        largeStep={SPEED_NUDGE.large}
+        decimals={SPEED_DECIMALS}
+        locale={SPEED_LOCALE}
+        onValueChange={onSpeedChange}
+      />
+    </span>
   );
 }
 
@@ -158,6 +221,8 @@ export interface PlayheadProps {
   scrub?: boolean;
   /** Stand the run at `time`, live under a drag. */
   onSeek: (time: number) => void;
+  /** Commit `time` once a drag is released or a key has moved the scrub. */
+  onSeekCommit?: (time: number) => void;
 }
 
 /**
@@ -166,7 +231,7 @@ export interface PlayheadProps {
  * A drag seeks on every pointer move, which the checkpoints of decision 2.46 in
  * docs/plans/vfx-particle-renderer.md make cheap.
  */
-export function Playhead({ time, span, scrub = true, onSeek }: PlayheadProps) {
+export function Playhead({ time, span, scrub = true, onSeek, onSeekCommit }: PlayheadProps) {
   const shown = Math.min(time, span);
 
   return (
@@ -181,13 +246,22 @@ export function Playhead({ time, span, scrub = true, onSeek }: PlayheadProps) {
           step={SCRUB_STEP}
           disabled={span <= 0}
           onValueChange={onSeek}
+          onValueCommitted={onSeekCommit}
         />
       )}
-      <span className="shrink-0 font-mono text-meta text-code whitespace-nowrap text-surface-400 tabular-nums">
-        {m.workshop_bin_preview_playhead_label({
-          time: shown.toFixed(2),
-          span: span.toFixed(2),
-        })}
+      <span
+        role="timer"
+        aria-label={m.workshop_bin_preview_readout_label()}
+        className="shrink-0 px-1 font-mono text-row text-code whitespace-nowrap text-surface-400 tabular-nums"
+      >
+        <Marked
+          text={m.workshop_bin_preview_playhead_label({
+            time: shown.toFixed(2),
+            span: span.toFixed(2),
+          })}
+        >
+          {(now) => <span className="font-medium text-surface-100">{now}</span>}
+        </Marked>
       </span>
     </>
   );

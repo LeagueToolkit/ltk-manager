@@ -9,6 +9,7 @@ import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
 import { keepScrollTop, keptScrollTop, type ObjectsReveal, useSelectObjectNode } from "../../state";
+import { useRestPreview } from "../hooks/useRestPreview";
 import {
   activation,
   expandable,
@@ -40,7 +41,11 @@ interface ObjectsTreeProps {
   onRevealed?: (token: number) => void;
 }
 
-/** A read-only virtualized tree over the object nodes, browse and find alike. */
+/**
+ * A read-only virtualized tree over the object nodes, browse and find alike.
+ *
+ * A keyboard move that rests on a particle system opens its preview tab.
+ */
 export function ObjectsTree({
   nodes,
   ariaLabel,
@@ -98,6 +103,7 @@ export function ObjectsTree({
     virtualizer.measure();
   }, [virtualizer, zoomed]);
 
+  const restPreview = useRestPreview(scrollRef);
   const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
     rows,
     isExpanded,
@@ -107,6 +113,7 @@ export function ObjectsTree({
     activation: (node) => activation(node, "row"),
     virtualizer,
     scrollElementRef: scrollRef,
+    onKeyMove: restPreview,
   });
   const select = (index: number) => {
     setFocusedIndex(index);

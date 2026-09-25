@@ -28,6 +28,8 @@ import {
 } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../../../documents/utils/contentDocument";
+/* The leaf rather than the objects browser barrel, which pulls the document that routes here. */
+import { useSystemSteps } from "../../../objectsBrowser/hooks/useSystemSteps";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../../../preview/components/BinPreview";
 /* The leaf rather than the references barrel, which pulls the document that routes here. */
@@ -78,7 +80,7 @@ export function ObjectDocument({
   active,
 }: EditorDocumentProps<ContentDocumentOf<"object">>) {
   const { id, asset, objectHash, objectPath, file } = document;
-  const { state, reopen } = useBinDocument(asset, objectHash);
+  const { state, reopen } = useBinDocument(asset, objectHash, "lingering");
 
   if (state.status === "failed") {
     return (
@@ -142,6 +144,13 @@ function OpenObject({
   const layout = classLayout(object.classHash);
   const roots = useObjectRoots(handle);
   const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  const steps = useSystemSteps({
+    enabled: layout?.shell === "vfx",
+    documentId,
+    objectHash: object.entry,
+    objectPath,
+    active,
+  });
   useLendOpenBin(documentId, handle.document, object.entry);
 
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
@@ -200,11 +209,15 @@ function OpenObject({
 
   return (
     <div
+      ref={steps.root}
       data-ui="ObjectDocument"
       /* Focusable, so a click anywhere in the tab is where its undo keys land. */
       tabIndex={-1}
       className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
-      onKeyDown={undoKeys}
+      onKeyDown={(event) => {
+        undoKeys(event);
+        steps.onKeyDown(event);
+      }}
     >
       <DocumentToolbar active={active}>
         <span className="flex min-w-0 shrink-0 items-center gap-2 text-meta text-surface-400 select-none">

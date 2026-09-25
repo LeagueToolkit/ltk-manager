@@ -2,6 +2,7 @@ import { type RefObject, useLayoutEffect } from "react";
 import {
   type Camera,
   DepthTexture,
+  ExternalTexture,
   FramebufferTexture,
   LinearFilter,
   type Object3D,
@@ -9,6 +10,7 @@ import {
   PerspectiveCamera,
   RGBFormat,
   type Scene,
+  type Texture,
   Vector2,
   type WebGLRenderer,
   WebGLRenderTarget,
@@ -24,18 +26,13 @@ export const DISTORTION_LAYER = 1;
 export const PARTICLE_LAYER = 2;
 
 /**
- * The frame as it stood before anything warped it, which a distorting fragment samples.
+ * The frame as it was before anything warped it, which a distorting fragment samples.
  *
- * One texture for the whole viewport, held by every distortion material's uniform, so a
- * resize keeps the object and reallocates what is behind it.
+ * Every distortion material's uniform keeps this one object, and it points at the copy of
+ * the renderer drawing at the moment. Each canvas keeps a copy of its size, so canvases of
+ * different sizes reallocate nothing from frame to frame.
  */
-export const FRAME = new FramebufferTexture(1, 1);
-FRAME.minFilter = LinearFilter;
-FRAME.magFilter = LinearFilter;
-/* The drawing buffer `opaqueRenderer` asks for has no alpha channel, and a copy into a
-   texture with one fails with INVALID_OPERATION on every frame. */
-FRAME.format = RGBFormat;
-FRAME.internalFormat = "RGB8";
+export const FRAME = new ExternalTexture();
 
 /** The drawing buffer's size in pixels, which turns a fragment's place into a coordinate. */
 export const VIEWPORT = new Vector2(1, 1);
@@ -43,55 +40,116 @@ export const VIEWPORT = new Vector2(1, 1);
 /**
  * The depth the scene leaves with no particle in it, which a soft fade measures its gap to.
  *
- * Rendered rather than copied out of the canvas, because a target is what hands a depth
- * buffer back as a texture. Its colour is never read, so the colour space trap of decision
- * 2.25 in docs/plans/vfx-particle-renderer.md does not reach it.
+ * Points at the depth target of the renderer drawing at the moment, as `FRAME` does.
  */
-const SCENE_TARGET = new WebGLRenderTarget(1, 1, { depthTexture: new DepthTexture(1, 1) });
-
-/** The depth `grabDepth` leaves, which every soft fading material holds. */
-export const SCENE_DEPTH = SCENE_TARGET.depthTexture;
+export const SCENE_DEPTH = new ExternalTexture();
 
 /** The camera's near and far planes, which turn a stored depth back into a distance. */
 export const DEPTH_RANGE = new Vector2(1, 1);
 
-/** Free the frame and the depth target, which the next grab allocates again. */
-export function releaseFrame(): void {
-  FRAME.dispose();
-  SCENE_TARGET.dispose();
+/** The textures one renderer's passes write, sized to its drawing buffer. */
+interface FrameTargets {
+  readonly frame: FramebufferTexture;
+  /**
+   * Rendered rather than copied out of the canvas, because a target is what hands a depth
+   * buffer back as a texture. Its colour is never read, so the colour space trap of
+   * decision 2.25 in docs/plans/vfx-particle-renderer.md does not reach it.
+   */
+  readonly depth: WebGLRenderTarget;
 }
 
-/** Take the frame as it stands, which is what the distortion pass draws over. */
+const TARGETS = new WeakMap<WebGLRenderer, FrameTargets>();
+
+function targetsOf(gl: WebGLRenderer): FrameTargets {
+  let targets = TARGETS.get(gl);
+  if (targets === undefined) {
+    const frame = new FramebufferTexture(1, 1);
+    frame.minFilter = LinearFilter;
+    frame.magFilter = LinearFilter;
+    /* The drawing buffer `opaqueRenderer` asks for has no alpha channel, and a copy into a
+       texture with one fails with INVALID_OPERATION on every frame. */
+    frame.format = RGBFormat;
+    frame.internalFormat = "RGB8";
+
+    const depth = new WebGLRenderTarget(1, 1, { depthTexture: new DepthTexture(1, 1) });
+    targets = { frame, depth };
+    TARGETS.set(gl, targets);
+  }
+
+  return targets;
+}
+
+/**
+ * The GL texture `gl` allocated for `texture`, and null before its first upload.
+ *
+ * three exposes no public handle to a target's depth texture, so the renderer's property
+ * record is read.
+ */
+function glTextureOf(gl: WebGLRenderer, texture: Texture | null): WebGLTexture | null {
+  if (texture === null || !gl.properties.has(texture)) return null;
+
+  const record = gl.properties.get(texture) as { __webglTexture?: WebGLTexture };
+  return record.__webglTexture ?? null;
+}
+
+/**
+ * Point `FRAME` and `SCENE_DEPTH` at the textures `gl` last wrote, before `gl` draws.
+ *
+ * A texture of another canvas belongs to another GL context, which a draw cannot bind.
+ */
+export function bindFrameTargets(gl: WebGLRenderer): void {
+  const targets = TARGETS.get(gl);
+  FRAME.sourceTexture = targets === undefined ? null : glTextureOf(gl, targets.frame);
+  SCENE_DEPTH.sourceTexture =
+    targets === undefined ? null : glTextureOf(gl, targets.depth.depthTexture);
+}
+
+/** Free the frame and the depth target of `gl`, which its next grab allocates again. */
+export function releaseFrame(gl: WebGLRenderer): void {
+  const targets = TARGETS.get(gl);
+  if (targets === undefined) return;
+
+  TARGETS.delete(gl);
+  targets.frame.dispose();
+  targets.depth.dispose();
+  FRAME.sourceTexture = null;
+  SCENE_DEPTH.sourceTexture = null;
+}
+
+/** Take the frame as it is, which is what the distortion pass draws over. */
 export function grabFrame(gl: WebGLRenderer): void {
   gl.getDrawingBufferSize(VIEWPORT);
   const width = Math.max(1, Math.round(VIEWPORT.x));
   const height = Math.max(1, Math.round(VIEWPORT.y));
+  const { frame } = targetsOf(gl);
 
-  if (FRAME.image.width !== width || FRAME.image.height !== height) {
-    FRAME.image.width = width;
-    FRAME.image.height = height;
+  if (frame.image.width !== width || frame.image.height !== height) {
+    frame.image.width = width;
+    frame.image.height = height;
     /* The storage is immutable once it is allocated, so a resize frees it and lets the
-       next upload allocate again, which keeps the object every material points at. */
-    FRAME.dispose();
+       next upload allocate again. */
+    frame.dispose();
   }
 
   /* three copies into whichever unit is active, and skips the bind when its cache already
      has the texture on unit 0, so the copy can land in another material's sampler. */
   gl.state.activeTexture(gl.getContext().TEXTURE0);
-  gl.copyFramebufferToTexture(FRAME);
+  gl.copyFramebufferToTexture(frame);
+  FRAME.sourceTexture = glTextureOf(gl, frame);
 }
 
 /**
- * Draw the scene's own layer into `SCENE_DEPTH`, which is what a soft fade reads.
+ * Draw the scene's layer into `SCENE_DEPTH`, which is what a soft fade reads.
  *
- * The camera leaves on the scene's layer alone, and the caller sets the layers it draws next.
+ * The camera is left on the scene's layer alone, and the caller sets the layers it draws next.
  */
 export function grabDepth(gl: WebGLRenderer, scene: Scene, camera: Camera): void {
   gl.getDrawingBufferSize(VIEWPORT);
   const width = Math.max(1, Math.round(VIEWPORT.x));
   const height = Math.max(1, Math.round(VIEWPORT.y));
-  if (SCENE_TARGET.width !== width || SCENE_TARGET.height !== height) {
-    SCENE_TARGET.setSize(width, height);
+  const { depth } = targetsOf(gl);
+  if (depth.width !== width || depth.height !== height) {
+    depth.setSize(width, height);
   }
   if (camera instanceof PerspectiveCamera || camera instanceof OrthographicCamera) {
     DEPTH_RANGE.set(camera.near, camera.far);
@@ -105,12 +163,13 @@ export function grabDepth(gl: WebGLRenderer, scene: Scene, camera: Camera): void
   const color = gl.state.buffers.color;
   color.setMask(false);
   color.setLocked(true);
-  gl.setRenderTarget(SCENE_TARGET);
+  gl.setRenderTarget(depth);
   gl.render(scene, camera);
   gl.setRenderTarget(null);
   color.setLocked(false);
   color.setMask(true);
   scene.background = background;
+  SCENE_DEPTH.sourceTexture = glTextureOf(gl, depth.depthTexture);
 }
 
 /**

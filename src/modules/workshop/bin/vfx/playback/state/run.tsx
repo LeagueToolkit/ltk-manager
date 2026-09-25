@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { useContentVisible } from "@/hooks";
-import type { AppError, BinDocumentId } from "@/lib/tauri";
+import type { AppError, AssetRef, BinDocumentId } from "@/lib/tauri";
 
 import {
   type LoopRange,
@@ -21,7 +21,7 @@ import {
   type VfxRunMemory,
 } from "../../../../state";
 import type { SystemModel } from "../../engine/model/model";
-import { FIRST_RIG, flightTime, type RigChoice, runLength } from "../../engine/model/rig";
+import { flightTime, OPENING_RIG, type RigChoice, runLength } from "../../engine/model/rig";
 import { lingerTail, systemSpan } from "../../engine/model/systemModel";
 import { createDriver, type Driver } from "../../engine/simulation/driver";
 import {
@@ -43,6 +43,9 @@ const MAX_FRAME = 0.1;
 /** One frame at the rate a seek replays at, which the step keys and buttons move by. */
 export const FRAME = 1 / 60;
 
+/** How near its span a phase counts as the run's end, in seconds, which absorbs float error. */
+const END_SLACK = 1e-6;
+
 /**
  * One particle system's run, which the shell holds above its panes (ADR-0037).
  *
@@ -56,9 +59,17 @@ export interface VfxRun {
   readonly pending: boolean;
   readonly driver: Driver;
   readonly playing: boolean;
+  /**
+   * The clock waits for the preview's first draw, while `playing` is unchanged.
+   *
+   * False by default, so a shell with no preview plays at once.
+   */
+  readonly warming: boolean;
   readonly speed: number;
   readonly seed: number;
   readonly rig: RigChoice;
+  /** The run starts over at its end, which is the rig's life. */
+  readonly looping: boolean;
   /** Emitters of the opened system that draw nothing, by pool index. */
   readonly muted: ReadonlySet<number>;
   /** Emitters of the opened system that alone draw while any is in the set, by pool index. */
@@ -73,9 +84,19 @@ export interface VfxRun {
   /** Bumped per Fit asked of the camera, which the viewport answers. A second ask is a second fit. */
   readonly fitRequest: number;
   readonly requestFit: () => void;
+  /** Play or pause. Play on a run paused at its end starts it from zero. */
   readonly setPlaying: (playing: boolean) => void;
+  /**
+   * Keep the clock at its phase while `warming`, and continue from there once it is false.
+   *
+   * A state setter, so its identity is stable across renders.
+   */
+  readonly setWarming: (warming: boolean) => void;
   readonly setSpeed: (speed: number) => void;
+  /** Change the rig. A loop turned on for a run paused at its end plays it from zero. */
   readonly setRig: (rig: RigChoice) => void;
+  /** Turn the rig's loop on or off, keeping its preset. */
+  readonly setLooping: (looping: boolean) => void;
   readonly reroll: () => void;
   readonly toggleMuted: (emitter: number) => void;
   readonly toggleSoloed: (emitter: number) => void;
@@ -88,7 +109,18 @@ export interface VfxRun {
   readonly seek: (time: number) => void;
   /** Pause, and move the run by whole frames. */
   readonly step: (frames: number) => void;
+  /** Pause, and move the run to the end of its span. */
+  readonly seekEnd: () => void;
+  /** Move the run back to zero, leaving `playing` as it is. */
   readonly restart: () => void;
+  /**
+   * Pause the clock for a scrub until `endScrub`, leaving `playing` as it is.
+   *
+   * A second call inside one scrub does nothing.
+   */
+  readonly beginScrub: () => void;
+  /** Let the clock run again after a scrub, if the run is playing. */
+  readonly endScrub: () => void;
   /** Hear the clock, which moves every frame the run plays and on every seek. */
   readonly subscribe: (listener: () => void) => () => void;
 }
@@ -159,6 +191,8 @@ export function useClockOf(run: VfxRun | null): number | null {
 
 export interface VfxRunProviderProps {
   document: BinDocumentId;
+  /** What the document was read from, which keys the run's memory, and null to key it on the open. */
+  asset: AssetRef | null;
   /** The system object, `0x` and eight hex digits. */
   entry: string;
   children: ReactNode;
@@ -168,10 +202,10 @@ export interface VfxRunProviderProps {
  * The run of one system, kept per system for the session (ADR-0037).
  *
  * The driver outlives the snapshot, so a re-read swaps the definition against the pool
- * the simulation already holds rather than starting the effect over (2.5). A reroll is
+ * the simulation already has rather than starting the effect over (2.5). A reroll is
  * the one thing that builds a new one, because the seed is the run.
  */
-export function VfxRunProvider({ document, entry, children }: VfxRunProviderProps) {
+export function VfxRunProvider({ document, asset, entry, children }: VfxRunProviderProps) {
   const { system: authoredSystem, error, pending } = useVfxSystem(document, entry);
   const forces = useForcePreviewState();
   const { project: projectForces, clear: clearForces } = forces;
@@ -184,21 +218,24 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     clearForces();
   }, [topology, clearForces]);
   const visible = useContentVisible();
-  const key = vfxRunKey(document, entry);
+  const key = vfxRunKey(asset ?? document, entry);
   const [kept] = useState(() => rememberedVfxRun(key));
 
-  const [playing, setPlaying] = useState(true);
+  const [playing, setPlayingState] = useState(true);
   const playingRef = useRef(playing);
   playingRef.current = playing;
+  const [warming, setWarming] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
 
   const [seed, setSeed] = useState(kept?.seed ?? FIRST_SEED);
   const [speed, setSpeed] = useState(kept?.speed ?? FIRST_SPEED);
-  const [rig, setRig] = useState<RigChoice>(kept?.rig ?? FIRST_RIG);
+  const [rig, setRigState] = useState<RigChoice>(kept?.rig ?? OPENING_RIG);
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set(kept?.muted));
   const [soloed, setSoloed] = useState<ReadonlySet<number>>(() => new Set(kept?.soloed));
   const [loop, setLoop] = useState<LoopRange | null>(kept?.loop ?? null);
   const [fitRequest, setFitRequest] = useState(0);
-  const [pinned, setPinned] = useState<number | null>(null);
+  const [pinned, setPinned] = useState<number | null>(kept?.pinned ?? null);
+  const looping = rig.rig.life === "loop";
 
   const driver = useMemo(() => createDriver(seed), [seed]);
   const span = useMemo(
@@ -240,8 +277,16 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     notify();
   }, [driver, system, notify, forces.project]);
 
+  /* A loop turned off leaves the clock at the sum of every pass it made, which a rig that
+     plays once reads as past its span, so the run returns to the phase it showed. */
+  const steered = useRef(rig.rig);
   useEffect(() => {
+    const phase = driver.phase;
+    const unlooped = steered.current.life === "loop" && rig.rig.life !== "loop";
+    steered.current = rig.rig;
+
     driver.steer(rig.rig);
+    if (unlooped && driver.phase > phase + END_SLACK) driver.seek(phase);
     notify();
   }, [driver, rig, notify]);
 
@@ -249,52 +294,69 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
     driver.pin(pinned);
   }, [driver, pinned]);
 
-  /* A kept run resumes where its tab left it, once the system it is a run of has landed. */
+  /* A kept run resumes where its tab left it, once the system it is a run of has landed.
+     One left at or past its end opens at zero. */
   const resumeAt = useRef(kept?.playhead ?? null);
   useEffect(() => {
-    if (system === null || resumeAt.current === null) return;
-    driver.seek(resumeAt.current);
+    const at = resumeAt.current;
+    if (system === null || at === null) return;
+
     resumeAt.current = null;
+    if (reachedEnd(at, span)) return;
+
+    driver.seek(at);
     notify();
-  }, [driver, system, notify]);
+  }, [driver, system, span, notify]);
 
   /* Read through a ref by the loop below, so a speed tick or a rig drag, which moves the
      span, changes the next frame rather than restarting the loop and dropping one. */
-  const pace = useRef({ speed, loop, span });
-  pace.current = { speed, loop, span };
+  const pace = useRef({ speed, loop, span, looping });
+  pace.current = { speed, loop, span, looping };
   /* An edit hands over a new system, and restarting the loop on it drops a frame of time. */
   const loaded = system !== null;
   useEffect(() => {
-    if (!visible || !playing || !loaded) return;
+    if (!visible || !playing || !loaded || warming || scrubbing) return;
+
     let last: number | null = null;
     let frame = 0;
     const tick = (now: number) => {
       const dt = last === null ? 0 : Math.min((now - last) / 1000, MAX_FRAME);
       last = now;
       if (dt > 0) {
-        const { speed: rate, loop: range, span: length } = pace.current;
-        driver.advance(dt * rate);
+        const { speed: rate, loop: range, span: length, looping: loops } = pace.current;
+        const room = range === null && !loops ? length - driver.phase : Infinity;
+        const spent = Math.min(dt * rate, room);
+        if (spent > 0) driver.advance(spent);
         if (range !== null && driver.phase >= Math.min(range.to, length)) driver.seek(range.from);
         notify();
+
+        if (spent >= room) {
+          setPlayingState(false);
+          return;
+        }
       }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [driver, playing, loaded, notify, visible]);
+  }, [driver, playing, loaded, notify, visible, warming, scrubbing]);
 
   /* Written on the way out rather than as it changes, off the values the last render
-     held, so the store hears one memory per tab rather than one per frame. */
-  const latest = useRef<{ memory: Omit<VfxRunMemory, "playhead">; driver: Driver }>(null!);
+     read, so the store hears one memory per tab rather than one per frame. */
+  const latest = useRef<{ memory: Omit<VfxRunMemory, "playhead">; driver: Driver; span: number }>(
+    null!,
+  );
   latest.current = {
-    memory: { seed, rig, speed, muted: [...muted], soloed: [...soloed], loop },
+    memory: { seed, rig, speed, muted: [...muted], soloed: [...soloed], loop, pinned },
     driver,
+    span,
   };
   const remember = useVfxRunMemoryStore((s) => s.remember);
   useEffect(
     () => () => {
-      const { memory, driver: held } = latest.current;
-      remember(key, { ...memory, playhead: held.phase });
+      const { memory, driver: last, span: length } = latest.current;
+      const phase = last.phase;
+      remember(key, { ...memory, playhead: reachedEnd(phase, length) ? 0 : phase });
     },
     [key, remember],
   );
@@ -312,11 +374,48 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
   }, [driver, notify]);
   const step = useCallback(
     (frames: number) => {
-      setPlaying(false);
+      setPlayingState(false);
       seek(driver.phase + frames * FRAME);
     },
     [driver, seek],
   );
+  const seekEnd = useCallback(() => {
+    const { span: length, looping: loops } = pace.current;
+    const end = loops ? Math.max(length - FRAME, 0) : length;
+    setPlayingState(false);
+
+    /* A seek lands on whole replay steps, so the last part of a frame is advanced. */
+    driver.seek(end);
+    const gap = end - driver.phase;
+    if (gap > 0 && gap < FRAME) driver.advance(gap);
+    notify();
+  }, [driver, notify]);
+
+  /* Paused at its end: no loop or range starts the run over. */
+  const parked = useCallback(() => {
+    const { loop: range, span: length, looping: loops } = pace.current;
+    return !loops && range === null && reachedEnd(driver.phase, length);
+  }, [driver]);
+  const setPlaying = useCallback(
+    (next: boolean) => {
+      if (next && parked()) restart();
+      setPlayingState(next);
+    },
+    [parked, restart],
+  );
+  const setRig = useCallback(
+    (next: RigChoice) => {
+      if (next.rig.life === "loop" && parked()) {
+        restart();
+        setPlayingState(true);
+      }
+      setRigState(next);
+    },
+    [parked, restart],
+  );
+
+  const beginScrub = useCallback(() => setScrubbing(true), []);
+  const endScrub = useCallback(() => setScrubbing(false), []);
 
   const run = useMemo<VfxRun>(
     () => ({
@@ -326,9 +425,11 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       pending,
       driver,
       playing,
+      warming,
       speed,
       seed,
       rig,
+      looping,
       muted,
       soloed,
       loop,
@@ -336,20 +437,26 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       span,
       resumed: (kept?.playhead ?? 0) > 0,
       fitRequest,
-      requestFit: () => setFitRequest((held) => held + 1),
+      requestFit: () => setFitRequest((count) => count + 1),
       setPlaying,
+      setWarming,
       setSpeed,
       setRig,
-      reroll: () => setSeed((held) => held + 1),
-      toggleMuted: (emitter) => setMuted((held) => toggled(held, emitter)),
-      toggleSoloed: (emitter) => setSoloed((held) => toggled(held, emitter)),
+      setLooping: (next) =>
+        setRig({ preset: rig.preset, rig: { ...rig.rig, life: next ? "loop" : "once" } }),
+      reroll: () => setSeed((current) => current + 1),
+      toggleMuted: (emitter) => setMuted((current) => toggled(current, emitter)),
+      toggleSoloed: (emitter) => setSoloed((current) => toggled(current, emitter)),
       setMuted,
       setSoloed,
       setLoop: (range) => setLoop(boundedLoop(range, span)),
       setPinned,
       seek,
       step,
+      seekEnd,
       restart,
+      beginScrub,
+      endScrub,
       subscribe,
     }),
     [
@@ -359,9 +466,11 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       pending,
       driver,
       playing,
+      warming,
       speed,
       seed,
       rig,
+      looping,
       muted,
       soloed,
       loop,
@@ -369,9 +478,14 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
       span,
       kept,
       fitRequest,
+      setPlaying,
+      setRig,
       seek,
       step,
+      seekEnd,
       restart,
+      beginScrub,
+      endScrub,
       subscribe,
     ],
   );
@@ -383,6 +497,10 @@ export function VfxRunProvider({ document, entry, children }: VfxRunProviderProp
   );
 }
 
+/** `phase` has reached the end of a run `span` seconds long. */
+function reachedEnd(phase: number, span: number): boolean {
+  return phase >= span - END_SLACK;
+}
 /** `range` held inside the run's span, and null for one with nothing left between its ends. */
 function boundedLoop(range: LoopRange | null, span: number): LoopRange | null {
   if (range === null) return null;

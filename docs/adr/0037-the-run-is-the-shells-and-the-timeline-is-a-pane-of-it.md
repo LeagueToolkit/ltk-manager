@@ -40,7 +40,8 @@ timeline both read it. A frame loop the shell owns advances the clock, and the c
 step the run has reached. A closed preview stops no clock.
 
 **A run outlives its tab for the session.** The seed, the rig, the speed, mute and solo, the loop
-range and the playhead are kept in memory per system, keyed on the document and the entry. A tab
+range, the pinned chance and the playhead are kept in memory per system, keyed on the file the
+document was read from and the entry. A tab
 that opens a kept system seeks to its playhead. A restart drops them. The display preferences -
 Ground, Midlane, Gizmo, Stats, the camera preset and the inspector's Defaults switch - persist
 app-wide, beside `previewCheckered`.

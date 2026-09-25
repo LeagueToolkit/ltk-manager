@@ -17,6 +17,8 @@ interface ObjectPreviewWorkerProps {
   node: ObjectRowNode | null;
   playing: boolean;
   onOutcome: (outcome: PreviewOutcome) => void;
+  /** Called as the preview advances: its bin opening, and each asset load it waits on. */
+  onProgress: () => void;
 }
 
 /** A retained GPU surface for one slot in the grid's bounded preview pool. */
@@ -24,6 +26,7 @@ export default function ObjectPreviewWorker({
   node,
   playing,
   onOutcome,
+  onProgress,
 }: ObjectPreviewWorkerProps) {
   return (
     <Viewport
@@ -41,7 +44,12 @@ export default function ObjectPreviewWorker({
             key={objectPreviewKey(node)}
             fallback={() => <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />}
           >
-            <ObjectPreviewScene node={node} playing={playing} onOutcome={onOutcome} />
+            <ObjectPreviewScene
+              node={node}
+              playing={playing}
+              onOutcome={onOutcome}
+              onProgress={onProgress}
+            />
           </ErrorBoundary>
         )}
       </Suspense>

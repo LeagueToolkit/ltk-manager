@@ -32,32 +32,44 @@ export const groundQueries = {
     }),
 };
 
+/**
+ * The ground textures read this session, by url, and never disposed.
+ *
+ * The chunk is one small texture that every stage draws, so a viewport mounting after
+ * another finds it ready rather than drawing the flat fill for the frames a load takes.
+ */
+const LOADED = new Map<string, Texture>();
+
 /** The ground texture, and null while it is on its way or where the install lacks it. */
 export function useGroundTexture(): Texture | null {
   const located = useQuery(groundQueries.chunk());
-
-  const [texture, setTexture] = useState<Texture | null>(null);
   const asset = located.data ?? null;
+  const url = asset === null ? null : previewUrl(asset);
+
+  const [texture, setTexture] = useState<Texture | null>(() =>
+    url === null ? null : (LOADED.get(url) ?? null),
+  );
 
   useEffect(() => {
-    if (asset === null) return;
+    if (url === null) return;
+
+    const cached = LOADED.get(url);
+    if (cached !== undefined) {
+      setTexture(cached);
+      return;
+    }
 
     let live = true;
-    let held: Texture | null = null;
     new TextureLoader().load(
-      previewUrl(asset),
+      url,
       (loaded) => {
-        if (!live) {
-          loaded.dispose();
-          return;
-        }
         loaded.colorSpace = TEXTURE_COLOR_SPACE;
         /* One copy centred on the origin, so the ground reads as a piece of a map
            rather than as a repeating pattern the effect is measured against. */
         loaded.wrapS = ClampToEdgeWrapping;
         loaded.wrapT = ClampToEdgeWrapping;
-        held = loaded;
-        setTexture(loaded);
+        LOADED.set(url, loaded);
+        if (live) setTexture(loaded);
       },
       undefined,
       (error) => console.error("Failed to read the ground texture:", error),
@@ -65,10 +77,8 @@ export function useGroundTexture(): Texture | null {
 
     return () => {
       live = false;
-      held?.dispose();
-      setTexture(null);
     };
-  }, [asset]);
+  }, [url]);
 
   return texture;
 }

@@ -2,7 +2,7 @@
 
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { Texture, TextureLoader } from "three";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { NamedAsset } from "@/lib/tauri";
 
@@ -33,8 +33,18 @@ function drawn(texture: NamedAsset): DrawnEmitter[] {
   ];
 }
 
+/* The cache keeps a released texture for a grace period, which a test runs out so the
+   next one starts on an empty cache. */
+const RELEASE_GRACE_MS = 15_000;
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+});
+
 afterEach(() => {
   cleanup();
+  vi.runOnlyPendingTimers();
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -75,6 +85,7 @@ describe("flight texture readiness", () => {
     const { unmount } = renderHook(() => useVfxTextures(definitions, report));
     expect(report).toHaveBeenLastCalledWith({ pending: 1, failed: 1 });
     unmount();
+    vi.advanceTimersByTime(RELEASE_GRACE_MS);
     const calls = report.mock.calls.length;
     const texture = new Texture<HTMLImageElement>();
     const dispose = vi.spyOn(texture, "dispose");

@@ -2,7 +2,7 @@ import { useCallback } from "react";
 
 import type { ObjectDeclaration } from "@/lib/tauri";
 
-import { objectDocument } from "../../documents/utils/contentDocument";
+import { type ContentDocument, objectDocument } from "../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../palette/utils/types";
 import { useOpenDocumentAs, usePromoteDocument } from "../../state";
 import type { ObjectTreeNode } from "../utils/objectTree";
@@ -11,6 +11,22 @@ import type { ObjectTreeNode } from "../utils/objectTree";
 export function declarationOf(node: ObjectTreeNode): ObjectDeclaration | null {
   if (node.type === "object") return node.declarations[0] ?? null;
   return null;
+}
+
+/** The object tab of a row's first declaration, and null for a row that is not an object. */
+export function objectNodeDocument(node: ObjectTreeNode): ContentDocument | null {
+  if (node.type !== "object") return null;
+
+  const declaration = declarationOf(node);
+  if (!declaration) return null;
+
+  return objectDocument(
+    declaration.asset,
+    node.objectHash,
+    node.path,
+    declaration.file,
+    declaration.class,
+  );
 }
 
 /**
@@ -25,16 +41,9 @@ export function useOpenObjectNode() {
 
   return useCallback(
     (node: ObjectTreeNode, intent: OpenIntent) => {
-      if (node.type !== "object") return;
-      const declaration = declarationOf(node);
-      if (!declaration) return;
-      const document = objectDocument(
-        declaration.asset,
-        node.objectHash,
-        node.path,
-        declaration.file,
-        declaration.class,
-      );
+      const document = objectNodeDocument(node);
+      if (document === null) return;
+
       open(document, intent);
       if (intent === "permanent") promote(document.id);
     },

@@ -23,7 +23,7 @@ interface ObjectsContextMenuProps {
   /** The row the menu was opened on. Absent while it has never been opened. */
   node: ObjectTreeNode | null;
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
-  /** Retries the object's failed preview. Absent when the preview did not fail. */
+  /** Retries the object's failed preview or missed burst. Absent for any other outcome. */
   onRetryPreview?: () => void;
 }
 

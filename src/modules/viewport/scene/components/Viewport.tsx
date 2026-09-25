@@ -87,6 +87,8 @@ export interface ViewportProps {
   readonly antiAliasing?: AntiAliasing;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
+  /** The kind of viewport whose last camera pose this one opens at, and records, if any. */
+  readonly cameraMemory?: string;
   /** The scene colour the canvas clears to: the pane's ground, or the raised card ground. */
   readonly clearColor?: "backdrop" | "ground";
   /** How the backdrop and every character draw their meshes. */
@@ -145,6 +147,7 @@ export function Viewport({
   ambientOcclusion = null,
   antiAliasing = DEFAULT_ANTI_ALIASING,
   camera,
+  cameraMemory,
   clearColor = "backdrop",
   viewMode = "lit",
   wireOverlay = false,
@@ -257,7 +260,13 @@ export function Viewport({
               }}
             />
           )}
-          <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
+          <SceneCamera
+            preset={camera}
+            colors={colors}
+            onStand={onCameraStand}
+            gizmo={gizmo}
+            memory={cameraMemory}
+          />
           <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (

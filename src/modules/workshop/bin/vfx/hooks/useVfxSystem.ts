@@ -16,6 +16,8 @@ export const vfxKeys = {
    * docs/plans/vfx-particle-renderer.md).
    */
   system: (document: BinDocumentId, entry: string) => ["vfx-system", document, entry] as const,
+  /** Every system read out of one open document, which a retry of a failed read refetches. */
+  document: (document: BinDocumentId) => ["vfx-system", document] as const,
 };
 
 export const vfxQueries = {

@@ -59,7 +59,7 @@ const PRESET_ICON: Record<RigPreset, Icon> = {
  * halves of what a run is, "The viewer" in docs/ux/BIN_EDITOR.md.
  */
 export function RigControl() {
-  const { rig: choice, setRig } = useVfxRun();
+  const { rig: choice, setRig, looping, setLooping } = useVfxRun();
   const change = (rig: RigModel) => setRig({ preset: choice.preset, rig });
   const PresetIcon = PRESET_ICON[choice.preset];
 
@@ -125,10 +125,8 @@ export function RigControl() {
                 </span>
                 <Switch
                   aria-label={m.workshop_bin_preview_rig_loop_label()}
-                  checked={choice.rig.life === "loop"}
-                  onCheckedChange={(loop) =>
-                    change({ ...choice.rig, life: loop ? "loop" : "once" })
-                  }
+                  checked={looping}
+                  onCheckedChange={setLooping}
                 />
               </div>
 

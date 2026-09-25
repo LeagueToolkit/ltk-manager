@@ -1586,9 +1586,9 @@ draws the run per [the viewer](#the-viewer), and the timeline draws its emitters
 [the timeline](#the-timeline).
 
 Below the width the panes need, the same layout draws as the stack, and nothing is out of reach on
-a narrow window or with both sidebars open. The stack keeps the preview above the sections, the
-skin's character and the particle system's run alike, and a particle system's preview carries the
-mini transport there.
+a narrow window or with both sidebars open. The stack keeps the preview above the sections and out
+of their scroll, the skin's character and the particle system's run alike, so the preview stays in
+view while the sections scroll. A particle system's preview carries the mini transport there.
 
 The strip and the lanes mark the squares' colours, and the inspector marks the rows it draws. No
 other value family is marked. An emitter carries far more of them than any surface draws at once.
@@ -1744,10 +1744,9 @@ The timeline is the particle shell's fifth pane, per ADR-0037. It reads the run 
 above the panes, and it draws one lane per emitter under one playhead.
 
 ```
-TIMELINE  [Filter  ]  < > >  0.42 / 1.60 s  [--|--] 1x [Loop]  Chance [==|--] 0.55
-
-                             0     .25   .5    .75   1.0   1.25
-                             |-----|-----[=====]-----|-----|
+TIMELINE  EMITTERS | |< (>) >| @  0.42 / 1.60 s | (L) 1.000x      (H) | Chance [==|--] 0.55
+ (o) [Filter    ] S | 0     .25   .5    .75   1.0   1.25
+                    | |-----|-----[=====]-----|-----|
   [#] Orb         [0] (o) S  [#####]~~~~////              312
   [/] Sparkles    [1] (o) S     [##]~~~~~~////             48
   [@] Smoke       [2] (-) S  [############################>  844
@@ -1756,15 +1755,26 @@ v [*] Burst       [3] (o) S        [###]~~~               120
   [ ] Glow SIMPLE [0] (o) S     [#]~~                      12
 
 [###] emitting   ~~~ particle life   //// linger   [===] loop range   > endless
+(>) play, filled   @ restart   (L) loop   (H) histogram   | a hairline between groups
 ```
 
-**The transport row.** Step back, play and step forward, the playhead over the run's span as
-`0.42 / 1.60 s`, the speed, the loop switch, the Histogram switch and the chance pin of
-[the random spread](#the-random-spread). The speed is a number typed to three places, `1.000`
-by default, between 0.05 and 2, with a pair of arrows on its right that nudge it by 0.1, by 0.01
-under Alt and by 0.5 under Shift. The bracket keys walk it through 0.05, 0.1, 0.25, 0.5, 1, 1.5
-and 2. The name filter at the row's left narrows the lanes, as the strip's filter
-narrows the cards. The seed and the rig are the viewport's, per [the viewer](#the-viewer).
+**The transport row.** The transport sits in the timeline pane's strip, after its tabs, so the
+lanes keep the row a separate transport row would take. Step back, play, step forward and restart
+come first, with play the one filled control. The time follows as `0.42 / 1.60 s`, the current time bright and the span muted. A
+hairline then sets off how the run plays: the Loop toggle and the speed. The view switches
+sit at the far end behind a second hairline: the Histogram toggle and the chance pin of
+[the random spread](#the-random-spread). Loop and Histogram are icon toggles lit while on, and
+their tooltips name them, with Loop's naming its key. Restart plays the run from zero.
+
+**Loop is on by default.** The Loop switch is the rig's loop, the same switch the rig's popover
+shows, and a system opens with it on. With Loop off, the run pauses at the end of its span, and
+Play starts it again from zero. Turning Loop on at the end plays the run from zero, and turning it
+off during a later pass keeps the time the playhead reads.
+
+The speed is a number typed to three places, `1.000` by default, between 0.05 and 2, with a pair
+of arrows on its right that nudge it by 0.1, by 0.01 under Alt and by 0.5 under Shift. The bracket keys walk it through 0.05, 0.1, 0.25, 0.5, 1, 1.5
+and 2. The name filter sits in the ruler row's head cell, between the eye and the S, over the
+names it narrows, as the strip's filter narrows the cards. The seed and the rig are the viewport's, per [the viewer](#the-viewer).
 
 **A lane is an emitter.** Its head carries its eye, a 20 px square of what the emitter draws, its
 name, its index in its own list, a SIMPLE tag for the second list, the struck eye of a `disabled`
@@ -1788,7 +1798,8 @@ the emitter whose particles carry them, collapsed, with their bars at the times 
 them.
 
 **A click does the one thing its target names.** The name selects the emitter, and the crumb, the
-inspector and the Emitters pane follow. The ruler and a lane's track seek. A child lane selects its
+inspector and the Emitters pane follow. The ruler and a lane's track seek, and a drag along either
+scrubs. A child lane selects its
 emitter into the inspector, under a banner naming the child system and an Open system link to its
 own tab, and opens the card of the emitter carrying it. Dragging a bar's edge to write
 `timeBeforeFirstEmission` and `lifetime` belongs to [leaf editing](#editing).
@@ -1812,12 +1823,15 @@ solo.
 
 **The ruler zooms and loops.** The timeline opens fitted to the run's span. Ctrl and the wheel zoom
 about the pointer, Shift and the wheel pan, and a double click on the ruler refits. A drag along
-the ruler sets an in and an out, and the run loops between them. A drag on an edge of the band
-moves that edge, and a drag on the band moves the whole range. A double click inside the band,
-or its x, clears it. A run with no range loops as its rig says.
+the ruler scrubs, and the playhead follows the pointer from the press. Shift and a drag along the
+ruler sets an in and an out, and the run loops between them. A drag on an edge of the band moves
+that edge, and a drag on the band moves the whole range. A double click inside the band, or its
+x, clears it. A run with no range loops as the Loop switch says. While Shift is down the ruler's
+cursor is a crosshair, and resting the pointer on the ruler names its gestures.
+
 **The playhead is a flag.** Its chip on the ruler reads the time, and its line runs down every
 lane with a faint glow, so it reads over the bars and the histogram. A drag on the chip scrubs,
-which gives the ruler a scrub handle while a drag on the open ruler sets a loop. A dashed line
+as a drag on the open ruler does. A dashed line
 follows the pointer through the ruler and the lanes, its own chip reading the time a press would
 seek to, so no track needs a crosshair cursor.
 
@@ -1830,21 +1844,32 @@ when it emits, how long its particles live on, and where its linger ends.
 within a budget of bytes, and a seek replays from the nearest one, per decision 2.46. A drag moves the run with the pointer,
 a step back costs one frame, and a loop's wrap costs no replay from zero.
 
-**The keys** act anywhere in the shell outside an editable field.
+The clock pauses while a drag scrubs, on the ruler, the flag, a lane's track or the mini
+transport's scrub, and a playing run plays on from where the drag lets go. Play and pause do not
+change during a scrub.
 
-| Key                     | Does                              |
-| ----------------------- | --------------------------------- |
-| Space                   | Play or pause                     |
-| Left, Right             | One frame back or forward, 1/60 s |
-| Shift+Left, Shift+Right | 0.1 s back or forward             |
-| Home                    | Restart                           |
-| F                       | Fit the camera                    |
-| S, M                    | Solo or mute the selected emitter |
-| `[`, `]`                | The next speed detent down or up  |
-| Esc                     | Restore a maximized pane          |
+**The keys** act anywhere in the shell outside an editable field. The shell takes focus when its
+tab opens or comes to the front, unless a control other than the tab itself has focus, such as the
+Objects grid or the content tree. A focused slider keeps its arrows, Home and End, and every other key reaches the run,
+so Space plays or pauses after a drag on the scrub or the chance pin. A focused tab, menu item or
+option keeps Space.
 
-**The preview carries a mini transport while no timeline shows**: play, a scrub, the time and the
-chance pin, with the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
+| Key                     | Does                                               |
+| ----------------------- | -------------------------------------------------- |
+| Space                   | Play or pause                                      |
+| Left, Right             | One frame back or forward, 1/60 s                  |
+| Shift+Left, Shift+Right | 0.1 s back or forward                              |
+| Home                    | Restart and play                                   |
+| End                     | Pause at the end of the span                       |
+| L                       | Loop on or off                                     |
+| Alt+Up, Alt+Down        | The previous or next particle system of the folder |
+| F                       | Fit the camera                                     |
+| S, M                    | Solo or mute the selected emitter                  |
+| `[`, `]`                | The next speed detent down or up                   |
+| Esc                     | Restore a maximized pane                           |
+
+**The preview carries a mini transport while no timeline shows**: play, a scrub, the time, the
+Loop toggle and the chance pin, with the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
 the mini transport, and its Emitters section keeps the strip.
 
 ### The viewer
@@ -1885,6 +1910,17 @@ The box is read off the definition rather than the run, so the same system frame
 open, on F and at any moment of its play. A child set's emitters ride their parent's particles and
 add nothing to it. The skin's preview frames its mesh.
 
+**The next system opens in the last view.** A particle preview opens with the camera the last one
+left, under the same preset, so stepping through systems compares them at one angle and one
+distance. It frames the system instead where no preview was open before this session, and where
+the middle of the system's box is out of view. That opening frame is instant. Fit and F animate.
+The ground, the renderer and the particle textures carry over too, so the new system draws on a
+scene that is already up rather than on a blank pane.
+
+**A read that fails says why.** The notice over the scene names the error and offers Retry, which
+reads the system again. The run waits at its start while the system's first textures and meshes
+load, for at most four seconds, so a short effect plays from its first frame on screen.
+
 **The orbit.** The left button orbits, the right pans, the middle and the wheel dolly toward the
 pointer. A flat preset's wheel zooms in place of the dolly.
 
@@ -1895,7 +1931,8 @@ face stands the camera on its axis, picking Side, Top or Front. Picked again whi
 already stands there, it turns the camera to the axis's other end, on Orbit.
 
 **The rig pill** names its preset beside an icon of the motion. Its popover holds the motion, the
-loop, the stop, and the seed with its reroll.
+loop, the stop, and the seed with its reroll. A system opens on Burst, which moves nothing and
+loops, and the popover's loop is the timeline's Loop switch.
 
 **The gizmo** draws the selected emitter's origin, its offset and its spawn shape as a wireframe.
 **Stats** draws the live particles, the live child systems and the frame's milliseconds in the
@@ -1905,8 +1942,9 @@ a muted emitter's included.
 **What persists.** Ground, Midlane, Gizmo, Stats, the view mode and its overlay, the camera preset, the
 timeline's Histogram switch and the inspector's Defaults switch are display preferences, app-wide
 and persisted. The rig, the seed, the speed, mute and
-solo, the loop range and the playhead belong to the run, kept per system for the session, per
-ADR-0037.
+solo, the loop range, the pinned chance and the playhead belong to the run, kept per system for
+the session, per ADR-0037, so a file reopened finds them again. A run left at its end reopens at
+zero.
 
 **The skin's preview** takes the keys, the camera menu with Fit, the axis gizmo and the speed detents. Its clip
 plays on its own clock under its own transport, and it has no timeline.

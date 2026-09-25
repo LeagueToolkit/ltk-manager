@@ -1,8 +1,8 @@
 import { ArrowElbowDownRightIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { memo, useMemo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { EmptyTile } from "../../../classes/components/ClassCells";
 import { CutText } from "../../../shared/components/CutText";
@@ -156,6 +156,8 @@ export const LaneRow = memo(function LaneRow({
           dimmed={dimmed}
           right={COUNT}
           onSeek={onSeek}
+          onScrubStart={run.beginScrub}
+          onScrubEnd={run.endScrub}
         />
         {row.kind === "emitter" && (
           <span

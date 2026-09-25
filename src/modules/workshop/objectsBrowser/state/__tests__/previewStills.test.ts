@@ -6,6 +6,7 @@ import { afterEach, expect, it } from "vitest";
 import {
   EMPTY_OUTCOME,
   FAILED_OUTCOME,
+  NO_BURST_OUTCOME,
   resetPreviewStills,
   retryPreviews,
   savePreviewOutcome,
@@ -62,4 +63,32 @@ it("forgets failures on retry, keeping stills and empties, and starts a new gene
   act(() => retryPreviews());
   expect([...outcomes.result.current.keys()]).toEqual(["a", "c"]);
   expect(generation.result.current).toBe(2);
+});
+
+it("replaces a missed burst with a still, and keeps it over a failure or an empty", () => {
+  const { result } = renderHook(() => usePreviewOutcomes());
+  act(() => {
+    savePreviewOutcome("a", NO_BURST_OUTCOME);
+    savePreviewOutcome("a", FAILED_OUTCOME);
+    savePreviewOutcome("a", EMPTY_OUTCOME);
+  });
+  expect(result.current.get("a")).toBe(NO_BURST_OUTCOME);
+
+  act(() => savePreviewOutcome("a", image("late burst")));
+  expect(result.current.get("a")).toEqual(image("late burst"));
+});
+
+it("forgets a missed burst on a retry of its tile, and keeps it on a retry of every failure", () => {
+  const outcomes = renderHook(() => usePreviewOutcomes());
+  act(() => {
+    savePreviewOutcome("a", NO_BURST_OUTCOME);
+    savePreviewOutcome("b", EMPTY_OUTCOME);
+    savePreviewOutcome("c", FAILED_OUTCOME);
+  });
+
+  act(() => retryPreviews());
+  expect([...outcomes.result.current.keys()]).toEqual(["a", "b"]);
+
+  act(() => retryPreviews(["a", "b"]));
+  expect([...outcomes.result.current.keys()]).toEqual(["b"]);
 });

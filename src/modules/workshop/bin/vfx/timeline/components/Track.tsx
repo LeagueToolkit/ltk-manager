@@ -1,9 +1,9 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { type PointerEvent as ReactPointerEvent, useRef } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { type LaneBar, type TimeWindow, xOf } from "../utils/laneModel";
 
@@ -19,18 +19,35 @@ interface TrackProps {
   /** The room left at the lane's right edge, in pixels. */
   right: number;
   onSeek: (x: number) => void;
+  /** Pause the clock while a press scrubs. */
+  onScrubStart: () => void;
+  /** Let the clock run again once the scrub ends. */
+  onScrubEnd: () => void;
 }
 
-/** A lane's bars over the view, which a press or a drag seeks along. */
-export function Track({ label, view, width, bars, dimmed, right, onSeek }: TrackProps) {
+/** A lane's bars over the view, which a press or a drag scrubs along. */
+export function Track({
+  label,
+  view,
+  width,
+  bars,
+  dimmed,
+  right,
+  onSeek,
+  onScrubStart,
+  onScrubEnd,
+}: TrackProps) {
   const pressed = useRef(false);
   const at = (event: ReactPointerEvent<HTMLDivElement>) =>
     event.clientX - event.currentTarget.getBoundingClientRect().left;
   const letGo = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pressed.current = false;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (!pressed.current) return;
+
+    pressed.current = false;
+    onScrubEnd();
   };
 
   return (
@@ -44,6 +61,7 @@ export function Track({ label, view, width, bars, dimmed, right, onSeek }: Track
         if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
         pressed.current = true;
+        onScrubStart();
         onSeek(at(event));
       }}
       onPointerMove={(event) => {

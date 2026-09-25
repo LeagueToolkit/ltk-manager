@@ -4,11 +4,19 @@ import {
   FrameCornersIcon,
   XIcon,
 } from "@phosphor-icons/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { HexshadeIcon, IconButton, Tooltip } from "@/components";
-import { m } from "@/i18n";
-import { edgesOf, useFitCamera, Viewport } from "@/modules/viewport";
+import { Button, HexshadeIcon, IconButton, Tooltip } from "@/components";
+import { errorSummary, m } from "@/i18n";
+import {
+  edgesOf,
+  lastCameraPose,
+  useCameraPreset,
+  useFitCamera,
+  useSeesBounds,
+  Viewport,
+} from "@/modules/viewport";
 import {
   usePreviewAntiAliasing,
   usePreviewCamera,
@@ -29,6 +37,7 @@ import type { RigModel } from "../../engine/model/rig";
 import { ForceGizmo } from "../../forces/ForceGizmo";
 import { useForcePreview } from "../../forces/forcePreview";
 import { useForces } from "../../forces/useForces";
+import { vfxKeys } from "../../hooks/useVfxSystem";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { RigControl } from "../../playback/components/RigControl";
 import { RunTransport } from "../../playback/components/RunTransport";
@@ -47,7 +56,6 @@ import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds"
 import { chosenEmitter } from "../../timeline/utils/selection";
 import { CameraMenu } from "./CameraMenu";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
-import { Notice } from "./Notice";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
@@ -57,6 +65,9 @@ import { ViewToggle } from "./ViewToggle";
 export interface VfxViewportProps {
   transport: PreviewTransport;
 }
+
+/** The camera memory every particle preview shares, so the next system opens in the last view. */
+const VFX_CAMERA = "vfx";
 
 /**
  * The shell's run drawn, which is what the `preview` pane holds (ADR-0037).
@@ -73,25 +84,19 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     rig,
     muted,
     soloed,
-    span,
-    resumed,
-    restart,
     fitRequest,
     requestFit,
     pinned,
     setPinned,
+    setWarming,
     document,
   } = useVfxRun();
   const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
-  const firstLoad = useRef({ drawn, landed: false, over: false });
-  firstLoad.current.drawn = drawn;
-  const reportTextures = useCallback((load: AssetLoad) => {
-    const first = firstLoad.current;
-    if (load.pending === 0 && first.drawn.length > 0) first.landed = true;
-  }, []);
+  const { reportTextures, reportMeshes } = useWarmUp(drawn, setWarming);
   const textures = useVfxTextures(drawn, reportTextures);
-  const meshes = useVfxMeshes(drawn);
+  const meshes = useVfxMeshes(drawn, reportMeshes);
   const host = useVfxHost();
+  const queries = useQueryClient();
 
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
@@ -131,38 +136,17 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const hiddenOf = (definition: DrawnEmitter) =>
     muted.has(definition.root) || (soloed.size > 0 && !soloed.has(definition.root));
 
-  /* A texture lands some frames after the run starts, and a one-shot effect can be over
-     by then, so the run starts again as each lands while it is still inside its first
-     pass. Past that the reader has seen it play, and a restart would take that away. A
-     run resumed where a tab left it is one the reader has already watched. Only the first
-     load restarts: a texture an edit brings in lands on a run the reader is editing, which
-     decision 2.5 keeps.
-
-     The span is read through a ref rather than a dependency: it moves with the rig, and
-     a rig the reader is dragging would otherwise start the effect over on every frame of
-     the drag, which is what `driver.steer` exists to avoid. */
-  const reach = useRef(span);
-  reach.current = span;
-  useEffect(() => {
-    const first = firstLoad.current;
-    if (first.over) return;
-
-    if (!resumed && driver.time <= reach.current) restart();
-    if (first.landed) first.over = true;
-  }, [driver, resumed, restart, textures]);
-
-  if (pending) return <Notice text={m.workshop_bin_preview_loading_label()} />;
-  if (error !== null) return <Notice text={m.workshop_bin_preview_failed_empty()} />;
-  if (system === null || system.emitters.length === 0) {
-    return <Notice text={m.workshop_bin_preview_emitters_empty()} />;
-  }
-
-  const opened = system.emitters.find((emitter) => emitter.index === selected) ?? null;
+  /* The viewport stays mounted while a system reads, fails or draws nothing, so the camera,
+     the ground and the renderer carry from one system to the next. */
+  const shown = system !== null && system.emitters.length > 0 ? system : null;
+  const opened = shown?.emitters.find((emitter) => emitter.index === selected) ?? null;
 
   return (
     <div data-ui="VfxViewport" className="flex min-h-0 flex-1 flex-col select-none">
       <div className="relative min-h-0 flex-1">
         <Viewport
+          renderer="shared"
+          cameraMemory={VFX_CAMERA}
           antiAliasing={antiAliasing}
           stage={ground}
           textured={midlane}
@@ -172,48 +156,64 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
-          <VfxHost host={host}>
-            <VfxSystem
-              drawn={drawn}
-              driver={driver}
-              textures={textures}
-              meshes={meshes}
-              hiddenOf={hiddenOf}
-              edges={edgesOf(viewMode, wireOverlay)}
-              document={document}
-            />
-          </VfxHost>
-          <Fit token={fitRequest} system={system} drawn={drawn} rig={rig.rig} />
-          {gizmo && opened !== null && (
-            <EmitterGizmo system={system} driver={driver} emitter={opened} />
+          {shown !== null && (
+            <>
+              <VfxHost host={host}>
+                <VfxSystem
+                  drawn={drawn}
+                  driver={driver}
+                  textures={textures}
+                  meshes={meshes}
+                  hiddenOf={hiddenOf}
+                  edges={edgesOf(viewMode, wireOverlay)}
+                  document={document}
+                />
+              </VfxHost>
+              <Fit token={fitRequest} system={shown} drawn={drawn} rig={rig.rig} />
+              {gizmo && opened !== null && (
+                <EmitterGizmo system={shown} driver={driver} emitter={opened} />
+              )}
+              {edit !== null &&
+                selectedForce === undefined &&
+                child === null &&
+                opened !== null &&
+                transformMode !== null &&
+                transformRow?.value.type === "vector" && (
+                  <EmitterTransform
+                    key={`${root?.key}:${transformMode}`}
+                    system={shown}
+                    emitter={opened}
+                    row={transformRow}
+                    mode={transformMode}
+                    edit={edit}
+                  />
+                )}
+              {selectedForce !== undefined && opened !== null && (
+                <ForceGizmo
+                  key={`${root?.key}:${selectedForce.key}`}
+                  system={shown}
+                  emitter={opened}
+                  force={selectedForce}
+                  handle={forcePreview.handle}
+                  edit={forceActive ? edit : null}
+                />
+              )}
+              {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}
+            </>
           )}
-          {edit !== null &&
-            selectedForce === undefined &&
-            child === null &&
-            opened !== null &&
-            transformMode !== null &&
-            transformRow?.value.type === "vector" && (
-              <EmitterTransform
-                key={`${root?.key}:${transformMode}`}
-                system={system}
-                emitter={opened}
-                row={transformRow}
-                mode={transformMode}
-                edit={edit}
-              />
-            )}
-          {selectedForce !== undefined && opened !== null && (
-            <ForceGizmo
-              key={`${root?.key}:${selectedForce.key}`}
-              system={system}
-              emitter={opened}
-              force={selectedForce}
-              handle={forcePreview.handle}
-              edit={forceActive ? edit : null}
-            />
-          )}
-          {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}
         </Viewport>
+
+        {pending && <ViewportNotice text={m.workshop_bin_preview_loading_label()} />}
+        {error !== null && (
+          <ViewportNotice
+            text={m.workshop_bin_preview_failed_empty()}
+            detail={errorSummary(error)}
+            onRetry={() => void queries.refetchQueries({ queryKey: vfxKeys.document(document) })}
+          />
+        )}
+        {!pending && error === null && shown === null && (
+          <ViewportNotice text={m.workshop_bin_preview_emitters_empty()} />
+        )}
 
         <div
           data-ui="VfxViewport:controls"
@@ -352,21 +352,126 @@ interface FitProps {
  * on a change of preset or rig.
  *
  * The box is the definition's rather than the run's, so the frame is the same whenever it
- * is asked for. A change of preset frames again through the fit's own identity, which
- * follows the preset.
+ * is asked for. A change of preset frames again through the fit's identity, which follows
+ * the preset.
+ *
+ * The opening frame is instant. A camera restored from the last system keeps its pose
+ * while the middle of the box is in view, per "The viewer" in docs/ux/BIN_EDITOR.md.
  */
 function Fit({ token, system, drawn, rig }: FitProps) {
-  const fit = useFitCamera();
+  const snap = useFitCamera(false);
+  const glide = useFitCamera();
+  const sees = useSeesBounds();
+  const preset = useCameraPreset();
+  const [restored] = useState(() => lastCameraPose(VFX_CAMERA, preset) !== null);
   const bounds = useMemo(() => definitionBounds(system, drawn, rig), [system, drawn, rig]);
   const ground = useMemo(() => rigGround(system, rig), [system, rig]);
   const framing = useRef({ bounds, ground });
   framing.current = { bounds, ground };
+  const opened = useRef(false);
 
   useEffect(() => {
-    fit(framing.current.bounds, framing.current.ground);
-  }, [fit, rig, system.entry, token]);
+    const { bounds: box, ground: origin } = framing.current;
+    if (opened.current) {
+      glide(box, origin);
+      return;
+    }
+
+    const seen = restored ? sees(box) : false;
+    if (seen === null) return;
+    opened.current = seen || snap(box, origin);
+  }, [glide, snap, sees, restored, rig, system.entry, token]);
 
   return null;
+}
+
+/** The longest a first load pauses the run at its start, so an asset that never lands still plays. */
+const WARM_UP_LIMIT_MS = 4000;
+
+/**
+ * The run paused at its start while the first textures and meshes land.
+ *
+ * Answers the reports the two asset hooks take. A load an edit brings in comes after the
+ * warm-up and pauses nothing, which decision 2.5 of docs/plans/vfx-particle-renderer.md keeps.
+ */
+function useWarmUp(drawn: readonly DrawnEmitter[], setWarming: (warming: boolean) => void) {
+  const load = useRef({ drawn, textures: false, meshes: false, over: false });
+  load.current.drawn = drawn;
+
+  const settle = useCallback(() => {
+    const current = load.current;
+    if (current.over || !current.textures || !current.meshes) return;
+
+    current.over = true;
+    setWarming(false);
+  }, [setWarming]);
+
+  const reportTextures = useCallback(
+    ({ pending }: AssetLoad) => {
+      if (pending > 0 || load.current.drawn.length === 0) return;
+
+      load.current.textures = true;
+      settle();
+    },
+    [settle],
+  );
+
+  const reportMeshes = useCallback(
+    ({ pending }: AssetLoad) => {
+      if (pending > 0 || load.current.drawn.length === 0) return;
+
+      load.current.meshes = true;
+      settle();
+    },
+    [settle],
+  );
+
+  const loaded = drawn.length > 0;
+  useEffect(() => {
+    if (!loaded || load.current.over) return;
+
+    setWarming(true);
+    const limit = window.setTimeout(() => {
+      load.current.over = true;
+      setWarming(false);
+    }, WARM_UP_LIMIT_MS);
+
+    return () => {
+      window.clearTimeout(limit);
+      setWarming(false);
+    };
+  }, [loaded, setWarming]);
+
+  return { reportTextures, reportMeshes };
+}
+
+interface ViewportNoticeProps {
+  readonly text: string;
+  /** The reason under the line, such as a failed read's error. */
+  readonly detail?: string;
+  readonly onRetry?: () => void;
+}
+
+/** A line over the viewport in place of the system, with a reason and a retry where one applies. */
+function ViewportNotice({ text, detail, onRetry }: ViewportNoticeProps) {
+  return (
+    <div
+      data-ui="VfxViewport:notice"
+      className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 px-4 text-center select-none"
+    >
+      <span className="text-meta text-surface-300">{text}</span>
+      {detail !== undefined && (
+        <span className="max-w-md text-meta break-words text-surface-400 select-text">
+          {detail}
+        </span>
+      )}
+      {onRetry !== undefined && (
+        <Button variant="outline" size="xs" className="pointer-events-auto mt-1" onClick={onRetry}>
+          {m.common_retry_action()}
+        </Button>
+      )}
+    </div>
+  );
 }
 
 /** The emitters that draw the mesh of a character, which a preview has none of. */

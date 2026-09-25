@@ -18,6 +18,7 @@ interface Entry {
   refs: number;
   texture: Texture | null;
   loading: Promise<Texture | null> | null;
+  lapse: ReturnType<typeof setTimeout> | null;
 }
 
 const ENTRIES = new Map<string, Entry>();
@@ -25,18 +26,31 @@ const ENTRIES = new Map<string, Entry>();
 const LOADER = new TextureLoader();
 
 /**
+ * How long a texture outlives its last reference.
+ *
+ * A preview replaced by the next system releases its textures in the commit that mounts
+ * the next one, which often names the same files.
+ */
+const RELEASE_GRACE_MS = 15_000;
+
+/**
  * A reference to the texture at `url`, shared by every reference to the same url.
  *
  * Every particle texture takes the same sampler state, so one upload serves every emitter,
- * slot and viewport naming it. The texture is disposed when its last reference is released.
+ * slot and viewport naming it. The texture is disposed `RELEASE_GRACE_MS` after its last
+ * reference is released, unless another reference takes it up first.
  */
 export function acquireTexture(url: string, form: TextureForm): TextureRef {
   let entry = ENTRIES.get(url);
   if (entry === undefined) {
-    entry = { refs: 0, texture: null, loading: null };
+    entry = { refs: 0, texture: null, loading: null, lapse: null };
     ENTRIES.set(url, entry);
   }
   entry.refs += 1;
+  if (entry.lapse !== null) {
+    clearTimeout(entry.lapse);
+    entry.lapse = null;
+  }
 
   const shared = entry;
   let released = false;
@@ -46,8 +60,12 @@ export function acquireTexture(url: string, form: TextureForm): TextureRef {
     },
     load() {
       shared.loading ??= fetchTexture(url, form).then((texture) => {
-        if (texture === null) return null;
-        if (shared.refs === 0) {
+        /* A failure is not cached, so the next reference to ask loads the url again. */
+        if (texture === null) {
+          shared.loading = null;
+          return null;
+        }
+        if (ENTRIES.get(url) !== shared) {
           texture.dispose();
           return null;
         }
@@ -62,9 +80,12 @@ export function acquireTexture(url: string, form: TextureForm): TextureRef {
       shared.refs -= 1;
       if (shared.refs > 0) return;
 
-      shared.texture?.dispose();
-      shared.texture = null;
-      if (ENTRIES.get(url) === shared) ENTRIES.delete(url);
+      shared.lapse = setTimeout(() => {
+        shared.lapse = null;
+        shared.texture?.dispose();
+        shared.texture = null;
+        if (ENTRIES.get(url) === shared) ENTRIES.delete(url);
+      }, RELEASE_GRACE_MS);
     },
   };
 }

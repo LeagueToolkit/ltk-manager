@@ -34,8 +34,14 @@ export {
   type SkeletonModel,
 } from "./assets/parsing/skeletonBuffer";
 export { BufferError } from "./assets/utils/bufferReader";
-export { FitCamera, type FitCameraProps, useFitCamera } from "./camera/components/FitCamera";
+export {
+  FitCamera,
+  type FitCameraProps,
+  useFitCamera,
+  useSeesBounds,
+} from "./camera/components/FitCamera";
 export { SceneCamera, type SceneCameraProps } from "./camera/components/SceneCamera";
+export { type CameraPose, lastCameraPose } from "./camera/state/cameraMemory";
 export { CameraPresetContext, useCameraPreset } from "./camera/state/presetContext";
 export {
   CAMERA,

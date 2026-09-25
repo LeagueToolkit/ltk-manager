@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 
+import { Field } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import { useTimelineHistogram } from "@/stores";
@@ -70,13 +71,14 @@ function standLine(
  *
  * The bars and the heads are the DOM's, and the histogram is one canvas over the tracks,
  * redrawn at `REDRAW_MS` off the run's clock. The playhead, its flag, the pointer's line and
- * the live counts are written to the DOM outside React's render, and a row re-renders on a
- * change of its own.
+ * the live counts are written to the DOM outside React's render, and a row re-renders only
+ * when its data changes. The name filter sits in the ruler row's head cell, over the names
+ * it narrows.
  */
 export function Lanes() {
   const run = useVfxRun();
-  const { system, driver, span, loop, seek, setLoop, subscribe } = run;
-  const { cards, filter, chooseCard, chooseChild } = useEmitters();
+  const { system, driver, span, loop, seek, setLoop, subscribe, beginScrub, endScrub } = run;
+  const { cards, filter, setFilter, chooseCard, chooseChild } = useEmitters();
   const histogram = useTimelineHistogram();
 
   const [width, setWidth] = useState(0);
@@ -199,8 +201,13 @@ export function Lanes() {
   };
   const unhover = () => standLine([ghost.current, ghostFlag.current], null, -1, width, 0);
 
-  /* The flag is the ruler's scrub handle, where a drag on the open ruler sets a loop. */
   const scrubbing = useRef(false);
+  const stopScrub = () => {
+    if (!scrubbing.current) return;
+
+    scrubbing.current = false;
+    endScrub();
+  };
 
   return (
     <div
@@ -210,12 +217,20 @@ export function Lanes() {
       onPointerMove={hover}
       onPointerLeave={unhover}
     >
-      <div ref={measurePane} className="flex h-5 shrink-0 border-b border-surface-700/50">
+      <div ref={measurePane} className="flex h-6 shrink-0 border-b border-surface-700/50">
         <div
           className="shrink-0 border-r border-surface-700/50 font-mono text-code"
           style={{ width: head }}
         >
-          <VisibilityHeader every={every} />
+          <VisibilityHeader every={every}>
+            <Field.Control
+              className="h-5 w-full min-w-0 px-1.5 font-sans text-meta"
+              aria-label={m.workshop_bin_emitter_filter_label()}
+              placeholder={m.workshop_bin_emitter_filter_placeholder()}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </VisibilityHeader>
         </div>
         <div className="relative min-w-0 flex-1">
           <span className="absolute inset-y-0 right-1 flex items-end pb-px text-meta leading-none text-surface-500 select-none">
@@ -232,6 +247,8 @@ export function Lanes() {
               span={span}
               loop={loop}
               onSeek={seekAt}
+              onScrubStart={beginScrub}
+              onScrubEnd={endScrub}
               onLoop={setLoop}
               onRefit={refit}
             />
@@ -262,16 +279,13 @@ export function Lanes() {
                   if (event.button !== 0) return;
                   event.currentTarget.setPointerCapture(event.pointerId);
                   scrubbing.current = true;
+                  beginScrub();
                 }}
                 onPointerMove={(event) => {
                   if (scrubbing.current) seekAt(trackX(event));
                 }}
-                onPointerUp={() => {
-                  scrubbing.current = false;
-                }}
-                onPointerCancel={() => {
-                  scrubbing.current = false;
-                }}
+                onPointerUp={stopScrub}
+                onPointerCancel={stopScrub}
               />
             </div>
           </div>

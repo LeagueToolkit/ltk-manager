@@ -1,12 +1,13 @@
 import { CameraControls, type CameraControlsImpl } from "@react-three/drei";
-import { useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { OrthographicCamera, PerspectiveCamera, Vector3 } from "three";
+import { OrthographicCamera, PerspectiveCamera, Vector3, type Vector3Tuple } from "three";
 
 import { useReducedMotion } from "@/hooks";
 
 import type { SceneColors } from "../../scene/hooks/sceneColors";
 import { CHAMPION_HEIGHT } from "../../scene/utils/world";
+import { lastCameraPose, recordCameraPose } from "../state/cameraMemory";
 import {
   CAMERA,
   CAMERA_STANDS,
@@ -43,6 +44,16 @@ export interface SceneCameraProps {
   readonly colors: SceneColors;
   /** The reader stood the camera off its preset: on Orbit by a drag, on a gizmo head's. */
   readonly onStand?: (preset: CameraPreset) => void;
+  /** The kind of viewport whose last pose this camera opens at and records, if any. */
+  readonly memory?: string;
+}
+
+/** A pose as the frame loop records it, rewritten in place rather than built per frame. */
+interface RecordedPose {
+  preset: CameraPreset;
+  position: Vector3Tuple;
+  target: Vector3Tuple;
+  zoom: number;
 }
 
 /**
@@ -56,8 +67,11 @@ export interface SceneCameraProps {
  *
  * A drag holds the projection it started in until it ends, so a drag off a flat preset
  * is one gesture rather than two, and the swap to Orbit lands on the release.
+ *
+ * Under a `memory` key the camera opens at the last pose recorded under that key and preset,
+ * so the next effect opens in the view the reader left.
  */
-export function SceneCamera({ preset, colors, onStand, gizmo = true }: SceneCameraProps) {
+export function SceneCamera({ preset, colors, onStand, gizmo = true, memory }: SceneCameraProps) {
   const size = useThree((state) => state.size);
   const set = useThree((state) => state.set);
   const get = useThree((state) => state.get);
@@ -76,17 +90,38 @@ export function SceneCamera({ preset, colors, onStand, gizmo = true }: SceneCame
   const camera = dragging ?? (stand.orthographic ? orthographic : perspective);
 
   const controls = useRef<CameraControlsImpl>(null);
-  const stood = useRef<CameraPreset | null>(null);
+  const [restored] = useState(() => (memory === undefined ? null : lastCameraPose(memory, preset)));
+  const stood = useRef<CameraPreset | null>(restored?.preset ?? null);
   const standing = useRef(onStand);
   standing.current = onStand;
   const animated = useRef(!reduceMotion);
   animated.current = !reduceMotion;
 
-  /* Where the last projection's controls left the camera, which the next takes up. */
+  /* Where the last projection's controls left the camera, which the next takes up.
+     `exact` marks a restored pose, whose position and zoom apply unchanged. */
   const held = useRef({
-    position: new Vector3(...CAMERA.position),
-    target: new Vector3(...CAMERA.target),
+    position: new Vector3(...(restored?.position ?? CAMERA.position)),
+    target: new Vector3(...(restored?.target ?? CAMERA.target)),
+    zoom: restored?.zoom ?? 1,
+    exact: restored !== null,
+  });
+
+  const recorded = useRef<RecordedPose>({
+    preset,
+    position: [0, 0, 0],
+    target: [0, 0, 0],
     zoom: 1,
+  });
+  useFrame(() => {
+    const current = controls.current;
+    if (memory === undefined || current === null) return;
+
+    const pose = recorded.current;
+    current.getPosition(POSITION).toArray(pose.position);
+    current.getTarget(TARGET).toArray(pose.target);
+    pose.preset = preset;
+    pose.zoom = camera.zoom;
+    recordCameraPose(memory, pose);
   });
 
   useEffect(() => {
@@ -112,12 +147,16 @@ export function SceneCamera({ preset, colors, onStand, gizmo = true }: SceneCame
     current.updateCameraUp();
 
     if (camera instanceof OrthographicCamera) {
-      void current.zoomTo(zoomOfReach(reach, height, perspective.fov), false);
+      const zoom = kept.exact ? kept.zoom : zoomOfReach(reach, height, perspective.fov);
+      void current.zoomTo(zoom, false);
+      POSITION.copy(kept.position);
+    } else if (kept.exact) {
       POSITION.copy(kept.position);
     } else {
       const reached = reachOfZoom(kept.zoom, height, camera.fov);
       POSITION.copy(kept.target).addScaledVector(along, reached);
     }
+    kept.exact = false;
     const { x, y, z } = kept.target;
     void current.setLookAt(POSITION.x, POSITION.y, POSITION.z, x, y, z, false);
 
@@ -128,11 +167,13 @@ export function SceneCamera({ preset, colors, onStand, gizmo = true }: SceneCame
     };
   }, [camera, get, perspective]);
 
+  /* The first preset move places the camera where it opens, so it skips the animation. */
   useEffect(() => {
     const current = controls.current;
     if (current === null || stood.current === preset) return;
+    const first = stood.current === null;
     stood.current = preset;
-    standOn(camera, current, stand, stand.look, animated.current);
+    standOn(camera, current, stand, stand.look, animated.current && !first);
   }, [camera, preset, stand]);
 
   /* A pick of the axis the camera already stands on turns it to the other end, which is
