@@ -9,6 +9,7 @@ members = [
     "crates/ltk-meta-docs",
     "crates/ltk-telemetry",
 ]
+exclude = ["vendor"]
 resolver = "2"
 
 # Dependencies only, so our own crates stay debuggable. A debug build parses
@@ -113,3 +114,9 @@ sha2 = "0.10"
 
 assert_matches = "1.5"
 filetime = "0.2"
+
+# ltk_mapgeo 0.3.0 rejects a `.mapgeo` with a vertex buffer no mesh references, which the
+# client reads. The vendored copy drops the buffer, as league-toolkit PR #260 does. The
+# patch goes with the release that carries that PR.
+[patch.crates-io]
+ltk_mapgeo = { path = "vendor/ltk_mapgeo" }
