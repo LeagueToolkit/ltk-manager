@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
 use ltk_hash::Hash as _;
-use ltk_manager_core::material::pass::{Define, DefineSource, PassState};
+use ltk_manager_core::material::pass::PassState;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject};
 
@@ -151,6 +151,66 @@ fn a_pass_without_a_shader_fails_before_any_lookup() {
     let pass = &programs[0].as_ref().unwrap().passes[0];
     assert_eq!(pass.pass.shader, None);
     assert!(matches!(pass.program, ProgramRead::Failed { .. }));
+}
+
+#[test]
+fn a_particle_pass_lists_the_emitter_defines_under_the_studio_defines() {
+    let pass = particle_pass(
+        ParticleShader::Quad,
+        &[
+            ParticleDefine::MultPass,
+            ParticleDefine::AlphaTest,
+            ParticleDefine::MultPass,
+        ],
+    );
+
+    let defines = define_list(&pass, MaterialKind::Particles, ProgramOptions::default());
+
+    assert_eq!(pass.shader.as_deref(), Some("ParticleSystem/QUAD"));
+    assert_eq!(
+        defines.to_entries(),
+        [
+            "ALPHA_TEST=1",
+            "DISABLE_FOW=1",
+            "DISABLE_SHADOWS=1",
+            "MULT_PASS=1",
+        ]
+    );
+}
+
+#[test]
+fn a_particle_define_crosses_ipc_as_its_bytecode_name() {
+    for define in ParticleDefine::ALL {
+        assert_eq!(
+            serde_json::to_value(define).unwrap(),
+            define.name(),
+            "{define:?}"
+        );
+    }
+}
+
+#[test]
+fn a_particle_shader_the_machine_lacks_fails_without_a_guess() {
+    let mut read =
+        |asset: &AssetRef| -> AppResult<Vec<u8>> { panic!("nothing is located: {asset:?}") };
+
+    let particle = read_particle_program(
+        &(),
+        ParticleShader::QuadSlice,
+        &[ParticleDefine::AlphaTest],
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    );
+
+    assert_eq!(
+        particle.program,
+        ProgramRead::Failed {
+            reason: "Nothing on this machine holds \
+                     assets/shaders/hlsl/particlesystem/quad_vs.vs-dx11"
+                .to_owned(),
+        }
+    );
 }
 
 #[test]

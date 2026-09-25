@@ -163,7 +163,11 @@ fn report(program: &MaterialProgram, ready: &mut usize) {
 fn chunk(wad_path: &str, chunk_path: &str) -> Vec<u8> {
     let file = fs::File::open(wad_path).expect("open wad");
     let mut wad = Wad::mount(file).expect("mount wad");
-    let chunk_hash = ltk_modpkg::ChunkPath::new(chunk_path).hash().value();
+    /* A chunk no table names is given as its hash, `0x` and sixteen hex digits. */
+    let chunk_hash = chunk_path
+        .strip_prefix("0x")
+        .and_then(|hex| u64::from_str_radix(hex, 16).ok())
+        .unwrap_or_else(|| ltk_modpkg::ChunkPath::new(chunk_path).hash().value());
     let chunk = *wad
         .chunks()
         .get(ltk_wad::WadHash(chunk_hash))

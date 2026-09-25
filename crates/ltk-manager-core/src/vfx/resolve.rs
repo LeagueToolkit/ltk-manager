@@ -75,7 +75,8 @@ const RESOURCE_RESOLVER: BinHash = BinHash(0xef3a_0f33);
 /// tree, and so is an `effectKey` a `ResourceResolver` of the document maps to one of its
 /// objects. One naming an object the walk is already inside answers as a link, so a cycle
 /// ends where it closes. `assets` decides where a name field's bytes live, and a name
-/// it does not place is a path and no asset rather than a failure.
+/// it does not place is a path and no asset rather than a failure. `shaders` is
+/// `data/shaders/shaders.bin`, which a custom material's pass shader resolves in.
 ///
 /// # Errors
 ///
@@ -87,6 +88,7 @@ pub fn resolve_system(
     entry: BinHash,
     names: &dyn RowNames,
     assets: &dyn AssetLookup,
+    shaders: Option<&BinDocument>,
 ) -> Result<VfxSystem, BinDocumentError> {
     let object = object_at(document, entry)?;
 
@@ -94,6 +96,7 @@ pub fn resolve_system(
         document,
         namer: Namer::new(names),
         assets,
+        shaders,
         resources: resources(document),
         open: vec![entry],
         values: 0,
@@ -118,6 +121,7 @@ struct Walk<'a> {
     document: &'a BinDocument,
     namer: Namer<'a>,
     assets: &'a dyn AssetLookup,
+    shaders: Option<&'a BinDocument>,
     /// Every effect key the document's resolvers map, to the object its link names.
     resources: HashMap<BinHash, BinHash>,
     /// The objects the walk is inside, which a link back into answers as a link.
@@ -184,7 +188,7 @@ impl<'a> Walk<'a> {
             && hash != BinHash(0)
         {
             self.materials.entry(hash).or_insert_with(|| {
-                linked_material(self.document, hash, &self.locator, Some(self.document))
+                linked_material(self.document, hash, &self.locator, self.shaders)
             });
         }
 

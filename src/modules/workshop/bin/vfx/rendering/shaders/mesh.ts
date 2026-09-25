@@ -80,15 +80,17 @@ void main() {
 }
 `;
 
-/* `instanceMatrix` is three's own, written for an `InstancedMesh` by `setMatrixAt` and
-   declared in its prefix under `USE_INSTANCING`. The tint is an attribute of the
-   emitter's own geometry rather than `instanceColor`, which three types as a `vec3`. */
-export const MESH_VERTEX = /* glsl */ `
-${SHEEN_VERTEX}
+/**
+ * One mesh particle's vertex posed by its bones, a row of `particleBones` per instance,
+ * under `PARTICLE_SKINNING`, and left as it is elsewhere.
+ *
+ * The hand-written mesh and the Hexshade mesh prelude share it.
+ */
+export const PARTICLE_POSE = /* glsl */ `
 #ifdef PARTICLE_SKINNING
 uniform sampler2D particleBones;
-attribute vec4 skinIndex;
-attribute vec4 skinWeight;
+in vec4 skinIndex;
+in vec4 skinWeight;
 
 mat4 particleBone(float bone) {
   int column = int(bone) * 4;
@@ -101,8 +103,29 @@ mat4 particleBone(float bone) {
   );
 }
 #endif
+
+void pose(inout vec3 posedPosition, inout vec3 posedNormal) {
+#ifdef PARTICLE_SKINNING
+  if (dot(skinWeight, vec4(1.0)) > 0.0) {
+    mat4 skin = mat4(0.0);
+    for (int i = 0; i < 4; i++) {
+      if (skinWeight[i] > 0.0) skin += skinWeight[i] * particleBone(skinIndex[i]);
+    }
+    posedPosition = (skin * vec4(posedPosition, 1.0)).xyz;
+    posedNormal = mat3(skin) * posedNormal;
+  }
+#endif
+}
+`;
+
+/* `instanceMatrix` is three's own, written for an `InstancedMesh` by `setMatrixAt` and
+   declared in its prefix under `USE_INSTANCING`. The tint is an attribute of the
+   emitter's own geometry rather than `instanceColor`, which three types as a `vec3`. */
+export const MESH_VERTEX = /* glsl */ `
+${SHEEN_VERTEX}
+${PARTICLE_POSE}
 attribute vec4 tint;
-attribute float erode;
+attribute vec3 lookup;
 attribute vec3 uvTurn;
 attribute vec4 uvShift;
 attribute vec3 uvTurnMult;
@@ -125,19 +148,10 @@ void main() {
   vTurnMult = uvTurnMult;
   vShiftMult = uvShiftMult;
   vLookup = vec2(0.0);
-  vErode = erode;
+  vErode = lookup.z;
   vec3 posedPosition = position;
   vec3 posedNormal = normal;
-  #ifdef PARTICLE_SKINNING
-  if (dot(skinWeight, vec4(1.0)) > 0.0) {
-    mat4 skin = mat4(0.0);
-    for (int i = 0; i < 4; i++) {
-      if (skinWeight[i] > 0.0) skin += skinWeight[i] * particleBone(skinIndex[i]);
-    }
-    posedPosition = (skin * vec4(position, 1.0)).xyz;
-    posedNormal = mat3(skin) * normal;
-  }
-  #endif
+  pose(posedPosition, posedNormal);
   vec4 world = grounded(modelMatrix * instanceMatrix * vec4(posedPosition, 1.0));
   // The world matrix turns the normal as it turns the vertex, which is what mesh_vs does.
   facingTerms(world.xyz, mat3(modelMatrix) * mat3(instanceMatrix) * posedNormal);

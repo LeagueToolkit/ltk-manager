@@ -6,7 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { HexshadeIcon, IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { edgesOf, useFitCamera, Viewport } from "@/modules/viewport";
 import {
@@ -15,6 +15,7 @@ import {
   usePreviewGizmo,
   usePreviewGround,
   usePreviewMidlane,
+  usePreviewShaders,
   usePreviewStats,
   usePreviewViewMode,
   usePreviewWireOverlay,
@@ -51,6 +52,7 @@ import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
 import { ViewModeMenu } from "./ViewModeMenu";
+import { ViewToggle } from "./ViewToggle";
 
 export interface VfxViewportProps {
   transport: PreviewTransport;
@@ -78,6 +80,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     requestFit,
     pinned,
     setPinned,
+    document,
   } = useVfxRun();
   const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
   const firstLoad = useRef({ drawn, landed: false, over: false });
@@ -98,6 +101,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const antiAliasing = usePreviewAntiAliasing();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
+  const shaders = usePreviewShaders();
   const setDisplay = useSetPreviewDisplay();
 
   const { root, child } = useEmitters();
@@ -176,6 +180,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               meshes={meshes}
               hiddenOf={hiddenOf}
               edges={edgesOf(viewMode, wireOverlay)}
+              document={document}
             />
           </VfxHost>
           <Fit token={fitRequest} system={system} drawn={drawn} rig={rig.rig} />
@@ -216,6 +221,12 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
         >
           <ShowMenu />
+          <ViewToggle
+            label={m.workshop_bin_preview_shaders_label()}
+            active={shaders}
+            icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
+            onClick={() => setDisplay({ previewShaders: !shaders })}
+          />
           <ViewModeMenu />
           <CameraMenu />
           {edit !== null && child === null && opened !== null && (

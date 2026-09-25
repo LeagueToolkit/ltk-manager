@@ -11,6 +11,7 @@ import {
   SkinnedMesh,
 } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { type CharacterSkin, useCharacterSkin } from "@/modules/viewport";
 
 import type { EmitterModel } from "../../engine/model/model";
@@ -21,17 +22,21 @@ import {
   frameOf,
   type Source,
 } from "../../engine/simulation/particleRead";
+import { type SlotProgram, useAttachedPrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
+import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf } from "../utils/emitterBuckets";
 import { DISTORTION_LAYER, PARTICLE_LAYER } from "../utils/frame";
 import { attachedMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { writePaletteScroll, writeSlotMembers } from "../utils/particleProgram";
 import { rangesDrawn } from "../utils/submeshes";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
-import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
+import { layerOf, uvDraw, uvRowsInto, uvTransformInto } from "../utils/uvTransform";
+import { noDraw } from "./drawPair";
 
 /** How many particles of one attached emitter draw at once, each a whole character. */
 const ATTACHED_PER_EMITTER = 8;
@@ -45,6 +50,8 @@ const IDENTITY = new Matrix4();
 /** Scratch the frame reuses, so a draw allocates nothing per particle. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
 const UV_DRAWN = uvDraw();
+const ROWS = [new Float32Array(8), new Float32Array(8)] as const;
+const LOOKUP = new Float32Array(2);
 
 /** The rim and the reflection an attached mesh's shader compiles, and neither the ramp nor the fade. */
 const DRAWS: LayerDraws = { ramp: false, sheen: true, fade: false };
@@ -57,6 +64,8 @@ export interface AttachedMeshesProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /** One particle's draw: the character's skin under a material of its own. */
@@ -74,8 +83,19 @@ interface Slot {
  * particle's own scale about the scene's origin, in its own colour, layers and erosion.
  * A scene with no character draws none. Decisions 2.18 and 2.35 of
  * docs/plans/vfx-particle-renderer.md.
+ *
+ * With the game's shaders on, each particle draws the skin through the translated
+ * `skinnedmesh/particle` or `particle_distortion` pair once it is ready, a material and an
+ * environment per slot, and through the hand-written material until then.
  */
-export function AttachedMeshes({ emitter, sources, samplers, rank, hidden }: AttachedMeshesProps) {
+export function AttachedMeshes({
+  emitter,
+  sources,
+  samplers,
+  rank,
+  hidden,
+  document = null,
+}: AttachedMeshesProps) {
   const skin = useCharacterSkin();
   const { twinOf, shaded } = useWireTwin();
   const slots = useMemo((): readonly Slot[] => {
@@ -122,6 +142,24 @@ export function AttachedMeshes({ emitter, sources, samplers, rank, hidden }: Att
     [twins],
   );
 
+  const programs = useAttachedPrograms(
+    emitter,
+    samplers,
+    skin?.geometry ?? null,
+    slots.length,
+    document,
+  );
+  useEffect(() => {
+    if (programs.length !== slots.length) return;
+    const previous = slots.map((slot, at) => bindSlot(slot, programs[at]));
+    return () => {
+      slots.forEach((slot, at) => {
+        slot.mesh.material = previous[at] ?? slot.mesh.material;
+        slot.mesh.onBeforeRender = noDraw;
+      });
+    };
+  }, [slots, programs]);
+
   useLayoutEffect(() => {
     for (const slot of slots) {
       slot.mesh.renderOrder = rank;
@@ -149,6 +187,7 @@ export function AttachedMeshes({ emitter, sources, samplers, rank, hidden }: Att
           const { mesh, material } = slots[used];
           const twin = twins[used];
           const uniforms = material.uniforms;
+          const program = programs[used]?.material;
           appearance(pool, at, emitter, time, DRAWN);
           premultiplyInto(emitter, DRAWN.color);
           const tint = uniforms.particleTint.value as number[];
@@ -172,8 +211,19 @@ export function AttachedMeshes({ emitter, sources, samplers, rank, hidden }: Att
             shift[1] = UV_DRAWN.offsetV;
             shift[2] = UV_DRAWN.cellU;
             shift[3] = UV_DRAWN.cellV;
+            if (program !== undefined) uvRowsInto(UV_DRAWN, over, ROWS[layer] ?? ROWS[0]);
           }
           sourcesScrollInto(emitter, sources, uniforms.paletteScroll.value as number[]);
+          if (program !== undefined) {
+            colorLookupInto(emitter, pool, at, through, LOOKUP, 0);
+            writeSlotMembers(program, {
+              color: DRAWN.color,
+              rows: ROWS,
+              lookup: LOOKUP,
+              drive: uniforms.particleErode.value as number,
+            });
+            writePaletteScroll(program, uniforms.paletteScroll.value as number[]);
+          }
 
           mesh.scale.set(DRAWN.scale[0], DRAWN.scale[1], DRAWN.scale[2]);
           mesh.visible = shaded;
@@ -220,6 +270,22 @@ function skinOf(skin: CharacterSkin, material: Material, drawn: readonly boolean
   mesh.frustumCulled = false;
   mesh.visible = false;
   return mesh;
+}
+
+/**
+ * Bind `program` to `slot` on each submesh its lists leave in, with the environment written for
+ * the slot before each draw. The materials it replaces come back for the cleanup.
+ */
+function bindSlot(slot: Slot, program: SlotProgram | undefined): Material | Material[] {
+  const previous = slot.mesh.material;
+  if (program === undefined) return previous;
+
+  slot.mesh.material = slot.drawn.map((kept) => (kept ? program.material : SKIPPED));
+  slot.mesh.onBeforeRender = (renderer, _scene, camera, _geometry, material) => {
+    program.environment.write(renderer, camera, slot.mesh, 0);
+    program.environment.draw(material);
+  };
+  return previous;
 }
 
 /** `twin`'s own material disposed, and nothing for the shared `SKIPPED` stand-in. */

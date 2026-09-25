@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { type Edges, jointAnchor, type Pose, useSceneColors } from "@/modules/viewport";
 
 import type { Joints } from "../../engine/model/rig";
@@ -36,6 +37,11 @@ export interface VfxSystemProps {
   readonly edges?: Edges;
   /** How many particles one quad emitter's buffers hold, and the kit's own where unset. */
   readonly room?: number;
+  /**
+   * The document the system was read from, whose project the game's shaders resolve
+   * through, and the install alone where unset.
+   */
+  readonly document?: BinDocumentId | null;
 }
 
 /**
@@ -52,6 +58,7 @@ export function VfxSystem({
   hiddenOf = noneHidden,
   edges = "none",
   room,
+  document = null,
 }: VfxSystemProps) {
   useEmissionSurfaces(drawn, driver);
   const joints = useMemo(() => {
@@ -87,6 +94,7 @@ export function VfxSystem({
             rank={definition.rank}
             hidden={hiddenOf(definition)}
             room={room}
+            document={document}
           />
         ))}
       {drawn
@@ -99,6 +107,7 @@ export function VfxSystem({
             samplers={samplersOf(textures, definition)}
             rank={definition.rank}
             hidden={hiddenOf(definition)}
+            document={document}
           />
         ))}
       {drawn
@@ -111,6 +120,7 @@ export function VfxSystem({
             samplers={samplersOf(textures, definition)}
             rank={definition.rank}
             hidden={hiddenOf(definition)}
+            document={document}
           />
         ))}
       {drawn
@@ -127,6 +137,7 @@ export function VfxSystem({
               samplers={samplersOf(textures, definition)}
               rank={definition.rank}
               hidden={hiddenOf(definition)}
+              document={document}
             />
           );
         })}
@@ -140,6 +151,7 @@ export function VfxSystem({
             samplers={samplersOf(textures, definition)}
             rank={definition.rank}
             hidden={hiddenOf(definition)}
+            document={document}
           />
         ))}
     </WireframeContext>

@@ -1,8 +1,11 @@
 import {
+  DetachedBindMode,
   Matrix4,
   Object3D,
+  OrthographicCamera,
   PerspectiveCamera,
   type RawShaderMaterial,
+  SkinnedMesh,
   type Uniform,
   type WebGLRenderer,
 } from "three";
@@ -12,7 +15,7 @@ import type { UniformBlock } from "@/lib/tauri";
 
 import { DEFAULT_SUN } from "../../scene/utils/sunLight";
 import { ambientCube, EngineEnvironment, writeRows } from "../engineEnvironment";
-import { createProgramMaterial } from "../programMaterial";
+import { createProgramMaterial, writeProgramMember } from "../programMaterial";
 
 const BLOCK: UniformBlock = {
   name: "PerFrameVertexCB",
@@ -32,6 +35,27 @@ describe("EngineEnvironment", () => {
     expect(again).toBe(group);
     expect(other).not.toBe(group);
     expect((group.uniforms[0] as Uniform).value).toHaveLength(140);
+  });
+
+  it("carries a skinned mesh bound detached by its transform over its bones", () => {
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    const camera = new PerspectiveCamera();
+    camera.position.set(1, 2, 3);
+    camera.updateMatrixWorld();
+    const clipFor = (object: Object3D) => {
+      object.scale.setScalar(2);
+      object.updateMatrixWorld();
+      const environment = new EngineEnvironment("uniform");
+      environment.write(renderer, camera, object, 0);
+      const out = new Float32Array(16);
+      environment.writeClip(out, 0);
+      return [...out];
+    };
+    const detached = new SkinnedMesh();
+    detached.bindMode = DetachedBindMode;
+
+    expect(clipFor(detached)).toEqual(clipFor(new Object3D()));
+    expect(clipFor(new SkinnedMesh())).not.toEqual(clipFor(new Object3D()));
   });
 
   it("halves the clip transform's depth row into the D3D range", () => {
@@ -132,6 +156,27 @@ describe("EngineEnvironment.draw", () => {
     ]);
     expect(material.uniformsNeedUpdate).toBe(true);
   });
+
+  it("keeps a globals block the translation reads as integers bit for bit", () => {
+    const environment = new EngineEnvironment();
+    const material = programMaterial(
+      environment,
+      [],
+      [[GLOBALS, declared("Globals_ps", "uvec4", 2)]],
+    );
+
+    environment.draw(material, {
+      baked: { texture: null, scale: [0.5, 0.25], bias: [0.125, 0] },
+      stationary: null,
+    });
+    writeProgramMember(material, "Tint", [0.75], 1);
+
+    const globals = material.uniforms["Globals_ps"]?.value as Uint32Array;
+    expect(globals).toBeInstanceOf(Uint32Array);
+    expect([...new Float32Array(globals.buffer, globals.byteOffset, globals.length)]).toEqual([
+      0.5, 0.25, 0.125, 0, 1, 0.75, 3, 4,
+    ]);
+  });
 });
 
 describe("EngineEnvironment under the uniform binding", () => {
@@ -174,6 +219,36 @@ describe("EngineEnvironment under the uniform binding", () => {
     const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array | undefined;
     expect(frame?.[20]).toBe(3.5);
     expect(material.uniformsNeedUpdate).toBe(true);
+  });
+
+  it("states a depth gap as the eye distance between two depths, in either projection", () => {
+    const pixel: UniformBlock = {
+      name: "PerFramePixelCB",
+      glslName: "PerFramePixelCB_ps",
+      size: 560,
+      members: [],
+    };
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    /* `1 / (d * y + x)` at the stored depths of the scene and the fragment, as `quad_ps` reads it. */
+    const gapOf = (camera: PerspectiveCamera | OrthographicCamera, scene: number, here: number) => {
+      const environment = new EngineEnvironment("uniform");
+      const material = programMaterial(
+        environment,
+        [],
+        [[pixel, declared(pixel.glslName, "vec4", 6)]],
+      );
+      environment.write(renderer, camera, new Object3D(), 0);
+      const values = material.uniforms["PerFramePixelCB_ps"]?.value as Float32Array;
+      const [x = 0, y = 0] = values.subarray(20, 22);
+      return 1 / (scene * y + x) - 1 / (here * y + x);
+    };
+
+    const perspective = new PerspectiveCamera(50, 1, 1, 101);
+    const stored = (distance: number) => (101 * (distance - 1)) / (100 * distance);
+    expect(gapOf(perspective, stored(30), stored(10))).toBeCloseTo(20, 3);
+
+    const orthographic = new OrthographicCamera(-1, 1, 1, -1, 0, 400);
+    expect(gapOf(orthographic, 0.5, 0.25)).toBeCloseTo(100, 0);
   });
 
   it("writes the skin's self-illumination into every colour channel of SELF_ILLUMINATION", () => {

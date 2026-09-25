@@ -1,6 +1,15 @@
 import { type RefObject, useEffect, useRef } from "react";
-import type { BufferGeometry, LineSegments, Mesh, Object3D, ShaderMaterial } from "three";
+import {
+  type BufferGeometry,
+  type LineSegments,
+  Mesh,
+  type Object3D,
+  type ShaderMaterial,
+} from "three";
 
+import { passTwin } from "@/modules/viewport";
+
+import type { ParticleProgram } from "../hooks/useParticlePrograms";
 import { useWire, type Wire, WIRE_ORDER } from "../state/wire";
 import { useDrawLayer } from "../utils/frame";
 
@@ -80,3 +89,36 @@ export function showPair<T extends Object3D>(pair: DrawPair<T>, drawing: boolean
   const twin = pair.twin.current;
   if (twin !== null) twin.visible = drawing;
 }
+
+/**
+ * `programs` drawn on `solid`: the first pass on the solid and each later pass on a twin under
+ * it, each writing its engine buffers before it draws. The caller swaps the solid's material.
+ */
+export function useProgramDraw(
+  solid: RefObject<Object3D | null>,
+  programs: readonly ParticleProgram[],
+): void {
+  const first = programs[0] ?? null;
+
+  useEffect(() => {
+    const mesh = solid.current;
+    if (!(mesh instanceof Mesh) || first === null) return;
+
+    mesh.onBeforeRender = first.draw;
+    const twins = programs.slice(1).map((later, at) => {
+      const twin = passTwin(mesh, at + 1);
+      twin.material = later.material;
+      twin.onBeforeRender = later.draw;
+      twin.layers.mask = mesh.layers.mask;
+      mesh.add(twin);
+      return twin;
+    });
+    return () => {
+      mesh.onBeforeRender = noDraw;
+      for (const twin of twins) mesh.remove(twin);
+    };
+  }, [solid, first, programs]);
+}
+
+/** The `onBeforeRender` of a mesh with nothing to write before it draws. */
+export function noDraw(): void {}
