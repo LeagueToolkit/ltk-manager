@@ -33,6 +33,7 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
     scanStatus: null,
     scanStatusCode: null,
     scanRejected: 0,
+    shader: null,
     hostElevated: false,
     patcher: {},
     overlayDetail: null,

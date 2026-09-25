@@ -164,6 +164,7 @@ fn slug(kind: VerdictKind) -> &'static str {
         VerdictKind::ArchiveSkipped => "archive-skipped",
         VerdictKind::EndedWithoutReason => "ended-without-reason",
         VerdictKind::WrongInstall => "wrong-install",
+        VerdictKind::ShaderFailed => "shader-failed",
     }
 }
 
@@ -398,6 +399,24 @@ fn seeds() -> Vec<Seed> {
                 "000003.691| ALWAYS|  LOAD| SEJ-1A4F7C20",
                 "000009.004| ALWAYS|  LOAD| SEJ-3E9A0C57",
                 "000009.210|  ERROR| Error: \"ALE-D0D00020\" - Result: E_INVALIDARG.",
+            ]));
+            r
+        }),
+        (VerdictKind::ShaderFailed, |mut r| {
+            r.log = Some(log(&[
+                "000003.691| ALWAYS|  LOAD| SEJ-1A4F7C20",
+                "000003.914| ALWAYS| Failed to compile shader.",
+                "Vertex Shader:  ",
+                "Pixel Shader:   ",
+                "Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4",
+                "Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1",
+                "000003.914| ALWAYS| Failed to compile shader.",
+                "Vertex Shader:  ",
+                "Pixel Shader:   ASSETS/Shaders/HLSL/SkinnedMesh/SOLID_COLOR_PS.ps",
+                "Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4",
+                "Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1",
+                "000003.914| ALWAYS| Material Missing Pipeline: 822941f5adffbcc",
+                "000003.915|  ERROR| SentryHandleException",
             ]));
             r
         }),

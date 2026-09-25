@@ -6,4 +6,4 @@
  * A code on the wire and in the store. The frontend catalog owns the sentence
  * (ADR-0017), and the report text takes the sentences from there.
  */
-export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "check-game-path" | "texture-dimensions" | "repair-install" | "update-driver" | "free-memory" | "open-project" | "start-first" | "scan-up-front" | "copy-report" | "disable-suspect" | "remove-skinhack" | "reimport-mod" | "repair-game" | "elevate" | "signature" | "large-textures" | "close-game";
+export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "check-game-path" | "texture-dimensions" | "repair-install" | "update-driver" | "free-memory" | "open-project" | "start-first" | "scan-up-front" | "copy-report" | "disable-suspect" | "remove-skinhack" | "reimport-mod" | "repair-game" | "elevate" | "signature" | "large-textures" | "close-game" | "shader-definition";

@@ -37,6 +37,13 @@ const MAX_SIGHTINGS: usize = 256;
 /// Detail lines one sighting keeps. League's multi-line errors run to three.
 const DETAIL_LINES: usize = 16;
 
+/// Message sightings kept before the oldest go. A failed shader is logged again
+/// for every pass and define set that asks for it.
+const MAX_MESSAGES: usize = 64;
+
+const SHADER_COMPILE_FAILED: &str = "Failed to compile shader.";
+const MISSING_PIPELINE_PREFIX: &str = "Material Missing Pipeline:";
+
 /// How long a read waits for the game to let go of the file.
 const READ_RETRY_BUDGET: Duration = Duration::from_secs(5);
 
@@ -70,11 +77,74 @@ impl CodeSighting {
     /// The value of the `Key: value` detail line named `key`, matched without
     /// regard to case, or `None` when no detail line carries it.
     pub fn detail_value(&self, key: &str) -> Option<&str> {
-        self.detail.iter().find_map(|line| {
-            let (found, value) = line.trim().trim_start_matches(['-', ' ']).split_once(':')?;
-            found.trim().eq_ignore_ascii_case(key).then(|| value.trim())
-        })
+        detail_value(&self.detail, key)
     }
+}
+
+/// A record League writes with no code, which the reader knows by its words.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "kebab-case")]
+pub enum LogMessage {
+    /// `Failed to compile shader.`, with the programs and the defines on the
+    /// lines under it.
+    ShaderCompileFailed,
+    /// `Material Missing Pipeline: <hash>`, a material drawn with no pipeline.
+    MissingPipeline,
+}
+
+impl LogMessage {
+    /// The message a record's message column is, or `None` for one the reader
+    /// does not know.
+    fn of(text: &str) -> Option<Self> {
+        if text == SHADER_COMPILE_FAILED {
+            Some(Self::ShaderCompileFailed)
+        } else if text.starts_with(MISSING_PIPELINE_PREFIX) {
+            Some(Self::MissingPipeline)
+        } else {
+            None
+        }
+    }
+}
+
+/// One record League wrote with no code, with where and when.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct MessageSighting {
+    pub message: LogMessage,
+    /// Seconds into the log.
+    pub at: f64,
+    /// The whole record, redacted.
+    pub line: String,
+    /// The lines under the record, in order and redacted like it.
+    pub detail: Vec<String>,
+}
+
+impl MessageSighting {
+    /// The value of the `Key: value` detail line named `key`, matched without
+    /// regard to case, or `None` when no detail line carries it.
+    pub fn detail_value(&self, key: &str) -> Option<&str> {
+        detail_value(&self.detail, key)
+    }
+
+    /// The text after `Material Missing Pipeline:`, or `None` on any other message.
+    pub fn missing_pipeline(&self) -> Option<&str> {
+        let record = Record::parse(&self.line)?;
+        let pipeline = record.message.strip_prefix(MISSING_PIPELINE_PREFIX)?.trim();
+        (!pipeline.is_empty()).then_some(pipeline)
+    }
+}
+
+fn detail_value<'a>(detail: &'a [String], key: &str) -> Option<&'a str> {
+    detail.iter().find_map(|line| {
+        let (found, value) = line.trim().trim_start_matches(['-', ' ']).split_once(':')?;
+        found.trim().eq_ignore_ascii_case(key).then(|| value.trim())
+    })
 }
 
 /// What one game's log says, without the log.
@@ -93,6 +163,9 @@ pub struct GameLogFacts {
     pub crash_reporting: Option<bool>,
     /// Every code seen, in order, with its time.
     pub codes: Vec<CodeSighting>,
+    /// Every uncoded record the reader knows, in order, with its time.
+    #[serde(default)]
+    pub messages: Vec<MessageSighting>,
     /// The last `LOAD` marker, which is the step that was running at the end.
     pub last_load_step: Option<CodeSighting>,
     pub loading_ended: bool,
@@ -323,6 +396,10 @@ struct Reader {
     /// The sightings of the record last read, each with whether it is a load
     /// step, open for detail lines until the next record.
     pending: Vec<(CodeSighting, bool)>,
+    messages: VecDeque<MessageSighting>,
+    /// The message of the record last read, open for detail lines like
+    /// `pending`.
+    pending_message: Option<MessageSighting>,
 }
 
 impl Reader {
@@ -356,8 +433,10 @@ impl Reader {
         }
         self.note_header(record);
         self.note_flow(record);
+
         let coded = self.note_codes(record, line);
-        self.keep(index, line, coded);
+        let known = self.note_message(record, line);
+        self.keep(index, line, coded || known);
     }
 
     /// A line under a record with no columns of its own, which is the record's
@@ -372,14 +451,24 @@ impl Reader {
             return;
         }
         let index = self.next_index();
-        if self.pending.is_empty() {
+        if self.pending.is_empty() && self.pending_message.is_none() {
             self.keep(index, line, false);
             return;
         }
+
         let redacted = redact_line(line);
-        for (sighting, _) in &mut self.pending {
-            if sighting.detail.len() < DETAIL_LINES {
-                sighting.detail.push(redacted.to_string());
+        let details = self
+            .pending
+            .iter_mut()
+            .map(|(sighting, _)| &mut sighting.detail)
+            .chain(
+                self.pending_message
+                    .as_mut()
+                    .map(|message| &mut message.detail),
+            );
+        for detail in details {
+            if detail.len() < DETAIL_LINES {
+                detail.push(redacted.to_string());
             }
         }
         self.remember(index, line.to_owned());
@@ -397,6 +486,13 @@ impl Reader {
                 self.sightings.pop_front();
             }
             self.sightings.push_back(sighting);
+        }
+
+        if let Some(message) = self.pending_message.take() {
+            if self.messages.len() == MAX_MESSAGES {
+                self.messages.pop_front();
+            }
+            self.messages.push_back(message);
         }
     }
 
@@ -480,6 +576,21 @@ impl Reader {
         !self.pending.is_empty()
     }
 
+    /// Opens the line as the pending message when it is an uncoded record the
+    /// reader knows, and says whether it was.
+    fn note_message(&mut self, record: &Record<'_>, line: &str) -> bool {
+        let Some(message) = LogMessage::of(record.message) else {
+            return false;
+        };
+        self.pending_message = Some(MessageSighting {
+            message,
+            at: record.time,
+            line: redact_line(line).into_owned(),
+            detail: Vec::new(),
+        });
+        true
+    }
+
     fn keep(&mut self, index: u32, line: &str, coded: bool) {
         if coded {
             let before: Vec<(u32, String)> = self
@@ -542,6 +653,7 @@ impl Reader {
         let mut facts = self.facts;
         facts.excerpt = Self::within_budget(excerpt);
         facts.codes = self.sightings.into();
+        facts.messages = self.messages.into();
         facts.loading_ended = self.loading_ended_at.is_some();
         facts.reached_game_loop = self.loading_ended_at.is_some_and(|at| facts.last_time > at);
         facts.torn_down = self.teardown_code && self.renderer_closed;

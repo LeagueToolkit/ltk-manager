@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import type { Verdict } from "@/lib/tauri";
 import { createMockIncident } from "@/modules/diagnostics/components/__tests__/fixtures";
 
-import { describeExitCode, isSkinhackRejection, subjectLine } from "../incident";
+import { describeExitCode, isSkinhackRejection, subjectLine, verdictCause } from "../incident";
 
 const skinhack: Verdict = {
   kind: "skinhack-detected",
@@ -89,5 +89,52 @@ describe("subjectLine", () => {
     });
 
     expect(subjectLine(incident)).toBe("Aatrox Justicar");
+  });
+});
+
+describe("verdictCause", () => {
+  const shaderVerdict: Verdict = {
+    kind: "shader-failed",
+    title: "Shader Compilation Failure",
+    cause: "",
+    subject: "FEATURE_DISPLACEMENT=1 NUM_BLEND_WEIGHTS=4",
+    consequence: "game-stopped",
+    titleOverride: null,
+    hints: ["shader-definition", "disable-suspect"],
+  };
+
+  /// A shader defined outside the shaders bin: four variants with no programs,
+  /// then the material they belonged to drawn with no pipeline.
+  it("words a shader failure from the facts the log gave", () => {
+    const incident = createMockIncident({
+      verdict: shaderVerdict,
+      shader: { variants: 4, unnamedPrograms: true, missingPipeline: "822941f5adffbcc" },
+    });
+
+    expect(verdictCause(incident)).toBe(
+      "League could not compile 4 shader variants, and then drew a material that had no pipeline. The failed compiles name no vertex shader. League builds shader programs only for the CustomShaderDef objects in data/shaders/shaders.bin, so a mod that defines a shader in any other bin replaces the game's copy with one that has no programs.",
+    );
+  });
+
+  it("reads one variant with its programs named on its own", () => {
+    const incident = createMockIncident({
+      verdict: shaderVerdict,
+      shader: { variants: 1, unnamedPrograms: false, missingPipeline: null },
+    });
+
+    expect(verdictCause(incident)).toBe("League could not compile 1 shader variant.");
+  });
+
+  it("reads a missing pipeline with no failed compile", () => {
+    const incident = createMockIncident({
+      verdict: shaderVerdict,
+      shader: { variants: 0, unnamedPrograms: false, missingPipeline: "822941f5adffbcc" },
+    });
+
+    expect(verdictCause(incident)).toBe("League drew a material that had no pipeline.");
+  });
+
+  it("keeps the backend's sentence where it wrote one", () => {
+    expect(verdictCause(createMockIncident())).toBe("League failed to read a file.");
   });
 });

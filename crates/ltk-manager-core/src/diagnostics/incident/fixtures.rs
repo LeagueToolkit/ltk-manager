@@ -35,6 +35,7 @@ pub(crate) fn incident(id: &str, ended_at: &str) -> Incident {
             scan_status: None,
             scan_status_code: None,
             scan_rejected: 0,
+            shader: None,
             host_elevated: false,
             patcher: PatcherBinaries {
                 dll: Some(crate::diagnostics::binary_id::BinaryId {

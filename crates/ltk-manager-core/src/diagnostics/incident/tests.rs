@@ -1187,6 +1187,7 @@ fn the_token_numbers_are_pinned() {
             (VerdictKind::OverlayBuildFailed, 15),
             (VerdictKind::InjectionHostFailed, 16),
             (VerdictKind::WrongInstall, 17),
+            (VerdictKind::ShaderFailed, 18),
         ],
         VerdictKind::code,
         VerdictKind::from_code,
@@ -1319,6 +1320,7 @@ fn a_verdict_costs_what_its_kind_costs() {
     assert_eq!(ArchiveSkipped.consequence(), ArchiveDropped);
     assert_eq!(StuckLoading.consequence(), GameHung);
     assert_eq!(MissingData.consequence(), GameStopped);
+    assert_eq!(ShaderFailed.consequence(), GameStopped);
     assert_eq!(GraphicsFault.consequence(), GameStopped);
 
     let verdict = Verdict::new(ArchiveRejected, "");
@@ -1396,8 +1398,9 @@ fn a_hint_has_one_spelling_and_one_number() {
     assert_eq!(Hint::code(Hint::CheckGamePath), 4);
     assert_eq!(Hint::code(Hint::LargeTextures), 19);
     assert_eq!(Hint::code(Hint::CloseGame), 20);
+    assert_eq!(Hint::code(Hint::ShaderDefinition), 21);
     assert_eq!(Hint::from_code(0), None);
-    assert_eq!(Hint::from_code(21), None);
+    assert_eq!(Hint::from_code(22), None);
 }
 
 /// An incident stored by an earlier build holds each hint as a sentence, and
@@ -1516,4 +1519,122 @@ fn a_client_reason_reads_its_known_spellings() {
     }
     assert_eq!(ClientReason::from_code(0), None);
     assert_eq!(ClientReason::from_code(5), None);
+}
+
+fn outline_mods() -> Vec<ModFootprint> {
+    vec![ModFootprint {
+        mod_id: "rengar-outline".to_string(),
+        display_name: "Rengar Outline".to_string(),
+        priority: 0,
+        affected_wads: vec!["DATA/FINAL/Champions/Rengar.wad.client".to_string()],
+    }]
+}
+
+/// A crashed game whose log is `text`, with the Rengar archive redirected.
+fn outline_record(text: &str) -> GameRecord {
+    let mut record = crashed(modded_game());
+    record.redirected = vec!["Rengar.wad.client".to_string()];
+    record.log = Some(GameLogFacts::read(std::io::Cursor::new(text)).unwrap());
+    record
+}
+
+const SHADER_FAILURE: &str = include_str!("../fixtures/shader_failure_r3dlog.txt");
+
+/// A mod that declared the Jade outline shader in a skin bin: the shader had no
+/// programs, four variants failed three times over, and the material that used
+/// it had no pipeline.
+#[test]
+fn a_shader_with_no_programs_is_a_shader_failure() {
+    let incident = classify_with(&outline_record(SHADER_FAILURE), &outline_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::ShaderFailed);
+    assert_eq!(incident.verdict.consequence, Consequence::GameStopped);
+    assert_eq!(incident.verdict.cause, "", "the frontend words the cause");
+    assert_eq!(
+        incident.shader,
+        Some(ShaderFailure {
+            variants: 4,
+            unnamed_programs: true,
+            missing_pipeline: Some("822941f5adffbcc".to_string()),
+        })
+    );
+    assert_eq!(
+        incident.verdict.subject.as_deref(),
+        Some("FEATURE_DISPLACEMENT=1 NUM_BLEND_WEIGHTS=4")
+    );
+    assert_eq!(
+        incident.verdict.hints,
+        [Hint::ShaderDefinition, Hint::DisableSuspect]
+    );
+    assert_eq!(names(&incident), ["Rengar Outline"]);
+}
+
+/// Each failed variant shows once, at its last sighting, and the missing
+/// pipeline is the newest row.
+#[test]
+fn a_shader_failure_shows_each_variant_once() {
+    let incident = classify_with(&outline_record(SHADER_FAILURE), &outline_mods()).unwrap();
+    let messages: Vec<&Evidence> = incident
+        .evidence
+        .iter()
+        .filter(|row| row.source == EvidenceSource::Game && row.code.is_none())
+        .collect();
+    assert_eq!(messages.len(), 5);
+    assert!(
+        messages[0]
+            .line
+            .ends_with("Material Missing Pipeline: 822941f5adffbcc")
+    );
+    assert!(
+        messages[1..]
+            .iter()
+            .all(|row| row.at == "00:03.9" && row.detail.len() == 4),
+        "{messages:#?}"
+    );
+}
+
+#[test]
+fn a_clean_game_with_a_failed_shader_is_no_incident() {
+    let mut record = outline_record(SHADER_FAILURE);
+    record.ending = clean(modded_game()).ending;
+    record.log.as_mut().unwrap().torn_down = true;
+    assert_eq!(classify_with(&record, &outline_mods()), None);
+}
+
+/// A variant whose programs are named failed for a reason of its own, so the
+/// verdict does not point at a shader declared outside the shaders bin.
+#[test]
+fn a_shader_with_named_programs_gets_no_definition_hint() {
+    let log = "000000.000| ALWAYS| Logging started at 2026-09-25T12:46:41.127
+               000003.914| ALWAYS| Failed to compile shader.
+               Vertex Shader:  ASSETS/Shaders/HLSL/SkinnedMesh/Outline.vs
+               Pixel Shader:   ASSETS/Shaders/HLSL/SkinnedMesh/Outline.ps
+               Pass Defines:   
+               000003.915|  ERROR| SentryHandleException
+";
+    let mut record = outline_record(log);
+    record.origin = SessionOrigin::Workshop {
+        projects: vec!["C:/mods/rengar-outline".to_string()],
+    };
+    let incident = classify_with(&record, &outline_mods()).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::ShaderFailed);
+    assert_eq!(
+        incident.shader,
+        Some(ShaderFailure {
+            variants: 1,
+            unnamed_programs: false,
+            missing_pipeline: None,
+        })
+    );
+    assert_eq!(incident.verdict.subject, None);
+    assert_eq!(incident.verdict.hints, [Hint::OpenProject]);
+}
+
+#[test]
+fn pass_defines_are_spaced_at_each_name() {
+    assert_eq!(
+        classify::spaced_defines("FEATURE_DISPLACEMENT=1GENERATE_SHADOW_MAP=1NUM_BLEND_WEIGHTS=4"),
+        "FEATURE_DISPLACEMENT=1 GENERATE_SHADOW_MAP=1 NUM_BLEND_WEIGHTS=4"
+    );
+    assert_eq!(classify::spaced_defines("TRANSITION=1"), "TRANSITION=1");
+    assert_eq!(classify::spaced_defines(""), "");
 }

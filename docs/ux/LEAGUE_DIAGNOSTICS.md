@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-09-25 | Shader compilation failure, from the log's uncoded shader records     |
 | 2026-09-07 | Forward slashes on every path the mismatch dialog and verdict write   |
 | 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge      |
 | 2026-09-06 | Wrong-install verdict from a log found under another install          |
@@ -13,7 +14,6 @@
 | 2026-09-06 | A short redirected game with no log is an incident, not a clean game  |
 | 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence         |
 | 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt |
-| 2026-09-05 | Name the bin scan as planned rather than waiting upstream             |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -341,6 +341,31 @@ the message and not at its start alone.
 Most of what a bad asset does never reaches the log at all, which is why the verdict leans
 on the few codes that do rather than on a full read of it.
 
+### The uncoded records
+
+A few failures reach the log as plain text with no code. The reader knows two of them by their
+words, keeps each as a message sighting with its detail lines, and ignores every other uncoded
+line.
+
+| Record                              | Detail lines                                                          |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| `Failed to compile shader.`         | `Vertex Shader:`, `Pixel Shader:`, `Pass Defines:`, `Global Defines:` |
+| `Material Missing Pipeline: <hash>` | None                                                                  |
+
+```
+000003.914| ALWAYS| Failed to compile shader.
+Vertex Shader:
+Pixel Shader:
+Pass Defines:   FEATURE_DISPLACEMENT=1NUM_BLEND_WEIGHTS=4
+Global Defines: COLORPALETTE_COLORBLIND=1MRT_SUPPORTED=1
+000003.914| ALWAYS| Material Missing Pipeline: 822941f5adffbcc
+000003.915|  ERROR| SentryHandleException
+```
+
+League writes a pass's defines with nothing between them. The pass defines are the key League
+looks the compiled program up by in `ShaderCache.dx11.wad.client`, and a failed variant is written
+again for every set of global defines that asks for it. The reader keeps the newest 64.
+
 ### The crash directory
 
 `Logs/GameCrashes` holds crashpad's state. `last_crash` is one line, the wall clock of the
@@ -485,6 +510,7 @@ pub struct GameLogFacts {
     pub game_base_dir: Option<String>,
     pub crash_reporting: Option<bool>,
     pub codes: Vec<CodeSighting>,
+    pub messages: Vec<MessageSighting>,
     pub last_load_step: Option<CodeSighting>,
     pub loading_ended: bool,
     pub reached_game_loop: bool,
@@ -497,6 +523,13 @@ pub struct GameLogFacts {
 
 pub struct CodeSighting {
     pub code: String,
+    pub at: f64,
+    pub line: String,
+    pub detail: Vec<String>,
+}
+
+pub struct MessageSighting {
+    pub message: LogMessage,
     pub at: f64,
     pub line: String,
     pub detail: Vec<String>,
@@ -552,6 +585,7 @@ The rows are in precedence order. The first row whose evidence is present wins.
 | No mods applied            | A game the session or the host saw, and no live overlay in it                                        | overlay-off     | No          |
 | Missing game data          | A `missing_data` code, with its hash                                                                 | game-stopped    | Yes         |
 | Archive mount failure      | A `wad_mount` code                                                                                   | game-stopped    | Sometimes   |
+| Shader compilation failure | `Failed to compile shader.` or `Material Missing Pipeline:`, and an ending worth reporting           | game-stopped    | Sometimes   |
 | Texture creation failure   | A `texture` code, and `E_INVALIDARG`                                                                 | game-stopped    | Sometimes   |
 | Memory allocation failure  | A `memory` code                                                                                      | game-stopped    | No          |
 | Graphics device failure    | A `device` code                                                                                      | game-stopped    | No          |
@@ -665,6 +699,27 @@ facts. `ALE-9D171D1D`, the chunk that failed verification, is the inferred one, 
 verdict is then a Lead that says `Probably`. The suspects are the mods whose archives the DLL
 redirected this game, which is a list and not a name, and the hints are rebuild and repair.
 
+**A shader failed.** `League could not compile 4 shader variants, and then drew a material that
+had no pipeline.` The verdict counts each failed variant once, by its programs and its pass
+defines, and the subject is the first variant's pass defines with a space between each. A game
+that ends clean is no incident, whatever the log holds.
+
+When no failed variant names a vertex shader, the verdict adds that League builds shader programs
+only for the `CustomShaderDef` objects in `data/shaders/shaders.bin`. All 350 of them live there,
+and each has its compiled programs in `ShaderCache.dx11.wad.client` under its `objectPath`. A mod
+that defines a shader in any other bin, a skin bin for example, replaces the game's copy of that
+object with one that has no programs. League compiles nothing, the material has no pipeline, and
+the first draw of it crashes the game. The hint names the fix, which is to remove the definition
+and keep the material's link to the game's shader. A variant that names its programs failed for a
+reason of its own, and gets neither the sentence nor the hint.
+
+The log names no mod and no material, so the suspects are the mods whose archives were in the
+game. `Material Missing Pipeline` prints a hash that no name the manager knows hashes to, so the
+verdict keeps it as a fact and does not resolve it.
+
+The backend sends the facts, `Incident::shader`, and an empty cause. The frontend catalog words the
+cause, the way the scan rejection is worded.
+
 **A texture failed.** `A texture could not be created, and the crash came after it.` The
 texture code is not itself fatal. The game carries on without the texture, and the crash
 that follows is downstream, so the verdict says that rather than claiming the texture
@@ -762,6 +817,7 @@ sentence, and a stored code this build does not know reads as nothing. Neither i
 | `check-game-path`    | Check the League path             | The overlay build could not read the game directory                       |
 | `close-game`         | Close League                      | The overlay build could not replace a file another process held open      |
 | `texture-dimensions` | Check the texture dimensions      | A texture failure                                                         |
+| `shader-definition`  | Remove the shader definition      | A shader failure where no variant names a vertex shader                   |
 | `free-memory`        | Close what else is running        | Out of memory                                                             |
 | `large-textures`     | Disable a mod with huge textures  | Out of memory, with a modded archive in the game                          |
 | `start-first`        | Start the patcher first           | The DLL joined too late                                                   |

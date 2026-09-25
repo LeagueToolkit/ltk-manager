@@ -29,6 +29,7 @@ function rejected(overrides: Partial<Incident>): Incident {
       hints: [],
     },
     scanRejected: 1,
+    shader: null,
     ...overrides,
   });
 }

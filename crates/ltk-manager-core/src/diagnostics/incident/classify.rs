@@ -83,6 +83,9 @@ impl GameRecord {
             scan_status: self.scan_status(),
             scan_status_code: self.scan_failures.first().map(|f| f.status.clone()),
             scan_rejected: saturating_count(self.scan_failures.len()),
+            shader: (verdict.kind == VerdictKind::ShaderFailed)
+                .then(|| self.shader_failure())
+                .flatten(),
             phase: self.phase(),
             game: self.log.as_ref().map(|log| GameInfo {
                 version: log.build_version.clone().unwrap_or_default(),
@@ -208,6 +211,7 @@ impl GameRecord {
         Self::rule_unmodded,
         Self::rule_missing_data,
         Self::rule_corrupt_archive,
+        Self::rule_shader_failure,
         Self::rule_texture_failure,
         Self::rule_out_of_memory,
         Self::rule_graphics_fault,
@@ -504,6 +508,68 @@ impl GameRecord {
         Some((verdict, suspects))
     }
 
+    /// A shader did not compile, or a material had no pipeline, in a game that
+    /// did not end clean. Per "A shader failed" in docs/ux/LEAGUE_DIAGNOSTICS.md.
+    ///
+    /// The cause is left empty. The frontend words it from [`Incident::shader`].
+    fn rule_shader_failure(&self, ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
+        if !self.worth_reporting() {
+            return None;
+        }
+        let failure = self.shader_failure()?;
+
+        let mut verdict = Verdict::new(VerdictKind::ShaderFailed, "");
+        if let Some(defines) = self
+            .shader_variants()
+            .first()
+            .map(|variant| variant.defines)
+            && !defines.is_empty()
+        {
+            verdict = verdict.with_subject(spaced_defines(defines));
+        }
+        if failure.unnamed_programs {
+            verdict = verdict.with_hint(Hint::ShaderDefinition);
+        }
+        verdict = verdict.with_hint(if self.is_workshop() {
+            Hint::OpenProject
+        } else {
+            Hint::DisableSuspect
+        });
+        Some((verdict, self.redirected_writers(ctx)))
+    }
+
+    /// The failed shader variants in the log, each once, in the order first seen.
+    fn shader_variants(&self) -> Vec<ShaderVariant<'_>> {
+        let mut variants: Vec<ShaderVariant<'_>> = Vec::new();
+        let sightings = self.log.iter().flat_map(|log| &log.messages);
+        for variant in sightings.filter_map(ShaderVariant::of) {
+            if !variants.contains(&variant) {
+                variants.push(variant);
+            }
+        }
+        variants
+    }
+
+    /// What the log says about failed shaders, or `None` when it says nothing.
+    fn shader_failure(&self) -> Option<ShaderFailure> {
+        let variants = self.shader_variants();
+        let missing_pipeline = self
+            .log
+            .iter()
+            .flat_map(|log| &log.messages)
+            .find_map(MessageSighting::missing_pipeline)
+            .map(str::to_string);
+        if variants.is_empty() && missing_pipeline.is_none() {
+            return None;
+        }
+        Some(ShaderFailure {
+            variants: saturating_count(variants.len()),
+            unnamed_programs: !variants.is_empty()
+                && variants.iter().all(ShaderVariant::names_no_vertex_shader),
+            missing_pipeline,
+        })
+    }
+
     /// A texture would not load onto the GPU. Names no mod.
     ///
     /// Nothing in the log says which texture failed or where it came from, and
@@ -747,6 +813,39 @@ impl GameRecord {
                     },
                 ));
             }
+
+            // A failed variant is logged again for every define set that asks
+            // for it, so each shows once, at its last sighting. Pushed in log
+            // order, so a tie on the clock still reads newest first.
+            let mut shown: Vec<(&str, Vec<&str>)> = Vec::new();
+            let mut last_sightings: Vec<&MessageSighting> = Vec::new();
+            for sighting in log.messages.iter().rev() {
+                let key = (
+                    Record::parse(&sighting.line).map_or(sighting.line.as_str(), |r| r.message),
+                    sighting
+                        .detail
+                        .iter()
+                        .map(String::as_str)
+                        .filter(|line| !line.starts_with(GLOBAL_DEFINES))
+                        .collect(),
+                );
+                if !shown.contains(&key) {
+                    shown.push(key);
+                    last_sightings.push(sighting);
+                }
+            }
+            for sighting in last_sightings.into_iter().rev() {
+                rows.push((
+                    sighting.at,
+                    Evidence {
+                        at: clock(sighting.at),
+                        source: EvidenceSource::Game,
+                        line: sighting.line.clone(),
+                        detail: sighting.detail.clone(),
+                        code: None,
+                    },
+                ));
+            }
         }
         if let Some(summary) = self.ending.summary() {
             let secs = self.duration_secs();
@@ -765,6 +864,51 @@ impl GameRecord {
         rows.reverse();
         rows.into_iter().map(|(_, evidence)| evidence).collect()
     }
+}
+
+/// The detail line naming the defines every pass of a frame shares.
+const GLOBAL_DEFINES: &str = "Global Defines:";
+
+/// One shader variant that did not compile, told apart by its programs and
+/// its pass defines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ShaderVariant<'a> {
+    vertex: &'a str,
+    pixel: &'a str,
+    defines: &'a str,
+}
+
+impl<'a> ShaderVariant<'a> {
+    /// The variant a `Failed to compile shader.` sighting names, or `None` for
+    /// any other message.
+    fn of(sighting: &'a MessageSighting) -> Option<Self> {
+        (sighting.message == LogMessage::ShaderCompileFailed).then(|| Self {
+            vertex: sighting.detail_value("Vertex Shader").unwrap_or_default(),
+            pixel: sighting.detail_value("Pixel Shader").unwrap_or_default(),
+            defines: sighting.detail_value("Pass Defines").unwrap_or_default(),
+        })
+    }
+
+    fn names_no_vertex_shader(&self) -> bool {
+        self.vertex.is_empty()
+    }
+}
+
+static DEFINE_NAME: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[A-Z_][A-Z0-9_]*=").expect("a valid define pattern"));
+
+/// `A=1B=2` as `A=1 B=2`. League writes a pass's defines with nothing between
+/// them, and a define's name starts with a capital where its value is a number.
+pub(super) fn spaced_defines(defines: &str) -> String {
+    let mut spaced = String::with_capacity(defines.len() + 8);
+    let mut from = 0;
+    for name in DEFINE_NAME.find_iter(defines).skip(1) {
+        spaced.push_str(&defines[from..name.start()]);
+        spaced.push(' ');
+        from = name.start();
+    }
+    spaced.push_str(&defines[from..]);
+    spaced
 }
 
 /// The hints for a failed build, from the overlay's own word on which remedy

@@ -8,8 +8,10 @@ import type {
   OverlayOutcome,
   ScanMode,
   SessionOrigin,
+  ShaderFailure,
   VerdictKind,
 } from "@/lib/tauri";
+import { scanRejectionCause } from "@/modules/patcher";
 
 const DAY_MS = 86_400_000;
 
@@ -253,6 +255,31 @@ export const OVERLAY_DETAIL_LABELS: Readonly<Partial<Record<OverlayOutcome, stri
  */
 function skinhackTitle(): string {
   return m.diagnostics_skinhack_title();
+}
+
+function shaderFailureLead({ variants: count, missingPipeline }: ShaderFailure): string {
+  if (count === 0) return m.diagnostics_shader_pipeline_description();
+  if (missingPipeline) return m.diagnostics_shader_compile_pipeline_description({ count });
+  return m.diagnostics_shader_compile_description({ count });
+}
+
+/** The sentences a shader verdict reads as, from the facts the log gave. */
+export function shaderFailureCause(shader: ShaderFailure): string {
+  const lead = shaderFailureLead(shader);
+  if (!shader.unnamedPrograms) return lead;
+  return `${lead} ${m.diagnostics_shader_unnamed_description()}`;
+}
+
+/**
+ * The verdict's cause as the player reads it.
+ *
+ * The backend's own sentence where it wrote one, else the catalog's words for
+ * the facts it sent instead.
+ */
+export function verdictCause(incident: Incident): string {
+  if (incident.verdict.cause) return incident.verdict.cause;
+  if (incident.shader) return shaderFailureCause(incident.shader);
+  return scanRejectionCause(incident);
 }
 
 /** The verdict's heading as the player reads it, wherever the incident is drawn. */

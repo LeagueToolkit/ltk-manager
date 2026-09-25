@@ -26,6 +26,7 @@ const HINT_TEXT: Readonly<Record<Hint, (context: HintContext) => string>> = {
   signature: () => m["hint.signature"](),
   "large-textures": ({ redirected }) => m["hint.large-textures"]({ count: redirected.length }),
   "close-game": () => m["hint.close-game"](),
+  "shader-definition": () => m["hint.shader-definition"](),
 };
 
 /** The sentence a hint code reads as, for the game it was in. */
