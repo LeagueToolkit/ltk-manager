@@ -36,11 +36,19 @@ pub struct LayerChunks {
 
 impl LayerChunks {
     /// The names the project behind `asset` holds, and none for an asset outside one.
+    ///
+    /// A layer file belongs to its project. A declared game chunk (ADR-0042) belongs to the
+    /// project it was opened in, and the game loads that project's layers over the install
+    /// when the mod is enabled.
     #[must_use]
     pub fn of(asset: &AssetRef) -> Self {
         match asset {
-            AssetRef::Layer { project, .. } => Self::scan(Path::new(project)),
-            _ => Self::default(),
+            AssetRef::Layer { project, .. }
+            | AssetRef::GameChunk {
+                project: Some(project),
+                ..
+            } => Self::scan(Path::new(project)),
+            AssetRef::GameChunk { project: None, .. } | AssetRef::File { .. } => Self::default(),
         }
     }
 

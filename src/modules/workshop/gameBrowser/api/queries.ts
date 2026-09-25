@@ -9,6 +9,7 @@ import {
   type GameSearchResult,
   type GameWadEntry,
   type GameWadSummary,
+  type SearchPreference,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
@@ -86,6 +87,16 @@ export const gameQueries = {
     queryOptions<GameSearchResult, AppError>({
       queryKey: gameKeys.search(query),
       queryFn: active ? queryFnWithArgs(api.searchGameIndex, query) : skipToken,
+      placeholderData: keepPreviousData,
+      staleTime: 0,
+      gcTime: 0,
+    }),
+
+  /** A path field's search, which ranks the files `preference` names first. */
+  paths: (query: string, preference: SearchPreference, active: boolean) =>
+    queryOptions<GameSearchResult, AppError>({
+      queryKey: gameKeys.paths(query, preference),
+      queryFn: active ? queryFnWithArgs(api.objects.searchGamePaths, query, preference) : skipToken,
       placeholderData: keepPreviousData,
       staleTime: 0,
       gcTime: 0,

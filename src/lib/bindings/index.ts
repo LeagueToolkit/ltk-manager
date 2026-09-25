@@ -225,6 +225,7 @@ export type { ScanStatus } from "./ScanStatus";
 export type { SchemaParam } from "./SchemaParam";
 export type { SchemaSwitch } from "./SchemaSwitch";
 export type { SchemaTexture } from "./SchemaTexture";
+export type { SearchPreference } from "./SearchPreference";
 export type { SessionChanged } from "./SessionChanged";
 export type { SessionEnded } from "./SessionEnded";
 export type { SessionFailure } from "./SessionFailure";

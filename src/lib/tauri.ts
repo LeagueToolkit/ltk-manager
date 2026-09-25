@@ -84,6 +84,7 @@ import type {
   ProjectTextFile,
   ReferenceQuery,
   Revision,
+  SearchPreference,
   UiError,
 } from "@/lib/bindings.gen";
 import {
@@ -170,6 +171,8 @@ export type {
   DeclaredObject,
   DeclaredObjects,
   GameFileEntry,
+  GameSearchHit,
+  GameSearchResult,
   ObjectClassHit,
   ObjectDeclaration,
   ObjectDir,
@@ -189,6 +192,7 @@ export type {
   ReferenceProperty,
   ReferenceQuery,
   ReferenceResult,
+  SearchPreference,
   SpellCatalog,
 } from "@/lib/bindings.gen";
 // The ignore rules' type, per ADR-0029.
@@ -668,6 +672,8 @@ export const api = {
     cancelWalk: () => commands.cancelReferenceWalk().then(toResult),
     locateGameFiles: (paths: readonly string[]) =>
       commands.locateGameFiles([...paths]).then(toResult),
+    searchGamePaths: (query: string, preference: SearchPreference) =>
+      commands.searchGamePaths(query, preference).then(toResult),
   },
 
   // flat, so the module boundary lives here.

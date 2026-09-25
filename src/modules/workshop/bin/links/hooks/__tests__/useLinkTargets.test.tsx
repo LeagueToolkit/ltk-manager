@@ -5,10 +5,18 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import type { BinRow, ContentTree, DeclaredObjects, GameFileEntry } from "@/lib/tauri";
+import type {
+  AssetRef,
+  BinRow,
+  ContentTree,
+  DeclaredObjects,
+  GameFileEntry,
+  WorkshopProject,
+} from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
+import { ProjectProvider } from "../../../../projects/state/ProjectContext";
 import { nameHash } from "../../../shared/utils/binHash";
 import {
   entryChunkPath,
@@ -16,9 +24,11 @@ import {
   layerDeclarations,
   linkHashes,
   linkPaths,
+  LinkAssetContext,
   linkStringKeys,
   type RowGroup,
   useCheckLinkTargets,
+  useLayerCopy,
 } from "../useLinkTargets";
 
 const ENTRY = "0x2a1f3c7d";
@@ -252,5 +262,111 @@ describe("entryChunkPath", () => {
   it("is null for a file that sits outside an archive directory", () => {
     expect(entryChunkPath("README.md")).toBeNull();
     expect(entryChunkPath("meta/info.json")).toBeNull();
+  });
+});
+
+describe("useLayerCopy", () => {
+  const PATH = "assets/characters/twistedfate/skins/base/twistedfate_base_2012_cm.tex";
+  const PROJECT: WorkshopProject = {
+    path: "C:/mods/tf",
+    name: "tf",
+    displayName: "Twisted Fate",
+    version: "1.0.0",
+    description: "",
+    authors: [],
+    tags: [],
+    champions: [],
+    maps: [],
+    layers: [
+      { name: "base", displayName: "Base", priority: 0, description: null, stringOverrides: {} },
+      { name: "dice", displayName: "Dice", priority: 5, description: null, stringOverrides: {} },
+    ],
+    thumbnailPath: null,
+    lastModified: "2026-09-25T12:00:00Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "id-tf",
+  };
+
+  function layer(name: string) {
+    return {
+      name,
+      fileCount: 1,
+      totalSizeBytes: 0n,
+      ignoredDirectories: [],
+      entries: [
+        {
+          relativePath: `TwistedFate.wad.client/${PATH}`,
+          sizeBytes: 64n,
+          kind: "texture" as const,
+          objects: [],
+          ignoredBy: null,
+        },
+      ],
+    };
+  }
+
+  function copyFor(asset: AssetRef, tree: ContentTree) {
+    mockInvoke.mockImplementation((command: string) =>
+      command === "get_project_content_tree"
+        ? Promise.resolve({ ok: true, value: tree })
+        : Promise.reject(new Error(`unexpected command ${command}`)),
+    );
+
+    return renderHook(() => useLayerCopy(PATH), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <Providers>
+          <ProjectProvider project={PROJECT}>
+            <LinkAssetContext value={asset}>{children}</LinkAssetContext>
+          </ProjectProvider>
+        </Providers>
+      ),
+    });
+  }
+
+  /* The tab's asset has no project. `useBinDocument` adds it only to the asset it opens. */
+  const GAME_BIN: AssetRef = {
+    kind: "gameChunk",
+    wad: "Champions/TwistedFate.wad.client",
+    pathHash: "00aa00aa00aa00aa",
+  };
+
+  it("answers a game bin open in the project with the project's copy", async () => {
+    const { result } = copyFor(GAME_BIN, { layers: [layer("base")] });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.asset).toEqual({
+      kind: "layer",
+      project: PROJECT.path,
+      layer: "base",
+      path: `TwistedFate.wad.client/${PATH}`,
+    });
+  });
+
+  it("takes the higher-priority layer for a bin of no layer, as the preview does", async () => {
+    const { result } = copyFor(GAME_BIN, { layers: [layer("base"), layer("dice")] });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.title).toBe("Dice");
+  });
+
+  it("searches the document's layer first", async () => {
+    const layerBin: AssetRef = {
+      kind: "layer",
+      project: PROJECT.path,
+      layer: "base",
+      path: "TwistedFate.wad.client/data/characters/twistedfate/skins/skin0.bin",
+    };
+    const { result } = copyFor(layerBin, { layers: [layer("base"), layer("dice")] });
+
+    await waitFor(() => expect(result.current).not.toBeNull());
+    expect(result.current?.title).toBe("Base");
+  });
+
+  it("answers a loose file with nothing", () => {
+    const { result } = copyFor({ kind: "file", path: "C:/skin0.bin" }, { layers: [layer("base")] });
+
+    expect(result.current).toBeNull();
+    expect(mockInvoke).not.toHaveBeenCalled();
   });
 });

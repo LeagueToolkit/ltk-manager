@@ -280,6 +280,28 @@ fn a_project_with_no_content_and_no_tables_names_nothing() {
 }
 
 #[test]
+fn a_game_chunk_opened_from_a_project_reaches_the_project_layer_file() {
+    let path = "assets/characters/twistedfate/skins/base/twistedfate_base_2012_cm.tex";
+    let dir = project(&[&format!("base/TwistedFate.wad.client/{path}")], &[]);
+    let asset = AssetRef::GameChunk {
+        wad: "Champions/TwistedFate.wad.client".to_owned(),
+        path_hash: "0040cb0b0c8560aa".to_owned(),
+        project: Some(dir.path().display().to_string()),
+    };
+
+    let chunks = LayerChunks::of(&asset);
+
+    assert_eq!(
+        chunks.asset_at(path),
+        Some(&AssetRef::Layer {
+            project: dir.path().display().to_string(),
+            layer: "base".to_owned(),
+            path: format!("TwistedFate.wad.client/{path}"),
+        })
+    );
+}
+
+#[test]
 fn an_asset_outside_a_project_names_nothing() {
     let asset = AssetRef::GameChunk {
         wad: "Aatrox.wad.client".to_owned(),

@@ -586,7 +586,13 @@
       }
     }
   ],
+  "workshop_bin_path_current_label": "current",
+  "workshop_bin_path_folder_label": "Same folder",
+  "workshop_bin_path_game_label": "Game",
   "workshop_bin_path_label": "path",
+  "workshop_bin_path_more_hint": "{count} more, keep typing",
+  "workshop_bin_path_project_label": "Project",
+  "workshop_bin_path_searching_label": "Searching the game",
   "workshop_bin_present_label": "present",
   "workshop_bin_preview_anti_aliasing_fxaa_label": "FXAA (in game)",
   "workshop_bin_preview_anti_aliasing_label": "Anti-aliasing",

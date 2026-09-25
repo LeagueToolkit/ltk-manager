@@ -11,7 +11,7 @@ use ltk_hash::{Hash as _, WadHash};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
     FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
-    GameIndexStats, GameSearchResult, SearchGeneration,
+    GameIndexStats, GameSearchResult, PathSearchGeneration, SearchGeneration, SearchPreference,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::WadPathResolverState;
@@ -94,6 +94,37 @@ pub async fn search_game_index(
             total = result.total,
             superseded = result.superseded,
             "Searched the game index"
+        );
+        Ok(result)
+    })
+    .await
+}
+
+/// Rank every file of the install for a path field, the files `preference` names first.
+///
+/// Uses a separate ticket counter, so a path field search and a palette search do not cancel
+/// each other.
+#[tauri::command]
+#[specta::specta]
+pub async fn search_game_paths(
+    query: String,
+    preference: SearchPreference,
+    app_handle: AppHandle,
+) -> IpcResult<GameSearchResult> {
+    let ticket = app_handle.state::<PathSearchGeneration>().claim();
+    let overtaken = {
+        let app_handle = app_handle.clone();
+        move || app_handle.state::<PathSearchGeneration>().overtook(ticket)
+    };
+
+    with_index(app_handle, move |index| {
+        let result = index.search_preferring(&query, &preference, overtaken);
+        tracing::debug!(
+            query = %query,
+            hits = result.hits.len(),
+            total = result.total,
+            superseded = result.superseded,
+            "Searched the game index for a path field"
         );
         Ok(result)
     })

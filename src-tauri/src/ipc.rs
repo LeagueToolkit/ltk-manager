@@ -59,6 +59,7 @@ migrated![
     declarations_module_action,
     // Object index
     locate_game_files,
+    search_game_paths,
     warm_object_index,
     drop_object_index,
     search_object_index,

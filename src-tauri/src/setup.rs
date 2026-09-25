@@ -127,6 +127,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(wad_resolver);
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
+    app.manage(ltk_manager_core::game_index::PathSearchGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());
     app.manage(ltk_manager_core::material::defs::ShaderDefsCache::default());
     app.manage(crate::commands::ObjectIndexState::default());

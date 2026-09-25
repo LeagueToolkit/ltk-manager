@@ -1,3 +1,5 @@
+import type { SearchPreference } from "@/lib/tauri";
+
 /* The install only changes when Riot patches it, so a listing stays good for
    a long stretch of a session. */
 export const GAME_STALE_MS = 15 * 60_000;
@@ -12,6 +14,8 @@ export const gameKeys = {
   dirs: ["game-dir"] as const,
   dir: (path: string) => ["game-dir", path] as const,
   search: (query: string) => ["game-search", query] as const,
+  paths: (query: string, preference: SearchPreference) =>
+    ["game-paths", query, preference.extensions, preference.archive] as const,
   objectSearches: ["object-search"] as const,
   objectSearch: (query: string) => ["object-search", query] as const,
   /* Under the searches, so the invalidation that follows a warm or a drop

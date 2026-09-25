@@ -142,6 +142,13 @@ export const commands = {
 	 */
 	locateGameFiles: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: GameFileEntry } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_game_files", { paths }),
 	/**
+	 *  Rank every file of the install for a path field, the files `preference` names first.
+	 * 
+	 *  Uses a separate ticket counter, so a path field search and a palette search do not cancel
+	 *  each other.
+	 */
+	searchGamePaths: (query: string, preference: SearchPreference) => __TAURI_INVOKE<({ ok: true; value: GameSearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_game_paths", { query, preference }),
+	/**
 	 *  Build the object index, unless one is built or building.
 	 * 
 	 *  The game index is built first when it is not, because the object build is
@@ -1811,6 +1818,51 @@ export type GamePhase =
 /**  The game ended the way it should. */
 "torn-down";
 
+/**
+ *  One row a search matched, with the runs its two lines mark.
+ * 
+ *  Marked runs are byte offsets into `name` and `path`, which the palette
+ *  slices to lift the matched characters out of the rest.
+ */
+export type GameSearchHit = {
+	/**  Chunk path hash as 16 lowercase hex digits. */
+	pathHash: string,
+	/**  The path's basename, or the hash when no hash table names the chunk. */
+	name: string,
+	/**  The directory holding it, empty at the root and for an unnamed chunk. */
+	path: string,
+	/**  The `DATA/FINAL`-relative archive the chunk was read from. */
+	wad: string,
+	/**  0 is a name the query opens, 1 a name holding it, 2 a match reaching the directory. */
+	band: number,
+	score: number | null,
+	nameRanges: ([number, number])[],
+	pathRanges: ([number, number])[],
+};
+
+/**  What one search of the folded index found. */
+export type GameSearchResult = {
+	/**  The best rows, best first, capped at [`SEARCH_LIMIT`]. */
+	hits: GameSearchHit[],
+	/**  How many files matched in all, which the cap trimmed. */
+	total: number,
+	/**
+	 *  A newer search started before this one finished, so it gave up early.
+	 * 
+	 *  Its rows are whatever it had found, which is not the whole answer. The
+	 *  caller is expected to be showing the newer query by now.
+	 */
+	superseded: boolean,
+	/**
+	 *  No hash table named a single chunk, so only a hash can match.
+	 * 
+	 *  An install whose names never resolved answers every path query with
+	 *  nothing, which reads exactly like an install that holds no match. The
+	 *  caller says which of the two it is.
+	 */
+	unnamed: boolean,
+};
+
 /**  Which way a read of GitHub failed, as the remedy it has. */
 export type GitHubErrorKind = 
 /**  GitHub was never reached. Waiting for a connection is the remedy. */
@@ -3426,6 +3478,19 @@ export type SchemaTexture = {
 	default: string | null,
 	/**  `samplerName`, the shared sampler that overrides a material's address modes. */
 	sharedSampler: string | null,
+};
+
+/**
+ *  The files a path field wants ranked first in a search.
+ * 
+ *  Files with an expected extension rank first, then files from the field's archive,
+ *  then the bands decide. A preference changes the order of the matches and adds no match.
+ */
+export type SearchPreference = {
+	/**  The extensions the field expects, without the dot. Empty means no preferred kind. */
+	extensions: string[],
+	/**  The file name of the field's archive, such as `Ahri.wad.client`. */
+	archive: string | null,
 };
 
 /**  A session that failed before any game ran. */

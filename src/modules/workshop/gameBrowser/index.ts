@@ -10,6 +10,7 @@ export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./api/keys";
 export { gameQueries, objectIndexQueries } from "./api/queries";
 export { useGameFind } from "./api/useGameFind";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./api/useGameIndex";
+export { useGamePathSearch } from "./api/useGamePathSearch";
 export { useGameSearch } from "./api/useGameSearch";
 export { useGameWadEntries } from "./api/useGameWadEntries";
 export { useGameWads } from "./api/useGameWads";

@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
 use crate::game_wads::GameArchives;
@@ -87,6 +87,7 @@ pub struct GameIndexStats {
 /// slices to lift the matched characters out of the rest.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchHit {
@@ -108,6 +109,7 @@ pub struct GameSearchHit {
 /// What one search of the folded index found.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchResult {
@@ -130,6 +132,22 @@ pub struct GameSearchResult {
 
 /// How many rows a search returns. Nothing sorts a million of them.
 pub const SEARCH_LIMIT: usize = 100;
+
+/// The files a path field wants ranked first in a search.
+///
+/// Files with an expected extension rank first, then files from the field's archive,
+/// then the bands decide. A preference changes the order of the matches and adds no match.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+#[serde(rename_all = "camelCase")]
+pub struct SearchPreference {
+    /// The extensions the field expects, without the dot. Empty means no preferred kind.
+    pub extensions: Vec<String>,
+    /// The file name of the field's archive, such as `Ahri.wad.client`.
+    pub archive: Option<String>,
+}
 
 /// One file the full search matched, shaped as an entry a file tree can hold.
 ///
@@ -212,6 +230,26 @@ pub struct FindGeneration(SearchGeneration);
 
 impl FindGeneration {
     /// Take the newest ticket, which every scan already running is now behind.
+    pub fn claim(&self) -> u64 {
+        self.0.claim()
+    }
+
+    /// Whether a later search has claimed a ticket since this one.
+    #[must_use]
+    pub fn overtook(&self, ticket: u64) -> bool {
+        self.0.overtook(ticket)
+    }
+}
+
+/// The ticket counter for path field searches.
+///
+/// Separate from [`SearchGeneration`], so a path field search cancels only older path field
+/// searches and never a palette search.
+#[derive(Debug, Default)]
+pub struct PathSearchGeneration(SearchGeneration);
+
+impl PathSearchGeneration {
+    /// Claim a new ticket. Every scan that is already running is now out of date.
     pub fn claim(&self) -> u64 {
         self.0.claim()
     }
@@ -367,6 +405,16 @@ impl GameIndex {
     /// wants handed to them unasked, and the palette only reaches this source
     /// once something is typed.
     pub fn search(&self, query: &str, is_overtaken: impl Fn() -> bool) -> GameSearchResult {
+        self.search_preferring(query, &SearchPreference::default(), is_overtaken)
+    }
+
+    /// [`search`](Self::search), with the files `preference` names ranked first.
+    pub fn search_preferring(
+        &self,
+        query: &str,
+        preference: &SearchPreference,
+        is_overtaken: impl Fn() -> bool,
+    ) -> GameSearchResult {
         let unnamed = self.dirs[0].file_count == 0 && !self.unknown.is_empty();
 
         let Some(query) = Query::parse(query) else {
@@ -382,6 +430,7 @@ impl GameIndex {
             index: self,
             mask: query.mask(),
             query,
+            preferred: Preferred::new(self, preference),
             heap: BinaryHeap::with_capacity(SEARCH_LIMIT + 1),
             total: 0,
             path: String::with_capacity(128),
@@ -728,6 +777,7 @@ struct Scan<'a> {
     index: &'a GameIndex,
     /// Split and lowercased once for every candidate that follows.
     query: Query,
+    preferred: Preferred<'a>,
     mask: u32,
     /// The best rows so far, worst at the root so the cap knows what to drop.
     heap: BinaryHeap<Hit>,
@@ -857,6 +907,7 @@ impl Scan<'_> {
         path_ranges: Vec<Range>,
     ) -> Hit {
         Hit {
+            tier: self.preferred.tier(file),
             band,
             score,
             length: (self.path.len() + file.name.len()) as u32,
@@ -1000,9 +1051,58 @@ impl FindScan<'_> {
     }
 }
 
+/// A [`SearchPreference`] prepared for one index, checked against each candidate.
+struct Preferred<'a> {
+    extensions: &'a [String],
+    /// Whether each archive, by ordinal, is the one preferred.
+    archives: Vec<bool>,
+}
+
+impl<'a> Preferred<'a> {
+    fn new(index: &GameIndex, preference: &'a SearchPreference) -> Self {
+        let archives = index
+            .wads
+            .iter()
+            .map(|wad| {
+                preference.archive.as_deref().is_none_or(|archive| {
+                    let name = wad.rsplit_once('/').map_or(wad.as_str(), |(_, name)| name);
+                    name.eq_ignore_ascii_case(archive)
+                })
+            })
+            .collect();
+
+        Self {
+            extensions: &preference.extensions,
+            archives,
+        }
+    }
+
+    /// The file's rank group, where 0 ranks first.
+    ///
+    /// A wrong kind adds 2 and a wrong archive adds 1, so a texture from another archive
+    /// still ranks above a mesh from the field's archive.
+    fn tier(&self, file: &File) -> u8 {
+        let kind = self.extensions.is_empty()
+            || file.name.rsplit_once('.').is_some_and(|(_, extension)| {
+                self.extensions
+                    .iter()
+                    .any(|expected| expected.eq_ignore_ascii_case(extension))
+            });
+        let archive = self
+            .archives
+            .get(file.wad as usize)
+            .copied()
+            .unwrap_or(true);
+
+        u8::from(!kind) * 2 + u8::from(!archive)
+    }
+}
+
 /// One kept row, ordered worst first so a bounded heap drops the right one.
 #[derive(Debug)]
 struct Hit {
+    /// The rank group from `Preferred::tier`, where 0 ranks first.
+    tier: u8,
     band: u8,
     score: f64,
     /// The length of `path/name`, so the shorter path wins a tie.
@@ -1011,10 +1111,11 @@ struct Hit {
 }
 
 impl Ord for Hit {
-    /// Greater is worse: a higher band, then a lower score, then a longer path.
+    /// Greater is worse: a higher tier, a higher band, a lower score, then a longer path.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.band
-            .cmp(&other.band)
+        self.tier
+            .cmp(&other.tier)
+            .then_with(|| self.band.cmp(&other.band))
             .then_with(|| other.score.total_cmp(&self.score))
             .then_with(|| self.length.cmp(&other.length))
             .then_with(|| self.row.path.cmp(&other.row.path))

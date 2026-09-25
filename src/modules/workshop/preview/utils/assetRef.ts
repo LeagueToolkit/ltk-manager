@@ -7,6 +7,20 @@ export function assetArchive(asset: AssetRef): string | null {
   return asset.kind === "gameChunk" ? asset.wad : null;
 }
 
+/**
+ * The project an asset's links resolve in, as `LayerChunks::of` reads it.
+ *
+ * A layer file resolves in its project. A game chunk open in a project is declared into
+ * that project (ADR-0042), which `useBinDocument` applies to the asset it opens, so the chunk
+ * resolves in `openIn`. The tab's asset does not name that project.
+ */
+export function assetProject(asset: AssetRef, openIn: string | null): string | null {
+  if (asset.kind === "layer") return asset.project;
+  if (asset.kind === "gameChunk") return asset.project ?? openIn;
+
+  return null;
+}
+
 /** What identifies an asset within one project, for a document id or a query key. */
 export function assetKey(asset: AssetRef): string {
   if (asset.kind === "layer") return `layer:${asset.layer}:${asset.path}`;

@@ -64,7 +64,8 @@ import {
   useSetPreviewDisplay,
 } from "@/stores";
 
-import { assetKey } from "../../../preview/utils/assetRef";
+import { assetKey, assetProject } from "../../../preview/utils/assetRef";
+import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { BackdropLayerMenu } from "../../map/components/BackdropLayerMenu";
 import { MapCharacters } from "../../map/components/MapCharacters";
 import { MapParticles } from "../../map/components/MapParticles";
@@ -185,7 +186,8 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
      install for a map the creator has replaced. */
   const shaders = usePreviewShaders();
   /* A document answers from its own file's project, as `LayerChunks::of` reads it. */
-  const project = asset.kind === "layer" ? asset.project : null;
+  const openIn = useOptionalProjectContext()?.path ?? null;
+  const project = assetProject(asset, openIn);
   const backdropSource = useMemo(
     () => (backdrop === null ? null : { map: backdrop, document, project, shaders }),
     [backdrop, document, project, shaders],

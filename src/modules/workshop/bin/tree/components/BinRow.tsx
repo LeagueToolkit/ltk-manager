@@ -49,6 +49,8 @@ import {
 } from "../../documents/hooks/useDeclared";
 import { FileChip, ObjectChip, StringValue } from "../../links/components/LinkChip";
 import { ObjectNameContext, useObjectOpen } from "../../links/hooks/useLinkTargets";
+import { PathInput } from "../../paths/components/PathInput";
+import { type PathField, pathFieldOf } from "../../paths/utils/pathField";
 import { CutText } from "../../shared/components/CutText";
 import { ColorMark } from "../../values/components/ColorMark";
 import { useValueMark } from "../../values/hooks/useValueMarks";
@@ -620,6 +622,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
       return (
         <TextEdit
           text={value.value}
+          path={pathFieldOf(row)}
           invalid={invalid}
           autoFocus={autoFocus}
           onEnter={onEnter}
@@ -651,6 +654,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
       return (
         <TextEdit
           text={value.path ?? value.hash}
+          path={pathFieldOf(row)}
           invalid={invalid}
           autoFocus={autoFocus}
           onEnter={onEnter}
@@ -669,6 +673,8 @@ interface TextEditProps {
   text: string;
   /** What the edit action is called. The value's edit where absent. */
   label?: string;
+  /** The path field settings, for a field that suggests files. Null for a plain text field. */
+  path?: PathField | null;
   invalid: boolean;
   /** Open the field as the row draws, for a property just added. */
   autoFocus: boolean;
@@ -687,6 +693,7 @@ interface TextEditProps {
 function TextEdit({
   text,
   label = m.workshop_bin_edit_value_action(),
+  path = null,
   invalid,
   autoFocus,
   onEnter,
@@ -695,6 +702,21 @@ function TextEdit({
 }: TextEditProps) {
   const implicit = use(InputDefaultContext);
   const [editing, setEditing] = useState(autoFocus);
+  if ((editing || implicit) && path !== null) {
+    return (
+      <PathInput
+        value={text}
+        field={path}
+        placeholder={text || m.workshop_bin_empty_label()}
+        aria-label={label}
+        invalid={invalid}
+        autoFocus={editing}
+        onEnter={onEnter}
+        onCommit={onCommit}
+        onLeave={() => setEditing(false)}
+      />
+    );
+  }
   if (editing || implicit) {
     return (
       <Readout
