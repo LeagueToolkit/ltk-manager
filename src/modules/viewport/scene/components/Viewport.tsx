@@ -87,6 +87,8 @@ export interface ViewportProps {
   readonly antiAliasing?: AntiAliasing;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
+  /** The scene colour the canvas clears to: the pane's ground, or the raised card ground. */
+  readonly clearColor?: "backdrop" | "ground";
   /** How the backdrop and every character draw their meshes. */
   readonly viewMode?: ViewMode;
   /** The triangle edges draw over a lit or untextured scene. */
@@ -143,6 +145,7 @@ export function Viewport({
   ambientOcclusion = null,
   antiAliasing = DEFAULT_ANTI_ALIASING,
   camera,
+  clearColor = "backdrop",
   viewMode = "lit",
   wireOverlay = false,
   onCameraStand,
@@ -243,7 +246,7 @@ export function Viewport({
             gl.toneMapping = TONE_MAPPING;
           }}
         >
-          <color attach="background" args={[colors.backdrop]} />
+          <color attach="background" args={[colors[clearColor]]} />
           {shares && (
             <SharedRendererClaim
               lease={lease}

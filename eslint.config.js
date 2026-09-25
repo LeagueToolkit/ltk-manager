@@ -234,6 +234,7 @@ export default tseslint.config(
       "src/modules/workshop/bin/spells/components/MissileViewport.tsx",
       "src/modules/workshop/bin/spells/components/AbilityPreview.tsx",
       "src/modules/workshop/bin/spells/components/AbilityScene.tsx",
+      "src/modules/workshop/objectsBrowser/components/ObjectPreviewScene.tsx",
     ],
     rules: { "react/no-unknown-property": "off" },
   },
