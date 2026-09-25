@@ -332,30 +332,6 @@ modules:
 }
 
 #[test]
-fn a_named_module_a_move_empties_goes_with_its_name() {
-    let (_dir, mut manifest) = manifest(MODULES);
-
-    manifest.move_keys(0, hash(SKIN0), None, 1).unwrap();
-
-    assert_eq!(
-        manifest.text(),
-        "\
-version: 1
-modules:
-
-  # The resources.
-  - entries:
-      Characters/Teemo/Skins/Skin0/Resources:
-        foo: 1 # kept
-      Characters/Teemo/Skins/Skin0:
-        iconCircle: a.tex # circle
-        skinMeshProperties:
-          selfIllumination: 0.5
-"
-    );
-}
-
-#[test]
 fn a_move_onto_a_key_the_destination_declares_is_refused() {
     let text = MODULES.replace(
         "        foo: 1 # kept\n",
@@ -395,4 +371,93 @@ fn a_crlf_manifest_keeps_crlf_through_module_actions() {
         written.matches("\r\n").count()
     );
     assert!(written.contains("  - name: Resources\r\n    entries:\r\n"));
+}
+
+#[test]
+fn a_moved_tagged_block_keeps_its_nesting() {
+    let text = "\
+version: 1
+modules:
+  - entries:
+      Characters/Teemo/Skins/Skin0:
+        dynamicMaterial: !pointer(DynamicMaterialDef)
+          parameters:
+            - !embed(DynamicMaterialParameterDef)
+              name: Outline_FinalAlphaMult
+  - entries:
+      Characters/Teemo/Skins/Skin0/Resources:
+        foo: 1
+";
+    let (_dir, mut manifest) = manifest(text);
+
+    manifest.move_keys(0, hash(SKIN0), None, 1).unwrap();
+
+    assert_eq!(
+        manifest.text(),
+        "\
+version: 1
+modules:
+  - entries:
+      Characters/Teemo/Skins/Skin0/Resources:
+        foo: 1
+      Characters/Teemo/Skins/Skin0:
+        dynamicMaterial: !pointer(DynamicMaterialDef)
+          parameters:
+            - !embed(DynamicMaterialParameterDef)
+              name: Outline_FinalAlphaMult
+"
+    );
+}
+
+#[test]
+fn a_created_module_takes_its_name_and_no_entry_at_the_end() {
+    let (_dir, mut manifest) = manifest(MODULES);
+
+    let index = manifest.create_module(Some(&name("Particles"))).unwrap();
+
+    assert_eq!(index, 2);
+    assert_eq!(
+        manifest.text(),
+        format!("{MODULES}  - name: Particles\n    entries: {{}}\n")
+    );
+    assert_eq!(
+        names(&manifest),
+        [
+            Some("Base look".to_owned()),
+            None,
+            Some("Particles".to_owned())
+        ]
+    );
+}
+
+#[test]
+fn a_created_module_starts_the_manifest_of_an_empty_layer() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut manifest = Manifest::read(dir.path()).unwrap();
+
+    let index = manifest.create_module(None).unwrap();
+
+    assert_eq!(index, 0);
+    assert_eq!(manifest.text(), "version: 1\nmodules:\n  - entries: {}\n");
+}
+
+#[test]
+fn a_named_module_a_move_empties_stays_with_no_entry() {
+    let (_dir, mut manifest) = manifest(MODULES);
+
+    manifest.move_keys(0, hash(SKIN0), None, 1).unwrap();
+
+    assert_eq!(
+        names(&manifest),
+        [Some("Base look".to_owned()), None],
+        "{}",
+        manifest.text()
+    );
+    assert!(
+        manifest
+            .text()
+            .contains("  - name: Base look\n    entries: {}\n"),
+        "{}",
+        manifest.text()
+    );
 }

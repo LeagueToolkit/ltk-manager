@@ -4,13 +4,15 @@ import { create } from "zustand";
 export interface OutlineRevealRequest {
   documentId: string;
   itemId: string;
+  /** Type over the module's name once it shows, for a module just made. */
+  rename: boolean;
   /** Tells two requests for the same item apart, so the second one still lands. */
   token: number;
 }
 
 interface OutlineRevealState {
   request: OutlineRevealRequest | null;
-  reveal: (documentId: string, itemId: string) => void;
+  reveal: (documentId: string, itemId: string, rename?: boolean) => void;
   settle: (token: number) => void;
 }
 
@@ -18,9 +20,9 @@ let nextToken = 0;
 
 const useOutlineRevealStore = create<OutlineRevealState>((set) => ({
   request: null,
-  reveal: (documentId, itemId) => {
+  reveal: (documentId, itemId, rename = false) => {
     nextToken += 1;
-    set({ request: { documentId, itemId, token: nextToken } });
+    set({ request: { documentId, itemId, rename, token: nextToken } });
   },
   settle: (token) => set((state) => (state.request?.token === token ? { request: null } : state)),
 }));
@@ -33,7 +35,11 @@ export function useOutlineRevealRequest(documentId: string): OutlineRevealReques
 }
 
 /** Ask the open declarations document `documentId` to select and show `itemId`. */
-export function useRevealOutlineItem(): (documentId: string, itemId: string) => void {
+export function useRevealOutlineItem(): (
+  documentId: string,
+  itemId: string,
+  rename?: boolean,
+) => void {
   return useOutlineRevealStore((state) => state.reveal);
 }
 

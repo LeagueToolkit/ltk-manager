@@ -47,3 +47,26 @@ fn a_manifest_changed_on_disk_surfaces_as_its_workshop_error() {
             if path.ends_with("game_data.yaml")
     );
 }
+
+#[test]
+fn a_created_module_is_written_and_loads_with_no_entry() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project(tmp.path());
+
+    let change = project
+        .apply_module_action(
+            "base",
+            &ModuleAction::Create {
+                name: Some("Particles".to_owned()),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        change.map(|change| change.after),
+        Some("version: 1\nmodules:\n  - name: Particles\n    entries: {}\n".to_owned())
+    );
+    let manifest = project.declarations_manifest("base").unwrap();
+    let declarations = manifest.declarations().unwrap().unwrap();
+    assert_eq!(declarations.modules.len(), 1);
+}

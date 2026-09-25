@@ -68,16 +68,28 @@ impl DocumentText {
     }
 
     /// A value's text as a standalone document: its lines after the first moved
-    /// left by the column it starts at.
+    /// left by the column it starts at, or by their own least indent where that is
+    /// less.
+    ///
+    /// The second is a value that starts beside its key, `a: !pointer(C)` with the
+    /// fields under it, whose nesting the first would flatten.
     pub(crate) fn standalone(&self, value: &Node) -> String {
         let body = self.0[syntax::start(value)..syntax::end(value)].trim_end();
-        let shift = self.column(value);
+        let indent = |line: &str| line.len() - line.trim_start_matches(' ').len();
+        let column = self.column(value);
+        let shift = body
+            .lines()
+            .skip(1)
+            .filter(|line| !line.trim().is_empty())
+            .map(indent)
+            .min()
+            .map_or(column, |least| least.min(column));
+
         let mut out = String::with_capacity(body.len());
         for (index, line) in body.lines().enumerate() {
             if index > 0 {
                 out.push('\n');
-                let spaces = line.len() - line.trim_start_matches(' ').len();
-                out.push_str(&line[spaces.min(shift)..]);
+                out.push_str(&line[indent(line).min(shift)..]);
             } else {
                 out.push_str(line);
             }

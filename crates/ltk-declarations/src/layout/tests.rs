@@ -151,3 +151,71 @@ fn a_module_and_an_entry_span_their_first_line() {
     );
     assert_eq!(&layout.text()[entry], "Characters/Teemo/Skins/Skin0:");
 }
+
+#[test]
+fn a_module_note_is_the_comment_lines_directly_above_it() {
+    let text = "\
+version: 1
+modules:
+  # Outline on the base skin.
+  #
+  #   Tuned for the default camera.
+  - name: Look
+    entries:
+      Characters/Teemo/Skins/Skin0:
+        a: 1
+  # Not this one, a blank line follows.
+
+  - entries:
+      Characters/Teemo/Skins/Skin0:
+        b: 2
+";
+    let layout = Layout::parse(text).unwrap();
+
+    assert_eq!(
+        layout.module_note(0).as_deref(),
+        Some("Outline on the base skin.\n\n  Tuned for the default camera.")
+    );
+    assert_eq!(layout.module_note(1), None);
+    assert_eq!(layout.module_note(2), None);
+}
+
+#[test]
+fn a_tagged_block_after_its_key_keeps_its_nesting() {
+    let text = "\
+version: 1
+modules:
+  - target: data/a.bin
+    objects:
+      Mods/Jade/Outline:
+        class: StaticMaterialDef
+        set:
+          dynamicMaterial: !pointer(DynamicMaterialDef)
+            parameters:
+              - !embed(DynamicMaterialParameterDef)
+                name: Outline_FinalAlphaMult
+";
+    let layout = Layout::parse(text).unwrap();
+    let entry = EntryName::try_from("Mods/Jade/Outline").unwrap();
+
+    let key = layout
+        .key(
+            BodyAt::Target { module: 0, edit: 0 },
+            Binding::Object,
+            &entry,
+            "dynamicMaterial",
+        )
+        .unwrap();
+
+    assert_eq!(
+        key.value,
+        "!pointer(DynamicMaterialDef)\nparameters:\n  - !embed(DynamicMaterialParameterDef)\n    name: Outline_FinalAlphaMult"
+    );
+}
+
+#[test]
+fn a_first_module_under_the_list_key_has_no_note() {
+    let layout = Layout::parse(MANIFEST).unwrap();
+
+    assert_eq!(layout.module_note(0), None);
+}

@@ -57,6 +57,23 @@ impl DocumentText {
         }
     }
 
+    /// The text with a module holding `name` and no entry at the end of `modules`, and its
+    /// index. A blank text becomes a manifest of that one module. ltk-manager ADR-0054.
+    pub(crate) fn create_module(
+        &self,
+        name: Option<&ModuleName>,
+    ) -> Result<(Self, usize), Refusal> {
+        let named = name.map(syntax::name_line).unwrap_or_default();
+        let module = format!("{named}entries: {{}}");
+        if self.is_blank() {
+            return Ok((Self::with_module(&module), 0));
+        }
+
+        let doc = self.parse()?;
+        let index = locate::module_items(&doc).len();
+        Ok((self.append_module(&doc, &module)?, index))
+    }
+
     /// The text without the module at `index`. Removing the last module leaves
     /// `modules: []`.
     pub(crate) fn remove_module(&self, index: usize) -> Result<Self, Refusal> {
@@ -116,8 +133,8 @@ impl DocumentText {
     /// `entries` module at `to`: every signed key of `path`, or the whole body where `path`
     /// is `None`.
     ///
-    /// The module at `index` goes where the move leaves it empty, and `to` counts the
-    /// modules as they stand before the move.
+    /// The module at `index` goes where the move leaves it empty and unnamed, and `to`
+    /// counts the modules as they stand before the move.
     pub(crate) fn move_keys(
         &self,
         index: usize,

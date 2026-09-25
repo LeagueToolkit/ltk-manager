@@ -1,6 +1,7 @@
 # ADR-0048: A declared edit joins the module the reader chose
 
-- **Status:** Accepted
+- **Status:** Accepted, the new-module paragraph superseded by
+  [ADR-0054](0054-a-module-is-made-empty-and-organized-in-the-outline.md)
 - **Date:** 2026-09-24
 - **Crates:** `ltk-declarations`, `ltk-manager-core`, `src-tauri`, frontend
 - **Related:** Supersedes the placement paragraph of

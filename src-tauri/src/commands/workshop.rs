@@ -10,9 +10,11 @@ use crate::workshop::{
 use chrono::Local;
 use fs_err as fs;
 use indexmap::IndexMap;
-use ltk_manager_core::hashtables::WadPathResolverState;
+use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_core::object_index::CacheNames;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
@@ -240,11 +242,17 @@ pub fn save_project_text(
 pub fn declarations_outline(
     project_path: String,
     workshop: State<WorkshopState>,
+    bin: State<BinHashTablesState>,
+    wad: State<Arc<WadPathResolverState>>,
 ) -> IpcResult<Vec<DeclarationsLayer>> {
+    let bin = bin.get();
+    let wad = wad.get();
+    let names = CacheNames::new(&bin, &wad);
+
     workshop
         .0
         .project(&project_path)
-        .and_then(|project| project.declarations_outline())
+        .and_then(|project| project.declarations_outline(&names))
         .into()
 }
 

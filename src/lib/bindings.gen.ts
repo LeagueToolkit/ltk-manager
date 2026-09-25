@@ -1192,6 +1192,8 @@ export type DeclaredDiagnosticKind = "overrideUnreadable" | "overrideInvalid" | 
 export type DeclaredEntry = {
 	/**  The entry name as spelled. */
 	name: string,
+	/**  The path the hashtables give a name spelled as a hash, `None` for any other name. */
+	knownName: string | null,
 	/**  The object's path hash, `0x` and eight hex digits. */
 	hash: string,
 	/**  The edit of a `target` module the entry sits in, zero-based. */
@@ -1201,6 +1203,8 @@ export type DeclaredEntry = {
 	/**  The line naming the entry. */
 	span: LineSpan | null,
 	keys: DeclaredKey[],
+	/**  The dependencies an `entries` module adds to and removes from each declaring chunk. */
+	links: DeclaredLinks,
 };
 
 /**  One signed property key of an entry body. */
@@ -1238,6 +1242,14 @@ export type DeclaredLinkMark = {
 	change: LinkChange,
 };
 
+/**  The dependencies a body adds to and removes from a chunk's link list. ADR-0050. */
+export type DeclaredLinks = {
+	/**  The `links` items, in order. */
+	add: string[],
+	/**  The `-links` items, in order. */
+	remove: string[],
+};
+
 /**  One row a declaration of the chosen layer touches. */
 export type DeclaredMark = {
 	/**  The object's path hash, `0x` and eight hex digits. */
@@ -1267,6 +1279,8 @@ export type DeclaredModule = {
 	index: number,
 	/**  The module's own name, where the manifest spells one. */
 	name: string | null,
+	/**  The comment lines directly above the module, without their `#`. */
+	note: string | null,
 	selector: ModuleSelector,
 	/**  The chunk a `target` module edits, as spelled. */
 	target: string | null,
@@ -1279,6 +1293,8 @@ export type DeclaredModule = {
 	source: string | null,
 	/**  The override files the module names, layer-relative. */
 	overrides: string[],
+	/**  The dependencies a `target` module adds to and removes from its chunk, over every edit. */
+	links: DeclaredLinks,
 	/**  The module's first line. */
 	span: LineSpan | null,
 	entries: DeclaredEntry[],
@@ -1312,10 +1328,10 @@ export type DeclaredObject = {
 
 /**  What an `objects` binding does to one object. */
 export type DeclaredObjectEdit = 
-/**  A copy of the entry `source`. */
-{ kind: "clone"; source: string } | 
-/**  A new object of `class`. */
-{ kind: "construct"; class: string } | 
+/**  A copy of the entry `source`, with the path the hashtables give a hash-spelled one. */
+{ kind: "clone"; source: string; knownSource: string | null } | 
+/**  A new object of `class`, with the name the hashtables give a hash-spelled one. */
+{ kind: "construct"; class: string; knownClass: string | null } | 
 /**  The object's removal. */
 { kind: "remove" };
 
@@ -2703,9 +2719,11 @@ export type MissileSpec = {
 
 /**
  *  One module action on a layer's manifest, each module named by its index in `modules`.
- *  ADR-0048.
+ *  ADR-0048, ADR-0054.
  */
 export type ModuleAction = 
+/**  Add a module holding `name`, or none, and no entry at the end of `modules`. */
+{ kind: "create"; name: string | null } | 
 /**  Give the module a name, or take its name away with `None`. */
 { kind: "rename"; module: number; name: string | null } | 
 /**  Remove the module and every key it declares. */

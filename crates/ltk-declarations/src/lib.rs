@@ -514,6 +514,16 @@ impl Manifest {
         self.change(|text| Ok((text.rename_module(module, name)?, ())))
     }
 
+    /// Add a module holding `name` and no entry at the end of `modules`, answering its index.
+    ///
+    /// # Errors
+    ///
+    /// As [`Manifest::edit`], with [`Refusal::ModulesNotBlock`] for a flow `modules` list
+    /// holding a module.
+    pub fn create_module(&mut self, name: Option<&ModuleName>) -> Result<usize, Error> {
+        self.change(|text| text.create_module(name))
+    }
+
     /// Remove the module at `module` and every key it declares.
     ///
     /// # Errors
@@ -536,8 +546,8 @@ impl Manifest {
     /// Move the keys of `entry` from the `entries` module at `module` to the one at `to`:
     /// every signed key of `path`, or the entry's whole body where `path` is `None`.
     ///
-    /// The module at `module` goes where the move leaves it empty, which shifts every
-    /// later index down by one.
+    /// An unnamed module the move leaves empty goes, which shifts every later index down by
+    /// one. A named one stays, holding `entries: {}`.
     ///
     /// # Errors
     ///

@@ -228,8 +228,9 @@ _Avoid_: patch, override
 
 **Module** — one item of a layer's `game_data.yaml` list of modules: an `entries` map of
 declarations by entry, or a `target` chunk with its edits, applied in list order. It may carry a
-`name`, which changes nothing about how it applies. A declared document writes its new keys to the
-module the reader chose, else to the last one naming the entry — see ADR-0048.
+`name`, which changes nothing about how it applies, and an `entries` module may hold no entry yet.
+A declared document writes its new keys to the module the reader chose, else to the last one
+naming the entry — see ADR-0048 and ADR-0054.
 _Avoid_: group, section
 
 **Game-copy reference** — a declaration's value spelled `!ref <entry>:<path>`, read from the game's

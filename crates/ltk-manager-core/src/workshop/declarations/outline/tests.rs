@@ -2,6 +2,58 @@ use super::*;
 use std::path::Path;
 
 use ltk_hash::Hash as _;
+use ltk_wad::WadHash;
+
+/// Names that know no hash.
+struct NoNames;
+
+impl ObjectNames for NoNames {
+    fn for_each_entry(&self, _: &[BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn class(&self, _: BinHash) -> Option<String> {
+        None
+    }
+
+    fn for_each_file(&self, _: &[WadHash], _: &mut dyn FnMut(usize, &str)) {}
+}
+
+/// Names that know the objects `entries` and the classes `classes` by their hashes.
+struct KnownNames {
+    entries: HashMap<BinHash, String>,
+    classes: HashMap<BinHash, String>,
+}
+
+impl KnownNames {
+    fn new(entries: &[&str], classes: &[&str]) -> Self {
+        let table = |names: &[&str]| {
+            names
+                .iter()
+                .map(|name| (BinHash::hash_str(name), (*name).to_owned()))
+                .collect()
+        };
+
+        Self {
+            entries: table(entries),
+            classes: table(classes),
+        }
+    }
+}
+
+impl ObjectNames for KnownNames {
+    fn for_each_entry(&self, hashes: &[BinHash], visit: &mut dyn FnMut(usize, &str)) {
+        for (at, hash) in hashes.iter().enumerate() {
+            if let Some(name) = self.entries.get(hash) {
+                visit(at, name);
+            }
+        }
+    }
+
+    fn class(&self, hash: BinHash) -> Option<String> {
+        self.classes.get(&hash).cloned()
+    }
+
+    fn for_each_file(&self, _: &[WadHash], _: &mut dyn FnMut(usize, &str)) {}
+}
 
 fn project(dir: &Path) -> ProjectDir {
     let config = serde_json::json!({
@@ -46,7 +98,7 @@ fn a_layer_with_no_manifest_outlines_as_empty() {
     let tmp = tempfile::tempdir().unwrap();
     let project = project(tmp.path());
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
 
     assert_eq!(
         layers
@@ -68,7 +120,7 @@ fn an_entries_module_lists_dotted_block_signed_and_tagged_keys_in_order() {
     let project = project(tmp.path());
     write_manifest(tmp.path(), "base", MANIFEST);
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let base = &layers[0];
     let module = &base.modules[0];
     let entry = &module.entries[0];
@@ -118,7 +170,7 @@ modules:
 ",
     );
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let names: Vec<Option<&str>> = layers[0]
         .modules
         .iter()
@@ -134,7 +186,7 @@ fn a_key_carries_its_lines_and_the_row_it_reaches() {
     let project = project(tmp.path());
     write_manifest(tmp.path(), "base", &MANIFEST.replace('\n', "\r\n"));
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let keys = &layers[0].modules[0].entries[0].keys;
     let glow = &keys[0];
     let block = &keys[1];
@@ -169,7 +221,7 @@ fn a_target_module_names_its_chunk() {
     let project = project(tmp.path());
     write_manifest(tmp.path(), "base", MANIFEST);
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let module = &layers[0].modules[1];
     let key = &module.entries[0].keys[0];
 
@@ -204,7 +256,7 @@ fn a_manifest_that_does_not_load_reports_where() {
         "version: 1\nmodules:\n  - entries:\n      Characters/Teemo/Skins/Skin0:\n        a: [1\n",
     );
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let chroma = &layers[1];
     let error = chroma.error.as_ref().unwrap();
 
@@ -223,7 +275,7 @@ fn a_semantic_error_is_placed_on_its_module() {
         "version: 1\nmodules:\n  - entries:\n      Characters/Teemo/Skins/Skin0:\n        a: 1\n  - target: data/a.bin\n    entries: {}\n",
     );
 
-    let layers = project.declarations_outline().unwrap();
+    let layers = project.declarations_outline(&NoNames).unwrap();
     let error = layers[0].error.as_ref().unwrap();
 
     assert_eq!(error.document.as_deref(), Some("game_data.yaml"));
@@ -241,5 +293,124 @@ fn a_row_path_stops_before_a_map_key() {
             *ltk_hash::BinHash::hash_str("a"),
             *ltk_hash::BinHash::hash_str("b"),
         )
+    );
+}
+
+#[test]
+fn links_list_on_the_target_module_and_on_the_entries_entry() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project(tmp.path());
+    write_manifest(
+        tmp.path(),
+        "base",
+        "version: 1
+modules:
+  - entries:
+      Characters/Teemo/Skins/Skin0:
+        links: [DATA/Shared.bin]
+        -links: [DATA/Old.bin]
+  - target: data/characters/teemo/skins/skin0.bin
+    edits:
+      - links: [DATA/A.bin]
+      - -links: [DATA/B.bin]
+        Characters/Teemo/Skins/Skin0:
+          a: 1
+",
+    );
+
+    let layers = project.declarations_outline(&NoNames).unwrap();
+    let modules = &layers[0].modules;
+    let entry = &modules[0].entries[0];
+
+    assert_eq!(entry.links.add, ["DATA/Shared.bin"]);
+    assert_eq!(entry.links.remove, ["DATA/Old.bin"]);
+    assert!(entry.keys.is_empty());
+    assert_eq!(modules[1].links.add, ["DATA/A.bin"]);
+    assert_eq!(modules[1].links.remove, ["DATA/B.bin"]);
+    assert_eq!(modules[0].links, DeclaredLinks::default());
+}
+
+#[test]
+fn a_module_carries_the_comment_above_it_as_its_note() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project(tmp.path());
+    write_manifest(
+        tmp.path(),
+        "base",
+        "version: 1
+modules:
+  - entries:
+      Characters/Teemo/Skins/Skin0:
+        a: 1
+  # Swaps the icon.
+  - name: Icon
+    entries:
+      Characters/Teemo/Skins/Skin0:
+        b: 2
+",
+    );
+
+    let layers = project.declarations_outline(&NoNames).unwrap();
+    let notes: Vec<Option<&str>> = layers[0]
+        .modules
+        .iter()
+        .map(|module| module.note.as_deref())
+        .collect();
+
+    assert_eq!(notes, [None, Some("Swaps the icon.")]);
+}
+
+#[test]
+fn a_name_spelled_as_a_hash_carries_the_name_the_tables_know() {
+    let tmp = tempfile::tempdir().unwrap();
+    let project = project(tmp.path());
+    let config = "Maps/Shipping/Map11/Configs";
+    let class = "OutlineSwitchConfig";
+    let text = format!(
+        "version: 1
+modules:
+  - target: data/maps/shipping/map11/map11.bin
+    objects:
+      Mods/jade/Switch:
+        class: \"{class_hash}\"
+      Mods/jade/Copy:
+        clone: \"{config_hash}\"
+    \"{config_hash}\":
+      +ConfigsClient: [Mods/jade/Switch]
+    \"0x00000001\":
+      a: 1
+",
+        class_hash = hex(BinHash::hash_str(class)),
+        config_hash = hex(BinHash::hash_str(config)),
+    );
+    write_manifest(tmp.path(), "base", &text);
+
+    let layers = project
+        .declarations_outline(&KnownNames::new(&[config], &[class]))
+        .unwrap();
+    let entries = &layers[0].modules[0].entries;
+    let by_name = |name: &str| entries.iter().find(|entry| entry.name == name).unwrap();
+
+    assert_eq!(
+        by_name(&hex(BinHash::hash_str(config)))
+            .known_name
+            .as_deref(),
+        Some(config)
+    );
+    assert_eq!(by_name("0x00000001").known_name, None);
+    assert_eq!(by_name("Mods/jade/Switch").known_name, None);
+    assert_eq!(
+        by_name("Mods/jade/Switch").object,
+        Some(DeclaredObjectEdit::Construct {
+            class: hex(BinHash::hash_str(class)),
+            known_class: Some(class.to_owned()),
+        })
+    );
+    assert_eq!(
+        by_name("Mods/jade/Copy").object,
+        Some(DeclaredObjectEdit::Clone {
+            source: hex(BinHash::hash_str(config)),
+            known_source: Some(config.to_owned()),
+        })
     );
 }

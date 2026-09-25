@@ -1096,28 +1096,108 @@
   "workshop_controls_list_view_label": "List view",
   "workshop_controls_more_label": "More ways to start a project",
   "workshop_controls_new_project_label": "New project",
-  "workshop_declarations_clone_label": "clone of {source}",
-  "workshop_declarations_construct_label": "new {class}",
+  "workshop_declarations_clone_tag": "copy of",
+  "workshop_declarations_construct_tag": "new",
+  "workshop_declarations_copy_action": "Copy {what}",
   "workshop_declarations_empty_description": "This layer has no game_data manifest.",
+  "workshop_declarations_empty_module_hint": "Empty. Drag entries here, or write new edits here",
   "workshop_declarations_empty_title": "No manifest",
   "workshop_declarations_entries_label": "entries",
   "workshop_declarations_go_to_action": "Go to row",
+  "workshop_declarations_go_to_created_hint": "The game holds no copy of an object this module creates",
   "workshop_declarations_go_to_missing_description": "No game bin declares {entry}, or the object index is not built.",
   "workshop_declarations_go_to_missing_title": "Object not found",
+  "workshop_declarations_keys_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} key",
+        "countPlural=other": "{count} keys"
+      }
+    }
+  ],
+  "workshop_declarations_link_tag": "dependency",
+  "workshop_declarations_links_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} link",
+        "countPlural=other": "{count} links"
+      }
+    }
+  ],
   "workshop_declarations_load_error_label": "Does not load",
   "workshop_declarations_module_title": "Module {number}",
-  "workshop_declarations_no_modules_description": "The manifest lists no modules.",
-  "workshop_declarations_no_modules_title": "Nothing declared",
+  "workshop_declarations_modules_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} module",
+        "countPlural=other": "{count} modules"
+      }
+    }
+  ],
+  "workshop_declarations_more_action": "More actions",
+  "workshop_declarations_move_down_action": "Move down",
+  "workshop_declarations_move_up_action": "Move up",
+  "workshop_declarations_new_module_action": "New module",
+  "workshop_declarations_new_module_ellipsis_action": "New module…",
+  "workshop_declarations_objects_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} object",
+        "countPlural=other": "{count} objects"
+      }
+    }
+  ],
+  "workshop_declarations_open_action": "Open",
   "workshop_declarations_outline_action": "Outline",
   "workshop_declarations_outline_label": "Declarations outline",
+  "workshop_declarations_override_tag": "override",
+  "workshop_declarations_overrides_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} override",
+        "countPlural=other": "{count} overrides"
+      }
+    }
+  ],
   "workshop_declarations_raw_action": "Raw",
   "workshop_declarations_raw_label": "Manifest text",
   "workshop_declarations_remove_label": "removed",
+  "workshop_declarations_remove_module_action": "Remove module",
+  "workshop_declarations_remove_module_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Its {count} key and the comment lines above it leave the manifest. There is no undo.",
+        "countPlural=other": "Its {count} keys and the comment lines above it leave the manifest. There is no undo."
+      }
+    }
+  ],
+  "workshop_declarations_remove_module_heading": "Remove {module}?",
+  "workshop_declarations_remove_module_title": "Remove module",
+  "workshop_declarations_rename_action": "Rename",
+  "workshop_declarations_show_in_text_action": "Show in text",
   "workshop_declarations_source_label": "from {file}",
+  "workshop_declarations_stop_writing_here_action": "Stop writing new edits here",
+  "workshop_declarations_times_label": "{count} ×",
   "workshop_declarations_title": "Game data",
+  "workshop_declarations_value_label": "value",
   "workshop_declarations_view_empty_description": "Edits to game bins, from each layer's game_data manifest",
   "workshop_declarations_view_empty_title": "No declarations",
   "workshop_declarations_view_label": "View",
+  "workshop_declarations_write_here_action": "Write new edits here",
+  "workshop_declarations_writes_here_hint": "Edits made in a game bin of this layer join this module",
+  "workshop_declarations_writes_here_label": "New edits",
   "workshop_delete_action": "Delete Project",
   "workshop_delete_description": "This will permanently delete the project folder and all its contents. This action cannot be undone.",
   "workshop_delete_heading": "Are you sure you want to delete “{name}”?",

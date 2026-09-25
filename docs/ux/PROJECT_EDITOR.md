@@ -4,6 +4,8 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
+| 2026-09-25 | Read a manifest as one line per key, and act on its modules in place  |
 | 2026-09-24 | Read a layer's game data manifest as an outline                       |
 | 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
@@ -12,9 +14,6 @@
 | 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
 | 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
 | 2026-09-14 | Walk every bin for an embedded class and an object's incoming links   |
-| 2026-09-12 | Fill the primary side panel from a rail of views                      |
-| 2026-09-12 | Write a project's readme beside its rendered half                     |
-| 2026-09-12 | Report what the ignore rules left out of a package                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -44,84 +43,84 @@ This table holds every major feature of the editor. A status word has one meanin
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature                | Status      | Note                                                               |
-| ---------------------- | ----------- | ------------------------------------------------------------------ |
-| Layer file tree        | Available   | Moves to the secondary side panel                                  |
-| Mod details document   | Available   | -                                                                  |
-| String overrides       | Available   | -                                                                  |
-| Tab strip, per project | Available   | -                                                                  |
-| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
-| Reveal in Files        | Available   | A file tab's row, in the layer files or the game files             |
-| Group lock             | Available   | A locked group takes only what a gesture aims at it                |
-| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
-| Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
-| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group    |
-| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules              |
-| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
-| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
-| Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
-| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked   |
-| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty       |
-| Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
-| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
-| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it         |
-| Panel host choice      | Planned     | Either side panel accepts any panel type                           |
-| Tree expansion rules   | Planned     | Stops the full expand of every directory                           |
-| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
-| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                       |
-| Directory size and bar | Planned     | Needs a size total for each directory                              |
-| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains       |
-| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains        |
-| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width  |
-| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains       |
-| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode             |
-| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains    |
-| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains     |
-| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views         |
-| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains       |
-| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
-| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
-| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
-| Object tab             | Available   | One declaration as a document. ADR-0028                            |
-| Objects browser        | Available   | Every object of the install, one tree over its paths               |
-| References document    | Available   | A class's objects from the index, the rest from a walk             |
-| Mesh preview           | Planned     | A model in a small viewport                                        |
-| Modified time          | Planned     | Needs a time field in the content scan                             |
-| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
-| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar             |
-| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains           |
-| Scoped game browser    | Available   | One tab for each archive, from either list of archives             |
-| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings          |
-| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain           |
-| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick             |
-| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once            |
-| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                  |
-| Held mark              | Proposed    | A game row that the selected layer holds. No backend work          |
-| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer           |
-| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                    |
-| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view           |
-| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                |
-| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
-| Source control section | Planned     | Git history for the declarative data                               |
-| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
-| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it      |
-| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
-| Project bar            | Available   | Takes the header's middle, from the project name title             |
-| Command palette        | Available   | The project, the game and the bin objects of both halves           |
-| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions |
-| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place |
-| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed |
-| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
-| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories    |
-| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
-| Merged layer view      | Proposed    | Names the layer that wins for each path                            |
-| Layer diff             | Proposed    | Compares one path across two layers                                |
-| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md) |
-| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
-| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`        |
-| Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
-| Game data document     | In progress | Outline and raw text, read-only. Apply diagnostics remain          |
-| Declarations view      | In progress | Layers, modules and entries in the rail. Load errors only          |
+| Feature                | Status      | Note                                                                     |
+| ---------------------- | ----------- | ------------------------------------------------------------------------ |
+| Layer file tree        | Available   | Moves to the secondary side panel                                        |
+| Mod details document   | Available   | -                                                                        |
+| String overrides       | Available   | -                                                                        |
+| Tab strip, per project | Available   | -                                                                        |
+| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock       |
+| Reveal in Files        | Available   | A file tab's row, in the layer files or the game files                   |
+| Group lock             | Available   | A locked group takes only what a gesture aims at it                      |
+| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document          |
+| Quit guard             | Available   | A window close asks while a document holds unsaved edits                 |
+| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group          |
+| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules                    |
+| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves              |
+| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over                     |
+| Secondary side panel   | In progress | Holds the file tree and the asset inspector                              |
+| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked         |
+| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty             |
+| Tree search            | Planned     | Reads every layer, and groups a result by layer                          |
+| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name             |
+| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it               |
+| Panel host choice      | Planned     | Either side panel accepts any panel type                                 |
+| Tree expansion rules   | Planned     | Stops the full expand of every directory                                 |
+| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer                   |
+| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                             |
+| Directory size and bar | Planned     | Needs a size total for each directory                                    |
+| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains             |
+| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains              |
+| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width        |
+| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains             |
+| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode                   |
+| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains          |
+| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains           |
+| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views               |
+| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains             |
+| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                              |
+| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                      |
+| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)                 |
+| Object tab             | Available   | One declaration as a document. ADR-0028                                  |
+| Objects browser        | Available   | Every object of the install, one tree over its paths                     |
+| References document    | Available   | A class's objects from the index, the rest from a walk                   |
+| Mesh preview           | Planned     | A model in a small viewport                                              |
+| Modified time          | Planned     | Needs a time field in the content scan                                   |
+| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index                   |
+| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar                   |
+| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains                 |
+| Scoped game browser    | Available   | One tab for each archive, from either list of archives                   |
+| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings                |
+| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain                 |
+| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick                   |
+| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once                  |
+| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                        |
+| Held mark              | Proposed    | A game row that the selected layer holds. No backend work                |
+| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer                 |
+| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                          |
+| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view                 |
+| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                      |
+| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**                     |
+| Source control section | Planned     | Git history for the declarative data                                     |
+| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                          |
+| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it            |
+| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains              |
+| Project bar            | Available   | Takes the header's middle, from the project name title                   |
+| Command palette        | Available   | The project, the game and the bin objects of both halves                 |
+| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions       |
+| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place       |
+| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed       |
+| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                      |
+| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories          |
+| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for               |
+| Merged layer view      | Proposed    | Names the layer that wins for each path                                  |
+| Layer diff             | Proposed    | Compares one path across two layers                                      |
+| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md)       |
+| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent                    |
+| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`              |
+| Texture facts          | Available   | In the preview's status strip. The inspector row remains                 |
+| Game data document     | In progress | One line per key, module actions, raw text read-only. Diagnostics remain |
+| Declarations view      | In progress | Layers, modules and entries in the rail, with the module actions         |
 
 ## Scope
 
@@ -161,24 +160,85 @@ not describe one yet.
 A layer's `game_data` manifest opens as a document of its own, from its row in the layer
 files or from the Declarations view. The document has two views.
 
-| View    | What it shows                                                       |
-| ------- | ------------------------------------------------------------------- |
-| Outline | Each module, the entries it names, and each signed key with a value |
-| Raw     | The manifest's text, read-only, with its line numbers               |
+| View    | What it shows                                                           |
+| ------- | ----------------------------------------------------------------------- |
+| Outline | Each module, then its overrides, entries, keys and links in apply order |
+| Raw     | The manifest's text, read-only, with its line numbers                   |
+
+The toolbar names the manifest's file and counts its modules and keys.
+
+#### Rows
+
+Every row is one line, and the outline reads the way the manifest does.
+
+| Row      | What it shows                                                                       |
+| -------- | ----------------------------------------------------------------------------------- |
+| Module   | Its name, what it edits, the comment above it, and a count of its objects and keys  |
+| Override | A `.ptch` file the module applies to its chunk                                      |
+| Entry    | An object the module edits, creates (`new` and its class) or removes (struck out)   |
+| Key      | A signed property path, then its value in a column every key of the document shares |
+| Link     | A dependency the module adds to its chunk's list, or removes from it                |
+| Empty    | Under a module that declares nothing yet, where to drag entries                     |
+| New      | The line that ends each layer and adds a module to it                               |
 
 A module is named by its place in the manifest, `Module 1`, until the manifest spells a name
-for it. A `target` module shows the chunk it names.
+for it. A `target` module names its chunk's file, the full path on hover. The comment lines
+directly above a module are its note: the block a remove or a move carries with it.
+
+An entry or a class spelled as a hash reads as the name the hashtables know for it, the hash
+beside it as a chip.
+
+A key's value fits its row. A one-line value reads as spelled, a game-copy reference as a link,
+and a struct as its kind and class, whether the manifest spells it as a tag or as `pointer:`
+with a `class`. A block list folds into brackets and a block mapping into braces, a nested
+value standing as `…`. The full value is on hover, and Show in text selects its lines in Raw.
 
 A key's Go to row, or `Enter` on the key, opens the game bin that declares the entry, on the
 row the key reaches. The object index gives the chunk: the one a `target` module names, else
-the first in the index's order. A path through a map key reveals the map's own row.
+the first in the index's order. A path through a map key reveals the map's own row. An object
+the module creates is in no game bin, so it has no Go to row.
+
+#### Module actions
+
+A row's context menu and a module's kebab carry the same list. The Declarations view offers
+them on its rows too, and lists every layer, one with no manifest included, each ending in a New
+module line.
+
+| Action               | Where                   | Key         | What it does                                              |
+| -------------------- | ----------------------- | ----------- | --------------------------------------------------------- |
+| Rename               | Module                  | `F2`        | Types over the name in place. Empty clears it             |
+| Write new edits here | `entries` module        |             | Makes it the module a declared edit joins                 |
+| Move up, Move down   | Module                  | `Alt+↑` `↓` | Moves it one place in the apply order                     |
+| Remove module        | Module                  | `Delete`    | Asks, then takes it and the comment above it out          |
+| Move to module       | `entries` entry and key |             | Carries the keys to another `entries` module              |
+| New module           | Layer, module, New line | `Enter`     | Adds an unnamed module at the end and types over its name |
+| Show in text         | Any row                 |             | Opens Raw with the row's lines selected                   |
+
+New module writes a module with no entry, `entries: {}`, which league-mod loads as a module
+that applies nothing (ADR-0054). Move to module ends with New module, which makes a module and
+moves the keys into it, then types over its name. A layer with no manifest offers New module
+in its empty document, and the first module starts the manifest.
+
+A named module stays when a move or a drop takes its last entry. An unnamed one goes.
+
+Rows drag to organize the manifest. A module dragged over another lands above it when that one
+is ahead of it and below it otherwise, and a line marks where. An entry or a key of an `entries`
+module lands in the `entries` module it is dropped on, which the drop tints. Nothing drags across
+layers, and a `target` module takes no dropped entry. Module rows carry Move up and Move down on
+hover beside the kebab.
+
+A double click on a module renames it too. Write new edits here also selects the module's layer,
+since a declared edit writes to the selected layer (ADR-0048). The chosen module carries the
+New edits mark.
+
+Remove is the one action with a question, because nothing here undoes it. The actions write
+the manifest's text and every open declared document applies it again.
 
 A manifest that does not load opens on its text, with the line the error names marked and
 selected. The error is under the text. The outline and the view follow the file: a declared
 edit and a return to the window both read it again.
 
-Both views read. The manifest is edited through the declared bin (ADR-0042), or outside the
-app.
+Raw reads. Keys are written through the declared bin (ADR-0042), or outside the app.
 
 ## Layout
 
