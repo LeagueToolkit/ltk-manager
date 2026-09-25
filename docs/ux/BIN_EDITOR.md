@@ -74,6 +74,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Primitive picker      | Available   | The primitive's class, its fields, and a sketch of what it draws |
 | In-document search    | Available   | The bar's `@` scope over the open rows                           |
 | Leaf editing          | In progress | The primitive widgets, and the patch that carries an edit        |
+| Path field            | In progress | Project and game files suggested in a `file` or path string edit |
 | Property editing      | In progress | Add and remove a property inline, at the schema's default        |
 | Container editing     | In progress | List items, map entries, options and pointers, inline            |
 | Autosave              | In progress | The strings editor's debounce, saved as a delta. ADR-0040        |
@@ -2506,6 +2507,51 @@ A value drawn as a chip - a string naming a file, a `hash`, a `link`, a `file` -
 and the row's edit action opens a field over it holding the string, the name, or the hex. A
 name typed into a `hash` or a `link` is hashed in Rust. An integer an enum table reads edits
 through a select of the engine's words, and a flags value through its number.
+
+### A path field
+
+A `file` value and a string that names a file are edited in a path field. It is the edit field
+from "What an edit is", with a list of files below it, so a modder picks a file instead of pasting
+its path. The tree, the class views and the inspector use the same field.
+
+| Row                                | Edited in                                                          |
+| ---------------------------------- | ------------------------------------------------------------------ |
+| A `file`                           | A path field                                                       |
+| A string that contains a path      | A path field. A path is read as "A string that names a thing" says |
+| A string with a path property name | A path field                                                       |
+| Any other string                   | A plain field                                                      |
+
+A path property name ends in `texture`, `TextureName`, `TexturePath`, `MeshName`, `MapName`,
+`skeleton`, `SkeletonName`, `simpleSkin`, `AnimationFilePath`, `FilePath`, `FileName` or `Path`,
+or starts with `icon`. The exact names `mapName` and `path` are not path property names.
+
+| Draft                 | The list shows                                                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| Unchanged, or cleared | Project files of the expected kind, then **Same folder**: the files in the current path's folder |
+| Typed                 | Project files that match the terms, then **Game**: matching game files, ranked in Rust           |
+
+Terms match the same way as in the palette. The text is split on whitespace, and each term must
+appear as a contiguous substring. The frontend matches project files, because it already has the
+content tree. Rust matches game files over the game index. A path field search has a separate
+cancel ticket, so it does not cancel a palette search, and a palette search does not cancel it.
+
+Files of the kind the field expects rank first: a texture for `texture`, a mesh for `MeshName`.
+The kind comes from the extension of the current path, or from the property name when the field
+contains no path. In the game group, files from the document's archive rank next. Files of
+other kinds are still listed lower down, so a wrong kind guess does not hide a file.
+
+A path that the project also has appears once, in the project group, because the project's copy
+replaces the game's when the mod is enabled. Files excluded by the ignore rules are not listed.
+Chunks that no hashtable names are not listed, because they have no path.
+
+`Enter` picks the highlighted suggestion. While the draft is search terms, the top suggestion is
+highlighted. While the draft contains `/`, nothing is highlighted, so `Enter` writes the typed
+path. A string field that contains text other than a path highlights nothing, so `Enter` keeps its
+text. A click picks a suggestion. `Escape` discards the draft, as in any field.
+
+A picked path is written with its source's spelling: the author's casing for a project file, and
+lowercase for a game file. The game lowercases a path before it hashes it, so both spellings
+reference the same chunk.
 
 ### Adding a property
 

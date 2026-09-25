@@ -338,6 +338,106 @@ fn search_answers_the_queries_a_modder_types() {
     assert!(ranked(&index, "zed").is_empty());
 }
 
+/// The full path of each hit a preferring search ranked, in its order.
+fn ranked_preferring(index: &GameIndex, query: &str, preference: &SearchPreference) -> Vec<String> {
+    index
+        .search_preferring(query, preference, || false)
+        .hits
+        .into_iter()
+        .map(|hit| format!("{}/{}", hit.path, hit.name))
+        .collect()
+}
+
+/// An install where one query matches a texture and a mesh in each of two archives.
+fn glow_install() -> (TempDir, GameIndex) {
+    let paths = [
+        "assets/characters/ahri/glow.scb",
+        "assets/characters/ahri/glow_ring.dds",
+        "assets/shared/glow.scb",
+        "assets/shared/glow_ring.dds",
+    ];
+    let tmp = game_with(&[
+        ("Champions/Ahri.wad.client", &paths[0..2]),
+        ("Shared.wad.client", &paths[2..4]),
+    ]);
+    let index = build(tmp.path(), &paths);
+    (tmp, index)
+}
+
+#[test]
+fn search_preferring_ranks_the_expected_kind_first() {
+    let (_tmp, index) = glow_install();
+    let preference = SearchPreference {
+        extensions: vec!["dds".to_owned(), "tex".to_owned()],
+        archive: None,
+    };
+
+    let ranked = ranked_preferring(&index, "glow", &preference);
+
+    assert_eq!(
+        &ranked[..2],
+        [
+            "assets/shared/glow_ring.dds",
+            "assets/characters/ahri/glow_ring.dds"
+        ]
+    );
+    assert_eq!(ranked.len(), 4);
+}
+
+#[test]
+fn search_preferring_ranks_the_preferred_archive_first() {
+    let (_tmp, index) = glow_install();
+    let preference = SearchPreference {
+        extensions: Vec::new(),
+        archive: Some("ahri.WAD.client".to_owned()),
+    };
+
+    let ranked = ranked_preferring(&index, "glow", &preference);
+
+    assert_eq!(
+        &ranked[..2],
+        [
+            "assets/characters/ahri/glow.scb",
+            "assets/characters/ahri/glow_ring.dds"
+        ]
+    );
+}
+
+#[test]
+fn search_preferring_weighs_the_kind_above_the_archive() {
+    let (_tmp, index) = glow_install();
+    let preference = SearchPreference {
+        extensions: vec!["dds".to_owned()],
+        archive: Some("Ahri.wad.client".to_owned()),
+    };
+
+    assert_eq!(
+        ranked_preferring(&index, "glow", &preference),
+        [
+            "assets/characters/ahri/glow_ring.dds",
+            "assets/shared/glow_ring.dds",
+            "assets/characters/ahri/glow.scb",
+            "assets/shared/glow.scb",
+        ]
+    );
+}
+
+#[test]
+fn search_preferring_adds_no_row_the_query_does_not_match() {
+    let (_tmp, index) = glow_install();
+    let preference = SearchPreference {
+        extensions: vec!["dds".to_owned()],
+        archive: Some("Ahri.wad.client".to_owned()),
+    };
+
+    let mut preferred = ranked_preferring(&index, "ring", &preference);
+    let mut plain = ranked(&index, "ring");
+    preferred.sort();
+    plain.sort();
+
+    assert_eq!(preferred, plain);
+}
+
 #[test]
 fn search_obeys_the_shared_ranking_fixture() {
     #[derive(serde::Deserialize)]

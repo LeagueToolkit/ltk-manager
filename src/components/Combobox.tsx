@@ -344,6 +344,15 @@ export const ComboboxGroupLabel = forwardRef<HTMLDivElement, ComboboxGroupLabelP
 );
 ComboboxGroupLabel.displayName = "Combobox.GroupLabel";
 
+// Collection
+export type ComboboxCollectionProps = BaseCombobox.Collection.Props;
+
+/** Renders the `items` of one `Group`. Adds no DOM element. */
+export function ComboboxCollection(props: ComboboxCollectionProps) {
+  return <BaseCombobox.Collection {...props} />;
+}
+ComboboxCollection.displayName = "Combobox.Collection";
+
 // Status
 export interface ComboboxStatusProps extends Omit<BaseCombobox.Status.Props, "className"> {
   className?: string;
@@ -379,6 +388,7 @@ export const Combobox = {
   ChipRemove: ComboboxChipRemove,
   Group: ComboboxGroup,
   GroupLabel: ComboboxGroupLabel,
+  Collection: ComboboxCollection,
   Status: ComboboxStatus,
 };
 

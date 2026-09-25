@@ -93,7 +93,7 @@ function toRow(hit: GameSearchHit): RankedRow {
        against the ones the frontend ranked. Re-deriving either here would only
        invite the two scorers to disagree. */
     band: hit.band,
-    score: hit.score,
+    score: hit.score ?? 0,
     nameRanges: hit.nameRanges,
     pathRanges: hit.pathRanges,
   };
