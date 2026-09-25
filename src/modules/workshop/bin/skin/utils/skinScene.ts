@@ -12,11 +12,12 @@ import type {
 import {
   jointAnchor,
   type Pose,
-  programWith,
+  programPasses,
   type SubmeshBinding,
   type SubmeshProgram,
 } from "@/modules/viewport";
 
+import { assetKey } from "../../../preview/utils/assetRef";
 import { nameHash } from "../../shared/utils/binHash";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import type { Anchor, Joints, RigModel } from "../../vfx/engine/model/rig";
@@ -165,31 +166,47 @@ export function bindingOf<T>(
   };
 }
 
-/** Every material the skin draws with, each once, as the program read is asked for them. */
-export function materialHashes(skin: SkinModel): string[] {
-  const materials = [skin.material, ...skin.overrides.map((override) => override.material)];
-  return [
-    ...new Set(
-      materials.flatMap((material) =>
-        material === null || material.missing ? [] : [material.hash],
-      ),
-    ),
-  ];
+/** The materials one program read is asked for, and the file declaring them. */
+export interface MaterialRead {
+  /** The linked file declaring the materials, and null for the skin's own bin. */
+  readonly source: AssetRef | null;
+  readonly hashes: readonly string[];
 }
 
 /**
- * The translated program `submesh` draws under, its material's first pass that
- * translated, and null for a submesh whose material has none.
+ * Every material the skin draws with, each once, grouped by the file declaring it, as the
+ * program reads are asked for them. The skin's own bin comes first where it declares any.
  */
-export function programOf<T>(
+export function materialReads(skin: SkinModel): MaterialRead[] {
+  const materials = [skin.material, ...skin.overrides.map((override) => override.material)];
+  const reads = new Map<string, { source: AssetRef | null; hashes: Set<string> }>();
+  for (const material of materials) {
+    if (material === null || material.missing) continue;
+
+    const key = material.source === null ? "" : assetKey(material.source);
+    const read = reads.get(key) ?? { source: material.source, hashes: new Set<string>() };
+    read.hashes.add(material.hash);
+    reads.set(key, read);
+  }
+
+  return [...reads.values()]
+    .sort((a, b) => Number(a.source !== null) - Number(b.source !== null))
+    .map(({ source, hashes }) => ({ source, hashes: [...hashes] }));
+}
+
+/**
+ * The translated passes `submesh` draws under, in draw order: every pass of its material
+ * that translated, and none for a submesh whose material has none.
+ */
+export function programsOf<T>(
   skin: SkinModel,
   programs: readonly (MaterialProgram | null)[],
   textures: ReadonlyMap<string, T>,
   submesh: string,
-): SubmeshProgram<T> | null {
+): SubmeshProgram<T>[] {
   const material = submeshMaterial(skin, submesh);
-  if (material === null) return null;
-  return programWith(programs.find((each) => each?.hash === material.hash) ?? null, textures);
+  if (material === null) return [];
+  return programPasses(programs.find((each) => each?.hash === material.hash) ?? null, textures);
 }
 
 /** The material `submesh` draws with: its override's, else the skin's, and null for neither. */

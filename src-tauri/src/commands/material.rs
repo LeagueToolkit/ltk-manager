@@ -15,6 +15,7 @@ use ltk_manager_core::material::defs::ShaderDefsCache;
 use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
+use ltk_manager_game::map::MapPath;
 use ltk_manager_game::program::{
     read_programs, MaterialProgram, PassProgram, ProgramOptions, Resolution,
 };
@@ -32,10 +33,16 @@ use tauri::{AppHandle, Manager};
 pub enum MaterialSource {
     /// An open document, such as a skin's bin.
     Document { document: BinDocumentId },
-    /// A bin read for the call, such as a map's `.materials.bin`, resolved against the
+    /// A bin read for the call, such as a file a skin links, resolved against the
     /// project of `document` where one is open and against the install alone otherwise.
     File {
         asset: AssetRef,
+        document: Option<BinDocumentId>,
+    },
+    /// A map's `.materials.bin`, located as `read_map` locates it: in the project of
+    /// `document` first, where one is open, and in the install second.
+    Map {
+        map: MapPath,
         document: Option<BinDocumentId>,
     },
 }
@@ -93,6 +100,18 @@ pub async fn read_material_programs(
             MaterialSource::Document { document } => read_resolved(&app_handle, document, programs),
             MaterialSource::File { asset, document } => {
                 with_resolution(&app_handle, document, |names, assets| {
+                    let config = app_handle.state::<SettingsState>().config();
+                    let wads = app_handle.state::<WadCache>();
+                    let bin = BinDocument::parse(asset.read(&config, &wads)?)?;
+                    programs(&bin, names, assets)
+                })
+            }
+            MaterialSource::Map { map, document } => {
+                with_resolution(&app_handle, document, |names, assets| {
+                    let Some(asset) = assets.locate(&map.materials()) else {
+                        return Ok(vec![None; entries.len()]);
+                    };
+
                     let config = app_handle.state::<SettingsState>().config();
                     let wads = app_handle.state::<WadCache>();
                     let bin = BinDocument::parse(asset.read(&config, &wads)?)?;

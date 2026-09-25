@@ -14,8 +14,8 @@ import {
   meshBounds,
   PREVIEW_BOUNDS,
   previewGeometry,
+  programPasses,
   programTextureAssets,
-  programWith,
   useAssetTextures,
   useSceneColors,
   viewportQueries,
@@ -300,7 +300,7 @@ function MaterialRead({ document, entry, onOutcome }: ReadProps) {
 }
 
 /**
- * The material on a turning sphere, its first translated pass drawn with the game's shader.
+ * The material on a turning sphere, its translated passes drawn with the game's shaders.
  *
  * A material with no translated pass draws its base texture instead, and one with no
  * texture either reports an empty outcome.
@@ -315,10 +315,10 @@ function MaterialScene({ program, onOutcome }: { program: MaterialProgram; onOut
     concurrency: 2,
     report,
   });
-  const drawn = useMemo(() => programWith(program, textures), [program, textures]);
+  const drawn = useMemo(() => programPasses(program, textures), [program, textures]);
   const fallback = useMemo(() => fallbackTexture(program), [program]);
 
-  if (programWith(program, EMPTY_TEXTURES) === null) {
+  if (programPasses(program, EMPTY_TEXTURES).length === 0) {
     if (fallback === null) {
       return <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />;
     }
@@ -331,7 +331,7 @@ function MaterialScene({ program, onOutcome }: { program: MaterialProgram; onOut
       <Passes warps={false} softens={false} />
       <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={0} animate={false} fit="box" />
       <MaterialSubject
-        program={drawn}
+        programs={drawn}
         skinned={program.kind === "skinnedMesh"}
         shape="sphere"
         turntable

@@ -4,14 +4,14 @@ import type { AssetRef, MaterialProgram } from "@/lib/tauri";
 
 import type { SubmeshProgram } from "./programMaterial";
 
-/** The key a pass texture is loaded under, one per material and shader texture name. */
-export function programTextureKey(material: string, texture: string): string {
-  return `program:${material}:${texture}`;
+/** The key a pass texture is loaded under, one per material, pass and shader texture name. */
+export function programTextureKey(material: string, pass: number, texture: string): string {
+  return `program:${material}:${pass}:${texture}`;
 }
 
 /**
  * Every texture a translated program samples and this machine holds, keyed for
- * [`programWith`].
+ * [`programPasses`].
  */
 export function programTextureAssets(
   programs: readonly (MaterialProgram | null)[],
@@ -19,11 +19,11 @@ export function programTextureAssets(
   const assets = new Map<string, AssetRef>();
   for (const program of programs) {
     if (program === null) continue;
-    for (const pass of program.passes) {
+    for (const [index, pass] of program.passes.entries()) {
       if (pass.program.kind !== "ready") continue;
       for (const texture of pass.pass.textures) {
         if (texture.texture?.asset) {
-          assets.set(programTextureKey(program.hash, texture.name), texture.texture.asset);
+          assets.set(programTextureKey(program.hash, index, texture.name), texture.texture.asset);
         }
       }
     }
@@ -32,22 +32,39 @@ export function programTextureAssets(
 }
 
 /**
- * What draws under `program`: its first pass that translated with the textures of
- * `textures` it names, and null where no pass translated.
+ * What draws under `program`: every pass that translated, in draw order, each with the
+ * textures of `textures` it names. Empty where no pass translated.
  */
+export function programPasses<T = Texture>(
+  program: MaterialProgram | null,
+  textures: ReadonlyMap<string, T>,
+): SubmeshProgram<T>[] {
+  if (program === null) return [];
+
+  const passes: SubmeshProgram<T>[] = [];
+  for (const [index, pass] of program.passes.entries()) {
+    if (pass.program.kind !== "ready") continue;
+
+    const held = new Map<string, T>();
+    for (const texture of pass.pass.textures) {
+      const loaded = textures.get(programTextureKey(program.hash, index, texture.name));
+      if (loaded !== undefined) held.set(texture.name, loaded);
+    }
+    passes.push({
+      material: program.hash,
+      index,
+      pass: pass.pass,
+      program: pass.program,
+      textures: held,
+    });
+  }
+  return passes;
+}
+
+/** The first pass of `programPasses`, and null where no pass translated. */
 export function programWith<T = Texture>(
   program: MaterialProgram | null,
   textures: ReadonlyMap<string, T>,
 ): SubmeshProgram<T> | null {
-  if (program === null) return null;
-  for (const pass of program.passes) {
-    if (pass.program.kind !== "ready") continue;
-    const held = new Map<string, T>();
-    for (const texture of pass.pass.textures) {
-      const loaded = textures.get(programTextureKey(program.hash, texture.name));
-      if (loaded !== undefined) held.set(texture.name, loaded);
-    }
-    return { material: program.hash, pass: pass.pass, program: pass.program, textures: held };
-  }
-  return null;
+  return programPasses(program, textures)[0] ?? null;
 }

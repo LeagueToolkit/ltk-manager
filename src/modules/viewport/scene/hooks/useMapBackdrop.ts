@@ -213,28 +213,26 @@ export const backdropQueries = {
       retry: false,
     }),
 
-  /* The materials bin is read for the call rather than opened as a document, since a
-     backdrop stands outside any project's documents. */
+  /* The materials bin is located as `model` locates it, so a project's copy answers
+     before the install's and the programs read the same materials the slots do. */
   programs: (
-    materials: AssetRef | null,
+    map: MapPath | null,
     document: BinDocumentId | null,
     scope: ReadScope,
     paths: readonly string[] | null,
   ) =>
     // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the scope keys the document
     queryOptions<(MaterialProgram | null)[]>({
-      queryKey: [...BACKDROP_ROOT, "programs", materials, scope, paths],
+      queryKey: [...BACKDROP_ROOT, "programs", map, scope, paths],
       queryFn: async () => {
-        if (materials === null || paths === null) return [];
-        const answer = await api.bin.readMaterialPrograms(
-          { kind: "file", asset: materials, document },
-          paths,
-          { lowQuality: false },
-        );
+        if (map === null || paths === null) return [];
+        const answer = await api.bin.readMaterialPrograms({ kind: "map", map, document }, paths, {
+          lowQuality: false,
+        });
         if (!answer.ok) throw answer.error;
         return answer.value;
       },
-      enabled: materials !== null && paths !== null,
+      enabled: map !== null && paths !== null,
       staleTime: Infinity,
       retry: false,
     }),
@@ -368,12 +366,9 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     mips: true,
   });
   const shaders = source?.shaders === true;
-  const materialsFile = useQuery(
-    backdropQueries.chunk(shaders ? (source?.map ?? null) : null, MATERIALS_SUFFIX),
-  );
   const programsRead = useQuery(
     backdropQueries.programs(
-      shaders ? (materialsFile.data ?? null) : null,
+      shaders ? (source?.map ?? null) : null,
       source?.document ?? null,
       readScope(source),
       geometry.data?.materials ?? null,

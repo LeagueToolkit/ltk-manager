@@ -333,7 +333,7 @@ describe("ClassView over a material whose shader answers", () => {
               ],
               warnings: [
                 { kind: "noTexturePath", name: "Diffuse_Texture" },
-                { kind: "secondPass" },
+                { kind: "noShaderDefs" },
               ],
             },
           ],
@@ -365,7 +365,7 @@ describe("ClassView over a material whose shader answers", () => {
     renderView();
 
     expect(await screen.findByText("The shader did not build")).toBeInTheDocument();
-    expect(screen.getByText("Only the first pass draws")).toBeInTheDocument();
+    expect(screen.getByText("The shader defs were not opened")).toBeInTheDocument();
   });
 
   it("adds the material's own entry once the shader's default is edited", async () => {

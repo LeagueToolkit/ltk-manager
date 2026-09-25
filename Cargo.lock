@@ -3356,8 +3356,6 @@ dependencies = [
 [[package]]
 name = "ltk_mapgeo"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e47a32b3f3e52f0a19d00230f230da74808a0907db75df6f2b2f3826abd393d5"
 dependencies = [
  "bitflags 2.13.1",
  "byteorder",

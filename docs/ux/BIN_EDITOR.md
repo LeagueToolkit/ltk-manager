@@ -1604,7 +1604,7 @@ judged against, and the stack showed only the rows.
 | StaticMaterialDef  Characters/Ahri/Skins/Skin0/Materials/Body   [Material|...]   |
 +------------------------------------------------------+---------------------------+
 | PREVIEW   [Sphere v][Turntable][Ground] [Cam v][Fit] | INSPECTOR                 |
-| Only the first pass draws                            | v IDENTITY                |
+| The shader defs were not opened                      | v IDENTITY                |
 |                                                      | v SAMPLERS                |
 |                    (the shape)                       | v PARAMS                  |
 |                                                      | v SWITCHES                |
@@ -1620,11 +1620,11 @@ the preview's corner, Draw on a shape, swaps in the shape. The toggle is a displ
 material no skin of its file links draws on the shape, with no toggle.
 
 **The Objects grid draws a material as a thumbnail of its shape.** A sphere under the material's
-first translated pass, captured once its textures land, and drawing live while the pointer holds
+translated passes, captured once their textures land, and drawing live while the pointer holds
 the tile, as a particle system's does. A material with no pass that translated keeps the class
 glyph and the failure mark.
 
-**A shape draws the first pass that translated.** A sphere by default, or a cube, a plane or a
+**A shape draws every pass that translated, in order.** A sphere by default, or a cube, a plane or a
 cylinder. The shape, the turntable and the ground are display preferences, so every material
 opens on the ones a reader last picked. A skinned material draws
 on a shape bound to one bone, since its shader takes the world transform from the bones. A
@@ -1634,8 +1634,7 @@ it failed.
 
 **The preview's corner says why it draws what it does.** A pass whose shader did not build, with
 the reason, and the warnings about the material as a whole: no shader defs, no pass, a pass shader
-that resolves to nothing, a second pass that does not draw, and an animated material whose preview
-holds its static values. A material that draws as written shows nothing there. The shader ids and
+that resolves to nothing, and an animated material whose preview holds its static values. A material that draws as written shows nothing there. The shader ids and
 the define list stay out of the view, since no reader edits them.
 
 The preview reads the open document, so an edit reaches it once it lands, before the file is

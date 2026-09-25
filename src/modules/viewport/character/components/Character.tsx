@@ -8,6 +8,7 @@ import {
   IntType,
   type Material,
   Matrix4,
+  type Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   type RawShaderMaterial,
@@ -25,6 +26,7 @@ import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
+import { passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
 import { useCharacterLight } from "../../scene/state/characterLightContext";
@@ -52,10 +54,10 @@ export interface CharacterProps {
   /** What a submesh draws with, by its name. */
   readonly bindingOf: (submesh: string) => SubmeshBinding;
   /**
-   * The game's own shader a submesh draws with, by its name, and null to draw it with
-   * the stock material `bindingOf` names.
+   * The passes of the game's own shaders a submesh draws with, by its name, in draw order,
+   * and none to draw it with the stock material `bindingOf` names.
    */
-  readonly programOf?: (submesh: string) => SubmeshProgram | null;
+  readonly programsOf?: (submesh: string) => readonly SubmeshProgram[];
   /** A value a material's control holds, drawn in place of its program's own until let go. */
   readonly held?: HeldValue | null;
   /** What a submesh no texture or no material reaches is drawn in. */
@@ -85,6 +87,8 @@ const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null }
 /** What a hidden submesh drawn by a translated program binds to, which draws nothing. */
 const HIDDEN = new MeshBasicMaterial({ visible: false });
 
+const NO_PASSES: readonly SubmeshProgram[] = [];
+
 /** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
 const CLICK_SLOP = 4;
 
@@ -110,7 +114,7 @@ export function Character({
   pose,
   clock,
   bindingOf,
-  programOf,
+  programsOf,
   held = null,
   colors,
   hidden,
@@ -172,13 +176,30 @@ export function Character({
     };
   }, [skinned, rig]);
 
+  const depth = useMemo(
+    () =>
+      surface === "material" && programsOf !== undefined
+        ? Math.max(0, ...drawn.ranges.map((range) => programsOf(range.name).length))
+        : 0,
+    [surface, programsOf, drawn],
+  );
+  const twins = useMemo(() => passTwins(skinned, depth), [skinned, depth]);
+  useLayoutEffect(() => {
+    if (twins.length === 0) return;
+
+    skinned.add(...twins);
+    return () => {
+      skinned.remove(...twins);
+    };
+  }, [skinned, twins]);
+
   const scrolling = useRef<readonly Scrolling[]>([]);
   const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    scrolling.current = bind(skinned, shaded, drawn.ranges, {
+    scrolling.current = bind(skinned, twins, shaded, drawn.ranges, {
       bindingOf,
-      programOf,
+      programsOf,
       programs,
       colors,
       hidden,
@@ -187,10 +208,11 @@ export function Character({
     });
   }, [
     skinned,
+    twins,
     shaded,
     drawn,
     bindingOf,
-    programOf,
+    programsOf,
     programs,
     colors,
     hidden,
@@ -312,7 +334,7 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 /** What a submesh's material is bound from. */
 interface Bind {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
-  readonly programOf: ((submesh: string) => SubmeshProgram | null) | undefined;
+  readonly programsOf: ((submesh: string) => readonly SubmeshProgram[]) | undefined;
   /** The program materials made so far, one per material and permutation. */
   readonly programs: ProgramMaterials;
   readonly colors: FallbackColors;
@@ -339,29 +361,41 @@ interface Scrolling {
  * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
  * maps that scroll.
  *
- * A submesh with a translated program draws under it instead, one material per program
- * for the program's life, with whatever textures have arrived bound on every pass here.
- * A program material neither dims nor scrolls, since the shader owns its colour.
+ * A submesh with translated programs draws its first pass instead, and each later pass on
+ * the twin of that layer. There is one material per pass for the program's life, with
+ * whatever textures have arrived bound on every bind here. A program material neither
+ * dims nor scrolls, since the shader owns its colour.
  */
 function bind(
   skinned: SkinnedMesh,
+  twins: readonly Mesh[],
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, programOf, programs, colors, hidden, highlighted, surface }: Bind,
+  { bindingOf, programsOf, programs, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
+  const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
   const used = new Set<RawShaderMaterial>();
   ranges.forEach((range, at) => {
-    const program = surface === "material" ? (programOf?.(range.name) ?? null) : null;
-    if (program !== null) {
-      const material = programs.acquire(program);
+    const passes = surface === "material" ? (programsOf?.(range.name) ?? NO_PASSES) : NO_PASSES;
+    const [first, ...later] = passes;
+    if (first !== undefined) {
+      const shown = !skip.has(range.name.toLowerCase());
+      const material = programs.acquire(first);
       used.add(material);
       /* Every submesh of one material shares its program material, so a hidden one swaps
          in a material of its own rather than hiding the rest. */
-      bound[at] = skip.has(range.name.toLowerCase()) ? HIDDEN : material;
+      bound[at] = shown ? material : HIDDEN;
+
+      later.forEach((program, layer) => {
+        const drawn = programs.acquire(program);
+        used.add(drawn);
+        const twin = layers[layer];
+        if (shown && twin !== undefined) twin[at] = drawn;
+      });
       return;
     }
     const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
@@ -374,6 +408,10 @@ function bind(
     if (picked !== null && range.name.toLowerCase() !== picked) {
       material.color.multiplyScalar(DIMMED);
     }
+  });
+
+  twins.forEach((twin, layer) => {
+    twin.material = layers[layer] ?? [];
   });
   programs.retain(used);
   return scrolling;

@@ -62,10 +62,12 @@ import type { EngineEnvironment } from "./engineEnvironment";
 /** A pass whose two stages translated. */
 export type ReadyProgram = Extract<ProgramRead, { kind: "ready" }>;
 
-/** What one submesh draws with under the game's own shader. */
+/** One pass a submesh draws with under the game's own shader. */
 export interface SubmeshProgram<T = Texture> {
   /** The material's path hash, which a value held in its inspector is addressed by. */
   readonly material: string;
+  /** The pass's place in the material's technique, which the passes draw in. */
+  readonly index: number;
   readonly pass: ResolvedPass;
   readonly program: ReadyProgram;
   /** The textures the pass names that this machine holds, by the shader texture's name. */
