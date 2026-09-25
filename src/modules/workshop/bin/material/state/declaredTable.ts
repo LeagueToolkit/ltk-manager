@@ -37,6 +37,8 @@ export interface RowState {
   readonly toDefault: (() => void) | null;
   /** Why the row's last edit was refused. */
   readonly refusal: string | null;
+  /** How many edits of the row have landed, which restarts the landing pulse. */
+  readonly pulse: number;
 }
 
 export const RowStateContext = createContext<RowState | null>(null);

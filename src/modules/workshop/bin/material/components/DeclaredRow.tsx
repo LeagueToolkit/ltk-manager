@@ -6,25 +6,39 @@ import {
 } from "@phosphor-icons/react";
 import { type ReactNode, use } from "react";
 
-import { type DataTableColumn, IconButton, Menu, Tooltip } from "@/components";
+import { type DataTableColumn, IconButton, Menu, Table, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { fieldsOf, TextCell } from "../../classes/components/ClassCells";
+import { nameColumn as fittedColumn } from "../../shared/utils/textCut";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
 import { useRowEdits } from "../hooks/useRowEdits";
 import { RowStateContext, TableContext } from "../state/declaredTable";
 import type { DeclaredRow } from "../utils/declaredRows";
 
-export const NAME_WIDTH = "flex w-56 shrink-0 items-center gap-1";
-const ACTIONS_WIDTH = "flex w-14 shrink-0 items-center justify-end gap-0.5";
-const ROW_CLASS =
-  "group/row relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft";
+/** What the name column holds beside a name, in pixels: a row's mark and the gap before it. */
+const NAME_EXTRA = 18;
 
-/** A column heading, as wide as the cells under it. */
-export function Heading({ className, children }: { className: string; children: ReactNode }) {
-  return <span className={twMerge(className, "select-none")}>{children}</span>;
+/** The share of the table past which the name column cuts its names. */
+const NAME_CAP = "33cqw";
+
+/** The table a material's list draws as, its type at the row's own tier. */
+export const TABLE_CLASS = "w-full text-left text-mono-row";
+
+/* DS-VEIL, DS-RADIUS. The hover fills the row's cells, which round at its two ends. */
+export const ROW_CLASS =
+  "[&:hover>td]:bg-surface-veil-soft [&>td:first-child]:rounded-l-sm [&>td:first-child]:pl-1.5 [&>td:last-child]:rounded-r-sm [&>td:last-child]:pr-1.5";
+
+const CELL = "relative border-b-0 px-1 py-0.5 align-middle";
+const HEAD = "border-b-0 bg-transparent px-1 pt-0 pb-0.5 text-meta font-normal whitespace-nowrap";
+const NAME = "flex w-(--name-width) min-w-0 items-center gap-1";
+const ACTIONS = "flex w-12 items-center justify-end gap-0.5";
+
+/** The name column the material's tables share, as wide as the longest of `names`. */
+export function nameWidth(names: readonly string[]): string {
+  return fittedColumn(names, NAME_EXTRA, NAME_CAP);
 }
 
 /** The key a row's frame is kept under, which a declared row holds while its entry comes and goes. */
@@ -33,9 +47,9 @@ export function frameKey<D>(row: DeclaredRow<D>): string {
 }
 
 /**
- * One row of a declared table, marking what its edits did: a bar while the row differs from
- * its state before the session edited it, a pulse when an edit lands, a ring when one is
- * refused.
+ * One row of a declared table, handing its cells what its edits did: a bar while the row
+ * differs from its state before the session edited it, a pulse when an edit lands, a tint
+ * when one is refused.
  */
 export function DeclaredRowFrame<D>({
   row,
@@ -44,36 +58,71 @@ export function DeclaredRowFrame<D>({
   row: DeclaredRow<D>;
   children: ReactNode;
 }) {
-  const { state, scoped, pulse } = useRowEdits(row);
+  const { state, scoped } = useRowEdits(row);
   const element = row.element;
 
   return (
     <RowStateContext value={state}>
       <LeafEditContext value={scoped}>
-        {/* DS-VEIL, DS-RADIUS */}
-        <div
+        <Table.Row
           data-ui="DeclaredRowFrame"
           data-row-key={element === null ? undefined : rowKey(element)}
-          className={twMerge(ROW_CLASS, state.refusal !== null && "ring-1 ring-danger/50")}
+          className={twMerge("group/row", ROW_CLASS)}
         >
-          {/* DS-SETTING-GUTTER */}
-          {state.changed && (
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-y-0.5 left-0 w-0.5 rounded-full bg-accent-500/50"
-            />
-          )}
-          {pulse > 0 && (
-            <span
-              key={pulse}
-              aria-hidden
-              className="pointer-events-none absolute inset-0 animate-fade-out rounded-sm bg-accent-500/15"
-            />
-          )}
           {children}
-        </div>
+        </Table.Row>
       </LeafEditContext>
     </RowStateContext>
+  );
+}
+
+/**
+ * One cell of a declared row. The row's pulse and refusal are drawn in every cell, which
+ * tile into one band across the row.
+ */
+export function DeclaredCell({
+  className,
+  colSpan,
+  children,
+}: {
+  className?: string;
+  colSpan?: number;
+  children?: ReactNode;
+}) {
+  const state = use(RowStateContext);
+  const pulse = state?.pulse ?? 0;
+
+  return (
+    <Table.Cell
+      colSpan={colSpan}
+      className={twMerge(CELL, state?.refusal != null && "bg-danger/10", className)}
+    >
+      {pulse > 0 && (
+        <span
+          key={pulse}
+          aria-hidden
+          className="pointer-events-none absolute inset-0 animate-fade-out bg-accent-500/15"
+        />
+      )}
+      {children}
+    </Table.Cell>
+  );
+}
+
+/** A column's heading cell. */
+export function Heading({
+  className,
+  colSpan,
+  children,
+}: {
+  className?: string;
+  colSpan?: number;
+  children?: ReactNode;
+}) {
+  return (
+    <Table.Head colSpan={colSpan} className={twMerge(HEAD, className)}>
+      {children}
+    </Table.Head>
   );
 }
 
@@ -88,12 +137,21 @@ function NameCell<D>({ row }: { row: DeclaredRow<D> }) {
   const warning = table?.warnings.get(row.name);
 
   return (
-    <span className={twMerge(NAME_WIDTH, changed && "text-accent-300")}>
-      {nameRow === undefined && <span className="truncate select-text">{row.name}</span>}
-      {nameRow !== undefined && <TextCell row={nameRow} className="min-w-0" />}
-      {stray && <RowMark text={m.workshop_bin_material_undeclared_label()} />}
-      {warning !== undefined && <RowMark text={warning} />}
-    </span>
+    <DeclaredCell>
+      {/* DS-SETTING-GUTTER */}
+      {changed && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0.5 left-0 w-0.5 rounded-full bg-accent-500/50"
+        />
+      )}
+      <span className={twMerge(NAME, changed && "text-accent-300")} title={row.name}>
+        {nameRow === undefined && <span className="truncate select-text">{row.name}</span>}
+        {nameRow !== undefined && <TextCell row={nameRow} className="min-w-0" />}
+        {stray && <RowMark text={m.workshop_bin_material_undeclared_label()} />}
+        {warning !== undefined && <RowMark text={warning} />}
+      </span>
+    </DeclaredCell>
   );
 }
 
@@ -115,61 +173,63 @@ function RowMark({ text, tone = "warning" }: { text: string; tone?: "warning" | 
 /** The row's trailing seat: its refusal, its go-back, and a kebab of both actions. */
 function RowActions() {
   const state = use(RowStateContext);
-  if (state === null) return <span className={ACTIONS_WIDTH} />;
+  if (state === null) return <DeclaredCell className="pl-0" />;
 
   const { revert, revertLabel, toDefault, refusal } = state;
 
   return (
-    <span className={ACTIONS_WIDTH}>
-      {refusal !== null && <RowMark text={refusal} tone="danger" />}
-      {revert !== null && (
-        <Tooltip content={revertLabel}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={revertLabel}
-            icon={<ArrowCounterClockwiseIcon weight="bold" className="h-3 w-3" />}
-            onClick={revert}
-          />
-        </Tooltip>
-      )}
-      {(revert !== null || toDefault !== null) && (
-        <Menu.Root>
-          <Menu.Trigger
-            render={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                compact
-                aria-label={m.workshop_bin_material_row_actions_label()}
-                className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-                icon={<DotsThreeVerticalIcon weight="bold" className="h-3 w-3" />}
-              />
-            }
-          />
-          <Menu.Portal>
-            <Menu.Positioner align="end">
-              <Menu.Popup>
-                {revert !== null && (
-                  <Menu.Item
-                    icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
-                    onClick={revert}
-                  >
-                    {revertLabel}
-                  </Menu.Item>
-                )}
-                {toDefault !== null && (
-                  <Menu.Item icon={<EraserIcon className="h-4 w-4" />} onClick={toDefault}>
-                    {m.workshop_bin_material_reset_action()}
-                  </Menu.Item>
-                )}
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      )}
-    </span>
+    <DeclaredCell className="pl-0">
+      <span className={ACTIONS}>
+        {refusal !== null && <RowMark text={refusal} tone="danger" />}
+        {revert !== null && (
+          <Tooltip content={revertLabel}>
+            <IconButton
+              variant="ghost"
+              size="xs"
+              compact
+              aria-label={revertLabel}
+              icon={<ArrowCounterClockwiseIcon weight="bold" className="h-3 w-3" />}
+              onClick={revert}
+            />
+          </Tooltip>
+        )}
+        {(revert !== null || toDefault !== null) && (
+          <Menu.Root>
+            <Menu.Trigger
+              render={
+                <IconButton
+                  variant="ghost"
+                  size="xs"
+                  compact
+                  aria-label={m.workshop_bin_material_row_actions_label()}
+                  className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
+                  icon={<DotsThreeVerticalIcon weight="bold" className="h-3 w-3" />}
+                />
+              }
+            />
+            <Menu.Portal>
+              <Menu.Positioner align="end">
+                <Menu.Popup>
+                  {revert !== null && (
+                    <Menu.Item
+                      icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
+                      onClick={revert}
+                    >
+                      {revertLabel}
+                    </Menu.Item>
+                  )}
+                  {toDefault !== null && (
+                    <Menu.Item icon={<EraserIcon className="h-4 w-4" />} onClick={toDefault}>
+                      {m.workshop_bin_material_reset_action()}
+                    </Menu.Item>
+                  )}
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        )}
+      </span>
+    </DeclaredCell>
   );
 }
 
@@ -177,7 +237,11 @@ function RowActions() {
 export function nameColumn<D>(): DataTableColumn<DeclaredRow<D>> {
   return {
     id: "name",
-    header: () => <Heading className={NAME_WIDTH}>{m.workshop_bin_material_name_label()}</Heading>,
+    header: () => (
+      <Heading>
+        <span className={NAME}>{m.workshop_bin_material_name_label()}</span>
+      </Heading>
+    ),
     cell: ({ row }) => <NameCell row={row.original} />,
   };
 }
@@ -186,7 +250,11 @@ export function nameColumn<D>(): DataTableColumn<DeclaredRow<D>> {
 export function actionsColumn<D>(): DataTableColumn<DeclaredRow<D>> {
   return {
     id: "actions",
-    header: () => <span className={ACTIONS_WIDTH} />,
+    header: () => (
+      <Heading className="pl-0">
+        <span className={ACTIONS} />
+      </Heading>
+    ),
     cell: () => <RowActions />,
   };
 }

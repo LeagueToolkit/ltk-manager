@@ -6,8 +6,8 @@ import type { BinRow } from "@/lib/tauri";
 import { useSectionOpen, useToggleSection } from "@/stores";
 import { twMerge } from "@/utils";
 
+import { MaterialMacros } from "../../material/components/MaterialMacros";
 import {
-  MaterialMacros,
   MaterialParams,
   MaterialSamplers,
   MaterialSwitches,

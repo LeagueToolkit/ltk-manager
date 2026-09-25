@@ -1,55 +1,30 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, use } from "react";
 
 import { Checkbox, type DataTableColumn } from "@/components";
 import { m } from "@/i18n";
-import type {
-  BinRow,
-  MaterialWarning,
-  SchemaParam,
-  SchemaSwitch,
-  SchemaTexture,
-  ShaderSchema,
-} from "@/lib/tauri";
+import type { BinRow, SchemaParam, SchemaSwitch, SchemaTexture } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import {
-  Cell,
-  elementsOf,
-  TableRows,
-  type ViewContext,
-  type WidgetProps,
-} from "../../classes/components/ClassCells";
+import { Cell, fieldsOf, type WidgetProps } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
 import { RowValue } from "../../tree/components/BinRow";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
-import { materialQueries } from "../api/materialQueries";
+import { rowKey } from "../../tree/utils/binRows";
 import {
   useElementField,
   useEntryWrite,
   useMaterialEntry,
   useOverride,
 } from "../hooks/useEntryEdits";
-import type { ListKind } from "../state/declaredTable";
-import { componentCount, type DeclaredRow, paramDefault } from "../utils/declaredRows";
+import { useDeclaredNames, useSchema, useTextureWarnings } from "../hooks/useShaderSchema";
+import { type ListKind, TableContext } from "../state/declaredTable";
+import { type DeclaredRow, paramDefault } from "../utils/declaredRows";
 import { setField } from "../utils/entryEdits";
-import { warningText } from "../utils/materialWarnings";
-import { actionsColumn, Heading, NAME_WIDTH, nameColumn } from "./DeclaredRow";
+import { DeclaredCell, Heading } from "./DeclaredRow";
 import { DeclaredTable } from "./DeclaredTable";
-import { LiveParam } from "./LiveParam";
-
-/** The fields of the three material list classes, by hash. */
-const FIELD = {
-  name: nameHash("name"),
-  value: nameHash("value"),
-  on: nameHash("on"),
-  textureName: nameHash("TextureName"),
-  texturePath: nameHash("texturePath"),
-  addressU: nameHash("addressU"),
-  addressV: nameHash("addressV"),
-  addressW: nameHash("addressW"),
-} as const;
+import { isColor, LiveParam, ParamReadout, SwatchLaneContext } from "./LiveParam";
+import { DEFAULT_BOX, FIELD, Unset, VALUE_WIDTH, ValueCell } from "./MaterialCells";
 
 const PARAMS: ListKind = {
   list: nameHash("paramValues"),
@@ -67,72 +42,19 @@ const SWITCHES: ListKind = {
   nameField: FIELD.name,
 };
 
-const VALUE_WIDTH = "flex min-w-0 flex-1 items-center";
-const ADDRESS_WIDTH = "flex w-16 shrink-0 items-center";
+const ADDRESSES = ["addressU", "addressV", "addressW"] as const;
+
+/* An address mode is a small integer, so its box needs none of a scalar's room. */
+const ADDRESS_WIDTH = "flex min-w-0 items-center [--bin-scalar-width:2rem]";
 const SWITCH_BOX = "flex shrink-0 items-center";
+/* A parameter the shader does not declare draws in the tree's own leaf editor. */
+const UNDECLARED_PARAM = "flex min-w-0 flex-1 items-center [--bin-component-width:3rem]";
 
-/** The warnings the program read raises about one texture, which mark its row. */
-const TEXTURE_WARNINGS: ReadonlySet<MaterialWarning["kind"]> = new Set([
-  "stringTexturePath",
-  "textureNotFound",
-  "noTexturePath",
-]);
-
-function useProgram(view: ViewContext) {
-  return useQuery(materialQueries.program(view.document, view.entry || null)).data ?? null;
-}
-
-/** The pass shader's declarations, once the program read answers them. */
-function useSchema(view: ViewContext): ShaderSchema | null {
-  return useProgram(view)?.passes.find((each) => each.pass.schema !== null)?.pass.schema ?? null;
-}
-
-/** What the program read warns about each texture, by its name. */
-function useTextureWarnings(view: ViewContext): ReadonlyMap<string, string> {
-  const warnings = useProgram(view)?.warnings ?? [];
-  const byName = new Map<string, string>();
-  for (const warning of warnings) {
-    if (TEXTURE_WARNINGS.has(warning.kind) && "name" in warning) {
-      byName.set(warning.name, warningText(warning));
-    }
-  }
-  return byName;
-}
-
-/* DS-RADIUS. The shape of a written field with its surface taken away, which is how every
-   value the shader supplies reads. */
-const DEFAULT_BOX =
-  "flex min-w-0 items-center rounded-sm border border-dashed border-surface-700 px-1 py-0.5 font-mono text-xs text-surface-500";
-
-/** An entry that leaves `field` unwritten, which the shader's default then fills. */
-function Unset({ className }: { className: string }) {
-  return (
-    <span className={className}>
-      <span className={twMerge(DEFAULT_BOX, "select-none")}>
-        {m.workshop_bin_material_default_label()}
-      </span>
-    </span>
-  );
-}
-
-/** The editable value of `field` under `element`, or its default where it is unwritten. */
-function ValueCell({
-  element,
-  field,
-  className,
-}: {
-  element: BinRow;
-  field: string;
-  className: string;
-}) {
-  const row = useElementField(element, field);
-  if (row === undefined) return <Unset className={className} />;
-  return (
-    <Cell row={row} className={className}>
-      <RowValue row={row} />
-    </Cell>
-  );
-}
+/* The column that takes the room the others spare. */
+const FILL = "w-full";
+/* The same, for a column whose content cuts itself to the room it is given, down to enough to
+   read a file name. A narrower pane scrolls the table instead. */
+const FILL_CUT = "w-full max-w-0 min-w-28";
 
 /**
  * The shader's default for a row the material does not set, muted, and a press that adds
@@ -174,22 +96,9 @@ function Inherited({
   );
 }
 
-/** A default written as the components its mask selects. */
-function paramText(param: SchemaParam): string {
-  return paramDefault(param)
-    .slice(0, Math.max(1, componentCount(param.fields)))
-    .map((value) => String(Number(value.toFixed(3))))
-    .join(", ");
-}
-
 function ParamValue({ row }: { row: DeclaredRow<SchemaParam> }) {
-  if (row.element !== null && row.declared !== null) {
-    return <SetParam element={row.element} param={row.declared} />;
-  }
-  if (row.element !== null) {
-    return <ValueCell element={row.element} field={FIELD.value} className={VALUE_WIDTH} />;
-  }
-  if (row.declared === null) return <span className={VALUE_WIDTH} />;
+  if (row.element !== null) return <WrittenParam element={row.element} param={row.declared} />;
+  if (row.declared === null) return null;
   return <InheritedParam name={row.name} param={row.declared} />;
 }
 
@@ -198,37 +107,46 @@ function InheritedParam({ name, param }: { name: string; param: SchemaParam }) {
   const override = useOverride();
   const material = useMaterialEntry();
   if (override === null) {
-    return (
-      <Inherited className={VALUE_WIDTH} onOverride={null}>
-        {paramText(param)}
-      </Inherited>
-    );
+    return <ParamReadout param={param} values={paramDefault(param)} inherited />;
   }
 
   return (
-    <span className={VALUE_WIDTH}>
-      <LiveParam
-        param={param}
-        material={material}
-        stored={null}
-        write={(values) =>
-          override(name, (at) => setField(at, FIELD.value, { type: "vector", values }))
-        }
-      />
-    </span>
+    <LiveParam
+      param={param}
+      material={material}
+      stored={null}
+      write={(values) =>
+        override(name, (at) => setField(at, FIELD.value, { type: "vector", values }))
+      }
+    />
   );
 }
 
-/** A declared parameter the material has an entry for, drawn live while a field of it is held. */
-function SetParam({ element, param }: { element: BinRow; param: SchemaParam }) {
+/**
+ * A parameter the material has an entry for, drawn live while a field of it is held. An entry
+ * the shader does not declare takes the tree's leaf editor, having no preview to draw live.
+ */
+function WrittenParam({ element, param }: { element: BinRow; param: SchemaParam | null }) {
   const material = useMaterialEntry();
   const value = useElementField(element, FIELD.value);
   const edit = use(LeafEditContext);
   const writeEntry = useEntryWrite();
   const vector = value?.value.type === "vector" ? value.value : null;
-  if (edit === null || writeEntry === null || (value !== undefined && vector === null)) {
-    return <ValueCell element={element} field={FIELD.value} className={VALUE_WIDTH} />;
+  const fallback = <ValueCell element={element} field={FIELD.value} className={UNDECLARED_PARAM} />;
+  if (value !== undefined && vector === null) return fallback;
+
+  if (edit === null || writeEntry === null) {
+    if (vector !== null) {
+      return (
+        <Cell row={value} className={VALUE_WIDTH}>
+          <ParamReadout param={param} values={vector.values} inherited={false} />
+        </Cell>
+      );
+    }
+    if (param === null) return fallback;
+    return <ParamReadout param={param} values={paramDefault(param)} inherited />;
   }
+  if (param === null) return fallback;
 
   const write = async (values: number[]) => {
     if (value === undefined) {
@@ -265,9 +183,36 @@ function TexturePath({ row }: { row: DeclaredRow<SchemaTexture> }) {
   );
 }
 
-function Address({ row, field }: { row: DeclaredRow<SchemaTexture>; field: string }) {
-  if (row.element === null) return <span className={ADDRESS_WIDTH} />;
-  return <ValueCell element={row.element} field={field} className={ADDRESS_WIDTH} />;
+/** Whether a sampler writes none of its address modes, which then read `default` once. */
+function useAddressesUnset(row: DeclaredRow<SchemaTexture>): boolean {
+  const pages = use(TableContext)?.pages;
+  if (row.element === null) return true;
+
+  const fields = fieldsOf(pages?.get(rowKey(row.element)));
+  return ADDRESSES.every((address) => fields(FIELD[address]) === undefined);
+}
+
+/**
+ * One address mode of a sampler. A sampler that writes none of the three draws one `default`
+ * across their columns.
+ */
+function AddressCell({ row, at }: { row: DeclaredRow<SchemaTexture>; at: number }) {
+  const unset = useAddressesUnset(row);
+  const address = ADDRESSES[at];
+  if (unset && at > 0) return null;
+  if (unset || row.element === null || address === undefined) {
+    return (
+      <DeclaredCell colSpan={ADDRESSES.length}>
+        <Unset className={ADDRESS_WIDTH} />
+      </DeclaredCell>
+    );
+  }
+
+  return (
+    <DeclaredCell>
+      <ValueCell element={row.element} field={FIELD[address]} className={ADDRESS_WIDTH} />
+    </DeclaredCell>
+  );
 }
 
 /**
@@ -339,64 +284,42 @@ function useSetSwitch(row: DeclaredRow<SchemaSwitch>): ((on: boolean) => void) |
 }
 
 const PARAM_COLUMNS: DataTableColumn<DeclaredRow<SchemaParam>>[] = [
-  nameColumn(),
   {
     id: "value",
-    header: () => (
-      <Heading className={VALUE_WIDTH}>{m.workshop_bin_material_value_label()}</Heading>
+    header: () => <Heading className={FILL}>{m.workshop_bin_material_value_label()}</Heading>,
+    cell: ({ row }) => (
+      <DeclaredCell className={FILL}>
+        <ParamValue row={row.original} />
+      </DeclaredCell>
     ),
-    cell: ({ row }) => <ParamValue row={row.original} />,
   },
-  actionsColumn(),
 ];
 
 const SAMPLER_COLUMNS: DataTableColumn<DeclaredRow<SchemaTexture>>[] = [
-  nameColumn(),
   {
     id: "texture",
-    header: () => (
-      <Heading className={VALUE_WIDTH}>{m.workshop_bin_material_texture_label()}</Heading>
+    header: () => <Heading className={FILL}>{m.workshop_bin_material_texture_label()}</Heading>,
+    cell: ({ row }) => (
+      <DeclaredCell className={FILL_CUT}>
+        <TexturePath row={row.original} />
+      </DeclaredCell>
     ),
-    cell: ({ row }) => <TexturePath row={row.original} />,
   },
-  ...(["addressU", "addressV", "addressW"] as const).map(
-    (address): DataTableColumn<DeclaredRow<SchemaTexture>> => ({
-      id: address,
-      header: () => <Heading className={ADDRESS_WIDTH}>{address.slice(-1)}</Heading>,
-      cell: ({ row }) => <Address row={row.original} field={FIELD[address]} />,
-    }),
-  ),
-  actionsColumn(),
+  ...ADDRESSES.map((address, at): DataTableColumn<DeclaredRow<SchemaTexture>> => ({
+    id: address,
+    header: () => <Heading>{address.slice(-1)}</Heading>,
+    cell: ({ row }) => <AddressCell row={row.original} at={at} />,
+  })),
 ];
 
 const SWITCH_COLUMNS: DataTableColumn<DeclaredRow<SchemaSwitch>>[] = [
-  nameColumn(),
   {
     id: "on",
-    header: () => <Heading className={VALUE_WIDTH}>{m.workshop_bin_material_on_label()}</Heading>,
-    cell: ({ row }) => <SwitchOn row={row.original} />,
-  },
-  actionsColumn(),
-];
-
-/* A macro is a map entry, whose row is named by its key and holds its value itself. */
-const MACRO_COLUMNS: DataTableColumn<BinRow>[] = [
-  {
-    id: "name",
-    header: () => <Heading className={NAME_WIDTH}>{m.workshop_bin_material_name_label()}</Heading>,
+    header: () => <Heading className={FILL}>{m.workshop_bin_material_on_label()}</Heading>,
     cell: ({ row }) => (
-      <span className={twMerge(NAME_WIDTH, "truncate select-text")}>{row.original.name}</span>
-    ),
-  },
-  {
-    id: "value",
-    header: () => (
-      <Heading className={VALUE_WIDTH}>{m.workshop_bin_material_value_label()}</Heading>
-    ),
-    cell: ({ row }) => (
-      <Cell row={row.original} className={VALUE_WIDTH}>
-        <RowValue row={row.original} />
-      </Cell>
+      <DeclaredCell className={FILL}>
+        <SwitchOn row={row.original} />
+      </DeclaredCell>
     ),
   },
 ];
@@ -404,25 +327,31 @@ const MACRO_COLUMNS: DataTableColumn<BinRow>[] = [
 /** `paramValues` as a table of every parameter the shader declares, and its value. */
 export function MaterialParams(props: WidgetProps) {
   const schema = useSchema(props.view);
+  const names = useDeclaredNames(props.view);
   return (
-    <DeclaredTable
-      {...props}
-      kind={PARAMS}
-      declarations={schema?.params ?? null}
-      columns={PARAM_COLUMNS}
-    />
+    <SwatchLaneContext value={schema?.params.some(isColor) ?? false}>
+      <DeclaredTable
+        {...props}
+        kind={PARAMS}
+        declarations={schema?.params ?? null}
+        names={names}
+        columns={PARAM_COLUMNS}
+      />
+    </SwatchLaneContext>
   );
 }
 
 /** `samplerValues` as a table of every texture the shader declares, its path and address modes. */
 export function MaterialSamplers(props: WidgetProps) {
   const schema = useSchema(props.view);
+  const names = useDeclaredNames(props.view);
   const warnings = useTextureWarnings(props.view);
   return (
     <DeclaredTable
       {...props}
       kind={SAMPLERS}
       declarations={schema?.textures ?? null}
+      names={names}
       columns={SAMPLER_COLUMNS}
       warnings={warnings}
     />
@@ -432,17 +361,14 @@ export function MaterialSamplers(props: WidgetProps) {
 /** `switches` as a table of every switch the shader declares, and whether it is on. */
 export function MaterialSwitches(props: WidgetProps) {
   const schema = useSchema(props.view);
+  const names = useDeclaredNames(props.view);
   return (
     <DeclaredTable
       {...props}
       kind={SWITCHES}
       declarations={schema?.switches ?? null}
+      names={names}
       columns={SWITCH_COLUMNS}
     />
   );
-}
-
-/** `shaderMacros` as a table of define and value. */
-export function MaterialMacros({ section, pages }: WidgetProps) {
-  return <TableRows rows={elementsOf(section.rows, pages)} columns={MACRO_COLUMNS} showHeader />;
 }

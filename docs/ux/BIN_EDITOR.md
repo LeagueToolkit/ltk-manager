@@ -1647,6 +1647,13 @@ parameter's name and value, a switch's name and whether it is on, a macro's defi
 Every cell is the leaf editor its row would draw, and a field the element leaves unwritten reads
 `default`.
 
+**A row is one line.** The four tables share one name column, as wide as the longest name the
+shader declares and never more than a third of the pane, so every value starts at one x. A
+parameter's components keep one column each down the table, and a colour's swatch follows its
+last channel. A pane too narrow for four components puts two on a line, the swatch on the first.
+A sampler that writes none of its address modes reads `default` once across the three columns. A
+pane too narrow for the table scrolls it sideways rather than cutting the texture's file name.
+
 **The shader declares the rows.** Samplers, Params and Switches list every texture, logical
 parameter and static switch the pass shader declares, in its order, and not only the entries the
 material writes. A row the material leaves to the shader draws the shader's default in the same
@@ -1664,7 +1671,8 @@ texture's row. A switch the shader compiles in carries a mark that changing it r
 shader. The preview draws the old shader until the new one answers, so a toggle never blanks it.
 
 **Live values.** A parameter the material sets draws one field per component its mask writes,
-labelled X to W, or R to A for a colour. Dragging a label sideways scrubs the value, and every
+labelled x to w, or r to a for a colour, each letter in its channel's colour as a vector's
+components are in the tree. Dragging a label sideways scrubs the value, and every
 preview drawing the material, the shape and the character, draws each step before anything
 reaches the bin. Releasing the drag, leaving the field or pressing Enter writes the value once,
 which is one undo step. The preview keeps the held value until the reads the write invalidated

@@ -15,8 +15,6 @@ export interface RowEdits {
   readonly state: RowState;
   /** The edits the row's cells send, each recording the row's baseline before it goes. */
   readonly scoped: LeafEdit | null;
-  /** How many edits of the row have landed, which restarts the landing pulse. */
-  readonly pulse: number;
 }
 
 /**
@@ -117,8 +115,8 @@ export function useRowEdits<D>(row: DeclaredRow<D>): RowEdits {
       revertLabel: baseline === undefined ? "" : revertLabel(baseline, current, nameField),
       toDefault,
       refusal,
+      pulse,
     },
     scoped,
-    pulse,
   };
 }
