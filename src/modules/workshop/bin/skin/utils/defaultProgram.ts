@@ -63,6 +63,7 @@ export function defaultProgramOf<T>(
 
   return {
     material: `${program.pass.shader ?? ""}:${key}`,
+    index: 0,
     pass: program.pass,
     program: program.program,
     textures: bound,

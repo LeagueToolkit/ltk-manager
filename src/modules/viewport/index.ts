@@ -83,7 +83,12 @@ export {
   type SubmeshProgram,
 } from "./hexshade/programMaterial";
 export { type HeldValue, scatter } from "./hexshade/programMaterials";
-export { programTextureAssets, programTextureKey, programWith } from "./hexshade/programTextures";
+export {
+  programPasses,
+  programTextureAssets,
+  programTextureKey,
+  programWith,
+} from "./hexshade/programTextures";
 export { Backdrop } from "./scene/components/Backdrop";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";

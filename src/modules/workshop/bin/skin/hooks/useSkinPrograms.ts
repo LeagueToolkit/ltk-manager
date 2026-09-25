@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { NoColorSpace, type Texture } from "three";
 
-import type { AssetRef, BinDocumentId, SkinModel } from "@/lib/tauri";
+import type { AppError, AssetRef, BinDocumentId, MaterialProgram, SkinModel } from "@/lib/tauri";
 import {
   blackTexel,
   programTextureAssets,
@@ -17,31 +17,43 @@ import {
   drawsDefaultProgram,
   EMISSIVE_KEY,
 } from "../utils/defaultProgram";
-import { materialHashes, programOf } from "../utils/skinScene";
+import { type MaterialRead, materialReads, programsOf } from "../utils/skinScene";
 
 /** Program textures load without colour decoding. The game's shader decodes them. */
 const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
 
-/** The material list of the program read while the shaders are off, which reads nothing. */
-const NO_MATERIALS: readonly string[] = [];
+/** The program reads made while the shaders are off, which read nothing. */
+const NO_READS: readonly MaterialRead[] = [];
 
 const NO_ASSETS: ReadonlyMap<string, AssetRef> = new Map();
 
+const NO_PASSES: readonly SubmeshProgram[] = [];
+
+/** Every material the reads answered, the skin's own and each linked file's in one list. */
+function joined(
+  results: UseQueryResult<(MaterialProgram | null)[], AppError>[],
+): (MaterialProgram | null)[] {
+  return results.flatMap((result) => result.data ?? []);
+}
+
 /**
- * The translated program of each submesh of `skin`, read from `document`.
+ * The translated passes of each submesh of `skin`, read from `document`, in draw order.
  *
- * A submesh with a material draws with the material's program, and a submesh without one
- * with the engine's default program. The answer is null for every submesh
- * while `shaders` is off.
+ * A submesh with a material draws with every pass of its material that translated, read
+ * from the file declaring the material, and a submesh without one with the engine's default
+ * program. The answer is empty for every submesh while `shaders` is off.
  */
 export function useSkinPrograms(
   document: BinDocumentId,
   skin: SkinModel,
   shaders: boolean,
-): (submesh: string) => SubmeshProgram | null {
-  const materials = useMemo(() => materialHashes(skin), [skin]);
-  const programs = useQuery(skinQueries.programs(document, shaders ? materials : NO_MATERIALS));
-  const assets = useMemo(() => programTextureAssets(programs.data ?? []), [programs.data]);
+): (submesh: string) => readonly SubmeshProgram[] {
+  const reads = useMemo(() => (shaders ? materialReads(skin) : NO_READS), [shaders, skin]);
+  const programs = useQueries({
+    queries: reads.map((read) => skinQueries.programs(document, read.hashes, read.source)),
+    combine: joined,
+  });
+  const assets = useMemo(() => programTextureAssets(programs), [programs]);
   const textures = useAssetTextures(assets, RAW_TEXTURES);
 
   const defaults = shaders && drawsDefaultProgram(skin);
@@ -55,13 +67,15 @@ export function useSkinPrograms(
 
   return useCallback(
     (submesh: string) => {
-      if (!shaders) return null;
-      return (
-        programOf(skin, programs.data ?? [], textures, submesh) ??
-        defaultProgramOf(skin, fallback, fallbackTextures, submesh)
-      );
+      if (!shaders) return NO_PASSES;
+
+      const passes = programsOf(skin, programs, textures, submesh);
+      if (passes.length > 0) return passes;
+
+      const standIn = defaultProgramOf(skin, fallback, fallbackTextures, submesh);
+      return standIn === null ? NO_PASSES : [standIn];
     },
-    [shaders, skin, programs.data, textures, fallback, fallbackTextures],
+    [shaders, skin, programs, textures, fallback, fallbackTextures],
   );
 }
 

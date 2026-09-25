@@ -73,9 +73,14 @@ function stage(id: number, glslName: string, offset: number) {
   };
 }
 
-function program(tint: [number, number, number, number], material = MATERIAL): SubmeshProgram {
+function program(
+  tint: [number, number, number, number],
+  material = MATERIAL,
+  index = 0,
+): SubmeshProgram {
   return {
     material,
+    index,
     pass: pass(tint),
     program: {
       kind: "ready",
@@ -130,8 +135,19 @@ describe("withHeld", () => {
 });
 
 describe("ProgramMaterials", () => {
-  it("keys a material by the material and both stages' permutations", () => {
-    expect(programKey(program([1, 1, 1, 1]))).toBe(`${MATERIAL}|Shaders/SkinnedMesh/Diffuse|3|7`);
+  it("keys a material by the material, the pass and both stages' permutations", () => {
+    expect(programKey(program([1, 1, 1, 1]))).toBe(`${MATERIAL}|0|Shaders/SkinnedMesh/Diffuse|3|7`);
+  });
+
+  it("keeps two passes of one material and permutation apart", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+
+    const first = materials.acquire(program([1, 1, 1, 1], MATERIAL, 0));
+    const second = materials.acquire(program([2, 2, 2, 2], MATERIAL, 1));
+
+    expect(second).not.toBe(first);
+    expect(globals(first, "Globals_ps").slice(4)).toEqual([1, 1, 1, 1]);
+    expect(globals(second, "Globals_ps").slice(4)).toEqual([2, 2, 2, 2]);
   });
 
   it("refreshes a committed value in place rather than building the material again", () => {

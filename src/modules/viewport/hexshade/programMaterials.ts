@@ -70,10 +70,13 @@ export function withHeld(
   };
 }
 
-/** What a built material is kept by: the material, its shader and the permutation of each stage. */
+/**
+ * What a built material is kept by: the material, the pass, its shader and the
+ * permutation of each stage.
+ */
 export function programKey(program: SubmeshProgram): string {
   const { vertex, pixel } = program.program;
-  return `${program.material}|${program.pass.shader ?? ""}|${vertex.id}|${pixel.id}`;
+  return `${program.material}|${program.index}|${program.pass.shader ?? ""}|${vertex.id}|${pixel.id}`;
 }
 
 interface Built {

@@ -144,7 +144,7 @@ function PlacedSkin({ document, model, graph, characters, clock, colors }: Place
     (submesh: string) => bindingOf(model, textures, submesh),
     [model, textures],
   );
-  const program = useSkinPrograms(document, model, usePreviewShaders());
+  const programs = useSkinPrograms(document, model, usePreviewShaders());
   const groups = useMemo(() => [...charactersByAnimation(characters)], [characters]);
 
   if (mesh.data === undefined || bones.data === undefined) return null;
@@ -158,7 +158,7 @@ function PlacedSkin({ document, model, graph, characters, clock, colors }: Place
       skeleton={bones.data}
       model={model}
       bindingOf={binding}
-      programOf={program}
+      programsOf={programs}
       clock={clock}
       colors={colors}
     />
@@ -174,7 +174,7 @@ interface PosedCharactersProps {
   readonly skeleton: SkeletonModel;
   readonly model: SkinModel;
   readonly bindingOf: (submesh: string) => SubmeshBinding;
-  readonly programOf: (submesh: string) => SubmeshProgram | null;
+  readonly programsOf: (submesh: string) => readonly SubmeshProgram[];
   readonly clock: SceneClock;
   readonly colors: SceneColors;
 }
@@ -188,7 +188,7 @@ function PosedCharacters({
   skeleton,
   model,
   bindingOf: binding,
-  programOf: program,
+  programsOf: programs,
   clock,
   colors,
 }: PosedCharactersProps) {
@@ -223,7 +223,7 @@ function PosedCharacters({
         pose={pose}
         clock={clock}
         bindingOf={binding}
-        programOf={program}
+        programsOf={programs}
         colors={colors}
         hidden={model.hidden}
         scale={model.scale ?? 1}

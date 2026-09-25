@@ -83,6 +83,7 @@ function programMaterial(
   return createProgramMaterial(
     {
       material: "0x1",
+      index: 0,
       pass: {
         shader: "Shaders/StaticMesh/DefaultEnv_Flat",
         defines: [],

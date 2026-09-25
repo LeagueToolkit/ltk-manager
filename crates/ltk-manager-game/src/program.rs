@@ -144,12 +144,23 @@ pub fn read_programs(
     entries
         .iter()
         .map(|entry| {
-            let material = resolve_passes(document, *entry, names, assets, shaders).ok()?;
+            let material = resolve_passes(document, *entry, names, assets, shaders)
+                .inspect_err(|e| tracing::debug!(?entry, "Passed over a material: {e}"))
+                .ok()?;
             let passes = material
                 .passes
                 .into_iter()
-                .map(|pass| {
+                .enumerate()
+                .map(|(index, pass)| {
                     let program = program_of(&pass, material.kind, options, &mut cache);
+                    if let ProgramRead::Failed { reason } = &program {
+                        tracing::warn!(
+                            material = %material.hash,
+                            pass = index,
+                            shader = ?pass.shader,
+                            "No program for the pass: {reason}"
+                        );
+                    }
                     PassProgram { pass, program }
                 })
                 .collect();

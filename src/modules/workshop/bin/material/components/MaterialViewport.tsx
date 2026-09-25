@@ -23,8 +23,8 @@ import {
   PREVIEW_BOUNDS,
   PREVIEW_SHAPES,
   type PreviewShape,
+  programPasses,
   programTextureAssets,
-  programWith,
   useAssetTextures,
   Viewport,
 } from "@/modules/viewport";
@@ -71,7 +71,7 @@ export interface MaterialViewportProps {
 }
 
 /**
- * The material's first translated pass on a preview shape, under the stage and camera a
+ * The material's translated passes on a preview shape, under the stage and camera a
  * character stands in. "The material shell" in docs/ux/BIN_EDITOR.md.
  *
  * The read is the open document's, so an edit reaches the preview once it lands.
@@ -82,7 +82,7 @@ export default function MaterialViewport({ document, entry }: MaterialViewportPr
   const programs = useMemo(() => (program === null ? NO_PROGRAMS : [program]), [program]);
   const assets = useMemo(() => programTextureAssets(programs), [programs]);
   const textures = useAssetTextures(assets, RAW_TEXTURES);
-  const drawn = useMemo(() => programWith(program, textures), [program, textures]);
+  const drawn = useMemo(() => programPasses(program, textures), [program, textures]);
 
   const shape = usePreviewMaterialShape();
   const turntable = usePreviewTurntable();
@@ -115,7 +115,7 @@ export default function MaterialViewport({ document, entry }: MaterialViewportPr
         <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={fitToken} />
         <Passes warps={false} softens={false} />
         <MaterialSubject
-          program={drawn}
+          programs={drawn}
           skinned={program.kind === "skinnedMesh"}
           shape={shape}
           turntable={turntable}

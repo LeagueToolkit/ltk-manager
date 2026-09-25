@@ -11,7 +11,6 @@ const MATERIAL_WARNINGS: ReadonlySet<MaterialWarning["kind"]> = new Set([
   "noShaderDefs",
   "noPass",
   "unresolvedShader",
-  "secondPass",
 ]);
 
 interface Note {

@@ -348,7 +348,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     (submesh: string) => bindingOf(skin, textures, submesh),
     [skin, textures],
   );
-  const programFor = useSkinPrograms(document, skin, shaders);
+  const programsFor = useSkinPrograms(document, skin, shaders);
   const heldValue = useHeldValue();
   const colors = useSceneColors();
   const scale = skin.scale ?? 1;
@@ -487,7 +487,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               pose={pose}
               clock={clock}
               bindingOf={bindingFor}
-              programOf={programFor}
+              programsOf={programsFor}
               held={heldValue}
               colors={colors}
               hidden={hidden}
