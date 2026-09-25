@@ -3,6 +3,9 @@ import { AXIS_SIGN, type VertexPrelude } from "@/modules/viewport";
 import { PARTICLE_POSE } from "./mesh";
 import { GROUND, LAYER_UV } from "./quad";
 
+/** The registers of one bone in `BONES`, a `float4x3` stated row by row. */
+const BONE_ROWS = 3;
+
 /**
  * What the engine binds for one mesh particle's draw, out of the instanced attributes of
  * `meshBuffers`, which the translated `mesh_vs` and `distortion_mesh_vs` read.
@@ -22,8 +25,8 @@ import { GROUND, LAYER_UV } from "./quad";
  *
  * A skinned mesh material's stage places a vertex by its bones alone, and the engine's bones
  * carry the particle's world. The prelude binds the vertex unposed wholly to bone 0, whose
- * `BONES` rows are the world over the vertex's pose, so the stage works in the mesh's own
- * space as it does in the game. `mWorld` is then the identity, as it is under the bones.
+ * `BONES` rows are the world over the vertex's pose, so the stage works in the mesh's space as
+ * it does in the game. `mWorld` is then the identity, as it is under the bones.
  */
 export const MESH_PRELUDE: VertexPrelude = {
   source: /* glsl */ `
@@ -78,7 +81,7 @@ void enginePrelude() {
   vec3 posedPosition = position;
   vec3 posedNormal = normal;
 #if defined(READS_a_BLENDINDICES) && !defined(GROUND_LAYER)
-  mat4 bone = world * mirror * poseOf() * mirror;
+  mat4 bone = world * mirror * blendedPose() * mirror;
   world = mat4(1.0);
 #else
   pose(posedPosition, posedNormal);
@@ -96,10 +99,11 @@ void enginePrelude() {
   engine_NORMAL = vec4(mat3(world) * engine_NORMAL.xyz, 0.0);
   world = mat4(1.0);
 #endif
+
   vec4 rows[4];
   rowsOf(world, engine_mWorld);
   rowsOf(bone, rows);
-  for (int row = 0; row < 3; row++) {
+  for (int row = 0; row < ${BONE_ROWS}; row++) {
     engine_BONES[row] = rows[row];
   }
 
@@ -115,7 +119,7 @@ void enginePrelude() {
   inputs: ["a_POSITION", "a_NORMAL", "a_TEXCOORD", "a_BLENDWEIGHT", "a_BLENDINDICES"],
   members: {
     mWorld: 4,
-    BONES: 3,
+    BONES: BONE_ROWS,
     kColorFactor: 1,
     vParticleUVTransform: 2,
     vParticleUVTransformMult: 2,

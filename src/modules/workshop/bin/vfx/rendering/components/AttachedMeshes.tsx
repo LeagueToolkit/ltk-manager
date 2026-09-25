@@ -13,7 +13,7 @@ import {
 } from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
-import { type CharacterSkin, passTwin, useCharacterSkin } from "@/modules/viewport";
+import { type CharacterSkin, useCharacterSkin } from "@/modules/viewport";
 
 import type { EmitterModel } from "../../engine/model/model";
 import {
@@ -37,7 +37,7 @@ import { writePaletteScroll, writeSlotMembers } from "../utils/particleProgram";
 import { rangesDrawn } from "../utils/submeshes";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvRowsInto, uvTransformInto } from "../utils/uvTransform";
-import { noDraw } from "./drawPair";
+import { addPassTwin, noDraw } from "./drawPair";
 
 /** How many particles of one attached emitter draw at once, each a whole character. */
 const ATTACHED_PER_EMITTER = 8;
@@ -162,7 +162,7 @@ export function AttachedMeshes({
         for (const twin of twins) slot.mesh.remove(twin);
       });
     };
-  }, [slots, programs]);
+  }, [slots, programs, rank]);
 
   useLayoutEffect(() => {
     for (const slot of slots) {
@@ -191,7 +191,7 @@ export function AttachedMeshes({
           const { mesh, material } = slots[used];
           const twin = twins[used];
           const uniforms = material.uniforms;
-          const program = programs[used]?.materials;
+          const passes = programs[used]?.materials;
           appearance(pool, at, emitter, time, DRAWN);
           premultiplyInto(emitter, DRAWN.color);
           const tint = uniforms.particleTint.value as number[];
@@ -215,12 +215,12 @@ export function AttachedMeshes({
             shift[1] = UV_DRAWN.offsetV;
             shift[2] = UV_DRAWN.cellU;
             shift[3] = UV_DRAWN.cellV;
-            if (program !== undefined) uvRowsInto(UV_DRAWN, over, ROWS[layer] ?? ROWS[0]);
+            if (passes !== undefined) uvRowsInto(UV_DRAWN, over, ROWS[layer] ?? ROWS[0]);
           }
           sourcesScrollInto(emitter, sources, uniforms.paletteScroll.value as number[]);
-          if (program !== undefined) {
+          if (passes !== undefined) {
             colorLookupInto(emitter, pool, at, through, LOOKUP, 0);
-            for (const pass of program) {
+            for (const pass of passes) {
               writeSlotMembers(pass, {
                 color: DRAWN.color,
                 rows: ROWS,
@@ -300,14 +300,10 @@ function bindSlot(slot: Slot, program: SlotProgram | undefined): BoundSlot {
   };
   slot.mesh.material = submeshMaterials(slot, first);
   slot.mesh.onBeforeRender = draw;
-  const twins = later.map((material, at) => {
-    const twin = passTwin(slot.mesh, at + 1);
-    twin.material = submeshMaterials(slot, material);
-    twin.onBeforeRender = draw;
-    twin.layers.mask = slot.mesh.layers.mask;
-    slot.mesh.add(twin);
-    return twin;
-  });
+  const twins = later.map((material, at) =>
+    addPassTwin(slot.mesh, at + 1, submeshMaterials(slot, material), draw),
+  );
+
   return { previous, twins };
 }
 

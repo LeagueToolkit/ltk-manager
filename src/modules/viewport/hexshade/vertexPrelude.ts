@@ -130,26 +130,24 @@ ${reads.accessors}`;
  * `source` reading each block `slots` reaches through an accessor, and the accessors, which
  * answer each register of a member from `value` and every other from the bound block.
  *
- * The accessor is declared beside the block and defined apart, after whatever `value` reads.
- * It costs a comparison per member register, where a copy of the block would cost every
- * register per invocation. A register past the array's length is one the translation cut as
- * unread.
+ * The accessor is declared beside the block and defined after whatever `value` reads. A
+ * register past the array's length is one the translation cut as unread.
  */
 function withAccessors(
   source: string,
   slots: readonly MemberSlot[],
   value: (member: string, register: number) => string,
 ): { readonly source: string; readonly accessors: string } {
-  let read = source;
+  let rewritten = source;
   const accessors: string[] = [];
   for (const array of new Set(slots.map((slot) => slot.array))) {
-    const found = new RegExp(`^uniform (\\w+) ${array}\\[(\\d+)\\];$`, "m").exec(read);
+    const found = new RegExp(`^uniform (\\w+) ${array}\\[(\\d+)\\];$`, "m").exec(rewritten);
     if (found === null) continue;
 
     const [declaration, element = "vec4", extent = "0"] = found;
     const accessor = `hexshade_${array}`;
     const signature = `${element} ${accessor}(int at)`;
-    read = throughAccessor(read, array, accessor).replace(
+    rewritten = throughAccessor(rewritten, array, accessor).replace(
       declaration,
       `${declaration}\n${signature};`,
     );
@@ -171,7 +169,7 @@ ${indented(answers)}    return value;
 }
 `);
   }
-  return { source: read, accessors: accessors.join("\n") };
+  return { source: rewritten, accessors: accessors.join("\n") };
 }
 
 /** `source` with every read of `array[index]` made a call of `accessor(int(index))`. */
@@ -190,7 +188,7 @@ function throughAccessor(source: string, array: string, accessor: string): strin
   return out + source.slice(from);
 }
 
-/** Where the bracket opened just before `start` closes, past any it holds. */
+/** Where the bracket opened just before `start` closes, past any bracket nested in it. */
 function closingBracket(source: string, start: number): number {
   let depth = 1;
   for (let at = start; at < source.length; at += 1) {

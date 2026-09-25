@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { passTwin } from "../passTwin";
 
 describe("passTwin", () => {
-  it("draws an instanced mesh's own instances", () => {
+  it("draws the instances of an instanced mesh", () => {
     const of = new InstancedMesh(new BoxGeometry(), new MeshBasicMaterial(), 4);
     of.renderOrder = 3;
 

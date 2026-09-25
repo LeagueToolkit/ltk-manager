@@ -113,7 +113,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
 
   const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
-  useProgramDraw(pair.solid, programs);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && trail !== null;
   const facesEye = trailFacesTheCamera(emitter);

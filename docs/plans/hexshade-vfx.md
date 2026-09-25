@@ -139,8 +139,8 @@ factors. Blend modes 0 and 2 premultiply the colour by alpha on the CPU, in the 
 **Custom particle materials** are `StaticMaterialDef`s of `type` 2 (`MaterialKind::Particles`),
 compiled under `assets/shaders/generated/`. `DefaultParticleQuadUnlit` and
 `VFX_Uber_StaticMesh_Unlit` carry runtime switches, which reach the shader as `$Globals` floats
-named `switch_<NAME>`. No shipped material that Hexshade has drawn so far uses them, so that
-path is covered by unit tests only.
+named `switch_<NAME>`. No shipped material the survey below read sets one, so unit tests alone
+cover that path.
 
 **The shader file a custom material names fixes its vertex layout.** No define or technique
 follows the primitive. Measured over the 174 champion WADs, Map11 and Common, 1,200 emitters
@@ -156,7 +156,8 @@ link a custom material, and those the table leaves out link one no scanned WAD d
 None of them reads `kColorFactor`, the uv rows, `COLOR_LOOKUP_UV` or the erosion members, and
 `PARTICLE_COLOR_FACTOR` is declared but unread. `EMITTER_DEPTH_PUSH_PULL` is read by all of them.
 `HKG_Eyes_Blink_Mat` and two `AlphaBlend_Additive_Scroll_Packed` materials write
-`depthCompareFunc` 0, which both usual orderings read as never.
+`depthCompareFunc` 0, which the D3D comparison order less one and the GL order both read as
+never.
 
 ## Decisions
 
@@ -288,8 +289,8 @@ the clip transform, as three draws it.
 A custom material draws its translated passes on every path, a later pass on a twin of the
 instanced mesh or of the slot's skin. On a mesh, the prelude binds a stage that reads the skin
 streams wholly to bone 0, whose `BONES` rows are the particle's world over the vertex's pose, so
-the stage deforms the vertex in the mesh's own space as the engine does. A skin's own bones
-place an attached mesh's material.
+the stage deforms the vertex in the mesh's space as the engine does. The skin's bones place an
+attached mesh's material.
 
 The same headless check compares every quad and ribbon set, and every mesh and attached set
 under the default uv mode, with the hand-written material, and the base and full mesh sets

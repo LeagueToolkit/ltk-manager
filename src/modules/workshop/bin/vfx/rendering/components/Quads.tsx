@@ -125,7 +125,7 @@ export function Quads({
   const draw = useMemo(() => quadDraw(orientation), [orientation]);
   const programs = useParticlePrograms(emitter, samplers, draw, buffers.geometry, document);
   const program = programs[0] ?? null;
-  useProgramDraw(pair.solid, programs);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && drawsAsQuad(emitter);
   const sorted =

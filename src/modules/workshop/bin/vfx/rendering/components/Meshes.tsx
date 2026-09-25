@@ -134,7 +134,7 @@ export function Meshes({
   const draw = useMemo(() => meshDraw(bones), [bones]);
   const programs = useParticlePrograms(emitter, samplers, draw, geometry, document);
   const program = programs[0] ?? null;
-  useProgramDraw(pair.solid, programs);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled;
 

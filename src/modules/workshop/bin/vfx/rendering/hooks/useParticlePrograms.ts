@@ -20,6 +20,7 @@ import {
 } from "@/lib/tauri";
 import {
   EngineEnvironment,
+  type ParticleEmitter,
   programPasses,
   programTextureAssets,
   type ReadyProgram,
@@ -131,8 +132,8 @@ export function useParticlePrograms(
   const environment = useMemo(() => new EngineEnvironment("uniform"), []);
   useEffect(() => () => environment.dispose(), [environment]);
   useEffect(() => {
-    environment.particle = { colorFactor: [1, 1, 1, 1], depthPushPull: emitter.depthPushPull };
-  }, [environment, emitter.depthPushPull]);
+    environment.particle = particleBufferOf(emitter);
+  }, [environment, emitter]);
 
   const read = useEngineRead(emitter, draw.path, document, shaders && !custom);
   const engine = useMemo(() => {
@@ -151,15 +152,15 @@ export function useParticlePrograms(
   useEffect(() => () => engine?.dispose(), [engine]);
 
   const passes = useCustomPasses(emitter, document, shaders && custom);
-  const customs = useMemo(
+  const customMaterials = useMemo(
     () => passes.map((pass) => customParticleMaterial(pass, emitter, draw, environment)),
     [passes, emitter, draw, environment],
   );
-  useEffect(() => () => disposeAll(customs), [customs]);
+  useEffect(() => () => disposeAll(customMaterials), [customMaterials]);
 
   const materials = useMemo(
-    () => (custom ? customs : engine === null ? NO_MATERIALS : [engine]),
-    [custom, customs, engine],
+    () => (custom ? customMaterials : engine === null ? NO_MATERIALS : [engine]),
+    [custom, customMaterials, engine],
   );
   const compiled = useCompiled(materials, geometry);
 
@@ -191,36 +192,21 @@ export function useAttachedPrograms(
   count: number,
   document: BinDocumentId | null,
 ): readonly SlotProgram[] {
-  const shaders = usePreviewShaders() && geometry !== null;
+  const enabled = usePreviewShaders() && geometry !== null;
   const custom = drawsCustom(emitter);
-  const read = useEngineRead(emitter, "attached", document, shaders && !custom);
-  const passes = useCustomPasses(emitter, document, shaders && custom);
+  const read = useEngineRead(emitter, "attached", document, enabled && !custom);
+  const passes = useCustomPasses(emitter, document, enabled && custom);
 
   const slots = useMemo(() => {
-    const textures = read === null ? null : particleTextures(emitter, samplers);
-    const engine = read === null || textures === null ? null : { read, textures };
-    if (custom ? passes.length === 0 : engine === null) return NO_SLOTS;
+    const materialsOf = slotMaterials(custom, passes, read, emitter, samplers);
+    if (materialsOf === null) return NO_SLOTS;
 
     return Array.from({ length: count }, (): SlotProgram => {
       const environment = new EngineEnvironment("uniform");
-      environment.particle = { colorFactor: [1, 1, 1, 1], depthPushPull: emitter.depthPushPull };
-      const materials =
-        engine === null
-          ? passes.map((pass) => customParticleMaterial(pass, emitter, ATTACHED_DRAW, environment))
-          : [
-              particleProgramMaterial(
-                engine.read,
-                emitter,
-                samplers,
-                engine.textures,
-                ATTACHED_DRAW,
-                environment,
-                null,
-              ),
-            ];
-      return { materials, environment };
+      environment.particle = particleBufferOf(emitter);
+      return { materials: materialsOf(environment), environment };
     });
-  }, [custom, read, passes, emitter, samplers, count]);
+  }, [custom, passes, read, emitter, samplers, count]);
   useEffect(
     () => () => {
       for (const slot of slots) {
@@ -236,9 +222,38 @@ export function useAttachedPrograms(
   return compiled ? slots : NO_SLOTS;
 }
 
+/**
+ * What builds one attached slot's materials over its environment: each translated pass of the
+ * custom material, or the engine pair, and null while neither is ready.
+ */
+function slotMaterials(
+  custom: boolean,
+  passes: readonly SubmeshProgram[],
+  read: ReadyPass | null,
+  emitter: EmitterModel,
+  samplers: EmitterSamplers,
+): ((environment: EngineEnvironment) => RawShaderMaterial[]) | null {
+  if (custom) {
+    if (passes.length === 0) return null;
+    return (environment) =>
+      passes.map((pass) => customParticleMaterial(pass, emitter, ATTACHED_DRAW, environment));
+  }
+
+  const textures = read === null ? null : particleTextures(emitter, samplers);
+  if (read === null || textures === null) return null;
+  return (environment) => [
+    particleProgramMaterial(read, emitter, samplers, textures, ATTACHED_DRAW, environment, null),
+  ];
+}
+
 /** The emitter names a custom material the read found, which draws in place of the engine pair. */
 function drawsCustom(emitter: EmitterModel): boolean {
   return emitter.customMaterial !== null && !emitter.customMaterial.missing;
+}
+
+/** The instance buffer `emitter` fills: no colour factor, its colour arriving per vertex. */
+function particleBufferOf(emitter: EmitterModel): ParticleEmitter {
+  return { colorFactor: [1, 1, 1, 1], depthPushPull: emitter.depthPushPull };
 }
 
 /** The engine pair `emitter` draws with on `path`, translated, and null where it draws none. */

@@ -133,7 +133,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
 
   const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
-  useProgramDraw(pair.solid, programs);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && beam !== null && emitter.mesh === null;
 

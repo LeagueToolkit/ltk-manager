@@ -322,8 +322,8 @@ vec4 colored(vec4 texel, vec2 lookup) {
 /**
  * The rim and the reflection added over the colour, as `mesh_ps` and `particle_ps` add them.
  *
- * `SHEEN` names the alpha that carries them, the texel's or the drawn one, each taken before
- * the erosion. `saturated` clamps the colour after the soft fade, where both shaders clamp it.
+ * `SHEEN` names the alpha that carries them, as `SHEEN` in uniforms.ts states it.
+ * `saturated` clamps the colour after the soft fade, where both shaders clamp it.
  */
 const SHEEN_FRAGMENT = /* glsl */ `
 #if SHEEN == ${SHEEN.none}
@@ -501,11 +501,11 @@ void main() {
 #ifdef HAS_MAP_MULT
   texel *= fetch(mapMult, atMult, vShiftMult, cellMult, addressMult);
 #endif
-  float bare = texel.a;
+  float uneroded = texel.a;
   texel.a *= share;
 
   vec4 lit = texel * vColor;
-  lit = saturated(softened(shone(lit, bare, bare * vColor.a)));
+  lit = saturated(softened(shone(lit, uneroded, uneroded * vColor.a)));
   if (lit.a < alphaRef) discard;
 
 #ifdef DISTORTS

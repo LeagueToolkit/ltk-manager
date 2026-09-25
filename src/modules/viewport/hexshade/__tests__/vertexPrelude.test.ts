@@ -153,7 +153,7 @@ describe("spliceVertexProgram with members", () => {
     expect(spliced).toContain("if (at == 1) value = floatBitsToUint(engine_drive[0]);");
   });
 
-  it("reads an index that indexes in turn to its own closing bracket", () => {
+  it("reads an index that indexes in turn up to the bracket closing it", () => {
     const spliced = spliceVertexProgram(
       GLOBALS_STAGE.replace("Globals_vs[2u]", "Globals_vs[uint(Frame_vs[0u].x)]"),
       MEMBERS_PRELUDE,
