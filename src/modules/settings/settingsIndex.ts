@@ -100,6 +100,21 @@ const INDEX = [
     title: m.settings_builtins_base_skins_title(),
     aliases: ["patching.baseSkins"],
   },
+  {
+    id: "builtins.mapSkin",
+    key: "builtinMods.mapSkin",
+    title: m.settings_builtins_map_skin_title(),
+  },
+  {
+    id: "builtins.forcedMapSkin",
+    key: "builtinMods.forcedMapSkin",
+    title: m.settings_builtins_forced_map_skin_title(),
+  },
+  {
+    id: "builtins.mapDecorations",
+    key: "builtinMods.mapDecorations",
+    title: m.settings_builtins_map_decorations_title(),
+  },
 
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },
   { id: "patching.elevateInjector", key: "elevateInjector", title: "Run injector elevated" },

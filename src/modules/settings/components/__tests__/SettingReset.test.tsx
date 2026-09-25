@@ -91,7 +91,17 @@ describe("the gear", () => {
     const user = userEvent.setup();
     renderSettings(
       <SettingRow setting="builtinMods.defaultWardSkins" control={<input type="checkbox" />} />,
-      { settings: { builtinMods: { defaultWardSkins: true, baseSkins: "allChampions" } } },
+      {
+        settings: {
+          builtinMods: {
+            defaultWardSkins: true,
+            baseSkins: "allChampions",
+            mapSkin: "forced",
+            forcedMapSkin: "Sodapop_SRS",
+            mapDecorations: { MSITrophy: "hide" },
+          },
+        },
+      },
     );
 
     await user.click(screen.getByLabelText("Actions for Default ward skins"));
@@ -101,6 +111,9 @@ describe("the gear", () => {
     expect(savedSettings().builtinMods).toEqual({
       defaultWardSkins: false,
       baseSkins: "allChampions",
+      mapSkin: "forced",
+      forcedMapSkin: "Sodapop_SRS",
+      mapDecorations: { MSITrophy: "hide" },
     });
   });
 

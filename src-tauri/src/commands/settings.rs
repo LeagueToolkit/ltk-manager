@@ -1,6 +1,9 @@
 use crate::commands::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
+use ltk_manager_core::overlay::{
+    forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
+};
 use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
@@ -149,6 +152,28 @@ pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>
 fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<String>> {
     let config = state.config();
     GameDir::resolve(&config)?.wads()
+}
+
+/// Every map skin the configured install can show in place of the one a server names.
+#[tauri::command]
+pub fn list_forcible_map_skins(state: State<SettingsState>) -> IpcResult<Vec<ForcibleMapSkin>> {
+    list_forcible_map_skins_inner(&state).into()
+}
+
+fn list_forcible_map_skins_inner(state: &State<SettingsState>) -> AppResult<Vec<ForcibleMapSkin>> {
+    let config = state.config();
+    forcible_map_skins(&GameDir::resolve(&config)?)
+}
+
+/// Every map decoration a mutator switches in the configured install.
+#[tauri::command]
+pub fn list_map_decorations(state: State<SettingsState>) -> IpcResult<Vec<MapDecoration>> {
+    list_map_decorations_inner(&state).into()
+}
+
+fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<MapDecoration>> {
+    let config = state.config();
+    map_decorations(&GameDir::resolve(&config)?)
 }
 
 /// Whether League is configured to launch as administrator (an AppCompatFlags

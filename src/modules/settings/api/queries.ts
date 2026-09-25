@@ -4,6 +4,8 @@ import {
   api,
   type AppError,
   type AppInfo,
+  type ForcibleMapSkin,
+  type MapDecoration,
   type HashtableCacheStatus,
   type HashtableUpdateCheck,
   type Settings,
@@ -82,6 +84,28 @@ export const leagueInstallQueries = {
     queryOptions<string[], AppError>({
       queryKey: settingsKeys.availableWads(),
       queryFn: queryFn(api.listAvailableWads),
+      staleTime: 60 * 60 * 1000,
+      retry: false,
+    }),
+
+  /* The map skins change only with a patch, so they stay fresh for an hour, keyed on the path
+     they were read from. */
+  forcibleMapSkins: (leaguePath: string | null | undefined) =>
+    queryOptions<ForcibleMapSkin[], AppError>({
+      queryKey: settingsKeys.forcibleMapSkins(leaguePath ?? ""),
+      queryFn: queryFn(api.listForcibleMapSkins),
+      enabled: !!leaguePath,
+      staleTime: 60 * 60 * 1000,
+      retry: false,
+    }),
+
+  /* The decorations change only with a patch, so they stay fresh for an hour, keyed on the
+     path they were read from. */
+  mapDecorations: (leaguePath: string | null | undefined) =>
+    queryOptions<MapDecoration[], AppError>({
+      queryKey: settingsKeys.mapDecorations(leaguePath ?? ""),
+      queryFn: queryFn(api.listMapDecorations),
+      enabled: !!leaguePath,
       staleTime: 60 * 60 * 1000,
       retry: false,
     }),

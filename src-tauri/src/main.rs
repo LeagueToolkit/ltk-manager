@@ -102,6 +102,8 @@ fn main() {
             commands::check_setup_required,
             commands::detect_league_run_as_admin,
             commands::list_available_wads,
+            commands::list_forcible_map_skins,
+            commands::list_map_decorations,
             // Mods
             commands::get_installed_mods,
             commands::install_mod,

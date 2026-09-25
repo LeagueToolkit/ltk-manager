@@ -239,7 +239,7 @@ which is the places a bin names an object, class or file.
 **Built-in mod** — a mod project the manager generates from the installed game and the other
 mods when a setting turns it on, under `<storage>/builtin/<slug>`. It is injected above workshop
 projects and every enabled mod, belongs to no profile, and never enters the library. Default ward
-skins and base skins are the two. See ADR-0043.
+skins, base skins, map skins and map decorations are the four. See ADR-0043, ADR-0052 and ADR-0053.
 _Avoid_: tweak, preset
 
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active
