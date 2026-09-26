@@ -105,6 +105,38 @@ describe("useToast", () => {
     expect(renders).toBe(before);
   });
 
+  /* Story: an install check used the CPU for minutes and its toast had no
+     button to stop it. */
+  it("keeps a task's stop action through its reports", async () => {
+    const stop = vi.fn();
+    let task: ToastTask | undefined;
+    function Runner() {
+      const toast = useToast();
+      return (
+        <button
+          type="button"
+          onClick={() => {
+            task = toast.task("Checking your mods", undefined, { label: "Stop", onClick: stop });
+          }}
+        >
+          Start
+        </button>
+      );
+    }
+    const user = userEvent.setup();
+    render(
+      <ToastProvider>
+        <Runner />
+      </ToastProvider>,
+    );
+    await user.click(screen.getByRole("button", { name: "Start" }));
+
+    act(() => task?.report(50, "0 of 1"));
+    await user.click(await screen.findByRole("button", { name: "Stop" }));
+
+    expect(stop).toHaveBeenCalled();
+  });
+
   /* Story: the sweep announced what it found from its mount effect, which ran
      before the provider had started listening, and nothing was shown. */
   it("shows a toast raised from a mount effect", async () => {

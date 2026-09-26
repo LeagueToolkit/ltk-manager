@@ -368,6 +368,59 @@ fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
     assert!(!reason.contains("8087655"), "{reason}");
 }
 
+/// A tree of three bins under one WAD: one equal to the game's copy, one the
+/// same size with different bytes, and one larger than the game's copy.
+fn wad_bins(game: Option<Arc<dyn GameContent>>) -> (tempfile::TempDir, ProjectFiles) {
+    let tmp = tempfile::tempdir().unwrap();
+    let data = tmp
+        .path()
+        .join(CONTENT_DIR)
+        .join("base")
+        .join("data.wad.client")
+        .join("data");
+    touch(&data.join("same.bin"), b"PROP-same");
+    touch(&data.join("edited.bin"), b"PROP-ours");
+    touch(&data.join("grown.bin"), b"PROP-grown-longer");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), game).unwrap();
+    (tmp, files)
+}
+
+fn sorted_paths(files: &ProjectFiles) -> Vec<String> {
+    let mut paths: Vec<String> = files.files().map(|file| file.path().to_owned()).collect();
+    paths.sort();
+    paths
+}
+
+#[test]
+fn a_bin_equal_to_the_game_copy_is_removed() {
+    let game = FakeContent::containing_bytes(&[
+        ("data/same.bin", b"PROP-same"),
+        ("data/edited.bin", b"PROP-game"),
+        ("data/grown.bin", b"PROP-grown"),
+    ]);
+    let (_tmp, files) = wad_bins(Some(game));
+
+    let files = files.without_game_copies();
+
+    assert_eq!(
+        sorted_paths(&files),
+        [
+            "data.wad.client/data/edited.bin",
+            "data.wad.client/data/grown.bin"
+        ]
+    );
+}
+
+#[test]
+fn with_no_install_every_bin_is_kept() {
+    let (_tmp, files) = wad_bins(None);
+
+    let files = files.without_game_copies();
+
+    assert_eq!(sorted_paths(&files).len(), 3);
+}
+
 /* An archive read where it lies. The fixtures are the health suite's own, so
 these hold the archive constructor to the answers the walk gives for the tree
 an unpack would have written. */
@@ -841,6 +894,27 @@ mod archive {
             "the fixture has to be larger than the first raw read"
         );
         assert_eq!(handle.head(16).unwrap(), bytes[..16]);
+    }
+
+    /// A packed chunk is compared by the hash in its WAD's table of contents.
+    #[test]
+    fn a_packed_bin_equal_to_the_game_copy_is_removed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packed(tmp.path(), &bin, CompressionMethod::Deflated);
+        let game = FakeContent::containing_bytes(&[(STALE_BIN_IN_WAD, &bin_bytes(&bin))]);
+
+        let files = ProjectFiles::in_archive(
+            &archive,
+            &Config::default(),
+            Budget::repair(),
+            &naming_the_bin(),
+            Some(game),
+        )
+        .unwrap()
+        .without_game_copies();
+
+        assert_eq!(files.bins().count(), 0);
     }
 
     /// A check never leaves anything behind, which is now true because it

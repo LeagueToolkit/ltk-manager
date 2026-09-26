@@ -38,28 +38,28 @@ screen.
 This table holds every major feature of Mod health. A status word has one meaning - see
 [Problems](PROJECT_PROBLEMS.md) for the legend.
 
-| Feature               | Status    | Note                                                              |
-| --------------------- | --------- | ----------------------------------------------------------------- |
-| The verdict model     | Available | `ModHealthVerdict`: health, fixable count, live counts            |
-| The check             | Available | `check_mod_health`, both storages, never writes the mod           |
-| The repair            | Available | `repair_mod`, both storages, applies every live fix               |
-| The verdict store     | Available | `mod-health-verdicts.json` beside the index, one row per mod      |
-| The badge             | Available | On the card, only when something is wrong                         |
-| The popover           | Available | Plain counts, Repair, re-check, and when it was checked           |
-| Check at import       | Available | A background check per install, and the import never waits        |
-| Check Health, by hand | Available | In the card menu. Says what it waits for, or answers a press      |
-| Checking the library  | Available | A toolbar press over all of it, a selection bar press over a pick |
-| The library sweep     | Available | Every mod whose basis moved, at startup, skipping the rest        |
-| The startup sync      | Available | The cache is filled in front of the sweep that reads it           |
-| Hashtables first      | Available | No check or repair runs without them - ADR-0009                   |
-| The alarm ladder      | Available | Three rungs. The hue is the severity, the words the verdict       |
-| The status bar item   | Available | A light cell at the right of the bar, and its drawer              |
-| Stopping a run        | Available | An ✕ beside the progress. What was written stays written          |
-| Repair all            | Available | Behind the footer's caret. The press repairs what is enabled      |
-| The launch ask        | Available | Play confirms under itself when a broken mod is enabled           |
-| Verdict pruning       | Available | A sweep forgets the verdicts of mods the library dropped          |
-| The full findings     | Planned   | Behind a disclosure, for the user who wants the detail            |
-| One health surface    | Proposed  | The skinhack and missing-deps warnings join the badge             |
+| Feature               | Status    | Note                                                                                   |
+| --------------------- | --------- | -------------------------------------------------------------------------------------- |
+| The verdict model     | Available | `ModHealthVerdict`: health, fixable count, live counts                                 |
+| The check             | Available | `check_mod_health`, both storages, never writes the mod                                |
+| The repair            | Available | `repair_mod`, both storages, applies every live fix                                    |
+| The verdict store     | Available | `mod-health-verdicts.json` beside the index, one row per mod                           |
+| The badge             | Available | On the card, only when something is wrong                                              |
+| The popover           | Available | Plain counts, Repair, re-check, and when it was checked                                |
+| Check at import       | Available | A background sweep over the imported mods, and the import never waits                  |
+| Check Health, by hand | Available | In the card menu. Says what it waits for, or answers a press                           |
+| Checking the library  | Available | A toolbar press over all of it, a selection bar press over a pick                      |
+| The library sweep     | Available | Every mod whose basis moved, at startup, skipping the rest                             |
+| The startup sync      | Available | The cache is filled in front of the sweep that reads it                                |
+| Hashtables first      | Available | No check or repair runs without them - ADR-0009                                        |
+| The alarm ladder      | Available | Three rungs. The hue is the severity, the words the verdict                            |
+| The status bar item   | Available | A light cell at the right of the bar, and its drawer                                   |
+| Stopping a run        | Available | An ✕ beside the progress, or the toast's Stop checking. What was written stays written |
+| Repair all            | Available | Behind the footer's caret. The press repairs what is enabled                           |
+| The launch ask        | Available | Play confirms under itself when a broken mod is enabled                                |
+| Verdict pruning       | Available | A sweep forgets the verdicts of mods the library dropped                               |
+| The full findings     | Planned   | Behind a disclosure, for the user who wants the detail                                 |
+| One health surface    | Proposed  | The skinhack and missing-deps warnings join the badge                                  |
 
 ## The verdict
 
@@ -393,7 +393,9 @@ words for the press that lands in the moment the answer changes.
 
 **One run at a time.** A pressed run is the startup sweep's own machinery, so it shares the progress
 toast, the verdict file and the one cancel. A press while a sweep is going says so and changes
-nothing, because two runs would leave the reader watching two counters fight over one line.
+nothing, because two runs would leave the reader watching two counters fight over one line. An
+install check uses the same machinery. It waits for a running sweep instead of refusing, because no
+user requested it.
 
 **The press reopens the question the announcement answers.** A library that comes back exactly as it
 went in still owes the reader a sentence, and the announcement is otherwise spent on those findings
@@ -729,21 +731,27 @@ standing there naming mods that are already fixed.
 
 ## When a check runs
 
-| Trigger                      | How                                                       |
-| ---------------------------- | --------------------------------------------------------- |
-| A game patch                 | The startup sweep, because every verdict's basis moved    |
-| A manager release            | The same, because a release is how a table ships          |
-| A hashtable sync             | The same, and the sync sweeps itself rather than waiting  |
-| An install, single or bulk   | A background check per imported mod, off the install path |
-| Check Health, in the menu    | On demand, answered by a toast either way                 |
-| Check health, in the library | A press over the whole library or over the selection      |
-| The badge's re-check         | On demand, from the popover                               |
-| A repair                     | The repair records the post-repair verdict itself         |
+| Trigger                      | How                                                             |
+| ---------------------------- | --------------------------------------------------------------- |
+| A game patch                 | The startup sweep, because every verdict's basis moved          |
+| A manager release            | The same, because a release is how a table ships                |
+| A hashtable sync             | The same, and the sync sweeps itself rather than waiting        |
+| An install, single or bulk   | A background sweep over the imported mods, off the install path |
+| Check Health, in the menu    | On demand, answered by a toast either way                       |
+| Check health, in the library | A press over the whole library or over the selection            |
+| The badge's re-check         | On demand, from the popover                                     |
+| A repair                     | The repair records the post-repair verdict itself               |
 
-The install's check runs on a detached thread and announces once at the end
-(`mod-health-verdicts-updated`), so importing thirty mods costs the import nothing and the badges
-arrive when the results do. The sweep runs on the startup thread the other three passes already
-use, reports through a toast per mod, and announces the same event when it finishes.
+The install check is a sweep over the imported mods on a detached thread, so importing thirty mods
+costs the import nothing and the badges arrive when the results do. It uses the automatic sweep's
+smaller budget and the same progress toast, and the toast's Stop checking button cancels it. The
+startup sweep runs on the thread the other three passes already use, reports through a toast per
+mod, and emits `mod-health-verdicts-updated` when it finishes.
+
+A check skips every bin whose bytes equal the installed game's copy. The overlay does not ship such
+a file, so a finding in it has no effect in game. A mod that resets every champion's skins contains
+thousands of these bins. A bin whose size differs from the game's table of contents is checked
+without reading the game's copy. A repair still reads every bin.
 
 The menu's answer exists because a clean check draws no badge: without one the click would look
 ignored. A mod with nothing at all in it is told so in a line - "No problems found" - and a mod

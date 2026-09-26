@@ -398,14 +398,16 @@ export function useToast() {
        * A toast that stays until the work behind it ends, reporting how far it
        * has got where a dismissing toast counts itself down.
        *
-       * For work the user did not start and cannot cancel. Anything they can wait
-       * on belongs in the UI that started it.
+       * For work the user did not start. Anything they can wait on belongs in the
+       * UI that started it. `action` stops the work, and `report` keeps it on
+       * the toast.
        */
-      task: (title: string, description?: string): ToastTask => {
+      task: (title: string, description?: string, action?: ToastAction): ToastTask => {
+        const actions = action ? [action] : [];
         const id = toastManager.add({
           title,
           description,
-          data: { type: "info", progress: 0 },
+          data: { type: "info", progress: 0, actions },
           timeout: 0,
         });
 
@@ -413,7 +415,7 @@ export function useToast() {
           report: (percent: number, description: string) => {
             toastManager.update(id, {
               description,
-              data: { type: "info", progress: percent },
+              data: { type: "info", progress: percent, actions },
             });
           },
           close: () => toastManager.close(id),

@@ -17,15 +17,20 @@ use ltk_wad::{Wad, WadHash};
 use crate::config::Config;
 use crate::game_wads::{GameArchives, WadCache};
 
-/// What the installed game holds.
+/// The chunks of the installed game.
 ///
 /// Taken by a run rather than built by one, so a library sweep shares one
 /// index.
 pub trait GameContent: std::fmt::Debug + Send + Sync {
-    /// Whether any installed archive holds this chunk.
-    fn holds(&self, path: WadHash) -> bool;
+    /// Whether any installed archive contains this chunk.
+    fn contains(&self, path: WadHash) -> bool;
 
-    /// The chunk's decompressed bytes, or `None` where no archive holds it.
+    /// The chunk's decompressed size, or `None` where no archive contains it.
+    ///
+    /// Read from the table of contents, without decompressing the chunk.
+    fn size(&self, path: WadHash) -> Option<u64>;
+
+    /// The chunk's decompressed bytes, or `None` where no archive contains it.
     ///
     /// For comparing what a mod ships against what it overrides. Not a parts
     /// source for a repair.
@@ -38,8 +43,8 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
 
     /// Build whatever the content keeps lazily, ahead of the first ask.
     ///
-    /// Nothing to build is the default, and content that is built once holds
-    /// what it built for the next ask.
+    /// The default builds nothing. Content that builds an index keeps it for
+    /// later calls.
     fn warm(&self) {}
 }
 
@@ -49,24 +54,33 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
 #[derive(Debug)]
 pub struct InstalledContent {
     archives: GameArchives,
-    held: OnceLock<HeldChunks>,
+    chunks: OnceLock<ChunkIndex>,
     mounts: WadCache,
 }
 
-/// Which installed archive holds each chunk.
+/// The archive and decompressed size of each installed chunk.
 ///
 /// Names sit apart from the map: a few hundred archives against a few hundred
 /// thousand chunks, so a string per chunk would store each name over and
 /// over.
 #[derive(Debug, Default)]
-struct HeldChunks {
+struct ChunkIndex {
     /// Every archive the walk read, in walk order.
     names: Vec<String>,
-    /// Each chunk's archive, as an index into `names`.
+    /// Each chunk's entry, by hash.
     ///
-    /// A path in more than one archive keeps the last walked. Two copies that
-    /// differ is a defect of its own, not a choice made here.
-    at: HashMap<WadHash, usize>,
+    /// A path in more than one archive keeps the last archive walked. Two
+    /// copies that differ are a separate defect.
+    entries: HashMap<WadHash, ChunkEntry>,
+}
+
+/// One chunk from an installed archive's table of contents.
+#[derive(Debug, Clone, Copy)]
+struct ChunkEntry {
+    /// The archive that contains the chunk, as an index into `ChunkIndex::names`.
+    archive: usize,
+    /// The decompressed size.
+    size: u64,
 }
 
 impl InstalledContent {
@@ -81,12 +95,12 @@ impl InstalledContent {
     pub fn over(archives: GameArchives) -> Self {
         Self {
             archives,
-            held: OnceLock::new(),
+            chunks: OnceLock::new(),
             mounts: WadCache::default(),
         }
     }
 
-    /// The install rooted at `game_dir`, the directory holding `DATA`.
+    /// The install rooted at `game_dir`, the directory that contains `DATA`.
     #[must_use]
     pub fn at(game_dir: &Path) -> Self {
         Self::over(GameArchives::at(game_dir))
@@ -98,25 +112,29 @@ impl InstalledContent {
     /// their chunk tables come to. An archive that will not mount is logged and
     /// skipped: skipping one costs a removal refused, which is the safe
     /// direction.
-    fn index(&self) -> &HeldChunks {
-        self.held.get_or_init(|| {
+    fn index(&self) -> &ChunkIndex {
+        self.chunks.get_or_init(|| {
             let started = std::time::Instant::now();
-            let mut held = HeldChunks::default();
+            let mut index = ChunkIndex::default();
 
             let archives = match self.archives.list() {
                 Ok(archives) => archives,
                 Err(e) => {
                     tracing::warn!("Could not list the installed game's archives: {e}");
-                    return held;
+                    return index;
                 }
             };
 
             for archive in &archives {
-                match self.hashes_in(&archive.name) {
-                    Ok(hashes) => {
-                        let at = held.names.len();
-                        held.names.push(archive.name.clone());
-                        held.at.extend(hashes.into_iter().map(|hash| (hash, at)));
+                match self.chunks_in(&archive.name) {
+                    Ok(chunks) => {
+                        let at = index.names.len();
+                        index.names.push(archive.name.clone());
+                        index.entries.extend(
+                            chunks
+                                .into_iter()
+                                .map(|(hash, size)| (hash, ChunkEntry { archive: at, size })),
+                        );
                     }
                     Err(e) => {
                         tracing::warn!("Skipping {}, which would not mount: {e}", archive.name)
@@ -126,16 +144,17 @@ impl InstalledContent {
 
             tracing::debug!(
                 "Indexed {} chunks across {} game archives in {:?}",
-                held.at.len(),
+                index.entries.len(),
                 archives.len(),
                 started.elapsed()
             );
-            held
+            index
         })
     }
 
-    /// The chunk hashes in one archive's table of contents.
-    fn hashes_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<WadHash>> {
+    /// Each chunk's hash and decompressed size in one archive's table of
+    /// contents.
+    fn chunks_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<(WadHash, u64)>> {
         let path = self.archives.archive_path(wad_name)?;
         let file = std::io::BufReader::new(fs::File::open(&path)?);
         let wad = Wad::mount(file)?;
@@ -143,14 +162,18 @@ impl InstalledContent {
             .chunks()
             .as_slice()
             .iter()
-            .map(|chunk| chunk.path_hash)
+            .map(|chunk| (chunk.path_hash, chunk.uncompressed_size as u64))
             .collect())
     }
 }
 
 impl GameContent for InstalledContent {
-    fn holds(&self, path: WadHash) -> bool {
-        self.index().at.contains_key(&path)
+    fn contains(&self, path: WadHash) -> bool {
+        self.index().entries.contains_key(&path)
+    }
+
+    fn size(&self, path: WadHash) -> Option<u64> {
+        self.index().entries.get(&path).map(|chunk| chunk.size)
     }
 
     fn warm(&self) {
@@ -161,8 +184,12 @@ impl GameContent for InstalledContent {
     ///
     /// One table of contents parse per archive, not per chunk.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String> {
-        let held = self.index();
-        let Some(name) = held.at.get(&path).and_then(|at| held.names.get(*at)) else {
+        let index = self.index();
+        let Some(name) = index
+            .entries
+            .get(&path)
+            .and_then(|chunk| index.names.get(chunk.archive))
+        else {
             return Ok(None);
         };
 
@@ -173,7 +200,7 @@ impl GameContent for InstalledContent {
     }
 }
 
-/// An install holding exactly the chunks a test gave it.
+/// An install that contains only the chunks a test gives it.
 ///
 /// The second adapter, which is what makes [`GameContent`] a seam: a unit test
 /// cannot depend on a League install.
@@ -183,17 +210,17 @@ pub(crate) struct FakeContent(HashMap<WadHash, Vec<u8>>);
 
 #[cfg(test)]
 impl FakeContent {
-    /// An install holding `paths`, each with no bytes worth reading.
-    pub(crate) fn holding(paths: &[&str]) -> std::sync::Arc<dyn GameContent> {
+    /// An install that contains `paths`, each with empty bytes.
+    pub(crate) fn containing(paths: &[&str]) -> std::sync::Arc<dyn GameContent> {
         Self::of(paths.iter().map(|path| (*path, [].as_slice())))
     }
 
-    /// An install holding `entries`, each with the bytes a rule will read.
-    pub(crate) fn holding_bytes(entries: &[(&str, &[u8])]) -> std::sync::Arc<dyn GameContent> {
+    /// An install that contains `entries`, each with the bytes a rule reads.
+    pub(crate) fn containing_bytes(entries: &[(&str, &[u8])]) -> std::sync::Arc<dyn GameContent> {
         Self::of(entries.iter().copied())
     }
 
-    /// An install holding nothing.
+    /// An install with no chunks.
     pub(crate) fn empty() -> std::sync::Arc<dyn GameContent> {
         Self::of(std::iter::empty())
     }
@@ -212,8 +239,12 @@ impl FakeContent {
 
 #[cfg(test)]
 impl GameContent for FakeContent {
-    fn holds(&self, path: WadHash) -> bool {
+    fn contains(&self, path: WadHash) -> bool {
         self.0.contains_key(&path)
+    }
+
+    fn size(&self, path: WadHash) -> Option<u64> {
+        self.0.get(&path).map(|bytes| bytes.len() as u64)
     }
 
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String> {

@@ -131,6 +131,9 @@ pub struct ModLibrary {
     /// The budget the check or repair now running spends, for a cancel to
     /// reach. `None` between runs.
     health_budget: Arc<Mutex<Option<crate::problems::Budget>>>,
+    /// Serializes library sweeps, so an install check waits for the startup
+    /// sweep instead of sharing its progress state and cancel handle.
+    sweep_lock: Arc<Mutex<()>>,
     index_lock: Arc<Mutex<()>>,
     /// Serializes the read-modify-write of `mod-health-verdicts.json`.
     ///
@@ -158,6 +161,7 @@ impl Clone for ModLibrary {
             layout_migration: Arc::clone(&self.layout_migration),
             health_sweep: Arc::clone(&self.health_sweep),
             health_budget: Arc::clone(&self.health_budget),
+            sweep_lock: Arc::clone(&self.sweep_lock),
             index_lock: Arc::clone(&self.index_lock),
             verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
@@ -187,6 +191,7 @@ impl ModLibrary {
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
             health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
             health_budget: Arc::new(Mutex::new(None)),
+            sweep_lock: Arc::new(Mutex::new(())),
             index_lock: Arc::new(Mutex::new(())),
             verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),

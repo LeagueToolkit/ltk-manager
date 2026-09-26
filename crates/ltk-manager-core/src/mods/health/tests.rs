@@ -120,10 +120,14 @@ fn checking_many_skips_the_mod_it_cannot_read() {
         ],
     );
 
-    let recorded =
-        library.check_mods_health(&config, &["id-broken".to_string(), "id-good".to_string()]);
+    let report = library
+        .sweep_mod_health(
+            &config,
+            &SweepScope::Installed(vec!["id-broken".to_string(), "id-good".to_string()]),
+        )
+        .unwrap();
 
-    assert_eq!(recorded, 1);
+    assert_eq!(report.checked, 1);
     let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(
         verdicts.get("id-good").unwrap().health,

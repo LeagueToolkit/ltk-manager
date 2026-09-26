@@ -55,7 +55,7 @@ fn bin_resolving(keys: usize) -> Vec<u8> {
 /// An install holding the game's copy of the bin, mapping `keys` names.
 fn install(keys: usize) -> Arc<dyn GameContent> {
     let bytes = bin_resolving(keys);
-    FakeContent::holding_bytes(&[(BIN_IN_WAD, &bytes)])
+    FakeContent::containing_bytes(&[(BIN_IN_WAD, &bytes)])
 }
 
 /// The mod as an unpacked tree, its resolver mapping `keys` names.
