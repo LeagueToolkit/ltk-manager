@@ -120,7 +120,7 @@ export function useEditorKeys({
     onReopenClosed?.();
   }
 
-  /* Default left to the field unless the document takes the step, so a text field's own undo stands. */
+  /* Default left to the field unless the document takes the step, so a text field keeps its text undo. */
   function stepActive(event: KeyboardEvent) {
     if (claimed() || activeId === null) return;
 

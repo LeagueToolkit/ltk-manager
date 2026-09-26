@@ -7,7 +7,7 @@ export type HistoryStep = "undo" | "redo";
 /**
  * Taking one step through a document's history for a keystroke over `target`.
  *
- * Answers whether the document took the keystroke, so a field that keeps it for its own
+ * Answers whether the document took the keystroke, so a field that keeps it for its text
  * undo is left its default behaviour.
  */
 export type DocumentHistory = (step: HistoryStep, target: Element | null) => boolean;

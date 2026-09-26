@@ -26,7 +26,7 @@ export interface RowWindow {
   readonly measureElement: (node: Element | null) => void;
   /**
    * Scroll a line to the top, or only as far as it shows with `"auto"`. False where the tree
-   * holds no such line.
+   * contains no such line.
    */
   readonly scrollToKey: (key: string, align?: "start" | "auto") => boolean;
 }

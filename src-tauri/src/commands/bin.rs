@@ -279,7 +279,7 @@ pub async fn bin_save(document: BinDocumentId, app_handle: AppHandle) -> IpcResu
 }
 
 /// Revert the latest edit of an open document's tree, answering how its rows moved, or null
-/// where no edit was held.
+/// where the undo stack is empty.
 ///
 /// The file tab and the object tabs over one asset share the tree and its stack.
 #[tauri::command]
@@ -292,7 +292,7 @@ pub async fn bin_undo(
 }
 
 /// Apply the latest undone edit of an open document's tree again, answering how its rows
-/// moved, or null where no undone edit was held.
+/// moved, or null where the redo stack is empty.
 #[tauri::command]
 #[specta::specta]
 pub async fn bin_redo(

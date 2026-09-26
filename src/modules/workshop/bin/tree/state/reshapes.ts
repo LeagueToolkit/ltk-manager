@@ -26,13 +26,13 @@ export function useReshapes(asset: string, remap: (remap: Remap) => void) {
 
   useEffect(() => {
     const listener = (each: Remap) => current.current(each);
-    const held = listeners.get(asset) ?? new Set();
-    held.add(listener);
-    listeners.set(asset, held);
+    const trees = listeners.get(asset) ?? new Set();
+    trees.add(listener);
+    listeners.set(asset, trees);
 
     return () => {
-      held.delete(listener);
-      if (held.size === 0) listeners.delete(asset);
+      trees.delete(listener);
+      if (trees.size === 0) listeners.delete(asset);
     };
   }, [asset]);
 }

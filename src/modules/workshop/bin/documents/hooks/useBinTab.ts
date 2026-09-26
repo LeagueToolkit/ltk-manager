@@ -71,9 +71,9 @@ export function useBinTab(
 }
 
 /**
- * Whether the element under an undo keystroke keeps it for its own text.
+ * Whether the element under an undo keystroke keeps it for its text.
  *
- * A field holding a draft does, and so does any text field that is not a document value or
+ * A field with a draft does, and so does any text field that is not a document value or
  * a line of the tree, such as a filter box.
  */
 function keepsKeystroke(target: Element | null): boolean {

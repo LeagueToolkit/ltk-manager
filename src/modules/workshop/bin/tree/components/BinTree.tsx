@@ -288,7 +288,7 @@ export function BinTree({
 
   /* Outside React state, so a pointer crossing the rows redraws the guides and nothing else. */
   const [guides] = useState(createGuideStore);
-  function standOn(target: EventTarget) {
+  function showGuidesAt(target: EventTarget) {
     const line = lineAt(target);
     if (line !== null) guides.set({ active: lineParent(line) });
   }
@@ -327,9 +327,9 @@ export function BinTree({
               }
               onContextMenu={handleContextMenu}
               onKeyDown={handleKeyDown}
-              onPointerDown={(event) => standOn(event.target)}
+              onPointerDown={(event) => showGuidesAt(event.target)}
               onFocus={(event) => {
-                standOn(event.target);
+                showGuidesAt(event.target);
                 navigation.focused(event.target);
               }}
               onMouseOver={(event) => {

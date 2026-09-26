@@ -708,7 +708,7 @@ impl BinDocuments {
     }
 
     /// Revert the latest edit of the document under `id`, answering how the rows moved, or
-    /// `None` where no edit was held.
+    /// `None` where the undo stack is empty.
     ///
     /// # Errors
     ///
@@ -720,7 +720,7 @@ impl BinDocuments {
     }
 
     /// Apply the latest undone edit of the document under `id` again, answering how the
-    /// rows moved, or `None` where no undone edit was held.
+    /// rows moved, or `None` where the redo stack is empty.
     ///
     /// # Errors
     ///

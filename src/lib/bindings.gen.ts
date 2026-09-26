@@ -96,14 +96,14 @@ export const commands = {
 	binEdit: (document: BinDocumentId, edit: BinEdit) => __TAURI_INVOKE<({ ok: true; value: EditOutcome }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit", { document, edit }),
 	/**
 	 *  Revert the latest edit of an open document's tree, answering how its rows moved, or null
-	 *  where no edit was held.
+	 *  where the undo stack is empty.
 	 * 
 	 *  The file tab and the object tabs over one asset share the tree and its stack.
 	 */
 	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
 	/**
 	 *  Apply the latest undone edit of an open document's tree again, answering how its rows
-	 *  moved, or null where no undone edit was held.
+	 *  moved, or null where the redo stack is empty.
 	 */
 	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
 	/**
@@ -3437,7 +3437,7 @@ export type Reshape =
 { kind: "moved"; entry: string; path: string; to: number } | 
 /**  The map entry at `from` is now at `to`. */
 { kind: "rekeyed"; entry: string; from: string; to: string } | 
-/**  The pointer at `path` holds null, and no row under it stays. */
+/**  The pointer at `path` is null, and every row under it is gone. */
 { kind: "nulled"; entry: string; path: string };
 
 /**  One `StaticMaterialPassDef` with its shader's inputs filled in. */

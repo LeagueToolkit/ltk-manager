@@ -427,7 +427,7 @@ export function useBinEditor(
     [edited, focus, insertLeaf, moved, send],
   );
 
-  /* A key is a field, so a refusal marks it and holds the save the way a value's does. */
+  /* A key is a field, so a refusal marks it and blocks the save the way a value's does. */
   const setKey = useCallback(
     async (line: RowLine, text: string) => {
       const { row } = line;

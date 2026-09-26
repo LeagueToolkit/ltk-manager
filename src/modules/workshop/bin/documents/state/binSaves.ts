@@ -7,7 +7,7 @@ import type { TextSaveState } from "@/modules/editor";
 /* The strings editor's rhythm, "Save" in docs/ux/BIN_EDITOR.md. */
 const SAVE_DELAY_MS = 600;
 
-/** What one held bin's autosave is doing, shared by every tab over the asset. */
+/** What one open bin's autosave is doing, shared by every tab over the asset. */
 export interface BinSave {
   readonly state: TextSaveState;
   /** Why the last save failed, null for any other state. */
@@ -67,8 +67,8 @@ export function onBinSaved(listener: (asset: string) => void): () => void {
 
 /** Queue a save of `asset` through `document` after a patch landed, restarting the wait. */
 export function queueForSave(asset: string, document: BinDocumentId) {
-  const held = saveQueue.get(asset);
-  if (held?.timer) clearTimeout(held.timer);
+  const queued = saveQueue.get(asset);
+  if (queued?.timer) clearTimeout(queued.timer);
 
   saveQueue.set(asset, {
     document,
@@ -81,14 +81,14 @@ export function queueForSave(asset: string, document: BinDocumentId) {
 /**
  * Mark the field `field` of `asset` refused, or clear its mark.
  *
- * `field` names one drawn mark, so two tabs over one asset clear only their own.
+ * `field` names one drawn mark, so each tab over an asset clears only the marks it drew.
  */
 export function markRefused(asset: string, field: string, refused: boolean) {
   useBinSavesStore.setState((store) => {
-    const held = store.refused[asset] ?? NO_FIELDS;
-    if (held.includes(field) === refused) return store;
+    const marks = store.refused[asset] ?? NO_FIELDS;
+    if (marks.includes(field) === refused) return store;
 
-    const next = refused ? [...held, field] : held.filter((each) => each !== field);
+    const next = refused ? [...marks, field] : marks.filter((each) => each !== field);
     return { refused: { ...store.refused, [asset]: next } };
   });
 }
@@ -96,26 +96,26 @@ export function markRefused(asset: string, field: string, refused: boolean) {
 /** Clear every mark of `asset` whose field starts with `owner`, for a tab that closed. */
 export function clearRefusedBy(asset: string, owner: string) {
   useBinSavesStore.setState((store) => {
-    const held = store.refused[asset];
-    if (held === undefined || !held.some((field) => field.startsWith(owner))) return store;
+    const marks = store.refused[asset];
+    if (marks === undefined || !marks.some((field) => field.startsWith(owner))) return store;
 
-    const next = held.filter((field) => !field.startsWith(owner));
+    const next = marks.filter((field) => !field.startsWith(owner));
     return { refused: { ...store.refused, [asset]: next } };
   });
 }
 
 /** Write the save queued for `asset` now, resolving once the write settles. */
 export async function flushBinSave(asset: string): Promise<void> {
-  const held = saveQueue.get(asset);
-  if (held === undefined) return;
+  const queued = saveQueue.get(asset);
+  if (queued === undefined) return;
 
-  if (held.timer) clearTimeout(held.timer);
+  if (queued.timer) clearTimeout(queued.timer);
   saveQueue.delete(asset);
 
   put(asset, { state: "saving", error: null });
 
-  const result = await api.bin.save(held.document);
-  /* A patch that landed during the write queued a save of its own, and its state stands. */
+  const result = await api.bin.save(queued.document);
+  /* A patch that landed during the write queued another save, and its state wins. */
   if (saveQueue.has(asset)) return;
 
   put(asset, result.ok ? CLEAN : { state: "failed", error: result.error });
@@ -129,10 +129,10 @@ export async function flushBinSave(asset: string): Promise<void> {
  * Rejects with the error a failed write answers, for a caller that reports it.
  */
 export async function saveBinNow(asset: string, document: BinDocumentId): Promise<void> {
-  const held = saveQueue.get(asset);
-  if (held === undefined && saveOf(asset).state !== "failed") return;
+  const queued = saveQueue.get(asset);
+  if (queued === undefined && saveOf(asset).state !== "failed") return;
 
-  if (held?.timer) clearTimeout(held.timer);
+  if (queued?.timer) clearTimeout(queued.timer);
   saveQueue.set(asset, { document, timer: null });
   await flushBinSave(asset);
 
@@ -145,10 +145,10 @@ export function isQueuedThrough(asset: string, document: BinDocumentId): boolean
   return saveQueue.get(asset)?.document === document;
 }
 
-/** Drop everything held for `asset`, whose edits a reload threw away. */
+/** Drop everything kept for `asset`, whose edits a reload threw away. */
 export function forgetBinSave(asset: string) {
-  const held = saveQueue.get(asset);
-  if (held?.timer) clearTimeout(held.timer);
+  const queued = saveQueue.get(asset);
+  if (queued?.timer) clearTimeout(queued.timer);
 
   saveQueue.delete(asset);
   useBinSavesStore.setState((store) => {

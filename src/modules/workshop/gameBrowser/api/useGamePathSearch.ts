@@ -9,7 +9,7 @@ import { SEARCH_DEBOUNCE_MS } from "./useGameSearch";
 /**
  * The installed game's files ranked for a path field, with the files `preference` names first.
  *
- * `searching` holds from the keystroke, through the debounce, until the answer for `query` lands.
+ * `searching` is true from the keystroke, through the debounce, until the answer for `query` lands.
  */
 export function useGamePathSearch(query: string, preference: SearchPreference, enabled: boolean) {
   const debounced = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);

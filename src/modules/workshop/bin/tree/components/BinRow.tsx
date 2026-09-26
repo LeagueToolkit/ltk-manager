@@ -141,7 +141,7 @@ interface RowLineProps {
 
 const NO_EDITS: readonly RowEdit[] = [];
 
-/** Whether focus went nowhere, as it does when an edit field it held closes. */
+/** Whether focus went nowhere, as it does when the edit field that had it closes. */
 function focusDropped(): boolean {
   return document.activeElement === null || document.activeElement === document.body;
 }
@@ -733,7 +733,7 @@ interface TextEditProps {
  * A value drawn as its chip or its text, opening to a field on the row's edit action.
  *
  * The chip stays what a reader reads and clicks, so a string naming a file still opens
- * it. The field is for the change, and it stays open holding the typed text while a send
+ * it. The field is for the change, and it stays open with the typed text while a send
  * is answered and after a refusal, until `Escape` drops it. A focus request opens it.
  */
 function TextEdit({

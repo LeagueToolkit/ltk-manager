@@ -124,7 +124,7 @@ pub enum Reshape {
         from: String,
         to: String,
     },
-    /// The pointer at `path` holds null, and no row under it stays.
+    /// The pointer at `path` is null, and every row under it is gone.
     Nulled { entry: String, path: String },
 }
 
@@ -459,18 +459,18 @@ impl BinDocument {
     }
 
     /// Take one step through the history, answering how the rows moved, or `None` where the
-    /// stack held nothing. A declared document restores manifest text, and its rows stay.
+    /// stack is empty. A declared document restores manifest text, and no row moves.
     ///
     /// # Errors
     ///
     /// As [`BinDocument::undo`].
     pub fn step(&mut self, step: HistoryStep) -> Result<Option<Reshape>, BinDocumentError> {
         if self.declares() {
-            let held = match step {
+            let stepped = match step {
                 HistoryStep::Undo => self.undo_declared()?,
                 HistoryStep::Redo => self.redo_declared()?,
             };
-            return Ok(held.then_some(Reshape::InPlace));
+            return Ok(stepped.then_some(Reshape::InPlace));
         }
 
         let popped = match step {

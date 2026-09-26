@@ -20,7 +20,7 @@ describe("a typed leaf", () => {
     });
   });
 
-  it("turns down an integer its kind cannot hold before it round-trips", () => {
+  it("turns down an integer outside its kind's range before it round-trips", () => {
     expect(integerLeaf("255", "u8")).toEqual({ ok: true, leaf: { type: "integer", text: "255" } });
     expect(integerLeaf("-9223372036854775808", "i64").ok).toBe(true);
     for (const text of ["256", "-1", "1.5", "abc", ""]) {

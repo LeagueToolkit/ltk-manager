@@ -45,8 +45,8 @@ export function keyMark(key: string): string {
  * Validated document mutations shared by the tree and class inspectors.
  *
  * Every edit goes through `useDocumentCall`, so one the store refuses as not open is sent
- * once more on a fresh id. `reopen` overrides the enclosing tab's. A refusal mark holds the
- * asset's save at `blocked` until the field sends a value that lands or lets its draft go.
+ * once more on a fresh id. `reopen` overrides the enclosing tab's. A refusal mark keeps the
+ * asset's save `blocked` until the field sends a value that lands or lets its draft go.
  */
 export function useLeafEdit(
   document: BinDocumentId,
@@ -61,10 +61,10 @@ export function useLeafEdit(
 
   useEffect(() => () => clearRefusedBy(key, owner), [key, owner]);
 
-  /* `holds` is false for a structural edit's refusal, which leaves no draft to fix. */
+  /* `blocking` is false for a structural edit's refusal, which leaves no draft to fix. */
   const mark = useCallback(
-    (at: string, error: AppError | null, holds = true) => {
-      markRefused(key, `${owner}${at}`, holds && error !== null);
+    (at: string, error: AppError | null, blocking = true) => {
+      markRefused(key, `${owner}${at}`, blocking && error !== null);
       setRefused((previous) => {
         if (error === null && !previous.has(at)) {
           return previous;

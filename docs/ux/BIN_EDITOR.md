@@ -79,7 +79,7 @@ This table holds every major feature of the bin editor. A status word has one me
 | Container editing     | Available   | List items, map entries, options and pointers, inline            |
 | Row keys              | Available   | Arrows walk the rows, and `Enter` or `F2` opens a value          |
 | Autosave              | Available   | The strings editor's debounce, saved as a delta. ADR-0040        |
-| Undo                  | Available   | An inverse-patch stack per held tree, from anywhere in the group |
+| Undo                  | Available   | An inverse-patch stack per open tree, from anywhere in the group |
 | Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
@@ -1223,7 +1223,7 @@ itself, because its rows are the tree's.
 
 A cell's context menu is [the row menu](#the-row-menu), plus Show in properties, which switches
 the mode and reveals the row in the tree, expanding the ancestors of a nested key. A layout has
-no keyboard model of its own beyond its fields, and its read-only fields take no focus,
+no keyboard model beyond its fields, and its read-only fields take no focus,
 per [The value kinds](#the-value-kinds).
 
 ### A value family in a layout
@@ -2552,15 +2552,15 @@ A text or number field is controlled locally and commits on blur or on `Enter`, 
 tree nor the disk wants one.
 
 A value drawn as a chip - a string naming a file, a `hash`, a `link`, a `file` - keeps its chip,
-and the row's edit action opens a field over it holding the string, the name, or the hex. The
+and the row's edit action opens a field over it with the string, the name, or the hex. The
 action shows on the hover of a tree row and of a layout cell, and the row menu offers it as
 **Edit value**. A name typed into a `hash` or a `link` is hashed in Rust, and the document keeps
-the name, so the row draws it again where no table names the hash. The same holds for a typed
-field name, class name, map key, object name and chunk path. A cleared `hash`, `link` or
+the name, so the row draws it again where no table names the hash. A typed field name, class
+name, map key, object name and chunk path draw the same way. A cleared `hash`, `link` or
 `file` writes the zero hash, which the game reads as no link. An integer an enum table reads
 edits through a select of the engine's words, and a flags value through its number.
 
-A field whose value is refused stays open, holding what was typed and marked with the reason, so
+A field whose value is refused stays open with what was typed, marked with the reason, so
 the reader corrects the text rather than typing it again. `Escape` drops the text and the mark.
 
 ### The row keys
@@ -2760,7 +2760,7 @@ close or a quit ask before it drops edits that did not reach the file. `Ctrl+S` 
 a save still waiting on the debounce at once, and `Ctrl+S` on a failed save tries it again.
 
 A failed save names its reason on the hover of **Couldn't save**, and **Retry** writes through
-the tab's own open, whichever tab queued the save.
+the tab's open document, whichever tab queued the save.
 
 **The write is a delta over the bytes the document opened.** ADR-0040. The document holds its
 file's bytes beside the tree, and the path hash of every object a patch touched. A save mounts
@@ -2786,14 +2786,14 @@ the document's unsaved edits.
 
 ### Undo
 
-An inverse-patch stack in Rust, bounded, one per held tree. `Ctrl+Z`, and `Ctrl+Shift+Z` or
+An inverse-patch stack in Rust, bounded, one per open tree. `Ctrl+Z`, and `Ctrl+Shift+Z` or
 `Ctrl+Y`, while a document over the tree is the active tab of the focused group, wherever focus
 is inside it, including nowhere after a field closes. A file tab and the object tabs over one asset share a tree
 (ADR-0028), and they share its stack. An undo never crosses into another asset's tree. An undo
 that crosses tabs undoes work a user is not looking at.
 
 An undo is a patch, and it saves like one. A text field holding an uncommitted change takes the
-keystroke as the field's own undo, and so does a text field that holds no document value, such as
+keystroke as the field's text undo, and so does a text field that contains no document value, such as
 a filter. An undo answers how it moved the rows, so the rows a reader expanded follow it as they
 follow the edit, in every tree over the asset. An undo that fails names its reason in a toast.
 

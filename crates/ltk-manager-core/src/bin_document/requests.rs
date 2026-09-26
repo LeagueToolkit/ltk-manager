@@ -204,7 +204,7 @@ pub enum Choices {
     Classes { classes: Vec<ClassChoice> },
 }
 
-/// The names an edit's reader typed, which the document draws again where no table holds them.
+/// The names an edit's reader typed, which the document draws again where no table names them.
 #[derive(Debug, Default)]
 struct TypedTexts {
     /// Names of objects, classes, fields and `hash` values.

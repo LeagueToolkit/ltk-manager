@@ -196,7 +196,7 @@ describe("a refused number", () => {
     expect(field).toHaveValue("1.5");
   });
 
-  it("is turned down before it is sent where its kind cannot hold it", async () => {
+  it("is turned down before it is sent where it is out of its kind's range", async () => {
     renderRow(row({ kind: "u8", value: { type: "integer", text: "7" } }));
     const field = screen.getByDisplayValue("7");
 

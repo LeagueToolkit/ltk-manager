@@ -1,7 +1,7 @@
-//! Names a reader typed into an open document, which no hash table may hold.
+//! Names a reader typed into an open document, which no hash table contains.
 //!
 //! "What an edit is" in docs/ux/BIN_EDITOR.md. A name typed into a `hash`, a `link`, a field
-//! or a class is hashed in Rust, and the row that holds the hash draws the name again.
+//! or a class is hashed in Rust, and the row that contains the hash draws the name again.
 
 use std::collections::HashMap;
 
@@ -48,14 +48,14 @@ pub(super) struct Typed<'a> {
     inner: &'a dyn RowNames,
 }
 
-/// Visit what `own` names, and hand the rest to `rest` with their positions kept.
+/// Visit what `typed` names, and hand the rest to `rest` with their positions kept.
 fn answer<H: Copy + Eq + std::hash::Hash>(
     hashes: &[H],
-    own: &HashMap<H, String>,
+    typed: &HashMap<H, String>,
     visit: &mut dyn FnMut(usize, &str),
     rest: impl FnOnce(&[H], &mut dyn FnMut(usize, &str)),
 ) {
-    if own.is_empty() {
+    if typed.is_empty() {
         rest(hashes, visit);
         return;
     }
@@ -63,7 +63,7 @@ fn answer<H: Copy + Eq + std::hash::Hash>(
     let mut residue = Vec::new();
     let mut at_of = Vec::new();
     for (at, hash) in hashes.iter().enumerate() {
-        match own.get(hash) {
+        match typed.get(hash) {
             Some(name) => visit(at, name),
             None => {
                 residue.push(*hash);

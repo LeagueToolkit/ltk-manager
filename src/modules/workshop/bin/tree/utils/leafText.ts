@@ -23,7 +23,7 @@ export function boolLeaf(value: boolean): TypedLeaf {
   return typed({ type: "bool", value });
 }
 
-/** The least and the most each integer kind holds. */
+/** The least and the most value of each integer kind. */
 const INTEGER_RANGES: Partial<Record<PropertyKind, readonly [bigint, bigint]>> = {
   i8: [-(2n ** 7n), 2n ** 7n - 1n],
   u8: [0n, 2n ** 8n - 1n],
@@ -35,7 +35,7 @@ const INTEGER_RANGES: Partial<Record<PropertyKind, readonly [bigint, bigint]>> =
   u64: [0n, 2n ** 64n - 1n],
 };
 
-/** The digits as typed, refused where `kind` cannot hold them. An unknown kind is the backend's to check. */
+/** The digits as typed, refused outside the range of `kind`. The backend checks an unknown kind. */
 export function integerLeaf(text: string, kind: PropertyKind | null = null): TypedLeaf {
   const trimmed = text.trim();
   const range = kind === null ? undefined : INTEGER_RANGES[kind];
