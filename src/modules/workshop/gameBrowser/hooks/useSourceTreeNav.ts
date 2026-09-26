@@ -2,6 +2,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
 import type { ExplorerSelectionApi } from "../../explorer";
+import { isCollapseAllKey } from "../../shared/utils/treeGestures";
 import type { ExtractHow } from "../extraction/hooks/useExtractActions";
 import type {
   SourceDirNode,
@@ -24,6 +25,8 @@ interface UseSourceTreeNavParams {
   onRun?: (node: SourceTreeNode, how: ExtractHow) => void;
   /** The explorer's selection, where this tree draws one. */
   selection?: ExplorerSelectionApi;
+  /** Collapse every directory, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -49,6 +52,7 @@ export function useSourceTreeNav({
   onOpen,
   onRun,
   selection,
+  onCollapseAll,
   virtualizer,
   scrollElementRef,
 }: UseSourceTreeNavParams): UseSourceTreeNavReturn {
@@ -91,6 +95,13 @@ export function useSourceTreeNav({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
+      if (onCollapseAll && isCollapseAllKey(e)) {
+        e.preventDefault();
+        onCollapseAll();
+        moveFocus(0);
+        return;
+      }
+
       const row = rows[focusedIndex];
       if (!row) return;
       const node = row.node;
@@ -180,7 +191,18 @@ export function useSourceTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, isExpanded, onToggle, onOpen, onRun, selection, moveFocus, step],
+    [
+      rows,
+      focusedIndex,
+      isExpanded,
+      onToggle,
+      onOpen,
+      onRun,
+      selection,
+      onCollapseAll,
+      moveFocus,
+      step,
+    ],
   );
 
   return { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown };

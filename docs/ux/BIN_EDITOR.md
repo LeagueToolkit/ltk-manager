@@ -877,12 +877,14 @@ other kind carries its kind badge.
 A `string` is text to the format and a name to the game, which resolves a path held in one by
 name while it runs. Two shapes of string resolve here, and a miss on both draws text.
 
-| The string                                       | Resolves through                       | Draws                              |
-| ------------------------------------------------ | -------------------------------------- | ---------------------------------- |
-| `ASSETS/` or `DATA/`, any case, and an extension | The WAD path resolver, the layer first | The chip and swatch a `file` draws |
-| Any, hashed as an object path                    | The index, in the row group's check    | The chip an `ObjectLink` draws     |
+| The string                                 | Resolves through                       | Draws                              |
+| ------------------------------------------ | -------------------------------------- | ---------------------------------- |
+| A folder and a file name with an extension | The WAD path resolver, the layer first | The chip and swatch a `file` draws |
+| Any, hashed as an object path              | The index, in the row group's check    | The chip an `ObjectLink` draws     |
 
-A string that answers on both sides takes the chunk. So an emitter's `texture`, a skin's
+A path counts under any root, because a mod's own chunks sit under roots of its choosing, such as
+`mod/83f7e874bb9f/`. Outside `ASSETS/` and `DATA/` a path holds no whitespace, so that prose with a
+slash in it stays text. A string that answers on both sides takes the chunk. So an emitter's `texture`, a skin's
 `simpleSkin` and `skeleton`, a clip's `mAnimationFilePath` and a system's `particlePath` are
 chips in every bin, in the tree and in every layout.
 

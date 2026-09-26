@@ -10,6 +10,8 @@ export interface LayerActions {
   selectModule: (projectPath: string, selected: SelectedModule | null) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
   openDirs: (projectPath: string, layerName: string, paths: readonly string[]) => void;
+  /** Collapse exactly `paths` in one layer's tree, which is how every directory collapses at once. */
+  collapseDirs: (projectPath: string, layerName: string, paths: ReadonlySet<string>) => void;
   reveal: (projectPath: string, layerName: string, path: string) => void;
 }
 
@@ -51,6 +53,12 @@ export function createLayerActions(set: EditorSet): LayerActions {
         for (const path of paths) next.delete(path);
         return { ...editor, collapsed: { ...editor.collapsed, [layerName]: next } };
       }),
+
+    collapseDirs: (projectPath, layerName, paths) =>
+      setProject(set, projectPath, (editor) => ({
+        ...editor,
+        collapsed: { ...editor.collapsed, [layerName]: new Set(paths) },
+      })),
 
     reveal: (projectPath, layerName, path) =>
       setProject(set, projectPath, (editor) => ({

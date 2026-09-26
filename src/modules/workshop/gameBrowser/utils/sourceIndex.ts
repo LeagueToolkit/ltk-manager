@@ -250,6 +250,45 @@ function basename(entry: SourceEntry): string {
   return slash < 0 ? entry.path : entry.path.slice(slash + 1);
 }
 
+/** The id of every directory in a tree, which is the collapsed set that folds all of them. */
+export function sourceDirIds(tree: readonly SourceTreeNode[]): Set<string> {
+  const ids = new Set<string>();
+  const walk = (nodes: readonly SourceTreeNode[]): void => {
+    for (const node of nodes) {
+      if (node.type !== "dir") continue;
+
+      ids.add(node.id);
+      walk(node.children);
+    }
+  };
+
+  walk(tree);
+  return ids;
+}
+
+/**
+ * A collapsed set after an Alt+click on `dir`, which toggles its whole subtree.
+ *
+ * For a tree that holds every child, where the set names what is collapsed by node id.
+ */
+export function toggledSourceDirTree(
+  collapsed: ReadonlySet<string>,
+  dir: SourceDirNode,
+): Set<string> {
+  const next = new Set(collapsed);
+  const collapse = !collapsed.has(dir.id);
+
+  for (const id of sourceDirIds([dir])) {
+    if (collapse) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+  }
+
+  return next;
+}
+
 export interface SourceRow {
   readonly node: SourceTreeNode;
   readonly depth: number;

@@ -38,6 +38,7 @@ import {
   objectReferences,
   useFindReferences,
 } from "../../../references/api/useFindReferences";
+import { CollapseAllButton } from "../../../shared/components/CollapseAllButton";
 import {
   clickIntent,
   useCurveAimRequest,
@@ -155,6 +156,7 @@ function OpenObject({
 
   const [mode, setMode] = useState<Mode>(layout ? "layout" : "properties");
   const [reveal, setReveal] = useState<TreeReveal | null>(null);
+  const [collapseAllSignal, setCollapseAllSignal] = useState(0);
   const [frame, setFrame] = useState<LayoutFrame>("stack");
   const [target, setTarget] = useState<CurveTarget | null>(null);
   /* Apart from the target, so a follow that lets go of it leaves the dock open. */
@@ -254,6 +256,10 @@ function OpenObject({
             {m.workshop_bin_show_in_file_action()}
           </Button>
         )}
+        <CollapseAllButton
+          onCollapse={() => setCollapseAllSignal((count) => count + 1)}
+          disabled={mode !== "properties"}
+        />
         <BinEditState
           document={handle.document}
           asset={asset}
@@ -314,6 +320,7 @@ function OpenObject({
                   onNotOpen={reopen}
                   editable={handle.readOnly === null}
                   rootEntry={object.entry}
+                  collapseAllSignal={collapseAllSignal}
                 />
               </RetainedContent>
             </Panel>

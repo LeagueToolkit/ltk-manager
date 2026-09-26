@@ -11,6 +11,7 @@ import {
   type FileNode,
   flattenTree,
   nodeCovers,
+  toggledDirTree,
 } from "../contentTree";
 
 function entry(relativePath: string, sizeBytes = 0): ContentEntry {
@@ -289,6 +290,33 @@ describe("allDirPaths", () => {
     const tree = buildContentTree([entry("a/x.bin"), entry("b/nested/y.bin"), entry("c.bin")]);
     const paths = allDirPaths(tree);
     expect(paths).toEqual(new Set(["a", "b/nested"]));
+  });
+});
+
+describe("toggledDirTree", () => {
+  const tree = buildContentTree([
+    entry("a/b/x.bin"),
+    entry("a/b/c/y.bin"),
+    entry("a/z.bin"),
+    entry("d/w.bin"),
+  ]);
+  const a = tree[0] as DirNode;
+
+  it("collapses an expanded directory and every directory under it", () => {
+    expect(toggledDirTree(new Set(["d"]), a)).toEqual(new Set(["d", "a", "a/b", "a/b/c"]));
+  });
+
+  it("expands a collapsed directory and every directory under it", () => {
+    const collapsed = new Set(["a", "a/b/c", "d"]);
+
+    expect(toggledDirTree(collapsed, a)).toEqual(new Set(["d"]));
+  });
+
+  it("leaves the set it was given alone", () => {
+    const collapsed = new Set<string>();
+    toggledDirTree(collapsed, a);
+
+    expect(collapsed.size).toBe(0);
   });
 });
 

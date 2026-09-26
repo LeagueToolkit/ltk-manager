@@ -23,6 +23,8 @@ interface ReferencesStore {
   /** Declaring files the user has shut, by the key of their asset. */
   shutFiles: ReadonlySet<string>;
   toggleFile: (key: string) => void;
+  /** Collapse every one of `keys`, the files of the answer on screen. */
+  collapseFiles: (keys: readonly string[]) => void;
 }
 
 /**
@@ -44,9 +46,11 @@ export const useReferencesStore = create<ReferencesStore>()((set) => ({
       else next.add(key);
       return { shutFiles: next };
     }),
+  collapseFiles: (keys) => set((state) => ({ shutFiles: new Set([...state.shutFiles, ...keys]) })),
 }));
 
 export const useReferenceRequest = () => useReferencesStore((s) => s.request);
 export const useAskReferences = () => useReferencesStore((s) => s.ask);
 export const useShutReferenceFiles = () => useReferencesStore((s) => s.shutFiles);
 export const useToggleReferenceFile = () => useReferencesStore((s) => s.toggleFile);
+export const useCollapseReferenceFiles = () => useReferencesStore((s) => s.collapseFiles);

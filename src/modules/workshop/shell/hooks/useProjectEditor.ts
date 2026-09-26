@@ -539,6 +539,16 @@ export function useToggleCollapsed(layerName: string) {
   );
 }
 
+/** Collapse every directory in `paths` of one layer's tree. */
+export function useCollapseLayerDirs() {
+  const projectPath = useProjectPath();
+  const collapseDirs = useWorkshopEditorStore((s) => s.collapseDirs);
+  return useCallback(
+    (layerName: string, paths: ReadonlySet<string>) => collapseDirs(projectPath, layerName, paths),
+    [collapseDirs, projectPath],
+  );
+}
+
 /** Open every directory in `paths` that the user had shut, for a reveal. */
 export function useOpenLayerDirs() {
   const projectPath = useProjectPath();

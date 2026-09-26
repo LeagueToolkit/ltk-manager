@@ -128,19 +128,29 @@ export function decideFileLink(
   return targets.pending ? PENDING : MISSING;
 }
 
+/** The roots the game's own chunks sit under, whose paths may hold a space. */
+const GAME_ROOTS = ["assets/", "data/"];
+
 /**
  * The chunk path a `string` names, or null where it names none.
  *
- * An `ASSETS/` or `DATA/` prefix in any case, and an extension. Lowercased as the
- * tables spell it, which is the one spelling the resolver, the layer and the preview
- * all answer under.
+ * A folder and a file name with an extension. A mod's own chunks sit under roots of its
+ * choosing, so any root counts, and one outside `ASSETS/` and `DATA/` holds no whitespace
+ * so that prose with a slash stays text. Lowercased as the tables spell it, which is the
+ * one spelling the resolver, the layer and the preview all answer under.
  */
 export function chunkPath(text: string): string | null {
   const path = text.toLowerCase();
-  if (!path.startsWith("assets/") && !path.startsWith("data/")) return null;
-  const name = path.slice(path.lastIndexOf("/") + 1);
+  const slash = path.lastIndexOf("/");
+  if (slash < 1 || path.startsWith("/")) return null;
+
+  const gameRoot = GAME_ROOTS.some((root) => path.startsWith(root));
+  if (!gameRoot && /\s/.test(path)) return null;
+
+  const name = path.slice(slash + 1);
   const dot = name.lastIndexOf(".");
   if (dot < 1 || dot === name.length - 1) return null;
+
   return path;
 }
 

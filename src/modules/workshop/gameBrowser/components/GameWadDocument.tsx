@@ -36,11 +36,13 @@ import {
   useExplorerNav,
   useExplorerSelectionApi,
 } from "../../explorer";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import {
   useExplorerFilter,
   useExplorerScope,
   useSetExplorerFilter,
   useSetExplorerScope,
+  useSetCollapsedWadDirs,
   useShutWadDirs,
   useToggleWadDir,
 } from "../../state";
@@ -53,7 +55,9 @@ import {
   buildSourceTree,
   flattenSourceTree,
   hasOnlyUnknownPaths,
+  sourceDirIds,
   type SourceDirListing,
+  toggledSourceDirTree,
   type SourceDirNode,
   type SourceEntry,
   type SourceFileNode,
@@ -109,6 +113,7 @@ export function GameWadDocument({
         <DocumentToolbar active={active}>
           <ArchiveBar
             explorerId={explorerId}
+            wadName={wadName}
             summary={summary}
             listings={listings}
             nav={nav}
@@ -148,6 +153,7 @@ function findArchive(
 
 interface ArchiveBarProps {
   explorerId: string;
+  wadName: string;
   summary: GameWadSummary | undefined;
   listings: ReadonlyMap<string, SourceDirListing>;
   nav: ReturnType<typeof useExplorerNav>;
@@ -158,6 +164,7 @@ interface ArchiveBarProps {
 
 function ArchiveBar({
   explorerId,
+  wadName,
   summary,
   listings,
   nav,
@@ -216,6 +223,7 @@ function ArchiveBar({
       actions={
         <>
           <ArchiveStats summary={summary} />
+          <CollapseArchiveAction wadName={wadName} summary={summary} />
           <ArchiveActions summary={summary} />
         </>
       }
@@ -225,6 +233,27 @@ function ArchiveBar({
 
 /* The bar reads the selection's totals and never its order, so it asks for none. */
 const NO_ORDER: never[] = [];
+
+/** Collapse all for the archive's tree, which only the tree view draws. */
+function CollapseArchiveAction({
+  wadName,
+  summary,
+}: {
+  wadName: string;
+  summary: GameWadSummary | undefined;
+}) {
+  const view = useExplorerView();
+  const { data: entries } = useGameWadEntries(summary?.name ?? null);
+  const setCollapsedWadDirs = useSetCollapsedWadDirs();
+
+  if (view !== "tree" || !entries) return null;
+
+  return (
+    <CollapseAllButton
+      onCollapse={() => setCollapsedWadDirs(wadName, sourceDirIds(buildSourceTree(entries)))}
+    />
+  );
+}
 
 function ArchiveStats({ summary }: { summary: GameWadSummary | undefined }) {
   const { data: entries } = useGameWadEntries(summary?.name ?? null);
@@ -329,17 +358,18 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
   const previewFile = useSourceRowPreview();
   const shutDirs = useShutWadDirs(wadName);
   const toggleWadDir = useToggleWadDir();
+  const setCollapsedWadDirs = useSetCollapsedWadDirs();
   const filter = useExplorerFilter(explorerId);
   const sort = useExplorerSort();
 
+  const built = useMemo(() => buildSourceTree(entries ?? []), [entries]);
   const tree = useMemo(() => {
-    const built = buildSourceTree(entries ?? []);
     /* The archive holds every entry, so the box narrows the whole tree here
        whatever the scope says. The scope is a grid question: a tree draws the
        depth a flat list of hits cannot. */
     const narrowed = filterTree(built, filter.text);
     return sortTree(narrowed, sort);
-  }, [entries, filter.text, sort]);
+  }, [built, filter.text, sort]);
 
   const isExpanded = useCallback((node: SourceDirNode) => !shutDirs.has(node.id), [shutDirs]);
   const rows = useMemo(() => flattenSourceTree(tree, isExpanded), [tree, isExpanded]);
@@ -352,6 +382,14 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
   const handleToggle = useCallback(
     (node: SourceDirNode) => toggleWadDir(wadName, node.id),
     [toggleWadDir, wadName],
+  );
+  const handleToggleSubtree = useCallback(
+    (node: SourceDirNode) => setCollapsedWadDirs(wadName, toggledSourceDirTree(shutDirs, node)),
+    [setCollapsedWadDirs, wadName, shutDirs],
+  );
+  const handleCollapseAll = useCallback(
+    () => setCollapsedWadDirs(wadName, sourceDirIds(built)),
+    [setCollapsedWadDirs, wadName, built],
   );
 
   const dirTargetsAt = useCallback(
@@ -369,6 +407,8 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
       ariaLabel={m.workshop_archive_tree_label({ archive: summary?.name ?? wadName })}
       isExpanded={isExpanded}
       onToggle={handleToggle}
+      onToggleSubtree={handleToggleSubtree}
+      onCollapseAll={handleCollapseAll}
       onOpen={openFile}
       onPreview={previewFile}
       selection={selection}

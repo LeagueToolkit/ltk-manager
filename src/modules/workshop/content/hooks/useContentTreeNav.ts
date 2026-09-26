@@ -1,6 +1,7 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
+import { isCollapseAllKey } from "../../shared/utils/treeGestures";
 import type { ContentTreeNode, FileNode, FlatTreeRow } from "../utils/contentTree";
 
 interface UseContentTreeNavParams {
@@ -12,6 +13,8 @@ interface UseContentTreeNavParams {
   onOpen?: (node: FileNode) => void;
   /** The keyboard route to the menu's Delete, confirmation included. */
   onDelete?: (node: ContentTreeNode) => void;
+  /** Collapse every directory, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
 }
@@ -36,6 +39,7 @@ export function useContentTreeNav({
   onToggle,
   onOpen,
   onDelete,
+  onCollapseAll,
   virtualizer,
   scrollElementRef,
 }: UseContentTreeNavParams): UseContentTreeNavReturn {
@@ -65,6 +69,13 @@ export function useContentTreeNav({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
+      if (onCollapseAll && isCollapseAllKey(e)) {
+        e.preventDefault();
+        onCollapseAll();
+        moveFocus(0);
+        return;
+      }
+
       const row = rows[focusedIndex];
       if (!row) return;
       switch (e.key) {
@@ -125,7 +136,7 @@ export function useContentTreeNav({
           return;
       }
     },
-    [rows, focusedIndex, collapsed, onToggle, onOpen, onDelete, moveFocus],
+    [rows, focusedIndex, collapsed, onToggle, onOpen, onDelete, onCollapseAll, moveFocus],
   );
 
   return { focusedIndex, setFocusedIndex, handleKeyDown };

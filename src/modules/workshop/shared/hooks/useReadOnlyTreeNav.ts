@@ -2,6 +2,7 @@ import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
 import type { OpenIntent } from "../../palette/utils/types";
+import { isCollapseAllKey } from "../utils/treeGestures";
 
 /** What a row's node answers a key with: the tab it opens, or the branch it folds. */
 export type NodeActivation = "open" | "toggle" | "none";
@@ -26,6 +27,8 @@ interface UseReadOnlyTreeNavParams<Node, Row extends DepthRow<Node>> {
   scrollElementRef: RefObject<HTMLDivElement | null>;
   /** Called with the row a key moved focus to. A tree without it only moves focus. */
   onKeyMove?: (node: Node) => void;
+  /** Shut every folder, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
 }
 
 interface UseReadOnlyTreeNavReturn {
@@ -53,6 +56,7 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
   virtualizer,
   scrollElementRef,
   onKeyMove,
+  onCollapseAll,
 }: UseReadOnlyTreeNavParams<Node, Row>): UseReadOnlyTreeNavReturn {
   const [focusedIndex, setFocusedIndex] = useState(0);
 
@@ -79,6 +83,13 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLDivElement>) => {
+      if (onCollapseAll && isCollapseAllKey(e)) {
+        e.preventDefault();
+        onCollapseAll();
+        moveFocus(0);
+        return;
+      }
+
       const row = rows[focusedIndex];
       if (!row) return;
       const node = row.node;
@@ -150,6 +161,7 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
       activation,
       moveFocus,
       onKeyMove,
+      onCollapseAll,
     ],
   );
 

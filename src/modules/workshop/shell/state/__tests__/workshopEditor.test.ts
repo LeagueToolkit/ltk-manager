@@ -892,6 +892,17 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("collapseDirs", () => {
+    it("shuts exactly the given directories of one layer", () => {
+      store().toggleCollapsed(A, "base", "old");
+
+      store().collapseDirs(A, "base", new Set(["assets", "data"]));
+
+      expect([...(editorOf(A).collapsed.base ?? [])]).toEqual(["assets", "data"]);
+      expect(editorOf(A).collapsed.test).toBeUndefined();
+    });
+  });
+
   describe("openDirs", () => {
     it("opens the directories a reveal has to pass through", () => {
       store().toggleCollapsed(A, "base", "assets");
@@ -1162,6 +1173,41 @@ describe("workshopEditor store", () => {
       const at = entry.location === undefined ? "" : `@${entry.location.path || "/"}`;
       return `${entry.project}/${entry.documentId}${at}`;
     }
+
+    describe("entering a project", () => {
+      it("records the restored active tab, so back returns to the grid", () => {
+        const layout = singleLeaf(["details"], "details");
+        store().recordListVisit();
+        store().hydrateProject(A, {
+          ...EMPTY_EDITOR,
+          documents: { details: detailsDocument() },
+          layout,
+          activeLeafId: layout.id,
+        });
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+      });
+
+      it("records nothing where the arrows already stand in the project", () => {
+        store().recordListVisit();
+        store().openDocument(A, detailsDocument());
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+      });
+
+      it("records nothing for a project with no tab open", () => {
+        store().recordListVisit();
+        store().hydrateProject(A, EMPTY_EDITOR);
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list"], at: 0 });
+      });
+    });
 
     describe("an explorer's location", () => {
       const GAME = "game";

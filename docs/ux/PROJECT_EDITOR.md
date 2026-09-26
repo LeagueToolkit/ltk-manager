@@ -65,7 +65,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Tab title prefix       | Available   | The layer after the title, where two tabs take the same name             |
 | Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it               |
 | Panel host choice      | Planned     | Either side panel accepts any panel type                                 |
-| Tree expansion rules   | Planned     | Stops the full expand of every directory                                 |
+| Tree expansion rules   | In progress | Collapse all is in the layer, game and archive trees. The rest remains   |
 | Layer conflict mark    | Planned     | No backend work, because the payload holds every layer                   |
 | Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                             |
 | Directory size and bar | Planned     | Needs a size total for each directory                                    |
@@ -1346,8 +1346,11 @@ The tree expands every directory today. For a layer with 446 files this fills th
 rows that carry no information, and a user scrolls before the first read.
 
 - The first render expands to the first directory that holds more than one child
-- An expand-all control and a collapse-all control are in the panel header
-- `Alt` and a click on a chevron expand or collapse the whole subtree
+- An expand-all control and a collapse-all control are in the panel header. Collapse all is
+  available on every tree, as a header button and as `Ctrl+←` on a focused tree, the key of
+  Visual Studio Code's `list.collapseAll`
+- `Alt`, `Shift` or `Ctrl` and a click on a chevron expand or collapse the whole subtree. A tree that loads a
+  folder per request opens one level only, so a click never starts a fetch per descendant
 
 ### Size
 

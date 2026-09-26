@@ -33,6 +33,7 @@ import {
   useExplorerNav,
   useExplorerSelectionApi,
 } from "../../explorer";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import {
   useExpandedGameDirs,
   useExplorerFilter,
@@ -46,6 +47,8 @@ import {
   useSetGameSearchPattern,
   useSetGameSearchRegex,
   useSettleGameReveal,
+  useCollapseAllGameDirs,
+  useCollapseGameDirTree,
   useToggleGameDir,
 } from "../../state";
 import { useGameFind } from "../api/useGameFind";
@@ -64,7 +67,7 @@ import {
   UNKNOWN_DIR,
 } from "../utils/sourceIndex";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
-import { GameFindResults } from "./GameFindResults";
+import { CollapseFindAction, GameFindResults } from "./GameFindResults";
 import { SourceTree } from "./SourceTree";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
 
@@ -146,6 +149,7 @@ function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBa
       actions={
         <>
           <GameStats />
+          <CollapseIndexAction />
           <ArchivesAction />
           <RebuildAction />
         </>
@@ -173,6 +177,19 @@ function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
   if (view !== "tree")
     return <GameIndexItems view={view} location={location} onDescend={onNavigate} onUp={onUp} />;
   return <GameIndexTree />;
+}
+
+/** Collapse all for whichever tree the body draws: the search results, or the index tree. */
+function CollapseIndexAction() {
+  const view = useExplorerView();
+  const scope = useExplorerScope(EXPLORER_ID);
+  const pattern = useGameSearchPattern();
+  const collapseAllGameDirs = useCollapseAllGameDirs();
+
+  if (scope === "whole" && pattern.length > 0) return <CollapseFindAction />;
+  if (view !== "tree") return null;
+
+  return <CollapseAllButton onCollapse={collapseAllGameDirs} />;
 }
 
 function GameStats() {
@@ -323,6 +340,8 @@ export function GameIndexTree() {
      to hold at once, so a directory is read when it is first opened. */
   const expanded = useExpandedGameDirs();
   const toggleDir = useToggleGameDir();
+  const collapseDirTree = useCollapseGameDirTree();
+  const collapseAllDirs = useCollapseAllGameDirs();
   const openFile = useSourcePreview();
   const previewFile = useSourceRowPreview();
   const sort = useExplorerSort();
@@ -353,6 +372,18 @@ export function GameIndexTree() {
   const selection = useExplorerSelectionApi(EXPLORER_ID, order);
 
   const handleToggle = useCallback((node: SourceDirNode) => toggleDir(node.id), [toggleDir]);
+  /* Each expanded directory here is a fetch, so an Alt+click expands one level
+     and only the collapse reaches the whole subtree. */
+  const handleToggleSubtree = useCallback(
+    (node: SourceDirNode) => {
+      if (expanded.has(node.id)) {
+        collapseDirTree(node.id);
+      } else {
+        toggleDir(node.id);
+      }
+    },
+    [expanded, collapseDirTree, toggleDir],
+  );
   const targets = useCallback(
     () => selectionTargets(selection.selection, indexDirTargets),
     [selection.selection],
@@ -378,6 +409,8 @@ export function GameIndexTree() {
         ariaLabel={m.workshop_game_files_tree_label()}
         isExpanded={isExpanded}
         onToggle={handleToggle}
+        onToggleSubtree={handleToggleSubtree}
+        onCollapseAll={collapseAllDirs}
         onOpen={openFile}
         onPreview={previewFile}
         /* A shut row here holds no children yet, so the backend expands it

@@ -7,9 +7,11 @@ import type { GameFindHit } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
 
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import {
   useGameSearchPattern,
   useGameSearchRegex,
+  useSetCollapsedFindDirs,
   useShutFindDirs,
   useToggleFindDir,
 } from "../../state";
@@ -18,8 +20,10 @@ import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview
 import {
   buildSourceTree,
   flattenSourceTree,
+  sourceDirIds,
   type SourceDirNode,
   type SourceEntry,
+  toggledSourceDirTree,
 } from "../utils/sourceIndex";
 import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import { SourceTree } from "./SourceTree";
@@ -47,12 +51,21 @@ export function GameFindResults() {
 
   const shut = useShutFindDirs();
   const toggleFindDir = useToggleFindDir();
+  const setCollapsedFindDirs = useSetCollapsedFindDirs();
   const tree = useMemo(() => buildSourceTree((data?.hits ?? []).map(toSourceEntry)), [data]);
   const isExpanded = useCallback((node: SourceDirNode) => !shut.has(node.id), [shut]);
   const rows = useMemo(() => flattenSourceTree(tree, isExpanded), [tree, isExpanded]);
   const handleToggle = useCallback(
     (node: SourceDirNode) => toggleFindDir(node.id),
     [toggleFindDir],
+  );
+  const handleToggleSubtree = useCallback(
+    (node: SourceDirNode) => setCollapsedFindDirs(toggledSourceDirTree(shut, node)),
+    [setCollapsedFindDirs, shut],
+  );
+  const handleCollapseAll = useCallback(
+    () => setCollapsedFindDirs(sourceDirIds(tree)),
+    [setCollapsedFindDirs, tree],
   );
 
   if (error && !patternError) return <GameWadsErrorState error={error} />;
@@ -86,6 +99,8 @@ export function GameFindResults() {
             ariaLabel={m.workshop_game_results_tree_label()}
             isExpanded={isExpanded}
             onToggle={handleToggle}
+            onToggleSubtree={handleToggleSubtree}
+            onCollapseAll={handleCollapseAll}
             onOpen={openFile}
             onPreview={previewFile}
             /* Per pattern, so a fresh search opens at its first hit rather than
@@ -95,6 +110,24 @@ export function GameFindResults() {
         </div>
       )}
     </>
+  );
+}
+
+/** Collapse all for the search results tree, drawn while it holds any hits. */
+export function CollapseFindAction() {
+  const pattern = useGameSearchPattern();
+  const regex = useGameSearchRegex();
+  const { data } = useGameFind(pattern, regex);
+  const setCollapsedFindDirs = useSetCollapsedFindDirs();
+
+  if (pattern.length === 0 || !data || data.hits.length === 0) return null;
+
+  return (
+    <CollapseAllButton
+      onCollapse={() =>
+        setCollapsedFindDirs(sourceDirIds(buildSourceTree(data.hits.map(toSourceEntry))))
+      }
+    />
   );
 }
 

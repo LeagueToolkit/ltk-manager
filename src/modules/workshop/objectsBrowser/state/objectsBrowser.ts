@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { ancestorPrefixes, type ObjectTreeNode } from "../utils/objectTree";
+import { ancestorPrefixes, isBelowPrefix, type ObjectTreeNode } from "../utils/objectTree";
 
 /** A row the objects browser is asked to expand to, focus and scroll to. */
 export interface ObjectsReveal {
@@ -22,6 +22,10 @@ interface ObjectsBrowserStore {
   togglePrefix: (path: string) => void;
   /** Open every one of `paths`, for a reveal that walks down to a row. */
   expandPrefixes: (paths: readonly string[]) => void;
+  /** Collapse `path` and every open prefix below it. */
+  collapsePrefixSubtree: (path: string) => void;
+  /** Collapse every prefix of the objects tree. */
+  collapseAllPrefixes: () => void;
   /** What the objects document's search box holds. */
   searchPattern: string;
   searchRegex: boolean;
@@ -30,6 +34,10 @@ interface ObjectsBrowserStore {
   /** Prefixes the user has shut in the search results tree, by path. */
   shutFindPrefixes: ReadonlySet<string>;
   toggleFindPrefix: (path: string) => void;
+  /** Collapse every one of `paths` in the search results tree. */
+  collapseFindPrefixes: (paths: readonly string[]) => void;
+  /** Expand `path` and every prefix below it in the search results tree. */
+  expandFindSubtree: (path: string) => void;
   /** The pending reveal, or null while none is owed. */
   reveal: ObjectsReveal | null;
   requestReveal: (path: string) => void;
@@ -45,6 +53,11 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
     next.add(value);
   }
   return next;
+}
+
+/** `set` without `path` and every path below it. */
+function withoutSubtree(set: ReadonlySet<string>, path: string): ReadonlySet<string> {
+  return new Set([...set].filter((held) => held !== path && !isBelowPrefix(held, path)));
 }
 
 /**
@@ -116,6 +129,11 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
       if (paths.every((path) => state.expandedPrefixes.has(path))) return state;
       return { expandedPrefixes: new Set([...state.expandedPrefixes, ...paths]) };
     }),
+  collapsePrefixSubtree: (path) =>
+    set((state) => ({
+      expandedPrefixes: withoutSubtree(state.expandedPrefixes, path),
+    })),
+  collapseAllPrefixes: () => set({ expandedPrefixes: new Set() }),
   searchPattern: "",
   searchRegex: false,
   setSearchPattern: (searchPattern) => set({ searchPattern }),
@@ -123,6 +141,10 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
   shutFindPrefixes: new Set(),
   toggleFindPrefix: (path) =>
     set((state) => ({ shutFindPrefixes: toggled(state.shutFindPrefixes, path) })),
+  collapseFindPrefixes: (paths) =>
+    set((state) => ({ shutFindPrefixes: new Set([...state.shutFindPrefixes, ...paths]) })),
+  expandFindSubtree: (path) =>
+    set((state) => ({ shutFindPrefixes: withoutSubtree(state.shutFindPrefixes, path) })),
   reveal: null,
   requestReveal: (path) =>
     set((state) => ({
@@ -141,12 +163,18 @@ export const useSelectedObjectPath = () => useObjectsBrowserStore((s) => s.selec
 export const useSetObjectsView = () => useObjectsBrowserStore((s) => s.setView);
 export const useToggleObjectPrefix = () => useObjectsBrowserStore((s) => s.togglePrefix);
 export const useExpandObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandPrefixes);
+export const useCollapseObjectPrefixSubtree = () =>
+  useObjectsBrowserStore((s) => s.collapsePrefixSubtree);
+export const useCollapseAllObjectPrefixes = () =>
+  useObjectsBrowserStore((s) => s.collapseAllPrefixes);
 export const useObjectsSearchPattern = () => useObjectsBrowserStore((s) => s.searchPattern);
 export const useSetObjectsSearchPattern = () => useObjectsBrowserStore((s) => s.setSearchPattern);
 export const useObjectsSearchRegex = () => useObjectsBrowserStore((s) => s.searchRegex);
 export const useSetObjectsSearchRegex = () => useObjectsBrowserStore((s) => s.setSearchRegex);
 export const useShutFindPrefixes = () => useObjectsBrowserStore((s) => s.shutFindPrefixes);
 export const useToggleFindPrefix = () => useObjectsBrowserStore((s) => s.toggleFindPrefix);
+export const useCollapseFindPrefixes = () => useObjectsBrowserStore((s) => s.collapseFindPrefixes);
+export const useExpandFindSubtree = () => useObjectsBrowserStore((s) => s.expandFindSubtree);
 export const useObjectsReveal = () => useObjectsBrowserStore((s) => s.reveal);
 export const useRequestObjectsReveal = () => useObjectsBrowserStore((s) => s.requestReveal);
 export const useSettleObjectsReveal = () => useObjectsBrowserStore((s) => s.settleReveal);

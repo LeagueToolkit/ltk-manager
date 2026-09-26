@@ -56,6 +56,11 @@ export function useOpenLocationStops(): (
   return useWorkshopEditorStore((s) => s.openLocationStops);
 }
 
+/** Records a project's open tab as a stop on entering it. */
+export function useRecordProjectVisit(): (project: string) => void {
+  return useWorkshopEditorStore((s) => s.recordProjectVisit);
+}
+
 /** Records the grid as a stop, which is what a back out of a project lands on. */
 export function useRecordListVisit(): () => void {
   return useWorkshopEditorStore((s) => s.recordListVisit);

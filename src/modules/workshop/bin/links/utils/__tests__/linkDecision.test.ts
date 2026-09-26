@@ -174,9 +174,22 @@ describe("chunkPath", () => {
     );
   });
 
-  it("takes nothing under another root", () => {
-    expect(chunkPath("Characters/Aatrox/Aatrox.dds")).toBeNull();
+  it("takes a path under a root a mod chose", () => {
+    expect(chunkPath("mod/83f7e874bb9f/Lux/VFX/eyefade.dds")).toBe(
+      "mod/83f7e874bb9f/lux/vfx/eyefade.dds",
+    );
+    expect(chunkPath("Characters/Aatrox/Aatrox.dds")).toBe("characters/aatrox/aatrox.dds");
+  });
+
+  it("takes nothing without a folder", () => {
     expect(chunkPath("Justicar Aatrox")).toBeNull();
+    expect(chunkPath("aatrox.dds")).toBeNull();
+    expect(chunkPath("/aatrox.dds")).toBeNull();
+  });
+
+  it("takes a space only under the game's own roots", () => {
+    expect(chunkPath("assets/my skin/aatrox.dds")).toBe("assets/my skin/aatrox.dds");
+    expect(chunkPath("damage and/or healing.png")).toBeNull();
   });
 
   it("takes nothing without an extension on the last segment", () => {

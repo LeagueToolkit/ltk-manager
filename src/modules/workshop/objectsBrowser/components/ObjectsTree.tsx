@@ -30,7 +30,10 @@ interface ObjectsTreeProps {
   nodes: readonly ObjectTreeNode[];
   ariaLabel: string;
   isExpanded: (node: ObjectTreeNode) => boolean;
-  onToggle: (node: ObjectTreeNode) => void;
+  /** A folder toggle. `subtree` asks for every level below as well. */
+  onToggle: (node: ObjectTreeNode, subtree?: boolean) => void;
+  /** Collapse every folder, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   /** A click on an object row, or its Open menu item. */
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
   /** Names this tree's scroll to the browser store. Absent starts at the top. */
@@ -51,6 +54,7 @@ export function ObjectsTree({
   ariaLabel,
   isExpanded,
   onToggle,
+  onCollapseAll,
   onOpen,
   scrollKey,
   reveal = null,
@@ -114,6 +118,7 @@ export function ObjectsTree({
     virtualizer,
     scrollElementRef: scrollRef,
     onKeyMove: restPreview,
+    onCollapseAll,
   });
   const select = (index: number) => {
     setFocusedIndex(index);

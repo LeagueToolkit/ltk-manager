@@ -640,6 +640,47 @@ describe("ProblemsDocument", () => {
     });
   });
 
+  describe("collapse all", () => {
+    function collapseAllButton() {
+      return screen.getByRole("button", { name: "Collapse all folders" });
+    }
+
+    /// An auto-opened list reopens whatever `touched` leaves to the rule, so the
+    /// gesture has to count as a touch for the list to stay collapsed.
+    it("collapses every group and object from the toolbar, and they stay collapsed", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      await skin0Group();
+      await userEvent.click(collapseAllButton());
+
+      expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+      expect(screen.queryByRole("button", { name: /iconAvatar/ })).toBeNull();
+    });
+
+    it("collapses every group on Ctrl+Left inside the list", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      const group = await skin0Group();
+      group.focus();
+      await userEvent.keyboard("{Control>}{ArrowLeft}{/Control}");
+
+      expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    });
+
+    it("opens only the clicked group after a collapse", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      const group = await skin0Group();
+      await userEvent.click(collapseAllButton());
+      await userEvent.click(group);
+
+      expect(expandedNames()).toEqual([groupName("base", SKIN0)]);
+    });
+  });
+
   describe("states with no list", () => {
     it("reports a clean project rather than an empty list", async () => {
       mockBackend({ ok: true, value: run({ problems: [] }) });

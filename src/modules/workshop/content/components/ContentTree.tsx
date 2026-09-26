@@ -17,6 +17,7 @@ import { MODIGNORE_FILE_NAME } from "../../ignore-rules";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
 import {
+  useCollapseLayerDirs,
   useCollapsedDirs,
   useOpenDocument,
   useOpenRowPreview,
@@ -24,13 +25,16 @@ import {
   useToggleCollapsed,
 } from "../../state";
 import {
+  allDirPaths,
   buildContentTree,
   buildDirFileCounts,
   type ContentTreeNode,
+  type DirNode,
   type FileNode,
   flattenTree,
   type FlatTreeRow,
   nodeCovers,
+  toggledDirTree,
 } from "../utils/contentTree";
 import { ContentTreeContextMenu } from "./ContentTreeContextMenu";
 import { TreeRow } from "./ContentTreeRow";
@@ -65,7 +69,17 @@ export function ContentTree({ layer }: ContentTreeProps) {
      outlives a trip to another layer and the panel move ahead of it. */
   const collapsed = useCollapsedDirs(layerName);
   const toggle = useToggleCollapsed(layerName);
+  const collapseLayerDirs = useCollapseLayerDirs();
   const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
+
+  const toggleSubtree = useCallback(
+    (dir: DirNode) => collapseLayerDirs(layerName, toggledDirTree(collapsed, dir)),
+    [collapseLayerDirs, layerName, collapsed],
+  );
+  const collapseAll = useCallback(
+    () => collapseLayerDirs(layerName, allDirPaths(tree)),
+    [collapseLayerDirs, layerName, tree],
+  );
 
   const documentFor = useCallback(
     (node: FileNode) => {
@@ -177,6 +191,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
     onToggle: toggle,
     onOpen: openFile,
     onDelete: requestDelete,
+    onCollapseAll: collapseAll,
     virtualizer,
     scrollElementRef: scrollRef,
   });
@@ -292,6 +307,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
                         row.node.type === "dir" ? (dirFileCounts.get(row.node.path) ?? 0) : 0
                       }
                       onToggle={toggle}
+                      onToggleSubtree={toggleSubtree}
                       onSelect={setFocusedIndex}
                       onOpen={openFile}
                       onPreview={previewFile}

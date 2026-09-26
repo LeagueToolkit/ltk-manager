@@ -419,3 +419,25 @@ export function ancestorPrefixes(path: string): string[] {
   }
   return out;
 }
+
+/** Whether `path` sits somewhere below the prefix `prefix`, the prefix itself excluded. */
+export function isBelowPrefix(path: string, prefix: string): boolean {
+  return ancestorPrefixes(path).includes(prefix);
+}
+
+/** The ids of every node in `nodes` that has children to open, at any depth. */
+export function branchIds(nodes: readonly ObjectTreeNode[]): string[] {
+  const out: string[] = [];
+  const walk = (list: readonly ObjectTreeNode[]): void => {
+    for (const node of list) {
+      if (!expandable(node)) {
+        continue;
+      }
+
+      out.push(node.id);
+      walk(node.children);
+    }
+  };
+  walk(nodes);
+  return out;
+}

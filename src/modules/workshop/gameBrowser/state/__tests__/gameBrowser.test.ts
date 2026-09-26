@@ -60,6 +60,37 @@ describe("gameBrowser store", () => {
     });
   });
 
+  describe("collapseDirTree", () => {
+    it("collapses a directory and every directory under it, and nothing beside it", () => {
+      useGameBrowserStore.setState({
+        expandedDirs: new Set(["assets", "assets/characters", "assets/characters/ahri", "assetsx"]),
+      });
+
+      useGameBrowserStore.getState().collapseDirTree("assets");
+
+      expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set(["assetsx"]));
+    });
+
+    it("keeps the set when nothing under the directory is expanded", () => {
+      useGameBrowserStore.setState({ expandedDirs: new Set(["data"]) });
+      const before = useGameBrowserStore.getState().expandedDirs;
+
+      useGameBrowserStore.getState().collapseDirTree("assets");
+
+      expect(useGameBrowserStore.getState().expandedDirs).toBe(before);
+    });
+  });
+
+  describe("setCollapsedFindDirs", () => {
+    it("collapses exactly the given directories of the search results", () => {
+      useGameBrowserStore.setState({ shutFindDirs: new Set(["d:old"]) });
+
+      useGameBrowserStore.getState().setCollapsedFindDirs(new Set(["d:a", "d:a/b"]));
+
+      expect(useGameBrowserStore.getState().shutFindDirs).toEqual(new Set(["d:a", "d:a/b"]));
+    });
+  });
+
   describe("reveal", () => {
     it("bumps the token per request, so two reveals of one row both land", () => {
       useGameBrowserStore.getState().requestReveal("f:0123456789abcdef");

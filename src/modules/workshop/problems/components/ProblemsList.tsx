@@ -1,6 +1,14 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { AlertBox, Code, EmptyState, Spinner } from "@/components";
 import { useZoomedPx } from "@/hooks";
@@ -9,6 +17,7 @@ import { errorSummary } from "@/i18n";
 
 import { useProjectProblems } from "../../api";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { isCollapseAllKey } from "../../shared/utils/treeGestures";
 /* The row model is aliased because `ProblemRow` is also the component that
    draws one, which this file imports from `./ProblemRows`. */
 import {
@@ -38,10 +47,12 @@ const AUTO_EXPAND_LIMIT = 20;
 interface ProblemsListProps {
   /** What the document's filter box holds, which the toolbar owns. */
   query: string;
+  /** A count the toolbar's collapse-all button raises, which collapses every group. */
+  collapseAllSignal?: number;
 }
 
 /** Every check the manager ran over this project, grouped by the file it read. */
-export function ProblemsList({ query }: ProblemsListProps) {
+export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps) {
   const project = useProjectContext();
   const { data: run, isPending, error } = useProjectProblems(project.path);
 
@@ -91,6 +102,28 @@ export function ProblemsList({ query }: ProblemsListProps) {
     },
     [searching, touched, expanded],
   );
+
+  /* Marked touched, so the auto-open rule does not open the list again. */
+  const collapseAll = useCallback(() => {
+    if (searching) return;
+
+    setOpened(new Set());
+    setTouched(true);
+  }, [searching]);
+
+  const collapsedFor = useRef(collapseAllSignal);
+  useEffect(() => {
+    if (collapseAllSignal === collapsedFor.current) return;
+    collapsedFor.current = collapseAllSignal;
+    collapseAll();
+  }, [collapseAllSignal, collapseAll]);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!isCollapseAllKey(event)) return;
+
+    event.preventDefault();
+    collapseAll();
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const zoomed = useZoomedPx();
@@ -147,6 +180,7 @@ export function ProblemsList({ query }: ProblemsListProps) {
         <div
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-auto rounded-lg border border-surface-700/60 scrollbar-md"
+          onKeyDown={handleKeyDown}
           {...NO_OVERSCROLL}
         >
           <div

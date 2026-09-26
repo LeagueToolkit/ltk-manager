@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Spinner } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
   type DropOutcome,
@@ -39,6 +39,7 @@ import {
   useMoveDocument,
   useOpenDocument,
   useOpenDocuments,
+  useRecordProjectVisit,
   useReorderDocuments,
   useRestoreMaximizedLeaf,
   useSelectedLayerName,
@@ -99,6 +100,11 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
     const first = project.layers[0];
     if (first) openDocument(filesDocument(first.name));
   }, [documents.length, project, projectPath, openDocument]);
+
+  const recordProjectVisit = useRecordProjectVisit();
+  useEffect(() => {
+    recordProjectVisit(projectPath);
+  }, [projectPath, recordProjectVisit]);
 
   const addFilesToLayer = useAddFilesToLayer();
 
@@ -172,13 +178,13 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
           <Spinner size="sm" />
-          Scanning project…
+          {m.workshop_content_scanning_label()}
         </div>
       )}
 
       {error && (
         <div className="m-3 rounded-md border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-danger-text">
-          Couldn&rsquo;t read the content directory: {errorSummary(error)}
+          {m.workshop_content_read_failed_description({ reason: errorSummary(error) })}
         </div>
       )}
 

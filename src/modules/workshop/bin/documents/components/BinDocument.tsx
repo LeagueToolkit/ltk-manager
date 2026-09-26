@@ -16,6 +16,7 @@ import { objectDocument } from "../../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../../palette/utils/types";
 /* The leaf rather than the preview barrel, which pulls the document that routes here. */
 import { BinPreview } from "../../../preview/components/BinPreview";
+import { CollapseAllButton } from "../../../shared/components/CollapseAllButton";
 import {
   useAimCurve,
   useLendOpenBin,
@@ -120,6 +121,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const dependencies = useFileDependencies(handle);
   const prop = handle.header.kind === "prop";
   const [dependenciesReveal, setDependenciesReveal] = useState(0);
+  const [collapseAllSignal, setCollapseAllSignal] = useState(0);
   const declaredState = useDeclaredState(handle.document);
   const removedLinks = declaredState?.links.filter((link) => link.change === "removed").length ?? 0;
 
@@ -198,6 +200,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
             narrow={narrow}
             onDependencies={() => setDependenciesReveal((count) => count + 1)}
           />
+          <CollapseAllButton onCollapse={() => setCollapseAllSignal((count) => count + 1)} />
           <BinEditState
             document={handle.document}
             asset={asset}
@@ -226,6 +229,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
             editable={handle.readOnly === null}
             dependencies={prop ? dependencies : null}
             dependenciesReveal={dependenciesReveal}
+            collapseAllSignal={collapseAllSignal}
           />
         </CurveDockContext>
       </NewObjectContext>

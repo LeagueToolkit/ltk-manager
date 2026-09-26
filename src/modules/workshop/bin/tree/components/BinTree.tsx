@@ -1,5 +1,6 @@
 import {
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   use,
   useCallback,
@@ -16,6 +17,7 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
 import { stirImages } from "../../../preview/hooks/useImageSlot";
+import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { rowTag } from "../../values/utils/kindTag";
 import type { TreeFocus } from "../hooks/useBinEdit";
 import { type TreeReveal, useReveal } from "../hooks/useReveal";
@@ -81,12 +83,20 @@ interface BinTreeProps {
   dependencies?: readonly Dependency[] | null;
   /** A count the header's dependencies button raises, which opens and scrolls to that row. */
   dependenciesReveal?: number;
+  /** A count the header's collapse-all button raises, which collapses every open row. */
+  collapseAllSignal?: number;
 }
 
 const NO_KEYS: readonly string[] = [];
 
 /** The room a bounded tree leaves around its rows, which is the scroller's own padding. */
 const SCROLLER_PADDING = 8;
+
+/** Whether `target` takes typed text, where `Ctrl+←` moves the caret by a word. */
+function isTextEntry(target: EventTarget): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || target.closest("input, textarea, select") !== null;
+}
 
 /**
  * The rows of one bin document as a tree, a window at a time.
@@ -111,6 +121,7 @@ export function BinTree({
   rootEntry = null,
   dependencies = null,
   dependenciesReveal = 0,
+  collapseAllSignal = 0,
 }: BinTreeProps) {
   /* The one insert line open inside a list or a map. */
   const [insertAt, setInsertAt] = useState<InsertAt | null>(null);
@@ -120,6 +131,7 @@ export function BinTree({
     loaded,
     groups,
     toggle: toggleRow,
+    collapseAll: collapseRows,
     expand,
     requestMore,
     reach,
@@ -158,6 +170,25 @@ export function BinTree({
     },
     [clearFocus, toggleRow],
   );
+
+  const collapseAll = useCallback(() => {
+    clearFocus();
+    collapseRows();
+  }, [clearFocus, collapseRows]);
+
+  const collapsedFor = useRef(collapseAllSignal);
+  useEffect(() => {
+    if (collapseAllSignal === collapsedFor.current) return;
+    collapsedFor.current = collapseAllSignal;
+    collapseAll();
+  }, [collapseAllSignal, collapseAll]);
+
+  function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (!isCollapseAllKey(event) || isTextEntry(event.target)) return;
+
+    event.preventDefault();
+    collapseAll();
+  }
 
   /* The row value or the add line an edit sends focus to, once it draws. */
   const [focusKey, setFocusKey] = useState<string | null>(null);
@@ -277,6 +308,7 @@ export function BinTree({
                 } as CSSProperties
               }
               onContextMenu={handleContextMenu}
+              onKeyDown={handleKeyDown}
               onPointerDown={(event) => standOn(event.target)}
               onFocus={(event) => standOn(event.target)}
               onMouseOver={(event) => {

@@ -15,5 +15,6 @@ export { TabOverflowList } from "./TabOverflowList";
 export type { TextBufferProps } from "./TextBuffer";
 export { TextBuffer } from "./TextBuffer";
 export { TextFindBar } from "./TextFindBar";
+export { ToolbarOverflow, useInToolbarOverflow } from "./ToolbarOverflow";
 export type { UnsavedAnswer, UnsavedCloseDialogProps } from "./UnsavedCloseDialog";
 export { UnsavedCloseDialog } from "./UnsavedCloseDialog";

@@ -5,6 +5,7 @@ import { m } from "@/i18n";
 import { DocumentToolbar } from "@/modules/editor";
 
 import {
+  CollapseFindAction,
   GameFindResults,
   MatchCount,
   useGameFind,
@@ -28,6 +29,7 @@ export function GameSearchView() {
     <>
       <DocumentToolbar active>
         <SearchField onCommit={() => focusRows(bodyRef.current)} />
+        <CollapseFindAction />
       </DocumentToolbar>
 
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">

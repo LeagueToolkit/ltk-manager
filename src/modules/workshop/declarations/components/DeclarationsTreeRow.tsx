@@ -26,6 +26,7 @@ import {
   TREE_ROW_BASE_CLASSES,
   TREE_ROW_STATE_CLASSES,
 } from "../../shared/components/TreeRowParts";
+import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { clickIntent } from "../../state";
 import { type DropTarget, isDraggable, moduleOfRow } from "../utils/outlineDrop";
 import { entryTitle, isInGame, type OutlineNode, pathSegments } from "../utils/outlineTree";
@@ -41,7 +42,8 @@ interface DeclarationsTreeRowProps {
   isSelected: boolean;
   /** Whether a click on a branch opens it rather than folding it. */
   openBranches: boolean;
-  onToggle: (node: OutlineNode) => void;
+  /** A caret or branch click. `subtree` asks for every branch below as well. */
+  onToggle: (node: OutlineNode, subtree?: boolean) => void;
   onSelect: (index: number) => void;
   onOpen: (node: OutlineNode, intent: OpenIntent) => void;
   height: number;
@@ -95,7 +97,7 @@ function DeclarationsTreeRowInner({
 
         onSelect(rowIndex);
         if (opens && node.type !== "key") onOpen(node, clickIntent(event));
-        else if (branch) onToggle(node);
+        else if (branch) onToggle(node, isSubtreeClick(event));
       }}
       onDoubleClick={() => {
         if (node.type === "key") onOpen(node, "permanent");
@@ -112,7 +114,9 @@ function DeclarationsTreeRowInner({
       )}
     >
       <IndentRails depth={depth} />
-      {branch && <Caret isExpanded={isExpanded} onClick={() => onToggle(node)} />}
+      {branch && (
+        <Caret isExpanded={isExpanded} onClick={(event) => onToggle(node, isSubtreeClick(event))} />
+      )}
       {!branch && <CaretSlot />}
       <RowBody node={node} onOpen={onOpen} />
     </div>

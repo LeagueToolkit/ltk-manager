@@ -9,6 +9,7 @@ import { formatBytes } from "@/utils";
 
 import { FolderGlyph } from "../../shared/components/TreeRowParts";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
+import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import type { ContentTreeNode, DirNode, FileNode } from "../utils/contentTree";
 
 /** Shared row styling. Kept as string constants so the hover/selected variants
@@ -62,6 +63,8 @@ interface TreeRowProps {
   isSelected: boolean;
   dirFileCount: number;
   onToggle: (path: string) => void;
+  /** An Alt+click on a directory row, which collapses or expands its whole subtree. */
+  onToggleSubtree?: (node: DirNode) => void;
   onSelect: (index: number) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: FileNode) => void;
@@ -79,6 +82,7 @@ function TreeRowInner({
   isSelected,
   dirFileCount,
   onToggle,
+  onToggleSubtree,
   onSelect,
   onOpen,
   onPreview,
@@ -95,6 +99,7 @@ function TreeRowInner({
         isSelected={isSelected}
         fileCount={dirFileCount}
         onToggle={onToggle}
+        onToggleSubtree={onToggleSubtree}
         onSelect={onSelect}
         height={height}
         rowIndex={rowIndex}
@@ -150,6 +155,7 @@ interface DirRowProps {
   isSelected: boolean;
   fileCount: number;
   onToggle: (path: string) => void;
+  onToggleSubtree?: (node: DirNode) => void;
   onSelect: (index: number) => void;
   height: number;
   rowIndex: number;
@@ -163,6 +169,7 @@ function DirRow({
   isSelected,
   fileCount,
   onToggle,
+  onToggleSubtree,
   onSelect,
   height,
   rowIndex,
@@ -178,9 +185,14 @@ function DirRow({
       data-ui="ContentTreeRow:dir"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => {
+      onClick={(event) => {
         onSelect(rowIndex);
-        onToggle(node.path);
+
+        if (onToggleSubtree && isSubtreeClick(event)) {
+          onToggleSubtree(node);
+        } else {
+          onToggle(node.path);
+        }
       }}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}

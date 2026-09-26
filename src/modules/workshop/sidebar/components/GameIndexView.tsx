@@ -3,13 +3,14 @@ import { useRef } from "react";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { DocumentToolbar } from "@/modules/editor";
+import { DocumentToolbar, ToolbarOverflow } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
 import { GAME_EXPLORER_ID, GameIndexTree, useRefreshGameIndex } from "../../gameBrowser";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
 import { focusRows } from "../../shared/utils/focusRows";
-import { useExplorerFilter, useSetExplorerFilter } from "../../state";
+import { useExplorerFilter, useSetExplorerFilter, useCollapseAllGameDirs } from "../../state";
 
 /**
  * The install's own directories, as the tree the panel is wide enough for.
@@ -20,12 +21,16 @@ import { useExplorerFilter, useSetExplorerFilter } from "../../state";
  */
 export function GameIndexView() {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const collapseAllGameDirs = useCollapseAllGameDirs();
 
   return (
     <>
       <DocumentToolbar active>
         <FilterField onCommit={() => focusRows(bodyRef.current)} />
-        <RebuildAction />
+        <ToolbarOverflow>
+          <CollapseAllButton onCollapse={collapseAllGameDirs} />
+          <RebuildAction />
+        </ToolbarOverflow>
       </DocumentToolbar>
 
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
