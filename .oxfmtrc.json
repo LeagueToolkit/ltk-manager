@@ -30,7 +30,6 @@
     ".github/",
     "src-tauri/",
     "crates/dxbc-spirv-sys/vendor/",
-    "vendor/",
     ".specify/",
     "project.inlang/*",
     "!project.inlang/settings.json",

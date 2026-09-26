@@ -2297,7 +2297,7 @@
     },
     {
       "name": "ltk_anim",
-      "version": "0.3.9",
+      "version": "0.3.10",
       "licenses": [
         44
       ]
@@ -2365,7 +2365,7 @@
     },
     {
       "name": "ltk_mapgeo",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "licenses": [
         44
       ]
