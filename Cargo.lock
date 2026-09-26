@@ -3220,9 +3220,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_anim"
-version = "0.3.9"
+version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "574b45fdd57c639d337c23229f51edf69d6d972c324a596937e6e3659458db15"
+checksum = "3ff2e67c41354bbfdad70c0e09f2ae71d341b4da5eb45c409aa4f520cdd40c2a"
 dependencies = [
  "bitflags 2.13.1",
  "bytemuck",
@@ -3355,7 +3355,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mapgeo"
-version = "0.3.0"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c766c0aed1df356ed6878972e18e726cbafd2361cc2e4f81d5c96bb5ac4644a"
 dependencies = [
  "bitflags 2.13.1",
  "byteorder",
