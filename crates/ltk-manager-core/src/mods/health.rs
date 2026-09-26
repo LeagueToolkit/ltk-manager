@@ -15,12 +15,12 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
-use crate::mods::health::sweep::HealthSweepState;
+use crate::mods::health::sweep::{HealthSweepState, SweepScope};
 use crate::mods::index::{LibraryModEntry, ModStorage};
-use crate::problems::{self, Budget, Counts, GameBuild, Run};
+use crate::problems::{self, Budget, Counts, GameBuild, ProjectFiles, Run};
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Where the library remembers its verdicts, beside `library.json`.
@@ -343,39 +343,12 @@ impl ModLibrary {
         }
     }
 
-    /// Check each of `mod_ids`, and report how many verdicts were recorded.
+    /// Check freshly installed `mod_ids` on a detached background thread.
     ///
-    /// A mod that cannot be checked is logged and skipped, so one unreadable
-    /// mod does not cost the caller the rest. A mod with no unpacked form is
-    /// skipped without a log line. Its content has nothing for the rules to
-    /// read - ADR-0001.
-    pub fn check_mods_health(&self, config: &Config, mod_ids: &[String]) -> usize {
-        let uncheckable: HashSet<String> = self
-            .with_index(config, |_storage_dir, index| {
-                Ok(index
-                    .mods
-                    .iter()
-                    .filter(|entry| !entry.is_checkable())
-                    .map(|entry| entry.id.clone())
-                    .collect())
-            })
-            .unwrap_or_default();
-
-        let mut recorded = 0;
-        for id in mod_ids.iter().filter(|id| !uncheckable.contains(*id)) {
-            match self.check_mod_health(config, id) {
-                Ok(_) => recorded += 1,
-                Err(e) => tracing::warn!("Could not check mod {id}: {e}"),
-            }
-        }
-        recorded
-    }
-
-    /// [`check_mods_health`](Self::check_mods_health) on a detached background
-    /// thread, announcing once at the end so the UI refetches.
-    ///
-    /// For the install path: a newly imported mod is checked without asking,
-    /// and thirty at once must not make the import wait.
+    /// A [`SweepScope::Installed`] run: it uses the sweep's smaller budget,
+    /// reports through the sweep's progress events, and stops on
+    /// [`cancel_mod_health_run`](Self::cancel_mod_health_run). It waits for a
+    /// running sweep to finish first.
     pub fn spawn_health_check(&self, config: &Config, mod_ids: Vec<String>) {
         if mod_ids.is_empty() {
             return;
@@ -384,10 +357,8 @@ impl ModLibrary {
         let library = self.clone();
         let config = config.clone();
         std::thread::spawn(move || {
-            if library.check_mods_health(&config, &mod_ids) > 0 {
-                library
-                    .events()
-                    .emit(crate::events::BackendEvent::ModHealthVerdictsUpdated);
+            if let Err(e) = library.sweep_mod_health(&config, &SweepScope::Installed(mod_ids)) {
+                tracing::warn!("Could not check the installed mods: {e}");
             }
         });
     }
@@ -411,7 +382,8 @@ impl ModLibrary {
     ///
     /// Both are read where they live: a Project-storage mod out of its tree,
     /// an Archive-storage mod out of the archive. A check writes nothing, and
-    /// now has nothing to clean up either.
+    /// now has nothing to clean up either. Bins equal to the game's copy are
+    /// removed first, see `ProjectFiles::without_game_copies`.
     fn run_over(
         &self,
         config: &Config,
@@ -419,21 +391,22 @@ impl ModLibrary {
         entry: &LibraryModEntry,
         budget: &Budget,
     ) -> AppResult<Run> {
-        match entry.storage {
-            ModStorage::Project => problems::analyze_within(
+        let files = match entry.storage {
+            ModStorage::Project => ProjectFiles::within(
                 &entry.mod_dir(storage_dir),
                 config,
                 budget.clone(),
                 self.game_content(config),
-            ),
-            ModStorage::Archive => problems::analyze_archive(
+            )?,
+            ModStorage::Archive => ProjectFiles::in_archive(
                 &entry.convertible_archive(storage_dir)?,
                 config,
                 budget.clone(),
                 self.wad_resolver().as_ref(),
                 self.game_content(config),
-            ),
-        }
+            )?,
+        };
+        Ok(files.without_game_copies().checked())
     }
 }
 

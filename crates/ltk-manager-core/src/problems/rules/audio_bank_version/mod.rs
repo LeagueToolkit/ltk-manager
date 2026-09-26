@@ -256,7 +256,7 @@ fn removable(
         ));
     };
 
-    if game.holds(chunk) {
+    if game.contains(chunk) {
         return Ok(Removed::GameAnswers);
     }
     if asked.asks_for(chunk) {

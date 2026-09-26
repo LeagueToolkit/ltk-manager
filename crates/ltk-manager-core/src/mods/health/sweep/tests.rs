@@ -270,6 +270,60 @@ fn a_pressed_sweep_over_a_selection_leaves_the_rest_alone() {
     );
 }
 
+/// An install check takes the installed mods and none of the rest.
+#[test]
+fn an_install_check_takes_only_the_installed_mods() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "new-mod", &stale_bin());
+    place_bin_project_mod(storage.path(), "old-mod", &healthy_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![
+            project_entry("id-new", "new-mod"),
+            project_entry("id-old", "old-mod"),
+        ],
+    );
+
+    let report = library
+        .sweep_mod_health(&config, &SweepScope::Installed(vec!["id-new".to_owned()]))
+        .unwrap();
+
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.repairable, vec!["id-new".to_owned()]);
+    assert!(
+        !library
+            .mod_health_verdicts(&config)
+            .unwrap()
+            .contains_key("id-old")
+    );
+    assert_matches!(
+        library.health_sweep_state(),
+        HealthSweepState::Finished { .. }
+    );
+}
+
+/// An install check that runs before the hashtables sync leaves the startup
+/// sweep's `Pending` state unchanged.
+#[test]
+fn an_install_check_without_hashtables_leaves_the_sweep_state_pending() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) =
+        crate::mods::test_support::make_library_without_hashtables(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_project_mod(storage.path(), "new-mod", &stale_bin());
+    seed_library(&library, &config, vec![project_entry("id-1", "new-mod")]);
+
+    let report = library
+        .sweep_mod_health(&config, &SweepScope::Installed(vec!["id-1".to_owned()]))
+        .unwrap();
+
+    assert_eq!(report.checked, 0);
+    assert_matches!(library.health_sweep_state(), HealthSweepState::Pending);
+}
+
 /// An id the library no longer holds is not a mod to check, and naming one is
 /// not an error - the selection was taken before the index moved.
 #[test]

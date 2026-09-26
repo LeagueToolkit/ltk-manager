@@ -314,7 +314,7 @@ fn a_bank_the_install_holds_is_offered_for_removal() {
     let (_tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeContent::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::containing(&[BANK_IN_WAD])),
     );
 
     let problems = found_in(&files);
@@ -379,7 +379,7 @@ fn fix_run(root: &std::path::Path, game: Option<Arc<dyn GameContent>>) -> FixRun
 
 #[test]
 fn the_repair_deletes_the_bank_and_leaves_the_rest_alone() {
-    let game = FakeContent::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::containing(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[BANK_IN_WAD], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
@@ -419,7 +419,7 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
     let (tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeContent::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::containing(&[BANK_IN_WAD])),
     );
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
@@ -448,7 +448,7 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
 /// to judge at all.
 #[test]
 fn a_second_repair_over_a_removed_bank_skips_it() {
-    let game = FakeContent::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::containing(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();

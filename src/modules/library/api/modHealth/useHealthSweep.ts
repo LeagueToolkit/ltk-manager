@@ -8,6 +8,7 @@ import { useTauriEvent } from "@/lib/useTauriEvent";
 
 import { libraryKeys } from "../keys";
 import { libraryPassQueries, useInstalledMods } from "../queries";
+import { useCancelModHealthRun } from "./useCancelModHealthRun";
 
 /**
  * What the mod health sweep concluded this launch, and the progress toast while
@@ -22,6 +23,7 @@ export function useHealthSweep(): HealthSweepState | undefined {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { data: mods = [] } = useInstalledMods();
+  const cancel = useCancelModHealthRun();
   const task = useRef<ToastTask | null>(null);
 
   const closeTask = () => {
@@ -32,7 +34,10 @@ export function useHealthSweep(): HealthSweepState | undefined {
   const { data: state } = useQuery(libraryPassQueries.healthSweep());
 
   useTauriEvent<HealthSweepProgress>("health-sweep-progress", (progress) => {
-    task.current ??= toast.task(m.library_health_checking_label());
+    task.current ??= toast.task(m.library_health_checking_label(), undefined, {
+      label: m.library_health_check_stop_action(),
+      onClick: () => cancel.mutate(),
+    });
 
     const [id] = progress.inFlight;
     const name = id ? (mods.find((mod) => mod.id === id)?.displayName ?? id) : "";

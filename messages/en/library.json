@@ -101,6 +101,7 @@
   "library_health_check_clean_title": "No problems found",
   "library_health_check_library_failed_title": "Failed to check the library",
   "library_health_check_mod_failed_title": "Failed to check mod",
+  "library_health_check_stop_action": "Stop checking",
   "library_health_checking_label": "Checking your mods",
   "library_health_enabled_label": "Enabled",
   "library_health_flagged_hint": "Some of your mods contain non-fatal issues which are not repairable",

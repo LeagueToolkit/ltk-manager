@@ -30,7 +30,7 @@ use crate::workshop::{ProjectDir, WorkshopFileKind};
 
 use archive::ArchiveFiles;
 
-use super::budget::Budget;
+use super::budget::{self, Budget};
 use super::game::GameContent;
 use super::pass::Fact;
 use super::{BinNames, GameBuild, ObjectInfo, Report, Rule, RuleState, Run};
@@ -235,6 +235,82 @@ impl ProjectFiles {
     /// How many files the whole project holds.
     fn file_count(&self) -> usize {
         self.layers.iter().map(|layer| layer.files.len()).sum()
+    }
+
+    /// Remove every property bin whose bytes equal the installed game's copy.
+    ///
+    /// The overlay does not ship such a file, so a finding in it has no effect
+    /// in game. A bin whose size differs from the game's table of contents is
+    /// kept without reading either copy. A bin not compared before the run was
+    /// cancelled is kept.
+    #[must_use]
+    pub(crate) fn without_game_copies(mut self) -> Self {
+        let Some(installed) = self.game.clone() else {
+            return self;
+        };
+        let game = installed.as_ref();
+
+        let candidates: Vec<(usize, usize, WadHash)> = self
+            .layers
+            .iter()
+            .enumerate()
+            .flat_map(|(at_layer, layer)| {
+                layer
+                    .files
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(at_file, file)| {
+                        if file.kind != WorkshopFileKind::PropertyBin {
+                            return None;
+                        }
+                        let hash = FileHandle { layer, file }.wad_hash()?;
+                        (game.size(hash) == Some(file.size_bytes))
+                            .then_some((at_layer, at_file, hash))
+                    })
+            })
+            .collect();
+
+        let copies = self.budget.map(
+            &candidates,
+            budget::files_at_once(),
+            |&(at_layer, at_file, _)| 2 * self.layers[at_layer].files[at_file].size_bytes,
+            |&(at_layer, at_file, hash)| {
+                let layer = &self.layers[at_layer];
+                let handle = FileHandle {
+                    layer,
+                    file: &layer.files[at_file],
+                };
+                handle.bytes().is_ok_and(|ours| {
+                    game.read(hash)
+                        .is_ok_and(|theirs| theirs.is_some_and(|theirs| theirs == ours))
+                })
+            },
+        );
+
+        let mut dropped = vec![Vec::new(); self.layers.len()];
+        for (&(at_layer, at_file, _), copy) in candidates.iter().zip(copies) {
+            if copy == Some(true) {
+                dropped[at_layer].push(at_file);
+            }
+        }
+
+        let count: usize = dropped.iter().map(Vec::len).sum();
+        for (layer, dropped) in self.layers.iter_mut().zip(dropped) {
+            let mut at_file = 0;
+            layer.files.retain(|_| {
+                let keep = dropped.binary_search(&at_file).is_err();
+                at_file += 1;
+                keep
+            });
+        }
+
+        if count > 0 {
+            tracing::debug!(
+                "Skipping {count} bins of {} equal to the installed game's copy",
+                self.root.display()
+            );
+        }
+        self
     }
 
     /// Lay `bytes` over the file at `path` of `layer`, for every read after.

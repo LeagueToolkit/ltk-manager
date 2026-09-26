@@ -63,10 +63,10 @@ pub enum HealthSweepState {
 
 /// Which mods a sweep takes.
 ///
-/// [`Due`](SweepScope::Due) is the automatic pass and the other two answer a
-/// press, which is the whole difference between them: a reader who asked for a
-/// check is owed one whatever the stored verdicts claim, and is owed a refusal
-/// in words where it cannot run.
+/// [`Due`](SweepScope::Due) and [`Installed`](SweepScope::Installed) are
+/// automatic, and the other two run on a user's request. A requested run
+/// checks every mod it names whatever the stored verdicts say, and returns an
+/// error where it cannot run.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum SweepScope {
     /// Every checkable mod whose verdict predates the current basis.
@@ -76,13 +76,15 @@ pub enum SweepScope {
     All,
     /// The checkable mods among these ids.
     Only(Vec<String>),
+    /// The checkable mods among these ids, just installed.
+    Installed(Vec<String>),
 }
 
 impl SweepScope {
     /// Whether a reader is waiting on this run.
     #[must_use]
     fn pressed(&self) -> bool {
-        !matches!(self, Self::Due)
+        !matches!(self, Self::Due | Self::Installed(_))
     }
 
     /// The mods this scope takes, out of the library's `entries`.
@@ -98,7 +100,7 @@ impl SweepScope {
             .filter(|entry| match self {
                 Self::Due => kept.get(&entry.id).is_none_or(|held| &held.basis != basis),
                 Self::All => true,
-                Self::Only(ids) => ids.contains(&entry.id),
+                Self::Only(ids) | Self::Installed(ids) => ids.contains(&entry.id),
             })
             .map(|entry| entry.id.clone())
             .collect()
@@ -110,7 +112,7 @@ impl SweepScope {
     /// it rather than browsing past it.
     fn budget(&self) -> (Budget, usize) {
         match self {
-            Self::Due => (Budget::sweep(), budget::SWEEP_MODS_AT_ONCE),
+            Self::Due | Self::Installed(_) => (Budget::sweep(), budget::SWEEP_MODS_AT_ONCE),
             _ => (Budget::repair(), budget::MODS_AT_ONCE),
         }
     }
@@ -141,6 +143,7 @@ impl ModLibrary {
                 "The library is already being checked. Wait for that run to finish.".to_owned(),
             ));
         }
+        let _run = self.sweep_lock.lock();
 
         let basis = self.health_check_basis(config);
         let entries = self.with_index(config, |_storage_dir, index| Ok(index.mods.clone()))?;
@@ -225,7 +228,8 @@ impl ModLibrary {
     /// that check nothing. A press is answered whichever path it took, because
     /// a reader is waiting on it and the run has pruned whatever the check did.
     /// The automatic pass stays quiet unless it ran, so a launch with nothing
-    /// due says nothing at all.
+    /// due says nothing at all. An install check that checked nothing leaves
+    /// the recorded state unchanged, so the startup sweep's `Pending` survives.
     fn report_sweep(
         &self,
         scope: &SweepScope,
@@ -233,7 +237,10 @@ impl ModLibrary {
         report: HealthSweepReport,
     ) -> HealthSweepReport {
         let ran = matches!(state, HealthSweepState::Finished { .. });
-        self.record_health_sweep(state);
+        if ran || !matches!(scope, SweepScope::Installed(_)) {
+            self.record_health_sweep(state);
+        }
+
         if ran || scope.pressed() {
             self.events().emit(BackendEvent::ModHealthVerdictsUpdated);
             self.events()
