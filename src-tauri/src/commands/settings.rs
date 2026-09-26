@@ -116,6 +116,17 @@ fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
         }
     }
 
+    // On macOS the client registry and the exe scan are Windows-shaped; fall
+    // back to the standard bundle location, which `GameDir::resolve` accepts.
+    #[cfg(target_os = "macos")]
+    {
+        let candidate = std::path::PathBuf::from("/Applications/League of Legends.app");
+        if candidate.join("Contents/LoL/Game/DATA").exists() {
+            tracing::info!("Found League bundle at {}", candidate.display());
+            return Some(candidate);
+        }
+    }
+
     let exe_path = ltk_mod_core::auto_detect_league_path()?;
     let path = std::path::Path::new(&exe_path);
 
@@ -130,10 +141,15 @@ fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
 #[tauri::command]
 pub fn validate_league_path(path: PathBuf) -> IpcResult<bool> {
     let valid = if cfg!(target_os = "macos") {
-        // Path points to the .app bundle (e.g. /Applications/League of Legends.app)
-        path.join("Contents").join("LoL").join("Game").exists()
-            // Path points to the LoL root inside the bundle
-            || path.join("Game").join("League of Legends.app").exists()
+        // `DATA` is the signal `GameDir::resolve` keys on. Accept the `.app`
+        // bundle (`…/League of Legends.app`), the LoL root, or the Game dir.
+        path.join("Contents")
+            .join("LoL")
+            .join("Game")
+            .join("DATA")
+            .exists()
+            || path.join("Game").join("DATA").exists()
+            || path.join("DATA").exists()
     } else {
         path.join("Game").join("League of Legends.exe").exists()
     };

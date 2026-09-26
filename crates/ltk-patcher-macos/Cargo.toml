@@ -1,0 +1,23 @@
+[package]
+name = "ltk-patcher-macos"
+version = "0.1.0"
+description = "macOS injection host for LTK Manager, speaking the same line protocol as the Windows host"
+edition = "2021"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[[bin]]
+name = "ltk_patcher_host"
+path = "src/main.rs"
+
+[lib]
+name = "ltk_patcher_macos"
+path = "src/lib.rs"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+mach2 = "0.4"
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+cc = "1"

@@ -15,8 +15,11 @@ pub use persistent::{HostLine, PatcherHost};
 pub use process::{HostError, HostProcess};
 pub use protocol::{HostConfig, HostEvent, HostLogLevel, HostState, hook_flags, parse_event};
 
-/// Bundled host executable name.
+/// Bundled host executable name. The macOS host ships without an extension.
+#[cfg(target_os = "windows")]
 pub const HOST_EXE_NAME: &str = "ltk_patcher_host.exe";
+#[cfg(not(target_os = "windows"))]
+pub const HOST_EXE_NAME: &str = "ltk_patcher_host";
 
 /// Bundled hook DLL the host injects into the game. This is the file the
 /// diagnostics suite inspects (presence / signature / lock) - it replaced the
