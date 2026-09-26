@@ -423,3 +423,40 @@ export function pathSegments(path: string): string[] {
   segments.push(path.slice(start));
   return segments;
 }
+
+/** The ids of every branch the outline of `layers` draws, with nothing collapsed. */
+export function outlineBranchIds(
+  layers: readonly DeclarationsLayer[],
+  shape: OutlineShape,
+): string[] {
+  return flattenOutline(layers, () => false, shape)
+    .filter((row) => isBranch(row.node, shape))
+    .map((row) => row.node.id);
+}
+
+/**
+ * `collapsed` with the branch `id` and every branch below it toggled together.
+ *
+ * A collapsed `id` expands with all of `branches` below it, and an expanded one collapses with
+ * them.
+ */
+export function toggleOutlineSubtree(
+  collapsed: ReadonlySet<string>,
+  id: string,
+  branches: readonly string[],
+): ReadonlySet<string> {
+  const subtree = [id, ...branches.filter((branch) => ancestorIds(branch).includes(id))];
+  const next = new Set(collapsed);
+
+  if (collapsed.has(id)) {
+    for (const branch of subtree) {
+      next.delete(branch);
+    }
+  } else {
+    for (const branch of subtree) {
+      next.add(branch);
+    }
+  }
+
+  return next;
+}

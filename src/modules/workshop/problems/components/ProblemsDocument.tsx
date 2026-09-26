@@ -1,10 +1,16 @@
 import { useMemo, useState } from "react";
 
-import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
+import {
+  DocumentToolbar,
+  type EditorDocumentProps,
+  ToolbarOverflow,
+  useFindBox,
+} from "@/modules/editor";
 
 /* The document type rather than the barrel, which reaches back here for the
    component this file exports. */
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { filterProblems } from "../utils/problemGroups";
 import { useObjectNames, useShownProblems } from "../utils/runCatalogue";
 import { AheadToggle } from "./AheadToggle";
@@ -19,6 +25,7 @@ export function ProblemsDocument({
   active,
 }: EditorDocumentProps<ContentDocumentOf<"problems">>) {
   const [query, setQuery] = useState("");
+  const [collapseAllSignal, setCollapseAllSignal] = useState(0);
   const boxRef = useFindBox(document.id);
 
   /* Counted here and filtered again in the list. The two are the same call over
@@ -41,14 +48,17 @@ export function ProblemsDocument({
           total={problems.length}
           boxRef={boxRef}
         />
-        <ProblemsCount />
-        <ProblemsActions />
+        <ToolbarOverflow>
+          <ProblemsCount />
+          <CollapseAllButton onCollapse={() => setCollapseAllSignal((count) => count + 1)} />
+          <ProblemsActions />
+        </ToolbarOverflow>
       </DocumentToolbar>
 
       <AheadToggle />
 
       <div className="min-h-0 flex-1 overflow-hidden p-3">
-        <ProblemsList query={query} />
+        <ProblemsList query={query} collapseAllSignal={collapseAllSignal} />
       </div>
     </div>
   );

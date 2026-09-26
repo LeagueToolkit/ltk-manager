@@ -12,11 +12,13 @@ import type {
 import {
   activation,
   ancestorPrefixes,
+  branchIds,
   buildFindTree,
   buildObjectTree,
   expandable,
   flattenObjectTree,
   holdsOnlyUnnamed,
+  isBelowPrefix,
   layerDeclarationsOf,
   NO_LAYER_DECLARATIONS,
   type ObjectPrefixNode,
@@ -446,5 +448,47 @@ describe("ancestorPrefixes", () => {
 
   it("puts a hash under the unnamed group", () => {
     expect(ancestorPrefixes("0x12345678")).toEqual([UNNAMED_PREFIX]);
+  });
+});
+
+describe("isBelowPrefix", () => {
+  it("takes every path under the prefix and leaves out the prefix and its siblings", () => {
+    expect(isBelowPrefix("characters/aatrox/skins", "characters")).toBe(true);
+    expect(isBelowPrefix("characters", "characters")).toBe(false);
+    expect(isBelowPrefix("charactersx/aatrox", "characters")).toBe(false);
+  });
+
+  it("puts a hash under the unnamed group", () => {
+    expect(isBelowPrefix("0x12345678", UNNAMED_PREFIX)).toBe(true);
+  });
+});
+
+describe("branchIds", () => {
+  it("names every foldable node at any depth, an object with objects under it too", () => {
+    const tree = buildFindTree(
+      [
+        "characters/aatrox/skins/skin0",
+        "characters/aatrox/skins/skin0/resources",
+        "characters/aatrox/skins/skin2",
+        "characters/ahri/skins/skin0",
+        "maps/shipping/map11/data",
+      ].map((path) => ({
+        objectHash: `0x${path.length.toString(16).padStart(8, "0")}`,
+        path,
+        ranges: [],
+        declarations: [chunk("data/objects.bin")],
+      })),
+      5,
+      NO_LAYER_DECLARATIONS,
+      () => true,
+    );
+
+    expect(branchIds(tree).sort()).toEqual([
+      "characters",
+      "characters/aatrox/skins",
+      "characters/aatrox/skins/skin0",
+      "characters/ahri/skins",
+      "maps/shipping/map11",
+    ]);
   });
 });

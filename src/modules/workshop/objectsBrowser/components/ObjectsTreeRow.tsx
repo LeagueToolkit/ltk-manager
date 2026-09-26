@@ -19,6 +19,7 @@ import {
   TREE_ROW_STATE_CLASSES as ROW_STATE_CLASSES,
   TreeLoadingRow,
 } from "../../shared/components/TreeRowParts";
+import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { clickIntent } from "../../state";
 import {
   expandable,
@@ -34,7 +35,8 @@ interface ObjectsTreeRowProps {
   depth: number;
   isExpanded: boolean;
   isSelected: boolean;
-  onToggle: (node: ObjectTreeNode) => void;
+  /** A caret or folder click. `subtree` asks for every level below as well. */
+  onToggle: (node: ObjectTreeNode, subtree?: boolean) => void;
   onSelect: (index: number) => void;
   /** A click on an object row, with the intent the click carries. */
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
@@ -104,9 +106,9 @@ function PrefixRow({
       data-ui="ObjectsTreeRow:prefix"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => {
+      onClick={(event) => {
         onSelect(rowIndex);
-        onToggle(node);
+        onToggle(node, isSubtreeClick(event));
       }}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
@@ -176,7 +178,7 @@ function ObjectRow({
           onClick={(event: ReactMouseEvent<HTMLSpanElement>) => {
             event.stopPropagation();
             onSelect(rowIndex);
-            onToggle(node);
+            onToggle(node, isSubtreeClick(event));
           }}
           onDoubleClick={(event) => event.stopPropagation()}
         >

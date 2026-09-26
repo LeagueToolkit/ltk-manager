@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { Button, EmptyState, IconButton, Menu, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { api, type LayerContent } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
@@ -15,6 +16,9 @@ import { useProjectContentTree } from "../../api";
 import { type ContentDocumentOf, layerTitle } from "../../documents/utils/contentDocument";
 import { useLayerWadImport } from "../../hooks";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { useCollapseLayerDirs } from "../../state";
+import { allDirPaths, buildContentTree } from "../utils/contentTree";
 import { ContentTree } from "./ContentTree";
 
 /** A layer's content directory, as the tree of what is on disk. */
@@ -35,8 +39,19 @@ export function FilesDocument({
     layerDisplayName: displayName,
   });
 
+  const collapseLayerDirs = useCollapseLayerDirs();
+
   async function handleOpenFolder() {
     await api.revealInExplorer(`${project.path}/content/${layerName}`);
+  }
+
+  function handleCollapseAll() {
+    if (!layer) return;
+
+    collapseLayerDirs(
+      layerName,
+      allDirPaths(buildContentTree(layer.entries, layer.ignoredDirectories)),
+    );
   }
 
   return (
@@ -53,7 +68,7 @@ export function FilesDocument({
                 left={<PlusIcon weight="bold" className="h-4 w-4" />}
                 right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
               >
-                Add WAD
+                {m.workshop_files_add_wad_action()}
               </Button>
             }
           />
@@ -64,17 +79,19 @@ export function FilesDocument({
                   icon={<FileArchiveIcon className="h-4 w-4" />}
                   onClick={wadImport.pickFiles}
                 >
-                  Add WAD file…
+                  {m.workshop_files_add_wad_file_action()}
                 </Menu.Item>
                 <Menu.Item icon={<FolderIcon className="h-4 w-4" />} onClick={wadImport.pickFolder}>
-                  Add WAD folder…
+                  {m.workshop_files_add_wad_folder_action()}
                 </Menu.Item>
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
         </Menu.Root>
 
-        <Tooltip content="Refresh">
+        {layer && layer.entries.length > 0 && <CollapseAllButton onCollapse={handleCollapseAll} />}
+
+        <Tooltip content={m.workshop_files_refresh_label()}>
           <IconButton
             icon={<RefreshIcon spinning={isFetching} />}
             variant="ghost"
@@ -82,18 +99,18 @@ export function FilesDocument({
             compact
             onClick={() => refetch()}
             disabled={isFetching}
-            aria-label="Refresh content listing"
+            aria-label={m.workshop_files_refresh_action()}
           />
         </Tooltip>
 
-        <Tooltip content="Open folder">
+        <Tooltip content={m.workshop_files_open_folder_label()}>
           <IconButton
             icon={<FolderOpenIcon className="h-4 w-4" />}
             variant="ghost"
             size="xs"
             compact
             onClick={handleOpenFolder}
-            aria-label={`Open folder for layer ${layerName}`}
+            aria-label={m.workshop_files_open_folder_action({ layer: layerName })}
           />
         </Tooltip>
       </DocumentToolbar>
@@ -117,8 +134,8 @@ function FilesBody({ layer }: FilesBodyProps) {
     return (
       <EmptyState
         size="sm"
-        title="Layer is gone"
-        description="Its folder is no longer in the project"
+        title={m.workshop_files_gone_title()}
+        description={m.workshop_files_gone_description()}
       />
     );
   }
@@ -127,8 +144,8 @@ function FilesBody({ layer }: FilesBodyProps) {
     return (
       <EmptyState
         size="sm"
-        title="No files yet"
-        description="Extract game files from an existing mod or the game client, then drop them into this folder."
+        title={m.workshop_files_empty_title()}
+        description={m.workshop_files_empty_description()}
       />
     );
   }

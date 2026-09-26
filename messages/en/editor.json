@@ -56,6 +56,8 @@
       }
     }
   ],
+  "editor_toolbar_more_action": "More toolbar controls",
+  "editor_toolbar_more_label": "More",
   "editor_unsaved_cancel_action": "Cancel",
   "editor_unsaved_close_hint": "{title} has unsaved changes. Closing it now throws them away.",
   "editor_unsaved_close_title": "Close without saving?",

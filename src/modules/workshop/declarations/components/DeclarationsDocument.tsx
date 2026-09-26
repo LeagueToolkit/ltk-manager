@@ -11,6 +11,7 @@ import { twMerge } from "@/utils";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../palette/utils/types";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { declarationQueries } from "../api/queries";
 import { useGoToDeclaredRow } from "../hooks/useGoToDeclaredRow";
 import { useOutlineActions } from "../hooks/useOutlineActions";
@@ -50,6 +51,7 @@ export function DeclarationsDocument({
   const [chosen, setChosen] = useState<View | null>(null);
   const view: View = chosen ?? (layer?.error ? "raw" : "outline");
   const [selected, setSelected] = useState<OutlineNode | null>(null);
+  const [collapseRequest, setCollapseRequest] = useState(0);
 
   const request = useOutlineRevealRequest(document.id);
   useEffect(() => {
@@ -66,6 +68,10 @@ export function DeclarationsDocument({
           {layer?.file && <Code className="shrink-0">{layer.file}</Code>}
           {layer !== null && layer.modules.length > 0 && <LayerTally layer={layer} />}
         </div>
+        <CollapseAllButton
+          onCollapse={() => setCollapseRequest((count) => count + 1)}
+          disabled={view !== "outline"}
+        />
         <SegmentedControl
           size="xs"
           aria-label={m.workshop_declarations_view_label()}
@@ -86,6 +92,7 @@ export function DeclarationsDocument({
         view={view}
         selected={selected}
         onSelect={setSelected}
+        collapseRequest={collapseRequest}
         onShowInText={(node) => {
           setSelected(node);
           setChosen("raw");
@@ -116,6 +123,8 @@ interface BodyProps {
   view: View;
   selected: OutlineNode | null;
   onSelect: (node: OutlineNode | null) => void;
+  /** Bumped to collapse every branch of the outline. */
+  collapseRequest: number;
   onShowInText: (node: OutlineNode) => void;
 }
 
@@ -127,6 +136,7 @@ function Body({
   view,
   selected,
   onSelect,
+  collapseRequest,
   onShowInText,
 }: BodyProps) {
   if (isLoading) {
@@ -158,6 +168,7 @@ function Body({
           documentId={documentId}
           layer={layer}
           onSelect={onSelect}
+          collapseRequest={collapseRequest}
           onShowInText={onShowInText}
         />
       )}
@@ -175,11 +186,13 @@ function OutlineView({
   documentId,
   layer,
   onSelect,
+  collapseRequest,
   onShowInText,
 }: {
   documentId: string;
   layer: DeclarationsLayer;
   onSelect: (node: OutlineNode | null) => void;
+  collapseRequest: number;
   onShowInText: (node: OutlineNode) => void;
 }) {
   const goTo = useGoToDeclaredRow();
@@ -211,6 +224,7 @@ function OutlineView({
       reveal={request}
       onRevealed={settle}
       onSelect={onSelect}
+      collapseRequest={collapseRequest}
     />
   );
 }

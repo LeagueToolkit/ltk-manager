@@ -21,8 +21,10 @@ import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,
 } from "../../objectsBrowser/components/ObjectIndexStates";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import {
   type ReferenceRequest,
+  useCollapseReferenceFiles,
   useReferenceRequest,
   useShutReferenceFiles,
   useToggleReferenceFile,
@@ -67,6 +69,9 @@ export function ReferencesDocument({
           >
             {m.workshop_references_rerun_action()}
           </Button>
+        )}
+        {request !== null && (
+          <CollapseReferencesButton result={data?.status === "ready" ? data : null} />
         )}
       </DocumentToolbar>
 
@@ -113,6 +118,17 @@ function Question({ request }: { request: ReferenceRequest | null }) {
       <span className="min-w-0 truncate text-surface-200">{request.label}</span>
     </span>
   );
+}
+
+/** The collapse-all control over every file of the answer. */
+function CollapseReferencesButton({ result }: { result: ReferenceResult | null }) {
+  const collapseFiles = useCollapseReferenceFiles();
+  const keys = useMemo(
+    () => (result ? buildReferenceTree(result.groups).map((file) => file.id) : []),
+    [result],
+  );
+
+  return <CollapseAllButton onCollapse={() => collapseFiles(keys)} disabled={keys.length === 0} />;
 }
 
 /** How much the answer holds: the rows, the files, what the cap left out, and a cancel's mark. */
@@ -206,6 +222,7 @@ function Answer({ request }: { request: ReferenceRequest }) {
   const retry = useWarmOnAbsent(data?.status);
   const shut = useShutReferenceFiles();
   const toggle = useToggleReferenceFile();
+  const collapseFiles = useCollapseReferenceFiles();
   const open = useOpenReferenceNode();
 
   const files = useMemo(() => {
@@ -215,6 +232,10 @@ function Answer({ request }: { request: ReferenceRequest }) {
 
   const isShut = useCallback((node: ReferenceFileNode) => shut.has(node.id), [shut]);
   const handleToggle = useCallback((node: ReferenceFileNode) => toggle(node.id), [toggle]);
+  const collapseAll = useCallback(
+    () => collapseFiles(files.map((file) => file.id)),
+    [collapseFiles, files],
+  );
 
   if (error) return <GameWadsErrorState error={error} />;
   if (!data) return <GameLoadingState />;
@@ -247,6 +268,7 @@ function Answer({ request }: { request: ReferenceRequest }) {
         ariaLabel={m.workshop_references_title()}
         isShut={isShut}
         onToggle={handleToggle}
+        onCollapseAll={collapseAll}
         onOpen={open}
       />
     </div>

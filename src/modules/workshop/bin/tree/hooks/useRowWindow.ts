@@ -7,6 +7,7 @@ import {
 import { type RefObject, useCallback, useEffect, useMemo } from "react";
 
 import { useZoomedPx } from "@/hooks";
+import { measureRow } from "@/utils";
 
 import { ROW_HEIGHT } from "../components/BinRow";
 import type { VisibleRow } from "../utils/binRows";
@@ -65,6 +66,7 @@ export function useRowWindow(
     overscan: 16,
     getItemKey: (index) => visible[index]?.key ?? index,
     scrollToFn: instantScroll,
+    measureElement: measureRow,
   });
 
   /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not one of

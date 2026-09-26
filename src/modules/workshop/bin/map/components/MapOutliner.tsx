@@ -12,13 +12,14 @@ import {
 } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { MapItemKind } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { mapQueries } from "../api/mapQueries";
@@ -41,7 +42,7 @@ const KIND_ICON: Record<MapItemKind, Icon> = {
  * placeable from the scene. Only what the scene draws has an eye, which is a particle and
  * a character. The rows are virtual, since one chunk of Summoner's Rift holds a thousand.
  */
-export function MapOutliner() {
+export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
   const { materials, chosen, variants, failed, hidden, setHidden, focus, focusOn } = useMapScene();
   const outline = useQuery(mapQueries.outline(materials));
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set());
@@ -54,6 +55,24 @@ export function MapOutliner() {
       return next;
     });
   }, []);
+
+  const collapseAll = useCallback(() => {
+    setOpened((current) => (current.size === 0 ? current : new Set()));
+  }, []);
+
+  const collapsedFor = useRef(collapseAllSignal);
+  useEffect(() => {
+    if (collapseAllSignal === collapsedFor.current) return;
+    collapsedFor.current = collapseAllSignal;
+    collapseAll();
+  }, [collapseAllSignal, collapseAll]);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!isCollapseAllKey(event)) return;
+
+    event.preventDefault();
+    collapseAll();
+  }
 
   const scroller = useRef<HTMLDivElement>(null);
   const zoomed = useZoomedPx();
@@ -84,6 +103,7 @@ export function MapOutliner() {
       aria-label={m.workshop_bin_pane_outliner_label()}
       /* DS-SCROLLBAR */
       className="min-h-0 flex-1 overflow-y-auto p-1.5 font-mono text-mono-row scrollbar-md select-none"
+      onKeyDown={handleKeyDown}
     >
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((virtual) => {
@@ -108,6 +128,11 @@ export function MapOutliner() {
       </div>
     </div>
   );
+}
+
+interface MapOutlinerProps {
+  /** A count the header's collapse-all button raises, which collapses every open chunk. */
+  readonly collapseAllSignal?: number;
 }
 
 function rowHidden(row: OutlineRow, hidden: ReadonlySet<string>): boolean {
@@ -193,7 +218,9 @@ function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }
         event.stopPropagation();
         onClick();
       }}
-      onKeyDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (!isCollapseAllKey(event)) event.stopPropagation();
+      }}
     >
       <Eye weight="bold" className="h-3.5 w-3.5" />
     </button>

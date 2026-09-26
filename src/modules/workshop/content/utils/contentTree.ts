@@ -207,6 +207,27 @@ export function allDirPaths(tree: readonly ContentTreeNode[]): Set<string> {
 }
 
 /**
+ * The collapsed-set after an Alt+click on `dir`, which toggles its whole subtree.
+ *
+ * A collapsed directory expands along with every directory under it, and an expanded one
+ * collapses the same way.
+ */
+export function toggledDirTree(collapsed: ReadonlySet<string>, dir: DirNode): Set<string> {
+  const next = new Set(collapsed);
+  const collapse = !collapsed.has(dir.path);
+
+  for (const path of allDirPaths([dir])) {
+    if (collapse) {
+      next.add(path);
+    } else {
+      next.delete(path);
+    }
+  }
+
+  return next;
+}
+
+/**
  * Precompute the recursive file count for every directory. Rendered rows read
  * this in O(1) instead of re-walking the subtree on every paint.
  */

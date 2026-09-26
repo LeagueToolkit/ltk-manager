@@ -14,6 +14,10 @@ interface GameBrowserStore {
   toggleDir: (path: string) => void;
   /** Open every one of `paths`, for a reveal that walks down to a row. */
   expandDirs: (paths: readonly string[]) => void;
+  /** Collapse every directory of the game index tree. */
+  collapseAllDirs: () => void;
+  /** Collapse `path` and every directory under it in the game index tree. */
+  collapseDirTree: (path: string) => void;
   /** The pending reveal, or null while none is owed. */
   reveal: GameReveal | null;
   requestReveal: (id: string) => void;
@@ -27,9 +31,13 @@ interface GameBrowserStore {
   /** Directories the user has shut in the search results tree, by index path. */
   shutFindDirs: ReadonlySet<string>;
   toggleFindDir: (path: string) => void;
+  /** Collapse exactly `paths` in the search results tree. */
+  setCollapsedFindDirs: (paths: ReadonlySet<string>) => void;
   /** Directories shut in one archive's own tree, by archive name then path. */
   shutWadDirs: Record<string, ReadonlySet<string>>;
   toggleWadDir: (wadName: string, path: string) => void;
+  /** Collapse exactly `paths` in one archive's tree. */
+  setCollapsedWadDirs: (wadName: string, paths: ReadonlySet<string>) => void;
   /** What the WAD list's box holds. */
   wadFilter: string;
   setWadFilter: (wadFilter: string) => void;
@@ -68,6 +76,17 @@ export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
       if (paths.every((path) => state.expandedDirs.has(path))) return state;
       return { expandedDirs: new Set([...state.expandedDirs, ...paths]) };
     }),
+  collapseAllDirs: () => set({ expandedDirs: new Set() }),
+  collapseDirTree: (path) =>
+    set((state) => {
+      const under = `${path}/`;
+      const kept = [...state.expandedDirs].filter(
+        (open) => open !== path && !open.startsWith(under),
+      );
+      if (kept.length === state.expandedDirs.size) return state;
+
+      return { expandedDirs: new Set(kept) };
+    }),
   reveal: null,
   requestReveal: (id) =>
     set((state) => ({ reveal: { id, token: (state.reveal?.token ?? 0) + 1 } })),
@@ -79,6 +98,7 @@ export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
   setSearchRegex: (searchRegex) => set({ searchRegex }),
   shutFindDirs: new Set(),
   toggleFindDir: (path) => set((state) => ({ shutFindDirs: toggled(state.shutFindDirs, path) })),
+  setCollapsedFindDirs: (paths) => set({ shutFindDirs: new Set(paths) }),
   shutWadDirs: {},
   toggleWadDir: (wadName, path) =>
     set((state) => ({
@@ -87,6 +107,8 @@ export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
         [wadName]: toggled(state.shutWadDirs[wadName] ?? NO_SHUT_DIRS, path),
       },
     })),
+  setCollapsedWadDirs: (wadName, paths) =>
+    set((state) => ({ shutWadDirs: { ...state.shutWadDirs, [wadName]: new Set(paths) } })),
   wadFilter: "",
   setWadFilter: (wadFilter) => set({ wadFilter }),
   scrollTops: {},
@@ -96,6 +118,8 @@ export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
 export const useExpandedGameDirs = () => useGameBrowserStore((s) => s.expandedDirs);
 export const useToggleGameDir = () => useGameBrowserStore((s) => s.toggleDir);
 export const useExpandGameDirs = () => useGameBrowserStore((s) => s.expandDirs);
+export const useCollapseAllGameDirs = () => useGameBrowserStore((s) => s.collapseAllDirs);
+export const useCollapseGameDirTree = () => useGameBrowserStore((s) => s.collapseDirTree);
 export const useGameReveal = () => useGameBrowserStore((s) => s.reveal);
 export const useRequestGameReveal = () => useGameBrowserStore((s) => s.requestReveal);
 export const useSettleGameReveal = () => useGameBrowserStore((s) => s.settleReveal);
@@ -105,9 +129,11 @@ export const useGameSearchRegex = () => useGameBrowserStore((s) => s.searchRegex
 export const useSetGameSearchRegex = () => useGameBrowserStore((s) => s.setSearchRegex);
 export const useShutFindDirs = () => useGameBrowserStore((s) => s.shutFindDirs);
 export const useToggleFindDir = () => useGameBrowserStore((s) => s.toggleFindDir);
+export const useSetCollapsedFindDirs = () => useGameBrowserStore((s) => s.setCollapsedFindDirs);
 export const useShutWadDirs = (wadName: string) =>
   useGameBrowserStore((s) => s.shutWadDirs[wadName] ?? NO_SHUT_DIRS);
 export const useToggleWadDir = () => useGameBrowserStore((s) => s.toggleWadDir);
+export const useSetCollapsedWadDirs = () => useGameBrowserStore((s) => s.setCollapsedWadDirs);
 export const useWadFilter = () => useGameBrowserStore((s) => s.wadFilter);
 export const useSetWadFilter = () => useGameBrowserStore((s) => s.setWadFilter);
 

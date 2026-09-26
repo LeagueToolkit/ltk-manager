@@ -9,6 +9,7 @@ import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
 import { useSettings } from "@/modules/settings";
+import { usePatcherSessionStore } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { useWorkshopSelectionStore, type ViewMode } from "../../state";
@@ -42,6 +43,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
 
   const testState = useWorkshopTestState(project);
   const stopPatcher = useStopPatcher();
+  const stopping = usePatcherSessionStore((s) => s.stopping);
   const actions = useProjectActions(project);
 
   const isPatcherActive = testState.kind !== "idle";
@@ -81,7 +83,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
     testState,
     onTest: actions.handleTestProject,
     onStop: handleStop,
-    isStopping: stopPatcher.isPending,
+    isStopping: stopping,
     isTesting: actions.isTesting,
   });
 
@@ -92,7 +94,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
         e.stopPropagation();
         handleStop();
       }}
-      disabled={stopPatcher.isPending}
+      disabled={stopping}
       title={m.workshop_card_stop_test_label()}
       className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
@@ -379,6 +381,7 @@ function renderTestButton({
         size="sm"
         onClick={onStop}
         loading={isStopping}
+        disabled={isStopping}
         left={
           !isStopping && (
             <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />

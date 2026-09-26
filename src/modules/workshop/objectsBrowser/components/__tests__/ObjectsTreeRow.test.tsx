@@ -133,8 +133,18 @@ describe("ObjectsTreeRow", () => {
     expect(onToggle).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("presentation"));
-    expect(onToggle).toHaveBeenCalledWith(both);
+    expect(onToggle).toHaveBeenCalledWith(both, false);
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for the whole subtree on an Alt+click on the caret", async () => {
+    const user = userEvent.setup();
+    const both = objectNode({ count: 3 });
+    const { onToggle } = renderRow(both);
+
+    await user.keyboard("{Alt>}");
+    await user.click(screen.getByRole("presentation"));
+    expect(onToggle).toHaveBeenCalledWith(both, true);
   });
 
   it("opens beside with Ctrl held and pins on a double click", async () => {
@@ -188,7 +198,7 @@ describe("ObjectsTreeRow", () => {
     expect(row).toHaveTextContent("12,480");
 
     await user.click(row);
-    expect(onToggle).toHaveBeenCalledWith(PREFIX);
+    expect(onToggle).toHaveBeenCalledWith(PREFIX, false);
     expect(onOpen).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
 import { CaretRightIcon, DotsThreeVerticalIcon } from "@phosphor-icons/react";
-import { createContext, type ReactNode, use, useRef, useState } from "react";
+import { createContext, type MouseEvent, type ReactNode, use, useRef, useState } from "react";
 
 import { IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
@@ -33,13 +33,19 @@ export function useOutlineRow(): OutlineRowShared {
   return shared;
 }
 
-export function Caret({ isExpanded, onClick }: { isExpanded: boolean; onClick: () => void }) {
+export function Caret({
+  isExpanded,
+  onClick,
+}: {
+  isExpanded: boolean;
+  onClick: (event: MouseEvent) => void;
+}) {
   return (
     <span
       aria-hidden
       onClick={(event) => {
         event.stopPropagation();
-        onClick();
+        onClick(event);
       }}
       className="flex h-3 w-3 shrink-0 cursor-pointer items-center justify-center"
     >

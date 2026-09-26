@@ -4,7 +4,12 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 import { Button, EmptyState, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { ObjectFindResult } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
+import {
+  DocumentToolbar,
+  type EditorDocumentProps,
+  ToolbarOverflow,
+  useFindBox,
+} from "@/modules/editor";
 import { useSearchObjects, useSetSearchObjects } from "@/stores";
 import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
@@ -14,9 +19,14 @@ import {
   GameLoadingState,
   GameWadsErrorState,
 } from "../../gameBrowser/components/GameBrowserStates";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
 import { focusRows } from "../../shared/utils/focusRows";
 import {
+  useCollapseAllObjectPrefixes,
+  useCollapseFindPrefixes,
+  useCollapseObjectPrefixSubtree,
+  useExpandFindSubtree,
   useExpandedObjectPrefixes,
   useObjectsDisplay,
   useSetObjectsDisplay,
@@ -41,9 +51,12 @@ import { retryPreviews, useFailedInView } from "../state/previewStills";
 import {
   buildFindTree,
   ancestorPrefixes,
+  branchIds,
   buildObjectTree,
   holdsOnlyUnnamed,
   flattenObjectTree,
+  isBelowPrefix,
+  NO_LAYER_DECLARATIONS,
   type ObjectTreeNode,
 } from "../utils/objectTree";
 import {
@@ -98,16 +111,19 @@ export function ObjectsDocument({
     >
       <DocumentToolbar active={active}>
         <SearchField onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
-        {view === "tree" && <ObjectsStats />}
         {view === "grid" && thumbnails && <RetryPreviews />}
-        <ObjectsViewControls
-          view={view}
-          onViewChange={setView}
-          thumbnails={thumbnails}
-          onThumbnailsChange={(thumbnails) => setDisplay({ thumbnails })}
-          size={tileSize}
-          onSizeChange={(tileSize) => setDisplay({ tileSize })}
-        />
+        <ToolbarOverflow>
+          <ObjectsStats />
+          <CollapseObjectsButton disabled={view !== "tree"} />
+          <ObjectsViewControls
+            view={view}
+            onViewChange={setView}
+            thumbnails={thumbnails}
+            onThumbnailsChange={(thumbnails) => setDisplay({ thumbnails })}
+            size={tileSize}
+            onSizeChange={(tileSize) => setDisplay({ tileSize })}
+          />
+        </ToolbarOverflow>
       </DocumentToolbar>
 
       <ObjectPreviewPool mounted={view === "grid" && thumbnails} active={active}>
@@ -161,6 +177,39 @@ function RetryPreviews() {
       {m.workshop_objects_preview_retry_action({ count: failed })}
     </Button>
   );
+}
+
+/** The collapse-all control of whichever tree is on screen, browse or search results. */
+function CollapseObjectsButton({ disabled }: { disabled: boolean }) {
+  const searching = useObjectsSearchPattern().length > 0;
+  const findBranches = useFindBranches();
+  const collapseAll = useCollapseAllObjectPrefixes();
+  const collapseFind = useCollapseFindPrefixes();
+
+  const collapse = () => {
+    if (searching) {
+      collapseFind(findBranches);
+    } else {
+      collapseAll();
+    }
+  };
+
+  return <CollapseAllButton onCollapse={collapse} disabled={disabled} />;
+}
+
+/** Every foldable id of the search results tree, whatever the user has collapsed. */
+function useFindBranches(): readonly string[] {
+  const pattern = useObjectsSearchPattern();
+  const regex = useObjectsSearchRegex();
+  const { data } = useObjectFind(pattern, regex);
+
+  return useMemo(() => {
+    if (data?.status !== "ready") {
+      return [];
+    }
+
+    return branchIds(buildFindTree(data.hits, data.total, NO_LAYER_DECLARATIONS, () => true));
+  }, [data]);
 }
 
 /** How many objects the install declares, from the root's answer. */
@@ -243,6 +292,8 @@ function SwitchOffHint() {
 function ObjectsIndexTree() {
   const expanded = useExpandedObjectPrefixes();
   const toggle = useToggleObjectPrefix();
+  const collapseSubtree = useCollapseObjectPrefixSubtree();
+  const collapseAll = useCollapseAllObjectPrefixes();
   const open = useOpenObjectNode();
   const layers = useLayerDeclarations();
 
@@ -260,7 +311,22 @@ function ObjectsIndexTree() {
   }, [root.data, listings, expanded, layers]);
 
   const isExpanded = useCallback((node: ObjectTreeNode) => expanded.has(node.id), [expanded]);
-  const handleToggle = useCallback((node: ObjectTreeNode) => toggle(node.id), [toggle]);
+  /* Every open prefix is a listing to fetch, so a subtree toggle expands one level only. */
+  const handleToggle = useCallback(
+    (node: ObjectTreeNode, subtree = false) => {
+      if (!subtree) {
+        toggle(node.id);
+        return;
+      }
+
+      const wasExpanded = expanded.has(node.id);
+      collapseSubtree(node.id);
+      if (!wasExpanded) {
+        toggle(node.id);
+      }
+    },
+    [expanded, toggle, collapseSubtree],
+  );
 
   const reveal = useObjectsReveal();
   const settle = useSettleObjectsReveal();
@@ -300,6 +366,7 @@ function ObjectsIndexTree() {
         ariaLabel={m.workshop_objects_title()}
         isExpanded={isExpanded}
         onToggle={handleToggle}
+        onCollapseAll={collapseAll}
         onOpen={open}
         scrollKey="objects-index"
         reveal={reveal}
@@ -338,6 +405,9 @@ function FindResults({
   const reveal = useObjectsReveal();
   const settle = useSettleObjectsReveal();
   const toggleFindPrefix = useToggleFindPrefix();
+  const collapseFind = useCollapseFindPrefixes();
+  const expandFindSubtree = useExpandFindSubtree();
+  const findBranches = useFindBranches();
   const tree = useMemo(() => {
     if (data?.status !== "ready") return [];
     return buildFindTree(data.hits, data.total, layers, (path) => grid || !shut.has(path));
@@ -351,8 +421,24 @@ function FindResults({
   );
   const isExpanded = useCallback((node: ObjectTreeNode) => !shut.has(node.id), [shut]);
   const handleToggle = useCallback(
-    (node: ObjectTreeNode) => toggleFindPrefix(node.id),
-    [toggleFindPrefix],
+    (node: ObjectTreeNode, subtree = false) => {
+      if (!subtree) {
+        toggleFindPrefix(node.id);
+        return;
+      }
+
+      if (shut.has(node.id)) {
+        expandFindSubtree(node.id);
+        return;
+      }
+
+      collapseFind([node.id, ...findBranches.filter((id) => isBelowPrefix(id, node.id))]);
+    },
+    [shut, findBranches, toggleFindPrefix, expandFindSubtree, collapseFind],
+  );
+  const collapseAllFind = useCallback(
+    () => collapseFind(findBranches),
+    [collapseFind, findBranches],
   );
 
   if (error && !patternError) return <GameWadsErrorState error={error} />;
@@ -403,6 +489,7 @@ function FindResults({
               ariaLabel={m.workshop_objects_title()}
               isExpanded={isExpanded}
               onToggle={handleToggle}
+              onCollapseAll={collapseAllFind}
               onOpen={open}
               /* Per pattern. A fresh search opens at its first hit rather than where the
                last one was read to. */

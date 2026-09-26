@@ -15,9 +15,11 @@ import {
   moduleItemId,
   moduleTally,
   moduleTitle,
+  outlineBranchIds,
   overrideItemId,
   pathColumn,
   pathSegments,
+  toggleOutlineSubtree,
 } from "../outlineTree";
 
 const LAYER: DeclarationsLayer = {
@@ -231,5 +233,26 @@ describe("selectionOf", () => {
 
     expect(selectionOf(text, { line: 2, column: 1, endLine: 3, endColumn: 1 })).toEqual([5, 10]);
     expect(selectionOf(text, { line: 2, column: 3, endLine: 2, endColumn: 4 })).toEqual([7, 8]);
+  });
+});
+
+describe("toggleOutlineSubtree", () => {
+  const shape = { layers: true, keys: true, adds: false };
+  const branches = outlineBranchIds([LAYER], shape);
+  const layer = layerItemId("base");
+  const module = moduleItemId("base", 0);
+  const entry = entryItemId("base", 0, 0);
+
+  it("names the layer, the module and the entry with keys as branches", () => {
+    expect(branches).toEqual([layer, module, entry]);
+  });
+
+  it("collapses an expanded branch with every branch below it", () => {
+    expect([...toggleOutlineSubtree(new Set(), module, branches)]).toEqual([module, entry]);
+  });
+
+  it("expands a collapsed branch with every branch below it", () => {
+    const collapsed = new Set([layer, module, entry]);
+    expect([...toggleOutlineSubtree(collapsed, module, branches)]).toEqual([layer]);
   });
 });

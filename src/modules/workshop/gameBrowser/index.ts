@@ -21,7 +21,7 @@ export {
   GameIndexTree,
   MatchCount,
 } from "./components/GameDocument";
-export { GameFindResults } from "./components/GameFindResults";
+export { CollapseFindAction, GameFindResults } from "./components/GameFindResults";
 export { GameWadDocument } from "./components/GameWadDocument";
 export { GameWadsDocument } from "./components/GameWadsDocument";
 export { SourceTree } from "./components/SourceTree";

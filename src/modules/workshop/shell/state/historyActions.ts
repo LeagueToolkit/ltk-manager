@@ -1,7 +1,7 @@
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state. */
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
-import { leafHolding, setActiveTab } from "@/modules/editor/layout";
+import { findLeaf, leafHolding, setActiveTab } from "@/modules/editor/layout";
 
 import type { EditorGet, EditorSet } from "./editorRoot";
 import {
@@ -16,6 +16,13 @@ import {
 export interface HistoryActions {
   /** Records the list as a stop, which is what a back out of a project lands on. */
   recordListVisit: () => void;
+  /**
+   * Record the open tab of a project being entered, unless the arrows already stand in it.
+   *
+   * A project that restores its tabs opens none, so without this stop a back out of it
+   * has nothing to return from.
+   */
+  recordProjectVisit: (project: string) => void;
   /**
    * Record where an explorer is standing, as a stop of its own.
    *
@@ -45,6 +52,18 @@ export interface HistoryActions {
 export function createHistoryActions(set: EditorSet, get: EditorGet): HistoryActions {
   return {
     recordListVisit: () => set((state) => pushStop(state, { kind: "list" }) ?? state),
+
+    recordProjectVisit: (project) =>
+      set((state) => {
+        const current = state.history[state.historyIndex];
+        if (current?.kind === "document" && current.project === project) return state;
+
+        const editor = state.byProject[project];
+        const documentId = editor ? findLeaf(editor.layout, editor.activeLeafId)?.activeTab : null;
+        if (!documentId) return state;
+
+        return pushStop(state, { kind: "document", project, documentId }) ?? state;
+      }),
 
     recordLocationVisit: (project, documentId, location) =>
       set((state) => placeStop(state, { kind: "document", project, documentId, location })),

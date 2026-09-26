@@ -1,5 +1,7 @@
 import { Button } from "@/components";
+import { m } from "@/i18n";
 import { useStopPatcher } from "@/modules/patcher";
+import { usePatcherSessionStore } from "@/stores";
 
 import { runningTint, testTint } from "../../shared/utils/actionTints";
 
@@ -11,7 +13,7 @@ import { runningTint, testTint } from "../../shared/utils/actionTints";
 export function BuildingTestButton() {
   return (
     <Button variant="ghost" size="sm" loading disabled className={testTint}>
-      Building…
+      {m.workshop_card_building_label()}
     </Button>
   );
 }
@@ -19,21 +21,23 @@ export function BuildingTestButton() {
 /** The session in flight, and the one control that ends it. */
 export function StopTestButton() {
   const stopPatcher = useStopPatcher();
+  const stopping = usePatcherSessionStore((s) => s.stopping);
 
   return (
     <Button
       variant="ghost"
       size="sm"
       onClick={() => stopPatcher.mutate()}
-      loading={stopPatcher.isPending}
+      loading={stopping}
+      disabled={stopping}
       left={
-        !stopPatcher.isPending && (
+        !stopping && (
           <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
         )
       }
       className={runningTint}
     >
-      {stopPatcher.isPending ? "Stopping…" : "Stop Test"}
+      {stopping ? m.workshop_card_stopping_label() : m.workshop_card_stop_test_action()}
     </Button>
   );
 }

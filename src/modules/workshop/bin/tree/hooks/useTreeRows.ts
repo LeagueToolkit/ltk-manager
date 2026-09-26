@@ -28,6 +28,8 @@ export interface TreeRows {
   readonly groups: RowGroup[];
   /** Open a closed row, or close an open one and forget what was open under it. */
   readonly toggle: (key: string) => void;
+  /** Collapse every open row, which fetches nothing. */
+  readonly collapseAll: () => void;
   /** Open every key, which is how a reveal reaches a row nested under others. */
   readonly expand: (keys: Iterable<string>) => void;
   /** Ask a node with `loadedCount` rows answered for its next page. */
@@ -142,6 +144,10 @@ export function useTreeRows({
     });
   }, []);
 
+  const collapseAll = useCallback(() => {
+    setExpanded((current) => (current.size === 0 ? current : new Set()));
+  }, []);
+
   const expand = useCallback((keys: Iterable<string>) => {
     setExpanded((current) => new Set([...current, ...keys]));
   }, []);
@@ -181,7 +187,7 @@ export function useTreeRows({
     });
   }, []);
 
-  return { visible, loaded, groups, toggle, expand, requestMore, reach, remap };
+  return { visible, loaded, groups, toggle, collapseAll, expand, requestMore, reach, remap };
 }
 
 /**

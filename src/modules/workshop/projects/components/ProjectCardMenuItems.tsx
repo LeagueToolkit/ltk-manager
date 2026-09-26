@@ -20,6 +20,7 @@ import {
   useProjectSelectionActions,
   useWorkshopTestState,
 } from "@/modules/workshop/api";
+import { usePatcherSessionStore } from "@/stores";
 
 import { useForgetProjectFolder } from "../../folders/api/projectFolders";
 
@@ -39,6 +40,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
   const actions = useProjectActions(project);
   const testState = useWorkshopTestState(project);
   const forgetFolder = useForgetProjectFolder();
+  const testing = testState.kind === "building-this" || testState.kind === "running-this";
 
   return (
     <>
@@ -72,6 +74,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
       {project.location === "opened" && (
         <Menu.Item
           icon={<LinkBreakIcon weight="bold" className="h-4 w-4" />}
+          disabled={testing}
           onClick={() => forgetFolder.mutate(project.path)}
         >
           {m.workshop_folder_forget_action()}
@@ -97,6 +100,7 @@ function ProjectTestItem({
   onTest: () => void;
 }) {
   const stopPatcher = useStopPatcher();
+  const stopping = usePatcherSessionStore((s) => s.stopping);
 
   return match(testState)
     .with({ kind: "idle" }, () => (
@@ -112,9 +116,10 @@ function ProjectTestItem({
     .with({ kind: "running-this" }, () => (
       <Menu.Item
         icon={<PlayIcon weight="bold" className="h-4 w-4" />}
+        disabled={stopping}
         onClick={() => stopPatcher.mutate()}
       >
-        {m.workshop_card_stop_test_action()}
+        {stopping ? m.workshop_card_stopping_label() : m.workshop_card_stop_test_action()}
       </Menu.Item>
     ))
     .with(

@@ -29,6 +29,8 @@ interface ReferencesTreeProps {
   ariaLabel: string;
   isShut: (node: ReferenceFileNode) => boolean;
   onToggle: (node: ReferenceFileNode) => void;
+  /** Collapse every file, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   /** A click on an object row, or its Open menu item. */
   onOpen: (node: ReferenceObjectNode, intent: OpenIntent) => void;
 }
@@ -44,6 +46,7 @@ export function ReferencesTree({
   ariaLabel,
   isShut,
   onToggle,
+  onCollapseAll,
   onOpen,
 }: ReferencesTreeProps) {
   const rows = useMemo(() => flattenReferences(files, isShut), [files, isShut]);
@@ -93,6 +96,7 @@ export function ReferencesTree({
     activation: (node: ReferenceNode) => (node.type === "file" ? "toggle" : "open"),
     virtualizer,
     scrollElementRef: scrollRef,
+    onCollapseAll,
   });
 
   /* One menu for the whole tree, pointed at the row the event came from. */

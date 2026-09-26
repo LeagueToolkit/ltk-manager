@@ -484,6 +484,7 @@ project, and the two arrows walk between them.
 | ----------------------------------------------------- | --------------------------------------- |
 | Opening, activating, focusing or revealing a document | Pushes a stop                           |
 | Arriving on the grid                                  | Pushes a grid stop                      |
+| Entering a project whose stop is not the current one  | Pushes a stop for its open tab          |
 | Moving an explorer's location                         | Pushes a stop carrying that directory   |
 | Walking with an arrow                                 | Moves the index, and hands the tab back |
 | Closing a tab                                         | Drops the stops matching that tab       |

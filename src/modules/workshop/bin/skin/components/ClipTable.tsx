@@ -26,7 +26,7 @@ import {
 import { NO_OVERSCROLL, useResizeObserver, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
-import { twMerge } from "@/utils";
+import { measureRow, twMerge } from "@/utils";
 
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { Notice } from "../../vfx/preview/components/Notice";
@@ -269,6 +269,7 @@ function VirtualClips({
     scrollMargin: headerHeight,
     scrollPaddingStart: headerHeight,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
+    measureElement: measureRow,
   });
 
   const picked = choice?.picked ?? null;

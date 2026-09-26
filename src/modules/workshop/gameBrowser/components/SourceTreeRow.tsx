@@ -15,6 +15,7 @@ import {
   TreeLoadingRow,
 } from "../../shared/components/TreeRowParts";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
+import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { fileKindFromPath } from "../utils/fileKind";
 import type { SourceDirNode, SourceFileNode, SourceTreeNode } from "../utils/sourceIndex";
 
@@ -26,6 +27,8 @@ interface SourceTreeRowProps {
   /** A selected directory holds this row, so it draws the fill at half strength. */
   covered?: boolean;
   onToggle: (node: SourceDirNode) => void;
+  /** An Alt+click on a directory's caret, which toggles its whole subtree. */
+  onToggleSubtree?: (node: SourceDirNode) => void;
   /** A click, which writes the selection under whichever modifiers it carried. */
   onSelect: (index: number, event?: ReactMouseEvent<HTMLElement>) => void;
   /** The focus landing here, which moves the ring and nothing else. */
@@ -63,6 +66,7 @@ function DirRow({
   isSelected,
   covered,
   onToggle,
+  onToggleSubtree,
   onSelect,
   onFocusRow,
   height,
@@ -100,7 +104,12 @@ function DirRow({
         }
         onClick={(event) => {
           event.stopPropagation();
-          onToggle(node);
+
+          if (onToggleSubtree && isSubtreeClick(event)) {
+            onToggleSubtree(node);
+          } else {
+            onToggle(node);
+          }
         }}
         className="-m-0.5 shrink-0 rounded-sm p-0.5 hover:bg-surface-veil"
       >

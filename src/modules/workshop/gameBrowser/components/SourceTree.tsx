@@ -35,6 +35,10 @@ interface SourceTreeProps {
   ariaLabel: string;
   isExpanded: (node: SourceDirNode) => boolean;
   onToggle: (node: SourceDirNode) => void;
+  /** An Alt+click on a directory's caret. Absent, the caret toggles one level either way. */
+  onToggleSubtree?: (node: SourceDirNode) => void;
+  /** Collapse every directory, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: SourceFileNode) => void;
   /** A single click on a file row, which previews it while the setting is on. */
@@ -70,6 +74,8 @@ export function SourceTree({
   ariaLabel,
   isExpanded,
   onToggle,
+  onToggleSubtree,
+  onCollapseAll,
   onOpen,
   onPreview,
   scrollKey,
@@ -149,6 +155,7 @@ export function SourceTree({
     onOpen,
     onRun: runNode,
     selection,
+    onCollapseAll,
     virtualizer,
     scrollElementRef: scrollRef,
   });
@@ -291,6 +298,7 @@ export function SourceTree({
                     isSelected={drawsSelected(node, virtualRow.index, focusedIndex, selection)}
                     covered={drawsCovered(node, selection)}
                     onToggle={onToggle}
+                    onToggleSubtree={onToggleSubtree}
                     onSelect={handleRowSelect}
                     onFocusRow={handleFocusRow}
                     onOpen={onOpen}

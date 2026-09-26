@@ -24,9 +24,11 @@ import {
   flattenOutline,
   isBranch,
   moduleItemId,
+  outlineBranchIds,
   type OutlineNode,
   type OutlineShape,
   pathColumn,
+  toggleOutlineSubtree,
 } from "../utils/outlineTree";
 import { DeclarationsTreeRow } from "./DeclarationsTreeRow";
 import { type OutlineMenuHandlers, OutlineMenuItems } from "./OutlineMenuItems";
@@ -59,6 +61,8 @@ interface DeclarationsTreeProps {
   onRevealed?: (token: number) => void;
   /** The row the keyboard sits on, as it moves. */
   onSelect?: (node: OutlineNode | null) => void;
+  /** Bumped to collapse every branch, from a control outside the tree. */
+  collapseRequest?: number;
 }
 
 /**
@@ -84,6 +88,7 @@ export function DeclarationsTree({
   reveal = null,
   onRevealed,
   onSelect,
+  collapseRequest = 0,
 }: DeclarationsTreeProps) {
   const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set());
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -101,13 +106,31 @@ export function DeclarationsTree({
   const rows = useMemo(() => flattenOutline(layers, isShut, shape), [layers, isShut, shape]);
   const pathCols = useMemo(() => pathColumn(layers), [layers]);
 
-  const toggle = useCallback((node: OutlineNode) => {
-    setShut((held) => {
-      const next = new Set(held);
-      if (!next.delete(node.id)) next.add(node.id);
-      return next;
-    });
-  }, []);
+  const branches = useMemo(() => outlineBranchIds(layers, shape), [layers, shape]);
+
+  const toggle = useCallback(
+    (node: OutlineNode, subtree = false) => {
+      if (subtree) {
+        setShut((held) => toggleOutlineSubtree(held, node.id, branches));
+        return;
+      }
+
+      setShut((held) => {
+        const next = new Set(held);
+        if (!next.delete(node.id)) next.add(node.id);
+        return next;
+      });
+    },
+    [branches],
+  );
+
+  const collapseAll = useCallback(() => setShut(new Set(branches)), [branches]);
+
+  const [seenCollapse, setSeenCollapse] = useState(collapseRequest);
+  if (seenCollapse !== collapseRequest) {
+    setSeenCollapse(collapseRequest);
+    setShut(new Set(branches));
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const zoomed = useZoomedPx();
@@ -162,6 +185,7 @@ export function DeclarationsTree({
     },
     virtualizer,
     scrollElementRef: scrollRef,
+    onCollapseAll: collapseAll,
   });
 
   const selected = rows[focusedIndex]?.node ?? null;

@@ -12,7 +12,9 @@ import {
   type SourceDirNode,
   type SourceEntry,
   type SourceFileNode,
+  sourceDirIds,
   type SourceTreeNode,
+  toggledSourceDirTree,
   UNKNOWN_DIR,
   wadBasename,
   wadDirname,
@@ -276,6 +278,51 @@ describe("flattenSourceTree", () => {
       ["data", 0],
       ["a.bin", 1],
       ["b.bin", 1],
+    ]);
+  });
+});
+
+describe("sourceDirIds", () => {
+  it("names every directory, a folded chain once, and no file", () => {
+    const tree = buildSourceTree([known("a/b/c/deep.bin"), known("a/b/loose.bin"), known("x.bin")]);
+    const shut = sourceDirIds(tree);
+
+    expect(
+      flattenSourceTree(tree, (node) => !shut.has(node.id)).map((row) => nameOf(row.node)),
+    ).toEqual(["a/b", "x.bin"]);
+    expect(shut.size).toBe(2);
+  });
+});
+
+describe("toggledSourceDirTree", () => {
+  const tree = buildSourceTree([
+    known("a/b/x.bin"),
+    known("a/b/c/y.bin"),
+    known("a/z.bin"),
+    known("d/w.bin"),
+  ]);
+  const a = tree[0] as SourceDirNode;
+  const names = (collapsed: ReadonlySet<string>) =>
+    flattenSourceTree(tree, (node) => !collapsed.has(node.id)).map((row) => nameOf(row.node));
+
+  it("collapses an expanded directory and every directory under it", () => {
+    const collapsed = toggledSourceDirTree(new Set(), a);
+
+    expect(names(collapsed)).toEqual(["a", "d", "w.bin"]);
+    expect(collapsed).toEqual(sourceDirIds([a]));
+  });
+
+  it("expands a collapsed directory and every directory under it", () => {
+    const collapsed = sourceDirIds(tree);
+
+    expect(names(toggledSourceDirTree(collapsed, a))).toEqual([
+      "a",
+      "b",
+      "c",
+      "y.bin",
+      "x.bin",
+      "z.bin",
+      "d",
     ]);
   });
 });
