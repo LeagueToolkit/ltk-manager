@@ -310,8 +310,8 @@ impl fmt::Display for EditRejection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotALeaf => f.write_str("the node holds no leaf"),
-            Self::WrongKind { kind } => write!(f, "the leaf is a {}", kind.tag()),
-            Self::OutOfRange { kind } => write!(f, "the value is no {}", kind.tag()),
+            Self::WrongKind { kind } => write!(f, "value type mismatch, expected {}", kind.tag()),
+            Self::OutOfRange { kind } => write!(f, "value type mismatch, expected {}", kind.tag()),
             Self::NotFinite => f.write_str("the value is not finite"),
             Self::WrongLength { expected } => write!(f, "the leaf holds {expected} components"),
             Self::MalformedHash => f.write_str("the text is no name and no hash"),
