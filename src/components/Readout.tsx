@@ -9,6 +9,7 @@ import {
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { FieldDiscardContext } from "./FieldDiscardContext";
 import { InputDefaultContext } from "./InputDefaultContext";
 import { stepNumber } from "./stepNumber";
 
@@ -65,6 +66,7 @@ export function Readout({
   step,
 }: ReadoutProps) {
   const implicit = use(InputDefaultContext);
+  const discard = use(FieldDiscardContext);
   const [draft, setDraft] = useState<{ text: string; over: string; implicit: boolean } | null>(
     null,
   );
@@ -114,6 +116,7 @@ export function Readout({
     if (event.key === "Escape") {
       discarding.current = true;
       setDraft(null);
+      discard?.();
       event.currentTarget.blur();
     }
   }
@@ -141,6 +144,7 @@ export function Readout({
       aria-invalid={invalid || undefined}
       title={step !== undefined && editable ? m.common_number_step_hint() : undefined}
       data-draft={(hasDraft && (shown !== value || implicit)) || undefined}
+      data-value-field={editable || undefined}
       autoFocus={autoFocus}
       onFocus={autoFocus ? (event) => event.currentTarget.select() : undefined}
       data-ui="Readout"

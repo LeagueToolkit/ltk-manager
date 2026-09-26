@@ -1,6 +1,7 @@
 export * from "./components";
 export * from "./layout";
 export * from "./state/documentFinds";
+export * from "./state/documentHistory";
 export * from "./state/documentSaves";
 export * from "./state/leafCloses";
 export * from "./tabTitles";

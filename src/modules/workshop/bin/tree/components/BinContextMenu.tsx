@@ -5,6 +5,7 @@ import {
   LinkIcon,
   MagnifyingGlassIcon,
   PathIcon,
+  PencilSimpleIcon,
   TreeStructureIcon,
   WaveSineIcon,
 } from "@phosphor-icons/react";
@@ -48,6 +49,14 @@ import { markText } from "../../values/utils/valueRows";
 import { BinEditContext } from "../hooks/useBinEdit";
 import { fieldHash, type VisibleRow } from "../utils/binRows";
 import { EDIT_ICON, editLabel, rowEdits, undeclarable } from "../utils/rowEdits";
+
+/** The values a row draws as a chip or text, which open to a field on Edit value. */
+const TEXT_VALUES: ReadonlySet<BinValue["type"]> = new Set([
+  "string",
+  "hash",
+  "objectLink",
+  "wadChunkLink",
+]);
 
 interface BinContextMenuProps {
   /** The line the menu was opened on. Absent while it has never been opened. */
@@ -196,6 +205,11 @@ export function BinContextMenu({
           )}
           {(object || target || struct !== null || onShowInProperties || mark?.curve === true) && (
             <ContextMenu.Separator />
+          )}
+          {edit !== null && TEXT_VALUES.has(row.value.type) && (
+            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => edit.editValue(line.key)}>
+              {m.workshop_bin_edit_value_action()}
+            </ContextMenu.Item>
           )}
           {edits.map((kind) => {
             const Glyph = EDIT_ICON[kind];

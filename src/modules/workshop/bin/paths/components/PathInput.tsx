@@ -3,11 +3,12 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   use,
+  useEffect,
   useRef,
   useState,
 } from "react";
 
-import { Combobox, InputDefaultContext, LayerIcon } from "@/components";
+import { Combobox, FieldDiscardContext, InputDefaultContext, LayerIcon } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -61,6 +62,7 @@ export function PathInput({
   onEnter,
 }: PathInputProps) {
   const implicit = use(InputDefaultContext);
+  const discard = use(FieldDiscardContext);
   const [draft, setDraft] = useState<{ text: string; over: string } | null>(null);
   if (draft !== null && draft.over !== value) {
     setDraft(null);
@@ -70,6 +72,8 @@ export function PathInput({
   const input = useRef<HTMLInputElement>(null);
   const highlighted = useRef<PathSuggestion | undefined>(undefined);
   const leaving = useRef<Leaving>(null);
+  /* An `Enter` on search terms before any suggestion answered picks the top one once they do. */
+  const pickWhenAnswered = useRef(false);
 
   const shown = draft?.text ?? (implicit ? "" : value);
   const query = draft === null || draft.text.trim() === "" ? null : draft.text;
@@ -77,16 +81,21 @@ export function PathInput({
   const autoHighlight = field.enterPicks && query !== null && !query.includes("/");
   const listed = open && (groups.length > 0 || searching);
 
+  /* A committed draft stays until the value changes under it, so a refused path keeps its text. */
   function leave() {
     const reason = leaving.current;
     leaving.current = null;
+    pickWhenAnswered.current = false;
     setOpen(false);
 
-    if (reason === null && draft !== null && (draft.text !== value || implicit)) {
+    const committed = reason === null && draft !== null && (draft.text !== value || implicit);
+    if (committed) {
       onCommit(draft.text);
+    } else {
+      setDraft(null);
     }
+    if (reason === "discard") discard?.();
 
-    setDraft(null);
     onLeave?.();
   }
 
@@ -100,12 +109,29 @@ export function PathInput({
     if (byKey) onEnter?.();
   }
 
+  useEffect(() => {
+    if (!pickWhenAnswered.current || searching) return;
+    pickWhenAnswered.current = false;
+
+    const top = groups[0]?.items[0];
+    if (top !== undefined) {
+      pick(top, true);
+      return;
+    }
+    input.current?.blur();
+    onEnter?.();
+  });
+
   function keys(event: ReactKeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       /* The combobox selects the highlighted suggestion, and `pick` then blurs the field. */
       if (listed && isListed(groups, highlighted.current)) return;
 
       event.preventDefault();
+      if (autoHighlight && searching && !event.ctrlKey && !event.metaKey) {
+        pickWhenAnswered.current = true;
+        return;
+      }
       event.currentTarget.blur();
       if (!event.ctrlKey && !event.metaKey) onEnter?.();
     }
@@ -149,6 +175,7 @@ export function PathInput({
         autoFocus={autoFocus}
         data-ui="PathInput"
         data-draft={(draft !== null && (draft.text !== value || implicit)) || undefined}
+        data-value-field
         className={twMerge(
           "h-[var(--readout-height,auto)] w-auto min-w-0 flex-1 rounded-sm bg-surface-veil-soft px-[var(--readout-padding-x,0.375rem)] py-0.5",
           "font-mono text-[length:inherit] text-surface-200 tabular-nums select-text focus:ring-0 focus:outline-none",

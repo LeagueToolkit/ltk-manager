@@ -20,6 +20,17 @@ describe("a typed leaf", () => {
     });
   });
 
+  it("turns down an integer outside its kind's range before it round-trips", () => {
+    expect(integerLeaf("255", "u8")).toEqual({ ok: true, leaf: { type: "integer", text: "255" } });
+    expect(integerLeaf("-9223372036854775808", "i64").ok).toBe(true);
+    for (const text of ["256", "-1", "1.5", "abc", ""]) {
+      expect(integerLeaf(text, "u8")).toEqual({
+        ok: false,
+        rejection: { reason: "outOfRange", kind: "u8" },
+      });
+    }
+  });
+
   it("turns down a float JSON cannot carry", () => {
     expect(floatLeaf("2.5")).toEqual({ ok: true, leaf: { type: "float", value: 2.5 } });
     for (const text of ["", "abc", "Infinity", "NaN"]) {
@@ -70,14 +81,18 @@ describe("a typed leaf of a matrix, a string and a hash", () => {
     });
   });
 
-  it("sends a hash, a link and a file as typed, and nothing typed as a refusal", () => {
+  it("sends a hash, a link and a file as typed, and nothing typed as the zero hash", () => {
     expect(hashedLeaf("objectLink", " Characters/Aatrox ")).toEqual({
       ok: true,
       leaf: { type: "objectLink", text: "Characters/Aatrox" },
     });
     expect(hashedLeaf("wadChunkLink", "   ")).toEqual({
-      ok: false,
-      rejection: { reason: "malformedHash" },
+      ok: true,
+      leaf: { type: "wadChunkLink", text: "0000000000000000" },
+    });
+    expect(hashedLeaf("objectLink", "")).toEqual({
+      ok: true,
+      leaf: { type: "objectLink", text: "0x00000000" },
     });
   });
 });

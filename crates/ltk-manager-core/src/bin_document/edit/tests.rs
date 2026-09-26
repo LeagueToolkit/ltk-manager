@@ -816,7 +816,11 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
             Ok(())
         })
         .unwrap();
-    assert!(!store.undo(id).unwrap(), "a reload drops the undo stack");
+    assert_eq!(
+        store.undo(id).unwrap(),
+        None,
+        "a reload drops the undo stack"
+    );
 }
 
 #[test]

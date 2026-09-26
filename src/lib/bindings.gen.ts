@@ -95,16 +95,17 @@ export const commands = {
 	 */
 	binEdit: (document: BinDocumentId, edit: BinEdit) => __TAURI_INVOKE<({ ok: true; value: EditOutcome }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit", { document, edit }),
 	/**
-	 *  Revert the latest edit of an open document's tree, answering whether one was held.
+	 *  Revert the latest edit of an open document's tree, answering how its rows moved, or null
+	 *  where the undo stack is empty.
 	 * 
 	 *  The file tab and the object tabs over one asset share the tree and its stack.
 	 */
-	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
+	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
 	/**
-	 *  Apply the latest undone edit of an open document's tree again, answering whether one
-	 *  was held.
+	 *  Apply the latest undone edit of an open document's tree again, answering how its rows
+	 *  moved, or null where the redo stack is empty.
 	 */
-	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
+	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
 	/**
 	 *  What the document says beside its rows: the layer it declares into, the project's
 	 *  layers, and the rows a declaration of that layer touches. `None` for a document that
@@ -3419,6 +3420,25 @@ export type RenderState = {
 	depthWrite: boolean,
 	depthTest: boolean,
 };
+
+/**
+ *  How an undo or a redo moved the rows of a tree, so a reader's expanded rows follow them.
+ * 
+ *  Paths are relative to the object `entry` names, `0x` and eight hex digits, as a row's are.
+ */
+export type Reshape = 
+/**  Values or properties changed and no row moved. */
+{ kind: "inPlace" } | 
+/**  An item went into the list, map or option at `holder`, at `index`. */
+{ kind: "inserted"; entry: string; holder: string; index: number } | 
+/**  The property or item at `path` went out. */
+{ kind: "removed"; entry: string; path: string } | 
+/**  The item at `path` moved to `to` in its list. */
+{ kind: "moved"; entry: string; path: string; to: number } | 
+/**  The map entry at `from` is now at `to`. */
+{ kind: "rekeyed"; entry: string; from: string; to: string } | 
+/**  The pointer at `path` is null, and every row under it is gone. */
+{ kind: "nulled"; entry: string; path: string };
 
 /**  One `StaticMaterialPassDef` with its shader's inputs filled in. */
 export type ResolvedPass = {

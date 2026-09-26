@@ -17,14 +17,17 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
 import { stirImages } from "../../../preview/hooks/useImageSlot";
+import { assetKey } from "../../../preview/utils/assetRef";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { rowTag } from "../../values/utils/kindTag";
 import type { TreeFocus } from "../hooks/useBinEdit";
 import { type TreeReveal, useReveal } from "../hooks/useReveal";
 import { useRowWindow } from "../hooks/useRowWindow";
+import { useTreeNavigation } from "../hooks/useTreeNavigation";
 import { useNextPages, useTreeRows } from "../hooks/useTreeRows";
 import { type DependencyEditing, DependencyEditingContext } from "../state/dependencyEditing";
 import { NewObjectContext } from "../state/newObject";
+import { useReshapes } from "../state/reshapes";
 import { createGuideStore, GuideStoreContext } from "../state/treeGuides";
 import {
   addLineKey,
@@ -149,6 +152,8 @@ export function BinTree({
     dependencies,
   });
 
+  useReshapes(assetKey(asset), remap);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const { items, lines, totalSize, rowHeight, measureElement, scrollToKey } = useRowWindow(
     scrollRef,
@@ -183,15 +188,28 @@ export function BinTree({
     collapseAll();
   }, [collapseAllSignal, collapseAll]);
 
+  /* The row value or the add line an edit sends focus to, once it draws. */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+
+  const navigation = useTreeNavigation({
+    visible,
+    scrollRef,
+    scrollToKey,
+    drawn: items,
+    toggle,
+    editValue: editable ? setFocusKey : null,
+  });
+
   function handleKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    if (navigation.keyDown(event)) {
+      event.preventDefault();
+      return;
+    }
     if (!isCollapseAllKey(event) || isTextEntry(event.target)) return;
 
     event.preventDefault();
     collapseAll();
   }
-
-  /* The row value or the add line an edit sends focus to, once it draws. */
-  const [focusKey, setFocusKey] = useState<string | null>(null);
   const focus = useMemo<TreeFocus>(
     () => ({
       key: focusKey,
@@ -270,7 +288,7 @@ export function BinTree({
 
   /* Outside React state, so a pointer crossing the rows redraws the guides and nothing else. */
   const [guides] = useState(createGuideStore);
-  function standOn(target: EventTarget) {
+  function showGuidesAt(target: EventTarget) {
     const line = lineAt(target);
     if (line !== null) guides.set({ active: lineParent(line) });
   }
@@ -309,8 +327,11 @@ export function BinTree({
               }
               onContextMenu={handleContextMenu}
               onKeyDown={handleKeyDown}
-              onPointerDown={(event) => standOn(event.target)}
-              onFocus={(event) => standOn(event.target)}
+              onPointerDown={(event) => showGuidesAt(event.target)}
+              onFocus={(event) => {
+                showGuidesAt(event.target);
+                navigation.focused(event.target);
+              }}
               onMouseOver={(event) => {
                 const line = lineAt(event.target);
                 guides.set({ hover: line === null ? null : lineParent(line) });
@@ -335,6 +356,7 @@ export function BinTree({
                         <BinRowLine
                           line={line}
                           focused={line.key === focused}
+                          tabStop={line.key === navigation.tabStop}
                           error={loaded.get(line.key)?.error}
                           onToggle={toggle}
                           onOpenObject={onOpenObject}

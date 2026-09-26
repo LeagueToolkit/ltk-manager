@@ -30,6 +30,7 @@ mod property_edit;
 mod records;
 mod requests;
 pub(crate) mod resolve;
+mod typed_names;
 
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
@@ -37,7 +38,7 @@ pub use declared::{
     DeclaredState, Declaring, GameCopy, LinkChange, NewObject, ObjectChange, ObjectSkip,
     RowDeclaration, SkipReason,
 };
-pub use edit::{EditRejection, LeafValue, ReadOnly, UNDO_DEPTH};
+pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
@@ -706,25 +707,26 @@ impl BinDocuments {
         Ok(document.read_only(&asset))
     }
 
-    /// Revert the latest edit of the document under `id`, answering whether one was held.
+    /// Revert the latest edit of the document under `id`, answering how the rows moved, or
+    /// `None` where the undo stack is empty.
     ///
     /// # Errors
     ///
     /// Fails with [`BinDocumentError::NotOpen`] when `id` is closed, with
     /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
     /// [`BinDocument::undo`] raises.
-    pub fn undo(&self, id: BinDocumentId) -> Result<bool, BinDocumentError> {
-        self.edit(id, BinDocument::undo)
+    pub fn undo(&self, id: BinDocumentId) -> Result<Option<Reshape>, BinDocumentError> {
+        self.edit(id, |document| document.step(HistoryStep::Undo))
     }
 
-    /// Apply the latest undone edit of the document under `id` again, answering whether
-    /// one was held.
+    /// Apply the latest undone edit of the document under `id` again, answering how the
+    /// rows moved, or `None` where the redo stack is empty.
     ///
     /// # Errors
     ///
     /// As [`BinDocuments::undo`].
-    pub fn redo(&self, id: BinDocumentId) -> Result<bool, BinDocumentError> {
-        self.edit(id, BinDocument::redo)
+    pub fn redo(&self, id: BinDocumentId) -> Result<Option<Reshape>, BinDocumentError> {
+        self.edit(id, |document| document.step(HistoryStep::Redo))
     }
 
     /// Run `edit` on the document under `id`, behind its gate.
@@ -880,6 +882,8 @@ pub struct BinDocument {
     /// The project the document declares into. Absent for every document but a game chunk
     /// opened from a project's game tree (ADR-0042).
     declared: Option<declared::Declared>,
+    /// The names typed into an edit, which draw where no table names their hash.
+    typed: typed_names::TypedNames,
 }
 
 impl BinDocument {
@@ -899,6 +903,7 @@ impl BinDocument {
             undo: VecDeque::new(),
             redo: Vec::new(),
             declared: None,
+            typed: typed_names::TypedNames::default(),
         })
     }
 
@@ -924,7 +929,7 @@ impl BinDocument {
                     entries: patch.deleted.clone(),
                     ..Wanted::default()
                 };
-                let named = wanted.resolve(names, None);
+                let named = wanted.resolve(&self.typed.over(names), None);
                 BinHeader {
                     kind: BinFileKind::Patch,
                     version: None,
@@ -968,7 +973,7 @@ impl BinDocument {
         let mut wanted = Wanted::default();
         wanted.entries.push(entry);
         wanted.classes.push(object.class_hash);
-        let named = wanted.resolve(names, schema);
+        let named = wanted.resolve(&self.typed.over(names), schema);
         let (name, unnamed) = named.entry(entry);
         Ok(BinObjectHeader {
             entry: hex(entry),
@@ -1040,7 +1045,7 @@ impl BinDocument {
                 .chain(removed.iter().copied())
                 .map(|object| object.class_hash),
         );
-        let named = wanted.resolve(names, schema);
+        let named = wanted.resolve(&self.typed.over(names), schema);
 
         let targets = targets
             .iter()
@@ -1131,7 +1136,7 @@ impl BinDocument {
             }
         }
         let lens = Lens {
-            named: wanted.resolve(names, schema),
+            named: wanted.resolve(&self.typed.over(names), schema),
             schema,
         };
 

@@ -163,6 +163,7 @@ export type {
   PropertyDocs,
   PropertyKind,
   ReadOnly,
+  Reshape,
   RowDeclaration,
   RowNode,
   SkipReason,

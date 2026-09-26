@@ -7,7 +7,7 @@ import { api, type AssetRef, type BinDocumentId, type ReadOnly } from "@/lib/tau
 import { SaveStatus } from "@/modules/editor";
 
 import { assetKey } from "../../../preview/utils/assetRef";
-import { forgetBinSave, retryBinSave, useBinSave } from "../../../state";
+import { forgetBinSave, saveBinNow, useBinSave } from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { NewObjectContext } from "../../tree/state/newObject";
 import { useDeclaredState } from "../hooks/useDeclared";
@@ -108,7 +108,8 @@ function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
     <SaveStatus
       state={save.state}
       blockedHint={m.workshop_bin_refused_hint()}
-      onRetry={() => retryBinSave(key)}
+      failedReason={save.error === null ? undefined : errorSummary(save.error)}
+      onRetry={() => void saveBinNow(key, document).catch(() => {})}
     />
   );
 }

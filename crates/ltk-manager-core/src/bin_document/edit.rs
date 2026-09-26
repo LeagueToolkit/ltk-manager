@@ -80,6 +80,109 @@ pub(super) enum Edit {
     Dependencies { paths: Vec<String> },
 }
 
+/// Which way a step through an edit history goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum HistoryStep {
+    /// Revert the latest edit.
+    Undo,
+    /// Apply the latest reverted edit again.
+    Redo,
+}
+
+/// How an undo or a redo moved the rows of a tree, so a reader's expanded rows follow them.
+///
+/// Paths are relative to the object `entry` names, `0x` and eight hex digits, as a row's are.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", ts(export))]
+pub enum Reshape {
+    /// Values or properties changed and no row moved.
+    InPlace,
+    /// An item went into the list, map or option at `holder`, at `index`.
+    Inserted {
+        entry: String,
+        holder: String,
+        index: usize,
+    },
+    /// The property or item at `path` went out.
+    Removed { entry: String, path: String },
+    /// The item at `path` moved to `to` in its list.
+    Moved {
+        entry: String,
+        path: String,
+        to: usize,
+    },
+    /// The map entry at `from` is now at `to`.
+    Rekeyed {
+        entry: String,
+        from: String,
+        to: String,
+    },
+    /// The pointer at `path` is null, and every row under it is gone.
+    Nulled { entry: String, path: String },
+}
+
+impl Reshape {
+    /// How applying `edit` moves the rows. A rekey's destination is filled by [`Self::landed`].
+    fn of(edit: &Edit) -> Self {
+        match edit {
+            Edit::InsertItem {
+                entry,
+                holder,
+                index,
+                ..
+            } => Self::Inserted {
+                entry: hex(*entry),
+                holder: holder.clone(),
+                index: *index,
+            },
+            Edit::RemoveItem { entry, path } | Edit::RemoveProperty { entry, path } => {
+                Self::Removed {
+                    entry: hex(*entry),
+                    path: path.clone(),
+                }
+            }
+            Edit::MoveItem { entry, path, to } => Self::Moved {
+                entry: hex(*entry),
+                path: path.clone(),
+                to: *to,
+            },
+            Edit::SetKey { entry, path, .. } => Self::Rekeyed {
+                entry: hex(*entry),
+                from: path.clone(),
+                to: String::new(),
+            },
+            Edit::SetPointer { entry, path, value } if is_null(value) => Self::Nulled {
+                entry: hex(*entry),
+                path: path.clone(),
+            },
+            Edit::ReplaceProperty { .. }
+            | Edit::Leaf { .. }
+            | Edit::InsertProperty { .. }
+            | Edit::SetPointer { .. }
+            | Edit::Dependencies { .. } => Self::InPlace,
+        }
+    }
+
+    /// The reshape with a rekey's destination read from `inverse`, the edit that reverts it.
+    fn landed(self, inverse: &Edit) -> Self {
+        match (self, inverse) {
+            (Self::Rekeyed { entry, from, .. }, Edit::SetKey { path, .. }) => Self::Rekeyed {
+                entry,
+                from,
+                to: path.clone(),
+            },
+            (reshape, _) => reshape,
+        }
+    }
+}
+
 /// The value a leaf edit sets, in the shape its widget holds.
 ///
 /// A hash, a link and a file carry the text the reader typed: a name, or the hex the row
@@ -207,8 +310,8 @@ impl fmt::Display for EditRejection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotALeaf => f.write_str("the node holds no leaf"),
-            Self::WrongKind { kind } => write!(f, "the leaf is a {}", kind.tag()),
-            Self::OutOfRange { kind } => write!(f, "the value is no {}", kind.tag()),
+            Self::WrongKind { kind } => write!(f, "value type mismatch, expected {}", kind.tag()),
+            Self::OutOfRange { kind } => write!(f, "value type mismatch, expected {}", kind.tag()),
             Self::NotFinite => f.write_str("the value is not finite"),
             Self::WrongLength { expected } => write!(f, "the leaf holds {expected} components"),
             Self::MalformedHash => f.write_str("the text is no name and no hash"),
@@ -341,15 +444,8 @@ impl BinDocument {
     ///
     /// Fails as [`BinDocument::set_leaf`] does, which no edit the stack took can.
     pub fn undo(&mut self) -> Result<bool, BinDocumentError> {
-        if self.declares() {
-            return self.undo_declared();
-        }
-        let Some(edit) = self.undo.pop_back() else {
-            return Ok(false);
-        };
-        let inverse = self.apply(edit)?;
-        self.redo.push(inverse);
-        Ok(true)
+        self.step(HistoryStep::Undo)
+            .map(|reshape| reshape.is_some())
     }
 
     /// Apply the latest undone edit again, answering whether one was held.
@@ -358,15 +454,42 @@ impl BinDocument {
     ///
     /// As [`BinDocument::undo`].
     pub fn redo(&mut self) -> Result<bool, BinDocumentError> {
+        self.step(HistoryStep::Redo)
+            .map(|reshape| reshape.is_some())
+    }
+
+    /// Take one step through the history, answering how the rows moved, or `None` where the
+    /// stack is empty. A declared document restores manifest text, and no row moves.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocument::undo`].
+    pub fn step(&mut self, step: HistoryStep) -> Result<Option<Reshape>, BinDocumentError> {
         if self.declares() {
-            return self.redo_declared();
+            let stepped = match step {
+                HistoryStep::Undo => self.undo_declared()?,
+                HistoryStep::Redo => self.redo_declared()?,
+            };
+            return Ok(stepped.then_some(Reshape::InPlace));
         }
-        let Some(edit) = self.redo.pop() else {
-            return Ok(false);
+
+        let popped = match step {
+            HistoryStep::Undo => self.undo.pop_back(),
+            HistoryStep::Redo => self.redo.pop(),
         };
+        let Some(edit) = popped else {
+            return Ok(None);
+        };
+
+        let reshape = Reshape::of(&edit);
         let inverse = self.apply(edit)?;
-        push_bounded(&mut self.undo, inverse);
-        Ok(true)
+        let reshape = reshape.landed(&inverse);
+
+        match step {
+            HistoryStep::Undo => self.redo.push(inverse),
+            HistoryStep::Redo => push_bounded(&mut self.undo, inverse),
+        }
+        Ok(Some(reshape))
     }
 
     /// Apply `edit` and mark its object touched, answering the edit that reverts it. Both

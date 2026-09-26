@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use super::edit::Edit;
 use super::properties::{field_path, with_holder};
+use super::typed_names::TypedNames;
 use super::{
     BinDocument, BinDocumentError, BinDocumentId, BinDocuments, EditRejection, LeafValue, NewItem,
     NewProperty, Node, Step, descend, hex, parse_steps,
@@ -98,6 +99,7 @@ impl BinDocument {
             undo: VecDeque::new(),
             redo: Vec::new(),
             declared: None,
+            typed: TypedNames::default(),
         };
         staged.ensure_property(entry, holder, field, schema)?;
 

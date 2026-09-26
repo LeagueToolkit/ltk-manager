@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useCallback, useMemo, useRef } from "react";
 
+import { useToast } from "@/components";
+import { errorSummary, m } from "@/i18n";
 import {
   type AppError,
   api,
@@ -36,7 +38,7 @@ import {
 } from "../utils/binRows";
 import type { TypedLeaf } from "../utils/leafText";
 import type { RowEdit } from "../utils/rowEdits";
-import { useLeafEdit } from "./useLeafEdit";
+import { keyMark, useLeafEdit } from "./useLeafEdit";
 
 /** The kinds whose new row takes focus in a field, where a value is typed straight after the add. */
 const FOCUSED_KINDS: ReadonlySet<string> = new Set([
@@ -66,6 +68,7 @@ const DOCUMENT_READS = [
   ["bin-read"],
   ["bin-roots"],
   ["bin-file-roots"],
+  ["bin-find"],
   ["bin-addable"],
   ["bin-item-classes"],
   ["bin-object-classes"],
@@ -96,7 +99,7 @@ export interface BinEdit {
   /** The edits of the header's dependency list. */
   dependencies: DependencyEdit;
   /** Send what the reader typed to the leaf `row` draws, or mark the row where it cannot be sent. */
-  commit: (row: BinRow, typed: TypedLeaf) => void;
+  commit: (row: BinRow, typed: TypedLeaf) => Promise<boolean>;
   /** Why the backend refused the last edit a row sent, by row key. */
   refused: ReadonlyMap<string, AppError>;
   /** Add what `suggestion` names under the holder of `line`, then focus the new value. */
@@ -106,7 +109,11 @@ export interface BinEdit {
   /** Run the structural edit `edit` on the row `line` draws. */
   run: (line: RowLine, edit: RowEdit) => void;
   /** Set the key of the map entry `line` draws to `text`. */
-  setKey: (line: RowLine, text: string) => void;
+  setKey: (line: RowLine, text: string) => Promise<boolean>;
+  /** Drop the refusal mark under the row key `at`, whose field let its draft go. */
+  dismiss: (at: string) => void;
+  /** Open the value of the row under `key` for an edit, and focus it. */
+  editValue: (key: string) => void;
   /** `Enter` on the value under `key`, which returns focus to the line the value was added from. */
   enter: (key: string) => void;
   /** Close the insert line open in the tree. */
@@ -176,7 +183,20 @@ export function useBinEditor(
   focus: TreeFocus,
 ): BinEdit | null {
   const invalidate = useInvalidateBinReads();
-  const { commit, refused, mark, landed, send: call } = useLeafEdit(document, asset, invalidate);
+  const {
+    commit,
+    refused,
+    dismiss,
+    mark,
+    landed,
+    send: call,
+  } = useLeafEdit(document, asset, invalidate);
+  const toast = useToast();
+  /* A structural edit leaves no field to mark, so its refusal is stated where the reader is. */
+  const refuse = useCallback(
+    (error: AppError) => toast.error(m.workshop_bin_edit_refused_title(), errorSummary(error)),
+    [toast],
+  );
   /* The value added last and the line it came from, which Enter on the value returns to. */
   const returns = useRef<{ from: string; to: string } | null>(null);
 
@@ -291,10 +311,9 @@ export function useBinEditor(
       );
       const result = expectKind(sent.result, "path");
       if (!result.ok) {
-        mark(holderKey, result.error);
+        refuse(result.error);
         return;
       }
-      mark(holderKey, null);
       landed(sent.id);
 
       if (target.kind === "option") {
@@ -307,19 +326,21 @@ export function useBinEditor(
       focus.to(added, holderKey);
       returns.current = index === null ? { from: added, to: addLineKey(holderKey) } : null;
     },
-    [call, focus, landed, mark],
+    [call, focus, landed, refuse],
   );
 
-  /* One call that changes the tree under `row`, marking the row where it is refused. */
+  /* One call that changes the tree under `row`, stating the refusal where there is one. */
   const send = useCallback(
-    async <T>(row: BinRow, sending: Promise<Sent<T>>, then: (value: T) => void) => {
+    async <T>(sending: Promise<Sent<T>>, then: (value: T) => void) => {
       const { result, id } = await sending;
-      mark(rowKey(row), result.ok ? null : result.error);
-      if (!result.ok) return;
+      if (!result.ok) {
+        refuse(result.error);
+        return;
+      }
       landed(id);
       then(result.value);
     },
-    [landed, mark],
+    [landed, refuse],
   );
   const edited = useCallback((edit: WireBinEdit) => call((id) => api.bin.edit(id, edit)), [call]);
   const moved = useCallback(
@@ -362,7 +383,7 @@ export function useBinEditor(
           const to = line.index + (edit === "moveUp" ? -1 : 1);
           if (to < 0 || to >= parent.value.len) return;
           const holder = rowKey(parent);
-          void send(row, moved({ kind: "moveItem", ...address, to }), ({ path }) => {
+          void send(moved({ kind: "moveItem", ...address, to }), ({ path }) => {
             focus.remap((each) => shiftedKey(each, holder, moveShift(line.index, to)));
             focus.to(keyOf(row.entry, path), null);
           });
@@ -373,7 +394,7 @@ export function useBinEditor(
           if (parent === null) return;
           const holder = rowKey(parent);
           const listed = parent.value.type === "container";
-          void send(row, edited({ kind: "removeItem", ...address }), () => {
+          void send(edited({ kind: "removeItem", ...address }), () => {
             focus.remap((each) =>
               listed ? shiftedKey(each, holder, removeShift(line.index)) : droppedUnder(at)(each),
             );
@@ -383,20 +404,20 @@ export function useBinEditor(
         case "clearValue": {
           const path = parent?.value.type === "optional" ? row.path : `${row.path}[0]`;
           const cleared = edited({ kind: "removeItem", entry: row.entry, path });
-          void send(row, cleared, () => {
+          void send(cleared, () => {
             focus.remap(droppedUnder(keyOf(row.entry, path)));
           });
           return;
         }
         case "setNull": {
           const nulled = edited({ kind: "setPointer", ...address, className: null });
-          void send(row, nulled, () => {
+          void send(nulled, () => {
             focus.remap(droppedInside(at));
           });
           return;
         }
         case "removeProperty": {
-          void send(row, edited({ kind: "removeProperty", ...address }), () => {
+          void send(edited({ kind: "removeProperty", ...address }), () => {
             focus.remap(droppedUnder(at));
           });
           return;
@@ -406,17 +427,26 @@ export function useBinEditor(
     [edited, focus, insertLeaf, moved, send],
   );
 
+  /* A key is a field, so a refusal marks it and blocks the save the way a value's does. */
   const setKey = useCallback(
-    (line: RowLine, text: string) => {
+    async (line: RowLine, text: string) => {
       const { row } = line;
       const from = rowKey(row);
-      const rekeyed = moved({ kind: "setKey", entry: row.entry, path: row.path, key: text });
-      void send(row, rekeyed, ({ path }) => {
-        const to = keyOf(row.entry, path);
-        if (to !== from) focus.remap((each) => renamedKey(each, from, to));
+      const { result, id } = await moved({
+        kind: "setKey",
+        entry: row.entry,
+        path: row.path,
+        key: text,
       });
+      mark(keyMark(from), result.ok ? null : result.error);
+      if (!result.ok) return false;
+
+      landed(id);
+      const to = keyOf(row.entry, result.value.path);
+      if (to !== from) focus.remap((each) => renamedKey(each, from, to));
+      return true;
     },
-    [focus, moved, send],
+    [focus, landed, mark, moved],
   );
 
   const dependencies = useMemo<DependencyEdit>(() => {
@@ -459,12 +489,14 @@ export function useBinEditor(
             insert,
             run,
             setKey,
+            dismiss,
+            editValue: (key: string) => focus.to(key, null),
             enter,
             closeInsert: focus.closeInsert,
             focusKey: focus.key,
             settleFocus: focus.settle,
           }
         : null,
-    [editable, dependencies, commit, refused, add, insert, run, setKey, enter, focus],
+    [editable, dependencies, commit, refused, add, insert, run, setKey, dismiss, enter, focus],
   );
 }

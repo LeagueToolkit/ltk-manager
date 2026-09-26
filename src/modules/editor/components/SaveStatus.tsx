@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@/components";
+import { Button, Spinner, Tooltip } from "@/components";
 import { m } from "@/i18n";
 
 import type { TextSaveState } from "../useTextDocumentEditor";
@@ -7,6 +7,8 @@ export interface SaveStatusProps {
   state: TextSaveState;
   /** What a buffer the file turned down needs, in a few words. */
   blockedHint: string;
+  /** Why the last write failed, on the failure's hover. */
+  failedReason?: string;
   onRetry: () => void;
 }
 
@@ -16,7 +18,7 @@ export interface SaveStatusProps {
  * Quiet when clean: saving is the document's job rather than an event, and
  * only an edit that is being held back is worth a word.
  */
-export function SaveStatus({ state, blockedHint, onRetry }: SaveStatusProps) {
+export function SaveStatus({ state, blockedHint, failedReason, onRetry }: SaveStatusProps) {
   if (state === "pending" || state === "saving") {
     return <Spinner size="sm" className="h-3 w-3 shrink-0" />;
   }
@@ -29,12 +31,16 @@ export function SaveStatus({ state, blockedHint, onRetry }: SaveStatusProps) {
   }
 
   if (state === "failed") {
+    /* DS-TEXT */
+    const failed = (
+      <span className="text-[0.6875rem] text-danger-text select-none">
+        {m.editor_save_failed_hint()}
+      </span>
+    );
     return (
       <span className="flex shrink-0 items-center gap-1.5">
-        {/* DS-TEXT */}
-        <span className="text-[0.6875rem] text-danger-text select-none">
-          {m.editor_save_failed_hint()}
-        </span>
+        {failedReason === undefined && failed}
+        {failedReason !== undefined && <Tooltip content={failedReason}>{failed}</Tooltip>}
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
           {m.editor_save_retry_action()}
         </Button>

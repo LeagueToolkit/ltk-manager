@@ -368,6 +368,26 @@ fn a_custom_field_takes_a_name_a_hash_a_container_and_a_class() {
 }
 
 #[test]
+fn a_typed_pointer_starts_as_the_class_it_names() {
+    let schema = schema();
+    let mut document = document();
+    let pointer = NewProperty::Custom {
+        field: "myPointer".to_owned(),
+        shape: KindShape::bare(PropertyKind::Struct),
+        class: Some("InnerData".to_owned()),
+    };
+
+    document
+        .add_property(entry(), "", pointer, schema.at(Some(BUILD)))
+        .unwrap();
+
+    assert!(matches!(
+        property(&document, None, "myPointer"),
+        Some(PropertyValueEnum::Struct(inner)) if inner.class_hash == h("InnerData")
+    ));
+}
+
+#[test]
 fn an_add_that_does_not_fit_is_refused_and_leaves_the_tree() {
     let schema = schema();
     let at = schema.at(Some(BUILD));

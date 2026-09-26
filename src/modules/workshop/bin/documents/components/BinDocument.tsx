@@ -37,8 +37,8 @@ import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
 import { NewObjectContext, useNewObjectDraft } from "../../tree/state/newObject";
 import { objectKey, rowKey, sortedRoots, targetKey } from "../../tree/utils/binRows";
 import { useBinDocument, useFileDependencies, useFileRoots } from "../hooks/useBinDocument";
+import { useBinTab } from "../hooks/useBinTab";
 import { useDeclaredState } from "../hooks/useDeclared";
-import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
 import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
 
@@ -126,7 +126,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   const removedLinks = declaredState?.links.filter((link) => link.change === "removed").length ?? 0;
 
   const narrow = useNarrowToolbar();
-  const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  useBinTab(documentId, handle.document, asset, handle.readOnly === null);
   /* Only a declared document that takes edits creates an object. ADR-0049. */
   const newObject = useNewObjectDraft();
   const declares = declaredState !== null && handle.readOnly === null;
@@ -184,13 +184,7 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
   );
 
   return (
-    <div
-      data-ui="BinDocument"
-      /* Focusable, so a click anywhere in the tab is where its undo keys land. */
-      tabIndex={-1}
-      className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
-      onKeyDown={undoKeys}
-    >
+    <div data-ui="BinDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
       <NewObjectContext value={declares ? newObject : null}>
         <DocumentToolbar active={active}>
           <BinFacts

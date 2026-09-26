@@ -281,6 +281,7 @@ function PathField({ path, onCommit, onClose }: PathFieldProps) {
         ref={ref}
         type="text"
         value={text}
+        data-draft={text !== path || undefined}
         aria-label={m.workshop_bin_dependency_path_label()}
         aria-invalid={error !== null || undefined}
         spellCheck={false}
@@ -357,6 +358,7 @@ export function DependencyAddLine({ line, autoFocus }: DependencyAddLineProps) {
           ref={ref}
           type="text"
           value={text}
+          data-draft={text !== "" || undefined}
           aria-label={m.workshop_bin_dependency_add_label()}
           placeholder={m.workshop_bin_dependency_add_placeholder()}
           aria-invalid={error !== null || undefined}

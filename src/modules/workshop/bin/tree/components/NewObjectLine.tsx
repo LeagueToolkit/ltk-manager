@@ -138,6 +138,7 @@ function NameField({ suggested, invalid, onType, onCommit, onEscape }: NameField
       ref={ref}
       type="text"
       value={text}
+      data-draft={text !== suggested || undefined}
       aria-label={label}
       placeholder={label}
       aria-invalid={invalid || undefined}
@@ -208,6 +209,7 @@ function ClassPicker({ document, onPick, onEscape }: ClassPickerProps) {
     >
       <Combobox.Input
         ref={ref}
+        data-draft={text !== "" || undefined}
         placeholder={label}
         aria-label={label}
         spellCheck={false}

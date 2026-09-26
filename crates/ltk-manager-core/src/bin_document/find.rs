@@ -104,7 +104,7 @@ impl BinDocument {
             }
         }
         let lens = Lens {
-            named: wanted.resolve(names, schema),
+            named: wanted.resolve(&self.typed.over(names), schema),
             schema,
         };
 

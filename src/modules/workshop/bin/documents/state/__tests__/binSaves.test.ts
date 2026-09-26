@@ -7,16 +7,19 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import {
+  clearRefusedBy,
   flushBinSave,
   forgetBinSave,
   isQueuedThrough,
+  markRefused,
   queueForSave,
-  retryBinSave,
+  saveBinNow,
   useBinSave,
 } from "../binSaves";
 
 const ASSET = "layer:C:/mods/skin:base:data/skin0.bin";
 const DOCUMENT = 7 as BinDocumentId;
+const FRESH = 9 as BinDocumentId;
 
 function state() {
   return renderHook(() => useBinSave(ASSET)).result.current.state;
@@ -57,7 +60,7 @@ describe("the bin save queue", () => {
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
 
-  it("reads failed on a refusal, and a retry queues the save again", async () => {
+  it("reads failed on a refusal, and a save now writes it again through the id it is given", async () => {
     mockInvoke.mockResolvedValueOnce({ ok: false, error: { code: "BIN_CHANGED_ON_DISK" } });
     queueForSave(ASSET, DOCUMENT);
     await flushBinSave(ASSET);
@@ -65,9 +68,37 @@ describe("the bin save queue", () => {
     const { result } = renderHook(() => useBinSave(ASSET));
     expect(result.current).toEqual({ state: "failed", error: { code: "BIN_CHANGED_ON_DISK" } });
 
-    retryBinSave(ASSET);
+    await saveBinNow(ASSET, FRESH);
+    expect(mockInvoke).toHaveBeenLastCalledWith("bin_save", { document: FRESH });
+    expect(state()).toBe("clean");
+  });
+
+  it("rejects a save now that fails, and writes nothing when nothing is owed", async () => {
+    await saveBinNow(ASSET, DOCUMENT);
+    expect(mockInvoke).not.toHaveBeenCalled();
+
+    mockInvoke.mockResolvedValueOnce({ ok: false, error: { code: "BIN_UNWRITABLE" } });
+    queueForSave(ASSET, DOCUMENT);
+    await expect(saveBinNow(ASSET, DOCUMENT)).rejects.toEqual({ code: "BIN_UNWRITABLE" });
+  });
+
+  it("reads blocked while a field is refused, whatever lands meanwhile, and failed over it", async () => {
+    markRefused(ASSET, "tab-a:0x1:scale", true);
+    expect(state()).toBe("blocked");
+
+    queueForSave(ASSET, DOCUMENT);
+    expect(state()).toBe("blocked");
+
+    markRefused(ASSET, "tab-a:0x1:scale", false);
     expect(state()).toBe("pending");
-    await vi.advanceTimersByTimeAsync(600);
+
+    markRefused(ASSET, "tab-b:0x1:tint", true);
+    mockInvoke.mockResolvedValueOnce({ ok: false, error: { code: "BIN_CHANGED_ON_DISK" } });
+    await flushBinSave(ASSET);
+    expect(state()).toBe("failed");
+
+    clearRefusedBy(ASSET, "tab-b:");
+    await saveBinNow(ASSET, DOCUMENT);
     expect(state()).toBe("clean");
   });
 

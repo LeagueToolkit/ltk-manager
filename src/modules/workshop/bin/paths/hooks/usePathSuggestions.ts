@@ -81,5 +81,5 @@ export function usePathSuggestions({
 
   const more = query !== null && search.data ? search.data.total - search.data.hits.length : 0;
 
-  return { groups, more, searching: query !== null && search.isFetching };
+  return { groups, more, searching: query !== null && search.searching };
 }
