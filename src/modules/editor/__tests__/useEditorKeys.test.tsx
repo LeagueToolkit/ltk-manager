@@ -5,6 +5,7 @@ import { act, renderHook } from "@testing-library/react";
 import { ToastProvider } from "@/components";
 
 import { useDocumentFind } from "../state/documentFinds";
+import { type DocumentHistory, useDocumentHistory } from "../state/documentHistory";
 import { useDocumentSave } from "../state/documentSaves";
 import { type EditorKeysOptions, useEditorKeys } from "../useEditorKeys";
 
@@ -245,5 +246,27 @@ describe("useEditorKeys", () => {
     press("KeyF", ctrl);
 
     expect(onFindElsewhere).toHaveBeenCalledOnce();
+  });
+
+  it("steps the active document's history on ctrl and z, and redoes on ctrl, shift and z or y", () => {
+    const history = vi.fn<DocumentHistory>(() => true);
+    renderHook(() => useDocumentHistory("beta", history, true));
+    keys();
+
+    press("KeyZ", ctrl);
+    press("KeyZ", ctrlShift);
+    press("KeyY", ctrl);
+
+    expect(history.mock.calls.map(([step]) => step)).toEqual(["undo", "redo", "redo"]);
+  });
+
+  it("leaves the history alone for a document that offers none", () => {
+    const history = vi.fn<DocumentHistory>(() => true);
+    renderHook(() => useDocumentHistory("beta", history, false));
+    keys();
+
+    press("KeyZ", ctrl);
+
+    expect(history).not.toHaveBeenCalled();
   });
 });

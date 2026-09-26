@@ -92,12 +92,16 @@ export function DefaultProperty({
       refused.set(`${holder.entry}:${rowPath}`, error);
     }
 
+    const at = `${holder.entry}:${rowPath}`;
     return {
       refused,
+      dismiss: () => edit.mark?.(at, null),
       commit: async (_row, typed) => {
         if (!typed.ok) {
+          edit.mark?.(at, { code: "BIN_EDIT_REJECTED", address: at, rejection: typed.rejection });
           return false;
         }
+        edit.mark?.(at, null);
 
         const edits: ValueEdit[] = [];
         if (within !== undefined) {

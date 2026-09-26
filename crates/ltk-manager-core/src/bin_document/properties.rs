@@ -159,7 +159,12 @@ impl BinDocument {
                     .map(|text| bin_hash(&text))
                     .transpose()
                     .map_err(rejected)?;
-                let value = starting_value(shape.into(), class, None).map_err(rejected)?;
+                let shape: Shape = shape.into();
+                /* A typed pointer names its class, where a declared one starts at the schema's default. */
+                let value = match (shape.kind, class) {
+                    (Kind::Struct, Some(class)) => empty_struct(class).into(),
+                    _ => starting_value(shape, class, None).map_err(rejected)?,
+                };
                 (field, value)
             }
         };

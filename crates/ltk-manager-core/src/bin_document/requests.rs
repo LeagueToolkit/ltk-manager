@@ -204,6 +204,81 @@ pub enum Choices {
     Classes { classes: Vec<ClassChoice> },
 }
 
+/// The names an edit's reader typed, which the document draws again where no table holds them.
+#[derive(Debug, Default)]
+struct TypedTexts {
+    /// Names of objects, classes, fields and `hash` values.
+    hashes: Vec<String>,
+    /// Paths of chunks.
+    chunks: Vec<String>,
+}
+
+impl TypedTexts {
+    fn of(edit: &BinEdit) -> Self {
+        let mut typed = Self::default();
+        match edit {
+            BinEdit::Patch { value, .. } => typed.leaf(value),
+            BinEdit::EditProperty { field, edits, .. } => {
+                typed.hashes.push(field.clone());
+                for each in edits {
+                    if let ValueEdit::SetLeaf { value, .. } = each {
+                        typed.leaf(value);
+                    }
+                }
+            }
+            BinEdit::AddProperty {
+                property: NewProperty::Custom { field, class, .. },
+                ..
+            } => {
+                typed.hashes.push(field.clone());
+                typed.hashes.extend(class.iter().cloned());
+            }
+            BinEdit::InsertItem { item, .. } => {
+                typed.hashes.extend(item.key.iter().cloned());
+                typed.hashes.extend(item.class.iter().cloned());
+            }
+            BinEdit::SetKey { key, .. } => typed.hashes.push(key.clone()),
+            BinEdit::SetPointer {
+                class_name: Some(class),
+                ..
+            } => typed.hashes.push(class.clone()),
+            BinEdit::Object {
+                edit: ObjectEdit::Create { name, .. },
+            } => typed.hashes.push(name.clone()),
+            BinEdit::AddProperty { .. }
+            | BinEdit::RemoveProperty { .. }
+            | BinEdit::RemoveItem { .. }
+            | BinEdit::MoveItem { .. }
+            | BinEdit::SetPointer { .. }
+            | BinEdit::DeclareReference { .. }
+            | BinEdit::Object { .. }
+            | BinEdit::Dependency { .. }
+            | BinEdit::ModuleAction { .. } => {}
+        }
+        typed
+    }
+
+    fn leaf(&mut self, value: &LeafValue) {
+        match value {
+            LeafValue::Hash { text } | LeafValue::ObjectLink { text } => {
+                self.hashes.push(text.clone());
+            }
+            LeafValue::WadChunkLink { text } => self.chunks.push(text.clone()),
+            LeafValue::Bool { .. }
+            | LeafValue::Integer { .. }
+            | LeafValue::Float { .. }
+            | LeafValue::Vector { .. }
+            | LeafValue::Matrix { .. }
+            | LeafValue::Color { .. }
+            | LeafValue::String { .. } => {}
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.hashes.is_empty() && self.chunks.is_empty()
+    }
+}
+
 impl BinDocuments {
     /// Apply `edit` to the document under `id` through the store method of its variant.
     ///
@@ -217,6 +292,7 @@ impl BinDocuments {
         edit: BinEdit,
         schema: SchemaAt<'_>,
     ) -> AppResult<EditOutcome> {
+        let typed = TypedTexts::of(&edit);
         let outcome = match edit {
             BinEdit::Patch { entry, path, value } => EditOutcome::Previous {
                 value: self.patch(id, parse_entry(&entry)?, &path, value)?,
@@ -279,6 +355,16 @@ impl BinDocuments {
             },
         };
 
+        if !typed.is_empty() {
+            let (_, document) = self.held(id)?;
+            let mut document = document.write();
+            for text in &typed.hashes {
+                document.typed.learn_hash(text);
+            }
+            for text in &typed.chunks {
+                document.typed.learn_chunk(text);
+            }
+        }
         Ok(outcome)
     }
 

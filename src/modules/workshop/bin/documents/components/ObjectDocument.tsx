@@ -62,8 +62,8 @@ import {
 import type { ShellKind } from "../../shell/utils/shellPanes";
 import { BinTree, type TreeReveal } from "../../tree/components/BinTree";
 import { useBinDocument, useObjectRoots } from "../hooks/useBinDocument";
+import { useBinTab } from "../hooks/useBinTab";
 import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
-import { useUndoKeys } from "../hooks/useUndoKeys";
 import { BinEditState } from "./BinEditState";
 import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
 
@@ -144,7 +144,7 @@ function OpenObject({
   const objectName = useCallback(() => object.name, [object.name]);
   const layout = classLayout(object.classHash);
   const roots = useObjectRoots(handle);
-  const undoKeys = useUndoKeys(handle.document, asset, handle.readOnly === null);
+  useBinTab(documentId, handle.document, asset, handle.readOnly === null);
   const steps = useSystemSteps({
     enabled: layout?.shell === "vfx",
     documentId,
@@ -213,13 +213,10 @@ function OpenObject({
     <div
       ref={steps.root}
       data-ui="ObjectDocument"
-      /* Focusable, so a click anywhere in the tab is where its undo keys land. */
+      /* Focusable, so a click anywhere in the tab is where the timeline's step keys land. */
       tabIndex={-1}
       className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
-      onKeyDown={(event) => {
-        undoKeys(event);
-        steps.onKeyDown(event);
-      }}
+      onKeyDown={steps.onKeyDown}
     >
       <DocumentToolbar active={active}>
         <span className="flex min-w-0 shrink-0 items-center gap-2 text-meta text-surface-400 select-none">

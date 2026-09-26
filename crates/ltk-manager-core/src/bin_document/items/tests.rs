@@ -9,7 +9,7 @@ use ltk_hash::Hash as _;
 use ltk_meta::Bin;
 
 use super::*;
-use crate::bin_document::{PropertyKind, ValueEdit};
+use crate::bin_document::{HistoryStep, PropertyKind, Reshape, ValueEdit};
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
 
@@ -434,6 +434,68 @@ fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
     );
     assert!(document.undo().unwrap());
     assert_eq!(value(&document, "falloff"), &empty("DerivedData").into());
+}
+
+#[test]
+fn an_undo_and_a_redo_answer_how_the_rows_moved() {
+    let mut document = document();
+    let object = hex(entry());
+    let weights = wire(h("weights"));
+    let names = wire(h("names"));
+    let first = format!("{weights}[0]");
+
+    document.remove_item(entry(), &first).unwrap();
+    assert_eq!(
+        document.step(HistoryStep::Undo).unwrap(),
+        Some(Reshape::Inserted {
+            entry: object.clone(),
+            holder: weights.clone(),
+            index: 0,
+        })
+    );
+    assert_eq!(
+        document.step(HistoryStep::Redo).unwrap(),
+        Some(Reshape::Removed {
+            entry: object.clone(),
+            path: first.clone(),
+        })
+    );
+    document.undo().unwrap();
+
+    document.move_item(entry(), &first, 1).unwrap();
+    assert_eq!(
+        document.step(HistoryStep::Undo).unwrap(),
+        Some(Reshape::Moved {
+            entry: object.clone(),
+            path: format!("{weights}[1]"),
+            to: 0,
+        })
+    );
+
+    let idle = format!("{names}{{{}}}", hash_key("Idle"));
+    let run = document.set_key(entry(), &idle, "Run").unwrap();
+    assert_eq!(
+        document.step(HistoryStep::Undo).unwrap(),
+        Some(Reshape::Rekeyed {
+            entry: object.clone(),
+            from: run,
+            to: idle,
+        })
+    );
+
+    let falloff = wire(h("falloff"));
+    document.set_pointer(entry(), &falloff, None).unwrap();
+    document.undo().unwrap();
+    assert_eq!(
+        document.step(HistoryStep::Redo).unwrap(),
+        Some(Reshape::Nulled {
+            entry: object,
+            path: falloff,
+        })
+    );
+
+    document.undo().unwrap();
+    assert_eq!(document.step(HistoryStep::Undo).unwrap(), None);
 }
 
 /// The fields the pointer at `field` holds, in the order it holds them.

@@ -6,6 +6,7 @@ import type {
   BinValue,
   Dependency,
   PropertyKind,
+  Reshape,
   RowNode,
 } from "@/lib/tauri";
 
@@ -638,6 +639,50 @@ export function droppedUnder(gone: string): (key: string) => string | null {
 /** Drop every key strictly under `holder`, keeping `holder` itself. */
 export function droppedInside(holder: string): (key: string) => string | null {
   return (key) => (key !== holder && isUnder(holder, key) ? null : key);
+}
+
+/** The list a path's last `[i]` segment indexes, and `i`, or null for any other path. */
+function listItem(path: string): { holder: string; index: number } | null {
+  const match = /^(.*)\[(\d+)\]$/.exec(path);
+  if (match === null) return null;
+  return { holder: match[1] ?? "", index: Number(match[2]) };
+}
+
+/**
+ * Where each expanded key goes after an undo or a redo `reshape` answers, or null where no
+ * row moved. The forward edit remaps the same way, per "Editing a list, a map, an option and
+ * a pointer" in docs/ux/BIN_EDITOR.md.
+ */
+export function reshapeRemap(reshape: Reshape): ((key: string) => string | null) | null {
+  switch (reshape.kind) {
+    case "inPlace":
+      return null;
+    case "inserted": {
+      const holder = rowKey({ entry: reshape.entry, path: reshape.holder });
+      return (key) => shiftedKey(key, holder, insertShift(reshape.index));
+    }
+    case "removed": {
+      const item = listItem(reshape.path);
+      if (item === null) return droppedUnder(rowKey(reshape));
+
+      const holder = rowKey({ entry: reshape.entry, path: item.holder });
+      return (key) => shiftedKey(key, holder, removeShift(item.index));
+    }
+    case "moved": {
+      const item = listItem(reshape.path);
+      if (item === null) return null;
+
+      const holder = rowKey({ entry: reshape.entry, path: item.holder });
+      return (key) => shiftedKey(key, holder, moveShift(item.index, reshape.to));
+    }
+    case "rekeyed": {
+      const from = rowKey({ entry: reshape.entry, path: reshape.from });
+      const to = rowKey({ entry: reshape.entry, path: reshape.to });
+      return (key) => renamedKey(key, from, to);
+    }
+    case "nulled":
+      return droppedInside(rowKey(reshape));
+  }
 }
 
 /** One page of a node's children as the query answered it, or has not. */

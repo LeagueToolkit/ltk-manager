@@ -5,6 +5,7 @@ import { errorMessage, m } from "@/i18n";
 import { isOverlayOpen } from "@/utils";
 
 import { documentFind } from "./state/documentFinds";
+import { documentHistory } from "./state/documentHistory";
 import { documentSave } from "./state/documentSaves";
 
 /** Every key an editor group answers is held while a field has the caret. */
@@ -25,6 +26,9 @@ function claimed(): boolean {
 /* `Alt` rather than `Ctrl`, which the routes hold: "The editor's keys" in
    `docs/ux/PROJECT_EDITOR.md`. */
 const BY_INDEX = "alt+1, alt+2, alt+3, alt+4, alt+5, alt+6, alt+7, alt+8, alt+9";
+
+/** Undo, and the two redo spellings Windows and the web both use. */
+const HISTORY_KEYS = "ctrl+z, ctrl+shift+z, ctrl+y, meta+z, meta+shift+z";
 
 /** The ninth key is the last tab of the strip, whatever the count. */
 const LAST_INDEX_KEY = 9;
@@ -116,6 +120,18 @@ export function useEditorKeys({
     onReopenClosed?.();
   }
 
+  /* Default left to the field unless the document takes the step, so a text field's own undo stands. */
+  function stepActive(event: KeyboardEvent) {
+    if (claimed() || activeId === null) return;
+
+    const history = documentHistory(activeId);
+    if (history === null) return;
+
+    const step = event.code === "KeyY" || event.shiftKey ? "redo" : "undo";
+    const target = event.target instanceof Element ? event.target : null;
+    if (history(step, target)) event.preventDefault();
+  }
+
   useHotkeys("ctrl+w", closeActive, { ...OPTIONS, enabled }, [enabled, activeId, onClose]);
   useHotkeys("ctrl+shift+t", reopenClosed, { ...OPTIONS, enabled }, [enabled, onReopenClosed]);
   useHotkeys("ctrl+tab, ctrl+pagedown", () => walk(1), { ...OPTIONS, enabled }, [
@@ -133,4 +149,8 @@ export function useEditorKeys({
   useHotkeys(BY_INDEX, takeByIndex, { ...OPTIONS, enabled }, [enabled, documentIds, onActivate]);
   useHotkeys("ctrl+s", saveActive, { ...OPTIONS, enabled }, [enabled, activeId, toast]);
   useHotkeys("ctrl+f", findInActive, { ...OPTIONS, enabled }, [enabled, activeId, onFindElsewhere]);
+  useHotkeys(HISTORY_KEYS, stepActive, { ...OPTIONS, preventDefault: false, enabled }, [
+    enabled,
+    activeId,
+  ]);
 }

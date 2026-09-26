@@ -153,6 +153,7 @@ function KeyField({ line, edit, autoFocus, error, send, onType }: FieldProps) {
       ref={ref}
       type="text"
       value={text}
+      data-draft={text !== "" || undefined}
       placeholder={label}
       aria-label={label}
       aria-invalid={error !== null || undefined}
@@ -221,6 +222,7 @@ function ClassField({ line, edit, autoFocus, error, send, onType }: FieldProps) 
     >
       <Combobox.Input
         ref={ref}
+        data-draft={text !== "" || undefined}
         placeholder={label}
         aria-label={label}
         aria-invalid={error !== null || undefined}

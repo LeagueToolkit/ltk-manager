@@ -4,6 +4,7 @@
 
 | Date       | Change                                                          |
 | ---------- | --------------------------------------------------------------- |
+| 2026-09-26 | Walk the rows by key, and keep a refused edit's text            |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws           |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects       |
 | 2026-09-21 | Copy a whole object or struct as a declaration                  |
@@ -13,7 +14,6 @@
 | 2026-09-21 | Declare a game bin's leaf edit into a project layer             |
 | 2026-09-20 | Open a map's files on the map, and sort a file's objects        |
 | 2026-09-17 | Draw a patch bin's records under the objects they target        |
-| 2026-09-14 | Address a map entry whose key repeats as `{k}#n`                |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -73,12 +73,13 @@ This table holds every major feature of the bin editor. A status word has one me
 | Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
 | Primitive picker      | Available   | The primitive's class, its fields, and a sketch of what it draws |
 | In-document search    | Available   | The bar's `@` scope over the open rows                           |
-| Leaf editing          | In progress | The primitive widgets, and the patch that carries an edit        |
-| Path field            | In progress | Project and game files suggested in a `file` or path string edit |
-| Property editing      | In progress | Add and remove a property inline, at the schema's default        |
-| Container editing     | In progress | List items, map entries, options and pointers, inline            |
-| Autosave              | In progress | The strings editor's debounce, saved as a delta. ADR-0040        |
-| Undo                  | In progress | An inverse-patch stack per held tree                             |
+| Leaf editing          | Available   | The primitive widgets, and the patch that carries an edit        |
+| Path field            | Available   | Project and game files suggested in a `file` or path string edit |
+| Property editing      | Available   | Add and remove a property inline, at the schema's default        |
+| Container editing     | Available   | List items, map entries, options and pointers, inline            |
+| Row keys              | Available   | Arrows walk the rows, and `Enter` or `F2` opens a value          |
+| Autosave              | Available   | The strings editor's debounce, saved as a delta. ADR-0040        |
+| Undo                  | Available   | An inverse-patch stack per held tree, from anywhere in the group |
 | Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
 | Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
 | Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
@@ -1222,7 +1223,7 @@ itself, because its rows are the tree's.
 
 A cell's context menu is [the row menu](#the-row-menu), plus Show in properties, which switches
 the mode and reveals the row in the tree, expanding the ancestors of a nested key. A layout has
-no keyboard model of its own until editing gives it one, and its read-only fields take no focus,
+no keyboard model of its own beyond its fields, and its read-only fields take no focus,
 per [The value kinds](#the-value-kinds).
 
 ### A value family in a layout
@@ -2551,9 +2552,34 @@ A text or number field is controlled locally and commits on blur or on `Enter`, 
 tree nor the disk wants one.
 
 A value drawn as a chip - a string naming a file, a `hash`, a `link`, a `file` - keeps its chip,
-and the row's edit action opens a field over it holding the string, the name, or the hex. A
-name typed into a `hash` or a `link` is hashed in Rust. An integer an enum table reads edits
-through a select of the engine's words, and a flags value through its number.
+and the row's edit action opens a field over it holding the string, the name, or the hex. The
+action shows on the hover of a tree row and of a layout cell, and the row menu offers it as
+**Edit value**. A name typed into a `hash` or a `link` is hashed in Rust, and the document keeps
+the name, so the row draws it again where no table names the hash. The same holds for a typed
+field name, class name, map key, object name and chunk path. A cleared `hash`, `link` or
+`file` writes the zero hash, which the game reads as no link. An integer an enum table reads
+edits through a select of the engine's words, and a flags value through its number.
+
+A field whose value is refused stays open, holding what was typed and marked with the reason, so
+the reader corrects the text rather than typing it again. `Escape` drops the text and the mark.
+
+### The row keys
+
+A tree row takes focus, and one row is the tree's tab stop.
+
+| Key                  | Does                                                             |
+| -------------------- | ---------------------------------------------------------------- |
+| `Up`, `Down`         | The row above or below                                           |
+| `Home`, `End`        | The first or the last row                                        |
+| `Right`              | Opens a shut row, or steps to its first child                    |
+| `Left`               | Shuts an open row, or steps to its parent                        |
+| `Enter`, `F2`        | Opens the row's value for an edit. `Enter` opens a row with none |
+| `Alt+Up`, `Alt+Down` | Moves a list item, per the section below                         |
+| `Ctrl+Enter`         | Inserts an item after the focused one                            |
+| `Shift+F10`          | The row menu                                                     |
+
+`Enter` and `Escape` in a field return focus to its row when nothing else takes it, so a run of
+edits is keyboard-complete.
 
 ### A path field
 
@@ -2592,7 +2618,8 @@ replaces the game's when the mod is enabled. Files excluded by the ignore rules 
 Chunks that no hashtable names are not listed, because they have no path.
 
 `Enter` picks the highlighted suggestion. While the draft is search terms, the top suggestion is
-highlighted. While the draft contains `/`, nothing is highlighted, so `Enter` writes the typed
+highlighted, and an `Enter` pressed before any suggestion answered picks the top one when the
+list answers, or writes the terms where it answers none. While the draft contains `/`, nothing is highlighted, so `Enter` writes the typed
 path. A string field that contains text other than a path highlights nothing, so `Enter` keeps its
 text. A click picks a suggestion. `Escape` discards the draft, as in any field.
 
@@ -2708,7 +2735,13 @@ clamps the same ranges so the common case never round-trips, and the backend is 
 because a guard that lives only in the frontend is a guard an IPC caller walks past.
 
 A rejected patch leaves the tree untouched and marks the field, and the save state goes to
-`blocked` for as long as a field is invalid, exactly as the strings editor does.
+`blocked` for as long as a field is invalid, exactly as the strings editor does. An edit that
+lands elsewhere meanwhile does not clear it. The mark goes when the field sends a value that
+lands, when `Escape` drops its text, or when its tab closes. An integer is checked against its
+kind's range before it is sent.
+
+A refused structural edit - an insert, a remove, a move, a pointer's class - has no field to
+mark, so a toast names the reason.
 
 ### Save
 
@@ -2722,7 +2755,12 @@ blocked                              while any field is invalid
 ```
 
 The tab's unsaved dot follows `blocked` and `failed` only. A document that autosaves is clean
-between keystrokes, and a dot that blinks on every edit means nothing.
+between keystrokes, and a dot that blinks on every edit means nothing. The dot is what makes a
+close or a quit ask before it drops edits that did not reach the file. `Ctrl+S` and a quit write
+a save still waiting on the debounce at once, and `Ctrl+S` on a failed save tries it again.
+
+A failed save names its reason on the hover of **Couldn't save**, and **Retry** writes through
+the tab's own open, whichever tab queued the save.
 
 **The write is a delta over the bytes the document opened.** ADR-0040. The document holds its
 file's bytes beside the tree, and the path hash of every object a patch touched. A save mounts
@@ -2748,13 +2786,16 @@ the document's unsaved edits.
 
 ### Undo
 
-An inverse-patch stack in Rust, bounded, one per held tree. `Ctrl+Z` and `Ctrl+Shift+Z` while a
-document over the tree is active. A file tab and the object tabs over one asset share a tree
+An inverse-patch stack in Rust, bounded, one per held tree. `Ctrl+Z`, and `Ctrl+Shift+Z` or
+`Ctrl+Y`, while a document over the tree is the active tab of the focused group, wherever focus
+is inside it, including nowhere after a field closes. A file tab and the object tabs over one asset share a tree
 (ADR-0028), and they share its stack. An undo never crosses into another asset's tree. An undo
 that crosses tabs undoes work a user is not looking at.
 
 An undo is a patch, and it saves like one. A text field holding an uncommitted change takes the
-keystroke as the field's own undo.
+keystroke as the field's own undo, and so does a text field that holds no document value, such as
+a filter. An undo answers how it moved the rows, so the rows a reader expanded follow it as they
+follow the edit, in every tree over the asset. An undo that fails names its reason in a toast.
 
 ### Dependencies
 

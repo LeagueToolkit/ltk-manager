@@ -21,6 +21,7 @@ import {
 import {
   Checkbox,
   Code,
+  FieldDiscardContext,
   Readout,
   Select,
   SeverityGlyph,
@@ -65,7 +66,7 @@ import {
   type ValueRange,
 } from "../../values/utils/valueRows";
 import { BinEditContext, useRowEdit } from "../hooks/useBinEdit";
-import { type LeafEdit, LeafEditContext } from "../hooks/useLeafEdit";
+import { keyMark, type LeafEdit, LeafEditContext } from "../hooks/useLeafEdit";
 import { useGuideLevels } from "../state/treeGuides";
 import { typedKey } from "../utils/addItem";
 import {
@@ -134,16 +135,35 @@ interface RowLineProps {
   onToggle: (key: string) => void;
   /** Open the object an object row declares. Absent where no row is an object. */
   onOpenObject?: (row: BinRow, intent: OpenIntent) => void;
+  /** The row is the tree's one tab stop. */
+  tabStop?: boolean;
 }
 
 const NO_EDITS: readonly RowEdit[] = [];
+
+/** Whether focus went nowhere, as it does when an edit field it held closes. */
+function focusDropped(): boolean {
+  return document.activeElement === null || document.activeElement === document.body;
+}
 
 /** What focus lands on in a row an edit sent it to: the value's first control, else an action. */
 const FOCUS_TARGET =
   "[data-row-value] input:not([readonly]), [data-row-value] button, [data-row-action]";
 
-/** One node of the bin: its name, its kind as a tag, and its value. */
-export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: RowLineProps) {
+/**
+ * One node of the bin: its name, its kind as a tag, and its value.
+ *
+ * The row takes focus for the tree's arrow keys, and gets it back when a field in it closes on
+ * `Enter` or `Escape` with nowhere else to go.
+ */
+export function BinRowLine({
+  line,
+  focused,
+  error,
+  onToggle,
+  onOpenObject,
+  tabStop = false,
+}: RowLineProps) {
   const { row, depth, expanded, loading } = line;
   const edit = use(BinEditContext);
   /* An object the chosen layer removes draws as its row alone: nothing under it, no edit. */
@@ -158,13 +178,21 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
   useEffect(() => {
     if (!focusHere) return;
     const drawn = rowRef.current;
-    if (drawn !== null && !drawn.contains(document.activeElement)) {
+    const active = document.activeElement;
+    if (drawn !== null && (active === drawn || !drawn.contains(active))) {
       drawn.querySelector<HTMLElement>(FOCUS_TARGET)?.focus();
     }
     edit.settleFocus();
   }, [edit, focusHere]);
 
   function keys(event: ReactKeyboardEvent<HTMLDivElement>) {
+    const drawn = rowRef.current;
+    if ((event.key === "Enter" || event.key === "Escape") && event.target !== drawn) {
+      requestAnimationFrame(() => {
+        if (drawn?.isConnected && focusDropped()) drawn.focus();
+      });
+    }
+
     const asked = edit === null ? null : keyEdit(event, edits);
     if (asked === null) return;
     event.preventDefault();
@@ -176,13 +204,15 @@ export function BinRowLine({ line, focused, error, onToggle, onOpenObject }: Row
     <div
       ref={rowRef}
       data-ui="BinDocument:row"
+      data-tree-row={line.key}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={expandable ? expanded : undefined}
+      tabIndex={tabStop ? 0 : -1}
       className={twMerge(
         /* DS-VEIL, DS-RADIUS. No transition: a fade in and out under a pointer crossing
            a list of 24px rows reads as a flicker rather than as a highlight. */
-        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row hover:bg-surface-veil-soft",
+        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
         expandable && "cursor-pointer",
         focused && "bg-accent-500/15",
       )}
@@ -360,7 +390,8 @@ interface NameCellProps {
  */
 function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
   const { row, owner, depth } = line;
-  const { edit, refusal } = useRowEdit(line.key);
+  const { edit } = useRowEdit(line.key);
+  const keyRefusal = edit?.refused.get(keyMark(line.key));
   const declared = useDeclaredMark(line.key);
   const objectChange = useDeclaredObject(objectEntry(row));
   const reported = useRowDiagnostics(line.key);
@@ -412,15 +443,18 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
         />
       )}
       {rekeyable && (
-        <TextEdit
-          text={typedKey(row.name)}
-          label={m.workshop_bin_edit_key_action()}
-          invalid={refusal !== undefined}
-          autoFocus={false}
-          onCommit={(text) => edit.setKey(line, text)}
-        >
-          <span className={nameClasses}>{row.name}</span>
-        </TextEdit>
+        <FieldDiscardContext value={() => edit.dismiss(keyMark(line.key))}>
+          <TextEdit
+            text={typedKey(row.name)}
+            label={m.workshop_bin_edit_key_action()}
+            invalid={keyRefusal !== undefined}
+            autoFocus={false}
+            onCommit={(text) => edit.setKey(line, text)}
+          >
+            <span className={nameClasses}>{row.name}</span>
+          </TextEdit>
+          {keyRefusal !== undefined && <RefusalMark refusal={keyRefusal} />}
+        </FieldDiscardContext>
       )}
       {target && <CutText text={row.name} className={nameClasses} />}
       {!property && !rekeyable && !target && <span className={nameClasses}>{row.name}</span>}
@@ -496,13 +530,10 @@ export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: 
 
   if (widget !== null) {
     return (
-      <span data-row-value className="flex min-w-0 flex-1 items-center gap-2">
-        {widget}
-        {refusal !== undefined && (
-          <Tooltip content={errorSummary(refusal)}>
-            <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
-          </Tooltip>
-        )}
+      /* `group/row` again, so a layout cell outside a row shows its hover actions too. */
+      <span data-row-value className="group/row flex min-w-0 flex-1 items-center gap-2">
+        <FieldDiscardContext value={() => edit?.dismiss?.(key)}>{widget}</FieldDiscardContext>
+        {refusal !== undefined && <RefusalMark refusal={refusal} />}
       </span>
     );
   }
@@ -517,6 +548,16 @@ export function RowValue({ row, field = ownField(row) }: { row: BinRow; field?: 
         object={objectName(row.entry)}
       />
     </span>
+  );
+}
+
+/** Why the last value a field sent was refused, beside the field. */
+function RefusalMark({ refusal }: { refusal: AppError }) {
+  const reason = errorSummary(refusal);
+  return (
+    <Tooltip content={reason}>
+      <WarningCircleIcon aria-label={reason} className="h-3.5 w-3.5 shrink-0 text-danger-text" />
+    </Tooltip>
   );
 }
 
@@ -557,7 +598,10 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
           <EnumSelect
             held={held}
             text={value.text}
-            onChange={(text) => edit.commit(row, integerLeaf(text))}
+            onChange={(text) => {
+              void edit.commit(row, integerLeaf(text, row.kind));
+              onEnter();
+            }}
           />
         );
       }
@@ -571,7 +615,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
             invalid={invalid}
             autoFocus={autoFocus}
             onEnter={onEnter}
-            onCommit={(text) => edit.commit(row, integerLeaf(text))}
+            onCommit={(text) => edit.commit(row, integerLeaf(text, row.kind))}
           />
           {reading !== null && <Dim>{reading}</Dim>}
         </span>
@@ -679,7 +723,8 @@ interface TextEditProps {
   /** Open the field as the row draws, for a property just added. */
   autoFocus: boolean;
   onEnter?: () => void;
-  onCommit: (text: string) => void;
+  /** Send the typed text. A promise answers whether it landed, and a refusal keeps the field open. */
+  onCommit: (text: string) => void | Promise<boolean>;
   /** What the row draws while no edit is open. */
   children: ReactNode;
 }
@@ -688,7 +733,8 @@ interface TextEditProps {
  * A value drawn as its chip or its text, opening to a field on the row's edit action.
  *
  * The chip stays what a reader reads and clicks, so a string naming a file still opens
- * it. The field is for the change.
+ * it. The field is for the change, and it stays open holding the typed text while a send
+ * is answered and after a refusal, until `Escape` drops it. A focus request opens it.
  */
 function TextEdit({
   text,
@@ -701,35 +747,68 @@ function TextEdit({
   children,
 }: TextEditProps) {
   const implicit = use(InputDefaultContext);
+  const discard = use(FieldDiscardContext);
   const [editing, setEditing] = useState(autoFocus);
+  const [asked, setAsked] = useState(autoFocus);
+  if (autoFocus !== asked) {
+    setAsked(autoFocus);
+    if (autoFocus) setEditing(true);
+  }
+
+  const sending = useRef(false);
+  function commit(typed: string) {
+    const sent = onCommit(typed);
+    if (!(sent instanceof Promise)) return;
+
+    sending.current = true;
+    void sent.then((landed) => {
+      sending.current = false;
+      if (landed) setEditing(false);
+    });
+  }
+  function leave() {
+    if (!sending.current && !invalid) setEditing(false);
+  }
+  const dropped = useMemo(
+    () => () => {
+      discard?.();
+      setEditing(false);
+    },
+    [discard],
+  );
+
   if ((editing || implicit) && path !== null) {
     return (
-      <PathInput
-        value={text}
-        field={path}
-        placeholder={text || m.workshop_bin_empty_label()}
-        aria-label={label}
-        invalid={invalid}
-        autoFocus={editing}
-        onEnter={onEnter}
-        onCommit={onCommit}
-        onLeave={() => setEditing(false)}
-      />
+      <FieldDiscardContext value={dropped}>
+        <PathInput
+          value={text}
+          field={path}
+          placeholder={text || m.workshop_bin_empty_label()}
+          aria-label={label}
+          invalid={invalid}
+          autoFocus={editing}
+          onEnter={onEnter}
+          onCommit={commit}
+          onLeave={leave}
+        />
+      </FieldDiscardContext>
     );
   }
   if (editing || implicit) {
     return (
-      <Readout
-        value={text}
-        placeholder={text || m.workshop_bin_empty_label()}
-        aria-label={label}
-        className="min-w-0 flex-1"
-        invalid={invalid}
-        autoFocus={editing}
-        onEnter={onEnter}
-        onCommit={onCommit}
-        onLeave={() => setEditing(false)}
-      />
+      <FieldDiscardContext value={dropped}>
+        <Readout
+          value={text}
+          placeholder={text || m.workshop_bin_empty_label()}
+          aria-label={label}
+          className="min-w-0 flex-1"
+          invalid={invalid}
+          autoFocus={editing}
+          onEnter={onEnter}
+          onCommit={commit}
+          onLeave={leave}
+        />
+      </FieldDiscardContext>
     );
   }
 
@@ -740,6 +819,7 @@ function TextEdit({
         <button
           type="button"
           aria-label={label}
+          data-edit-value
           /* DS-VEIL, DS-RADIUS */
           className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
           onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {

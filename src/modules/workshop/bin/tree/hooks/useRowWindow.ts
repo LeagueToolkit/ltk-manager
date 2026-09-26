@@ -24,8 +24,11 @@ export interface RowWindow {
   readonly rowHeight: number;
   /** The ref a drawn line takes, which reports its height back. */
   readonly measureElement: (node: Element | null) => void;
-  /** Scroll a line to the top. False where the tree holds no such line. */
-  readonly scrollToKey: (key: string) => boolean;
+  /**
+   * Scroll a line to the top, or only as far as it shows with `"auto"`. False where the tree
+   * holds no such line.
+   */
+  readonly scrollToKey: (key: string, align?: "start" | "auto") => boolean;
 }
 
 /**
@@ -84,10 +87,10 @@ export function useRowWindow(
   const lines = useMemo(() => items.flatMap((item) => visible[item.index] ?? []), [items, visible]);
 
   const scrollToKey = useCallback(
-    (key: string) => {
+    (key: string, align: "start" | "auto" = "start") => {
       const index = visible.findIndex((line) => line.key === key);
       if (index < 0) return false;
-      virtualizer.scrollToIndex(index, { align: "start" });
+      virtualizer.scrollToIndex(index, { align });
       return true;
     },
     [visible, virtualizer],

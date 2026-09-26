@@ -15,7 +15,7 @@ use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
     BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow, BinRows,
     ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice, DeclaredState, Declaring,
-    Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, RowDeclaration, RowNames,
+    Dependency, EditOutcome, GameCopy, ProjectNames, ReadOnly, Reshape, RowDeclaration, RowNames,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -278,20 +278,27 @@ pub async fn bin_save(document: BinDocumentId, app_handle: AppHandle) -> IpcResu
     off_thread(move || app_handle.state::<BinDocuments>().save(document)).await
 }
 
-/// Revert the latest edit of an open document's tree, answering whether one was held.
+/// Revert the latest edit of an open document's tree, answering how its rows moved, or null
+/// where no edit was held.
 ///
 /// The file tab and the object tabs over one asset share the tree and its stack.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_undo(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<bool> {
+pub async fn bin_undo(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Option<Reshape>> {
     off_thread(move || Ok(app_handle.state::<BinDocuments>().undo(document)?)).await
 }
 
-/// Apply the latest undone edit of an open document's tree again, answering whether one
-/// was held.
+/// Apply the latest undone edit of an open document's tree again, answering how its rows
+/// moved, or null where no undone edit was held.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_redo(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<bool> {
+pub async fn bin_redo(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Option<Reshape>> {
     off_thread(move || Ok(app_handle.state::<BinDocuments>().redo(document)?)).await
 }
 

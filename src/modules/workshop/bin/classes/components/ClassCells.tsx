@@ -387,7 +387,7 @@ export function FieldRow({
           tree row, and the chips on it stop the click themselves. */}
       <div
         className={twMerge(
-          "relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
+          "group/row relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
           family !== null && "items-start",
           vertical && "flex-col items-stretch gap-0.5 py-1",
           tableLayout && "gap-0 rounded-none",

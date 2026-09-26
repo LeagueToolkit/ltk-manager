@@ -112,7 +112,7 @@ impl BinDocument {
         for &index in window.clone() {
             wanted.value(&records[index].value);
         }
-        let named = wanted.resolve(names, schema);
+        let named = wanted.resolve(&self.typed.over(names), schema);
 
         let entry = hex(entry);
         let rows = window

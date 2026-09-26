@@ -89,6 +89,7 @@ export function AddPropertyLine({ line, autoFocus }: AddPropertyLineProps) {
       >
         <Combobox.Input
           ref={inputRef}
+          data-draft={text !== "" || undefined}
           placeholder={label}
           aria-label={label}
           aria-invalid={error !== null || undefined}

@@ -438,3 +438,56 @@ fn a_choice_query_reads_a_document_that_takes_no_edit() {
         .unwrap();
     assert_matches!(items, Choices::Classes { .. });
 }
+
+#[test]
+fn a_name_typed_into_an_edit_draws_where_no_table_names_it() {
+    let schema = schema();
+    let (store, id) = open(layer());
+
+    store
+        .apply(
+            id,
+            BinEdit::AddProperty {
+                entry: entry(),
+                path: String::new(),
+                property: NewProperty::Custom {
+                    field: "myTag".to_owned(),
+                    shape: crate::meta_schema::KindShape::bare(
+                        crate::bin_document::PropertyKind::Hash,
+                    ),
+                    class: None,
+                },
+            },
+            schema.at(None),
+        )
+        .unwrap();
+    store
+        .apply(
+            id,
+            BinEdit::Patch {
+                entry: entry(),
+                path: wire(h("myTag")),
+                value: LeafValue::Hash {
+                    text: "Mods/MyTag".to_owned(),
+                },
+            },
+            schema.at(None),
+        )
+        .unwrap();
+
+    let rows = store
+        .read(id, |open| {
+            Ok(open.children(h(OBJECT), "", 0, usize::MAX, &(), None)?.rows)
+        })
+        .unwrap();
+    let tag = rows
+        .iter()
+        .find(|row| row.path == wire(h("myTag")))
+        .expect("the added property is a row");
+
+    assert_eq!(tag.name, "myTag");
+    assert_matches!(
+        &tag.value,
+        crate::bin_document::BinValue::Hash { name: Some(name), .. } if name == "Mods/MyTag"
+    );
+}

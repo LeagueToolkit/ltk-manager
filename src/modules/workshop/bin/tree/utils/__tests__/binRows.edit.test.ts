@@ -13,6 +13,7 @@ import {
   moveShift,
   removeShift,
   renamedKey,
+  reshapeRemap,
   rowKey,
   shiftedKey,
 } from "../binRows";
@@ -223,5 +224,45 @@ describe("the expanded keys an item edit carries", () => {
     expect(droppedInside(item)(item)).toBe(item);
     expect(droppedInside(item)(`${item}.0000000c`)).toBeNull();
     expect(droppedUnder(item)(`${LIST}[12]`)).toBe(`${LIST}[12]`);
+  });
+});
+
+describe("the expanded keys an undo carries", () => {
+  const LIST = `${ENTRY}:0000000b`;
+
+  it("shifts a list's items for an item put back or taken out again", () => {
+    const inserted = reshapeRemap({ kind: "inserted", entry: ENTRY, holder: "0000000b", index: 1 });
+    expect(inserted?.(`${LIST}[1].0000000c`)).toBe(`${LIST}[2].0000000c`);
+
+    const removed = reshapeRemap({ kind: "removed", entry: ENTRY, path: "0000000b[1]" });
+    expect(removed?.(`${LIST}[1]`)).toBeNull();
+    expect(removed?.(`${LIST}[3]`)).toBe(`${LIST}[2]`);
+  });
+
+  it("drops what sat under a removed property or a nulled pointer", () => {
+    const removed = reshapeRemap({ kind: "removed", entry: ENTRY, path: "0000000b" });
+    expect(removed?.(`${LIST}.0000000c`)).toBeNull();
+
+    const nulled = reshapeRemap({ kind: "nulled", entry: ENTRY, path: "0000000b" });
+    expect(nulled?.(LIST)).toBe(LIST);
+    expect(nulled?.(`${LIST}.0000000c`)).toBeNull();
+  });
+
+  it("follows a moved item and a renamed key, and leaves an in-place undo alone", () => {
+    const moved = reshapeRemap({ kind: "moved", entry: ENTRY, path: "0000000b[2]", to: 0 });
+    expect(moved?.(`${LIST}[2]`)).toBe(`${LIST}[0]`);
+    expect(moved?.(`${LIST}[0]`)).toBe(`${LIST}[1]`);
+
+    const rekeyed = reshapeRemap({
+      kind: "rekeyed",
+      entry: ENTRY,
+      from: '0000000e{"Idle"}',
+      to: '0000000e{"Run"}',
+    });
+    expect(rekeyed?.(`${ENTRY}:0000000e{"Idle"}.0000000c`)).toBe(
+      `${ENTRY}:0000000e{"Run"}.0000000c`,
+    );
+
+    expect(reshapeRemap({ kind: "inPlace" })).toBeNull();
   });
 });
