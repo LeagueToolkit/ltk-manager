@@ -1,6 +1,7 @@
 use fs_err as fs;
 
 use super::*;
+use crate::mods::StorageLayout as _;
 use crate::mods::index::LibraryIndex;
 
 #[test]
@@ -63,7 +64,7 @@ fn collision_matching_ignores_case() {
 #[test]
 fn taken_slugs_collect_reads_both_the_index_and_the_disk() {
     let storage = tempfile::tempdir().unwrap();
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     fs::create_dir_all(mods_dir.join("on-disk-only")).unwrap();
     fs::write(mods_dir.join("orphan-archive.fantome"), b"leftover").unwrap();
 
@@ -85,6 +86,6 @@ fn taken_slugs_collect_reads_both_the_index_and_the_disk() {
 #[test]
 fn collect_tolerates_a_missing_mods_directory() {
     let storage = tempfile::tempdir().unwrap();
-    let taken = TakenSlugs::collect(&LibraryIndex::default(), &storage.path().join("mods"));
+    let taken = TakenSlugs::collect(&LibraryIndex::default(), &storage.path().mods_dir());
     assert_eq!(ModSlug::assign("Anything", &taken).as_str(), "anything");
 }

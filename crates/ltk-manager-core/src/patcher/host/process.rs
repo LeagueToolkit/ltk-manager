@@ -7,6 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use super::protocol::{HostConfig, command};
+use crate::platform::hide_console;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {
@@ -49,12 +50,7 @@ impl HostProcess {
             command.current_dir(dir);
         }
 
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-            command.creation_flags(CREATE_NO_WINDOW);
-        }
+        hide_console(&mut command);
 
         tracing::info!(
             "Spawning host: {} {}",

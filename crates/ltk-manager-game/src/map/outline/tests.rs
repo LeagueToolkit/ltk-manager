@@ -46,7 +46,7 @@ impl RowNames for Tables {
 fn a_chunk_answers_what_it_holds_under_the_path_it_is_declared_at() {
     /* Transposed, which is how the reader holds a matrix whose file rows end in the
     translation. */
-    let stood = Mat4::from_translation(vec3(10145.0, -73.0, 3866.0)).transpose();
+    let placement = Mat4::from_translation(vec3(10145.0, -73.0, 3866.0)).transpose();
     let document = document_of(vec![container(
         PLANTS,
         vec![
@@ -55,7 +55,7 @@ fn a_chunk_answers_what_it_holds_under_the_path_it_is_declared_at() {
                 placeable(
                     "MapParticle",
                     vec![
-                        (TRANSFORM, values::Matrix44::new(stood).into()),
+                        (TRANSFORM, values::Matrix44::new(placement).into()),
                         (NAME, values::String::from("Sandfall1").into()),
                     ],
                 ),

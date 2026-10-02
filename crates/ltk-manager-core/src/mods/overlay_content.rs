@@ -16,12 +16,13 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::load_mod_project;
+use crate::mods::archive::reader::open_modpkg;
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
 use fs_err::File;
-use ltk_modpkg::Modpkg;
 use ltk_overlay::{FantomeContent, FsModContent, ModContentProvider, ModpkgContent};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -55,9 +56,7 @@ impl ModLibrary {
 
             let content = entry.content_provider(storage_dir)?;
             let active_profile = get_active_profile(index)?;
-            let profile_dir = storage_dir
-                .join("profiles")
-                .join(active_profile.slug.as_str());
+            let profile_dir = storage_dir.profile_dir(active_profile.slug.as_str());
 
             Ok((
                 profile_dir,
@@ -172,7 +171,7 @@ impl LibraryModEntry {
 
         let content: Box<dyn ModContentProvider> = match self.format {
             ModArchiveFormat::Modpkg => Box::new(
-                ModpkgContent::new(Modpkg::mount_from_reader(File::open(&archive_path)?)?)
+                ModpkgContent::new(open_modpkg(archive_path.as_std_path())?)
                     .with_archive_path(archive_path),
             ),
             // A fantome whose content is still inside its archive: one the

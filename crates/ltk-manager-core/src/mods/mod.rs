@@ -28,6 +28,7 @@ mod archive;
 pub(crate) mod fantome_layer;
 mod health;
 mod index;
+mod layout;
 mod library;
 pub(crate) mod long_paths;
 mod organize;
@@ -45,6 +46,7 @@ pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::migration::*;
+pub(crate) use archive::reader::{open_fantome, open_modpkg};
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
 pub use health::sweep::{HealthSweepReport, HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
@@ -52,6 +54,7 @@ pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, HealthCheckReadiness, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
+pub use layout::StorageLayout;
 pub use types::{
     BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, ModLicense, Profile,
 };

@@ -26,6 +26,7 @@ pub mod mods;
 pub mod object_index;
 pub mod overlay;
 pub mod patcher;
+pub mod platform;
 pub mod preview;
 pub mod problems;
 pub mod ritobin;

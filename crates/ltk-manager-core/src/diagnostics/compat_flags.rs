@@ -17,12 +17,18 @@
 //! `reg delete` command for each. Phase 3 will add a one-click fix gated
 //! behind explicit confirmation.
 
-use super::{Category, Check, Severity, check};
+use super::{Category, Check, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use super::win_util::{ROOTS, reg_list_value_names, reg_read_str};
+use super::CheckDetail;
 #[cfg(target_os = "windows")]
-use super::{CheckDetail, check_ok};
+use crate::platform::windows::{ROOTS, reg_list_value_names, reg_read_str};
+
+const LAYERS: CheckSpec = CheckSpec::new(
+    "compat_flags.layers",
+    "League/Riot compatibility flags",
+    Category::League,
+);
 
 #[cfg(target_os = "windows")]
 const COMPAT_KEY: &str = "Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers";
@@ -63,12 +69,7 @@ pub fn check_compat_flags() -> Check {
     }
 
     if bad.is_empty() && sus.is_empty() {
-        return check_ok(
-            "compat_flags.layers",
-            "League/Riot compatibility flags",
-            Category::League,
-            "No League or Riot compatibility entries found",
-        );
+        return LAYERS.ok("No League or Riot compatibility entries found");
     }
 
     let severity = if !bad.is_empty() {
@@ -87,13 +88,7 @@ pub fn check_compat_flags() -> Check {
         format!("{} ltk-manager/patcher entries (suspicious)", sus.len())
     };
 
-    let mut c = check(
-        "compat_flags.layers",
-        "League/Riot compatibility flags",
-        Category::League,
-        severity,
-        summary,
-    );
+    let mut c = LAYERS.result(severity, summary);
 
     for (root, path) in &bad {
         c.details
@@ -158,13 +153,7 @@ pub(crate) fn league_runs_as_admin() -> bool {
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_compat_flags() -> Check {
-    check(
-        "compat_flags.layers",
-        "League/Riot compatibility flags",
-        Category::League,
-        Severity::Info,
-        "Not applicable",
-    )
+    LAYERS.result(Severity::Info, "Not applicable")
 }
 
 #[cfg(test)]

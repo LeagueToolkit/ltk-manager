@@ -379,9 +379,9 @@ pub enum EventKind {
     JointSnap {
         /// `mJointNameToOverride`, the joint moved, and none for an event naming no joint.
         joint: Option<HashRef>,
-        /// `mJointNameToSnapTo`, the joint it stands on, and none for an event naming no joint.
+        /// `mJointNameToSnapTo`, the joint it snaps to, and none for an event naming no joint.
         snap_to: Option<HashRef>,
-        /// `offset`, in the frame of the joint stood on.
+        /// `offset`, in the frame of the joint it snaps to.
         offset: [f32; 3],
     },
     /// `ConformToPathEventData`: the joints a mask weighs follow the unit's path over the span.

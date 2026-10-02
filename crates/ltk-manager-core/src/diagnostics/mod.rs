@@ -29,9 +29,6 @@ pub mod telemetry;
 pub mod token;
 pub(crate) mod windows;
 
-#[cfg(target_os = "windows")]
-pub(crate) mod win_util;
-
 /// Severity of a diagnostic check result.
 ///
 /// Variants are declared best-to-worst (`Ok < Info < Warn < Bad`). The
@@ -178,38 +175,42 @@ pub fn manager_is_elevated() -> bool {
     }
 }
 
-/// Build a [`Check`] for a quick OK result with no details.
-pub(crate) fn check_ok(id: &str, label: &str, category: Category, summary: &str) -> Check {
-    Check {
-        id: id.into(),
-        label: label.into(),
-        category,
-        severity: Severity::Ok,
-        summary: summary.into(),
-        details: Vec::new(),
-        suggestion: None,
-        fix_command: None,
-    }
+/// The fixed half of a check: its id, its label and its category.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CheckSpec {
+    id: &'static str,
+    label: &'static str,
+    category: Category,
 }
 
-/// Build a [`Check`] for a non-OK result. Use the builder helpers to attach
-/// details / suggestions.
-pub(crate) fn check(
-    id: &str,
-    label: &str,
-    category: Category,
-    severity: Severity,
-    summary: impl Into<String>,
-) -> Check {
-    Check {
-        id: id.into(),
-        label: label.into(),
-        category,
-        severity,
-        summary: summary.into(),
-        details: Vec::new(),
-        suggestion: None,
-        fix_command: None,
+impl CheckSpec {
+    /// A check with `id`, `label` and `category`.
+    pub(crate) const fn new(id: &'static str, label: &'static str, category: Category) -> Self {
+        Self {
+            id,
+            label,
+            category,
+        }
+    }
+
+    /// A passing result that says `summary`.
+    pub(crate) fn ok(self, summary: impl Into<String>) -> Check {
+        self.result(Severity::Ok, summary)
+    }
+
+    /// A result of `severity` that says `summary`. The builder helpers attach details and a
+    /// suggestion.
+    pub(crate) fn result(self, severity: Severity, summary: impl Into<String>) -> Check {
+        Check {
+            id: self.id.into(),
+            label: self.label.into(),
+            category: self.category,
+            severity,
+            summary: summary.into(),
+            details: Vec::new(),
+            suggestion: None,
+            fix_command: None,
+        }
     }
 }
 

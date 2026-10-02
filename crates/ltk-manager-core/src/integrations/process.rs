@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use fs_err as fs;
 
 use super::IntegrationError;
+use crate::platform::hide_console;
 
 pub(super) fn run(executable: &Path, args: &[&str]) -> Result<String, IntegrationError> {
     let log = tempfile::NamedTempFile::new()?;
@@ -17,11 +18,7 @@ pub(super) fn run(executable: &Path, args: &[&str]) -> Result<String, Integratio
         .stdin(Stdio::null())
         .stdout(output.into_file())
         .stderr(error_output.into_file());
-    #[cfg(windows)]
-    {
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW.
-    }
+    hide_console(&mut command);
     let mut child = command.spawn()?;
     let start = Instant::now();
     let status = loop {

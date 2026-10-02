@@ -2,6 +2,7 @@
 //! fixtures the repair suite uses.
 
 use super::*;
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
@@ -21,7 +22,7 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
     point_at_installed_build(&mut config, storage.path());
     place_bin_archived_fantome(storage.path(), "stale-mod", &stale_bin());
     seed_library(&library, &config, vec![archived_entry("id-1", "stale-mod")]);
-    let archive = storage.path().join("mods").join("stale-mod.fantome");
+    let archive = storage.path().mods_dir().join("stale-mod.fantome");
     let before = fs::read(&archive).unwrap();
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
@@ -58,7 +59,7 @@ fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_cou
         &config,
         vec![archived_entry("id-1", "packed-mod")],
     );
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     let before = fs::read(mods_dir.join("packed-mod.fantome")).unwrap();
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
@@ -108,7 +109,7 @@ fn checking_many_skips_the_mod_it_cannot_read() {
     place_bin_archived_fantome(storage.path(), "good-mod", &stale_bin());
     // An archive-storage entry whose archive is gone is a mod the check
     // cannot read.
-    let broken_dir = storage.path().join("mods").join("broken-mod");
+    let broken_dir = storage.path().mods_dir().join("broken-mod");
     fs::create_dir_all(&broken_dir).unwrap();
     fs::write(broken_dir.join("mod.config.json"), "{}").unwrap();
     seed_library(

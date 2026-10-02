@@ -190,10 +190,10 @@ fn a_pre_migration_fantome_is_still_read_out_of_its_archive() {
     let storage = tempfile::tempdir().unwrap();
     let entry = crate::mods::test_support::make_test_entry("id-1", ModArchiveFormat::Fantome);
 
-    let archives = storage.path().join("archives");
+    let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
     make_full_fantome_zip(&archives.join("id-1.fantome"));
-    let meta_dir = storage.path().join("mods").join("id-1");
+    let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(
         meta_dir.join("mod.config.json"),

@@ -94,16 +94,13 @@ fn stripping_a_bom_does_not_hide_invalid_hashtable_content() {
     let result = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context());
 
     assert!(result.is_err());
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        0
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 0);
 }
 
 fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage, archive.to_str().unwrap(), &context())?;
-    let mut taken = TakenSlugs::collect(&index, &storage.join("mods"));
+    let mut taken = TakenSlugs::collect(&index, &storage.mods_dir());
     let (entry, _) = register_staged_mod(storage, &mut index, staged, &mut taken)?;
     Ok(entry)
 }
@@ -258,7 +255,7 @@ fn registering_puts_the_archive_beside_the_slug_directory() {
 
     assert_eq!(
         entry.archive_path(storage.path()),
-        storage.path().join("mods").join("kept-copy.fantome")
+        storage.path().mods_dir().join("kept-copy.fantome")
     );
     assert!(entry.archive_path(storage.path()).is_file());
 }
@@ -272,7 +269,7 @@ fn a_leftover_archive_keeps_its_slug_from_being_reused() {
     let archive = source.path().join("test.fantome");
     make_named_fantome_zip(&archive, "Orphan");
 
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     fs::create_dir_all(&mods_dir).unwrap();
     fs::write(mods_dir.join("orphan.fantome"), b"leftover").unwrap();
 
@@ -377,7 +374,7 @@ fn registering_moves_staging_into_the_slug_directory_and_records_the_mod() {
 
     let mut index = LibraryIndex::default();
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
-    let mut taken = TakenSlugs::collect(&index, &storage.path().join("mods"));
+    let mut taken = TakenSlugs::collect(&index, &storage.path().mods_dir());
     let (entry, installed) =
         register_staged_mod(storage.path(), &mut index, staged, &mut taken).unwrap();
 
@@ -447,7 +444,7 @@ fn a_failed_stage_leaves_nothing_behind() {
 
     assert!(stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).is_err());
 
-    let leftovers: Vec<_> = fs::read_dir(storage.path().join("mods"))
+    let leftovers: Vec<_> = fs::read_dir(storage.path().mods_dir())
         .into_iter()
         .flatten()
         .flatten()
@@ -467,7 +464,7 @@ fn uninstall_removes_the_mod_directory_and_scrubs_every_reference() {
         .install_mod_from_package(&config, archive.to_str().unwrap())
         .unwrap();
     let mod_dir = PathBuf::from(&installed.mod_dir);
-    let retained = storage.path().join("mods").join("doomed.fantome");
+    let retained = storage.path().mods_dir().join("doomed.fantome");
     assert!(mod_dir.is_dir());
     assert!(retained.is_file());
 
@@ -627,10 +624,7 @@ fn an_update_keeps_identity_folders_and_every_profiles_choices() {
             Ok(())
         })
         .unwrap();
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        2
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
 }
 
 #[test]
@@ -666,10 +660,7 @@ fn a_failed_index_save_restores_the_old_archive_and_metadata() {
             .display_name,
         "Original"
     );
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        2
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
 }
 
 #[test]
@@ -693,10 +684,7 @@ fn an_invalid_update_leaves_the_old_mod_usable() {
         library.get_installed_mods(&config).unwrap()[0].display_name,
         "Original"
     );
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        2
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
 }
 
 #[test]
@@ -712,10 +700,7 @@ fn updating_an_unknown_id_discards_staging_without_installing_a_mod() {
         Err(AppError::ModNotFound(_))
     ));
     assert!(library.get_installed_mods(&config).unwrap().is_empty());
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        0
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 0);
 }
 
 #[test]
@@ -739,10 +724,7 @@ fn an_update_can_change_archive_format_without_leaving_the_old_archive() {
     assert_eq!(updated.format, ModArchiveFormat::Modpkg);
     assert!(!storage.path().join("mods/original.fantome").exists());
     assert!(storage.path().join("mods/original.modpkg").is_file());
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        2
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
 }
 
 #[test]
@@ -769,8 +751,5 @@ fn an_update_replaces_an_unpacked_mod_with_the_new_archive() {
     assert_eq!(updated.storage, ModStorage::Archive);
     assert!(!Path::new(&updated.mod_dir).join("content").exists());
     assert_eq!(updated.display_name, "Replacement");
-    assert_eq!(
-        fs::read_dir(storage.path().join("mods")).unwrap().count(),
-        2
-    );
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
 }

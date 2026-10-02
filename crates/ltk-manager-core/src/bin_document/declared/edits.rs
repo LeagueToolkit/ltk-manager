@@ -343,7 +343,7 @@ fn key_operations(
         (Change::Removed { index, value, .. }, _) => {
             let items = items?;
             let removed = match items.item_kind() {
-                /* A struct has no value to match, so it is removed by where it stood. */
+                /* A struct has no value to match, so it is removed by its position. */
                 Kind::Struct | Kind::Embedded => {
                     Value::List(vec![Value::Integer(i128::try_from(*index).ok()?)])
                 }

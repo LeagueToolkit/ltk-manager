@@ -7,7 +7,42 @@ use fs_err as fs;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, IoContext, io_context};
+
+/// Move `staged` onto `target`. The existing `target` moves to `aside` first, is deleted once
+/// `staged` is in place, and moves back when that move fails.
+///
+/// `old` and `new` name the two in a failure, as in "Failed to move the {old} aside".
+///
+/// # Errors
+///
+/// Fails when the existing `target` cannot be moved aside, or `staged` cannot be moved into
+/// place.
+pub(crate) fn replace_keeping_old(
+    staged: &Path,
+    target: &Path,
+    aside: &Path,
+    (old, new): (&str, &str),
+) -> AppResult<()> {
+    if target.exists() {
+        fs::rename(target, aside).context(format!("Failed to move the {old} aside"))?;
+    }
+
+    if let Err(error) = fs::rename(staged, target) {
+        let _ = fs::rename(aside, target);
+        return Err(io_context(
+            error,
+            format!("Failed to move the {new} into place"),
+        ));
+    }
+
+    let _ = if aside.is_dir() {
+        fs::remove_dir_all(aside)
+    } else {
+        fs::remove_file(aside)
+    };
+    Ok(())
+}
 
 /// Write `contents` to `path` through a hidden temporary file beside it.
 ///

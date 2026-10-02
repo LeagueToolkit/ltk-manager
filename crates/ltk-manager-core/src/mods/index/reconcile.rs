@@ -5,6 +5,7 @@
 //! by hand, or restores a storage folder without its `library.json`.
 //! Reconciliation runs on startup and on watcher wakeups to repair that drift.
 
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::{self, InstallContext, STAGING_PREFIX};
 use crate::mods::archive::metadata;
 use crate::mods::index::document::archive_path;
@@ -91,7 +92,7 @@ fn remove_orphaned_entries(storage_dir: &Path, index: &mut LibraryIndex) -> bool
 /// adopted as a new mod: `library.json` is the only record of which mod is
 /// which, so the id it had before is not recoverable — see ADR-0002.
 fn discover_mod_directories(storage_dir: &Path, index: &mut LibraryIndex) -> bool {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let Ok(entries) = fs::read_dir(&mods_dir) else {
         return false;
     };
@@ -205,7 +206,7 @@ fn discover_new_archives(
     index: &mut LibraryIndex,
     context: &InstallContext<'_>,
 ) -> bool {
-    let archives_dir = storage_dir.join("archives");
+    let archives_dir = storage_dir.archives_dir();
     if !archives_dir.is_dir() {
         return false;
     }
@@ -241,7 +242,7 @@ fn discover_new_archives(
         return false;
     }
 
-    let mut taken = TakenSlugs::collect(index, &storage_dir.join("mods"));
+    let mut taken = TakenSlugs::collect(index, &storage_dir.mods_dir());
     let mut changed = false;
     for path in dropped {
         let path_str = path.display().to_string();
@@ -303,7 +304,7 @@ fn cleanup_failed_discovery(original_path: &Path) {
 /// still filling. Startup is where that holds, and a crashed staging
 /// directory is by definition from a process that has already ended.
 pub(crate) fn sweep_stale_staging(storage_dir: &Path) {
-    let Ok(entries) = fs::read_dir(storage_dir.join("mods")) else {
+    let Ok(entries) = fs::read_dir(storage_dir.mods_dir()) else {
         return;
     };
 
@@ -360,7 +361,7 @@ fn refresh_stale_modpkg_metadata(
             continue;
         }
 
-        match metadata::extract_modpkg_metadata(&archive_path, &mod_dir) {
+        match metadata::extract_metadata(&archive_path, ModArchiveFormat::Modpkg, &mod_dir) {
             Ok(()) => {
                 tracing::info!("Re-extracted stale metadata for mod {}", entry.id);
                 refreshed_ids.push(entry.id.clone());

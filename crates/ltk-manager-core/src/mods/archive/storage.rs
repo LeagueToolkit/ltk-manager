@@ -18,16 +18,18 @@
 //! moment, so neither direction needs the other's leftovers to exist.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, IoContext, Utf8PathExt, io_context};
+use crate::error::{AppError, AppResult, IoContext, Utf8PathExt};
 use crate::events::{
     BackendEvent, EventSink, FantomeImportProgress, FantomeImportStage, ModStorageProgress,
 };
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModStorage, get_active_profile};
 use crate::mods::long_paths;
 use crate::mods::types::InstalledMod;
+use crate::utils::fs::replace_keeping_old;
 use fs_err as fs;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use ltk_mod_project::{ModProject, ProjectImporter, ProjectPacker};
@@ -328,7 +330,7 @@ fn stage_unpacked(
     report: &ConversionReport<'_>,
 ) -> AppResult<PathBuf> {
     let staging_dir = storage_dir
-        .join("mods")
+        .mods_dir()
         .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
     fs::create_dir_all(&staging_dir)?;
 
@@ -422,18 +424,12 @@ fn carry_over_files(mod_dir: &Path, staging_dir: &Path) {
 /// two renames leaves something the startup sweep clears and directory
 /// discovery ignores, rather than a second copy of the mod to adopt.
 fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
-    let replaced = staging_dir.with_extension("replaced");
-    if mod_dir.exists() {
-        fs::rename(mod_dir, &replaced).context("Failed to move the mod directory aside")?;
-    }
-
-    if let Err(e) = fs::rename(staging_dir, mod_dir) {
-        let _ = fs::rename(&replaced, mod_dir);
-        return Err(io_context(e, "Failed to move the unpacked mod into place"));
-    }
-
-    let _ = fs::remove_dir_all(&replaced);
-    Ok(())
+    replace_keeping_old(
+        staging_dir,
+        mod_dir,
+        &staging_dir.with_extension("replaced"),
+        ("mod directory", "unpacked mod"),
+    )
 }
 
 /// Pack the mod's tree into a staged archive, for the swap under the lock.
@@ -443,7 +439,7 @@ fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
 /// than pack again.
 fn stage_packed(storage_dir: &Path, mod_dir: &Path) -> AppResult<PathBuf> {
     let staged = storage_dir
-        .join("mods")
+        .mods_dir()
         .join(format!("{STAGING_PREFIX}{}.fantome", Uuid::new_v4()));
 
     let project = load_mod_project(mod_dir)?;
@@ -465,21 +461,12 @@ fn stage_packed(storage_dir: &Path, mod_dir: &Path) -> AppResult<PathBuf> {
 /// A leftover archive can be standing there — one an unpack failed to delete —
 /// and a fresh repack usually finds nothing at all.
 fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
-    let replaced = staged.with_extension("replaced");
-    if archive.exists() {
-        fs::rename(archive, &replaced).context("Failed to move the archive aside")?;
-    }
-
-    if let Err(e) = fs::rename(staged, archive) {
-        let _ = fs::rename(&replaced, archive);
-        return Err(io_context(
-            e,
-            "Failed to move the packed archive into place",
-        ));
-    }
-
-    let _ = fs::remove_file(&replaced);
-    Ok(())
+    replace_keeping_old(
+        staged,
+        archive,
+        &staged.with_extension("replaced"),
+        ("archive", "packed archive"),
+    )
 }
 
 /// Delete the unpacked tree, leaving the config and thumbnail the library reads.

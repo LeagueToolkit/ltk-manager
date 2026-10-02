@@ -183,3 +183,20 @@ fn a_layer_file_change_names_its_event() {
         "layer-files-changed"
     );
 }
+
+#[test]
+fn an_event_serializes_as_its_payload_alone() {
+    assert_eq!(
+        serde_json::to_value(BackendEvent::LibraryChanged).unwrap(),
+        serde_json::Value::Null
+    );
+
+    let progress = GitImportProgress {
+        stage: GitImportStage::Complete,
+        message: Some("done".into()),
+    };
+    assert_eq!(
+        serde_json::to_value(BackendEvent::GitImportProgress(progress.clone())).unwrap(),
+        serde_json::to_value(progress).unwrap()
+    );
+}

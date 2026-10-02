@@ -11,15 +11,15 @@ use crate::events::{
 use crate::hashtables::WadPathResolver;
 use crate::mods::fantome_layer::unpacked_layer_name;
 use crate::mods::long_paths::{self, ImportRoot};
+use crate::mods::{open_fantome, open_modpkg};
 use crate::utils::natural_order::compare_names;
 use fs_err as fs;
-use ltk_fantome::{BASE_LAYER, FantomeReader};
+use ltk_fantome::BASE_LAYER;
 use ltk_mod_project::fantome::FantomeImporter;
 use ltk_mod_project::modpkg::{ModpkgImportError, ModpkgImporter, read_project};
 use ltk_mod_project::{
     ImportError, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, ProjectImporter,
 };
-use ltk_modpkg::Modpkg;
 use std::collections::HashSet;
 use std::path::Path;
 
@@ -339,7 +339,7 @@ impl Workshop {
         // The project name in the package is the directory name, so the metadata
         // is read before the import. Mounting decompresses only the metadata
         // chunk, so reading the package twice is cheap.
-        let mut modpkg = Modpkg::mount_from_reader(fs::File::open(file_path)?)?;
+        let mut modpkg = open_modpkg(Path::new(file_path))?;
         let name = read_project(&mut modpkg)?.name;
 
         let project_dir = workshop_path.join(&name);
@@ -532,12 +532,6 @@ fn modpkg_import_error(error: ImportError<ModpkgImportError>) -> AppError {
         ImportError::Format(ModpkgImportError::Modpkg(e)) => AppError::Modpkg(e),
         other => AppError::Other(format!("Failed to import modpkg archive: {other}")),
     }
-}
-
-/// Open a `.fantome` for reading, naming the archive in the failure.
-fn open_fantome(path: &Path) -> AppResult<FantomeReader<fs::File>> {
-    FantomeReader::new(fs::File::open(path)?)
-        .map_err(|e| AppError::Fantome(format!("Failed to open {}: {e}", path.display())))
 }
 
 #[cfg(test)]

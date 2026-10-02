@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::mods::StorageLayout as _;
 use chrono::Utc;
 use fs_err as fs;
 use std::collections::HashMap;
@@ -79,7 +80,7 @@ impl ModLibrary {
             let profile_slug = profile.slug.clone();
             index.profiles.retain(|p| p.id != profile_id);
 
-            let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
+            let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
             if profile_dir.exists() {
                 fs::remove_dir_all(&profile_dir)?;
                 tracing::info!("Deleted profile directory: {}", profile_dir.display());
@@ -165,8 +166,8 @@ impl ModLibrary {
             // Rename directory on disk if slug changed — done before index update
             // so that if rename fails, the closure returns Err and the index is NOT saved.
             if profile.slug != new_slug {
-                let old_dir = storage_dir.join("profiles").join(profile.slug.as_str());
-                let new_dir = storage_dir.join("profiles").join(new_slug.as_str());
+                let old_dir = storage_dir.profile_dir(profile.slug.as_str());
+                let new_dir = storage_dir.profile_dir(new_slug.as_str());
                 if old_dir.exists() {
                     fs::rename(&old_dir, &new_dir)?;
                     tracing::info!(

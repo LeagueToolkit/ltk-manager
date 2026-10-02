@@ -79,7 +79,7 @@ impl Replacement {
     fn new(storage: &Path, entry: &LibraryModEntry, staged: &StagedMod) -> Self {
         let mut updated = entry.clone();
         updated.format = staged.format;
-        let backup = storage.join("mods").join(format!(".update-{}", staged.id));
+        let backup = storage.mods_dir().join(format!(".update-{}", staged.id));
         Self {
             mod_dir: entry.mod_dir(storage),
             archive: updated.archive_path(storage),

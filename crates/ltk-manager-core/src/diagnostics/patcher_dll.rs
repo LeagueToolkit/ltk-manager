@@ -9,20 +9,31 @@
 use fs_err as fs;
 
 use super::binary_id::BinaryId;
-use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
+use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use super::win_util::is_file_locked;
+use crate::platform::windows::is_file_locked;
+
+const DLL_PRESENT: CheckSpec = CheckSpec::new(
+    "patcher.dll.present",
+    "Patcher DLL present",
+    Category::Patcher,
+);
+const DLL_SIGNATURE: CheckSpec = CheckSpec::new(
+    "patcher.dll.signature",
+    "Patcher DLL signature",
+    Category::Patcher,
+);
+const DLL_NOT_LOCKED: CheckSpec = CheckSpec::new(
+    "patcher.dll.not_locked",
+    "Patcher DLL not locked",
+    Category::Patcher,
+);
 
 pub fn check_dll_present(ctx: &CheckCtx) -> Check {
     match ctx.patcher_dll_path.as_ref() {
         Some(p) if p.exists() => {
-            let mut c = check_ok(
-                "patcher.dll.present",
-                "Patcher DLL present",
-                Category::Patcher,
-                &p.display().to_string(),
-            );
+            let mut c = DLL_PRESENT.ok(p.display().to_string());
             if let Ok(meta) = fs::metadata(p) {
                 c.details
                     .push(CheckDetail::new("size", meta.len().to_string()));
@@ -39,13 +50,7 @@ pub fn check_dll_present(ctx: &CheckCtx) -> Check {
             c
         }
         Some(p) => {
-            let mut c = check(
-                "patcher.dll.present",
-                "Patcher DLL present",
-                Category::Patcher,
-                Severity::Bad,
-                "Patcher DLL not found at resolved path",
-            );
+            let mut c = DLL_PRESENT.result(Severity::Bad, "Patcher DLL not found at resolved path");
             c.details
                 .push(CheckDetail::new("path", p.display().to_string()));
             c.suggestion = Some(
@@ -54,40 +59,20 @@ pub fn check_dll_present(ctx: &CheckCtx) -> Check {
             );
             c
         }
-        None => check(
-            "patcher.dll.present",
-            "Patcher DLL present",
-            Category::Patcher,
-            Severity::Bad,
-            "Could not resolve resource directory",
-        ),
+        None => DLL_PRESENT.result(Severity::Bad, "Could not resolve resource directory"),
     }
 }
 
 #[cfg(target_os = "windows")]
 pub fn check_dll_signature(ctx: &CheckCtx) -> Check {
     let Some(path) = ctx.patcher_dll_path.as_ref().filter(|p| p.exists()) else {
-        return check(
-            "patcher.dll.signature",
-            "Patcher DLL signature",
-            Category::Patcher,
-            Severity::Info,
-            "DLL not present, skipped",
-        );
+        return DLL_SIGNATURE.result(Severity::Info, "DLL not present, skipped");
     };
     let result = verify_authenticode(path);
     match result {
-        Ok(0) => check_ok(
-            "patcher.dll.signature",
-            "Patcher DLL signature",
-            Category::Patcher,
-            "Valid Authenticode signature",
-        ),
+        Ok(0) => DLL_SIGNATURE.ok("Valid Authenticode signature"),
         Ok(code) => {
-            let mut c = check(
-                "patcher.dll.signature",
-                "Patcher DLL signature",
-                Category::Patcher,
+            let mut c = DLL_SIGNATURE.result(
                 Severity::Warn,
                 format!("Unsigned or invalid signature (0x{:08x})", code as u32),
             );
@@ -100,13 +85,8 @@ pub fn check_dll_signature(ctx: &CheckCtx) -> Check {
             c
         }
         Err(e) => {
-            let mut c = check(
-                "patcher.dll.signature",
-                "Patcher DLL signature",
-                Category::Patcher,
-                Severity::Info,
-                "Could not verify (system call failed)",
-            );
+            let mut c =
+                DLL_SIGNATURE.result(Severity::Info, "Could not verify (system call failed)");
             c.details.push(CheckDetail::new("error", e));
             c
         }
@@ -115,32 +95,17 @@ pub fn check_dll_signature(ctx: &CheckCtx) -> Check {
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_dll_signature(_ctx: &CheckCtx) -> Check {
-    check(
-        "patcher.dll.signature",
-        "Patcher DLL signature",
-        Category::Patcher,
-        Severity::Info,
-        "Not applicable",
-    )
+    DLL_SIGNATURE.result(Severity::Info, "Not applicable")
 }
 
 pub fn check_dll_not_locked(ctx: &CheckCtx) -> Check {
     #[cfg(target_os = "windows")]
     {
         let Some(path) = ctx.patcher_dll_path.as_ref().filter(|p| p.exists()) else {
-            return check(
-                "patcher.dll.not_locked",
-                "Patcher DLL not locked",
-                Category::Patcher,
-                Severity::Info,
-                "DLL not present, skipped",
-            );
+            return DLL_NOT_LOCKED.result(Severity::Info, "DLL not present, skipped");
         };
         if is_file_locked(path) {
-            let mut c = check(
-                "patcher.dll.not_locked",
-                "Patcher DLL not locked",
-                Category::Patcher,
+            let mut c = DLL_NOT_LOCKED.result(
                 Severity::Warn,
                 "Another process is holding the patcher DLL open",
             );
@@ -152,24 +117,13 @@ pub fn check_dll_not_locked(ctx: &CheckCtx) -> Check {
             );
             c
         } else {
-            check_ok(
-                "patcher.dll.not_locked",
-                "Patcher DLL not locked",
-                Category::Patcher,
-                "Not locked",
-            )
+            DLL_NOT_LOCKED.ok("Not locked")
         }
     }
     #[cfg(not(target_os = "windows"))]
     {
         let _ = ctx;
-        check(
-            "patcher.dll.not_locked",
-            "Patcher DLL not locked",
-            Category::Patcher,
-            Severity::Info,
-            "Not applicable",
-        )
+        DLL_NOT_LOCKED.result(Severity::Info, "Not applicable")
     }
 }
 
@@ -186,7 +140,7 @@ fn verify_authenticode(path: &std::path::Path) -> Result<i32, String> {
         WTD_UI_NONE, WinVerifyTrust,
     };
 
-    let wide = super::win_util::path_to_wide(path);
+    let wide = crate::platform::windows::path_to_wide(path);
 
     let mut file = WINTRUST_FILE_INFO {
         cbStruct: std::mem::size_of::<WINTRUST_FILE_INFO>() as u32,
