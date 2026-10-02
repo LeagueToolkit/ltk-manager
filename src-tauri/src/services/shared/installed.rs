@@ -102,11 +102,11 @@ impl ProjectGame {
         if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
             return bytes;
         }
-        let Ok(chunk_hash) = u64::from_str_radix(path_hash, 16) else {
+        let Some(chunk_hash) = asset.chunk_hash() else {
             return bytes;
         };
 
-        match declarations.apply(&bytes, chunk_hash) {
+        match declarations.apply(&bytes, chunk_hash.0) {
             Ok(Some(applied)) => applied,
             Ok(None) => bytes,
             Err(error) => {

@@ -44,7 +44,7 @@ enum Change<'a> {
 /// The declarations an edit lands as: the keys that express it, where some do, and the set
 /// of the whole value under it.
 struct Plans {
-    /// The wire path of the value a plan has to reproduce.
+    /// The hash path of the value a plan has to reproduce.
     scope: String,
     keys: Option<Vec<ManifestEdit>>,
     /// Absent where the value holds a field no table names.
@@ -170,7 +170,7 @@ impl BinDocument {
         declared.write(plan).map_err(declaring)
     }
 
-    /// The value at the wire path `path` under `entry`.
+    /// The value at the hash path `path` under `entry`.
     fn value_at(&self, entry: BinHash, path: &str) -> Option<&PropertyValueEnum> {
         let steps = parse_steps(path)?;
         match descend(self.object_at(entry)?, &steps)?.0 {
@@ -424,7 +424,7 @@ fn text_of(value: &Value) -> Option<ValueText> {
     ValueText::try_from(value).ok()
 }
 
-/// Whether the wire paths `a` and `b` name one value, or one holds the other. An empty path
+/// Whether the hash paths `a` and `b` name one value, or one holds the other. An empty path
 /// reaches no row.
 fn overlaps(a: &str, b: &str) -> bool {
     let holds = |outer: &str, inner: &str| {

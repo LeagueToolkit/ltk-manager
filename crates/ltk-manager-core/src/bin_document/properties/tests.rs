@@ -15,7 +15,7 @@ fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-fn wire(hash: BinHash) -> String {
+fn hashed(hash: BinHash) -> String {
     format!("{:08x}", hash.0)
 }
 
@@ -67,24 +67,24 @@ fn schema() -> MetaSchema {
             }}
           }}
         }}"#,
-        skin = wire(h("SkinData")),
-        base = wire(h("BaseData")),
-        inner = wire(h("InnerData")),
-        scale = wire(h("scale")),
-        tint = wire(h("tint")),
-        mesh = wire(h("mesh")),
-        falloff = wire(h("falloff")),
-        maybe = wire(h("maybe")),
-        corners = wire(h("corners")),
-        slots = wire(h("slots")),
-        names = wire(h("names")),
-        chance = wire(h("chance")),
-        material = wire(h("material")),
-        transform = wire(h("transform")),
-        bare = wire(h("bare")),
-        gone = wire(h("gone")),
-        inherited = wire(h("inherited")),
-        depth = wire(h("depth")),
+        skin = hashed(h("SkinData")),
+        base = hashed(h("BaseData")),
+        inner = hashed(h("InnerData")),
+        scale = hashed(h("scale")),
+        tint = hashed(h("tint")),
+        mesh = hashed(h("mesh")),
+        falloff = hashed(h("falloff")),
+        maybe = hashed(h("maybe")),
+        corners = hashed(h("corners")),
+        slots = hashed(h("slots")),
+        names = hashed(h("names")),
+        chance = hashed(h("chance")),
+        material = hashed(h("material")),
+        transform = hashed(h("transform")),
+        bare = hashed(h("bare")),
+        gone = hashed(h("gone")),
+        inherited = hashed(h("inherited")),
+        depth = hashed(h("depth")),
     );
     MetaSchema::parse(json.as_bytes()).unwrap()
 }
@@ -276,7 +276,7 @@ fn a_field_adds_inside_an_embed_and_lands_last() {
     document
         .add_property(
             entry(),
-            &wire(h("mesh")),
+            &hashed(h("mesh")),
             declared("depth"),
             schema.at(Some(BUILD)),
         )
@@ -402,11 +402,11 @@ fn an_add_that_does_not_fit_is_refused_and_leaves_the_tree() {
         EditRejection::UndeclaredField
     );
     assert_eq!(
-        rejection(document.add_property(entry(), &wire(h("scale")), declared("depth"), at)),
+        rejection(document.add_property(entry(), &hashed(h("scale")), declared("depth"), at)),
         EditRejection::NotAHolder
     );
     assert_eq!(
-        rejection(document.add_property(entry(), &wire(h("maybe")), declared("depth"), at)),
+        rejection(document.add_property(entry(), &hashed(h("maybe")), declared("depth"), at)),
         EditRejection::NotAHolder,
         "a null pointer holds nothing"
     );
@@ -455,7 +455,7 @@ fn a_remove_undoes_back_to_its_position_and_an_add_undoes_away() {
     let before = order(&document);
 
     document
-        .remove_property(entry(), &wire(h("scale")))
+        .remove_property(entry(), &hashed(h("scale")))
         .unwrap();
     assert!(property(&document, None, "scale").is_none());
     assert!(document.undo().unwrap());
@@ -478,7 +478,7 @@ fn a_remove_undoes_back_to_its_position_and_an_add_undoes_away() {
     document
         .set_leaf(
             entry(),
-            &wire(h("tint")),
+            &hashed(h("tint")),
             LeafValue::Color {
                 r: 1,
                 g: 2,
@@ -500,18 +500,18 @@ fn a_remove_of_no_property_is_refused() {
         EditRejection::NotAProperty
     );
     assert!(matches!(
-        document.remove_property(entry(), &wire(h("nothing"))),
+        document.remove_property(entry(), &hashed(h("nothing"))),
         Err(BinDocumentError::NodeNotFound { .. })
     ));
     assert!(matches!(
         document.remove_property(
             entry(),
-            &format!("{}.{}", wire(h("mesh")), wire(h("depth")))
+            &format!("{}.{}", hashed(h("mesh")), hashed(h("depth")))
         ),
         Err(BinDocumentError::NodeNotFound { .. })
     ));
     assert_eq!(
-        rejection(document.remove_property(entry(), &format!("{}[0]", wire(h("mesh"))))),
+        rejection(document.remove_property(entry(), &format!("{}[0]", hashed(h("mesh"))))),
         EditRejection::NotAProperty,
         "an element is no property"
     );
@@ -529,7 +529,7 @@ fn an_add_and_a_remove_save_through_the_delta() {
         .add_property(entry(), "", declared("tint"), schema.at(Some(BUILD)))
         .unwrap();
     document
-        .remove_property(entry(), &wire(h("scale")))
+        .remove_property(entry(), &hashed(h("scale")))
         .unwrap();
     document.save_to(&path).unwrap();
 

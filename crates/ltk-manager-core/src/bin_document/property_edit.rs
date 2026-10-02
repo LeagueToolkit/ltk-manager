@@ -11,8 +11,8 @@ use super::edit::Edit;
 use super::properties::{field_path, with_holder};
 use super::typed_names::TypedNames;
 use super::{
-    BinDocument, BinDocumentError, BinDocumentId, BinDocuments, EditRejection, LeafValue, NewItem,
-    NewProperty, Node, Step, descend, hex, parse_steps,
+    BinDocument, BinDocumentError, EditRejection, LeafValue, NewItem, NewProperty, Node, Step,
+    descend, hex, parse_steps,
 };
 use crate::meta_schema::SchemaAt;
 use crate::object_index::parse_hash;
@@ -22,7 +22,7 @@ const MAX_PROPERTY_EDITS: usize = 64;
 /// The bound on properties one grouped edit changes.
 const MAX_GROUPED_PROPERTIES: usize = 512;
 
-/// One property's staged edits, as [`BinDocuments::edit_properties`] groups them.
+/// One property's staged edits, as [`BinDocument::edit_properties`] groups them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -74,41 +74,6 @@ pub enum ValueEdit {
     /// Set an existing leaf, including one created by an earlier staged edit. An empty
     /// option takes an item first, so the edit writes an optional field whatever it holds.
     SetLeaf { path: String, value: LeafValue },
-}
-
-impl BinDocuments {
-    /// Edit one property atomically, creating it from the schema when absent.
-    ///
-    /// # Errors
-    ///
-    /// Refuses closed or read-only documents, invalid edits, and declaration write failures.
-    pub fn edit_property(
-        &self,
-        id: BinDocumentId,
-        entry: BinHash,
-        holder: &str,
-        field: &str,
-        edits: Vec<ValueEdit>,
-        schema: SchemaAt<'_>,
-    ) -> Result<(), BinDocumentError> {
-        self.edit(id, |document| {
-            document.edit_property(entry, holder, field, edits, schema)
-        })
-    }
-
-    /// Edit several properties, of one object or several, as one undoable change.
-    ///
-    /// # Errors
-    ///
-    /// As [`BinDocuments::edit_property`], and a refusal of any one leaves none.
-    pub fn edit_properties(
-        &self,
-        id: BinDocumentId,
-        edits: Vec<PropertyEdit>,
-        schema: SchemaAt<'_>,
-    ) -> Result<(), BinDocumentError> {
-        self.edit(id, |document| document.edit_properties(edits, schema))
-    }
 }
 
 impl BinDocument {

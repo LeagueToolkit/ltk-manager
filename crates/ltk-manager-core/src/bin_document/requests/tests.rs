@@ -1,4 +1,4 @@
-//! Unit tests for the wire edits: the JSON a frontend sends, the store method each group
+//! Unit tests for the requested edits: the JSON a frontend sends, the store method each group
 //! reaches, and the one gate every variant passes.
 
 use std::io::Cursor;
@@ -21,7 +21,7 @@ fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-fn wire(hash: BinHash) -> String {
+fn hashed(hash: BinHash) -> String {
     format!("{:08x}", hash.0)
 }
 
@@ -137,7 +137,7 @@ fn a_patch_answers_the_value_the_leaf_held() {
             id,
             BinEdit::Patch {
                 entry: entry(),
-                path: wire(h("scale")),
+                path: hashed(h("scale")),
                 value: LeafValue::Float { value: 4.0 },
             },
             schema.at(None),
@@ -156,7 +156,7 @@ fn a_patch_answers_the_value_the_leaf_held() {
 fn an_item_edit_answers_the_path_its_store_method_answers() {
     let schema = schema();
     let (store, id) = open(layer());
-    let list = wire(h("list"));
+    let list = hashed(h("list"));
 
     let inserted = store
         .apply(
@@ -241,7 +241,9 @@ fn an_object_edit_and_a_module_action_refuse_as_their_store_methods_do() {
             schema.at(None),
         )
         .unwrap_err();
-    let direct = store.remove_object(id, h(OBJECT)).unwrap_err();
+    let direct = store
+        .edit(id, |open| open.remove_object(h(OBJECT)))
+        .unwrap_err();
     assert_eq!(routed.to_string(), direct.to_string());
 
     let action = ModuleAction::Remove { module: 0 };
@@ -256,7 +258,7 @@ fn an_object_edit_and_a_module_action_refuse_as_their_store_methods_do() {
         )
         .unwrap_err();
     let direct = store
-        .declared_module_action(id, "base", &action)
+        .edit(id, |open| open.declared_module_action("base", &action))
         .unwrap_err();
     assert_eq!(routed.to_string(), direct.to_string());
 }
@@ -267,7 +269,7 @@ fn every_edit_passes_the_gate() {
     let (store, id) = open(AssetRef::File {
         path: "a.bin".to_owned(),
     });
-    let path = || wire(h("scale"));
+    let path = || hashed(h("scale"));
     let edits = [
         BinEdit::Patch {
             entry: entry(),
@@ -293,16 +295,16 @@ fn every_edit_passes_the_gate() {
         },
         BinEdit::InsertItem {
             entry: entry(),
-            path: wire(h("list")),
+            path: hashed(h("list")),
             item: NewItem::default(),
         },
         BinEdit::RemoveItem {
             entry: entry(),
-            path: format!("{}[0]", wire(h("list"))),
+            path: format!("{}[0]", hashed(h("list"))),
         },
         BinEdit::MoveItem {
             entry: entry(),
-            path: format!("{}[0]", wire(h("list"))),
+            path: format!("{}[0]", hashed(h("list"))),
             to: 1,
         },
         BinEdit::SetKey {
@@ -434,7 +436,7 @@ fn a_choice_query_reads_a_document_that_takes_no_edit() {
             id,
             ChoiceQuery::ItemClasses {
                 entry: entry(),
-                path: wire(h("list")),
+                path: hashed(h("list")),
             },
             schema.at(None),
         )
@@ -469,7 +471,7 @@ fn a_name_typed_into_an_edit_draws_where_no_table_names_it() {
             id,
             BinEdit::Patch {
                 entry: entry(),
-                path: wire(h("myTag")),
+                path: hashed(h("myTag")),
                 value: LeafValue::Hash {
                     text: "Mods/MyTag".to_owned(),
                 },
@@ -485,7 +487,7 @@ fn a_name_typed_into_an_edit_draws_where_no_table_names_it() {
         .unwrap();
     let tag = rows
         .iter()
-        .find(|row| row.path == wire(h("myTag")))
+        .find(|row| row.path == hashed(h("myTag")))
         .expect("the added property is a row");
 
     assert_eq!(tag.name, "myTag");

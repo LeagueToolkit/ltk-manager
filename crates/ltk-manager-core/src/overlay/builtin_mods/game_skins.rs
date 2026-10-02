@@ -2,13 +2,14 @@
 
 use super::skin_bin::SkinBin;
 use crate::error::AppResult;
+use crate::game_wads::{chunk_bytes, mount_wad};
 use crate::utils::game::{GameDir, archive_stem};
 use fs_err as fs;
 use ltk_wad::{PathResolver, Wad, WadHash};
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// The skin bins a set of the game's archives hold, named by the roster and the WAD path tables.
 ///
@@ -61,7 +62,7 @@ impl<'t> GameSkins<'t> {
     ) -> Self {
         let archives = found
             .into_iter()
-            .filter_map(|(name, path)| match mount(&path) {
+            .filter_map(|(name, path)| match mount_wad(&path) {
                 Ok(wad) => Some(Archive { name, wad }),
                 Err(e) => {
                     tracing::warn!("Built-in mods: passing over {}: {e}", path.display());
@@ -131,13 +132,11 @@ impl<'t> GameSkins<'t> {
             .archives
             .iter_mut()
             .find(|archive| archive.wad.chunks().contains(hash))?;
-        let chunk = *archive.wad.chunks().get(hash)?;
-        archive
-            .wad
-            .load_chunk_decompressed(&chunk)
-            .map(Vec::from)
+        chunk_bytes(&mut archive.wad, hash)
             .inspect_err(|e| tracing::warn!("Built-in mods: cannot read {path}: {e}"))
             .ok()
+            .flatten()
+            .map(Vec::from)
     }
 
     /// The skin bin at each of `hashes`, where one is, in one pass over the tables.
@@ -171,8 +170,4 @@ impl<'t> GameSkins<'t> {
                 .collect()
         })
     }
-}
-
-fn mount(path: &Path) -> AppResult<Wad<BufReader<fs::File>>> {
-    Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?)
 }

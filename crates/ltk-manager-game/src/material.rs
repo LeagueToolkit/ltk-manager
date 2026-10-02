@@ -485,7 +485,7 @@ pub(crate) fn linked_material(
         Some(object) => Reader::new(hash, &object.properties, locator, shaders).preview(),
         None => MaterialPreview {
             hash: hex(hash),
-            name: locator.entry_name(hash),
+            name: locator.names.entry_name(hash),
             missing: true,
             source: None,
             animated: false,
@@ -661,7 +661,7 @@ impl<'a> Reader<'a> {
 
         MaterialPreview {
             hash: hex(self.hash),
-            name: self.locator.entry_name(self.hash),
+            name: self.locator.names.entry_name(self.hash),
             missing: false,
             source: None,
             animated: struct_of(self.material.get(&DYNAMIC_MATERIAL)).is_some(),
@@ -714,7 +714,7 @@ impl<'a> Reader<'a> {
         let Some(shaders) = self.shaders else {
             self.warnings.push(MaterialWarning::NoShaderDefs);
             return ShaderDef {
-                path: self.locator.entry_name(link),
+                path: self.locator.names.entry_name(link),
                 ..ShaderDef::default()
             };
         };
@@ -722,7 +722,7 @@ impl<'a> Reader<'a> {
             self.warnings
                 .push(MaterialWarning::UnresolvedShader { hash: hex(link) });
             return ShaderDef {
-                path: self.locator.entry_name(link),
+                path: self.locator.names.entry_name(link),
                 ..ShaderDef::default()
             };
         };
@@ -752,7 +752,7 @@ impl<'a> Reader<'a> {
         ShaderDef {
             path: text(def.get(&OBJECT_PATH))
                 .map(str::to_owned)
-                .or_else(|| self.locator.entry_name(link)),
+                .or_else(|| self.locator.names.entry_name(link)),
             textures: structs(def.get(&TEXTURES))
                 .filter_map(|fields| {
                     let name = text(fields.get(&NAME))?.to_owned();

@@ -15,8 +15,8 @@ use super::items::{declared_class, held_classes};
 use super::properties::field_path;
 use super::requests::parse_entry;
 use super::{
-    BinDocument, BinDocumentError, BinDocumentId, BinDocuments, EditRejection, Step, hex, is_null,
-    parse_steps,
+    BinDocument, BinDocumentError, BinDocumentId, BinDocuments, EditRejection, Step, as_list,
+    as_struct, hex, is_null, parse_steps,
 };
 use crate::error::AppResult;
 use crate::meta_schema::SchemaAt;
@@ -82,7 +82,7 @@ impl BinDocument {
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
         let value = self.property_value(entry, path)?;
-        let class = struct_class(value).and_then(|class| schema.class_name(class));
+        let class = as_struct(value).and_then(|inner| schema.class_name(inner.class_hash));
 
         Ok(clipboard_text(value, class))
     }
@@ -185,7 +185,7 @@ impl BinDocument {
         value: &PropertyValueEnum,
         schema: SchemaAt<'_>,
     ) -> Result<bool, BinDocumentError> {
-        let Some(class) = struct_class(value) else {
+        let Some(class) = as_struct(value).map(|inner| inner.class_hash) else {
             return Ok(true);
         };
         let held = held_classes(self.property_value(entry, holder)?);
@@ -212,7 +212,7 @@ pub fn clipboard_text(value: &PropertyValueEnum, class: Option<&str>) -> String 
         format: CLIPBOARD_FORMAT.to_owned(),
         version: CLIPBOARD_VERSION,
         class: class.map(str::to_owned),
-        class_hash: struct_class(value).map(hex),
+        class_hash: as_struct(value).map(|inner| hex(inner.class_hash)),
         value: value.clone(),
     };
 
@@ -222,15 +222,6 @@ pub fn clipboard_text(value: &PropertyValueEnum, class: Option<&str>) -> String 
 /// The value clipboard `text` carries, and `None` for text that is no sound copy.
 pub fn clipboard_value(text: &str) -> Option<PropertyValueEnum> {
     parse_copied(text).ok()
-}
-
-/// The class of a struct or an embed, and `None` for any other value and a null pointer.
-fn struct_class(value: &PropertyValueEnum) -> Option<BinHash> {
-    match value {
-        PropertyValueEnum::Struct(inner) if !is_null(inner) => Some(inner.class_hash),
-        PropertyValueEnum::Embedded(values::Embedded(inner)) => Some(inner.class_hash),
-        _ => None,
-    }
 }
 
 /// The value clipboard `text` carries, rebuilt through the checked constructors.
@@ -303,7 +294,7 @@ fn checked_struct(inner: values::Struct) -> Result<values::Struct, EditRejection
 }
 
 /// The texts every struct item of the object's lists holds under `field`, but the one at
-/// the wire path `item`.
+/// the hash path `item`.
 fn names_beside<'a>(
     object: &'a ltk_meta::BinObject,
     item: &str,
@@ -316,21 +307,15 @@ fn names_beside<'a>(
 
     let mut taken = HashSet::new();
     for (list, value) in &object.properties {
-        let items = match value {
-            PropertyValueEnum::Container(items)
-            | PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-                items.items()
-            }
-            _ => continue,
+        let Some(items) = as_list(value) else {
+            continue;
         };
         for (at, each) in items.iter().enumerate() {
             if own == Some((*list, at)) {
                 continue;
             }
-            let inner = match each {
-                PropertyValueEnum::Struct(inner) if !is_null(inner) => inner,
-                PropertyValueEnum::Embedded(values::Embedded(inner)) => inner,
-                _ => continue,
+            let Some(inner) = as_struct(each) else {
+                continue;
             };
             if let Some(PropertyValueEnum::String(text)) = inner.properties.get(&field) {
                 taken.insert(text.value.as_str());

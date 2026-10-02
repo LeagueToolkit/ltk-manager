@@ -4,7 +4,7 @@
 use std::num::NonZeroUsize;
 
 use super::*;
-use crate::bin_document::{BinDocuments, wire_key};
+use crate::bin_document::{BinDocuments, key_text};
 use crate::error::AppError;
 use crate::sandbox::SandboxRef;
 use ltk_meta::Bin;
@@ -206,7 +206,7 @@ fn every_leaf_kind_takes_a_value_of_its_kind() {
             format!(
                 "{}{{{}}}",
                 field("map"),
-                wire_key(&values::Hash::new(h("key")).into())
+                key_text(&values::Hash::new(h("key")).into())
             ),
             LeafValue::Integer {
                 text: "5".to_owned(),
@@ -665,12 +665,11 @@ fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
         .open(&SandboxRef::Game, loose, || Ok(bytes_of(&bin())))
         .unwrap();
     assert!(matches!(
-        store.patch(
-            id,
+        store.edit(id, |open| open.set_leaf(
             edited(),
             &field("scale"),
             LeafValue::Float { value: 4.0 }
-        ),
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::Loose))
     ));
     assert_eq!(store.read_only(id).unwrap(), Some(ReadOnly::Loose));
@@ -694,12 +693,9 @@ fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
     let object_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
 
     store
-        .patch(
-            file_tab,
-            edited(),
-            &field("scale"),
-            LeafValue::Float { value: 4.0 },
-        )
+        .edit(file_tab, |open| {
+            open.set_leaf(edited(), &field("scale"), LeafValue::Float { value: 4.0 })
+        })
         .unwrap();
     let seen = store
         .read(object_tab, |open| {
@@ -798,7 +794,9 @@ fn a_full_store_evicts_a_clean_tree_and_grows_past_a_dirty_one() {
         .open(&SandboxRef::Game, second.clone(), || read_layer(&second))
         .unwrap();
     store
-        .patch(a, edited(), &field("scale"), float(4.0))
+        .edit(a, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
     store.read(a, |_| Ok(())).unwrap();
 
@@ -813,7 +811,9 @@ fn a_full_store_evicts_a_clean_tree_and_grows_past_a_dirty_one() {
     assert!(store.is_open(c));
 
     store
-        .patch(c, edited(), &field("scale"), float(4.0))
+        .edit(c, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
     let fourth = layer_asset(dir.path(), "d.bin");
     let d = store
@@ -834,7 +834,9 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
         .open(&SandboxRef::Game, asset.clone(), || read_layer(&asset))
         .unwrap();
     store
-        .patch(id, edited(), &field("scale"), float(4.0))
+        .edit(id, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
 
     store.reload(id, read_layer).unwrap();
@@ -847,7 +849,7 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
         })
         .unwrap();
     assert_eq!(
-        store.undo(id).unwrap(),
+        store.step(id, HistoryStep::Undo).unwrap(),
         None,
         "a reload drops the undo stack"
     );
@@ -867,7 +869,9 @@ fn closing_every_id_keeps_a_tree_with_unsaved_edits_for_the_next_open() {
     let read = || layer.read(&crate::config::Config::default(), &Default::default());
     let edited_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
     store
-        .patch(edited_tab, edited(), &field("scale"), float(4.0))
+        .edit(edited_tab, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
     let loose = AssetRef::File {
         path: "b.bin".to_owned(),

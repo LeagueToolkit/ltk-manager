@@ -13,7 +13,6 @@
 
 use fs_err as fs;
 use std::collections::{BTreeMap, HashSet};
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -30,7 +29,7 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink, ExtractProgress};
 use crate::game_index::GameIndex;
-use crate::game_wads::{GameArchives, WadSource};
+use crate::game_wads::{GameArchives, WadSource, mount_wad};
 use crate::hashtables::WadPathResolver;
 use crate::utils::game::GameDir;
 use crate::workshop::WorkshopFileKind;
@@ -290,7 +289,7 @@ impl ExtractJob {
                 ExtractTarget::Archive { wad } => {
                     let entry = grouped.entry(wad.clone()).or_default();
                     let path = archives.archive_path(wad)?;
-                    let archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
+                    let archive = mount_wad(&path)?;
                     let chunks = archive.chunks().as_slice();
                     let hashes: Vec<WadHash> =
                         chunks.iter().map(|chunk| chunk.path_hash()).collect();
@@ -398,7 +397,7 @@ impl ExtractJob {
                 .to_owned();
 
             let path = archives.archive_path(&work.wad)?;
-            let mut archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
+            let mut archive = mount_wad(&path)?;
 
             let recovered = if !options.recover_names || work.unnamed.is_empty() {
                 RecoveredNames::default()

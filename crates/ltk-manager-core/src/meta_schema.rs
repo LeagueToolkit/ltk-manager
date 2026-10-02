@@ -893,8 +893,7 @@ impl From<PublishedProperty> for ParsedProperty {
 
 /// The hash a database key writes, which is unpadded hex under `0x`.
 fn parse_hash(key: &str) -> Option<BinHash> {
-    let digits = key.strip_prefix("0x").unwrap_or(key);
-    u32::from_str_radix(digits, 16).ok().map(BinHash)
+    key.parse::<HexBinHash>().ok().map(HexBinHash::get)
 }
 
 /// Every type name the database writes, beside the kind `ltk_meta` calls it.

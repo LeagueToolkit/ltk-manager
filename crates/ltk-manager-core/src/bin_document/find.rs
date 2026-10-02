@@ -29,7 +29,7 @@ pub const FIND_ROWS: usize = 200;
 pub struct BinFindHit {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
-    /// The row's property path on the wire. Empty for an object row.
+    /// The row's hash path. Empty for an object row.
     pub path: String,
     /// The same path for a person. Empty for an object row.
     pub label: String,
@@ -175,7 +175,7 @@ impl Search<'_> {
         let class = node.class();
         for child in children_of(node) {
             let segment = Segment::of(child, path, label, self.lens, class);
-            let row_path = format!("{path}{}", segment.wire);
+            let row_path = segment.path;
             let row_label = format!("{label}{}", segment.readable);
             let value = self.lens.named.value_of(segment.value);
             self.consider(

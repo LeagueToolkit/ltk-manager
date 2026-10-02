@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
 
-use super::RowNames;
+use super::{RowNames, own_first};
 
 /// The names typed into one document, by the hash each writes.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -60,22 +60,12 @@ fn answer<H: Copy + Eq + std::hash::Hash>(
         return;
     }
 
-    let mut residue = Vec::new();
-    let mut at_of = Vec::new();
-    for (at, hash) in hashes.iter().enumerate() {
-        match typed.get(hash) {
-            Some(name) => visit(at, name),
-            None => {
-                residue.push(*hash);
-                at_of.push(at);
-            }
-        }
-    }
-    if residue.is_empty() {
-        return;
-    }
-
-    rest(&residue, &mut |at, name| visit(at_of[at], name));
+    own_first(
+        hashes,
+        |hash| typed.get(&hash).map(String::as_str),
+        visit,
+        rest,
+    );
 }
 
 impl RowNames for Typed<'_> {

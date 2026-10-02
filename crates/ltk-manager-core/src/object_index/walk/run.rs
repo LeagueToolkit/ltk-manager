@@ -1,22 +1,19 @@
 //! One walk over a project's layers and the install, on the problems pass's bounded pool.
 
 use fs_err as fs;
-use std::collections::HashMap;
 use std::fmt::Write as _;
-use std::io::BufReader;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::Instant;
 
-use ltk_hash::BinHash;
-use ltk_wad::{Wad, hex_name};
+use ltk_wad::hex_name;
 use walkdir::WalkDir;
 
-use crate::bin_document::{RowNames, hex};
+use crate::bin_document::{EntryKey, HashPath, Lens, RowNames, Wanted, hex};
 use crate::error::AppResult;
 use crate::game_index::FIND_LIMIT;
-use crate::game_wads::GameArchives;
+use crate::game_wads::{GameArchives, mount_wad};
 use crate::meta_schema::SchemaAt;
 use crate::preview::AssetRef;
 use crate::problems::Budget;
@@ -320,7 +317,7 @@ impl ObjectIndex {
         let mounted = request
             .archives
             .archive_path(name)
-            .and_then(|path| Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?));
+            .and_then(|path| mount_wad(&path));
         let mut archive = match mounted {
             Ok(archive) => archive,
             Err(e) => {
@@ -404,14 +401,7 @@ pub(in crate::object_index) fn spelled_property(
 }
 
 /// What the tables and the schema spell for one walk's hits, asked once per table.
-#[derive(Debug, Default)]
-struct HitNames<'s> {
-    entries: HashMap<BinHash, String>,
-    classes: HashMap<BinHash, String>,
-    fields: HashMap<BinHash, String>,
-    values: HashMap<BinHash, String>,
-    schema: Option<SchemaAt<'s>>,
-}
+struct HitNames<'s>(Lens<'s>);
 
 impl<'s> HitNames<'s> {
     fn resolve<'h>(
@@ -419,55 +409,25 @@ impl<'s> HitNames<'s> {
         names: &dyn RowNames,
         schema: Option<SchemaAt<'s>>,
     ) -> Self {
-        let mut entries = Vec::new();
-        let mut classes = Vec::new();
-        let mut fields = Vec::new();
-        let mut values = Vec::new();
+        let mut wanted = Wanted::default();
         for hit in hits {
-            entries.push(hit.object);
-            classes.push(hit.class);
+            wanted.entries.push(hit.object);
+            wanted.classes.push(hit.class);
             for step in &hit.steps {
                 match step {
-                    HitStep::Field { field, .. } => fields.push(*field),
+                    HitStep::Field { field, .. } => wanted.fields.push(*field),
                     HitStep::Key {
                         hash: Some(hash), ..
-                    } => values.push(*hash),
+                    } => wanted.values.push(*hash),
                     HitStep::Key { .. } | HitStep::Index(_) => {}
                 }
             }
         }
-        for list in [&mut entries, &mut classes, &mut fields, &mut values] {
-            list.sort_unstable();
-            list.dedup();
-        }
 
-        let mut spelled = Self {
+        Self(Lens {
+            named: wanted.resolve(names, schema),
             schema,
-            ..Self::default()
-        };
-        names.for_each_entry(&entries, &mut |at, name| {
-            spelled.entries.insert(entries[at], name.to_owned());
-        });
-        names.for_each_class(&classes, &mut |at, name| {
-            spelled.classes.insert(classes[at], name.to_owned());
-        });
-        names.for_each_field(&fields, &mut |at, name| {
-            spelled.fields.insert(fields[at], name.to_owned());
-        });
-        names.for_each_value(&values, &mut |at, name| {
-            spelled.values.insert(values[at], name.to_owned());
-        });
-        if let Some(schema) = schema {
-            for class in classes {
-                if let Some(name) = schema.class_name(class) {
-                    spelled
-                        .classes
-                        .entry(class)
-                        .or_insert_with(|| name.to_owned());
-                }
-            }
-        }
-        spelled
+        })
     }
 
     /// One file's hits as a group, its objects in natural path order and the unnamed last.
@@ -489,13 +449,11 @@ impl<'s> HitNames<'s> {
     fn hit(&self, hit: &WalkHit) -> ReferenceHit {
         ReferenceHit {
             object_hash: hex(hit.object),
-            path: self
-                .entries
-                .get(&hit.object)
-                .cloned()
-                .unwrap_or_else(|| hex(hit.object)),
+            path: self.0.named.entry(hit.object).0,
             class_hash: hex(hit.class),
             class: self
+                .0
+                .named
                 .classes
                 .get(&hit.class)
                 .cloned()
@@ -504,27 +462,21 @@ impl<'s> HitNames<'s> {
         }
     }
 
-    /// The row's path on the wire and for a person, the way the bin document writes a row's.
+    /// The row's hash path and its readable path, the way the bin document writes a row's.
     fn property(&self, steps: &[HitStep]) -> ReferenceProperty {
-        let mut path = String::new();
+        let mut path = HashPath::default();
         let mut label = String::new();
         for step in steps {
             match step {
                 HitStep::Field { class, field } => {
-                    if !path.is_empty() {
-                        path.push('.');
-                    }
-                    let _ = write!(path, "{field:08x}");
+                    path = path.field(*field);
                     if !label.is_empty() {
                         label.push('.');
                     }
-                    match self.field(*class, *field) {
-                        Some(name) => label.push_str(name),
-                        None => label.push_str(&hex(*field)),
-                    }
+                    label.push_str(&self.0.field(Some(*class), *field).0);
                 }
                 HitStep::Index(index) => {
-                    let _ = write!(path, "[{index}]");
+                    path = path.index(*index);
                     let _ = write!(label, "[{index}]");
                 }
                 HitStep::Key {
@@ -532,10 +484,10 @@ impl<'s> HitNames<'s> {
                     hash,
                     occurrence,
                 } => {
-                    let _ = write!(path, "{{{text}}}");
+                    path = path.key(&EntryKey::new(text.to_string(), *occurrence));
                     label.push('{');
                     match hash {
-                        Some(hash) => match self.values.get(hash) {
+                        Some(hash) => match self.0.named.values.get(hash) {
                             Some(name) => write_json_string(&mut label, name),
                             None => label.push_str(&hex(*hash)),
                         },
@@ -543,20 +495,14 @@ impl<'s> HitNames<'s> {
                     }
                     label.push('}');
                     if *occurrence > 0 {
-                        let _ = write!(path, "#{occurrence}");
                         let _ = write!(label, "#{occurrence}");
                     }
                 }
             }
         }
-        ReferenceProperty { path, label }
-    }
-
-    /// A field's name: the tables first, the schema second.
-    fn field(&self, class: BinHash, field: BinHash) -> Option<&str> {
-        self.fields
-            .get(&field)
-            .map(String::as_str)
-            .or_else(|| self.schema?.field_name(class, field))
+        ReferenceProperty {
+            path: path.into(),
+            label,
+        }
     }
 }

@@ -741,7 +741,7 @@ export type Because = "holds-the-path" | "redirected" | "rejected" | "did-not-ve
 export type BinChange = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
-	/**  The property's wire path under the object, and empty for the object itself. */
+	/**  The property's hash path under the object, and empty for the object itself. */
 	path: string,
 	kind: ChangeKind,
 };
@@ -782,50 +782,50 @@ export type BinDocumentHandle = {
 export type BinDocumentId = number;
 
 /**
- *  One edit of an open document, one variant per store method.
+ *  One edit of an open document, one variant per document method.
  * 
- *  `entry` is an object's hash as `0x` and eight hex digits, and `path` the wire form of a
- *  property path (ADR-0027), empty for the object itself.
+ *  `entry` is an object's hash as `0x` and eight hex digits, and `path` a hash path (ADR-0027),
+ *  empty for the object itself.
  */
 export type BinEdit = 
-/**  Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocuments::patch`]. */
+/**  Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocument::set_leaf`]. */
 { kind: "patch"; entry: string; path: string; value: LeafValue } | 
-/**  Edit one property's subtree as one undoable change. [`BinDocuments::edit_property`]. */
+/**  Edit one property's subtree as one undoable change. [`BinDocument::edit_property`]. */
 { kind: "editProperty"; entry: string; holder: string; field: string; edits: ValueEdit[] } | 
 /**
  *  Edit several properties, of one object or several, as one undoable change.
- *  [`BinDocuments::edit_properties`].
+ *  [`BinDocument::edit_properties`].
  */
 { kind: "editProperties"; edits: PropertyEdit[] } | 
-/**  Add a property to the end of the holder at `path`. [`BinDocuments::add_property`]. */
+/**  Add a property to the end of the holder at `path`. [`BinDocument::add_property`]. */
 { kind: "addProperty"; entry: string; path: string; property: NewProperty } | 
-/**  Take the property at `path` out of its holder. [`BinDocuments::remove_property`]. */
+/**  Take the property at `path` out of its holder. [`BinDocument::remove_property`]. */
 { kind: "removeProperty"; entry: string; path: string } | 
 /**
  *  Put an item into the list, map or option at `path`, answering
- *  [`EditOutcome::Path`]. [`BinDocuments::insert_item`].
+ *  [`EditOutcome::Path`]. [`BinDocument::insert_item`].
  */
 { kind: "insertItem"; entry: string; path: string; item: NewItem } | 
-/**  Take the item at `path` out of its holder. [`BinDocuments::remove_item`]. */
+/**  Take the item at `path` out of its holder. [`BinDocument::remove_item`]. */
 { kind: "removeItem"; entry: string; path: string } | 
 /**
  *  Move the item at `path` to `to`, answering [`EditOutcome::Path`].
- *  [`BinDocuments::move_item`].
+ *  [`BinDocument::move_item`].
  */
 { kind: "moveItem"; entry: string; path: string; to: number } | 
 /**
  *  Set the key of the map entry at `path`, answering [`EditOutcome::Path`].
- *  [`BinDocuments::set_key`].
+ *  [`BinDocument::set_key`].
  */
 { kind: "setKey"; entry: string; path: string; key: string } | 
 /**
  *  Give the null pointer at `path` a class, or set it to null where `class_name` is
- *  absent. [`BinDocuments::set_pointer`].
+ *  absent. [`BinDocument::set_pointer`].
  */
 { kind: "setPointer"; entry: string; path: string; className: string | null } | 
 /**
  *  Declare the row at `path` as a game-copy reference, or with `merge` add it to the
- *  row's list or map. [`BinDocuments::declare_reference`].
+ *  row's list or map. [`BinDocument::declare_reference`].
  */
 { kind: "declareReference"; entry: string; path: string; reference: string; merge: boolean } | 
 /**  Create, remove or restore an object of a declared document. ADR-0049. */
@@ -834,7 +834,7 @@ export type BinEdit =
 { kind: "dependency"; edit: DependencyEdit } | 
 /**
  *  Apply a module action to the manifest of `layer`, answering [`EditOutcome::Declared`].
- *  [`BinDocuments::declared_module_action`].
+ *  [`BinDocument::declared_module_action`].
  */
 { kind: "moduleAction"; layer: string; action: ModuleAction };
 
@@ -849,7 +849,7 @@ export type BinFileKind =
 export type BinFindHit = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
-	/**  The row's property path on the wire. Empty for an object row. */
+	/**  The row's hash path. Empty for an object row. */
 	path: string,
 	/**  The same path for a person. Empty for an object row. */
 	label: string,
@@ -906,7 +906,7 @@ export type BinRow = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
 	/**
-	 *  The property path on the wire, every field a hash. Empty for the object itself,
+	 *  The hash path, every field a hash. Empty for the object itself,
 	 *  and `#` then the record's position under a patch target (ADR-0041).
 	 */
 	path: string,
@@ -1635,7 +1635,7 @@ export type DeclaredDiagnostic = {
 	 */
 	entry: string,
 	/**
-	 *  The row's path on the wire. Empty where the key reaches no row, which lists the
+	 *  The row's hash path. Empty where the key reaches no row, which lists the
 	 *  diagnostic under its object.
 	 */
 	path: string,
@@ -1725,7 +1725,7 @@ export type DeclaredLinks = {
 export type DeclaredMark = {
 	/**  The object's path hash, `0x` and eight hex digits. */
 	entry: string,
-	/**  The row's path on the wire. Empty where the declared path reaches no row. */
+	/**  The row's hash path. Empty where the declared path reaches no row. */
 	path: string,
 	/**  The property path the declaration names, as a module action takes it. */
 	property: string,
@@ -1986,19 +1986,19 @@ export type Dependency = {
 export type DependencyEdit = 
 /**
  *  Put the dependency `text` names at `index`, the end where it is absent, answering
- *  [`EditOutcome::Index`]. [`BinDocuments::insert_dependency`].
+ *  [`EditOutcome::Index`]. [`BinDocument::insert_dependency`].
  */
 { kind: "insert"; index: number | null; text: string } | 
-/**  Take the dependency at `index` out. [`BinDocuments::remove_dependency`]. */
+/**  Take the dependency at `index` out. [`BinDocument::remove_dependency`]. */
 { kind: "remove"; index: number } | 
-/**  Move the dependency at `from` to `to`. [`BinDocuments::move_dependency`]. */
+/**  Move the dependency at `from` to `to`. [`BinDocument::move_dependency`]. */
 { kind: "move"; from: number; to: number } | 
 /**
  *  Replace the dependency at `index` with the one `text` names.
- *  [`BinDocuments::set_dependency`].
+ *  [`BinDocument::set_dependency`].
  */
 { kind: "set"; index: number; text: string } | 
-/**  Take back the chosen layer's removal of `path`. [`BinDocuments::restore_dependency`]. */
+/**  Take back the chosen layer's removal of `path`. [`BinDocument::restore_dependency`]. */
 { kind: "restore"; path: string };
 
 /**
@@ -5015,12 +5015,12 @@ export type ObjectDirListing = {
 export type ObjectEdit = 
 /**
  *  Declare a new object named `name`, answering [`EditOutcome::Object`].
- *  [`BinDocuments::create_object`].
+ *  [`BinDocument::create_object`].
  */
 { kind: "create"; name: string; origin: NewObject } | 
-/**  Declare the removal of `entry`. [`BinDocuments::remove_object`]. */
+/**  Declare the removal of `entry`. [`BinDocument::remove_object`]. */
 { kind: "remove"; entry: string } | 
-/**  Take back the removal of `entry`. [`BinDocuments::restore_object`]. */
+/**  Take back the removal of `entry`. [`BinDocument::restore_object`]. */
 { kind: "restore"; entry: string };
 
 /**  What a full search of the objects found, given the slot the index is in. */
@@ -5729,7 +5729,7 @@ export type PropertyDocs = {
 	doc: Doc,
 };
 
-/**  One property's staged edits, as [`BinDocuments::edit_properties`] groups them. */
+/**  One property's staged edits, as [`BinDocument::edit_properties`] groups them. */
 export type PropertyEdit = {
 	/**  The object, as `0x` and eight hex digits. */
 	entry: string,
@@ -5795,7 +5795,7 @@ export type ReferenceHit = {
 
 /**  The row inside an object that holds a reference, in the two forms a row carries. */
 export type ReferenceProperty = {
-	/**  The property path on the wire, every field a hash (ADR-0027). */
+	/**  The hash path, every field a hash (ADR-0027). */
 	path: string,
 	/**  The same path for a person, every hash a table names spelled. */
 	label: string,

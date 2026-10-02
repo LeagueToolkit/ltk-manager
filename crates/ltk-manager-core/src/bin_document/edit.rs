@@ -407,7 +407,7 @@ impl BinDocument {
 
     /// Set the leaf at `path` under `entry` to `value`, answering the value it held.
     ///
-    /// `path` is the wire form of ADR-0027. A present optional that draws its value on
+    /// `path` is the hash path of ADR-0027. A present optional that draws its value on
     /// its own row sets that value.
     ///
     /// The edit joins the undo stack and empties the redo stack.
@@ -726,7 +726,7 @@ pub(super) fn set(leaf: ValueMut<'_>, value: LeafValue) -> Result<LeafValue, Edi
             Ok(vector(mem::replace(&mut leaf.value, next).to_array()))
         }
         (ValueMut::Matrix44(leaf), V::Matrix { values }) => {
-            /* Row-major on the wire, as the row projection writes a matrix. */
+            /* Row-major, as the row projection writes a matrix. */
             let next = Mat4::from_cols_array(&components(&values)?).transpose();
             let held = mem::replace(&mut leaf.value, next);
             Ok(V::Matrix {

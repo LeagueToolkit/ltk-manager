@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::edit::{Edit, bin_hash, edit_under};
-use super::{BinDocument, BinDocumentError, EditRejection, Node, Step, descend, dot, hex, is_null};
+use super::{
+    BinDocument, BinDocumentError, EditRejection, HashPath, Node, Step, descend, hex, is_null,
+};
 use crate::meta_schema::{KindShape, SchemaAt, Shape};
 
 /// A property Add property writes: a field the schema declares, or one the reader shapes.
@@ -287,9 +289,9 @@ impl BinDocument {
     }
 }
 
-/// The wire path of `field` under the holder at `holder`.
+/// The hash path of `field` under the holder at `holder`.
 pub(super) fn field_path(holder: &str, field: BinHash) -> String {
-    format!("{holder}{}{:08x}", dot(holder), field.0)
+    HashPath::under(holder).field(field).into()
 }
 
 /// The holder's path and the field of a property's path, or `None` where the last step

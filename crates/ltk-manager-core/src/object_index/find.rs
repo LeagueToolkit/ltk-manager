@@ -142,7 +142,7 @@ impl ObjectIndex {
         })
     }
 
-    /// The wire shape of one object the find matched at `ranges` of `path`.
+    /// The serialized shape of one object the find matched at `ranges` of `path`.
     fn find_hit(&self, object: BinHash, path: &str, ranges: Vec<Range>) -> ObjectFindHit {
         ObjectFindHit {
             object_hash: hex(object),

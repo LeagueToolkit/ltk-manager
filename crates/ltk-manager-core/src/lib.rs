@@ -6,6 +6,7 @@
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
 pub mod bin_document;
+mod bin_source;
 pub mod config;
 pub mod diagnostics;
 pub mod error;

@@ -1,6 +1,7 @@
 use fs_err as fs;
 use std::path::{Path, PathBuf};
 
+use ltk_hash::WadHash;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
@@ -53,6 +54,16 @@ pub enum AssetRef {
 }
 
 impl AssetRef {
+    /// The path hash of a game chunk, and `None` for any other asset and a hash that is
+    /// not hex.
+    #[must_use]
+    pub fn chunk_hash(&self) -> Option<WadHash> {
+        match self {
+            Self::GameChunk { path_hash, .. } => path_hash.parse().ok(),
+            _ => None,
+        }
+    }
+
     /// Read the asset's bytes from wherever it lives.
     ///
     /// `wads` is only touched by a chunk reference, whose archive it keeps

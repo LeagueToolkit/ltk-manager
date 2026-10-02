@@ -71,7 +71,7 @@ impl ReferenceScan {
         self.overtaken
     }
 
-    /// The groups on the wire, each resolved through `index`.
+    /// The serialized groups, each resolved through `index`.
     fn finish(self, index: &ObjectIndex) -> ReferenceResult {
         ReferenceResult {
             groups: self

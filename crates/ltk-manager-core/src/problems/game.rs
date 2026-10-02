@@ -11,11 +11,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
 
-use fs_err as fs;
-use ltk_wad::{Wad, WadHash};
+use ltk_wad::WadHash;
 
 use crate::config::Config;
-use crate::game_wads::{GameArchives, WadCache};
+use crate::game_wads::{GameArchives, WadCache, mount_wad};
 
 /// The chunks of the installed game.
 ///
@@ -155,9 +154,7 @@ impl InstalledContent {
     /// Each chunk's hash and decompressed size in one archive's table of
     /// contents.
     fn chunks_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<(WadHash, u64)>> {
-        let path = self.archives.archive_path(wad_name)?;
-        let file = std::io::BufReader::new(fs::File::open(&path)?);
-        let wad = Wad::mount(file)?;
+        let wad = mount_wad(&self.archives.archive_path(wad_name)?)?;
         Ok(wad
             .chunks()
             .as_slice()

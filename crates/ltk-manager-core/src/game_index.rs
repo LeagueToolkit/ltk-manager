@@ -6,13 +6,13 @@ use std::sync::Arc;
 
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
-use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
 use crate::generation::{Generation, line};
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::utils::lazy_slot::LazySlot;
 use crate::utils::natural_order::compare_names;
 
 /// The directory id of the group holding chunks no hash table names.
@@ -1107,8 +1107,8 @@ fn split_ranges(ranges: &[Range], boundary: u32) -> (Vec<Range>, Vec<Range>) {
 /// Lazily-built, app-managed [`GameIndex`], one for each [`WadSource`].
 #[derive(Debug, Default)]
 pub struct GameIndexState {
-    game: Mutex<Option<Arc<GameIndex>>>,
-    lcu: Mutex<Option<Arc<GameIndex>>>,
+    game: LazySlot<GameIndex>,
+    lcu: LazySlot<GameIndex>,
 }
 
 impl GameIndexState {
@@ -1126,19 +1126,13 @@ impl GameIndexState {
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        let mut slot = self.slot(archives.source()).lock();
-        if let Some(index) = slot.as_ref() {
-            return Ok(Arc::clone(index));
-        }
-
-        let index = Arc::new(GameIndex::build(archives, resolver)?);
-        *slot = Some(Arc::clone(&index));
-        Ok(index)
+        self.slot(archives.source())
+            .get_or_try_init(|| GameIndex::build(archives, resolver))
     }
 
     /// Drop the built index of one source, so its next read walks the install again.
     pub fn clear(&self, source: WadSource) {
-        *self.slot(source).lock() = None;
+        self.slot(source).clear();
     }
 
     /// Drop every built index, for a change such as new hash tables that both read.
@@ -1147,7 +1141,7 @@ impl GameIndexState {
         self.clear(WadSource::Lcu);
     }
 
-    fn slot(&self, source: WadSource) -> &Mutex<Option<Arc<GameIndex>>> {
+    fn slot(&self, source: WadSource) -> &LazySlot<GameIndex> {
         match source {
             WadSource::Game => &self.game,
             WadSource::Lcu => &self.lcu,

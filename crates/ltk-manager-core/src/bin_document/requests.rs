@@ -1,7 +1,7 @@
-//! The edits and the choice reads a frontend sends an open document, as one wire type each.
+//! The edits and the choice reads a frontend sends an open document, as one serialized type each.
 //!
-//! [`BinDocuments::apply`] routes a [`BinEdit`] to the store method of its variant, so every
-//! edit passes the store's one gate. ADR-0051.
+//! [`BinDocuments::apply`] routes a [`BinEdit`] to the document method of its variant behind
+//! the store's one gate. ADR-0051.
 
 use ltk_hash::BinHash;
 use serde::{Deserialize, Serialize};
@@ -15,10 +15,10 @@ use crate::meta_schema::SchemaAt;
 use crate::object_index::parse_hash;
 use crate::workshop::ModuleAction;
 
-/// One edit of an open document, one variant per store method.
+/// One edit of an open document, one variant per document method.
 ///
-/// `entry` is an object's hash as `0x` and eight hex digits, and `path` the wire form of a
-/// property path (ADR-0027), empty for the object itself.
+/// `entry` is an object's hash as `0x` and eight hex digits, and `path` a hash path (ADR-0027),
+/// empty for the object itself.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(
     tag = "kind",
@@ -27,13 +27,13 @@ use crate::workshop::ModuleAction;
 )]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum BinEdit {
-    /// Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocuments::patch`].
+    /// Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocument::set_leaf`].
     Patch {
         entry: String,
         path: String,
         value: LeafValue,
     },
-    /// Edit one property's subtree as one undoable change. [`BinDocuments::edit_property`].
+    /// Edit one property's subtree as one undoable change. [`BinDocument::edit_property`].
     EditProperty {
         entry: String,
         holder: String,
@@ -41,48 +41,48 @@ pub enum BinEdit {
         edits: Vec<ValueEdit>,
     },
     /// Edit several properties, of one object or several, as one undoable change.
-    /// [`BinDocuments::edit_properties`].
+    /// [`BinDocument::edit_properties`].
     EditProperties { edits: Vec<PropertyEdit> },
-    /// Add a property to the end of the holder at `path`. [`BinDocuments::add_property`].
+    /// Add a property to the end of the holder at `path`. [`BinDocument::add_property`].
     AddProperty {
         entry: String,
         path: String,
         property: NewProperty,
     },
-    /// Take the property at `path` out of its holder. [`BinDocuments::remove_property`].
+    /// Take the property at `path` out of its holder. [`BinDocument::remove_property`].
     RemoveProperty { entry: String, path: String },
     /// Put an item into the list, map or option at `path`, answering
-    /// [`EditOutcome::Path`]. [`BinDocuments::insert_item`].
+    /// [`EditOutcome::Path`]. [`BinDocument::insert_item`].
     InsertItem {
         entry: String,
         path: String,
         item: NewItem,
     },
-    /// Take the item at `path` out of its holder. [`BinDocuments::remove_item`].
+    /// Take the item at `path` out of its holder. [`BinDocument::remove_item`].
     RemoveItem { entry: String, path: String },
     /// Move the item at `path` to `to`, answering [`EditOutcome::Path`].
-    /// [`BinDocuments::move_item`].
+    /// [`BinDocument::move_item`].
     MoveItem {
         entry: String,
         path: String,
         to: usize,
     },
     /// Set the key of the map entry at `path`, answering [`EditOutcome::Path`].
-    /// [`BinDocuments::set_key`].
+    /// [`BinDocument::set_key`].
     SetKey {
         entry: String,
         path: String,
         key: String,
     },
     /// Give the null pointer at `path` a class, or set it to null where `class_name` is
-    /// absent. [`BinDocuments::set_pointer`].
+    /// absent. [`BinDocument::set_pointer`].
     SetPointer {
         entry: String,
         path: String,
         class_name: Option<String>,
     },
     /// Declare the row at `path` as a game-copy reference, or with `merge` add it to the
-    /// row's list or map. [`BinDocuments::declare_reference`].
+    /// row's list or map. [`BinDocument::declare_reference`].
     DeclareReference {
         entry: String,
         path: String,
@@ -94,7 +94,7 @@ pub enum BinEdit {
     /// Edit the header's dependency list. ADR-0050.
     Dependency { edit: DependencyEdit },
     /// Apply a module action to the manifest of `layer`, answering [`EditOutcome::Declared`].
-    /// [`BinDocuments::declared_module_action`].
+    /// [`BinDocument::declared_module_action`].
     ModuleAction { layer: String, action: ModuleAction },
 }
 
@@ -108,11 +108,11 @@ pub enum BinEdit {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ObjectEdit {
     /// Declare a new object named `name`, answering [`EditOutcome::Object`].
-    /// [`BinDocuments::create_object`].
+    /// [`BinDocument::create_object`].
     Create { name: String, origin: NewObject },
-    /// Declare the removal of `entry`. [`BinDocuments::remove_object`].
+    /// Declare the removal of `entry`. [`BinDocument::remove_object`].
     Remove { entry: String },
-    /// Take back the removal of `entry`. [`BinDocuments::restore_object`].
+    /// Take back the removal of `entry`. [`BinDocument::restore_object`].
     Restore { entry: String },
 }
 
@@ -126,16 +126,16 @@ pub enum ObjectEdit {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum DependencyEdit {
     /// Put the dependency `text` names at `index`, the end where it is absent, answering
-    /// [`EditOutcome::Index`]. [`BinDocuments::insert_dependency`].
+    /// [`EditOutcome::Index`]. [`BinDocument::insert_dependency`].
     Insert { index: Option<usize>, text: String },
-    /// Take the dependency at `index` out. [`BinDocuments::remove_dependency`].
+    /// Take the dependency at `index` out. [`BinDocument::remove_dependency`].
     Remove { index: usize },
-    /// Move the dependency at `from` to `to`. [`BinDocuments::move_dependency`].
+    /// Move the dependency at `from` to `to`. [`BinDocument::move_dependency`].
     Move { from: usize, to: usize },
     /// Replace the dependency at `index` with the one `text` names.
-    /// [`BinDocuments::set_dependency`].
+    /// [`BinDocument::set_dependency`].
     Set { index: usize, text: String },
-    /// Take back the chosen layer's removal of `path`. [`BinDocuments::restore_dependency`].
+    /// Take back the chosen layer's removal of `path`. [`BinDocument::restore_dependency`].
     Restore { path: String },
 }
 
@@ -278,12 +278,16 @@ impl TypedTexts {
 }
 
 impl BinDocuments {
-    /// Apply `edit` to the document under `id` through the store method of its variant.
+    /// Apply `edit` to the document under `id` through the document method of its variant.
     ///
     /// # Errors
     ///
     /// Fails with [`AppError::ValidationFailed`] for an `entry` that is not an object hash,
-    /// and with what the variant's store method raises.
+    /// with [`BinDocumentError::NotOpen`] and [`BinDocumentError::ReadOnly`] from the
+    /// store, and with what the variant's document method raises.
+    ///
+    /// [`BinDocumentError::NotOpen`]: super::BinDocumentError::NotOpen
+    /// [`BinDocumentError::ReadOnly`]: super::BinDocumentError::ReadOnly
     pub fn apply(
         &self,
         id: BinDocumentId,
@@ -292,20 +296,25 @@ impl BinDocuments {
     ) -> AppResult<EditOutcome> {
         let typed = TypedTexts::of(&edit);
         let outcome = match edit {
-            BinEdit::Patch { entry, path, value } => EditOutcome::Previous {
-                value: self.patch(id, parse_entry(&entry)?, &path, value)?,
-            },
+            BinEdit::Patch { entry, path, value } => {
+                let entry = parse_entry(&entry)?;
+                let value = self.edit(id, |open| open.set_leaf(entry, &path, value))?;
+                EditOutcome::Previous { value }
+            }
             BinEdit::EditProperty {
                 entry,
                 holder,
                 field,
                 edits,
             } => {
-                self.edit_property(id, parse_entry(&entry)?, &holder, &field, edits, schema)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| {
+                    open.edit_property(entry, &holder, &field, edits, schema)
+                })?;
                 EditOutcome::Done
             }
             BinEdit::EditProperties { edits } => {
-                self.edit_properties(id, edits, schema)?;
+                self.edit(id, |open| open.edit_properties(edits, schema))?;
                 EditOutcome::Done
             }
             BinEdit::AddProperty {
@@ -313,32 +322,44 @@ impl BinDocuments {
                 path,
                 property,
             } => {
-                self.add_property(id, parse_entry(&entry)?, &path, property, schema)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| open.add_property(entry, &path, property, schema))?;
                 EditOutcome::Done
             }
             BinEdit::RemoveProperty { entry, path } => {
-                self.remove_property(id, parse_entry(&entry)?, &path)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| open.remove_property(entry, &path))?;
                 EditOutcome::Done
             }
-            BinEdit::InsertItem { entry, path, item } => EditOutcome::Path {
-                path: self.insert_item(id, parse_entry(&entry)?, &path, item, schema)?,
-            },
+            BinEdit::InsertItem { entry, path, item } => {
+                let entry = parse_entry(&entry)?;
+                let path = self.edit(id, |open| open.insert_item(entry, &path, item, schema))?;
+                EditOutcome::Path { path }
+            }
             BinEdit::RemoveItem { entry, path } => {
-                self.remove_item(id, parse_entry(&entry)?, &path)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| open.remove_item(entry, &path))?;
                 EditOutcome::Done
             }
-            BinEdit::MoveItem { entry, path, to } => EditOutcome::Path {
-                path: self.move_item(id, parse_entry(&entry)?, &path, to)?,
-            },
-            BinEdit::SetKey { entry, path, key } => EditOutcome::Path {
-                path: self.set_key(id, parse_entry(&entry)?, &path, &key)?,
-            },
+            BinEdit::MoveItem { entry, path, to } => {
+                let entry = parse_entry(&entry)?;
+                let path = self.edit(id, |open| open.move_item(entry, &path, to))?;
+                EditOutcome::Path { path }
+            }
+            BinEdit::SetKey { entry, path, key } => {
+                let entry = parse_entry(&entry)?;
+                let path = self.edit(id, |open| open.set_key(entry, &path, &key))?;
+                EditOutcome::Path { path }
+            }
             BinEdit::SetPointer {
                 entry,
                 path,
                 class_name,
             } => {
-                self.set_pointer(id, parse_entry(&entry)?, &path, class_name.as_deref())?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| {
+                    open.set_pointer(entry, &path, class_name.as_deref())
+                })?;
                 EditOutcome::Done
             }
             BinEdit::DeclareReference {
@@ -347,14 +368,18 @@ impl BinDocuments {
                 reference,
                 merge,
             } => {
-                self.declare_reference(id, parse_entry(&entry)?, &path, &reference, merge)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| {
+                    open.declare_reference(entry, &path, &reference, merge)
+                })?;
                 EditOutcome::Done
             }
             BinEdit::Object { edit } => self.apply_object(id, edit)?,
             BinEdit::Dependency { edit } => self.apply_dependency(id, edit)?,
-            BinEdit::ModuleAction { layer, action } => EditOutcome::Declared {
-                state: self.declared_module_action(id, &layer, &action)?,
-            },
+            BinEdit::ModuleAction { layer, action } => {
+                let state = self.edit(id, |open| open.declared_module_action(&layer, &action))?;
+                EditOutcome::Declared { state }
+            }
         };
 
         if !typed.is_empty() {
@@ -373,15 +398,18 @@ impl BinDocuments {
     /// Apply an object edit to the document under `id`.
     fn apply_object(&self, id: BinDocumentId, edit: ObjectEdit) -> AppResult<EditOutcome> {
         match edit {
-            ObjectEdit::Create { name, origin } => Ok(EditOutcome::Object {
-                entry: hex(self.create_object(id, &name, &origin)?),
-            }),
+            ObjectEdit::Create { name, origin } => {
+                let entry = self.edit(id, |open| open.create_object(&name, &origin))?;
+                Ok(EditOutcome::Object { entry: hex(entry) })
+            }
             ObjectEdit::Remove { entry } => {
-                self.remove_object(id, parse_entry(&entry)?)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| open.remove_object(entry))?;
                 Ok(EditOutcome::Done)
             }
             ObjectEdit::Restore { entry } => {
-                self.restore_object(id, parse_entry(&entry)?)?;
+                let entry = parse_entry(&entry)?;
+                self.edit(id, |open| open.restore_object(entry))?;
                 Ok(EditOutcome::Done)
             }
         }
@@ -389,27 +417,17 @@ impl BinDocuments {
 
     /// Apply a dependency edit to the document under `id`.
     fn apply_dependency(&self, id: BinDocumentId, edit: DependencyEdit) -> AppResult<EditOutcome> {
-        match edit {
-            DependencyEdit::Insert { index, text } => Ok(EditOutcome::Index {
-                index: self.insert_dependency(id, index, &text)?,
-            }),
-            DependencyEdit::Remove { index } => {
-                self.remove_dependency(id, index)?;
-                Ok(EditOutcome::Done)
+        let index = self.edit(id, |open| match edit {
+            DependencyEdit::Insert { index, text } => {
+                open.insert_dependency(index, &text).map(Some)
             }
-            DependencyEdit::Move { from, to } => {
-                self.move_dependency(id, from, to)?;
-                Ok(EditOutcome::Done)
-            }
-            DependencyEdit::Set { index, text } => {
-                self.set_dependency(id, index, &text)?;
-                Ok(EditOutcome::Done)
-            }
-            DependencyEdit::Restore { path } => {
-                self.restore_dependency(id, &path)?;
-                Ok(EditOutcome::Done)
-            }
-        }
+            DependencyEdit::Remove { index } => open.remove_dependency(index).map(|()| None),
+            DependencyEdit::Move { from, to } => open.move_dependency(from, to).map(|()| None),
+            DependencyEdit::Set { index, text } => open.set_dependency(index, &text).map(|()| None),
+            DependencyEdit::Restore { path } => open.restore_dependency(&path).map(|()| None),
+        })?;
+
+        Ok(index.map_or(EditOutcome::Done, |index| EditOutcome::Index { index }))
     }
 
     /// Answer `query` over the document under `id`, out of the meta schema at `schema`.

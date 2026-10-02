@@ -477,7 +477,7 @@ fn walk_bin<'p>(
     facts: &Demands,
 ) -> Walked {
     let started = Instant::now();
-    let mut source = BinSource::open(&handle)?;
+    let mut source = BinSource::open_handle(&handle)?;
 
     let mut fan = Fan::new(
         subs.iter()

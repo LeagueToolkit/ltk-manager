@@ -38,12 +38,12 @@ fn repeating() -> BinDocument {
 }
 
 fn run() -> String {
-    format!("{}{{{:08x}}}", wire("clips"), h("Run"))
+    format!("{}{{{:08x}}}", hashed("clips"), h("Run"))
 }
 
 fn rows(document: &BinDocument) -> Vec<BinRow> {
     document
-        .children(h(LOOKUP), &wire("clips"), 0, usize::MAX, &named(), None)
+        .children(h(LOOKUP), &hashed("clips"), 0, usize::MAX, &named(), None)
         .unwrap()
         .rows
 }
@@ -70,7 +70,7 @@ fn a_repeated_key_gives_each_entry_a_path_of_its_own() {
         paths,
         [
             run(),
-            format!("{}{{{:08x}}}", wire("clips"), h("Idle")),
+            format!("{}{{{:08x}}}", hashed("clips"), h("Idle")),
             format!("{}#1", run()),
         ]
     );
@@ -126,7 +126,7 @@ fn a_repeat_rekeyed_to_a_new_key_leaves_the_repeat_behind_and_an_undo_restores_i
     let repeat = format!("{}#1", run());
 
     let landed = document.set_key(h(LOOKUP), &repeat, "Walk").unwrap();
-    assert_eq!(landed, format!("{}{{{:08x}}}", wire("clips"), h("Walk")));
+    assert_eq!(landed, format!("{}{{{:08x}}}", hashed("clips"), h("Walk")));
     assert_eq!(string_at(&document, &landed), "second");
 
     assert!(document.undo().unwrap());
@@ -136,7 +136,7 @@ fn a_repeat_rekeyed_to_a_new_key_leaves_the_repeat_behind_and_an_undo_restores_i
 #[test]
 fn a_key_another_entry_holds_is_still_refused_to_a_reader() {
     let mut document = repeating();
-    let idle = format!("{}{{{:08x}}}", wire("clips"), h("Idle"));
+    let idle = format!("{}{{{:08x}}}", hashed("clips"), h("Idle"));
 
     let error = document.set_key(h(LOOKUP), &idle, "Run").unwrap_err();
     assert!(matches!(

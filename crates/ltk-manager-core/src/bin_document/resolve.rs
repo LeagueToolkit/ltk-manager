@@ -10,12 +10,11 @@ use std::hash::Hash;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, WadHash};
-use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::Serialize;
 
-use super::{BinDocument, BinDocumentError, RowNames};
+use super::{BinDocument, BinDocumentError, RowNames, as_list, as_struct};
 use crate::preview::AssetRef;
 
 /// A path a bin names, and where its bytes live.
@@ -100,13 +99,6 @@ pub fn chunk_asset(
     }
 }
 
-/// The name one lookup visits, where it visits one.
-pub(crate) fn first_name(ask: impl FnOnce(&mut dyn FnMut(usize, &str))) -> Option<String> {
-    let mut name = None;
-    ask(&mut |_, text| name = Some(text.to_owned()));
-    name
-}
-
 /// What a field read names hashes by and places paths through.
 pub struct Locator<'a> {
     pub names: &'a dyn RowNames,
@@ -125,7 +117,7 @@ impl Locator<'_> {
 
     /// The chunk `hash` names, placed where a table names it.
     pub fn chunk(&self, hash: WadHash) -> NamedAsset {
-        let name = first_name(|visit| self.names.for_each_chunk(&[hash], visit));
+        let name = self.names.chunk_name(hash);
         let (path, asset) = chunk_asset(hash, name, self.assets);
         NamedAsset { path, asset }
     }
@@ -137,21 +129,6 @@ impl Locator<'_> {
             path,
         }
     }
-
-    /// The string behind a `Hash` value, where a table names it.
-    pub fn value_name(&self, hash: BinHash) -> Option<String> {
-        first_name(|visit| self.names.for_each_value(&[hash], visit))
-    }
-
-    /// The path of the object a link names, where a table names it.
-    pub fn entry_name(&self, hash: BinHash) -> Option<String> {
-        first_name(|visit| self.names.for_each_entry(&[hash], visit))
-    }
-
-    /// The name of the class `hash` is, where a table names it.
-    pub fn class_name(&self, hash: BinHash) -> Option<String> {
-        first_name(|visit| self.names.for_each_class(&[hash], visit))
-    }
 }
 
 /// The properties of one struct, by field hash and in the file's order.
@@ -161,13 +138,8 @@ pub type Fields = IndexMap<BinHash, PropertyValueEnum>;
 /// for a null one.
 pub fn struct_of(value: Option<&PropertyValueEnum>) -> Option<(BinHash, &Fields)> {
     match value? {
-        PropertyValueEnum::Struct(inner) | PropertyValueEnum::Embedded(values::Embedded(inner))
-            if inner.class_hash.0 != 0 =>
-        {
-            Some((inner.class_hash, &inner.properties))
-        }
         PropertyValueEnum::Optional(optional) => struct_of(optional.value()),
-        _ => None,
+        value => as_struct(value).map(|inner| (inner.class_hash, &inner.properties)),
     }
 }
 
@@ -178,11 +150,7 @@ pub fn fields_of(value: Option<&PropertyValueEnum>) -> Option<&Fields> {
 
 /// What a container holds, and nothing for any other value.
 pub fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
-    match value {
-        Some(PropertyValueEnum::Container(items)) => items.items(),
-        Some(PropertyValueEnum::UnorderedContainer(items)) => items.items(),
-        _ => &[],
-    }
+    value.and_then(as_list).unwrap_or_default()
 }
 
 /// The value an optional holds, and any other value as it is.
@@ -333,51 +301,39 @@ impl<'a> Namer<'a> {
     /// The path of the object `hash` names.
     pub fn entry(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, entries, .. } = self;
-        kept(entries, hash, |hashes, visit| {
-            names.for_each_entry(hashes, visit);
-        })
+        kept(entries, hash, || names.entry_name(hash))
     }
 
     /// The name of the class `hash` is.
     pub fn class(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, classes, .. } = self;
-        kept(classes, hash, |hashes, visit| {
-            names.for_each_class(hashes, visit);
-        })
+        kept(classes, hash, || names.class_name(hash))
     }
 
     /// The name of the property `hash` is.
     pub fn field(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, fields, .. } = self;
-        kept(fields, hash, |hashes, visit| {
-            names.for_each_field(hashes, visit);
-        })
+        kept(fields, hash, || names.field_name(hash))
     }
 
     /// The string behind the `Hash` value `hash`.
     pub fn value(&mut self, hash: BinHash) -> Option<String> {
         let Self { names, values, .. } = self;
-        kept(values, hash, |hashes, visit| {
-            names.for_each_value(hashes, visit);
-        })
+        kept(values, hash, || names.value_name(hash))
     }
 
     /// The path of the chunk `hash` names.
     pub fn chunk(&mut self, hash: WadHash) -> Option<String> {
         let Self { names, chunks, .. } = self;
-        kept(chunks, hash, |hashes, visit| {
-            names.for_each_chunk(hashes, visit);
-        })
+        kept(chunks, hash, || names.chunk_name(hash))
     }
 }
 
 /// What `ask` names `hash`, out of `seen` where it was asked before.
-fn kept<H: Copy + Eq + Hash>(
+fn kept<H: Eq + Hash>(
     seen: &mut HashMap<H, Option<String>>,
     hash: H,
-    ask: impl FnOnce(&[H], &mut dyn FnMut(usize, &str)),
+    ask: impl FnOnce() -> Option<String>,
 ) -> Option<String> {
-    seen.entry(hash)
-        .or_insert_with(|| first_name(|visit| ask(&[hash], visit)))
-        .clone()
+    seen.entry(hash).or_insert_with(ask).clone()
 }

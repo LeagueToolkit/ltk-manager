@@ -313,7 +313,7 @@ fn hex_chunk(path: &str) -> Option<WadHash> {
     if !is_hex_chunk_path(path) {
         return None;
     }
-    u64::from_str_radix(path.file_stem()?, 16).ok().map(WadHash)
+    path.file_stem()?.parse().ok()
 }
 
 /// The last component of `path`, where it is one the platform spells in UTF-8.

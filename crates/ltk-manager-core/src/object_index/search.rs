@@ -349,7 +349,7 @@ impl ObjectIndex {
         }
     }
 
-    /// The wire shape of the row at `at`.
+    /// The serialized shape of the row at `at`.
     fn hit(&self, at: usize, band: u8, score: f64, ranges: Vec<Range>) -> ObjectSearchHit {
         let row = &self.declared.rows[at];
         let (file, wad) = self.declared.file(row.file).map_or_else(

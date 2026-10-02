@@ -415,7 +415,7 @@ impl<'a> Reader<'a> {
 
         ResolvedMaterial {
             hash: hex(self.hash),
-            name: self.locator.entry_name(self.hash),
+            name: self.locator.names.entry_name(self.hash),
             animated: struct_of(self.material.get(&DYNAMIC_MATERIAL)).is_some(),
             kind: MaterialKind::of(self.material.get(&MATERIAL_TYPE)),
             passes,
