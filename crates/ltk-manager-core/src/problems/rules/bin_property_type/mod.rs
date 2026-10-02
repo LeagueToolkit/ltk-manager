@@ -78,8 +78,8 @@ use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
-    Pass, Preserved, PreservedNames, Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, Sink,
-    TypeMismatch, Walk,
+    Pass, Preserved, PreservedNames, Problem, ProblemSeverity, ProjectFiles, PropertyRead,
+    PropertyWalk, Rule, RuleId, RuleMeta, Sink, TypeMismatch, Walk,
 };
 
 use table::{Conversion, Migration, MigrationTable, TypeSpec};
@@ -98,30 +98,21 @@ impl BinPropertyType {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Meta property type mismatch",
+    description: "A meta property at a type the game no longer reads, so its value is dropped",
+    unfixable: "Couldn't rehash because the original path is unknown",
+    /* The one rule whose findings answer for themselves. What a mismatch costs is a
+    question about the install, so two machines reading one mod are entitled to two answers
+    and neither is this build's to give. */
+    severity: None,
+};
+
 impl Rule for BinPropertyType {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Meta property type mismatch"
-    }
-
-    fn description(&self) -> &'static str {
-        "A meta property at a type the game no longer reads, so its value is dropped"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't rehash because the original path is unknown"
-    }
-
-    /// The one rule whose findings answer for themselves - see [`severity`].
-    ///
-    /// What a mismatch costs is a question about the install, so two machines
-    /// reading one mod are entitled to two answers and neither is this build's
-    /// to give.
-    fn severity(&self) -> Option<ProblemSeverity> {
-        None
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     /// The oldest table this project's game has not reached, in a modder's words.
@@ -377,39 +368,39 @@ struct TypeCheck<'p> {
 
 impl BinVisitor for TypeCheck<'_> {
     fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r> {
-        Box::new(Reporting {
-            check: Check::new(Lens {
-                tables: self.tables,
-                schema: &self.judge.schema,
-                judged: self.judge.judged(),
-                names: self.names,
-            }),
-            build: self.build,
+        Box::new(PropertyWalk::new(
+            Reporting {
+                check: Check::new(Lens {
+                    tables: self.tables,
+                    schema: &self.judge.schema,
+                    judged: self.judge.judged(),
+                    names: self.names,
+                }),
+                build: self.build,
+            },
             sink,
-        })
+        ))
     }
 }
 
 /// One bin's [`Check`], wording each hit as a finding as it lands.
-struct Reporting<'l, 'f> {
+struct Reporting<'l> {
     check: Check<'l>,
     build: Option<GameBuild>,
-    sink: Sink<'f>,
 }
 
-impl<'a, V: Declared<'a>> Visitor<'a, V> for Reporting<'_, '_> {
-    type Error = ltk_meta::Error;
-
-    fn enter_property(
+impl PropertyRead for Reporting<'_> {
+    fn property<'a, V: Declared<'a>>(
         &mut self,
         field: BinHash,
         value: V,
         node: &Node<'_, 'a, V>,
+        sink: &mut Sink<'_>,
     ) -> Result<Visit, ltk_meta::Error> {
         let visit = self.check.enter_property(field, value, node)?;
         let names = self.check.lens.names;
         for (entry, hit) in self.check.found.drain(..) {
-            self.sink.problem(
+            sink.problem(
                 severity(self.build, hit.table_build),
                 Some(NodeAddress {
                     entry,
@@ -430,12 +421,6 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Reporting<'_, '_> {
             );
         }
         Ok(visit)
-    }
-}
-
-impl<'f> Walk<'f> for Reporting<'_, 'f> {
-    fn end(self: Box<Self>) -> Sink<'f> {
-        self.sink
     }
 }
 

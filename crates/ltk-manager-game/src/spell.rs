@@ -4,7 +4,14 @@ use ltk_hash::{BinHash, Hash as _};
 use ltk_meta::{PropertyValueEnum, walk::Leaf};
 use serde::Serialize;
 
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, Fields, hex, leaf, object_at};
+use ltk_manager_core::bin_document::{
+    BinDocument, BinDocumentError, Fields, fields_of, hex, leaf, object_at,
+};
+use ltk_manager_core::hashing::named;
+
+mod catalog;
+
+pub use catalog::{CharacterSpell, SpellCatalog, character_spells};
 
 /// A field the isolated preview cannot evaluate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -101,6 +108,15 @@ pub struct SpellPreview {
     pub effect_name: Option<String>,
     /// Fields requiring correction or an explicit preview approximation.
     pub issues: Vec<SpellIssue>,
+}
+
+/// The `SpellObject` field embedding the spell's `SpellDataResource`.
+const SPELL_DATA: BinHash = named("mSpell");
+
+/// The `SpellDataResource` the fields of a `SpellObject` embed, where they embed one.
+#[must_use]
+pub fn spell_data(object: &Fields) -> Option<&Fields> {
+    fields_of(object.get(&SPELL_DATA))
 }
 
 /// The selected spell's missile inputs, without schema defaults or script execution.

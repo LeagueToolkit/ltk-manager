@@ -231,12 +231,9 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
         .into_iter()
         .find(|rule| rule.id().0 == "bin/property-type")
         .unwrap();
-    assert_eq!(brief.title, rule.title());
-    assert_eq!(brief.description, rule.description());
-    assert_eq!(
-        brief.unfixable.as_deref(),
-        Some(rule.unfixable_description())
-    );
+    assert_eq!(brief.title, rule.meta().title);
+    assert_eq!(brief.description, rule.meta().description);
+    assert_eq!(brief.unfixable.as_deref(), Some(rule.meta().unfixable));
     assert_eq!((brief.count, brief.fixable), (3, 1));
     assert_eq!(
         brief.severity,

@@ -13,6 +13,8 @@ use ltk_manager_core::bin_document::{
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 
+use ltk_manager_game::spell::spell_data;
+
 use super::fields::named;
 use super::resolver::{flag, number, object};
 
@@ -57,7 +59,6 @@ const SPELL_STATS: [&str; 6] = [
     "castrangedisplayoverride",
 ];
 
-const SPELL: BinHash = named("mSpell");
 const CLIENT_DATA: BinHash = named("mClientData");
 const TOOLTIP_DATA: BinHash = named("mTooltipData");
 const FORMAT: BinHash = named("mFormat");
@@ -197,7 +198,7 @@ pub(super) fn spell_tooltip(
     objects: &mut dyn SpellObjects,
     context: &SpellContext<'_>,
 ) -> Option<SpellTooltip> {
-    let data = fields_of(spell.get(&SPELL))?;
+    let data = spell_data(spell)?;
     let tooltip = fields_of(fields_of(data.get(&CLIENT_DATA))?.get(&TOOLTIP_DATA))?;
     let format = objects.object(object(tooltip.get(&FORMAT))?)?;
     let template = Template {
@@ -523,7 +524,7 @@ impl Values<'_> {
             .find(|(name, _)| name.eq_ignore_ascii_case(script))
             .map(|(_, key)| *key);
         let mut other = Values {
-            data: fields_of(spell.get(&SPELL))?,
+            data: spell_data(&spell)?,
             hotkey,
             objects: &mut *self.objects,
             context: self.context,
@@ -841,7 +842,7 @@ impl Values<'_> {
             SOURCE_DATA_VALUE => {
                 let source = self.objects.object(object(fields.get(&SOURCE_OBJECT))?)?;
                 named_data_value(
-                    fields_of(source.get(&SPELL))?,
+                    spell_data(&source)?,
                     object(fields.get(&DATA_VALUE_OF))?,
                     rank,
                 )

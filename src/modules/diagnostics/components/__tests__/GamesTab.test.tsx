@@ -23,21 +23,21 @@ vi.mock("@tanstack/react-router", () => ({
 function mockBackend(incidents: ReturnType<typeof createMockIncident>[]) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case commandNames.app.listIncidents:
+      case commandNames.diagnostics.listIncidents:
         return Promise.resolve({ ok: true, value: incidents });
-      case commandNames.app.dismissAllIncidents:
+      case commandNames.diagnostics.dismissAllIncidents:
         for (const incident of incidents) incident.dismissed = true;
         return Promise.resolve({ ok: true, value: incidents.map((incident) => incident.id) });
       case commandNames.library.getInstalledMods:
         return Promise.resolve({ ok: true, value: [] });
-      case commandNames.app.getPatcherStatus:
+      case commandNames.patcher.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: { running: false, phase: "idle", session: null },
         });
-      case commandNames.app.incidentReport:
+      case commandNames.diagnostics.incidentReport:
         return Promise.resolve({ ok: true, value: "# report" });
-      case commandNames.app.incidentToken:
+      case commandNames.diagnostics.incidentToken:
         return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -115,7 +115,7 @@ describe("GamesTab", () => {
     await user.click(button);
 
     expect(mockInvoke.mock.calls.map((call) => call[0])).toContain(
-      commandNames.app.dismissAllIncidents,
+      commandNames.diagnostics.dismissAllIncidents,
     );
     await waitFor(() => expect(screen.getByRole("button", { name: "Dismiss all" })).toBeDisabled());
     expect(screen.getAllByRole("option")).toHaveLength(2);

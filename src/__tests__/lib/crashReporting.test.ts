@@ -14,7 +14,9 @@ function eventCarrying(type: string, field: string, value: unknown): Event {
 }
 
 function reported(): Record<string, unknown> | undefined {
-  const call = mockInvoke.mock.calls.find(([name]) => name === commandNames.app.trackUiError);
+  const call = mockInvoke.mock.calls.find(
+    ([name]) => name === commandNames.diagnostics.trackUiError,
+  );
   return (call?.[1] as { error: Record<string, unknown> } | undefined)?.error;
 }
 

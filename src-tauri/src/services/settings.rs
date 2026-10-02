@@ -1,4 +1,7 @@
-use crate::commands::launcher::LauncherState;
+//! The settings service: the settings themselves, the League install they point at, and
+//! the lists the settings pages pick from.
+
+use super::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_core::overlay::{
@@ -202,4 +205,12 @@ pub fn detect_league_run_as_admin() -> IpcResult<bool> {
 #[specta::specta]
 pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
     IpcResult::ok(state.0.lock().config.league_path.is_none())
+}
+
+/// The settings service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the settings commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

@@ -17,129 +17,6 @@ export const commands = {
 	 *  icon (or an available update, handled in the UI) reveals it later.
 	 */
 	showMainWindow: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("show_main_window"),
-	/**  Get current settings. */
-	getSettings: () => __TAURI_INVOKE<({ ok: true; value: Settings_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_settings"),
-	/**  Save settings. */
-	saveSettings: (settings: Settings_Deserialize) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_settings", { settings }),
-	/**
-	 *  The settings a fresh install starts with.
-	 * 
-	 *  Read once by the settings UI, so a row can say whether it is still at its
-	 *  default and what resetting it would put back. The `get_` prefix is against
-	 *  C-GETTER and stays, because `get_settings` is its neighbour.
-	 */
-	getDefaultSettings: () => __TAURI_INVOKE<({ ok: true; value: Settings_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_default_settings"),
-	/**  Auto-detect League of Legends installation path. */
-	autoDetectLeaguePath: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("auto_detect_league_path"),
-	/**  Validate a League installation path. */
-	validateLeaguePath: (path: string) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("validate_league_path", { path }),
-	/**  Check if initial setup is required (league path not configured). */
-	checkSetupRequired: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_setup_required"),
-	/**
-	 *  Whether League is configured to launch as administrator (an AppCompatFlags
-	 *  `RUNASADMIN` layer on its executable).
-	 * 
-	 *  When true, the patcher auto-elevates the injection host even if the
-	 *  "run injector elevated" setting is off, since an elevated game can only be
-	 *  injected by an elevated host. The settings UI surfaces this so users
-	 *  understand why a UAC prompt may appear despite the setting being off.
-	 */
-	detectLeagueRunAsAdmin: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_league_run_as_admin"),
-	/**
-	 *  List every WAD filename under the configured League install's `DATA` directory.
-	 * 
-	 *  Used by the WAD blocklist editor for autocomplete and regex match previews.
-	 *  Returns lowercased filenames sorted alphabetically.
-	 */
-	listAvailableWads: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_available_wads"),
-	/**  Every map skin the configured install can show in place of the one a server names. */
-	listForcibleMapSkins: () => __TAURI_INVOKE<({ ok: true; value: ForcibleMapSkin[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_forcible_map_skins"),
-	/**  Every map decoration a mutator switches in the configured install. */
-	listMapDecorations: () => __TAURI_INVOKE<({ ok: true; value: MapDecoration[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_map_decorations"),
-	/**
-	 *  Start the patcher with the given configuration.
-	 * 
-	 *  Returns immediately after spawning a background thread that builds the overlay
-	 *  and then runs the patcher loop. Progress is reported via events.
-	 */
-	startPatcher: (config: PatcherConfig) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("start_patcher", { config }),
-	/**  Stop the running patcher. */
-	stopPatcher: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("stop_patcher"),
-	/**
-	 *  Force a full rebuild of the active profile's overlay.
-	 * 
-	 *  Troubleshooting escape hatch: the incremental overlay builder can reuse a
-	 *  previously-built (and possibly stale or incorrectly-built) WAD, so this
-	 *  discards the cached overlay state and regenerates it from scratch. Refuses
-	 *  while the patcher is running, since it rewrites the very files the running
-	 *  session points at. Runs on a blocking thread and reports progress via the
-	 *  same `overlay-progress` events as a normal patch.
-	 */
-	rebuildOverlay: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rebuild_overlay"),
-	/**  Get the current status of the patcher. */
-	getPatcherStatus: () => __TAURI_INVOKE<({ ok: true; value: PatcherStatus }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_patcher_status"),
-	/**
-	 *  Linked-bin offenders found in the most recent overlay build, keyed by mod id.
-	 * 
-	 *  These are recorded as a byproduct of `start_patcher`'s single overlay build (and
-	 *  any hot-reload), so this is a cheap read with no IO - it never builds the overlay
-	 *  itself. Display names are resolved from the library index; mods absent from the
-	 *  latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
-	 *  non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
-	 *  badges and a reachable warning dialog.
-	 */
-	getLinkedBinOffenders: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: LinkedBinOffenderInfo } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_linked_bin_offenders"),
-	/**
-	 *  Checksum mismatches found in the most recent overlay build, keyed by mod id.
-	 * 
-	 *  Recorded as a byproduct of the same build that records linked-bin offenders,
-	 *  so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
-	 *  container claimed a checksum its own bytes do not have. Never fatal - the
-	 *  overlay carries the recomputed value, so this is advisory, surfaced per-mod
-	 *  in mod details.
-	 */
-	getChecksumMismatches: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ChecksumMismatchInfo[] } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_checksum_mismatches"),
-	/**  Ask the Riot Client to launch League. */
-	launchLeague: (target: {
-	productId: string,
-	patchlineId: string,
-} | null) => __TAURI_INVOKE<({ ok: true; value: LaunchOutcome | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("launch_league", { target }),
-	/**
-	 *  Call off the launch that is in flight, if there is one.
-	 * 
-	 *  Answers `false` when nothing was running, which is what a Cancel pressed
-	 *  just as the request landed looks like.
-	 * 
-	 *  Stopping abandons the wait and not the launch: a request the Riot Client
-	 *  already accepted still starts a game, exactly as a timeout would leave it.
-	 */
-	cancelLaunch: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_launch"),
-	/**
-	 *  Ask the Riot Client to close the game it launched.
-	 * 
-	 *  Only useful while a session is live - the client refuses to close a product
-	 *  it never started.
-	 */
-	stopLeague: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("stop_league"),
-	/**
-	 *  Whether a launch is possible right now. Drives the button's state, so it
-	 *  reports rather than fails.
-	 */
-	getLaunchAvailability: () => __TAURI_INVOKE<({ ok: true; value: LaunchAvailability }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_launch_availability"),
-	/**
-	 *  The League session the Riot Client has open, and start following it.
-	 * 
-	 *  What a frontend asks on mount. Events alone are not enough there: a session
-	 *  that began before the webview did announced itself to nobody, which is
-	 *  exactly the case after the manager is restarted mid-game.
-	 */
-	getLeagueSession: () => __TAURI_INVOKE<({ ok: true; value: SessionStarted | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_league_session"),
-	/**  Temporarily unregister all hotkeys (e.g. while capturing a new binding). */
-	pauseHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("pause_hotkeys"),
-	/**  Re-register all hotkeys after capture mode ends. */
-	resumeHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("resume_hotkeys"),
-	/**  Set (or clear) a global hotkey for the given action. */
-	setHotkey: (action: HotkeyAction, accelerator: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_hotkey", { action, accelerator }),
 	/**  Opens a file location in the system file explorer. */
 	revealInExplorer: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_in_explorer", { path }),
 	/**
@@ -185,254 +62,10 @@ export const commands = {
 	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
-	/**
-	 *  The view controller at `entry` in the open document `document`, with its base scene bin,
-	 *  its manifest and every sprite resolved through the document's sandbox.
-	 * 
-	 *  `scene` is the open document of the base scene bin, which the view draws as it stands in
-	 *  place of the file. `variant` is laid over that base as the client lays an override.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when `entry` is no object hash or the document has no object under it. A file or
-	 *  sprite the view cannot reach is a warning on the answer.
-	 */
-	readUiView: (document: BinDocumentId, entry: string, scene: number | null, variant: {
-	slot: string,
-	document: BinDocumentId | null,
-} | null) => __TAURI_INVOKE<({ ok: true; value: UiView }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_view", { document, entry, scene, variant }),
-	/**
-	 *  The scene bin open as `document`, drawn as a view of its own for the element at `entry`: its
-	 *  scenes and elements as they stand, with the manifest of the folder the file sits in.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when `entry` is no object hash, the document is closed or it has no object under it.
-	 */
-	readUiSceneView: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: UiView }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_scene_view", { document, entry }),
-	/**
-	 *  The `GameFontDescription` at `entry` in the open document `document`, its links followed
-	 *  into the document and then into the `ux/fonts` its sandbox resolves.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when `entry` is no object hash or neither bin holds an object under it.
-	 */
-	readUiFont: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: UiFont }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font", { document, entry }),
-	/**
-	 *  The fonts and faces a text in the open document `document` can draw with: the document's
-	 *  own, then those of the `ux/fonts` its sandbox resolves.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the names or the project chunks the resolution reads are unavailable.
-	 */
-	readUiFontCatalog: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiFontCatalog }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font_catalog", { document }),
-	/**
-	 *  The programs of the icon materials `entries`, one for one and in that order, and none where
-	 *  nothing declares one.
-	 * 
-	 *  A material is read out of the first of the open `documents` that declares it, which is how a
-	 *  project's own material draws before its save, and otherwise out of the game chunk the object
-	 *  index names for it. Names and assets resolve as the first document's do.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the names or the project chunks the resolution reads are unavailable.
-	 */
-	readUiMaterialPrograms: (documents: BinDocumentId[], entries: string[]) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_material_programs", { documents, entries }),
-	/**
-	 *  The programs of `shaders`, one for one and in that order, translated.
-	 * 
-	 *  The shaders are the ones `document` resolves against, and the install's alone where it
-	 *  is none. Translations are cached as `read_material_programs` caches them.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the names or the project chunks the resolution reads are unavailable.
-	 */
-	readUiPrograms: (document: number | null, shaders: UiShader[]) => __TAURI_INVOKE<({ ok: true; value: ProgramRead[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_programs", { document, shaders }),
-	/**
-	 *  The sample champion, summoner spells, runes and items a preview fills a controller's elements
-	 *  with, read through the sandbox `document` opens in.
-	 * 
-	 *  An object the index has not reached, or a texture no archive holds, is absent from the answer.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed.
-	 */
-	readUiLoadout: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiLoadout }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_loadout", { document }),
-	/**
-	 *  The tooltips of the passive and abilities of the character `character`, such as `Ahri`, at
-	 *  `level` and each spell at `rank`, read through the sandbox `document` opens in and the game's
-	 *  stringtable. Level 0 reads as no character at all, per `read_character_tooltips`.
-	 * 
-	 *  A character the index has not reached reads as no tooltips.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed.
-	 */
-	readUiTooltips: (document: BinDocumentId, character: string, level: number, rank: number) => __TAURI_INVOKE<({ ok: true; value: UiSpellTooltip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_tooltips", { document, character, level, rank }),
-	/**
-	 *  Every character the object index holds a record for, with its name and icon, read through
-	 *  the sandbox `document` opens in and the game's stringtable.
-	 * 
-	 *  An index that is not ready reads as no characters.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed.
-	 */
-	readUiCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_characters", { document }),
-	/**
-	 *  Write the sprite at `uv` on the page `texture` to `destination` as a PNG, at the page's own
-	 *  resolution, for an image editor to open and the import to take back.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the page cannot be read or decoded, when `uv` covers none of it, and when
-	 *  `destination` cannot be written.
-	 */
-	atlasExportSprite: (texture: AssetRef, uv: [(number | null), (number | null), (number | null), (number | null)], destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_export_sprite", { texture, uv, destination }),
-	/**
-	 *  Copy the `.ttf` or `.otf` at `source` into the layer and archive the document `document`
-	 *  writes to, answering the path a `FontType` names it by.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document opens in no project or writes to no layer, for a file of another
-	 *  type, and when the copy cannot be written.
-	 */
-	atlasImportFontFile: (document: BinDocumentId, source: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_import_font_file", { document, source }),
-	/**
-	 *  Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
-	 *  it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
-	 * 
-	 *  A new sheet's page lands in the layer the document declares into, and in the archive folder
-	 *  its own bin comes from.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed or opens in no project, when the image cannot be read, and
-	 *  when the sheet would outgrow one page.
-	 */
-	atlasImportSprite: (document: BinDocumentId, sheet: string, source: string, replace: string | null) => __TAURI_INVOKE<({ ok: true; value: SheetImport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_import_sprite", { document, sheet, source, replace }),
-	/**
-	 *  Make a surface named `name` on the sheet `sheet` of the project `document` opens in, per
-	 *  section 5 of docs/plans/atlas-ui-editor.md: the image of `source`, its slice lines found in it,
-	 *  so it stretches to any element's size.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed or opens in no project, when the image cannot be read, and
-	 *  when the sheet would outgrow one page.
-	 */
-	atlasMakeSurface: (document: BinDocumentId, sheet: string, name: string, source: SurfaceSource) => __TAURI_INVOKE<({ ok: true; value: SheetImport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_make_surface", { document, sheet, name, source }),
-	/**
-	 *  Paste the PNG at `source` over the sprite at `uv` of the game texture `page`, and rebuild the
-	 *  page into the layer the document `document` writes to, per section 5 of
-	 *  docs/plans/atlas-ui-editor.md. Every element naming a sprite of the page keeps its rect.
-	 * 
-	 *  Answers none, writing nothing, where the game holds no `.tex` at `page` or the image is not the
-	 *  sprite's size, which an import onto the project's sheet takes instead.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed or opens in no project, and when the page or the image
-	 *  cannot be read or the page cannot be written.
-	 */
-	atlasPatchSprite: (document: BinDocumentId, page: string, uv: [(number | null), (number | null), (number | null), (number | null)], source: string) => __TAURI_INVOKE<({ ok: true; value: PagePatch | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_patch_sprite", { document, page, uv, source }),
-	/**
-	 *  The spec of the sheet `sheet` of the project `document` opens in, none where it has not made
-	 *  that sheet.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the document is closed or opens in no project, and when the spec cannot be read.
-	 */
-	atlasSheet: (document: BinDocumentId, sheet: string) => __TAURI_INVOKE<({ ok: true; value: SheetSpec | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_sheet", { document, sheet }),
-	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("run_diagnostics"),
-	/**
-	 *  Launch an elevated PowerShell window so the user can run a fix command.
-	 * 
-	 *  On click of a "Run as administrator" button in the diagnostics UI, the
-	 *  frontend copies the command to the clipboard and then calls this command.
-	 *  We `ShellExecuteW` PowerShell with the `runas` verb (UAC prompt), then
-	 *  `-NoExit` so the window stays open. When `with_banner` is true a short
-	 *  hint line is printed up front telling the user the command is on their
-	 *  clipboard and they should paste (Ctrl+V or right-click) and press Enter.
-	 * 
-	 *  Why not auto-execute the command? Auto-running registry deletes from a
-	 *  freshly-elevated PowerShell with no review step is a footgun — the user
-	 *  should at least see the command they're about to execute. Paste-then-Enter
-	 *  is one extra keystroke and gives them a chance to bail out.
-	 */
-	openElevatedTerminal: (withBanner: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_elevated_terminal", { withBanner }),
-	/**  Every incident the store holds, newest first. */
-	listIncidents: () => __TAURI_INVOKE<({ ok: true; value: Incident_Serialize[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_incidents"),
-	/**  Marks an incident dismissed. The verdict line goes, and the row dims. */
-	dismissIncident: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_incident", { id }),
-	/**  Marks every undismissed incident dismissed, and answers the ids it touched. */
-	dismissAllIncidents: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("dismiss_all_incidents"),
-	/**  Reveals the incident's game log in the file manager. */
-	revealGameLog: (id: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_game_log", { id }),
-	/**
-	 *  The incident as the text a support thread wants, with its token on the
-	 *  second line. `hints` are the verdict's hints as the catalog renders them.
-	 */
-	incidentReport: (id: string, hints: string[]) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_report", { id, hints }),
-	/**  The incident folded into one short string, for a URL or a chat. */
-	incidentToken: (id: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("incident_token", { id }),
-	/**
-	 *  Reads a token back, from the token alone or from a pasted report or URL
-	 *  that carries one, against this build's tables.
-	 */
-	decodeIncidentToken: (token: string) => __TAURI_INVOKE<({ ok: true; value: DecodedIncident }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("decode_incident_token", { token }),
-	/**
-	 *  The pseudonym today's diagnostics would travel under, if any would.
-	 * 
-	 *  Answers `None` when nothing is collected, so the Privacy card can say that
-	 *  rather than show an identity that reaches no one.
-	 */
-	telemetryIdentity: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("telemetry_identity"),
-	/**
-	 *  Mint a new diagnostics secret, breaking the link to everything sent before.
-	 * 
-	 *  Takes effect at once rather than at the next midnight, because a reader who
-	 *  presses it is asking for the link to break now. Answers the new pseudonym.
-	 */
-	resetTelemetrySecret: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reset_telemetry_secret"),
-	/**
-	 *  Report a crash the frontend caught, which is its only route to the wire.
-	 * 
-	 *  The frontend does not reach the network, so a boundary, a window error and a
-	 *  rejection all come here and are queued on the one egress path.
-	 */
-	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
-	/**
-	 *  The install the client's League session runs from, against the one the
-	 *  manager is set up for.
-	 * 
-	 *  `None` when they agree, when no client or session answers, or when the
-	 *  registry does not know the configured path. Read-only against the client.
-	 */
-	checkInstallMismatch: () => __TAURI_INVOKE<({ ok: true; value: InstallMismatch | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_install_mismatch"),
-	/**
-	 *  Points the manager at `install_root`, and puts the patcher session back up
-	 *  on an overlay built from it.
-	 * 
-	 *  A running session is stopped, the path is saved the way Settings saves it,
-	 *  and the session starts again with the config it ran with and a forced
-	 *  rebuild. Without a running session the overlay is rebuilt and left for the
-	 *  next start.
-	 */
-	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiCharacters":"read_ui_characters","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiTooltips":"read_ui_tooltips","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
+export const commandNames = {"cancelIntegrationDownload":"cancel_integration_download","changeIntegration":"change_integration","deepLinkInstallMod":"deep_link_install_mod","detectStorageMedium":"detect_storage_medium","getAppInfo":"get_app_info","getPlatformSupport":"get_platform_support","integrationRelease":"integration_release","integrationStatus":"integration_status","listAnnouncements":"list_announcements","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","revealInExplorer":"reveal_in_explorer","showMainWindow":"show_main_window","takePendingDeepLink":"take_pending_deep_link"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -1318,7 +951,7 @@ export type Config_Deserialize = {
 	 *  runs as administrator. Off by default: when off, non-elevated users
 	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
 	 *  when League is detected configured to run as admin, regardless of this
-	 *  flag (see `commands::patcher::start_patcher_inner`).
+	 *  flag (see `services::patcher::start_patcher_inner`).
 	 */
 	elevateInjector?: boolean,
 	/**
@@ -1430,7 +1063,7 @@ export type Config_Serialize = {
 	 *  runs as administrator. Off by default: when off, non-elevated users
 	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
 	 *  when League is detected configured to run as admin, regardless of this
-	 *  flag (see `commands::patcher::start_patcher_inner`).
+	 *  flag (see `services::patcher::start_patcher_inner`).
 	 */
 	elevateInjector: boolean,
 	/**
@@ -1928,8 +1561,8 @@ export type DeepLinkInstallRequest = {
 	/**
 	 *  The host outside the allowlist, or `None` where the allowlist covers it.
 	 * 
-	 *  Stamped by [`handle_single`] rather than by parsing, since the trust is a
-	 *  property of the reader's settings and not of the URL.
+	 *  Stamped by the host rather than by parsing, since the trust is a property of the
+	 *  reader's settings and not of the URL.
 	 */
 	untrustedDomain: string | null,
 };
@@ -6113,7 +5746,7 @@ export type RuleInfo_Deserialize = {
 	unfixable?: string,
 	/**
 	 *  The severity every finding of this rule carries - see
-	 *  [`Rule::severity`].
+	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
 	/**  Whether this project is one the rule speaks about yet. */
@@ -6137,7 +5770,7 @@ export type RuleInfo_Serialize = {
 	unfixable?: string,
 	/**
 	 *  The severity every finding of this rule carries - see
-	 *  [`Rule::severity`].
+	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
 	/**  Whether this project is one the rule speaks about yet. */

@@ -52,7 +52,7 @@ function mockBackend({
     switch (cmd) {
       case commandNames.app.getPlatformSupport:
         return Promise.resolve({ ok: true, value: { patcherAvailable: true } });
-      case commandNames.app.getSettings:
+      case commandNames.settings.getSettings:
         return Promise.resolve({
           ok: true,
           value: createMockSettings({
@@ -88,7 +88,7 @@ function mockBackend({
               }
             : {},
         });
-      case commandNames.app.getPatcherStatus:
+      case commandNames.patcher.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: {
@@ -97,7 +97,7 @@ function mockBackend({
             phase: patcherRunning ? "patching" : "idle",
           },
         });
-      case commandNames.app.stopPatcher:
+      case commandNames.patcher.stopPatcher:
         if (stopFails) {
           return Promise.resolve({
             ok: false,
@@ -105,7 +105,7 @@ function mockBackend({
           });
         }
         return Promise.resolve({ ok: true, value: null });
-      case commandNames.app.getLaunchAvailability:
+      case commandNames.launcher.getLaunchAvailability:
         return Promise.resolve({
           ok: true,
           value: {
@@ -162,7 +162,7 @@ describe("PlayButton", () => {
     await user.click(await screen.findByRole("button", { name: "Stop Patcher" }));
 
     await screen.findByRole("button", { name: "Stopping..." });
-    expect(invokedCommands()).toContain(commandNames.app.stopPatcher);
+    expect(invokedCommands()).toContain(commandNames.patcher.stopPatcher);
 
     // Well past the mutation settling, with the backend still reporting a live
     // session.
@@ -215,8 +215,8 @@ describe("PlayButton", () => {
     await screen.findByRole("button", { name: "More launch options" });
     await userEvent.click(screen.getByRole("button", { name: "Start" }));
 
-    await waitFor(() => expect(invokedCommands()).toContain(commandNames.app.startPatcher));
-    expect(invokedCommands()).not.toContain(commandNames.app.launchLeague);
+    await waitFor(() => expect(invokedCommands()).toContain(commandNames.patcher.startPatcher));
+    expect(invokedCommands()).not.toContain(commandNames.launcher.launchLeague);
   });
 
   /// Neither half has anything to do: no mods to apply, and no launch to make.
@@ -250,7 +250,7 @@ describe("PlayButton", () => {
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
 
-    await waitFor(() => expect(invokedCommands()).toContain(commandNames.app.startPatcher));
+    await waitFor(() => expect(invokedCommands()).toContain(commandNames.patcher.startPatcher));
   });
 
   /// Classic mode is the setting for people who start League themselves, so the
@@ -263,8 +263,8 @@ describe("PlayButton", () => {
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
 
-    await waitFor(() => expect(invokedCommands()).toContain(commandNames.app.startPatcher));
-    expect(invokedCommands()).not.toContain(commandNames.app.launchLeague);
+    await waitFor(() => expect(invokedCommands()).toContain(commandNames.patcher.startPatcher));
+    expect(invokedCommands()).not.toContain(commandNames.launcher.launchLeague);
   });
 
   /// Classic is the app as it was before it could launch, so there is no
@@ -287,7 +287,7 @@ describe("PlayButton", () => {
     await user.click(await screen.findByRole("button", { name: "More launch options" }));
     await user.click(await screen.findByRole("menuitem", { name: /Launch League only/ }));
 
-    await waitFor(() => expect(invokedCommands()).toContain(commandNames.app.launchLeague));
+    await waitFor(() => expect(invokedCommands()).toContain(commandNames.launcher.launchLeague));
     expect(screen.queryByText(/Launch with/)).not.toBeInTheDocument();
   });
 
@@ -300,6 +300,6 @@ describe("PlayButton", () => {
     await user.click(await screen.findByRole("button", { name: /^Play/ }));
 
     expect(await screen.findByText(/Launch with 1 broken mod/)).toBeInTheDocument();
-    expect(invokedCommands()).not.toContain(commandNames.app.launchLeague);
+    expect(invokedCommands()).not.toContain(commandNames.launcher.launchLeague);
   });
 });

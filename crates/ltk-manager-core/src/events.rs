@@ -32,6 +32,9 @@ pub use crate::object_index::ReferenceWalkProgress;
 /// As above, for the layer files a watch on a workshop project saw change.
 pub use crate::workshop::LayerFilesChanged;
 
+/// As above, for how far the download an install link started has got.
+pub use crate::deep_link::ProtocolInstallProgress;
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -312,9 +315,9 @@ pub struct GitImportProgress {
     pub message: Option<String>,
 }
 
-/// Declares [`BackendEvent`] and its wire names from a single list.
+/// Declares [`BackendEvent`] and its event names from a single list.
 ///
-/// Each entry is `Variant(Payload) => "wire-name"`, or `Variant => "wire-name"`
+/// Each entry is `Variant(Payload) => "event-name"`, or `Variant => "event-name"`
 /// for a payload-free event. Keeping the name adjacent to the variant is the
 /// point: a variant cannot be added without also giving it a name, and the name
 /// can't drift away from the payload it belongs to.
@@ -328,7 +331,7 @@ macro_rules! declare_events {
     ),* $(,)?) => {
         /// Everything the backend can announce.
         ///
-        /// This is also the registry of wire names: before it, names were
+        /// This is also the registry of event names: before it, names were
         /// scattered string literals at each emit site, so a rename could
         /// silently desynchronize the backend from the frontend's `listen()`
         /// calls.
@@ -345,7 +348,7 @@ macro_rules! declare_events {
         }
 
         impl BackendEvent {
-            /// Wire name for this event, matching the frontend's `listen()` calls.
+            /// The name this event is emitted under, matching the frontend's `listen()` calls.
             pub fn name(&self) -> &'static str {
                 match self {
                     $( Self::$variant { .. } => $name, )*
@@ -393,6 +396,8 @@ declare_events! {
     ModStorageProgress(ModStorageProgress) => "mod-storage-progress",
     /// A git repository import advanced.
     GitImportProgress(GitImportProgress) => "git-import-progress",
+    /// The download an install link started advanced.
+    ProtocolInstallProgress(ProtocolInstallProgress) => "protocol-install-progress",
     /// A League launch request advanced.
     LaunchProgress(LaunchProgress) => "launch-progress",
     /// The Riot Client opened a session for League. Emitted once per session,

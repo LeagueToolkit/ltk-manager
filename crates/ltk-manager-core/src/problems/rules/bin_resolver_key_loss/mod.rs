@@ -45,7 +45,7 @@ use crate::problems::game::GameContent;
 use crate::problems::walk::Declared;
 use crate::problems::{
     Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
-    Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, Site, Weight,
+    Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
 };
 
 /// The id every row of this rule carries.
@@ -76,25 +76,18 @@ impl BinResolverKeyLoss {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Partial resource resolver",
+    description: "A mod's resource resolver doesn't define all of the expected resources",
+    unfixable: "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch",
+    severity: Some(ProblemSeverity::Info),
+};
+
 impl Rule for BinResolverKeyLoss {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Partial resource resolver"
-    }
-
-    fn description(&self) -> &'static str {
-        "A mod's resource resolver doesn't define all of the expected resources"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Info)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     /// Nothing to compare against is not the same as nothing to report.
@@ -140,13 +133,7 @@ impl Rule for BinResolverKeyLoss {
     /// The rule derives no repair, so a caller reaches this only by naming a
     /// finding that never offered one.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        for problem in problems {
-            run.skipped(&problem.site.layer, &problem.site.path, 1);
-        }
-        Ok(Applied {
-            applied: 0,
-            skipped: problems.len() as u32,
-        })
+        Ok(run.skip_all(problems))
     }
 }
 

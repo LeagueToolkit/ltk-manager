@@ -39,9 +39,9 @@ export function renderSettings(ui: ReactElement, options?: RenderSettingsOptions
 
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.getSettings)
+    if (command === commandNames.settings.getSettings)
       return Promise.resolve({ ok: true, value: current });
-    if (command === commandNames.app.getDefaultSettings)
+    if (command === commandNames.settings.getDefaultSettings)
       return Promise.resolve({ ok: true, value: fresh });
     return Promise.resolve({ ok: true, value: options?.answers?.[command] ?? null });
   });
@@ -58,7 +58,7 @@ export function renderSettings(ui: ReactElement, options?: RenderSettingsOptions
 /** The settings object one `save_settings` call carried. */
 export function savedSettings(nth = 0): Settings {
   const saves = mockInvoke.mock.calls.filter(
-    ([command]) => command === commandNames.app.saveSettings,
+    ([command]) => command === commandNames.settings.saveSettings,
   );
   return saves[nth]?.[1]?.settings as Settings;
 }

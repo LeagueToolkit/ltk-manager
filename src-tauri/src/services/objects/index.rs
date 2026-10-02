@@ -20,12 +20,13 @@ use ltk_manager_core::hashtables::{
 use ltk_manager_core::object_index::{
     self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, FileTarget,
     ObjectDirListing, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot, ObjectSearchResult,
-    ReferenceResult, SpellCatalog, WalkRequest, WalkTarget,
+    ReferenceResult, WalkRequest, WalkTarget,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
 use ltk_manager_core::problems::Budget;
 use ltk_manager_core::sandbox::SandboxRef;
+use ltk_manager_game::spell::{self, SpellCatalog};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -180,7 +181,9 @@ pub async fn character_spells(
             ObjectIndexSnapshot::Failed(error) => return Ok(CharacterSpells::Failed { error }),
             ObjectIndexSnapshot::Ready(index) => index,
         };
-        Ok(CharacterSpells::Ready(index.character_spells(&character)))
+        Ok(CharacterSpells::Ready(spell::character_spells(
+            &index, &character,
+        )))
     })
     .await
 }

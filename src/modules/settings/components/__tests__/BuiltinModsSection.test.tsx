@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import type { ForcibleMapSkin, MapDecoration, Settings } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 
 import { BuiltinModsSection } from "../BuiltinModsSection";
 import { freshSettings, renderSettings, savedSettings } from "./fixtures";
@@ -31,7 +32,10 @@ const DECORATIONS: MapDecoration[] = [
 function renderSection(settings: Settings) {
   renderSettings(<BuiltinModsSection />, {
     settings,
-    answers: { list_forcible_map_skins: SKINS, list_map_decorations: DECORATIONS },
+    answers: {
+      [commandNames.settings.listForcibleMapSkins]: SKINS,
+      [commandNames.settings.listMapDecorations]: DECORATIONS,
+    },
   });
 }
 

@@ -226,5 +226,5 @@ fn the_rule_offers_no_repair() {
     let (_tmp, files) = tree(63, Some(install(231)));
 
     assert_eq!(found_in(&files)[0].fix, None);
-    assert!(!BinResolverKeyLoss::new().unfixable_description().is_empty());
+    assert!(!BinResolverKeyLoss::new().meta().unfixable.is_empty());
 }

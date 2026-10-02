@@ -5,11 +5,17 @@
 //! with the types in the one file every service shares.
 
 pub mod app_update;
+pub mod atlas;
 pub mod bin;
+pub mod diagnostics;
 pub mod game;
+pub mod hotkeys;
+pub mod launcher;
 pub mod library;
 pub mod objects;
+pub mod patcher;
 pub mod preview;
+pub mod settings;
 pub(crate) mod shared;
 pub mod workshop;
 

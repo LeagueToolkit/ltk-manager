@@ -7,6 +7,8 @@ use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, Fields, GameCopy, Namer, RowNames, fields_of, items, leaf, optional,
     text,
 };
+use ltk_manager_game::character::{ABILITY_COUNT, ability_spells, record_path, skin_path};
+use ltk_manager_game::spell::spell_data;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use rayon::prelude::*;
@@ -29,7 +31,6 @@ const KEYSTONE: &str = "Perks/Styles/Domination/Electrocute";
 const SUBSTYLE: &str = "Perks/Styles/Sorcery";
 /// The folder a summoner spell's bare icon name sits in.
 const SPELL_ICONS: &str = "assets/spells/icons2d/";
-const ABILITY_COUNT: usize = 4;
 const ABILITY_KEYS: [&str; ABILITY_COUNT] = ["Q", "W", "E", "R"];
 /// Each `arType`'s name in its `game_ability_resource_` string key, in the enum's order.
 const RESOURCES: [&str; 14] = [
@@ -49,10 +50,6 @@ const RESOURCES: [&str; 14] = [
     "other",
 ];
 
-const SPELLS: BinHash = named("spells");
-const ABILITIES: BinHash = named("mAbilities");
-const ROOT_SPELL: BinHash = named("mRootSpell");
-const SPELL: BinHash = named("mSpell");
 const SPELL_OBJECT: BinHash = named("SpellObject");
 /// The `GlobalStatsUIData` the client writes a calculation's scaling by, which the tables do
 /// not name.
@@ -109,10 +106,10 @@ pub fn read_loadout(
         namer: Namer::new(names),
     };
 
-    let record = objects.fields(&format!("Characters/{CHAMPION}/CharacterRecords/Root"));
-    let skin = objects.fields(&format!("Characters/{CHAMPION}/Skins/Skin0"));
+    let record = objects.fields(&record_path(CHAMPION));
+    let skin = objects.fields(&skin_path(CHAMPION, 0));
 
-    let abilities = ability_spells(&mut objects, record.as_ref())
+    let abilities = ability_spells(record.as_ref(), |entry| objects.at(entry))
         .into_iter()
         .map(|spell| textures.at(spell_icon(spell.as_ref()?)))
         .collect();
@@ -194,11 +191,11 @@ pub fn read_character_tooltips(
         namer: Namer::new(names),
     };
 
-    let record = objects.fields(&format!("Characters/{character}/CharacterRecords/Root"));
+    let record = objects.fields(&record_path(character));
     let resource = resource_name(record.as_ref(), strings);
     let passive = object(own(record.as_ref(), PASSIVE_SPELL)).and_then(|spell| objects.at(spell));
     let passive_icon = textures.at(own(record.as_ref(), PASSIVE_ICON));
-    let abilities = ability_spells(&mut objects, record.as_ref());
+    let abilities = ability_spells(record.as_ref(), |entry| objects.at(entry));
     let hotkeys: Vec<(String, &str)> = abilities
         .iter()
         .zip(ABILITY_KEYS)
@@ -290,8 +287,8 @@ pub fn read_characters(
                 game,
                 bins: Vec::new(),
             };
-            let record = objects.fields(&format!("Characters/{id}/CharacterRecords/Root"));
-            let skin = objects.fields(&format!("Characters/{id}/Skins/Skin0"));
+            let record = objects.fields(&record_path(id));
+            let skin = objects.fields(&skin_path(id, 0));
             let name = text(own(record.as_ref(), CHARACTER_NAME)).map(str::to_owned);
             (name, own(skin.as_ref(), ICON_SQUARE).cloned())
         })
@@ -397,37 +394,6 @@ fn texture(path: String, asset: ltk_manager_core::preview::AssetRef) -> UiTextur
     }
 }
 
-/// The spells of the champion's four abilities: its `spells` links, else each of its
-/// `mAbilities` through the ability's root spell.
-fn ability_spells(objects: &mut Objects<'_>, record: Option<&Fields>) -> Vec<Option<Fields>> {
-    let Some(record) = record else {
-        return vec![None; ABILITY_COUNT];
-    };
-
-    let linked = |field| {
-        items(record.get(&field))
-            .iter()
-            .filter_map(|item| object(Some(item)))
-            .take(ABILITY_COUNT)
-            .collect::<Vec<_>>()
-    };
-    let spells = linked(SPELLS);
-    let mut found: Vec<Option<Fields>> = if spells.is_empty() {
-        linked(ABILITIES)
-            .into_iter()
-            .map(|ability| {
-                let root = object(objects.at(ability)?.get(&ROOT_SPELL))?;
-                objects.at(root)
-            })
-            .collect()
-    } else {
-        spells.into_iter().map(|spell| objects.at(spell)).collect()
-    };
-
-    found.resize(ABILITY_COUNT, None);
-    found
-}
-
 /// The field `field` of an object that may be absent.
 fn own(fields: Option<&Fields>, field: BinHash) -> Option<&PropertyValueEnum> {
     fields?.get(&field)
@@ -435,7 +401,7 @@ fn own(fields: Option<&Fields>, field: BinHash) -> Option<&PropertyValueEnum> {
 
 /// The icon list of a `SpellObject`'s spell data.
 fn spell_icon(spell: &Fields) -> Option<&PropertyValueEnum> {
-    fields_of(spell.get(&SPELL))?.get(&ICON_NAME)
+    spell_data(spell)?.get(&ICON_NAME)
 }
 
 /// A summoner spell icon's path, which the spell names by its file name alone.

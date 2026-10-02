@@ -23,34 +23,6 @@ command_table![
     get_app_info,
     get_platform_support,
     show_main_window,
-    // Settings
-    get_settings,
-    save_settings,
-    get_default_settings,
-    auto_detect_league_path,
-    validate_league_path,
-    check_setup_required,
-    detect_league_run_as_admin,
-    list_available_wads,
-    list_forcible_map_skins,
-    list_map_decorations,
-    // Patcher
-    start_patcher,
-    stop_patcher,
-    rebuild_overlay,
-    get_patcher_status,
-    get_linked_bin_offenders,
-    get_checksum_mismatches,
-    // Launcher
-    launch_league,
-    cancel_launch,
-    stop_league,
-    get_launch_availability,
-    get_league_session,
-    // Hotkeys
-    pause_hotkeys,
-    resume_hotkeys,
-    set_hotkey,
     // Shell
     reveal_in_explorer,
     minimize_to_tray,
@@ -68,38 +40,6 @@ command_table![
     integration_release,
     change_integration,
     cancel_integration_download,
-    // Atlas
-    read_ui_view,
-    read_ui_scene_view,
-    read_ui_font,
-    read_ui_font_catalog,
-    read_ui_material_programs,
-    read_ui_programs,
-    read_ui_loadout,
-    read_ui_tooltips,
-    read_ui_characters,
-    atlas_export_sprite,
-    atlas_import_font_file,
-    atlas_import_sprite,
-    atlas_make_surface,
-    atlas_patch_sprite,
-    atlas_sheet,
-    // Diagnostics
-    run_diagnostics,
-    open_elevated_terminal,
-    list_incidents,
-    dismiss_incident,
-    dismiss_all_incidents,
-    reveal_game_log,
-    incident_report,
-    incident_token,
-    decode_incident_token,
-    telemetry_identity,
-    reset_telemetry_secret,
-    track_ui_error,
-    // Launcher
-    check_install_mismatch,
-    switch_league_install,
 ];
 
 /// The builder the bindings are generated from and the handler is built out of.
@@ -117,11 +57,11 @@ fn builder() -> Builder<Wry> {
     use ltk_manager_core::object_index::ReferenceWalkProgress;
     use ltk_manager_core::workshop::LayerFilesChanged;
 
-    use crate::deep_link::{
-        DeepLinkInstallRequest, DeepLinkSettingsRequest, ProtocolInstallProgress,
-    };
     use crate::patcher::thread::{
         GameAttachedPayload, GameOverlayPayload, LinkedBinWarningPayload, WadScanFailedPayload,
+    };
+    use ltk_manager_core::deep_link::{
+        DeepLinkInstallRequest, DeepLinkSettingsRequest, ProtocolInstallProgress,
     };
 
     /* A 64-bit integer crosses as a JS number. None reaches the range where that loses

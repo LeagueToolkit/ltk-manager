@@ -17,13 +17,13 @@ use std::borrow::Cow;
 
 use crate::hashing::named;
 use ltk_hash::BinHash;
-use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
+use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
 use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
-    Rule, RuleId, Sink, Walk,
+    PropertyRead, PropertyWalk, Rule, RuleId, RuleMeta, Sink, Walk,
 };
 
 /// The id every row of the per-frame rule carries.
@@ -61,25 +61,18 @@ impl VfxPerFrameRandom {
     }
 }
 
+/// The rule as the catalogue lists it.
+const PER_FRAME_META: RuleMeta = RuleMeta {
+    id: PER_FRAME_ID,
+    title: "Per-frame random table",
+    description: "A probability table on a value the game reads every frame, so its particles flicker",
+    unfixable: "Couldn't move the table because the birth value it was meant for isn't in the file",
+    severity: Some(ProblemSeverity::Warning),
+};
+
 impl Rule for VfxPerFrameRandom {
-    fn id(&self) -> RuleId {
-        PER_FRAME_ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Per-frame random table"
-    }
-
-    fn description(&self) -> &'static str {
-        "A probability table on a value the game reads every frame, so its particles flicker"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't move the table because the birth value it was meant for isn't in the file"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Warning)
+    fn meta(&self) -> &RuleMeta {
+        &PER_FRAME_META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -91,7 +84,7 @@ impl Rule for VfxPerFrameRandom {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        Ok(skip_all(problems, run))
+        Ok(run.skip_all(problems))
     }
 }
 
@@ -106,25 +99,18 @@ impl VfxBrokenRandom {
     }
 }
 
+/// The rule as the catalogue lists it.
+const BROKEN_META: RuleMeta = RuleMeta {
+    id: BROKEN_ID,
+    title: "Unreadable random table set",
+    description: "A probability table set the game can't read, which crashes it or zeroes the value",
+    unfixable: "Couldn't complete the set because the tables the author meant aren't in the file",
+    severity: Some(ProblemSeverity::Error),
+};
+
 impl Rule for VfxBrokenRandom {
-    fn id(&self) -> RuleId {
-        BROKEN_ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Unreadable random table set"
-    }
-
-    fn description(&self) -> &'static str {
-        "A probability table set the game can't read, which crashes it or zeroes the value"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't complete the set because the tables the author meant aren't in the file"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Error)
+    fn meta(&self) -> &RuleMeta {
+        &BROKEN_META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -136,18 +122,7 @@ impl Rule for VfxBrokenRandom {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        Ok(skip_all(problems, run))
-    }
-}
-
-/// Every problem recorded as skipped, since neither rule derives a repair.
-fn skip_all(problems: &[&Problem], run: &mut FixRun<'_>) -> Applied {
-    for problem in problems {
-        run.skipped(&problem.site.layer, &problem.site.path, 1);
-    }
-    Applied {
-        applied: 0,
-        skipped: u32::try_from(problems.len()).unwrap_or(u32::MAX),
+        Ok(run.skip_all(problems))
     }
 }
 
@@ -166,30 +141,30 @@ struct Tables<'p> {
 
 impl BinVisitor for Tables<'_> {
     fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r> {
-        Box::new(Reading {
-            fault: self.fault,
-            names: Names(self.names),
+        Box::new(PropertyWalk::new(
+            Reading {
+                fault: self.fault,
+                names: Names(self.names),
+            },
             sink,
-        })
+        ))
     }
 }
 
-/// One bin's walk, reporting each table list its rule objects to.
-struct Reading<'n, 'f> {
+/// One bin's read, reporting each table list its rule objects to.
+struct Reading<'n> {
     fault: Fault,
     names: Names<'n>,
-    sink: Sink<'f>,
 }
 
-impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
-    type Error = ltk_meta::Error;
-
+impl PropertyRead for Reading<'_> {
     /// Read a table list and prune it, since nothing under one holds another.
-    fn enter_property(
+    fn property<'a, V: Declared<'a>>(
         &mut self,
         field: BinHash,
         value: V,
         node: &Node<'_, 'a, V>,
+        sink: &mut Sink<'_>,
     ) -> Result<Visit, ltk_meta::Error> {
         if field != PROBABILITY_TABLES {
             return Ok(Visit::Continue);
@@ -205,7 +180,7 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
         };
         if let Some((severity, message)) = finding {
             let address = Address::of(node.trail(), field, node.class_hash(), &self.names);
-            self.sink.problem(
+            sink.problem(
                 severity,
                 Some(NodeAddress {
                     entry: node.object_hash(),
@@ -220,12 +195,6 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
             );
         }
         Ok(Visit::Skip)
-    }
-}
-
-impl<'f> Walk<'f> for Reading<'_, 'f> {
-    fn end(self: Box<Self>) -> Sink<'f> {
-        self.sink
     }
 }
 

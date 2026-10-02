@@ -6,13 +6,11 @@
 
 use std::time::Duration;
 
+use reqwest::StatusCode;
 use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::HeaderMap;
-use reqwest::StatusCode;
+use semver::Version;
 use serde::{Deserialize, Serialize};
-
-/// Sent with every request, since GitHub refuses one that names no client.
-const USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"));
 
 const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -20,7 +18,8 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const REMAINING: &str = "x-ratelimit-remaining";
 
 /// Which way a read of GitHub failed, as the remedy it has.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubErrorKind {
     /// GitHub was never reached. Waiting for a connection is the remedy.
@@ -77,14 +76,15 @@ impl GitHubError {
     }
 }
 
-/// A client for one read, on the timeout and user agent every read shares.
+/// A client for one read, on the timeout every read shares and a user agent naming the
+/// `running` build, since GitHub refuses a request that names no client.
 ///
 /// # Errors
 ///
 /// Fails only when the TLS backend cannot be set up, which is an `Http` kind.
-pub fn client() -> Result<Client, GitHubError> {
+pub fn client(running: &Version) -> Result<Client, GitHubError> {
     Client::builder()
-        .user_agent(USER_AGENT)
+        .user_agent(format!("ltk-manager/{running}"))
         .timeout(FETCH_TIMEOUT)
         .build()
         .map_err(GitHubError::Http)

@@ -3,10 +3,11 @@
 //! The feed is `api.github.com`, which GitHub allows sixty unauthenticated
 //! reads of an hour per address.
 
+use reqwest::Url;
 use reqwest::header::{ACCEPT, LINK};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use url::Url;
 
 use crate::github::{self, GitHubError};
 
@@ -17,7 +18,8 @@ const FEED_URL: &str = "https://api.github.com/repos/LeagueToolkit/ltk-manager/r
 const PER_PAGE: u32 = 10;
 
 /// One published release, as the changelog reads it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseNote {
     /// The tag without its leading `v`.
@@ -32,7 +34,8 @@ pub struct ReleaseNote {
 }
 
 /// A page of the release feed, and where the next one starts.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReleasePage {
     pub releases: Vec<ReleaseNote>,
@@ -40,7 +43,7 @@ pub struct ReleasePage {
     pub next_page: Option<u32>,
 }
 
-/// Read page `page` of the release feed, one-based as GitHub numbers it.
+/// Read page `page` of the release feed, one-based as GitHub numbers it, as the `running` build.
 ///
 /// Blocking, so it belongs on a thread that does not draw the window.
 ///
@@ -48,8 +51,8 @@ pub struct ReleasePage {
 ///
 /// Fails when GitHub cannot be reached, when the address has spent its
 /// unauthenticated quota, or when the answer is not a page of the feed.
-pub fn fetch_page(page: u32) -> Result<ReleasePage, GitHubError> {
-    let request = github::client()?
+pub fn fetch_page(running: &Version, page: u32) -> Result<ReleasePage, GitHubError> {
+    let request = github::client(running)?
         .get(format!("{FEED_URL}?per_page={PER_PAGE}&page={page}"))
         .header(ACCEPT, "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28");

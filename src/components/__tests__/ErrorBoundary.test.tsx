@@ -45,7 +45,9 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    const call = mockInvoke.mock.calls.find(([name]) => name === commandNames.app.trackUiError);
+    const call = mockInvoke.mock.calls.find(
+      ([name]) => name === commandNames.diagnostics.trackUiError,
+    );
     expect(call).toBeDefined();
 
     const { error } = call![1] as { error: Record<string, unknown> };

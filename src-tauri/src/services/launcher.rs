@@ -1,3 +1,5 @@
+//! The launcher service: launching League, following its session, and the install it launches.
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -186,4 +188,12 @@ fn switch_league_install_inner(app_handle: &AppHandle, install_root: PathBuf) ->
             library.rebuild_overlay(&settings.config).map(|_| ())
         }
     }
+}
+
+/// The launcher service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the launcher commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

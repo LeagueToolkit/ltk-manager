@@ -40,13 +40,13 @@ function Watch() {
 
 function mockBackend(phase: PatcherPhase, mismatch: InstallMismatch | null) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === commandNames.app.getPatcherStatus) {
+    if (cmd === commandNames.patcher.getPatcherStatus) {
       return Promise.resolve({
         ok: true,
         value: { running: phase !== "idle", phase, session: null },
       });
     }
-    if (cmd === commandNames.app.checkInstallMismatch) {
+    if (cmd === commandNames.launcher.checkInstallMismatch) {
       return Promise.resolve({ ok: true, value: mismatch });
     }
     return Promise.resolve({ ok: true, value: null });
@@ -54,7 +54,7 @@ function mockBackend(phase: PatcherPhase, mismatch: InstallMismatch | null) {
 }
 
 function checks() {
-  return mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.app.checkInstallMismatch)
+  return mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.launcher.checkInstallMismatch)
     .length;
 }
 

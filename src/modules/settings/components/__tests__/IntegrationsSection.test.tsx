@@ -51,7 +51,10 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
         },
       });
     }
-    if (command === commandNames.app.getSettings || command === commandNames.app.getDefaultSettings)
+    if (
+      command === commandNames.settings.getSettings ||
+      command === commandNames.settings.getDefaultSettings
+    )
       return Promise.resolve({ ok: true, value: settings });
     return Promise.resolve({ ok: true, value: null });
   });

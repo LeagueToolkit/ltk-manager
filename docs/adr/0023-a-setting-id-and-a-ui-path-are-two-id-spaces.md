@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-03
-- **Crates:** none (`src/modules/settings/`, and `parse_settings` in `src-tauri/src/deep_link/`)
+- **Crates:** none (`src/modules/settings/`, and `parse_settings` in `crates/ltk-manager-core/src/deep_link.rs`)
 - **Related:** ADR-0016, ADR-0017, ADR-0019, ADR-0024
 
 ## Context and problem statement

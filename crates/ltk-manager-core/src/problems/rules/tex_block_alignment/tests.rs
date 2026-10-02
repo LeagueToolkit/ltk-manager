@@ -158,7 +158,8 @@ fn the_fix_preview_rounds_down_to_the_block_grid() {
 fn the_rule_names_the_crash_code_a_log_records() {
     assert!(
         TexBlockAlignment::new()
-            .description()
+            .meta()
+            .description
             .contains("ALE-D0D00020"),
         "the description has to carry the crash code"
     );

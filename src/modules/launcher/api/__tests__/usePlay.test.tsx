@@ -51,7 +51,7 @@ function mockBackend(
 
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case commandNames.app.getSettings:
+      case commandNames.settings.getSettings:
         // Already seen, so the HDD check short-circuits instead of probing disks.
         return Promise.resolve({
           ok: true,
@@ -59,16 +59,16 @@ function mockBackend(
         });
       case commandNames.library.getInstalledMods:
         return Promise.resolve({ ok: true, value: [createMockInstalledMod({ enabled: true })] });
-      case commandNames.app.startPatcher:
+      case commandNames.patcher.startPatcher:
         return Promise.resolve({ ok: true, value: null });
-      case commandNames.app.getPatcherStatus: {
+      case commandNames.patcher.getPatcherStatus: {
         const phase = remaining.length > 1 ? remaining.shift()! : remaining[0];
         return Promise.resolve({
           ok: true,
           value: { running: phase !== "idle", phase, session: null },
         });
       }
-      case commandNames.app.launchLeague:
+      case commandNames.launcher.launchLeague:
         return Promise.resolve({ ok: true, value: { route, riotClientPid: 1234, sessionId } });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -100,7 +100,7 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    const start = mockInvoke.mock.calls.find(([cmd]) => cmd === commandNames.app.startPatcher);
+    const start = mockInvoke.mock.calls.find(([cmd]) => cmd === commandNames.patcher.startPatcher);
     expect(start?.[1]).toEqual({ config: { forceRebuild: true } });
     expect(usePendingRebuildStore.getState().queued).toBe(false);
   });
@@ -114,10 +114,10 @@ describe("usePlay", () => {
     });
 
     const commands = invokedCommands();
-    expect(commands).toContain(commandNames.app.startPatcher);
-    expect(commands).toContain(commandNames.app.launchLeague);
-    expect(commands.indexOf(commandNames.app.startPatcher)).toBeLessThan(
-      commands.indexOf(commandNames.app.launchLeague),
+    expect(commands).toContain(commandNames.patcher.startPatcher);
+    expect(commands).toContain(commandNames.launcher.launchLeague);
+    expect(commands.indexOf(commandNames.patcher.startPatcher)).toBeLessThan(
+      commands.indexOf(commandNames.launcher.launchLeague),
     );
   });
 
@@ -131,8 +131,8 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    expect(invokedCommands()).toContain(commandNames.app.startPatcher);
-    expect(invokedCommands()).not.toContain(commandNames.app.launchLeague);
+    expect(invokedCommands()).toContain(commandNames.patcher.startPatcher);
+    expect(invokedCommands()).not.toContain(commandNames.launcher.launchLeague);
   });
 
   /// The two halves stay independently invokable - this is the "I launch League
@@ -145,8 +145,8 @@ describe("usePlay", () => {
       await result.current.play.launchOnly();
     });
 
-    expect(invokedCommands()).toContain(commandNames.app.launchLeague);
-    expect(invokedCommands()).not.toContain(commandNames.app.startPatcher);
+    expect(invokedCommands()).toContain(commandNames.launcher.launchLeague);
+    expect(invokedCommands()).not.toContain(commandNames.patcher.startPatcher);
   });
 
   it("keeps the patcher when League is already running", async () => {
@@ -157,7 +157,7 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    expect(invokedCommands()).toContain(commandNames.app.startPatcher);
+    expect(invokedCommands()).toContain(commandNames.patcher.startPatcher);
     expect(screen.queryByText("Couldn't launch League")).toBeNull();
   });
 
@@ -228,7 +228,7 @@ describe("usePlay", () => {
       await Promise.all([result.current.play.play(), result.current.play.play()]);
     });
 
-    const launches = invokedCommands().filter((cmd) => cmd === commandNames.app.launchLeague);
+    const launches = invokedCommands().filter((cmd) => cmd === commandNames.launcher.launchLeague);
     expect(launches).toHaveLength(1);
   });
 });

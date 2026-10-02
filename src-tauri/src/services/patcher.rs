@@ -1,3 +1,6 @@
+//! The patcher service: starting and stopping the patcher, the overlay it builds, and what it
+//! found wrong with the mods it read.
+
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{
     ChecksumMismatchInfo, ChecksumMismatchState, LinkedBinOffenderInfo, LinkedBinState,
@@ -232,7 +235,7 @@ pub(crate) fn start_patcher_inner(
 
     let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
 
-    let dll_path = crate::commands::diagnostics::resolve_patcher_dll(app_handle)
+    let dll_path = super::diagnostics::resolve_patcher_dll(app_handle)
         .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
         .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
     let patcher_binaries = PatcherBinaries::identify(
@@ -405,4 +408,12 @@ pub fn get_checksum_mismatches(
     checksum_mismatches: State<Arc<ChecksumMismatchState>>,
 ) -> IpcResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {
     IpcResult::ok(checksum_mismatches.by_mod())
+}
+
+/// The patcher service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the patcher commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

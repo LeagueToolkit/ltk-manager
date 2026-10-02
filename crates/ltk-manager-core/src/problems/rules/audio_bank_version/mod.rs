@@ -55,7 +55,7 @@ use crate::problems::bank_units::BankUnits;
 use crate::problems::game::GameContent;
 use crate::problems::{
     Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem,
-    ProblemSeverity, Rule, RuleId, Site, Weight,
+    ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -123,25 +123,18 @@ impl AudioBankVersion {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Unsupported audio bank version",
+    description: "An audio bank at a version the game's reader drops, so the mod plays no sound",
+    unfixable: "Couldn't remove because the bank unit naming this file would have to be edited too",
+    severity: Some(ProblemSeverity::Warning),
+};
+
 impl Rule for AudioBankVersion {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Unsupported audio bank version"
-    }
-
-    fn description(&self) -> &'static str {
-        "An audio bank at a version the game's reader drops, so the mod plays no sound"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't remove because the bank unit naming this file would have to be edited too"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Warning)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -180,14 +173,11 @@ impl Rule for AudioBankVersion {
                     "Removing nothing from {}, which would not read: {e}",
                     run.root().display()
                 );
-                return Ok(skip_all(problems, run));
+                return Ok(run.skip_all(problems));
             }
         };
 
-        let mut applied = Applied::default();
-        for problem in problems {
-            let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
-
+        run.per_file(problems, |run, layer, path| {
             // Found in the listing before it is read, because a bank a previous
             // run already removed has no bytes to judge and is not an error.
             let removes = match run.project() {
@@ -196,34 +186,19 @@ impl Rule for AudioBankVersion {
                     .find(|handle| handle.layer() == layer && handle.path() == path)
                 {
                     Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
-                        still_rejected(&run.read(&layer, &path)?)
+                        still_rejected(&run.read(layer, path)?)
                     }
                     _ => false,
                 },
                 Err(_) => false,
             };
             if !removes {
-                applied.skipped += 1;
-                run.skipped(&layer, &path, 1);
-                continue;
+                return Ok(false);
             }
 
-            run.remove(&layer, &path, 1)?;
-            applied.applied += 1;
-        }
-
-        Ok(applied)
-    }
-}
-
-/// Record every problem as skipped, for a repair that cannot be derived at all.
-fn skip_all(problems: &[&Problem], run: &mut FixRun<'_>) -> Applied {
-    for problem in problems {
-        run.skipped(&problem.site.layer, &problem.site.path, 1);
-    }
-    Applied {
-        applied: 0,
-        skipped: problems.len() as u32,
+            run.remove(layer, path, 1)?;
+            Ok(true)
+        })
     }
 }
 

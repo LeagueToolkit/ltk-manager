@@ -19,11 +19,11 @@ use tempfile::TempDir;
 
 mod browse;
 mod build;
+mod class_reads;
 mod declarations;
 mod names;
 mod references;
 mod search;
-mod spells;
 mod state;
 mod walk;
 

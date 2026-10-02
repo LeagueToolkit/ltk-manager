@@ -8,6 +8,7 @@ use chrono::{DateTime, FixedOffset};
 use quick_xml::escape::unescape;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 
 use crate::github::{self, GitHubError};
@@ -20,7 +21,8 @@ const FEED_URL: &str =
 const CAP: usize = 10;
 
 /// One post in the Announcements category.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Announcement {
     /// The feed's own id for the post.
@@ -32,7 +34,7 @@ pub struct Announcement {
     pub published_at: Option<String>,
 }
 
-/// Read the newest announcements, at most [`CAP`] of them.
+/// Read the newest announcements, at most [`CAP`] of them, as the `running` build.
 ///
 /// Blocking, so it belongs on a thread that does not draw the window.
 ///
@@ -40,8 +42,8 @@ pub struct Announcement {
 ///
 /// Fails when GitHub cannot be reached, when the address has spent its
 /// quota, or when the answer is not an Atom feed.
-pub fn fetch() -> Result<Vec<Announcement>, GitHubError> {
-    let response = github::send(github::client()?.get(FEED_URL))?;
+pub fn fetch(running: &Version) -> Result<Vec<Announcement>, GitHubError> {
+    let response = github::send(github::client(running)?.get(FEED_URL))?;
     let body = response.text().map_err(GitHubError::Http)?;
     let mut posts = parse_feed(&body).map_err(GitHubError::malformed)?;
     posts.sort_by_key(|post| std::cmp::Reverse(posted_at(post)));

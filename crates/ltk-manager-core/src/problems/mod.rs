@@ -48,7 +48,7 @@ pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
 pub use pass::{
     BinVisitor, Bins, Collected, Coverage, Demanded, Fact, FileRead, Files, Finish, Head,
-    ObjectRead, Pass, Sink, Walk, Weight,
+    ObjectRead, Pass, PropertyRead, PropertyWalk, Sink, Walk, Weight,
 };
 pub use preserve::{KeptTable, Preserved, PreservedNames};
 
@@ -402,7 +402,7 @@ pub struct RuleInfo {
     #[cfg_attr(feature = "ts", specta(optional))]
     pub unfixable: String,
     /// The severity every finding of this rule carries - see
-    /// [`Rule::severity`].
+    /// [`RuleMeta::severity`].
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub severity: Option<ProblemSeverity>,
@@ -646,32 +646,23 @@ impl Counts {
     }
 }
 
-/// One check the manager runs over a project.
-///
-/// A rule declares what it reads in [`subscribe`](Self::subscribe) and opens
-/// nothing itself. What the [`pass`] does with that is its own doc. The
-/// repair is the rule's own, reading and writing through a [`FixRun`].
-pub trait Rule: Send + Sync {
+/// What a rule says about itself, the same for every project it runs over.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RuleMeta {
     /// The stable id a user reads, such as `bin/property-type`.
-    fn id(&self) -> RuleId;
-
+    pub id: RuleId,
     /// A few words naming the state this rule objects to.
     ///
     /// Sentence case and no trailing stop, because a panel sets it as a
     /// heading: `Meta property type mismatch`.
-    fn title(&self) -> &'static str;
-
+    pub title: &'static str,
     /// One sentence saying what that state is, for a reader who has not met it.
-    fn description(&self) -> &'static str;
-
+    pub description: &'static str,
     /// One sentence saying which of this rule's findings no repair reaches, and why.
     ///
     /// Empty for a rule whose findings a repair always fixes - the sentence is
     /// only shown beside a count the repair falls short of.
-    fn unfixable_description(&self) -> &'static str {
-        ""
-    }
-
+    pub unfixable: &'static str,
     /// The severity every problem this rule reports carries.
     ///
     /// `None` where each finding answers for itself, because what it costs
@@ -683,7 +674,27 @@ pub trait Rule: Send + Sync {
     /// the old glyph without waiting for a game patch to move the basis. It is
     /// required rather than defaulted for the same reason: a rule that fell to
     /// the wrong side of it by inheriting a default would go stale silently.
-    fn severity(&self) -> Option<ProblemSeverity>;
+    pub severity: Option<ProblemSeverity>,
+}
+
+/// One check the manager runs over a project.
+///
+/// A rule declares what it reads in [`subscribe`](Self::subscribe) and opens
+/// nothing itself. What the [`pass`] does with that is its own doc. The
+/// repair is the rule's own, reading and writing through a [`FixRun`].
+pub trait Rule: Send + Sync {
+    /// What the rule says about itself: its id, its words and its severity.
+    fn meta(&self) -> &RuleMeta;
+
+    /// The stable id a user reads, such as `bin/property-type`.
+    fn id(&self) -> RuleId {
+        self.meta().id
+    }
+
+    /// The severity every problem this rule reports carries - see [`RuleMeta::severity`].
+    fn severity(&self) -> Option<ProblemSeverity> {
+        self.meta().severity
+    }
 
     /// What this rule is, for the catalogue a [`Run`] carries.
     ///
@@ -691,12 +702,13 @@ pub trait Rule: Send + Sync {
     /// and this is the rule alone. The engine asks [`Rule::dormant`] and sets
     /// it.
     fn info(&self) -> RuleInfo {
+        let meta = self.meta();
         RuleInfo {
-            id: self.id(),
-            title: self.title().to_owned(),
-            description: self.description().to_owned(),
-            unfixable: self.unfixable_description().to_owned(),
-            severity: self.severity(),
+            id: meta.id,
+            title: meta.title.to_owned(),
+            description: meta.description.to_owned(),
+            unfixable: meta.unfixable.to_owned(),
+            severity: meta.severity,
             state: RuleState::Active,
         }
     }

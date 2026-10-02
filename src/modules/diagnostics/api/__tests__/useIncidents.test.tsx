@@ -62,7 +62,7 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
 /** The backend lists newest first, so the order given here is the order kept. */
 function mockIncidents(incidents: Incident[]) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === commandNames.app.listIncidents)
+    if (cmd === commandNames.diagnostics.listIncidents)
       return Promise.resolve({ ok: true, value: incidents });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -113,7 +113,7 @@ describe("useLatestIncident", () => {
 
     await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
     const listings = mockInvoke.mock.calls.filter(
-      ([cmd]) => cmd === commandNames.app.listIncidents,
+      ([cmd]) => cmd === commandNames.diagnostics.listIncidents,
     );
     expect(listings).toHaveLength(1);
   });
