@@ -28,7 +28,7 @@ function Startup() {
 const RESET_GROUP = /Reset \d+ changed settings in this group/;
 
 function saveCount() {
-  return mockInvoke.mock.calls.filter(([command]) => command === commandNames.app.saveSettings)
+  return mockInvoke.mock.calls.filter(([command]) => command === commandNames.settings.saveSettings)
     .length;
 }
 

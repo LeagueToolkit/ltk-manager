@@ -277,7 +277,7 @@ fn a_chunk_named_by_its_hash_is_reported_without_a_repair() {
         }
     );
     assert_eq!(read_back(&tmp, hashed), bank(0), "nothing was written");
-    assert!(!AudioBankId::new().unfixable_description().is_empty());
+    assert!(!AudioBankId::new().meta().unfixable.is_empty());
 }
 
 /* The bin shape a bank's own name survives an unpack in. Written out here

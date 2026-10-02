@@ -540,9 +540,16 @@ fn translated(
     options: ProgramOptions,
     cache: &mut ShaderCache<'_>,
 ) -> ProgramRead {
-    let defines = define_list(pass, kind, options);
+    program_read(cache, shader, &define_list(pass, kind, options))
+}
 
-    match cache.program(shader, &defines) {
+/// The program `cache` builds of `shader` under `defines`, or why it could not.
+pub fn program_read(
+    cache: &mut ShaderCache<'_>,
+    shader: ShaderPath<'_>,
+    defines: &Defines,
+) -> ProgramRead {
+    match cache.program(shader, defines) {
         Ok(program) => ProgramRead::Ready {
             defines: defines.to_entries(),
             vertex: Box::new(program.vertex),

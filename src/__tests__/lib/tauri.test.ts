@@ -11,7 +11,7 @@ describe("api", () => {
     it("getSettings invokes get_settings", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: { theme: "dark" } });
       const result = await api.getSettings();
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.getSettings);
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.settings.getSettings);
       expect(result).toEqual({ ok: true, value: { theme: "dark" } });
     });
 
@@ -19,13 +19,13 @@ describe("api", () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       const settings = { theme: "dark" } as Parameters<typeof api.saveSettings>[0];
       await api.saveSettings(settings);
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.saveSettings, { settings });
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.settings.saveSettings, { settings });
     });
 
     it("validateLeaguePath invokes with path arg", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: true });
       await api.validateLeaguePath("/some/path");
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.validateLeaguePath, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.settings.validateLeaguePath, {
         path: "/some/path",
       });
     });
@@ -152,7 +152,7 @@ describe("api", () => {
     it("stopPatcher invokes stop_patcher", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.stopPatcher();
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.stopPatcher);
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.patcher.stopPatcher);
     });
   });
 

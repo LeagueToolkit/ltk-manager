@@ -34,6 +34,26 @@ services! {
         bin_row_declaration,
         declarations_module_action,
     }
+    atlas("atlas") {
+        // Views
+        read_ui_view,
+        read_ui_scene_view,
+        read_ui_loadout,
+        read_ui_characters,
+        read_ui_tooltips,
+        read_ui_font,
+        read_ui_font_catalog,
+        // Sheets
+        atlas_import_sprite,
+        atlas_import_font_file,
+        atlas_make_surface,
+        atlas_patch_sprite,
+        atlas_sheet,
+        atlas_export_sprite,
+        // Programs
+        read_ui_material_programs,
+        read_ui_programs,
+    }
     app_update("app-update") {
         check_update,
         download_update,
@@ -155,6 +175,54 @@ services! {
         read_spell,
         read_vfx_system,
         vfx_templates,
+    }
+    settings("settings") {
+        get_settings,
+        save_settings,
+        get_default_settings,
+        auto_detect_league_path,
+        validate_league_path,
+        check_setup_required,
+        detect_league_run_as_admin,
+        list_available_wads,
+        list_forcible_map_skins,
+        list_map_decorations,
+    }
+    patcher("patcher") {
+        start_patcher,
+        stop_patcher,
+        rebuild_overlay,
+        get_patcher_status,
+        get_linked_bin_offenders,
+        get_checksum_mismatches,
+    }
+    launcher("launcher") {
+        launch_league,
+        cancel_launch,
+        stop_league,
+        get_launch_availability,
+        get_league_session,
+        check_install_mismatch,
+        switch_league_install,
+    }
+    diagnostics("diagnostics") {
+        run_diagnostics,
+        open_elevated_terminal,
+        list_incidents,
+        dismiss_incident,
+        dismiss_all_incidents,
+        reveal_game_log,
+        incident_report,
+        incident_token,
+        decode_incident_token,
+        telemetry_identity,
+        reset_telemetry_secret,
+        track_ui_error,
+    }
+    hotkeys("hotkeys") {
+        pause_hotkeys,
+        resume_hotkeys,
+        set_hotkey,
     }
     workshop("workshop") {
         // Projects

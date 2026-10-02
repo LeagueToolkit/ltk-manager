@@ -60,8 +60,8 @@ impl HotkeyAction {
     /// Execute the action associated with this hotkey, emitting an error event on failure.
     fn execute(self, app_handle: &AppHandle) {
         let result = match self {
-            Self::ReloadMods => crate::commands::hotkeys::execute_hot_reload(app_handle),
-            Self::KillLeague => crate::commands::hotkeys::execute_kill_league(app_handle),
+            Self::ReloadMods => crate::services::hotkeys::execute_hot_reload(app_handle),
+            Self::KillLeague => crate::services::hotkeys::execute_kill_league(app_handle),
         };
         if let Err(e) = result {
             tracing::error!("{} failed: {}", self.label(), e);

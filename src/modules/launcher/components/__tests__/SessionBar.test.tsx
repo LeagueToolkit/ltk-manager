@@ -46,7 +46,7 @@ async function emit(name: string, payload: unknown) {
 
 function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning = false) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === commandNames.app.getPatcherStatus) {
+    if (cmd === commandNames.patcher.getPatcherStatus) {
       return Promise.resolve({
         ok: true,
         value: { running: phase !== "idle", phase, session: null },
@@ -55,7 +55,7 @@ function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning
     if (cmd === commandNames.app.getPlatformSupport) {
       return Promise.resolve({ ok: true, value: { patcherAvailable } });
     }
-    if (cmd === commandNames.app.getLaunchAvailability) {
+    if (cmd === commandNames.launcher.getLaunchAvailability) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -337,7 +337,7 @@ describe("SessionBar", () => {
 
       await waitFor(() =>
         expect(mockInvoke.mock.calls.map(([cmd]) => cmd)).toContain(
-          commandNames.app.rebuildOverlay,
+          commandNames.patcher.rebuildOverlay,
         ),
       );
     });
@@ -370,7 +370,7 @@ describe("SessionBar", () => {
       await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
       expect(await screen.findByText("Patcher idle")).toBeInTheDocument();
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.dismissIncident, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.diagnostics.dismissIncident, {
         id: missingData.id,
       });
     });

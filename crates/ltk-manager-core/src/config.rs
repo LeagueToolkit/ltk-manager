@@ -92,7 +92,7 @@ pub struct Config {
     /// runs as administrator. Off by default: when off, non-elevated users
     /// avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
     /// when League is detected configured to run as admin, regardless of this
-    /// flag (see `commands::patcher::start_patcher_inner`).
+    /// flag (see `services::patcher::start_patcher_inner`).
     #[serde(default)]
     pub elevate_injector: bool,
     /// Whether to automatically categorize mods from their content (champions,

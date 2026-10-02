@@ -156,7 +156,7 @@ impl ObjectIndex {
     }
 
     /// The objects no table names, by hash.
-    pub(super) fn unnamed_objects(&self) -> impl Iterator<Item = BinHash> + '_ {
+    pub fn unnamed_objects(&self) -> impl Iterator<Item = BinHash> + '_ {
         self.declared
             .objects
             .iter()

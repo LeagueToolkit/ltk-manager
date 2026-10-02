@@ -1,9 +1,9 @@
 //! Work a command runs off the thread that draws the window.
 
+use ltk_manager_core::github::GitHubError;
 use ltk_manager_core::integrations::IntegrationError;
 
 use crate::error::{AppError, AppErrorResponse, AppResult, GitHubFeed, IpcResult};
-use crate::github::GitHubError;
 
 /// Run `work` on a blocking thread, with a panic inside it reported through `interrupted`.
 async fn blocking<T, E>(

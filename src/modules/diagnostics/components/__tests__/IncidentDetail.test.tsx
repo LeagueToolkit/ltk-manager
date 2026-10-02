@@ -35,7 +35,7 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             }),
           ],
         });
-      case commandNames.app.getPatcherStatus:
+      case commandNames.patcher.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: {
@@ -46,9 +46,9 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
         });
       case commandNames.workshop.getWorkshopProject:
         return Promise.resolve({ ok: true, value: { id: "a1b2c3d4e5f6a7b8" } });
-      case commandNames.app.incidentReport:
+      case commandNames.diagnostics.incidentReport:
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });
-      case commandNames.app.incidentToken:
+      case commandNames.diagnostics.incidentToken:
         return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });

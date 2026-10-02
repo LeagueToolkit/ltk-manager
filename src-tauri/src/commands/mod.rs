@@ -31,30 +31,18 @@
 
 mod app;
 mod deep_link;
-mod diagnostics;
-pub(crate) mod hotkeys;
 mod integrations;
-pub(crate) mod launcher;
 mod news;
-pub(crate) mod patcher;
 mod platform;
 mod releases;
-mod settings;
-mod shell;
+pub(crate) mod shell;
 mod storage;
-mod ui;
 
 pub use app::*;
 pub use deep_link::*;
-pub use diagnostics::*;
-pub use hotkeys::*;
 pub use integrations::*;
-pub use launcher::*;
 pub use news::*;
-pub use patcher::*;
 pub use platform::*;
 pub use releases::*;
-pub use settings::*;
 pub use shell::*;
 pub use storage::*;
-pub use ui::*;

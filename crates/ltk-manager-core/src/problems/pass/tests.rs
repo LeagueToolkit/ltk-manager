@@ -18,7 +18,7 @@ use parking_lot::Mutex;
 use super::*;
 use crate::config::Config;
 use crate::problems::bank_units::{BANK_PATH, BANK_UNIT, BankUnits};
-use crate::problems::{Applied, Budget, FixError, FixRun, Problem, RuleFailure, budget};
+use crate::problems::{Applied, Budget, FixError, FixRun, Problem, RuleFailure, RuleMeta, budget};
 
 const ENTRY: BinHash = BinHash(0x0100_0001);
 const OTHER_ENTRY: BinHash = BinHash(0x0100_0002);
@@ -95,7 +95,7 @@ fn project_under(files: &[(&str, &[u8])], budget: Budget) -> (tempfile::TempDir,
 
 /// A rule that is nothing but its subscription.
 struct Subscribing {
-    id: RuleId,
+    meta: RuleMeta,
     subscribe: Box<dyn for<'x> Fn(&mut Pass<'x>) + Send + Sync>,
 }
 
@@ -105,27 +105,21 @@ impl Subscribing {
         subscribe: impl for<'x> Fn(&mut Pass<'x>) + Send + Sync + 'static,
     ) -> Self {
         Self {
-            id: RuleId(id),
+            meta: RuleMeta {
+                id: RuleId(id),
+                title: "A test rule",
+                description: "Reports what its subscription saw",
+                unfixable: "",
+                severity: Some(ProblemSeverity::Info),
+            },
             subscribe: Box::new(subscribe),
         }
     }
 }
 
 impl Rule for Subscribing {
-    fn id(&self) -> RuleId {
-        self.id
-    }
-
-    fn title(&self) -> &'static str {
-        "A test rule"
-    }
-
-    fn description(&self) -> &'static str {
-        "Reports what its subscription saw"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Info)
+    fn meta(&self) -> &RuleMeta {
+        &self.meta
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {

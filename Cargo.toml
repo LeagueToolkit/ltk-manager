@@ -81,6 +81,8 @@ image_dds = { version = "0.6", default-features = false, features = ["ddsfile", 
 indexmap = { version = "2", features = ["serde"] }
 lru = "0.18"
 parking_lot = { version = "0.12", features = ["arc_lock"] }
+notify = { version = "7", default-features = false }
+notify-debouncer-mini = "0.5"
 quick-xml = "0.41"
 rayon = "1.12"
 regex = "1"

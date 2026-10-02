@@ -22,7 +22,7 @@ describe("TokenDecoder", () => {
   /// names are on another machine.
   it("unfolds a token into a read-only card marked From a token", async () => {
     mockInvoke.mockImplementation((cmd: string, args: Record<string, unknown>) => {
-      if (cmd === commandNames.app.decodeIncidentToken) {
+      if (cmd === commandNames.diagnostics.decodeIncidentToken) {
         expect(args).toEqual({ token: TOKEN });
         return Promise.resolve({ ok: true, value: createMockDecodedIncident() });
       }
@@ -68,7 +68,7 @@ describe("TokenDecoder", () => {
   /// for, and the backend still reads everything around it.
   it("reads a verdict it does not know by its number, with the failure beside it", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === commandNames.app.decodeIncidentToken) {
+      if (cmd === commandNames.diagnostics.decodeIncidentToken) {
         return Promise.resolve({
           ok: true,
           value: createMockDecodedIncident({
@@ -110,7 +110,7 @@ describe("TokenDecoder", () => {
   /// token from no token at all, so its sentence shows as it is.
   it("shows the backend's reason when the paste does not decode", async () => {
     mockInvoke.mockImplementation((cmd: string) => {
-      if (cmd === commandNames.app.decodeIncidentToken) {
+      if (cmd === commandNames.diagnostics.decodeIncidentToken) {
         return Promise.resolve({
           ok: false,
           error: {

@@ -1,9 +1,11 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use ltk_manager_core::events::NullEventSink;
-use ltk_manager_core::workshop::LayerFile;
-
 use super::*;
+use crate::events::NullEventSink;
+use crate::workshop::LayerFile;
+
+/// Where the tests keep a project's Atlas sources.
+const SOURCES_DIR: &str = "sources";
 
 /// A sink that hands every layer file change to the test.
 struct ChangeSink(Mutex<Sender<LayerFilesChanged>>);
@@ -126,12 +128,15 @@ fn an_atlas_source_saved_goes_to_the_rebuild_and_is_no_layer_file() {
     let (sender, rebuilt) = mpsc::channel();
     let sender = Mutex::new(sender);
     let (watches, changes) = watches_reporting();
-    let watches = watches.with_sources(Arc::new(move |_: &str, changed: &[PathBuf]| {
-        let _ = sender.lock().send(changed.to_vec());
-    }));
+    let watches = watches.with_sources(
+        SOURCES_DIR,
+        Arc::new(move |_: &str, changed: &[PathBuf]| {
+            let _ = sender.lock().send(changed.to_vec());
+        }),
+    );
     /* A sheet's folder exists before its sources are edited. Inotify reports nothing written
     into a folder made under a watch before it watches that folder too. */
-    let sheet = project.path().join(atlas::SOURCES_DIR).join("hud");
+    let sheet = project.path().join(SOURCES_DIR).join("hud");
     fs::create_dir_all(&sheet).unwrap();
     watches.acquire(path).unwrap();
 

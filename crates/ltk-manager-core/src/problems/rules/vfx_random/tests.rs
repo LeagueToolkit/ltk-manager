@@ -237,6 +237,6 @@ fn neither_rule_offers_a_repair() {
     );
 
     assert_eq!(problems[0].fix, None);
-    assert!(!VfxPerFrameRandom::new().unfixable_description().is_empty());
-    assert!(!VfxBrokenRandom::new().unfixable_description().is_empty());
+    assert!(!VfxPerFrameRandom::new().meta().unfixable.is_empty());
+    assert!(!VfxBrokenRandom::new().meta().unfixable.is_empty());
 }

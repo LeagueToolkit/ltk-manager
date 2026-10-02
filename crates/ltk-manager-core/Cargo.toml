@@ -48,7 +48,10 @@ image = { workspace = true }
 image_dds = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
 parking_lot = { workspace = true }
+quick-xml = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }

@@ -7,16 +7,16 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use fs_err as fs;
-use ltk_manager_core::events::{BackendEvent, EventSink};
-use ltk_manager_core::sandbox::SandboxState;
-use ltk_manager_core::workshop::LayerFilesChanged;
 use notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{
-    new_debouncer, DebounceEventResult, DebouncedEvent, DebouncedEventKind, Debouncer,
+    DebounceEventResult, DebouncedEvent, DebouncedEventKind, Debouncer, new_debouncer,
 };
 use parking_lot::Mutex;
 
+use super::LayerFilesChanged;
 use crate::error::{AppError, AppResult};
+use crate::events::{BackendEvent, EventSink};
+use crate::sandbox::SandboxState;
 
 /// How long a path stays quiet before its change is announced.
 ///
@@ -37,8 +37,9 @@ pub type SourceRebuild = Arc<dyn Fn(&str, &[PathBuf]) + Send + Sync>;
 pub struct LayerWatches {
     events: Arc<dyn EventSink>,
     sandboxes: SandboxState,
-    /// What a change under a project's Atlas sources rebuilds, and nothing where unset.
-    sources: Option<SourceRebuild>,
+    /// The directory under each project holding its Atlas sources, and what a change there
+    /// rebuilds. Nothing where unset.
+    sources: Option<(String, SourceRebuild)>,
     watches: Mutex<HashMap<String, LayerWatch>>,
 }
 
@@ -60,11 +61,11 @@ impl LayerWatches {
         }
     }
 
-    /// The same watches, which also watch each project's Atlas sources and run `rebuild` on the
-    /// source files a batch changed. The page it writes lands in a layer, which the layer watch
-    /// then announces.
-    pub fn with_sources(mut self, rebuild: SourceRebuild) -> Self {
-        self.sources = Some(rebuild);
+    /// The same watches, which also watch each project's Atlas sources under `dir` and run
+    /// `rebuild` on the source files a batch changed. The page it writes lands in a layer, which
+    /// the layer watch then announces.
+    pub fn with_sources(mut self, dir: &str, rebuild: SourceRebuild) -> Self {
+        self.sources = Some((dir.to_owned(), rebuild));
         self
     }
 
@@ -117,8 +118,8 @@ impl LayerWatches {
         prefix it was reported under. */
         let content = fs::canonicalize(Path::new(project).join(CONTENT_DIR))?;
         let sources = match &self.sources {
-            Some(_) => {
-                let dir = Path::new(project).join(atlas::SOURCES_DIR);
+            Some((dir, _)) => {
+                let dir = Path::new(project).join(dir);
                 fs::create_dir_all(&dir)?;
                 Some(fs::canonicalize(dir)?)
             }
@@ -126,7 +127,10 @@ impl LayerWatches {
         };
         let events = Arc::clone(&self.events);
         let sandboxes = self.sandboxes.clone();
-        let rebuild = self.sources.clone();
+        let rebuild = self
+            .sources
+            .as_ref()
+            .map(|(_, rebuild)| Arc::clone(rebuild));
         let owner = project.to_owned();
         let root = content.clone();
         let source_root = sources.clone();

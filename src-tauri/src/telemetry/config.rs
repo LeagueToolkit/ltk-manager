@@ -19,7 +19,9 @@ use semver::Version;
 use serde::Deserialize;
 use tracing::{info, warn};
 
-use crate::github;
+use ltk_manager_core::github;
+
+use crate::running_version;
 
 /// The document, read raw so a change to collection is a reviewed change.
 const DOCUMENT_URL: &str =
@@ -103,7 +105,7 @@ pub fn fetch(cache: &Path) -> Remote {
         }
     };
 
-    match read(&body, &running()) {
+    match read(&body, &running_version()) {
         Some(remote) => {
             store(cache, &body);
             remote
@@ -116,13 +118,13 @@ pub fn fetch(cache: &Path) -> Remote {
 pub fn cached(cache: &Path) -> Remote {
     fs::read_to_string(cache)
         .ok()
-        .and_then(|body| read(&body, &running()))
+        .and_then(|body| read(&body, &running_version()))
         .unwrap_or_default()
 }
 
 /// The document's body, over the client every read of the repository shares.
 fn download() -> Result<String, github::GitHubError> {
-    let response = github::send(github::client()?.get(DOCUMENT_URL))?;
+    let response = github::send(github::client(&running_version())?.get(DOCUMENT_URL))?;
     response.text().map_err(github::GitHubError::Http)
 }
 
@@ -137,12 +139,6 @@ fn store(cache: &Path, body: &str) {
     if let Err(error) = fs::write(cache, body) {
         warn!(%error, "The telemetry configuration could not be written down");
     }
-}
-
-/// The version this build runs at, which the minimum is measured against.
-fn running() -> Version {
-    Version::parse(env!("CARGO_PKG_VERSION"))
-        .expect("CARGO_PKG_VERSION is semver, since cargo refuses a manifest whose version is not")
 }
 
 /// What `body` allows `running` to collect, or nothing when it cannot be read.

@@ -1,5 +1,7 @@
-use crate::deep_link::{self, DeepLinkRequest};
+use ltk_manager_core::deep_link::{self, DeepLinkRequest};
+
 use crate::error::{AppError, AppResult, IpcResult};
+use crate::events::TauriEventSink;
 use crate::mods::{InstalledMod, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -34,7 +36,8 @@ fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<
 #[tauri::command]
 #[specta::specta]
 pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLinkRequest>> {
-    let pending: AppResult<Option<DeepLinkRequest>> = Ok(deep_link::take_pending(&app_handle));
+    let pending: AppResult<Option<DeepLinkRequest>> =
+        Ok(crate::deep_link::take_pending(&app_handle));
     pending.into()
 }
 
@@ -74,7 +77,8 @@ pub fn deep_link_install_mod(
             source
         );
 
-        let temp_path = deep_link::download_mod_file(&url, &app_handle)?;
+        let events = TauriEventSink::new(app_handle.clone());
+        let temp_path = deep_link::download_mod_file(&url, &events)?;
         let temp_path_str = temp_path.to_string_lossy().to_string();
 
         let config = settings.config();
@@ -84,7 +88,7 @@ pub fn deep_link_install_mod(
             tracing::warn!("Failed to clean up temp file: {}", e);
         }
 
-        deep_link::emit_install_complete(&app_handle);
+        deep_link::emit_install_complete(&events);
 
         result
     })();

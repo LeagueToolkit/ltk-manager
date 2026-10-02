@@ -13,6 +13,7 @@
 //! rebuilt per call.
 
 pub mod install;
+mod reload;
 mod types;
 
 use std::path::PathBuf;
@@ -30,6 +31,7 @@ use crate::config::Config;
 use crate::events::{BackendEvent, EventSink};
 
 pub use install::{InstallMismatch, InstalledPatchline, detect_install_mismatch, same_install};
+pub use reload::{kill_game, reconnect_client};
 pub use ritoclient::StopFlag;
 pub use types::{
     LaunchOutcome, LaunchProgress, LaunchRoute, LaunchStage, LaunchTarget, LauncherError,

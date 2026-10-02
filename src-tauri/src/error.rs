@@ -13,11 +13,10 @@ use specta::datatype::{DataType, Enum, Field, Variant};
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
 use ltk_manager_core::error::message_with_sources;
 pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
+use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
-
-use crate::github::{GitHubError, GitHubErrorKind};
 
 /// What went wrong, as the fields the frontend translates over.
 ///

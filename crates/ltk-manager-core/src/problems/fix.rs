@@ -31,7 +31,9 @@ use crate::utils::fs::atomic_write;
 use super::game::GameContent;
 use super::pass::Fact;
 use super::preserve::{KeptTable, PreservedNames};
-use super::{BinNames, NodeAddress, ProblemId, ProjectFiles, RuleId, Run, Site, rules};
+use super::{
+    Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run, Site, rules,
+};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
@@ -335,6 +337,44 @@ impl<'a> FixRun<'a> {
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
         self.record(layer, path, 0, skipped, FileChange::Written);
+    }
+
+    /// Record every one of `problems` as skipped, for a rule that derives no repair for them.
+    pub fn skip_all(&mut self, problems: &[&Problem]) -> Applied {
+        for problem in problems {
+            self.skipped(&problem.site.layer, &problem.site.path, 1);
+        }
+
+        Applied {
+            applied: 0,
+            skipped: u32::try_from(problems.len()).unwrap_or(u32::MAX),
+        }
+    }
+
+    /// Repair each of `problems` in its own file through `repair`, which writes or removes
+    /// that file and answers whether it did. A file it leaves alone is recorded as skipped.
+    ///
+    /// # Errors
+    ///
+    /// Stops at the first error `repair` reports.
+    pub fn per_file(
+        &mut self,
+        problems: &[&Problem],
+        mut repair: impl FnMut(&mut Self, &str, &str) -> Result<bool, FixError>,
+    ) -> Result<Applied, FixError> {
+        let mut applied = Applied::default();
+
+        for problem in problems {
+            let (layer, path) = (&problem.site.layer, &problem.site.path);
+            if repair(self, layer, path)? {
+                applied.applied += 1;
+            } else {
+                applied.skipped += 1;
+                self.skipped(layer, path, 1);
+            }
+        }
+
+        Ok(applied)
     }
 
     /// Write the kept names and report what the run did.

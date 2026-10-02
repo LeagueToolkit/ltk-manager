@@ -19,7 +19,7 @@ use super::refresh::OverlayRefresh;
 
 pub use super::dll_lines::{DllLevel, parse_wad_scan_failure};
 
-/// Re-export the executable name that `commands/patcher.rs` resolves.
+/// Re-export the executable name that `services/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
 
 #[derive(Debug, thiserror::Error)]
@@ -142,7 +142,7 @@ const ATTACH_PID_WINDOW: Duration = Duration::from_secs(1);
 /// Drives one patching session against an already-running [`PatcherHost`].
 ///
 /// The host process itself is spawned and kept alive by the caller (see
-/// `commands::patcher`); the injector only runs the per-session event loop and,
+/// `services::patcher`); the injector only runs the per-session event loop and,
 /// on stop, issues a `stop` command rather than killing the host.
 pub struct Injector {
     elevate: bool,

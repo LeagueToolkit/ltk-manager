@@ -10,7 +10,7 @@ use atlas::{read_patch, read_sheet, rebuild_patch, rebuild_sheet, PAGES_DIR, SOU
 use fs_err as fs;
 use tauri::AppHandle;
 
-use super::watcher::SourceRebuild;
+use super::SourceRebuild;
 use crate::error::AppResult;
 use crate::services::game::game_file;
 

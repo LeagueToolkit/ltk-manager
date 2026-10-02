@@ -74,7 +74,7 @@ describe("InstallMismatchDialog", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Keep PBE" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(calls(commandNames.app.switchLeagueInstall)).toHaveLength(0);
+    expect(calls(commandNames.launcher.switchLeagueInstall)).toHaveLength(0);
     expect(useInstallMismatchStore.getState().kept).toBe(true);
 
     useInstallMismatchStore.getState().raise(reporter);
@@ -91,8 +91,8 @@ describe("InstallMismatchDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Switch to this install" }));
 
-    await waitFor(() => expect(calls(commandNames.app.switchLeagueInstall)).toHaveLength(1));
-    expect(calls(commandNames.app.switchLeagueInstall)[0]?.[1]).toEqual({
+    await waitFor(() => expect(calls(commandNames.launcher.switchLeagueInstall)).toHaveLength(1));
+    expect(calls(commandNames.launcher.switchLeagueInstall)[0]?.[1]).toEqual({
       installRoot: "C:\\Riot Games\\League of Legends",
     });
     expect(await screen.findByText("League path changed")).toBeVisible();
@@ -102,7 +102,7 @@ describe("InstallMismatchDialog", () => {
 
   it("reports a switch that failed and stays up", async () => {
     mockInvoke.mockImplementation((command: string) => {
-      if (command === commandNames.app.switchLeagueInstall) {
+      if (command === commandNames.launcher.switchLeagueInstall) {
         return Promise.resolve({
           ok: false,
           error: { code: "PATCHER", error: { kind: "BUSY" } },

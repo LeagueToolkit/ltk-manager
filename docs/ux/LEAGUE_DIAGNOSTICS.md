@@ -1389,7 +1389,7 @@ them.
 | `PatcherEvents` | `patcher/events.rs`                     | `game_attached`, `game_overlay`, `game_exited`, `incident_recorded`                                                                            |
 | The game record | `patcher/thread.rs`                     | Opened at `injected`, closed at `exited`, then classified                                                                                      |
 | `IncidentStore` | `ltk-manager-core/src/diagnostics/`     | The JSON files, the cap, and the dismiss flag                                                                                                  |
-| Commands        | `src-tauri/src/commands/diagnostics.rs` | `list_incidents`, `dismiss_incident`, `dismiss_all_incidents`, `reveal_game_log`, `incident_report`, `incident_token`, `decode_incident_token` |
+| Commands        | `src-tauri/src/services/diagnostics.rs` | `list_incidents`, `dismiss_incident`, `dismiss_all_incidents`, `reveal_game_log`, `incident_report`, `incident_token`, `decode_incident_token` |
 | Events          | `src-tauri/src/patcher/thread.rs`       | `patcher-game-attached`, `patcher-game-overlay`, `patcher-game-exited`, `incident-recorded`                                                    |
 
 The core crate holds all of the logic, the way the patcher and the diagnostics already do,

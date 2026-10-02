@@ -1,7 +1,7 @@
 //! Unit tests for which notices a build draws, without the network.
 
 use super::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// A build in the middle of the range every fixture reasons about.
 fn running() -> Version {

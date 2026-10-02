@@ -7,17 +7,14 @@ mod commands;
 mod deep_link;
 mod error;
 mod events;
-mod github;
 mod hotkeys;
 mod ipc;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
 mod mods;
-mod news;
 pub mod patcher;
 mod protocol;
-mod releases;
 mod services;
 mod setup;
 mod state;
@@ -27,11 +24,18 @@ mod updater;
 mod workshop;
 
 use ltk_manager_core::bin_document::BinDocuments;
+use semver::Version;
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
 /// The one window the frontend runs in, as `tauri.conf.json` leaves it unlabelled.
 const MAIN_WINDOW: &str = "main";
+
+/// The version this build runs at.
+fn running_version() -> Version {
+    Version::parse(env!("CARGO_PKG_VERSION"))
+        .expect("CARGO_PKG_VERSION is semver, since cargo refuses a manifest whose version is not")
+}
 
 fn main() {
     // Before logging, so a panic while that is still being set up is reported.
@@ -68,11 +72,17 @@ fn main() {
                 .build(),
         )
         .plugin(services::app_update::plugin())
+        .plugin(services::atlas::plugin())
         .plugin(services::bin::plugin())
         .plugin(services::game::plugin())
         .plugin(services::library::plugin())
         .plugin(services::objects::plugin())
         .plugin(services::preview::plugin())
+        .plugin(services::settings::plugin())
+        .plugin(services::patcher::plugin())
+        .plugin(services::launcher::plugin())
+        .plugin(services::diagnostics::plugin())
+        .plugin(services::hotkeys::plugin())
         .plugin(services::workshop::plugin());
 
     builder

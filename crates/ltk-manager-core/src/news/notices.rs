@@ -19,7 +19,8 @@ const DOCUMENT_URL: &str =
 const SCHEMA: u32 = 1;
 
 /// How loudly a notice is drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum NoticeSeverity {
     Info,
@@ -28,7 +29,8 @@ pub enum NoticeSeverity {
 }
 
 /// One notice that concerns the running build, and has not expired.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Notice {
     /// Stable across edits, which is what a dismissal is kept by.
@@ -68,7 +70,7 @@ struct PublishedNotice {
     versions: Option<String>,
 }
 
-/// Read the notices that concern this build right now, newest first.
+/// Read the notices that concern the `running` build right now, newest first.
 ///
 /// Blocking, so it belongs on a thread that does not draw the window.
 ///
@@ -76,14 +78,12 @@ struct PublishedNotice {
 ///
 /// Fails when GitHub cannot be reached, when the address has spent its
 /// quota, or when the answer is not a notices document.
-pub fn fetch() -> Result<Vec<Notice>, GitHubError> {
-    let response = github::send(github::client()?.get(DOCUMENT_URL))?;
+pub fn fetch(running: &Version) -> Result<Vec<Notice>, GitHubError> {
+    let response = github::send(github::client(running)?.get(DOCUMENT_URL))?;
     let body = response.text().map_err(GitHubError::Http)?;
     let document = serde_json::from_str(&body).map_err(GitHubError::malformed)?;
 
-    let running = Version::parse(env!("CARGO_PKG_VERSION"))
-        .expect("CARGO_PKG_VERSION is semver, since cargo refuses a manifest whose version is not");
-    Ok(current(document, &running, Utc::now()))
+    Ok(current(document, running, Utc::now()))
 }
 
 /// The notices in `document` that concern `running` and are live at `now`.

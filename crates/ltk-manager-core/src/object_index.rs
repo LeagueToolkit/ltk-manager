@@ -21,14 +21,12 @@ mod find;
 mod names;
 mod references;
 mod search;
-mod spells;
 mod state;
 mod types;
 mod walk;
 
 pub use build::{Declaration, for_each_declaration};
 pub use names::{CacheNames, ObjectNames};
-pub use spells::{CharacterSpell, SpellCatalog};
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,
@@ -139,6 +137,23 @@ impl ObjectIndex {
     #[must_use]
     pub fn declares(&self, object: BinHash) -> bool {
         self.declared.objects.binary_search(&object).is_ok()
+    }
+
+    /// Whether any file of the install declares `object` as an instance of `class`.
+    #[must_use]
+    pub fn declares_class(&self, object: BinHash, class: BinHash) -> bool {
+        self.declared
+            .rows_of(object)
+            .iter()
+            .any(|at| self.declared.rows[*at as usize].class == class)
+    }
+
+    /// Every object a table names, with its path, in path order.
+    pub fn named_objects(&self) -> impl Iterator<Item = (BinHash, &str)> + '_ {
+        self.names
+            .named
+            .iter()
+            .map(|object| (object.hash, &*object.name))
     }
 
     /// Every declaration of `object` in archive order, or `None` where nothing declares it.

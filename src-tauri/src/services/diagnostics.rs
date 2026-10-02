@@ -1,4 +1,5 @@
-//! Tauri commands for the diagnostic suite and for League diagnostics.
+//! The diagnostics service: the diagnostic suite, League's own diagnostics, and the incidents
+//! the patcher records.
 //!
 //! `run_diagnostics` resolves the bundled hook DLL the injector loads into the
 //! game, snapshots settings, and runs every check in
@@ -20,7 +21,7 @@ use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
-/// Same lookup chain as `commands::patcher::resolve_resource`, but returns
+/// Same lookup chain as `services::patcher::resolve_resource`, but returns
 /// `None` instead of an error so we can still report the rest of the
 /// diagnostics when the DLL is missing.
 pub(crate) fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
@@ -318,4 +319,12 @@ fn reset_telemetry_secret_inner(
         .handle()
         .identity()
         .map(|identity| identity.as_str().to_owned()))
+}
+
+/// The diagnostics service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the diagnostics commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

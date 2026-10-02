@@ -20,11 +20,17 @@ import type {
   WorkshopFileKind,
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
+import { commands as atlas } from "@/lib/ipc/atlas";
 import { commands as bin } from "@/lib/ipc/bin";
+import { commands as diagnostics } from "@/lib/ipc/diagnostics";
 import { commands as game } from "@/lib/ipc/game";
+import { commands as hotkeys } from "@/lib/ipc/hotkeys";
+import { commands as launcher } from "@/lib/ipc/launcher";
 import { commands as library } from "@/lib/ipc/library";
 import { commands as objects } from "@/lib/ipc/objects";
+import { commands as patcher } from "@/lib/ipc/patcher";
 import { commands as preview } from "@/lib/ipc/preview";
+import { commands as settings } from "@/lib/ipc/settings";
 import { commands as workshop } from "@/lib/ipc/workshop";
 import { map as mapResult } from "@/utils/result";
 
@@ -81,16 +87,16 @@ export const api = {
   listNotices: commands.listNotices,
 
   // Settings
-  getSettings: commands.getSettings,
-  getDefaultSettings: commands.getDefaultSettings,
-  saveSettings: commands.saveSettings,
-  autoDetectLeaguePath: commands.autoDetectLeaguePath,
-  validateLeaguePath: commands.validateLeaguePath,
-  checkSetupRequired: commands.checkSetupRequired,
-  detectLeagueRunAsAdmin: commands.detectLeagueRunAsAdmin,
-  listAvailableWads: commands.listAvailableWads,
-  listForcibleMapSkins: commands.listForcibleMapSkins,
-  listMapDecorations: commands.listMapDecorations,
+  getSettings: settings.getSettings,
+  getDefaultSettings: settings.getDefaultSettings,
+  saveSettings: settings.saveSettings,
+  autoDetectLeaguePath: settings.autoDetectLeaguePath,
+  validateLeaguePath: settings.validateLeaguePath,
+  checkSetupRequired: settings.checkSetupRequired,
+  detectLeagueRunAsAdmin: settings.detectLeagueRunAsAdmin,
+  listAvailableWads: settings.listAvailableWads,
+  listForcibleMapSkins: settings.listForcibleMapSkins,
+  listMapDecorations: settings.listMapDecorations,
 
   // Mods
   getInstalledMods: library.getInstalledMods,
@@ -139,29 +145,29 @@ export const api = {
   // Inspector
 
   // Patcher
-  startPatcher: commands.startPatcher,
-  stopPatcher: commands.stopPatcher,
-  rebuildOverlay: commands.rebuildOverlay,
-  getPatcherStatus: commands.getPatcherStatus,
-  getLinkedBinOffenders: commands.getLinkedBinOffenders,
-  getChecksumMismatches: commands.getChecksumMismatches,
+  startPatcher: patcher.startPatcher,
+  stopPatcher: patcher.stopPatcher,
+  rebuildOverlay: patcher.rebuildOverlay,
+  getPatcherStatus: patcher.getPatcherStatus,
+  getLinkedBinOffenders: patcher.getLinkedBinOffenders,
+  getChecksumMismatches: patcher.getChecksumMismatches,
 
   // Launcher
   // Resolves to null when a launch was already in flight - a redundant click.
-  launchLeague: (target?: LaunchTarget) => commands.launchLeague(target ?? null),
+  launchLeague: (target?: LaunchTarget) => launcher.launchLeague(target ?? null),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the request landed looks like.
-  cancelLaunch: commands.cancelLaunch,
-  stopLeague: commands.stopLeague,
-  getLaunchAvailability: commands.getLaunchAvailability,
+  cancelLaunch: launcher.cancelLaunch,
+  stopLeague: launcher.stopLeague,
+  getLaunchAvailability: launcher.getLaunchAvailability,
   // Also starts following the session it reports, so a game already in progress
   // when the app opened still reaches the session events.
-  getLeagueSession: commands.getLeagueSession,
+  getLeagueSession: launcher.getLeagueSession,
 
   // Hotkeys
-  pauseHotkeys: commands.pauseHotkeys,
-  resumeHotkeys: commands.resumeHotkeys,
-  setHotkey: commands.setHotkey,
+  pauseHotkeys: hotkeys.pauseHotkeys,
+  resumeHotkeys: hotkeys.resumeHotkeys,
+  setHotkey: hotkeys.setHotkey,
 
   // Profiles
   listModProfiles: library.listModProfiles,
@@ -268,32 +274,32 @@ export const api = {
     syncMetaDocs: bin.syncMetaDocs,
     readVfxSystem: preview.readVfxSystem,
     vfxTemplates: preview.vfxTemplates,
-    readUiView: commands.readUiView,
-    readUiSceneView: commands.readUiSceneView,
-    readUiFont: commands.readUiFont,
-    readUiFontCatalog: commands.readUiFontCatalog,
+    readUiView: atlas.readUiView,
+    readUiSceneView: atlas.readUiSceneView,
+    readUiFont: atlas.readUiFont,
+    readUiFontCatalog: atlas.readUiFontCatalog,
     readUiMaterialPrograms: (documents: readonly BinDocumentId[], entries: readonly string[]) =>
-      commands.readUiMaterialPrograms([...documents], [...entries]),
+      atlas.readUiMaterialPrograms([...documents], [...entries]),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
-      commands.readUiPrograms(document, [...shaders]),
-    readUiLoadout: commands.readUiLoadout,
-    readUiTooltips: commands.readUiTooltips,
-    readUiCharacters: commands.readUiCharacters,
+      atlas.readUiPrograms(document, [...shaders]),
+    readUiLoadout: atlas.readUiLoadout,
+    readUiTooltips: atlas.readUiTooltips,
+    readUiCharacters: atlas.readUiCharacters,
     atlasExportSprite: (
       texture: AssetRef,
       uv: readonly [number, number, number, number],
       destination: string,
-    ) => commands.atlasExportSprite(texture, [...uv], destination),
-    atlasImportFontFile: commands.atlasImportFontFile,
-    atlasImportSprite: commands.atlasImportSprite,
-    atlasMakeSurface: commands.atlasMakeSurface,
+    ) => atlas.atlasExportSprite(texture, [...uv], destination),
+    atlasImportFontFile: atlas.atlasImportFontFile,
+    atlasImportSprite: atlas.atlasImportSprite,
+    atlasMakeSurface: atlas.atlasMakeSurface,
     atlasPatchSprite: (
       document: BinDocumentId,
       page: string,
       uv: readonly [number, number, number, number],
       source: string,
-    ) => commands.atlasPatchSprite(document, page, [...uv], source),
-    atlasSheet: commands.atlasSheet,
+    ) => atlas.atlasPatchSprite(document, page, [...uv], source),
+    atlasSheet: atlas.atlasSheet,
     readSkin: preview.readSkin,
     readMaterialPrograms: (
       source: MaterialSource,
@@ -363,24 +369,24 @@ export const api = {
 
   // Diagnostics. The generated `commands` object is flat, so the module boundary lives here.
   diagnostics: {
-    run: commands.runDiagnostics,
-    openElevatedTerminal: commands.openElevatedTerminal,
-    listIncidents: commands.listIncidents,
-    dismissIncident: commands.dismissIncident,
-    dismissAllIncidents: commands.dismissAllIncidents,
-    revealGameLog: commands.revealGameLog,
-    incidentReport: commands.incidentReport,
-    incidentToken: commands.incidentToken,
-    decodeIncidentToken: commands.decodeIncidentToken,
-    telemetryIdentity: commands.telemetryIdentity,
-    resetTelemetrySecret: commands.resetTelemetrySecret,
-    trackUiError: commands.trackUiError,
+    run: diagnostics.runDiagnostics,
+    openElevatedTerminal: diagnostics.openElevatedTerminal,
+    listIncidents: diagnostics.listIncidents,
+    dismissIncident: diagnostics.dismissIncident,
+    dismissAllIncidents: diagnostics.dismissAllIncidents,
+    revealGameLog: diagnostics.revealGameLog,
+    incidentReport: diagnostics.incidentReport,
+    incidentToken: diagnostics.incidentToken,
+    decodeIncidentToken: diagnostics.decodeIncidentToken,
+    telemetryIdentity: diagnostics.telemetryIdentity,
+    resetTelemetrySecret: diagnostics.resetTelemetrySecret,
+    trackUiError: diagnostics.trackUiError,
   },
 
   // Launcher.
   launcher: {
-    checkInstallMismatch: commands.checkInstallMismatch,
-    switchLeagueInstall: commands.switchLeagueInstall,
+    checkInstallMismatch: launcher.checkInstallMismatch,
+    switchLeagueInstall: launcher.switchLeagueInstall,
   },
 
   // The app's own update.

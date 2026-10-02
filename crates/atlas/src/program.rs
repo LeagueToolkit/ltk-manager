@@ -6,7 +6,7 @@ use ltk_manager_core::error::AppResult;
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
 
-use ltk_manager_game::program::{AssetChunks, ProgramRead};
+use ltk_manager_game::program::{AssetChunks, ProgramRead, program_read};
 
 const UI: &str = "ASSETS/Shaders/HLSL/UI/";
 const FONT: &str = "ASSETS/Shaders/HLSL/Font/";
@@ -149,19 +149,11 @@ pub fn read_ui_programs(
                 vertex: &vertex,
                 pixel: &pixel,
             };
-            match cache.program(path, &defines) {
-                Ok(program) => ProgramRead::Ready {
-                    defines: Vec::new(),
-                    vertex: Box::new(program.vertex),
-                    pixel: Box::new(program.pixel),
-                },
-                Err(e) => {
-                    tracing::warn!(?shader, "No UI program: {e}");
-                    ProgramRead::Failed {
-                        reason: e.to_string(),
-                    }
-                }
+            let program = program_read(&mut cache, path, &defines);
+            if let ProgramRead::Failed { reason } = &program {
+                tracing::warn!(?shader, "No UI program: {reason}");
             }
+            program
         })
         .collect()
 }
