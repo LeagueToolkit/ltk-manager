@@ -50,7 +50,7 @@ function mockBackend({
 }: BackendOptions = {}) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case commandNames.app.getPlatformSupport:
+      case commandNames.desktop.getPlatformSupport:
         return Promise.resolve({ ok: true, value: { patcherAvailable: true } });
       case commandNames.settings.getSettings:
         return Promise.resolve({

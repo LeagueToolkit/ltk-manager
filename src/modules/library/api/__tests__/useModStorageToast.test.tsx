@@ -142,7 +142,7 @@ describe("useModStorageToast", () => {
     expect(action.label).toBe("Open Location");
     await act(async () => action.onClick());
 
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.revealInExplorer, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "/storage/mods/test-mod",
     });
   });

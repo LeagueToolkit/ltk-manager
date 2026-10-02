@@ -260,8 +260,7 @@ impl<'a> FixRun<'a> {
             }
             Target::Held { project, .. } => {
                 let handle = project
-                    .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)
+                    .file(layer, path)
                     .ok_or_else(|| file_error(layer, path, io::ErrorKind::NotFound.into()))?;
                 handle
                     .bytes()

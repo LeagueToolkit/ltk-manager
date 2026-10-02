@@ -220,6 +220,13 @@ impl ProjectFiles {
         })
     }
 
+    /// The file at `path` in `layer`, where the project holds one.
+    #[must_use]
+    pub fn file(&self, layer: &str, path: &str) -> Option<FileHandle<'_>> {
+        self.files()
+            .find(|handle| handle.layer() == layer && handle.path() == path)
+    }
+
     /// Every file of every layer that reports `kind`.
     pub fn of_kind(&self, kind: WorkshopFileKind) -> impl Iterator<Item = FileHandle<'_>> {
         self.files().filter(move |handle| handle.kind() == kind)
@@ -709,9 +716,13 @@ impl<'a> FileHandle<'a> {
     /// Reports the file it could not open or parse, as one sentence a panel
     /// can draw.
     pub fn bin(&self) -> Result<ltk_meta::BinFile, String> {
-        let bytes = self.bytes()?;
-        ltk_meta::BinFile::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
+        parse_bin(&self.bytes()?)
     }
+}
+
+/// Parse `bytes` as a bin of either kind, failing with one sentence a panel can draw.
+pub(crate) fn parse_bin(bytes: &[u8]) -> Result<ltk_meta::BinFile, String> {
+    ltk_meta::BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
 }
 
 /// One file of one layer.

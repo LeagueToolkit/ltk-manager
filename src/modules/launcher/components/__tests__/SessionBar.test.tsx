@@ -52,7 +52,7 @@ function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning
         value: { running: phase !== "idle", phase, session: null },
       });
     }
-    if (cmd === commandNames.app.getPlatformSupport) {
+    if (cmd === commandNames.desktop.getPlatformSupport) {
       return Promise.resolve({ ok: true, value: { patcherAvailable } });
     }
     if (cmd === commandNames.launcher.getLaunchAvailability) {

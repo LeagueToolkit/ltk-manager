@@ -1,48 +1,14 @@
-//! The commands no service owns yet, and the bindings `tauri-specta` generates out of them and
-//! every service's types (ADR-0029, ADR-0059).
+//! The handler each service answers through, and the bindings `tauri-specta` generates out of
+//! every service's types and the event payloads (ADR-0029, ADR-0059).
 
 use std::collections::BTreeMap;
 
 use tauri::ipc::Invoke;
 use tauri::Wry;
-use tauri_specta::{collect_commands, Builder, Commands};
+use tauri_specta::Builder;
 
-/// Every command the frontend reaches outside a service.
-macro_rules! command_table {
-    ($($name:ident),* $(,)?) => {
-        const COMMANDS: &[&str] = &[$(stringify!($name)),*];
-
-        fn commands() -> Commands<Wry> {
-            collect_commands![$(crate::commands::$name),*]
-        }
-    };
-}
-
-command_table![
-    // App
-    get_app_info,
-    get_platform_support,
-    show_main_window,
-    // Shell
-    reveal_in_explorer,
-    minimize_to_tray,
-    // Storage
-    detect_storage_medium,
-    // Deep Link
-    deep_link_install_mod,
-    take_pending_deep_link,
-    // Releases
-    list_releases,
-    // News
-    list_announcements,
-    list_notices,
-    integration_status,
-    integration_release,
-    change_integration,
-    cancel_integration_download,
-];
-
-/// The builder the bindings are generated from and the handler is built out of.
+/// The builder the shared bindings are generated from.
+#[cfg(test)]
 fn builder() -> Builder<Wry> {
     use ltk_manager_core::diagnostics::incident::Incident;
     use ltk_manager_core::events::{
@@ -67,8 +33,6 @@ fn builder() -> Builder<Wry> {
     /* A 64-bit integer crosses as a JS number. None reaches the range where that loses
     a digit, and `JSON.stringify` refuses a `bigint`. */
     Builder::<Wry>::new()
-        .commands(commands())
-        .constant(COMMAND_NAMES, command_names(None, COMMANDS))
         .types(&crate::services::types())
         // Event payloads, which no command signature reaches.
         .typ::<ExportProgress>()
@@ -105,18 +69,12 @@ fn builder() -> Builder<Wry> {
 /// The constant each generated file names its commands' invoke names under.
 pub(crate) const COMMAND_NAMES: &str = "commandNames";
 
-/// The name each of `commands` is invoked under, keyed by its generated function: the command
-/// itself, or `plugin:<plugin>|<command>` for a service's.
-pub(crate) fn command_names(plugin: Option<&str>, commands: &[&str]) -> BTreeMap<String, String> {
+/// The name each of `commands` is invoked under, `plugin:<plugin>|<command>`, keyed by its
+/// generated function.
+pub(crate) fn command_names(plugin: &str, commands: &[&str]) -> BTreeMap<String, String> {
     commands
         .iter()
-        .map(|command| {
-            let invoked = match plugin {
-                Some(plugin) => format!("plugin:{plugin}|{command}"),
-                None => (*command).to_owned(),
-            };
-            (lower_camel(command), invoked)
-        })
+        .map(|command| (lower_camel(command), format!("plugin:{plugin}|{command}")))
         .collect()
 }
 
@@ -133,11 +91,6 @@ fn lower_camel(text: &str) -> String {
         }
         name
     })
-}
-
-/// The handler that answers every command outside a service.
-pub fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
-    handler(builder())
 }
 
 /// The handler that answers the commands of `builder`.

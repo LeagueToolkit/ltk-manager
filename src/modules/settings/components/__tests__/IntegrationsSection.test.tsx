@@ -35,9 +35,9 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
   client.setQueryData(settingsKeys.settings(), settings);
   client.setQueryData(settingsKeys.defaults(), settings);
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.integrationStatus)
+    if (command === commandNames.integrations.integrationStatus)
       return Promise.resolve({ ok: true, value: [{ ...absent, ...status }] });
-    if (command === commandNames.app.integrationRelease) {
+    if (command === commandNames.integrations.integrationRelease) {
       if (offline)
         return Promise.resolve({
           ok: false,
@@ -113,7 +113,7 @@ describe("IntegrationsSection", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Install" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.changeIntegration, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.changeIntegration, {
         tool: "wadtools",
         action: "installOnly",
         conflicts: "preserve",
@@ -135,7 +135,9 @@ describe("IntegrationsSection", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(
-      mockInvoke.mock.calls.some(([command]) => command === commandNames.app.changeIntegration),
+      mockInvoke.mock.calls.some(
+        ([command]) => command === commandNames.integrations.changeIntegration,
+      ),
     ).toBe(false);
   });
 
@@ -146,11 +148,13 @@ describe("IntegrationsSection", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("C:/other/wadtools.exe")).toBeInTheDocument();
     expect(
-      mockInvoke.mock.calls.some(([command]) => command === commandNames.app.changeIntegration),
+      mockInvoke.mock.calls.some(
+        ([command]) => command === commandNames.integrations.changeIntegration,
+      ),
     ).toBe(false);
     await user.click(within(dialog).getByRole("button", { name: "Replace menus" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.changeIntegration, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.changeIntegration, {
         tool: "wadtools",
         action: "enableMenu",
         conflicts: "replace",
@@ -173,7 +177,7 @@ describe("IntegrationsSection", () => {
     expect(screen.getByRole("button", { name: "Install" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Cancel download" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.cancelIntegrationDownload, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.cancelIntegrationDownload, {
         operationId: "run-1",
       }),
     );
@@ -216,13 +220,13 @@ describe("IntegrationsSection", () => {
     await userEvent.click(
       within(managedPaths).getByRole("button", { name: "Open in file manager" }),
     );
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.revealInExplorer, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "C:/managed",
     });
     const external = paths.getAllByRole("listitem")[1]!;
     await userEvent.hover(external);
     await userEvent.click(within(external).getByRole("button", { name: "Open in file manager" }));
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.revealInExplorer, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "D:/tools/wadtools.exe",
     });
   });

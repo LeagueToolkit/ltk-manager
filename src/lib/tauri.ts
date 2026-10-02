@@ -1,4 +1,3 @@
-import { commands } from "@/lib/bindings";
 import type {
   AssetRef,
   BinDocumentId,
@@ -22,11 +21,15 @@ import type {
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
 import { commands as atlas } from "@/lib/ipc/atlas";
 import { commands as bin } from "@/lib/ipc/bin";
+import { commands as desktop } from "@/lib/ipc/desktop";
 import { commands as diagnostics } from "@/lib/ipc/diagnostics";
 import { commands as game } from "@/lib/ipc/game";
 import { commands as hotkeys } from "@/lib/ipc/hotkeys";
+import { commands as integrations } from "@/lib/ipc/integrations";
 import { commands as launcher } from "@/lib/ipc/launcher";
 import { commands as library } from "@/lib/ipc/library";
+import { commands as links } from "@/lib/ipc/links";
+import { commands as news } from "@/lib/ipc/news";
 import { commands as objects } from "@/lib/ipc/objects";
 import { commands as patcher } from "@/lib/ipc/patcher";
 import { commands as preview } from "@/lib/ipc/preview";
@@ -74,17 +77,17 @@ export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 // API functions
 export const api = {
   integrations: {
-    status: commands.integrationStatus,
-    release: commands.integrationRelease,
-    change: commands.changeIntegration,
-    cancel: commands.cancelIntegrationDownload,
+    status: integrations.integrationStatus,
+    release: integrations.integrationRelease,
+    change: integrations.changeIntegration,
+    cancel: integrations.cancelIntegrationDownload,
   },
-  getAppInfo: commands.getAppInfo,
-  getPlatformSupport: commands.getPlatformSupport,
-  showMainWindow: commands.showMainWindow,
-  listReleases: commands.listReleases,
-  listAnnouncements: commands.listAnnouncements,
-  listNotices: commands.listNotices,
+  getAppInfo: desktop.getAppInfo,
+  getPlatformSupport: desktop.getPlatformSupport,
+  showMainWindow: desktop.showMainWindow,
+  listReleases: news.listReleases,
+  listAnnouncements: news.listAnnouncements,
+  listNotices: news.listNotices,
 
   // Settings
   getSettings: settings.getSettings,
@@ -233,15 +236,15 @@ export const api = {
     name?: string | null,
     author?: string | null,
     source?: string | null,
-  ) => commands.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
-  takePendingDeepLink: commands.takePendingDeepLink,
+  ) => links.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
+  takePendingDeepLink: links.takePendingDeepLink,
 
   // Shell
-  revealInExplorer: commands.revealInExplorer,
-  minimizeToTray: commands.minimizeToTray,
+  revealInExplorer: desktop.revealInExplorer,
+  minimizeToTray: desktop.minimizeToTray,
 
   // Storage
-  detectStorageMedium: commands.detectStorageMedium,
+  detectStorageMedium: desktop.detectStorageMedium,
 
   // The bin editor and the class reads over its documents.
   bin: {

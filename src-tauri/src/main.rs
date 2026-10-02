@@ -3,7 +3,6 @@
     windows_subsystem = "windows"
 )]
 
-mod commands;
 mod deep_link;
 mod error;
 mod events;
@@ -83,6 +82,10 @@ fn main() {
         .plugin(services::launcher::plugin())
         .plugin(services::diagnostics::plugin())
         .plugin(services::hotkeys::plugin())
+        .plugin(services::desktop::plugin())
+        .plugin(services::integrations::plugin())
+        .plugin(services::links::plugin())
+        .plugin(services::news::plugin())
         .plugin(services::workshop::plugin());
 
     builder
@@ -110,7 +113,6 @@ fn main() {
                 watches.release_all();
             }
         })
-        .invoke_handler(ipc::invoke_handler())
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(setup::handle_run_event);

@@ -29,7 +29,6 @@ serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-xxhash-rust = { workspace = true }
 
 [dev-dependencies]
 ltk_primitives = "0.3.6"

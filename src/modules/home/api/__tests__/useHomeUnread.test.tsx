@@ -38,7 +38,7 @@ const POST: Announcement = {
 /** What the backend answers with, per command, for one case. */
 function answer(feeds: { notices?: Notice[]; posts?: Announcement[] }) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === commandNames.app.getAppInfo) {
+    if (cmd === commandNames.desktop.getAppInfo) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -50,9 +50,9 @@ function answer(feeds: { notices?: Notice[]; posts?: Announcement[] }) {
         },
       });
     }
-    if (cmd === commandNames.app.listNotices)
+    if (cmd === commandNames.news.listNotices)
       return Promise.resolve({ ok: true, value: feeds.notices ?? [] });
-    if (cmd === commandNames.app.listAnnouncements) {
+    if (cmd === commandNames.news.listAnnouncements) {
       return Promise.resolve({ ok: true, value: feeds.posts ?? [] });
     }
     return Promise.resolve({ ok: true, value: null });

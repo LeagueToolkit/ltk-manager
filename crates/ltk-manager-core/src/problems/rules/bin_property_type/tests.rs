@@ -848,7 +848,7 @@ fn fix_all(bin: &Bin) -> (Applied, BinFile) {
 /// [`fix_all`], beside a game install on `installed`.
 fn fix_all_on(bin: &Bin, installed: Option<GameBuild>) -> (Applied, BinFile) {
     let (applied, written) = fix_bytes_on(&bytes_of(bin), installed);
-    let parsed = read_bin_bytes(&written).unwrap();
+    let parsed = parse_bin(&written).unwrap();
     (applied, parsed)
 }
 
@@ -937,7 +937,7 @@ fn a_fix_writes_version_three_and_keeps_every_untouched_object() {
     assert_eq!(after[1], before[1], "the other object keeps its bytes");
     assert_ne!(after[0], before[0], "the converted object is re-encoded");
 
-    let written = read_bin_bytes(&written).unwrap();
+    let written = parse_bin(&written).unwrap();
     let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
     assert!(
         matches!(value, PropertyValueEnum::WadChunkLink(_)),
@@ -961,7 +961,7 @@ fn a_fix_repairs_a_patch_bin() {
     let (applied, written) = fix_bytes(&bytes.into_inner());
     assert_eq!(applied.applied, 1);
 
-    let written = read_bin_bytes(&written).unwrap();
+    let written = parse_bin(&written).unwrap();
     assert!(matches!(written, BinFile::Override(_)));
     let value = &written.objects()[&ENTRY].properties[&ICON_AVATAR];
     assert!(

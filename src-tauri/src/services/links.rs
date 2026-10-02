@@ -1,3 +1,6 @@
+//! The links service: installing the mod an `ltk://` link names, and the link that arrived before
+//! the frontend listened.
+
 use ltk_manager_core::deep_link::{self, DeepLinkRequest};
 
 use crate::error::{AppError, AppResult, IpcResult};
@@ -94,4 +97,12 @@ pub fn deep_link_install_mod(
     })();
     patcher.refresh_overlay();
     result.into()
+}
+
+/// The links service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the link commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

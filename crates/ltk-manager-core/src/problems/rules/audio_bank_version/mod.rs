@@ -181,10 +181,7 @@ impl Rule for AudioBankVersion {
             // Found in the listing before it is read, because a bank a previous
             // run already removed has no bytes to judge and is not an error.
             let removes = match run.project() {
-                Ok(project) => match project
-                    .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)
-                {
+                Ok(project) => match project.file(layer, path) {
                     Some(handle) if removable(&handle, project.game(), &asked).is_ok() => {
                         still_rejected(&run.read(layer, path)?)
                     }

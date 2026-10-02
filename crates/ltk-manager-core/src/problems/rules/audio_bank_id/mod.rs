@@ -99,12 +99,10 @@ impl Rule for AudioBankId {
         let units = run.fact::<BankUnits>().unwrap_or_default();
 
         run.per_file(problems, |run, layer, path| {
-            let id = run.project().ok().and_then(|project| {
-                let handle = project
-                    .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)?;
-                bank_id_for(&handle, &units)
-            });
+            let id = run
+                .project()
+                .ok()
+                .and_then(|project| bank_id_for(&project.file(layer, path)?, &units));
             let Some(id) = id else {
                 return Ok(false);
             };

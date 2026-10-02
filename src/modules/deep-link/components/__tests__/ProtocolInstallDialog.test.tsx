@@ -28,7 +28,7 @@ function answer(command: string): unknown {
       return world.settings;
     case commandNames.settings.saveSettings:
       return null;
-    case commandNames.app.deepLinkInstallMod:
+    case commandNames.links.deepLinkInstallMod:
       return { id: "a", name: "Zama Iroha Master Yi" };
     default:
       return null;
@@ -87,7 +87,7 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Trust and install/ }));
 
-    await waitFor(() => expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(1));
+    await waitFor(() => expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(1));
     const [[, saved]] = calls(commandNames.settings.saveSettings) as [
       [string, { settings: Settings }],
     ];
@@ -95,7 +95,7 @@ describe("ProtocolInstallDialog", () => {
     expect(
       mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.settings.saveSettings),
     ).toBeLessThan(
-      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.app.deepLinkInstallMod),
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.links.deepLinkInstallMod),
     );
   });
 
@@ -106,7 +106,7 @@ describe("ProtocolInstallDialog", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
     expect(calls(commandNames.settings.saveSettings)).toHaveLength(0);
-    expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(0);
+    expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(0);
     expect(useDeepLinkStore.getState().request).toBeNull();
   });
 

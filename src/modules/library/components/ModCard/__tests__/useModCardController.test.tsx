@@ -183,7 +183,7 @@ describe("useModCardController reveal", () => {
 
     await act(async () => view.current.onOpenLocation());
 
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.revealInExplorer, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "/storage/mods/test-mod",
     });
   });

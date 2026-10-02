@@ -1,4 +1,5 @@
-//! Installation lifecycle for the external tool sections.
+//! The integrations service: installing, changing and removing the external tools the settings
+//! offer.
 
 use ltk_manager_core::integrations::{
     self, IntegrationAction, IntegrationRelease, IntegrationStatus, Integrations,
@@ -39,4 +40,12 @@ pub async fn change_integration(
 pub fn cancel_integration_download(operation_id: String) -> IpcResult<()> {
     integrations::cancel_download(&operation_id);
     IpcResult::ok(())
+}
+
+/// The integrations service's row of `services/table.rs`.
+pub struct Table;
+
+/// The plugin answering the integration commands.
+pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    super::plugin::<Table>().build()
 }

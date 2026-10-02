@@ -23,6 +23,7 @@
 //! change what a repair matches - only what a row draws, and whether that one
 //! conversion applies.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::path::Path;
@@ -31,6 +32,7 @@ use std::sync::{Arc, OnceLock};
 use ltk_hash::{BinHash, Hash as _};
 use ltk_hashdb::LayeredHashDb;
 use ltk_hashtable::{Category, Hashtable, HashtableEntry, HashtableSet};
+use ltk_meta::path::FieldNames;
 use ltk_mod_project::ModProject;
 
 use crate::hashtables::{BinHashTables, HashtableCache};
@@ -299,6 +301,17 @@ impl std::fmt::Debug for BinNames {
         f.debug_struct("BinNames")
             .field("cache", &self.cache)
             .finish_non_exhaustive()
+    }
+}
+
+/// A field by its name in the tables, whatever class holds it.
+impl FieldNames for BinNames {
+    fn field(&self, field: BinHash, _class: Option<BinHash>) -> Option<Cow<'_, str>> {
+        BinNames::field(self, field).map(Cow::Owned)
+    }
+
+    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
+        self.value(hash).map(Cow::Owned)
     }
 }
 

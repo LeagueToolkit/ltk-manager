@@ -13,14 +13,12 @@
 //! Neither offers a repair, because which value the author meant is not in the
 //! file.
 
-use std::borrow::Cow;
-
 use crate::hashing::named;
 use ltk_hash::BinHash;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
 use crate::problems::names::BinNames;
-use crate::problems::walk::{Address, Declared, FieldNames};
+use crate::problems::walk::{Address, Declared};
 use crate::problems::{
     Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
     PropertyRead, PropertyWalk, Rule, RuleId, RuleMeta, Sink, Walk,
@@ -144,7 +142,7 @@ impl BinVisitor for Tables<'_> {
         Box::new(PropertyWalk::new(
             Reading {
                 fault: self.fault,
-                names: Names(self.names),
+                names: self.names,
             },
             sink,
         ))
@@ -154,7 +152,7 @@ impl BinVisitor for Tables<'_> {
 /// One bin's read, reporting each table list its rule objects to.
 struct Reading<'n> {
     fault: Fault,
-    names: Names<'n>,
+    names: &'n BinNames,
 }
 
 impl PropertyRead for Reading<'_> {
@@ -179,7 +177,7 @@ impl PropertyRead for Reading<'_> {
                 .map(|message| (ProblemSeverity::Error, Some(message))),
         };
         if let Some((severity, message)) = finding {
-            let address = Address::of(node.trail(), field, node.class_hash(), &self.names);
+            let address = Address::of(node.trail(), field, node.class_hash(), self.names);
             sink.problem(
                 severity,
                 Some(NodeAddress {
@@ -295,19 +293,6 @@ fn varies<'a, V: TreeValue<'a>>(factors: V) -> Result<bool, ltk_meta::Error> {
         }
     }
     Ok(false)
-}
-
-/// The run's names, spelling a finding's path.
-struct Names<'n>(&'n BinNames);
-
-impl FieldNames for Names<'_> {
-    fn field(&self, field: BinHash, _class: Option<BinHash>) -> Option<Cow<'_, str>> {
-        self.0.field(field).map(Cow::Owned)
-    }
-
-    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
-        self.0.value(hash).map(Cow::Owned)
-    }
 }
 
 #[cfg(test)]

@@ -69,9 +69,9 @@ function answer(cmd: string): unknown {
       return world.mods;
     case commandNames.library.getActiveModProfile:
       return createMockProfile({ name: "Default" });
-    case commandNames.app.getPlatformSupport:
+    case commandNames.desktop.getPlatformSupport:
       return { patcherAvailable: world.patcherAvailable, os: "windows" };
-    case commandNames.app.getAppInfo:
+    case commandNames.desktop.getAppInfo:
       return {
         name: "LTK Manager",
         version: "1.15.4",
@@ -93,9 +93,9 @@ function answer(cmd: string): unknown {
         repairable: [],
         unrepairable: [],
       };
-    case commandNames.app.listAnnouncements:
+    case commandNames.news.listAnnouncements:
       return world.posts;
-    case commandNames.app.listNotices:
+    case commandNames.news.listNotices:
       return world.notices;
     default:
       return null;
@@ -382,7 +382,7 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       const tile = (await screen.findByText("News")).closest("section")!;
-      await waitFor(() => expect(calls(commandNames.app.listAnnouncements)).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.news.listAnnouncements)).toHaveLength(1));
 
       expect(
         within(tile)

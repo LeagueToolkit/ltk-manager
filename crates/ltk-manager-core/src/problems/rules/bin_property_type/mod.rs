@@ -74,6 +74,7 @@ use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
 use crate::bin_document::{PropertyKind, hex, owned};
 use crate::meta_schema::{self, MetaSchema};
+use crate::problems::engine::parse_bin;
 use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
@@ -303,7 +304,7 @@ fn repair_whole(
     lens: Lens<'_>,
     kept: &mut PreservedNames<'_>,
 ) -> Result<Repaired, Unrepaired> {
-    let mut bin = read_bin_bytes(bytes).map_err(Unrepaired::Parse)?;
+    let mut bin = parse_bin(bytes).map_err(Unrepaired::Parse)?;
 
     let mut repaired = Repaired::default();
     for (entry, object) in bin.objects_mut() {
@@ -1590,11 +1591,7 @@ fn group_by_file<'a>(problems: &[&'a Problem]) -> Vec<((String, String), Vec<&'a
 #[cfg(test)]
 fn read_bin(path: &std::path::Path) -> Result<ltk_meta::BinFile, String> {
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
-    read_bin_bytes(&bytes)
-}
-
-fn read_bin_bytes(bytes: &[u8]) -> Result<ltk_meta::BinFile, String> {
-    ltk_meta::BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
+    parse_bin(&bytes)
 }
 
 #[cfg(test)]

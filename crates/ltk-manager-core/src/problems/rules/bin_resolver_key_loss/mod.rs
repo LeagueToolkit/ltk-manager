@@ -41,6 +41,7 @@ use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
+use crate::problems::engine::parse_bin;
 use crate::problems::game::GameContent;
 use crate::problems::walk::Declared;
 use crate::problems::{
@@ -192,7 +193,7 @@ impl ObjectRead for Resolvers<'_> {
         let Some(bytes) = self.game.read(hash)? else {
             return Ok(Resolved::default());
         };
-        let theirs = resolvers_in(&parsed(&bytes)?);
+        let theirs = resolvers_in(&parse_bin(&bytes)?);
 
         let lost = kept
             .keeps
@@ -212,11 +213,6 @@ impl ObjectRead for Resolvers<'_> {
             lost,
         })
     }
-}
-
-/// Parse the game's own copy of a bin.
-fn parsed(bytes: &[u8]) -> Result<BinFile, String> {
-    BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
 }
 
 /// How many keys each of the game's resolvers holds, off the owned tree.

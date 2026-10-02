@@ -5,7 +5,7 @@
 
 use std::io::{self, Write};
 
-use xxhash_rust::xxh64::xxh64;
+use hexshade::bundle::chunk_hash;
 
 const MAGIC: &[u8; 4] = b"IMAA";
 const ENTRY_SIZE: usize = 28;
@@ -16,10 +16,10 @@ pub fn page_path(folder: &str, index: usize) -> String {
     format!("uiautoatlas/{}/atlas_{index}.tex", folder.to_lowercase())
 }
 
-/// The key a `LooseUiTextureData.TextureName` looks its sprite up by.
+/// The key a `LooseUiTextureData.TextureName` looks its sprite up by, the chunk hash of the name.
 #[must_use]
 pub fn sprite_key(texture_name: &str) -> u64 {
-    xxh64(texture_name.to_lowercase().as_bytes(), 0)
+    chunk_hash(texture_name)
 }
 
 /// A view controller's sprite manifest: its pages and one UV rect per sprite.

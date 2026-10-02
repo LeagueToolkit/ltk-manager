@@ -33,14 +33,14 @@ function release(version: string): ReleaseNote {
 /** The pages `list_releases` hands over, page 1 first. Anything past them is empty and last. */
 function mockReleasePages(pages: ReleasePage[]) {
   mockInvoke.mockImplementation((cmd: string, args: { page: number }) => {
-    if (cmd !== commandNames.app.listReleases) return Promise.resolve({ ok: true, value: null });
+    if (cmd !== commandNames.news.listReleases) return Promise.resolve({ ok: true, value: null });
     const page = pages[args.page - 1] ?? { releases: [], nextPage: null };
     return Promise.resolve({ ok: true, value: page });
   });
 }
 
 function listedPages() {
-  return mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.app.listReleases);
+  return mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.news.listReleases);
 }
 
 function versions(releases: ReleaseNote[]) {

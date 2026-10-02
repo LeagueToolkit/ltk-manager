@@ -224,6 +224,29 @@ services! {
         resume_hotkeys,
         set_hotkey,
     }
+    desktop("desktop") {
+        get_app_info,
+        get_platform_support,
+        show_main_window,
+        reveal_in_explorer,
+        minimize_to_tray,
+        detect_storage_medium,
+    }
+    integrations("integrations") {
+        integration_status,
+        integration_release,
+        change_integration,
+        cancel_integration_download,
+    }
+    links("links") {
+        deep_link_install_mod,
+        take_pending_deep_link,
+    }
+    news("news") {
+        list_releases,
+        list_announcements,
+        list_notices,
+    }
     workshop("workshop") {
         // Projects
         get_workshop_projects,

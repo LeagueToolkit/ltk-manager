@@ -110,7 +110,7 @@ fn mentions(text: &str, name: &str) -> bool {
 }
 
 /// Panics where a key of `commandNames` is not the function `tauri-specta` generated.
-fn assert_names_functions(rendered: &str, plugin: Option<&str>, commands: &[&str]) {
+fn assert_names_functions(rendered: &str, plugin: &str, commands: &[&str]) {
     for function in command_names(plugin, commands).keys() {
         assert!(
             rendered.contains(&format!("\n\t{function}: (")),
@@ -123,12 +123,11 @@ fn assert_names_functions(rendered: &str, plugin: Option<&str>, commands: &[&str
 fn export_bindings() {
     export(OUTPUT);
     let bindings = fs::read_to_string(OUTPUT).expect("the bindings just written");
-    assert_names_functions(&bindings, None, COMMANDS);
 
     fs::create_dir_all(SERVICES).expect("the services' directory");
     for (name, commands, builder) in crate::services::builders() {
         let rendered = render_with(&builder);
-        assert_names_functions(&rendered, Some(name), commands);
+        assert_names_functions(&rendered, name, commands);
 
         let file = service_file(&rendered, &bindings);
         fs::write(format!("{SERVICES}/{}.ts", lower_camel(name)), file)

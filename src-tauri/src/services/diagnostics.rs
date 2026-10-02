@@ -7,7 +7,7 @@
 //! checks that fail to gather data report `Severity::Warn` or `Severity::Bad`
 //! instead. The incident commands read the store the patcher thread writes.
 
-use crate::commands::shell::reveal_in_explorer_inner;
+use super::desktop::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::state::{get_app_data_dir, IncidentStoreState, SettingsState};
