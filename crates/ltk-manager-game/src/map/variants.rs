@@ -4,25 +4,23 @@
 //! skins. Each chain ends at a [`MapPath`], which is all a preview draws a map from.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
+use super::component::MAP_CONTAINER;
 use ltk_manager_core::bin_document::{BinDocument, Fields, items, link, text};
 
-/// `Map`.
-const MAP: BinHash = BinHash(0xdfa2_efb1);
+const MAP: BinHash = named("Map");
 /// `Map.mapSkins`, a list of links to the `MapSkin` objects of the same file.
-const MAP_SKINS: BinHash = BinHash(0x2ed3_b95d);
-/// `MapSkin`.
-const MAP_SKIN: BinHash = BinHash(0xcd19_ef3c);
+const MAP_SKINS: BinHash = named("mapSkins");
+const MAP_SKIN: BinHash = named("MapSkin");
 /// `MapSkin.name`.
-const SKIN_NAME: BinHash = BinHash(0x8d39_bde6);
+const SKIN_NAME: BinHash = named("name");
 /// `MapSkin.mMapContainerLink`, the entry path of a `MapContainer` in another file.
-const CONTAINER_LINK: BinHash = BinHash(0x960e_fd81);
-/// `MapContainer`.
-const MAP_CONTAINER: BinHash = BinHash(0xdde8_c114);
+const CONTAINER_LINK: BinHash = named("mMapContainerLink");
 /// `MapContainer.mapPath`.
-const MAP_PATH: BinHash = BinHash(0xcc5e_808a);
+const MAP_PATH: BinHash = named("mapPath");
 
 /// One map an object draws, and the skin that names it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

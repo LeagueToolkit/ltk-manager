@@ -5,20 +5,20 @@
 //! placements and the systems they play.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
 use super::placeable::{Placed, controller, name, placeables, transform, visibility};
 use ltk_manager_core::bin_document::{BinDocument, hex, leaf, link};
 
-/// `MapParticle`.
-pub(super) const PARTICLE: BinHash = BinHash(0x592e_f6c3);
+pub(super) const PARTICLE: BinHash = named("MapParticle");
 /// `MapParticle.system`.
-const SYSTEM: BinHash = BinHash(0x491e_0a9c);
+const SYSTEM: BinHash = named("system");
 /// `MapParticle.Transitional`.
-const TRANSITIONAL: BinHash = BinHash(0x8d6d_21cf);
+const TRANSITIONAL: BinHash = named("Transitional");
 /// `MapParticle.startDisabled`.
-const START_DISABLED: BinHash = BinHash(0x3edc_338f);
+const START_DISABLED: BinHash = named("startDisabled");
 /// One particle system a map stands in its scene.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

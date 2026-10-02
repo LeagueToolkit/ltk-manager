@@ -2,12 +2,13 @@
 
 use super::*;
 use crate::config::Config;
+use crate::hashing::named;
 use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_meta::{Bin, BinFile};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
-const SKIN: BinHash = BinHash(0x9b67_e9f6);
+const SKIN: BinHash = named("SkinCharacterDataProperties");
 /// The object the fixtures hang their properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 
@@ -1165,10 +1166,10 @@ adds is the other 166 of the 525 properties Riot has retyped, every one of the
 instead of the ones somebody wrote down. */
 
 /// `FloatTextIconData`, the class behind the icon on a floating combat text.
-const FLOAT_TEXT_ICON_DATA: BinHash = BinHash(0x16d8_8f43);
+const FLOAT_TEXT_ICON_DATA: BinHash = named("FloatTextIconData");
 
 /// `mIconFileName`, which Riot retyped `String` to `File` in 16.17.
-const M_ICON_FILE_NAME: BinHash = BinHash(0x1053_7b0c);
+const M_ICON_FILE_NAME: BinHash = named("mIconFileName");
 
 /// The first build the database records that retype at.
 const AFTER_RETYPE: GameBuild = GameBuild::new(16, 17, 8_104_348);
@@ -1311,11 +1312,11 @@ fn without_an_install_the_schema_is_asked_nothing() {
 }
 
 /// `CharacterRecord`, which declares `areaIndicatorTextureName`.
-const CHARACTER_RECORD: BinHash = BinHash(0x23ea_1915);
+const CHARACTER_RECORD: BinHash = named("CharacterRecord");
 /// `TFTCharacterRecord`, which derives from `CharacterRecord` and declares none of its fields.
-const TFT_CHARACTER_RECORD: BinHash = BinHash(0x3044_96f1);
+const TFT_CHARACTER_RECORD: BinHash = named("TFTCharacterRecord");
 /// `areaIndicatorTextureName`, which Riot retyped `String` to `File` in 16.17.
-const AREA_INDICATOR_TEXTURE_NAME: BinHash = BinHash(0xa6c2_a1c7);
+const AREA_INDICATOR_TEXTURE_NAME: BinHash = named("areaIndicatorTextureName");
 
 /// Story: the database writes a field on the class that declares it, and most of a
 /// class's fields are its bases'. A derived object holding the old type is the same
@@ -1483,7 +1484,7 @@ fn a_complex_property_is_checked_on_its_subtypes_as_well() {
 }
 
 /// `MaxMaterialDriver`, whose `mDrivers` the schema types `List<Pointer>`.
-const MAX_MATERIAL_DRIVER: BinHash = BinHash(0x0006_516a);
+const MAX_MATERIAL_DRIVER: BinHash = named("MaxMaterialDriver");
 const M_DRIVERS: BinHash = BinHash(0x7ace_ca0f);
 /// A `Pointer` on `SkinCharacterDataProperties`.
 const SECONDARY_RESOURCE_HUD: BinHash = BinHash(0xe431_b198);
@@ -1566,7 +1567,7 @@ fn a_complex_property_is_repaired_on_its_subtypes_as_well() {
 // ---- the roads that move no value ---------------------------------------
 
 /// `MatchmakingQueue`, whose `GameTypeConfigId` Riot widened from `U8` to `U32`.
-const MATCHMAKING_QUEUE: BinHash = BinHash(0xd99f_f7e6);
+const MATCHMAKING_QUEUE: BinHash = named("MatchmakingQueue");
 const GAME_TYPE_CONFIG_ID: BinHash = BinHash(0x0ecb_2d58);
 
 /// A `fontWeight` Riot moved the other way, from `U32` down to `U8`.
@@ -1575,7 +1576,7 @@ const FONT_WEIGHT: BinHash = BinHash(0x2bf7_7ed0);
 
 /// `TftScoreboardViewController`, whose `PlayerSelfTemplate` was an `Embed` and
 /// is a `Pointer`, beside the class it holds.
-const TFT_SCOREBOARD: BinHash = BinHash(0x4934_0fba);
+const TFT_SCOREBOARD: BinHash = named("TftScoreboardViewController");
 const PLAYER_SELF_TEMPLATE: BinHash = BinHash(0x9ad5_b45c);
 const PLAYER_TEMPLATE_CLASS: BinHash = BinHash(0x9034_7ed8);
 
@@ -1825,11 +1826,11 @@ fn a_second_run_over_the_new_roads_finds_nothing() {
 }
 
 /// `TFTModeData`, whose `ItemTagOptions` Riot moved from `List` to `List2`.
-const TFT_MODE_DATA: BinHash = BinHash(0x01d7_548e);
+const TFT_MODE_DATA: BinHash = named("TFTModeData");
 const ITEM_TAG_OPTIONS: BinHash = BinHash(0x12aa_f1d8);
 
 /// `VfxEmissionCylinder`, whose `IncludeCaps` Riot moved from `Bool` to `Flag`.
-const VFX_EMISSION_CYLINDER: BinHash = BinHash(0x0eea_aebe);
+const VFX_EMISSION_CYLINDER: BinHash = named("VfxEmissionCylinder");
 const INCLUDE_CAPS: BinHash = BinHash(0xfb40_f022);
 
 /// A `FaceTarget` the schema has typed `Bool` throughout.
@@ -1908,7 +1909,7 @@ fn a_list2_the_game_reads_as_a_list_is_retagged() {
 
 /// `HeroFloatingInfoCharacterStateIndicatorList`, whose `StateIndicatorList`
 /// changed its ordering and its item type in one go.
-const STATE_INDICATOR_LIST_CLASS: BinHash = BinHash(0x47c7_ce74);
+const STATE_INDICATOR_LIST_CLASS: BinHash = named("HeroFloatingInfoCharacterStateIndicatorList");
 const STATE_INDICATOR_LIST: BinHash = BinHash(0xfd81_566b);
 
 /// Only the tag moves on this road, so a list whose items also disagree is one

@@ -1,23 +1,22 @@
 //! What every placeable of a map states, whatever it places.
 
 use ltk_hash::BinHash;
-use ltk_meta::PropertyValueEnum;
+use ltk_manager_core::hashing::named;
 use ltk_meta::walk::Leaf;
 
-use ltk_manager_core::bin_document::{BinDocument, Fields, hex, leaf, link, struct_of};
+use ltk_manager_core::bin_document::{BinDocument, Fields, hex, leaf, link, struct_entries};
 
-/// `MapPlaceableContainer`.
-pub(super) const PLACEABLE_CONTAINER: BinHash = BinHash(0xb25c_0a3f);
+pub(super) const PLACEABLE_CONTAINER: BinHash = named("MapPlaceableContainer");
 /// `MapPlaceableContainer.items`, a `Map<Hash, Pointer<MapPlaceableBase>>`.
-pub(super) const ITEMS: BinHash = BinHash(0x3a79_338f);
+pub(super) const ITEMS: BinHash = named("items");
 /// `MapPlaceable.transform`.
-pub(super) const TRANSFORM: BinHash = BinHash(0xe1ad_931b);
+pub(super) const TRANSFORM: BinHash = named("transform");
 /// `MapPlaceable.name`.
-pub(super) const NAME: BinHash = BinHash(0x8d39_bde6);
+pub(super) const NAME: BinHash = named("name");
 /// `MapPlaceable.mVisibilityFlags`.
-pub(super) const VISIBILITY_FLAGS: BinHash = BinHash(0xccf7_9327);
+pub(super) const VISIBILITY_FLAGS: BinHash = named("mVisibilityFlags");
 /// `VisibilityController`, which each placeable class declares for itself under one name.
-pub(super) const VISIBILITY_CONTROLLER: BinHash = BinHash(0x5150_a6a1);
+pub(super) const VISIBILITY_CONTROLLER: BinHash = named("VisibilityController");
 
 /// The mask a placeable that writes none is drawn under, which is every layer.
 pub(super) const EVERY_LAYER: u8 = 255;
@@ -39,20 +38,12 @@ pub(super) fn placeables(materials: &BinDocument) -> impl Iterator<Item = Placed
         .filter_map(|entry| Some((entry, materials.object_at(entry)?)))
         .filter(|(_, object)| object.class_hash == PLACEABLE_CONTAINER)
         .flat_map(|(chunk, container)| {
-            let items = match container.properties.get(&ITEMS) {
-                Some(PropertyValueEnum::Map(map)) => map.entries(),
-                _ => &[],
-            };
-            items.iter().filter_map(move |(key, value)| {
-                let (class, fields) = struct_of(Some(value))?;
-                match leaf(Some(key)) {
-                    Some(Leaf::Hash(key)) => Some(Placed {
-                        chunk,
-                        key,
-                        class,
-                        fields,
-                    }),
-                    _ => None,
+            struct_entries(container.properties.get(&ITEMS)).map(move |(key, class, fields)| {
+                Placed {
+                    chunk,
+                    key,
+                    class,
+                    fields,
                 }
             })
         })

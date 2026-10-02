@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, WadHash};
+use ltk_manager_core::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
@@ -76,10 +77,10 @@ const MATERIAL: BinHash = BinHash(0xd2e4_d060);
 /// `VfxChildIdentifier`, the one class whose `effectKey` a walk resolves.
 ///
 /// Other classes write the field too, and nothing reads theirs as a child.
-const CHILD_IDENTIFIER: BinHash = BinHash(0x969a_ee94);
+const CHILD_IDENTIFIER: BinHash = named("VfxChildIdentifier");
 
 /// `ResourceResolver`, the scope a skin's effect keys resolve in.
-const RESOURCE_RESOLVER: BinHash = BinHash(0xef3a_0f33);
+const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
 /// One system's whole property subtree, with every reference resolved.
 ///

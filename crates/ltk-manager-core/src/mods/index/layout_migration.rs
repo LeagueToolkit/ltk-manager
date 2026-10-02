@@ -15,7 +15,7 @@
 //! the entries still without a slug.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, IoContext, io_context};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
@@ -222,21 +222,16 @@ fn convert_entry(
     let new_dir = storage_dir.join("mods").join(slug.as_str());
     let new_archive = archive_path(storage_dir, &slug, entry.format);
 
-    fs::rename(&old_dir, &new_dir).map_err(|e| {
-        AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the mod into the new layout: {e}"),
-        ))
-    })?;
+    fs::rename(&old_dir, &new_dir).context("Failed to move the mod into the new layout")?;
 
     if let Err(e) = fs::rename(&old_archive, &new_archive) {
         // Put the directory back, so the entry stays wholly in the old layout
         // and the next run has something intact to try again with.
         let _ = fs::rename(&new_dir, &old_dir);
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the archive into the new layout: {e}"),
-        )));
+        return Err(io_context(
+            e,
+            "Failed to move the archive into the new layout",
+        ));
     }
 
     Ok(slug)

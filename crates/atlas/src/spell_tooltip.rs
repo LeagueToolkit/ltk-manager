@@ -7,7 +7,9 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, fields_of, items, leaf, struct_of, text};
+use ltk_manager_core::bin_document::{
+    Fields, entries, fields_of, items, leaf, string_map, struct_of, text,
+};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 
@@ -241,12 +243,7 @@ pub(super) fn spell_tooltip(
 /// How many ranks a spell has: as many as its level-up list counts, the only place the client's
 /// data holds the number, and one for a spell with no such list.
 fn level_up_ranks(tooltip: &Fields) -> u8 {
-    let Some(PropertyValueEnum::Map(lists)) = tooltip.get(&LISTS) else {
-        return NO_LIST_RANKS;
-    };
-
-    lists
-        .entries()
+    entries(tooltip.get(&LISTS))
         .iter()
         .find(|(name, _)| text(Some(name)) == Some(LEVEL_UP))
         .and_then(|(_, list)| number(fields_of(Some(list))?, LEVEL_COUNT))
@@ -301,11 +298,9 @@ impl Template<'_> {
     /// nothing for a list the spell leaves out.
     fn listed(&self, mut text: String) -> String {
         let mut lists = HashMap::new();
-        if let Some(PropertyValueEnum::Map(map)) = self.tooltip.get(&LISTS) {
-            for (name, list) in map.entries() {
-                if let (Some(name), Some(list)) = (self::text(Some(name)), fields_of(Some(list))) {
-                    lists.insert(name, list);
-                }
+        for (name, list) in entries(self.tooltip.get(&LISTS)) {
+            if let (Some(name), Some(list)) = (self::text(Some(name)), fields_of(Some(list))) {
+                lists.insert(name, list);
             }
         }
 
@@ -659,11 +654,7 @@ impl Values<'_> {
     /// The calculation `mSpellCalculations` holds under `key`.
     fn calculation(&mut self, key: BinHash, depth: usize) -> Option<Value> {
         let depth = depth.checked_sub(1)?;
-        let PropertyValueEnum::Map(map) = self.data.get(&CALCULATIONS)? else {
-            return None;
-        };
-        let (_, found) = map
-            .entries()
+        let (_, found) = entries(self.data.get(&CALCULATIONS))
             .iter()
             .find(|(name, _)| matches!(leaf(Some(name)), Some(Leaf::Hash(hash)) if hash == key))?;
         let (class, fields) = struct_of(Some(found))?;
@@ -954,25 +945,9 @@ fn shown(number: f64, decimals: usize) -> String {
     }
 }
 
-/// A `map[string, string]` field's entries.
-fn string_map(value: Option<&PropertyValueEnum>) -> HashMap<String, String> {
-    let Some(PropertyValueEnum::Map(map)) = value else {
-        return HashMap::new();
-    };
-    map.entries()
-        .iter()
-        .filter_map(|(key, value)| {
-            Some((text(Some(key))?.to_owned(), text(Some(value))?.to_owned()))
-        })
-        .collect()
-}
-
 /// `mListStyles`' entries, a style's string key by its number.
 fn style_map(value: Option<&PropertyValueEnum>) -> HashMap<u32, String> {
-    let Some(PropertyValueEnum::Map(map)) = value else {
-        return HashMap::new();
-    };
-    map.entries()
+    entries(value)
         .iter()
         .filter_map(|(key, value)| match leaf(Some(key))? {
             Leaf::U32(style) => Some((style, text(Some(value))?.to_owned())),

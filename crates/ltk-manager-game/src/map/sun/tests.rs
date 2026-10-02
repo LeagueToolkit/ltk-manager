@@ -17,27 +17,6 @@ fn the_sun_properties_class_hash_is_its_name() {
 }
 
 #[test]
-fn every_field_hash_is_its_name() {
-    for (hash, name) in [
-        (SUN_DIRECTION, "sunDirection"),
-        (SUN_COLOR, "sunColor"),
-        (SUN_INTENSITY, "SunIntensityScale"),
-        (SKY_COLOR, "skyLightColor"),
-        (GROUND_COLOR, "groundColor"),
-        (HORIZON_COLOR, "horizonColor"),
-        (SKY_SCALE, "skyLightScale"),
-        (LIGHT_MAP_COLOR_SCALE, "lightMapColorScale"),
-        (FOG_ENABLED, "fogEnabled"),
-        (FOG_COLOR, "fogColor"),
-        (FOG_ALTERNATE_COLOR, "fogAlternateColor"),
-        (FOG_START_AND_END, "fogStartAndEnd"),
-        (FOG_EMISSIVE_REMAP, "fogEmissiveRemap"),
-    ] {
-        assert_eq!(hash, h(name), "{name}");
-    }
-}
-
-#[test]
 fn the_fog_and_the_horizon_read_off_the_component_with_the_class_defaults() {
     let document = document_of(vec![container(
         BASE_SRX,

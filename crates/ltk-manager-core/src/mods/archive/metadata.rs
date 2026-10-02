@@ -6,7 +6,7 @@
 //! not depend on the archive format, and the library view lists mods without
 //! mounting an archive.
 
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, IoContext};
 use crate::mods::index::LibraryModEntry;
 use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;
@@ -95,8 +95,7 @@ pub(crate) fn read_installed_mod(
 /// Fails when the archive cannot be opened or its `META/info.json` cannot be
 /// read.
 pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectLayer>>> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)?;
     let mut info = reader
         .read_info()
         .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
@@ -111,12 +110,8 @@ pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectL
 
 pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
     let config_path = mod_dir.join("mod.config.json");
-    let contents = fs::read_to_string(&config_path).map_err(|e| {
-        AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to read {}: {}", config_path.display(), e),
-        ))
-    })?;
+    let contents = fs::read_to_string(&config_path)
+        .context(format!("Failed to read {}", config_path.display()))?;
     serde_json::from_str(&contents).map_err(AppError::from)
 }
 
@@ -132,8 +127,7 @@ pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
 /// Fails when the archive cannot be opened, its `META/info.json` cannot be
 /// read, or the config cannot be written.
 pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> AppResult<()> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)?;
     let mut info = reader
         .read_info()
         .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
@@ -193,8 +187,7 @@ pub(crate) fn extract_fantome_thumbnail(
     archive_path: &Path,
     metadata_dir: &Path,
 ) -> AppResult<Option<PathBuf>> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive_path)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive_path)?)?;
     let Some(png) = reader
         .read_image_png()
         .map_err(|e| AppError::Other(format!("Failed to read the thumbnail: {e}")))?

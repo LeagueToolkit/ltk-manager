@@ -20,6 +20,7 @@ use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{BinDocument, RowNames};
+use ltk_manager_core::hashing::named;
 use ltk_manager_core::hashtables::{BinHashTables, HashtableCache};
 use ltk_manager_game::vfx::{VfxValue, resolve_system};
 use ltk_meta::property::values;
@@ -28,10 +29,10 @@ use ltk_wad::WadHash;
 use serde::Serialize;
 
 /// `shimmerEmitterDefinitionData`, the list of `VfxSystemDefinitionData` holding shimmer emitters.
-const SHIMMER_LIST: BinHash = BinHash(0xeb0a_abeb);
+const SHIMMER_LIST: BinHash = named("shimmerEmitterDefinitionData");
 
 /// `disabled` of `VfxShimmerEmitterDefinitionData`.
-const DISABLED: BinHash = BinHash(0x33f3_6f05);
+const DISABLED: BinHash = named("disabled");
 
 /// How deep the walk descends, which is the bound `vfx::resolve` already holds to.
 const MAX_DEPTH: usize = 64;

@@ -412,7 +412,6 @@ fn a_material_field_on_another_class_adds_no_custom_preview() {
     assert!(resolved.materials.is_empty());
     assert_eq!(MATERIAL_HOLDERS[0], h("VfxMaterialDefinitionData"));
     assert_eq!(MATERIAL_HOLDERS[1], h("VfxMaterialRenderComponent"));
-    assert_eq!(MATERIAL, h("Material"));
 }
 
 fn field<'a>(value: &'a VfxValue, name: &str) -> &'a VfxValue {

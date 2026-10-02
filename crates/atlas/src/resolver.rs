@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
-    AssetLookup, Fields, Namer, fields_of, hex, items, leaf, link, struct_of, text,
+    AssetLookup, Fields, Namer, fields_of, hex, items, leaf, link, optional, struct_of, text,
 };
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
@@ -592,14 +592,6 @@ pub(super) fn file_hash(value: Option<&ltk_meta::PropertyValueEnum>) -> Option<u
     }
 }
 
-/// The value `value` holds, seen through an `option`.
-fn unwrapped(value: Option<&PropertyValueEnum>) -> Option<&PropertyValueEnum> {
-    match value? {
-        PropertyValueEnum::Optional(optional) => optional.value(),
-        value => Some(value),
-    }
-}
-
 /// The layout fills a controller's fields hold.
 pub(super) fn repeats(controller: &Fields) -> Vec<UiRepeat> {
     controller
@@ -687,7 +679,7 @@ fn meter_tip(fields: &Fields) -> Option<UiMeterTip> {
 }
 
 pub(super) fn flag(fields: &Fields, field: BinHash) -> Option<bool> {
-    match leaf(unwrapped(fields.get(&field)))? {
+    match leaf(optional(fields.get(&field)))? {
         Leaf::Bool(value) | Leaf::Flag(value) => Some(value),
         _ => None,
     }
@@ -699,7 +691,7 @@ pub(super) fn flag_or(fields: &Fields, field: BinHash) -> bool {
 
 /// Any numeric field as a float.
 pub(super) fn number(fields: &Fields, field: BinHash) -> Option<f32> {
-    Some(match leaf(unwrapped(fields.get(&field)))? {
+    Some(match leaf(optional(fields.get(&field)))? {
         Leaf::F32(value) => finite(value),
         Leaf::U8(value) => f32::from(value),
         Leaf::I8(value) => f32::from(value),
@@ -717,7 +709,7 @@ pub(super) fn number(fields: &Fields, field: BinHash) -> Option<f32> {
 /// fonts named `Blue1` and `Gold1` hold `{250, 250, 205}` and `{210, 230, 240}`, which are the
 /// palette's `#CDFAFA` and `#F0E6D2` read in that order.
 pub(super) fn color(fields: &Fields, field: BinHash) -> Option<[u8; 4]> {
-    match leaf(unwrapped(fields.get(&field)))? {
+    match leaf(optional(fields.get(&field)))? {
         Leaf::Color(c) => Some([c.b, c.g, c.r, c.a]),
         _ => None,
     }

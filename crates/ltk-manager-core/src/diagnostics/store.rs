@@ -9,6 +9,7 @@ use serde::Deserialize;
 
 use super::incident::Incident;
 use crate::error::{AppError, AppResult};
+use crate::utils::fs::write_json;
 
 /// The incident files, capped by count and by size.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -154,11 +155,7 @@ impl IncidentStore {
     }
 
     fn write(&self, incident: &Incident) -> AppResult<()> {
-        let path = self.path_of(&incident.id)?;
-        let tmp = path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_vec_pretty(incident)?)?;
-        fs::rename(&tmp, &path)?;
-        Ok(())
+        write_json(&self.path_of(&incident.id)?, incident)
     }
 
     fn read(path: &Path) -> AppResult<Incident> {

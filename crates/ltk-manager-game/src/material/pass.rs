@@ -11,28 +11,28 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_core::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use serde::Serialize;
 
 use super::{
     BLEND_ENABLE, BlendFactor, CULL_ENABLE, DEPTH_ENABLE, DST_COLOR_BLEND_FACTOR, DYNAMIC_MATERIAL,
     MaterialWarning, NAME, PARAM_VALUES, PASSES, Reader, SHADER_MACROS, SRC_COLOR_BLEND_FACTOR,
-    ShaderDef, VALUE, WINDING_TO_CULL, WRITE_MASK, Wrap, boolean, integer, string_map, structs,
-    vector4,
+    ShaderDef, VALUE, WINDING_TO_CULL, WRITE_MASK, Wrap, structs,
 };
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, fields_of,
-    hex, items, object_at, struct_of, text,
+    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, boolean,
+    fields_of, hex, items, object_at, string_map, struct_of, text, unsigned, vector4,
 };
 
 /// `StaticMaterialDef.type`.
-const MATERIAL_TYPE: BinHash = BinHash(0x5127_f14d);
+const MATERIAL_TYPE: BinHash = named("type");
 /// `StaticMaterialPassDef.srcAlphaBlendFactor`.
-const SRC_ALPHA_BLEND_FACTOR: BinHash = BinHash(0xa095_8d01);
+const SRC_ALPHA_BLEND_FACTOR: BinHash = named("srcAlphaBlendFactor");
 /// `StaticMaterialPassDef.dstAlphaBlendFactor`.
-const DST_ALPHA_BLEND_FACTOR: BinHash = BinHash(0x7385_e534);
+const DST_ALPHA_BLEND_FACTOR: BinHash = named("dstAlphaBlendFactor");
 /// `StaticMaterialPassDef.depthCompareFunc`.
-const DEPTH_COMPARE_FUNC: BinHash = BinHash(0xa0c7_176b);
+const DEPTH_COMPARE_FUNC: BinHash = named("depthCompareFunc");
 /// The `depthCompareFunc` the class defaults to, less or equal, which every shipped pass
 /// a preview draws keeps.
 const DEPTH_LESS_EQUAL: u32 = 3;
@@ -79,7 +79,7 @@ pub enum MaterialKind {
 impl MaterialKind {
     /// The family `value` names on the wire. An absent value is the class default.
     fn of(value: Option<&PropertyValueEnum>) -> Self {
-        match integer(value) {
+        match unsigned(value) {
             Some(0) => Self::StaticMesh,
             Some(1) | None => Self::SkinnedMesh,
             Some(2) => Self::Particles,
@@ -340,7 +340,7 @@ pub enum Winding {
 impl Winding {
     /// The winding `value` names on the wire. An absent value is the class default.
     fn of(value: Option<&PropertyValueEnum>) -> Self {
-        match integer(value) {
+        match unsigned(value) {
             Some(0) => Self::Cw,
             _ => Self::Ccw,
         }
@@ -566,7 +566,7 @@ impl<'a> Reader<'a> {
                     };
                     let param = PassParam {
                         name: name.to_owned(),
-                        value: vector4(fields.get(&VALUE)),
+                        value: vector4(fields.get(&VALUE)).unwrap_or_default(),
                         source,
                     };
                     set.insert(name.to_owned(), param);
@@ -595,7 +595,11 @@ impl<'a> Reader<'a> {
                     });
                     continue;
                 };
-                if scatter(&mut params[at].value, mask, vector4(fields.get(&VALUE))) {
+                if scatter(
+                    &mut params[at].value,
+                    mask,
+                    vector4(fields.get(&VALUE)).unwrap_or_default(),
+                ) {
                     params[at].source = source;
                 }
             }
@@ -708,7 +712,7 @@ fn pass_state(pass: &Fields) -> PassState {
     let field = |hash: BinHash| pass.get(&hash);
     let defaults = PassState::default();
     let small = |value: Option<&PropertyValueEnum>, default: u32| {
-        integer(value)
+        unsigned(value)
             .and_then(|n| u32::try_from(n).ok())
             .unwrap_or(default)
     };

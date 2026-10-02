@@ -625,15 +625,3 @@ fn a_switch_with_an_absent_on_reads_as_on() {
         [define("GLOW_ON", "1", DefineSource::Switch)]
     );
 }
-
-#[test]
-fn every_field_hash_is_its_name() {
-    for (hash, name) in [
-        (MATERIAL_TYPE, "type"),
-        (SRC_ALPHA_BLEND_FACTOR, "srcAlphaBlendFactor"),
-        (DST_ALPHA_BLEND_FACTOR, "dstAlphaBlendFactor"),
-        (DEPTH_COMPARE_FUNC, "depthCompareFunc"),
-    ] {
-        assert_eq!(hash, h(name), "{name}");
-    }
-}

@@ -18,7 +18,7 @@ use crate::mods::ModLibrary;
 use crate::mods::health::sweep::{HealthSweepState, SweepScope};
 use crate::mods::index::{LibraryModEntry, ModStorage};
 use crate::problems::{self, Budget, Counts, GameBuild, ProjectFiles, Run};
-use fs_err as fs;
+use crate::utils::fs::{read_json_or_default, write_json};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -652,13 +652,7 @@ impl VerdictFile {
     /// failing a read over.
     fn load(storage_dir: &Path) -> Self {
         let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
-        let stored: StoredVerdictFile = match fs::read_to_string(&path) {
-            Ok(contents) => serde_json::from_str(&contents).unwrap_or_else(|e| {
-                tracing::warn!("Unreadable {MOD_HEALTH_VERDICTS_FILENAME}, starting over: {e}");
-                StoredVerdictFile::default()
-            }),
-            Err(_) => StoredVerdictFile::default(),
-        };
+        let stored: StoredVerdictFile = read_json_or_default(&path);
         if stored.version < VERDICT_FILE_VERSION && !stored.verdicts.is_empty() {
             tracing::info!(
                 "Discarding {} verdicts from shape {} of {MOD_HEALTH_VERDICTS_FILENAME}: the next sweep re-checks them",
@@ -690,11 +684,7 @@ impl VerdictFile {
                 .map(|(mod_id, verdict)| (mod_id.clone(), StoredVerdict::strip(verdict)))
                 .collect(),
         };
-        let path = storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME);
-        let tmp = path.with_extension("json.tmp");
-        fs::write(&tmp, serde_json::to_string_pretty(&stored)?)?;
-        fs::rename(&tmp, &path)?;
-        Ok(())
+        write_json(&storage_dir.join(MOD_HEALTH_VERDICTS_FILENAME), &stored)
     }
 }
 

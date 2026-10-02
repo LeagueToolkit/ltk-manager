@@ -2,7 +2,7 @@
 
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, Fields, Namer, RowNames, fields_of, hex, items, link, text,
+    AssetLookup, BinDocument, Fields, Namer, RowNames, entries, fields_of, hex, items, link, text,
 };
 use ltk_meta::{BinObject, PropertyValueEnum};
 
@@ -97,7 +97,7 @@ impl<'d> FontBins<'d> {
     ) -> Option<(UiStyleSheet, SheetAtlas)> {
         let fields = &self.object(hash)?.properties;
 
-        let styles = map_entries(fields.get(&STYLES))
+        let styles = entries(fields.get(&STYLES))
             .iter()
             .filter_map(|(key, value)| {
                 let style = fields_of(Some(value))?;
@@ -110,7 +110,7 @@ impl<'d> FontBins<'d> {
                 })
             })
             .collect();
-        let (icons, keys) = map_entries(fields.get(&ICONS))
+        let (icons, keys) = entries(fields.get(&ICONS))
             .iter()
             .filter_map(|(key, value)| {
                 let icon = fields_of(Some(value))?;
@@ -205,13 +205,6 @@ fn named_file(value: Option<&PropertyValueEnum>, assets: &dyn AssetLookup) -> Op
         path: path.to_owned(),
         asset: assets.locate(path),
     })
-}
-
-fn map_entries(value: Option<&PropertyValueEnum>) -> &[(PropertyValueEnum, PropertyValueEnum)] {
-    match value {
-        Some(PropertyValueEnum::Map(map)) => map.entries(),
-        _ => &[],
-    }
 }
 
 /// The fonts and faces of `document` and then of `fonts`, the game's `ux/fonts` where the

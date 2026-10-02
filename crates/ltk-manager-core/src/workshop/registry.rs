@@ -1,8 +1,8 @@
 //! The project folders the workshop knows about outside its own folder.
 
 use crate::error::AppResult;
+use crate::utils::fs::{read_json_or_default, write_json};
 use chrono::{DateTime, Utc};
-use fs_err as fs;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -106,13 +106,7 @@ impl ProjectRegistry {
 
     /// Load the registry at `file`, starting empty when it is absent or unreadable.
     pub fn load(file: PathBuf) -> Self {
-        let document = match fs::read_to_string(&file) {
-            Ok(text) => serde_json::from_str(&text).unwrap_or_else(|error| {
-                tracing::warn!(%error, file = %file.display(), "Unreadable project registry, starting empty");
-                RegistryDocument::default()
-            }),
-            Err(_) => RegistryDocument::default(),
-        };
+        let document = read_json_or_default(&file);
 
         Self {
             file: Some(file),
@@ -255,15 +249,7 @@ impl ProjectRegistry {
             return Ok(());
         };
 
-        if let Some(parent) = file.parent() {
-            fs::create_dir_all(parent)?;
-        }
-
-        let temp = file.with_extension("json.tmp");
-        fs::write(&temp, serde_json::to_string_pretty(document)?)?;
-        fs::rename(&temp, file)?;
-
-        Ok(())
+        write_json(file, document)
     }
 }
 

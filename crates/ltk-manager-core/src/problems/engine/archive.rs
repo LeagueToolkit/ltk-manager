@@ -96,17 +96,14 @@ impl ArchiveFiles {
     /// are still scanned.
     pub(super) fn scan(archive: &Path, resolver: &dyn PathResolver) -> AppResult<ArchiveScan> {
         let entries = Self::layer_entries(archive)?;
-        let mut reader = FantomeReader::new(fs::File::open(archive)?)
-            .map_err(|e| AppError::Fantome(e.to_string()))?;
+        let mut reader = FantomeReader::new(fs::File::open(archive)?)?;
 
         // Read before the WADs and propagated as an error. The mod's own tables
         // name its chunks before the caller's resolver does, as in an unpack,
         // so an archive whose manifest lists a table it does not hold would get
         // names an unpack cannot reproduce. The import refuses such an archive,
         // and so does the scan.
-        let declared = reader
-            .read_hashtables()
-            .map_err(|e| AppError::Fantome(e.to_string()))?;
+        let declared = reader.read_hashtables()?;
         let own_names = HashtableSet::build(declared.iter().cloned());
         let chained = Chained {
             own: GameResolver::new(&own_names),
@@ -263,19 +260,13 @@ impl ArchiveFiles {
     ) -> AppResult<Vec<ProjectFile>> {
         if wad.stored {
             tracing::debug!("Reading {} where the archive stores it", wad.name);
-            let Some(source) = reader
-                .packed_wad_source(layer, &wad.name)
-                .map_err(|e| AppError::Fantome(e.to_string()))?
-            else {
+            let Some(source) = reader.packed_wad_source(layer, &wad.name)? else {
                 return Ok(Vec::new());
             };
             return scan_wad(&mut mounted(source)?, &wad.name, resolver);
         }
 
-        let Some(bytes) = reader
-            .read_packed_wad(layer, &wad.name)
-            .map_err(|e| AppError::Fantome(e.to_string()))?
-        else {
+        let Some(bytes) = reader.read_packed_wad(layer, &wad.name)? else {
             return Ok(Vec::new());
         };
         // Logged because the run holds these bytes until it ends.
@@ -308,11 +299,9 @@ impl ArchiveFiles {
             );
         }
 
-        let mut reader = FantomeReader::new(fs::File::open(&self.archive)?)
-            .map_err(|e| AppError::Fantome(e.to_string()))?;
+        let mut reader = FantomeReader::new(fs::File::open(&self.archive)?)?;
         let mut wad = reader
-            .mount_packed_wad(&self.layer, wad_name)
-            .map_err(|e| AppError::Fantome(e.to_string()))?
+            .mount_packed_wad(&self.layer, wad_name)?
             .ok_or_else(|| AppError::Fantome(format!("{wad_name} is no longer packed")))?;
         chunk_of(&mut wad, wad_name, hash, limit)
     }

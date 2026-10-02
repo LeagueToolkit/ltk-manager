@@ -9,7 +9,7 @@
 //! Replacing the archive, and keeping no copy of the original, is ADR-0005.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
+use crate::error::{AppError, AppResult, IoContext, Utf8PathExt, Utf8PathRefExt, io_context};
 use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::install::STAGING_PREFIX;
@@ -295,8 +295,7 @@ impl ModLibrary {
         let run = project.checked();
         let wanted = run.live_fixable();
         let declared = FantomeReader::new(fs::File::open(archive)?)
-            .and_then(|mut reader| reader.read_hashtables())
-            .map_err(|e| AppError::Fantome(e.to_string()))?;
+            .and_then(|mut reader| reader.read_hashtables())?;
         let (report, held) = problems::apply_held(
             project,
             declared,
@@ -546,19 +545,14 @@ fn repack(staging: &Path, staging_utf8: &Utf8Path, archive: &Path) -> AppResult<
 /// the repacked one is in place.
 fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
     let replaced = archive.with_extension("replaced");
-    fs::rename(archive, &replaced).map_err(|e| {
-        AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the archive aside: {e}"),
-        ))
-    })?;
+    fs::rename(archive, &replaced).context("Failed to move the archive aside")?;
 
     if let Err(e) = fs::rename(repacked, archive) {
         let _ = fs::rename(&replaced, archive);
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the repaired archive into place: {e}"),
-        )));
+        return Err(io_context(
+            e,
+            "Failed to move the repaired archive into place",
+        ));
     }
 
     let _ = fs::remove_file(&replaced);

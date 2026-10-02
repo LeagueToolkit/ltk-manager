@@ -1,16 +1,17 @@
 //! A map's screen effects: the `PostEffectOptions` of its post effect component.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
-use super::component::{bool_of, f32_of, map_component, vec4_of};
-use ltk_manager_core::bin_document::{BinDocument, Fields, struct_of};
+use super::component::map_component;
+use ltk_manager_core::bin_document::{BinDocument, Fields, boolean, float, struct_of, vector4};
 
 /// The unnamed `MapGraphicsFeature` whose `options` are the map's `PostEffectOptions`.
 const POST_EFFECTS: BinHash = BinHash(0x50db_156b);
 /// `options`, an embedded `PostEffectOptions`.
-const OPTIONS: BinHash = BinHash(0xef28_6ca5);
+const OPTIONS: BinHash = named("options");
 /// `DepthFog` and the four fields named after it.
 const DEPTH_FOG: FogFields = FogFields {
     enabled: BinHash(0xd23c_9e02),
@@ -28,13 +29,13 @@ const HEIGHT_FOG: FogFields = FogFields {
     max_intensity: BinHash(0x7a8d_755d),
 };
 /// `PostEffectOptions.Dof`.
-const DOF: BinHash = BinHash(0xe568_bb76);
+const DOF: BinHash = named("Dof");
 /// `FocalDistance`, a name the meta does not state and the hash matches.
-const FOCAL_DISTANCE: BinHash = BinHash(0x88ab_79b5);
+const FOCAL_DISTANCE: BinHash = named("FocalDistance");
 /// `InFocusWidth`, a name the meta does not state and the hash matches.
-const IN_FOCUS_WIDTH: BinHash = BinHash(0x8e1f_ed5e);
+const IN_FOCUS_WIDTH: BinHash = named("InFocusWidth");
 /// `PostEffectOptions.Coc`.
-const COC: BinHash = BinHash(0xeb8d_c96c);
+const COC: BinHash = named("Coc");
 
 /// The fields one fog of `PostEffectOptions` is stated in.
 struct FogFields {
@@ -142,21 +143,21 @@ fn post_effects_of(fields: &Fields) -> MapPostEffects {
         depth_fog: fog_of(fields, &DEPTH_FOG, stated.depth_fog),
         height_fog: fog_of(fields, &HEIGHT_FOG, stated.height_fog),
         depth_of_field: MapDepthOfField {
-            enabled: bool_of(fields, DOF).unwrap_or(focus.enabled),
-            focal_distance: f32_of(fields, FOCAL_DISTANCE).unwrap_or(focus.focal_distance),
-            in_focus_width: f32_of(fields, IN_FOCUS_WIDTH).unwrap_or(focus.in_focus_width),
-            coc: f32_of(fields, COC).unwrap_or(focus.coc),
+            enabled: boolean(fields.get(&DOF)).unwrap_or(focus.enabled),
+            focal_distance: float(fields.get(&FOCAL_DISTANCE)).unwrap_or(focus.focal_distance),
+            in_focus_width: float(fields.get(&IN_FOCUS_WIDTH)).unwrap_or(focus.in_focus_width),
+            coc: float(fields.get(&COC)).unwrap_or(focus.coc),
         },
     }
 }
 
 fn fog_of(fields: &Fields, named: &FogFields, stated: MapFog) -> MapFog {
     MapFog {
-        enabled: bool_of(fields, named.enabled).unwrap_or(stated.enabled),
-        color: vec4_of(fields, named.color).unwrap_or(stated.color),
-        start: f32_of(fields, named.start).unwrap_or(stated.start),
-        end: f32_of(fields, named.end).unwrap_or(stated.end),
-        max_intensity: f32_of(fields, named.max_intensity).unwrap_or(stated.max_intensity),
+        enabled: boolean(fields.get(&named.enabled)).unwrap_or(stated.enabled),
+        color: vector4(fields.get(&named.color)).unwrap_or(stated.color),
+        start: float(fields.get(&named.start)).unwrap_or(stated.start),
+        end: float(fields.get(&named.end)).unwrap_or(stated.end),
+        max_intensity: float(fields.get(&named.max_intensity)).unwrap_or(stated.max_intensity),
     }
 }
 

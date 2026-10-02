@@ -647,7 +647,7 @@ fn a_failed_index_save_restores_the_old_archive_and_metadata() {
     let old_bytes = fs::read(&old_archive).unwrap();
     let old_index = fs::read(storage.path().join("library.json")).unwrap();
     make_named_fantome_zip(&archive, "Replacement");
-    fs::create_dir(storage.path().join("library.json.tmp")).unwrap();
+    fs::create_dir(storage.path().join(".library.json.tmp")).unwrap();
 
     assert!(
         library

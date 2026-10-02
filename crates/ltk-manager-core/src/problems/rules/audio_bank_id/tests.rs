@@ -1,6 +1,7 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
+use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::values;
@@ -283,14 +284,12 @@ fn a_chunk_named_by_its_hash_is_reported_without_a_repair() {
 rather than read from the scanner, so a wrong constant there fails rather than
 agrees. */
 
-/// `SkinAudioProperties`.
-const SKIN_AUDIO: BinHash = BinHash(0x8f7b_194f);
+const SKIN_AUDIO: BinHash = named("SkinAudioProperties");
 /// `bankUnits` on it.
-const BANK_UNITS: BinHash = BinHash(0xf8f2_9f92);
-/// `BankUnit`.
-const UNIT: BinHash = BinHash(0xa441_6515);
+const BANK_UNITS: BinHash = named("bankUnits");
+const UNIT: BinHash = named("BankUnit");
 /// `bankPath` on it.
-const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
+const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const BIN_ENTRY: BinHash = BinHash(0x1234_5678);
 

@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_meta::property::values;
@@ -32,14 +33,12 @@ const HIERARCHY: ChunkId = *b"HIRC";
 /* The bin shape a request for a bank travels in. Written out here rather than
 read from the rule, so a wrong constant there fails rather than agrees. */
 
-/// `SkinAudioProperties`.
-const SKIN_AUDIO: BinHash = BinHash(0x8f7b_194f);
+const SKIN_AUDIO: BinHash = named("SkinAudioProperties");
 /// `bankUnits` on it.
-const BANK_UNITS: BinHash = BinHash(0xf8f2_9f92);
-/// `BankUnit`.
-const UNIT: BinHash = BinHash(0xa441_6515);
+const BANK_UNITS: BinHash = named("bankUnits");
+const UNIT: BinHash = named("BankUnit");
 /// `bankPath` on it.
-const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
+const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 

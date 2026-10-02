@@ -13,15 +13,16 @@ pub use tangents::bake_mesh_tangents;
 use std::collections::{HashMap, HashSet};
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
-pub use ltk_manager_core::bin_document::NamedAsset;
 use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hex, items,
-    leaf, link, object_at, struct_of, text,
+    leaf, link, object_at, text,
 };
+pub use ltk_manager_core::bin_document::{NamedAsset, boolean, float, struct_entries};
 use ltk_manager_core::preview::AssetRef;
 
 use crate::linked::{Walk, find_linked_materials, walk_linked};
@@ -29,127 +30,123 @@ use crate::material::{MaterialPreview, linked_material};
 use crate::resolver::{EFFECT_KEY, resolver_entries};
 
 /// `SkinCharacterDataProperties.skinMeshProperties`.
-const MESH_PROPERTIES: BinHash = BinHash(0x45ff_5904);
+const MESH_PROPERTIES: BinHash = named("skinMeshProperties");
 /// `SkinMeshDataProperties.simpleSkin`, the `.skn`.
-const SIMPLE_SKIN: BinHash = BinHash(0xd6a0_0df6);
+const SIMPLE_SKIN: BinHash = named("simpleSkin");
 /// `SkinMeshDataProperties.skeleton`, the `.skl`.
-const SKELETON: BinHash = BinHash(0xb14c_976e);
+const SKELETON: BinHash = named("skeleton");
 /// `texture`, on the mesh properties and on each material override.
-const TEXTURE: BinHash = BinHash(0x3c64_68f4);
+const TEXTURE: BinHash = named("texture");
 /// `SkinMeshDataProperties.skinScale`.
-const SKIN_SCALE: BinHash = BinHash(0xa1f8_05da);
+const SKIN_SCALE: BinHash = named("skinScale");
 /// `SkinMeshDataProperties.selfIllumination`.
-const SELF_ILLUMINATION: BinHash = BinHash(0x252f_6884);
+const SELF_ILLUMINATION: BinHash = named("selfIllumination");
 /// `SkinMeshDataProperties.emissiveTexture`.
-const EMISSIVE_TEXTURE: BinHash = BinHash(0x9a93_4591);
+const EMISSIVE_TEXTURE: BinHash = named("emissiveTexture");
 /// `SkinMeshDataProperties.initialSubmeshToHide`.
-const HIDDEN_SUBMESHES: BinHash = BinHash(0x80b7_f78f);
+const HIDDEN_SUBMESHES: BinHash = named("initialSubmeshToHide");
 /// `SkinMeshDataProperties.materialOverride`.
-const MATERIAL_OVERRIDE: BinHash = BinHash(0x2472_5910);
+const MATERIAL_OVERRIDE: BinHash = named("materialOverride");
 /// `SkinMeshDataProperties_MaterialOverride.submesh`.
-const SUBMESH: BinHash = BinHash(0xaad7_612c);
+const SUBMESH: BinHash = named("submesh");
 /// `Material`, the `StaticMaterialDef` link on the mesh properties and on each override.
-const MATERIAL: BinHash = BinHash(0xd2e4_d060);
+const MATERIAL: BinHash = named("Material");
 /// `SkinCharacterDataProperties.skinAnimationProperties`.
-const ANIMATION_PROPERTIES: BinHash = BinHash(0x426d_89a3);
+const ANIMATION_PROPERTIES: BinHash = named("skinAnimationProperties");
 /// `SkinAnimationProperties.animationGraphData`.
-const ANIMATION_GRAPH: BinHash = BinHash(0xf5fb_07c7);
+const ANIMATION_GRAPH: BinHash = named("animationGraphData");
 /// `SkinCharacterDataProperties.idleParticlesEffects`.
-const IDLE_EFFECTS: BinHash = BinHash(0x8418_6f3c);
+const IDLE_EFFECTS: BinHash = named("idleParticlesEffects");
 /// `SkinCharacterDataProperties.mResourceResolver`.
-const RESOURCE_RESOLVER: BinHash = BinHash(0x6228_6e7e);
+const RESOURCE_RESOLVER: BinHash = named("mResourceResolver");
 /// `SkinCharacterDataProperties_CharacterIdleEffect.boneName`.
-const BONE_NAME: BinHash = BinHash(0x1ecb_978c);
+const BONE_NAME: BinHash = named("boneName");
 /// `SkinCharacterDataProperties_CharacterIdleEffect.targetBoneName`.
-const TARGET_BONE_NAME: BinHash = BinHash(0xda42_8935);
+const TARGET_BONE_NAME: BinHash = named("targetBoneName");
 /// `SkinCharacterDataProperties_CharacterIdleEffect.Position`.
-const POSITION: BinHash = BinHash(0x934f_4e0a);
+const POSITION: BinHash = named("Position");
 /// `AnimationGraphData.mClipDataMap`.
-const CLIP_DATA_MAP: BinHash = BinHash(0x45e1_22f8);
+const CLIP_DATA_MAP: BinHash = named("mClipDataMap");
 /// `AnimationGraphData.mTrackDataMap`.
-const TRACK_DATA_MAP: BinHash = BinHash(0x38ea_85a7);
+const TRACK_DATA_MAP: BinHash = named("mTrackDataMap");
 /// `AnimationGraphData.mMaskDataMap`.
-const MASK_DATA_MAP: BinHash = BinHash(0xde04_746e);
+const MASK_DATA_MAP: BinHash = named("mMaskDataMap");
 /// `AnimationGraphData.mSyncGroupDataMap`.
-const SYNC_GROUP_DATA_MAP: BinHash = BinHash(0xaf88_4184);
+const SYNC_GROUP_DATA_MAP: BinHash = named("mSyncGroupDataMap");
 /// `AtomicClipData.mAnimationResourceData`.
-const ANIMATION_RESOURCE: BinHash = BinHash(0xb49f_754e);
+const ANIMATION_RESOURCE: BinHash = named("mAnimationResourceData");
 /// `AnimationResourceData.mAnimationFilePath`.
-const ANIMATION_FILE: BinHash = BinHash(0x0329_f1d7);
+const ANIMATION_FILE: BinHash = named("mAnimationFilePath");
 /// `AtomicClipData.mTickDuration`.
-const TICK_DURATION: BinHash = BinHash(0x193f_611d);
+const TICK_DURATION: BinHash = named("mTickDuration");
 /// `BlendableClipData.mTrackDataName`.
-const TRACK_DATA_NAME: BinHash = BinHash(0xd392_43c4);
+const TRACK_DATA_NAME: BinHash = named("mTrackDataName");
 /// `BlendableClipData.mMaskDataName`.
-const MASK_DATA_NAME: BinHash = BinHash(0x0359_739b);
+const MASK_DATA_NAME: BinHash = named("mMaskDataName");
 /// `BlendableClipData.mSyncGroupDataName`.
-const SYNC_GROUP_DATA_NAME: BinHash = BinHash(0xa09d_0561);
+const SYNC_GROUP_DATA_NAME: BinHash = named("mSyncGroupDataName");
 /// `mEventDataMap`, on a blendable clip and on a sequencer.
-const EVENT_DATA_MAP: BinHash = BinHash(0xf598_463e);
+const EVENT_DATA_MAP: BinHash = named("mEventDataMap");
 /// `ClipBaseData.mAnimationInterruptionGroupNames`.
-const INTERRUPTION_GROUPS: BinHash = BinHash(0x89d3_4040);
+const INTERRUPTION_GROUPS: BinHash = named("mAnimationInterruptionGroupNames");
 /// `ClipBaseData.mFlags`.
-const FLAGS: BinHash = BinHash(0x8d80_922b);
+const FLAGS: BinHash = named("mFlags");
 /// `TrackData.mPriority`.
-const TRACK_PRIORITY: BinHash = BinHash(0x0f71_7330);
+const TRACK_PRIORITY: BinHash = named("mPriority");
 /// `TrackData.mBlendMode`.
-const TRACK_BLEND_MODE: BinHash = BinHash(0x9ae6_020c);
+const TRACK_BLEND_MODE: BinHash = named("mBlendMode");
 /// `TrackData.mBlendWeight`.
-const TRACK_BLEND_WEIGHT: BinHash = BinHash(0xf401_8e7f);
+const TRACK_BLEND_WEIGHT: BinHash = named("mBlendWeight");
 /// `MaskData.mId`.
-const MASK_ID: BinHash = BinHash(0xc38f_3be5);
+const MASK_ID: BinHash = named("mId");
 /// `MaskData.mWeightList`.
-const MASK_WEIGHTS: BinHash = BinHash(0xa3c8_0380);
+const MASK_WEIGHTS: BinHash = named("mWeightList");
 /// `SyncGroupData.mType`.
-const SYNC_GROUP_TYPE: BinHash = BinHash(0x87ed_aeb0);
+const SYNC_GROUP_TYPE: BinHash = named("mType");
 /// `ParametricClipData.mParametricPairDataList`.
-const PARAMETRIC_PAIRS: BinHash = BinHash(0x2ec3_ba66);
+const PARAMETRIC_PAIRS: BinHash = named("mParametricPairDataList");
 /// `ParametricPairData.mClipName`, which the other `m`-prefixed pair kinds share.
-const PAIR_CLIP: BinHash = BinHash(0xca2b_847d);
+const PAIR_CLIP: BinHash = named("mClipName");
 /// `ParametricPairData.mValue`, the parameter the pair's clip plays at.
-const PAIR_VALUE: BinHash = BinHash(0x24f2_ec89);
+const PAIR_VALUE: BinHash = named("mValue");
 /// `BaseEventData.mStartFrame`.
-const EVENT_START_FRAME: BinHash = BinHash(0x250c_fbe1);
+const EVENT_START_FRAME: BinHash = named("mStartFrame");
 /// `BaseEventData.mEndFrame`.
-const EVENT_END_FRAME: BinHash = BinHash(0xb725_173e);
-/// `SubmeshVisibilityEventData`.
-const SUBMESH_VISIBILITY_EVENT: BinHash = BinHash(0xbcf5_6e70);
+const EVENT_END_FRAME: BinHash = named("mEndFrame");
+const SUBMESH_VISIBILITY_EVENT: BinHash = named("SubmeshVisibilityEventData");
 /// `SubmeshVisibilityEventData.mShowSubmeshList`.
-const EVENT_SHOW_SUBMESHES: BinHash = BinHash(0x6d4d_42d0);
+const EVENT_SHOW_SUBMESHES: BinHash = named("mShowSubmeshList");
 /// `SubmeshVisibilityEventData.mHideSubmeshList`.
-const EVENT_HIDE_SUBMESHES: BinHash = BinHash(0xbb41_a45b);
-/// `ParticleEventData`.
-const PARTICLE_EVENT: BinHash = BinHash(0x0542_d41d);
+const EVENT_HIDE_SUBMESHES: BinHash = named("mHideSubmeshList");
+const PARTICLE_EVENT: BinHash = named("ParticleEventData");
 /// `ParticleEventData.mEffectKey`, which is not the idle effect's `effectKey`.
-const EVENT_EFFECT_KEY: BinHash = BinHash(0xf638_6280);
+const EVENT_EFFECT_KEY: BinHash = named("mEffectKey");
 /// `ParticleEventData.mEffectName`.
-const EVENT_EFFECT_NAME: BinHash = BinHash(0x5a3d_d1c2);
+const EVENT_EFFECT_NAME: BinHash = named("mEffectName");
 /// `ParticleEventData.mParticleEventDataPairList`.
-const EVENT_PAIRS: BinHash = BinHash(0x6064_5d6a);
+const EVENT_PAIRS: BinHash = named("mParticleEventDataPairList");
 /// `ParticleEventData.mIsLoop`.
-const EVENT_IS_LOOP: BinHash = BinHash(0xd91e_32ee);
+const EVENT_IS_LOOP: BinHash = named("mIsLoop");
 /// `ParticleEventData.mIsKillEvent`.
-const EVENT_IS_KILL: BinHash = BinHash(0x72a0_3ff8);
+const EVENT_IS_KILL: BinHash = named("mIsKillEvent");
 /// `ParticleEventData.scale`.
-const EVENT_SCALE: BinHash = BinHash(0x8297_1c71);
+const EVENT_SCALE: BinHash = named("scale");
 /// `ParticleEventDataPair.mBoneName`.
-const EVENT_BONE: BinHash = BinHash(0xeb88_0965);
+const EVENT_BONE: BinHash = named("mBoneName");
 /// `ParticleEventDataPair.mTargetBoneName`.
-const EVENT_TARGET_BONE: BinHash = BinHash(0x95bb_67b8);
-/// `JointSnapEventData`.
-const JOINT_SNAP_EVENT: BinHash = BinHash(0xb5c1_b6ad);
+const EVENT_TARGET_BONE: BinHash = named("mTargetBoneName");
+const JOINT_SNAP_EVENT: BinHash = named("JointSnapEventData");
 /// `JointSnapEventData.mJointNameToOverride`.
-const EVENT_JOINT: BinHash = BinHash(0xac70_ab62);
+const EVENT_JOINT: BinHash = named("mJointNameToOverride");
 /// `JointSnapEventData.mJointNameToSnapTo`.
-const EVENT_SNAP_TO: BinHash = BinHash(0xf6e6_d893);
+const EVENT_SNAP_TO: BinHash = named("mJointNameToSnapTo");
 /// `JointSnapEventData.offset`.
-const EVENT_OFFSET: BinHash = BinHash(0x14c8_d3ca);
-/// `ConformToPathEventData`.
-const CONFORM_EVENT: BinHash = BinHash(0x8237_7a1d);
+const EVENT_OFFSET: BinHash = named("offset");
+const CONFORM_EVENT: BinHash = named("ConformToPathEventData");
 /// `ConformToPathEventData.mBlendInTime`.
-const EVENT_BLEND_IN: BinHash = BinHash(0xdf2f_42a9);
+const EVENT_BLEND_IN: BinHash = named("mBlendInTime");
 /// `ConformToPathEventData.mBlendOutTime`.
-const EVENT_BLEND_OUT: BinHash = BinHash(0xa8c5_78b4);
+const EVENT_BLEND_OUT: BinHash = named("mBlendOutTime");
 
 /// Where a clip names the clips it plays: a `Hash` field, a list of them, or a list of
 /// pairs each naming one.
@@ -536,7 +533,7 @@ pub fn resolve_skin(
             Some(Leaf::F32(scale)) => scale,
             _ => 1.0,
         },
-        self_illumination: f32_of(mesh_field(SELF_ILLUMINATION), 0.0),
+        self_illumination: float(mesh_field(SELF_ILLUMINATION)).unwrap_or(0.0),
         animation_graph: fields_of(skin.get(&ANIMATION_PROPERTIES))
             .and_then(|animation| link(animation.get(&ANIMATION_GRAPH)))
             .map(hex),
@@ -606,7 +603,7 @@ pub fn resolve_graph(
         })
         .collect();
 
-    let clips = map_entries_with_class(graph.get(&CLIP_DATA_MAP))
+    let clips = struct_entries(graph.get(&CLIP_DATA_MAP))
         .map(|(hash, class, fields)| GraphClip {
             name: named(hash),
             hash: hex(hash),
@@ -620,13 +617,13 @@ pub fn resolve_graph(
                 Some(Leaf::F32(seconds)) => Some(seconds),
                 _ => None,
             },
-            events: map_entries_with_class(fields.get(&EVENT_DATA_MAP))
+            events: struct_entries(fields.get(&EVENT_DATA_MAP))
                 .map(|(hash, class, fields)| ClipEvent {
                     name: named(hash),
                     hash: hex(hash),
                     class: keys.class(class),
-                    start_frame: f32_of(fields.get(&EVENT_START_FRAME), 0.0),
-                    end_frame: Some(f32_of(fields.get(&EVENT_END_FRAME), -1.0))
+                    start_frame: float(fields.get(&EVENT_START_FRAME)).unwrap_or(0.0),
+                    end_frame: Some(float(fields.get(&EVENT_END_FRAME)).unwrap_or(-1.0))
                         .filter(|frame| *frame >= 0.0),
                     kind: event_kind(class, fields, &keys),
                 })
@@ -747,24 +744,7 @@ impl<'a> GraphKeys<'a> {
 ///
 /// An entry keyed by anything but a hash, or holding no struct, is passed over.
 fn map_entries(value: Option<&PropertyValueEnum>) -> impl Iterator<Item = (BinHash, &Fields)> + '_ {
-    map_entries_with_class(value).map(|(hash, _, fields)| (hash, fields))
-}
-
-/// The entries of a `Map<Hash, Struct>`, each as its key, its class and its fields.
-fn map_entries_with_class(
-    value: Option<&PropertyValueEnum>,
-) -> impl Iterator<Item = (BinHash, BinHash, &Fields)> + '_ {
-    let entries = match value {
-        Some(PropertyValueEnum::Map(map)) => map.entries(),
-        _ => &[],
-    };
-    entries.iter().filter_map(|(key, value)| {
-        let Some(Leaf::Hash(hash)) = leaf(Some(key)) else {
-            return None;
-        };
-        let (class, fields) = struct_of(Some(value))?;
-        Some((hash, class, fields))
-    })
+    struct_entries(value).map(|(hash, _, fields)| (hash, fields))
 }
 
 /// The clips `fields` names as children, through every field of [`CHILD_FIELDS`] it holds.
@@ -842,9 +822,9 @@ fn event_kind(class: BinHash, fields: &Fields, keys: &GraphKeys) -> EventKind {
                     })
                 })
                 .collect(),
-            is_loop: bool_of(fields.get(&EVENT_IS_LOOP)),
-            is_kill: bool_of(fields.get(&EVENT_IS_KILL)),
-            scale: f32_of(fields.get(&EVENT_SCALE), 1.0),
+            is_loop: boolean(fields.get(&EVENT_IS_LOOP)).unwrap_or(false),
+            is_kill: boolean(fields.get(&EVENT_IS_KILL)).unwrap_or(false),
+            scale: float(fields.get(&EVENT_SCALE)).unwrap_or(1.0),
         },
         JOINT_SNAP_EVENT => EventKind::JointSnap {
             joint: keys.hash_at(fields.get(&EVENT_JOINT)),
@@ -856,24 +836,11 @@ fn event_kind(class: BinHash, fields: &Fields, keys: &GraphKeys) -> EventKind {
         },
         CONFORM_EVENT => EventKind::ConformToPath {
             mask: keys.keyed(fields.get(&MASK_DATA_NAME), GraphMap::Masks),
-            blend_in: f32_of(fields.get(&EVENT_BLEND_IN), 0.0),
-            blend_out: f32_of(fields.get(&EVENT_BLEND_OUT), 0.0),
+            blend_in: float(fields.get(&EVENT_BLEND_IN)).unwrap_or(0.0),
+            blend_out: float(fields.get(&EVENT_BLEND_OUT)).unwrap_or(0.0),
         },
         _ => EventKind::Other,
     }
-}
-
-/// An `F32` field's value, and `default` for one the struct leaves out.
-fn f32_of(value: Option<&PropertyValueEnum>, default: f32) -> f32 {
-    match leaf(value) {
-        Some(Leaf::F32(float)) => float,
-        _ => default,
-    }
-}
-
-/// A `Bool` field's value, and false for one the struct leaves out.
-fn bool_of(value: Option<&PropertyValueEnum>) -> bool {
-    matches!(leaf(value), Some(Leaf::Bool(true) | Leaf::Flag(true)))
 }
 
 /// A `U8` field's value, and zero for one the struct leaves out.

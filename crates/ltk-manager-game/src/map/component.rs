@@ -1,15 +1,15 @@
 //! A component of a map's `MapContainer`, and the scalars its fields state.
 
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_core::hashing::named;
 use ltk_meta::walk::Leaf;
 
 use super::MapPath;
 use ltk_manager_core::bin_document::{BinDocument, Fields, items, leaf, struct_of};
 
-/// `MapContainer`.
-pub(super) const MAP_CONTAINER: BinHash = BinHash(0xdde8_c114);
+pub(super) const MAP_CONTAINER: BinHash = named("MapContainer");
 /// `MapContainer.components`, a list of pointers to `MapComponent`.
-pub(super) const COMPONENTS: BinHash = BinHash(0x1bf5_1169);
+pub(super) const COMPONENTS: BinHash = named("components");
 
 /// The fields of the `class` component of `map`'s container, and none where it has none.
 ///
@@ -35,44 +35,9 @@ pub(super) fn map_component<'a>(
         .map(|(_, fields)| fields)
 }
 
-pub(super) fn bool_of(fields: &Fields, field: BinHash) -> Option<bool> {
-    match leaf(fields.get(&field))? {
-        Leaf::Bool(value) | Leaf::Flag(value) => Some(value),
-        _ => None,
-    }
-}
-
 pub(super) fn u32_of(fields: &Fields, field: BinHash) -> Option<u32> {
     match leaf(fields.get(&field))? {
         Leaf::U32(value) => Some(value),
-        _ => None,
-    }
-}
-
-pub(super) fn f32_of(fields: &Fields, field: BinHash) -> Option<f32> {
-    match leaf(fields.get(&field))? {
-        Leaf::F32(value) => Some(value),
-        _ => None,
-    }
-}
-
-pub(super) fn vec2_of(fields: &Fields, field: BinHash) -> Option<[f32; 2]> {
-    match leaf(fields.get(&field))? {
-        Leaf::Vector2(value) => Some(value.to_array()),
-        _ => None,
-    }
-}
-
-pub(super) fn vec3_of(fields: &Fields, field: BinHash) -> Option<[f32; 3]> {
-    match leaf(fields.get(&field))? {
-        Leaf::Vector3(value) => Some(value.to_array()),
-        _ => None,
-    }
-}
-
-pub(super) fn vec4_of(fields: &Fields, field: BinHash) -> Option<[f32; 4]> {
-    match leaf(fields.get(&field))? {
-        Leaf::Vector4(value) => Some(value.to_array()),
         _ => None,
     }
 }

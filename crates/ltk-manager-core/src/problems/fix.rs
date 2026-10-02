@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::utils::fs::atomic_write;
 
 use super::game::GameContent;
 use super::pass::Fact;
@@ -285,7 +286,8 @@ impl<'a> FixRun<'a> {
         match &mut self.target {
             Target::Tree(root) => {
                 let destination = resolve_in(root, layer, path)?;
-                land(&destination, bytes).map_err(|error| file_error(layer, path, error))?;
+                atomic_write(&destination, bytes)
+                    .map_err(|error| file_error(layer, path, error))?;
             }
             Target::Held { project, written } => {
                 let bytes: Arc<[u8]> = Arc::from(bytes);
@@ -481,24 +483,6 @@ fn report(
         files,
         failed: Vec::new(),
     }
-}
-
-/// Put `bytes` at `destination` through a temp file beside it and a rename.
-fn land(destination: &Path, bytes: &[u8]) -> io::Result<()> {
-    let dir = destination
-        .parent()
-        .expect("a path resolved inside a layer always has a parent");
-    let name = destination
-        .file_name()
-        .expect("a path resolved inside a layer always names a file");
-    let temp = dir.join(format!(".{}.tmp", name.to_string_lossy()));
-
-    fs::write(&temp, bytes)?;
-    if let Err(error) = fs::rename(&temp, destination) {
-        let _ = fs::remove_file(&temp);
-        return Err(error);
-    }
-    Ok(())
 }
 
 /// Resolve a layer-relative path to somewhere the layer under `root` genuinely

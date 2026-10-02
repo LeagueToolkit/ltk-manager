@@ -15,14 +15,15 @@ pub mod pass;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_core::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use regex::Regex;
 use serde::Serialize;
 
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, fields_of,
-    hex, items, leaf, link, object_at, struct_of, text,
+    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, boolean,
+    fields_of, hex, items, leaf, link, object_at, string_map, struct_of, text, unsigned, vector4,
 };
 use ltk_manager_core::preview::AssetRef;
 
@@ -30,80 +31,80 @@ use ltk_manager_core::preview::AssetRef;
 pub const SHADER_DEFS_PATH: &str = "data/shaders/shaders.bin";
 
 /// `StaticMaterialDef.samplerValues`.
-const SAMPLER_VALUES: BinHash = BinHash(0x0a6f_0eb5);
+const SAMPLER_VALUES: BinHash = named("samplerValues");
 /// `StaticMaterialDef.paramValues`, and `StaticMaterialPassDef.paramValues`.
-const PARAM_VALUES: BinHash = BinHash(0xd0ab_46b8);
+const PARAM_VALUES: BinHash = named("paramValues");
 /// `StaticMaterialDef.switches`.
-const SWITCHES: BinHash = BinHash(0xdd7d_db9d);
+const SWITCHES: BinHash = named("switches");
 /// `shaderMacros`, on the material and on each pass.
-const SHADER_MACROS: BinHash = BinHash(0xe6d6_7ded);
+const SHADER_MACROS: BinHash = named("shaderMacros");
 /// `StaticMaterialDef.techniques`.
-const TECHNIQUES: BinHash = BinHash(0x844f_384e);
+const TECHNIQUES: BinHash = named("techniques");
 /// `StaticMaterialDef.dynamicMaterial`.
-const DYNAMIC_MATERIAL: BinHash = BinHash(0x8687_5ff3);
+const DYNAMIC_MATERIAL: BinHash = named("dynamicMaterial");
 /// `StaticMaterialShaderSamplerDef.TextureName`.
-const TEXTURE_NAME: BinHash = BinHash(0xb311_d4ef);
+const TEXTURE_NAME: BinHash = named("TextureName");
 /// `StaticMaterialShaderSamplerDef.texturePath`.
-const TEXTURE_PATH: BinHash = BinHash(0xf0a3_63e3);
+const TEXTURE_PATH: BinHash = named("texturePath");
 /// `StaticMaterialShaderSamplerDef.addressU`.
-const ADDRESS_U: BinHash = BinHash(0x111e_c6d2);
+const ADDRESS_U: BinHash = named("addressU");
 /// `StaticMaterialShaderSamplerDef.addressV`.
-const ADDRESS_V: BinHash = BinHash(0x101e_c53f);
+const ADDRESS_V: BinHash = named("addressV");
 /// `StaticMaterialShaderSamplerDef.addressW`.
-const ADDRESS_W: BinHash = BinHash(0x0f1e_c3ac);
+const ADDRESS_W: BinHash = named("addressW");
 /// `StaticMaterialShaderSamplerDef.filterMin`.
-const FILTER_MIN: BinHash = BinHash(0x1931_0df1);
+const FILTER_MIN: BinHash = named("filterMin");
 /// `StaticMaterialShaderSamplerDef.filterMag`.
-const FILTER_MAG: BinHash = BinHash(0x4044_d30e);
+const FILTER_MAG: BinHash = named("filterMag");
 /// `name`, on a param, a switch, a technique, a shader texture, parameter and switch.
-const NAME: BinHash = BinHash(0x8d39_bde6);
+const NAME: BinHash = named("name");
 /// `StaticMaterialShaderParamDef.value`.
-const VALUE: BinHash = BinHash(0x425e_d3ca);
+const VALUE: BinHash = named("value");
 /// `StaticMaterialSwitchDef.on`.
-const ON: BinHash = BinHash(0x6134_2fd0);
+const ON: BinHash = named("on");
 /// `StaticMaterialTechniqueDef.passes`.
-const PASSES: BinHash = BinHash(0x623c_d25c);
+const PASSES: BinHash = named("passes");
 /// `StaticMaterialPassDef.shader`.
-const SHADER: BinHash = BinHash(0x355d_5568);
+const SHADER: BinHash = named("shader");
 /// `StaticMaterialPassDef.blendEnable`.
-const BLEND_ENABLE: BinHash = BinHash(0x23b7_5597);
+const BLEND_ENABLE: BinHash = named("blendEnable");
 /// `StaticMaterialPassDef.srcColorBlendFactor`.
-const SRC_COLOR_BLEND_FACTOR: BinHash = BinHash(0x22c0_c7d0);
+const SRC_COLOR_BLEND_FACTOR: BinHash = named("srcColorBlendFactor");
 /// `StaticMaterialPassDef.dstColorBlendFactor`.
-const DST_COLOR_BLEND_FACTOR: BinHash = BinHash(0xbe0a_bbf5);
+const DST_COLOR_BLEND_FACTOR: BinHash = named("dstColorBlendFactor");
 /// `StaticMaterialPassDef.cullEnable`.
-const CULL_ENABLE: BinHash = BinHash(0x4b0f_55ce);
+const CULL_ENABLE: BinHash = named("cullEnable");
 /// `StaticMaterialPassDef.windingToCull`.
-const WINDING_TO_CULL: BinHash = BinHash(0x4b92_c1ec);
+const WINDING_TO_CULL: BinHash = named("windingToCull");
 /// `StaticMaterialPassDef.depthEnable`.
-const DEPTH_ENABLE: BinHash = BinHash(0xd250_7939);
+const DEPTH_ENABLE: BinHash = named("depthEnable");
 /// `StaticMaterialPassDef.writeMask`.
-const WRITE_MASK: BinHash = BinHash(0xba51_21ec);
+const WRITE_MASK: BinHash = named("writeMask");
 /// `CustomShaderDef.objectPath`.
-const OBJECT_PATH: BinHash = BinHash(0x1d36_9c29);
+const OBJECT_PATH: BinHash = named("objectPath");
 /// `IShaderDef.textures`.
-const TEXTURES: BinHash = BinHash(0x9910_8c85);
+const TEXTURES: BinHash = named("textures");
 /// `CustomShaderDef.parameters`.
-const PARAMETERS: BinHash = BinHash(0x48a5_2ed9);
+const PARAMETERS: BinHash = named("parameters");
 /// `CustomShaderDef.staticSwitches`.
-const STATIC_SWITCHES: BinHash = BinHash(0x3291_437b);
+const STATIC_SWITCHES: BinHash = named("staticSwitches");
 /// `CustomShaderDef.featureDefines`.
-const FEATURE_DEFINES: BinHash = BinHash(0xae29_287b);
+const FEATURE_DEFINES: BinHash = named("featureDefines");
 /// `ShaderTexture.defaultTexturePath`.
-const DEFAULT_TEXTURE_PATH: BinHash = BinHash(0x32b3_74fa);
+const DEFAULT_TEXTURE_PATH: BinHash = named("defaultTexturePath");
 /// `ShaderPhysicalParameter.data`.
-const DATA: BinHash = BinHash(0xd872_e2a5);
+const DATA: BinHash = named("data");
 /// `ShaderPhysicalParameter.logicalParameters`.
-const LOGICAL_PARAMETERS: BinHash = BinHash(0x7467_2198);
+const LOGICAL_PARAMETERS: BinHash = named("logicalParameters");
 /// `ShaderStaticSwitch.onByDefault`.
-const ON_BY_DEFAULT: BinHash = BinHash(0xaae9_9956);
+const ON_BY_DEFAULT: BinHash = named("onByDefault");
 /// The unnamed flag of `ShaderStaticSwitch`, set on the 23 switches a `$Globals` float
 /// carries at run time rather than a define at compile time.
 const RUNTIME_SWITCH: BinHash = BinHash(0x066e_669c);
 /// `ShaderLogicalParameter.fields`, the component mask a value scatters through.
-const FIELDS: BinHash = BinHash(0x0640_657c);
+const FIELDS: BinHash = named("fields");
 /// `samplerName`, on a shader texture and on a material's sampler entry.
-const SAMPLER_NAME: BinHash = BinHash(0x02e7_fb4c);
+const SAMPLER_NAME: BinHash = named("samplerName");
 
 /// The technique a preview draws. Every shipped material has exactly this one.
 const NORMAL_TECHNIQUE: &str = "normal";
@@ -312,7 +313,7 @@ pub enum Wrap {
 impl Wrap {
     /// The mode `value` names on the wire. An absent value is the class default, `Repeat`.
     fn of(value: Option<&PropertyValueEnum>) -> Self {
-        match integer(value) {
+        match unsigned(value) {
             Some(1) => Self::Clamp,
             Some(2) => Self::Mirror,
             Some(3) => Self::Border,
@@ -404,7 +405,7 @@ pub enum BlendFactor {
 impl BlendFactor {
     /// The factor `value` names, and `default` where the pass states none this build reads.
     fn of(value: Option<&PropertyValueEnum>, default: Self) -> Self {
-        match integer(value) {
+        match unsigned(value) {
             Some(0) => Self::Zero,
             Some(1) => Self::One,
             Some(2) => Self::SrcColor,
@@ -730,12 +731,12 @@ impl<'a> Reader<'a> {
         let mut parameters = HashMap::new();
         let mut physical = Vec::new();
         for fields in structs(def.get(&PARAMETERS)) {
-            let data = vector4(fields.get(&DATA));
+            let data = vector4(fields.get(&DATA)).unwrap_or_default();
             let mut logical = Vec::new();
             for entry in structs(fields.get(&LOGICAL_PARAMETERS)) {
                 if let Some(name) = text(entry.get(&NAME)) {
                     parameters.insert(name.to_owned(), data);
-                    let mask = integer(entry.get(&FIELDS)).unwrap_or(0);
+                    let mask = unsigned(entry.get(&FIELDS)).unwrap_or(0);
                     logical.push((name.to_owned(), u32::try_from(mask).unwrap_or(0)));
                 }
             }
@@ -838,8 +839,8 @@ impl<'a> Reader<'a> {
                     ],
                     wrap_w: Wrap::of(fields.get(&ADDRESS_W)),
                     filter: [
-                        integer(fields.get(&FILTER_MIN)).unwrap_or(1) == 1,
-                        integer(fields.get(&FILTER_MAG)).unwrap_or(1) == 1,
+                        unsigned(fields.get(&FILTER_MIN)).unwrap_or(1) == 1,
+                        unsigned(fields.get(&FILTER_MAG)).unwrap_or(1) == 1,
                     ],
                 },
             );
@@ -897,7 +898,10 @@ impl<'a> Reader<'a> {
                     name: name.to_owned(),
                 });
             }
-            set.insert(name.to_owned(), vector4(fields.get(&VALUE)));
+            set.insert(
+                name.to_owned(),
+                vector4(fields.get(&VALUE)).unwrap_or_default(),
+            );
         }
         Params {
             declared: shader.declared.then(|| shader.parameters.clone()),
@@ -1074,8 +1078,8 @@ fn render_state(
                 .is_some_and(|on| on == "1")
         },
         double_sided: !boolean(field(CULL_ENABLE)).unwrap_or(true),
-        inverted: integer(field(WINDING_TO_CULL)).unwrap_or(CULL_CCW) != CULL_CCW,
-        depth_write: integer(field(WRITE_MASK)).unwrap_or(31) & WRITE_DEPTH != 0,
+        inverted: unsigned(field(WINDING_TO_CULL)).unwrap_or(CULL_CCW) != CULL_CCW,
+        depth_write: unsigned(field(WRITE_MASK)).unwrap_or(31) & WRITE_DEPTH != 0,
         depth_test: boolean(field(DEPTH_ENABLE)).unwrap_or(true),
     }
 }
@@ -1083,50 +1087,6 @@ fn render_state(
 /// The fields of every struct in the container `value` holds.
 fn structs(value: Option<&PropertyValueEnum>) -> impl Iterator<Item = &Fields> {
     items(value).iter().filter_map(|item| fields_of(Some(item)))
-}
-
-/// A `Map<String, String>` as it is, and empty for anything else.
-fn string_map(value: Option<&PropertyValueEnum>) -> HashMap<String, String> {
-    let Some(PropertyValueEnum::Map(map)) = value else {
-        return HashMap::new();
-    };
-    map.entries()
-        .iter()
-        .filter_map(|(key, value)| {
-            Some((text(Some(key))?.to_owned(), text(Some(value))?.to_owned()))
-        })
-        .collect()
-}
-
-/// A `Vec4` leaf, and zeros for an absent one or one of another kind, which the client
-/// drops.
-fn vector4(value: Option<&PropertyValueEnum>) -> [f32; 4] {
-    match leaf(value) {
-        Some(Leaf::Vector4(vector)) => vector.to_array(),
-        _ => [0.0; 4],
-    }
-}
-
-fn boolean(value: Option<&PropertyValueEnum>) -> Option<bool> {
-    match leaf(value)? {
-        Leaf::Bool(on) | Leaf::Flag(on) => Some(on),
-        _ => None,
-    }
-}
-
-/// Any unsigned integer leaf, however wide the wire wrote it.
-fn integer(value: Option<&PropertyValueEnum>) -> Option<u64> {
-    match leaf(value)? {
-        Leaf::U8(n) => Some(n.into()),
-        Leaf::U16(n) => Some(n.into()),
-        Leaf::U32(n) => Some(n.into()),
-        Leaf::U64(n) => Some(n),
-        Leaf::I8(n) => u64::try_from(n).ok(),
-        Leaf::I16(n) => u64::try_from(n).ok(),
-        Leaf::I32(n) => u64::try_from(n).ok(),
-        Leaf::I64(n) => u64::try_from(n).ok(),
-        _ => None,
-    }
 }
 
 #[cfg(test)]

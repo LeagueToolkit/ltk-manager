@@ -6,6 +6,7 @@ use fs_err as fs;
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{AppError, AppResult};
+use crate::utils::fs::atomic_write;
 use crate::utils::game::GameDir;
 
 /// The League client's `LeagueClientSettings.yaml`, held as a parsed document.
@@ -114,9 +115,7 @@ impl LeagueClientSettings {
             AppError::Other(format!("Failed to serialize {}: {e}", self.path.display()))
         })?;
 
-        let tmp = self.path.with_extension("yaml.tmp");
-        fs::write(&tmp, yaml)?;
-        fs::rename(&tmp, &self.path)?;
+        atomic_write(&self.path, yaml.as_bytes())?;
 
         Ok(())
     }
@@ -280,7 +279,7 @@ install:
         let tmp_file = tmp
             .path()
             .join("Config")
-            .join("LeagueClientSettings.yaml.tmp");
+            .join(".LeagueClientSettings.yaml.tmp");
         assert!(!tmp_file.exists());
     }
 }

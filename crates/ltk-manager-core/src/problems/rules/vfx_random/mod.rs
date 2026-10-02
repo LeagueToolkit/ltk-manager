@@ -15,6 +15,7 @@
 
 use std::borrow::Cow;
 
+use crate::hashing::named;
 use ltk_hash::BinHash;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
 
@@ -32,19 +33,19 @@ pub const PER_FRAME_ID: RuleId = RuleId("vfx/per-frame-random");
 pub const BROKEN_ID: RuleId = RuleId("vfx/broken-random");
 
 /// `probabilityTables`, the list of one table per channel under a value's `dynamics`.
-const PROBABILITY_TABLES: BinHash = BinHash(0xa708_4719);
+const PROBABILITY_TABLES: BinHash = named("probabilityTables");
 
 /// `keyTimes`, a table's chances.
-const KEY_TIMES: BinHash = BinHash(0x40c3_51da);
+const KEY_TIMES: BinHash = named("keyTimes");
 
 /// `keyValues`, a table's factors.
-const KEY_VALUES: BinHash = BinHash(0xe44b_7382);
+const KEY_VALUES: BinHash = named("keyValues");
 
 /// `dynamics`, the pointer from a value to its curve and its tables.
-const DYNAMICS: BinHash = BinHash(0xbc03_7de7);
+const DYNAMICS: BinHash = named("dynamics");
 
 /// `VfxEmitterDefinitionData`, the class whose per-frame fields these are.
-const EMITTER: BinHash = BinHash(0x09cd_e442);
+const EMITTER: BinHash = named("VfxEmitterDefinitionData");
 
 /// `Color` and `scale0`, the per-frame fields a table is attested to re-roll on.
 const REROLLED: [BinHash; 2] = [BinHash(0x3d7e_6258), BinHash(0xd4e1_7a53)];
