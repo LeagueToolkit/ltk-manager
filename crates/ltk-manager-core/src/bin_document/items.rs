@@ -4,7 +4,6 @@
 //! "Editing a list, a map, an option and a pointer" in docs/ux/BIN_EDITOR.md. `ltk_meta`
 //! hands out no insert or remove on a list or a map, so an edit rebuilds the one it changes.
 
-use std::fmt::Write as _;
 use std::mem;
 
 use indexmap::IndexMap;
@@ -16,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use super::edit::{Edit, LeafValue, bin_hash, edit_node, set};
 use super::properties::empty_struct;
 use super::{
-    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, Step, descend, dot, hex, is_null,
-    parse_steps, wire_key,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, HashPath, Node, Step, as_list,
+    as_struct, descend, hex, is_null, key_text, parse_steps,
 };
 use crate::meta_schema::{DeclaredField, SchemaAt};
 
@@ -244,7 +243,7 @@ impl BinDocument {
             return Err(refuse(EditRejection::NotAnItem));
         };
         let key = key_value(map.key_kind(), text).map_err(refuse)?;
-        if wire_key(&key) == held.text {
+        if key_text(&key) == held.text {
             return Ok(path.to_owned());
         }
         if holds_key(map, &key) {
@@ -651,8 +650,8 @@ fn take_from(
 
 /// Whether an entry of `map` holds `key` already.
 fn holds_key(map: &values::Map, key: &PropertyValueEnum) -> bool {
-    let text = wire_key(key);
-    map.entries().iter().any(|(held, _)| wire_key(held) == text)
+    let text = key_text(key);
+    map.entries().iter().any(|(held, _)| key_text(held) == text)
 }
 
 /// Rebuild `items` around `change`, which keeps every item the list's own kind.
@@ -686,22 +685,9 @@ fn rebuild_map<R>(
 pub(super) fn split_item(path: &str) -> Option<(String, Step)> {
     let mut steps = parse_steps(path)?;
     match steps.pop()? {
-        step @ (Step::Index(_) | Step::Key(_)) => Some((wire_path(&steps), step)),
+        step @ (Step::Index(_) | Step::Key(_)) => Some((HashPath::of(&steps).into(), step)),
         Step::Field(_) => None,
     }
-}
-
-/// The wire path `steps` write, as `parse_steps` reads one.
-fn wire_path(steps: &[Step]) -> String {
-    let mut path = String::new();
-    for step in steps {
-        let _ = match step {
-            Step::Field(field) => write!(path, "{}{:08x}", dot(&path), field.0),
-            Step::Index(index) => write!(path, "[{index}]"),
-            Step::Key(held) => write!(path, "{held}"),
-        };
-    }
-    path
 }
 
 /// A map key of `kind` as a person types it.
@@ -758,20 +744,15 @@ fn item_start(kind: Kind, class: Option<BinHash>) -> Result<PropertyValueEnum, E
 /// The classes the struct items of a list, a map or an option hold, in first-seen order.
 pub(super) fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
     let items: Box<dyn Iterator<Item = &PropertyValueEnum>> = match value {
-        PropertyValueEnum::Container(items)
-        | PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-            Box::new(items.items().iter())
-        }
+        _ if let Some(items) = as_list(value) => Box::new(items.iter()),
         PropertyValueEnum::Map(map) => Box::new(map.entries().iter().map(|(_, value)| value)),
         PropertyValueEnum::Optional(optional) => Box::new(optional.value().into_iter()),
         _ => return Vec::new(),
     };
     let mut classes = Vec::new();
     for item in items {
-        let class = match item {
-            PropertyValueEnum::Struct(inner) if !is_null(inner) => inner.class_hash,
-            PropertyValueEnum::Embedded(values::Embedded(inner)) => inner.class_hash,
-            _ => continue,
+        let Some(class) = as_struct(item).map(|inner| inner.class_hash) else {
+            continue;
         };
         if !classes.contains(&class) {
             classes.push(class);

@@ -16,9 +16,9 @@ use atlas::{
     SheetImport, SheetSpec, SheetTarget, UiCharacter, UiFont, UiFontCatalog, UiLoadout, UiShader,
     UiSpellTooltip, UiView, VariantChoice, FONTS_PATH,
 };
-use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::GameCopy as _;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
+use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, RowNames};
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::object_index::ObjectIndexSnapshot;
 use ltk_manager_core::preview::AssetRef;
@@ -235,9 +235,9 @@ fn project_game(app_handle: &AppHandle, document: BinDocumentId) -> ProjectGame 
 /// chunk's by its hash, and a project or disk file's own.
 fn chunk_path(asset: &AssetRef, names: &dyn RowNames) -> String {
     match asset {
-        AssetRef::GameChunk { path_hash, .. } => u64::from_str_radix(path_hash, 16)
-            .ok()
-            .and_then(|hash| Namer::new(names).chunk(WadHash(hash)))
+        AssetRef::GameChunk { path_hash, .. } => asset
+            .chunk_hash()
+            .and_then(|hash| names.chunk_name(hash))
             .unwrap_or_else(|| path_hash.clone()),
         AssetRef::Layer { path, .. } | AssetRef::File { path } => path.replace('\\', "/"),
         AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),

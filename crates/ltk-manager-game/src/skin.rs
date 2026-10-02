@@ -692,12 +692,18 @@ impl<'a> GraphKeys<'a> {
 
     /// A hash as the tables name it, and its hex where none does.
     fn named(&self, hash: BinHash) -> String {
-        self.locator.value_name(hash).unwrap_or_else(|| hex(hash))
+        self.locator
+            .names
+            .value_name(hash)
+            .unwrap_or_else(|| hex(hash))
     }
 
     /// A class as the tables name it, and its hex where none does.
     fn class(&self, hash: BinHash) -> String {
-        self.locator.class_name(hash).unwrap_or_else(|| hex(hash))
+        self.locator
+            .names
+            .class_name(hash)
+            .unwrap_or_else(|| hex(hash))
     }
 
     /// A hash naming something outside the graph, such as a submesh or a joint.

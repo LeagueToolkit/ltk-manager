@@ -1,4 +1,4 @@
-//! What one answer of the index looks like on the wire.
+//! What one answer of the index looks like to the frontend.
 //!
 //! Every shape a Tauri command hands the frontend, and the statistics a build
 //! measured. `ts-rs` exports each one under the `ts` feature.
@@ -115,7 +115,7 @@ impl ObjectDeclaration {
             return 0;
         }
         let chunk = match &self.asset {
-            AssetRef::GameChunk { path_hash, .. } => path_hash.parse::<WadHash>().ok(),
+            AssetRef::GameChunk { .. } => self.asset.chunk_hash(),
             AssetRef::Layer { .. } => layer_chunk_hash(&self.asset).map(WadHash),
             AssetRef::File { .. } => None,
             AssetRef::LcuChunk { .. } => {
@@ -247,7 +247,7 @@ pub struct ReferenceHit {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceProperty {
-    /// The property path on the wire, every field a hash (ADR-0027).
+    /// The hash path, every field a hash (ADR-0027).
     pub path: String,
     /// The same path for a person, every hash a table names spelled.
     pub label: String,

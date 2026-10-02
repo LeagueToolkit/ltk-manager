@@ -594,7 +594,7 @@ fn drawn_of(file: &UiFile, records: &[PropertyPatch], report: ApplyReport) -> Ui
         .map(|(index, record)| UiVariantRecord {
             object: hex(record.object_hash),
             path: record.path.as_str().to_owned(),
-            fields: wire_fields(&record.path),
+            fields: hash_fields(&record.path),
             skipped: skipped.remove(&index),
         })
         .collect();
@@ -607,9 +607,9 @@ fn drawn_of(file: &UiFile, records: &[PropertyPatch], report: ApplyReport) -> Ui
     }
 }
 
-/// A record's property path in wire segments: each field as eight hex digits, each subscript as
+/// A record's property path in hash path segments: each field as eight hex digits, each subscript as
 /// written.
-fn wire_fields(path: &PropertyPath) -> String {
+fn hash_fields(path: &PropertyPath) -> String {
     let segments: Vec<String> = path
         .segments()
         .map(|segment| {

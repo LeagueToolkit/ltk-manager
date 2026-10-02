@@ -8,11 +8,10 @@ use std::io::Cursor;
 
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::Kind;
-use ltk_meta::stream::BinStream;
 use ltk_meta::walk::{ChildSegment, Leaf, Node, NodeRef, TreeNode, TreeValue, Visit, Visitor};
-use ltk_meta::{BinOverride, Error, PropertyValueEnum};
+use ltk_meta::{Error, PropertyValueEnum};
 
-use super::build::PATCH_MAGIC;
+use crate::bin_source::BinSource;
 use crate::problems::walk::{Declared, write_key};
 
 mod run;
@@ -105,7 +104,7 @@ pub(super) enum HitStep {
     Field { class: BinHash, field: BinHash },
     /// An element of a container, or the value of an optional that holds rows of its own.
     Index(usize),
-    /// A map entry: its key as the wire writes it, the hash the key holds, if it holds one,
+    /// A map entry: its key as a hash path writes it, the hash the key holds, if it holds one,
     /// and how many earlier entries of the map hold the same key.
     Key {
         text: Box<str>,
@@ -138,16 +137,16 @@ pub(super) fn scan_bin(
     target: &WalkTarget,
     hits: &mut Vec<WalkHit>,
 ) -> Result<(), Error> {
-    if bytes.starts_with(&PATCH_MAGIC) {
-        let patch = BinOverride::from_reader(&mut Cursor::new(bytes))?;
-        for object in patch.objects.values() {
-            Scan::<&PropertyValueEnum>::new(target, object.path_hash, object.class_hash, hits)
-                .node(NodeRef::from(object))?;
+    let mut stream = match BinSource::open(Cursor::new(bytes))? {
+        BinSource::Patch(patch) => {
+            for object in patch.objects.values() {
+                Scan::<&PropertyValueEnum>::new(target, object.path_hash, object.class_hash, hits)
+                    .node(NodeRef::from(object))?;
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
-
-    let mut stream: BinStream<_> = BinStream::mount(Cursor::new(bytes))?;
+        BinSource::Stream(stream) => stream,
+    };
     let mut objects = stream.objects();
     while let Some(mut object) = objects.next()? {
         let view = object.view()?;
@@ -192,7 +191,7 @@ enum Step<V> {
     Key(V, usize),
 }
 
-/// What tells two keys of one map apart: the hash a hash key holds, else its wire text.
+/// What tells two keys of one map apart: the hash a hash key holds, else its hash path text.
 #[derive(PartialEq, Eq, Hash)]
 enum KeyId {
     Hash(BinHash),

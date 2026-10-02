@@ -6,9 +6,9 @@
 //! currently says in game.
 
 use crate::config::Config;
+use crate::game_wads::{chunk_bytes, mount_wad};
 use crate::hashtables::HashtableCache;
-use fs_err as fs;
-use parking_lot::Mutex;
+use crate::utils::lazy_slot::LazySlot;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -186,26 +186,18 @@ impl StringKeyIndex {
 
 /// Lazily-built, app-managed [`StringKeyIndex`].
 #[derive(Default)]
-pub struct StringKeyIndexState(Mutex<Option<Arc<StringKeyIndex>>>);
+pub struct StringKeyIndexState(LazySlot<StringKeyIndex>);
 
 impl StringKeyIndexState {
-    /// Return the index, building it on first use. The lock is held for the
-    /// duration of the build so concurrent callers wait instead of racing a
-    /// second read of the table.
+    /// Return the index, building it on first use.
     #[must_use]
     pub fn get_or_build(&self, config: &Config) -> Arc<StringKeyIndex> {
-        let mut slot = self.0.lock();
-        if let Some(index) = slot.as_ref() {
-            return Arc::clone(index);
-        }
-        let index = Arc::new(StringKeyIndex::from_cache(config));
-        *slot = Some(Arc::clone(&index));
-        index
+        self.0.get_or_init(|| StringKeyIndex::from_cache(config))
     }
 
     /// Drop the built index, so the next caller reads what a sync just wrote.
     pub fn clear(&self) {
-        *self.0.lock() = None;
+        self.0.clear();
     }
 }
 
@@ -223,13 +215,11 @@ fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtabl
     let locale = game_dir.locale().unwrap_or_else(|| "en_us".into());
 
     let wad_path = game_dir.localized_global_wad(&locale)?;
-    let file = fs::File::open(&wad_path).ok()?;
-    let mut wad = ltk_wad::Wad::mount(file).ok()?;
+    let mut wad = mount_wad(&wad_path).ok()?;
 
     let chunk_path = format!("data/menu/{locale}/lol.stringtable");
     let chunk_hash = ltk_modpkg::ChunkPath::new(&chunk_path).hash().value();
-    let chunk = *wad.chunks().get(ltk_wad::WadHash(chunk_hash))?;
-    let bytes = wad.load_chunk_decompressed(&chunk).ok()?;
+    let bytes = chunk_bytes(&mut wad, ltk_wad::WadHash(chunk_hash)).ok()??;
 
     match ltk_rst::Stringtable::from_reader(&mut Cursor::new(&bytes[..])) {
         Ok(table) => Some((locale, table)),

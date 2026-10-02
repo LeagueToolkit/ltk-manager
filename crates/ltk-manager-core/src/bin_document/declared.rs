@@ -31,7 +31,9 @@ pub use self::links::{DeclaredLinkMark, LinkChange};
 pub use self::objects::{DeclaredObjectMark, NewObject, ObjectChange};
 pub use self::project::ProjectDeclarations;
 use super::edit::UNDO_DEPTH;
-use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
+use super::{
+    BinDocument, BinDocumentError, EditRejection, EntryKey, HashPath, RowNames, Trace, hex,
+};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::{PatchSchema, SchemaNames};
 
@@ -252,7 +254,7 @@ pub struct DeclaredModuleSummary {
 pub struct DeclaredMark {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
-    /// The row's path on the wire. Empty where the declared path reaches no row.
+    /// The row's hash path. Empty where the declared path reaches no row.
     pub path: String,
     /// The property path the declaration names, as a module action takes it.
     pub property: String,
@@ -1145,7 +1147,7 @@ fn valued_marks_of(
 
     let mark = DeclaredMark {
         entry: hex(entry),
-        path: wire_path(object, &property.path).unwrap_or_default(),
+        path: hash_path(object, &property.path).unwrap_or_default(),
         property: property.path.as_str().to_owned(),
         module: module.origin.module_index,
         module_name: module.name.as_ref().map(|name| name.as_str().to_owned()),
@@ -1166,16 +1168,12 @@ fn valued_marks_of(
     vec![(mark, property.value.to_yaml().ok())]
 }
 
-/// The wire path of the node `path` resolves to on `object`, or `None` where it reaches none.
-fn wire_path(object: &BinObject, path: &PropertyPath) -> Option<String> {
-    let mut wire = String::new();
+/// The hash path of the node `path` resolves to on `object`, or `None` where it reaches none.
+fn hash_path(object: &BinObject, path: &PropertyPath) -> Option<String> {
+    let mut hashes = HashPath::default();
     let mut walked: Option<PropertyPath> = None;
     for segment in path.segments() {
-        let name = segment.name_hash();
-        if !wire.is_empty() {
-            wire.push('.');
-        }
-        wire.push_str(&format!("{:08x}", *name));
+        hashes = hashes.field(segment.name_hash());
         let field = match &walked {
             Some(walked) => PropertyPath::new(format!("{}.{}", walked.as_str(), segment.name)),
             None => PropertyPath::new(segment.name),
@@ -1189,20 +1187,20 @@ fn wire_path(object: &BinObject, path: &PropertyPath) -> Option<String> {
         let holder = object.resolve(&field).ok()?;
         let full = PropertyPath::new(format!("{}{subscript}", field.as_str())).ok()?;
         let reached = object.resolve(&full).ok()?;
-        match (subscript, holder) {
-            (Subscript::Index(index), _) => wire.push_str(&format!("[{index}]")),
+        hashes = match (subscript, holder) {
+            (Subscript::Index(index), _) => hashes.index(*index as usize),
             (Subscript::Key(_), PropertyValueEnum::Map(map)) => {
                 let at = map
                     .entries()
                     .iter()
                     .position(|(_, value)| std::ptr::eq(value, reached))?;
-                wire.push_str(&EntryKey::of(map.entries(), at).to_string());
+                hashes.key(&EntryKey::of(map.entries(), at))
             }
             _ => return None,
-        }
+        };
         walked = Some(full);
     }
-    Some(wire)
+    Some(hashes.into())
 }
 
 /// The value path `trace` walked, or `None` where a map key is of a kind no path spells.
@@ -1234,34 +1232,23 @@ fn entry_name(entry: BinHash, names: &RenderNames<'_>) -> EntryName {
 #[derive(Clone, Copy)]
 struct RenderNames<'a>(&'a dyn RowNames);
 
-impl RenderNames<'_> {
-    fn one(
-        hash: BinHash,
-        each: impl FnOnce(&[BinHash], &mut dyn FnMut(usize, &str)),
-    ) -> Option<Cow<'static, str>> {
-        let mut found = None;
-        each(&[hash], &mut |_, name| found = Some(name.to_owned()));
-        found.map(Cow::Owned)
-    }
-}
-
 impl FieldNames for RenderNames<'_> {
     fn field(&self, field: BinHash, _class: Option<BinHash>) -> Option<Cow<'_, str>> {
-        Self::one(field, |hashes, visit| self.0.for_each_field(hashes, visit))
+        self.0.field_name(field).map(Cow::Owned)
     }
 
     fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
-        Self::one(hash, |hashes, visit| self.0.for_each_value(hashes, visit))
+        self.0.value_name(hash).map(Cow::Owned)
     }
 }
 
 impl Names for RenderNames<'_> {
     fn class(&self, class: BinHash) -> Option<Cow<'_, str>> {
-        Self::one(class, |hashes, visit| self.0.for_each_class(hashes, visit))
+        self.0.class_name(class).map(Cow::Owned)
     }
 
     fn entry(&self, entry: BinHash) -> Option<Cow<'_, str>> {
-        Self::one(entry, |hashes, visit| self.0.for_each_entry(hashes, visit))
+        self.0.entry_name(entry).map(Cow::Owned)
     }
 
     fn file(&self, chunk: u64) -> Option<Cow<'_, str>> {

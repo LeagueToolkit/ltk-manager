@@ -133,7 +133,7 @@ fn a_record_on_an_added_object_sits_under_its_target_apart_from_the_object() {
 #[test]
 fn a_record_value_expands_under_its_position_and_its_own_path() {
     let embed = under(h(SKIN), "#2").unwrap().rows;
-    assert_eq!(paths(&embed), [format!("#2.{}", wire("name"))]);
+    assert_eq!(paths(&embed), [format!("#2.{}", hashed("name"))]);
     assert_eq!(embed[0].label, "skinMeshProperties.boxed.name");
     assert_eq!(embed[0].node, RowNode::Property);
 
@@ -142,7 +142,7 @@ fn a_record_value_expands_under_its_position_and_its_own_path() {
     assert_eq!(list[1].label, "parts[1]");
 
     let nested = under(UNNAMED_OBJECT, "#3[1]").unwrap().rows;
-    assert_eq!(paths(&nested), [format!("#3[1].{}", wire("name"))]);
+    assert_eq!(paths(&nested), [format!("#3[1].{}", hashed("name"))]);
     assert_eq!(nested[0].label, "parts[1].name");
     assert_eq!(
         nested[0].value,
@@ -165,8 +165,8 @@ fn an_address_no_record_holds_reaches_nothing() {
         (*h(SKIN), "#9"),
         (*h(SKIN), "#1"),
         (*h(SKIN), "#02"),
-        (*h(SKIN), &format!("#2{}", wire("name"))),
-        (*h(SKIN), &format!("#0.{}", wire("name"))),
+        (*h(SKIN), &format!("#2{}", hashed("name"))),
+        (*h(SKIN), &format!("#0.{}", hashed("name"))),
         (*h(SKIN), ".#2"),
         (*h("Characters/Nobody"), "#"),
     ] {
@@ -246,7 +246,7 @@ fn a_search_walks_the_targets_and_their_records_after_the_objects() {
     let nested = patched().find(None, "p1", &named(), None);
     assert_eq!(nested.hits.len(), 1);
     let hit = &nested.hits[0];
-    assert_eq!(hit.path, format!("#3[1].{}", wire("name")));
+    assert_eq!(hit.path, format!("#3[1].{}", hashed("name")));
     assert_eq!(hit.label, "parts[1].name");
     assert_eq!(hit.object, "0x12345678");
 

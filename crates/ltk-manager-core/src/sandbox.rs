@@ -255,18 +255,16 @@ impl Sandbox {
                     asset: object.asset.clone(),
                     file: path.clone(),
                     class_hash: hex(object.class),
-                    class: one_name(object.class, |hashes, visit| {
-                        names.for_each_class(hashes, visit);
-                    })
-                    .unwrap_or_else(|| hex(object.class)),
+                    class: names
+                        .class_name(object.class)
+                        .unwrap_or_else(|| hex(object.class)),
                 })
             });
 
             let declared = objects
                 .entry(text.clone())
                 .or_insert_with(|| DeclaredObject {
-                    path: one_name(hash, |hashes, visit| names.for_each_entry(hashes, visit))
-                        .unwrap_or_else(|| text.clone()),
+                    path: names.entry_name(hash).unwrap_or_else(|| text.clone()),
                     declarations: Vec::new(),
                 });
             declared.declarations.splice(0..0, layers);
@@ -277,11 +275,9 @@ impl Sandbox {
 
     /// Whether a layer ships the game chunk `asset`, so the build packs the layer's copy.
     fn ships(&self, asset: &AssetRef) -> bool {
-        let AssetRef::GameChunk { path_hash, .. } = asset else {
-            return false;
-        };
-        u64::from_str_radix(path_hash, 16)
-            .is_ok_and(|hash| self.chunks.asset_of_chunk(WadHash(hash)).is_some())
+        asset
+            .chunk_hash()
+            .is_some_and(|hash| self.chunks.asset_of_chunk(hash).is_some())
     }
 
     /// How a document of `asset` opens here. A game chunk a layer ships opens as that
@@ -304,13 +300,17 @@ impl Sandbox {
             return Ok(Opening::File(asset));
         }
 
-        let chunk_hash = u64::from_str_radix(path_hash, 16)
-            .map_err(|_| AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}")))?;
-        if let Some(file) = self.chunks.asset_of_chunk(WadHash(chunk_hash)) {
+        let chunk_hash = asset
+            .chunk_hash()
+            .ok_or_else(|| AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}")))?;
+        if let Some(file) = self.chunks.asset_of_chunk(chunk_hash) {
             return Ok(Opening::File(file.clone()));
         }
 
-        Ok(Opening::Declared { asset, chunk_hash })
+        Ok(Opening::Declared {
+            asset,
+            chunk_hash: chunk_hash.0,
+        })
     }
 
     /// The names a read in this sandbox resolves: the project's own, then `inner`'s.
@@ -330,16 +330,6 @@ impl Sandbox {
     }
 }
 
-/// The name `each` reports for `hash`, or `None` when it reports none.
-fn one_name(
-    hash: BinHash,
-    each: impl FnOnce(&[BinHash], &mut dyn FnMut(usize, &str)),
-) -> Option<String> {
-    let mut found = None;
-    each(&[hash], &mut |_, name| found = Some(name.to_owned()));
-    found
-}
-
 /// The chunk path hash of a layer file, as the overlay reads it: the hex name an unpack
 /// gave it, or its path inside the archive directory, lowercased.
 ///
@@ -353,7 +343,11 @@ pub fn layer_chunk_hash(asset: &AssetRef) -> Option<u64> {
 
     let named = camino::Utf8Path::new(inside);
     if is_hex_chunk_path(named) {
-        return u64::from_str_radix(named.file_stem()?, 16).ok();
+        return named
+            .file_stem()?
+            .parse::<WadHash>()
+            .ok()
+            .map(|hash| hash.0);
     }
 
     Some(WadHash::hash_str(inside.to_lowercase()).0)

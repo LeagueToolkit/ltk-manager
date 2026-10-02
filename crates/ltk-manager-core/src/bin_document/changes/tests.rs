@@ -14,7 +14,7 @@ fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-fn wire(hash: BinHash) -> String {
+fn hashed(hash: BinHash) -> String {
     format!("{:08x}", hash.0)
 }
 
@@ -41,7 +41,7 @@ fn document() -> BinDocument {
 }
 
 fn second_rate() -> String {
-    format!("{}[1].{}", wire(h("emitters")), wire(h("rate")))
+    format!("{}[1].{}", hashed(h("emitters")), hashed(h("rate")))
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn an_edit_inside_a_list_of_structs_marks_that_field_alone() {
         .set_leaf(h(SYSTEM), &second_rate(), LeafValue::Float { value: 5.0 })
         .unwrap();
     document
-        .remove_property(h(SYSTEM), &wire(h("name")))
+        .remove_property(h(SYSTEM), &hashed(h("name")))
         .unwrap();
 
     let changes = document.changes_from(&document.opened_objects().unwrap());
@@ -66,7 +66,7 @@ fn an_edit_inside_a_list_of_structs_marks_that_field_alone() {
             },
             BinChange {
                 entry: hex(h(SYSTEM)),
-                path: wire(h("name")),
+                path: hashed(h("name")),
                 kind: ChangeKind::Removed,
             },
         ]
@@ -81,14 +81,14 @@ fn a_revert_writes_the_baseline_back_as_one_undo() {
         .set_leaf(h(SYSTEM), &second_rate(), LeafValue::Float { value: 5.0 })
         .unwrap();
     document
-        .remove_property(h(SYSTEM), &wire(h("name")))
+        .remove_property(h(SYSTEM), &hashed(h("name")))
         .unwrap();
 
     document
         .revert_property(h(SYSTEM), &second_rate(), opened.get(&h(SYSTEM)))
         .unwrap();
     document
-        .revert_property(h(SYSTEM), &wire(h("name")), opened.get(&h(SYSTEM)))
+        .revert_property(h(SYSTEM), &hashed(h("name")), opened.get(&h(SYSTEM)))
         .unwrap();
     assert!(document.changes_from(&opened).is_empty());
 

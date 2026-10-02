@@ -16,7 +16,7 @@ fn paths(result: &BinFindResult) -> Vec<&str> {
 fn a_name_matches_case_aside_and_marks_where() {
     let result = found(Some(SKIN), "ARMOR");
 
-    assert_eq!(paths(&result), [wire("armorMaterial")]);
+    assert_eq!(paths(&result), [hashed("armorMaterial")]);
     let hit = &result.hits[0];
     assert_eq!(hit.label, "armorMaterial");
     assert_eq!(hit.name, "armorMaterial");
@@ -31,7 +31,7 @@ fn a_value_matches_by_the_text_its_row_draws() {
 
     assert_eq!(
         paths(&result),
-        [format!("{}{{{:08x}}}", wire("lookup"), h("weapon"))]
+        [format!("{}{{{:08x}}}", hashed("lookup"), h("weapon"))]
     );
     let hit = &result.hits[0];
     assert_eq!(hit.label, "lookup{\"weapon\"}");
@@ -44,7 +44,7 @@ fn a_hash_matches_by_its_name_and_by_its_hex() {
     let by_name = found(Some(SKIN), "aatrox_mat");
     let by_hex = found(Some(SKIN), &format!("{:08x}", h("Aatrox_Mat")));
 
-    let material = format!("{}.{}", wire("skinMeshProperties"), wire("material"));
+    let material = format!("{}.{}", hashed("skinMeshProperties"), hashed("material"));
     assert_eq!(paths(&by_name), [material.as_str()]);
     assert_eq!(paths(&by_hex), [material.as_str()]);
     assert_eq!(by_hex.hits[0].value.as_deref(), Some("Aatrox_Mat"));
@@ -53,7 +53,7 @@ fn a_hash_matches_by_its_name_and_by_its_hex() {
 #[test]
 fn a_leaf_under_an_option_is_found_on_the_option_row() {
     let result = found(Some(SKIN), "1.5");
-    assert_eq!(paths(&result), [wire("maybe")]);
+    assert_eq!(paths(&result), [hashed("maybe")]);
 }
 
 #[test]
@@ -73,7 +73,7 @@ fn a_file_search_holds_the_object_rows_and_an_object_search_does_not() {
     assert!(object.hits.iter().all(|hit| !hit.path.is_empty()));
     assert_eq!(
         paths(&object),
-        [wire("link")],
+        [hashed("link")],
         "the link names the object, and the object rows are the tab's header"
     );
 }
@@ -122,7 +122,7 @@ fn a_search_caps_its_rows_and_counts_on_past_the_cap() {
     let result = document.find(Some(h("Wide")), "needle", &(), None);
     assert_eq!(result.hits.len(), FIND_ROWS);
     assert_eq!(result.total as usize, FIND_ROWS + 5);
-    assert_eq!(result.hits[0].path, format!("{}[0]", wire("items")));
+    assert_eq!(result.hits[0].path, format!("{}[0]", hashed("items")));
 }
 
 #[test]

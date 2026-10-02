@@ -26,6 +26,7 @@ use thiserror::Error;
 
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 use crate::meta_schema::MetaSchemaVersion;
+use crate::utils::lazy_slot::LazySlot;
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
 pub use ltk_mimir_cache::Table;
@@ -993,7 +994,7 @@ impl WadPathResolver {
 /// files under new names, so it ends with [`invalidate`](Self::invalidate) and
 /// the next caller opens what it wrote.
 #[derive(Debug, Default)]
-pub struct WadPathResolverState(Mutex<Option<Arc<WadPathResolver>>>);
+pub struct WadPathResolverState(LazySlot<WadPathResolver>);
 
 impl WadPathResolverState {
     /// The resolver, opening the tables on the first call.
@@ -1002,14 +1003,7 @@ impl WadPathResolverState {
     /// names nothing instead.
     #[must_use]
     pub fn get(&self) -> Arc<WadPathResolver> {
-        let mut slot = self.0.lock();
-        if let Some(resolver) = slot.as_ref() {
-            return Arc::clone(resolver);
-        }
-
-        let resolver = Arc::new(WadPathResolver::discover());
-        *slot = Some(Arc::clone(&resolver));
-        resolver
+        self.0.get_or_init(WadPathResolver::discover)
     }
 
     /// A state already holding `resolver`, never discovering the shared cache.
@@ -1019,7 +1013,7 @@ impl WadPathResolverState {
     /// against tables it does not control.
     #[cfg(test)]
     pub(crate) fn preloaded(resolver: WadPathResolver) -> Self {
-        Self(Mutex::new(Some(Arc::new(resolver))))
+        Self(LazySlot::holding(resolver))
     }
 
     /// Drop the open tables, so the next caller opens what a sync just wrote.
@@ -1027,7 +1021,7 @@ impl WadPathResolverState {
     /// Readers already holding the old handle keep reading the old files, which
     /// stay on disk until a later sync's collection sweeps them.
     pub fn invalidate(&self) {
-        *self.0.lock() = None;
+        self.0.clear();
     }
 }
 
@@ -1037,7 +1031,7 @@ impl WadPathResolverState {
 /// maps four files and parses their seek tables. A sync writes new files under new
 /// names and ends with [`invalidate`](Self::invalidate).
 #[derive(Debug, Default)]
-pub struct BinHashTablesState(Mutex<Option<Arc<BinHashTables>>>);
+pub struct BinHashTablesState(LazySlot<BinHashTables>);
 
 impl BinHashTablesState {
     /// The tables, opened on the first call.
@@ -1045,26 +1039,18 @@ impl BinHashTablesState {
     /// A machine with no cache directory names nothing. Every hash then draws as hex.
     #[must_use]
     pub fn get(&self) -> Arc<BinHashTables> {
-        let mut slot = self.0.lock();
-        if let Some(tables) = slot.as_ref() {
-            return Arc::clone(tables);
-        }
-
-        let tables = match HashtableCache::shared() {
+        self.0.get_or_init(|| match HashtableCache::shared() {
             Ok(cache) => cache.bin_tables(),
             Err(e) => {
                 tracing::warn!("No hashtable cache to name bin rows with: {e}");
                 BinHashTables::default()
             }
-        };
-        let tables = Arc::new(tables);
-        *slot = Some(Arc::clone(&tables));
-        tables
+        })
     }
 
     /// Drop the open tables. The next caller opens what a sync wrote.
     pub fn invalidate(&self) {
-        *self.0.lock() = None;
+        self.0.clear();
     }
 }
 

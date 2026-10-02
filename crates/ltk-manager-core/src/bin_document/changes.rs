@@ -16,7 +16,8 @@ use super::declared::GameCopy;
 use super::edit::Edit;
 use super::properties::{field_path, split_field};
 use super::{
-    BinDocument, BinDocumentError, EditRejection, Node, descend, hex, parse_steps, wire_key,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, HashPath, Node, as_list, as_struct,
+    descend, hex, key_text, parse_steps,
 };
 
 /// What a document's rows are compared with.
@@ -50,7 +51,7 @@ pub enum ChangeKind {
 pub struct BinChange {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
-    /// The property's wire path under the object, and empty for the object itself.
+    /// The property's hash path under the object, and empty for the object itself.
     pub path: String,
     pub kind: ChangeKind,
 }
@@ -190,7 +191,7 @@ impl BinDocument {
     }
 }
 
-/// The property at the wire `path` under `object`, or `None` where the path reaches none.
+/// The property at the hash path `path` under `object`, or `None` where the path reaches none.
 fn property_at<'a>(object: &'a BinObject, path: &str) -> Option<&'a PropertyValueEnum> {
     match descend(object, &parse_steps(path)?)? {
         (Node::Value(value), _) => Some(value),
@@ -228,19 +229,19 @@ fn diff_value(
     if now == was {
         return;
     }
-    if let (Some(a), Some(b)) = (struct_of(now), struct_of(was))
+    if let (Some(a), Some(b)) = (as_struct(now), as_struct(was))
         && a.class_hash == b.class_hash
-        && a.class_hash.0 != 0
     {
         diff_properties(&a.properties, &b.properties, path, changed);
         return;
     }
-    if let (Some(a), Some(b)) = (items_of(now), items_of(was))
+    if let (Some(a), Some(b)) = (as_list(now), as_list(was))
         && a.len() == b.len()
         && a.iter().zip(b).all(|(a, b)| same_class(a, b))
     {
         for (at, (a, b)) in a.iter().zip(b).enumerate() {
-            diff_value(a, b, &format!("{path}[{at}]"), changed);
+            let item = String::from(HashPath::under(path).index(at));
+            diff_value(a, b, &item, changed);
         }
         return;
     }
@@ -248,37 +249,19 @@ fn diff_value(
         && same_keys(a, b)
     {
         for ((key, a), (_, b)) in a.entries().iter().zip(b.entries()) {
-            diff_value(a, b, &format!("{path}{{{}}}", wire_key(key)), changed);
+            let entry = String::from(HashPath::under(path).key(&EntryKey::new(key_text(key), 0)));
+            diff_value(a, b, &entry, changed);
         }
         return;
     }
     changed(path.to_owned(), ChangeKind::Changed);
 }
 
-fn struct_of(value: &PropertyValueEnum) -> Option<&values::Struct> {
-    match value {
-        PropertyValueEnum::Struct(inner) | PropertyValueEnum::Embedded(values::Embedded(inner)) => {
-            Some(inner)
-        }
-        _ => None,
-    }
-}
-
-fn items_of(value: &PropertyValueEnum) -> Option<&[PropertyValueEnum]> {
-    match value {
-        PropertyValueEnum::Container(items)
-        | PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-            Some(items.items())
-        }
-        _ => None,
-    }
-}
-
 /// Two items a comparison walks into: structs of one non-null class.
 fn same_class(a: &PropertyValueEnum, b: &PropertyValueEnum) -> bool {
     matches!(
-        (struct_of(a), struct_of(b)),
-        (Some(a), Some(b)) if a.class_hash == b.class_hash && a.class_hash.0 != 0
+        (as_struct(a), as_struct(b)),
+        (Some(a), Some(b)) if a.class_hash == b.class_hash
     )
 }
 
@@ -288,7 +271,7 @@ fn same_keys(a: &values::Map, b: &values::Map) -> bool {
     let keys = |map: &values::Map| {
         map.entries()
             .iter()
-            .map(|(key, _)| wire_key(key))
+            .map(|(key, _)| key_text(key))
             .collect::<Vec<_>>()
     };
     let (a, b) = (keys(a), keys(b));

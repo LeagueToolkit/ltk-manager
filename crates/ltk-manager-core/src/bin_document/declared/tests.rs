@@ -7,7 +7,7 @@ use ltk_hash::Hash as _;
 use ltk_meta::property::values;
 
 use super::*;
-use crate::bin_document::{BinDocumentId, BinDocuments, LeafValue, ReadOnly};
+use crate::bin_document::{BinDocumentId, BinDocuments, HistoryStep, LeafValue, ReadOnly};
 use crate::meta_schema;
 use crate::preview::AssetRef;
 use crate::sandbox::{Opening, Sandbox, SandboxRef, layer_chunk_hash};
@@ -525,7 +525,11 @@ fn the_game_sandbox_refuses_every_edit_and_every_save() {
         .unwrap();
 
     assert_matches!(
-        store.patch(id, h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 }),
+        store.edit(id, |open| open.set_leaf(
+            h(SKIN),
+            &glow_path(),
+            LeafValue::Float { value: 0.5 }
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::GameSandbox))
     );
     assert_matches!(
@@ -684,37 +688,48 @@ fn the_store_refuses_every_declaring_edit_while_declarations_are_off() {
         Some(ReadOnly::DeclarationsOff)
     );
     assert_matches!(
-        store.patch(id, h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 }),
+        store.edit(id, |open| open.set_leaf(
+            h(SKIN),
+            &glow_path(),
+            LeafValue::Float { value: 0.5 }
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.declare_reference(id, h(SKIN), &glow_path(), "0x1:a", false),
+        store.edit(id, |open| open.declare_reference(
+            h(SKIN),
+            &glow_path(),
+            "0x1:a",
+            false
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.undo(id),
+        store.step(id, HistoryStep::Undo),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.declared_module_action(id, "base", &ModuleAction::Remove { module: 0 }),
+        store.edit(id, |open| open.declared_module_action(
+            "base",
+            &ModuleAction::Remove { module: 0 }
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.create_object(
-            id,
+        store.edit(id, |open| open.create_object(
             "Mods/jade-teemo/Glow",
             &NewObject::Clone {
                 source: hex(h(SKIN)),
-            },
-        ),
+            }
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.remove_object(id, h(SKIN)),
+        store.edit(id, |open| open.remove_object(h(SKIN))),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_matches!(
-        store.restore_object(id, h(SKIN)),
+        store.edit(id, |open| open.restore_object(h(SKIN))),
         Err(BinDocumentError::ReadOnly(ReadOnly::DeclarationsOff))
     );
     assert_eq!(manifest(dir.path(), "base"), before);
@@ -728,7 +743,9 @@ fn the_store_refuses_every_declaring_edit_while_declarations_are_off() {
 
     assert_eq!(store.set_declaring(id, Declaring::On).unwrap(), None);
     store
-        .patch(id, h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 })
+        .edit(id, |open| {
+            open.set_leaf(h(SKIN), &glow_path(), LeafValue::Float { value: 0.5 })
+        })
         .unwrap();
     assert_ne!(manifest(dir.path(), "base"), before);
 }

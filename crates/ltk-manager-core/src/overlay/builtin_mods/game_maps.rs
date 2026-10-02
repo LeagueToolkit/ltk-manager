@@ -1,12 +1,12 @@
 //! The map skins the game's map archives define, and the containers they draw with.
 
 use crate::error::{AppError, AppResult};
+use crate::game_wads::{ArchiveFile, chunk_bytes, mount_wad};
 use crate::utils::game::{GameDir, archive_stem};
-use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
-use ltk_wad::{Wad, WadHash};
-use std::io::{BufReader, Cursor};
+use ltk_wad::WadHash;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 /// The TFT map, whose skins are boards chosen by a set rather than by a map skin name.
@@ -85,12 +85,12 @@ impl MapBin {
     ///
     /// Fails when the map archive cannot be opened or mounted.
     pub(super) fn open(&self) -> AppResult<MapArchive> {
-        Ok(MapArchive(mount(&self.archive_path)?))
+        Ok(MapArchive(mount_wad(&self.archive_path)?))
     }
 }
 
 /// A map archive, mounted to read its chunks by path.
-pub(super) struct MapArchive(MountedWad);
+pub(super) struct MapArchive(ArchiveFile);
 
 impl MapArchive {
     /// The checksum of the chunk at `chunk_path` in the archive's table, where it holds one.
@@ -107,27 +107,16 @@ impl MapArchive {
     ///
     /// Fails when the chunk cannot be read or decompressed.
     pub(super) fn read(&mut self, chunk_path: &str) -> AppResult<Option<Vec<u8>>> {
-        let Some(chunk) = self.0.chunks().get(WadHash::from(chunk_path)).copied() else {
-            return Ok(None);
-        };
-
-        Ok(Some(Vec::from(self.0.load_chunk_decompressed(&chunk)?)))
+        Ok(chunk_bytes(&mut self.0, WadHash::from(chunk_path))?.map(Vec::from))
     }
 }
 
-type MountedWad = Wad<BufReader<fs::File>>;
-
-fn mount(path: &Path) -> AppResult<MountedWad> {
-    Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?)
-}
-
 /// The bin at `chunk_path` in `wad`, and none where the archive does not hold it.
-fn read_bin(wad: &mut MountedWad, chunk_path: &str) -> AppResult<Option<Bin>> {
-    let Some(chunk) = wad.chunks().get(WadHash::from(chunk_path)).copied() else {
+fn read_bin(wad: &mut ArchiveFile, chunk_path: &str) -> AppResult<Option<Bin>> {
+    let Some(bytes) = chunk_bytes(wad, WadHash::from(chunk_path))? else {
         return Ok(None);
     };
 
-    let bytes = wad.load_chunk_decompressed(&chunk)?;
     let bin = Bin::from_reader(&mut Cursor::new(&bytes[..]))
         .map_err(|e| AppError::Other(format!("{chunk_path} does not read: {e}")))?;
     Ok(Some(bin))
@@ -157,7 +146,7 @@ pub(super) fn read(game_dir: &GameDir) -> AppResult<Vec<MapBin>> {
 }
 
 fn read_map(archive: &str, map: &str, path: &Path) -> AppResult<Option<MapBin>> {
-    let mut wad = mount(path)?;
+    let mut wad = mount_wad(path)?;
     let lower = map.to_ascii_lowercase();
     let chunk_path = format!("data/maps/shipping/{lower}/{lower}.bin");
     let Some(bin) = read_bin(&mut wad, &chunk_path)? else {

@@ -1,7 +1,7 @@
 //! The patch records of a `PTCH` bin, as rows under the object each record targets.
 //!
 //! ADR-0041 addresses them: a target row is its entry hash and `#`, a record row is `#n`,
-//! and a row inside a record's value continues with the wire segments of ADR-0027.
+//! and a row inside a record's value continues with the hash path segments of ADR-0027.
 
 use indexmap::IndexMap;
 use ltk_hash::BinHash;
@@ -13,15 +13,15 @@ use super::{
 };
 use crate::meta_schema::SchemaAt;
 
-/// The wire path of a target row, which holds the records one object takes.
+/// The hash path of a target row, which holds the records one object takes.
 pub const TARGET_PATH: &str = "#";
 
-/// The wire path of the record at `index` of the file's record list.
+/// The hash path of the record at `index` of the file's record list.
 pub(super) fn record_path(index: usize) -> String {
     format!("{TARGET_PATH}{index}")
 }
 
-/// A record address in two halves: the record's position, and the wire segments under its value.
+/// A record address in two halves: the record's position, and the hash path segments under its value.
 ///
 /// `#12.0badf00d` is record 12 and `.0badf00d`. `None` for an object's path, for the target
 /// path alone, and for a position written with a leading zero.

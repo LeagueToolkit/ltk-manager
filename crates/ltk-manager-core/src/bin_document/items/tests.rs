@@ -17,7 +17,7 @@ fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-fn wire(hash: BinHash) -> String {
+fn hashed(hash: BinHash) -> String {
     format!("{:08x}", hash.0)
 }
 
@@ -30,7 +30,7 @@ fn schema() -> MetaSchema {
     let class = |name: &str, bases: &[&str], properties: &str| {
         let bases: Vec<String> = bases
             .iter()
-            .map(|base| format!(r#""0x{}""#, wire(h(base))))
+            .map(|base| format!(r#""0x{}""#, hashed(h(base))))
             .collect();
         format!(
             r#""0x{hash}": {{
@@ -38,7 +38,7 @@ fn schema() -> MetaSchema {
               "revisions": [{{ "from": 1, "bases": [{bases}], "interface": false, "value": false }}],
               "properties": {{ {properties} }}
             }}"#,
-            hash = wire(h(name)),
+            hash = hashed(h(name)),
             bases = bases.join(","),
         )
     };
@@ -49,10 +49,10 @@ fn schema() -> MetaSchema {
             kind[1],
             kind[2],
             kind[3],
-            hash = wire(h(name)),
+            hash = hashed(h(name)),
         )
     };
-    let inner = format!("0x{}", wire(h("InnerData")));
+    let inner = format!("0x{}", hashed(h("InnerData")));
     let skin = [
         field("emitters", ["List", "0x0", "Pointer", &inner]),
         field("mesh", ["Pointer", "0x0", "0x0", &inner]),
@@ -173,11 +173,11 @@ fn map_keys(document: &BinDocument, field: &str) -> Vec<String> {
     let PropertyValueEnum::Map(map) = value(document, field) else {
         panic!("{field} is no map");
     };
-    map.entries().iter().map(|(key, _)| wire_key(key)).collect()
+    map.entries().iter().map(|(key, _)| key_text(key)).collect()
 }
 
 fn hash_key(text: &str) -> String {
-    wire_key(&values::Hash::new(h(text)).into())
+    key_text(&values::Hash::new(h(text)).into())
 }
 
 fn item(index: Option<usize>, key: Option<&str>, class: Option<&str>) -> NewItem {
@@ -207,7 +207,7 @@ fn rejection<T: std::fmt::Debug>(result: Result<T, BinDocumentError>) -> EditRej
 #[test]
 fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
     let mut document = document();
-    let weights = wire(h("weights"));
+    let weights = hashed(h("weights"));
 
     let path = insert(&mut document, &weights, item(Some(1), None, None)).unwrap();
     assert_eq!(path, format!("{weights}[1]"));
@@ -218,7 +218,7 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
         floats(&[0.5, 0.0, 1.0, 0.0]).items()
     );
 
-    insert(&mut document, &wire(h("corners")), NewItem::default()).unwrap();
+    insert(&mut document, &hashed(h("corners")), NewItem::default()).unwrap();
     assert_eq!(
         items(&document, "corners"),
         [values::Vector3::new(Vec3::ZERO).into()]
@@ -226,11 +226,11 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
 
     insert(
         &mut document,
-        &wire(h("slots")),
+        &hashed(h("slots")),
         item(None, None, Some("InnerData")),
     )
     .unwrap();
-    insert(&mut document, &wire(h("slots")), NewItem::default()).unwrap();
+    insert(&mut document, &hashed(h("slots")), NewItem::default()).unwrap();
     assert_eq!(
         items(&document, "slots"),
         [
@@ -240,7 +240,7 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
         "an embed naming no class takes the one its list holds"
     );
 
-    let emitters = wire(h("emitters"));
+    let emitters = hashed(h("emitters"));
     insert(&mut document, &emitters, item(Some(0), None, None)).unwrap();
     insert(
         &mut document,
@@ -258,7 +258,7 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
         "a pointer item without a class starts null"
     );
 
-    let names = wire(h("names"));
+    let names = hashed(h("names"));
     let walk = insert(&mut document, &names, item(None, Some("Walk"), None)).unwrap();
     assert_eq!(walk, format!("{names}{{{}}}", hash_key("Walk")));
     assert_eq!(
@@ -273,10 +273,10 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
     .unwrap();
     assert_eq!(
         map_keys(&document, "names")[0],
-        wire_key(&values::Hash::new(BinHash(0x2a)).into())
+        key_text(&values::Hash::new(BinHash(0x2a)).into())
     );
 
-    let chance = wire(h("chance"));
+    let chance = hashed(h("chance"));
     let set = insert(&mut document, &chance, NewItem::default()).unwrap();
     assert_eq!(set, format!("{chance}[0]"));
     assert_eq!(
@@ -290,8 +290,8 @@ fn an_item_inserts_at_an_index_and_at_the_end_at_its_zero() {
 #[test]
 fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
     let mut document = document();
-    let names = wire(h("names"));
-    let weights = wire(h("weights"));
+    let names = hashed(h("names"));
+    let weights = hashed(h("weights"));
 
     assert_eq!(
         rejection(insert(
@@ -308,7 +308,7 @@ fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
     assert_eq!(
         rejection(insert(
             &mut document,
-            &wire(h("counts")),
+            &hashed(h("counts")),
             item(None, Some("many"), None)
         )),
         EditRejection::OutOfRange {
@@ -316,7 +316,11 @@ fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
         }
     );
     assert_eq!(
-        rejection(insert(&mut document, &wire(h("held")), NewItem::default())),
+        rejection(insert(
+            &mut document,
+            &hashed(h("held")),
+            NewItem::default()
+        )),
         EditRejection::ValueHeld
     );
     assert_eq!(
@@ -324,7 +328,11 @@ fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
         EditRejection::NoSuchIndex
     );
     assert_eq!(
-        rejection(insert(&mut document, &wire(h("slots")), NewItem::default())),
+        rejection(insert(
+            &mut document,
+            &hashed(h("slots")),
+            NewItem::default()
+        )),
         EditRejection::MissingClass
     );
     assert_eq!(
@@ -344,7 +352,7 @@ fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
         EditRejection::NotAnItem
     );
     assert_eq!(
-        rejection(document.set_pointer(entry(), &wire(h("falloff")), Some("InnerData"))),
+        rejection(document.set_pointer(entry(), &hashed(h("falloff")), Some("InnerData"))),
         EditRejection::ValueHeld
     );
     assert_eq!(
@@ -362,8 +370,8 @@ fn an_item_edit_that_does_not_fit_is_refused_and_leaves_the_tree() {
 #[test]
 fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
     let mut document = document();
-    let weights = wire(h("weights"));
-    let names = wire(h("names"));
+    let weights = hashed(h("weights"));
+    let names = hashed(h("names"));
 
     document
         .remove_item(entry(), &format!("{weights}[0]"))
@@ -404,7 +412,7 @@ fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
         "a removed entry comes back at its index"
     );
 
-    let held = wire(h("held"));
+    let held = hashed(h("held"));
     document
         .remove_item(entry(), &format!("{held}[0]"))
         .unwrap();
@@ -419,14 +427,14 @@ fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
     ));
 
     document
-        .set_pointer(entry(), &wire(h("mesh")), Some("InnerData"))
+        .set_pointer(entry(), &hashed(h("mesh")), Some("InnerData"))
         .unwrap();
     assert_eq!(value(&document, "mesh"), &empty("InnerData").into());
     assert!(document.undo().unwrap());
     assert_eq!(value(&document, "mesh"), &values::Struct::default().into());
 
     document
-        .set_pointer(entry(), &wire(h("falloff")), None)
+        .set_pointer(entry(), &hashed(h("falloff")), None)
         .unwrap();
     assert_eq!(
         value(&document, "falloff"),
@@ -440,8 +448,8 @@ fn a_remove_a_move_and_a_key_edit_undo_to_where_they_were() {
 fn an_undo_and_a_redo_answer_how_the_rows_moved() {
     let mut document = document();
     let object = hex(entry());
-    let weights = wire(h("weights"));
-    let names = wire(h("names"));
+    let weights = hashed(h("weights"));
+    let names = hashed(h("names"));
     let first = format!("{weights}[0]");
 
     document.remove_item(entry(), &first).unwrap();
@@ -483,7 +491,7 @@ fn an_undo_and_a_redo_answer_how_the_rows_moved() {
         })
     );
 
-    let falloff = wire(h("falloff"));
+    let falloff = hashed(h("falloff"));
     document.set_pointer(entry(), &falloff, None).unwrap();
     document.undo().unwrap();
     assert_eq!(
@@ -511,7 +519,7 @@ fn a_replaced_class_keeps_the_fields_both_classes_declare_alike() {
     let schema = schema();
     let at = schema.at(Some(BUILD));
     let mut document = document();
-    let shape = wire(h("shape"));
+    let shape = hashed(h("shape"));
     let held = value(&document, "shape").clone();
 
     document
@@ -549,7 +557,7 @@ fn a_replaced_class_keeps_the_fields_both_classes_declare_alike() {
     }
     assert_eq!(value(&document, "shape"), &held);
     assert_eq!(
-        rejection(document.replace_pointer(entry(), &wire(h("weights")), None, at)),
+        rejection(document.replace_pointer(entry(), &hashed(h("weights")), None, at)),
         EditRejection::NotAPointer
     );
 }
@@ -576,7 +584,7 @@ fn a_mesh_primitive_keeps_its_mesh_across_the_mesh_classes() {
         .to_writer(&mut out)
         .unwrap();
     let mut document = BinDocument::parse(out.into_inner()).unwrap();
-    let primitive = wire(h("primitive"));
+    let primitive = hashed(h("primitive"));
 
     document
         .replace_pointer(entry(), &primitive, Some("VfxPrimitiveAttachedMesh"), at)
@@ -605,7 +613,7 @@ fn a_replaced_class_through_a_property_edit_is_one_undo() {
         .edit_property(
             entry(),
             "",
-            &wire(h("mesh")),
+            &hashed(h("mesh")),
             vec![replace("InnerData"), replace("DerivedData")],
             schema.at(Some(BUILD)),
         )
@@ -629,7 +637,7 @@ fn a_class_line_offers_held_declared_and_derived_classes() {
     };
 
     let emitters = document
-        .item_classes(entry(), &wire(h("emitters")), at)
+        .item_classes(entry(), &hashed(h("emitters")), at)
         .unwrap();
     assert_eq!(names(&emitters), ["InnerData", "DeeperData", "DerivedData"]);
     assert!(emitters[0].held);
@@ -642,13 +650,13 @@ fn a_class_line_offers_held_declared_and_derived_classes() {
     );
 
     let mesh = document
-        .item_classes(entry(), &wire(h("mesh")), at)
+        .item_classes(entry(), &hashed(h("mesh")), at)
         .unwrap();
     assert_eq!(names(&mesh), ["InnerData", "DeeperData", "DerivedData"]);
     assert!(mesh.iter().all(|choice| !choice.held));
 
     assert_eq!(
-        rejection(document.item_classes(entry(), &format!("{}[0]", wire(h("weights"))), at)),
+        rejection(document.item_classes(entry(), &format!("{}[0]", hashed(h("weights"))), at)),
         EditRejection::NotAList
     );
 }
@@ -662,11 +670,11 @@ fn an_item_edit_saves_through_the_delta() {
 
     insert(
         &mut document,
-        &wire(h("weights")),
+        &hashed(h("weights")),
         item(Some(0), None, None),
     )
     .unwrap();
-    let names = wire(h("names"));
+    let names = hashed(h("names"));
     document
         .set_key(entry(), &format!("{names}{{{}}}", hash_key("Idle")), "Run")
         .unwrap();
@@ -686,7 +694,7 @@ fn a_staged_leaf_fills_an_empty_option_and_sets_a_held_one() {
             path: String::new(),
             value: LeafValue::Float { value: to },
         }];
-        (wire(h(field)), edits)
+        (hashed(h(field)), edits)
     };
 
     for (field, to) in [("chance", 0.5), ("held", 3.0)] {
@@ -714,7 +722,7 @@ fn set_chance(entry: String, field: &str, to: f32) -> PropertyEdit {
     PropertyEdit {
         entry,
         holder: String::new(),
-        field: wire(h(field)),
+        field: hashed(h(field)),
         edits: vec![ValueEdit::SetLeaf {
             path: String::new(),
             value: LeafValue::Float { value: to },

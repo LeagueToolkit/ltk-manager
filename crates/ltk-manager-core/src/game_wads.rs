@@ -3,7 +3,7 @@
 
 use fs_err as fs;
 use std::fmt;
-use std::io::BufReader;
+use std::io::{BufReader, Read, Seek};
 use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
@@ -218,9 +218,7 @@ impl GameArchives {
         resolver: &LayeredHashDb,
         mut visit: impl FnMut(u64, Option<&str>, u64),
     ) -> AppResult<()> {
-        let path = self.archive_path(wad_name)?;
-        let file = fs::File::open(&path)?;
-        let wad = Wad::mount(BufReader::new(file))?;
+        let wad = mount_wad(&self.archive_path(wad_name)?)?;
 
         let chunks = wad.chunks().as_slice();
         let hashes: Vec<u64> = chunks.iter().map(|c| c.path_hash().0).collect();
@@ -242,12 +240,40 @@ impl GameArchives {
     }
 }
 
+/// An archive mounted over its file.
+pub type ArchiveFile = Wad<BufReader<fs::File>>;
+
+/// Mount the archive at `path`.
+///
+/// # Errors
+///
+/// Fails when the file does not open or holds no archive.
+pub fn mount_wad(path: &Path) -> AppResult<ArchiveFile> {
+    Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?)
+}
+
+/// The decompressed chunk `hash` of `wad`, and `None` where the archive holds none.
+///
+/// # Errors
+///
+/// Fails when the chunk does not read or decompress.
+pub fn chunk_bytes<R: Read + Seek>(
+    wad: &mut Wad<R>,
+    hash: WadHash,
+) -> Result<Option<Box<[u8]>>, WadError> {
+    let Some(chunk) = wad.chunks().get(hash).copied() else {
+        return Ok(None);
+    };
+
+    wad.load_chunk_decompressed(&chunk).map(Some)
+}
+
 /// One mounted archive, shared by every reader the cache handed it to.
 ///
 /// The mount carries its own lock rather than sitting under the cache's. A
 /// chunk read seeks and decompresses, so holding the cache across one would
 /// queue every other archive's readers behind a single slow file.
-type MountedWad = Arc<Mutex<Wad<BufReader<fs::File>>>>;
+type MountedWad = Arc<Mutex<ArchiveFile>>;
 
 /// How many archives stay mounted at once.
 ///
@@ -317,10 +343,10 @@ impl WadCache {
         let mounted = self.mount(archives.archive_path(wad_name)?)?;
         let mut wad = mounted.lock();
 
-        let chunk = *wad.chunks().get(path_hash).ok_or_else(|| {
+        let bytes = chunk_bytes(&mut wad, path_hash)?.ok_or_else(|| {
             AppError::InvalidPath(format!("No chunk {path_hash:016x} in {wad_name}"))
         })?;
-        Ok(wad.load_chunk_decompressed(&chunk)?.into_vec())
+        Ok(bytes.into_vec())
     }
 
     /// How many archives are mounted right now.
@@ -345,8 +371,7 @@ impl WadCache {
             return Ok(Arc::clone(mounted));
         }
 
-        let wad = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
-        let mounted = Arc::new(Mutex::new(wad));
+        let mounted = Arc::new(Mutex::new(mount_wad(&path)?));
         self.mounted.lock().put(path, Arc::clone(&mounted));
         Ok(mounted)
     }

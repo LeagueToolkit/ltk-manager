@@ -97,8 +97,8 @@ fn scanned(bytes: &[u8], target: WalkTarget) -> Vec<WalkHit> {
     hits
 }
 
-/// Each hit's path on the wire, read back through the grammar a row writes.
-fn wire_paths(hits: &[WalkHit]) -> Vec<String> {
+/// Each hit's hash path, read back through the grammar a row writes.
+fn hash_paths(hits: &[WalkHit]) -> Vec<String> {
     let names = WalkNames::default();
     hits.iter()
         .map(|hit| hit_property(hit, &names).path)
@@ -125,7 +125,7 @@ fn an_embedded_class_hits_every_pointer_and_embed_below_a_root() {
     let hits = scanned(&skin_bytes(), WalkTarget::Embedded(h("Part")));
 
     assert_eq!(
-        wire_paths(&hits),
+        hash_paths(&hits),
         [
             format!("{}[0]", field("parts")),
             format!("{}[1]", field("parts")),
@@ -145,7 +145,7 @@ fn a_link_hits_through_link_and_hash_values_at_every_depth() {
     let weapon_key = format!("{:08x}", h("weapon"));
 
     assert_eq!(
-        wire_paths(&hits),
+        hash_paths(&hits),
         [
             field("resolver"),
             field("material"),
@@ -169,7 +169,7 @@ fn every_hit_is_a_row_the_bin_document_draws() {
         WalkTarget::Embedded(h("Part")),
         WalkTarget::Linked(h(RESOURCES)),
     ] {
-        for path in wire_paths(&scanned(&bytes, target.clone())) {
+        for path in hash_paths(&scanned(&bytes, target.clone())) {
             assert!(rows.contains(&path), "no row at {path} for {target:?}");
         }
     }
@@ -203,7 +203,7 @@ fn a_repeated_key_hits_on_the_row_of_the_entry_that_links() {
     bin.to_writer(&mut out).unwrap();
     let bytes = out.into_inner();
 
-    let paths = wire_paths(&scanned(&bytes, WalkTarget::Linked(h(RESOURCES))));
+    let paths = hash_paths(&scanned(&bytes, WalkTarget::Linked(h(RESOURCES))));
     assert_eq!(paths, [format!("{}{{{:08x}}}#1", field("clips"), h("run"))]);
 
     let document = BinDocument::parse(bytes).unwrap();
@@ -305,7 +305,7 @@ fn a_named_file_hits_through_string_hash_and_file_values_at_every_depth() {
     let hits = scanned(&bytes, WalkTarget::File(FileTarget::named(TEXTURE)));
     let chunk_key = format!("{:016x}", WadHash::hash_str(TEXTURE).0);
 
-    let paths = wire_paths(&hits);
+    let paths = hash_paths(&hits);
     assert_eq!(
         paths,
         [
@@ -335,7 +335,7 @@ fn an_unnamed_chunk_hits_through_file_values_alone() {
     let chunk_key = format!("{:016x}", WadHash::hash_str(TEXTURE).0);
 
     assert_eq!(
-        wire_paths(&hits),
+        hash_paths(&hits),
         [
             field("textureFile"),
             format!("{}{{{chunk_key}}}", field("byChunk")),

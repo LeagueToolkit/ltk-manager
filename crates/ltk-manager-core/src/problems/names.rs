@@ -32,9 +32,9 @@ use ltk_hash::{BinHash, Hash as _};
 use ltk_hashdb::LayeredHashDb;
 use ltk_hashtable::{Category, Hashtable, HashtableEntry, HashtableSet};
 use ltk_mod_project::ModProject;
-use parking_lot::Mutex;
 
 use crate::hashtables::{BinHashTables, HashtableCache};
+use crate::utils::lazy_slot::LazySlot;
 
 /// The names a bin's hashes can be given, out of the shared mimir cache and
 /// the mod's own declared tables.
@@ -69,7 +69,7 @@ type FnvIndex<T> = HashMap<u32, Option<T>>;
 /// asks the same question of the same tables, and hashing two and a half
 /// million names takes seconds. A sync writes new tables under new names, so
 /// it ends with [`BinNames::invalidate_game_index`].
-static GAME_FNV: Mutex<Option<Arc<FnvIndex<u64>>>> = Mutex::new(None);
+static GAME_FNV: LazySlot<FnvIndex<u64>> = LazySlot::new();
 
 impl BinNames {
     /// Open the bin tables of the shared cache, and `project_root`'s own.
@@ -122,7 +122,7 @@ impl BinNames {
     /// Drop the process-wide mimir index, so the next ask reads what a sync
     /// just wrote.
     pub fn invalidate_game_index() {
-        *GAME_FNV.lock() = None;
+        GAME_FNV.clear();
     }
 
     /// Name nothing, which is what a run with no cache does.
@@ -226,27 +226,19 @@ impl BinNames {
             return None;
         }
 
-        // Held across the build so a second run waits for the first rather
-        // than indexing the same tables beside it.
-        let mut held = GAME_FNV.lock();
-        if let Some(index) = held.as_ref() {
-            return Some(Arc::clone(index));
-        }
-
-        let started = std::time::Instant::now();
-        let mut index = FnvIndex::new();
-        for (key, path) in self.wad.iter() {
-            insert_name(&mut index, path.as_str(), key, |kept| self.wad_name(kept));
-        }
-        tracing::debug!(
-            "Indexed {} mimir game-table names under FNV1a32 in {:?}",
-            index.len(),
-            started.elapsed()
-        );
-
-        let index = Arc::new(index);
-        *held = Some(Arc::clone(&index));
-        Some(index)
+        Some(GAME_FNV.get_or_init(|| {
+            let started = std::time::Instant::now();
+            let mut index = FnvIndex::new();
+            for (key, path) in self.wad.iter() {
+                insert_name(&mut index, path.as_str(), key, |kept| self.wad_name(kept));
+            }
+            tracing::debug!(
+                "Indexed {} mimir game-table names under FNV1a32 in {:?}",
+                index.len(),
+                started.elapsed()
+            );
+            index
+        }))
     }
 
     /// The index over the mod's own game-table names, built on the first ask.

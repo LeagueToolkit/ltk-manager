@@ -7,13 +7,12 @@ use ltk_game_data::{Reference, Value};
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::path::{FieldNames as _, MapKey, PropertyPath, ValuePath};
-use ltk_meta::property::values;
 use ltk_meta::walk::TreeValue as _;
 use serde::Serialize;
 
 use super::super::{
-    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, RowNames, Step, descend, hex,
-    parse_steps,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, RowNames, Step, as_list,
+    as_struct, descend, hex, parse_steps,
 };
 use super::{RenderNames, declaring, entry_name, not_declared, value_path};
 use crate::error::AppError;
@@ -221,8 +220,8 @@ impl Spelling<'_> {
         at: &ValuePath,
         value: &PropertyValueEnum,
     ) {
-        if let Some((class, properties)) = struct_of(value) {
-            let fields = self.fields(class, properties);
+        if let Some(inner) = as_struct(value) {
+            let fields = self.fields(inner.class_hash, &inner.properties);
             if !fields.is_empty() {
                 block.insert(key, Value::Mapping(fields));
             }
@@ -265,11 +264,11 @@ enum Item<'a> {
 
 /// The items of a list, a map or a present option, and none for any other value.
 fn items_of(value: &PropertyValueEnum) -> Vec<(Item<'_>, &PropertyValueEnum)> {
+    if let Some(items) = as_list(value) {
+        return indexed(items);
+    }
+
     match value {
-        PropertyValueEnum::Container(items) => indexed(items.items()),
-        PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-            indexed(items.items())
-        }
         PropertyValueEnum::Optional(option) => option
             .value()
             .map(|item| vec![(Item::Index(0), item)])
@@ -289,21 +288,6 @@ fn indexed(items: &[PropertyValueEnum]) -> Vec<(Item<'_>, &PropertyValueEnum)> {
         .enumerate()
         .map(|(index, item)| (Item::Index(index), item))
         .collect()
-}
-
-/// The class and the fields of a struct or an embed, and none for a null pointer.
-fn struct_of(
-    value: &PropertyValueEnum,
-) -> Option<(BinHash, &IndexMap<BinHash, PropertyValueEnum>)> {
-    match value {
-        PropertyValueEnum::Struct(pointer) if *pointer.class_hash != 0 => {
-            Some((pointer.class_hash, &pointer.properties))
-        }
-        PropertyValueEnum::Embedded(values::Embedded(embed)) => {
-            Some((embed.class_hash, &embed.properties))
-        }
-        _ => None,
-    }
 }
 
 /// Whether `name` is one field name a key spells, hashing to `field`.

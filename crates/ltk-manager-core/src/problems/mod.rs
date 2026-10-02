@@ -124,18 +124,16 @@ impl std::fmt::Display for NodeAddress {
 /// A [`BinHash`] as `0x` and eight hex digits, which is how a user reads one.
 mod bin_hash_hex {
     use ltk_hash::BinHash;
-    use serde::{Deserialize as _, Deserializer, Serializer, de::Error as _};
+    use serde::{Deserialize as _, Deserializer, Serialize as _, Serializer};
+
+    use crate::hashing::HexBinHash;
 
     pub fn serialize<S: Serializer>(hash: &BinHash, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(&format!("0x{:08x}", hash.0))
+        HexBinHash::from(*hash).serialize(ser)
     }
 
     pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<BinHash, D::Error> {
-        let text = String::deserialize(de)?;
-        let digits = text.strip_prefix("0x").unwrap_or(&text);
-        u32::from_str_radix(digits, 16)
-            .map(BinHash)
-            .map_err(D::Error::custom)
+        HexBinHash::deserialize(de).map(HexBinHash::get)
     }
 }
 

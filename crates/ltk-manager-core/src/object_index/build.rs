@@ -3,26 +3,21 @@
 //! Fed by the built [`GameIndex`], which already folded the install's chunks and
 //! numbered its archives, so no table of contents is walked twice.
 
-use fs_err as fs;
-use std::io::{BufReader, Cursor, Read, Seek, SeekFrom};
+use std::io::{Cursor, Read, Seek};
 use std::sync::Arc;
 use std::time::Instant;
 
 use ltk_file::{LeagueFileKind, MAX_MAGIC_SIZE};
 use ltk_hash::BinHash;
-use ltk_meta::BinOverride;
-use ltk_meta::stream::BinStream;
-use ltk_wad::{ChunkDecoder, Wad, WadHash, hex_name};
+use ltk_wad::{ChunkDecoder, WadHash, hex_name};
 use rayon::prelude::*;
 
+use crate::bin_source::BinSource;
 use crate::error::{AppError, AppResult};
 use crate::game_index::GameIndex;
-use crate::game_wads::{GameArchives, chunk_head};
+use crate::game_wads::{ArchiveFile, GameArchives, chunk_bytes, chunk_head, mount_wad};
 
 use super::{Declarations, DeclaringFile, Names, ObjectIndex, ObjectIndexStats, Row};
-
-/// The magic a `PTCH` opens with, which the streaming reader refuses.
-pub(super) const PATCH_MAGIC: [u8; 4] = *b"PTCH";
 
 /// One archive's share of the build: its named `.bin` chunks, and the chunks
 /// a bare name or no name leaves to sniff.
@@ -48,9 +43,6 @@ struct ArchiveRead {
     bytes: u64,
 }
 
-/// A mounted game archive, read through a file handle.
-type MountedWad = Wad<BufReader<fs::File>>;
-
 impl ArchiveJob<'_> {
     /// Mount the archive and read every chunk of the job for its declarations.
     ///
@@ -63,7 +55,7 @@ impl ArchiveJob<'_> {
     /// not read is skipped and counted rather than failing the job.
     fn read(&self, archives: &GameArchives) -> AppResult<ArchiveRead> {
         let path = archives.archive_path(self.name)?;
-        let mut wad = Wad::mount(BufReader::new(fs::File::open(path)?))?;
+        let mut wad = mount_wad(&path)?;
         let mut read = ArchiveRead::default();
 
         for (path_hash, chunk_path) in &self.named {
@@ -112,7 +104,7 @@ impl ArchiveJob<'_> {
     /// bin the build could read either.
     fn sniffs_as_bin(
         &self,
-        wad: &mut MountedWad,
+        wad: &mut ArchiveFile,
         path_hash: WadHash,
         decoder: &mut ChunkDecoder,
     ) -> bool {
@@ -138,21 +130,18 @@ impl ArchiveJob<'_> {
     /// `label` naming it in the log.
     fn read_chunk(
         &self,
-        wad: &mut MountedWad,
+        wad: &mut ArchiveFile,
         path_hash: WadHash,
         label: &str,
         read: &mut ArchiveRead,
     ) {
-        let bytes = match wad.chunks().get(path_hash).copied() {
-            Some(chunk) => wad.load_chunk_decompressed(&chunk),
-            None => {
+        let bytes = match chunk_bytes(wad, path_hash) {
+            Ok(Some(bytes)) => bytes,
+            Ok(None) => {
                 read.skipped += 1;
                 tracing::debug!("Skipping {}/{label}: not in the archive", self.name);
                 return;
             }
-        };
-        let bytes = match bytes {
-            Ok(bytes) => bytes,
             Err(e) => {
                 read.skipped += 1;
                 tracing::debug!("Skipping {}/{label}: {e}", self.name);
@@ -200,25 +189,21 @@ pub struct Declaration {
 /// Fails when `source` cannot be read or is not a bin the toolkit reads.
 /// Objects before the failure were visited.
 pub fn for_each_declaration<R: Read + Seek>(
-    mut source: R,
+    source: R,
     mut visit: impl FnMut(Declaration),
 ) -> Result<(), ltk_meta::Error> {
-    let mut magic = [0u8; 4];
-    source.read_exact(&mut magic)?;
-    source.seek(SeekFrom::Start(0))?;
-
-    if magic == PATCH_MAGIC {
-        let patch = BinOverride::from_reader(&mut source)?;
-        for object in patch.objects.values() {
-            visit(Declaration {
-                object: object.path_hash,
-                class: object.class_hash,
-            });
+    let mut stream = match BinSource::open(source)? {
+        BinSource::Patch(patch) => {
+            for object in patch.objects.values() {
+                visit(Declaration {
+                    object: object.path_hash,
+                    class: object.class_hash,
+                });
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
-
-    let mut stream: BinStream<_> = BinStream::mount(source)?;
+        BinSource::Stream(stream) => stream,
+    };
     for entry in stream.entries() {
         let entry = entry?;
         visit(Declaration {

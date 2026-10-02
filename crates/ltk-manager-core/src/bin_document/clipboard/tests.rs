@@ -22,7 +22,7 @@ fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)
 }
 
-fn wire(name: &str) -> String {
+fn hashed(name: &str) -> String {
     format!("{:08x}", h(name).0)
 }
 
@@ -140,14 +140,14 @@ fn names(document: &BinDocument, system: &str) -> Vec<String> {
 }
 
 fn unique() -> Option<String> {
-    Some(format!("0x{}", wire("emitterName")))
+    Some(format!("0x{}", hashed("emitterName")))
 }
 
 fn duplicate(document: &mut BinDocument, index: usize) -> Result<(), BinDocumentError> {
     document.edit_property(
         h(SYSTEM),
         "",
-        &format!("0x{}", wire("complexEmitterDefinitionData")),
+        &format!("0x{}", hashed("complexEmitterDefinitionData")),
         vec![ValueEdit::CopyItem {
             from: format!("[{index}]"),
             path: String::new(),
@@ -167,7 +167,7 @@ fn paste(
     document.edit_property(
         h(system),
         "",
-        &format!("0x{}", wire("complexEmitterDefinitionData")),
+        &format!("0x{}", hashed("complexEmitterDefinitionData")),
         vec![ValueEdit::PasteItem {
             path: String::new(),
             index,
@@ -279,7 +279,7 @@ fn a_copy_pastes_into_another_document_exactly() {
     let source = document(&["Spark", "Smoke"], &[]);
     let text = copy(
         &source,
-        &format!("{}[1]", wire("complexEmitterDefinitionData")),
+        &format!("{}[1]", hashed("complexEmitterDefinitionData")),
     );
     assert!(text.contains(CLIPBOARD_FORMAT));
     assert!(
@@ -305,7 +305,7 @@ fn a_paste_of_a_taken_name_lands_where_asked_under_a_unique_name() {
     let mut document = document(&["Spark", "Smoke"], &[]);
     let text = copy(
         &document,
-        &format!("{}[0]", wire("complexEmitterDefinitionData")),
+        &format!("{}[0]", hashed("complexEmitterDefinitionData")),
     );
 
     paste(&mut document, SYSTEM, Some(1), &text).unwrap();
@@ -332,19 +332,19 @@ fn a_paste_refuses_text_that_is_no_copy() {
 #[test]
 fn a_paste_refuses_a_copy_of_another_class() {
     let mut document = document(&["Spark"], &[]);
-    let emitter = format!("{}[0]", wire("complexEmitterDefinitionData"));
+    let emitter = format!("{}[0]", hashed("complexEmitterDefinitionData"));
 
-    let shape = copy(&document, &format!("{emitter}.{}", wire("SpawnShape")));
+    let shape = copy(&document, &format!("{emitter}.{}", hashed("SpawnShape")));
     assert_eq!(
         rejection(paste(&mut document, SYSTEM, None, &shape)),
         EditRejection::ForeignClass
     );
-    let color = copy(&document, &format!("{emitter}.{}", wire("birthColor")));
+    let color = copy(&document, &format!("{emitter}.{}", hashed("birthColor")));
     assert_eq!(
         rejection(paste(&mut document, SYSTEM, None, &color)),
         EditRejection::ForeignClass
     );
-    let name = copy(&document, &format!("{emitter}.{}", wire("emitterName")));
+    let name = copy(&document, &format!("{emitter}.{}", hashed("emitterName")));
     assert_matches!(
         rejection(paste(&mut document, SYSTEM, None, &name)),
         EditRejection::InvalidShape
@@ -357,7 +357,7 @@ fn a_paste_refuses_a_list_whose_items_are_not_its_kind() {
     let mut document = document(&["Spark"], &[]);
     let text = copy(
         &document,
-        &format!("{}[0]", wire("complexEmitterDefinitionData")),
+        &format!("{}[0]", hashed("complexEmitterDefinitionData")),
     );
     let mut json: serde_json::Value = serde_json::from_str(&text).unwrap();
     let driver = json["value"]["value"]["properties"][h("materialDrivers").0.to_string()]["value"]
@@ -399,7 +399,7 @@ fn a_system_template_lands_its_emitters_named_apart_in_one_undo_step() {
             unique: None,
         });
         edits.push(ValueEdit::SetLeaf {
-            path: format!("[{index}].{}", wire("emitterName")),
+            path: format!("[{index}].{}", hashed("emitterName")),
             value: LeafValue::String { value: name },
         });
     }
@@ -408,7 +408,7 @@ fn a_system_template_lands_its_emitters_named_apart_in_one_undo_step() {
         .edit_property(
             h(SYSTEM),
             "",
-            &format!("0x{}", wire("complexEmitterDefinitionData")),
+            &format!("0x{}", hashed("complexEmitterDefinitionData")),
             edits,
             schema().at(Some(BUILD)),
         )
