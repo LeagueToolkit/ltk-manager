@@ -23,6 +23,13 @@ impl GameDir {
             AppError::ValidationFailed("League path is not configured".to_string())
         })?;
 
+        // On macOS the game lives inside the `.app` bundle. Accept the bundle
+        // path itself (`…/League of Legends.app`) as well as the LoL root.
+        let macos_game = league_root.join("Contents").join("LoL").join("Game");
+        if macos_game.join("DATA").exists() {
+            return Ok(Self(macos_game));
+        }
+
         let game_dir = league_root.join("Game");
         if game_dir.exists() {
             return Ok(Self(game_dir));

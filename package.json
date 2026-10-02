@@ -10,6 +10,7 @@
     "build:app": "pnpm build && node scripts/upload-source-maps.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
+    "build:mac-host": "bash scripts/build-macos-host.sh",
     "typecheck": "pnpm generate:messages && pnpm typecheck:tsgo",
     "typecheck:tsgo": "tsgo --noEmit",
     "typecheck:tsc": "tsc --noEmit",

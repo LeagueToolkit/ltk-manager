@@ -86,6 +86,9 @@ windows-sys = { workspace = true, features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 assert_matches = { workspace = true }
 ltk_primitives = "0.3.6"
