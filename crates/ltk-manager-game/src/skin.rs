@@ -19,13 +19,14 @@ use serde::Serialize;
 
 pub use ltk_manager_core::bin_document::NamedAsset;
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Fields, Locator, RowNames, fields_of,
-    hex, items, leaf, link, object_at, resolver_entries, struct_of, text,
+    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hex, items,
+    leaf, link, object_at, struct_of, text,
 };
 use ltk_manager_core::preview::AssetRef;
 
 use crate::linked::{Walk, find_linked_materials, walk_linked};
 use crate::material::{MaterialPreview, linked_material};
+use crate::resolver::{EFFECT_KEY, resolver_entries};
 
 /// `SkinCharacterDataProperties.skinMeshProperties`.
 const MESH_PROPERTIES: BinHash = BinHash(0x45ff_5904);

@@ -6,7 +6,7 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use ltk_manager_core::bin_document::RESOURCE_MAP;
+use crate::resolver::RESOURCE_MAP;
 
 use crate::material::{BaseRule, Blending};
 

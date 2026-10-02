@@ -1,7 +1,6 @@
 //! What every resolved read of a document shares.
 //!
-//! The names a read asks per hash, the resolver map an effect key looks up, and where a
-//! file a bin names lives.
+//! The names a read asks per hash and where a file a bin names lives.
 //!
 //! A particle system's walk and a skin's field reads are the two resolved reads, and
 //! neither is the other's business, so what they hold in common sits under the document.
@@ -30,12 +29,6 @@ pub struct NamedAsset {
     /// Absent for a path nothing on this machine holds, which is not an error.
     pub asset: Option<AssetRef>,
 }
-
-/// `ResourceResolver.resourceMap`, a `Map<Hash, Link>` from an effect key to its system.
-pub const RESOURCE_MAP: BinHash = BinHash(0xd2f5_8721);
-
-/// `effectKey`, which a child identifier and a skin's idle effect both name a system by.
-pub const EFFECT_KEY: BinHash = BinHash(0x9b03_00f3);
 
 /// A hash as a row prints one, which is `0x` and eight digits.
 #[must_use]
@@ -87,23 +80,6 @@ pub fn object_at(document: &BinDocument, entry: BinHash) -> Result<&BinObject, B
         .ok_or_else(|| BinDocumentError::NodeNotFound {
             address: format!("{}:", hex(entry)),
         })
-}
-
-/// The effect keys `resolver`'s map holds, each with the object its link names.
-///
-/// The order is the map's own. A key mapped to a null link is kept, because a null link is a hit that suppresses the
-/// effect rather than falling through, and the null target is no object of any document.
-pub fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (BinHash, BinHash)> {
-    let entries = match resolver.properties.get(&RESOURCE_MAP) {
-        Some(PropertyValueEnum::Map(map)) => map.entries(),
-        _ => &[],
-    };
-    entries.iter().filter_map(
-        |(key, value)| match (owned(key.as_leaf()), owned(value.as_leaf())) {
-            (Some(Leaf::Hash(key)), Some(Leaf::Link(target))) => Some((key, target)),
-            _ => None,
-        },
-    )
 }
 
 /// A chunk as the path `name` gives it, placed, or its sixteen hex digits placed by hash.

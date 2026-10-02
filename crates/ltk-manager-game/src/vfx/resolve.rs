@@ -11,14 +11,15 @@ use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Locator, Namer, RowNames, chunk_asset,
-    hex, link, object_at, owned, resolver_entries,
+    AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
+    object_at, owned,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::walk;
 
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};
+use crate::resolver::{EFFECT_KEY, resolver_entries};
 
 /// How many values one system answers, past which the read is refused.
 ///

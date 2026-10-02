@@ -7,6 +7,7 @@ mod linked;
 pub mod map;
 pub mod material;
 pub mod program;
+mod resolver;
 pub mod skin;
 pub mod spell;
 pub mod vfx;

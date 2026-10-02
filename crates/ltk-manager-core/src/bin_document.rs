@@ -52,8 +52,8 @@ pub use records::TARGET_PATH;
 pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, ObjectEdit};
 
 pub use resolve::{
-    AssetLookup, EFFECT_KEY, Fields, Locator, NamedAsset, Namer, RESOURCE_MAP, chunk_asset,
-    fields_of, hex, items, leaf, link, object_at, owned, resolver_entries, struct_of, text,
+    AssetLookup, Fields, Locator, NamedAsset, Namer, chunk_asset, fields_of, hex, items, leaf,
+    link, object_at, owned, struct_of, text,
 };
 
 use crate::error::AppResult;

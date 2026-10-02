@@ -8,7 +8,7 @@ use ltk_meta::property::Kind;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use ltk_manager_core::bin_document::RESOURCE_MAP;
+use crate::resolver::RESOURCE_MAP;
 use ltk_manager_core::preview::AssetRef;
 
 fn h(text: &str) -> BinHash {
