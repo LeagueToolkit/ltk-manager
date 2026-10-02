@@ -6,6 +6,7 @@ use super::overrides::{Overrides, quoted};
 use super::{BuiltinMod, Context};
 use crate::config::{BuiltinModSettings, MapDecorationMode};
 use crate::error::AppResult;
+use crate::utils::fs::atomic_write;
 use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_meta::{Bin, PropertyValueEnum};
@@ -182,9 +183,7 @@ impl Rewrite<'_> {
         });
 
         fs::create_dir_all(cache)?;
-        let partial = file.with_extension("partial");
-        fs::write(&partial, moved.as_deref().unwrap_or_default())?;
-        fs::rename(&partial, &file)?;
+        atomic_write(&file, moved.as_deref().unwrap_or_default())?;
         if moved.is_none() {
             tracing::info!("Built-in mods: no baked mesh to move in {}", self.mapgeo);
         }

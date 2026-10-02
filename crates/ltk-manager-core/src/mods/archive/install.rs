@@ -10,7 +10,7 @@
 //! Uninstalling reverses both and scrubs the mod from every profile and folder.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::error::{AppError, AppResult, Utf8PathExt, io_context};
 use crate::events::{BackendEvent, InstallProgress};
 use crate::mods::ModLibrary;
 use crate::mods::archive::metadata::{
@@ -329,11 +329,8 @@ fn strip_hashtable_boms(
     source: &Path,
     staging_dir: &Path,
 ) -> AppResult<Option<tempfile::NamedTempFile>> {
-    let mut reader = ltk_fantome::FantomeReader::new(BufReader::new(fs::File::open(source)?))
-        .map_err(|e| AppError::Fantome(e.to_string()))?;
-    let info = reader
-        .read_info()
-        .map_err(|e| AppError::Fantome(e.to_string()))?;
+    let mut reader = ltk_fantome::FantomeReader::new(BufReader::new(fs::File::open(source)?))?;
+    let info = reader.read_info()?;
     drop(reader);
 
     if info.hashtables.is_empty() {
@@ -403,10 +400,10 @@ pub(crate) fn register_staged_mod(
 
     if let Err(e) = fs::rename(&staged.staging_dir, &mod_dir) {
         staged.discard();
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move staged mod into {}: {e}", mod_dir.display()),
-        )));
+        return Err(io_context(
+            e,
+            format!("Failed to move staged mod into {}", mod_dir.display()),
+        ));
     }
 
     let destination = archive_path(storage_dir, &slug, staged.format);
@@ -415,13 +412,13 @@ pub(crate) fn register_staged_mod(
         // out of it.
         let _ = fs::remove_dir_all(&mod_dir);
         staged.discard();
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
+        return Err(io_context(
+            e,
             format!(
-                "Failed to move staged archive into {}: {e}",
+                "Failed to move staged archive into {}",
                 destination.display()
             ),
-        )));
+        ));
     }
 
     taken.insert(&slug);

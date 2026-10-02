@@ -1,10 +1,28 @@
-//! A bin hash as it crosses IPC.
+//! A bin hash hashed from its name at compile time, and as it crosses IPC.
 
 use std::fmt;
 use std::str::FromStr;
 
 use ltk_hash::BinHash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+
+/// The bin hash of a class or field `name`, which is FNV-1a over its lowercased ASCII.
+///
+/// The same value as `BinHash::hash_str`, in a `const`.
+#[must_use]
+pub const fn named(name: &str) -> BinHash {
+    let bytes = name.as_bytes();
+    let mut hash: u32 = 0x811c_9dc5;
+    let mut at = 0;
+
+    while at < bytes.len() {
+        hash ^= bytes[at].to_ascii_lowercase() as u32;
+        hash = hash.wrapping_mul(0x0100_0193);
+        at += 1;
+    }
+
+    BinHash(hash)
+}
 
 /// A [`BinHash`] written as `0x` and eight hex digits, which is how a user reads one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

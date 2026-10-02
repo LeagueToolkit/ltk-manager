@@ -8,8 +8,7 @@
 use std::collections::HashSet;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, hex, items, struct_of};
-use ltk_meta::PropertyValueEnum;
+use ltk_manager_core::bin_document::{Fields, entries, hex, items, struct_of};
 
 use super::fields::named;
 use super::model::{UiBinding, UiRole};
@@ -154,11 +153,9 @@ fn walk(fields: &Fields, class: BinHash, slot: Slot, found: &mut Vec<UiBinding>)
             }
         }
 
-        if let PropertyValueEnum::Map(map) = value {
-            for (_, item) in map.entries() {
-                if let Some((inner, nested)) = struct_of(Some(item)) {
-                    walk(nested, inner, Slot { field, index: None }, found);
-                }
+        for (_, item) in entries(Some(value)) {
+            if let Some((inner, nested)) = struct_of(Some(item)) {
+                walk(nested, inner, Slot { field, index: None }, found);
             }
         }
     }

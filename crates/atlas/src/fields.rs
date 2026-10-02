@@ -1,19 +1,7 @@
 //! The UI classes and fields a view read matches, hashed from their names.
 
 use ltk_hash::BinHash;
-
-/// FNV-1a over the lowercased ASCII name, the hash of a class or field name.
-pub(super) const fn named(name: &str) -> BinHash {
-    let bytes = name.as_bytes();
-    let mut hash: u32 = 0x811c_9dc5;
-    let mut at = 0;
-    while at < bytes.len() {
-        hash ^= bytes[at].to_ascii_lowercase() as u32;
-        hash = hash.wrapping_mul(0x0100_0193);
-        at += 1;
-    }
-    BinHash(hash)
-}
+pub(super) use ltk_manager_core::hashing::named;
 
 pub(super) const PATH_HASH_TO_SELF: BinHash = named("PathHashToSelf");
 pub(super) const BASE_LOADABLE: BinHash = named("BaseLoadable");
@@ -60,7 +48,7 @@ pub(super) const POLYGON_VERTICES: BinHash = named("PolygonVertices");
 pub(super) const ANCHOR_SINGLE: BinHash = named("AnchorSingle");
 pub(super) const ANCHOR_DOUBLE: BinHash = named("AnchorDouble");
 /// `AnchorHierarchy`, which CommunityDragon's tables do not name.
-pub(super) const ANCHOR_HIERARCHY: BinHash = BinHash(0xf090_d2e7);
+pub(super) const ANCHOR_HIERARCHY: BinHash = named("AnchorHierarchy");
 pub(super) const ANCHOR: BinHash = named("Anchor");
 pub(super) const ANCHOR_LEFT: BinHash = named("anchorLeft");
 pub(super) const ANCHOR_RIGHT: BinHash = named("anchorRight");

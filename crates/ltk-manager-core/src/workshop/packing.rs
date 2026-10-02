@@ -4,6 +4,7 @@ use super::{
     README_FILE_NAME, ValidationResult, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::error::{AppError, AppResult};
+use crate::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use ltk_mod_project::fantome::FantomeFormat;
@@ -260,56 +261,10 @@ impl Workshop {
         }
         let project_dir = project.path();
 
-        let source_path = PathBuf::from(image_path);
-        if !source_path.exists() {
-            return Err(AppError::InvalidPath(image_path.to_string()));
-        }
-
-        let extension = source_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|e| e.to_lowercase())
-            .unwrap_or_default();
-
-        let supported_formats = [
-            "webp", "png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif", "ico",
-        ];
-        if !supported_formats.contains(&extension.as_str()) {
-            return Err(AppError::ValidationFailed(format!(
-                "Unsupported image format: {}. Supported formats: {}",
-                extension,
-                supported_formats.join(", ")
-            )));
-        }
-
-        let webp_data = if extension == "webp" {
-            image::open(&source_path)
-                .map_err(|e| AppError::ValidationFailed(format!("Failed to open image: {}", e)))?;
-            fs::read(&source_path)?
-        } else {
-            // Encode as lossy WebP to avoid lossless bloat (the image crate's
-            // WebP encoder is lossless-only and can inflate a 1 MB JPEG to 5+ MB)
-            let img = image::open(&source_path)
-                .map_err(|e| AppError::ValidationFailed(format!("Failed to open image: {}", e)))?;
-            let encoder = webp::Encoder::from_image(&img)
-                .map_err(|e| AppError::ValidationFailed(format!("Failed to encode WebP: {}", e)))?;
-            encoder.encode(90.0).to_vec()
-        };
-
-        let target_path = project_dir.join("thumbnail.webp");
-        let tmp_path = project_dir.join("thumbnail.webp.tmp");
-
-        fs::write(&tmp_path, webp_data)?;
-
-        if target_path.exists() {
-            let _ = fs::remove_file(&target_path);
-        }
-        fs::rename(&tmp_path, &target_path)?;
-
-        let _ = fs::remove_file(project_dir.join("thumbnail.png"));
+        write_thumbnail(Path::new(image_path), project_dir)?;
 
         let mut mod_project = project.config()?;
-        mod_project.thumbnail = Some("thumbnail.webp".to_string());
+        mod_project.thumbnail = Some(THUMBNAIL_FILE.to_owned());
         project.write_config(&mod_project)?;
 
         project.load()

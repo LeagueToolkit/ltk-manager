@@ -35,6 +35,7 @@
 
 use std::collections::HashMap;
 
+use crate::hashing::named;
 use ltk_hash::BinHash;
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
@@ -51,10 +52,10 @@ use crate::problems::{
 pub const ID: RuleId = RuleId("bin/resolver-key-loss");
 
 /// `ResourceResolver`, the class holding the map a spell script resolves through.
-const RESOURCE_RESOLVER: BinHash = BinHash(0xef3a_0f33);
+const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
 /// `resourceMap` on that class, which is the map itself.
-const RESOURCE_MAP: BinHash = BinHash(0xd2f5_8721);
+const RESOURCE_MAP: BinHash = named("resourceMap");
 
 /// How many keys a resolver has to have lost before it is worth reporting.
 ///

@@ -4,8 +4,7 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, fields_of, leaf, text};
-use ltk_meta::PropertyValueEnum;
+use ltk_manager_core::bin_document::{Fields, entries, fields_of, leaf, text};
 use ltk_meta::walk::Leaf;
 
 use super::shown;
@@ -118,16 +117,14 @@ impl StatsUi {
         let display = |field| number(fields, field).map(|display| display as u8);
 
         let mut stats = HashMap::new();
-        if let Some(PropertyValueEnum::Map(map)) = fields.get(&STAT_UI_DATA) {
-            for (key, value) in map.entries() {
-                let Some(Leaf::U8(stat)) = leaf(Some(key)) else {
-                    continue;
-                };
-                let Some(stat_ui) = fields_of(Some(value)) else {
-                    continue;
-                };
-                stats.insert(stat, Scaler::read(stat_ui));
-            }
+        for (key, value) in entries(fields.get(&STAT_UI_DATA)) {
+            let Some(Leaf::U8(stat)) = leaf(Some(key)) else {
+                continue;
+            };
+            let Some(stat_ui) = fields_of(Some(value)) else {
+                continue;
+            };
+            stats.insert(stat, Scaler::read(stat_ui));
         }
 
         Self {

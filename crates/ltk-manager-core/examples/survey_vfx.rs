@@ -17,18 +17,19 @@ use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::owned;
+use ltk_manager_core::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
 
 /// `VfxEmitterDefinitionData`, the class every count is per instance of.
-const EMITTER: BinHash = BinHash(0x09cd_e442);
+const EMITTER: BinHash = named("VfxEmitterDefinitionData");
 
 /// How deep the walk descends, which is the bound `vfx::resolve` already holds to.
 const MAX_DEPTH: usize = 64;
 
 /// `texDiv`, whose default `[1, 1]` is the whole texture and anything else an atlas.
-const TEX_DIV: BinHash = BinHash(0x86a8_4509);
+const TEX_DIV: BinHash = named("texDiv");
 
 /// The fields a bin writes at their own default often enough that presence says little.
 const PASS: BinHash = BinHash(0x7b7a_7318);
@@ -38,15 +39,15 @@ const ALPHA_REF: BinHash = BinHash(0xb993_10f4);
 const MISC_RENDER_FLAGS: BinHash = BinHash(0x6563_bee8);
 
 /// `primitive` and `SpawnShape`, whose class is what the renderer dispatches on.
-const PRIMITIVE: BinHash = BinHash(0x007b_14f6);
+const PRIMITIVE: BinHash = named("primitive");
 const SPAWN_SHAPE: BinHash = BinHash(0x3bf0_b4ed);
 
 /// `VfxPrimitiveMesh` and `VfxPrimitiveAttachedMesh`, the two kinds that draw a mesh.
-const PRIMITIVE_MESH: BinHash = BinHash(0x8594_e839);
+const PRIMITIVE_MESH: BinHash = named("VfxPrimitiveMesh");
 const PRIMITIVE_ATTACHED_MESH: BinHash = BinHash(0xa4ae_a2a5);
 
 /// `mMesh`, and the slots a mesh definition names its geometry and its lock in.
-const MESH: BinHash = BinHash(0x0d89_732d);
+const MESH: BinHash = named("mMesh");
 const MESH_NAME: BinHash = BinHash(0x8c41_a32e);
 const MESH_SKELETON: BinHash = BinHash(0x9059_5a15);
 const SIMPLE_MESH_NAME: BinHash = BinHash(0xd467_e8c0);
@@ -56,13 +57,13 @@ const LOCK_MESH_TO_ATTACHMENT: BinHash = BinHash(0xe79d_a182);
 const NO_MESH: &str = "doesnotexist.";
 
 /// `VfxEmitterLegacySimple`, whose own fields are tallied like the emitter's.
-const LEGACY_SIMPLE: BinHash = BinHash(0x7f70_a2b2);
+const LEGACY_SIMPLE: BinHash = named("VfxEmitterLegacySimple");
 
 /// `simpleEmitterDefinitionData`, the list whose emitters the legacy block belongs to.
-const SIMPLE_LIST: BinHash = BinHash(0x6781_e762);
+const SIMPLE_LIST: BinHash = named("simpleEmitterDefinitionData");
 
 /// `VfxAlphaErosionDefinitionData`, whose fields and values are tallied like the legacy block's.
-const EROSION: BinHash = BinHash(0x5e84_2b9b);
+const EROSION: BinHash = named("VfxAlphaErosionDefinitionData");
 const EROSION_SOURCE: BinHash = BinHash(0xd3f8_680f);
 const EROSION_SLICE: BinHash = BinHash(0x7c79_70d8);
 const EROSION_FEATHER_IN: BinHash = BinHash(0x34be_e0ea);
@@ -72,7 +73,7 @@ const EROSION_DRIVE: BinHash = BinHash(0xc6fb_acd5);
 const EROSION_MIXER: BinHash = BinHash(0xb079_4a80);
 
 /// `dynamics` and `constantValue` of every value class.
-const DYNAMICS: BinHash = BinHash(0xbc03_7de7);
+const DYNAMICS: BinHash = named("dynamics");
 const CONSTANT: BinHash = BinHash(0xb4b4_27aa);
 
 /// What the walk has counted so far.

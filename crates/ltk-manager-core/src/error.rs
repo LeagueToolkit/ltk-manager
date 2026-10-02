@@ -284,6 +284,32 @@ impl From<ltk_mod_project::ModProjectError> for AppError {
     }
 }
 
+impl From<ltk_fantome::FantomeExtractError> for AppError {
+    fn from(error: ltk_fantome::FantomeExtractError) -> Self {
+        AppError::Fantome(error.to_string())
+    }
+}
+
+/// `error` as an [`AppError::Io`] of the same kind, its message led by the step that failed.
+pub(crate) fn io_context(error: std::io::Error, what: impl std::fmt::Display) -> AppError {
+    AppError::Io(std::io::Error::new(
+        error.kind(),
+        format!("{what}: {error}"),
+    ))
+}
+
+/// An I/O result whose error names the step that failed.
+pub(crate) trait IoContext<T> {
+    /// The error through [`io_context`].
+    fn context(self, what: impl std::fmt::Display) -> AppResult<T>;
+}
+
+impl<T> IoContext<T> for std::io::Result<T> {
+    fn context(self, what: impl std::fmt::Display) -> AppResult<T> {
+        self.map_err(|error| io_context(error, what))
+    }
+}
+
 /// Convenience type alias for internal Result usage
 pub type AppResult<T> = Result<T, AppError>;
 

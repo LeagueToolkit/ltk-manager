@@ -1,32 +1,32 @@
 //! A map's ambient occlusion: the `MapSSAOSettings` of its `MapSSAO` component.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
-use super::component::{bool_of, f32_of, map_component, u32_of};
-use ltk_manager_core::bin_document::{BinDocument, Fields, struct_of};
+use super::component::{map_component, u32_of};
+use ltk_manager_core::bin_document::{BinDocument, Fields, boolean, float, struct_of};
 
-/// `MapSSAO`.
-const MAP_SSAO: BinHash = BinHash(0x1717_869f);
+const MAP_SSAO: BinHash = named("MapSSAO");
 /// `MapSSAO.MapSSAORenderer`, an embedded `MapSSAORenderer`.
-const RENDERER: BinHash = BinHash(0xce8f_4190);
+const RENDERER: BinHash = named("MapSSAORenderer");
 /// `MapSSAORenderer.settings`, an embedded `MapSSAOSettings`.
-const SETTINGS: BinHash = BinHash(0x6806_7b08);
+const SETTINGS: BinHash = named("settings");
 /// `MapSSAOSettings.SampleQuality`.
-const SAMPLE_QUALITY: BinHash = BinHash(0x1fd6_70cc);
+const SAMPLE_QUALITY: BinHash = named("SampleQuality");
 /// `MapSSAOSettings.SampleRadius`.
-const SAMPLE_RADIUS: BinHash = BinHash(0x9a8c_9615);
+const SAMPLE_RADIUS: BinHash = named("SampleRadius");
 /// `MapSSAOSettings.Bias`.
-const BIAS: BinHash = BinHash(0xba46_7ec4);
+const BIAS: BinHash = named("Bias");
 /// `MapSSAOSettings.power`.
-const POWER: BinHash = BinHash(0xf54f_2346);
+const POWER: BinHash = named("power");
 /// `MapSSAOSettings.intensity`.
-const INTENSITY: BinHash = BinHash(0x8563_e50a);
+const INTENSITY: BinHash = named("intensity");
 /// `MapSSAOSettings.BufferScale`.
-const BUFFER_SCALE: BinHash = BinHash(0xe94a_e473);
+const BUFFER_SCALE: BinHash = named("BufferScale");
 /// `EdgeAwareBlur`, a name the meta does not state and the hash matches.
-const EDGE_AWARE_BLUR: BinHash = BinHash(0x6509_d993);
+const EDGE_AWARE_BLUR: BinHash = named("EdgeAwareBlur");
 
 /// A map's screen-space ambient occlusion, as its `MapSSAOSettings` states it.
 ///
@@ -87,12 +87,12 @@ fn ssao_of(fields: &Fields) -> MapSsao {
     let stated = MapSsao::default();
     MapSsao {
         sample_quality: u32_of(fields, SAMPLE_QUALITY).unwrap_or(stated.sample_quality),
-        sample_radius: f32_of(fields, SAMPLE_RADIUS).unwrap_or(stated.sample_radius),
-        bias: f32_of(fields, BIAS).unwrap_or(stated.bias),
-        power: f32_of(fields, POWER).unwrap_or(stated.power),
-        intensity: f32_of(fields, INTENSITY).unwrap_or(stated.intensity),
-        buffer_scale: f32_of(fields, BUFFER_SCALE).unwrap_or(stated.buffer_scale),
-        edge_aware_blur: bool_of(fields, EDGE_AWARE_BLUR).unwrap_or(stated.edge_aware_blur),
+        sample_radius: float(fields.get(&SAMPLE_RADIUS)).unwrap_or(stated.sample_radius),
+        bias: float(fields.get(&BIAS)).unwrap_or(stated.bias),
+        power: float(fields.get(&POWER)).unwrap_or(stated.power),
+        intensity: float(fields.get(&INTENSITY)).unwrap_or(stated.intensity),
+        buffer_scale: float(fields.get(&BUFFER_SCALE)).unwrap_or(stated.buffer_scale),
+        edge_aware_blur: boolean(fields.get(&EDGE_AWARE_BLUR)).unwrap_or(stated.edge_aware_blur),
     }
 }
 

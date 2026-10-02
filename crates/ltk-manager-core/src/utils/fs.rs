@@ -1,31 +1,72 @@
 //! Filesystem moves the standard library does not offer.
 
-use fs_err as fs;
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
+
+use fs_err as fs;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::error::{AppError, AppResult};
 
-/// Write `contents` to `path` through a sibling temporary file.
+/// Write `contents` to `path` through a hidden temporary file beside it.
 ///
-/// A plain `fs::write` can leave `path` truncated if the process dies or the
-/// disk fills mid-write. The rename is atomic on every supported platform, so
-/// `path` is either the old bytes or the new ones.
+/// A plain `fs::write` can leave `path` truncated if the process dies or the disk fills mid-write.
+/// The rename is atomic on every supported platform, so `path` is either the old bytes or the new
+/// ones. The temporary file is hidden, so a scan of the folder passes over one a crash leaves.
 ///
 /// # Errors
 ///
-/// Fails when the temporary file cannot be written or renamed. A failed rename
-/// leaves the temporary file behind rather than the destination damaged.
+/// Fails when the temporary file cannot be written or renamed. A failed rename removes the
+/// temporary file and leaves the destination as it was.
 pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let tmp = temp_beside(path);
     fs::write(&tmp, contents)?;
-    fs::rename(&tmp, path)
+
+    if let Err(error) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(error);
+    }
+
+    Ok(())
 }
 
-/// `path` with `.tmp` appended, keeping the extension the caller chose.
+/// `.<name>.tmp` beside `path`.
 fn temp_beside(path: &Path) -> PathBuf {
-    let mut name = path.as_os_str().to_os_string();
+    let mut name = OsString::from(".");
+    name.push(path.file_name().unwrap_or_default());
     name.push(".tmp");
-    PathBuf::from(name)
+
+    path.with_file_name(name)
+}
+
+/// `value` as pretty JSON at `path`, written through [`atomic_write`] into a folder made for it.
+///
+/// # Errors
+///
+/// Fails when `value` cannot be serialized, or the folder or the file cannot be written.
+pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    atomic_write(path, &serde_json::to_vec_pretty(value)?)?;
+    Ok(())
+}
+
+/// The JSON document at `path`, and the default where it is missing or unreadable.
+///
+/// An unreadable document is logged and replaced, because every caller holds a cache that fills
+/// again.
+pub(crate) fn read_json_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
+    let Ok(contents) = fs::read(path) else {
+        return T::default();
+    };
+
+    serde_json::from_slice(&contents).unwrap_or_else(|error| {
+        tracing::warn!(%error, file = %path.display(), "Unreadable document, starting over");
+        T::default()
+    })
 }
 
 /// Copy `source` and everything under it into `destination`.

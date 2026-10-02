@@ -253,8 +253,7 @@ fn refuse_if_too_long(longest: usize, max: usize, root: ImportRoot) -> AppResult
 ///
 /// Fails when the archive cannot be opened or its entry table cannot be read.
 pub(crate) fn longest_fantome_import_path(archive: &Path, target_dir: &Path) -> AppResult<usize> {
-    let reader = FantomeReader::new(fs::File::open(archive)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
+    let reader = FantomeReader::new(fs::File::open(archive)?)?;
 
     let prefix = windows_len(target_dir) + 1;
 

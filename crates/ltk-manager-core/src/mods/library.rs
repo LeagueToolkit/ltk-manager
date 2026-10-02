@@ -16,9 +16,10 @@ use crate::mods::archive::metadata::{
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
+use crate::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use fs_err as fs;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 impl ModLibrary {
     pub fn get_installed_mods(&self, config: &Config) -> AppResult<Vec<InstalledMod>> {
@@ -243,55 +244,8 @@ impl ModLibrary {
                 let _ = fs::remove_file(mod_dir.join("thumbnail.png"));
                 project.thumbnail = None;
             } else if let Some(image_path) = args.set_thumbnail_path {
-                let source_path = PathBuf::from(&image_path);
-                if !source_path.exists() {
-                    return Err(AppError::InvalidPath(image_path));
-                }
-
-                let extension = source_path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .map(|e| e.to_lowercase())
-                    .unwrap_or_default();
-
-                let supported_formats = [
-                    "webp", "png", "jpg", "jpeg", "gif", "bmp", "tiff", "tif", "ico",
-                ];
-                if !supported_formats.contains(&extension.as_str()) {
-                    return Err(AppError::ValidationFailed(format!(
-                        "Unsupported image format: {}. Supported formats: {}",
-                        extension,
-                        supported_formats.join(", ")
-                    )));
-                }
-
-                let webp_data = if extension == "webp" {
-                    image::open(&source_path).map_err(|e| {
-                        AppError::ValidationFailed(format!("Failed to open image: {}", e))
-                    })?;
-                    fs::read(&source_path)?
-                } else {
-                    let img = image::open(&source_path).map_err(|e| {
-                        AppError::ValidationFailed(format!("Failed to open image: {}", e))
-                    })?;
-                    let encoder = webp::Encoder::from_image(&img).map_err(|e| {
-                        AppError::ValidationFailed(format!("Failed to encode WebP: {}", e))
-                    })?;
-                    encoder.encode(90.0).to_vec()
-                };
-
-                let target_path = mod_dir.join("thumbnail.webp");
-                let tmp_path = mod_dir.join("thumbnail.webp.tmp");
-
-                fs::write(&tmp_path, webp_data)?;
-
-                if target_path.exists() {
-                    let _ = fs::remove_file(&target_path);
-                }
-                fs::rename(&tmp_path, &target_path)?;
-
-                let _ = fs::remove_file(mod_dir.join("thumbnail.png"));
-                project.thumbnail = Some("thumbnail.webp".to_string());
+                write_thumbnail(Path::new(&image_path), &mod_dir)?;
+                project.thumbnail = Some(THUMBNAIL_FILE.to_owned());
             }
 
             let config_path = mod_dir.join("mod.config.json");

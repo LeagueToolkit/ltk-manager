@@ -2,6 +2,7 @@
 
 use super::{ProjectDir, WorkshopError};
 use crate::error::{AppResult, Utf8PathRefExt};
+use crate::utils::fs::atomic_write;
 use fs_err as fs;
 use ltk_mod_project::{LICENSE_FILE_NAMES, find_license_file};
 use serde::{Deserialize, Serialize};
@@ -177,7 +178,7 @@ impl ProjectDir {
             Err(_) => LineEnding::Lf,
         };
 
-        write_atomically(&path, ending.apply(text).as_bytes())?;
+        atomic_write(&path, ending.apply(text).as_bytes())?;
         self.project_text(file)
     }
 }
@@ -217,14 +218,6 @@ fn revision_of(path: &Path) -> Option<Revision> {
         modified_ms,
         size: metadata.len(),
     })
-}
-
-/// Write `bytes` to `path` through a temporary file beside it.
-fn write_atomically(path: &Path, bytes: &[u8]) -> AppResult<()> {
-    let temporary = path.with_extension("ltk-tmp");
-    fs::write(&temporary, bytes)?;
-    fs::rename(&temporary, path)?;
-    Ok(())
 }
 
 #[cfg(test)]

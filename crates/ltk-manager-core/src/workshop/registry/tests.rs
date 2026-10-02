@@ -1,3 +1,5 @@
+use fs_err as fs;
+
 use super::*;
 
 #[test]

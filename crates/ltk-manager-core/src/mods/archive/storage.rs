@@ -18,7 +18,7 @@
 //! moment, so neither direction needs the other's leftovers to exist.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::error::{AppError, AppResult, IoContext, Utf8PathExt, io_context};
 use crate::events::{
     BackendEvent, EventSink, FantomeImportProgress, FantomeImportStage, ModStorageProgress,
 };
@@ -424,20 +424,12 @@ fn carry_over_files(mod_dir: &Path, staging_dir: &Path) {
 fn swap_in_unpacked(staging_dir: &Path, mod_dir: &Path) -> AppResult<()> {
     let replaced = staging_dir.with_extension("replaced");
     if mod_dir.exists() {
-        fs::rename(mod_dir, &replaced).map_err(|e| {
-            AppError::Io(std::io::Error::new(
-                e.kind(),
-                format!("Failed to move the mod directory aside: {e}"),
-            ))
-        })?;
+        fs::rename(mod_dir, &replaced).context("Failed to move the mod directory aside")?;
     }
 
     if let Err(e) = fs::rename(staging_dir, mod_dir) {
         let _ = fs::rename(&replaced, mod_dir);
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the unpacked mod into place: {e}"),
-        )));
+        return Err(io_context(e, "Failed to move the unpacked mod into place"));
     }
 
     let _ = fs::remove_dir_all(&replaced);
@@ -475,20 +467,15 @@ fn stage_packed(storage_dir: &Path, mod_dir: &Path) -> AppResult<PathBuf> {
 fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
     let replaced = staged.with_extension("replaced");
     if archive.exists() {
-        fs::rename(archive, &replaced).map_err(|e| {
-            AppError::Io(std::io::Error::new(
-                e.kind(),
-                format!("Failed to move the archive aside: {e}"),
-            ))
-        })?;
+        fs::rename(archive, &replaced).context("Failed to move the archive aside")?;
     }
 
     if let Err(e) = fs::rename(staged, archive) {
         let _ = fs::rename(&replaced, archive);
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the packed archive into place: {e}"),
-        )));
+        return Err(io_context(
+            e,
+            "Failed to move the packed archive into place",
+        ));
     }
 
     let _ = fs::remove_file(&replaced);
@@ -499,12 +486,7 @@ fn swap_in_packed(staged: &Path, archive: &Path) -> AppResult<()> {
 fn drop_unpacked_content(mod_dir: &Path) -> AppResult<()> {
     let content = mod_dir.join("content");
     if content.is_dir() {
-        fs::remove_dir_all(&content).map_err(|e| {
-            AppError::Io(std::io::Error::new(
-                e.kind(),
-                format!("Failed to remove the unpacked content: {e}"),
-            ))
-        })?;
+        fs::remove_dir_all(&content).context("Failed to remove the unpacked content")?;
     }
 
     Ok(())

@@ -5,6 +5,7 @@
 //! the engine derives the character from the placeable's own name.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
@@ -14,24 +15,22 @@ use ltk_manager_core::bin_document::{
 };
 
 /// `Character`, the component a gameplay placeable names its character in.
-const CHARACTER: BinHash = BinHash(0x8b3a_a710);
+const CHARACTER: BinHash = named("Character");
 /// `Character.Skin`, the entry path of a `SkinCharacterDataProperties`.
-const SKIN: BinHash = BinHash(0x336b_65b8);
+const SKIN: BinHash = named("Skin");
 /// `Team`, both the component and the field inside it.
-const TEAM: BinHash = BinHash(0xa2fd_7d0c);
-/// `GdsMapObject`.
-const GDS_MAP_OBJECT: BinHash = BinHash(0xda9e_5c0c);
+const TEAM: BinHash = named("Team");
+const GDS_MAP_OBJECT: BinHash = named("GdsMapObject");
 /// `GdsMapObject.type`.
-const OBJECT_TYPE: BinHash = BinHash(0x5127_f14d);
+const OBJECT_TYPE: BinHash = named("type");
 /// `GdsMapObject.mapObjectSkinID`.
-const OBJECT_SKIN_ID: BinHash = BinHash(0xd65a_78b6);
+const OBJECT_SKIN_ID: BinHash = named("mapObjectSkinID");
 
 /// `GdsMapObject.extraInfo`, a list of `GDSMapObjectExtraInfo`.
-const EXTRA_INFO: BinHash = BinHash(0xf549_ff11);
-/// `GDSMapObjectAnimationInfo`.
-const ANIMATION_INFO: BinHash = BinHash(0x892e_1ff2);
+const EXTRA_INFO: BinHash = named("extraInfo");
+const ANIMATION_INFO: BinHash = named("GDSMapObjectAnimationInfo");
 /// `GDSMapObjectAnimationInfo.defaultAnimation`.
-const DEFAULT_ANIMATION: BinHash = BinHash(0xedf1_840c);
+const DEFAULT_ANIMATION: BinHash = named("defaultAnimation");
 
 /// The `GdsMapObject.type` of a level prop, which is the one type that draws a character.
 const LEVEL_PROP: u8 = 10;

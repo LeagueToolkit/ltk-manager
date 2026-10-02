@@ -185,6 +185,48 @@ pub fn items(value: Option<&PropertyValueEnum>) -> &[PropertyValueEnum] {
     }
 }
 
+/// The value an optional holds, and any other value as it is.
+pub fn optional(value: Option<&PropertyValueEnum>) -> Option<&PropertyValueEnum> {
+    match value? {
+        PropertyValueEnum::Optional(optional) => optional.value(),
+        value => Some(value),
+    }
+}
+
+/// What a map holds, in the file's order, and nothing for any other value.
+pub fn entries(value: Option<&PropertyValueEnum>) -> &[(PropertyValueEnum, PropertyValueEnum)] {
+    match value {
+        Some(PropertyValueEnum::Map(map)) => map.entries(),
+        _ => &[],
+    }
+}
+
+/// The entries of a `Map<Hash, Struct>`, each as its key, its class and its fields.
+///
+/// An entry keyed by anything but a hash, or holding no struct, is passed over.
+pub fn struct_entries(
+    value: Option<&PropertyValueEnum>,
+) -> impl Iterator<Item = (BinHash, BinHash, &Fields)> {
+    entries(value).iter().filter_map(|(key, value)| {
+        let Some(Leaf::Hash(hash)) = leaf(Some(key)) else {
+            return None;
+        };
+        let (class, fields) = struct_of(Some(value))?;
+
+        Some((hash, class, fields))
+    })
+}
+
+/// The entries of a `Map<String, String>`, and none for any other value.
+pub fn string_map(value: Option<&PropertyValueEnum>) -> HashMap<String, String> {
+    entries(value)
+        .iter()
+        .filter_map(|(key, value)| {
+            Some((text(Some(key))?.to_owned(), text(Some(value))?.to_owned()))
+        })
+        .collect()
+}
+
 /// The scalar `value` holds, and none for a value that holds others.
 pub fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
     owned(value?.as_leaf())
@@ -194,6 +236,61 @@ pub fn leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
 pub fn text(value: Option<&PropertyValueEnum>) -> Option<&str> {
     match leaf(value)? {
         Leaf::String(text) => Some(text),
+        _ => None,
+    }
+}
+
+/// The `Bool` or `BitBool` `value` holds.
+pub fn boolean(value: Option<&PropertyValueEnum>) -> Option<bool> {
+    match leaf(value)? {
+        Leaf::Bool(on) | Leaf::Flag(on) => Some(on),
+        _ => None,
+    }
+}
+
+/// The `F32` `value` holds.
+pub fn float(value: Option<&PropertyValueEnum>) -> Option<f32> {
+    match leaf(value)? {
+        Leaf::F32(float) => Some(float),
+        _ => None,
+    }
+}
+
+/// The integer `value` holds, of any width, and none for a negative one.
+pub fn unsigned(value: Option<&PropertyValueEnum>) -> Option<u64> {
+    match leaf(value)? {
+        Leaf::U8(n) => Some(n.into()),
+        Leaf::U16(n) => Some(n.into()),
+        Leaf::U32(n) => Some(n.into()),
+        Leaf::U64(n) => Some(n),
+        Leaf::I8(n) => u64::try_from(n).ok(),
+        Leaf::I16(n) => u64::try_from(n).ok(),
+        Leaf::I32(n) => u64::try_from(n).ok(),
+        Leaf::I64(n) => u64::try_from(n).ok(),
+        _ => None,
+    }
+}
+
+/// The `Vec2` `value` holds.
+pub fn vector2(value: Option<&PropertyValueEnum>) -> Option<[f32; 2]> {
+    match leaf(value)? {
+        Leaf::Vector2(vector) => Some(vector.to_array()),
+        _ => None,
+    }
+}
+
+/// The `Vec3` `value` holds.
+pub fn vector3(value: Option<&PropertyValueEnum>) -> Option<[f32; 3]> {
+    match leaf(value)? {
+        Leaf::Vector3(vector) => Some(vector.to_array()),
+        _ => None,
+    }
+}
+
+/// The `Vec4` `value` holds.
+pub fn vector4(value: Option<&PropertyValueEnum>) -> Option<[f32; 4]> {
+    match leaf(value)? {
+        Leaf::Vector4(vector) => Some(vector.to_array()),
         _ => None,
     }
 }

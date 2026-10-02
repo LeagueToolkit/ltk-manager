@@ -2,15 +2,15 @@
 //! component of its `MapContainer`.
 
 use ltk_hash::BinHash;
+use ltk_manager_core::hashing::named;
 
 use super::MapPath;
 use super::component::map_component;
 use ltk_manager_core::bin_document::{BinDocument, text};
 
-/// `MapBakeProperties`.
-const BAKE_PROPERTIES: BinHash = BinHash(0x6a4a_3409);
+const BAKE_PROPERTIES: BinHash = named("MapBakeProperties");
 /// `MapBakeProperties.lightGridFileName`, an `ASSETS/` file path.
-const LIGHT_GRID_FILE_NAME: BinHash = BinHash(0x7561_b09e);
+const LIGHT_GRID_FILE_NAME: BinHash = named("lightGridFileName");
 
 /// The `LightGrid.dat` `map`'s container bakes, as the bin spells its path.
 ///

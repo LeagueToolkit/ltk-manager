@@ -7,6 +7,7 @@
 
 use super::categorize::DerivedCategorization;
 use crate::error::AppResult;
+use crate::utils::fs::write_json;
 use fs_err as fs;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -301,27 +302,13 @@ impl WadReportStore {
         Ok(())
     }
 
-    /// Atomic write via temp-file-then-rename.
     fn save(&self) -> AppResult<()> {
         let Some(path) = &self.path else {
             return Ok(());
         };
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
         let mut to_save = self.file.clone();
         to_save.version = SCHEMA_VERSION;
-        let contents = serde_json::to_string_pretty(&to_save)?;
-
-        let tmp = path.with_extension("json.tmp");
-        fs::write(&tmp, contents)?;
-        match fs::remove_file(path) {
-            Ok(()) => {}
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-            Err(err) => return Err(err.into()),
-        }
-        fs::rename(&tmp, path)?;
-        Ok(())
+        write_json(path, &to_save)
     }
 }
 

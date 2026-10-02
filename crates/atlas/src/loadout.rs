@@ -4,7 +4,8 @@
 
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, Fields, GameCopy, Namer, RowNames, fields_of, items, leaf, text,
+    AssetLookup, BinDocument, Fields, GameCopy, Namer, RowNames, fields_of, items, leaf, optional,
+    text,
 };
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
@@ -448,10 +449,7 @@ fn summoner_path(icon: &str) -> String {
 
 /// The value `value` holds, through an optional and to the first item of a list.
 fn first_leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
-    let value = match value? {
-        PropertyValueEnum::Optional(optional) => optional.value()?,
-        value => value,
-    };
+    let value = optional(value)?;
     leaf(Some(value)).or_else(|| leaf(items(Some(value)).first()))
 }
 
