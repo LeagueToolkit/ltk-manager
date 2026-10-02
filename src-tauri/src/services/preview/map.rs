@@ -1,17 +1,16 @@
 //! The map backdrop's reads: one map's materials, placed against a project first, and
 //! the particles its open `.materials.bin` stands.
 
-use crate::commands::document_assets::{
+use crate::services::shared::document_assets::{
     parse_entry, read_resolved, with_assets_in, with_resolution,
 };
+use crate::services::shared::read_bin;
 use std::collections::HashMap;
 
 use super::material::shader_defs;
-use crate::commands::off_thread;
-use crate::error::{AppResult, IpcResult};
-use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
-use ltk_manager_core::game_wads::WadCache;
+use crate::error::IpcResult;
+use crate::services::shared::off_thread;
+use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments};
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::SandboxRef;
 use ltk_manager_game::map::{
@@ -41,12 +40,8 @@ pub async fn read_map(
     app_handle: AppHandle,
 ) -> IpcResult<MapModel> {
     off_thread(move || {
-        let config = app_handle.state::<SettingsState>().config();
         with_resolution(&app_handle, document, |names, assets| {
-            let wads = app_handle.state::<WadCache>();
-            let read = |asset: &AssetRef| -> AppResult<BinDocument> {
-                Ok(BinDocument::parse(asset.read(&config, &wads)?)?)
-            };
+            let read = |asset: &AssetRef| read_bin(&app_handle, asset);
             let Some(source) = assets.locate(&map.materials()) else {
                 return Ok(unresolved_map(&materials));
             };

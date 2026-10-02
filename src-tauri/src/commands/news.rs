@@ -4,7 +4,7 @@ use crate::error::{GitHubFeed, IpcResult};
 use crate::news::announcements::{self, Announcement};
 use crate::news::notices::{self, Notice};
 
-use super::github_feed;
+use crate::services::shared::github_feed;
 
 /// Read the newest posts in the Announcements category.
 #[tauri::command]

@@ -7,8 +7,9 @@
 use fs_err as fs;
 use std::path::PathBuf;
 
-use crate::commands::off_thread;
 use crate::error::IpcResult;
+use crate::services::shared::off_thread;
+use crate::services::shared::read_asset;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::preview::{AssetInfo, AssetRef};
@@ -42,10 +43,8 @@ pub async fn save_asset_copy(
     destination: String,
     app_handle: AppHandle,
 ) -> IpcResult<()> {
-    let config = app_handle.state::<SettingsState>().config();
-
     off_thread(move || {
-        let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
+        let bytes = read_asset(&app_handle, &asset)?;
         let path = PathBuf::from(&destination);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;

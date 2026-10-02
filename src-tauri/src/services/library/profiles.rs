@@ -1,68 +1,43 @@
 use crate::error::{AppError, IpcResult};
 use crate::mods::{ModLibraryState, Profile};
 use crate::patcher::PatcherState;
+use crate::services::shared::Library;
 use crate::state::SettingsState;
 use tauri::State;
 
 /// Get all profiles.
 #[tauri::command]
 #[specta::specta]
-pub fn list_mod_profiles(
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Vec<Profile>> {
-    let config = settings.config();
-    library.0.get_profiles(&config).into()
+pub fn list_mod_profiles(library: Library) -> IpcResult<Vec<Profile>> {
+    library.with(|library, config| library.get_profiles(config))
 }
 
 /// Get the currently active profile.
 #[tauri::command]
 #[specta::specta]
-pub fn get_active_mod_profile(
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Profile> {
-    let config = settings.config();
-    library.0.get_active_profile_info(&config).into()
+pub fn get_active_mod_profile(library: Library) -> IpcResult<Profile> {
+    library.with(|library, config| library.get_active_profile_info(config))
 }
 
 /// Create a new profile with the given name.
 #[tauri::command]
 #[specta::specta]
-pub fn create_mod_profile(
-    name: String,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Profile> {
-    let config = settings.config();
-    library.0.create_profile(&config, name).into()
+pub fn create_mod_profile(name: String, library: Library) -> IpcResult<Profile> {
+    library.with(|library, config| library.create_profile(config, name))
 }
 
 /// Delete a profile by ID.
 #[tauri::command]
 #[specta::specta]
-pub fn delete_mod_profile(
-    profile_id: String,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<()> {
-    let config = settings.config();
-    library.0.delete_profile(&config, profile_id).into()
+pub fn delete_mod_profile(profile_id: String, library: Library) -> IpcResult<()> {
+    library.with(|library, config| library.delete_profile(config, profile_id))
 }
 
 /// Switch to a different profile.
 #[tauri::command]
 #[specta::specta]
-pub fn switch_mod_profile(
-    profile_id: String,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher_state: State<PatcherState>,
-) -> IpcResult<Profile> {
-    let config = settings.config();
-    let result = library.0.switch_profile(&config, profile_id);
-    patcher_state.refresh_overlay();
-    result.into()
+pub fn switch_mod_profile(profile_id: String, library: Library) -> IpcResult<Profile> {
+    library.with_refresh(|library, config| library.switch_profile(config, profile_id))
 }
 
 /// Rename a profile.

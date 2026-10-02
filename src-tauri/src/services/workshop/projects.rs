@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult, IpcResult};
+use crate::services::shared::Workshop;
 use crate::state::SettingsState;
 use crate::workshop::{
     AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, DeclarationsLayer,
@@ -19,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
-use crate::commands::off_thread;
+use crate::services::shared::off_thread;
 
 /// An edited project with its location and last-opened time, which a load leaves at their
 /// defaults.
@@ -90,46 +91,30 @@ pub async fn create_project(
 
 #[tauri::command]
 #[specta::specta]
-pub fn get_workshop_projects(
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Vec<WorkshopProject>> {
-    let config = settings.config();
-    workshop.0.get_projects(&config).into()
+pub fn get_workshop_projects(workshop: Workshop) -> IpcResult<Vec<WorkshopProject>> {
+    workshop.with(|projects, config| projects.get_projects(config))
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn get_workshop_project(
     project_path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
+    workshop: Workshop,
 ) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop.0.get_project(&config, &project_path).into()
+    workshop.with(|projects, config| projects.get_project(config, &project_path))
 }
 
 /// Classify a folder picked with Open folder.
 #[tauri::command]
 #[specta::specta]
-pub fn inspect_project_folder(
-    path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<FolderInspection> {
-    let config = settings.config();
-    workshop.0.inspect_folder(&config, &path).into()
+pub fn inspect_project_folder(path: String, workshop: Workshop) -> IpcResult<FolderInspection> {
+    workshop.with(|projects, config| projects.inspect_folder(config, &path))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn open_project_folder(
-    path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop.0.open_folder(&config, &path).into()
+pub fn open_project_folder(path: String, workshop: Workshop) -> IpcResult<WorkshopProject> {
+    workshop.with(|projects, config| projects.open_folder(config, &path))
 }
 
 #[tauri::command]
@@ -174,14 +159,9 @@ pub fn forget_project_folder(path: String, workshop: State<WorkshopState>) -> Ip
 pub fn relocate_project_folder(
     old_path: String,
     new_path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
+    workshop: Workshop,
 ) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop
-        .0
-        .relocate_folder(&config, &old_path, &new_path)
-        .into()
+    workshop.with(|projects, config| projects.relocate_folder(config, &old_path, &new_path))
 }
 
 #[tauri::command]

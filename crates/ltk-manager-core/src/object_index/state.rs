@@ -1,10 +1,9 @@
 //! The slot the app keeps one index in, and the generation each scan claims a ticket from.
 
+use crate::generation::{Generation, line};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-
-use crate::game_index::SearchGeneration;
 
 use super::ObjectIndex;
 
@@ -12,61 +11,19 @@ use super::ObjectIndex;
 ///
 /// Apart from [`SearchGeneration`] so a keystroke the game scan answers never
 /// gives up a scan the object rows are waiting on, and the other way round.
-#[derive(Debug, Default)]
-pub struct ObjectSearchGeneration(SearchGeneration);
-
-impl ObjectSearchGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type ObjectSearchGeneration = Generation<line::ObjectSearch>;
 
 /// The newest full search of the objects asked for, on a line of its own.
 ///
 /// Apart from [`ObjectSearchGeneration`]. A keystroke in the objects browser's box
 /// gives up no scan the palette's rows wait on.
-#[derive(Debug, Default)]
-pub struct ObjectFindGeneration(SearchGeneration);
-
-impl ObjectFindGeneration {
-    /// Take the newest ticket. Every scan already running is behind it.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search holds a newer ticket than `ticket`.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type ObjectFindGeneration = Generation<line::ObjectFind>;
 
 /// The newest reference query asked for, on a line of its own.
 ///
 /// Apart from [`ObjectFindGeneration`]. A re-run in the References tab gives up no
 /// scan the objects browser waits on.
-#[derive(Debug, Default)]
-pub struct ObjectReferenceGeneration(SearchGeneration);
-
-impl ObjectReferenceGeneration {
-    /// Take the newest ticket. Every scan already running is behind it.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later query holds a newer ticket than `ticket`.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type ObjectReferenceGeneration = Generation<line::References>;
 
 /// One build's claim on the state, which a clear or a newer build revokes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

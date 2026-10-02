@@ -10,6 +10,7 @@ pub mod game;
 pub mod library;
 pub mod objects;
 pub mod preview;
+pub(crate) mod shared;
 pub mod workshop;
 
 use specta::Types;

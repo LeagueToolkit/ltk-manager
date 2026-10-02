@@ -4,18 +4,17 @@
 //! every reference resolved rather than a window of rows.
 
 use super::material::shader_defs;
-use crate::commands::document_assets::{parse_entry, read_resolved};
-use crate::commands::installed::installed_schema;
-use crate::commands::off_thread;
 use crate::error::IpcResult;
-use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentId};
-use ltk_manager_core::game_wads::WadCache;
+use crate::services::shared::document_assets::{parse_entry, read_resolved};
+use crate::services::shared::installed::installed_schema;
+use crate::services::shared::off_thread;
+use crate::services::shared::{linked_assets, linked_reader};
+use ltk_manager_core::bin_document::BinDocumentId;
 use ltk_manager_core::meta_schema::SchemaNames;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::vfx::{vfx_templates as catalog, VfxTemplate};
 use ltk_manager_game::vfx::{resolve_system, search_linked_materials, VfxSystem};
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 /// One particle system of an open document, with every reference resolved.
 ///
@@ -33,27 +32,12 @@ pub async fn read_vfx_system(
     off_thread(move || {
         let entry = parse_entry(&entry)?;
         let (schema, _) = installed_schema(&app_handle);
-        let config = app_handle.state::<SettingsState>().config();
         read_resolved(&app_handle, document, |open, names, assets| {
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| match asset
-                .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
-            {
-                Ok(bin) => Some(bin),
-                Err(e) => {
-                    tracing::debug!(?asset, "Passed over a linked bin: {e}");
-                    None
-                }
-            };
+            let mut read = linked_reader(&app_handle);
             let shaders = shader_defs(&app_handle, assets);
             let names = SchemaNames::new(names, &schema);
             let mut system = resolve_system(open, entry, &names, assets, shaders.as_deref())?;
-            let linked: Vec<AssetRef> = open
-                .dependencies()
-                .iter()
-                .filter_map(|path| assets.locate(path))
-                .collect();
+            let linked: Vec<AssetRef> = linked_assets(open, assets);
             search_linked_materials(
                 &mut system,
                 linked,

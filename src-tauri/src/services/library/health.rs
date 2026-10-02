@@ -5,10 +5,11 @@
 //! Reading the remembered verdicts is a file read the library view makes on
 //! every render, and stays synchronous.
 
-use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::mods::{ModHealthVerdict, ModLibrary, ModLibraryState};
 use crate::patcher::PatcherState;
+use crate::services::shared::off_thread;
+use crate::services::shared::Library;
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
 use ltk_manager_core::mods::{
@@ -155,12 +156,8 @@ pub fn get_health_sweep(library: State<ModLibraryState>) -> IpcResult<HealthSwee
 /// Every verdict the library remembers, by mod id.
 #[tauri::command]
 #[specta::specta]
-pub fn get_mod_health_verdicts(
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<BTreeMap<String, ModHealthVerdict>> {
-    let config = settings.config();
-    library.0.mod_health_verdicts(&config).into()
+pub fn get_mod_health_verdicts(library: Library) -> IpcResult<BTreeMap<String, ModHealthVerdict>> {
+    library.with(|library, config| library.mod_health_verdicts(config))
 }
 
 /// Whether a command must refuse to run while the patcher does.

@@ -8,8 +8,8 @@ use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::ritobin::RitobinVerb;
 use tauri::{AppHandle, Manager};
 
-use crate::commands::off_thread;
 use crate::error::{AppError, IpcResult};
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 
 /// What to do about a machine where the extension has registered nothing.

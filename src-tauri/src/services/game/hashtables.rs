@@ -1,9 +1,9 @@
 //! Hashtable cache commands: status and sync.
 
-use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_core::game_index::GameIndexState;
 use ltk_manager_core::hashtables::{

@@ -3,7 +3,6 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
@@ -12,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
+use crate::generation::{Generation, line};
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
 use crate::utils::natural_order::compare_names;
 
@@ -192,61 +192,19 @@ const STALE_CHECK_INTERVAL: u32 = 4096;
 ///
 /// Without this, a ten-character query runs ten full scans of the install and
 /// only the last of them is one anybody wants.
-#[derive(Debug, Default)]
-pub struct SearchGeneration(AtomicU64);
-
-impl SearchGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.fetch_add(1, AtomicOrdering::Relaxed) + 1
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.load(AtomicOrdering::Relaxed) > ticket
-    }
-}
+pub type SearchGeneration = Generation<line::Palette>;
 
 /// The newest full search asked for, on its own line apart from the palette's.
 ///
 /// Separate from [`SearchGeneration`] so a keystroke in one box never gives up
 /// a scan the other box is waiting on.
-#[derive(Debug, Default)]
-pub struct FindGeneration(SearchGeneration);
-
-impl FindGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type FindGeneration = Generation<line::Find>;
 
 /// The ticket counter for path field searches.
 ///
 /// Separate from [`SearchGeneration`], so a path field search cancels only older path field
 /// searches and never a palette search.
-#[derive(Debug, Default)]
-pub struct PathSearchGeneration(SearchGeneration);
-
-impl PathSearchGeneration {
-    /// Claim a new ticket. Every scan that is already running is now out of date.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type PathSearchGeneration = Generation<line::PathField>;
 
 /// Every archive of an install merged into one deduplicated directory tree.
 ///

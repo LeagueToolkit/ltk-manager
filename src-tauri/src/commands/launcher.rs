@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use parking_lot::Mutex;
 use tauri::{AppHandle, Manager, State};
 
 use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
+use crate::services::shared::InFlight;
 use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::EventSink;
@@ -16,9 +16,9 @@ use ltk_manager_core::launcher::{
     LauncherError, LeagueLauncher, SessionStarted, StopFlag,
 };
 
-use super::off_thread;
 use super::patcher::{start_patcher_inner, PatcherConfig};
 use super::settings::save_settings_inner;
+use crate::services::shared::off_thread;
 
 /// The one [`LeagueLauncher`] the app shares.
 ///
@@ -51,49 +51,8 @@ impl LauncherState {
 /// A double-clicked button must not produce two requests: the second would
 /// race the first's handoff, or arrive after League has come up and resolve to
 /// a pointless [`ltk_manager_core::launcher::LaunchRoute::AlreadyRunning`].
-///
-/// The flag is per attempt rather than per launcher, because a stopped one
-/// stays stopped - a Cancel on this launch must not pre-cancel the next.
 #[derive(Default)]
-pub struct LaunchState(Mutex<Option<StopFlag>>);
-
-impl LaunchState {
-    /// Claim the in-flight slot with a fresh stop flag, or `None` when a launch
-    /// is already running.
-    #[must_use]
-    fn acquire(&self) -> Option<(LaunchGuard<'_>, StopFlag)> {
-        let mut in_flight = self.0.lock();
-        if in_flight.is_some() {
-            return None;
-        }
-
-        let stop = StopFlag::new();
-        *in_flight = Some(stop.clone());
-        Some((LaunchGuard { state: self }, stop))
-    }
-
-    /// Call the launch in flight off, reporting whether there was one.
-    fn cancel(&self) -> bool {
-        let in_flight = self.0.lock();
-        let Some(stop) = in_flight.as_ref() else {
-            return false;
-        };
-
-        stop.stop();
-        true
-    }
-}
-
-/// Releases the slot on every exit path, including the error ones.
-struct LaunchGuard<'a> {
-    state: &'a LaunchState,
-}
-
-impl Drop for LaunchGuard<'_> {
-    fn drop(&mut self) {
-        *self.state.0.lock() = None;
-    }
-}
+pub struct LaunchState(InFlight<StopFlag>);
 
 /// Ask the Riot Client to launch League.
 #[tauri::command]
@@ -115,7 +74,7 @@ fn launch_league_inner(
     launcher: &State<LauncherState>,
     launch: &State<LaunchState>,
 ) -> AppResult<Option<LaunchOutcome>> {
-    let Some((_guard, stop)) = launch.acquire() else {
+    let Some((_guard, stop)) = launch.0.acquire() else {
         tracing::debug!("Launch already in flight, ignoring the request");
         return Ok(None);
     };
@@ -134,7 +93,7 @@ fn launch_league_inner(
 #[tauri::command]
 #[specta::specta]
 pub fn cancel_launch(launch: State<LaunchState>) -> IpcResult<bool> {
-    IpcResult::ok(launch.cancel())
+    IpcResult::ok(launch.0.cancel())
 }
 
 /// Ask the Riot Client to close the game it launched.
@@ -226,52 +185,5 @@ fn switch_league_install_inner(app_handle: &AppHandle, install_root: PathBuf) ->
             let library = app_handle.state::<ModLibraryState>().0.clone();
             library.rebuild_overlay(&settings.config).map(|_| ())
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A double-clicked Play button must produce one request, not two.
-    #[test]
-    fn only_one_launch_is_in_flight_at_a_time() {
-        let state = LaunchState::default();
-
-        let first = state.acquire();
-        assert!(first.is_some());
-        assert!(state.acquire().is_none());
-
-        drop(first);
-        assert!(state.acquire().is_some());
-    }
-
-    /// Cancel reaches the flag the launch is watching, and says so - the UI
-    /// needs to tell "cancelling" apart from "there was nothing to cancel".
-    #[test]
-    fn cancelling_stops_the_flag_the_launch_holds() {
-        let state = LaunchState::default();
-        assert!(!state.cancel());
-
-        let (_guard, stop) = state.acquire().unwrap();
-        assert!(!stop.is_stopped());
-
-        assert!(state.cancel());
-        assert!(stop.is_stopped());
-    }
-
-    /// A stopped flag stays stopped, so the next attempt has to get its own or
-    /// it would be cancelled before it started.
-    #[test]
-    fn each_attempt_gets_a_fresh_flag() {
-        let state = LaunchState::default();
-
-        let (guard, first) = state.acquire().unwrap();
-        state.cancel();
-        drop(guard);
-
-        let (_guard, second) = state.acquire().unwrap();
-        assert!(first.is_stopped());
-        assert!(!second.is_stopped());
     }
 }
