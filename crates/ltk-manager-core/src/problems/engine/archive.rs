@@ -31,6 +31,7 @@ use zip::{CompressionMethod, ZipArchive};
 use crate::error::{AppError, AppResult};
 use crate::game_wads::chunk_head;
 use crate::mods::fantome_layer::unpacked_layer_name;
+use crate::mods::open_fantome;
 use crate::utils::natural_order::compare_names;
 use crate::workshop::WorkshopFileKind;
 
@@ -96,7 +97,7 @@ impl ArchiveFiles {
     /// are still scanned.
     pub(super) fn scan(archive: &Path, resolver: &dyn PathResolver) -> AppResult<ArchiveScan> {
         let entries = Self::layer_entries(archive)?;
-        let mut reader = FantomeReader::new(fs::File::open(archive)?)?;
+        let mut reader = open_fantome(archive)?;
 
         // Read before the WADs and propagated as an error. The mod's own tables
         // name its chunks before the caller's resolver does, as in an unpack,
@@ -299,7 +300,7 @@ impl ArchiveFiles {
             );
         }
 
-        let mut reader = FantomeReader::new(fs::File::open(&self.archive)?)?;
+        let mut reader = open_fantome(&self.archive)?;
         let mut wad = reader
             .mount_packed_wad(&self.layer, wad_name)?
             .ok_or_else(|| AppError::Fantome(format!("{wad_name} is no longer packed")))?;

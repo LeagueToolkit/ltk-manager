@@ -1,4 +1,5 @@
 use super::*;
+use crate::mods::StorageLayout as _;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::test_support::{
     make_fantome_zip_with_documents, make_modpkg_with_documents, make_slugged_entry,
@@ -18,7 +19,7 @@ fn library_holding(
     place_installed_mod(storage, slug, format, false);
     place(
         &storage
-            .join("mods")
+            .mods_dir()
             .join(format!("{slug}.{}", format.extension())),
     );
     seed_library(&library, &config, vec![entry.clone()]);
@@ -30,7 +31,7 @@ fn a_modpkg_readme_is_read_off_disk_without_mounting_anything() {
     let storage = tempfile::tempdir().unwrap();
     let entry = library_holding(storage.path(), "cached", ModArchiveFormat::Modpkg, |_| {});
     fs::write(
-        storage.path().join("mods").join("cached").join("README.md"),
+        storage.path().mods_dir().join("cached").join("README.md"),
         "# On disk",
     )
     .unwrap();
@@ -103,7 +104,7 @@ fn a_fantome_readme_is_read_off_disk_once_it_has_been_extracted() {
         |archive| make_fantome_zip_with_documents(archive, "swapper", Some("# Once"), None),
     );
     read_readme(storage.path(), &entry);
-    fs::remove_file(storage.path().join("mods").join("swapper.fantome")).unwrap();
+    fs::remove_file(storage.path().mods_dir().join("swapper.fantome")).unwrap();
 
     let document = read_readme(storage.path(), &entry);
 

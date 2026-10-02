@@ -4,53 +4,47 @@
 //! configuration is *non-elevated* manager + *non-elevated* League; running
 //! either as administrator breaks the patcher's process-injection.
 
-use super::{Category, Check, Severity, check};
+use super::{Category, Check, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use super::{CheckDetail, check_ok};
+use super::CheckDetail;
+
+const MANAGER_NOT_ADMIN: CheckSpec = CheckSpec::new(
+    "process.manager_not_admin",
+    "LTK Manager not running as admin",
+    Category::Manager,
+);
+const LEAGUE_NOT_RUNNING: CheckSpec = CheckSpec::new(
+    "process.league_not_running",
+    "League is not currently running",
+    Category::Manager,
+);
 
 #[cfg(target_os = "windows")]
 pub fn check_manager_not_admin() -> Check {
     if is_running_as_admin() {
-        let mut c = check(
-            "process.manager_not_admin",
-            "LTK Manager not running as admin",
-            Category::Manager,
-            Severity::Bad,
-            "LTK Manager is running elevated",
-        );
+        let mut c = MANAGER_NOT_ADMIN.result(Severity::Bad, "LTK Manager is running elevated");
         c.suggestion = Some(
             "Running the manager as administrator is the single most common cause of \"patcher running but mods don't load\". Close LTK Manager and relaunch it normally (double-click - do NOT \"Run as administrator\"). If you have a compatibility flag on ltk-manager.exe forcing elevation, remove it from Properties → Compatibility."
                 .into(),
         );
         c
     } else {
-        check_ok(
-            "process.manager_not_admin",
-            "LTK Manager not running as admin",
-            Category::Manager,
-            "Not elevated",
-        )
+        MANAGER_NOT_ADMIN.ok("Not elevated")
     }
 }
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_manager_not_admin() -> Check {
-    check(
-        "process.manager_not_admin",
-        "LTK Manager not running as admin",
-        Category::Manager,
-        Severity::Info,
-        "Not applicable",
-    )
+    MANAGER_NOT_ADMIN.result(Severity::Info, "Not applicable")
 }
 
 /// Whether the current (manager) process is running with an elevated token.
 #[cfg(target_os = "windows")]
 pub(crate) fn is_running_as_admin() -> bool {
     use std::mem::size_of;
+    use std::os::windows::io::AsRawHandle;
     use std::ptr;
-    use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::Security::{
         GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation,
     };
@@ -62,20 +56,23 @@ pub(crate) fn is_running_as_admin() -> bool {
     if ok == 0 {
         return false;
     }
+    // SAFETY: the token came from OpenProcessToken and nothing else holds it.
+    let Some(token) = (unsafe { crate::platform::windows::owned_handle(token) }) else {
+        return false;
+    };
+
     let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
     let mut ret_len: u32 = 0;
     // SAFETY: token is valid; struct sizes match.
     let ok = unsafe {
         GetTokenInformation(
-            token,
+            token.as_raw_handle(),
             TokenElevation,
             &mut elevation as *mut _ as *mut _,
             size_of::<TOKEN_ELEVATION>() as u32,
             &mut ret_len,
         )
     };
-    // SAFETY: token came from OpenProcessToken.
-    unsafe { CloseHandle(token) };
     ok != 0 && elevation.TokenIsElevated != 0
 }
 
@@ -103,17 +100,9 @@ pub fn check_league_not_running() -> Check {
         .concat(),
     );
     if running.is_empty() {
-        return check_ok(
-            "process.league_not_running",
-            "League is not currently running",
-            Category::Manager,
-            "League is closed",
-        );
+        return LEAGUE_NOT_RUNNING.ok("League is closed");
     }
-    let mut c = check(
-        "process.league_not_running",
-        "League is not currently running",
-        Category::Manager,
+    let mut c = LEAGUE_NOT_RUNNING.result(
         Severity::Warn,
         format!(
             "{} League/Riot process(es) running - close the game before re-running diagnostics",
@@ -134,11 +123,5 @@ pub fn check_league_not_running() -> Check {
 #[cfg(not(target_os = "windows"))]
 #[allow(dead_code)]
 pub fn check_league_not_running() -> Check {
-    check(
-        "process.league_not_running",
-        "League is not currently running",
-        Category::Manager,
-        Severity::Info,
-        "Not applicable",
-    )
+    LEAGUE_NOT_RUNNING.result(Severity::Info, "Not applicable")
 }

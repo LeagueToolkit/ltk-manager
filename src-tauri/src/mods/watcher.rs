@@ -5,6 +5,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fs_err as fs;
+use ltk_manager_core::mods::StorageLayout as _;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -32,8 +33,8 @@ fn resolve_watch_dirs(app_handle: &AppHandle) -> Option<(PathBuf, PathBuf)> {
     let mod_library_state: tauri::State<'_, ModLibraryState> = app_handle.state();
     let storage_dir = mod_library_state.0.storage_dir(&settings.config).ok()?;
 
-    let archives_dir = storage_dir.join("archives");
-    let mods_dir = storage_dir.join("mods");
+    let archives_dir = storage_dir.archives_dir();
+    let mods_dir = storage_dir.mods_dir();
 
     Some((archives_dir, mods_dir))
 }

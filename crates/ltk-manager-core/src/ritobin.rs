@@ -42,9 +42,7 @@ impl RitobinVerb {
     /// The verb as installed, or `None` when the extension has registered none.
     #[cfg(target_os = "windows")]
     pub fn installed() -> Option<Self> {
-        /* Under `diagnostics` because that is where this crate's Win32
-        wrappers ended up, rather than for any diagnostic reason. */
-        use crate::diagnostics::win_util::{HKCU, reg_read_str};
+        use crate::platform::windows::{HKCU, reg_read_str};
 
         let command = reg_read_str(HKCU, Self::COMMAND_KEY, "")?;
         (!command.trim().is_empty()).then_some(Self { command })

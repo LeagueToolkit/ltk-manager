@@ -12,7 +12,7 @@ use std::sync::Arc;
 /// A mod the layout migration moved: a metadata-only directory, the archive
 /// beside it, and the entry saying the content is still in there.
 fn place_moved_fantome(storage: &Path, slug: &str) {
-    let mods_dir = storage.join("mods");
+    let mods_dir = storage.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -52,7 +52,7 @@ fn unpacking_writes_the_content_tree_and_consumes_the_archive() {
     assert!(!updated.has_archive);
     assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Project);
 
-    let mod_dir = storage.path().join("mods").join("full-mod");
+    let mod_dir = storage.path().mods_dir().join("full-mod");
     let base = mod_dir.join("content").join("base");
     assert!(base.join("Aatrox.wad.client").is_dir());
     assert!(base.join("Ashe.wad.client").is_dir());
@@ -74,7 +74,7 @@ fn unpacking_keeps_the_metadata_the_user_edited() {
     let (library, config) = make_test_library(storage.path());
     place_moved_fantome(storage.path(), "full-mod");
 
-    let mod_dir = storage.path().join("mods").join("full-mod");
+    let mod_dir = storage.path().mods_dir().join("full-mod");
     let mut project = mod_project_named("full-mod");
     project.display_name = "My Renamed Mod".to_string();
     project.tags = vec![ltk_mod_project::ModTag::from("skin".to_string())];
@@ -112,7 +112,7 @@ fn unpacking_keeps_the_layers_the_archive_declares() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     let mod_dir = mods_dir.join("layered-mod");
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -151,7 +151,7 @@ fn unpacking_reads_an_archive_whose_checksums_are_wrong() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     let mod_dir = mods_dir.join("full-mod");
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -184,7 +184,7 @@ fn an_unpack_past_the_path_limit_is_refused_and_leaves_the_mod_alone() {
     place_moved_fantome(storage.path(), "full-mod");
     seed_library(&library, &config, vec![archived_entry("id-1", "full-mod")]);
 
-    let _limit = long_paths::test_limit::just_past(&storage.path().join("mods"), 20);
+    let _limit = long_paths::test_limit::just_past(&storage.path().mods_dir(), 20);
 
     assert_matches!(
         library.set_mod_storage(&config, "id-1", ModStorage::Project),
@@ -192,7 +192,7 @@ fn an_unpack_past_the_path_limit_is_refused_and_leaves_the_mod_alone() {
     );
     assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Archive);
 
-    let names: Vec<String> = fs::read_dir(storage.path().join("mods"))
+    let names: Vec<String> = fs::read_dir(storage.path().mods_dir())
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
@@ -213,8 +213,7 @@ fn an_unpack_is_measured_against_the_directory_it_lands_in() {
     place_moved_fantome(storage.path(), "full-mod");
     seed_library(&library, &config, vec![archived_entry("id-1", "full-mod")]);
 
-    let _limit =
-        long_paths::test_limit::just_past(&storage.path().join("mods").join("full-mod"), 80);
+    let _limit = long_paths::test_limit::just_past(&storage.path().mods_dir().join("full-mod"), 80);
 
     assert_matches!(
         library.set_mod_storage(&config, "id-1", ModStorage::Project),
@@ -241,7 +240,7 @@ fn repacking_drops_the_content_tree_and_keeps_everything_else() {
     assert_eq!(updated.storage, ModStorage::Archive);
     assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Archive);
 
-    let mod_dir = storage.path().join("mods").join("full-mod");
+    let mod_dir = storage.path().mods_dir().join("full-mod");
     assert!(!mod_dir.join("content").exists());
     assert!(mod_dir.join("mod.config.json").is_file());
     assert!(
@@ -274,9 +273,9 @@ fn repacking_rebuilds_the_archive_from_the_tree() {
     assert!(updated.has_archive);
     assert_eq!(stored_as(storage.path(), "id-1"), ModStorage::Archive);
 
-    let mod_dir = storage.path().join("mods").join("full-mod");
+    let mod_dir = storage.path().mods_dir().join("full-mod");
     assert!(!mod_dir.join("content").exists());
-    let archive = storage.path().join("mods").join("full-mod.fantome");
+    let archive = storage.path().mods_dir().join("full-mod.fantome");
     let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(&archive).unwrap()).unwrap();
     assert_eq!(reader.read_info().unwrap().name, "full-mod");
 }
@@ -321,7 +320,7 @@ fn a_modpkg_has_no_unpacked_form_to_switch_to() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     let mod_dir = mods_dir.join("packed-mod");
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -416,7 +415,7 @@ fn unpacking_leaves_nothing_beside_the_mod() {
         .set_mod_storage(&config, "id-1", ModStorage::Project)
         .unwrap();
 
-    let names: Vec<String> = fs::read_dir(storage.path().join("mods"))
+    let names: Vec<String> = fs::read_dir(storage.path().mods_dir())
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .collect();
@@ -517,7 +516,7 @@ fn a_mod_with_no_archive_reports_nothing() {
     let storage = tempfile::tempdir().unwrap();
     let events = Arc::new(RecordingEventSink::default());
     let (library, config) = make_library_with_events(storage.path(), events.clone());
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     fs::create_dir_all(mods_dir.join("no-archive")).unwrap();
     fs::write(
         mods_dir.join("no-archive").join("mod.config.json"),

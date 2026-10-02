@@ -11,6 +11,7 @@ use super::schema_migration;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::mods::index::reconcile::reconcile_library_index;
 use crate::mods::slug::ModSlug;
 use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
@@ -317,7 +318,7 @@ impl LibraryModEntry {
     /// layout migration has reached it.
     pub(crate) fn mod_dir(&self, storage_dir: &Path) -> PathBuf {
         let name = self.slug.as_ref().map_or(self.id.as_str(), ModSlug::as_str);
-        storage_dir.join("mods").join(name)
+        storage_dir.mods_dir().join(name)
     }
 
     /// Path to the stored mod archive, beside the directory it belongs to.
@@ -328,11 +329,11 @@ impl LibraryModEntry {
         match &self.slug {
             Some(slug) => archive_path(storage_dir, slug, self.format),
             // Legacy layout: one flat `archives/` folder keyed by uuid.
-            None => storage_dir.join("archives").join(format!(
-                "{}.{}",
-                self.id,
-                self.format.extension()
-            )),
+            None => {
+                storage_dir
+                    .archives_dir()
+                    .join(format!("{}.{}", self.id, self.format.extension()))
+            }
         }
     }
 
@@ -385,7 +386,7 @@ pub(crate) fn archive_path(
     format: ModArchiveFormat,
 ) -> PathBuf {
     storage_dir
-        .join("mods")
+        .mods_dir()
         .join(format!("{slug}.{}", format.extension()))
 }
 
@@ -466,7 +467,7 @@ pub(crate) fn resolve_profile_dirs(
     storage_dir: &Path,
     profile_slug: &ProfileSlug,
 ) -> (PathBuf, PathBuf) {
-    let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
+    let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
     let overlay_dir = profile_dir.join("overlay");
     let cache_dir = profile_dir.join("cache");
     (overlay_dir, cache_dir)

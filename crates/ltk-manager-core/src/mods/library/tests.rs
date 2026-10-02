@@ -1,4 +1,5 @@
 use super::*;
+use crate::mods::index::ModArchiveFormat;
 use crate::mods::test_support::{make_test_entry, make_test_library, seed_library};
 
 #[test]

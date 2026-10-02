@@ -10,10 +10,38 @@
 use fs_err as fs;
 use std::path::{Path, PathBuf};
 
-use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
+use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use super::win_util::has_cloud_sync_attrs;
+use crate::platform::windows::has_cloud_sync_attrs;
+
+const LEAGUE_EXISTS: CheckSpec = CheckSpec::new(
+    "paths.league.exists",
+    "League installation path",
+    Category::League,
+);
+const LEAGUE_WRITABLE: CheckSpec = CheckSpec::new(
+    "paths.league.writable",
+    "League directory is writable",
+    Category::League,
+);
+const STORAGE_EXISTS: CheckSpec = CheckSpec::new(
+    "paths.storage.exists",
+    "Mod storage path",
+    Category::Storage,
+);
+const STORAGE_WRITABLE: CheckSpec = CheckSpec::new(
+    "paths.storage.writable",
+    "Storage directory is writable",
+    Category::Storage,
+);
+const STORAGE_NOT_IN_LEAGUE: CheckSpec = CheckSpec::new(
+    "paths.storage.not_in_league",
+    "Storage outside League directory",
+    Category::Storage,
+);
+const FREE_SPACE: CheckSpec =
+    CheckSpec::new("paths.free_space", "Free disk space", Category::Storage);
 
 const PATH_LEN_WARN: usize = 128;
 const FREE_SPACE_WARN: u64 = 1024 * 1024 * 1024; // 1 GB
@@ -57,7 +85,7 @@ fn free_disk_bytes(path: &Path) -> Option<u64> {
     use std::ptr;
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
-    let wide = super::win_util::path_to_wide(path);
+    let wide = crate::platform::windows::path_to_wide(path);
     let mut free: u64 = 0;
     // SAFETY: null-terminated wide string; `free` is a stack u64.
     let ok = unsafe {
@@ -112,22 +140,13 @@ fn cloud_token_in_path(path: &Path) -> Option<&'static str> {
 
 pub fn check_league_path(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.league_path.as_ref() else {
-        return check(
-            "paths.league.exists",
-            "League installation path",
-            Category::League,
-            Severity::Bad,
-            "Not configured",
-        );
+        return LEAGUE_EXISTS.result(Severity::Bad, "Not configured");
     };
     let game_exe = p.join("Game").join("League of Legends.exe");
     let mac_path = p.join("Contents").join("LoL").join("Game");
     let exists = game_exe.exists() || mac_path.exists();
     if !exists {
-        let mut c = check(
-            "paths.league.exists",
-            "League installation path",
-            Category::League,
+        let mut c = LEAGUE_EXISTS.result(
             Severity::Bad,
             "Configured path doesn't contain League of Legends",
         );
@@ -139,12 +158,7 @@ pub fn check_league_path(ctx: &CheckCtx) -> Check {
         );
         return c;
     }
-    let mut c = check_ok(
-        "paths.league.exists",
-        "League installation path",
-        Category::League,
-        &p.display().to_string(),
-    );
+    let mut c = LEAGUE_EXISTS.ok(p.display().to_string());
     let len = p.display().to_string().len();
     if len > PATH_LEN_WARN {
         c.severity = Severity::Warn;
@@ -178,13 +192,7 @@ pub fn check_league_path(ctx: &CheckCtx) -> Check {
 
 pub fn check_league_writability(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.league_path.as_ref() else {
-        return check(
-            "paths.league.writable",
-            "League directory is writable",
-            Category::League,
-            Severity::Info,
-            "League path not configured",
-        );
+        return LEAGUE_WRITABLE.result(Severity::Info, "League path not configured");
     };
     let game_dir = p.join("Game");
     let target = if game_dir.exists() {
@@ -193,20 +201,10 @@ pub fn check_league_writability(ctx: &CheckCtx) -> Check {
         p.clone()
     };
     match probe_writable(&target) {
-        Ok(()) => check_ok(
-            "paths.league.writable",
-            "League directory is writable",
-            Category::League,
-            "Writable",
-        ),
+        Ok(()) => LEAGUE_WRITABLE.ok("Writable"),
         Err(e) => {
-            let mut c = check(
-                "paths.league.writable",
-                "League directory is writable",
-                Category::League,
-                Severity::Bad,
-                "Cannot write to League's Game directory",
-            );
+            let mut c =
+                LEAGUE_WRITABLE.result(Severity::Bad, "Cannot write to League's Game directory");
             c.details
                 .push(CheckDetail::new("path", target.display().to_string()));
             c.details.push(CheckDetail::new("error", e.to_string()));
@@ -221,10 +219,7 @@ pub fn check_league_writability(ctx: &CheckCtx) -> Check {
 
 pub fn check_storage_path(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.mod_storage_path.as_ref() else {
-        return check(
-            "paths.storage.exists",
-            "Mod storage path",
-            Category::Storage,
+        return STORAGE_EXISTS.result(
             Severity::Bad,
             "Could not resolve a storage directory (Tauri app-data dir unavailable)",
         );
@@ -235,10 +230,7 @@ pub fn check_storage_path(ctx: &CheckCtx) -> Check {
         ""
     };
     if !p.exists() {
-        let mut c = check(
-            "paths.storage.exists",
-            "Mod storage path",
-            Category::Storage,
+        let mut c = STORAGE_EXISTS.result(
             Severity::Warn,
             format!(
                 "Storage directory does not exist yet{} — will be created on first use",
@@ -253,12 +245,7 @@ pub fn check_storage_path(ctx: &CheckCtx) -> Check {
         }
         return c;
     }
-    let mut c = check_ok(
-        "paths.storage.exists",
-        "Mod storage path",
-        Category::Storage,
-        &format!("{}{}", p.display(), summary_suffix),
-    );
+    let mut c = STORAGE_EXISTS.ok(format!("{}{}", p.display(), summary_suffix));
     if ctx.mod_storage_is_default {
         c.details
             .push(CheckDetail::new("source", "default (app-data dir)"));
@@ -293,38 +280,19 @@ pub fn check_storage_path(ctx: &CheckCtx) -> Check {
 
 pub fn check_storage_writability(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.mod_storage_path.as_ref() else {
-        return check(
-            "paths.storage.writable",
-            "Storage directory is writable",
-            Category::Storage,
-            Severity::Info,
-            "No storage path resolved",
-        );
+        return STORAGE_WRITABLE.result(Severity::Info, "No storage path resolved");
     };
     if !p.exists() {
-        return check(
-            "paths.storage.writable",
-            "Storage directory is writable",
-            Category::Storage,
+        return STORAGE_WRITABLE.result(
             Severity::Info,
             "Storage directory does not exist yet — skipped",
         );
     }
     match probe_writable(p) {
-        Ok(()) => check_ok(
-            "paths.storage.writable",
-            "Storage directory is writable",
-            Category::Storage,
-            "Writable",
-        ),
+        Ok(()) => STORAGE_WRITABLE.ok("Writable"),
         Err(e) => {
-            let mut c = check(
-                "paths.storage.writable",
-                "Storage directory is writable",
-                Category::Storage,
-                Severity::Bad,
-                "Cannot write to mod storage directory",
-            );
+            let mut c =
+                STORAGE_WRITABLE.result(Severity::Bad, "Cannot write to mod storage directory");
             c.details.push(CheckDetail::new("error", e.to_string()));
             c.suggestion = Some(
                 "Mods can't be installed if the storage folder isn't writable. Check NTFS permissions and antivirus exclusions."
@@ -338,19 +306,11 @@ pub fn check_storage_writability(ctx: &CheckCtx) -> Check {
 pub fn check_storage_in_league(ctx: &CheckCtx) -> Check {
     let (Some(storage), Some(league)) = (ctx.mod_storage_path.as_ref(), ctx.league_path.as_ref())
     else {
-        return check(
-            "paths.storage.not_in_league",
-            "Storage outside League directory",
-            Category::Storage,
-            Severity::Info,
-            "League path not configured — skipped",
-        );
+        return STORAGE_NOT_IN_LEAGUE
+            .result(Severity::Info, "League path not configured — skipped");
     };
     if is_subpath_of(storage, league) {
-        let mut c = check(
-            "paths.storage.not_in_league",
-            "Storage outside League directory",
-            Category::Storage,
+        let mut c = STORAGE_NOT_IN_LEAGUE.result(
             Severity::Bad,
             "Mod storage is inside the League installation",
         );
@@ -364,12 +324,7 @@ pub fn check_storage_in_league(ctx: &CheckCtx) -> Check {
         );
         c
     } else {
-        check_ok(
-            "paths.storage.not_in_league",
-            "Storage outside League directory",
-            Category::Storage,
-            "OK",
-        )
+        STORAGE_NOT_IN_LEAGUE.ok("OK")
     }
 }
 
@@ -385,23 +340,11 @@ pub fn check_free_space(ctx: &CheckCtx) -> Check {
         })
         .unwrap_or_else(|| PathBuf::from("."));
     let Some(free) = free_disk_bytes(&target) else {
-        return check(
-            "paths.free_space",
-            "Free disk space",
-            Category::Storage,
-            Severity::Info,
-            "Could not query free space",
-        );
+        return FREE_SPACE.result(Severity::Info, "Could not query free space");
     };
     let display = bytes_to_str(free);
     if free < FREE_SPACE_WARN {
-        let mut c = check(
-            "paths.free_space",
-            "Free disk space",
-            Category::Storage,
-            Severity::Warn,
-            format!("{} free (< 1 GB)", display),
-        );
+        let mut c = FREE_SPACE.result(Severity::Warn, format!("{} free (< 1 GB)", display));
         c.details
             .push(CheckDetail::new("path", target.display().to_string()));
         c.suggestion = Some(
@@ -410,12 +353,7 @@ pub fn check_free_space(ctx: &CheckCtx) -> Check {
         );
         c
     } else {
-        let mut c = check_ok(
-            "paths.free_space",
-            "Free disk space",
-            Category::Storage,
-            &format!("{} free", display),
-        );
+        let mut c = FREE_SPACE.ok(format!("{} free", display));
         c.details
             .push(CheckDetail::new("path", target.display().to_string()));
         c

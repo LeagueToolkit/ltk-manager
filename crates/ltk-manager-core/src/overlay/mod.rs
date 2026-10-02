@@ -20,6 +20,7 @@ use crate::error::{AppResult, Utf8PathExt};
 use crate::events::BackendEvent;
 use crate::meta_schema::{self, PatchSchema};
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::problems::GameBuild;
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
@@ -95,7 +96,7 @@ impl ModLibrary {
         let game_dir = crate::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
 
-        let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
+        let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
 
         // A manual rebuild discards this profile's cached overlay state so the

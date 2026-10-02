@@ -432,7 +432,7 @@ fn a_saved_index_reconciles_back_to_its_orphan_free_shape() {
 }
 
 fn staging_dirs(storage: &Path) -> impl Iterator<Item = PathBuf> + use<> {
-    fs::read_dir(storage.join("mods"))
+    fs::read_dir(storage.mods_dir())
         .into_iter()
         .flatten()
         .flatten()

@@ -10,11 +10,10 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
 use crate::mods::archive::documents::{ModDocument, entry_of, read_license, read_readme};
-use crate::mods::archive::metadata::{
-    extract_fantome_thumbnail, extract_modpkg_thumbnail, load_mod_project, read_installed_mod,
-};
+use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
+use crate::mods::archive::reader::ModArchive;
+use crate::mods::index::LibraryModEntry;
 use crate::mods::index::get_active_profile;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
 use crate::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use fs_err as fs;
@@ -364,12 +363,7 @@ fn thumbnail_path(storage_dir: &Path, entry: &LibraryModEntry) -> AppResult<Opti
         return Ok(None);
     }
 
-    let cached_path = match entry.format {
-        ModArchiveFormat::Modpkg => extract_modpkg_thumbnail(&archive_path, &mod_dir)?,
-        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-            extract_fantome_thumbnail(&archive_path, &mod_dir)?
-        }
-    };
+    let cached_path = ModArchive::open(&archive_path, entry.format)?.write_thumbnail(&mod_dir)?;
 
     Ok(cached_path.map(|p| p.display().to_string()))
 }

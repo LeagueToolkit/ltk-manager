@@ -13,7 +13,7 @@ const SYSTEM_PATH: &str = "Maps/Particles/SRX/Base/SRX_Mountain_DragonPit_Sandfa
 fn a_particle_answers_where_it_stands_with_the_translation_last() {
     /* Transposed, which is how the reader holds a matrix whose file rows end in the
     translation. */
-    let stood = Mat4::from_translation(vec3(10145.0, -73.0, 3866.0)).transpose();
+    let placement = Mat4::from_translation(vec3(10145.0, -73.0, 3866.0)).transpose();
     let document = document_of(vec![container(
         "Maps/MapGeometry/Map11/Base_SRX/Chunks/Plants",
         vec![(
@@ -21,7 +21,7 @@ fn a_particle_answers_where_it_stands_with_the_translation_last() {
             placeable(
                 "MapParticle",
                 vec![
-                    (TRANSFORM, values::Matrix44::new(stood).into()),
+                    (TRANSFORM, values::Matrix44::new(placement).into()),
                     (NAME, values::String::from("Sandfall1").into()),
                     (VISIBILITY_FLAGS, values::U8::new(4).into()),
                     (SYSTEM, values::ObjectLink::new(h(SYSTEM_PATH)).into()),

@@ -11,11 +11,11 @@ use std::sync::Arc;
 /// Lay out one mod the way the pre-slug library did: `archives/<id>.<ext>` plus
 /// a `mods/<id>/` holding only the extracted metadata.
 fn place_legacy_fantome(storage: &Path, id: &str, display_name: &str) {
-    let archives = storage.join("archives");
+    let archives = storage.archives_dir();
     fs::create_dir_all(&archives).unwrap();
     make_full_fantome_zip(&archives.join(format!("{id}.fantome")));
 
-    let meta_dir = storage.join("mods").join(id);
+    let meta_dir = storage.mods_dir().join(id);
     fs::create_dir_all(&meta_dir).unwrap();
     let mut project = mod_project_named("full-mod");
     project.display_name = display_name.to_string();
@@ -31,7 +31,7 @@ fn a_legacy_fantome_moves_onto_its_slug_byte_for_byte() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
     place_legacy_fantome(storage.path(), "id-1", "Full Mod");
-    let before = fs::read(storage.path().join("archives").join("id-1.fantome")).unwrap();
+    let before = fs::read(storage.path().archives_dir().join("id-1.fantome")).unwrap();
     seed_library(
         &library,
         &config,
@@ -49,7 +49,7 @@ fn a_legacy_fantome_moves_onto_its_slug_byte_for_byte() {
 
     assert_eq!(
         entry.archive_path(storage.path()),
-        storage.path().join("mods").join("full-mod.fantome")
+        storage.path().mods_dir().join("full-mod.fantome")
     );
     assert_eq!(
         fs::read(entry.archive_path(storage.path())).unwrap(),
@@ -62,7 +62,7 @@ fn a_legacy_fantome_moves_onto_its_slug_byte_for_byte() {
             .exists()
     );
 
-    assert!(!storage.path().join("mods").join("id-1").exists());
+    assert!(!storage.path().mods_dir().join("id-1").exists());
     assert!(
         !storage
             .path()
@@ -104,7 +104,7 @@ fn a_missing_metadata_directory_is_rebuilt_from_the_archive() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
     place_legacy_fantome(storage.path(), "id-1", "Full Mod");
-    fs::remove_dir_all(storage.path().join("mods").join("id-1")).unwrap();
+    fs::remove_dir_all(storage.path().mods_dir().join("id-1")).unwrap();
     seed_library(
         &library,
         &config,
@@ -125,7 +125,7 @@ fn the_users_own_metadata_moves_with_the_directory_that_holds_it() {
     let (library, config) = make_test_library(storage.path());
     place_legacy_fantome(storage.path(), "id-1", "My Renamed Mod");
 
-    let meta_dir = storage.path().join("mods").join("id-1");
+    let meta_dir = storage.path().mods_dir().join("id-1");
     let mut project = mod_project_named("full-mod");
     project.display_name = "My Renamed Mod".to_string();
     project.tags = vec![ltk_mod_project::ModTag::from("skin".to_string())];
@@ -165,11 +165,11 @@ fn a_modpkg_keeps_its_archive_and_moves_it_beside_the_mod() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let archives = storage.path().join("archives");
+    let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
     crate::mods::test_support::make_modpkg(&archives.join("id-1.modpkg"), "packed-mod");
     let packed_bytes = fs::read(archives.join("id-1.modpkg")).unwrap();
-    let meta_dir = storage.path().join("mods").join("id-1");
+    let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(
         meta_dir.join("mod.config.json"),
@@ -190,7 +190,7 @@ fn a_modpkg_keeps_its_archive_and_moves_it_beside_the_mod() {
     assert_eq!(entry.storage, ModStorage::Archive);
     assert_eq!(
         entry.archive_path(storage.path()),
-        storage.path().join("mods").join("packed-mod.modpkg")
+        storage.path().mods_dir().join("packed-mod.modpkg")
     );
     assert_eq!(
         fs::read(entry.archive_path(storage.path())).unwrap(),
@@ -207,10 +207,10 @@ fn a_corrupt_archive_leaves_the_mod_in_the_legacy_layout() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let archives = storage.path().join("archives");
+    let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
     fs::write(archives.join("id-1.fantome"), b"not a zip").unwrap();
-    let meta_dir = storage.path().join("mods").join("id-1");
+    let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(
         meta_dir.join("mod.config.json"),
@@ -250,7 +250,7 @@ fn a_failed_mod_is_retried_by_a_later_run() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let archives = storage.path().join("archives");
+    let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
     fs::write(archives.join("id-1.fantome"), b"not a zip").unwrap();
     seed_library(
@@ -409,10 +409,10 @@ fn a_converted_fantome_keeps_the_layers_its_archive_declares() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
 
-    let archives = storage.path().join("archives");
+    let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
     crate::mods::test_support::make_layered_fantome_zip(&archives.join("id-1.fantome"));
-    let meta_dir = storage.path().join("mods").join("id-1");
+    let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(
         meta_dir.join("mod.config.json"),

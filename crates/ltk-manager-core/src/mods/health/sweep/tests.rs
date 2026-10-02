@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::events::BackendEvent;
+use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     RecordingEventSink, healthy_bin, make_library_with_events, make_library_with_version,
@@ -495,7 +496,7 @@ fn one_unreadable_mod_does_not_stop_the_sweep() {
     let (library, mut config) = make_test_library(storage.path());
     point_at_installed_build(&mut config, storage.path());
     place_bin_archived_fantome(storage.path(), "good-mod", &stale_bin());
-    let broken_dir = storage.path().join("mods").join("broken-mod");
+    let broken_dir = storage.path().mods_dir().join("broken-mod");
     fs::create_dir_all(&broken_dir).unwrap();
     fs::write(broken_dir.join("mod.config.json"), "{}").unwrap();
     seed_library(

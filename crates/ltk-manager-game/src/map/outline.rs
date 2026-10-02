@@ -101,7 +101,7 @@ pub fn map_outline(materials: &BinDocument, names: &dyn RowNames) -> Vec<MapChun
 
 fn item(placed: &Placed<'_>, namer: &mut Namer<'_>) -> MapChunkItem {
     let fields = placed.fields;
-    let stood = transform(fields);
+    let placement = transform(fields);
     MapChunkItem {
         key: hex(placed.key),
         name: match leaf(fields.get(&NAME)) {
@@ -113,7 +113,7 @@ fn item(placed: &Placed<'_>, namer: &mut Namer<'_>) -> MapChunkItem {
             .class(placed.class)
             .unwrap_or_else(|| hex(placed.class)),
         kind: kind_of(placed),
-        position: [stood[12], stood[13], stood[14]],
+        position: [placement[12], placement[13], placement[14]],
         visibility: visibility(fields),
         controller: controller(fields),
     }

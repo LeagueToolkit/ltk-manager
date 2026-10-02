@@ -346,7 +346,7 @@ pub struct ClassSchema {
     /// The patch a player names, where the install's own build is what was read.
     ///
     /// Absent where the database describes no build the install has and the newest it
-    /// names stood in, because that build belongs to no patch this install knows.
+    /// names was used instead, because that build belongs to no patch this install knows.
     pub patch: Option<String>,
     /// The classes it derives from at `build`, nearest first.
     pub bases: Vec<ClassRef>,

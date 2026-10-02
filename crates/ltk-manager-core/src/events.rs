@@ -332,7 +332,11 @@ macro_rules! declare_events {
         /// scattered string literals at each emit site, so a rename could
         /// silently desynchronize the backend from the frontend's `listen()`
         /// calls.
-        #[derive(Clone, Debug)]
+        ///
+        /// Serializes as its payload alone, and an event with no payload as `null`, which is
+        /// what a listener receives.
+        #[derive(Clone, Debug, Serialize)]
+        #[serde(untagged)]
         pub enum BackendEvent {
             $(
                 $(#[$meta])*

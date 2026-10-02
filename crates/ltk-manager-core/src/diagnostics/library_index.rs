@@ -7,28 +7,19 @@
 
 use fs_err as fs;
 
-use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
+use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
+
+const INDEX: CheckSpec = CheckSpec::new("library.index", "Mod library index", Category::Library);
 
 const INDEX_FILENAME: &str = "mod_library_index.json";
 
 pub fn check_library_index(ctx: &CheckCtx) -> Check {
     let Some(storage) = ctx.mod_storage_path.as_ref() else {
-        return check(
-            "library.index",
-            "Mod library index",
-            Category::Library,
-            Severity::Info,
-            "No storage path resolved",
-        );
+        return INDEX.result(Severity::Info, "No storage path resolved");
     };
     let path = storage.join(INDEX_FILENAME);
     if !path.exists() {
-        let mut c = check_ok(
-            "library.index",
-            "Mod library index",
-            Category::Library,
-            "No index yet (fresh install)",
-        );
+        let mut c = INDEX.ok("No index yet (fresh install)");
         c.details
             .push(CheckDetail::new("path", path.display().to_string()));
         return c;
@@ -36,13 +27,7 @@ pub fn check_library_index(ctx: &CheckCtx) -> Check {
     let raw = match fs::read(&path) {
         Ok(b) => b,
         Err(e) => {
-            let mut c = check(
-                "library.index",
-                "Mod library index",
-                Category::Library,
-                Severity::Bad,
-                "Could not read library index",
-            );
+            let mut c = INDEX.result(Severity::Bad, "Could not read library index");
             c.details
                 .push(CheckDetail::new("path", path.display().to_string()));
             c.details.push(CheckDetail::new("error", e.to_string()));
@@ -52,12 +37,7 @@ pub fn check_library_index(ctx: &CheckCtx) -> Check {
     let size = raw.len();
     match serde_json::from_slice::<serde_json::Value>(&raw) {
         Ok(v) => {
-            let mut c = check_ok(
-                "library.index",
-                "Mod library index",
-                Category::Library,
-                "Index parses successfully",
-            );
+            let mut c = INDEX.ok("Index parses successfully");
             c.details
                 .push(CheckDetail::new("path", path.display().to_string()));
             c.details
@@ -76,13 +56,7 @@ pub fn check_library_index(ctx: &CheckCtx) -> Check {
             c
         }
         Err(e) => {
-            let mut c = check(
-                "library.index",
-                "Mod library index",
-                Category::Library,
-                Severity::Bad,
-                "Index file is corrupted (JSON parse failed)",
-            );
+            let mut c = INDEX.result(Severity::Bad, "Index file is corrupted (JSON parse failed)");
             c.details
                 .push(CheckDetail::new("path", path.display().to_string()));
             c.details

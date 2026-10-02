@@ -7,6 +7,7 @@
 //! Every operation here is best-effort. An artifact that resists deletion is
 //! logged and skipped.
 
+use crate::mods::StorageLayout as _;
 use fs_err as fs;
 use std::path::Path;
 
@@ -42,7 +43,7 @@ impl OverlayStorageExt for Path {
             return;
         }
 
-        let profiles_dir = self.join("profiles");
+        let profiles_dir = self.profiles_dir();
         if let Ok(entries) = fs::read_dir(&profiles_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();

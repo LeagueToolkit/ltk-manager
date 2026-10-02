@@ -9,18 +9,21 @@
 //! Replacing the archive, and keeping no copy of the original, is ADR-0005.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, IoContext, Utf8PathExt, Utf8PathRefExt, io_context};
+use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
+use crate::mods::archive::reader::open_fantome;
 use crate::mods::health::{Refused, cancelled};
 use crate::mods::index::ModStorage;
 use crate::problems::{self, Budget, FixReport, ProjectFiles, budget};
+use crate::utils::fs::replace_keeping_old;
 use camino::Utf8Path;
 use delta::RepairEdit;
 use fs_err as fs;
-use ltk_fantome::{DeltaReport, FantomeReader};
+use ltk_fantome::DeltaReport;
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;
@@ -139,7 +142,7 @@ impl ModLibrary {
                     Some(outcome) => outcome,
                     None => {
                         let staging = storage_dir
-                            .join("mods")
+                            .mods_dir()
                             .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
                         fs::create_dir_all(&staging)?;
                         let outcome = self.repair_in_staging(config, &staging, &archive, budget);
@@ -294,8 +297,7 @@ impl ModLibrary {
         )?;
         let run = project.checked();
         let wanted = run.live_fixable();
-        let declared = FantomeReader::new(fs::File::open(archive)?)
-            .and_then(|mut reader| reader.read_hashtables())?;
+        let declared = open_fantome(archive)?.read_hashtables()?;
         let (report, held) = problems::apply_held(
             project,
             declared,
@@ -544,19 +546,12 @@ fn repack(staging: &Path, staging_utf8: &Utf8Path, archive: &Path) -> AppResult<
 /// Put the repacked archive where the original was, keeping the original until
 /// the repacked one is in place.
 fn swap_in_repacked(repacked: &Path, archive: &Path) -> AppResult<()> {
-    let replaced = archive.with_extension("replaced");
-    fs::rename(archive, &replaced).context("Failed to move the archive aside")?;
-
-    if let Err(e) = fs::rename(repacked, archive) {
-        let _ = fs::rename(&replaced, archive);
-        return Err(io_context(
-            e,
-            "Failed to move the repaired archive into place",
-        ));
-    }
-
-    let _ = fs::remove_file(&replaced);
-    Ok(())
+    replace_keeping_old(
+        repacked,
+        archive,
+        &archive.with_extension("replaced"),
+        ("archive", "repaired archive"),
+    )
 }
 
 #[cfg(test)]

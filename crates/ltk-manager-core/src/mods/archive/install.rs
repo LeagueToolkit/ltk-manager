@@ -13,9 +13,8 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, io_context};
 use crate::events::{BackendEvent, InstallProgress};
 use crate::mods::ModLibrary;
-use crate::mods::archive::metadata::{
-    extract_fantome_metadata, extract_modpkg_metadata, load_mod_project, read_installed_mod,
-};
+use crate::mods::StorageLayout as _;
+use crate::mods::archive::metadata::{extract_metadata, load_mod_project, read_installed_mod};
 use crate::mods::index::document::archive_path;
 use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
@@ -114,7 +113,7 @@ impl ModLibrary {
         )?;
 
         self.mutate_index(config, |storage_dir, index| {
-            let mut taken = TakenSlugs::collect(index, &storage_dir.join("mods"));
+            let mut taken = TakenSlugs::collect(index, &storage_dir.mods_dir());
             let (_entry, installed_mod) =
                 register_staged_mod(storage_dir, index, staged, &mut taken)?;
             Ok(installed_mod)
@@ -171,7 +170,7 @@ impl ModLibrary {
 
         let mut installed = Vec::new();
         self.mutate_index(config, |storage_dir, index| {
-            let mut taken = TakenSlugs::collect(index, &storage_dir.join("mods"));
+            let mut taken = TakenSlugs::collect(index, &storage_dir.mods_dir());
             for mod_package in staged {
                 let source_path = mod_package.source_path.clone();
                 match register_staged_mod(storage_dir, index, mod_package, &mut taken) {
@@ -243,7 +242,7 @@ pub(crate) fn stage_mod_package(
         .unwrap_or(ModArchiveFormat::Fantome);
 
     let id = Uuid::new_v4().to_string();
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let staging_dir = mods_dir.join(format!("{STAGING_PREFIX}{id}"));
     let staged_archive = mods_dir.join(format!("{STAGING_PREFIX}{id}.{}", format.extension()));
     fs::create_dir_all(&staging_dir)?;
@@ -305,7 +304,7 @@ fn stage_into(
                 .map_err(|e| AppError::Other(format!("Failed to normalize the archive: {e}")))?;
             tracing::info!(archive = %dest, outcome = ?outcome, "Normalized the mod's archive");
 
-            extract_fantome_metadata(staged_archive, staging_dir)?;
+            extract_metadata(staged_archive, ModArchiveFormat::Fantome, staging_dir)?;
 
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
@@ -314,7 +313,7 @@ fn stage_into(
         }
         ModArchiveFormat::Modpkg => {
             fs::copy(file_path, staged_archive)?;
-            extract_modpkg_metadata(staged_archive, staging_dir)?;
+            extract_metadata(staged_archive, ModArchiveFormat::Modpkg, staging_dir)?;
 
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
@@ -396,7 +395,7 @@ pub(crate) fn register_staged_mod(
     taken: &mut TakenSlugs,
 ) -> AppResult<(LibraryModEntry, InstalledMod)> {
     let slug = ModSlug::assign(&staged.project_name, taken);
-    let mod_dir = storage_dir.join("mods").join(slug.as_str());
+    let mod_dir = storage_dir.mods_dir().join(slug.as_str());
 
     if let Err(e) = fs::rename(&staged.staging_dir, &mod_dir) {
         staged.discard();

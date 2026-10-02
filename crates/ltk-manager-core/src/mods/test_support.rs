@@ -8,6 +8,7 @@ use crate::config::Config;
 use crate::events::{BackendEvent, EventSink, NullEventSink};
 use crate::hashtables::WadPathResolverState;
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::mods::analysis::linked_bins::LinkedBinState;
 use crate::mods::analysis::wad_reports::WadReportState;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
@@ -196,11 +197,11 @@ pub(crate) fn make_test_profile(
 /// Place the legacy uuid-layout files so the mod is considered valid:
 /// `mods/<id>/mod.config.json` plus `archives/<id>.<ext>`.
 pub(crate) fn place_mod_files(storage_dir: &Path, id: &str, format: ModArchiveFormat) {
-    let meta_dir = storage_dir.join("mods").join(id);
+    let meta_dir = storage_dir.mods_dir().join(id);
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(meta_dir.join("mod.config.json"), "{}").unwrap();
 
-    let archive_dir = storage_dir.join("archives");
+    let archive_dir = storage_dir.archives_dir();
     fs::create_dir_all(&archive_dir).unwrap();
     fs::write(
         archive_dir.join(format!("{}.{}", id, format.extension())),
@@ -220,7 +221,7 @@ pub(crate) fn place_installed_mod(
     format: ModArchiveFormat,
     with_archive: bool,
 ) {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -244,7 +245,7 @@ pub(crate) fn place_unpacked_mod(storage_dir: &Path, slug: &str, with_archive: b
     place_installed_mod(storage_dir, slug, ModArchiveFormat::Fantome, with_archive);
 
     let wad_dir = storage_dir
-        .join("mods")
+        .mods_dir()
         .join(slug)
         .join("content")
         .join("base")
@@ -926,7 +927,7 @@ pub(crate) fn place_packed_chunks_archived_fantome(
     slug: &str,
     chunks: &[(&str, &[u8])],
 ) {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -997,7 +998,7 @@ pub(crate) fn silent_audio_bank() -> Vec<u8> {
 /// An archive-storage fantome in the slug layout: a metadata-only mod
 /// directory, an archive holding `bin` beside it.
 pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -1017,7 +1018,7 @@ pub(crate) fn place_packed_bin_archived_fantome(
     slug: &str,
     bin: &ltk_meta::Bin,
 ) {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -1040,7 +1041,7 @@ pub(crate) fn place_packed_chunks_fantome_with_raw(
     chunks: &[(&str, &[u8])],
     raw: (&str, &[u8]),
 ) {
-    let mods_dir = storage_dir.join("mods");
+    let mods_dir = storage_dir.mods_dir();
     let mod_dir = mods_dir.join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
@@ -1096,7 +1097,7 @@ pub(crate) fn place_packed_fantome_with_raw(
 /// A Project-storage fantome: `bin` sits in the unpacked tree, and no archive
 /// exists beside it.
 pub(crate) fn place_bin_project_mod(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
-    let mod_dir = storage_dir.join("mods").join(slug);
+    let mod_dir = storage_dir.mods_dir().join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
         mod_dir.join("mod.config.json"),
@@ -1123,7 +1124,7 @@ pub(crate) fn place_hex_named_bin_project_mod(
     slug: &str,
     bin: &ltk_meta::Bin,
 ) -> String {
-    let mod_dir = storage_dir.join("mods").join(slug);
+    let mod_dir = storage_dir.mods_dir().join(slug);
     fs::create_dir_all(&mod_dir).unwrap();
     fs::write(
         mod_dir.join("mod.config.json"),
@@ -1167,7 +1168,7 @@ pub(crate) fn property_in_unpacked_tree(
     slug: &str,
 ) -> ltk_meta::PropertyValueEnum {
     let bin_path = storage_dir
-        .join("mods")
+        .mods_dir()
         .join(slug)
         .join("content")
         .join("base")

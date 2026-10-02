@@ -1250,7 +1250,7 @@ export type ClassSchema = {
 	 *  The patch a player names, where the install's own build is what was read.
 	 * 
 	 *  Absent where the database describes no build the install has and the newest it
-	 *  names stood in, because that build belongs to no patch this install knows.
+	 *  names was used instead, because that build belongs to no patch this install knows.
 	 */
 	patch: string | null,
 	/**  The classes it derives from at `build`, nearest first. */
@@ -2219,9 +2219,9 @@ scale: number | null } |
 { kind: "jointSnap"; 
 /**  `mJointNameToOverride`, the joint moved, and none for an event naming no joint. */
 joint: HashRef | null; 
-/**  `mJointNameToSnapTo`, the joint it stands on, and none for an event naming no joint. */
+/**  `mJointNameToSnapTo`, the joint it snaps to, and none for an event naming no joint. */
 snapTo: HashRef | null; 
-/**  `offset`, in the frame of the joint stood on. */
+/**  `offset`, in the frame of the joint it snaps to. */
 offset: [(number | null), (number | null), (number | null)] } | 
 /**  `ConformToPathEventData`: the joints a mask weighs follow the unit's path over the span. */
 { kind: "conformToPath"; 

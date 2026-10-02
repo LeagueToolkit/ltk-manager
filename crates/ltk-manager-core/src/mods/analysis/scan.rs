@@ -10,13 +10,12 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::BackendEvent;
+use crate::mods::archive::reader::open_modpkg;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::{
     ChampionRoster, DerivedCategorization, ModLibrary, ModWadReport, WadReportState,
 };
 use camino::Utf8PathBuf;
-use fs_err::File;
-use ltk_modpkg::Modpkg;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -40,8 +39,7 @@ impl ModLibrary {
             }
 
             let archive_path = entry.archive_path(storage_dir);
-            let modpkg = Modpkg::mount_from_reader(File::open(&archive_path)?)
-                .map_err(|e| AppError::Other(format!("Failed to mount modpkg: {}", e)))?;
+            let modpkg = open_modpkg(&archive_path)?;
             let paths: Vec<String> = modpkg.chunk_paths().values().cloned().collect();
             Ok((!paths.is_empty()).then_some(paths))
         })

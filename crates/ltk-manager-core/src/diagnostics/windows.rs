@@ -1,12 +1,17 @@
 //! OS-level diagnostic checks: Windows version, long-paths registry,
 //! UAC enabled. These don't depend on any user paths and run on app launch.
 
-use super::{Category, Check, Severity, check};
+use super::{Category, Check, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use super::win_util::{HKLM, reg_read_num};
+use super::CheckDetail;
 #[cfg(target_os = "windows")]
-use super::{CheckDetail, check_ok};
+use crate::platform::windows::{HKLM, reg_read_num};
+
+const VERSION: CheckSpec = CheckSpec::new("windows.version", "Windows version", Category::System);
+const LONG_PATHS: CheckSpec =
+    CheckSpec::new("windows.long_paths", "Long paths enabled", Category::System);
+const UAC: CheckSpec = CheckSpec::new("windows.uac", "User Account Control", Category::System);
 
 #[cfg(target_os = "windows")]
 const MIN_OK_BUILD: u32 = 19045;
@@ -45,13 +50,7 @@ pub fn check_version() -> Check {
     let (major, minor, build) = read_kuser_version();
     let display = format!("Windows {}.{}.{}", major, minor, build);
     if build < MIN_OK_BUILD || build == KNOWN_BAD_BUILD {
-        let mut c = check(
-            "windows.version",
-            "Windows version",
-            Category::System,
-            Severity::Bad,
-            display,
-        );
+        let mut c = VERSION.result(Severity::Bad, display);
         c.suggestion = Some(
             "Your Windows build is older than the minimum supported by League. Run Windows Update to install the latest cumulative update before troubleshooting further."
                 .into(),
@@ -61,12 +60,7 @@ pub fn check_version() -> Check {
         c.details.push(CheckDetail::new("build", build.to_string()));
         c
     } else {
-        let mut c = check_ok(
-            "windows.version",
-            "Windows version",
-            Category::System,
-            &display,
-        );
+        let mut c = VERSION.ok(&display);
         c.details.push(CheckDetail::new("build", build.to_string()));
         c
     }
@@ -74,13 +68,7 @@ pub fn check_version() -> Check {
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_version() -> Check {
-    check(
-        "windows.version",
-        "Windows version",
-        Category::System,
-        Severity::Info,
-        "Not running on Windows",
-    )
+    VERSION.result(Severity::Info, "Not running on Windows")
 }
 
 #[cfg(target_os = "windows")]
@@ -92,10 +80,7 @@ pub fn check_long_paths_enabled() -> Check {
     )
     .unwrap_or(0);
     if value == 0 {
-        let mut c = check(
-            "windows.long_paths",
-            "Long paths enabled",
-            Category::System,
+        let mut c = LONG_PATHS.result(
             Severity::Warn,
             "Disabled — paths longer than 260 chars will fail",
         );
@@ -109,24 +94,13 @@ pub fn check_long_paths_enabled() -> Check {
         );
         c
     } else {
-        check_ok(
-            "windows.long_paths",
-            "Long paths enabled",
-            Category::System,
-            "Enabled",
-        )
+        LONG_PATHS.ok("Enabled")
     }
 }
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_long_paths_enabled() -> Check {
-    check(
-        "windows.long_paths",
-        "Long paths enabled",
-        Category::System,
-        Severity::Info,
-        "Not applicable",
-    )
+    LONG_PATHS.result(Severity::Info, "Not applicable")
 }
 
 #[cfg(target_os = "windows")]
@@ -138,35 +112,18 @@ pub fn check_uac_enabled() -> Check {
     )
     .unwrap_or(1);
     if value == 0 {
-        let mut c = check(
-            "windows.uac",
-            "User Account Control",
-            Category::System,
-            Severity::Bad,
-            "Disabled — every process runs elevated",
-        );
+        let mut c = UAC.result(Severity::Bad, "Disabled — every process runs elevated");
         c.suggestion = Some(
             "UAC is disabled, which means everything runs as administrator. League's anti-cheat and the patcher both rely on UAC being on. Re-enable it under User Accounts → Change User Account Control settings, then reboot."
                 .into(),
         );
         c
     } else {
-        check_ok(
-            "windows.uac",
-            "User Account Control",
-            Category::System,
-            "Enabled",
-        )
+        UAC.ok("Enabled")
     }
 }
 
 #[cfg(not(target_os = "windows"))]
 pub fn check_uac_enabled() -> Check {
-    check(
-        "windows.uac",
-        "User Account Control",
-        Category::System,
-        Severity::Info,
-        "Not applicable",
-    )
+    UAC.result(Severity::Info, "Not applicable")
 }

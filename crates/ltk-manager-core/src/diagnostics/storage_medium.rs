@@ -4,35 +4,25 @@
 //! that explicitly so users see the same warning as the first-time setup
 //! flow even after they dismiss the banner.
 
-use super::{Category, Check, CheckCtx, CheckDetail, Severity, check, check_ok};
+use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
 use crate::storage::{StorageMedium, detect_path_storage_medium};
+
+const MEDIUM: CheckSpec = CheckSpec::new("storage.medium", "Storage medium", Category::Storage);
 
 pub fn check_storage_medium(ctx: &CheckCtx) -> Check {
     let Some(p) = ctx.mod_storage_path.as_ref() else {
-        return check(
-            "storage.medium",
-            "Storage medium",
-            Category::Storage,
-            Severity::Info,
-            "No storage path resolved",
-        );
+        return MEDIUM.result(Severity::Info, "No storage path resolved");
     };
     let medium = detect_path_storage_medium(&p.display().to_string());
     match medium {
         StorageMedium::Ssd => {
-            let mut c = check_ok("storage.medium", "Storage medium", Category::Storage, "SSD");
+            let mut c = MEDIUM.ok("SSD");
             c.details
                 .push(CheckDetail::new("path", p.display().to_string()));
             c
         }
         StorageMedium::Hdd => {
-            let mut c = check(
-                "storage.medium",
-                "Storage medium",
-                Category::Storage,
-                Severity::Warn,
-                "HDD — overlay builds will be slow",
-            );
+            let mut c = MEDIUM.result(Severity::Warn, "HDD — overlay builds will be slow");
             c.details
                 .push(CheckDetail::new("path", p.display().to_string()));
             c.suggestion = Some(
@@ -42,13 +32,7 @@ pub fn check_storage_medium(ctx: &CheckCtx) -> Check {
             c
         }
         StorageMedium::Unknown => {
-            let mut c = check(
-                "storage.medium",
-                "Storage medium",
-                Category::Storage,
-                Severity::Info,
-                "Unknown",
-            );
+            let mut c = MEDIUM.result(Severity::Info, "Unknown");
             c.details
                 .push(CheckDetail::new("path", p.display().to_string()));
             c

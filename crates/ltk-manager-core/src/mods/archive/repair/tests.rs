@@ -2,6 +2,7 @@
 //! carries a property type the migration table moves.
 
 use crate::mods::ModHealth;
+use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::test_support::{
     SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming,
@@ -75,7 +76,7 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
         .expect("the bank is in the report");
     assert_eq!(removed.change, crate::problems::FileChange::Removed);
 
-    let archive = storage.path().join("mods").join("silent-mod.fantome");
+    let archive = storage.path().mods_dir().join("silent-mod.fantome");
     let left = crate::problems::ProjectFiles::in_archive(
         &archive,
         &config,
@@ -121,7 +122,7 @@ fn a_removal_edits_the_archive_and_leaves_the_rest_alone() {
         &config,
         vec![archived_entry("id-1", "silent-mod")],
     );
-    let archive = storage.path().join("mods").join("silent-mod.fantome");
+    let archive = storage.path().mods_dir().join("silent-mod.fantome");
 
     let report = library.repair_mod(&config, "id-1").unwrap();
 
@@ -146,7 +147,7 @@ fn a_mod_with_nothing_to_fix_keeps_its_archive_byte_for_byte() {
         &config,
         vec![archived_entry("id-1", "healthy-mod")],
     );
-    let archive = storage.path().join("mods").join("healthy-mod.fantome");
+    let archive = storage.path().mods_dir().join("healthy-mod.fantome");
     let before = fs::read(&archive).unwrap();
     let marker = storage.path().join(".overlay-build-version");
     fs::write(&marker, "1").unwrap();
@@ -269,7 +270,7 @@ fn a_game_before_the_migration_build_leaves_the_archive_alone() {
 
     place_bin_archived_fantome(storage.path(), "stale-mod", &stale_bin());
     seed_library(&library, &config, vec![archived_entry("id-1", "stale-mod")]);
-    let archive = storage.path().join("mods").join("stale-mod.fantome");
+    let archive = storage.path().mods_dir().join("stale-mod.fantome");
     let before = fs::read(&archive).unwrap();
 
     let report = library.repair_mod(&config, "id-1").unwrap();
@@ -383,7 +384,7 @@ fn repairing_a_packed_fantome_no_table_names_reaches_the_bin_by_its_hash() {
     assert_eq!(verdict.health, ModHealth::Healthy);
     assert_eq!(verdict.fixable, 0);
 
-    let left: Vec<String> = fs::read_dir(storage.path().join("mods"))
+    let left: Vec<String> = fs::read_dir(storage.path().mods_dir())
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
@@ -457,7 +458,7 @@ fn a_path_repaired_inside_a_nameless_chunk_is_kept_in_the_archives_own_table() {
     library
         .set_mod_storage(&config, "id-1", ModStorage::Project)
         .unwrap();
-    let mod_dir = storage.path().join("mods").join("packed-mod");
+    let mod_dir = storage.path().mods_dir().join("packed-mod");
     assert_eq!(
         embedded_names(&mod_dir).resolve_value(
             &ltk_hashtable::Category::Game,
@@ -471,7 +472,7 @@ fn a_path_repaired_inside_a_nameless_chunk_is_kept_in_the_archives_own_table() {
 /// The one property of a hex-named bin, read back out of the mod's tree.
 fn property_at(storage_dir: &Path, slug: &str, hex: &str) -> PropertyValueEnum {
     let bin_path = storage_dir
-        .join("mods")
+        .mods_dir()
         .join(slug)
         .join("content")
         .join("base")
@@ -517,7 +518,7 @@ fn a_repaired_path_reads_back_out_of_the_mods_own_hashtable() {
     let report = library.repair_mod(&config, "id-1").unwrap();
     assert_eq!(report.applied, 1);
 
-    let mod_dir = storage.path().join("mods").join("unpacked-mod");
+    let mod_dir = storage.path().mods_dir().join("unpacked-mod");
     assert_eq!(
         embedded_names(&mod_dir).resolve_value(
             &ltk_hashtable::Category::Game,
@@ -557,7 +558,7 @@ fn a_refused_property_leaves_the_mod_repairable() {
         .find(|name| Key::of(name, &Algorithm::Xxh64, narrow) == Some(claimed))
         .expect("eight bits is 256 keys");
 
-    let mod_dir = storage.path().join("mods").join("unpacked-mod");
+    let mod_dir = storage.path().mods_dir().join("unpacked-mod");
     let root = camino::Utf8Path::from_path(&mod_dir).unwrap();
     let mut project = ltk_mod_project::ModProject::load(root).unwrap();
     project.hashtables = vec![ltk_mod_project::ModProjectHashtable {
@@ -626,7 +627,7 @@ fn repairing_a_packed_fantome_edits_it_and_leaves_the_rest_alone() {
         &config,
         vec![archived_entry("id-1", "packed-mod")],
     );
-    let archive = storage.path().join("mods").join("packed-mod.fantome");
+    let archive = storage.path().mods_dir().join("packed-mod.fantome");
 
     let report = library.repair_mod(&config, "id-1").unwrap();
 
@@ -677,7 +678,7 @@ fn a_repaired_archive_reads_its_own_names_back_after_a_round_trip() {
     library
         .set_mod_storage(&config, "id-1", ModStorage::Project)
         .unwrap();
-    let mod_dir = storage.path().join("mods").join("packed-mod");
+    let mod_dir = storage.path().mods_dir().join("packed-mod");
     assert_eq!(
         embedded_names(&mod_dir).resolve_value(
             &ltk_hashtable::Category::Game,
