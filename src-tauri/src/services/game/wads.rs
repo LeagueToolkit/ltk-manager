@@ -1,7 +1,7 @@
 //! Read-only browsing of an install's WAD archives.
 
-use crate::commands::off_thread;
 use crate::error::IpcResult;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary, WadSource};
 use ltk_manager_core::hashtables::WadPathResolverState;

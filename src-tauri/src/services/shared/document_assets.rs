@@ -22,6 +22,12 @@ pub(crate) fn parse_entry(entry: &str) -> AppResult<BinHash> {
         .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))
 }
 
+/// A class hash a command was handed, `0x` and eight hex digits.
+pub(crate) fn parse_class(class: &str) -> AppResult<BinHash> {
+    parse_hash(class)
+        .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class}")))
+}
+
 /// The cached snapshot of the sandbox `reference`.
 pub(crate) fn sandbox(app: &AppHandle, reference: &SandboxRef) -> Arc<Sandbox> {
     app.state::<SandboxState>().get(reference)
@@ -72,11 +78,15 @@ pub(crate) fn with_names_in<T>(
     reference: &SandboxRef,
     read: impl FnOnce(&dyn RowNames) -> T,
 ) -> T {
+    with_cache_names(app, |cache| read(&sandbox(app, reference).names(cache)))
+}
+
+/// Run `read` with the names the shared hash tables carry, outside any sandbox.
+pub(crate) fn with_cache_names<T>(app: &AppHandle, read: impl FnOnce(&CacheNames<'_>) -> T) -> T {
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
-    let cache = CacheNames::new(&bin, &wad);
 
-    read(&sandbox(app, reference).names(&cache))
+    read(&CacheNames::new(&bin, &wad))
 }
 
 /// Run `locate` with the asset lookup of the sandbox `reference`.

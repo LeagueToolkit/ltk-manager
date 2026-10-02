@@ -17,7 +17,7 @@ use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::off_thread;
+use crate::services::shared::off_thread;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};

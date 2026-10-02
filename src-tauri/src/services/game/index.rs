@@ -3,17 +3,20 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::objects::index::ObjectIndexState;
+use crate::services::shared::off_thread;
+use crate::services::shared::overtaken;
+use crate::services::shared::read_asset;
 use crate::state::SettingsState;
 use ltk_hash::{Hash as _, WadHash};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::game_index::{
-    FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
-    GameIndexStats, GameSearchResult, PathSearchGeneration, SearchGeneration, SearchPreference,
+    GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState, GameIndexStats,
+    GameSearchResult, SearchPreference,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache, WadSource};
+use ltk_manager_core::generation::line;
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
 use ltk_manager_core::preview::AssetRef;
@@ -106,16 +109,8 @@ pub async fn search_game_index(
     app_handle: AppHandle,
 ) -> IpcResult<GameSearchResult> {
     let overtaken: Box<dyn Fn() -> bool + Send> = match &search {
-        SearchFor::Palette => {
-            let ticket = app_handle.state::<SearchGeneration>().claim();
-            let app_handle = app_handle.clone();
-            Box::new(move || app_handle.state::<SearchGeneration>().overtook(ticket))
-        }
-        SearchFor::PathField { .. } => {
-            let ticket = app_handle.state::<PathSearchGeneration>().claim();
-            let app_handle = app_handle.clone();
-            Box::new(move || app_handle.state::<PathSearchGeneration>().overtook(ticket))
-        }
+        SearchFor::Palette => Box::new(overtaken::<line::Palette>(&app_handle)),
+        SearchFor::PathField { .. } => Box::new(overtaken::<line::PathField>(&app_handle)),
     };
     let preference = match search {
         SearchFor::Palette => SearchPreference::default(),
@@ -159,11 +154,7 @@ pub async fn find_in_game_index(
         Err(e) => return IpcResult::from(Err::<GameFindResult, _>(e)),
     };
 
-    let ticket = app_handle.state::<FindGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || app_handle.state::<FindGeneration>().overtook(ticket)
-    };
+    let overtaken = overtaken::<line::Find>(&app_handle);
 
     with_index(app_handle, source, move |index| {
         let Some(query) = query else {
@@ -264,7 +255,7 @@ pub(crate) fn game_file(
         wad: file.wad,
         path_hash: file.path_hash,
     };
-    let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
+    let bytes = read_asset(app_handle, &asset)?;
     Ok(Some((asset, bytes)))
 }
 

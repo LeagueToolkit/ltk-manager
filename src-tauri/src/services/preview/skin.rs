@@ -2,13 +2,12 @@
 //! graph with its maps, and one clip's header.
 
 use super::material::shader_defs;
-use crate::commands::document_assets::{parse_entry, read_resolved, with_resolution};
-use crate::commands::off_thread;
 use crate::error::IpcResult;
-use crate::state::SettingsState;
-use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, BinDocumentId, BinDocuments};
+use crate::services::shared::document_assets::{parse_entry, read_resolved, with_resolution};
+use crate::services::shared::off_thread;
+use crate::services::shared::{linked_assets, linked_reader, read_asset};
+use ltk_manager_core::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
 use ltk_manager_core::error::AppError;
-use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_game::skin::{
     bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
@@ -63,26 +62,11 @@ pub async fn read_skin(
 ) -> IpcResult<SkinModel> {
     off_thread(move || {
         let entry = parse_entry(&entry)?;
-        let config = app_handle.state::<SettingsState>().config();
         read_resolved(&app_handle, document, |open, names, assets| {
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| match asset
-                .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
-            {
-                Ok(bin) => Some(bin),
-                Err(e) => {
-                    tracing::debug!(?asset, "Passed over a linked bin: {e}");
-                    None
-                }
-            };
+            let mut read = linked_reader(&app_handle);
             let shaders = shader_defs(&app_handle, assets);
             let mut model = resolve_skin(open, entry, names, assets, shaders.as_deref())?;
-            let linked: Vec<AssetRef> = open
-                .dependencies()
-                .iter()
-                .filter_map(|path| assets.locate(path))
-                .collect();
+            let linked: Vec<AssetRef> = linked_assets(open, assets);
             search_linked_materials(
                 &mut model,
                 linked.clone(),
@@ -112,7 +96,6 @@ pub async fn read_animation_graph(
 ) -> IpcResult<AnimationGraph> {
     off_thread(move || {
         let entry = parse_entry(&entry)?;
-        let config = app_handle.state::<SettingsState>().config();
         with_resolution(&app_handle, Some(document), |names, assets| {
             let open = app_handle.state::<BinDocuments>().document(document)?;
             let linked = match graph_at(&open, entry, names, assets)? {
@@ -120,17 +103,7 @@ pub async fn read_animation_graph(
                 GraphRead::Linked(linked) => linked,
             };
 
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| match asset
-                .read(&config, &wads)
-                .and_then(|bytes| Ok(BinDocument::parse(bytes)?))
-            {
-                Ok(bin) => Some(bin),
-                Err(e) => {
-                    tracing::debug!(?asset, "Passed over a linked bin: {e}");
-                    None
-                }
-            };
+            let mut read = linked_reader(&app_handle);
             Ok(search_linked(linked, entry, names, assets, &mut read)?)
         })
     })
@@ -141,10 +114,8 @@ pub async fn read_animation_graph(
 #[tauri::command]
 #[specta::specta]
 pub async fn read_clip_header(asset: AssetRef, app_handle: AppHandle) -> IpcResult<ClipHeader> {
-    let config = app_handle.state::<SettingsState>().config();
-
     off_thread(move || {
-        let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
+        let bytes = read_asset(&app_handle, &asset)?;
         Ok(clip_header(&bytes)?)
     })
     .await

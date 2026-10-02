@@ -1,4 +1,3 @@
-use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
@@ -6,6 +5,8 @@ use crate::mods::{
     WadReportState,
 };
 use crate::patcher::PatcherState;
+use crate::services::shared::off_thread;
+use crate::services::shared::Library;
 use crate::state::SettingsState;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -15,12 +16,8 @@ use tauri::{AppHandle, Manager, State};
 /// Get all installed mods from the mod library.
 #[tauri::command]
 #[specta::specta]
-pub fn get_installed_mods(
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Vec<InstalledMod>> {
-    let config = settings.config();
-    library.0.get_installed_mods(&config).into()
+pub fn get_installed_mods(library: Library) -> IpcResult<Vec<InstalledMod>> {
+    library.with(|library, config| library.get_installed_mods(config))
 }
 
 /// Install a mod from a `.modpkg` or `.fantome` file into `modStoragePath`.
@@ -92,47 +89,22 @@ pub async fn update_mod(
 /// Uninstall a mod by id.
 #[tauri::command]
 #[specta::specta]
-pub fn uninstall_mod(
-    mod_id: String,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher: State<PatcherState>,
-) -> IpcResult<()> {
-    let config = settings.config();
-    let result = library.0.uninstall_mod_by_id(&config, &mod_id);
-    patcher.refresh_overlay();
-    result.into()
+pub fn uninstall_mod(mod_id: String, library: Library) -> IpcResult<()> {
+    library.with_refresh(|library, config| library.uninstall_mod_by_id(config, &mod_id))
 }
 
 /// Toggle a mod's enabled state.
 #[tauri::command]
 #[specta::specta]
-pub fn toggle_mod(
-    mod_id: String,
-    enabled: bool,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher: State<PatcherState>,
-) -> IpcResult<()> {
-    let config = settings.config();
-    let result = library.0.toggle_mod_enabled(&config, &mod_id, enabled);
-    patcher.refresh_overlay();
-    result.into()
+pub fn toggle_mod(mod_id: String, enabled: bool, library: Library) -> IpcResult<()> {
+    library.with_refresh(|library, config| library.toggle_mod_enabled(config, &mod_id, enabled))
 }
 
 /// Reorder the enabled mods in the active profile.
 #[tauri::command]
 #[specta::specta]
-pub fn reorder_mods(
-    mod_ids: Vec<String>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher: State<PatcherState>,
-) -> IpcResult<()> {
-    let config = settings.config();
-    let result = library.0.reorder_mods(&config, mod_ids);
-    patcher.refresh_overlay();
-    result.into()
+pub fn reorder_mods(mod_ids: Vec<String>, library: Library) -> IpcResult<()> {
+    library.with_refresh(|library, config| library.reorder_mods(config, mod_ids))
 }
 
 /// Set the enabled/disabled state of individual layers for a mod.
@@ -141,14 +113,9 @@ pub fn reorder_mods(
 pub fn set_mod_layers(
     mod_id: String,
     layer_states: HashMap<String, bool>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher: State<PatcherState>,
+    library: Library,
 ) -> IpcResult<()> {
-    let config = settings.config();
-    let result = library.0.set_mod_layers(&config, &mod_id, layer_states);
-    patcher.refresh_overlay();
-    result.into()
+    library.with_refresh(|library, config| library.set_mod_layers(config, &mod_id, layer_states))
 }
 
 /// Enable a mod and set its initial layer configuration atomically.
@@ -157,16 +124,11 @@ pub fn set_mod_layers(
 pub fn enable_mod_with_layers(
     mod_id: String,
     layer_states: HashMap<String, bool>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-    patcher: State<PatcherState>,
+    library: Library,
 ) -> IpcResult<()> {
-    let config = settings.config();
-    let result = library
-        .0
-        .enable_mod_with_layers(&config, &mod_id, layer_states);
-    patcher.refresh_overlay();
-    result.into()
+    library.with_refresh(|library, config| {
+        library.enable_mod_with_layers(config, &mod_id, layer_states)
+    })
 }
 
 /// Edit a mod's metadata (name, tags, champions, maps).
@@ -175,14 +137,9 @@ pub fn enable_mod_with_layers(
 pub fn edit_mod_metadata(
     mod_id: String,
     metadata: EditModMetadataArgs,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
+    library: Library,
 ) -> IpcResult<InstalledMod> {
-    let config = settings.config();
-    library
-        .0
-        .edit_mod_metadata(&config, &mod_id, metadata)
-        .into()
+    library.with(|library, config| library.edit_mod_metadata(config, &mod_id, metadata))
 }
 
 /// Read a mod's content from its archive or from an unpacked tree from now on.
@@ -238,13 +195,8 @@ pub async fn export_mods(
 /// Returns `null` if the mod has no thumbnail.
 #[tauri::command]
 #[specta::specta]
-pub fn get_mod_thumbnail(
-    mod_id: String,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<Option<String>> {
-    let config = settings.config();
-    library.0.get_mod_thumbnail_path(&config, &mod_id).into()
+pub fn get_mod_thumbnail(mod_id: String, library: Library) -> IpcResult<Option<String>> {
+    library.with(|library, config| library.get_mod_thumbnail_path(config, &mod_id))
 }
 
 /// Get the cached thumbnail path of each of `mod_ids` that has one.

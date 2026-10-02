@@ -2,15 +2,15 @@
 
 use std::sync::Arc;
 
+use super::document_assets::with_cache_names;
+use super::read_asset;
 use crate::error::AppResult;
 use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{GameCopy, ProjectDeclarations, RowNames};
-use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
 use ltk_manager_core::meta_schema::{self, MetaSchema, PatchSchema};
-use ltk_manager_core::object_index::{CacheNames, ObjectIndexSnapshot};
+use ltk_manager_core::object_index::ObjectIndexSnapshot;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
 use ltk_manager_core::sandbox::SandboxRef;
@@ -36,8 +36,7 @@ impl InstalledGame {
     }
 
     fn read(&self, asset: &AssetRef) -> AppResult<Vec<u8>> {
-        let config = self.0.state::<SettingsState>().config();
-        asset.read(&config, &self.0.state::<WadCache>())
+        read_asset(&self.0, asset)
     }
 }
 
@@ -49,9 +48,7 @@ impl GameCopy for InstalledGame {
     }
 
     fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
-        let bin = self.0.state::<BinHashTablesState>().get();
-        let wad = self.0.state::<Arc<WadPathResolverState>>().get();
-        read(&CacheNames::new(&bin, &wad));
+        with_cache_names(&self.0, |names| read(names));
     }
 }
 

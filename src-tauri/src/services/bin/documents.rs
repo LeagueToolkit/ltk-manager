@@ -7,24 +7,23 @@
 
 use std::sync::Arc;
 
-use crate::commands::document_assets;
-use crate::commands::installed::{installed_schema, InstalledGame};
-use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::state::SettingsState;
+use crate::services::shared::document_assets;
+use crate::services::shared::document_assets::{parse_class, parse_entry, with_cache_names};
+use crate::services::shared::installed::{installed_schema, InstalledGame};
+use crate::services::shared::off_thread;
+use crate::services::shared::read_asset;
 use ltk_game_data::Target;
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
-    BinChange, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow,
-    BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
+    BinChange, BinDocument, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult,
+    BinRow, BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
     DeclaredState, Declaring, Dependency, EditOutcome, HistoryStep, LayerOverride, ReadOnly,
     Reshape, RowDeclaration, RowNames, VariantSource,
 };
-use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashing::HexBinHash;
-use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_core::meta_schema::SchemaAt;
 use ltk_manager_core::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
-use ltk_manager_core::object_index::{parse_hash, CacheNames};
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::{layer_chunk_hash, Opening, SandboxRef};
 use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
@@ -49,22 +48,14 @@ pub async fn bin_open(
     app_handle: AppHandle,
 ) -> IpcResult<BinDocumentHandle> {
     off_thread(move || {
-        let entry = entry
-            .map(|text| {
-                parse_hash(&text).ok_or_else(|| {
-                    AppError::ValidationFailed(format!("Not an object hash: {text}"))
-                })
-            })
-            .transpose()?;
-
-        let config = app_handle.state::<SettingsState>().config();
+        let entry = entry.as_deref().map(parse_entry).transpose()?;
         let store = app_handle.state::<BinDocuments>();
-        let wads = app_handle.state::<WadCache>();
         let (document, opened) = match document_assets::sandbox(&app_handle, &sandbox)
             .opening(asset)?
         {
             Opening::File(file) => {
-                let document = store.open(&sandbox, file.clone(), || file.read(&config, &wads))?;
+                let document =
+                    store.open(&sandbox, file.clone(), || read_asset(&app_handle, &file))?;
                 (document, file)
             }
             Opening::Declared { asset, chunk_hash } => {
@@ -72,13 +63,10 @@ pub async fn bin_open(
                     AppError::ValidationFailed("The game sandbox declares nothing".to_owned())
                 })?;
                 let document = store.open_declared(&sandbox, asset.clone(), chunk_hash, || {
-                    let (schema, build) = installed_schema(&app_handle);
-                    let context = DeclareContext {
-                        project: ProjectDir::open(project)?,
-                        schema: PatchSchema::new(schema, build),
-                        game: Arc::new(InstalledGame(app_handle.clone())),
-                    };
-                    Ok((asset.read(&config, &wads)?, context))
+                    Ok((
+                        read_asset(&app_handle, &asset)?,
+                        declare_context(&app_handle, project)?,
+                    ))
                 })?;
                 (document, asset)
             }
@@ -105,14 +93,13 @@ pub async fn bin_open_variant(
     app_handle: AppHandle,
 ) -> IpcResult<BinDocumentHandle> {
     off_thread(move || {
-        let config = app_handle.state::<SettingsState>().config();
         let store = app_handle.state::<BinDocuments>();
-        let wads = app_handle.state::<WadCache>();
         let sandboxed = document_assets::sandbox(&app_handle, &sandbox);
 
         let (document, opened) = match sandboxed.opening(asset)? {
             Opening::File(file) => {
-                let document = store.open(&sandbox, file.clone(), || file.read(&config, &wads))?;
+                let document =
+                    store.open(&sandbox, file.clone(), || read_asset(&app_handle, &file))?;
                 (document, file)
             }
             Opening::Declared { asset, chunk_hash } => {
@@ -137,17 +124,12 @@ pub async fn bin_open_variant(
 
                 let document =
                     store.open_declared_variant(&sandbox, asset.clone(), chunk_hash, || {
-                        let (schema, build) = installed_schema(&app_handle);
                         Ok(VariantSource {
-                            game: asset.read(&config, &wads)?,
+                            game: read_asset(&app_handle, &asset)?,
                             target,
-                            base: base.read(&config, &wads)?,
+                            base: read_asset(&app_handle, &base)?,
                             base_hash,
-                            context: DeclareContext {
-                                project: ProjectDir::open(project)?,
-                                schema: PatchSchema::new(schema, build),
-                                game: Arc::new(InstalledGame(app_handle.clone())),
-                            },
+                            context: declare_context(&app_handle, project)?,
                         })
                     })?;
                 (document, asset)
@@ -239,6 +221,32 @@ pub async fn bin_overrides(
     .await
 }
 
+/// Run `read` over the open `document`, with the names of its sandbox and the meta schema at
+/// the install's build.
+fn read_named<T>(
+    app_handle: &AppHandle,
+    document: BinDocumentId,
+    read: impl FnOnce(&BinDocument, &dyn RowNames, SchemaAt<'_>) -> AppResult<T>,
+) -> AppResult<T> {
+    let (schema, build) = installed_schema(app_handle);
+    with_document_names(app_handle, document, |names| {
+        app_handle
+            .state::<BinDocuments>()
+            .read(document, |open| read(open, names, schema.at(build)))
+    })
+}
+
+/// What a declared document of `project` reads its declarations against.
+fn declare_context(app_handle: &AppHandle, project: &str) -> AppResult<DeclareContext> {
+    let (schema, build) = installed_schema(app_handle);
+
+    Ok(DeclareContext {
+        project: ProjectDir::open(project)?,
+        schema: PatchSchema::new(schema, build),
+        game: Arc::new(InstalledGame(app_handle.clone())),
+    })
+}
+
 /// Run `read` with the names of the sandbox `document` is held in.
 fn with_document_names<T>(
     app_handle: &AppHandle,
@@ -269,13 +277,9 @@ pub async fn bin_children(
     app_handle: AppHandle,
 ) -> IpcResult<BinRows> {
     off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let (schema, build) = installed_schema(&app_handle);
-        with_document_names(&app_handle, document, |names| {
-            app_handle.state::<BinDocuments>().read(document, |open| {
-                Ok(open.children(entry, &path, offset, limit, names, Some(schema.at(build)))?)
-            })
+        let entry = parse_entry(&entry)?;
+        read_named(&app_handle, document, |open, names, at| {
+            Ok(open.children(entry, &path, offset, limit, names, Some(at))?)
         })
     })
     .await
@@ -294,18 +298,9 @@ pub async fn bin_find(
     app_handle: AppHandle,
 ) -> IpcResult<BinFindResult> {
     off_thread(move || {
-        let entry = entry
-            .map(|text| {
-                parse_hash(&text).ok_or_else(|| {
-                    AppError::ValidationFailed(format!("Not an object hash: {text}"))
-                })
-            })
-            .transpose()?;
-        let (schema, build) = installed_schema(&app_handle);
-        with_document_names(&app_handle, document, |names| {
-            app_handle.state::<BinDocuments>().read(document, |open| {
-                Ok(open.find(entry, &query, names, Some(schema.at(build))))
-            })
+        let entry = entry.as_deref().map(parse_entry).transpose()?;
+        read_named(&app_handle, document, |open, names, at| {
+            Ok(open.find(entry, &query, names, Some(at)))
         })
     })
     .await
@@ -326,13 +321,9 @@ pub async fn bin_read(
     app_handle: AppHandle,
 ) -> IpcResult<Vec<BinRows>> {
     off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let (schema, build) = installed_schema(&app_handle);
-        with_document_names(&app_handle, document, |names| {
-            app_handle.state::<BinDocuments>().read(document, |open| {
-                Ok(open.children_each(entry, &paths, names, Some(schema.at(build)))?)
-            })
+        let entry = parse_entry(&entry)?;
+        read_named(&app_handle, document, |open, names, at| {
+            Ok(open.children_each(entry, &paths, names, Some(at))?)
         })
     })
     .await
@@ -414,11 +405,8 @@ pub async fn bin_dependencies(
 #[specta::specta]
 pub async fn bin_roots(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<Vec<BinRow>> {
     off_thread(move || {
-        let (schema, build) = installed_schema(&app_handle);
-        with_document_names(&app_handle, document, |names| {
-            app_handle.state::<BinDocuments>().read(document, |open| {
-                Ok(open.roots(names, Some(schema.at(build))))
-            })
+        read_named(&app_handle, document, |open, names, at| {
+            Ok(open.roots(names, Some(at)))
         })
     })
     .await
@@ -477,8 +465,7 @@ pub async fn bin_revert(
     app_handle: AppHandle,
 ) -> IpcResult<()> {
     off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
+        let entry = parse_entry(&entry)?;
         let game = InstalledGame(app_handle.clone());
         app_handle
             .state::<BinDocuments>()
@@ -494,12 +481,9 @@ pub async fn bin_revert(
 #[specta::specta]
 pub async fn bin_reload(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()> {
     off_thread(move || {
-        let config = app_handle.state::<SettingsState>().config();
         app_handle
             .state::<BinDocuments>()
-            .reload(document, |asset| {
-                asset.read(&config, &app_handle.state::<WadCache>())
-            })
+            .reload(document, |asset| read_asset(&app_handle, asset))
     })
     .await
 }
@@ -515,8 +499,7 @@ pub async fn class_schema(
     app_handle: AppHandle,
 ) -> IpcResult<Option<ClassSchema>> {
     off_thread(move || {
-        let class = parse_hash(&class_hash)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class_hash}")))?;
+        let class = parse_class(&class_hash)?;
         let (schema, build) = installed_schema(&app_handle);
         Ok(schema.class_schema(class, build))
     })
@@ -532,8 +515,7 @@ pub async fn derived_classes(
     app_handle: AppHandle,
 ) -> IpcResult<Vec<HexBinHash>> {
     off_thread(move || {
-        let class = parse_hash(&class_hash)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class_hash}")))?;
+        let class = parse_class(&class_hash)?;
         let (schema, build) = installed_schema(&app_handle);
         Ok(schema
             .derived_classes(class, build)
@@ -623,13 +605,11 @@ pub async fn bin_row_declaration(
     app_handle: AppHandle,
 ) -> IpcResult<RowDeclaration> {
     off_thread(move || {
-        let entry = parse_hash(&entry)
-            .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))?;
-        let bin = app_handle.state::<BinHashTablesState>().get();
-        let wad = app_handle.state::<Arc<WadPathResolverState>>().get();
-        let names = CacheNames::new(&bin, &wad);
-        app_handle.state::<BinDocuments>().read(document, |open| {
-            Ok(open.row_declaration(entry, &path, &names)?)
+        let entry = parse_entry(&entry)?;
+        with_cache_names(&app_handle, |names| {
+            app_handle.state::<BinDocuments>().read(document, |open| {
+                Ok(open.row_declaration(entry, &path, names)?)
+            })
         })
     })
     .await

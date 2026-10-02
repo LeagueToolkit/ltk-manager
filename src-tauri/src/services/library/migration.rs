@@ -1,7 +1,7 @@
-use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::mods::{BulkInstallResult, CslolModInfo, ModLibraryState};
 use crate::patcher::PatcherState;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_core::mods::LayoutMigrationState;
 use std::path::PathBuf;

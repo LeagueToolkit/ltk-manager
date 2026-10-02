@@ -5,9 +5,9 @@
 //! invalidates that state, so the panel's next read re-runs the rules over the
 //! files as they are now.
 
-use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::ModLibraryState;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::problems;

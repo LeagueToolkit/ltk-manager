@@ -1,12 +1,13 @@
 //! Atlas's reads: a view controller resolved into what it draws, a font, and the UI programs.
 
-use super::document_assets::{parse_entry, read_resolved, with_resolution};
-use super::installed::ProjectGame;
-use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::game::index::game_file;
 use crate::services::objects::ObjectIndexState;
 use crate::services::preview::material::{shader_defs, translations};
+use crate::services::shared::document_assets::{parse_entry, read_resolved, with_resolution};
+use crate::services::shared::installed::ProjectGame;
+use crate::services::shared::off_thread;
+use crate::services::shared::{asset_reader, read_asset};
 use crate::state::SettingsState;
 use atlas::{
     font_catalog, import_font_file, import_sprite, import_surface, patch_sprite, patchable,
@@ -18,7 +19,6 @@ use atlas::{
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_manager_core::bin_document::GameCopy as _;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
-use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::object_index::ObjectIndexSnapshot;
 use ltk_manager_core::preview::AssetRef;
@@ -348,8 +348,6 @@ pub async fn atlas_make_surface(
     source: SurfaceSource,
     app_handle: AppHandle,
 ) -> IpcResult<SheetImport> {
-    let config = app_handle.state::<SettingsState>().config();
-
     off_thread(move || {
         let documents = app_handle.state::<BinDocuments>();
         let project = project_of(&documents, document)?;
@@ -364,7 +362,7 @@ pub async fn atlas_make_surface(
         let image = match source {
             SurfaceSource::File { path } => png_pixels(Path::new(&path))?,
             SurfaceSource::Sprite { texture, uv } => {
-                sprite_pixels(&texture.read(&config, &app_handle.state::<WadCache>())?, uv)?
+                sprite_pixels(&read_asset(&app_handle, &texture)?, uv)?
             }
         };
         let target = SheetTarget {
@@ -484,10 +482,8 @@ pub async fn atlas_export_sprite(
     destination: String,
     app_handle: AppHandle,
 ) -> IpcResult<()> {
-    let config = app_handle.state::<SettingsState>().config();
-
     off_thread(move || {
-        let page = texture.read(&config, &app_handle.state::<WadCache>())?;
+        let page = read_asset(&app_handle, &texture)?;
         let png = sprite_png(&page, uv)?;
         fs_err::write(&destination, png)?;
         tracing::info!(destination = %destination, "Exported a sprite");
@@ -679,9 +675,7 @@ pub async fn read_ui_programs(
     off_thread(move || {
         let translations = translations(&app_handle);
         with_resolution(&app_handle, document, |_, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            let mut read = asset_reader(&app_handle);
             Ok(atlas::read_ui_programs(
                 assets,
                 &shaders,

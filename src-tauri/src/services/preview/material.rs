@@ -1,16 +1,16 @@
 //! The shader pipeline's read: materials with the game's own shaders translated for the
 //! viewport.
 
-use crate::commands::document_assets::{read_resolved, with_resolution};
-use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
-use crate::state::{get_app_data_dir, SettingsState};
+use crate::services::shared::document_assets::{read_resolved, with_resolution};
+use crate::services::shared::off_thread;
+use crate::services::shared::{asset_reader, read_asset, read_bin};
+use crate::state::get_app_data_dir;
 use std::sync::Arc;
 
 use hexshade::TranslationCache;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, BinDocumentId, RowNames};
-use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::map::MapPath;
@@ -130,9 +130,7 @@ fn on_source<T>(
     read: impl FnOnce(Resolution<'_>, &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>) -> T,
 ) -> AppResult<T> {
     let resolved = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
-        let config = app_handle.state::<SettingsState>().config();
-        let wads = app_handle.state::<WadCache>();
-        let mut bytes = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+        let mut bytes = asset_reader(app_handle);
         let shaders = shader_defs(app_handle, assets);
         let resolution = Resolution {
             document: bin,
@@ -142,11 +140,7 @@ fn on_source<T>(
         };
         Ok(read(resolution, &mut bytes))
     };
-    let parsed = |asset: &AssetRef| -> AppResult<BinDocument> {
-        let config = app_handle.state::<SettingsState>().config();
-        let wads = app_handle.state::<WadCache>();
-        Ok(BinDocument::parse(asset.read(&config, &wads)?)?)
-    };
+    let parsed = |asset: &AssetRef| -> AppResult<BinDocument> { read_bin(app_handle, asset) };
 
     match source {
         MaterialSource::Document { document } => read_resolved(app_handle, document, resolved),
@@ -203,9 +197,7 @@ pub async fn read_engine_program(
 ) -> IpcResult<PassProgram> {
     off_thread(move || {
         let translations = translations(&app_handle);
-        let config = app_handle.state::<SettingsState>().config();
-        let wads = app_handle.state::<WadCache>();
-        let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+        let mut read = asset_reader(&app_handle);
 
         match pass {
             EnginePass::DefaultSkinned { document } => {
@@ -253,11 +245,8 @@ pub(crate) fn shader_defs(
     assets: &dyn AssetLookup,
 ) -> Option<Arc<BinDocument>> {
     let asset = assets.locate(SHADER_DEFS_PATH)?;
-    let config = app_handle.state::<SettingsState>().config();
-    let wads = app_handle.state::<WadCache>();
 
-    asset
-        .read(&config, &wads)
+    read_asset(app_handle, &asset)
         .and_then(|bytes| Ok(app_handle.state::<ShaderDefsCache>().defs(&asset, bytes)?))
         .inspect_err(|e| tracing::debug!(?asset, "Passed over the shader defs: {e}"))
         .ok()

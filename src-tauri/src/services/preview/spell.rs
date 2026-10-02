@@ -1,8 +1,8 @@
 //! The isolated missile preview's document read.
 
-use crate::commands::document_assets::parse_entry;
-use crate::commands::off_thread;
 use crate::error::IpcResult;
+use crate::services::shared::document_assets::parse_entry;
+use crate::services::shared::off_thread;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments};
 use ltk_manager_game::spell::{read_spell as read, SpellPreview};
 use tauri::{AppHandle, Manager};

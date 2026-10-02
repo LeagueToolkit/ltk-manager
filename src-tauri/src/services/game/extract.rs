@@ -1,15 +1,15 @@
 //! Writing chunks of the game's archives out to a folder the user picked.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Instant;
 
-use parking_lot::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
+use crate::services::shared::off_thread;
+use crate::services::shared::InFlight;
 use crate::state::SettingsState;
 use ltk_manager_core::game_extract::{
     ExtractJob, ExtractOptions, ExtractPlan, ExtractSummary, ExtractTarget,
@@ -24,49 +24,8 @@ use ltk_manager_core::workshop::WorkshopFileKind;
 /// One at a time because the toast that shows the bar is one toast with one
 /// **Cancel**, and because a second run would fight the first for the same disk
 /// - each already spreads its decompression over up to eight threads.
-///
-/// The flag is per run rather than per app: a cancelled extract stays
-/// cancelled, and must not pre-cancel the next one.
 #[derive(Default)]
-pub struct ExtractState(Mutex<Option<Arc<AtomicBool>>>);
-
-impl ExtractState {
-    /// Claim the in-flight slot with a fresh cancel flag, or `None` when an
-    /// extract is already running.
-    #[must_use]
-    fn acquire(&self) -> Option<(ExtractGuard<'_>, Arc<AtomicBool>)> {
-        let mut in_flight = self.0.lock();
-        if in_flight.is_some() {
-            return None;
-        }
-
-        let cancel = Arc::new(AtomicBool::new(false));
-        *in_flight = Some(Arc::clone(&cancel));
-        Some((ExtractGuard { state: self }, cancel))
-    }
-
-    /// Call the extract in flight off, reporting whether there was one.
-    fn cancel(&self) -> bool {
-        let in_flight = self.0.lock();
-        let Some(cancel) = in_flight.as_ref() else {
-            return false;
-        };
-
-        cancel.store(true, Ordering::Relaxed);
-        true
-    }
-}
-
-/// Releases the in-flight slot however the run ends.
-struct ExtractGuard<'a> {
-    state: &'a ExtractState,
-}
-
-impl Drop for ExtractGuard<'_> {
-    fn drop(&mut self) {
-        *self.state.0.lock() = None;
-    }
-}
+pub struct ExtractState(InFlight<Arc<AtomicBool>>);
 
 /// What extracting `targets` would write, before anything is written.
 ///
@@ -108,7 +67,7 @@ pub async fn extract_game_files(
         source,
         move |index, archives, resolver| {
             let extract = app_handle.state::<ExtractState>();
-            let Some((_guard, cancel)) = extract.acquire() else {
+            let Some((_guard, cancel)) = extract.0.acquire() else {
                 tracing::debug!("Extract already in flight, ignoring the request");
                 return Ok(None);
             };
@@ -159,7 +118,7 @@ pub async fn extract_game_files(
 #[tauri::command]
 #[specta::specta]
 pub fn cancel_extract(extract: State<ExtractState>) -> IpcResult<bool> {
-    IpcResult::ok(extract.cancel())
+    IpcResult::ok(extract.0.cancel())
 }
 
 /// Run `work` against the index of `source`, its archives and the tables that
@@ -183,42 +142,4 @@ where
         work(&index, &archives, &resolver)
     })
     .await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A double-clicked Extract button must produce one run, not two.
-    #[test]
-    fn only_one_extract_is_in_flight_at_a_time() {
-        let state = ExtractState::default();
-
-        let first = state.acquire();
-        assert!(first.is_some());
-        assert!(state.acquire().is_none());
-
-        drop(first);
-        assert!(state.acquire().is_some());
-    }
-
-    /// A cancel on one run must not pre-cancel the next.
-    #[test]
-    fn the_cancel_flag_is_per_run() {
-        let state = ExtractState::default();
-
-        let (guard, first) = state.acquire().unwrap();
-        assert!(state.cancel());
-        assert!(first.load(Ordering::Relaxed));
-        drop(guard);
-
-        let (_guard, second) = state.acquire().unwrap();
-        assert!(!second.load(Ordering::Relaxed));
-    }
-
-    /// A Cancel that lands after the run finished says so rather than failing.
-    #[test]
-    fn cancelling_nothing_reports_nothing() {
-        assert!(!ExtractState::default().cancel());
-    }
 }

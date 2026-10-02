@@ -3,7 +3,7 @@
 use crate::error::{GitHubFeed, IpcResult};
 use crate::releases::{self, ReleasePage};
 
-use super::github_feed;
+use crate::services::shared::github_feed;
 
 /// Read page `page` of the release feed, one-based as GitHub numbers it.
 #[tauri::command]

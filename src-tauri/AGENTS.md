@@ -58,6 +58,10 @@ service's row, or the row's `debug:` list when only a debug build registers it. 
 service owns yet joins `command_table![]` in `ipc.rs`. An event payload no command reaches is named
 once with `.typ::<T>()` in `ipc::builder`.
 
+What more than one service uses lives in `services/shared/`: `off_thread`, the asset and document
+reads, the `InFlight` slot and `overtaken` check, and the `Library` and `Workshop` arguments, which
+stand in for the states a library or workshop command takes and which a binding leaves out.
+
 A type that crosses IPC derives `specta::Type` under its crate's `ts` feature.
 `pnpm generate:types` writes every type and the commands outside a service to
 `src/lib/bindings.ts`, and each service's commands to `src/lib/ipc/<service>.ts`. `src/lib/tauri.ts`
