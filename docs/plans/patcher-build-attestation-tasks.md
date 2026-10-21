@@ -11,7 +11,7 @@ what done looks like. `manager` is this repository, `service` is `ltk-patcher-de
 - [ ] D4 Read the private spec for a per-key policy reason. Record the outcome in the spec.
 - [x] D5 Decide key custody. Record it in the spec's "Keys".
 - [x] K1 `manager`: `scripts/attest-keygen.mjs` prints a PEM private key and a base64 raw public key.
-- [ ] K2 Generate the staging pair. Private key in the repository secret `LTK_PATCHER_ATTESTATION_KEY` and the password manager. Public key noted for S2.
+- [x] K2 Generate the staging pair. Private key in the repository secret `LTK_PATCHER_ATTESTATION_KEY` and the password manager. Public key noted for S2.
 - [ ] K3 Generate the production pair. Private key in the password manager only, until P1.
 
 ## Phase 1: service
@@ -26,7 +26,7 @@ what done looks like. `manager` is this repository, `service` is `ltk-patcher-de
 - [x] S8 `reportEvent` takes `manager` and `commit` where it took `key`. Events `attested`, `attestation_invalid` and `manager_denied` written.
 - [x] S9 README: "Public delivery" documents the `attestation` field and the two refusals, the access policy section documents `deny:manager:` and the admin routes, and the client key text is gone.
 - [x] S10 Tests: `test/signing.ts` has an Ed25519 test pair and `attest(version, commit)`. `test/delivery.test.ts` and `test/worker.test.ts` cover a forged signature, a version mismatch, a denied version on registration and on an offer, a key-scheme token answering `401`, and `1.29.0-rc.1` inside `>=1.22.0, <2.0.0`. `test/admin.test.ts` covers S7. `test/fixtures/attestation.json` from M7 verifies.
-- [ ] S11 Deploy to staging. Delete the `clientkey:` entries. Deny and lift a version through the admin route and see `204` twice.
+- [x] S11 Deploy to staging. Delete the `clientkey:` entries. Deny and lift a version through the admin route and see `204` twice.
 
 ## Phase 2: manager
 
