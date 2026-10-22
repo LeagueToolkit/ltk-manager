@@ -13,10 +13,11 @@ const STAGING: (&str, &str) = (
     "https://patcher-staging.leaguetoolkit.dev",
     "RWRHh5bl7JOIscd3lf1Sw2xqd5qcoSeau1GmXjBm7C4KA4YSB0DOf+Kx",
 );
-// shortcut: no manifest key until the patcher's production signing key exists, so a
-// production build runs the bundled DLL only.
 /// Base URL and base64 minisign manifest key of the production delivery service.
-const PRODUCTION: (&str, &str) = ("https://patcher.leaguetoolkit.dev", "");
+const PRODUCTION: (&str, &str) = (
+    "https://patcher.leaguetoolkit.dev",
+    "RWSk74swcHfkZfLblm3iSk9RLVHJ1xjtqn/zySIPaCBM1hecnlFy1Bxi",
+);
 
 /// Build attestation that the release workflow signed for this manager version.
 ///
