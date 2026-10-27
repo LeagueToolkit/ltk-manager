@@ -18,4 +18,5 @@ export const libraryKeys = {
   healthCheckReadiness: () => [...libraryKeys.all, "healthCheckReadiness"] as const,
   checksumMismatches: () => [...libraryKeys.all, "checksumMismatches"] as const,
   migrationState: () => [...libraryKeys.all, "migrationState"] as const,
+  conflicts: () => [...libraryKeys.all, "conflicts"] as const,
 };

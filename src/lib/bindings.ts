@@ -1471,6 +1471,23 @@ export type Config_Serialize = {
 	audio: AudioSettings,
 };
 
+/**  One group of shared files: the same kind of asset, claimed by the same mods. */
+export type ConflictGroup = {
+	key: string,
+	label: string,
+	files: number,
+	/**  The competing mods, highest priority first. */
+	mods: ConflictMod[],
+	winner: string,
+	/**  Whether `winner` is the reader's pick rather than the priority default. */
+	chosen: boolean,
+};
+
+export type ConflictMod = {
+	id: string,
+	name: string,
+};
+
 /**  The account of the stored token. It holds nothing secret, so `settings.json` keeps it. */
 export type ConnectedAccount = {
 	/**  The id of the user on the site. */

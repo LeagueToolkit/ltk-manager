@@ -1,8 +1,8 @@
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
-    with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
-    ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState, ModWadReport,
-    WadReportState,
+    with_zip_extension, BulkInstallResult, ConflictGroup, EditModMetadataArgs, ExportScope,
+    ExportShape, ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState,
+    ModWadReport, WadReportState,
 };
 use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
@@ -19,6 +19,32 @@ use tauri::{AppHandle, Manager, State};
 #[specta::specta]
 pub fn get_installed_mods(library: Library) -> IpcResult<Vec<InstalledMod>> {
     library.with(|library, config| library.get_installed_mods(config))
+}
+
+/// Files two enabled mods both replace, grouped, with each group's winner.
+///
+/// Off-thread, because a first scan reads every enabled mod's overrides.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_mod_conflicts(app_handle: AppHandle) -> IpcResult<Vec<ConflictGroup>> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || library.mod_conflicts(&config)).await
+}
+
+/// Pick the mod that wins a conflict group, or `None` to fall back to priority.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_conflict_winner(
+    key: String,
+    winner: Option<String>,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<ConflictGroup>> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || library.set_conflict_winner(&config, key, winner)).await
 }
 
 /// Install a mod from a `.modpkg` or `.fantome` file into `modStoragePath`.

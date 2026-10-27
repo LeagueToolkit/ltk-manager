@@ -89,6 +89,8 @@ services! {
     library("library") {
         // Mods
         get_installed_mods,
+        get_mod_conflicts,
+        set_conflict_winner,
         install_mod,
         install_mods,
         update_mod,
