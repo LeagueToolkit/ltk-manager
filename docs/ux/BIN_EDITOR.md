@@ -502,7 +502,8 @@ A project answers before the tables for objects and `Hash` values, in every read
 that project. It names an object from its `binentries` tables and from the object paths that its
 game data declarations write, and a `Hash` value from its `binhashes` tables and from every string
 its game data declarations write: a literal, a map key, and a key subscript of a property path. A
-bin of one layer reads the names that another layer declares.
+joint of a `.skl` in a layer names its `Hash` value too, so `mBoneName` and `ParentJoint` read as
+the joint a mod adds. A bin of one layer reads the names that another layer holds.
 
 ## The blocks
 

@@ -34,6 +34,7 @@ pub use animation::{ClipHeader, header as clip_header};
 pub use audio::{AudioContainer, AudioInfo, BankFacts};
 pub use ltk_file::LeagueFileKind;
 pub use map::{encode_map, encode_map_meshes};
+pub use skeleton::joint_names;
 pub use source::AssetRef;
 pub use texture::{TextureContainer, TextureInfo};
 pub use web::WebImage;

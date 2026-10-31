@@ -22,6 +22,18 @@ pub fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
 ///
 /// A modpkg's archive is the mod, so code that reads one has to mount it. A
 /// stub of fake bytes does not exercise that code.
+pub fn skeleton_with_joints(root: &str, children: &[&str]) -> Vec<u8> {
+    let joint = ltk_anim::Joint::builder(root)
+        .with_children(children.iter().map(|name| ltk_anim::Joint::builder(*name)));
+    let rig = ltk_anim::RigResource::builder("rig", "rig")
+        .with_root_joint(joint)
+        .build();
+
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    rig.to_writer(&mut bytes).expect("write skeleton");
+    bytes.into_inner()
+}
+
 pub fn make_modpkg(path: &Path, name: &str) {
     make_modpkg_with_documents(path, name, None, None);
 }
