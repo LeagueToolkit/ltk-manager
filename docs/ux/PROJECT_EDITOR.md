@@ -3861,8 +3861,10 @@ and when the window regains focus. The answer follows the slot the index is in, 
 an install object takes its class from the index. A creation whose source or target chunk does not
 resolve is not listed, because the build fails on it.
 
-Every object path that a declaration spells also names its hash in the project's sandbox, so a
-reference to a created object reads as its path in every document of the project.
+Every object path that a declaration writes also names its hash in the project's sandbox, so a
+reference to a created object reads as its path in every document of the project. Every other
+string that a declaration writes names a `Hash` value the same way, so a clip key or an effect key
+that a mod invents reads as its text.
 
 ### A node with several declarations
 

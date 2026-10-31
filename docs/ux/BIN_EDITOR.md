@@ -495,6 +495,15 @@ A field or a class the tables miss takes the name the shipped meta schema holds 
 spawn shape reads `VfxShapePointDoNotUse` rather than `0xee39916f`. The hex is for a hash
 neither names.
 
+### What a project names
+
+The tables are a crawl of the retail game, so a name that a mod author invents is in none of them.
+A project answers before the tables for objects and `Hash` values, in every read of a document in
+that project. It names an object from its `binentries` tables and from the object paths that its
+game data declarations write, and a `Hash` value from its `binhashes` tables and from every string
+its game data declarations write: a literal, a map key, and a key subscript of a property path. A
+bin of one layer reads the names that another layer declares.
+
 ## The blocks
 
 ### The object block

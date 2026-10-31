@@ -21,7 +21,7 @@ pub use effects::{EffectSystem, JointEffect, PersistentCondition};
 pub use shipped::{ShippedSkin, shipped_skin};
 pub use tangents::bake_mesh_tangents;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
@@ -128,6 +128,8 @@ const PAIR_CLIP: BinHash = named("mClipName");
 const PAIR_VALUE: BinHash = named("mValue");
 /// `BaseEventData.mStartFrame`.
 const EVENT_START_FRAME: BinHash = named("mStartFrame");
+/// `*EventData.mName`, which usually holds the text of the event's key.
+const EVENT_NAME: BinHash = named("mName");
 /// `BaseEventData.mEndFrame`.
 const EVENT_END_FRAME: BinHash = named("mEndFrame");
 const PARAMETRIC_CLIP: BinHash = named("ParametricClipData");
@@ -817,6 +819,8 @@ enum GraphMap {
 /// it names and a joint an event names take one spelling.
 struct GraphKeys<'a> {
     locator: Locator<'a>,
+    /// The names of `own_key_names`, which answer a key that no table names.
+    own_names: HashMap<BinHash, String>,
     clips: HashSet<BinHash>,
     tracks: HashSet<BinHash>,
     masks: HashSet<BinHash>,
@@ -831,8 +835,10 @@ impl<'a> GraphKeys<'a> {
                 .map(|(hash, _)| hash)
                 .collect()
         };
+        let locator = Locator { names, assets };
         Self {
-            locator: Locator { names, assets },
+            own_names: own_key_names(graph, &locator),
+            locator,
             clips: keys_of(CLIP_DATA_MAP),
             tracks: keys_of(TRACK_DATA_MAP),
             masks: keys_of(MASK_DATA_MAP),
@@ -840,11 +846,12 @@ impl<'a> GraphKeys<'a> {
         }
     }
 
-    /// A hash as the tables name it, and its hex where none does.
+    /// A hash as the tables name it, else as the graph names it, and its hex where neither does.
     fn named(&self, hash: BinHash) -> String {
         self.locator
             .names
             .value_name(hash)
+            .or_else(|| self.own_names.get(&hash).cloned())
             .unwrap_or_else(|| hex(hash))
     }
 
@@ -884,6 +891,44 @@ impl<'a> GraphKeys<'a> {
             _ => None,
         }
     }
+}
+
+/// The names that `graph` itself holds for its keys, each confirmed against the key's hash.
+///
+/// An event's `mName` can be its key's text, and a clip's `.anm` file name can be the clip key's
+/// text or end with it, as `chogath_taunt.anm` ends with `taunt`.
+fn own_key_names(graph: &Fields, locator: &Locator) -> HashMap<BinHash, String> {
+    let mut own = HashMap::new();
+
+    for (clip, _, fields) in struct_entries(graph.get(&CLIP_DATA_MAP)) {
+        let file = fields_of(fields.get(&ANIMATION_RESOURCE))
+            .and_then(|resource| locator.asset(resource.get(&ANIMATION_FILE)));
+        if let Some(file) = file
+            && let Some(name) = file_key(clip, &file.path)
+        {
+            own.insert(clip, name.to_owned());
+        }
+
+        for (event, _, fields) in struct_entries(fields.get(&EVENT_DATA_MAP)) {
+            if let Some(name) = text(fields.get(&EVENT_NAME)).filter(|name| named(name) == event) {
+                own.insert(event, name.to_owned());
+            }
+        }
+    }
+
+    own
+}
+
+/// The part of the file name of `path` that hashes to `key`: the stem, or what follows one of
+/// its underscores. Returns `None` if no part does.
+fn file_key(key: BinHash, path: &str) -> Option<&str> {
+    let file = path.rsplit(['/', '\\']).next()?;
+    let stem = file.split('.').next()?;
+    let tails = stem.match_indices('_').map(|(at, _)| &stem[at + 1..]);
+
+    std::iter::once(stem)
+        .chain(tails)
+        .find(|part| named(part) == key)
 }
 
 /// A `Hash` field as the tables name it, and none for a zero or absent one.

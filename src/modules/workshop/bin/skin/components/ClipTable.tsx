@@ -48,12 +48,15 @@ import { ClipContextMenu } from "./ClipContextMenu";
 import { ClipDetail } from "./ClipDetail";
 import { MapTable } from "./ClipMaps";
 
-/** The rows the filter leaves, by name without regard to case, named ones first. */
+/** The rows the filter leaves, by name or hash without regard to case, named ones first. */
 export function matchingClips(clips: readonly GraphClip[], filter: string): GraphClip[] {
   const wanted = filter.trim().toLowerCase();
   const named = (clip: GraphClip) => clip.name !== clip.hash;
+  const matches = (clip: GraphClip) =>
+    clip.name.toLowerCase().includes(wanted) || clip.hash.toLowerCase().includes(wanted);
+
   return clips
-    .filter((clip) => wanted === "" || clip.name.toLowerCase().includes(wanted))
+    .filter((clip) => wanted === "" || matches(clip))
     .sort((a, b) => {
       if (named(a) !== named(b)) return named(a) ? -1 : 1;
       return a.name.localeCompare(b.name);
