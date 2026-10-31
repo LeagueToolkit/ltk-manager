@@ -3,9 +3,9 @@
 //!
 //! The service offers one minisign-signed manifest per channel and manager version
 //! range. A sync verifies the manifest, downloads its DLL into a directory named by
-//! the digest, and caches the manifest. A selection reads only the cache, so starting
-//! the patcher never waits for the network. An elevated session runs the bundled build,
-//! per `docs/adr/0067-a-delivered-patcher-dll-runs-only-unelevated.md`.
+//! the digest, and caches the manifest. A session waits for the network only if no usable
+//! DLL is staged or the staged DLL is past its end of life, per
+//! `docs/adr/0074-every-session-runs-a-delivered-patcher-dll.md`.
 
 mod manifest;
 mod service;
@@ -60,6 +60,14 @@ impl Channel {
     pub fn as_str(self) -> &'static str {
         self.into()
     }
+
+    /// Returns the channels that a session on this channel reads, in order.
+    fn search_order(self) -> &'static [Channel] {
+        match self {
+            Self::Stable => &[Self::Stable],
+            Self::Beta => &[Self::Beta, Self::Stable],
+        }
+    }
 }
 
 /// Errors of a delivery sync or selection.
@@ -106,31 +114,38 @@ pub enum DeliveryError {
     /// The downloaded DLL differs from the size or the digest of its release.
     #[error("the downloaded DLL does not match the size and digest of its release")]
     Integrity,
-    /// A cached manifest revokes the bundled DLL, and no delivered DLL is usable.
+    /// No cached manifest offers a build that this manager can run.
+    #[error("no patcher DLL is available for this LTK Manager version, so update LTK Manager")]
+    NoRelease,
+    /// The build has no attestation, so it cannot download a DLL, and no DLL is staged.
     #[error(
-        "the bundled patcher DLL was revoked and no replacement has been downloaded, so \
-         connect to the internet, wait a minute and start the patcher again"
+        "this build cannot download the patcher DLL and none is stored, so run an official LTK \
+         Manager build once to download it"
     )]
-    Withdrawn,
+    Unattested,
     /// A read or write of the delivery state, a staged file or the download body failed.
     #[error(transparent)]
     Io(#[from] std::io::Error),
 }
 
-/// The patcher build that a session runs.
+/// The patcher build that a session runs: a delivered DLL beside a copy of the bundled host.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Selection {
-    /// A delivered DLL, staged in `dir` beside a copy of the bundled host.
-    Delivered {
-        /// Staging directory that holds the DLL and the host copy.
-        dir: PathBuf,
-        /// Release name of the DLL.
-        version: String,
-        /// SHA-256 of the DLL, lowercase hex.
-        digest: String,
-    },
-    /// The host and the DLL that the manager bundles.
-    Bundled,
+pub struct StagedPatcher {
+    /// Staging directory that holds the DLL and the host copy.
+    pub dir: PathBuf,
+    /// Release name of the DLL.
+    pub version: String,
+    /// SHA-256 of the DLL, lowercase hex.
+    pub digest: String,
+    /// End of life of the DLL, in Unix seconds.
+    pub eol: u32,
+}
+
+impl StagedPatcher {
+    /// Returns `true` if `now`, in Unix seconds, is past the end of life of the DLL.
+    pub fn is_expired(&self, now: u64) -> bool {
+        now > u64::from(self.eol)
+    }
 }
 
 /// The delivery client of one manager build.
@@ -143,8 +158,9 @@ pub struct PatcherDelivery {
     /// Base64 minisign public key that every manifest must verify against.
     pub public_key: String,
     /// Build attestation that this manager build registers with, signed by the release
-    /// workflow over the release version and the commit.
-    pub attestation: String,
+    /// workflow over the release version and the commit. A build without one reads the
+    /// staged DLLs and never contacts the service.
+    pub attestation: Option<String>,
     /// Release version of this manager, without a pre-release suffix. A release range of a
     /// manifest never matches a pre-release version, on this side or on the service.
     pub manager: Version,
@@ -174,7 +190,12 @@ impl PatcherDelivery {
     /// Registers the install first if no token is stored. Registers it again if the
     /// service refuses the stored token. Fails if the manifest does not verify or is
     /// older than the cached manifest of the channel. A manifest that fails is not cached.
+    /// Fails with [`DeliveryError::Unattested`] if the build has no attestation.
     pub fn sync(&self, channel: Channel) -> Result<(), DeliveryError> {
+        if self.attestation.is_none() {
+            return Err(DeliveryError::Unattested);
+        }
+
         let service = Service::new(&self.url, &format!("ltk-manager/{}", self.manager))?;
         let mut state = self.load();
         let cached = self.cached(&state, channel);
@@ -231,53 +252,81 @@ impl PatcherDelivery {
         Ok(())
     }
 
-    /// Selects the build that a session on `channel` runs.
+    /// Selects the build that a session on `channel` runs, with the host copied beside it.
     ///
-    /// Returns [`Selection::Delivered`] if the cached manifest of `channel` is usable by
-    /// this manager, its DLL is staged, and the session is not `elevated`. Returns
-    /// [`Selection::Bundled`] if no cached manifest of `channel` is usable, if its DLL is
-    /// not staged, if the session is `elevated`, or if the host cannot be copied beside
-    /// the DLL. Fails with [`DeliveryError::Withdrawn`] if a cached manifest revokes
-    /// `bundled_dll` and no delivered DLL replaces it.
+    /// Reads only the cache. Returns `None` if no cached manifest of the channel is usable
+    /// by this manager with its DLL staged. A beta session falls back to stable. Fails if
+    /// the host cannot be copied beside the DLL.
     pub fn select(
         &self,
         channel: Channel,
         bundled_host: &Path,
-        bundled_dll: &Path,
-        elevated: bool,
-    ) -> Result<Selection, DeliveryError> {
+    ) -> Result<Option<StagedPatcher>, DeliveryError> {
+        let Some(staged) = self.staged(channel) else {
+            return Ok(None);
+        };
+
+        stage_host(&staged.dir, bundled_host)?;
+        Ok(Some(staged))
+    }
+
+    /// Syncs the channels of a `channel` session, then selects the build that it runs.
+    ///
+    /// Returns the staged build if a sync fails or finds nothing newer, even past its end
+    /// of life, because the DLL itself decides that. Fails with the first sync failure, or
+    /// with [`DeliveryError::NoRelease`], if no build is usable after the syncs.
+    pub fn refresh(
+        &self,
+        channel: Channel,
+        bundled_host: &Path,
+        now: u64,
+    ) -> Result<StagedPatcher, DeliveryError> {
+        let mut failure = None;
+
+        for candidate in channel.search_order() {
+            if let Err(error) = self.sync(*candidate) {
+                tracing::warn!(channel = %candidate, %error, "Patcher delivery sync failed");
+                failure.get_or_insert(error);
+            }
+
+            if self
+                .staged(channel)
+                .is_some_and(|staged| !staged.is_expired(now))
+            {
+                break;
+            }
+        }
+
+        match self.select(channel, bundled_host)? {
+            Some(staged) => Ok(staged),
+            None => Err(failure.unwrap_or(DeliveryError::NoRelease)),
+        }
+    }
+
+    /// Returns the path of the DLL that a session on `channel` runs, if one is staged.
+    pub fn staged_dll_path(&self, channel: Channel) -> Option<PathBuf> {
+        self.staged(channel)
+            .map(|staged| staged.dir.join(HOOK_DLL_NAME))
+    }
+
+    /// Returns the first build of the channels of `channel` that is usable and staged.
+    fn staged(&self, channel: Channel) -> Option<StagedPatcher> {
         let state = self.load();
         let revoked = self.revoked(&state);
 
-        let delivered = self
-            .cached(&state, channel)
-            .filter(|manifest| !elevated && self.usable(manifest, &revoked))
-            .and_then(|manifest| {
-                let dir = self.staged_dll(&manifest.release)?;
-                match stage_host(&dir, bundled_host) {
-                    Ok(()) => Some(Selection::Delivered {
-                        dir,
-                        version: manifest.release.version,
-                        digest: manifest.release.digest,
-                    }),
-                    Err(error) => {
-                        tracing::warn!(
-                            %error,
-                            "Could not copy the host beside the delivered DLL. Using the bundled patcher"
-                        );
-                        None
-                    }
-                }
-            });
-        if let Some(selection) = delivered {
-            return Ok(selection);
-        }
+        channel.search_order().iter().find_map(|candidate| {
+            let manifest = self
+                .cached(&state, *candidate)
+                .filter(|manifest| self.usable(manifest, &revoked))?;
+            let dir = self.staged_dll(&manifest.release)?;
 
-        if !revoked.is_empty() && sha256_file(bundled_dll).is_ok_and(|d| revoked.contains(&d)) {
-            return Err(DeliveryError::Withdrawn);
-        }
-
-        Ok(Selection::Bundled)
+            Some(StagedPatcher {
+                dir,
+                version: manifest.release.version,
+                digest: manifest.release.digest,
+                eol: manifest.release.eol,
+            })
+        })
     }
 
     /// Sends `request` with the install token.
@@ -315,7 +364,11 @@ impl PatcherDelivery {
             .install
             .get_or_insert_with(|| Uuid::new_v4().to_string())
             .clone();
-        let token = service.register(&install, &self.manager.to_string(), &self.attestation)?;
+        let attestation = self
+            .attestation
+            .as_deref()
+            .ok_or(DeliveryError::Unattested)?;
+        let token = service.register(&install, &self.manager.to_string(), attestation)?;
 
         state.token = Some(token.clone());
         self.save(state)?;

@@ -1,7 +1,7 @@
 //! The diagnostics service: the diagnostic suite, League's own diagnostics, and the incidents
 //! the patcher records.
 //!
-//! `run_diagnostics` resolves the bundled hook DLL the injector loads into the
+//! `run_diagnostics` resolves the delivered hook DLL the injector loads into the
 //! game, snapshots settings, and runs every check in
 //! [`ltk_manager_runtime::diagnostics::run_all`]. It never returns an error, since
 //! checks that fail to gather data report `Severity::Warn` or `Severity::Bad`
@@ -9,8 +9,9 @@
 
 use super::desktop::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::patcher::host::HOOK_DLL_NAME;
+use crate::patcher::PatcherDeliveryState;
 use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_base::config::Config;
 use std::sync::Arc;
 
 use crate::telemetry::errors::UiError;
@@ -21,32 +22,13 @@ use ltk_manager_runtime::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
-/// Same lookup chain as `services::patcher::resolve_resource`, but returns
-/// `None` instead of an error so we can still report the rest of the
-/// diagnostics when the DLL is missing.
-pub(crate) fn resolve_patcher_dll(app_handle: &AppHandle) -> Option<PathBuf> {
-    if let Ok(dir) = app_handle.path().resource_dir() {
-        let p = dir.join(HOOK_DLL_NAME);
-        if p.exists() {
-            return Some(p);
-        }
-    }
-    if let Some(dev) = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .map(|p| p.join(HOOK_DLL_NAME))
-    {
-        if dev.exists() {
-            return Some(dev);
-        }
-    }
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("resources")
-        .join(HOOK_DLL_NAME);
-    if manifest.exists() {
-        return Some(manifest);
-    }
-    None
+/// Returns the delivered DLL that a session started from `config` runs, if one is staged.
+fn staged_patcher_dll(app_handle: &AppHandle, config: &Config) -> Option<PathBuf> {
+    let delivery = app_handle.state::<PatcherDeliveryState>();
+
+    delivery
+        .delivery()?
+        .staged_dll_path(crate::patcher::delivery::channel(config))
 }
 
 #[tauri::command]
@@ -56,6 +38,13 @@ pub fn run_diagnostics(
     settings: State<SettingsState>,
 ) -> IpcResult<DiagnosticReport> {
     IpcResult::ok(run_diagnostics_inner(&app_handle, &settings))
+}
+
+/// Returns the commands that stop League running as administrator, or `null` if it does not.
+#[tauri::command]
+#[specta::specta]
+pub fn league_admin_fix_command() -> IpcResult<Option<String>> {
+    IpcResult::ok(ltk_manager_runtime::diagnostics::league_admin_fix_command())
 }
 
 /// Launch an elevated PowerShell window so the user can run a fix command.
@@ -151,7 +140,7 @@ fn run_diagnostics_inner(
         league_path: snapshot.league_path.clone(),
         mod_storage_path,
         mod_storage_is_default: storage_is_default,
-        patcher_dll_path: resolve_patcher_dll(app_handle),
+        patcher_dll_path: staged_patcher_dll(app_handle, &snapshot),
         manager_exe: std::env::current_exe().ok(),
     };
     let checks = run_all(&ctx);

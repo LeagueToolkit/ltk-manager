@@ -145,7 +145,6 @@ const ATTACH_PID_WINDOW: Duration = Duration::from_secs(1);
 /// `services::patcher`); the injector only runs the per-session event loop and,
 /// on stop, issues a `stop` command rather than killing the host.
 pub struct Injector {
-    elevate: bool,
     on_event: Option<EventCallback>,
 }
 
@@ -157,18 +156,7 @@ impl Default for Injector {
 
 impl Injector {
     pub fn new() -> Self {
-        Self {
-            elevate: false,
-            on_event: None,
-        }
-    }
-
-    /// Enable elevation mode (`--elevate`), which triggers a UAC prompt and
-    /// runs the host at high integrity. Required when the game is protected
-    /// by Vanguard.
-    pub fn with_elevate(mut self, elevate: bool) -> Self {
-        self.elevate = elevate;
-        self
+        Self { on_event: None }
     }
 
     /// Register a callback invoked when the injector observes a notable
@@ -263,9 +251,8 @@ impl Injector {
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {
                     // Reader thread ended: the host closed stdout / hit EOF. If we
-                    // didn't ask it to stop, the host died on its own - it crashed,
-                    // antivirus blocked it, or (on the elevated path) the user
-                    // dismissed the UAC prompt. Surface that instead of silently
+                    // didn't ask it to stop, the host died on its own - it crashed
+                    // or antivirus blocked it. Surface that instead of silently
                     // reporting a clean stop.
                     if stop_flag.load(Ordering::SeqCst) {
                         return Ok(SessionEnd::Stopped);
@@ -447,14 +434,9 @@ impl Injector {
     }
 
     /// Build the error returned when the host process disappears without us
-    /// asking it to stop. Tailors the hint to whether we elevated, since a
-    /// dismissed UAC prompt is the most common cause on the elevated path.
+    /// asking it to stop.
     fn unexpected_exit_error(&self, last_error: Option<String>) -> InjectorError {
-        let base = if self.elevate {
-            "The injection host exited unexpectedly. If you dismissed the Windows User Account Control (UAC) prompt, the patcher cannot run elevated - accept the prompt next time, or turn off \"Run injector elevated\" in Settings if League is not running as administrator."
-        } else {
-            "The injection host exited unexpectedly. It may have crashed or been blocked by antivirus."
-        };
+        let base = "The injection host exited unexpectedly. It may have crashed or been blocked by antivirus.";
         match last_error {
             Some(detail) if !detail.is_empty() => {
                 InjectorError::Failed(format!("{base} (host reported: {detail})"))
@@ -589,12 +571,10 @@ mod tests {
     }
 
     impl Harness {
-        fn new(elevate: bool) -> Self {
+        fn new() -> Self {
             let events = Arc::new(Mutex::new(Vec::new()));
             let sink = Arc::clone(&events);
-            let injector = Injector::new()
-                .with_elevate(elevate)
-                .on_event(move |e| sink.lock().push(e));
+            let injector = Injector::new().on_event(move |e| sink.lock().push(e));
             let (tx, rx) = channel();
             Self {
                 injector,
@@ -616,7 +596,7 @@ mod tests {
         }
 
         /// Drop the sender so the loop observes a disconnected channel, which is
-        /// how a host death (crash, antivirus, dismissed UAC) reaches the loop.
+        /// how a host death (crash, antivirus) reaches the loop.
         fn close(&mut self) {
             self.tx = None;
         }
@@ -664,7 +644,7 @@ mod tests {
 
     #[test]
     fn stop_flag_ends_session_cleanly_and_stops_host() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.stop_flag.store(true, Ordering::SeqCst);
 
         assert!(harness.run().is_ok());
@@ -676,7 +656,7 @@ mod tests {
 
     #[test]
     fn host_death_without_stop_request_is_an_error() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.close();
 
         let err = harness.run().expect_err("EOF without stop must error");
@@ -688,20 +668,9 @@ mod tests {
         );
     }
 
-    /// A dismissed UAC prompt looks identical to a crash at the channel level, so
-    /// the elevated path has to explain itself differently.
-    #[test]
-    fn host_death_on_elevated_path_mentions_uac() {
-        let mut harness = Harness::new(true);
-        harness.close();
-
-        let msg = harness.run().expect_err("EOF must error").to_string();
-        assert!(msg.contains("User Account Control"), "got: {msg}");
-    }
-
     #[test]
     fn host_death_after_stop_request_is_clean() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.stop_flag.store(true, Ordering::SeqCst);
         harness.close();
 
@@ -712,7 +681,7 @@ mod tests {
     /// rather than being lost behind the generic message.
     #[test]
     fn last_host_error_is_surfaced_on_death() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("error 1.0000000 could not open process");
         harness.close();
 
@@ -722,7 +691,7 @@ mod tests {
 
     #[test]
     fn status_failed_ends_the_session_with_its_message() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send("status 1.0000000 failed injection rejected");
 
         let err = harness.run().expect_err("status failed must error");
@@ -736,7 +705,7 @@ mod tests {
     /// so the loop must keep running.
     #[test]
     fn game_exit_does_not_end_the_session() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("status 1.0000000 exited game closed");
         harness.close();
 
@@ -749,7 +718,7 @@ mod tests {
     /// thread can rebuild.
     #[test]
     fn a_due_refresh_ends_the_loop_while_scanning() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send("status 1.0000000 injecting scanning for game");
         harness.refresh.request();
 
@@ -761,7 +730,7 @@ mod tests {
     /// and runs when the game exits.
     #[test]
     fn a_due_refresh_waits_for_the_open_game() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send("status 1.0000000 injecting game found");
         harness.refresh.request();
 
@@ -790,7 +759,7 @@ mod tests {
     /// batched into a single event and auto-stop the session.
     #[test]
     fn wad_scan_failures_are_batched_and_auto_stop() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send(&wad_failure_line("Ahri.wad.client"));
         harness.send(&wad_failure_line("Ashe.wad.client"));
 
@@ -809,7 +778,7 @@ mod tests {
 
     #[test]
     fn duplicate_wad_failures_are_deduplicated() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         for _ in 0..3 {
             harness.send(&wad_failure_line("Ahri.wad.client"));
         }
@@ -822,7 +791,7 @@ mod tests {
 
     #[test]
     fn clean_session_emits_no_events() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send("ok 1.0000000 configured");
         harness.send("status 1.0000000 injected into pid 1234");
         harness.stop_flag.store(true, Ordering::SeqCst);
@@ -833,7 +802,7 @@ mod tests {
 
     #[test]
     fn game_boundaries_are_typed_events() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("status 0.1000000 injecting scanning for game");
         harness.send("status 1.0000000 injecting game found");
         harness.send("status 9.0000000 exited dll detached");
@@ -857,7 +826,7 @@ mod tests {
     /// record, which carries it on every line.
     #[test]
     fn attach_takes_its_pid_from_the_first_dll_record() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("status 1.0000000 injecting game found");
         harness.send("status 2.0000000 injected dll attached");
         harness.send("status 2.0000001 waiting game exit");
@@ -882,7 +851,7 @@ mod tests {
 
     #[test]
     fn attach_without_a_dll_record_reports_no_pid_before_the_exit() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("status 2.0000000 injected dll attached");
         harness.send("status 9.0000000 exited dll detached");
         harness.close();
@@ -900,7 +869,7 @@ mod tests {
 
     #[test]
     fn attach_without_a_dll_record_reports_no_pid_once_the_window_runs_out() {
-        let harness = Harness::new(false);
+        let harness = Harness::new();
         harness.send("status 2.0000000 injected dll attached");
         let stop_flag = Arc::clone(&harness.stop_flag);
         std::thread::spawn(move || {
@@ -941,7 +910,7 @@ mod tests {
             ),
         ];
         for (message, outcome, detail) in cases {
-            let mut harness = Harness::new(false);
+            let mut harness = Harness::new();
             harness.send(&dll_line("ERROR", message));
             harness.close();
 
@@ -957,7 +926,7 @@ mod tests {
 
     #[test]
     fn redirects_skips_and_launches_are_typed() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send(&dll_line(
             "INFO",
             "ltk_patcher_dll::verify: replay (.rofl) launch; anti-hack scan will not block",
@@ -993,7 +962,7 @@ mod tests {
     /// to the timeline. A redirect does not: it is typed, and there are many.
     #[test]
     fn timeline_lines_carry_the_host_clock_and_the_text_after_the_target() {
-        let mut harness = Harness::new(false);
+        let mut harness = Harness::new();
         harness.send("status 2.5000000 waiting game exit");
         harness.send(&dll_line(
             "INFO",

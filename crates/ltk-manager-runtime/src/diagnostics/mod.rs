@@ -147,9 +147,8 @@ pub struct CheckCtx {
 }
 
 /// Whether League/Riot is configured to launch elevated (an AppCompatFlags
-/// `RUNASADMIN` layer on its executable). The patcher uses this to auto-enable
-/// host elevation, since an elevated game can only be injected by an elevated
-/// host. Always `false` off Windows.
+/// `RUNASADMIN` layer on its executable). A patcher start fails if it is.
+/// Always `false` off Windows.
 pub fn league_configured_as_admin() -> bool {
     #[cfg(target_os = "windows")]
     {
@@ -161,9 +160,23 @@ pub fn league_configured_as_admin() -> bool {
     }
 }
 
-/// Whether the manager process itself is running elevated. When it is, any host
-/// it spawns inherits high integrity, so the `--elevate` UAC bridge is
-/// unnecessary. Always `false` off Windows.
+/// Returns the commands that remove League's `RUNASADMIN` layers, or `None` if it has none.
+///
+/// The commands need an elevated terminal. Always `None` off Windows.
+pub fn league_admin_fix_command() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    {
+        compat_flags::run_as_admin_fix_command()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        None
+    }
+}
+
+/// Whether the manager process itself is running elevated. A host it spawns
+/// inherits high integrity, so a patcher start fails if it is. Always `false`
+/// off Windows.
 pub fn manager_is_elevated() -> bool {
     #[cfg(target_os = "windows")]
     {

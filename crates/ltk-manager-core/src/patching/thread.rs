@@ -2,7 +2,7 @@
 //! rebuilds between games when the library changes, and reports everything
 //! user-facing through [`PatcherEvents`].
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -54,16 +54,24 @@ pub fn workshop_tests(config: &StoredPatcherConfig) -> Vec<WorkshopTestProject> 
         .collect()
 }
 
+/// The host that a session runs and the identity of its binaries.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedHost {
+    pub exe: PathBuf,
+    pub binaries: PatcherBinaries,
+}
+
+/// Prepares the host of a session on the session thread, because it can wait for a download.
+pub type PrepareHost = Box<dyn FnOnce() -> AppResult<PreparedHost> + Send>;
+
 /// Per-session inputs for [`PatcherThread::start`], resolved by the caller
 /// before the patcher state is claimed.
 pub struct SessionParams {
-    pub injector_exe: PathBuf,
+    pub prepare_host: PrepareHost,
     pub config: Config,
     pub library: ModLibrary,
     pub workshop_projects: Vec<WorkshopTestProject>,
     pub host_flags: u32,
-    pub should_elevate: bool,
-    pub patcher_binaries: PatcherBinaries,
     /// Where the session's incidents are written.
     pub incident_store: Arc<IncidentStore>,
     /// Whether the overlay is built from scratch rather than reused.
@@ -80,12 +88,10 @@ pub struct PatcherThread {
     host: Arc<Mutex<Option<PatcherHost>>>,
     stop_flag: Arc<AtomicBool>,
     refresh: Arc<OverlayRefresh>,
-    injector_exe: PathBuf,
     config: Config,
     library: ModLibrary,
     workshop_projects: Vec<WorkshopTestProject>,
     host_flags: u32,
-    should_elevate: bool,
     force_rebuild: bool,
 }
 
@@ -119,13 +125,11 @@ impl PatcherThread {
         events.phase_changed(PatcherPhase::Building);
 
         let SessionParams {
-            injector_exe,
+            prepare_host,
             config,
             library,
             workshop_projects,
             host_flags,
-            should_elevate,
-            patcher_binaries,
             incident_store,
             force_rebuild,
             telemetry,
@@ -141,7 +145,7 @@ impl PatcherThread {
         ));
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
-            GameRecorder::new(origin, should_elevate, patcher_binaries),
+            GameRecorder::new(origin),
             Arc::new(move |record| pipeline.spawn(record)),
         ));
         let session = Self {
@@ -151,19 +155,28 @@ impl PatcherThread {
             host: Arc::clone(host),
             stop_flag: Arc::clone(&patcher_state.stop_flag),
             refresh: Arc::clone(&patcher_state.overlay_refresh),
-            injector_exe,
             config,
             library,
             workshop_projects,
             host_flags,
-            should_elevate,
             force_rebuild,
         };
-        patcher_state.thread_handle = Some(thread::spawn(move || session.run()));
+        patcher_state.thread_handle = Some(thread::spawn(move || session.run(prepare_host)));
         Ok(())
     }
 
-    fn run(self) {
+    fn run(self, prepare_host: PrepareHost) {
+        let host = match prepare_host() {
+            Ok(host) => host,
+            Err(e) => {
+                tracing::error!(error = ?e, "Could not prepare the patcher host");
+                self.events.error(e);
+                self.reset_to_idle();
+                return;
+            }
+        };
+        self.observer.set_patcher(host.binaries);
+
         let mut force_rebuild = self.force_rebuild;
 
         loop {
@@ -172,7 +185,7 @@ impl PatcherThread {
             };
             force_rebuild = false;
 
-            if self.run_session(overlay_prefix) == SessionEnd::Stopped {
+            if self.run_session(&host.exe, overlay_prefix) == SessionEnd::Stopped {
                 break;
             }
             self.resume_building();
@@ -236,7 +249,7 @@ impl PatcherThread {
     /// Run one injection session via the core orchestration, blocking until the
     /// caller stops or a library edit asks for a rebuild. A failure is reported
     /// and ends the session.
-    fn run_session(&self, overlay_prefix: String) -> SessionEnd {
+    fn run_session(&self, host_exe: &Path, overlay_prefix: String) -> SessionEnd {
         self.enter_patching(overlay_prefix.clone());
 
         let host_config = HostConfig {
@@ -251,8 +264,7 @@ impl PatcherThread {
 
         let result = session::run_injection_session(
             &self.host,
-            &self.injector_exe,
-            self.should_elevate,
+            host_exe,
             &host_config,
             &self.stop_flag,
             &self.refresh,

@@ -5,6 +5,7 @@ export { useDecodeIncidentToken } from "./useDecodeIncidentToken";
 export { useDiagnostics } from "./useDiagnostics";
 export { useDismissAllIncidents } from "./useDismissAllIncidents";
 export { useDismissIncident } from "./useDismissIncident";
+export { useFixCommandTerminal, useFixLeagueElevated } from "./useFixCommandTerminal";
 export { useIncidentListeners } from "./useIncidentListeners";
 export { type ReportSubject, useIncidentReport } from "./useIncidentReport";
 export { useIncident, useIncidents, useLatestIncident } from "./useIncidents";

@@ -42,17 +42,14 @@ fn main() {
 }
 
 fn bake_patcher_checksums() {
-    let resources = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources");
-    for (file, var) in [
-        ("ltk_patcher_dll.dll", "LTK_BUNDLED_DLL_HASH"),
-        ("ltk_patcher_host.exe", "LTK_BUNDLED_HOST_HASH"),
-    ] {
-        let path = resources.join(file);
-        println!("cargo:rerun-if-changed={}", path.display());
-        if let Ok(bytes) = fs::read(&path) {
-            let digest = Sha256::digest(&bytes);
-            let hash: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
-            println!("cargo:rustc-env={var}={hash}");
-        }
+    let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("resources")
+        .join("ltk_patcher_host.exe");
+    println!("cargo:rerun-if-changed={}", path.display());
+
+    if let Ok(bytes) = fs::read(&path) {
+        let digest = Sha256::digest(&bytes);
+        let hash: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
+        println!("cargo:rustc-env=LTK_BUNDLED_HOST_HASH={hash}");
     }
 }

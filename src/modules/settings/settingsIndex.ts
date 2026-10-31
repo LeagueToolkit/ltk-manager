@@ -143,7 +143,6 @@ const INDEX = [
   },
 
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },
-  { id: "patching.elevateInjector", key: "elevateInjector", title: "Run injector elevated" },
   {
     id: "patching.verbosePatcherLogging",
     key: "verbosePatcherLogging",

@@ -11,7 +11,7 @@ pub mod session;
 pub mod state;
 
 pub use dll_lines::{DllLevel, DllLine};
-pub use elevation::should_elevate;
+pub use elevation::check_unelevated;
 pub use error::{InjectionStage, PatcherError};
 pub use events::PatcherEvents;
 pub use injector::InjectorEvent;

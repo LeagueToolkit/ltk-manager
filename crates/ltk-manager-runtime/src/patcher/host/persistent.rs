@@ -14,9 +14,7 @@ pub type HostLine = std::io::Result<String>;
 
 /// A long-lived injection host, kept alive across patching sessions.
 ///
-/// Killing the host between sessions would tear down the elevated worker it
-/// bridges to (and re-trigger its UAC prompt on the next start), so instead we
-/// spawn it once - lazily, on the first patcher start - and drive it with
+/// Spawned once, lazily, on the first patcher start, and driven with
 /// `start`/`stop` commands. A single reader thread owns the host's stdout for
 /// its whole life and funnels every line onto [`Self::take_events`]'s channel;
 /// each session borrows that receiver for the duration of its event loop and
@@ -29,15 +27,12 @@ pub struct PatcherHost {
     /// The executable that the host was spawned from. A session for another
     /// executable forces a respawn.
     exe: PathBuf,
-    /// Whether the host was spawned with `--elevate`. A change in the desired
-    /// elevation mode forces a respawn (the flag is fixed at spawn time).
-    elevated: bool,
 }
 
 impl PatcherHost {
     /// Spawn the host and start its persistent stdout reader thread.
-    pub fn spawn(exe_path: &Path, elevate: bool) -> Result<Self, HostError> {
-        let mut proc = HostProcess::spawn(exe_path, elevate)?;
+    pub fn spawn(exe_path: &Path) -> Result<Self, HostError> {
+        let mut proc = HostProcess::spawn(exe_path)?;
         let stderr_handle = proc.take_stderr().map(forward_stderr);
         let reader = match proc.take_event_reader() {
             Some(reader) => reader,
@@ -57,7 +52,6 @@ impl PatcherHost {
             reader_handle: Some(reader_handle),
             stderr_handle,
             exe: exe_path.to_path_buf(),
-            elevated: elevate,
         })
     }
 
@@ -69,11 +63,6 @@ impl PatcherHost {
     /// Returns the executable that the host was spawned from.
     pub fn exe(&self) -> &Path {
         &self.exe
-    }
-
-    /// Whether the host was spawned with `--elevate`.
-    pub fn elevated(&self) -> bool {
-        self.elevated
     }
 
     /// Send all config commands for a session.

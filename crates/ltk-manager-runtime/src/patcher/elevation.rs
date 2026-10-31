@@ -1,54 +1,64 @@
-//! Whether an injection host needs the UAC bridge.
+//! The check that a patcher session runs unelevated.
 
+use super::error::PatcherError;
 use crate::diagnostics;
-use ltk_manager_base::config::Config;
 
-/// Whether to spawn the host with `--elevate`.
+/// Fails if the session would need or inherit high integrity.
 ///
-/// Probes the running system, so it can only be called for real; the rule
-/// itself is [`elevation_decision`].
-pub fn should_elevate(config: &Config) -> bool {
+/// Probes the running system, and the rule itself is `elevation_refusal`.
+pub fn check_unelevated() -> Result<(), PatcherError> {
     let manager_elevated = diagnostics::manager_is_elevated();
     let league_admin = diagnostics::league_configured_as_admin();
-    let should_elevate =
-        elevation_decision(config.elevate_injector, league_admin, manager_elevated);
-    tracing::info!(
-        "Injector elevation = {should_elevate} (opt_in={}, league_admin={league_admin}, manager_elevated={manager_elevated})",
-        config.elevate_injector
-    );
-    should_elevate
+
+    match elevation_refusal(league_admin, manager_elevated) {
+        Some(refusal) => {
+            tracing::warn!(%refusal, "Refusing to start the patcher");
+            Err(refusal)
+        }
+        None => Ok(()),
+    }
 }
 
-/// Elevate when the user opts in or League runs as admin, but never when the
-/// manager is already elevated: a host it spawns inherits high integrity, so the
-/// UAC bridge would only add a redundant prompt.
-fn elevation_decision(opt_in: bool, league_admin: bool, manager_elevated: bool) -> bool {
-    !manager_elevated && (opt_in || league_admin)
+/// Returns the error for an elevated session, or `None` if the session is unelevated.
+///
+/// The delivered DLL sits in a directory that the user can write, so a high-integrity host
+/// must not load it, per `docs/adr/0074-every-session-runs-a-delivered-patcher-dll.md`.
+fn elevation_refusal(league_admin: bool, manager_elevated: bool) -> Option<PatcherError> {
+    if manager_elevated {
+        return Some(PatcherError::ManagerElevated);
+    }
+    if league_admin {
+        return Some(PatcherError::LeagueElevated);
+    }
+
+    None
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
 
     #[test]
-    fn an_unelevated_manager_elevates_on_opt_in_or_an_admin_league() {
-        assert!(!elevation_decision(false, false, false));
-        assert!(elevation_decision(true, false, false));
-        assert!(elevation_decision(false, true, false));
-        assert!(elevation_decision(true, true, false));
+    fn elevation_refusal_is_none_if_nothing_is_elevated() {
+        assert!(elevation_refusal(false, false).is_none());
     }
 
-    /// An elevated manager already spawns high-integrity hosts, so the bridge
-    /// would only cost the user a second UAC prompt for nothing.
     #[test]
-    fn an_elevated_manager_never_elevates_the_host() {
-        for opt_in in [false, true] {
-            for league_admin in [false, true] {
-                assert!(
-                    !elevation_decision(opt_in, league_admin, true),
-                    "opt_in={opt_in} league_admin={league_admin}"
-                );
-            }
+    fn elevation_refusal_names_league_if_only_league_is_elevated() {
+        assert_matches!(
+            elevation_refusal(true, false),
+            Some(PatcherError::LeagueElevated)
+        );
+    }
+
+    #[test]
+    fn elevation_refusal_names_manager_if_manager_is_elevated() {
+        for league_admin in [false, true] {
+            assert_matches!(
+                elevation_refusal(league_admin, true),
+                Some(PatcherError::ManagerElevated)
+            );
         }
     }
 }

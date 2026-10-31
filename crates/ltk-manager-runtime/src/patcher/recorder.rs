@@ -23,22 +23,24 @@ const TIMELINE_CAP: usize = 256;
 #[derive(Debug)]
 pub struct GameRecorder {
     origin: SessionOrigin,
-    host_elevated: bool,
     patcher: PatcherBinaries,
     open: Option<GameRecord>,
 }
 
 impl GameRecorder {
-    /// A recorder for one session. `host_elevated` and `patcher` are kept on
-    /// every record: the first picks the hint for a DLL that never attached,
-    /// and the second says which patcher binaries ran.
-    pub fn new(origin: SessionOrigin, host_elevated: bool, patcher: PatcherBinaries) -> Self {
+    /// A recorder for one session, which has no patcher binaries until
+    /// [`Self::set_patcher`].
+    pub fn new(origin: SessionOrigin) -> Self {
         Self {
             origin,
-            host_elevated,
-            patcher,
+            patcher: PatcherBinaries::default(),
             open: None,
         }
+    }
+
+    /// Sets the patcher binaries that are kept on every later record.
+    pub fn set_patcher(&mut self, patcher: PatcherBinaries) {
+        self.patcher = patcher;
     }
 
     /// Whether a game is open.
@@ -162,7 +164,6 @@ impl GameRecorder {
 
     fn new_record(&self, now: DateTime<Utc>) -> GameRecord {
         let mut record = GameRecord::open(now, self.origin.clone());
-        record.host_elevated = self.host_elevated;
         record.patcher = self.patcher.clone();
         record
     }
@@ -223,7 +224,7 @@ mod tests {
     }
 
     fn recorder() -> GameRecorder {
-        GameRecorder::new(SessionOrigin::Library, false, PatcherBinaries::default())
+        GameRecorder::new(SessionOrigin::Library)
     }
 
     fn line(source: EvidenceSource, text: &str) -> InjectorEvent {
@@ -425,13 +426,9 @@ mod tests {
 
     #[test]
     fn session_failed_before_any_game_gives_a_record_with_the_failure() {
-        let mut recorder = GameRecorder::new(
-            SessionOrigin::Workshop {
-                projects: vec!["C:\\projects\\skin".to_string()],
-            },
-            true,
-            PatcherBinaries::default(),
-        );
+        let mut recorder = GameRecorder::new(SessionOrigin::Workshop {
+            projects: vec!["C:\\projects\\skin".to_string()],
+        });
 
         let record = recorder.session_failed(
             SessionFailure::Build {
@@ -444,7 +441,6 @@ mod tests {
 
         assert_eq!(record.started_at, at(1));
         assert_eq!(record.ended_at, at(1));
-        assert!(record.host_elevated);
         assert!(!record.injected);
         assert!(record.origin.is_workshop());
         assert_eq!(

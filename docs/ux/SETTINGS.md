@@ -168,7 +168,7 @@ label sits over a block either way.
   +---------------------------------------------+  <- panel, surface-900, p-5
   | INJECTOR                                    |  <- group header, no rule over the first group
   | Patch TFT files                         ( ) |  <- a row at its default
-  | Run injector elevated  (r)              (O) |  <- (r) reverts a row that is off its default
+  | Patch TFT files        (r)              (O) |  <- (r) reverts a row that is off its default
   | Verbose patcher logging                 ( ) |
   | Beta patcher                            ( ) |
   | ------------------------------------------- |  <- the rule belongs to the group below it
@@ -850,12 +850,12 @@ and the two-column `SettingsGrid` leaves the tab, because both remaining cards a
 
 Card `Patching`:
 
-| Group         | Rows                                                                          |
-| ------------- | ----------------------------------------------------------------------------- |
-| Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging, Beta patcher |
-| Mod safety    | Block Scripts.wad.client                                                      |
-| Game archives | Scan every WAD up front, Disable crash reporting                              |
-| Incidents     | Allow reading game logs, Keep incidents                                       |
+| Group         | Rows                                                   |
+| ------------- | ------------------------------------------------------ |
+| Injector      | Patch TFT files, Verbose patcher logging, Beta patcher |
+| Mod safety    | Block Scripts.wad.client                               |
+| Game archives | Scan every WAD up front, Disable crash reporting       |
+| Incidents     | Allow reading game logs, Keep incidents                |
 
 `Beta patcher` selects the beta delivery channel. A change starts a download in the background,
 and the patcher runs the downloaded build from the first start after the download completes.

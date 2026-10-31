@@ -1,8 +1,18 @@
 import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 
-import { AlertBox, Button, SectionCard, Stack, TftIcon, useToast, Field } from "@/components";
-import { errorSummary } from "@/i18n";
+import {
+  AlertBox,
+  Button,
+  Inline,
+  SectionCard,
+  Stack,
+  TftIcon,
+  useToast,
+  Field,
+} from "@/components";
+import { errorSummary, m } from "@/i18n";
+import { useFixLeagueElevated } from "@/modules/diagnostics/api";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
 
@@ -17,6 +27,7 @@ export function PatchingSection() {
   const settings = useLoadedSettings();
   const update = useUpdateSettings();
   const { data: leagueRunsAsAdmin } = useDetectLeagueRunAsAdmin();
+  const fixLeagueElevated = useFixLeagueElevated();
   const { data: patcherStatus } = usePatcherStatus();
   const { mutate: rebuildOverlay, isPending: isRebuilding } = useRebuildOverlay();
   const toast = useToast();
@@ -43,17 +54,16 @@ export function PatchingSection() {
             control={<SettingSwitch setting="patchTft" />}
           />
 
-          <SettingRow
-            setting="elevateInjector"
-            description="Leave off unless mods fail to load."
-            hint="Required when League itself runs as administrator. Windows shows a UAC prompt each time the patcher starts, unless LTK Manager is already elevated."
-            control={<SettingSwitch setting="elevateInjector" />}
-          />
-
           {leagueRunsAsAdmin && (
             <AlertBox tone="warning">
-              League runs as administrator, so the injector elevates automatically. Expect a UAC
-              prompt even with this off.
+              <Stack gap={2}>
+                {m["patcher.LEAGUE_ELEVATED.settings_description"]()}
+                <Inline>
+                  <Button variant="outline" size="sm" onClick={() => void fixLeagueElevated()}>
+                    {m["patcher.LEAGUE_ELEVATED.fix_action"]()}
+                  </Button>
+                </Inline>
+              </Stack>
             </AlertBox>
           )}
 

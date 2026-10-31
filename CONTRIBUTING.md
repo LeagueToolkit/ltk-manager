@@ -53,8 +53,9 @@ cargo fmt --all -- --check              # Rust formatting
 
 ## Reusing the patcher binaries
 
-The app bundles the LTK patcher binaries (`ltk_patcher_host.exe` and `ltk_patcher_dll.dll`),
-which perform the game injection. They are governed by the
+The LTK patcher binaries perform the game injection. The app bundles `ltk_patcher_host.exe` and
+downloads `ltk_patcher_dll.dll` at runtime. A build from source uses the DLL that an official
+install downloaded. The binaries are governed by the
 [LTK Patcher License](LTK-PATCHER-LICENSE.md). The short version, for a launcher or tool of your
 own:
 

@@ -472,6 +472,7 @@ export const api = {
   // Diagnostics. The generated `commands` object is flat, so the module boundary lives here.
   diagnostics: {
     run: diagnostics.runDiagnostics,
+    leagueAdminFixCommand: diagnostics.leagueAdminFixCommand,
     openElevatedTerminal: diagnostics.openElevatedTerminal,
     listIncidents: diagnostics.listIncidents,
     dismissIncident: diagnostics.dismissIncident,

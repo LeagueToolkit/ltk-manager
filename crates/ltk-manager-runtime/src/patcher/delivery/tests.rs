@@ -17,10 +17,15 @@ const SERVICE_MESSAGE: &str = r#"{"schema":1,"channel":"stable","sequence":1,"is
 const SERVICE_SIGNATURE: &str = "untrusted comment: signature from minisign secret key\r\nRUQlo0fqQ4hvQhGoMSgiiYZCsrxx+TKDhNaFMgzqn2RFp+5vUBjNLuew9tTD1YZGsigN0uFuGBAly8byFsMHKI8F+knbnlBRHAk=\r\ntrusted comment: stable 1 ltk_patcher-15\r\nKnTQ9K1m4O6Lx0xsfYlo+aOr/ezAp9dzLQu88waAFUC5MbKl9NKwftiHacHzouY8kaDRq4x21+qYAyz/RsCFDg==\r\n";
 
 const DELIVERED_DLL: &[u8] = b"delivered dll";
-const BUNDLED_DLL: &[u8] = b"bundled dll";
+
+/// A time before the end of life of every fixture, in Unix seconds.
+const BEFORE_EOL: u64 = 0;
+
+/// A time after the end of life of every fixture, in Unix seconds.
+const AFTER_EOL: u64 = u64::MAX;
 
 /// Manifests signed with a throwaway key. `offered` offers the
-/// DLL with the bytes [`DELIVERED_DLL`], and `withdrawn` revokes it and [`BUNDLED_DLL`].
+/// DLL with the bytes [`DELIVERED_DLL`], and `withdrawn` revokes it.
 #[derive(Deserialize)]
 struct Fixtures {
     #[serde(rename = "publicKey")]
@@ -43,12 +48,11 @@ fn digest(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-/// A delivery rooted in a temporary directory, with bundled binaries beside it.
+/// A delivery rooted in a temporary directory, with the bundled host beside it.
 struct Setup {
     _dir: tempfile::TempDir,
     delivery: PatcherDelivery,
     host: PathBuf,
-    dll: PathBuf,
 }
 
 fn setup(cached: Option<&Envelope>) -> Setup {
@@ -56,15 +60,13 @@ fn setup(cached: Option<&Envelope>) -> Setup {
     let bundled = dir.path().join("bundle");
     fs::create_dir_all(&bundled).unwrap();
     let host = bundled.join(HOST_EXE_NAME);
-    let dll = bundled.join(HOOK_DLL_NAME);
     fs::write(&host, b"host").unwrap();
-    fs::write(&dll, BUNDLED_DLL).unwrap();
 
     let delivery = PatcherDelivery {
         root: dir.path().join("delivery"),
         url: "http://127.0.0.1:9".to_string(),
         public_key: FIXTURES.public_key.clone(),
-        attestation: "test".to_string(),
+        attestation: Some("test".to_string()),
         manager: Version::new(1, 5, 0),
         protocol: 2,
     };
@@ -84,7 +86,6 @@ fn setup(cached: Option<&Envelope>) -> Setup {
         _dir: dir,
         delivery,
         host,
-        dll,
     }
 }
 
@@ -96,9 +97,8 @@ impl Setup {
         dir
     }
 
-    fn select(&self, elevated: bool) -> Result<Selection, DeliveryError> {
-        self.delivery
-            .select(Channel::Stable, &self.host, &self.dll, elevated)
+    fn select(&self) -> Option<StagedPatcher> {
+        self.delivery.select(Channel::Stable, &self.host).unwrap()
     }
 }
 
@@ -153,66 +153,51 @@ fn select_returns_delivered_dll_beside_staged_host() {
     let setup = setup(Some(&FIXTURES.offered));
     let dir = setup.stage(DELIVERED_DLL);
 
-    let selection = setup.select(false).unwrap();
+    let staged = setup.select().unwrap();
 
-    assert_eq!(
-        selection,
-        Selection::Delivered {
-            dir: dir.clone(),
-            version: "ltk_patcher-20".to_string(),
-            digest: digest(DELIVERED_DLL),
-        }
-    );
+    assert_eq!(staged.dir, dir);
+    assert_eq!(staged.version, "ltk_patcher-20");
+    assert_eq!(staged.digest, digest(DELIVERED_DLL));
     assert_eq!(fs::read(dir.join(HOST_EXE_NAME)).unwrap(), b"host");
 }
 
 #[test]
-fn select_returns_bundled_when_elevated() {
-    let setup = setup(Some(&FIXTURES.offered));
-    setup.stage(DELIVERED_DLL);
-
-    assert_eq!(setup.select(true).unwrap(), Selection::Bundled);
-}
-
-#[test]
-fn select_returns_bundled_if_staged_dll_differs_from_digest() {
+fn select_returns_none_if_staged_dll_differs_from_digest() {
     let setup = setup(Some(&FIXTURES.offered));
     setup.stage(b"replaced dll");
 
-    assert_eq!(setup.select(false).unwrap(), Selection::Bundled);
+    assert_eq!(setup.select(), None);
 }
 
 #[test]
-fn select_returns_bundled_if_release_protocol_differs() {
+fn select_returns_none_if_release_protocol_differs() {
     let mut setup = setup(Some(&FIXTURES.offered));
     setup.stage(DELIVERED_DLL);
     setup.delivery.protocol = 3;
 
-    assert_eq!(setup.select(false).unwrap(), Selection::Bundled);
+    assert_eq!(setup.select(), None);
 }
 
 #[test]
-fn select_returns_bundled_if_release_does_not_serve_manager() {
+fn select_returns_none_if_release_does_not_serve_manager() {
     let mut setup = setup(Some(&FIXTURES.offered));
     setup.stage(DELIVERED_DLL);
     setup.delivery.manager = Version::new(2, 0, 0);
 
-    assert_eq!(setup.select(false).unwrap(), Selection::Bundled);
+    assert_eq!(setup.select(), None);
 }
 
 #[test]
-fn select_fails_if_manifest_revokes_bundled_and_delivered_dll() {
+fn select_returns_none_if_manifest_revokes_delivered_dll() {
     let setup = setup(Some(&FIXTURES.withdrawn));
     setup.stage(DELIVERED_DLL);
 
-    assert_matches!(setup.select(false), Err(DeliveryError::Withdrawn));
+    assert_eq!(setup.select(), None);
 }
 
 #[test]
-fn select_returns_bundled_without_cache() {
-    let setup = setup(None);
-
-    assert_eq!(setup.select(false).unwrap(), Selection::Bundled);
+fn select_returns_none_without_cache() {
+    assert_eq!(setup(None).select(), None);
 }
 
 #[test]
@@ -221,7 +206,101 @@ fn select_ignores_cached_manifest_that_does_not_verify() {
     envelope.signature = FIXTURES.offered.signature.clone();
     let setup = setup(Some(&envelope));
 
-    assert_eq!(setup.select(false).unwrap(), Selection::Bundled);
+    assert_eq!(setup.select(), None);
+}
+
+#[test]
+fn select_falls_back_to_stable_on_beta_channel() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+
+    assert!(
+        setup
+            .delivery
+            .select(Channel::Beta, &setup.host)
+            .unwrap()
+            .is_some()
+    );
+}
+
+#[test]
+fn staged_patcher_is_expired_only_past_its_eol() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    let staged = setup.select().unwrap();
+
+    assert!(!staged.is_expired(u64::from(staged.eol)));
+    assert!(staged.is_expired(u64::from(staged.eol) + 1));
+}
+
+#[test]
+fn staged_dll_path_names_the_dll_of_the_selected_build() {
+    let setup = setup(Some(&FIXTURES.offered));
+    let dir = setup.stage(DELIVERED_DLL);
+
+    assert_eq!(
+        setup.delivery.staged_dll_path(Channel::Stable),
+        Some(dir.join(HOOK_DLL_NAME))
+    );
+}
+
+#[test]
+fn refresh_downloads_dll_if_none_is_staged() {
+    let mut setup = setup(None);
+    let (url, _requests) = serve(FIXTURES.offered.clone());
+    setup.delivery.url = url;
+
+    let staged = setup
+        .delivery
+        .refresh(Channel::Stable, &setup.host, BEFORE_EOL)
+        .unwrap();
+
+    assert_eq!(staged.digest, digest(DELIVERED_DLL));
+    assert_eq!(
+        fs::read(staged.dir.join(HOOK_DLL_NAME)).unwrap(),
+        DELIVERED_DLL
+    );
+}
+
+#[test]
+fn refresh_fails_with_sync_failure_if_nothing_is_staged() {
+    let mut setup = setup(None);
+    setup.delivery.attestation = None;
+
+    assert_matches!(
+        setup
+            .delivery
+            .refresh(Channel::Stable, &setup.host, BEFORE_EOL),
+        Err(DeliveryError::Unattested)
+    );
+}
+
+#[test]
+fn refresh_returns_expired_dll_if_sync_fails() {
+    let mut setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    setup.delivery.attestation = None;
+
+    let staged = setup
+        .delivery
+        .refresh(Channel::Stable, &setup.host, AFTER_EOL)
+        .unwrap();
+
+    assert_eq!(staged.digest, digest(DELIVERED_DLL));
+}
+
+#[test]
+fn sync_fails_without_contacting_service_if_build_has_no_attestation() {
+    let mut setup = setup(None);
+    let (url, requests) = serve(FIXTURES.offered.clone());
+    setup.delivery.url = url;
+    setup.delivery.attestation = None;
+
+    assert_matches!(
+        setup.delivery.sync(Channel::Stable),
+        Err(DeliveryError::Unattested)
+    );
+    assert!(requests.lock().unwrap().is_empty());
 }
 
 /// A request that the test server received: method, path and the headers it checks.
@@ -344,7 +423,7 @@ fn sync_registers_and_downloads_offered_dll() {
             format!("GET /v1/dll/{}", digest(DELIVERED_DLL)),
         ]
     );
-    assert_matches!(setup.select(false), Ok(Selection::Delivered { .. }));
+    assert!(setup.select().is_some());
 }
 
 #[test]
@@ -394,7 +473,7 @@ fn sync_fails_if_attestation_is_refused() {
     let mut setup = setup(None);
     let (url, requests) = serve(FIXTURES.offered.clone());
     setup.delivery.url = url;
-    setup.delivery.attestation = "refused".to_string();
+    setup.delivery.attestation = Some("refused".to_string());
 
     assert_matches!(
         setup.delivery.sync(Channel::Stable),

@@ -17,6 +17,12 @@
   "diagnostics_evidence_title": "Evidence",
   "diagnostics_facts_log_found_label": "log found",
   "diagnostics_facts_no_log_label": "no log",
+  "diagnostics_fix_league_admin_clear_title": "League is no longer set to run as administrator",
+  "diagnostics_fix_terminal_copy_failed_description": "Copy the command manually from the diagnostics row before running it.",
+  "diagnostics_fix_terminal_copy_failed_title": "Elevated terminal opened, but copy failed",
+  "diagnostics_fix_terminal_failed_title": "Could not open elevated terminal",
+  "diagnostics_fix_terminal_opened_description": "Paste with Ctrl+V and press Enter",
+  "diagnostics_fix_terminal_opened_title": "Elevated terminal opened",
   "diagnostics_game_log_open_failed_title": "Couldn't open the game log",
   "diagnostics_hints_title": "Hints",
   "diagnostics_identity_hint": "Derived from a secret held on this machine and today's date, so it changes at midnight UTC. The secret is never sent.",
@@ -114,7 +120,7 @@
   "hint.check-game-path": "Check the League of Legends installation path in Settings.",
   "hint.copy-report": "Copy the report when you ask for help.",
   "hint.disable-suspect": "A mod that references a file it does not ship stops the read. Disable the suspect and play again.",
-  "hint.elevate": "League may run elevated, so let the host elevate or run LTK Manager as administrator.",
+  "hint.elevate": "League may have run as administrator. Check that League of Legends.exe does not have Run this program as an administrator on, and that the Riot Client was not started as administrator.",
   "hint.free-memory": "Close what else is running, and leave free space on the drive League is installed on.",
   "hint.large-textures": [
     {

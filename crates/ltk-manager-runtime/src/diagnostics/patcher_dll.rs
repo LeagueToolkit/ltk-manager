@@ -54,12 +54,19 @@ pub fn check_dll_present(ctx: &CheckCtx) -> Check {
             c.details
                 .push(CheckDetail::new("path", p.display().to_string()));
             c.suggestion = Some(
-                "The patcher's bundled DLL is missing. Reinstall LTK Manager from the latest release."
+                "The downloaded patcher DLL is missing. Check whether antivirus removed it, then start the patcher to download it again."
                     .into(),
             );
             c
         }
-        None => DLL_PRESENT.result(Severity::Bad, "Could not resolve resource directory"),
+        None => {
+            let mut c = DLL_PRESENT.result(Severity::Warn, "No patcher DLL has been downloaded");
+            c.suggestion = Some(
+                "LTK Manager downloads the patcher DLL when it starts and when the patcher starts. Check your internet connection and whether a VPN or firewall blocks patcher.leaguetoolkit.dev."
+                    .into(),
+            );
+            c
+        }
     }
 }
 
@@ -79,7 +86,7 @@ pub fn check_dll_signature(ctx: &CheckCtx) -> Check {
             c.details
                 .push(CheckDetail::new("path", path.display().to_string()));
             c.suggestion = Some(
-                "The bundled DLL is unsigned or its signature didn't validate. This is informational — official builds may not be signed yet — but if you downloaded from somewhere other than the official GitHub release, redownload from there."
+                "The downloaded patcher DLL is unsigned or its signature did not validate. Check whether antivirus changed the file."
                     .into(),
             );
             c
