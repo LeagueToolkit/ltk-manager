@@ -119,8 +119,8 @@ and `ltk-manager-core/src/patching/` the session thread with its `Arc<AtomicBool
 because the thread builds the overlay from the library. `patcher/injector.rs` spawns and
 supervises the external `cslol-host.exe` injection host over a stdin/stdout line protocol
 (`patcher/host.rs`). The overlay/prefix dir is sent via a `config prefix` command, **not** as an
-argv. The host internally drives `cslol-inj.exe`, and with `--elevate` (auto-enabled when League
-runs as admin) it bridges to a high-integrity worker via UAC.
+argv. The host internally drives `cslol-inj.exe`. A session runs the delivered DLL in an unelevated
+host, and the start is refused if League or the manager runs as administrator (ADR-0074).
 
 ## State
 

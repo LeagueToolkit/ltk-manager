@@ -211,7 +211,7 @@ jobs:
               echo "::error::The $LTK_PATCHER_DELIVERY attestation key secret is not set"
               exit 1
             fi
-            echo "::notice::No attestation key. The build runs the bundled patcher DLL only."
+            echo "::notice::No attestation key. The build does not download the patcher DLL."
             exit 0
           fi
 
@@ -231,8 +231,8 @@ jobs:
           # Read by `option_env!` at compile time. A build without it reports no
           # diagnostics, so a fork releases without collecting anything.
           LTK_POSTHOG_API_KEY: ${{ secrets.LTK_POSTHOG_API_KEY }}
-          # Read by `option_env!` at compile time. A build without them runs the
-          # bundled patcher DLL only.
+          # Read by `option_env!` at compile time. A build without them does not
+          # download the patcher DLL.
           LTK_PATCHER_ATTESTATION: ${{ env.LTK_PATCHER_ATTESTATION }}
           LTK_PATCHER_DELIVERY: ${{ env.LTK_PATCHER_DELIVERY }}
           # Read by `scripts/upload-source-maps.mjs`, between the frontend build

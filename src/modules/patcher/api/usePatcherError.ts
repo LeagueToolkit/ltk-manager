@@ -14,8 +14,8 @@ export function patcherFailureTitle(stage: PatcherFailureStage): string {
 /**
  * Which Diagnostics tab answers a stage.
  *
- * A host that did not start is what the System checks look for: antivirus, a
- * declined UAC prompt, a missing binary. Anything later is the incident's.
+ * A host that did not start is what the System checks look for: antivirus or a
+ * missing binary. Anything later is the incident's.
  */
 export function patcherFailureTab(stage: PatcherFailureStage): "games" | "system" {
   return stage === "HOST" ? "system" : "games";

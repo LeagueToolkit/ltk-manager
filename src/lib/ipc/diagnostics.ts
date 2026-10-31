@@ -6,6 +6,8 @@ import type { AppErrorResponse, DecodedIncident, DiagnosticReport_Serialize, Inc
 /** Commands */
 export const commands = {
 	runDiagnostics: () => __TAURI_INVOKE<({ ok: true; value: DiagnosticReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:diagnostics|run_diagnostics"),
+	/**  Returns the commands that stop League running as administrator, or `null` if it does not. */
+	leagueAdminFixCommand: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:diagnostics|league_admin_fix_command"),
 	/**
 	 *  Launch an elevated PowerShell window so the user can run a fix command.
 	 * 
@@ -66,4 +68,4 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"decodeIncidentToken":"plugin:diagnostics|decode_incident_token","dismissAllIncidents":"plugin:diagnostics|dismiss_all_incidents","dismissIncident":"plugin:diagnostics|dismiss_incident","incidentReport":"plugin:diagnostics|incident_report","incidentToken":"plugin:diagnostics|incident_token","listIncidents":"plugin:diagnostics|list_incidents","openElevatedTerminal":"plugin:diagnostics|open_elevated_terminal","resetTelemetrySecret":"plugin:diagnostics|reset_telemetry_secret","revealGameLog":"plugin:diagnostics|reveal_game_log","runDiagnostics":"plugin:diagnostics|run_diagnostics","telemetryIdentity":"plugin:diagnostics|telemetry_identity","trackUiError":"plugin:diagnostics|track_ui_error"} as const;
+export const commandNames = {"decodeIncidentToken":"plugin:diagnostics|decode_incident_token","dismissAllIncidents":"plugin:diagnostics|dismiss_all_incidents","dismissIncident":"plugin:diagnostics|dismiss_incident","incidentReport":"plugin:diagnostics|incident_report","incidentToken":"plugin:diagnostics|incident_token","leagueAdminFixCommand":"plugin:diagnostics|league_admin_fix_command","listIncidents":"plugin:diagnostics|list_incidents","openElevatedTerminal":"plugin:diagnostics|open_elevated_terminal","resetTelemetrySecret":"plugin:diagnostics|reset_telemetry_secret","revealGameLog":"plugin:diagnostics|reveal_game_log","runDiagnostics":"plugin:diagnostics|run_diagnostics","telemetryIdentity":"plugin:diagnostics|telemetry_identity","trackUiError":"plugin:diagnostics|track_ui_error"} as const;

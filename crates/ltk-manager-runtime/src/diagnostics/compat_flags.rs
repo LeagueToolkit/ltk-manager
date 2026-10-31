@@ -112,43 +112,60 @@ pub fn check_compat_flags() -> Check {
         // comment line: cmd-style `::` is a parse error in PowerShell and
         // PowerShell-style `#` is a parse error in cmd, so we ship the bare
         // commands and rely on the UI to label them.
-        let mut script = String::new();
-        for (root, path) in &bad {
-            script.push_str(&format!(
-                "reg delete \"{}\\{}\" /v \"{}\" /f\n",
-                root, COMPAT_KEY, path
-            ));
-        }
-        c.fix_command = Some(script.trim_end().to_string());
+        c.fix_command = Some(reg_delete_script(&bad));
     }
     c
 }
 
-/// Returns true if any League/Riot executable carries a `RUNASADMIN`
-/// AppCompatFlags layer, i.e. the user configured the game to launch as
-/// administrator. An elevated game can only be injected by an equally elevated
-/// host, so the patcher uses this to auto-enable host elevation.
-///
-/// Unlike [`check_compat_flags`], which lists every offending entry for the
-/// diagnostics UI, this only answers the yes/no question the patcher needs, so
-/// it reads each entry's layer data (not just the value name) and looks for the
-/// specific `RUNASADMIN` token.
+/// Returns the `reg delete` commands that remove the layer entries `(root, path)`.
 #[cfg(target_os = "windows")]
-pub(crate) fn league_runs_as_admin() -> bool {
-    for (root, _label) in ROOTS {
+fn reg_delete_script(entries: &[(String, String)]) -> String {
+    entries
+        .iter()
+        .map(|(root, path)| format!("reg delete \"{root}\\{COMPAT_KEY}\" /v \"{path}\" /f"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// Returns the entries `(root, path)` of League/Riot executables with a `RUNASADMIN` layer.
+///
+/// Unlike [`check_compat_flags`], this reads each entry's layer data, not only its name.
+#[cfg(target_os = "windows")]
+fn run_as_admin_entries() -> Vec<(String, String)> {
+    let mut entries = Vec::new();
+
+    for (root, label) in ROOTS {
         for value_name in reg_list_value_names(*root, COMPAT_KEY) {
             let name = basename(&value_name);
             if !BAD_PREFIXES.iter().any(|p| name.starts_with(p)) {
                 continue;
             }
+
             if reg_read_str(*root, COMPAT_KEY, &value_name)
                 .is_some_and(|layers| layers.to_ascii_uppercase().contains("RUNASADMIN"))
             {
-                return true;
+                entries.push((label.to_string(), value_name));
             }
         }
     }
-    false
+
+    entries
+}
+
+/// Returns `true` if any League/Riot executable carries a `RUNASADMIN` layer.
+#[cfg(target_os = "windows")]
+pub(crate) fn league_runs_as_admin() -> bool {
+    !run_as_admin_entries().is_empty()
+}
+
+/// Returns the commands that remove every `RUNASADMIN` entry of League/Riot executables.
+///
+/// Returns `None` if no entry has that layer.
+#[cfg(target_os = "windows")]
+pub(crate) fn run_as_admin_fix_command() -> Option<String> {
+    let entries = run_as_admin_entries();
+
+    (!entries.is_empty()).then(|| reg_delete_script(&entries))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -160,6 +177,28 @@ pub fn check_compat_flags() -> Check {
 #[cfg(target_os = "windows")]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reg_delete_script_writes_one_command_per_entry() {
+        let script = reg_delete_script(&[
+            (
+                "HKCU".to_string(),
+                r"C:\Riot\League of Legends.exe".to_string(),
+            ),
+            (
+                "HKLM".to_string(),
+                r"C:\Riot\RiotClientServices.exe".to_string(),
+            ),
+        ]);
+
+        assert_eq!(
+            script,
+            format!(
+                "reg delete \"HKCU\\{COMPAT_KEY}\" /v \"C:\\Riot\\League of Legends.exe\" /f\n\
+                 reg delete \"HKLM\\{COMPAT_KEY}\" /v \"C:\\Riot\\RiotClientServices.exe\" /f"
+            )
+        );
+    }
 
     #[test]
     fn basename_strips_drive_path() {

@@ -362,10 +362,7 @@ fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<Map
 /// Whether League is configured to launch as administrator (an AppCompatFlags
 /// `RUNASADMIN` layer on its executable).
 ///
-/// When true, the patcher auto-elevates the injection host even if the
-/// "run injector elevated" setting is off, since an elevated game can only be
-/// injected by an elevated host. The settings UI surfaces this so users
-/// understand why a UAC prompt may appear despite the setting being off.
+/// When true, a patcher start fails, and the settings UI shows that.
 #[tauri::command]
 #[specta::specta]
 pub fn detect_league_run_as_admin() -> IpcResult<bool> {

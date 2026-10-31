@@ -76,6 +76,9 @@ FunctionEnd
   nsExec::Exec 'taskkill /F /T /IM ltk_patcher_host.exe'
   Pop $0
 
+  ; A release that bundled the DLL left this copy, and no later uninstaller removes it.
+  Delete "$INSTDIR\ltk_patcher_dll.dll"
+
   !insertmacro LtkRemovePerUserInstall
 !macroend
 

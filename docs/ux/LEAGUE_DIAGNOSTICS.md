@@ -625,12 +625,11 @@ names the mismatch while it runs.
 **The patcher did not run.** The title names the stage. A build that failed names the mod
 whose file the builder stopped on, because the error already carries it. A `HOST` failure
 says `The injection host did not start`, and its one action is the System tab of the
-Diagnostics page, because antivirus, a declined UAC prompt and a missing binary are what the
-checks there look for. An `INJECTION` failure says `The DLL did not attach to League`, and
+Diagnostics page, because antivirus and a missing binary are what the checks there look for. An `INJECTION` failure says `The DLL did not attach to League`, and
 carries the host's message, which is one of two. `SetWindowsHookEx failed` with its code is
 a hook that would not install, and `DLL never attached after 60s` is a DLL that never came
-up, with a hint that names elevation when the host is not elevated and the signature or
-antivirus when it is.
+up, with a hint that names elevation. An incident recorded by an older release, whose host ran
+elevated, names the signature or antivirus instead.
 
 **The patcher is out of date.** `The patcher does not know this version of League.` The DLL
 compares the game's build timestamp against the one it was built for, and refuses a newer
@@ -823,7 +822,7 @@ sentence, and a stored code this build does not know reads as nothing. Neither i
 | `remove-skinhack`    | Disable the mod the scan named    | A skinhack rejection                                                      |
 | `reimport-mod`       | Re-import the mod the scan named  | A missing bin, a corrupt archive, or an incomplete base skin              |
 | `repair-game`        | Repair the install                | The scan objected to a file the game ships                                |
-| `elevate`            | Let the host elevate              | The DLL never attached, and the host was not elevated                     |
+| `elevate`            | Turn off run as administrator     | The DLL never attached, and the host was not elevated                     |
 | `signature`          | Check the DLL's signature         | The DLL never attached, and the host was elevated                         |
 
 The first row exists because the DLL scans archives on demand while the setting is off and
@@ -896,7 +895,7 @@ interface Incident {
   origin: SessionOrigin;
   /** Whether the DLL attached to this game. */
   injected: boolean;
-  /** Whether the host ran elevated, which picks the hint for a DLL that never attached. */
+  /** Whether the host of an older release ran elevated, which picks the hint for a DLL that never attached. */
   hostElevated: boolean;
   /** The patcher binaries this session ran, and whether they are this build's. */
   patcher: {

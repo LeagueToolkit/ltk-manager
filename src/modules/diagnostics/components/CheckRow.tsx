@@ -2,10 +2,10 @@ import { CopyIcon } from "@phosphor-icons/react";
 import { ShieldUser } from "lucide-react";
 
 import { Button, Disclosure, IconButton, Properties, Property, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
-import { api, type Check, isErr } from "@/lib/tauri";
+import { type Check } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { useFixCommandTerminal } from "../api";
 import { SeverityBadge } from "./SeverityBadge";
 
 const VERBATIM_PREFIX = /^(\\\\\?\\|\/\/\?\/)/;
@@ -16,6 +16,7 @@ function normalizePath(value: string): string {
 
 export function CheckRow({ check }: { check: Check }) {
   const toast = useToast();
+  const openTerminal = useFixCommandTerminal();
   const hasDetails = check.details.length > 0 || !!check.suggestion || !!check.fixCommand;
 
   function copyCommand() {
@@ -24,29 +25,6 @@ export function CheckRow({ check }: { check: Check }) {
       .writeText(check.fixCommand)
       .then(() => toast.success("Copied", "Run the command in an elevated terminal"))
       .catch(() => toast.error("Copy failed", "Could not access the clipboard"));
-  }
-
-  async function runAsAdmin() {
-    if (!check.fixCommand) return;
-    let clipboardOk = true;
-    try {
-      await navigator.clipboard.writeText(check.fixCommand);
-    } catch {
-      clipboardOk = false;
-    }
-    const result = await api.diagnostics.openElevatedTerminal(clipboardOk);
-    if (isErr(result)) {
-      toast.error("Could not open elevated terminal", errorSummary(result.error));
-      return;
-    }
-    if (clipboardOk) {
-      toast.success("Elevated terminal opened", "Paste with Ctrl+V and press Enter");
-    } else {
-      toast.warning(
-        "Elevated terminal opened, but copy failed",
-        "Copy the command manually from the diagnostics row before running it.",
-      );
-    }
   }
 
   return (
@@ -104,7 +82,7 @@ export function CheckRow({ check }: { check: Check }) {
                   variant="tonal"
                   size="sm"
                   left={<ShieldUser className="size-3.5" />}
-                  onClick={runAsAdmin}
+                  onClick={() => check.fixCommand && openTerminal(check.fixCommand)}
                 >
                   Open elevated terminal
                 </Button>

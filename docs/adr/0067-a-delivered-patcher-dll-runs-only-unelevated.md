@@ -1,6 +1,6 @@
 # ADR-0067: A delivered patcher DLL runs only unelevated
 
-- **Status:** Accepted (2026-10-20)
+- **Status:** Superseded by [ADR-0074](0074-every-session-runs-a-delivered-patcher-dll.md)
 - **Date:** 2026-10-20
 - **Crates:** `ltk-manager-runtime`, where `PatcherDelivery` syncs and selects the build, and
   `src-tauri`, which holds the service constants

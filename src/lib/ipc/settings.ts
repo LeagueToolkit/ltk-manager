@@ -27,10 +27,7 @@ export const commands = {
 	 *  Whether League is configured to launch as administrator (an AppCompatFlags
 	 *  `RUNASADMIN` layer on its executable).
 	 * 
-	 *  When true, the patcher auto-elevates the injection host even if the
-	 *  "run injector elevated" setting is off, since an elevated game can only be
-	 *  injected by an elevated host. The settings UI surfaces this so users
-	 *  understand why a UAC prompt may appear despite the setting being off.
+	 *  When true, a patcher start fails, and the settings UI shows that.
 	 */
 	detectLeagueRunAsAdmin: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|detect_league_run_as_admin"),
 	/**

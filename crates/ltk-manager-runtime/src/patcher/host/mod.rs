@@ -18,7 +18,7 @@ pub use protocol::{HostConfig, HostEvent, HostLogLevel, HostState, hook_flags, p
 /// Bundled host executable name.
 pub const HOST_EXE_NAME: &str = "ltk_patcher_host.exe";
 
-/// Bundled hook DLL the host injects into the game. This is the file the
+/// Delivered hook DLL the host injects into the game. This is the file the
 /// diagnostics suite inspects (presence / signature / lock) - it replaced the
 /// legacy in-process `cslol-dll.dll`.
 pub const HOOK_DLL_NAME: &str = "ltk_patcher_dll.dll";

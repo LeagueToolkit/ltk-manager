@@ -13,8 +13,8 @@ use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InjectionStage {
     /// The host process never came up - it could not be spawned, configured, or
-    /// told to start. Antivirus, a missing binary or a declined UAC prompt are
-    /// the usual causes, so diagnostics are the useful response.
+    /// told to start. Antivirus or a missing binary are the usual causes, so
+    /// diagnostics are the useful response.
     #[strum(to_string = "host startup")]
     Host,
     /// The host ran, but the game was never patched.
@@ -48,6 +48,21 @@ pub enum PatcherError {
 
     #[error("The patcher is not yet available on this platform")]
     UnsupportedPlatform,
+
+    /// League is set to run as administrator, and a session runs unelevated.
+    #[error("League is set to run as administrator. Turn that off, then start the patcher again")]
+    LeagueElevated,
+
+    /// LTK Manager runs as administrator, and a session runs unelevated.
+    #[error(
+        "LTK Manager is running as administrator. Reopen it normally, or turn on User Account \
+         Control if it is off, to start the patcher"
+    )]
+    ManagerElevated,
+
+    /// No patcher DLL could be selected for the session. `message` says why.
+    #[error("{message}")]
+    DllUnavailable { message: String },
 
     /// One injection session failed. `stage` separates a host that never came up
     /// from a game that was never patched, since they call for different advice.

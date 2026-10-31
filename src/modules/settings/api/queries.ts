@@ -119,13 +119,13 @@ export const leagueInstallQueries = {
       retry: false,
     }),
 
-  /* The AppCompatFlags `RUNASADMIN` layer rarely changes, so it stays fresh for
-     a few minutes. */
+  /* Always stale, so the query reads the `RUNASADMIN` layer again when the window
+     regains focus after the elevated terminal. */
   runAsAdmin: () =>
     queryOptions<boolean, AppError>({
       queryKey: settingsKeys.leagueRunAsAdmin(),
       queryFn: queryFn(api.detectLeagueRunAsAdmin),
-      staleTime: 5 * 60 * 1000,
+      staleTime: 0,
       retry: false,
     }),
 } as const;

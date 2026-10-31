@@ -422,8 +422,8 @@ describe("SessionBar", () => {
   });
 
   describe("the failed start line", () => {
-    /// Antivirus, a declined UAC prompt and a missing binary are what the
-    /// System checks look for, so a host that did not start points there.
+    /// Antivirus and a missing binary are what the System checks look for, so
+    /// a host that did not start points there.
     it("names a host that did not start and points at the System tab", async () => {
       usePatcherFailureStore.setState({
         failure: { stage: "HOST", message: "cslol-host.exe exited before it was ready" },

@@ -111,6 +111,14 @@ fn every_patcher_variant_reaches_the_frontend_distinguishable() {
         (PatcherError::AlreadyRunning, "ALREADY_RUNNING"),
         (PatcherError::NotRunning, "NOT_RUNNING"),
         (PatcherError::UnsupportedPlatform, "UNSUPPORTED_PLATFORM"),
+        (PatcherError::LeagueElevated, "LEAGUE_ELEVATED"),
+        (PatcherError::ManagerElevated, "MANAGER_ELEVATED"),
+        (
+            PatcherError::DllUnavailable {
+                message: "no connection".to_string(),
+            },
+            "DLL_UNAVAILABLE",
+        ),
         (
             PatcherError::InjectionFailed {
                 stage: InjectionStage::Host,

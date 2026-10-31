@@ -32,14 +32,9 @@ pub struct HostProcess {
 }
 
 impl HostProcess {
-    /// Spawn the host process. If `elevate` is true, passes `--elevate` which
-    /// triggers a UAC prompt and runs the host at high integrity.
-    pub fn spawn(exe_path: &Path, elevate: bool) -> Result<Self, HostError> {
+    /// Spawn the host process.
+    pub fn spawn(exe_path: &Path) -> Result<Self, HostError> {
         let mut command = Command::new(exe_path);
-
-        if elevate {
-            command.arg("--elevate");
-        }
 
         command
             .stdin(Stdio::piped())
@@ -52,11 +47,7 @@ impl HostProcess {
 
         hide_console(&mut command);
 
-        tracing::info!(
-            "Spawning host: {} {}",
-            exe_path.display(),
-            if elevate { "--elevate" } else { "" }
-        );
+        tracing::info!("Spawning host: {}", exe_path.display());
 
         let child = command.spawn().map_err(|source| HostError::Spawn {
             path: exe_path.display().to_string(),
@@ -245,7 +236,7 @@ mod tests {
     #[test]
     fn spawn_reports_a_missing_host_binary_with_the_path_it_tried() {
         let missing = std::env::temp_dir().join("ltk-manager-no-such-host.exe");
-        let Err(error) = HostProcess::spawn(&missing, false) else {
+        let Err(error) = HostProcess::spawn(&missing) else {
             panic!("spawning a missing binary should fail");
         };
         assert_matches!(error, HostError::Spawn { path, .. } => {

@@ -84,14 +84,6 @@ pub struct Config {
     )]
     #[cfg_attr(feature = "ts", specta(type = Vec<WadBlocklistEntry>))]
     pub wad_blocklist: Vec<WadBlocklistEntry>,
-    /// Run the injection host elevated (UAC). An elevated game can only be
-    /// injected by an equally elevated host, so this is required when League
-    /// runs as administrator. Off by default: when off, non-elevated users
-    /// avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
-    /// when League is detected configured to run as admin, regardless of this
-    /// flag (see `services::patcher::start_patcher_inner`).
-    #[serde(default)]
-    pub elevate_injector: bool,
     /// Whether to automatically categorize mods from their content (champions,
     /// maps and content tags derived from the WAD/chunk footprint, surfaced as
     /// "auto" suggestions and library filters). When off, only the categories
@@ -250,7 +242,6 @@ impl Default for Config {
             patch_tft: false,
             block_scripts_wad: true,
             wad_blocklist: default_wad_blocklist(),
-            elevate_injector: false,
             auto_categorization_enabled: true,
             auto_health_check_enabled: true,
             promote_enabled_mods: false,
@@ -281,7 +272,6 @@ mod tests {
         assert!(!config.patch_tft);
         assert!(config.block_scripts_wad);
         assert!(config.wad_blocklist.is_empty());
-        assert!(!config.elevate_injector);
         assert!(config.auto_categorization_enabled);
         assert!(!config.promote_enabled_mods);
         assert!(!config.apply_string_overrides_to_all_locales);
