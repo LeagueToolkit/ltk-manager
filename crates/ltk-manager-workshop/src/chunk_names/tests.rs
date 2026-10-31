@@ -258,6 +258,38 @@ fn a_game_data_declaration_names_the_hash_values_it_writes() {
 }
 
 #[test]
+fn a_layer_skeleton_names_its_joints_for_every_layer_scan() {
+    let path = "base/W.wad.client/assets/deff.SKL";
+    let dir = project(&[path, "extra/W.wad.client/assets/y.tex"], &[]);
+    fs::write(
+        dir.path().join(CONTENT_DIR_NAME).join(path),
+        ltk_manager_assets::test_util::skeleton_with_joints("Root", &["saw_tip_R"]),
+    )
+    .expect("skeleton");
+
+    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+
+    assert_eq!(chunks.value(BinHash::hash_str("Root")), Some("Root"));
+    assert_eq!(
+        chunks.value(BinHash::hash_str("saw_tip_r")),
+        Some("saw_tip_R")
+    );
+}
+
+#[test]
+fn a_layer_file_that_is_no_skeleton_names_no_joint() {
+    let dir = project(&["base/W.wad.client/assets/broken.skl"], &[]);
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.get(WadHash::hash_str("assets/broken.skl")),
+        Some("assets/broken.skl")
+    );
+    assert_eq!(chunks.value(BinHash::hash_str("broken")), None);
+}
+
+#[test]
 fn a_layer_scan_names_what_another_layer_declares() {
     let dir = declaring_graph();
 
