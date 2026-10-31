@@ -55,6 +55,23 @@ pub fn render(bytes: &[u8]) -> Result<Vec<u8>, PreviewError> {
     }
 }
 
+/// Reads the joint names of a skeleton, in the file's order.
+///
+/// # Errors
+///
+/// Fails with [`PreviewError::Unsupported`] for bytes that are no skeleton, and with
+/// [`PreviewError::SkeletonRead`] where the file does not parse.
+pub fn joint_names(bytes: &[u8]) -> Result<Vec<String>, PreviewError> {
+    match LeagueFileKind::identify_from_bytes(bytes) {
+        LeagueFileKind::Skeleton => Ok(RigResource::from_reader(&mut Cursor::new(bytes))?
+            .joints()
+            .iter()
+            .map(|joint| joint.name().to_owned())
+            .collect()),
+        kind => Err(PreviewError::Unsupported(kind)),
+    }
+}
+
 /// The rig as the buffer this module documents.
 fn encode(rig: &RigResource) -> Result<Vec<u8>, PreviewError> {
     let joints = rig.joints();

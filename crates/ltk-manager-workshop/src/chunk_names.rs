@@ -21,7 +21,7 @@ use ltk_mod_project::{
 use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
 
-use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_assets::preview::{AssetRef, joint_names};
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::utils::fs::atomic_write;
 
@@ -43,7 +43,8 @@ pub struct LayerChunks {
     /// declarations write, by entry hash.
     entries: HashMap<BinHash, String>,
     /// The strings a declared `binhashes` table lists, then the ones the layers' game data
-    /// declarations write, by the hash a `Hash` value carries.
+    /// declarations write, then the joint names of their skeletons, by the hash a `Hash` value
+    /// carries.
     values: HashMap<BinHash, String>,
     /// The scanned layers, lowest first, in the order the overlay applies them.
     stack: Vec<String>,
@@ -73,6 +74,7 @@ impl LayerChunks {
         chunks.read_layers(project_dir, project.as_ref(), walks);
         chunks.read_declared_tables(project_dir, project.as_ref());
         chunks.read_declaration_names(project_dir);
+        chunks.read_skeleton_names(project_dir);
         chunks
     }
 
@@ -89,8 +91,8 @@ impl LayerChunks {
         self.entries.get(&hash).map(String::as_str)
     }
 
-    /// The string behind the `Hash` value `hash`, or `None` for one that no declared table lists
-    /// and no declaration writes.
+    /// The string behind the `Hash` value `hash`, or `None` for one that no declared table lists,
+    /// no declaration writes and no layer skeleton names.
     #[must_use]
     pub fn value(&self, hash: BinHash) -> Option<&str> {
         self.values.get(&hash).map(String::as_str)
@@ -317,6 +319,31 @@ impl LayerChunks {
         }
     }
 
+    /// Learns the joint names of every `.skl` of every layer as `Hash` strings.
+    ///
+    /// A bin names a joint by the hash of its name, as `mBoneName` and `ParentJoint` do, so the
+    /// skeleton is what names a joint that a mod adds. A file that does not read adds nothing.
+    fn read_skeleton_names(&mut self, project_dir: &Path) {
+        let skeletons = WalkDir::new(project_dir.join(CONTENT_DIR_NAME))
+            .follow_links(false)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_type().is_file() && is_skeleton(entry.path()));
+
+        for skeleton in skeletons {
+            let names = fs::read(skeleton.path())
+                .map_err(AppError::from)
+                .and_then(|bytes| joint_names(&bytes).map_err(|e| AppError::Other(e.to_string())));
+
+            match names {
+                Ok(names) => names.iter().for_each(|name| self.insert_value(name)),
+                Err(e) => {
+                    tracing::debug!("Skeleton {} unreadable: {e}", skeleton.path().display());
+                }
+            }
+        }
+    }
+
     /// Hashing is `ltk_hash`'s own, which is the function a `file` value was written by.
     fn insert_chunk(&mut self, path: &str) {
         self.by_hash
@@ -499,6 +526,12 @@ fn hex_chunk(path: &str) -> Option<WadHash> {
         return None;
     }
     path.file_stem()?.parse().ok()
+}
+
+/// Whether `path` has the extension of a skeleton, in any case.
+fn is_skeleton(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("skl"))
 }
 
 /// The last component of `path`, where the platform writes it in UTF-8.
