@@ -14,6 +14,7 @@ the plan of the pose modifiers and sockets is docs/plans/pose-dynamics-preview.m
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-31 | Name clips and events from game data, file names and `mName`             |
 | 2026-10-31 | Correct clip, condition, material and socket behaviour                   |
 | 2026-10-31 | Add the skin and animation graph menu bars                               |
 | 2026-10-28 | Draw a skin's character inking in the preview                            |
@@ -51,8 +52,9 @@ child set naming bones spawns on the joints it names. The transport under it pla
 scrubs the clip, sets its speed and names it: an idle clip first, and the bind pose where the
 graph holds none. A graph the skin's own file does not declare is read out of the files it
 links, which is where the engine finds it. The camera frames the character when it lands, and
-again on Frame the character. A clip no table names reads as its bare hash, dimmed, which is
-what a modder pastes elsewhere.
+again on Frame the character. A clip no table or game data declaration names takes the part of its
+`.anm` file name that hashes to its key, and an event takes its `mName` the same way. A clip that
+none of these names reads as its bare hash, dimmed, which is what a modder pastes elsewhere.
 
 **The transport is one row.** It holds play, restart, the scrub, the time and the speed, and
 after them what plays, which is the clip picker and a parametric clip's slider. The picker is
@@ -209,7 +211,7 @@ out of the files it links, as the preview reads it, and the file it was found in
 inspector reads a clip's rows from.
 
 **A row per entry of `mClipDataMap`, whatever its kind.** The rows sort by name, the ones no
-table names after them, and a filter below the pane's tab strip narrows them by name. The
+table names after them, and a filter below the pane's tab strip narrows them by name or hash. The
 columns are Name with the kind of clip as a chip after it, File, Track, Rate, Mask, Sync group
 and Events. Mask and Sync group draw only while some clip of the graph names one, because most
 graphs name them on a handful of clips or on none and a column of nothing costs the width the

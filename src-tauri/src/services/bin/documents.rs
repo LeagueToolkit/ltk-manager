@@ -9,7 +9,9 @@ use std::sync::Arc;
 
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::shared::document_assets;
-use crate::services::shared::document_assets::{parse_class, parse_entry, with_cache_names};
+use crate::services::shared::document_assets::{
+    parse_class, parse_entry, sandbox_of, with_names_in,
+};
 use crate::services::shared::installed::{installed_schema, InstalledGame};
 use crate::services::shared::off_thread;
 use crate::services::shared::read_asset;
@@ -606,7 +608,8 @@ pub async fn bin_row_declaration(
 ) -> IpcResult<RowDeclaration> {
     off_thread(move || {
         let entry = parse_entry(&entry)?;
-        with_cache_names(&app_handle, |names| {
+        let sandbox = sandbox_of(&app_handle, Some(document));
+        with_names_in(&app_handle, &sandbox, |names| {
             app_handle.state::<BinDocuments>().read(document, |open| {
                 Ok(open.row_declaration(entry, &path, names)?)
             })

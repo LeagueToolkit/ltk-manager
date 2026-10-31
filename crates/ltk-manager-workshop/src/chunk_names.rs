@@ -10,9 +10,10 @@ use std::path::{Path, PathBuf};
 
 use camino::Utf8Path;
 use fs_err as fs;
-use ltk_game_data::{Declarations, EntryName, ObjectEdit, Selector};
+use ltk_game_data::{Declarations, EntryName, ObjectEdit, PropertyEdit, Selector, Value};
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_hashtable::{Category, Hashtable};
+use ltk_meta::path::{KeyLiteral, Subscript};
 use ltk_mod_project::game_data::load_layer;
 use ltk_mod_project::{
     CONTENT_DIR_NAME, HASHES_DIR_NAME, ModProject, ModProjectHashtable, ModProjectLayer,
@@ -38,10 +39,11 @@ pub struct LayerChunks {
     /// The layer file an unpack named by its chunk's hash, which no table had a path for.
     /// The hash is all such a file says of where the game reads it.
     by_chunk: HashMap<WadHash, AssetRef>,
-    /// The object paths a declared `binentries` table lists, then the ones the walked layers'
-    /// game data declarations spell, by entry hash.
+    /// The object paths a declared `binentries` table lists, then the ones the layers' game data
+    /// declarations write, by entry hash.
     entries: HashMap<BinHash, String>,
-    /// The strings a declared `binhashes` table lists, by the hash a `Hash` value carries.
+    /// The strings a declared `binhashes` table lists, then the ones the layers' game data
+    /// declarations write, by the hash a `Hash` value carries.
     values: HashMap<BinHash, String>,
     /// The scanned layers, lowest first, in the order the overlay applies them.
     stack: Vec<String>,
@@ -87,7 +89,8 @@ impl LayerChunks {
         self.entries.get(&hash).map(String::as_str)
     }
 
-    /// The string behind the `Hash` value `hash`, or `None` for one no declared table lists.
+    /// The string behind the `Hash` value `hash`, or `None` for one that no declared table lists
+    /// and no declaration writes.
     #[must_use]
     pub fn value(&self, hash: BinHash) -> Option<&str> {
         self.values.get(&hash).map(String::as_str)
@@ -95,15 +98,15 @@ impl LayerChunks {
 
     /// The layer file holding `path`, or `None` for a path no layer of this project has.
     ///
-    /// Matched without regard to case: a layer spells a path as its author does, and the
-    /// tables spell it lowercase. A file an unpack named by its hash answers the path that
+    /// Matched without regard to case: a layer writes a path as its author does, and the
+    /// tables write it lowercase. A file an unpack named by its hash answers the path that
     /// hashes to it, as the game itself would reach it.
     #[must_use]
     pub fn asset_at(&self, path: &str) -> Option<&AssetRef> {
-        let spelled = path.to_lowercase();
+        let lowered = path.to_lowercase();
         self.by_path
-            .get(&spelled)
-            .or_else(|| self.by_chunk.get(&WadHash::hash_str(&spelled)))
+            .get(&lowered)
+            .or_else(|| self.by_chunk.get(&WadHash::hash_str(&lowered)))
     }
 
     /// The layer file of the chunk `hash` addresses, whether a layer names it by its path or
@@ -207,8 +210,8 @@ impl LayerChunks {
             if let Some(chunk) = hex_chunk(&path) {
                 self.by_chunk.insert(chunk, asset.clone());
             }
-            /* Overwritten rather than kept, so the spelling `get` answers with is the
-            spelling of the same layer whose file `asset_at` answers with. */
+            /* Overwritten rather than kept, so the text `get` answers with is the
+            text of the same layer whose file `asset_at` answers with. */
             self.by_hash.insert(WadHash::hash_str(&path), path.clone());
             self.by_path.insert(path.to_lowercase(), asset);
         }
@@ -229,9 +232,9 @@ impl LayerChunks {
                 Category::Game => Self::insert_chunk,
                 Category::BinEntries => Self::insert_entry,
                 Category::BinHashes => Self::insert_value,
-                Category::Unknown(spelling) => {
+                Category::Unknown(category) => {
                     tracing::debug!(
-                        "Project hash table {} skipped: unknown category {spelling}",
+                        "Project hash table {} skipped: unknown category {category}",
                         declared.path
                     );
                     continue;
@@ -247,9 +250,11 @@ impl LayerChunks {
         }
     }
 
-    /// Learns the object paths that the walked layers' game data declarations spell.
+    /// Learns the object paths and `Hash` strings that the game data declarations of every layer
+    /// write.
     ///
-    /// A name a declared table lists keeps that spelling. A layer whose declarations do not load
+    /// Every layer answers, because a bin of one layer can name what another layer declares. A
+    /// name a declared table lists keeps that table's text. A layer whose declarations do not load
     /// adds nothing.
     fn read_declaration_names(&mut self, project_dir: &Path) {
         let Some(root) = Utf8Path::from_path(project_dir) else {
@@ -258,14 +263,57 @@ impl LayerChunks {
         let Ok(ignore) = ProjectDir::open(project_dir).and_then(|dir| dir.ignore_filter()) else {
             return;
         };
+        let Ok(dirs) = layer::dirs_in(&project_dir.join(CONTENT_DIR_NAME)) else {
+            return;
+        };
 
-        let layers = self.stack.clone();
-        for layer in &layers {
+        for layer in dirs.iter().filter_map(|dir| dir_name(dir)) {
             if let Ok(Some(declarations)) = load_layer(root, layer, &ignore).declarations {
-                for name in spelled_entries(&declarations) {
+                for name in written_entries(&declarations) {
                     self.insert_entry(name.as_str());
                 }
+                for edit in property_edits(&declarations) {
+                    self.read_written_values(edit);
+                }
             }
+        }
+    }
+
+    /// Learns the strings of `edit`'s map subscripts and its literal.
+    ///
+    /// A declaration carries no type, so every string is kept. A string that is no `Hash` value
+    /// is never asked for, since a read asks by a hash that a `Hash` value carries.
+    fn read_written_values(&mut self, edit: &PropertyEdit) {
+        for segment in edit.path.segments() {
+            if let Some(Subscript::Key(KeyLiteral::String(key))) = &segment.subscript {
+                self.insert_written_value(key);
+            }
+        }
+        self.read_literal(&edit.value);
+    }
+
+    fn read_literal(&mut self, value: &Value) {
+        match value {
+            Value::String(text) => self.insert_written_value(text),
+            Value::List(items) => {
+                for item in items {
+                    self.read_literal(item);
+                }
+            }
+            Value::Mapping(fields) => {
+                for (key, field) in fields {
+                    self.insert_written_value(key);
+                    self.read_literal(field);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Learns `text` as a `Hash` string. Hex names nothing.
+    fn insert_written_value(&mut self, text: &str) {
+        if !text.is_empty() && !text.starts_with("0x") {
+            self.insert_value(text);
         }
     }
 
@@ -309,8 +357,8 @@ fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
 }
 
 /// The path of the `binentries` table that is created if the manifest declares none.
-/// Every object path that `declarations` spells: a created, cloned, removed or edited object.
-fn spelled_entries(declarations: &Declarations) -> Vec<&EntryName> {
+/// Every object path that `declarations` writes: a created, cloned, removed or edited object.
+fn written_entries(declarations: &Declarations) -> Vec<&EntryName> {
     let mut names = Vec::new();
     for module in &declarations.modules {
         match &module.selector {
@@ -332,6 +380,27 @@ fn spelled_entries(declarations: &Declarations) -> Vec<&EntryName> {
 
     names.retain(|name| !name.is_hash());
     names
+}
+
+/// Every property edit of `declarations`: of a created or cloned object, and of an entry.
+fn property_edits(declarations: &Declarations) -> Vec<&PropertyEdit> {
+    let mut found = Vec::new();
+    for module in &declarations.modules {
+        match &module.selector {
+            Selector::Target { edits, .. } => {
+                for edit in edits {
+                    found.extend(edit.objects.values().flat_map(ObjectEdit::properties));
+                    found.extend(edit.entries.values().flatten());
+                }
+            }
+            Selector::Entries(entries) => {
+                found.extend(entries.values().flat_map(|entry| &entry.properties));
+            }
+            _ => {}
+        }
+    }
+
+    found
 }
 
 const ENTRIES_TABLE: &str = "binentries.hashes.txt";
@@ -432,7 +501,7 @@ fn hex_chunk(path: &str) -> Option<WadHash> {
     path.file_stem()?.parse().ok()
 }
 
-/// The last component of `path`, where it is one the platform spells in UTF-8.
+/// The last component of `path`, where the platform writes it in UTF-8.
 fn dir_name(path: &Path) -> Option<&str> {
     path.file_name().and_then(|name| name.to_str())
 }

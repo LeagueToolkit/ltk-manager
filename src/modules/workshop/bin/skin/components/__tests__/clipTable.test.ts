@@ -48,6 +48,10 @@ describe("matchingClips", () => {
   it("matches an unnamed clip on its hex", () => {
     expect(matchingClips(clips, "0x0000").map((each) => each.hash)).toEqual(["0x00000001"]);
   });
+
+  it("matches a named clip on its hex", () => {
+    expect(matchingClips(clips, "0X2").map((each) => each.name)).toEqual(["attack1"]);
+  });
 });
 
 describe("shownColumns", () => {

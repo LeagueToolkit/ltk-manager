@@ -201,7 +201,75 @@ fn a_declared_binhashes_table_names_a_value() {
     assert_eq!(chunks.entry(BinHash::hash_str(text)), None);
 }
 
-/// An object path and a chunk path hash into different spaces, so one spelling is both.
+const GRAPH_DECLARATION: &str = r#"version: 1
+modules:
+  - target: data/characters/chogath/animations/skin0.bin
+    objects:
+      Mods/Deff/Animations:
+        clone: Characters/Chogath/Animations/Skin0
+        set:
+          'mClipDataMap{"Taunt_Rework"}.mTickDuration': 0.5
+          +mClipDataMap:
+            Crit_Melee: !pointer(AtomicClipData)
+              mTrackDataName: Upper_Track
+              mEventDataMap:
+                Swing: !pointer(ParticleEventData) { mEffectKey: Deff_Trail }
+  - entries:
+      Characters/Chogath/Skins/Skin0:
+        mEffectList: [Deff_Listed]
+        mHexKey: "0x12345678"
+"#;
+
+/// A project whose layer `base` holds `GRAPH_DECLARATION`, beside the layer `extra`.
+fn declaring_graph() -> tempfile::TempDir {
+    let dir = layered(
+        &["base/game_data.yaml", "extra/W.wad.client/assets/y.tex"],
+        &[("base", 0), ("extra", 1)],
+    );
+    fs::write(
+        dir.path()
+            .join(CONTENT_DIR_NAME)
+            .join("base/game_data.yaml"),
+        GRAPH_DECLARATION,
+    )
+    .expect("declaration");
+
+    dir
+}
+
+#[test]
+fn a_game_data_declaration_names_the_hash_values_it_writes() {
+    let dir = declaring_graph();
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    for text in [
+        "Taunt_Rework",
+        "Crit_Melee",
+        "Upper_Track",
+        "Swing",
+        "Deff_Trail",
+        "Deff_Listed",
+    ] {
+        assert_eq!(chunks.value(BinHash::hash_str(text)), Some(text));
+    }
+    assert_eq!(chunks.value(BinHash::hash_str("0x12345678")), None);
+    assert_eq!(chunks.entry(BinHash::hash_str("Crit_Melee")), None);
+}
+
+#[test]
+fn a_layer_scan_names_what_another_layer_declares() {
+    let dir = declaring_graph();
+
+    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+
+    assert_eq!(
+        chunks.value(BinHash::hash_str("Crit_Melee")),
+        Some("Crit_Melee")
+    );
+}
+
+/// An object path and a chunk path hash into different spaces, so one text is both.
 #[test]
 fn a_name_an_entry_table_and_a_layer_both_hold_is_named_in_both_spaces() {
     let path = "assets/x.tex";
@@ -351,7 +419,7 @@ fn one_layer_scanned_alone_holds_its_own_files_only() {
 
 /// One layer answers both halves, so a resolved link does not name one file and open another.
 #[test]
-fn the_named_spelling_and_the_file_come_from_one_layer() {
+fn the_named_text_and_the_file_come_from_one_layer() {
     let dir = layered(
         &[
             "aaa/W.wad.client/Assets/X.tex",
@@ -431,7 +499,7 @@ fn declare_entry_names_merges_into_a_declared_table() {
 }
 
 #[test]
-fn a_path_the_declarations_spell_names_its_object() {
+fn a_path_the_declarations_write_names_its_object() {
     let dir = layered(&["base/game_data.yaml"], &[("base", 0)]);
     fs::write(
         dir.path()
