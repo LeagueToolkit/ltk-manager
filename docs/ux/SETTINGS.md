@@ -643,6 +643,26 @@ The dialog reads the list rather than the stamp, so a host trusted from the Sett
 dialog stands takes the band down on its own. The stamp says what was true when the link arrived,
 and the list says what is true now.
 
+**A refused download says why, and what to do.** RuneForge gives a file only for a link the site
+signed in the last 15 minutes, so a dialog left open past that fails when Install is pressed, and
+an unsigned `ltk://install` link from a chat post or another site always fails. The download sends
+`ltk-manager/<version>` as its user agent, has a connect timeout and no total timeout, and reaches
+the frontend as `DOWNLOAD` with the kind the server answered, per ADR-0017. The dialog draws the
+cause and the remedy under `Failed to install`:
+
+| Status | Kind            | Cause                                     | Remedy                               |
+| ------ | --------------- | ----------------------------------------- | ------------------------------------ |
+| 403    | `LINK_EXPIRED`  | The link expired                          | Press Install on the mod page again. |
+| 404    | `UNAVAILABLE`   | This mod is not available to download     | It may be private or removed.        |
+| 410    | `FILES_REMOVED` | This release's files were removed         | Install the latest release.          |
+| 429    | `RATE_LIMITED`  | Download limit reached                    | Try again in the `Retry-After` wait. |
+| other  | `HTTP`          | Unexpected response from the mod provider | Try again later.                     |
+| none   | `OFFLINE`       | Could not reach the mod provider          | Check your connection and try again. |
+
+The rate limit remedy never suggests signing in: every install runs as a guest, and an account
+lifts neither the per-minute nor the daily limit. The app does not read `expires` off a link and
+does not keep one to resume later. The server decides.
+
 ## Copy
 
 Card and group titles are sentence case, except for a proper noun. `System Tray & Autostart` and

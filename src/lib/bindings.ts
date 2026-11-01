@@ -193,6 +193,8 @@ export type AppErrorResponse =
 { code: "UNTRUSTED_DOMAIN"; domain: string } | 
 /**  A call to RuneForge failed. The variant says which and carries what the dialog renders. */
 { code: "RUNEFORGE"; error: RuneforgeError } | 
+/**  The download an install link starts was refused or failed. The variant says which. */
+{ code: "DOWNLOAD"; error: DownloadError } | 
 /**  A file gives no WEM for a media replacement. The variant says why. */
 { code: "AUDIO_CONVERT"; error: AudioConvertError } | 
 /**
@@ -2177,6 +2179,27 @@ export type Doc = {
 	examples: string[],
 };
 
+/**
+ *  Why the download an install link starts failed.
+ * 
+ *  Sent over IPC whole, as the `error` of the `DOWNLOAD` code, so the frontend switches on
+ *  `kind` and renders the data that a variant carries. The status variants follow the RuneForge
+ *  download routes, which give a file only for a link the site signed in the last 15 minutes.
+ */
+export type DownloadError = 
+/**  The server refused the link as unsigned, expired or tampered (403). */
+{ kind: "LINK_EXPIRED" } | 
+/**  The mod or the release is gone, or the mod is private (404). */
+{ kind: "UNAVAILABLE" } | 
+/**  The release's files were pruned (410). */
+{ kind: "FILES_REMOVED" } | 
+/**  The per-minute or the guest daily limit was reached (429). `retry_after` is in seconds. */
+{ kind: "RATE_LIMITED"; retryAfter: number | null } | 
+/**  The server answered with a `status` that has no variant of its own. */
+{ kind: "HTTP"; status: number } | 
+/**  The server was not reached, or the connection broke before the headers arrived. */
+{ kind: "OFFLINE"; detail: string };
+
 /**  Fields to change on a mod's metadata. `None` leaves a field untouched. */
 export type EditModMetadataArgs = {
 	displayName: string | null,
@@ -2314,7 +2337,7 @@ export type EnginePass =
  *  the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
  *  a CLI could map the same names to exit codes.
  */
-export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN" | "RUNEFORGE";
+export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN" | "RUNEFORGE" | "DOWNLOAD";
 
 /**  One action of an event. */
 export type EventAction = {

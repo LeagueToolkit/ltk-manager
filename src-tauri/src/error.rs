@@ -13,6 +13,7 @@ use specta::datatype::{DataType, Enum, Field, Variant};
 use ltk_manager_base::error::{message_with_sources, DomainError, ErrorKind};
 pub use ltk_manager_base::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_bin::bin_document::{BinDocumentError, EditRejection, ReadOnly};
+use ltk_manager_core::deep_link::DownloadError;
 use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_runeforge::RuneforgeError;
 use ltk_manager_runtime::launcher::LauncherError;
@@ -136,6 +137,8 @@ pub enum AppErrorResponse {
     UntrustedDomain { domain: String },
     /// A call to RuneForge failed. The variant says which and carries what the dialog renders.
     Runeforge { error: RuneforgeError },
+    /// The download an install link starts was refused or failed. The variant says which.
+    Download { error: DownloadError },
     /// A file gives no WEM for a media replacement. The variant says why.
     AudioConvert {
         error: crate::services::audio::AudioConvertError,
@@ -379,6 +382,7 @@ impl From<DomainError> for AppErrorResponse {
         let error = downcast_or!(error, LauncherError, error => Self::Launcher { error });
         let error = downcast_or!(error, WorkshopError, error => Self::Workshop { error });
         let error = downcast_or!(error, RuneforgeError, error => Self::Runeforge { error });
+        let error = downcast_or!(error, DownloadError, error => Self::Download { error });
         let error = downcast_or!(error, BinDocumentError, error => Self::from(error));
         let error = downcast_or!(
             error,

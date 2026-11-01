@@ -2,40 +2,177 @@
 
 use std::io::{Read, Write};
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use fs_err as fs;
-use reqwest::Url;
+use reqwest::header::{HeaderMap, RETRY_AFTER};
+use reqwest::{StatusCode, Url};
+use serde::{Deserialize, Serialize};
 
 use super::{ProtocolInstallProgress, ProtocolInstallStage};
-use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind};
 use ltk_manager_base::events::{BackendEvent, EventSink};
 
 const CHUNK_SIZE: usize = 64 * 1024;
 const PROGRESS_INTERVAL_MS: u128 = 100;
 
-/// Download a mod file from a URL to a temporary location.
+/// How long a connection to the download host may take to open.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// Why the download an install link starts failed.
 ///
-/// Streams the response in chunks, reporting its progress through `events`.
-/// Returns the path to the downloaded temp file.
-pub fn download_mod_file(url: &str, events: &dyn EventSink) -> AppResult<PathBuf> {
+/// Sent over IPC whole, as the `error` of the `DOWNLOAD` code, so the frontend switches on
+/// `kind` and renders the data that a variant carries. The status variants follow the RuneForge
+/// download routes, which give a file only for a link the site signed in the last 15 minutes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "SCREAMING_SNAKE_CASE",
+    rename_all_fields = "camelCase"
+)]
+pub enum DownloadError {
+    /// The server refused the link as unsigned, expired or tampered (403).
+    #[error("the download link is unsigned, expired or tampered")]
+    LinkExpired,
+
+    /// The mod or the release is gone, or the mod is private (404).
+    #[error("the mod is not available to download")]
+    Unavailable,
+
+    /// The release's files were pruned (410).
+    #[error("the release's files were removed")]
+    FilesRemoved,
+
+    /// The per-minute or the guest daily limit was reached (429). `retry_after` is in seconds.
+    #[error("the download limit was reached")]
+    RateLimited { retry_after: Option<u64> },
+
+    /// The server answered with a `status` that has no variant of its own.
+    #[error("the download failed with status {status}")]
+    Http { status: u16 },
+
+    /// The server was not reached, or the connection broke before the headers arrived.
+    #[error("the download host is unreachable: {detail}")]
+    Offline { detail: String },
+}
+
+impl From<DownloadError> for AppError {
+    fn from(error: DownloadError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::Download, error))
+    }
+}
+
+impl DownloadError {
+    /// Reads a failed answer of `status`, with its `headers`, into a variant.
+    pub(crate) fn from_status(status: StatusCode, headers: &HeaderMap) -> Self {
+        match status {
+            StatusCode::FORBIDDEN => Self::LinkExpired,
+            StatusCode::NOT_FOUND => Self::Unavailable,
+            StatusCode::GONE => Self::FilesRemoved,
+            StatusCode::TOO_MANY_REQUESTS => Self::RateLimited {
+                retry_after: retry_after(headers),
+            },
+            other => Self::Http {
+                status: other.as_u16(),
+            },
+        }
+    }
+
+    /// Reads a transport failure of `reqwest` into a variant.
+    fn transport(error: &reqwest::Error) -> Self {
+        Self::Offline {
+            detail: without_url(error),
+        }
+    }
+}
+
+/// Returns the wait of a `Retry-After` header in seconds, or `None` for a date or no header.
+pub(crate) fn retry_after(headers: &HeaderMap) -> Option<u64> {
+    headers.get(RETRY_AFTER)?.to_str().ok()?.trim().parse().ok()
+}
+
+/// Returns the text of `error` and its sources, without the URL that `error` names.
+///
+/// The URL carries the link's signature, which no message repeats.
+fn without_url(error: &reqwest::Error) -> String {
+    let mut text = if error.is_timeout() {
+        "the request timed out".to_owned()
+    } else if error.is_connect() {
+        "the connection failed".to_owned()
+    } else {
+        "the request failed".to_owned()
+    };
+
+    let mut source = std::error::Error::source(error);
+    while let Some(cause) = source {
+        text.push_str(": ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+
+    text
+}
+
+/// Builds the client of one download, which names the running `version` in the `User-Agent`.
+///
+/// The client has a connect timeout and no total timeout, so a large mod on a slow connection
+/// finishes. It follows redirects to any host, because the download route answers with a redirect
+/// to the storage host.
+///
+/// # Errors
+///
+/// Fails with [`DownloadError::Offline`] if the TLS backend cannot be set up.
+fn client(version: &str) -> Result<reqwest::blocking::Client, DownloadError> {
+    reqwest::blocking::Client::builder()
+        .user_agent(format!("ltk-manager/{version}"))
+        .connect_timeout(CONNECT_TIMEOUT)
+        .timeout(None)
+        .build()
+        .map_err(|error| DownloadError::transport(&error))
+}
+
+/// Downloads a mod file from `url` to a temporary location.
+///
+/// Streams the response in chunks, reporting its progress through `events`. `version` names the
+/// running app in the `User-Agent`. Returns the path to the downloaded temp file.
+///
+/// # Errors
+///
+/// Fails with a [`DownloadError`] if the server refuses the link or is not reached, and with
+/// [`AppError::ValidationFailed`] if the file is empty or in no format the app installs.
+pub fn download_mod_file(url: &str, version: &str, events: &dyn EventSink) -> AppResult<PathBuf> {
     emit_progress(events, ProtocolInstallStage::Downloading, 0, None, None);
 
-    let response = reqwest::blocking::get(url).map_err(|e| {
+    let response = client(version)
+        .and_then(|client| {
+            client
+                .get(url)
+                .send()
+                .map_err(|error| DownloadError::transport(&error))
+        })
+        .map_err(|error| {
+            emit_progress(
+                events,
+                ProtocolInstallStage::Error,
+                0,
+                None,
+                Some(&error.to_string()),
+            );
+            AppError::from(error)
+        })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let error = DownloadError::from_status(status, response.headers());
         emit_progress(
             events,
             ProtocolInstallStage::Error,
             0,
             None,
-            Some(&e.to_string()),
+            Some(&error.to_string()),
         );
-        AppError::Other(format!("Failed to download: {e}"))
-    })?;
-
-    if !response.status().is_success() {
-        let msg = format!("Download failed with status {}", response.status());
-        emit_progress(events, ProtocolInstallStage::Error, 0, None, Some(&msg));
-        return Err(AppError::Other(msg));
+        return Err(AppError::from(error));
     }
 
     let ext_from_metadata = infer_extension_from_metadata(&response, url);

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { DeepLinkInstallRequest, ProtocolInstallProgress } from "@/lib/tauri";
+import type { AppError, DeepLinkInstallRequest, ProtocolInstallProgress } from "@/lib/tauri";
 
 export type InstallStatus =
   | "idle"
@@ -15,11 +15,12 @@ interface DeepLinkStore {
   request: DeepLinkInstallRequest | null;
   status: InstallStatus;
   progress: ProtocolInstallProgress | null;
-  error: string | null;
+  /** The failure of the last install, which the dialog describes. */
+  error: AppError | null;
   setRequest: (request: DeepLinkInstallRequest) => void;
   setStatus: (status: InstallStatus) => void;
   setProgress: (progress: ProtocolInstallProgress) => void;
-  setError: (error: string) => void;
+  setError: (error: AppError) => void;
   reset: () => void;
 }
 

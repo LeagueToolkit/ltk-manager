@@ -51,6 +51,7 @@ pub enum ErrorKind {
     Overlay,
     UntrustedDomain,
     Runeforge,
+    Download,
 }
 
 /// Which way an overlay build failed, as the remedy a consumer picks between.

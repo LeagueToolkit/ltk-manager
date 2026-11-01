@@ -2,7 +2,12 @@
 
 use fs_err as fs;
 
-use super::download::{extract_extension_from_content_disposition, sniff_extension_from_file};
+use reqwest::StatusCode;
+use reqwest::header::{HeaderMap, HeaderValue, RETRY_AFTER};
+
+use super::download::{
+    extract_extension_from_content_disposition, retry_after, sniff_extension_from_file,
+};
 use super::*;
 
 /// The install route a raw URL names, for the tests that read its fields.
@@ -328,6 +333,69 @@ fn domain_trusted_multiple_domains() {
 fn domain_trusted_invalid_url_returns_false() {
     let domains = vec!["runeforge.dev".into()];
     assert!(!is_domain_trusted("not a url", &domains));
+}
+
+// --- Refused downloads ---
+
+#[test]
+fn download_error_maps_the_signed_route_statuses() {
+    let headers = HeaderMap::new();
+
+    assert_eq!(
+        DownloadError::from_status(StatusCode::FORBIDDEN, &headers),
+        DownloadError::LinkExpired
+    );
+    assert_eq!(
+        DownloadError::from_status(StatusCode::NOT_FOUND, &headers),
+        DownloadError::Unavailable
+    );
+    assert_eq!(
+        DownloadError::from_status(StatusCode::GONE, &headers),
+        DownloadError::FilesRemoved
+    );
+    assert_eq!(
+        DownloadError::from_status(StatusCode::TOO_MANY_REQUESTS, &headers),
+        DownloadError::RateLimited { retry_after: None }
+    );
+    assert_eq!(
+        DownloadError::from_status(StatusCode::BAD_GATEWAY, &headers),
+        DownloadError::Http { status: 502 }
+    );
+}
+
+#[test]
+fn download_error_rate_limited_keeps_retry_after() {
+    let mut headers = HeaderMap::new();
+    headers.insert(RETRY_AFTER, HeaderValue::from_static("42"));
+
+    assert_eq!(
+        DownloadError::from_status(StatusCode::TOO_MANY_REQUESTS, &headers),
+        DownloadError::RateLimited {
+            retry_after: Some(42)
+        }
+    );
+}
+
+#[test]
+fn retry_after_ignores_a_date() {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        RETRY_AFTER,
+        HeaderValue::from_static("Wed, 21 Oct 2026 07:28:00 GMT"),
+    );
+
+    assert_eq!(retry_after(&headers), None);
+}
+
+#[test]
+fn download_error_reports_as_the_download_kind() {
+    let error = AppError::from(DownloadError::LinkExpired);
+
+    assert_eq!(error.kind(), ltk_manager_base::error::ErrorKind::Download);
+    assert_eq!(
+        error.domain::<DownloadError>(),
+        Some(&DownloadError::LinkExpired)
+    );
 }
 
 // --- Content-Disposition parsing ---

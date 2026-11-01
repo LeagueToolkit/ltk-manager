@@ -1,6 +1,5 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { errorSummary } from "@/i18n";
 import { api, type AppError, type InstalledMod, type InstallOutcome } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -41,7 +40,7 @@ export const deepLinkMutations = {
         );
       },
       onError: (error) => {
-        useDeepLinkStore.getState().setError(errorSummary(error));
+        useDeepLinkStore.getState().setError(error);
       },
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.mods() });

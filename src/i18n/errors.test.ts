@@ -1,6 +1,7 @@
 import type { AppError, LauncherError, OverlayErrorCategory } from "@/lib/tauri";
 import { m } from "@/paraglide/messages";
 
+import { retryDescription } from "./downloadErrors";
 import {
   describeError,
   describeLaunchError,
@@ -169,6 +170,30 @@ describe("describeWorkshopError", () => {
 
   it("has only a title when nothing conflicts", () => {
     expect(conflict()).toEqual({ title: m["workshop.LAYER_FILE_CONFLICT.title"]() });
+  });
+});
+
+describe("describeDownloadError", () => {
+  it("names the remedy of a refused link", () => {
+    expect(describeError({ code: "DOWNLOAD", error: { kind: "LINK_EXPIRED" } })).toEqual({
+      title: m["error.DOWNLOAD.LINK_EXPIRED.title"](),
+      description: m["error.DOWNLOAD.LINK_EXPIRED.description"](),
+    });
+  });
+
+  it("names no wait when the limit answer carries none", () => {
+    expect(retryDescription(null)).toBe(m["error.DOWNLOAD.RATE_LIMITED.description"]());
+  });
+
+  it.each([
+    [42, m["error.DOWNLOAD.RATE_LIMITED.seconds.description"]({ seconds: 42 })],
+    [119, m["error.DOWNLOAD.RATE_LIMITED.seconds.description"]({ seconds: 119 })],
+    [120, m["error.DOWNLOAD.RATE_LIMITED.minutes.description"]({ minutes: 2 })],
+    [150, m["error.DOWNLOAD.RATE_LIMITED.minutes.description"]({ minutes: 3 })],
+    [7200, m["error.DOWNLOAD.RATE_LIMITED.hours.description"]({ hours: 2 })],
+    [43200, m["error.DOWNLOAD.RATE_LIMITED.hours.description"]({ hours: 12 })],
+  ])("rounds a wait of %i seconds up to its unit", (seconds, text) => {
+    expect(retryDescription(seconds)).toBe(text);
   });
 });
 

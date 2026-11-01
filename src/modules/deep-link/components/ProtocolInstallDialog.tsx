@@ -10,8 +10,8 @@ import {
 } from "@phosphor-icons/react";
 
 import { Button, Dialog, Progress, useToast } from "@/components";
-import { errorSummary, m, Marked } from "@/i18n";
-import type { ProtocolInstallProgress, Settings } from "@/lib/tauri";
+import { describeError, errorSummary, m, Marked } from "@/i18n";
+import type { AppError, ProtocolInstallProgress, Settings } from "@/lib/tauri";
 import { useSaveSettings, useSettings } from "@/modules/settings";
 import { useQueuedDialog } from "@/stores";
 
@@ -173,19 +173,7 @@ export function ProtocolInstallDialog() {
           </div>
         )}
 
-        {isError && error && (
-          <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
-              <XCircleIcon className="size-5 text-danger-text" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-surface-100">
-                {m.deep_link_install_failed_description({ name: displayName })}
-              </p>
-              <p className="mt-1 text-sm text-danger-text select-text">{error}</p>
-            </div>
-          </div>
-        )}
+        {isError && error && <InstallFailure name={displayName} error={error} />}
       </Dialog.Body>
 
       <Dialog.Footer>
@@ -247,6 +235,27 @@ function UntrustedBand({ domain }: { domain: string }) {
           {m.deep_link_untrusted_title({ domain })}
         </p>
         <p className="mt-0.5 text-xs text-surface-400">{m.deep_link_untrusted_description()}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Why the install failed: the cause, the remedy, and any prose from outside the app as data. */
+function InstallFailure({ name, error }: { name: string; error: AppError }) {
+  const copy = describeError(error);
+
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
+        <XCircleIcon className="size-5 text-danger-text" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-surface-100">
+          {m.deep_link_install_failed_description({ name })}
+        </p>
+        <p className="mt-1 text-sm text-danger-text">{copy.title}</p>
+        {copy.description && <p className="mt-0.5 text-sm text-surface-300">{copy.description}</p>}
+        {copy.detail && <p className="mt-1 text-xs text-surface-400 select-text">{copy.detail}</p>}
       </div>
     </div>
   );
