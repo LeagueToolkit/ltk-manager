@@ -20,6 +20,7 @@ import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/l
 import {
   Armature,
   type BackdropChoice,
+  type CaptureFrame,
   Character,
   createPose,
   FitCamera,
@@ -49,6 +50,7 @@ import {
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
+  usePreviewBackground,
   usePreviewFacing,
   usePreviewGround,
   usePreviewJointNames,
@@ -77,7 +79,9 @@ import { SunControl } from "../../map/components/SunControl";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { useHeldValue } from "../../material/state/heldValue";
 import { usePaneCommands } from "../../menus/state/paneCommands";
+import { BackgroundControl } from "../../shared/preview/BackgroundControl";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
+import { CaptureButton } from "../../shared/preview/CaptureButton";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
@@ -243,6 +247,8 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
   const backdropSky = usePreviewBackdropSky();
+  const background = usePreviewBackground();
+  const capture = useRef<CaptureFrame | null>(null);
   const backdropFlags = useBackdropFlags(backdropSource);
   const backdropVisibility = backdropFlags.visibility;
   const midlane = usePreviewMidlane();
@@ -609,6 +615,8 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
             backdrop={backdropSource}
             backdropVisibility={backdropVisibility}
             backdropSky={backdropSky}
+            background={background}
+            captureRef={capture}
             sun={backdrop === null ? null : sun}
             postEffects={backdrop === null ? null : postEffects}
             ambientOcclusion={backdrop === null ? null : ambientOcclusion}
@@ -807,6 +815,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                     icon={<MapTrifoldIcon />}
                   />
                 )}
+                <BackgroundControl />
               </div>
               <ControlDivider />
               <div className="flex shrink-0 items-center gap-0.5">
@@ -857,6 +866,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 <ViewModeMenu />
                 <CameraMenu />
                 <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
+                <CaptureButton capture={capture} />
               </div>
               <ControlDivider />
               <IconButton

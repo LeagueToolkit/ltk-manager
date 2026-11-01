@@ -174,6 +174,7 @@ export {
 export { spliceVertexProgram, type VertexPrelude } from "./hexshade/vertexPrelude";
 export { Backdrop } from "./scene/components/Backdrop";
 export { FlatViewport, type FlatViewportProps } from "./scene/components/FlatViewport";
+export type { CaptureFrame } from "./scene/components/FrameCapture";
 export { FrameOnCommit, KeepFrames } from "./scene/components/Frames";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";

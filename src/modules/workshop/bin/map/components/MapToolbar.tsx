@@ -8,16 +8,18 @@ import {
   FrameCornersIcon,
   MagnetIcon,
 } from "@phosphor-icons/react";
-import { useRef } from "react";
+import { type RefObject, useRef } from "react";
 
 import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { MapPath, MapVariant } from "@/lib/tauri";
 import { CommandMenuItems } from "@/modules/editor";
-import type { BackdropSource } from "@/modules/viewport";
+import type { BackdropSource, CaptureFrame } from "@/modules/viewport";
 
 import { usePaneCommands } from "../../menus/state/paneCommands";
+import { BackgroundControl } from "../../shared/preview/BackgroundControl";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
+import { CaptureButton } from "../../shared/preview/CaptureButton";
 import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
 import { ControlDivider, ViewportRail } from "../../shared/preview/ViewportControls";
 import { useMapShowEntries } from "../hooks/useMapShowEntries";
@@ -91,6 +93,8 @@ export interface TopRailProps {
   /** Opens the file picker of the mesh import. */
   readonly onAddMesh: () => void;
   readonly onFrame: () => void;
+  /** The capture function of the viewport under the rail. */
+  readonly capture: RefObject<CaptureFrame | null>;
 }
 
 /**
@@ -105,6 +109,7 @@ export function TopRail({
   onPick,
   onAddMesh,
   onFrame,
+  capture,
 }: TopRailProps) {
   const { editable, tool, geometryDocument } = useMapScene();
   const exportMeshes = useMeshExport();
@@ -163,12 +168,14 @@ export function TopRail({
           <PostEffectsControl source={source} />
         </span>
       )}
+      <BackgroundControl />
       <ControlDivider />
       <ViewModeMenu />
       <CameraMenu />
       <Button variant="ghost" size="xs" left={<FrameCornersIcon weight="bold" />} onClick={onFrame}>
         {m.workshop_bin_map_frame_label()}
       </Button>
+      <CaptureButton capture={capture} />
     </ViewportRail>
   );
 }

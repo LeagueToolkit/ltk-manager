@@ -4,6 +4,7 @@ import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapVariant } from "@/lib/tauri";
 import {
   type Bounds,
+  type CaptureFrame,
   FitCamera,
   FrameOnCommit,
   meshVisible,
@@ -12,6 +13,7 @@ import {
 } from "@/modules/viewport";
 import {
   usePreviewAmbientOcclusion,
+  usePreviewBackground,
   usePreviewBackdropEvents,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
@@ -146,6 +148,8 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
   const sky = usePreviewBackdropSky();
+  const background = usePreviewBackground();
+  const capture = useRef<CaptureFrame | null>(null);
   const sun = usePreviewSun();
   const postEffects = usePreviewPostEffects();
   const ambientOcclusion = usePreviewAmbientOcclusion();
@@ -191,6 +195,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           onPick={pick}
           onAddMesh={() => void importer.pick()}
           onFrame={refit}
+          capture={capture}
         />
         <div className="flex min-h-0 flex-1">
           <ToolRail picking={picking} />
@@ -206,6 +211,8 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
               backdrop={source}
               backdropVisibility={drawnVisibility}
               backdropSky={sky}
+              background={background}
+              captureRef={capture}
               sun={editable ? null : sun}
               postEffects={editable ? null : postEffects}
               ambientOcclusion={ambientOcclusion}
