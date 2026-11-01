@@ -27,6 +27,7 @@ import { useLibraryViewMode } from "@/modules/library/api";
 
 import { ActiveFilterChips } from "./ActiveFilterChips";
 import { AnalyzeUncategorizedAction } from "./AnalyzeUncategorizedAction";
+import { ConflictsButton } from "./ConflictsButton";
 import { DocumentsToggle } from "./DocumentsToggle";
 import { FilterPopover } from "./FilterPopover";
 import { ModHealthCheckAction } from "./ModHealthCheckAction";
@@ -104,6 +105,8 @@ export function LibraryToolbar({
         <AnalyzeUncategorizedAction disabled={isLoading} />
 
         <ModHealthCheckAction disabled={isLoading} />
+
+        <ConflictsButton disabled={isLoading} />
 
         <DocumentsToggle />
 

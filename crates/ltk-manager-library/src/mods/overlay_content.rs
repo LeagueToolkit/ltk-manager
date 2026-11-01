@@ -82,6 +82,7 @@ impl ModLibrary {
                 .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
             let mut enabled_mods = Vec::new();
+            let mut dropped = crate::mods::conflicts::load_dropped(storage_dir);
 
             // Process mods in the order they appear in enabled_mods list (maintains priority)
             for mod_id in &active_profile.enabled_mods {
@@ -95,7 +96,13 @@ impl ModLibrary {
                     continue;
                 }
 
-                let content = entry.content_provider(storage_dir)?;
+                let mut content = entry.content_provider(storage_dir)?;
+                if let Some(dropped) = dropped.remove(&entry.id).filter(|d| !d.is_empty()) {
+                    content = Box::new(crate::mods::conflicts::WithoutFiles {
+                        inner: content,
+                        dropped,
+                    });
+                }
                 let enabled_layers = active_profile.enabled_overlay_layers(entry, storage_dir)?;
 
                 enabled_mods.push(ltk_overlay::EnabledMod {

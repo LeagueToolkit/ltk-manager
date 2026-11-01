@@ -23,6 +23,7 @@
 
 mod analysis;
 mod archive;
+mod conflicts;
 mod health;
 mod index;
 mod layout;
@@ -42,6 +43,7 @@ pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::migration::*;
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
+pub use conflicts::{ConflictGroup, ConflictMod};
 pub use health::sweep::{HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
 pub use health::timing::{HealthTiming, ModTiming};

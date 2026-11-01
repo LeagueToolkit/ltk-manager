@@ -142,6 +142,8 @@ export const api = {
 
   // Mods
   getInstalledMods: library.getInstalledMods,
+  getModConflicts: library.getModConflicts,
+  setConflictWinner: library.setConflictWinner,
   installMod: library.installMod,
   installMods: library.installMods,
   updateMod: library.updateMod,

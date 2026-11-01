@@ -3,6 +3,7 @@ export * from "./AnalyzeUncategorizedAction";
 export * from "./BulkInstallProgress";
 export * from "./BulkInstallResults";
 export * from "./BulkUninstallDialog";
+export * from "./ConflictsButton";
 export * from "./DndDragOverlay";
 export * from "./DocumentsSidebar";
 export * from "./DocumentsToggle";

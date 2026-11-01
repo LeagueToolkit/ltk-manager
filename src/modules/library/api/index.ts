@@ -74,3 +74,4 @@ export {
   useInstalledMods,
   useProfiles,
 } from "./queries";
+export { useModConflicts, useSetConflictWinner } from "./useModConflicts";
