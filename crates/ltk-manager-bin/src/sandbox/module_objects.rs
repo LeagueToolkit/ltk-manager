@@ -173,7 +173,12 @@ impl ModuleObjects<'_> {
             );
             return;
         };
-        let Some(asset) = self.assets.locate_chunk(WadHash(target.chunk_hash())) else {
+        /* The install's index reaches a chunk the tables name by its path alone. */
+        let located = self
+            .assets
+            .locate(target.as_str())
+            .or_else(|| self.assets.locate_chunk(WadHash(target.chunk_hash())));
+        let Some(asset) = located else {
             tracing::debug!(
                 target = target.as_str(),
                 "Skipping a creation in a missing chunk"
