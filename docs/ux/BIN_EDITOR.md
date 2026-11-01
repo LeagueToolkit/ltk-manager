@@ -3084,7 +3084,8 @@ what a sandbox is and where this tab's edits go. The options contain:
   order. The tab
   and its viewport stack the chosen layers alone, as a build of those layers writes them, and the
   button reads `Sandbox (<name>, 2 of 3 layers)`. Choosing every layer returns to the project.
-  The tab stays mounted across a switch. The layer of the tab's own file and the last chosen
+  A switch redraws in place: the viewport keeps its camera, its run and what it has drawn, and
+  each file that the new stack resolves differently replaces the old one when it lands. The layer of the tab's own file and the last chosen
   layer are disabled. Audio reads still use every layer of the project.
 - **Declared in**, on an object tab whose object several files of the sandbox declare: the
   files, a layer's ahead of the install's, each with its layer or its archive under it. The

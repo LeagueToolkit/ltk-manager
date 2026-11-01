@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   type ColorSpace,
   type CompressedPixelFormat,
@@ -23,6 +23,7 @@ import type { AssetRef } from "@/lib/tauri";
 import { type MipLevel, readMipBuffer } from "../../assets/parsing/mipBuffer";
 import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 import { createRetainedCache, useRetained } from "../utils/retainedCache";
+import { texturesOverHeld } from "../utils/texturesOverHeld";
 
 const NONE: ReadonlyMap<string, Texture> = new Map();
 
@@ -84,11 +85,18 @@ export interface TextureLoad {
    * material sampler narrows it where it names another.
    */
   readonly wrap?: Wrapping;
+  /**
+   * A changed set keeps answering each key with the texture it last had until that key lands.
+   * The other keys of the set do not go blank when one asset changes.
+   */
+  readonly holdWhileLoading?: boolean;
   readonly report?: (load: TextureProgress) => void;
 }
 
-/** What a set loads with: every option of `TextureLoad` but the report, defaults applied. */
-type TextureSettings = Required<Omit<TextureLoad, "previewWidth" | "fullWidth" | "report">> &
+/** What a set loads with: the options that change the textures, defaults applied. */
+type TextureSettings = Required<
+  Omit<TextureLoad, "previewWidth" | "fullWidth" | "holdWhileLoading" | "report">
+> &
   Pick<TextureLoad, "previewWidth" | "fullWidth">;
 
 /**
@@ -169,6 +177,7 @@ export function useAssetTextures(
     mips = false,
     colorSpace = TEXTURE_COLOR_SPACE,
     wrap = RepeatWrapping,
+    holdWhileLoading = false,
     report,
   }: TextureLoad = {},
 ): ReadonlyMap<string, Texture> {
@@ -197,7 +206,15 @@ export function useAssetTextures(
 
   useEffect(() => (report === undefined ? undefined : set.watch(report)), [set, report]);
 
-  return textures;
+  const [held, setHeld] = useState(NONE);
+  useEffect(() => {
+    if (holdWhileLoading) setHeld((before) => texturesOverHeld(assets, before, textures));
+  }, [holdWhileLoading, assets, textures]);
+
+  return useMemo(
+    () => (holdWhileLoading ? texturesOverHeld(assets, held, textures) : textures),
+    [holdWhileLoading, assets, held, textures],
+  );
 }
 
 function createTextureSet(

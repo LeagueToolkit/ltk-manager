@@ -91,6 +91,36 @@ beforeEach(() => {
   });
 });
 
+it("keeps its id and closes nothing when the chosen layers change", async () => {
+  const view = (sandbox: SandboxRef | undefined) => (
+    <InProject>
+      <DocumentSandboxProvider sandbox={sandbox}>
+        <Open />
+      </DocumentSandboxProvider>
+    </InProject>
+  );
+  const { rerender } = render(view(undefined), { wrapper: Queries });
+  await waitFor(() => expect(opened?.status).toBe("open"));
+  const first = opened?.status === "open" ? opened.handle.document : null;
+
+  const subset: SandboxRef = { kind: "layers", project: PROJECT.path, layers: ["base"] };
+  rerender(view(subset));
+
+  await waitFor(() =>
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binAdopt, {
+      document: first,
+      from: (first ?? 0) + 1,
+    }),
+  );
+  await waitFor(() => {
+    if (opened?.status !== "open") throw new Error("not open");
+    expect(opened.handle.sandbox).toEqual(subset);
+  });
+
+  expect(opened?.status === "open" && opened.handle.document).toBe(first);
+  expect(mockInvoke).not.toHaveBeenCalledWith(commandNames.bin.binClose, expect.anything());
+});
+
 it("opens game data in the current mod project's sandbox and reopens when that project changes", async () => {
   const view = (path: string) => (
     <InProject path={path}>

@@ -30,6 +30,7 @@ import {
   type BackdropSource,
   type EditedGeometry,
   useBackdropFlags,
+  useHeldBackdropSource,
 } from "@/modules/viewport";
 
 import { assetKey } from "../../../preview/utils/assetRef";
@@ -335,7 +336,12 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
     () => ({ materials: opened, path: geometryPath }),
     [opened, geometryPath],
   );
-  const geometry = useGeometryDocument(geometryFile, editable, geometryTarget);
+  /* A subset keeps the document open, because closing it reads the whole map from the file. */
+  const geometry = useGeometryDocument(
+    geometryFile,
+    editable || readOnly === "layerSubset",
+    geometryTarget,
+  );
   const editGeometry = useCallback(
     async (change: MapGeometryEdit) => {
       const deltas = await geometry.edit(change);
@@ -474,9 +480,10 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       geometry: geometryFile,
       edited: geometryEdited,
       skin: chosen.skin,
+      ...(sandbox.kind === "layers" && { sandbox }),
     };
-  }, [chosen, geometryFile, materialsFile, resolver, geometryOpening, geometryEdited]);
-  const backdrop = useBackdropFlags(backdropSource);
+  }, [chosen, geometryFile, materialsFile, resolver, geometryOpening, geometryEdited, sandbox]);
+  const backdrop = useBackdropFlags(useHeldBackdropSource(backdropSource, chosen?.map ?? null));
 
   const setHidden = useCallback((ids: string | readonly string[], hide: boolean) => {
     setHiddenIds((held) => {

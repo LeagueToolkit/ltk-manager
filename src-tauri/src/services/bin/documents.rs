@@ -642,3 +642,18 @@ pub fn bin_close(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()
     app_handle.state::<BinDocuments>().close(document);
     IpcResult::ok(())
 }
+
+/// Moves `document` onto the tree of `from` and drops `from`, for a change of chosen layers.
+#[tauri::command]
+#[specta::specta]
+pub fn bin_adopt(
+    document: BinDocumentId,
+    from: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    app_handle
+        .state::<BinDocuments>()
+        .adopt(document, from)
+        .map_err(AppError::from)
+        .into()
+}

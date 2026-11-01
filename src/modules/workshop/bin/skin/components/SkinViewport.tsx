@@ -10,7 +10,7 @@ import {
   StackIcon,
 } from "@phosphor-icons/react";
 import { useFrame } from "@react-three/fiber";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { type RefObject, use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Group } from "three";
 
@@ -150,6 +150,7 @@ import {
   playlistOf,
   DATA_TEXTURES,
   dataTextureAssets,
+  HELD_TEXTURES,
   textureAssets,
 } from "../utils/skinScene";
 import { socketDragEdits } from "../utils/socketEdits";
@@ -278,8 +279,15 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     return () => window.removeEventListener("keydown", showControls);
   }, [controlsHidden]);
 
-  const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
-  const skeleton = useQuery(viewportQueries.skeleton(skin.skeleton?.asset ?? null));
+  /* A change of chosen layers can swap either file, and the old one draws until the new lands. */
+  const mesh = useQuery({
+    ...viewportQueries.mesh(skin.mesh?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
+  const skeleton = useQuery({
+    ...viewportQueries.skeleton(skin.skeleton?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
   const graph = useQuery(skinQueries.graph(source.document, source.graph));
   const listed = useMemo(
     () => (graph.data === undefined ? NO_CLIPS : playableClips(graph.data.clips)),
@@ -411,7 +419,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const sound = useViewportSound(document, heardSounds, playing && !scrubbing);
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
-  const textures = useAssetTextures(assets);
+  const textures = useAssetTextures(assets, HELD_TEXTURES);
   const dataAssets = useMemo(() => dataTextureAssets(skin), [skin]);
   const maps = useAssetTextures(dataAssets, DATA_TEXTURES);
   const bindingFor = useCallback(

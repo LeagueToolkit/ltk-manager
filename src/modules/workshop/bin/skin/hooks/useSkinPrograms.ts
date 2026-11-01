@@ -21,7 +21,7 @@ import {
 import { materialHashes, programsOf } from "../utils/skinScene";
 
 /** Program textures load without colour decoding. The game's shader decodes them. */
-const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
+const RAW_TEXTURES = { colorSpace: NoColorSpace, holdWhileLoading: true } as const;
 
 /** The materials read while the shaders are off, which is none. */
 const NO_HASHES: readonly string[] = [];

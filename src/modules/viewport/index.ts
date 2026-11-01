@@ -190,6 +190,7 @@ export {
   useBackdropMaterials,
   useBackdropPostEffects,
   useBackdropSun,
+  useHeldBackdropSource,
   useMapBackdrop,
 } from "./scene/hooks/useMapBackdrop";
 export {

@@ -1,4 +1,4 @@
-import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   type AnimationGraph,
@@ -21,8 +21,6 @@ export const skinQueries = {
     queryOptions<SkinModel, AppError>({
       queryKey: ["skin", document, entry],
       queryFn: queryFnWithArgs(api.bin.readSkin, document, entry),
-      /* A change of chosen layers issues a new id, and the scene stays mounted through it. */
-      placeholderData: keepPreviousData,
       staleTime: Infinity,
       retry: false,
     }),

@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo, useRef } from "react";
 import { Box3, Frustum, Matrix4, Sphere } from "three";
 
@@ -30,7 +30,7 @@ import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { useSkinPrograms } from "../../skin/hooks/useSkinPrograms";
 import { clipFrameSeconds } from "../../skin/utils/clipEvents";
-import { bindingOf, playlistOf, textureAssets } from "../../skin/utils/skinScene";
+import { bindingOf, HELD_TEXTURES, playlistOf, textureAssets } from "../../skin/utils/skinScene";
 import { mapQueries } from "../api/mapQueries";
 import {
   charactersByAnimation,
@@ -166,10 +166,17 @@ interface PlacedSkinProps extends SkinProps {
 }
 
 function PlacedSkin({ document, model, graph, characters, clock, seen, colors }: PlacedSkinProps) {
-  const mesh = useQuery(viewportQueries.mesh(model.mesh?.asset ?? null));
-  const bones = useQuery(viewportQueries.skeleton(model.skeleton?.asset ?? null));
+  /* A change of chosen layers can swap either file, and the old one draws until the new lands. */
+  const mesh = useQuery({
+    ...viewportQueries.mesh(model.mesh?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
+  const bones = useQuery({
+    ...viewportQueries.skeleton(model.skeleton?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
   const assets = useMemo(() => textureAssets(model), [model]);
-  const textures = useAssetTextures(assets);
+  const textures = useAssetTextures(assets, HELD_TEXTURES);
   const binding = useCallback(
     (submesh: string) => bindingOf(model, textures, submesh),
     [model, textures],

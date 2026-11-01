@@ -178,7 +178,10 @@ function overrideOf(skin: SkinModel, submesh: string): SubmeshOverride | null {
 }
 
 /** How `dataTextureAssets` load: as data, without colour decoding. */
-export const DATA_TEXTURES = { colorSpace: NoColorSpace } as const;
+export const DATA_TEXTURES = { colorSpace: NoColorSpace, holdWhileLoading: true } as const;
+
+/** How a skin's color textures load, keeping each one drawn while a changed set arrives. */
+export const HELD_TEXTURES = { holdWhileLoading: true } as const;
 
 /**
  * Every `RoughnessMetallicAoTexture`, `normalMapTexture` and `emissiveTexture` the skin draws
