@@ -1,5 +1,13 @@
 import type { RootState } from "@react-three/fiber";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import type { MapVisibility } from "../../assets/utils/mapVisibility";
 import type { GizmoCorner } from "../../camera/components/OrientationGizmo";
@@ -24,6 +32,7 @@ import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
+import { type CaptureFrame, FrameCapture } from "./FrameCapture";
 import { FrameOnCommit } from "./Frames";
 import { HostCanvas, useCanvasHost } from "./HostCanvas";
 import { PostEffectsPass } from "./PostEffectsPass";
@@ -84,6 +93,10 @@ export interface ViewportProps {
   readonly cameraMemory?: string;
   /** The scene colour the canvas clears to: the pane's ground, or the raised card ground. */
   readonly clearColor?: "backdrop" | "ground";
+  /** Six hex digits that replace `clearColor` and the sky, and null for neither. */
+  readonly background?: string | null;
+  /** The ref that receives the function that captures this viewport's frames. */
+  readonly captureRef?: RefObject<CaptureFrame | null>;
   /** How the backdrop and every character draw their meshes. */
   readonly viewMode?: ViewMode;
   /** The triangle edges draw over a lit or untextured scene. */
@@ -128,6 +141,8 @@ export function Viewport({
   camera,
   cameraMemory,
   clearColor = "backdrop",
+  background = null,
+  captureRef,
   viewMode = "lit",
   wireOverlay = false,
   onCameraStand,
@@ -198,7 +213,16 @@ export function Viewport({
             gl.toneMapping = TONE_MAPPING;
           }}
         >
-          <color attach="background" args={[colors[clearColor]]} />
+          {/* The fibre applies changed `args` after a commit, over a `Sky` that the commit placed,
+              so the key remounts the color. `Sky` is a sibling of the color because a removal under
+              this parent runs first, and the removal otherwise restores the previous background
+              over the new color. */}
+          <color
+            key={background ?? "theme"}
+            attach="background"
+            args={[background === null ? colors[clearColor] : `#${background}`]}
+          />
+          {map.geometry !== null && backdropSky && background === null && <Sky />}
           <FrameOnCommit />
           <SceneCamera
             preset={camera}
@@ -211,24 +235,21 @@ export function Viewport({
           <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
-            <>
-              {backdropSky && <Sky />}
-              <Backdrop
-                map={map.geometry}
-                materials={map.materials}
-                textures={map.textures}
-                programs={map.programs}
-                programTextures={map.programTextures}
-                lightmaps={map.lightmaps}
-                light={light}
-                grassTint={map.grassTint}
-                bounds={map.bounds}
-                visibility={backdropVisibility ?? map.visibility}
-                viewMode={viewMode}
-                edges={edges}
-                edgeColour={colors.edge}
-              />
-            </>
+            <Backdrop
+              map={map.geometry}
+              materials={map.materials}
+              textures={map.textures}
+              programs={map.programs}
+              programTextures={map.programTextures}
+              lightmaps={map.lightmaps}
+              light={light}
+              grassTint={map.grassTint}
+              bounds={map.bounds}
+              visibility={backdropVisibility ?? map.visibility}
+              viewMode={viewMode}
+              edges={edges}
+              edgeColour={colors.edge}
+            />
           )}
           <CharacterLightContext value={characterLight}>
             <CameraPresetContext value={camera}>
@@ -239,6 +260,7 @@ export function Viewport({
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}
           {antiAliasing !== "off" && <AntiAliasingPass mode={antiAliasing} />}
+          {captureRef !== undefined && <FrameCapture handle={captureRef} />}
         </HostCanvas>
       )}
     </div>

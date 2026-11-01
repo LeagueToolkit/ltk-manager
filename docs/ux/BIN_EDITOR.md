@@ -2157,6 +2157,12 @@ setting, so a drag writes nothing to the file.
 (Show, the shaders switch, the view mode), the camera and Frame the system, the handle menu,
 and the rig. The bar wraps to a second line in a pane too narrow for one.
 
+**Background color and Capture image** are on the skin and map viewports. The background color
+replaces the sky and the theme's color, is exact in a capture, and persists until it is reset. The
+ground, the map geometry and any post effect still draw over it, so an image for keying turns the
+ground off. Capture image saves the frame of the click as a PNG at the viewport's own pixel size,
+through a save dialog. The image contains no orientation gizmo and no joint names.
+
 **Stats** draws the live particles, the live child systems and the frame's milliseconds in the
 bottom right corner, on a plate that reads over any ground. The count is of simulated particles,
 a muted emitter's included.

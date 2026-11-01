@@ -39,6 +39,8 @@ type PreviewEffectsQuality = 0 | 1 | 2 | 3 | 4;
  * run itself - the seed, the rig, the playhead - is kept per system for the session.
  */
 interface PreviewDisplay {
+  /** Six hex digits that the skin and map viewports clear to, and null for the theme's color. */
+  previewBackground: string | null;
   /** The ground and its grid are drawn. */
   previewGround: boolean;
   /** The ground wears the midlane's texture. */
@@ -284,6 +286,7 @@ const WIREFRAME_VIEW = {
 const SUMMONERS_RIFT = "maps/mapgeometry/map11/base_srx";
 
 const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
+  previewBackground: null,
   previewGround: true,
   previewMidlane: true,
   previewBackdrop: null,
@@ -540,6 +543,7 @@ export const useSetForwardLookingMeta = () =>
   useWorkshopLayoutStore((s) => s.setForwardLookingMeta);
 export const useAudioInspector = () => useWorkshopLayoutStore((s) => s.audioInspector);
 export const useSetAudioInspector = () => useWorkshopLayoutStore((s) => s.setAudioInspector);
+export const usePreviewBackground = () => useWorkshopLayoutStore((s) => s.previewBackground);
 export const usePreviewGround = () => useWorkshopLayoutStore((s) => s.previewGround);
 export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMidlane);
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);

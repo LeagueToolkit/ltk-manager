@@ -1826,6 +1826,15 @@
       }
     }
   ],
+  "workshop_bin_preview_background_description": "Replaces the sky and the default background",
+  "workshop_bin_preview_background_label": "Background color",
+  "workshop_bin_preview_background_reset_action": "Reset to the default background",
+  "workshop_bin_preview_capture_empty_error": "The viewport has not drawn a frame.",
+  "workshop_bin_preview_capture_failed_title": "Could not capture the viewport",
+  "workshop_bin_preview_capture_filter_label": "PNG image",
+  "workshop_bin_preview_capture_label": "Capture image",
+  "workshop_bin_preview_capture_reveal_action": "Show in folder",
+  "workshop_bin_preview_capture_saved_title": "Image saved",
   "workshop_bin_preview_backdrop_action": "Preview backdrop: {tone}",
   "workshop_bin_preview_backdrop_dark_label": "Dark",
   "workshop_bin_preview_backdrop_grey_label": "Grey",
