@@ -68,14 +68,7 @@ impl IncidentPipeline {
         events: Arc<dyn PatcherEvents>,
         telemetry: Telemetry,
     ) -> Self {
-        let environment = Environment {
-            app_version: library.app_version().to_string(),
-            os_build: ltk_manager_runtime::diagnostics::windows::os_build(),
-            arch: std::env::consts::ARCH.to_string(),
-            locale: ltk_manager_base::utils::game::GameDir::resolve(&config)
-                .ok()
-                .and_then(|dir| dir.locale()),
-        };
+        let environment = Environment::read(library.app_version(), &config);
         Self {
             config,
             host_flags,
@@ -177,6 +170,7 @@ impl IncidentPipeline {
                 .log
                 .as_ref()
                 .and_then(|log| log.build_version.clone()),
+            patcher_dll: record.patcher.dll.as_ref().map(|dll| dll.hash.clone()),
         };
 
         let properties = match incident {

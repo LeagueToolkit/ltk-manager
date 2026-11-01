@@ -3,6 +3,7 @@ import { match } from "ts-pattern";
 import type {
   AppError,
   DataMoveError,
+  DeliveryFailure,
   EditRejection,
   SettingsBackupError,
   InjectionStage,
@@ -291,12 +292,29 @@ export function describePatcherError(error: PatcherError): ErrorCopy {
       title: m["patcher.MANAGER_ELEVATED.title"](),
       description: m["patcher.MANAGER_ELEVATED.description"](),
     }))
-    .with({ kind: "DLL_UNAVAILABLE" }, ({ message }) =>
-      withDetail(m["patcher.DLL_UNAVAILABLE.title"](), message),
-    )
+    .with({ kind: "DLL_UNAVAILABLE" }, ({ reason }) => ({
+      title: m["patcher.DLL_UNAVAILABLE.title"](),
+      description: deliveryFailureDescription(reason),
+    }))
     .with({ kind: "INJECTION_FAILED" }, ({ stage, message }) =>
       withDetail(injectionStageTitle(stage), message),
     )
+    .exhaustive();
+}
+
+/** The remedy for a patcher DLL that could not be downloaded or selected. */
+function deliveryFailureDescription(reason: DeliveryFailure): string {
+  return match(reason)
+    .with("NETWORK", () => m["patcher.DLL_UNAVAILABLE.NETWORK.description"]())
+    .with("REFUSED", "UNAUTHORIZED", "DIFFICULTY", () =>
+      m["patcher.DLL_UNAVAILABLE.REFUSED.description"](),
+    )
+    .with("SIGNATURE", "INVALID", "STALE", "INTEGRITY", () =>
+      m["patcher.DLL_UNAVAILABLE.VERIFICATION.description"](),
+    )
+    .with("NO_RELEASE", () => m["patcher.DLL_UNAVAILABLE.NO_RELEASE.description"]())
+    .with("UNATTESTED", () => m["patcher.DLL_UNAVAILABLE.UNATTESTED.description"]())
+    .with("IO", () => m["patcher.DLL_UNAVAILABLE.IO.description"]())
     .exhaustive();
 }
 

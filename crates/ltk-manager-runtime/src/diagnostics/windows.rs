@@ -97,15 +97,21 @@ pub fn check_long_paths_enabled() -> Check {
     LONG_PATHS.result(Severity::Info, "Not applicable")
 }
 
+/// Returns `true` if User Account Control is on. A missing `EnableLUA` value counts as on.
 #[cfg(target_os = "windows")]
-pub fn check_uac_enabled() -> Check {
-    let value = reg_read_num(
+pub(crate) fn uac_enabled() -> bool {
+    reg_read_num(
         HKLM,
         "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
         "EnableLUA",
     )
-    .unwrap_or(1);
-    if value == 0 {
+    .unwrap_or(1)
+        != 0
+}
+
+#[cfg(target_os = "windows")]
+pub fn check_uac_enabled() -> Check {
+    if !uac_enabled() {
         let mut c = UAC.result(Severity::Bad, "Disabled — every process runs elevated");
         c.suggestion = Some(
             "UAC is disabled, which means everything runs as administrator. League's anti-cheat and the patcher both rely on UAC being on. Re-enable it under User Accounts → Change User Account Control settings, then reboot."

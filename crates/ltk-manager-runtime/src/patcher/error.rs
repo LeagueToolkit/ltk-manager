@@ -3,6 +3,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use super::delivery::DeliveryFailure;
 use super::injector::InjectorError;
 use super::session::SessionError;
 use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
@@ -60,9 +61,10 @@ pub enum PatcherError {
     )]
     ManagerElevated,
 
-    /// No patcher DLL could be selected for the session. `message` says why.
-    #[error("{message}")]
-    DllUnavailable { message: String },
+    /// No patcher DLL could be selected for the session. `reason` is the delivery failure's
+    /// kind, which the frontend turns into copy.
+    #[error("no patcher DLL is available: {reason}")]
+    DllUnavailable { reason: DeliveryFailure },
 
     /// One injection session failed. `stage` separates a host that never came up
     /// from a game that was never patched, since they call for different advice.

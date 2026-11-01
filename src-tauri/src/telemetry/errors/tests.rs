@@ -11,7 +11,7 @@ fn exception_entry(properties: &Properties) -> serde_json::Value {
 
 #[test]
 fn a_backend_error_reports_its_code_and_its_message() {
-    let properties = app_error("IO", "reading a.wad: not found");
+    let properties = app_error("IO", None, "reading a.wad: not found");
 
     assert_eq!(
         properties.get("error_code").and_then(|code| code.as_str()),
@@ -23,7 +23,27 @@ fn a_backend_error_reports_its_code_and_its_message() {
             .and_then(|message| message.as_str()),
         Some("reading a.wad: not found")
     );
+    assert!(properties.get("error_kind").is_none());
     assert!(properties.get("$exception_list").is_none());
+}
+
+#[test]
+fn a_backend_error_with_a_kind_reports_it_and_dedups_on_it() {
+    let properties = app_error("PATCHER", Some("MANAGER_ELEVATED"), "");
+
+    assert_eq!(
+        properties.get("error_kind").and_then(|kind| kind.as_str()),
+        Some("MANAGER_ELEVATED")
+    );
+    assert_eq!(
+        error_location("PATCHER", Some("MANAGER_ELEVATED")),
+        "PATCHER/MANAGER_ELEVATED"
+    );
+    assert_ne!(
+        error_location("PATCHER", Some("MANAGER_ELEVATED")),
+        error_location("PATCHER", Some("BUSY"))
+    );
+    assert_eq!(error_location("IO", None), "IO");
 }
 
 #[test]

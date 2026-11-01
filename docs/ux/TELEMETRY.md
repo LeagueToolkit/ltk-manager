@@ -28,26 +28,29 @@ because a verdict rate needs a denominator.
 
 ### What the machine is
 
-| Property      | Always | What it is                                           |
-| ------------- | ------ | ---------------------------------------------------- |
-| `app_version` | yes    | The manager's own version                            |
-| `arch`        | yes    | The architecture this build runs as                  |
-| `os_build`    | no     | The OS as `10.0.26100`, where the platform gives one |
-| `locale`      | no     | The game's configured locale                         |
+| Property           | Always | What it is                                           |
+| ------------------ | ------ | ---------------------------------------------------- |
+| `app_version`      | yes    | The manager's own version                            |
+| `arch`             | yes    | The architecture this build runs as                  |
+| `os_build`         | no     | The OS as `10.0.26100`, where the platform gives one |
+| `locale`           | no     | The game's configured locale                         |
+| `manager_elevated` | yes    | Whether the manager process runs elevated            |
+| `league_admin`     | yes    | Whether League is set to run as administrator        |
 
 ### What the session was
 
-| Property          | Always | What it is                             |
-| ----------------- | ------ | -------------------------------------- |
-| `outcome`         | yes    | `clean` or `verdict`                   |
-| `enabled_mods`    | yes    | How many mods were enabled, as a count |
-| `injected`        | yes    | Whether injection happened             |
-| `origin`          | yes    | How the session started                |
-| `launch_kind`     | yes    | What was launched                      |
-| `overlay_outcome` | yes    | How building the overlay ended         |
-| `duration_bucket` | no     | How long the session ran, as a range   |
-| `scan_mode`       | no     | Which archive scan the run used        |
-| `game_patch`      | no     | The installed game patch               |
+| Property          | Always | What it is                                 |
+| ----------------- | ------ | ------------------------------------------ |
+| `outcome`         | yes    | `clean` or `verdict`                       |
+| `enabled_mods`    | yes    | How many mods were enabled, as a count     |
+| `injected`        | yes    | Whether injection happened                 |
+| `origin`          | yes    | How the session started                    |
+| `launch_kind`     | yes    | What was launched                          |
+| `overlay_outcome` | yes    | How building the overlay ended             |
+| `duration_bucket` | no     | How long the session ran, as a range       |
+| `scan_mode`       | no     | Which archive scan the run used            |
+| `game_patch`      | no     | The installed game patch                   |
+| `patcher_dll`     | no     | The DLL that ran, as 16 hex of its SHA-256 |
 
 The duration is a range rather than a number of seconds, because the exact second a game ran is
 close to a fingerprint across a day and answers no question a range does not.
@@ -94,11 +97,75 @@ A backend error that reached the frontend. A normal event rather than an excepti
 of them are routine and routing them into error tracking would spend the exception allowance on
 conditions the app already handles.
 
-| Property      | Always | What it is                                              |
-| ------------- | ------ | ------------------------------------------------------- |
-| `app_version` | yes    | The manager's own version                               |
-| `error_code`  | yes    | The code the frontend matches on, such as `IO` or `WAD` |
-| `message`     | yes    | What the failure said, scrubbed                         |
+| Property      | Always | What it is                                                |
+| ------------- | ------ | --------------------------------------------------------- |
+| `app_version` | yes    | The manager's own version                                 |
+| `error_code`  | yes    | The code the frontend matches on, such as `IO` or `WAD`   |
+| `error_kind`  | no     | The variant under a code that has several, such as `BUSY` |
+| `message`     | yes    | What the failure said, scrubbed                           |
+
+## `app_started`
+
+One per launch, once the states are built. It is the denominator for every other event: how many
+installs run elevated, and how many have a patcher DLL to run.
+
+| Property           | Always | What it is                                              |
+| ------------------ | ------ | ------------------------------------------------------- |
+| `app_version`      | yes    | The manager's own version                               |
+| `arch`             | yes    | The architecture this build runs as                     |
+| `os_build`         | no     | The OS as `10.0.26100`, where the platform gives one    |
+| `locale`           | no     | The game's configured locale                            |
+| `manager_elevated` | yes    | Whether the manager process runs elevated               |
+| `league_admin`     | yes    | Whether League is set to run as administrator           |
+| `delivery_channel` | yes    | `stable` or `beta`                                      |
+| `patcher_staged`   | yes    | Whether a delivered DLL is staged for the channel       |
+| `patcher_version`  | no     | The staged DLL's release name, such as `ltk_patcher-26` |
+
+It also carries every elevation fact of `patcher_refused`.
+
+## `patcher_start_failed`
+
+A patcher start that got no DLL, before any session ran.
+
+| Property      | Always | What it is                                                                   |
+| ------------- | ------ | ---------------------------------------------------------------------------- |
+| `app_version` | yes    | The manager's own version                                                    |
+| `stage`       | yes    | `prepare`                                                                    |
+| `reason`      | yes    | The delivery failure's kind, such as `network`, `no-release` or `unattested` |
+
+## `patcher_delivery_sync_failed`
+
+A background sync of the patcher delivery that failed. One reason per channel reports once an
+hour.
+
+| Property           | Always | What it is                  |
+| ------------------ | ------ | --------------------------- |
+| `app_version`      | yes    | The manager's own version   |
+| `delivery_channel` | yes    | `stable` or `beta`          |
+| `reason`           | yes    | The delivery failure's kind |
+
+## `patcher_refused`
+
+A patcher start that the elevation check refused, before any session ran. It carries the facts
+the Diagnostics page shows under **LTK Manager not running as admin**, so a count of refusals
+can be read by cause.
+
+| Property                | Always | What it is                                                                          |
+| ----------------------- | ------ | ----------------------------------------------------------------------------------- |
+| `app_version`           | yes    | The manager's own version                                                           |
+| `reason`                | yes    | `LEAGUE_ELEVATED` or `MANAGER_ELEVATED`, the same tag the frontend matches on       |
+| `manager_elevated`      | yes    | Whether the manager process runs elevated                                           |
+| `elevation_type`        | yes    | How the token relates to UAC: `default`, `full`, `limited` or `unknown`             |
+| `uac_enabled`           | yes    | Whether User Account Control is on                                                  |
+| `builtin_administrator` | yes    | Whether the account is the built-in Administrator                                   |
+| `compat_layer`          | yes    | Whether `ltk-manager.exe` carries a `RUNASADMIN` compatibility layer                |
+| `cause`                 | no     | The cause the facts point to, such as `uac-disabled`, when the manager is elevated  |
+| `integrity`             | no     | The token's integrity level, `high` or `medium`                                     |
+| `shell_elevated`        | no     | Whether `explorer.exe` runs elevated, where its token can be read                   |
+| `parent`                | no     | The executable name of the process that started the manager, such as `explorer.exe` |
+
+The parent travels as an executable name alone. No path, no command line and no account name
+reaches the payload.
 
 ## `$exception`
 
@@ -130,9 +197,10 @@ as the engine wrote it. The stack is unresolved until the release's source maps 
 
 ## How often
 
-One fingerprint reports once an hour, across all three failure seams, so one machine in a crash
-loop reports single figures rather than thousands. The fingerprint is the kind and the location,
-never the message, so a message carrying a varying id still collapses.
+One fingerprint reports once an hour, across the three failure seams and the refusal, so one
+machine in a crash loop reports single figures rather than thousands. The fingerprint is the kind
+and the location, never the message, so a message carrying a varying id still collapses. An
+`app_error` fingerprint is the code and the kind, so two refusals under one code count apart.
 
 The published document holds a sample rate drawn against the identity rather than against the
 event, so an install is in or out for a whole day and a sampled session is never half reported.

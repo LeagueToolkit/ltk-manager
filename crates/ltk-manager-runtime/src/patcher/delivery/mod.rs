@@ -128,6 +128,76 @@ pub enum DeliveryError {
     Io(#[from] std::io::Error),
 }
 
+/// The kind of a [`DeliveryError`], without its message.
+///
+/// Crosses IPC as the reason of a refused start, which the frontend turns into copy, and
+/// travels in a count.
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    strum::Display,
+    strum::IntoStaticStr,
+)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[strum(serialize_all = "kebab-case")]
+pub enum DeliveryFailure {
+    /// A request failed, or its response body did not decode.
+    Network,
+    /// The service answered with an error status.
+    Refused,
+    /// The service refused the install token twice.
+    Unauthorized,
+    /// The registration challenge is above the supported difficulty.
+    Difficulty,
+    /// The manifest signature does not verify.
+    Signature,
+    /// A manifest field is outside the contract.
+    Invalid,
+    /// The offered manifest is older than the cached one.
+    Stale,
+    /// The downloaded DLL does not match its release.
+    Integrity,
+    /// No cached manifest offers a build for this manager.
+    NoRelease,
+    /// The build has no attestation and no DLL is staged.
+    Unattested,
+    /// A read or write failed.
+    Io,
+}
+
+impl DeliveryFailure {
+    /// Returns the kind as a kebab-case word.
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+}
+
+impl DeliveryError {
+    /// Returns the kind of the error, without its message.
+    pub fn kind(&self) -> DeliveryFailure {
+        match self {
+            Self::Network(_) => DeliveryFailure::Network,
+            Self::Refused { .. } => DeliveryFailure::Refused,
+            Self::Unauthorized => DeliveryFailure::Unauthorized,
+            Self::Difficulty(_) => DeliveryFailure::Difficulty,
+            Self::Signature => DeliveryFailure::Signature,
+            Self::Invalid { .. } => DeliveryFailure::Invalid,
+            Self::Stale { .. } => DeliveryFailure::Stale,
+            Self::Integrity => DeliveryFailure::Integrity,
+            Self::NoRelease => DeliveryFailure::NoRelease,
+            Self::Unattested => DeliveryFailure::Unattested,
+            Self::Io(_) => DeliveryFailure::Io,
+        }
+    }
+}
+
 /// The patcher build that a session runs: a delivered DLL beside a copy of the bundled host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedPatcher {
@@ -307,6 +377,11 @@ impl PatcherDelivery {
     pub fn staged_dll_path(&self, channel: Channel) -> Option<PathBuf> {
         self.staged(channel)
             .map(|staged| staged.dir.join(HOOK_DLL_NAME))
+    }
+
+    /// Returns the release name of the DLL that a session on `channel` runs, if one is staged.
+    pub fn staged_version(&self, channel: Channel) -> Option<String> {
+        self.staged(channel).map(|staged| staged.version)
     }
 
     /// Returns the first build of the channels of `channel` that is usable and staged.

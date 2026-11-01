@@ -231,7 +231,11 @@ pub(crate) fn start_patcher_inner(
         }
     }
 
-    ltk_manager_runtime::patcher::check_unelevated()?;
+    if let Err(refusal) = ltk_manager_runtime::patcher::check_unelevated() {
+        let facts = ltk_manager_runtime::diagnostics::elevation::facts();
+        telemetry.report_patcher_refused(&refusal, &facts);
+        return Err(refusal.into());
+    }
 
     let delivery = app_handle.state::<PatcherDeliveryState>().inner().clone();
     delivery.sync_in_background(&config_snapshot);
@@ -276,12 +280,12 @@ fn prepare_host(
     channel: Channel,
     bundled_host: &Path,
 ) -> AppResult<PreparedHost> {
-    let staged =
-        delivery
-            .prepare(channel, bundled_host)
-            .map_err(|error| PatcherError::DllUnavailable {
-                message: error.to_string(),
-            })?;
+    let staged = delivery.prepare(channel, bundled_host).map_err(|error| {
+        tracing::error!(%error, "No patcher DLL is available");
+        PatcherError::DllUnavailable {
+            reason: error.kind(),
+        }
+    })?;
     tracing::info!(
         version = %staged.version,
         digest = %staged.digest,

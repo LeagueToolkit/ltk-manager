@@ -19,6 +19,7 @@ use ltk_manager_library::overlay::{OverlayBuild, WorkshopTestProject};
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
 use ltk_manager_runtime::diagnostics::incident::SessionFailure;
 use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::telemetry;
 use ltk_manager_runtime::launcher::is_game_running;
 
 use super::pipeline::IncidentPipeline;
@@ -93,6 +94,7 @@ pub struct PatcherThread {
     workshop_projects: Vec<WorkshopTestProject>,
     host_flags: u32,
     force_rebuild: bool,
+    telemetry: Telemetry,
 }
 
 impl PatcherThread {
@@ -141,7 +143,7 @@ impl PatcherThread {
             workshop_projects.clone(),
             incident_store,
             Arc::clone(&events),
-            telemetry,
+            telemetry.clone(),
         ));
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
@@ -160,6 +162,7 @@ impl PatcherThread {
             workshop_projects,
             host_flags,
             force_rebuild,
+            telemetry,
         };
         patcher_state.thread_handle = Some(thread::spawn(move || session.run(prepare_host)));
         Ok(())
@@ -170,6 +173,7 @@ impl PatcherThread {
             Ok(host) => host,
             Err(e) => {
                 tracing::error!(error = ?e, "Could not prepare the patcher host");
+                self.report_prepare_failure(&e);
                 self.events.error(e);
                 self.reset_to_idle();
                 return;
@@ -193,6 +197,20 @@ impl PatcherThread {
 
         self.reset_to_idle();
         tracing::info!("Patcher thread exiting");
+    }
+
+    /// Reports a start that got no host, by the delivery failure's kind.
+    ///
+    /// A failure that is not a `DllUnavailable` reports as `other`.
+    fn report_prepare_failure(&self, error: &AppError) {
+        let reason = match error.domain::<PatcherError>() {
+            Some(PatcherError::DllUnavailable { reason }) => reason.as_str(),
+            _ => "other",
+        };
+        self.telemetry.track(
+            telemetry::PATCHER_START_FAILED,
+            telemetry::patcher_start_failed(self.library.app_version(), reason),
+        );
     }
 
     /// Build the overlay and return its prefix path, or `None` on failure or

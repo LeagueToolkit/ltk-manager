@@ -12,6 +12,11 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 use chrono::Utc;
+use ltk_manager_runtime::diagnostics::elevation::ElevationFacts;
+use ltk_manager_runtime::diagnostics::telemetry::{
+    delivery_sync_failed, patcher_refused, PATCHER_DELIVERY_SYNC_FAILED, PATCHER_REFUSED,
+};
+use ltk_manager_runtime::patcher::error::PatcherError;
 use ltk_telemetry::sink::{ApiKey, PostHogSink};
 use ltk_telemetry::{Config, Secret, Telemetry};
 use parking_lot::Mutex;
@@ -209,11 +214,21 @@ pub fn install(state: &Arc<TelemetryState>) {
 
 /// Report that `code` failed with `message`, if anything is collected.
 ///
-/// Called from the conversion every command error crosses, so a caller pays a
-/// map lookup and a file append on a path that was already failing.
-pub fn report_app_error(code: &str, message: &str) {
+/// `kind` is the variant under a code that has several, so two refusals under
+/// one code dedup apart. Called from the conversion every command error crosses,
+/// so a caller pays a map lookup and a file append on a path that was already
+/// failing.
+pub fn report_app_error(code: &str, kind: Option<&str>, message: &str) {
     if let Some(state) = STATE.get() {
-        state.report_app_error(code, message);
+        state.report_app_error(code, kind, message);
+    }
+}
+
+/// Report that a background sync of `channel` failed with the delivery `reason`, if
+/// anything is collected.
+pub fn report_delivery_sync_failed(channel: &str, reason: &str) {
+    if let Some(state) = STATE.get() {
+        state.report_delivery_sync_failed(channel, reason);
     }
 }
 
@@ -293,14 +308,48 @@ impl TelemetryState {
         self.remote.lock().clone()
     }
 
-    /// Report that `code` failed with `message`.
-    fn report_app_error(&self, code: &str, message: &str) {
-        let fingerprint = errors::fingerprint(errors::APP_ERROR, code);
+    /// Report that `code` failed with `message`, under its `kind` if the code has several.
+    fn report_app_error(&self, code: &str, kind: Option<&str>, message: &str) {
+        let location = errors::error_location(code, kind);
+        let fingerprint = errors::fingerprint(errors::APP_ERROR, &location);
         if !self.dedup.admits(&fingerprint, Utc::now()) {
             return;
         }
         self.handle()
-            .track(errors::APP_ERROR, errors::app_error(code, message));
+            .track(errors::APP_ERROR, errors::app_error(code, kind, message));
+    }
+
+    /// Report that a background sync of `channel` failed with the delivery `reason`.
+    ///
+    /// One reason per channel reports once a window, because a sync runs at every
+    /// start and every channel change.
+    pub fn report_delivery_sync_failed(&self, channel: &str, reason: &str) {
+        let location = format!("{channel}/{reason}");
+        let fingerprint = errors::fingerprint(PATCHER_DELIVERY_SYNC_FAILED, &location);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle().track(
+            PATCHER_DELIVERY_SYNC_FAILED,
+            delivery_sync_failed(env!("CARGO_PKG_VERSION"), channel, reason),
+        );
+    }
+
+    /// Report that the elevation check refused a patcher start with `refusal`.
+    ///
+    /// One refusal reports once a window, so a reader who presses Start again and
+    /// again counts once.
+    pub fn report_patcher_refused(&self, refusal: &PatcherError, facts: &ElevationFacts) {
+        let properties = patcher_refused(env!("CARGO_PKG_VERSION"), refusal, facts);
+        let reason = properties
+            .get("reason")
+            .and_then(|reason| reason.as_str())
+            .unwrap_or("unknown");
+        let fingerprint = errors::fingerprint(PATCHER_REFUSED, reason);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle().track(PATCHER_REFUSED, properties);
     }
 
     /// Report a panic that said `message` at `file` and `line`.
