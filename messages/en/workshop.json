@@ -407,7 +407,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} element", "countPlural=other": "{count} elements" }
+      "match": {
+        "countPlural=one": "{count} element",
+        "countPlural=other": "{count} elements"
+      }
     }
   ],
   "workshop_bin_atlas_sprites_empty": "This view draws no sprites",
@@ -487,7 +490,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} record", "countPlural=other": "{count} records" }
+      "match": {
+        "countPlural=one": "{count} record",
+        "countPlural=other": "{count} records"
+      }
     }
   ],
   "workshop_bin_atlas_variants_records_title": "Records",
@@ -1126,7 +1132,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} triangle", "countPlural=other": "{count} triangles" }
+      "match": {
+        "countPlural=one": "{count} triangle",
+        "countPlural=other": "{count} triangles"
+      }
     }
   ],
   "workshop_bin_map_import_meshes_label": "Meshes",
@@ -1142,7 +1151,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} animation", "countPlural=other": "{count} animations" }
+      "match": {
+        "countPlural=one": "{count} animation",
+        "countPlural=other": "{count} animations"
+      }
     }
   ],
   "workshop_bin_map_import_skipped_blend_shape_label": [
@@ -1159,7 +1171,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} camera", "countPlural=other": "{count} cameras" }
+      "match": {
+        "countPlural=one": "{count} camera",
+        "countPlural=other": "{count} cameras"
+      }
     }
   ],
   "workshop_bin_map_import_skipped_label": "Skipped",
@@ -1167,7 +1182,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} light", "countPlural=other": "{count} lights" }
+      "match": {
+        "countPlural=one": "{count} light",
+        "countPlural=other": "{count} lights"
+      }
     }
   ],
   "workshop_bin_map_import_skipped_line_label": [
@@ -2211,7 +2229,10 @@
     {
       "declarations": ["input count", "local countPlural = count: plural"],
       "selectors": ["countPlural"],
-      "match": { "countPlural=one": "{count} effect", "countPlural=other": "{count} effects" }
+      "match": {
+        "countPlural=one": "{count} effect",
+        "countPlural=other": "{count} effects"
+      }
     }
   ],
   "workshop_bin_skin_condition_hidden_label": "Hide",
@@ -3086,6 +3107,16 @@
   "workshop_license_title": "License",
   "workshop_list_default_profile_label": "Default",
   "workshop_list_footer_label": "Project list",
+  "workshop_list_test_alone_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Test {count} selected project without profile mods.",
+        "countPlural=other": "Test {count} selected projects without profile mods."
+      }
+    }
+  ],
   "workshop_list_test_empty_hint": "Select projects to test them in game",
   "workshop_list_test_hint": [
     {
@@ -3276,6 +3307,37 @@
   "workshop_pack_reveal_action": "Show in Explorer",
   "workshop_pack_target_label": "Choose formats to pack",
   "workshop_pack_target_title": "Pack as",
+  "workshop_palette_already_packing": "Already packing",
+  "workshop_palette_delete_the_project": "Delete the project",
+  "workshop_palette_game": "Game",
+  "workshop_palette_go_to": "Go to",
+  "workshop_palette_hide_the_side_panel": "Hide the side panel",
+  "workshop_palette_lock_the_group": "Lock the group",
+  "workshop_palette_no_layers": "No layers",
+  "workshop_palette_nothing_open": "Nothing open",
+  "workshop_palette_open_mod_details": "Open mod details",
+  "workshop_palette_open_the_game_index": "Open the game index",
+  "workshop_palette_open_the_game_wads": "Open the game WADs",
+  "workshop_palette_open_the_ignore_rules": "Open the ignore rules",
+  "workshop_palette_open_the_license": "Open the license",
+  "workshop_palette_open_the_objects_browser": "Open the objects browser",
+  "workshop_palette_open_the_problems_list": "Open the problems list",
+  "workshop_palette_open_the_project_folder": "Open the project folder",
+  "workshop_palette_open_the_readme": "Open the readme",
+  "workshop_palette_open_the_references": "Open the references",
+  "workshop_palette_pack_the_project": "Pack the project",
+  "workshop_palette_pin_the_tab": "Pin the tab",
+  "workshop_palette_project": "Project",
+  "workshop_palette_reset_the_layout": "Reset the layout",
+  "workshop_palette_search_the_game_files": "Search the game files",
+  "workshop_palette_show_the_side_panel": "Show the side panel",
+  "workshop_palette_split_down": "Split down",
+  "workshop_palette_split_right": "Split right",
+  "workshop_palette_test_the_project": "Test the project",
+  "workshop_palette_the_patcher_is_busy": "The patcher is busy",
+  "workshop_palette_unlock_the_group": "Unlock the group",
+  "workshop_palette_unpin_the_tab": "Unpin the tab",
+  "workshop_palette_view": "View",
   "workshop_preview_checkerboard_hide_label": "Hide the alpha checkerboard",
   "workshop_preview_checkerboard_show_label": "Show the alpha checkerboard",
   "workshop_preview_copy_into_action": "Copy into {layer}",
@@ -3479,6 +3541,9 @@
   "workshop_test_layers_count_label": "{tested}/{total}",
   "workshop_test_layers_label": "Choose layers to test",
   "workshop_test_layers_title": "Layers to test",
+  "workshop_test_options_label": "Test options",
+  "workshop_test_over_named_profile_action": "Test over {profile}",
+  "workshop_test_over_profile_action": "Test over profile",
   "workshop_text_buffer_label": "{title} text",
   "workshop_text_conflict_description": "{file} changed on disk since it was read.",
   "workshop_text_conflict_hint": "Resolve the conflict to save",

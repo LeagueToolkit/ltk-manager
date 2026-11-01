@@ -12,6 +12,7 @@ type TestedProject = Pick<WorkshopProject, "path" | "displayName" | "layers">;
 
 interface TestProjectsArgs {
   projects: TestedProject[];
+  includeProfile?: boolean;
 }
 
 /** The layers each project is tested with, for the projects that leave some out. */
@@ -31,10 +32,11 @@ export function useTestProjects() {
   const setTestingProjects = usePatcherSessionStore((s) => s.setTestingProjects);
 
   return useMutation<null, AppError, TestProjectsArgs>({
-    mutationFn: async ({ projects }) => {
+    mutationFn: async ({ projects, includeProfile = false }) => {
       await writeBeforeTest();
       const result = await startPatcherSpendingQueue({
         workshopProjects: projects.map((p) => p.path),
+        includeProfile,
         workshopLayers: workshopLayers(projects),
       });
       return unwrapForQuery(result);

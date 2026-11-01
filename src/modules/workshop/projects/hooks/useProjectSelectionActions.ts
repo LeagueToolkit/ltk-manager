@@ -13,6 +13,7 @@ export interface ProjectSelectionActions {
   projects: WorkshopProject[];
   count: number;
   test: () => void;
+  testOverProfile: () => void;
   pack: () => void;
   delete: () => void;
   clear: () => void;
@@ -53,6 +54,14 @@ export function useProjectSelectionActions(): ProjectSelectionActions {
       if (count === 0) return;
       testProjects.mutate(
         { projects },
+        { onError: (err) => console.error("Failed to test projects:", err) },
+      );
+      clear();
+    },
+    testOverProfile: () => {
+      if (count === 0) return;
+      testProjects.mutate(
+        { projects, includeProfile: true },
         { onError: (err) => console.error("Failed to test projects:", err) },
       );
       clear();

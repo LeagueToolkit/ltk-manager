@@ -41,6 +41,7 @@ tracing = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+ltk-manager-assets = { workspace = true, features = ["test-util"] }
 ltk-manager-bin = { workspace = true }
 ltk-manager-problems = { workspace = true }
 

@@ -427,6 +427,7 @@ mod tests {
     #[test]
     fn session_failed_before_any_game_gives_a_record_with_the_failure() {
         let mut recorder = GameRecorder::new(SessionOrigin::Workshop {
+            include_profile: true,
             projects: vec!["C:\\projects\\skin".to_string()],
         });
 

@@ -72,6 +72,7 @@ impl ModLibrary {
     pub fn get_enabled_mods_for_overlay(
         &self,
         config: &Config,
+        include_profile: bool,
     ) -> AppResult<(ProfileSlug, Vec<ltk_overlay::EnabledMod>)> {
         self.with_index(config, |storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
@@ -81,6 +82,9 @@ impl ModLibrary {
                 .find(|p| p.id == active_profile_id)
                 .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
+            if !include_profile {
+                return Ok((active_profile.slug.clone(), Vec::new()));
+            }
             let mut enabled_mods = Vec::new();
 
             // Process mods in the order they appear in enabled_mods list (maintains priority)

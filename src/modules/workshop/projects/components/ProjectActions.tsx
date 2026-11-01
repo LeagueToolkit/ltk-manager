@@ -84,7 +84,12 @@ export function ProjectActions({ project }: ProjectActionsProps) {
   return (
     <ButtonGroup className="shrink-0">
       {testButton}
-      <TestLayersMenu project={project} className={testTint} />
+      <TestLayersMenu
+        project={project}
+        className={testTint}
+        onTestOverProfile={actions.handleTestOverProfile}
+        disabled={testState.kind !== "idle" || actions.isTesting}
+      />
 
       <Tooltip content={packTargetHint(packTarget)}>
         <Button
