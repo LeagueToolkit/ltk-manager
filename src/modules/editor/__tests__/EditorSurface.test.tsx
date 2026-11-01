@@ -112,6 +112,31 @@ beforeEach(() => {
 });
 
 describe("EditorSurface", () => {
+  it("keeps the unlock action and empty state without tabs", () => {
+    const onToggleLock = vi.fn();
+    render(
+      <DocumentStage placements={[]} registry={PLAIN} leafScope={Fragmented}>
+        <EditorSurface
+          leafId="leaf-1"
+          documents={[]}
+          activeId={null}
+          registry={PLAIN}
+          dirtyIds={new Set()}
+          pinnedIds={[]}
+          locked
+          onToggleLock={onToggleLock}
+          onActivate={vi.fn()}
+          onClose={vi.fn()}
+          empty={<p>No document is open</p>}
+        />
+      </DocumentStage>,
+    );
+
+    expect(screen.getByText("No document is open")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Unlock Group" }));
+    expect(onToggleLock).toHaveBeenCalledWith(false);
+  });
+
   it("asks about a second close rather than dropping the first question", async () => {
     const user = userEvent.setup();
     const { onClose, onActivate } = draw();

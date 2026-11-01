@@ -891,6 +891,106 @@ describe("workshopEditor store", () => {
       return previewDocument({ kind: "layer", project: A, layer: "base", path });
     }
 
+    function emptyLockedGroup() {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+      store().closeDocument(A, right, "files:base");
+      return right;
+    }
+
+    it("keeps focus and maximization until an empty locked group is unlocked", () => {
+      const right = splitApart(A);
+      store().setLeafLocked(A, right, true);
+      store().toggleMaximizedLeaf(A, right);
+      store().closeDocument(A, right, "files:base");
+
+      expect(findLeaf(editorOf(A).layout, right)).toMatchObject({
+        locked: true,
+        tabs: [],
+        activeTab: null,
+      });
+      expect(editorOf(A).activeLeafId).toBe(right);
+      expect(editorOf(A).maximizedLeafId).toBe(right);
+
+      store().setLeafLocked(A, right, false);
+
+      expect(findLeaf(editorOf(A).layout, right)).toBeNull();
+      expect(editorOf(A).activeLeafId).toBe(ROOT_LEAF);
+      expect(editorOf(A).maximizedLeafId).toBeNull();
+    });
+
+    it("passes an empty locked group by for documents and previews", () => {
+      const right = emptyLockedGroup();
+      store().focusLeaf(A, right);
+      store().openDocument(A, gameDocument());
+      expect(tabsOf(A, ROOT_LEAF)).toEqual(["details", "game"]);
+
+      store().focusLeaf(A, right);
+      const next = preview("next.tex");
+      store().openPreview(A, next);
+      expect(tabsOf(A, ROOT_LEAF)).toContain(next.id);
+      expect(findLeaf(editorOf(A).layout, right)).toMatchObject({ locked: true, tabs: [] });
+    });
+
+    it("opens another group when the empty root is locked", () => {
+      store().openDocument(A, detailsDocument());
+      store().setLeafLocked(A, ROOT_LEAF, true);
+      store().closeDocument(A, ROOT_LEAF, "details");
+      store().openDocument(A, gameDocument());
+
+      expect(findLeaf(editorOf(A).layout, ROOT_LEAF)).toMatchObject({ locked: true, tabs: [] });
+      expect(editorOf(A).activeLeafId).not.toBe(ROOT_LEAF);
+      expect(openIds(A)).toEqual(["game"]);
+    });
+
+    it("opens a preview beside an empty locked root", () => {
+      store().openDocument(A, detailsDocument());
+      store().setLeafLocked(A, ROOT_LEAF, true);
+      store().closeDocument(A, ROOT_LEAF, "details");
+      const next = preview("next.tex");
+      store().openPreview(A, next);
+
+      expect(findLeaf(editorOf(A).layout, ROOT_LEAF)).toMatchObject({ locked: true, tabs: [] });
+      expect(editorOf(A).activeLeafId).not.toBe(ROOT_LEAF);
+      expect(openIds(A)).toEqual([next.id]);
+    });
+
+    it("moves a tab into an empty locked group and prunes its unlocked source", () => {
+      const right = emptyLockedGroup();
+      store().moveDocument(A, "details", right);
+      expect(findLeaf(editorOf(A).layout, right)).toMatchObject({
+        locked: true,
+        tabs: ["details"],
+      });
+      expect(findLeaf(editorOf(A).layout, ROOT_LEAF)).toBeNull();
+      expect(editorOf(A).activeLeafId).toBe(right);
+    });
+
+    it("accepts targeted opens and moves into an empty locked group", () => {
+      const right = emptyLockedGroup();
+      store().openDocument(A, gameDocument(), right);
+      store().moveDocument(A, "details", right);
+      expect(findLeaf(editorOf(A).layout, right)).toMatchObject({
+        locked: true,
+        tabs: ["game", "details"],
+      });
+    });
+
+    it("preserves an empty locked group through editor file serialization", () => {
+      const right = emptyLockedGroup();
+      const slice = persistedSlice(editorOf(A));
+      expect(slice).not.toBeNull();
+      const read = parseEditorFile(serializeEditorFile(slice!));
+      expect(read.kind).toBe("ok");
+      if (read.kind !== "ok") return;
+      expect(findLeaf(read.state.layout, right)).toMatchObject({
+        locked: true,
+        tabs: [],
+        activeTab: null,
+      });
+      expect(read.state.activeLeafId).toBe(right);
+    });
+
     it("passes a locked group by for the next one in reading order", () => {
       const right = splitApart(A);
       store().setLeafLocked(A, right, true);

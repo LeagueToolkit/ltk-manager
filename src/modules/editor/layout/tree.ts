@@ -5,7 +5,7 @@ export type Edge = "top" | "right" | "bottom" | "left";
 export interface LeafNode {
   kind: "leaf";
   id: string;
-  /** Document ids in strip order. Empty only while this leaf is the whole tree. */
+  /** Document ids in strip order. Empty while locked or while this leaf is the whole tree. */
   tabs: string[];
   activeTab: string | null;
   /** A locked group takes a document only from a gesture that names it. Absent is unlocked. */
@@ -57,14 +57,9 @@ export function leafHolding(tree: LayoutNode, documentId: string): LeafNode | nu
   return null;
 }
 
-/**
- * This group takes a document that no gesture aimed at it.
- *
- * A lock is what a group holds against a stray open, and a group holding
- * nothing has nothing to hold, so an empty one takes the document either way.
- */
+/** Returns whether the group accepts a document without an explicit target. */
 export function acceptsOpen(leaf: LeafNode): boolean {
-  return leaf.locked !== true || leaf.tabs.length === 0;
+  return leaf.locked !== true;
 }
 
 /** Every leaf, depth first, which is reading order. */
@@ -331,7 +326,7 @@ export function setActiveTab(tree: LayoutNode, leafId: string, documentId: strin
  * locked reads back out of `.ltk/editor.json` as the tree that went in.
  */
 export function setLeafLocked(tree: LayoutNode, leafId: string, locked: boolean): LayoutNode {
-  return updateLeaf(tree, leafId, (leaf) => {
+  const next = updateLeaf(tree, leafId, (leaf) => {
     if ((leaf.locked === true) === locked) return leaf;
     if (locked) return { ...leaf, locked: true };
 
@@ -339,6 +334,8 @@ export function setLeafLocked(tree: LayoutNode, leafId: string, locked: boolean)
     delete unlocked.locked;
     return unlocked;
   });
+
+  return next === tree || locked ? next : prune(next);
 }
 
 /** Writes what `onLayoutChanged` reported for one split. The numbers stay opaque (D4). */
@@ -398,7 +395,7 @@ function renameShare(
 
 /*
  * One pass after every removal (section 5 of the plan):
- * an empty leaf goes unless it is the root, its share goes to the sibling it
+ * an unlocked empty leaf goes unless it is the root, its share goes to the sibling it
  * sat against, and a split left with one child becomes that child, its share
  * surviving under the new id.
  */
@@ -413,7 +410,7 @@ function prune(node: LayoutNode): LayoutNode {
     const next = prune(child);
     if (next !== child) changed = true;
 
-    if (next.kind === "leaf" && next.tabs.length === 0) {
+    if (next.kind === "leaf" && next.tabs.length === 0 && next.locked !== true) {
       dropped.push({ id: child.id, originalIndex });
       changed = true;
       return;

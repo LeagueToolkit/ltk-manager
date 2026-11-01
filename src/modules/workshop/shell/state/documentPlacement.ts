@@ -45,7 +45,7 @@ export function openGroup(
      than splitting into two with one of them showing nothing. A group already
      showing previews is where the next one belongs, which is what keeps a walk
      continued from the preview itself out of the browser's strip. */
-  if (focused.tabs.length === 0 || showsPreview(editor, focused)) {
+  if ((focused.tabs.length === 0 && acceptsOpen(focused)) || showsPreview(editor, focused)) {
     return { layout: editor.layout, leafId: focused.id };
   }
 

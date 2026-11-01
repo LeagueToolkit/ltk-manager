@@ -65,7 +65,12 @@ export function createGroupActions(set: EditorSet): GroupActions {
     setLeafLocked: (projectPath, leafId, locked) =>
       setProject(set, projectPath, (editor) => {
         const layout = applyLeafLock(editor.layout, leafId, locked);
-        return layout === editor.layout ? null : { ...editor, layout };
+        if (layout === editor.layout) return null;
+
+        const activeLeafId = findLeaf(layout, editor.activeLeafId)
+          ? editor.activeLeafId
+          : leaves(layout)[0].id;
+        return { ...editor, layout, activeLeafId };
       }),
 
     toggleMaximizedLeaf: (projectPath, leafId) =>
