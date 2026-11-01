@@ -1,5 +1,5 @@
 use fs_err as fs;
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, Hash as _, WadHash};
 
 use super::*;
 use crate::sandbox::SandboxRef;
@@ -135,6 +135,35 @@ modules:
             ),
         ]
     );
+}
+
+/// An install whose index reaches a chunk the tables name by its path alone, as `GameIndex` does.
+struct NamedInInstall;
+
+impl AssetLookup for NamedInInstall {
+    fn locate(&self, path: &str) -> Option<AssetRef> {
+        (path == CHUNK).then(|| AssetRef::GameChunk {
+            wad: "Champions/Teemo.wad.client".to_owned(),
+            path_hash: format!("{:016x}", WadHash::hash_str(path).0),
+        })
+    }
+}
+
+#[test]
+fn module_objects_lists_a_creation_in_a_chunk_the_tables_name() {
+    let objects = module_objects(
+        &format!(
+            "version: 1\nmodules:\n  - target: {CHUNK}\n    objects:\n      Mods/jade/Clone:\n        clone: {SKIN}\n"
+        ),
+        &NamedInInstall,
+    );
+
+    assert_eq!(objects.len(), 1);
+    assert_eq!(objects[0].path, "Mods/jade/Clone");
+    assert!(matches!(
+        objects[0].action,
+        ModuleObjectAction::Create { .. }
+    ));
 }
 
 #[test]
