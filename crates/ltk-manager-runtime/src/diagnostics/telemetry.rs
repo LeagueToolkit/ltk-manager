@@ -6,15 +6,31 @@
 //! path never appears, and the incident token carries the rest for anyone holding
 //! the id.
 
+use ltk_manager_base::config::Config;
+use ltk_manager_base::utils::game::GameDir;
 use ltk_telemetry::Properties;
 
+use super::elevation::ElevationFacts;
 use super::incident::{Because, Incident, LaunchKind, OriginKind, OverlayOutcome, ScanMode};
+use crate::patcher::error::PatcherError;
 
 #[cfg(test)]
 mod tests;
 
 /// The one event a game session reports, clean or not.
 pub const GAME_SESSION_ENDED: &str = "game_session_ended";
+
+/// The event a patcher start that the elevation check refused reports.
+pub const PATCHER_REFUSED: &str = "patcher_refused";
+
+/// The event one app launch reports, once the states are built.
+pub const APP_STARTED: &str = "app_started";
+
+/// The event a patcher start that got no DLL reports.
+pub const PATCHER_START_FAILED: &str = "patcher_start_failed";
+
+/// The event a failed background sync of the patcher delivery reports.
+pub const PATCHER_DELIVERY_SYNC_FAILED: &str = "patcher_delivery_sync_failed";
 
 /// How a session ended, which is the property every other one is read against.
 const OUTCOME_CLEAN: &str = "clean";
@@ -60,9 +76,25 @@ pub struct Environment {
     pub arch: String,
     /// The game's configured locale, as `LeagueClientSettings.yaml` names it.
     pub locale: Option<String>,
+    /// Whether the manager process runs elevated.
+    pub manager_elevated: bool,
+    /// Whether League is set to run as administrator.
+    pub league_admin: bool,
 }
 
 impl Environment {
+    /// Reads what the machine is, for the manager at `app_version` set up by `config`.
+    pub fn read(app_version: &str, config: &Config) -> Self {
+        Self {
+            app_version: app_version.to_string(),
+            os_build: super::windows::os_build(),
+            arch: std::env::consts::ARCH.to_string(),
+            locale: GameDir::resolve(config).ok().and_then(|dir| dir.locale()),
+            manager_elevated: super::manager_is_elevated(),
+            league_admin: super::league_configured_as_admin(),
+        }
+    }
+
     /// Write what the machine is into `properties`.
     fn describe(&self, properties: &mut Properties) {
         properties.insert("app_version", self.app_version.clone());
@@ -73,7 +105,94 @@ impl Environment {
         if let Some(locale) = &self.locale {
             properties.insert("locale", locale.clone());
         }
+        properties.insert("manager_elevated", self.manager_elevated);
+        properties.insert("league_admin", self.league_admin);
     }
+}
+
+/// The properties a refused patcher start reports: the refusal and the elevation facts.
+#[must_use]
+pub fn patcher_refused(
+    app_version: &str,
+    refusal: &PatcherError,
+    facts: &ElevationFacts,
+) -> Properties {
+    let mut properties = Properties::new()
+        .with("app_version", app_version)
+        .with("reason", refusal_kind(refusal));
+    describe_elevation(&mut properties, facts);
+    properties
+}
+
+/// The properties one app launch reports: the machine, the elevation facts and the staged DLL.
+#[must_use]
+pub fn app_started(
+    environment: &Environment,
+    facts: &ElevationFacts,
+    patcher_version: Option<&str>,
+    channel: &str,
+) -> Properties {
+    let mut properties = Properties::new();
+    environment.describe(&mut properties);
+    describe_elevation(&mut properties, facts);
+    properties.insert("delivery_channel", channel);
+    properties.insert("patcher_staged", patcher_version.is_some());
+    if let Some(version) = patcher_version {
+        properties.insert("patcher_version", version);
+    }
+    properties
+}
+
+/// The properties a patcher start that got no DLL reports. `reason` is the delivery
+/// failure's kind.
+#[must_use]
+pub fn patcher_start_failed(app_version: &str, reason: &str) -> Properties {
+    Properties::new()
+        .with("app_version", app_version)
+        .with("stage", "prepare")
+        .with("reason", reason)
+}
+
+/// The properties a failed background sync reports. `reason` is the delivery failure's kind.
+#[must_use]
+pub fn delivery_sync_failed(app_version: &str, channel: &str, reason: &str) -> Properties {
+    Properties::new()
+        .with("app_version", app_version)
+        .with("delivery_channel", channel)
+        .with("reason", reason)
+}
+
+/// Writes the elevation facts into `properties`.
+///
+/// The parent process travels as its executable name alone, and the compatibility layer as
+/// whether one exists, so no path reaches the payload.
+fn describe_elevation(properties: &mut Properties, facts: &ElevationFacts) {
+    properties.insert("manager_elevated", facts.elevated);
+    properties.insert("elevation_type", facts.elevation_type.to_string());
+    properties.insert("uac_enabled", facts.uac_enabled);
+    properties.insert("builtin_administrator", facts.builtin_administrator);
+    properties.insert("compat_layer", facts.compat_layer.is_some());
+
+    if let Some(cause) = facts.cause() {
+        properties.insert("cause", cause.to_string());
+    }
+    if let Some(integrity) = facts.integrity_name() {
+        properties.insert("integrity", integrity);
+    }
+    if let Some(shell_elevated) = facts.shell_elevated {
+        properties.insert("shell_elevated", shell_elevated);
+    }
+    if let Some(parent) = &facts.parent {
+        properties.insert("parent", parent.clone());
+    }
+}
+
+/// The `kind` tag of `refusal`, which is the same string the frontend matches on.
+fn refusal_kind(refusal: &PatcherError) -> String {
+    serde_json::to_value(refusal)
+        .ok()
+        .and_then(|value| value.get("kind")?.as_str().map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// What a session reports whatever its outcome.
@@ -91,6 +210,8 @@ pub struct SessionFacts {
     pub scan: Option<ScanMode>,
     pub overlay: OverlayOutcome,
     pub game_patch: Option<String>,
+    /// Identity of the DLL that ran, the first 16 hex of its SHA-256.
+    pub patcher_dll: Option<String>,
 }
 
 /// The properties a clean session reports.
@@ -197,6 +318,9 @@ fn describe_session(properties: &mut Properties, facts: &SessionFacts) {
     }
     if let Some(patch) = &facts.game_patch {
         properties.insert("game_patch", patch.clone());
+    }
+    if let Some(dll) = &facts.patcher_dll {
+        properties.insert("patcher_dll", dll.clone());
     }
 }
 

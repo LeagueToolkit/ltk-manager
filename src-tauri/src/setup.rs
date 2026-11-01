@@ -11,6 +11,7 @@ use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_base::events::EventSink;
 use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::telemetry;
 use std::sync::Arc;
 
 pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -107,6 +108,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let deep_link_state = DeepLinkState::new();
 
     let patcher_delivery = PatcherDeliveryState::new(storage_dir.as_deref());
+    let delivery_channel = crate::patcher::delivery::channel(&settings.config);
+    let staged_patcher = patcher_delivery
+        .delivery()
+        .and_then(|delivery| delivery.staged_version(delivery_channel));
     patcher_delivery.sync_in_background(&settings.config);
 
     let launcher_state = LauncherState::new(&app_handle, &settings.config)?;
@@ -119,6 +124,16 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(incident_store);
     let telemetry_state = Arc::new(crate::telemetry::TelemetryState::new(telemetry, remote));
     crate::telemetry::install(&telemetry_state);
+    let elevation = ltk_manager_runtime::diagnostics::elevation::log_facts();
+    telemetry_state.handle().track(
+        telemetry::APP_STARTED,
+        telemetry::app_started(
+            &telemetry::Environment::read(env!("CARGO_PKG_VERSION"), &settings.config),
+            &elevation,
+            staged_patcher.as_deref(),
+            delivery_channel.as_str(),
+        ),
+    );
     app.manage(telemetry_state);
     app.manage(launcher_state);
     app.manage(crate::services::launcher::LaunchState::default());

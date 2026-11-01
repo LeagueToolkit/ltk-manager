@@ -9,10 +9,13 @@ use crate::diagnostics;
 pub fn check_unelevated() -> Result<(), PatcherError> {
     let manager_elevated = diagnostics::manager_is_elevated();
     let league_admin = diagnostics::league_configured_as_admin();
+    tracing::info!(manager_elevated, league_admin, "Patcher elevation check");
 
     match elevation_refusal(league_admin, manager_elevated) {
         Some(refusal) => {
-            tracing::warn!(%refusal, "Refusing to start the patcher");
+            let facts = diagnostics::elevation::facts();
+            let cause = facts.cause().map(|cause| cause.to_string());
+            tracing::warn!(%refusal, ?facts, cause, "Refusing to start the patcher");
             Err(refusal)
         }
         None => Ok(()),

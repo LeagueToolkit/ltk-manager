@@ -46,7 +46,7 @@ This table holds every major feature of League diagnostics. A status word has on
 
 | Feature                      | Status      | Note                                                         |
 | ---------------------------- | ----------- | ------------------------------------------------------------ |
-| System checks                | Available   | Sixteen checks in six categories, on the Diagnostics page    |
+| System checks                | Available   | Seventeen checks in six categories, on the Diagnostics page  |
 | Rejected archive dialog      | Available   | Classifies the scan status and names the mods                |
 | Start failure toast          | Available   | One toast for every `patcher-error`. Library page only       |
 | Session ending               | In progress | The client's reason and exit code, on `ritoclient-launcher`  |
@@ -121,7 +121,7 @@ names them so the rest of the document can say what changes.
 
 | Surface                   | Where                                    | Says                                                     |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------- |
-| The Diagnostics page      | `/diagnostics`, an icon in the title bar | Sixteen system checks, a Copy report, a Re-run           |
+| The Diagnostics page      | `/diagnostics`, an icon in the title bar | Seventeen system checks, a Copy report, a Re-run         |
 | `WadScanFailedDialog`     | Global, on `patcher-wad-scan-failed`     | Which archive the scan rejected, and which mods write it |
 | The `Patcher Error` toast | The Library page, on `patcher-error`     | The backend's message, for seven seconds                 |
 | The session bar           | Global, at the bottom of the window      | The build, the start, the launch, and `In game`          |

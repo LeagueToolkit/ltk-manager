@@ -60,9 +60,10 @@ pub enum PatcherError {
     )]
     ManagerElevated,
 
-    /// No patcher DLL could be selected for the session. `message` says why.
+    /// No patcher DLL could be selected for the session. `message` says why, and `reason`
+    /// is the delivery failure's kind, for a count.
     #[error("{message}")]
-    DllUnavailable { message: String },
+    DllUnavailable { message: String, reason: String },
 
     /// One injection session failed. `stage` separates a host that never came up
     /// from a game that was never patched, since they call for different advice.

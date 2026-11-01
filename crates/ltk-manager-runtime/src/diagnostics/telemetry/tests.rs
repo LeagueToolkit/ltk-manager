@@ -9,6 +9,8 @@ fn environment() -> Environment {
         os_build: Some("10.0.26100".to_string()),
         arch: "x86_64".to_string(),
         locale: Some("en_GB".to_string()),
+        manager_elevated: false,
+        league_admin: true,
     }
 }
 
@@ -22,6 +24,22 @@ fn facts() -> SessionFacts {
         scan: Some(ScanMode::Eager),
         overlay: OverlayOutcome::Live,
         game_patch: Some("16.16.804.9184".to_string()),
+        patcher_dll: Some("9048d9ead98d5ce5".to_string()),
+    }
+}
+
+fn elevated_facts() -> crate::diagnostics::elevation::ElevationFacts {
+    use crate::diagnostics::elevation::{ElevationFacts, ElevationType, HIGH_INTEGRITY};
+
+    ElevationFacts {
+        elevated: true,
+        elevation_type: ElevationType::Full,
+        integrity: Some(HIGH_INTEGRITY),
+        shell_elevated: Some(false),
+        parent: Some("WindowsTerminal.exe".to_string()),
+        uac_enabled: true,
+        builtin_administrator: false,
+        compat_layer: Some("HKCU".to_string()),
     }
 }
 
@@ -49,6 +67,10 @@ fn a_clean_session_says_so_and_carries_no_verdict() {
     assert_eq!(properties.get("overlay_outcome"), Some(&json!("live")));
     assert_eq!(properties.get("scan_mode"), Some(&json!("eager")));
     assert_eq!(properties.get("game_patch"), Some(&json!("16.16.804.9184")));
+    assert_eq!(
+        properties.get("patcher_dll"),
+        Some(&json!("9048d9ead98d5ce5"))
+    );
 
     for absent in [
         "verdict_kind",
@@ -75,6 +97,89 @@ fn every_event_says_what_the_machine_is() {
     assert_eq!(properties.get("os_build"), Some(&json!("10.0.26100")));
     assert_eq!(properties.get("arch"), Some(&json!("x86_64")));
     assert_eq!(properties.get("locale"), Some(&json!("en_GB")));
+    assert_eq!(properties.get("manager_elevated"), Some(&json!(false)));
+    assert_eq!(properties.get("league_admin"), Some(&json!(true)));
+}
+
+#[test]
+fn a_refused_start_reports_the_refusal_and_the_elevation_facts() {
+    use crate::patcher::error::PatcherError;
+
+    let properties = patcher_refused("1.33.0", &PatcherError::ManagerElevated, &elevated_facts());
+
+    assert_eq!(properties.get("app_version"), Some(&json!("1.33.0")));
+    assert_eq!(properties.get("reason"), Some(&json!("MANAGER_ELEVATED")));
+    assert_eq!(properties.get("cause"), Some(&json!("compat-layer")));
+    assert_eq!(properties.get("elevation_type"), Some(&json!("full")));
+    assert_eq!(properties.get("integrity"), Some(&json!("high")));
+    assert_eq!(properties.get("shell_elevated"), Some(&json!(false)));
+    assert_eq!(
+        properties.get("parent"),
+        Some(&json!("WindowsTerminal.exe"))
+    );
+    assert_eq!(properties.get("compat_layer"), Some(&json!(true)));
+}
+
+#[test]
+fn a_refusal_of_an_unelevated_manager_carries_no_cause() {
+    use crate::diagnostics::elevation::ElevationFacts;
+    use crate::patcher::error::PatcherError;
+
+    let properties = patcher_refused(
+        "1.33.0",
+        &PatcherError::LeagueElevated,
+        &ElevationFacts::default(),
+    );
+
+    assert_eq!(properties.get("reason"), Some(&json!("LEAGUE_ELEVATED")));
+    assert_eq!(properties.get("manager_elevated"), Some(&json!(false)));
+    assert_eq!(properties.get("cause"), None);
+    assert_eq!(properties.get("integrity"), None);
+    assert_eq!(properties.get("parent"), None);
+}
+
+#[test]
+fn an_app_start_reports_the_machine_the_elevation_and_the_staged_dll() {
+    let properties = app_started(
+        &environment(),
+        &elevated_facts(),
+        Some("ltk_patcher-26"),
+        "stable",
+    );
+
+    assert_eq!(properties.get("app_version"), Some(&json!("1.17.0")));
+    assert_eq!(properties.get("os_build"), Some(&json!("10.0.26100")));
+    assert_eq!(properties.get("cause"), Some(&json!("compat-layer")));
+    assert_eq!(properties.get("delivery_channel"), Some(&json!("stable")));
+    assert_eq!(properties.get("patcher_staged"), Some(&json!(true)));
+    assert_eq!(
+        properties.get("patcher_version"),
+        Some(&json!("ltk_patcher-26"))
+    );
+}
+
+#[test]
+fn an_app_start_with_no_staged_dll_says_so_and_names_none() {
+    use crate::diagnostics::elevation::ElevationFacts;
+
+    let properties = app_started(&environment(), &ElevationFacts::default(), None, "beta");
+
+    assert_eq!(properties.get("patcher_staged"), Some(&json!(false)));
+    assert_eq!(properties.get("patcher_version"), None);
+    assert_eq!(properties.get("delivery_channel"), Some(&json!("beta")));
+}
+
+#[test]
+fn a_failed_start_and_a_failed_sync_report_their_reason_without_a_message() {
+    let failed = patcher_start_failed("1.33.0", "network");
+    assert_eq!(failed.get("stage"), Some(&json!("prepare")));
+    assert_eq!(failed.get("reason"), Some(&json!("network")));
+    assert_eq!(failed.get("message"), None);
+
+    let sync = delivery_sync_failed("1.33.0", "stable", "refused");
+    assert_eq!(sync.get("delivery_channel"), Some(&json!("stable")));
+    assert_eq!(sync.get("reason"), Some(&json!("refused")));
+    assert_eq!(sync.get("message"), None);
 }
 
 #[test]

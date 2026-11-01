@@ -13,11 +13,11 @@ const CATEGORY_LABELS: Record<Category, { title: string; description: string }> 
   },
   manager: {
     title: "LTK Manager",
-    description: "Manager elevation, conflicting processes",
+    description: "Manager elevation and its cause",
   },
   league: {
     title: "League installation",
-    description: "Install path, writability, compatibility flags",
+    description: "Install path, writability, compatibility flags, elevated processes",
   },
   patcher: {
     title: "Patcher",

@@ -6650,8 +6650,11 @@ export type PatcherError =
 { kind: "LEAGUE_ELEVATED" } | 
 /**  LTK Manager runs as administrator, and a session runs unelevated. */
 { kind: "MANAGER_ELEVATED" } | 
-/**  No patcher DLL could be selected for the session. `message` says why. */
-{ kind: "DLL_UNAVAILABLE"; message: string } | 
+/**
+ *  No patcher DLL could be selected for the session. `message` says why, and `reason`
+ *  is the delivery failure's kind, for a count.
+ */
+{ kind: "DLL_UNAVAILABLE"; message: string; reason: string } | 
 /**
  *  One injection session failed. `stage` separates a host that never came up
  *  from a game that was never patched, since they call for different advice.

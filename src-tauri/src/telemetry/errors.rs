@@ -44,14 +44,28 @@ pub struct UiError {
 /// What a backend error reports.
 ///
 /// The code is the one the frontend matches on, so an issue groups the same way
-/// the app already treats the failure. The message is prose from outside the app
-/// and is scrubbed on the way past, like every other string.
+/// the app already treats the failure, and the kind is the variant under a code
+/// that has several. The message is prose from outside the app and is scrubbed
+/// on the way past, like every other string.
 #[must_use]
-pub fn app_error(code: &str, message: &str) -> Properties {
-    Properties::new()
+pub fn app_error(code: &str, kind: Option<&str>, message: &str) -> Properties {
+    let mut properties = Properties::new()
         .with("app_version", env!("CARGO_PKG_VERSION"))
         .with("error_code", code)
-        .with("message", message)
+        .with("message", message);
+    if let Some(kind) = kind {
+        properties.insert("error_kind", kind);
+    }
+    properties
+}
+
+/// The location an error dedups on: its code, and its kind under a code that has several.
+#[must_use]
+pub fn error_location(code: &str, kind: Option<&str>) -> String {
+    match kind {
+        Some(kind) => format!("{code}/{kind}"),
+        None => code.to_owned(),
+    }
 }
 
 /// What a panic reports, as the vendor reads an exception.

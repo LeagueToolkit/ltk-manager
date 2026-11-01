@@ -20,9 +20,14 @@
 use super::{Category, Check, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
+use std::path::Path;
+
+#[cfg(target_os = "windows")]
 use super::CheckDetail;
 #[cfg(target_os = "windows")]
 use ltk_manager_base::platform::windows::{ROOTS, reg_list_value_names, reg_read_str};
+#[cfg(target_os = "windows")]
+use winreg::HKEY;
 
 const LAYERS: CheckSpec = CheckSpec::new(
     "compat_flags.layers",
@@ -62,7 +67,15 @@ pub fn check_compat_flags() -> Check {
                 bad.push((root_label.to_string(), value_name.clone()));
                 continue;
             }
-            if SUS_PREFIXES.iter().any(|p| name.starts_with(p)) {
+            if !SUS_PREFIXES.iter().any(|p| name.starts_with(p)) {
+                continue;
+            }
+
+            // A manager or patcher binary that runs as administrator refuses a start, so it
+            // joins the fix command. Any other layer on them is only suspicious.
+            if has_run_as_admin_layer(*root, &value_name) {
+                bad.push((root_label.to_string(), value_name));
+            } else {
                 sus.push((root_label.to_string(), value_name));
             }
         }
@@ -80,7 +93,7 @@ pub fn check_compat_flags() -> Check {
 
     let summary = if !bad.is_empty() {
         format!(
-            "{} League/Riot entr{} forcing compatibility mode",
+            "{} entr{} forcing compatibility mode on League, Riot or LTK binaries",
             bad.len(),
             if bad.len() == 1 { "y" } else { "ies" }
         )
@@ -103,7 +116,7 @@ pub fn check_compat_flags() -> Check {
 
     if !bad.is_empty() {
         c.suggestion = Some(
-            "Found compatibility-mode entries on League/Riot executables. \"Run as administrator\" or any compatibility flag on League's binaries breaks the patcher's process injection. Remove every entry below — right-click the .exe → Properties → Compatibility → uncheck everything, OR run the command as administrator."
+            "Found compatibility-mode entries on League, Riot or LTK executables. \"Run as administrator\" or any compatibility flag on League's binaries breaks the patcher's process injection, and one on ltk-manager.exe refuses the patcher start. Remove every entry below: right-click the .exe, Properties, Compatibility, uncheck everything, or run the command as administrator."
                 .into(),
         );
         // `reg.exe` accepts `HKCU\...` / `HKLM\...` — the `HKCU:\` form is a
@@ -119,12 +132,19 @@ pub fn check_compat_flags() -> Check {
 
 /// Returns the `reg delete` commands that remove the layer entries `(root, path)`.
 #[cfg(target_os = "windows")]
-fn reg_delete_script(entries: &[(String, String)]) -> String {
+pub(crate) fn reg_delete_script(entries: &[(String, String)]) -> String {
     entries
         .iter()
         .map(|(root, path)| format!("reg delete \"{root}\\{COMPAT_KEY}\" /v \"{path}\" /f"))
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Returns `true` if the layer entry `value_name` under `root` contains `RUNASADMIN`.
+#[cfg(target_os = "windows")]
+fn has_run_as_admin_layer(root: HKEY, value_name: &str) -> bool {
+    reg_read_str(root, COMPAT_KEY, value_name)
+        .is_some_and(|layers| layers.to_ascii_uppercase().contains("RUNASADMIN"))
 }
 
 /// Returns the entries `(root, path)` of League/Riot executables with a `RUNASADMIN` layer.
@@ -141,15 +161,29 @@ fn run_as_admin_entries() -> Vec<(String, String)> {
                 continue;
             }
 
-            if reg_read_str(*root, COMPAT_KEY, &value_name)
-                .is_some_and(|layers| layers.to_ascii_uppercase().contains("RUNASADMIN"))
-            {
+            if has_run_as_admin_layer(*root, &value_name) {
                 entries.push((label.to_string(), value_name));
             }
         }
     }
 
     entries
+}
+
+/// Returns the registry root label of a `RUNASADMIN` layer on `exe`, or `None` if it has none.
+///
+/// The layer value is named by the full path of the executable, compared without case.
+#[cfg(target_os = "windows")]
+pub(crate) fn run_as_admin_layer(exe: &Path) -> Option<String> {
+    let exe = exe.to_string_lossy();
+
+    ROOTS.iter().find_map(|(root, label)| {
+        reg_list_value_names(*root, COMPAT_KEY)
+            .into_iter()
+            .find(|value_name| value_name.eq_ignore_ascii_case(&exe))
+            .filter(|value_name| has_run_as_admin_layer(*root, value_name))
+            .map(|_| (*label).to_string())
+    })
 }
 
 /// Returns `true` if any League/Riot executable carries a `RUNASADMIN` layer.

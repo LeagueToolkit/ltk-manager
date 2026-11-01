@@ -100,6 +100,7 @@ fn a_backend_error_reports_its_code_and_no_profile_path() {
 
     state.report_app_error(
         "IO",
+        None,
         r"reading C:\Users\someone\mods\a.wad: the file is not there",
     );
     state.handle().flush();
@@ -125,11 +126,70 @@ fn one_failure_reports_once_however_often_it_happens() {
     let (state, sink, _spool) = recording();
 
     for _ in 0..50 {
-        state.report_app_error("IO", "reading a.wad: the file is not there");
+        state.report_app_error("IO", None, "reading a.wad: the file is not there");
     }
     state.handle().flush();
 
     assert_eq!(sink.events().len(), 1);
+}
+
+#[test]
+fn two_kinds_under_one_code_report_apart() {
+    let (state, sink, _spool) = recording();
+
+    state.report_app_error("PATCHER", Some("BUSY"), "");
+    state.report_app_error("PATCHER", Some("MANAGER_ELEVATED"), "");
+    state.report_app_error("PATCHER", Some("MANAGER_ELEVATED"), "");
+    state.handle().flush();
+
+    let kinds: Vec<_> = sink
+        .events()
+        .iter()
+        .map(|event| event.properties().get("error_kind").cloned())
+        .collect();
+    assert_eq!(
+        kinds,
+        [Some("BUSY".into()), Some("MANAGER_ELEVATED".into())]
+    );
+}
+
+#[test]
+fn a_failed_sync_reports_once_a_window_per_channel_and_reason() {
+    let (state, sink, _spool) = recording();
+
+    state.report_delivery_sync_failed("stable", "network");
+    state.report_delivery_sync_failed("stable", "network");
+    state.report_delivery_sync_failed("beta", "network");
+    state.handle().flush();
+
+    let channels: Vec<_> = sink
+        .events()
+        .iter()
+        .map(|event| event.properties().get("delivery_channel").cloned())
+        .collect();
+    assert_eq!(channels, [Some("stable".into()), Some("beta".into())]);
+}
+
+#[test]
+fn a_refused_start_reports_once_a_window_with_its_reason() {
+    let (state, sink, _spool) = recording();
+    let facts = ltk_manager_runtime::diagnostics::elevation::ElevationFacts::default();
+
+    for _ in 0..3 {
+        state.report_patcher_refused(&PatcherError::LeagueElevated, &facts);
+    }
+    state.handle().flush();
+
+    let events = sink.events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].name(), PATCHER_REFUSED);
+    assert_eq!(
+        events[0]
+            .properties()
+            .get("reason")
+            .and_then(|reason| reason.as_str()),
+        Some("LEAGUE_ELEVATED")
+    );
 }
 
 #[test]
@@ -175,7 +235,7 @@ fn a_frontend_crash_reports_as_an_exception() {
 fn the_three_seams_do_not_silence_each_other() {
     let (state, sink, _spool) = recording();
 
-    state.report_app_error("IO", "reading a.wad: the file is not there");
+    state.report_app_error("IO", None, "reading a.wad: the file is not there");
     state.report_panic("index out of bounds", Some("src/mods/mod.rs"), Some(42));
     state.report_ui_error(&UiError {
         name: "TypeError".to_owned(),
@@ -194,7 +254,7 @@ fn the_three_seams_do_not_silence_each_other() {
 fn a_handle_that_collects_nothing_reports_no_failure() {
     let state = TelemetryState::new(Telemetry::disabled(), Remote::default());
 
-    state.report_app_error("IO", "reading a.wad: the file is not there");
+    state.report_app_error("IO", None, "reading a.wad: the file is not there");
     state.report_panic("index out of bounds", Some("src/mods/mod.rs"), Some(42));
 
     assert!(!state.handle().is_enabled());

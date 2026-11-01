@@ -116,6 +116,7 @@ fn every_patcher_variant_reaches_the_frontend_distinguishable() {
         (
             PatcherError::DllUnavailable {
                 message: "no connection".to_string(),
+                reason: "network".to_string(),
             },
             "DLL_UNAVAILABLE",
         ),

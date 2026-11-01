@@ -128,6 +128,25 @@ pub enum DeliveryError {
     Io(#[from] std::io::Error),
 }
 
+impl DeliveryError {
+    /// Returns the variant as a kebab-case word, for a count that must not carry a message.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Network(_) => "network",
+            Self::Refused { .. } => "refused",
+            Self::Unauthorized => "unauthorized",
+            Self::Difficulty(_) => "difficulty",
+            Self::Signature => "signature",
+            Self::Invalid { .. } => "invalid",
+            Self::Stale { .. } => "stale",
+            Self::Integrity => "integrity",
+            Self::NoRelease => "no-release",
+            Self::Unattested => "unattested",
+            Self::Io(_) => "io",
+        }
+    }
+}
+
 /// The patcher build that a session runs: a delivered DLL beside a copy of the bundled host.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StagedPatcher {
@@ -307,6 +326,11 @@ impl PatcherDelivery {
     pub fn staged_dll_path(&self, channel: Channel) -> Option<PathBuf> {
         self.staged(channel)
             .map(|staged| staged.dir.join(HOOK_DLL_NAME))
+    }
+
+    /// Returns the release name of the DLL that a session on `channel` runs, if one is staged.
+    pub fn staged_version(&self, channel: Channel) -> Option<String> {
+        self.staged(channel).map(|staged| staged.version)
     }
 
     /// Returns the first build of the channels of `channel` that is usable and staged.

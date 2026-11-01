@@ -14,6 +14,7 @@ use std::path::PathBuf;
 
 pub mod binary_id;
 mod compat_flags;
+pub mod elevation;
 pub mod exit_status;
 pub mod game_log;
 pub mod incident;
@@ -242,6 +243,7 @@ pub fn run_all(ctx: &CheckCtx) -> Vec<Check> {
         paths::check_league_path(ctx),
         paths::check_league_writability(ctx),
         compat_flags::check_compat_flags(),
+        processes::check_riot_not_admin(),
         // Storage
         paths::check_storage_path(ctx),
         paths::check_storage_writability(ctx),
