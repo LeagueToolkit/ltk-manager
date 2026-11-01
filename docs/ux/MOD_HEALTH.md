@@ -4,6 +4,7 @@
 
 | Date       | Change                                                      |
 | ---------- | ----------------------------------------------------------- |
+| 2026-11-01 | The check reads a modpkg, and the repair rewrites it        |
 | 2026-10-30 | A base skin with another skin's audio only is repairable    |
 | 2026-10-29 | A finding offers an alternative repair on a separate press  |
 | 2026-10-12 | A missing linked object is a rule, in place of the badge    |
@@ -13,7 +14,6 @@
 | 2026-09-04 | The list ends in a line the informative findings fold under |
 | 2026-09-03 | An archive repair reads the archive where it lies           |
 | 2026-09-02 | A press about one mod opens the panel on that mod           |
-| 2026-09-02 | A pick no longer withholds the panel from a press           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -40,8 +40,8 @@ This table holds every major feature of Mod health. A status word has one meanin
 | Feature               | Status    | Note                                                                                   |
 | --------------------- | --------- | -------------------------------------------------------------------------------------- |
 | The verdict model     | Available | `ModHealthVerdict`: health, fixable count, live counts                                 |
-| The check             | Available | `check_mod_health`, both storages, never writes the mod                                |
-| The repair            | Available | `repair_mod`, both storages, applies every live fix                                    |
+| The check             | Available | `check_mod_health`, both storages and both formats, never writes the mod               |
+| The repair            | Available | `repair_mod`, both storages and both formats, applies every live fix                   |
 | Alternative repairs   | Available | `repair_mod_alternative`, one alternative of one finding, never part of a repair       |
 | The verdict store     | Available | `mod-health-verdicts.json` beside the index, one row per mod                           |
 | The badge             | Available | On the card, only when something is wrong                                              |
@@ -230,10 +230,11 @@ The write is what once kept the rules out of the library - see "The library wait
 [Problems](PROJECT_PROBLEMS.md). The answer is that both operations meet the rules on a mod
 project, wherever the mod keeps its content:
 
-| Storage   | Check                             | Repair                                              |
-| --------- | --------------------------------- | --------------------------------------------------- |
-| `project` | Analyze the mod's own tree        | Fix in the tree                                     |
-| `archive` | Analyze the archive where it lies | Fix where it lies, and edit the fixed files back in |
+| Storage            | Check                        | Repair                                         |
+| ------------------ | ---------------------------- | ---------------------------------------------- |
+| `project`          | Analyze the mod's own tree   | Fix in the tree                                |
+| `archive`, fantome | Analyze the archive in place | Fix in place, and edit the fixed files back in |
+| `archive`, modpkg  | Analyze the package in place | Fix in place, and write the package again      |
 
 **A bin no table names is reached by its chunk hash.** The check lists such a bin under the
 sixteen hex digits an unpack writes it as, the unpack writes the same, and the edit puts the fixed
@@ -265,10 +266,25 @@ A repair records the mod's fresh verdict itself, so the badge updates without a 
 Any repair that wrote also flushes the next overlay build, so the fix reaches the game without
 a manual rebuild.
 
-A modpkg is not checked or repaired. Its content only exists inside its archive, and there is
-no unpacked form to run the rules over - the same boundary as ADR-0001. Its card menu carries no
-Check Health row, the check at import passes over it without a log line, and a sweep over the
-library or a selection leaves it out of the count.
+**The check reads a modpkg from its package, and the repair writes the package again.** A
+package stores each chunk under the path that it was packed from. The check reads a chunk with one
+seek and lists the chunk under the path that an import writes, with no hashtable lookup. The
+check at import, Check Health in the card menu, the badge, the library sweep and the launch ask
+include a modpkg the way they include a fantome. If a package does not mount, the check fails,
+the sweep logs the failure and skips the mod, and the mod keeps no verdict.
+
+A modpkg repair is the same fix run as a fantome's, held in memory until the package is written.
+A package has no edit, so the repair writes a new package from the old package's own chunks, with
+the fixed files in place of the chunks they replace and a removed file left out. The metadata,
+the readme, the license, the thumbnail and every declared table are copied from the old package,
+so a distributor stamp and a layer's declarations survive - see
+[ADR-0075](../adr/0075-a-check-and-a-repair-read-a-modpkg-from-its-package.md). The new package
+is written beside the old one and swapped in once it is whole, and the old one is not kept -
+ADR-0005.
+
+A check reads a mod's files and no `game_data` declaration, for every storage and format. A mod
+whose content is declarations reads `healthy`, and the check examines no declaration. Read
+[open question 3](#open-questions).
 
 ## How loud a finding is drawn
 
@@ -346,7 +362,7 @@ finds nothing due, and is over.
 | Checked against an older meta schema | Checks it again          |
 | Any of the above, with no hashtables | Stands down entirely     |
 | Checked under the basis it is on now | Skips it                 |
-| Faulted, or a modpkg                 | Never checked at all     |
+| Faulted                              | Never checked at all     |
 | Gone from the library                | Its verdict goes with it |
 
 **The sweep fills the cache before it reads it.** A launch whose hashtables are empty or behind the
@@ -833,6 +849,8 @@ count in a toast names those findings without showing them.
 | Does the cell draw outside the library?          | No. The drawer is the library's, so the cell is                     |
 | Can the panel be dragged wider?                  | Only the sheet form. The dialog is centred                          |
 | Is a mod's content part of what makes it stale?  | No. Only the manager writes it, and it re-checks                    |
+| Does the check read a modpkg?                    | Yes, from its package, and the repair writes it again - ADR-0075    |
+| Does a check read a mod's declarations?          | No. It reads the files, for every storage and format                |
 
 ## Open questions
 
@@ -844,3 +862,7 @@ count in a toast names those findings without showing them.
 2. Where do the other ambient items go? The bar now has a region for them and exactly one
    tenant. The game build, the overlay's age and the notification count are all candidates, and
    the order they sit in is a decision nobody has had to make yet.
+3. What checks a mod's `game_data` declarations? The rules read files, and the overlay build
+   lowers a declaration into bins. A modpkg whose content is mostly declarations reads
+   `healthy`, and the check examines no declaration. Either the rules read the lowered bins,
+   or the verdict states what the check did not read.

@@ -1100,3 +1100,228 @@ mod archive {
         assert_eq!(fs::read(&archive).unwrap(), before);
     }
 }
+
+/* Reading a modpkg in place. A package stores every chunk under the path that
+it was packed from, so the scan lists what an import writes without a resolver. */
+
+mod modpkg {
+    use super::*;
+    use ltk_manager_assets::test_util::{
+        STALE_BIN_IN_WAD, bin_bytes, healthy_bin, make_bin_modpkg, make_packed_bin_fantome_zip,
+        resolver_naming, stale_bin,
+    };
+    use zip::CompressionMethod;
+
+    /// The path of the fixture bin inside the layer. A package stores a WAD's
+    /// name lowercased, and an import writes the directory the same way.
+    const BIN_IN_LAYER: &str = "aatrox.wad.client/data/skin0.bin";
+
+    fn packaged(dir: &Path, bin: &ltk_meta::Bin) -> PathBuf {
+        let archive = dir.join("packed.modpkg");
+        make_bin_modpkg(&archive, "Packed", bin);
+        archive
+    }
+
+    fn files_in(archive: &Path) -> ProjectFiles {
+        ProjectFiles::in_modpkg(archive, &Config::default(), Budget::repair(), None).unwrap()
+    }
+
+    /// Unpack `archive` into `into` the way an import does, and return the
+    /// project root it wrote.
+    fn unpacked(archive: &Path, into: &Path) -> PathBuf {
+        let into_utf8 = camino::Utf8PathBuf::from_path_buf(into.to_path_buf()).unwrap();
+        ltk_mod_project::ProjectImporter::new(&into_utf8)
+            .import(ltk_mod_project::modpkg::ModpkgImporter::new(
+                fs::File::open(archive).unwrap(),
+            ))
+            .expect("the package imports");
+        into.to_path_buf()
+    }
+
+    #[test]
+    fn a_modpkg_holds_one_layer_named_base() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packaged(tmp.path(), &stale_bin());
+
+        let files = files_in(&archive);
+
+        let names: Vec<&str> = files
+            .layers()
+            .iter()
+            .map(|layer| layer.name.as_str())
+            .collect();
+        assert_eq!(names, ["base"]);
+    }
+
+    /// A chunk is listed under the path that the package stores. No WAD holds
+    /// the chunk, so its chunk info is `None`.
+    #[test]
+    fn a_modpkgs_bin_is_listed_under_the_path_the_package_stores() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packaged(tmp.path(), &bin);
+
+        let files = files_in(&archive);
+
+        let base = layer(&files, "base");
+        assert_eq!(paths(&base), [BIN_IN_LAYER]);
+        assert_eq!(base.files[0].kind, WorkshopFileKind::PropertyBin);
+        assert_eq!(base.files[0].size_bytes, bin_bytes(&bin).len() as u64);
+        assert_eq!(base.files[0].chunk, None);
+    }
+
+    #[test]
+    fn a_modpkgs_bin_reads_back_through_its_handle() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packaged(tmp.path(), &stale_bin());
+
+        let files = files_in(&archive);
+
+        let handle = files.bins().next().expect("the package holds one bin");
+        assert_eq!(handle.layer(), "base");
+        assert_eq!(handle.path(), BIN_IN_LAYER);
+        assert_eq!(
+            bin_bytes(handle.bin().unwrap().as_prop().unwrap()),
+            bin_bytes(&stale_bin())
+        );
+    }
+
+    #[test]
+    fn a_head_of_a_modpkg_chunk_reads_its_first_bytes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packaged(tmp.path(), &bin);
+
+        let files = files_in(&archive);
+        let handle = files.bins().next().unwrap();
+
+        assert_eq!(handle.head(9).unwrap(), bin_bytes(&bin)[..9]);
+        assert_eq!(handle.head(8192).unwrap(), bin_bytes(&bin));
+    }
+
+    /// A chunk's hash is derived from its path, so a modpkg's bin is compared
+    /// with the game's copy the way a tree's bin is.
+    #[test]
+    fn a_modpkg_bin_equal_to_the_game_copy_is_removed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packaged(tmp.path(), &bin);
+        let game = FakeContent::containing_bytes(&[(STALE_BIN_IN_WAD, &bin_bytes(&bin))]);
+
+        let files =
+            ProjectFiles::in_modpkg(&archive, &Config::default(), Budget::repair(), Some(game))
+                .unwrap()
+                .without_game_copies();
+
+        assert_eq!(files.bins().count(), 0);
+    }
+
+    /// Story: a check that reads a package in place lists what the import
+    /// lists, so a site names a file that the tree contains.
+    #[test]
+    fn a_modpkg_lists_what_its_unpacked_tree_lists() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packaged(tmp.path(), &stale_bin());
+
+        let tree = unpacked(&archive, &tmp.path().join("staging"));
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
+        let from_modpkg = files_in(&archive);
+
+        assert_eq!(
+            paths(&layer(&from_modpkg, "base")),
+            paths(&layer(&from_tree, "base"))
+        );
+    }
+
+    /// Story: the same content reports the same findings as a fantome and as
+    /// a modpkg.
+    ///
+    /// The WAD name is the one difference between the two sites: the package
+    /// stores it lowercased, and the zip keeps the directory as written.
+    #[test]
+    fn analyzing_a_modpkg_finds_what_a_fantome_of_the_same_content_finds() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        ltk_manager_assets::test_util::point_at_installed_build(&mut config, tmp.path());
+
+        let fantome = tmp.path().join("packed.fantome");
+        make_packed_bin_fantome_zip(&fantome, "Packed", &stale_bin(), CompressionMethod::Stored);
+        let from_fantome = analyze_archive(
+            &fantome,
+            &config,
+            Budget::repair(),
+            &resolver_naming(&[STALE_BIN_IN_WAD]),
+            None,
+        )
+        .unwrap();
+
+        let modpkg = packaged(tmp.path(), &stale_bin());
+        let from_modpkg = analyze_modpkg(&modpkg, &config, Budget::repair(), None).unwrap();
+
+        let findings = |run: &Run| -> Vec<(String, crate::ProblemSeverity, String, String, bool)> {
+            run.live_problems()
+                .map(|problem| {
+                    (
+                        problem.rule.to_string(),
+                        problem.severity,
+                        problem.site.layer.clone(),
+                        problem.site.path.to_ascii_lowercase(),
+                        problem.fix.is_some(),
+                    )
+                })
+                .collect()
+        };
+        assert_eq!(findings(&from_modpkg), findings(&from_fantome));
+        assert_eq!(
+            from_modpkg
+                .live_problems()
+                .map(|problem| problem.site.path.as_str())
+                .collect::<Vec<_>>(),
+            [BIN_IN_LAYER]
+        );
+    }
+
+    /// A healthy bin reports nothing out of a package, as it does out of a tree.
+    #[test]
+    fn analyzing_a_healthy_modpkg_finds_nothing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        ltk_manager_assets::test_util::point_at_installed_build(&mut config, tmp.path());
+        let archive = packaged(tmp.path(), &healthy_bin());
+
+        let run = analyze_modpkg(&archive, &config, Budget::repair(), None).unwrap();
+
+        assert!(run.problems.is_empty());
+        assert!(run.failed.is_empty());
+    }
+
+    /// Story: a modpkg that will not mount reports as unchecked, never as
+    /// healthy. Of sixteen local files named `.modpkg`, nine were not packages.
+    #[test]
+    fn a_file_that_is_not_a_package_fails_the_scan() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("zip.modpkg");
+        fs::write(&archive, b"PK not a package").unwrap();
+
+        let refused = ProjectFiles::in_modpkg(&archive, &Config::default(), Budget::repair(), None);
+
+        assert!(refused.is_err(), "a file that is not a package was listed");
+    }
+
+    /// A check writes nothing, so it leaves nothing beside the package.
+    #[test]
+    fn analyzing_a_modpkg_writes_nothing_beside_it() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = packaged(tmp.path(), &stale_bin());
+        let before = fs::read(&archive).unwrap();
+
+        files_in(&archive);
+
+        let left: Vec<_> = fs::read_dir(tmp.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name())
+            .collect();
+        assert_eq!(left, ["packed.modpkg"]);
+        assert_eq!(fs::read(&archive).unwrap(), before);
+    }
+}

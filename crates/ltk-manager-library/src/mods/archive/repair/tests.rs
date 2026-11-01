@@ -6,7 +6,8 @@ use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     make_library_naming, make_slugged_entry, make_test_library, make_unpacked_entry,
-    place_bin_archived_fantome, place_bin_project_mod, place_installed_mod,
+    place_bin_archived_fantome, place_bin_archived_modpkg,
+    place_bin_archived_modpkg_with_documents, place_bin_project_mod, place_installed_mod,
     place_packed_chunks_archived_fantome, place_packed_chunks_fantome_with_raw,
     place_packed_fantome_with_raw, property_in_unpacked_tree, seed_library,
 };
@@ -254,6 +255,98 @@ fn a_mod_with_nothing_to_fix_keeps_its_archive_byte_for_byte() {
     );
 }
 
+/// Story: a modpkg is repaired by writing the package again, and everything
+/// the package carried beside its content is still there afterwards.
+#[test]
+fn a_modpkg_is_repaired_in_its_package() {
+    const README: &str = "# Packed mod\n";
+    const LICENSE: &str = "MIT License\n";
+
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_archived_modpkg_with_documents(
+        storage.path(),
+        "packed-mod",
+        &stale_bin(),
+        README,
+        LICENSE,
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-pkg",
+            "packed-mod",
+            ModArchiveFormat::Modpkg,
+        )],
+    );
+    let archive = storage.path().mods_dir().join("packed-mod.modpkg");
+
+    let report = library.repair_mod(&config, "id-pkg").unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert!(report.failed.is_empty(), "{:?}", report.failed);
+    assert!(report.names_kept > 0, "the hashed path is kept - ADR-0006");
+
+    let mut modpkg = ltk_manager_assets::mod_archive::open_modpkg(&archive).unwrap();
+    assert_eq!(modpkg.load_readme().unwrap(), README.as_bytes());
+    assert_eq!(modpkg.load_license_text().unwrap(), LICENSE.as_bytes());
+    assert_eq!(modpkg.load_metadata().unwrap().name, "packed-mod");
+    let tables = modpkg.load_hashtables().unwrap();
+    assert!(
+        tables
+            .iter()
+            .any(|(_, table)| table.names().any(|name| name == STALE_ICON)),
+        "the package declares the table that names the kept path"
+    );
+
+    let bytes = modpkg
+        .load_chunk_decompressed_by_path(STALE_BIN_IN_WAD, Some("base"))
+        .unwrap();
+    let bin = ltk_meta::Bin::from_reader(&mut std::io::Cursor::new(bytes)).unwrap();
+    let property = bin.objects[&ltk_manager_assets::test_util::STALE_ENTRY].properties
+        [&ltk_manager_assets::test_util::ICON_AVATAR]
+        .clone();
+    assert_eq!(property, migrated_property());
+
+    let left: Vec<_> = fs::read_dir(storage.path().mods_dir())
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    assert!(
+        !left.iter().any(|name| name.ends_with(".repacked")),
+        "no scratch package is left beside the mod: {left:?}"
+    );
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
+    assert_eq!(verdicts["id-pkg"].health, ModHealth::Healthy);
+}
+
+/// Story: a repair of a modpkg with nothing to fix writes nothing.
+#[test]
+fn a_healthy_modpkg_keeps_its_package_byte_for_byte() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_archived_modpkg(storage.path(), "fine-pkg", &healthy_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-pkg",
+            "fine-pkg",
+            ModArchiveFormat::Modpkg,
+        )],
+    );
+    let archive = storage.path().mods_dir().join("fine-pkg.modpkg");
+    let before = fs::read(&archive).unwrap();
+
+    let report = library.repair_mod(&config, "id-pkg").unwrap();
+
+    assert_eq!(report.applied, 0);
+    assert_eq!(fs::read(&archive).unwrap(), before);
+}
+
 #[test]
 fn a_project_storage_mod_is_repaired_in_its_tree() {
     let storage = tempfile::tempdir().unwrap();
@@ -371,7 +464,8 @@ fn a_game_before_the_migration_build_leaves_the_archive_alone() {
 }
 
 /// Story: the one button behind the sweep's banner. Everything repairable is
-/// repaired, and the one mod that cannot be is named rather than fatal.
+/// repaired, and the one mod that cannot be - a modpkg that does not mount -
+/// is named rather than fatal.
 #[test]
 fn repairing_many_fixes_what_it_can_and_names_what_it_could_not() {
     let storage = tempfile::tempdir().unwrap();
