@@ -22,6 +22,7 @@ mod fix;
 pub mod game;
 pub mod names;
 pub mod pass;
+pub mod patch_status;
 pub mod preserve;
 pub mod rules;
 

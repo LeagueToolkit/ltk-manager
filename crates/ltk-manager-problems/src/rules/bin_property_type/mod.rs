@@ -98,6 +98,14 @@ use table::{Conversion, Migration, MigrationTable};
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/property-type");
 
+/// The first migration patch, only while the installed game precedes it.
+pub(crate) fn waiting_patch(installed: GameBuild) -> Option<GameBuild> {
+    table::tables()
+        .first()
+        .map(|table| table.build())
+        .filter(|build| *build > installed)
+}
+
 /// The function behind an 8-byte `Hash`: XXH3 of the lowercased path, stored in 8 bytes.
 const WIDE_XXH3: Hasher = Hasher {
     width: HashWidth::W8,
@@ -148,11 +156,7 @@ impl Rule for BinPropertyType {
     /// on, because a patch is the number a modder reads in Riot's notes.
     fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
         let installed = project.build()?;
-        let patch = table::tables()
-            .first()
-            .filter(|table| table.build() > installed)?
-            .build()
-            .patch();
+        let patch = waiting_patch(installed)?.patch();
 
         Some(Dormancy::new(
             format!("Patch {patch}"),

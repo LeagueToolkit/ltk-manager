@@ -224,6 +224,7 @@ services! {
     }
     settings("settings") {
         get_settings,
+        get_patch_status,
         save_settings,
         get_default_settings,
         auto_detect_league_path,

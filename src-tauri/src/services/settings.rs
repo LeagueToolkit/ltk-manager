@@ -13,10 +13,13 @@ use crate::settings_backup;
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::{BackendEvent, DataMoveProgress, DataMoveStage, EventSink as _};
+use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_base::utils::game::GameDir;
+use ltk_manager_bin::meta_schema;
 use ltk_manager_library::overlay::{
     forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
 };
+use ltk_manager_problems::patch_status::PatchStatus;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State};
@@ -27,6 +30,23 @@ use tauri_plugin_autostart::ManagerExt;
 #[specta::specta]
 pub fn get_settings(state: State<SettingsState>) -> IpcResult<Settings> {
     IpcResult::ok(state.0.lock().clone())
+}
+
+/// Read patch support and the installed content version without scanning a project.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_patch_status(app_handle: AppHandle) -> IpcResult<PatchStatus> {
+    let config = app_handle.state::<SettingsState>().config();
+    off_thread(move || {
+        let installed = GameBuild::installed(&config);
+        let schema = meta_schema::shared(installed);
+        Ok(PatchStatus::new(
+            &schema,
+            installed,
+            config.league_path.is_some(),
+        ))
+    })
+    .await
 }
 
 /// Save settings.

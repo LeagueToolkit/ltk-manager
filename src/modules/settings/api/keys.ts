@@ -1,5 +1,11 @@
 export const settingsKeys = {
   all: ["settings"] as const,
+  patchStatus: (leaguePath?: string | null) =>
+    [
+      ...settingsKeys.all,
+      "patchStatus",
+      ...(leaguePath === undefined ? [] : [leaguePath]),
+    ] as const,
   settings: () => [...settingsKeys.all, "current"] as const,
   defaults: () => [...settingsKeys.all, "defaults"] as const,
   setupRequired: () => [...settingsKeys.all, "setupRequired"] as const,

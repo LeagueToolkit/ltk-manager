@@ -22,6 +22,13 @@ const HASHTABLE_STALE_MS = 30 * 60 * 1000;
 
 /** The settings themselves, and the tables a settings page reads beside them. */
 export const settingsQueries = {
+  patchStatus: (leaguePath: string | null) =>
+    queryOptions({
+      queryKey: settingsKeys.patchStatus(leaguePath),
+      queryFn: queryFn(api.getPatchStatus),
+      staleTime: 0,
+    }),
+
   current: () =>
     queryOptions<Settings, AppError>({
       queryKey: settingsKeys.settings(),
