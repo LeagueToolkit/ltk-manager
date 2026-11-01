@@ -4,6 +4,7 @@
 
 | Date       | Change                                                               |
 | ---------- | -------------------------------------------------------------------- |
+| 2026-11-01 | Keep empty locked groups until they are unlocked                     |
 | 2026-10-12 | Collapse a panel to its strip or to a rail of its tabs' icons        |
 | 2026-10-09 | Give a tab's title its width before the context takes any            |
 | 2026-10-09 | Join the open tab to the row under it, on a filled tab rail          |
@@ -13,7 +14,6 @@
 | 2026-09-25 | Make modules, and drag modules, entries and keys to organize them    |
 | 2026-09-25 | Read a manifest as one line per key, and act on its modules in place |
 | 2026-09-24 | Read a layer's game data manifest as an outline                      |
-| 2026-09-20 | Reveal a file tab in the browser its file came from                  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -4195,9 +4195,10 @@ lock puts a group on screen.
 **A preview tab in a locked group becomes permanent.** The next preview cannot replace it
 where it sits, so it stops being the one ephemeral tab and the replacement opens elsewhere.
 
-**An empty group takes a document either way.** A lock is what a group holds against a stray
-open, and a group holding nothing has nothing to hold. A group that loses its last tab closes
-and takes its lock with it, so the strip shows the control only while it holds a tab.
+**An empty locked group stays open.** Closing or moving its last tab preserves the group,
+its size and its lock control. It accepts a document only from a gesture that names it.
+Unlocking an empty group removes it and returns its share to its sibling. An empty root
+remains open after unlocking.
 
 **A reset unlocks.** It merges every strip into one, and one group has nothing to hold itself
 against.

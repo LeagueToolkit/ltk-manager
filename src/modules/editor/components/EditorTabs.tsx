@@ -202,8 +202,7 @@ export function EditorTabs({
           onActivate={onActivate}
           onClose={onClose}
         />
-        {/* Only over a strip with tabs, where a lock has something to hold. */}
-        {onToggleLock && tabs.length > 0 && (
+        {onToggleLock && (tabs.length > 0 || locked) && (
           <LockToggle locked={locked === true} onToggle={onToggleLock} />
         )}
       </div>

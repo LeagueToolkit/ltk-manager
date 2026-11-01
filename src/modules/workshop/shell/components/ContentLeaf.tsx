@@ -123,7 +123,6 @@ export function ContentLeafRail({ leaf }: ContentLeafProps) {
   );
 }
 
-/* Only the root leaf can be empty, since a leaf losing its last tab prunes. */
 function NothingOpenState() {
   const project = useProjectContext();
   const sidebarOpen = useLayerPanelOpen();

@@ -611,6 +611,39 @@ describe("setLeafLocked", () => {
     ).toBe(true);
   });
 
+  it("keeps an empty locked leaf and its split shares after the last close", () => {
+    const sized = setSplitLayout(tree, "split-3", { "leaf-4": 35, "leaf-5": 65 });
+    const locked = setLeafLocked(sized, "leaf-5", true);
+    const closed = removeTab(locked, "leaf-5", "files:skin0");
+
+    expect(findLeaf(closed, "leaf-5")).toEqual({ ...leaf("leaf-5", []), locked: true });
+    expect(asSplit(asSplit(closed).children[1]).layout).toEqual({ "leaf-4": 35, "leaf-5": 65 });
+  });
+
+  it("prunes an unlocked empty leaf and returns its share to its sibling", () => {
+    const empty = setLeafLocked(tree, "leaf-5", true);
+    const sized = setSplitLayout(empty, "split-2", { "leaf-1": 20, "split-3": 50, "leaf-6": 30 });
+    const closed = removeTab(sized, "leaf-5", "files:skin0");
+    const unlocked = asSplit(setLeafLocked(closed, "leaf-5", false));
+
+    expect(findLeaf(unlocked, "leaf-5")).toBeNull();
+    expect(unlocked.layout).toEqual({ "leaf-1": 20, "leaf-4": 50, "leaf-6": 30 });
+    expect(unlocked.children[1]).toEqual(findLeaf(tree, "leaf-4"));
+  });
+
+  it("keeps a locked group after moving its last tab elsewhere", () => {
+    const locked = setLeafLocked(tree, "leaf-5", true);
+    const moved = moveTab(locked, "files:skin0", "leaf-1");
+
+    expect(findLeaf(moved, "leaf-5")).toEqual({ ...leaf("leaf-5", []), locked: true });
+    expect(findLeaf(moved, "leaf-1")?.tabs).toContain("files:skin0");
+  });
+
+  it("keeps an empty root after unlocking it", () => {
+    const locked = setLeafLocked(singleLeaf(), "leaf-1", true);
+    expect(setLeafLocked(locked, "leaf-1", false)).toEqual(singleLeaf());
+  });
+
   it("loses the lock to a reset, which leaves one group", () => {
     const locked = setLeafLocked(tree, "leaf-5", true);
     expect(asLeaf(mergeToSingleLeaf(locked, "leaf-5"))).not.toHaveProperty("locked");
@@ -626,10 +659,10 @@ describe("acceptsOpen", () => {
     expect(acceptsOpen({ ...leaf("leaf-1", ["files:base"]), locked: true })).toBe(false);
   });
 
-  it("takes an open into a locked group holding nothing", () => {
+  it("refuses an open into an empty locked group", () => {
     expect(
       acceptsOpen({ kind: "leaf", id: "leaf-1", tabs: [], activeTab: null, locked: true }),
-    ).toBe(true);
+    ).toBe(false);
   });
 });
 
