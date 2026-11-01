@@ -519,7 +519,8 @@ pub struct DeclaredObjects {
 ///
 /// The install's declarations come from the index, in the slot it is in. The declarations
 /// in the sandbox's layer files go before them (ADR-0056), and an install declaration in a
-/// chunk a layer ships is removed, because the build packs the layer's copy instead. With
+/// chunk a layer ships is removed, because the build packs the layer's copy instead. An
+/// object that a game data module creates is declared in the module's target chunk. With
 /// `document` open, the document's own declarations are added and every list is ordered as a
 /// link resolves it (ADR-0028): this file, then a file the bin depends on, then the rest.
 #[tauri::command]
@@ -546,6 +547,13 @@ pub async fn declared_objects(
             .collect();
 
         fold_layer_declarations(&app_handle, &sandbox, &object_hashes, &mut objects);
+        fold_module_creations(
+            &app_handle,
+            &sandbox,
+            index.as_deref(),
+            &object_hashes,
+            &mut objects,
+        );
         if let Some(document) = document {
             fold_own_declarations(&app_handle, document, &object_hashes, &mut objects)?;
         }
@@ -602,6 +610,32 @@ fn fold_layer_declarations(
     }
     document_assets::with_cache_names(app, |cache| {
         document_assets::sandbox(app, sandbox).join_declared(object_hashes, cache, objects);
+    });
+}
+
+/// Add the objects of `object_hashes` that the game data modules of `sandbox` create to
+/// `objects`, per [`Sandbox::join_created`].
+///
+/// A clone of an install object takes its class from `index`, so a clone is absent until the
+/// index is ready, and the check asks again when it is. A creation in a game chunk needs the
+/// game index to locate the chunk, and a read that needs the index builds it.
+fn fold_module_creations(
+    app: &AppHandle,
+    sandbox: &SandboxRef,
+    index: Option<&ObjectIndex>,
+    object_hashes: &[String],
+    objects: &mut HashMap<String, DeclaredObject>,
+) {
+    if sandbox.is_game() {
+        return;
+    }
+    let game = document_assets::game_index(app);
+    let snapshot = document_assets::sandbox(app, sandbox);
+    let assets = snapshot.assets(game.as_deref());
+    let install_class = |object| index.and_then(|index| index.class_of(object));
+
+    document_assets::with_names_in(app, sandbox, |names| {
+        snapshot.join_created(object_hashes, names, &assets, &install_class, objects);
     });
 }
 

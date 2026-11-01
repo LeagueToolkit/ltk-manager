@@ -959,6 +959,7 @@ ADR-0028, and the row says which outcome it has.
 | In this file                        | Opens the object tab over this asset                                     |
 | In a file this bin depends on       | Opens the object tab over that file                                      |
 | Elsewhere in the install or a layer | Opens the first declaration in archive order. The rest are in its header |
+| Created by a game data module       | Opens the module's target chunk, as the project builds it                |
 | Nowhere the index knows             | Dim hex, and no chip                                                     |
 
 Each page of rows checks its targets against the index in one call, the call the palette's

@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use super::Sandbox;
 use crate::bin_document::{AssetLookup, RowNames, hex};
-use crate::object_index::ObjectDeclaration;
+use crate::object_index::{DeclaredObject, ObjectDeclaration};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::Utf8PathRefExt as _;
 use ltk_manager_workshop::ProjectDir;
@@ -97,6 +97,45 @@ impl Sandbox {
         }
 
         list.objects
+    }
+
+    /// Adds each object of `object_hashes` that a module of the sandbox's layers creates to
+    /// `objects`, declared in the module's target chunk, after every declaration `objects` holds.
+    ///
+    /// The object index finds no object that a project creates, because no chunk of the game
+    /// holds it. `names`, `assets` and `install_class` are what [`Sandbox::module_objects`]
+    /// takes, and a creation it skips is not added.
+    pub fn join_created(
+        &self,
+        object_hashes: &[String],
+        names: &dyn RowNames,
+        assets: &dyn AssetLookup,
+        install_class: &dyn Fn(BinHash) -> Option<BinHash>,
+        objects: &mut HashMap<String, DeclaredObject>,
+    ) {
+        for created in self.module_objects(names, assets, install_class) {
+            if !object_hashes.contains(&created.object_hash) {
+                continue;
+            }
+            let ModuleObjectAction::Create { declaration } = created.action else {
+                continue;
+            };
+
+            let declared = objects
+                .entry(created.object_hash)
+                .or_insert_with(|| DeclaredObject {
+                    path: created.path,
+                    declarations: Vec::new(),
+                });
+            if declared
+                .declarations
+                .iter()
+                .any(|known| known.asset == declaration.asset)
+            {
+                continue;
+            }
+            declared.declarations.push(declaration);
+        }
     }
 }
 
