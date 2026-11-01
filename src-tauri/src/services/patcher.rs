@@ -36,9 +36,13 @@ pub struct PatcherConfig {
     /// Absolute paths to workshop project directories to include in the overlay.
     ///
     /// These are loaded directly from disk via `FsModContent` and prepended to
-    /// the enabled mod list (highest priority).
+    /// any explicitly included profile mods (highest priority).
     #[specta(optional)]
     pub workshop_projects: Option<Vec<String>>,
+    /// Include the active profile's enabled mods in a workshop test. Defaults to false.
+    /// Library sessions always include the profile.
+    #[specta(optional)]
+    pub include_profile: Option<bool>,
     /// The layers each workshop project is tested with, by project path.
     ///
     /// A project missing from the map is tested with every layer, and `base` is
@@ -51,10 +55,16 @@ pub struct PatcherConfig {
 }
 
 impl PatcherConfig {
+    fn includes_profile(&self) -> bool {
+        self.workshop_projects.as_ref().is_none_or(Vec::is_empty)
+            || self.include_profile.unwrap_or(false)
+    }
+
     /// The config a session ran with, for starting it again.
     pub(crate) fn from_stored(stored: StoredPatcherConfig, force_rebuild: bool) -> Self {
         Self {
             flags: stored.flags,
+            include_profile: Some(stored.include_profile),
             workshop_projects: stored.workshop_projects,
             workshop_layers: stored.workshop_layers,
             force_rebuild: Some(force_rebuild),
@@ -187,7 +197,9 @@ pub(crate) fn start_patcher_inner(
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
+    let include_profile = config.includes_profile();
     let stored_config = StoredPatcherConfig {
+        include_profile,
         flags: config.flags,
         workshop_projects: config.workshop_projects.clone(),
         workshop_layers: config.workshop_layers.clone(),
@@ -402,3 +414,6 @@ pub struct Table;
 pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     super::plugin::<Table>().build()
 }
+
+#[cfg(test)]
+mod tests;

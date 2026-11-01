@@ -6641,9 +6641,14 @@ export type PatcherConfig = {
 	 *  Absolute paths to workshop project directories to include in the overlay.
 	 * 
 	 *  These are loaded directly from disk via `FsModContent` and prepended to
-	 *  the enabled mod list (highest priority).
+	 *  any explicitly included profile mods (highest priority).
 	 */
 	workshopProjects?: string[] | null,
+	/**
+	 *  Include the active profile's enabled mods in a workshop test. Defaults to false.
+	 *  Library sessions always include the profile.
+	 */
+	includeProfile?: boolean | null,
 	/**
 	 *  The layers each workshop project is tested with, by project path.
 	 * 
@@ -8268,7 +8273,9 @@ export type SessionOrigin =
 /**  A workshop test over these project directories. */
 { kind: "workshop"; 
 /**  Absolute paths to the project directories under test. */
-projects: string[] };
+projects: string[]; 
+/**  Whether the test includes the active profile's enabled mods. */
+includeProfile?: boolean };
 
 /**
  *  The Riot Client opened a session, at the phase it opened in.

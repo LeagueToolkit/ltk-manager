@@ -102,7 +102,11 @@ impl IncidentPipeline {
         self.read_league_logs(&mut record);
         record.scan = self.scan_mode(&record);
 
-        let mods = self.mod_footprints();
+        let mods = if record.origin.includes_profile() {
+            self.mod_footprints()
+        } else {
+            Vec::new()
+        };
         let projects = self.project_footprints();
         let tables: OnceCell<Option<LayeredHashDb>> = OnceCell::new();
         let resolve_hash = |hash: u64| -> Option<String> {

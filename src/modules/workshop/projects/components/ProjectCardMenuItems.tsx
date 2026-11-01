@@ -56,6 +56,13 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
       </Menu.Item>
       <ProjectTestItem testState={testState} onTest={actions.handleTestProject} />
       <Menu.Item
+        icon={<PlayIcon className="size-4" />}
+        disabled={testState.kind !== "idle" || actions.isTesting}
+        onClick={actions.handleTestOverProfile}
+      >
+        {m.workshop_test_over_profile_action()}
+      </Menu.Item>
+      <Menu.Item
         icon={<PackageIcon weight="bold" className="size-4" />}
         disabled={actions.isPacking}
         onClick={actions.handlePack}

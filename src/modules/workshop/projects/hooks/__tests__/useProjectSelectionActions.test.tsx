@@ -73,6 +73,13 @@ describe("useProjectSelectionActions", () => {
     expect(testMutate.mock.calls[0][0]).toEqual({ projects: [PROJECTS[1]] });
   });
 
+  it("opts into the profile and clears the selected projects", () => {
+    pick(["two"]);
+    actions().testOverProfile();
+    expect(testMutate.mock.calls[0][0]).toEqual({ projects: [PROJECTS[1]], includeProfile: true });
+    expect(useWorkshopSelectionStore.getState().selectedPaths.size).toBe(0);
+  });
+
   /* The picks are spent by the press, because a menu that closes as it is
      pressed takes any completion callback down with it. */
   it("drops the picks as the run takes them", () => {

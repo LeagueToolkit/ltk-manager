@@ -164,7 +164,7 @@ impl Incident {
     fn origin_line(&self) -> String {
         let what = match &self.origin {
             SessionOrigin::Library => "library".to_string(),
-            SessionOrigin::Workshop { projects } => {
+            SessionOrigin::Workshop { projects, .. } => {
                 let names: Vec<&str> = projects
                     .iter()
                     .map(|path| {
@@ -342,6 +342,7 @@ mod tests {
     fn a_workshop_origin_names_the_projects() {
         let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
         incident.origin = SessionOrigin::Workshop {
+            include_profile: true,
             projects: vec![r"C:\workshop\aatrox-justicar".to_string()],
         };
         let text = incident.report_text("1.14.0", None, &[]);

@@ -1,7 +1,7 @@
-import { PlayIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, PlayIcon } from "@phosphor-icons/react";
 import { match } from "ts-pattern";
 
-import { Button, Tooltip } from "@/components";
+import { Button, ButtonGroup, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { useActiveProfile } from "@/modules/library";
 
@@ -33,25 +33,55 @@ function WorkshopTestButton() {
   const actions = useProjectSelectionActions();
   const testState = useWorkshopTestState();
   const { data: activeProfile } = useActiveProfile();
+  let profileLabel = m.workshop_test_over_profile_action();
+  let profileHint = profileLabel;
+  if (activeProfile) {
+    profileLabel = m.workshop_test_over_named_profile_action({ profile: activeProfile.name });
+    profileHint = m.workshop_list_test_hint({ count: actions.count, profile: activeProfile.name });
+  }
 
   /* Named with no project, so `useWorkshopTestState`'s "other" is simply the
      session the list started - there is no this-project for it to be other
      than. */
   return match(testState)
     .with({ kind: "idle" }, () => (
-      <Tooltip content={testHint(actions.count, activeProfile?.name)}>
-        <Button
-          variant="ghost"
-          size="sm"
-          left={<PlayIcon weight="bold" className="size-3.5" />}
-          loading={actions.testPending}
-          disabled={!actions.canTest}
-          onClick={actions.test}
-          className={testTint}
-        >
-          {m.workshop_header_test_action()}
-        </Button>
-      </Tooltip>
+      <ButtonGroup>
+        <Tooltip content={testHint(actions.count)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            left={<PlayIcon weight="bold" className="size-3.5" />}
+            loading={actions.testPending}
+            disabled={!actions.canTest}
+            onClick={actions.test}
+            className={testTint}
+          >
+            {m.workshop_header_test_action()}
+          </Button>
+        </Tooltip>
+        <Menu.Root>
+          <Tooltip content={profileHint}>
+            <Menu.Trigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={testTint}
+                  disabled={!actions.canTest || actions.testPending}
+                  aria-label={m.workshop_test_options_label()}
+                >
+                  <CaretDownIcon className="size-3.5" />
+                </Button>
+              }
+            />
+          </Tooltip>
+          <Menu.Content align="end">
+            <Menu.Item icon={<PlayIcon className="size-4" />} onClick={actions.testOverProfile}>
+              {profileLabel}
+            </Menu.Item>
+          </Menu.Content>
+        </Menu.Root>
+      </ButtonGroup>
     ))
     .with({ kind: "building-this" }, { kind: "building-other" }, () => <BuildingTestButton />)
     .with({ kind: "running-this" }, { kind: "running-other" }, () => <StopTestButton />)
@@ -71,13 +101,8 @@ function WorkshopTestButton() {
     .exhaustive();
 }
 
-/* A test layers the picks over the active profile's enabled mods, and the workshop
-   draws that profile nowhere else, so it is named where the run is started. */
-function testHint(count: number, profile: string | undefined): string {
+/** The primary action tests only the selected projects. */
+function testHint(count: number): string {
   if (count === 0) return m.workshop_list_test_empty_hint();
-
-  return m.workshop_list_test_hint({
-    count,
-    profile: profile ?? m.workshop_list_default_profile_label(),
-  });
+  return m.workshop_list_test_alone_hint({ count });
 }

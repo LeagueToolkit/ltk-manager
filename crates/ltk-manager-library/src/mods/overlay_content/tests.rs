@@ -178,7 +178,7 @@ fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_missing_mod() {
     };
     crate::mods::index::document::save_library_index(storage.path(), &index).unwrap();
 
-    let (_slug, enabled) = library.get_enabled_mods_for_overlay(&config).unwrap();
+    let (_slug, enabled) = library.get_enabled_mods_for_overlay(&config, true).unwrap();
     let ids: Vec<&str> = enabled.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, vec!["keep"]);
 }
@@ -210,4 +210,27 @@ fn a_pre_migration_fantome_is_still_read_out_of_its_archive() {
 
     assert_eq!(wads, vec!["aatrox.wad.client", "ashe.wad.client"]);
     assert!(!override_digest_set(provider.as_mut()).unwrap().is_empty());
+}
+
+#[test]
+fn an_alone_test_does_not_open_enabled_profile_mods() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    place_unpacked_mod(storage.path(), "broken", false);
+    crate::mods::test_support::seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("broken", "broken")],
+    );
+    fs::write(
+        storage.path().mods_dir().join("broken/mod.config.json"),
+        b"invalid metadata",
+    )
+    .unwrap();
+
+    let (_, mods) = library
+        .get_enabled_mods_for_overlay(&config, false)
+        .unwrap();
+    assert!(mods.is_empty());
+    assert!(library.get_enabled_mods_for_overlay(&config, true).is_err());
 }

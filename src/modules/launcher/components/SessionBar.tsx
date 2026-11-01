@@ -21,6 +21,7 @@ import {
   useChromeSlotFilled,
 } from "@/components";
 import { usePlatformSupport } from "@/hooks";
+import { m } from "@/i18n";
 import type { Incident, VerdictKind } from "@/lib/tauri";
 import {
   ConsequenceChip,
@@ -45,6 +46,7 @@ import {
 
 import { useCancelLaunch, useLaunchAvailability, useLaunchProgress } from "../api";
 import { deriveSessionView, type SessionView, type StepState } from "../utils/sessionView";
+import { SessionProfileLabel } from "./SessionProfileLabel";
 
 const dotClasses: Record<StepState, string> = {
   pending: "border border-surface-600 bg-transparent",
@@ -154,6 +156,7 @@ function TestingPill({ className }: { className?: string }) {
           return (
             <Badge size="md" tone="accent" className={className}>
               {label}
+              <SessionProfileLabel />
             </Badge>
           );
         }}
@@ -188,7 +191,12 @@ function LineActions({
       <Button variant="ghost" size="xs" onClick={onAction} className="h-5">
         {label}
       </Button>
-      <IconButton icon={<XIcon />} onClick={onDismiss} aria-label="Dismiss" size="row" />
+      <IconButton
+        icon={<XIcon />}
+        onClick={onDismiss}
+        aria-label={m.launcher_session_dismiss()}
+        size="row"
+      />
     </div>
   );
 }
@@ -217,7 +225,9 @@ function VerdictLine({ incident }: { incident: Incident }) {
   return (
     <RestingLine part="verdict">
       <VerdictGlyph kind={verdict.kind} />
-      <span className="shrink-0 font-medium text-surface-300">League closed</span>
+      <span className="shrink-0 font-medium text-surface-300">
+        {m.launcher_session_league_closed()}
+      </span>
       <Middot />
       <span className="shrink-0 text-surface-200">{verdict.title}</span>
       {verdict.subject && (
@@ -239,7 +249,7 @@ function VerdictLine({ incident }: { incident: Incident }) {
       )}
       <ConsequenceChip consequence={verdict.consequence} />
       <LineActions
-        label="Details"
+        label={m.launcher_session_details()}
         onAction={() =>
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })
         }
@@ -277,7 +287,7 @@ function FailureLine({ failure }: { failure: PatcherFailure }) {
         {failure.title ?? patcherFailureTitle(failure.stage)}
       </span>
       <LineActions
-        label="Diagnostics"
+        label={m.launcher_session_diagnostics()}
         onAction={() =>
           navigate({ to: "/diagnostics", search: { tab: patcherFailureTab(failure.stage) } })
         }
@@ -288,8 +298,8 @@ function FailureLine({ failure }: { failure: PatcherFailure }) {
 }
 
 function cancelLabel(cancelling: boolean): string {
-  if (cancelling) return "Cancelling...";
-  return "Cancel";
+  if (cancelling) return m.launcher_session_cancelling();
+  return m.launcher_session_cancel();
 }
 
 /**
@@ -310,7 +320,7 @@ function CancelLaunchButton() {
   const cancelling = step === "cancelling";
 
   return (
-    <Tooltip content="Stop waiting for the Riot Client. A request it already took still starts a game.">
+    <Tooltip content={m.launcher_session_cancel_hint()}>
       <Button variant="ghost" size="xs" onClick={() => cancelLaunch.mutate()} disabled={cancelling}>
         {cancelLabel(cancelling)}
       </Button>
@@ -377,8 +387,12 @@ export function SessionBar() {
     .with({ kind: "stopping" }, () => (
       <RestingLine>
         <Spinner size={14} className="shrink-0" />
-        <span className="font-medium text-surface-300">Stopping patcher</span>
-        <span className="text-surface-500">Waiting for the injector to shut down...</span>
+        <span className="font-medium text-surface-300">
+          {m.launcher_session_stopping_patcher()}
+        </span>
+        <span className="text-surface-500">
+          {m.launcher_session_waiting_for_the_injector_to_shut_down()}
+        </span>
       </RestingLine>
     ))
     .with({ kind: "verdict" }, ({ incident }) => <VerdictLine incident={incident} />)
@@ -386,19 +400,19 @@ export function SessionBar() {
     .with({ kind: "idle" }, ({ hint }) => (
       <RestingLine>
         <span className="inline-flex size-2 shrink-0 rounded-full border border-surface-600" />
-        <span className="font-medium text-surface-300">Patcher idle</span>
+        <span className="font-medium text-surface-300">{m.launcher_session_patcher_idle()}</span>
         <span className="text-surface-500">{hint}</span>
       </RestingLine>
     ))
     .with({ kind: "inGame" }, ({ hint, version }) => (
       <RestingLine>
         <span className="inline-flex size-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
-        <span className="font-medium text-success-text">In game</span>
+        <span className="font-medium text-success-text">{m.launcher_session_in_game()}</span>
         <span className="text-surface-400">{hint}</span>
         <span className="ml-auto flex items-center gap-2">
           <TestingPill />
           {version && (
-            <Tooltip content="Content release the Riot Client reports for this session. It changes when the game patches, which is what usually breaks a mod.">
+            <Tooltip content={m.launcher_session_content_release_hint()}>
               <span className="font-mono text-xs text-surface-500 select-text">{version}</span>
             </Tooltip>
           )}
@@ -408,8 +422,12 @@ export function SessionBar() {
     .with({ kind: "running" }, () => (
       <RestingLine>
         <span className="inline-flex size-2 shrink-0 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
-        <span className="font-medium text-success-text">Patcher running</span>
-        <span className="text-surface-400">Your mods will be applied when League starts.</span>
+        <span className="font-medium text-success-text">
+          {m.launcher_session_patcher_running()}
+        </span>
+        <span className="text-surface-400">
+          {m.launcher_session_your_mods_will_be_applied_when_league_starts()}
+        </span>
         <TestingPill className="ml-auto" />
       </RestingLine>
     ))
@@ -456,7 +474,7 @@ function ProgressLine({ work }: { work: Extract<SessionView, { kind: "progress" 
 }
 
 function describeTestingProjects(names: string[]): string | null {
-  if (names.length === 1) return `Testing ${names[0]}`;
-  if (names.length > 1) return `Testing ${names.length} projects`;
+  if (names.length === 1) return m.launcher_session_testing_project({ name: names[0] });
+  if (names.length > 1) return m.launcher_session_testing_projects({ count: names.length });
   return null;
 }
