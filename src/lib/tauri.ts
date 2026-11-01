@@ -124,6 +124,7 @@ export const api = {
 
   // Settings
   getSettings: settings.getSettings,
+  getPatchStatus: settings.getPatchStatus,
   getDefaultSettings: settings.getDefaultSettings,
   saveSettings: settings.saveSettings,
   autoDetectLeaguePath: settings.autoDetectLeaguePath,

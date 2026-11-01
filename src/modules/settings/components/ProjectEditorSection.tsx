@@ -17,6 +17,7 @@ import {
 } from "@/stores";
 
 import { useLoadedSettings, useUpdateSettings } from "../api";
+import { ComingPatchStatus } from "./ComingPatchStatus";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 
@@ -32,38 +33,39 @@ export function ProjectEditorSection() {
 
   return (
     <SectionCard
-      title="Project editor"
+      title={m.settings_project_editor_title()}
       icon={<TabsIcon className="size-5" />}
-      description="Options for the editor you open a project in"
+      description={m.settings_project_editor_description()}
     >
       <SettingGroup id="workshop.behavior" title={m.settings_project_behavior_title()}>
         <SettingRow
           setting="layout.previewOnClick"
-          description="A click opens the file in one replaceable tab, and a double click keeps it."
-          hint="Off, a click selects the row and a double click opens a tab of its own."
+          description={m.settings_preview_on_click_description()}
+          hint={m.settings_preview_on_click_hint()}
           control={<Switch checked={previewOnClick} onCheckedChange={setPreviewOnClick} />}
         />
 
         <SettingRow
           setting="layout.searchGame"
-          description="The project bar reads every file of the install alongside your own."
-          hint="The first search of a session indexes every archive, which takes a moment. Your project, layers, strings and commands are searched either way."
+          description={m.settings_search_game_description()}
+          hint={m.settings_search_game_hint()}
           control={<Switch checked={searchGame} onCheckedChange={setSearchGame} />}
         />
 
         <SettingRow
           setting="layout.searchObjects"
-          description="The project bar reads every bin object the install declares."
-          hint="Building the index reads every bin of the install once a session, after the game index, and takes a few seconds."
+          description={m.settings_search_objects_description()}
+          hint={m.settings_search_objects_hint()}
           control={<Switch checked={searchObjects} onCheckedChange={setSearchObjects} />}
         />
 
         <SettingRow
           setting="layout.forwardLookingMeta"
-          description="Lists what a coming patch will break, dimmed, alongside what is wrong today."
-          hint="Riot changes how bin files store some of their values from one patch to the next. These findings are about a patch your game has not taken yet, so Problems dims them and leaves them out of the count beside Test, and repairing one early breaks the mod on the patch you play. Problems carries the same switch under its filter box whenever a project has some, which is the quicker way to turn them off for one sitting."
+          description={m.settings_forward_looking_description()}
+          hint={m.settings_forward_looking_hint()}
           control={<Switch checked={forwardLookingMeta} onCheckedChange={setForwardLookingMeta} />}
         />
+        <ComingPatchStatus />
       </SettingGroup>
 
       <ViewportGroup />

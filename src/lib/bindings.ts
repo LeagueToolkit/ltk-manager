@@ -6616,6 +6616,15 @@ export type PatchSprite = {
 	height: number,
 };
 
+/**  The newest supported content build and the configured install's patch. */
+export type PatchStatus = {
+	knownBuild: number,
+	knownPatch: string | null,
+	installedPatch: string | null,
+	installConfigured: boolean,
+	waitingPatch: string | null,
+};
+
 /**  Patcher identities */
 export type PatcherBinaries = PatcherBinaries_Serialize | PatcherBinaries_Deserialize;
 
