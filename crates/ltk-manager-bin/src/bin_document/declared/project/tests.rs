@@ -144,6 +144,49 @@ fn load_chosen_leaves_out_the_declarations_of_other_layers() {
 }
 
 #[test]
+fn load_chosen_applies_the_last_chosen_layer_that_declares_a_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    let root = dir.path();
+    let config = fs::read_to_string(root.join("mod.config.json")).unwrap();
+    let mut config: serde_json::Value = serde_json::from_str(&config).unwrap();
+    config["layers"] = serde_json::json!([
+        { "name": "base", "priority": 0 },
+        { "name": "evil-sunz", "priority": 1 },
+        { "name": "blood-axes", "priority": 2 },
+    ]);
+    fs::write(root.join("mod.config.json"), config.to_string()).unwrap();
+    for (layer, glow) in [("base", 0.1), ("evil-sunz", 0.2), ("blood-axes", 0.3)] {
+        fs::create_dir_all(root.join("content").join(layer)).unwrap();
+        fs::write(
+            root.join("content").join(layer).join("game_data.yaml"),
+            format!(
+                "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: {glow}\n"
+            ),
+        )
+        .unwrap();
+    }
+    let chosen_of = |chosen: Option<&[String]>| {
+        let read = ProjectDeclarations::load_chosen(
+            &project,
+            chosen,
+            PatchSchema::new(meta_schema::shared(None), None),
+            Game::naming(&[SKIN]),
+        )
+        .unwrap();
+        glow(read.declared_asset(&game_chunk(), game_bin()))
+    };
+
+    assert!((chosen_of(None) - 0.3).abs() < f32::EPSILON);
+
+    let lower = ["base".to_owned(), "evil-sunz".to_owned()];
+    assert!((chosen_of(Some(&lower)) - 0.2).abs() < f32::EPSILON);
+
+    let base = ["base".to_owned()];
+    assert!((chosen_of(Some(&base)) - 0.1).abs() < f32::EPSILON);
+}
+
+#[test]
 fn declared_asset_leaves_a_loose_file_as_it_is() {
     let dir = tempfile::tempdir().unwrap();
     let declarations = declarations(
