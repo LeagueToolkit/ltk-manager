@@ -41,6 +41,9 @@ struct Store {
     bound: NonZeroUsize,
     /// The tree each id is over. An id whose tree was evicted reads as not open.
     ids: HashMap<BinDocumentId, TreeKey>,
+    /// The layer subset each id over a layer file reads in. That tree's key names the project,
+    /// because every sandbox shares one tree and one save of a layer file.
+    subsets: HashMap<BinDocumentId, SandboxRef>,
     trees: LruCache<TreeKey, OpenTree>,
 }
 
@@ -71,6 +74,7 @@ impl TreeKey {
         document
             .read_only(&self.asset)
             .or_else(|| self.sandbox.is_game().then_some(ReadOnly::GameSandbox))
+            .or_else(|| self.sandbox.layers().map(|_| ReadOnly::LayerSubset))
     }
 
     /// The key after `project`'s layer `from` became `to`, or `None` for a key of another
@@ -137,6 +141,8 @@ impl Store {
             Some(key) => {
                 self.trees.pop(&key);
                 self.ids.retain(|_, over| *over != key);
+                let ids = &self.ids;
+                self.subsets.retain(|id, _| ids.contains_key(id));
             }
             None => self.trees.resize(self.trees.cap().saturating_add(1)),
         }
@@ -151,10 +157,13 @@ impl Store {
         }
     }
 
-    /// A fresh id over `key`.
-    fn issue(&mut self, key: TreeKey) -> BinDocumentId {
+    /// A fresh id over `key`, opened in `sandbox`.
+    fn issue(&mut self, key: TreeKey, sandbox: &SandboxRef) -> BinDocumentId {
         let id = BinDocumentId(self.next);
         self.next = self.next.wrapping_add(1);
+        if sandbox.layers().is_some() && matches!(key.asset, AssetRef::Layer { .. }) {
+            self.subsets.insert(id, sandbox.clone());
+        }
         self.ids.insert(id, key);
         id
     }
@@ -186,6 +195,7 @@ impl BinDocuments {
                 next: 0,
                 bound: capacity,
                 ids: HashMap::new(),
+                subsets: HashMap::new(),
                 trees: LruCache::new(capacity),
             }),
         }
@@ -208,7 +218,7 @@ impl BinDocuments {
         asset: AssetRef,
         bytes: impl FnOnce() -> AppResult<Vec<u8>>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset)?, || {
+        self.hold(sandbox, TreeKey::new(sandbox, asset)?, || {
             Ok(BinDocument::parse(bytes()?)?)
         })
     }
@@ -229,7 +239,7 @@ impl BinDocuments {
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<(Vec<u8>, DeclareContext)>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset)?, || {
+        self.hold(sandbox, TreeKey::new(sandbox, asset)?, || {
             let (bytes, context) = open()?;
             Ok(BinDocument::declare(bytes, chunk_hash, context)?)
         })
@@ -251,15 +261,16 @@ impl BinDocuments {
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<VariantSource>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset)?, || {
+        self.hold(sandbox, TreeKey::new(sandbox, asset)?, || {
             Ok(BinDocument::declare_variant(open()?, chunk_hash)?)
         })
     }
 
     /// Hold `key` open over the tree `parse` answers, which runs only while no id is
-    /// over the tree.
+    /// over the tree. `sandbox` is the sandbox the open asked for.
     fn hold(
         &self,
+        sandbox: &SandboxRef,
         key: TreeKey,
         parse: impl FnOnce() -> AppResult<BinDocument>,
     ) -> AppResult<BinDocumentId> {
@@ -267,7 +278,7 @@ impl BinDocuments {
             let mut store = self.inner.lock();
             if let Some(tree) = store.trees.get_mut(&key) {
                 tree.holders += 1;
-                return Ok(store.issue(key));
+                return Ok(store.issue(key, sandbox));
             }
         }
 
@@ -285,7 +296,7 @@ impl BinDocuments {
                 store.trees.push(key.clone(), tree);
             }
         }
-        Ok(store.issue(key))
+        Ok(store.issue(key, sandbox))
     }
 
     /// Read the document under one id. The read marks its asset the most recently used.
@@ -511,13 +522,47 @@ impl BinDocuments {
         document.save_to(&path?)
     }
 
-    /// The sandbox the document under one id is held in, or `None` where `id` is closed or
-    /// its tree was evicted.
+    /// The sandbox the document under one id reads in, or `None` where `id` is closed or its
+    /// tree was evicted.
     ///
-    /// A layer file is held in its project's sandbox, and a loose file in the game's.
+    /// A layer file reads in the layer subset that opened it, else in its project's sandbox. A
+    /// loose file reads in the game's.
     #[must_use]
     pub fn sandbox_of(&self, id: BinDocumentId) -> Option<SandboxRef> {
-        self.key_of(id).map(|key| key.sandbox)
+        let subset = self.inner.lock().subsets.get(&id).cloned();
+
+        self.key_of(id).map(|key| subset.unwrap_or(key.sandbox))
+    }
+
+    /// Reads every game chunk of `project`'s layer subsets again through `bytes`, whose
+    /// declarations `project`'s layers may have changed.
+    ///
+    /// A tree whose read fails is logged and kept. These trees hold no edit to lose.
+    pub fn reload_subsets(
+        &self,
+        project: &str,
+        bytes: impl Fn(&SandboxRef, &AssetRef) -> AppResult<Vec<u8>>,
+    ) {
+        let subsets: Vec<(TreeKey, Arc<RwLock<BinDocument>>)> = self
+            .inner
+            .lock()
+            .trees
+            .iter()
+            .filter(|(key, _)| key.sandbox.layers().is_some())
+            .filter(|(key, _)| key.sandbox.project() == Some(project))
+            .map(|(key, tree)| (key.clone(), Arc::clone(&tree.document)))
+            .collect();
+
+        for (key, document) in subsets {
+            let read =
+                bytes(&key.sandbox, &key.asset).and_then(|bytes| Ok(BinDocument::parse(bytes)?));
+            match read {
+                Ok(fresh) => *document.write() = fresh,
+                Err(error) => {
+                    tracing::warn!(asset = ?key.asset, %error, "A layer subset keeps a stale bin")
+                }
+            }
+        }
     }
 
     /// The asset under one id, or `None` where `id` is closed or its tree was evicted.
@@ -586,6 +631,7 @@ impl BinDocuments {
     /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
     pub fn close(&self, id: BinDocumentId) {
         let mut store = self.inner.lock();
+        store.subsets.remove(&id);
         let Some(key) = store.ids.remove(&id) else {
             return;
         };
@@ -606,6 +652,7 @@ impl BinDocuments {
     pub fn close_all(&self) {
         let mut store = self.inner.lock();
         store.ids.clear();
+        store.subsets.clear();
 
         let clean: Vec<TreeKey> = store
             .trees

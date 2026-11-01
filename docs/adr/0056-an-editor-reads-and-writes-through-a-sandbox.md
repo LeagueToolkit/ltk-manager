@@ -47,8 +47,9 @@ Riot's own editor calls this source a sandbox and shows it above the document as
 | Game    | The installed game                     | Nothing               |
 | Project | Every layer of a project over the game | Into the target layer |
 
-The wire type reserves a third kind, one layer over the game. It has no entry point until a task
-needs it.
+A third kind, a layer subset, reads the chosen layers of a project over the game. A game chunk no
+chosen layer ships opens read-only, because the chosen target layer may be outside the subset. A
+layer file keeps its one tree and one save, and each id over it records the subset it reads in.
 
 **A project sandbox shows the project's own build output.** It stacks the project's layers over
 the game in `ModProjectLayer::apply_order`, the order the overlay uses. Other enabled mods and the
@@ -61,8 +62,8 @@ overrides shows a mark with the declaring layer and the value it sets. A declare
 ADR-0042, exists only for a chunk that no layer ships, so it always starts from the game's copy.
 
 **The backend owns the sandbox,** as ADR-0026 already has it own the open documents. A `SandboxRef`
-identifies one on the wire: `{ kind: "game" } | { kind: "project", project } | { kind: "layer",
-project, layer }`. Core's `SandboxState` keeps one `Sandbox` snapshot per `SandboxRef`. A snapshot
+identifies one on the wire: `{ kind: "game" } | { kind: "project", project } | { kind: "layers",
+project, layers }`. Core's `SandboxState` keeps one `Sandbox` snapshot per `SandboxRef`. A snapshot
 holds the layer stack and provides the interfaces the editor already reads through: an
 `AssetLookup` over the stack and the game index, the project's names, and the objects its layer
 bins declare. `GameCopy` stays the install's, because every sandbox reads the same install. A

@@ -267,7 +267,7 @@ fn a_layer_skeleton_names_its_joints_for_every_layer_scan() {
     )
     .expect("skeleton");
 
-    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+    let chunks = LayerChunks::scan_layers(dir.path(), &["extra".to_owned()]);
 
     assert_eq!(chunks.value(BinHash::hash_str("Root")), Some("Root"));
     assert_eq!(
@@ -293,7 +293,7 @@ fn a_layer_file_that_is_no_skeleton_names_no_joint() {
 fn a_layer_scan_names_what_another_layer_declares() {
     let dir = declaring_graph();
 
-    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+    let chunks = LayerChunks::scan_layers(dir.path(), &["extra".to_owned()]);
 
     assert_eq!(
         chunks.value(BinHash::hash_str("Crit_Melee")),
@@ -442,7 +442,7 @@ fn one_layer_scanned_alone_holds_its_own_files_only() {
         &[("base", 0), ("extra", 1)],
     );
 
-    let chunks = LayerChunks::scan_layer(dir.path(), "extra");
+    let chunks = LayerChunks::scan_layers(dir.path(), &["extra".to_owned()]);
 
     assert_eq!(chunks.asset_at("assets/x.tex"), None);
     assert!(chunks.asset_at("assets/y.tex").is_some());

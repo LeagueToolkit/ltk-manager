@@ -12,6 +12,7 @@ use ltk_mod_project::game_data::{LayerDeclarations, load_layer};
 use super::diagnostics::Raised;
 use super::{GameCopy, edits_on, read_entry};
 use crate::meta_schema::PatchSchema;
+use crate::sandbox::layer_chunk_hash;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 use ltk_manager_workshop::ProjectDir;
@@ -35,10 +36,25 @@ impl ProjectDeclarations {
         schema: PatchSchema,
         game: Arc<dyn GameCopy>,
     ) -> AppResult<Self> {
+        Self::load_chosen(project, None, schema, game)
+    }
+
+    /// The declarations of the `chosen` layers of `project`, or of every layer with `None`.
+    ///
+    /// # Errors
+    ///
+    /// Fails where the project's config or ignore rules cannot be read.
+    pub fn load_chosen(
+        project: &ProjectDir,
+        chosen: Option<&[String]>,
+        schema: PatchSchema,
+        game: Arc<dyn GameCopy>,
+    ) -> AppResult<Self> {
         let root = project.path().try_as_utf8("project directory")?;
         let ignore = project.ignore_filter()?;
 
         let mut layers = project.config()?.layers;
+        layers.retain(|layer| chosen.is_none_or(|chosen| chosen.contains(&layer.name)));
         layers.sort_by(ModProjectLayer::apply_order);
         let layers = layers
             .into_iter()
@@ -113,29 +129,38 @@ impl ProjectDeclarations {
             .map(Some)
     }
 
+    /// Returns `true` if no layer of the project holds a declaration.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.layers
+            .iter()
+            .all(|(_, loaded)| !matches!(&loaded.declarations, Ok(Some(_))))
+    }
+
     /// Returns `bytes`, the file at `asset`, with every layer's declarations applied if `asset`
-    /// is a game bin chunk that a declaration reaches.
+    /// is a game bin chunk or a layer bin that a declaration reaches, as the build applies them.
     ///
     /// Returns `bytes` unchanged for any other asset. If a declaration does not apply, logs a
-    /// warning and returns the game's copy, as the declared document raises it where it is
-    /// edited.
+    /// warning and returns `bytes`, as the declared document raises it where it is edited.
     #[must_use]
     pub fn declared_asset(&self, asset: &AssetRef, bytes: Vec<u8>) -> Vec<u8> {
-        let AssetRef::GameChunk { path_hash, .. } = asset else {
-            return bytes;
-        };
         if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
             return bytes;
         }
-        let Some(chunk_hash) = asset.chunk_hash() else {
+        let chunk_hash = match asset {
+            AssetRef::GameChunk { .. } => asset.chunk_hash().map(|hash| hash.0),
+            AssetRef::Layer { .. } => layer_chunk_hash(asset),
+            AssetRef::File { .. } | AssetRef::LcuChunk { .. } => None,
+        };
+        let Some(chunk_hash) = chunk_hash else {
             return bytes;
         };
 
-        match self.apply(&bytes, chunk_hash.0) {
+        match self.apply(&bytes, chunk_hash) {
             Ok(Some(applied)) => applied,
             Ok(None) => bytes,
             Err(error) => {
-                tracing::warn!(%path_hash, %error, "A preview draws a chunk undeclared");
+                tracing::warn!(?asset, %error, "A preview draws a bin undeclared");
                 bytes
             }
         }

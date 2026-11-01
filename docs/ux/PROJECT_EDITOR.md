@@ -2448,11 +2448,8 @@ gives the reason for.
 
 **The explorer's own three sit in a session store, not in `.ltk/editor.json`.** The location,
 the filter and the selection are keyed by an explorer id - `game`, or `game-wad:<name>` - in the
-store that already holds the browser's expansion and its scroll, for the reason that store
-gives: the first preview a row opens splits a group off beside it, and a leaf that gains a split
-around it remounts everything under it. A document holding its own location would land back at
-the root on the very double click that opened the file. What that costs is a restart, which
-forgets where each explorer was. Writing the location through to the file is what the rule above
+store that already holds the browser's expansion and its scroll. What that costs is a restart,
+which forgets where each explorer was. Writing the location through to the file is what the rule above
 asks for and is still open.
 
 The layer file tree of the side panel is not a document either, so its location joins the
@@ -3899,8 +3896,8 @@ The arrow keys, `Home` and `End` move the selection through the tree and the gri
 opens the selection as a click does. A particle system the keyboard selection rests on for
 250 milliseconds opens as the preview tab, the way a click previews it, and focus stays in the
 browser, so the next key keeps browsing. Other kinds of object open only on `Enter`. With
-preview on click off, the keys only select. An open that splits the browser's group remounts
-the browser, and the selection is revealed and focused again.
+preview on click off, the keys only select. An open that splits the browser's group keeps the
+browser mounted, with its selection, scroll and focus.
 
 | Item              | Does                                               |
 | ----------------- | -------------------------------------------------- |

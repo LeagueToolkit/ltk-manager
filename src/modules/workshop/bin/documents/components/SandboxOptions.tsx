@@ -25,7 +25,12 @@ import { assetKey } from "../../../preview/utils/assetRef";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { sandboxKeys } from "../../../sandbox/api/keys";
 import { useRouteSandbox } from "../../../sandbox/state/SandboxContext";
-import { GAME_SANDBOX, sameSandbox } from "../../../sandbox/utils/sandboxRef";
+import {
+  GAME_SANDBOX,
+  inBuildOrder,
+  sameSandbox,
+  withLayerChosen,
+} from "../../../sandbox/utils/sandboxRef";
 import {
   useEditorDocument,
   useReplaceDocument,
@@ -36,7 +41,7 @@ import { entryChunkPath } from "../../links/hooks/useLinkTargets";
 import { useDeclareInto, useDeclaredState } from "../hooks/useDeclared";
 import type { ProjectSwitch } from "../state/projectSwitch";
 import { choiceLabel } from "../utils/declaredModule";
-import { DeclaredChoices } from "./DeclaredChoices";
+import { ChoiceSubmenu, DeclaredChoices } from "./DeclaredChoices";
 import { SandboxFiles, useDeclaringFiles } from "./SandboxFiles";
 import { SandboxRadioItem } from "./SandboxRadioItem";
 
@@ -72,6 +77,7 @@ interface WriteTarget {
  * - Read from: the project and the game. Picking one switches the tab in place, an object tab
  *   to the file that sandbox resolves its object to. The game is disabled for a file or an
  *   object the install has no copy of.
+ * - Layers: which layers of the project the tab stacks, which the viewport draws.
  * - For an object several files declare, the files, which switch the tab in place.
  * - For a declared document, the layer edits write to and the module their new keys join,
  *   disabled with the reason above them while the document takes no edit.
@@ -83,10 +89,7 @@ export function SandboxOptions({ documentId, handle }: SandboxOptionsProps) {
   const { sandbox } = handle;
   const project = useOptionalProjectContext();
   const declared = useDeclaredState(handle.document);
-  const name =
-    sandbox.kind === "game" || project === null
-      ? m.workshop_bin_sandbox_game_label()
-      : project.displayName;
+  const name = sandboxName(sandbox, project);
   const target = writeTarget(handle, declared, project);
 
   return (
@@ -119,6 +122,21 @@ export function SandboxOptions({ documentId, handle }: SandboxOptionsProps) {
       </Menu.Root>
     </span>
   );
+}
+
+/** The name the button shows: the game, the project, or the project and its chosen layers. */
+function sandboxName(
+  sandbox: SandboxRef,
+  project: ReturnType<typeof useOptionalProjectContext>,
+): string {
+  if (sandbox.kind === "game" || project === null) return m.workshop_bin_sandbox_game_label();
+  if (sandbox.kind === "project") return project.displayName;
+
+  return m.workshop_bin_sandbox_layers_name_label({
+    name: project.displayName,
+    shown: sandbox.layers.length,
+    total: project.layers.length,
+  });
 }
 
 /** Where the next edit of the tab lands, or null for a tab that takes no edit. */
@@ -270,6 +288,7 @@ function SandboxChoice({ documentId, handle }: { documentId: string; handle: Bin
           </SandboxRadioItem>
         </Menu.RadioGroup>
       </Menu.Group>
+      {asset !== null && !inGame && <SandboxLayers documentId={documentId} tab={asset} />}
       {object !== null && (
         <SandboxFiles
           files={inGame ? files.inGame : files.inRoute}
@@ -279,6 +298,49 @@ function SandboxChoice({ documentId, handle }: { documentId: string; handle: Bin
         />
       )}
     </>
+  );
+}
+
+/**
+ * The project's layers as switches that choose what the tab stacks over the game. The layer of
+ * the tab's file and the last chosen layer are disabled. Left out for a project of one layer.
+ */
+function SandboxLayers({ documentId, tab }: { documentId: string; tab: AssetTab }) {
+  const route = useRouteSandbox();
+  const project = useOptionalProjectContext();
+  const replace = useReplaceDocument();
+  const layers = useMemo(() => inBuildOrder(project?.layers ?? []), [project]);
+
+  if (project === null || layers.length < 2) return null;
+
+  const all = layers.map((layer) => layer.name);
+  const sandbox = tab.sandbox ?? route;
+  const chosen = sandbox.kind === "layers" ? sandbox.layers : all;
+  const ownLayer = tab.asset.kind === "layer" ? tab.asset.layer : null;
+
+  return (
+    <ChoiceSubmenu
+      label={m.workshop_bin_sandbox_layers_label()}
+      value={m.workshop_bin_sandbox_marks_count_label({ shown: chosen.length, total: all.length })}
+    >
+      {layers.map((layer) => {
+        const on = chosen.includes(layer.name);
+
+        return (
+          <Menu.CheckboxItem
+            key={layer.name}
+            checked={on}
+            disabled={layer.name === ownLayer || (on && chosen.length === 1)}
+            onCheckedChange={(checked) => {
+              const next = withLayerChosen(sandbox, project.path, all, layer.name, checked);
+              replace(documentId, inSandbox(tab, next, route));
+            }}
+          >
+            {layerTitle(project, layer.name)}
+          </Menu.CheckboxItem>
+        );
+      })}
+    </ChoiceSubmenu>
   );
 }
 

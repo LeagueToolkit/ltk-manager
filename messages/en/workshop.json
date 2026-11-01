@@ -2112,6 +2112,8 @@
   "workshop_bin_sandbox_game_label": "Game",
   "workshop_bin_sandbox_game_missing_hint": "The installed game has no copy of this file",
   "workshop_bin_sandbox_label": "Sandbox",
+  "workshop_bin_sandbox_layers_label": "Layers",
+  "workshop_bin_sandbox_layers_name_label": "{name}, {shown} of {total} layers",
   "workshop_bin_sandbox_marks_count_label": "{shown} of {total}",
   "workshop_bin_sandbox_marks_label": "Mark changes from",
   "workshop_bin_sandbox_module_label": "Module",

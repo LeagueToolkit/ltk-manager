@@ -1,3 +1,4 @@
+import type { SandboxRef } from "@/lib/tauri";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state. */
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
@@ -124,23 +125,25 @@ export function renamedDocument(
       return document.layerName === from ? stringsDocument(to, document.locale) : document;
     case "preview":
     case "object": {
-      const { asset } = document;
-      if (asset.kind !== "layer" || asset.layer !== from) return document;
+      const sandbox = renamedSubset(document.sandbox, from, to);
+      const held = sandbox === document.sandbox ? document : { ...document, sandbox };
+      const { asset } = held;
+      if (asset.kind !== "layer" || asset.layer !== from) return held;
 
       const moved = { ...asset, layer: to };
-      if (document.kind === "object") {
+      if (held.kind === "object") {
         return objectDocument(
           moved,
-          document.objectHash,
-          document.objectPath,
-          document.file,
-          document.objectClass ?? null,
-          document.sandbox,
+          held.objectHash,
+          held.objectPath,
+          held.file,
+          held.objectClass ?? null,
+          sandbox,
         );
       }
       return {
-        ...document,
-        id: previewDocumentId(moved, document.sandbox),
+        ...held,
+        id: previewDocumentId(moved, sandbox),
         asset: moved,
         context: assetContext(moved),
         path: assetPath(moved),
@@ -149,6 +152,17 @@ export function renamedDocument(
     default:
       return document;
   }
+}
+
+/** `sandbox` with the layer `from` named `to`, or `sandbox` itself when it does not choose `from`. */
+function renamedSubset(
+  sandbox: SandboxRef | undefined,
+  from: string,
+  to: string,
+): SandboxRef | undefined {
+  if (sandbox?.kind !== "layers" || !sandbox.layers.includes(from)) return sandbox;
+
+  return { ...sandbox, layers: sandbox.layers.map((layer) => (layer === from ? to : layer)) };
 }
 
 function renamedTabs(node: LayoutNode, id: (held: string) => string): LayoutNode {

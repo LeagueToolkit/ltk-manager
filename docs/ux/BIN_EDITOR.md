@@ -3054,10 +3054,11 @@ A document opens in a sandbox, the data source it reads from and writes to (ADR-
 opened in a project opens in the project's sandbox, which stacks the project's layers over the
 game in the order a build applies them. The game sandbox is the installed game alone.
 
-| Opened in | A layer file | A game chunk a layer ships | A game chunk no layer ships | A loose file |
-| --------- | ------------ | -------------------------- | --------------------------- | ------------ |
-| Project   | Editable     | The layer's file, editable | Declared. ADR-0042          | Read-only    |
-| Game      | Its project  | The game's copy, read-only | The game's copy, read-only  | Read-only    |
+| Opened in    | A layer file | A game chunk a layer ships | A game chunk no layer ships        | A loose file |
+| ------------ | ------------ | -------------------------- | ---------------------------------- | ------------ |
+| Project      | Editable     | The layer's file, editable | Declared. ADR-0042                 | Read-only    |
+| Layer subset | Editable     | The layer's file, editable | With the subset's edits, read-only | Read-only    |
+| Game         | Its project  | The game's copy, read-only | The game's copy, read-only         | Read-only    |
 
 A path resolves to the copy the build uses, so a game chunk a layer ships opens as that layer's
 file and its edits save to it. A layer file is always read in its own project, so every tab of
@@ -3073,6 +3074,12 @@ what a sandbox is and where this tab's edits go. The options contain:
   copy of, with that reason under it. An object tab switches by its object and not by its
   path: it opens the file the picked sandbox resolves the object to, so the mod's declaration
   and the game's are one switch apart when they sit in different files.
+- **Layers**, for a project of more than one layer: a submenu of one switch per layer in build
+  order. The tab
+  and its viewport stack the chosen layers alone, as a build of those layers writes them, and the
+  button reads `Sandbox (<name>, 2 of 3 layers)`. Choosing every layer returns to the project.
+  The tab stays mounted across a switch. The layer of the tab's own file and the last chosen
+  layer are disabled. Audio reads still use every layer of the project.
 - **Declared in**, on an object tab whose object several files of the sandbox declare: the
   files, a layer's ahead of the install's, each with its layer or its archive under it. The
   one the tab reads is checked, and picking another switches the tab to it in place. With no
@@ -3092,6 +3099,10 @@ what a sandbox is and where this tab's edits go. The options contain:
 
 A link followed out of a tab opens in that tab's sandbox, so a link out of a declared document
 opens declared, and one out of a game tab opens in the game.
+
+A viewport draws the stack. A layer bin reads with the declarations of the sandbox's layers
+applied in build order, and the assets it names resolve to the highest layer that ships them. The rows of a layer
+file remain the file on disk, and a row a declaration overrides carries the mark.
 
 ### Where editing is allowed
 

@@ -12,7 +12,7 @@ use crate::services::shared::document_assets;
 use crate::services::shared::document_assets::{
     parse_class, parse_entry, sandbox_of, with_names_in,
 };
-use crate::services::shared::installed::{installed_schema, InstalledGame};
+use crate::services::shared::installed::{installed_schema, read_opened, InstalledGame};
 use crate::services::shared::off_thread;
 use crate::services::shared::read_asset;
 use ltk_game_data::Target;
@@ -72,6 +72,7 @@ pub async fn bin_open(
                 })?;
                 (document, asset)
             }
+            Opening::Subset(asset) => (open_subset(&app_handle, &sandbox, &asset)?, asset),
         };
 
         handle_of(&app_handle, document, opened, entry)
@@ -116,7 +117,7 @@ pub async fn bin_open_variant(
                     })?;
                 let (base, base_hash) = match sandboxed.opening(base)? {
                     Opening::Declared { asset, chunk_hash } => (asset, chunk_hash),
-                    Opening::File(file) => {
+                    Opening::File(file) | Opening::Subset(file) => {
                         let hash = chunk_hash_of(&file).ok_or_else(|| {
                             AppError::ValidationFailed("The base is no chunk".to_owned())
                         })?;
@@ -136,11 +137,25 @@ pub async fn bin_open_variant(
                     })?;
                 (document, asset)
             }
+            Opening::Subset(asset) => (open_subset(&app_handle, &sandbox, &asset)?, asset),
         };
 
         handle_of(&app_handle, document, opened, None)
     })
     .await
+}
+
+/// Holds the game chunk `asset` open in the layer subset `sandbox`, read-only.
+fn open_subset(
+    app_handle: &AppHandle,
+    sandbox: &SandboxRef,
+    asset: &AssetRef,
+) -> AppResult<BinDocumentId> {
+    app_handle
+        .state::<BinDocuments>()
+        .open(sandbox, asset.clone(), || {
+            read_opened(app_handle, sandbox, asset)
+        })
 }
 
 /// The path hash of the chunk `asset` stands for: a game chunk's own, or a layer file's
@@ -483,9 +498,11 @@ pub async fn bin_revert(
 #[specta::specta]
 pub async fn bin_reload(document: BinDocumentId, app_handle: AppHandle) -> IpcResult<()> {
     off_thread(move || {
+        let sandbox = sandbox_of(&app_handle, Some(document));
+
         app_handle
             .state::<BinDocuments>()
-            .reload(document, |asset| read_asset(&app_handle, asset))
+            .reload(document, |asset| read_opened(&app_handle, &sandbox, asset))
     })
     .await
 }

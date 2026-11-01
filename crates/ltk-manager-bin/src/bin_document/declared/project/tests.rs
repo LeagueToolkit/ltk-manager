@@ -95,7 +95,7 @@ modules:
 }
 
 #[test]
-fn declared_asset_leaves_a_layer_file_as_it_is() {
+fn declared_asset_applies_declarations_to_a_layer_bin() {
     let dir = tempfile::tempdir().unwrap();
     let declarations = declarations(
         dir.path(),
@@ -111,10 +111,52 @@ modules:
     let layer = AssetRef::Layer {
         project: dir.path().to_string_lossy().into_owned(),
         layer: "base".to_owned(),
+        path: format!("Teemo.wad.client/{CHUNK}"),
+    };
+
+    let applied = declarations.declared_asset(&layer, game_bin());
+
+    assert!((glow(applied) - 0.37).abs() < f32::EPSILON);
+    assert!(!declarations.is_empty());
+}
+
+#[test]
+fn load_chosen_leaves_out_the_declarations_of_other_layers() {
+    let dir = tempfile::tempdir().unwrap();
+    let declared = declarations(
+        dir.path(),
+        &format!(
+            "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.37\n"
+        ),
+    );
+    assert!(!declared.is_empty());
+
+    let chosen = ProjectDeclarations::load_chosen(
+        &project(dir.path()),
+        Some(&[]),
+        PatchSchema::new(meta_schema::shared(None), None),
+        Game::naming(&[SKIN]),
+    )
+    .unwrap();
+
+    assert!(chosen.is_empty());
+    assert_eq!(chosen.declared_asset(&game_chunk(), game_bin()), game_bin());
+}
+
+#[test]
+fn declared_asset_leaves_a_loose_file_as_it_is() {
+    let dir = tempfile::tempdir().unwrap();
+    let declarations = declarations(
+        dir.path(),
+        &format!(
+            "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.37\n"
+        ),
+    );
+    let loose = AssetRef::File {
         path: CHUNK.to_owned(),
     };
 
-    assert_eq!(declarations.declared_asset(&layer, game_bin()), game_bin());
+    assert_eq!(declarations.declared_asset(&loose, game_bin()), game_bin());
 }
 
 #[test]

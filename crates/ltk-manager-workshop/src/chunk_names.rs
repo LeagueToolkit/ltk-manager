@@ -60,11 +60,11 @@ impl LayerChunks {
         Self::scan_where(project_dir, |_| true)
     }
 
-    /// The chunk paths the one layer `layer` of `project_dir` holds, and every name the
-    /// project's declared tables list.
+    /// The chunk paths the chosen `layers` of `project_dir` hold, and every name the project's
+    /// declared tables list.
     #[must_use]
-    pub fn scan_layer(project_dir: &Path, layer: &str) -> Self {
-        Self::scan_where(project_dir, |name| name == layer)
+    pub fn scan_layers(project_dir: &Path, layers: &[String]) -> Self {
+        Self::scan_where(project_dir, |name| layers.iter().any(|layer| layer == name))
     }
 
     fn scan_where(project_dir: &Path, walks: impl Fn(&str) -> bool) -> Self {

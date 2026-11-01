@@ -98,6 +98,8 @@ export interface BackdropSource {
    * it opens on a map already read. Absent, the reads are `document`'s own.
    */
   readonly project?: string | null;
+  /** The sandbox the map's files are located in, where it is not the whole of `project`. */
+  readonly sandbox?: SandboxRef;
   /**
    * The map's `.mapgeo` where the scene has already found it, such as a copy a project
    * ships. Absent, the install's is looked up.
@@ -119,6 +121,8 @@ type ReadScope = { readonly project: string | null } | { readonly document: BinD
 
 /** The sandbox a source's files are located in: its project's, else the game's. ADR-0056. */
 function sourceSandbox(source: BackdropSource | null): SandboxRef {
+  if (source?.sandbox !== undefined) return source.sandbox;
+
   const project = source?.project ?? null;
   if (project === null) return { kind: "game" };
 

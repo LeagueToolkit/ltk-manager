@@ -68,7 +68,7 @@ fn layer_of(
 /// Fails when the document is closed or opens in no project.
 pub(crate) fn project_of(documents: &BinDocuments, document: BinDocumentId) -> AppResult<String> {
     match documents.sandbox_of(document) {
-        Some(SandboxRef::Project { project } | SandboxRef::Layer { project, .. }) => Ok(project),
+        Some(SandboxRef::Project { project } | SandboxRef::Layers { project, .. }) => Ok(project),
         Some(SandboxRef::Game) => Err(AppError::ValidationFailed(
             "The document opens in no project".to_owned(),
         )),

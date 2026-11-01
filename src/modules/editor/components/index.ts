@@ -1,4 +1,6 @@
 export { CommandMenubar, CommandMenuItems } from "./CommandMenubar";
+export type { DocumentPlacement, DocumentStageProps } from "./DocumentStage";
+export { DocumentStage } from "./DocumentStage";
 export type { DocumentToolbarProps } from "./DocumentToolbar";
 export { DocumentToolbar, DocumentToolbarSlotContext, useToolbarWidth } from "./DocumentToolbar";
 export type { EditorSurfaceProps } from "./EditorSurface";

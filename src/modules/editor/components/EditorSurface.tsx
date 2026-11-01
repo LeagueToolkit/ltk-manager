@@ -1,16 +1,15 @@
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 
-import { RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
-import { IslandsContext } from "../state/islands";
+import { PortalSlot } from "../layout/PortalHosts";
 import { useLeafCloses } from "../state/leafCloses";
 import { NO_SHARED_TITLES } from "../tabTitles";
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
 import { useCloseQueue } from "../useCloseQueue";
 import { useEditorKeys } from "../useEditorKeys";
-import { DocumentToolbarSlotContext } from "./DocumentToolbar";
+import { useDocumentStage, usePublishLeafChrome } from "./DocumentStage";
 import { EditorTabs } from "./EditorTabs";
 import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
 
@@ -76,9 +75,9 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
 /**
  * A tab strip over a stack of open documents, in the shape an IDE uses.
  *
- * Every open document stays mounted and inactive ones are hidden, so
- * scroll position and half-typed edits survive a trip to another tab.
- * Closing one with unsaved edits asks first.
+ * The documents mount in the `DocumentStage` above the split tree, and the surface adopts them.
+ * Inactive ones are hidden, so scroll position and half-typed edits survive a trip to another
+ * tab. Closing one with unsaved edits asks first.
  *
  * The focused group answers the editor's keys, per "The editor's keys" in
  * `docs/ux/PROJECT_EDITOR.md`.
@@ -122,6 +121,10 @@ export function EditorSurface<D extends EditorDocumentBase>({
     setIslands((count) => count + 1);
     return () => setIslands((count) => count - 1);
   }, []);
+
+  const stage = useDocumentStage();
+  const chrome = useMemo(() => ({ toolbar, reportIslands }), [toolbar, reportIslands]);
+  usePublishLeafChrome(leafId, chrome);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
@@ -221,28 +224,9 @@ export function EditorSurface<D extends EditorDocumentBase>({
       <div data-ui="EditorSurface:documents" className="relative min-h-0 flex-1 overflow-hidden">
         {documents.length === 0 && empty}
 
-        <DocumentToolbarSlotContext value={toolbar}>
-          <IslandsContext value={reportIslands}>
-            {documents.map((document) => {
-              const definition = definitionFor(document);
-              if (!definition) return null;
-
-              const Editor = definition.component;
-              const active = document.id === activeId;
-
-              return (
-                <RetainedContent
-                  key={document.id}
-                  data-ui={`EditorSurface:document:${document.kind}`}
-                  active={active}
-                  className="absolute inset-0 flex flex-col"
-                >
-                  <Editor document={document} active={active} />
-                </RetainedContent>
-              );
-            })}
-          </IslandsContext>
-        </DocumentToolbarSlotContext>
+        {documents.map((document) => (
+          <PortalSlot key={document.id} host={stage.hostOf(document.id)} />
+        ))}
       </div>
 
       <UnsavedCloseDialog

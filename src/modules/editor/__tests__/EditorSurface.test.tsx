@@ -2,7 +2,9 @@
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 
+import { DocumentStage } from "../components/DocumentStage";
 import { EditorSurface } from "../components/EditorSurface";
 import { useDocumentSave } from "../state/documentSaves";
 import { leafCloses } from "../state/leafCloses";
@@ -53,6 +55,10 @@ const LAYERED: EditorRegistry<Note> = {
   },
 };
 
+function Fragmented({ children }: { leafId: string; children: ReactNode }) {
+  return children;
+}
+
 interface DrawOptions {
   registry?: EditorRegistry<Note>;
   dirtyIds?: ReadonlySet<string>;
@@ -68,18 +74,26 @@ function draw({
   onClose = vi.fn(),
   onActivate = vi.fn(),
 }: DrawOptions = {}) {
+  const placements = NOTES.map((document) => ({
+    document,
+    leafId: "leaf-1",
+    active: document.id === "a",
+  }));
+
   render(
-    <EditorSurface
-      leafId="leaf-1"
-      documents={NOTES}
-      activeId="a"
-      registry={registry}
-      dirtyIds={dirtyIds}
-      pinnedIds={[]}
-      sharedTitles={sharedTitles}
-      onActivate={onActivate}
-      onClose={onClose}
-    />,
+    <DocumentStage placements={placements} registry={registry} leafScope={Fragmented}>
+      <EditorSurface
+        leafId="leaf-1"
+        documents={NOTES}
+        activeId="a"
+        registry={registry}
+        dirtyIds={dirtyIds}
+        pinnedIds={[]}
+        sharedTitles={sharedTitles}
+        onActivate={onActivate}
+        onClose={onClose}
+      />
+    </DocumentStage>,
   );
   return { onClose, onActivate };
 }

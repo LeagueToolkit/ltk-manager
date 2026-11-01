@@ -42,6 +42,7 @@
   "error.BIN_NOT_OPEN.title": "This bin is no longer open",
   "error.BIN_READ_ONLY.declarationsOff.description": "Game data declarations are off for this project.",
   "error.BIN_READ_ONLY.gameSandbox.description": "The game sandbox opens files read-only. Switch to the project to edit.",
+  "error.BIN_READ_ONLY.layerSubset.description": "A layer subset opens game files read-only. Read from the project to edit.",
   "error.BIN_READ_ONLY.loose.description": "A file outside a project opens read-only.",
   "error.BIN_READ_ONLY.patch.description": "A patch layer opens read-only until its records draw.",
   "error.BIN_READ_ONLY.title": "This bin is read-only",

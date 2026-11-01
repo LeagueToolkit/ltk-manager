@@ -15,9 +15,15 @@ interface InSandbox {
   sandbox?: SandboxRef;
 }
 
-/** The part of an id that a sandbox other than the route's adds. */
+/**
+ * The part of an id that a sandbox other than the route's adds.
+ *
+ * A layer subset adds none, so changing the chosen layers keeps the tab and its viewport mounted.
+ */
 function sandboxPart(sandbox: SandboxRef | undefined): string {
-  return sandbox === undefined ? "" : `@${sandboxKey(sandbox)}`;
+  if (sandbox === undefined || sandbox.kind === "layers") return "";
+
+  return `@${sandboxKey(sandbox)}`;
 }
 
 interface PreviewDoc extends EditorDocumentBase, InSandbox {
@@ -126,7 +132,8 @@ export function inSandbox<D extends AssetDoc>(
   route: SandboxRef,
 ): D {
   const own = sandboxKey(sandbox) === sandboxKey(route) ? undefined : sandbox;
-  if (sandboxPart(own) === sandboxPart(document.sandbox)) return document;
+  const held = document.sandbox;
+  if ((own && sandboxKey(own)) === (held && sandboxKey(held))) return document;
 
   const { sandbox: _, ...rest } = document;
   const id =
