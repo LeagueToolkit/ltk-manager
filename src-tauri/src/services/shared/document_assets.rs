@@ -166,7 +166,8 @@ pub(crate) fn with_assets_in<T>(
     Ok(locate(&sandbox(app, reference).assets(Some(&index))))
 }
 
-fn game_index(app: &AppHandle) -> Option<Arc<GameIndex>> {
+/// The install's game index, built where nothing has. `None` where it cannot be built.
+pub(crate) fn game_index(app: &AppHandle) -> Option<Arc<GameIndex>> {
     let config = app.state::<SettingsState>().config();
     built_game_index(app, &config)
         .map(|(index, _)| index)
