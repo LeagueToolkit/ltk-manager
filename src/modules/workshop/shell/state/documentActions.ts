@@ -356,9 +356,10 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
 
     replaceDocument: (projectPath, from, document) => {
       const editor = get().byProject[projectPath];
-      if (editor === undefined || from === document.id) return;
+      if (editor === undefined || editor.documents[from] === document) return;
 
-      if (document.id in editor.documents) {
+      /* A change of chosen layers keeps the id, so the tab is not its own duplicate. */
+      if (from !== document.id && document.id in editor.documents) {
         const holder = leafHolding(editor.layout, from);
         actions.openDocument(projectPath, document);
         if (holder) actions.closeDocument(projectPath, holder.id, from);
