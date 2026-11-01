@@ -126,6 +126,17 @@ describe("describePatcherError", () => {
     });
   });
 
+  it("describes a missing DLL by its delivery failure", () => {
+    expect(describePatcherError({ kind: "DLL_UNAVAILABLE", reason: "NETWORK" })).toEqual({
+      title: m["patcher.DLL_UNAVAILABLE.title"](),
+      description: m["patcher.DLL_UNAVAILABLE.NETWORK.description"](),
+    });
+    expect(describePatcherError({ kind: "DLL_UNAVAILABLE", reason: "STALE" })).toEqual({
+      title: m["patcher.DLL_UNAVAILABLE.title"](),
+      description: m["patcher.DLL_UNAVAILABLE.VERIFICATION.description"](),
+    });
+  });
+
   it("titles an injection failure by its stage and keeps the reason", () => {
     expect(
       describePatcherError({ kind: "INJECTION_FAILED", stage: "HOST", message: "host died" }),

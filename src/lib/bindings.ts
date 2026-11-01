@@ -2063,6 +2063,36 @@ export type DefineSource =
 /**  Set by the engine for the maps that a skin names. */
 "skin";
 
+/**
+ *  The kind of a [`DeliveryError`], without its message.
+ * 
+ *  Crosses IPC as the reason of a refused start, which the frontend turns into copy, and
+ *  travels in a count.
+ */
+export type DeliveryFailure = 
+/**  A request failed, or its response body did not decode. */
+"NETWORK" | 
+/**  The service answered with an error status. */
+"REFUSED" | 
+/**  The service refused the install token twice. */
+"UNAUTHORIZED" | 
+/**  The registration challenge is above the supported difficulty. */
+"DIFFICULTY" | 
+/**  The manifest signature does not verify. */
+"SIGNATURE" | 
+/**  A manifest field is outside the contract. */
+"INVALID" | 
+/**  The offered manifest is older than the cached one. */
+"STALE" | 
+/**  The downloaded DLL does not match its release. */
+"INTEGRITY" | 
+/**  No cached manifest offers a build for this manager. */
+"NO_RELEASE" | 
+/**  The build has no attestation and no DLL is staged. */
+"UNATTESTED" | 
+/**  A read or write failed. */
+"IO";
+
 /**  One dependency a `PROP` names, as its path and its brex spelling. */
 export type Dependency = {
 	/**  The archive path as the file writes it. */
@@ -6651,10 +6681,10 @@ export type PatcherError =
 /**  LTK Manager runs as administrator, and a session runs unelevated. */
 { kind: "MANAGER_ELEVATED" } | 
 /**
- *  No patcher DLL could be selected for the session. `message` says why, and `reason`
- *  is the delivery failure's kind, for a count.
+ *  No patcher DLL could be selected for the session. `reason` is the delivery failure's
+ *  kind, which the frontend turns into copy.
  */
-{ kind: "DLL_UNAVAILABLE"; message: string; reason: string } | 
+{ kind: "DLL_UNAVAILABLE"; reason: DeliveryFailure } | 
 /**
  *  One injection session failed. `stage` separates a host that never came up
  *  from a game that was never patched, since they call for different advice.

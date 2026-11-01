@@ -280,13 +280,12 @@ fn prepare_host(
     channel: Channel,
     bundled_host: &Path,
 ) -> AppResult<PreparedHost> {
-    let staged =
-        delivery
-            .prepare(channel, bundled_host)
-            .map_err(|error| PatcherError::DllUnavailable {
-                message: error.to_string(),
-                reason: error.kind().to_string(),
-            })?;
+    let staged = delivery.prepare(channel, bundled_host).map_err(|error| {
+        tracing::error!(%error, "No patcher DLL is available");
+        PatcherError::DllUnavailable {
+            reason: error.kind(),
+        }
+    })?;
     tracing::info!(
         version = %staged.version,
         digest = %staged.digest,

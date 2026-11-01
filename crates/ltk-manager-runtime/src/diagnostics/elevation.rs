@@ -9,6 +9,7 @@ pub const HIGH_INTEGRITY: u32 = 0x3000;
 pub const MEDIUM_INTEGRITY: u32 = 0x2000;
 
 /// Relative id of the built-in Administrator account, which UAC does not filter.
+#[cfg(target_os = "windows")]
 const ADMINISTRATOR_RID: u32 = 500;
 
 /// Executable name of the Windows shell.

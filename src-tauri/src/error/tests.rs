@@ -115,8 +115,7 @@ fn every_patcher_variant_reaches_the_frontend_distinguishable() {
         (PatcherError::ManagerElevated, "MANAGER_ELEVATED"),
         (
             PatcherError::DllUnavailable {
-                message: "no connection".to_string(),
-                reason: "network".to_string(),
+                reason: ltk_manager_runtime::patcher::delivery::DeliveryFailure::Network,
             },
             "DLL_UNAVAILABLE",
         ),

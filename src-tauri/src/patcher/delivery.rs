@@ -162,6 +162,6 @@ pub fn channel(config: &Config) -> Channel {
 fn sync(delivery: &PatcherDelivery, channel: Channel) {
     if let Err(error) = delivery.sync(channel) {
         tracing::warn!(%channel, %error, "Patcher delivery sync failed");
-        crate::telemetry::report_delivery_sync_failed(channel.as_str(), error.kind());
+        crate::telemetry::report_delivery_sync_failed(channel.as_str(), error.kind().as_str());
     }
 }

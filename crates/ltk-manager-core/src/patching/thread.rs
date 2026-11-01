@@ -204,7 +204,7 @@ impl PatcherThread {
     /// A failure that is not a `DllUnavailable` reports as `other`.
     fn report_prepare_failure(&self, error: &AppError) {
         let reason = match error.domain::<PatcherError>() {
-            Some(PatcherError::DllUnavailable { reason, .. }) => reason.as_str(),
+            Some(PatcherError::DllUnavailable { reason }) => reason.as_str(),
             _ => "other",
         };
         self.telemetry.track(
