@@ -42,8 +42,9 @@ export interface ModCardView {
   /**
    * Whether the menu offers Check Health.
    *
-   * A modpkg has no unpacked form for the rules to read - ADR-0001. A row that
-   * refuses every press reads as a broken command.
+   * The check reads a fantome and a modpkg - ADR-0075. A row that refuses
+   * every press reads as a broken command, so a discovered project gets no
+   * row.
    */
   canCheckHealth: boolean;
   storageChangePending: boolean;
@@ -99,7 +100,7 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   // "Legacy is transient": ADR-0008.
   const canChangeStorage =
     mod.format === "fantome" && (mod.storage === "project" || mod.hasArchive) && mod.slug != null;
-  const canCheckHealth = mod.format === "fantome";
+  const canCheckHealth = mod.format === "fantome" || mod.format === "modpkg";
 
   function handleToggle(modId: string, enabled: boolean) {
     toggleMod.mutate(

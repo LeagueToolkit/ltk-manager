@@ -6,8 +6,8 @@ use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     RecordingEventSink, make_library_with_events, make_library_with_version, make_slugged_entry,
-    make_test_library, make_unpacked_entry, place_bin_archived_fantome, place_bin_project_mod,
-    place_installed_mod, seed_library,
+    make_test_library, make_unpacked_entry, place_bin_archived_fantome, place_bin_archived_modpkg,
+    place_bin_project_mod, place_installed_mod, seed_library,
 };
 use assert_matches::assert_matches;
 use fs_err as fs;
@@ -486,10 +486,35 @@ fn a_sweep_forgets_the_verdict_of_a_mod_the_library_no_longer_holds() {
     assert_eq!(report.repairable, vec!["id-keeps".to_string()]);
 }
 
-/// Story: a modpkg has no unpacked form for the rules to read (ADR-0001), so
-/// the sweep never tries and never reports it as a mod it failed on.
+/// Story: the sweep checks a modpkg from its package, and the verdict reads
+/// as a fantome's would (ADR-0075).
 #[test]
-fn a_modpkg_is_not_swept() {
+fn a_modpkg_is_swept_from_its_package() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    place_bin_archived_modpkg(storage.path(), "packed-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![make_slugged_entry(
+            "id-pkg",
+            "packed-mod",
+            ModArchiveFormat::Modpkg,
+        )],
+    );
+
+    let report = library.sweep_mod_health(&config, &SweepScope::Due).unwrap();
+
+    assert_eq!(report.checked, 1);
+    assert_eq!(report.repairable, vec!["id-pkg".to_string()]);
+    let verdicts = library.mod_health_verdicts(&config).unwrap();
+    assert_eq!(verdicts["id-pkg"].health, ModHealth::Repairable);
+}
+
+/// Story: a modpkg that will not mount reports as unchecked, never as healthy.
+#[test]
+fn a_modpkg_that_will_not_mount_records_no_verdict() {
     let storage = tempfile::tempdir().unwrap();
     let (library, mut config) = make_test_library(storage.path());
     point_at_installed_build(&mut config, storage.path());

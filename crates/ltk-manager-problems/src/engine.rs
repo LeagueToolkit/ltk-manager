@@ -6,10 +6,12 @@
 //! read.
 //!
 //! Only [`LayerFiles`] knows where the files are. A project's files are in a
-//! directory, and an archive's files are read from the archive without
-//! unpacking it. The code above [`LayerSource`] is the same for both.
+//! directory, and an archive's files, a fantome's or a modpkg's, are read from
+//! the archive without unpacking it. The code above [`LayerSource`] is the
+//! same for all three.
 
 mod archive;
+mod modpkg;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -32,6 +34,7 @@ use ltk_manager_workshop::layer;
 use ltk_manager_workshop::{ProjectDir, holds_ignore_rules};
 
 use archive::ArchiveFiles;
+use modpkg::ModpkgFiles;
 
 use super::game::GameContent;
 use super::pass::Fact;
@@ -181,6 +184,39 @@ impl ProjectFiles {
         game: Option<Arc<dyn GameContent>>,
     ) -> AppResult<Self> {
         let scan = ArchiveFiles::scan(archive, resolver)?;
+
+        Ok(Self {
+            root: archive.to_path_buf(),
+            layers: scan.layers,
+            build: GameBuild::installed(config),
+            names: Arc::new(BinNames::with_declared(scan.tables)),
+            budget,
+            game,
+            has_ignore_rules: false,
+            workshop: false,
+        })
+    }
+
+    /// List a modpkg's files, one layer per layer the package declares.
+    ///
+    /// The package is not unpacked. A chunk is decoded when a rule reads it,
+    /// so a check reads only the bins it parses.
+    ///
+    /// A package stores each chunk under the path that it was packed from, so
+    /// a site has the path that an import writes, and no resolver names a
+    /// chunk. The package's declared hash tables are read from its metadata.
+    ///
+    /// # Errors
+    ///
+    /// Reports a package that cannot be mounted, whose metadata cannot be
+    /// read or whose declared tables cannot be loaded.
+    pub fn in_modpkg(
+        archive: &Path,
+        config: &Config,
+        budget: Budget,
+        game: Option<Arc<dyn GameContent>>,
+    ) -> AppResult<Self> {
+        let scan = ModpkgFiles::scan(archive)?;
 
         Ok(Self {
             root: archive.to_path_buf(),
@@ -421,6 +457,8 @@ enum LayerSource {
     Directory(PathBuf),
     /// A fantome archive, shared by every handle that reads out of it.
     Archive(Arc<ArchiveFiles>),
+    /// A modpkg, shared by every handle that reads out of it.
+    Modpkg(Arc<ModpkgFiles>),
 }
 
 impl LayerSource {
@@ -429,6 +467,7 @@ impl LayerSource {
         match self {
             Self::Directory(root) => fs::read(absolute(root, file)).map_err(|e| e.to_string()),
             Self::Archive(archive) => archive.read(file),
+            Self::Modpkg(modpkg) => modpkg.read(file),
         }
     }
 
@@ -442,6 +481,9 @@ impl LayerSource {
                     .map_err(|e| format!("{}: {e}", at.display()))
             }
             Self::Archive(archive) => archive
+                .read(file)
+                .map(|bytes| Opened::Memory(std::io::Cursor::new(bytes))),
+            Self::Modpkg(modpkg) => modpkg
                 .read(file)
                 .map(|bytes| Opened::Memory(std::io::Cursor::new(bytes))),
         }
@@ -468,6 +510,7 @@ impl LayerSource {
                 Ok(bytes)
             }
             Self::Archive(archive) => archive.head(file, limit),
+            Self::Modpkg(modpkg) => modpkg.head(file, limit),
         }
     }
 }
@@ -639,6 +682,16 @@ impl LayerFiles {
         }
     }
 
+    /// One layer of a modpkg, read through `source`.
+    fn in_modpkg(name: &str, files: Vec<ProjectFile>, source: ModpkgFiles) -> Self {
+        Self {
+            name: name.to_owned(),
+            files,
+            source: LayerSource::Modpkg(Arc::new(source)),
+            written: HashMap::new(),
+        }
+    }
+
     /// Where one of this layer's files is on disk, for a layer on disk.
     ///
     /// `None` for a layer read from an archive, whose files have no path on
@@ -648,7 +701,7 @@ impl LayerFiles {
     pub fn absolute(&self, file: &ProjectFile) -> Option<PathBuf> {
         match &self.source {
             LayerSource::Directory(root) => Some(absolute(root, file)),
-            LayerSource::Archive(_) => None,
+            LayerSource::Archive(_) | LayerSource::Modpkg(_) => None,
         }
     }
 }
@@ -809,9 +862,10 @@ pub struct ProjectFile {
     /// What the packed WAD holding this file records about it, where a packed
     /// WAD is where it lives.
     ///
-    /// `None` for a file of a directory layer and for an archive's loose
-    /// entries. This is a normal state, not an error, and it is the only
-    /// difference between the two layer sources that a rule can see.
+    /// `None` for a file of a directory layer, for an archive's loose entries
+    /// and for a modpkg's chunks, which no WAD holds. This is a normal state,
+    /// not an error, and it is the only difference between the layer sources
+    /// that a rule can see.
     pub chunk: Option<ChunkInfo>,
 }
 
@@ -917,6 +971,24 @@ pub fn analyze_archive(
     game: Option<Arc<dyn GameContent>>,
 ) -> AppResult<Run> {
     Ok(ProjectFiles::in_archive(archive, config, budget, resolver, game)?.checked())
+}
+
+/// One pass of every rule over a modpkg, read from its package.
+///
+/// The package is not unpacked, so a check decodes only the bins it parses.
+///
+/// # Errors
+///
+/// Reports a package that cannot be mounted or whose metadata cannot be read.
+/// A rule that fails is recorded in [`Run::failed`] rather than failing the
+/// run.
+pub fn analyze_modpkg(
+    archive: &Path,
+    config: &Config,
+    budget: Budget,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<Run> {
+    Ok(ProjectFiles::in_modpkg(archive, config, budget, game)?.checked())
 }
 
 impl ProjectFiles {

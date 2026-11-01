@@ -92,10 +92,18 @@ describe("useModCardController storage", () => {
     expect(view.current.canCheckHealth).toBe(true);
   });
 
-  /* ADR-0001: a modpkg has no unpacked form for the rules to read, and the
-     check refuses every press on one. */
-  it("offers no Check Health on a modpkg", () => {
+  /* ADR-0075: the check reads a modpkg from its package, as it reads an
+     archive fantome. */
+  it("offers Check Health on a modpkg", () => {
     const view = mount(createMockInstalledMod({ format: "modpkg", storage: "archive" }));
+
+    expect(view.current.canCheckHealth).toBe(true);
+  });
+
+  /* The check refuses a discovered project, so the menu offers no row for
+     one. */
+  it("offers no Check Health on a discovered project", () => {
+    const view = mount(createMockInstalledMod({ format: "unknown", storage: "project" }));
 
     expect(view.current.canCheckHealth).toBe(false);
   });

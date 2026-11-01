@@ -288,6 +288,45 @@ pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &l
     make_bin_fantome_zip(&mods_dir.join(format!("{slug}.fantome")), slug, bin);
 }
 
+/// A modpkg in the slug layout: a metadata-only mod directory, a package
+/// holding `bin` beside it.
+pub(crate) fn place_bin_archived_modpkg(storage_dir: &Path, slug: &str, bin: &ltk_meta::Bin) {
+    let mods_dir = storage_dir.mods_dir();
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+    make_bin_modpkg(&mods_dir.join(format!("{slug}.modpkg")), slug, bin);
+}
+
+/// [`place_bin_archived_modpkg`] whose package holds a readme and a license.
+pub(crate) fn place_bin_archived_modpkg_with_documents(
+    storage_dir: &Path,
+    slug: &str,
+    bin: &ltk_meta::Bin,
+    readme: &str,
+    license: &str,
+) {
+    let mods_dir = storage_dir.mods_dir();
+    let mod_dir = mods_dir.join(slug);
+    fs::create_dir_all(&mod_dir).unwrap();
+    fs::write(
+        mod_dir.join("mod.config.json"),
+        serde_json::to_string_pretty(&mod_project_named(slug)).unwrap(),
+    )
+    .unwrap();
+    make_bin_modpkg_with_documents(
+        &mods_dir.join(format!("{slug}.modpkg")),
+        slug,
+        bin,
+        readme,
+        license,
+    );
+}
+
 /// An archive-storage fantome whose WAD is packed rather than loose.
 ///
 /// Mods ship in this shape before a repack, and its chunks are addressed by

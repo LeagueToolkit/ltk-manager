@@ -30,6 +30,7 @@ ltk_hashdb = { workspace = true }
 ltk_hashtable = { workspace = true }
 ltk_meta = { workspace = true }
 ltk_mod_project = { workspace = true }
+ltk_modpkg = { workspace = true }
 ltk_texture = { workspace = true }
 ltk_wad = { workspace = true }
 parking_lot = { workspace = true }

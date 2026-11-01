@@ -13,7 +13,7 @@ pub mod timing;
 
 use crate::mods::ModLibrary;
 use crate::mods::health::sweep::{HealthSweepState, SweepScope};
-use crate::mods::index::LibraryModEntry;
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use ltk_manager_assets::hashtables::HashtableCache;
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
@@ -126,12 +126,16 @@ impl OfferedAlternative {
 }
 
 impl LibraryModEntry {
-    /// Whether the Problems rules can reach this mod's content at all.
+    /// Whether the Problems rules can read this mod's content at all.
     ///
-    /// A modpkg's content only exists inside its archive, with no unpacked
-    /// form to run the rules over - ADR-0001.
+    /// `true` for a fantome, which the check reads from its tree or its
+    /// archive, and for a modpkg, which the check reads from its package -
+    /// ADR-0075. A repair reads the same way.
     pub(in crate::mods) fn is_checkable(&self) -> bool {
-        self.format.is_convertible()
+        matches!(
+            self.format,
+            ModArchiveFormat::Fantome | ModArchiveFormat::Modpkg
+        )
     }
 }
 
@@ -173,9 +177,8 @@ pub enum HealthCheckReadiness {
 impl ModLibrary {
     /// Check one mod and remember the verdict.
     ///
-    /// Runs the Problems rules over the mod's content — unpacking an
-    /// archive-storage mod into staging to do it — without writing anything
-    /// to the mod itself.
+    /// Runs the Problems rules over the mod's content in place, and writes
+    /// nothing to the mod itself.
     ///
     /// # Errors
     ///
@@ -373,10 +376,10 @@ impl ModLibrary {
 
     /// One Problems run over the mod's content, whichever storage holds it.
     ///
-    /// Both are read where they live: a Project-storage mod out of its tree,
-    /// an Archive-storage mod out of the archive. A check writes nothing, and
-    /// now has nothing to clean up either. Bins equal to the game's copy are
-    /// removed first, see `ProjectFiles::without_game_copies`.
+    /// Reads a Project-storage mod from its tree, and an Archive-storage mod
+    /// from its fantome or its modpkg. A check writes nothing. Bins equal to
+    /// the game's copy are removed first, see
+    /// `ProjectFiles::without_game_copies`.
     fn run_over(
         &self,
         config: &Config,
@@ -384,21 +387,30 @@ impl ModLibrary {
         entry: &LibraryModEntry,
         budget: &Budget,
     ) -> AppResult<Run> {
-        let files = match entry.storage {
-            ModStorage::Project => ProjectFiles::within(
+        let files = match (entry.storage, entry.format) {
+            (ModStorage::Project, _) => ProjectFiles::within(
                 &entry.mod_dir(storage_dir),
                 config,
                 budget.clone(),
                 self.game_content(config),
             )?,
-            ModStorage::Archive => ProjectFiles::in_archive(
-                &entry.convertible_archive(storage_dir)?,
+            (ModStorage::Archive, ModArchiveFormat::Modpkg) => ProjectFiles::in_modpkg(
+                &entry.present_archive(storage_dir)?,
                 config,
                 budget.clone(),
-                self.wad_resolver().as_ref(),
                 self.game_content(config),
             )?,
+            (ModStorage::Archive, ModArchiveFormat::Fantome | ModArchiveFormat::Unknown) => {
+                ProjectFiles::in_archive(
+                    &entry.convertible_archive(storage_dir)?,
+                    config,
+                    budget.clone(),
+                    self.wad_resolver().as_ref(),
+                    self.game_content(config),
+                )?
+            }
         };
+
         Ok(files.without_game_copies().checked())
     }
 }

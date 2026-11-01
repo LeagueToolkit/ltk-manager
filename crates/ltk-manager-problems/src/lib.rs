@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 
 pub use engine::{
     ChunkInfo, FileHandle, LayerFiles, Opened, ProjectFile, ProjectFiles, analyze, analyze_archive,
-    analyze_project, analyze_within,
+    analyze_modpkg, analyze_project, analyze_within,
 };
 pub use fix::{
     ChosenAlternative, FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply,

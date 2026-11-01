@@ -7,18 +7,22 @@
 //! throughout. An archive the edit refuses goes the long way round instead:
 //! unpacked into staging, fixed there, and repacked whole - ADR-0025.
 //! Replacing the archive, and keeping no copy of the original, is ADR-0005.
+//!
+//! A modpkg has no edit, so a repair writes the package again from its own
+//! chunks, with the fixed files in place of the chunks they replace - ADR-0075.
 
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::health::{Refused, cancelled};
+use crate::mods::index::ModArchiveFormat;
 use camino::Utf8Path;
 use delta::RepairEdit;
 use fs_err as fs;
 use ltk_fantome::DeltaReport;
 use ltk_hashtable::{Hashtable, HashtableEntry};
-use ltk_manager_assets::mod_archive::open_fantome;
+use ltk_manager_assets::mod_archive::{open_fantome, open_modpkg};
 use ltk_manager_base::budget::{self, Budget};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -36,6 +40,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 mod delta;
+mod modpkg;
 
 /// What one repair over several mods became of each of them.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -70,16 +75,15 @@ impl ModLibrary {
     /// Repair what a machine can repair in one library mod.
     ///
     /// A Project-storage mod is repaired in its own tree. An Archive-storage
-    /// mod has no tree to write to, so its archive is unpacked into staging,
-    /// fixed there, and written back over. Either way, a mod with nothing to
-    /// fix is left untouched, and neither is reversible - what a repair keeps
-    /// is the names it hashed away, per ADR-0006.
+    /// fantome is fixed in its archive, and an Archive-storage modpkg is
+    /// written again from its own chunks. Either way, a mod with nothing to
+    /// fix is left untouched, and no repair is reversible - what a repair
+    /// keeps is the names it hashed away, per ADR-0006.
     ///
     /// # Errors
     ///
     /// Fails when the mod is not in the library, when it is stored as an
-    /// archive it does not have or that has no unpacked form, and when the
-    /// hashtables are not there - see
+    /// archive it does not have, and when the hashtables are not there - see
     /// [`hashtables_ready`](Self::hashtables_ready).
     pub fn repair_mod(&self, config: &Config, mod_id: &str) -> AppResult<FixReport> {
         /* A budget of its own, and not the run's: one mod from a row can be
@@ -163,6 +167,10 @@ impl ModLibrary {
                     problems::analyze(&mod_dir, config, game)
                 })?;
                 (report, checked)
+            }
+            ModStorage::Archive if entry.format == ModArchiveFormat::Modpkg => {
+                let archive = entry.present_archive(&storage_dir)?;
+                self.repair_in_modpkg(config, &archive, repair, budget)?
             }
             ModStorage::Archive => {
                 let archive = entry.convertible_archive(&storage_dir)?;
@@ -358,6 +366,55 @@ impl ModLibrary {
             problems::analyze_archive(archive, config, budget.clone(), resolver.as_ref(), game)
         })?;
         Ok(Some((report, checked)))
+    }
+
+    /// Fix what the rules find in the modpkg at `archive`, and write the
+    /// package again with the fixed files in place.
+    ///
+    /// A run that applies nothing leaves the package alone, as
+    /// [`repair_in_archive`](Self::repair_in_archive) does. The new package is
+    /// written beside the old one and swapped in once it is whole - ADR-0005.
+    fn repair_in_modpkg(
+        &self,
+        config: &Config,
+        archive: &Path,
+        repair: Repair<'_>,
+        budget: &Budget,
+    ) -> AppResult<(FixReport, problems::Run)> {
+        let game = self.game_content(config);
+        let resolver = self.wad_resolver();
+        let project = ProjectFiles::in_modpkg(archive, config, budget.clone(), game.clone())?;
+        let run = project.checked();
+        let wanted = repair.wanted(&run);
+        let declared = open_modpkg(archive)?.load_hashtables()?;
+        let (report, writes) = repair.apply_held(
+            project,
+            declared,
+            &run,
+            &wanted,
+            config,
+            Some(resolver.as_ref()),
+            game.clone(),
+        )?;
+        if report.applied == 0 {
+            return Ok((report, run));
+        }
+
+        let repacked = archive.with_extension("repacked");
+        modpkg::rewrite(archive, &repacked, &writes, &report).inspect_err(|_| {
+            let _ = fs::remove_file(&repacked);
+        })?;
+        swap_in_repacked(&repacked, archive)?;
+        tracing::debug!(
+            "Rewrote {} with {} files repaired",
+            archive.display(),
+            report.files.len()
+        );
+
+        let checked = verified(run, &wanted, &report, || {
+            problems::analyze_modpkg(archive, config, budget.clone(), game)
+        })?;
+        Ok((report, checked))
     }
 
     /// Unpack `archive` into `staging`, fix what the rules find, and put the

@@ -553,7 +553,7 @@ fn position_of(layers: &mut Vec<LayerEntries>, layer: &str) -> usize {
 /// Whether a path's last segment has an extension.
 ///
 /// A path with no extension may still be a bin.
-fn has_extension(path: &str) -> bool {
+pub(super) fn has_extension(path: &str) -> bool {
     camino::Utf8Path::new(path).extension().is_some()
 }
 
@@ -571,7 +571,7 @@ fn read_head<R: std::io::Read>(reader: &mut R, head: &mut [u8]) -> usize {
 }
 
 /// The kind a path's extension names, as the tree walk reads it.
-fn kind_of_path(path: &str) -> WorkshopFileKind {
+pub(super) fn kind_of_path(path: &str) -> WorkshopFileKind {
     let extension = camino::Utf8Path::new(path).extension().unwrap_or_default();
     WorkshopFileKind::from(LeagueFileKind::from_extension(extension))
 }

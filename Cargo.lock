@@ -3719,6 +3719,7 @@ dependencies = [
  "ltk_hashtable",
  "ltk_meta",
  "ltk_mod_project",
+ "ltk_modpkg",
  "ltk_texture",
  "ltk_wad",
  "parking_lot",

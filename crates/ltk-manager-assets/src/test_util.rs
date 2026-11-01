@@ -18,10 +18,7 @@ pub fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
     project
 }
 
-/// Pack a real `.modpkg` at `path`, named `name`, holding one content file.
-///
-/// A modpkg's archive is the mod, so code that reads one has to mount it. A
-/// stub of fake bytes does not exercise that code.
+/// A skeleton whose root joint `root` has `children`, as bytes.
 pub fn skeleton_with_joints(root: &str, children: &[&str]) -> Vec<u8> {
     let joint = ltk_anim::Joint::builder(root)
         .with_children(children.iter().map(|name| ltk_anim::Joint::builder(*name)));
@@ -34,6 +31,10 @@ pub fn skeleton_with_joints(root: &str, children: &[&str]) -> Vec<u8> {
     bytes.into_inner()
 }
 
+/// Pack a real `.modpkg` at `path`, named `name`, holding one content file.
+///
+/// A modpkg's archive is the mod, so code that reads one has to mount it. A
+/// stub of fake bytes does not exercise that code.
 pub fn make_modpkg(path: &Path, name: &str) {
     make_modpkg_with_documents(path, name, None, None);
 }
@@ -46,15 +47,48 @@ pub fn make_modpkg_with_documents(
     readme: Option<&str>,
     license: Option<&str>,
 ) {
+    pack_modpkg(path, name, readme, license, b"content bytes");
+}
+
+/// Pack a real `.modpkg` at `path`, named `name`, holding `bin` at
+/// [`STALE_BIN_IN_WAD`] inside `Aatrox.wad.client` of the base layer.
+///
+/// The modpkg counterpart of [`make_bin_fantome_zip`], for a test that reads
+/// the same content out of both formats.
+pub fn make_bin_modpkg(path: &Path, name: &str, bin: &ltk_meta::Bin) {
+    pack_modpkg(path, name, None, None, &bin_bytes(bin));
+}
+
+/// [`make_bin_modpkg`] with a readme and a license, for a test that reads the
+/// package's documents back after a rewrite.
+pub fn make_bin_modpkg_with_documents(
+    path: &Path,
+    name: &str,
+    bin: &ltk_meta::Bin,
+    readme: &str,
+    license: &str,
+) {
+    pack_modpkg(path, name, Some(readme), Some(license), &bin_bytes(bin));
+}
+
+/// Pack a project holding `content` at [`STALE_BIN_IN_WAD`] inside
+/// `Aatrox.wad.client` of the base layer, with the documents given.
+fn pack_modpkg(
+    path: &Path,
+    name: &str,
+    readme: Option<&str>,
+    license: Option<&str>,
+    content: &[u8],
+) {
     let source = tempfile::tempdir().unwrap();
-    let wad_dir = source
+    let bin_path = source
         .path()
         .join("content")
         .join("base")
         .join("Aatrox.wad.client")
-        .join("data");
-    fs::create_dir_all(&wad_dir).unwrap();
-    fs::write(wad_dir.join("skin0.bin"), b"content bytes").unwrap();
+        .join(STALE_BIN_IN_WAD);
+    fs::create_dir_all(bin_path.parent().unwrap()).unwrap();
+    fs::write(&bin_path, content).unwrap();
     fs::write(
         source.path().join("mod.config.json"),
         serde_json::to_string_pretty(&mod_project_named(name)).unwrap(),

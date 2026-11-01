@@ -305,7 +305,16 @@ impl LibraryModEntry {
     /// on disk.
     pub(in crate::mods) fn convertible_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
         self.convertible()?;
+        self.present_archive(storage_dir)
+    }
 
+    /// Returns the path of this mod's archive.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::ValidationFailed`] if the archive is not on
+    /// disk.
+    pub(in crate::mods) fn present_archive(&self, storage_dir: &Path) -> AppResult<PathBuf> {
         let archive = self.archive_path(storage_dir);
         if !archive.is_file() {
             return Err(AppError::ValidationFailed(
