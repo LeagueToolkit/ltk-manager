@@ -214,6 +214,43 @@ function expectDisabled(item: HTMLElement) {
   expect(item).toHaveAttribute("aria-disabled", "true");
 }
 
+describe("the Layers of the Sandbox options", () => {
+  it("moves the tab to a subset under its id, and back to the project with every layer", async () => {
+    const user = userEvent.setup();
+    drawTab(CHUNK_TAB, openBin());
+
+    await openOptions(user);
+    await openSubmenu(user, "Layers: 2 of 2");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Chroma" }));
+
+    expect(openTabs()).toHaveLength(1);
+    expect(openTabs()[0]).toMatchObject({
+      id: CHUNK_TAB.id,
+      sandbox: { kind: "layers", project: PROJECT.path, layers: ["base"] },
+    });
+    expect(screen.getByRole("menuitemcheckbox", { name: "Chroma" })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expectDisabled(screen.getByRole("menuitemcheckbox", { name: "Base" }));
+
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Chroma" }));
+
+    expect(openTabs()[0]?.id).toBe(CHUNK_TAB.id);
+    expect(openTabs()[0]).not.toHaveProperty("sandbox");
+  });
+
+  it("disables the layer of the tab's file", async () => {
+    const user = userEvent.setup();
+    drawTab(objectDocument(LAYER_FILE, ENTRY, "Skin0", SKIN_PATH), openBin({ asset: LAYER_FILE }));
+
+    await openOptions(user);
+    await openSubmenu(user, "Layers: 2 of 2");
+
+    expectDisabled(screen.getByRole("menuitemcheckbox", { name: "Chroma" }));
+  });
+});
+
 describe("the Sandbox options of a declared document", () => {
   it("name the project's sandbox and the layer the next edit lands in", async () => {
     const user = userEvent.setup();
