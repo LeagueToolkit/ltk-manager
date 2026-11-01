@@ -147,7 +147,7 @@ interface ChoiceSubmenuProps {
 }
 
 /** A row of the Sandbox options naming a choice and its value, whose list opens beside it. */
-function ChoiceSubmenu({ label, value, glyph, disabled, children }: ChoiceSubmenuProps) {
+export function ChoiceSubmenu({ label, value, glyph, disabled, children }: ChoiceSubmenuProps) {
   return (
     <Menu.SubmenuRoot>
       <Menu.SubmenuTrigger

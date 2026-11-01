@@ -543,6 +543,43 @@ fn the_game_sandbox_refuses_every_edit_and_every_save() {
     assert_eq!(store.sandbox_of(id), Some(SandboxRef::Game));
 }
 
+#[test]
+fn a_layer_subset_refuses_a_game_chunk_and_shares_a_layer_file_with_the_project() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = BinDocuments::new(std::num::NonZeroUsize::new(4).unwrap());
+    let subset = SandboxRef::Layers {
+        project: dir.path().display().to_string(),
+        layers: vec!["base".to_owned()],
+    };
+
+    let chunk = store
+        .open(&subset, teemo_chunk(), || Ok(game_bin()))
+        .unwrap();
+    assert_eq!(store.read_only(chunk).unwrap(), Some(ReadOnly::LayerSubset));
+
+    let file = AssetRef::Layer {
+        project: dir.path().display().to_string(),
+        layer: "base".to_owned(),
+        path: format!("Teemo.wad.client/{CHUNK}"),
+    };
+    let in_subset = store
+        .open(&subset, file.clone(), || Ok(game_bin()))
+        .unwrap();
+    let in_whole = store
+        .open(&in_project(dir.path()), file, || {
+            unreachable!("the tree is open")
+        })
+        .unwrap();
+
+    assert_eq!(store.read_only(in_subset).unwrap(), None);
+    assert_eq!(store.sandbox_of(in_subset), Some(subset));
+    assert_eq!(store.sandbox_of(in_whole), Some(in_project(dir.path())));
+
+    store.close(in_subset);
+    assert_eq!(store.sandbox_of(in_subset), None);
+    assert!(store.sandbox_of(in_whole).is_some());
+}
+
 /// Acceptance test 3 of docs/plans/sandbox.md, in the store: one chunk opened in two
 /// sandboxes is two documents.
 #[test]

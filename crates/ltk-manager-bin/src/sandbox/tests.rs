@@ -166,9 +166,9 @@ fn a_layer_file_belongs_to_its_project_whichever_sandbox_opens_it() {
     for sandbox in [
         SandboxRef::Game,
         in_project(&dir),
-        SandboxRef::Layer {
+        SandboxRef::Layers {
             project: owner(&dir),
-            layer: "base".to_owned(),
+            layers: vec!["base".to_owned()],
         },
     ] {
         assert_eq!(sandbox.holding(&file), in_project(&dir), "{sandbox}");
@@ -183,19 +183,42 @@ fn a_layer_file_belongs_to_its_project_whichever_sandbox_opens_it() {
 }
 
 #[test]
-fn a_layer_sandbox_stacks_that_layer_alone() {
+fn a_layer_subset_stacks_the_chosen_layers_alone() {
     let dir = project(
-        &["base/W.wad.client/a.tex", "extra/W.wad.client/b.tex"],
-        &[("base", 0), ("extra", 1)],
+        &[
+            "base/W.wad.client/a.tex",
+            "extra/W.wad.client/b.tex",
+            "last/W.wad.client/c.tex",
+        ],
+        &[("base", 0), ("extra", 1), ("last", 2)],
     );
 
-    let sandbox = Sandbox::open(SandboxRef::Layer {
+    let sandbox = Sandbox::open(SandboxRef::Layers {
         project: owner(&dir),
-        layer: "extra".to_owned(),
+        layers: vec!["base".to_owned(), "last".to_owned()],
     });
 
-    assert_eq!(sandbox.layers(), ["extra"]);
-    assert_eq!(sandbox.assets(None).locate("a.tex"), None);
+    assert_eq!(sandbox.layers(), ["base", "last"]);
+    assert!(sandbox.assets(None).locate("a.tex").is_some());
+    assert_eq!(sandbox.assets(None).locate("b.tex"), None);
+    assert!(sandbox.assets(None).locate("c.tex").is_some());
+}
+
+#[test]
+fn a_layer_subset_opens_a_chunk_no_chosen_layer_ships_as_a_subset() {
+    let dir = project(
+        &[&format!("extra/W.wad.client/{SKIN_BIN}")],
+        &[("base", 0), ("extra", 1)],
+    );
+    let sandbox = Sandbox::open(SandboxRef::Layers {
+        project: owner(&dir),
+        layers: vec!["base".to_owned()],
+    });
+
+    assert_eq!(
+        sandbox.opening(chunk(SKIN_BIN)).unwrap(),
+        Opening::Subset(chunk(SKIN_BIN))
+    );
 }
 
 #[test]
@@ -262,15 +285,15 @@ fn a_layer_file_packs_as_its_path_inside_the_archive_or_its_hex_name() {
 
 #[test]
 fn a_sandbox_ref_crosses_the_wire_tagged_by_kind() {
-    let wire = serde_json::to_value(SandboxRef::Layer {
+    let wire = serde_json::to_value(SandboxRef::Layers {
         project: "C:/mods/teemo".to_owned(),
-        layer: "chroma".to_owned(),
+        layers: vec!["chroma".to_owned()],
     })
     .unwrap();
 
     assert_eq!(
         wire,
-        serde_json::json!({ "kind": "layer", "project": "C:/mods/teemo", "layer": "chroma" })
+        serde_json::json!({ "kind": "layers", "project": "C:/mods/teemo", "layers": ["chroma"] })
     );
     assert_eq!(
         serde_json::to_value(SandboxRef::Game).unwrap(),

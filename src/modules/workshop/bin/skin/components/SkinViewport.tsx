@@ -231,11 +231,15 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* The skin's own document stands for its project, whose layer answers before the
      install for a map the creator has replaced. */
   const shaders = usePreviewShaders();
-  const project = sandboxProject(useSandbox());
-  const backdropSource = useMemo(
-    () => (backdrop === null ? null : { map: backdrop, document, project, shaders }),
-    [backdrop, document, project, shaders],
-  );
+  const sandbox = useSandbox();
+  const backdropSource = useMemo(() => {
+    if (backdrop === null) return null;
+
+    /* A layer subset shares no read with the whole project, so its document answers. */
+    if (sandbox.kind === "layers") return { map: backdrop, document, sandbox, shaders };
+
+    return { map: backdrop, document, project: sandboxProject(sandbox), shaders };
+  }, [backdrop, document, sandbox, shaders]);
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
   const backdropSky = usePreviewBackdropSky();

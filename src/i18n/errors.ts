@@ -140,6 +140,7 @@ export function readOnlyDescription(gate: ReadOnly): string {
   return match(gate)
     .with("declarationsOff", () => m["error.BIN_READ_ONLY.declarationsOff.description"]())
     .with("gameSandbox", () => m["error.BIN_READ_ONLY.gameSandbox.description"]())
+    .with("layerSubset", () => m["error.BIN_READ_ONLY.layerSubset.description"]())
     .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
     .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
     .exhaustive();

@@ -44,12 +44,12 @@ pub enum SandboxRef {
         /// The project directory.
         project: String,
     },
-    /// One layer of a project over the game. Reserved: nothing opens one yet.
-    Layer {
+    /// The chosen layers of a project over the game, as a build of those layers alone writes it.
+    Layers {
         /// The project directory.
         project: String,
-        /// The layer's name.
-        layer: String,
+        /// The chosen layers' names.
+        layers: Vec<String>,
     },
 }
 
@@ -59,7 +59,16 @@ impl SandboxRef {
     pub fn project(&self) -> Option<&str> {
         match self {
             Self::Game => None,
-            Self::Project { project } | Self::Layer { project, .. } => Some(project),
+            Self::Project { project } | Self::Layers { project, .. } => Some(project),
+        }
+    }
+
+    /// The chosen layers of a layer subset, or `None` for any other sandbox.
+    #[must_use]
+    pub fn layers(&self) -> Option<&[String]> {
+        match self {
+            Self::Layers { layers, .. } => Some(layers),
+            Self::Game | Self::Project { .. } => None,
         }
     }
 
@@ -95,7 +104,9 @@ impl fmt::Display for SandboxRef {
         match self {
             Self::Game => f.write_str("the game"),
             Self::Project { project } => write!(f, "the project {project}"),
-            Self::Layer { project, layer } => write!(f, "the layer {layer} of {project}"),
+            Self::Layers { project, layers } => {
+                write!(f, "the layers {} of {project}", layers.join(", "))
+            }
         }
     }
 }
@@ -112,6 +123,9 @@ pub enum Opening {
         /// The chunk's path hash.
         chunk_hash: u64,
     },
+    /// A game chunk no chosen layer ships, read with the chosen layers' declarations. It takes
+    /// no edit.
+    Subset(AssetRef),
 }
 
 /// One object a layer file of a sandbox declares.
@@ -142,8 +156,8 @@ impl Sandbox {
         let chunks = match &reference {
             SandboxRef::Game => LayerChunks::default(),
             SandboxRef::Project { project } => LayerChunks::scan(Path::new(project)),
-            SandboxRef::Layer { project, layer } => {
-                LayerChunks::scan_layer(Path::new(project), layer)
+            SandboxRef::Layers { project, layers } => {
+                LayerChunks::scan_layers(Path::new(project), layers)
             }
         };
 
@@ -310,6 +324,9 @@ impl Sandbox {
             .ok_or_else(|| AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}")))?;
         if let Some(file) = self.chunks.asset_of_chunk(chunk_hash) {
             return Ok(Opening::File(file.clone()));
+        }
+        if self.reference.layers().is_some() {
+            return Ok(Opening::Subset(asset));
         }
 
         Ok(Opening::Declared {

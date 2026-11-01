@@ -155,12 +155,22 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(crate::services::objects::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
+    let watcher_app = app.handle().clone();
     app.manage(
         crate::workshop::LayerWatches::new(
             Arc::clone(&events),
             Arc::new(move |project| {
                 sandboxes.invalidate(project);
                 sounds.invalidate_project(project);
+                watcher_app
+                    .state::<ltk_manager_bin::bin_document::BinDocuments>()
+                    .reload_subsets(project, |sandbox, asset| {
+                        crate::services::shared::installed::read_opened(
+                            &watcher_app,
+                            sandbox,
+                            asset,
+                        )
+                    });
             }),
         )
         .with_sources(

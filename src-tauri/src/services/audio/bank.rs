@@ -669,8 +669,13 @@ pub(super) fn layer_copy(
                             .to_owned(),
                     ));
                 }
+                SandboxRef::Layers { .. } => {
+                    return Err(AppError::ValidationFailed(
+                        "A layer subset takes no edit of a game file. Read from the project to edit it."
+                            .to_owned(),
+                    ));
+                }
                 SandboxRef::Project { project } => (project, BASE_LAYER),
-                SandboxRef::Layer { project, layer } => (project, layer.as_str()),
             };
             let archive = archive_of(asset)
                 .ok_or_else(|| AppError::ValidationFailed(format!("{path} is in no archive")))?;

@@ -3,7 +3,9 @@
 
 use crate::data_location::{data_dir, SHADERS};
 use crate::error::{AppResult, IpcResult};
-use crate::services::shared::document_assets::{read_resolved, sandbox_of, with_resolution};
+use crate::services::shared::document_assets::{
+    read_declared_bin, read_resolved, sandbox_of, with_resolution,
+};
 use crate::services::shared::off_thread;
 use crate::services::shared::{asset_reader, read_asset, read_bin, GameBins};
 use crate::state::SettingsState;
@@ -194,7 +196,9 @@ fn on_source<T>(
             .declared_by(bins.declaring(assets));
         Ok(read(&mut lookup, &mut bytes))
     };
-    let parsed = |asset: &AssetRef| -> AppResult<BinDocument> { read_bin(app_handle, asset) };
+    let parsed = |asset: &AssetRef| -> AppResult<BinDocument> {
+        read_declared_bin(app_handle, &sandbox, asset)
+    };
 
     match source {
         MaterialSource::Document { document } => read_resolved(app_handle, document, resolved),

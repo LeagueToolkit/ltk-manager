@@ -7347,7 +7347,9 @@ export type ReadOnly =
 /**  A game chunk inside a project whose game data declarations are off. ADR-0042. */
 "declarationsOff" | 
 /**  A document in the game sandbox, which is the installed game alone. ADR-0056. */
-"gameSandbox";
+"gameSandbox" | 
+/**  A game chunk in a layer subset, whose edits have no layer to land in. */
+"layerSubset";
 
 /**  The objects one file declares, as a reference query groups them. */
 export type ReferenceGroup = {
@@ -8015,12 +8017,12 @@ export type SandboxRef =
 { kind: "project"; 
 /**  The project directory. */
 project: string } | 
-/**  One layer of a project over the game. Reserved: nothing opens one yet. */
-{ kind: "layer"; 
+/**  The chosen layers of a project over the game, as a build of those layers alone writes it. */
+{ kind: "layers"; 
 /**  The project directory. */
 project: string; 
-/**  The layer's name. */
-layer: string };
+/**  The chosen layers' names. */
+layers: string[] };
 
 /**  One `CurveScaledFloat`. */
 export type ScaledCurve = {

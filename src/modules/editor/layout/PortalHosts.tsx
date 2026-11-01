@@ -25,9 +25,14 @@ export interface PortalHost {
   readonly subscribe: (listener: () => void) => () => void;
   /** Record whether `slot` shows the node on screen, or with null that it let go. */
   readonly report: (slot: object, visible: boolean | null) => void;
+  /** Records the scroll offsets and the focus that removing the node from the DOM resets. */
+  readonly capture: () => void;
+  /** Applies what `capture` recorded, once the node is back in the DOM. */
+  readonly restore: () => void;
 }
 
-function createPortalHost(key: string): PortalHost {
+/** Returns a new host with a detached node, labelled `key` for devtools. */
+export function createPortalHost(key: string): PortalHost {
   const node = document.createElement("div");
   /* No box of its own, so what is portalled in lays out against the slot's parent. */
   node.style.display = "contents";
@@ -36,10 +41,28 @@ function createPortalHost(key: string): PortalHost {
   const slots = new Map<object, boolean>();
   const listeners = new Set<() => void>();
   let view: HostView = "unheld";
+  let offsets: readonly (readonly [Element, number, number])[] = [];
+  let focused: HTMLElement | null = null;
 
   return {
     node,
     view: () => view,
+    capture: () => {
+      offsets = [...node.querySelectorAll("*")]
+        .filter((element) => element.scrollTop !== 0 || element.scrollLeft !== 0)
+        .map((element) => [element, element.scrollTop, element.scrollLeft] as const);
+
+      const active = document.activeElement;
+      focused = active instanceof HTMLElement && node.contains(active) ? active : null;
+    },
+    restore: () => {
+      for (const [element, top, left] of offsets)
+        element.scrollTo({ top, left, behavior: "instant" });
+      offsets = [];
+
+      focused?.focus({ preventScroll: true });
+      focused = null;
+    },
     subscribe: (listener) => {
       listeners.add(listener);
       return () => {
@@ -81,9 +104,14 @@ export function PortalSlot({ host }: { host: PortalHost }) {
   const adopt = useCallback(
     (element: HTMLDivElement) => {
       element.append(host.node);
+      host.restore();
+
       return () => {
         /* The slot taking over may already hold it, when both commit together. */
-        if (host.node.parentNode === element) host.node.remove();
+        if (host.node.parentNode !== element) return;
+
+        host.capture();
+        host.node.remove();
       };
     },
     [host],

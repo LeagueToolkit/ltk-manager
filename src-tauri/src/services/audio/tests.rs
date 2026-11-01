@@ -356,19 +356,27 @@ fn layer_copy_places_game_chunk_in_base_layer_of_project() {
 }
 
 #[test]
-fn layer_copy_names_unnamed_chunk_by_hash_in_sandbox_layer() {
-    let sandbox = SandboxRef::Layer {
+fn layer_copy_names_unnamed_chunk_by_hash() {
+    let sandbox = SandboxRef::Project {
         project: "C:/mods/ward".to_owned(),
-        layer: "chroma".to_owned(),
     };
 
     let copy = bank::layer_copy(&sandbox, &game_chunk(), "0123456789abcdef", "bnk").unwrap();
 
-    let Some(AssetRef::Layer { layer, path, .. }) = copy else {
+    let Some(AssetRef::Layer { path, .. }) = copy else {
         panic!("not a layer file");
     };
-    assert_eq!(layer, "chroma");
     assert_eq!(path, "Map22.wad.client/0123456789abcdef.bnk");
+}
+
+#[test]
+fn layer_copy_refuses_layer_subset() {
+    let sandbox = SandboxRef::Layers {
+        project: "C:/mods/ward".to_owned(),
+        layers: vec!["chroma".to_owned()],
+    };
+
+    assert!(bank::layer_copy(&sandbox, &game_chunk(), EVENTS_PATH, "bnk").is_err());
 }
 
 #[test]

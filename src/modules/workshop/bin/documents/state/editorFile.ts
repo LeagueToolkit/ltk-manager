@@ -336,7 +336,7 @@ const wadSourceSchema = z.enum(["game", "lcu"]) satisfies z.ZodType<WadSource>;
 const sandboxRefSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("game") }),
   z.object({ kind: z.literal("project"), project: z.string() }),
-  z.object({ kind: z.literal("layer"), project: z.string(), layer: z.string() }),
+  z.object({ kind: z.literal("layers"), project: z.string(), layers: z.array(z.string()) }),
 ]) satisfies z.ZodType<SandboxRef>;
 
 /* Tab entries stay unchecked here: `dropUnknownTabs` filters them one by one,

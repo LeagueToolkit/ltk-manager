@@ -365,6 +365,8 @@ pub enum ReadOnly {
     DeclarationsOff,
     /// A document in the game sandbox, which is the installed game alone. ADR-0056.
     GameSandbox,
+    /// A game chunk in a layer subset, whose edits have no layer to land in.
+    LayerSubset,
 }
 
 impl fmt::Display for ReadOnly {
@@ -374,6 +376,7 @@ impl fmt::Display for ReadOnly {
             Self::Patch => "a patch layer",
             Self::DeclarationsOff => "a game file of a project with declarations off",
             Self::GameSandbox => "a file of the game sandbox",
+            Self::LayerSubset => "a game file of a layer subset",
         })
     }
 }
@@ -613,6 +616,19 @@ impl BinDocument {
         self.touched.clear();
         self.dependencies_touched = false;
         Ok(())
+    }
+
+    /// Returns the file with its unsaved edits, as a save writes it.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::Unwritable`] if the tree does not encode.
+    pub fn current_bytes(&self) -> Result<Vec<u8>, BinDocumentError> {
+        if self.is_dirty() {
+            return self.encode();
+        }
+
+        Ok(self.base.clone())
     }
 
     /// The file as a save writes it: every touched object over the base.

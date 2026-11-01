@@ -2,9 +2,9 @@
 //! the particles its open `.materials.bin` stands.
 
 use crate::services::shared::document_assets::{
-    parse_entry, read_resolved, with_assets_in, with_resolution,
+    parse_entry, read_declared_bin, read_resolved, sandbox_of, with_assets_in, with_resolution,
 };
-use crate::services::shared::read_bin;
+use crate::services::shared::installed::ProjectGame;
 use std::collections::HashMap;
 
 use super::material::shader_defs;
@@ -41,21 +41,24 @@ pub async fn read_map(
     app_handle: AppHandle,
 ) -> IpcResult<MapModel> {
     off_thread(move || {
+        let sandbox = sandbox_of(&app_handle, document);
         with_resolution(&app_handle, document, |names, assets| {
-            let read = |asset: &AssetRef| read_bin(&app_handle, asset);
+            let read = |asset: &AssetRef| read_declared_bin(&app_handle, &sandbox, asset);
             let Some(source) = assets.locate(&map.materials()) else {
                 return Ok(unresolved_map(&materials));
             };
             /* An open `.materials.bin` answers with its unsaved edits, so a lighting or
             controller edit draws before the save. */
             let documents = app_handle.state::<BinDocuments>();
-            let open = document
-                .and_then(|id| documents.sandbox_of(id))
-                .and_then(|sandbox| documents.open_tree(&sandbox, &source));
+            let open = documents.open_tree(&sandbox, &source);
+            let declared = open.as_ref().and_then(|open| {
+                ProjectGame::new(&app_handle, &sandbox).declared_view(&source, open)
+            });
             let parsed;
-            let bin: &BinDocument = match &open {
-                Some(open) => open,
-                None => {
+            let bin: &BinDocument = match (&declared, &open) {
+                (Some(declared), _) => declared,
+                (None, Some(open)) => open,
+                (None, None) => {
                     parsed = read(&source)?;
                     &parsed
                 }

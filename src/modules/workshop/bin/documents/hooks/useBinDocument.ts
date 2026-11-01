@@ -78,7 +78,10 @@ export function useBinDocument(
 ): { state: BinOpenState; reopen: () => Promise<BinDocumentId | null> } {
   const sandbox = useSandbox();
   const over = variantOf === null ? "" : `:${assetKey(variantOf.base)}:${variantOf.path}`;
-  const key = `${sandboxKey(sandbox)}:${assetKey(asset)}:${entry ?? ""}${over}`;
+  const file = `${assetKey(asset)}:${entry ?? ""}${over}`;
+  const key = `${sandboxKey(sandbox)}:${file}`;
+  /* A change of chosen layers keeps the old handle on screen, as a reopen does. */
+  const shownKey = `${sandboxProject(sandbox) ?? ""}:${file}`;
   const declaring: Declaring =
     useDeclarationsOn(sandboxProject(sandbox) ?? undefined) === true ? "on" : "off";
 
@@ -87,7 +90,9 @@ export function useBinDocument(
 
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
-  const heldKey = useRef(key);
+  const heldKey = useRef(shownKey);
+  const latestShownKey = useRef(shownKey);
+  latestShownKey.current = shownKey;
   /* The reopens waiting on the next open to land. */
   const waiting = useRef<((id: BinDocumentId | null) => void)[]>([]);
   /* Declared before the open's effect, so its cleanup has run by the time that one's does. */
@@ -119,8 +124,8 @@ export function useBinDocument(
     let live = true;
     let opened: BinDocumentId | null = null;
     let unregister = () => {};
-    const same = heldKey.current === key;
-    heldKey.current = key;
+    const same = heldKey.current === latestShownKey.current;
+    heldKey.current = latestShownKey.current;
     setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
     const { sandbox: openIn, asset: opening, entry: object, variantOf: over } = latest.current;

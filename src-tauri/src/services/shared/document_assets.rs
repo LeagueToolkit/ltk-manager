@@ -6,13 +6,14 @@ use std::sync::Arc;
 use crate::error::{AppError, AppResult};
 use crate::services::game::index::built_game_index;
 use crate::services::preview::material::shader_defs;
-use crate::services::shared::installed::installed_schema;
+use crate::services::shared::installed::{installed_schema, ProjectGame};
 use crate::services::shared::GameBins;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_assets::game_index::GameIndex;
 use ltk_manager_assets::hashtables::CacheNames;
 use ltk_manager_assets::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentId, BinDocuments, RowNames,
 };
@@ -53,15 +54,38 @@ pub(crate) fn sandbox_of(app: &AppHandle, document: Option<BinDocumentId>) -> Sa
 /// game index second, and a read is the first to build that index where nothing has. An
 /// install the index cannot be built over leaves every asset unplaced rather than failing
 /// the read.
+///
+/// A layer file reads with the project's declarations applied, as the build writes it, so a
+/// viewport draws the layers stacked.
 pub(crate) fn read_resolved<T>(
     app: &AppHandle,
     document: BinDocumentId,
     read: impl FnOnce(&BinDocument, &dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
     with_resolution(app, Some(document), |names, assets| {
-        let open = app.state::<BinDocuments>().document(document)?;
-        read(&open, names, assets)
+        let documents = app.state::<BinDocuments>();
+        let open = documents.document(document)?;
+
+        let declared = documents
+            .asset_of(document)
+            .filter(|asset| matches!(asset, AssetRef::Layer { .. }))
+            .and_then(|asset| {
+                ProjectGame::new(app, &sandbox_of(app, Some(document))).declared_view(&asset, &open)
+            });
+
+        read(declared.as_ref().unwrap_or(&open), names, assets)
     })
+}
+
+/// Reads the bin `asset` of `reference` as its project builds it, for a read with no open tree.
+pub(crate) fn read_declared_bin(
+    app: &AppHandle,
+    reference: &SandboxRef,
+    asset: &AssetRef,
+) -> AppResult<BinDocument> {
+    let bytes = ProjectGame::new(app, reference).read(asset)?;
+
+    Ok(BinDocument::parse(bytes)?)
 }
 
 /// Run `read` over the bins of the lookup over the open `document`, as [`read_resolved`] runs it.

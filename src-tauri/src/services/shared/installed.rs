@@ -11,7 +11,7 @@ use ltk_game_data::Target;
 use ltk_hash::BinHash;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::game_build::GameBuild;
-use ltk_manager_bin::bin_document::{GameCopy, ProjectDeclarations, RowNames};
+use ltk_manager_bin::bin_document::{BinDocument, GameCopy, ProjectDeclarations, RowNames};
 use ltk_manager_bin::meta_schema::{self, MetaSchema, PatchSchema};
 use ltk_manager_bin::object_index::ObjectIndexSnapshot;
 use ltk_manager_bin::sandbox::SandboxRef;
@@ -68,8 +68,9 @@ impl ProjectGame {
             let (schema, build) = installed_schema(app_handle);
             ProjectDir::open(project)
                 .and_then(|project| {
-                    ProjectDeclarations::load(
+                    ProjectDeclarations::load_chosen(
                         &project,
+                        sandbox.layers(),
                         PatchSchema::new(schema, build),
                         Arc::new(InstalledGame(app_handle.clone())),
                     )
@@ -95,13 +96,46 @@ impl ProjectGame {
             .unwrap_or_default()
     }
 
-    /// The file `asset`, a bin chunk of the game with the declarations that reach it applied.
+    /// The file `asset`, a bin of the game or a layer with the declarations that reach it applied.
     pub(crate) fn read(&self, asset: &AssetRef) -> AppResult<Vec<u8>> {
         let bytes = self.installed.read(asset)?;
         Ok(match &self.declarations {
             Some(declarations) => declarations.declared_asset(asset, bytes),
             None => bytes,
         })
+    }
+
+    /// Returns `open`, the document of the layer file `asset`, as the build writes it.
+    ///
+    /// Returns `None` if no declaration changes the file. The tree of `open` stays the file on
+    /// disk, because an edit writes that file (ADR-0056).
+    pub(crate) fn declared_view(
+        &self,
+        asset: &AssetRef,
+        open: &BinDocument,
+    ) -> Option<BinDocument> {
+        /* A game chunk's tree already holds its declarations. */
+        if !matches!(asset, AssetRef::Layer { .. }) {
+            return None;
+        }
+
+        let declarations = self.declarations.as_ref()?;
+        if declarations.is_empty() {
+            return None;
+        }
+
+        let bytes = open
+            .current_bytes()
+            .inspect_err(|error| tracing::warn!(?asset, %error, "A preview draws a bin undeclared"))
+            .ok()?;
+        let applied = declarations.declared_asset(asset, bytes.clone());
+        if applied == bytes {
+            return None;
+        }
+
+        BinDocument::parse(applied)
+            .inspect_err(|error| tracing::warn!(?asset, %error, "A preview draws a bin undeclared"))
+            .ok()
     }
 }
 
@@ -116,6 +150,20 @@ impl GameCopy for ProjectGame {
     fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
         self.installed.with_names(read);
     }
+}
+
+/// The bytes a tree of `asset` in `sandbox` opens with: a game chunk of a layer subset with the
+/// chosen layers' declarations applied, else the file.
+pub(crate) fn read_opened(
+    app_handle: &AppHandle,
+    sandbox: &SandboxRef,
+    asset: &AssetRef,
+) -> AppResult<Vec<u8>> {
+    if sandbox.layers().is_some() && matches!(asset, AssetRef::GameChunk { .. }) {
+        return ProjectGame::new(app_handle, sandbox).read(asset);
+    }
+
+    read_asset(app_handle, asset)
 }
 
 /// The shared meta schema and the installed game's content build, which keys every

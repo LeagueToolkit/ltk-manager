@@ -7,9 +7,13 @@ import { useZoomedPx } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
+  type DocumentPlacement,
+  DocumentStage,
   type DropOutcome,
   EDITOR_TABS_HEIGHT,
+  type LayoutNode,
   type LeafNode,
+  leaves,
   PortalSlot,
   Seam,
   SplitLayout,
@@ -27,6 +31,7 @@ import {
 
 import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../../api";
 import {
+  type ContentDocument,
   detailsDocument,
   documentDefinition,
   filesDocument,
@@ -49,6 +54,7 @@ import {
   useSetSplitLayout,
   useSplitWithDocument,
 } from "../../state";
+import { LeafProvider } from "../state/LeafContext";
 import { ContentLeaf, ContentLeafRail } from "./ContentLeaf";
 import { UnsavedQuitGuard } from "./UnsavedQuitGuard";
 
@@ -69,6 +75,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const documents = useOpenDocuments();
   const openDocument = useOpenDocument();
   const layout = useLayoutTree();
+  const editors = useContentEditors();
+  const placements = useMemo(() => documentPlacements(layout, documents), [layout, documents]);
   const setSplitLayout = useSetSplitLayout();
   const reorderDocuments = useReorderDocuments();
   const moveDocument = useMoveDocument();
@@ -196,17 +204,19 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       )}
 
       <TabDndProvider tree={layout} onDrop={handleTabDrop} overlay={renderGhost}>
-        <SplitLayout
-          node={layout}
-          seamVariant="gap"
-          onLayoutChanged={setSplitLayout}
-          renderLeaf={renderLeaf}
-          maximizedLeafId={maximizedLeafId}
-          onRestore={restoreMaximized}
-          /* The 2 is the top and bottom edge of the frame `ContentLeaf` draws around the strip. */
-          collapsedSize={zoomed(EDITOR_TABS_HEIGHT) + 2}
-          renderCollapsedLeaf={renderCollapsedLeaf}
-        />
+        <DocumentStage placements={placements} registry={editors} leafScope={LeafProvider}>
+          <SplitLayout
+            node={layout}
+            seamVariant="gap"
+            onLayoutChanged={setSplitLayout}
+            renderLeaf={renderLeaf}
+            maximizedLeafId={maximizedLeafId}
+            onRestore={restoreMaximized}
+            /* The 2 is the top and bottom edge of the frame `ContentLeaf` draws around the strip. */
+            collapsedSize={zoomed(EDITOR_TABS_HEIGHT) + 2}
+            renderCollapsedLeaf={renderCollapsedLeaf}
+          />
+        </DocumentStage>
       </TabDndProvider>
     </div>
   );
@@ -270,6 +280,23 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       <LayerFileDropOverlay visible={showDropOverlay} layerDisplayName={selectedLayerDisplayName} />
       <UnsavedQuitGuard />
     </div>
+  );
+}
+
+/** Returns each open document with the group that shows it. */
+function documentPlacements(
+  layout: LayoutNode,
+  documents: readonly ContentDocument[],
+): readonly DocumentPlacement<ContentDocument>[] {
+  const byId = new Map(documents.map((document) => [document.id, document]));
+
+  return leaves(layout).flatMap((leaf) =>
+    leaf.tabs.flatMap((id) => {
+      const document = byId.get(id);
+      if (document === undefined) return [];
+
+      return [{ document, leafId: leaf.id, active: id === leaf.activeTab }];
+    }),
   );
 }
 
