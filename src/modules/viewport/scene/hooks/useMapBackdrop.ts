@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from "@tanstack/react-query";
+import { queryOptions, replaceEqualDeep, useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ClampToEdgeWrapping, NoColorSpace, type Texture } from "three";
 
@@ -471,7 +471,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
       geometry.data?.materials ?? null,
     ),
   );
-  const programs = programsRead.data ?? NO_PROGRAMS;
+  const programs = useSharedParts(programsRead.data) ?? NO_PROGRAMS;
   const lightmapAssets = useQuery(
     backdropQueries.lightmaps(
       shaders ? sourceSandbox(source) : null,
@@ -578,7 +578,7 @@ function useBackdropGeometry(source: BackdropSource | null) {
 
 /** The materials, sun and screen effects of `source`'s map, asked for once `geometry` lands. */
 function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry | undefined) {
-  return useQuery(
+  const read = useQuery(
     backdropQueries.model(
       source?.map ?? null,
       source?.document ?? null,
@@ -586,6 +586,22 @@ function useBackdropModel(source: BackdropSource | null, geometry: MapGeometry |
       geometry?.materials ?? null,
     ),
   );
+
+  return { data: useSharedParts(read.data) };
+}
+
+/**
+ * Returns `value` with each part equal to its last value kept as the same object.
+ *
+ * A query shares equal parts with its own last answer only, and a change of chosen layers is
+ * another query. A material that did not change keeps its identity, so nothing rebuilds it.
+ */
+function useSharedParts<T>(value: T): T {
+  const last = useRef(value);
+  const shared = useMemo(() => replaceEqualDeep(last.current, value), [value]);
+  last.current = shared;
+
+  return shared;
 }
 
 /**

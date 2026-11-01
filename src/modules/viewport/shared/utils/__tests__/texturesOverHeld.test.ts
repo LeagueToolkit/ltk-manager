@@ -24,6 +24,15 @@ describe("texturesOverHeld", () => {
     expect(shown.get("landed")).toBe("new");
   });
 
+  it("returns the held map itself if a new set lands the same textures", () => {
+    const held = new Map([
+      ["kept", "same"],
+      ["landed", "same"],
+    ]);
+
+    expect(texturesOverHeld(ASSETS, held, new Map(held))).toBe(held);
+  });
+
   it("drops a held key that the set no longer asks for", () => {
     const shown = texturesOverHeld(ASSETS, new Map([["gone", "old"]]), new Map());
 
