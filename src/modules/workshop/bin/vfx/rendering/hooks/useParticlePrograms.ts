@@ -120,7 +120,7 @@ export interface SlotProgram {
 type ReadyPass = PassProgram & { readonly program: ReadyProgram };
 
 /** Program textures load without colour decoding. The game's shader decodes them. */
-const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
+const RAW_TEXTURES = { colorSpace: NoColorSpace, holdWhileLoading: true } as const;
 
 /**
  * The emitters under it draw with the hand-written materials whatever the shaders switch says.

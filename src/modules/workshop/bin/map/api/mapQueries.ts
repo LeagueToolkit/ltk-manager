@@ -90,6 +90,8 @@ export const mapQueries = {
     queryOptions<MapFiles, AppError>({
       queryKey: [...MAP_FILES_ROOT, sandbox, map],
       queryFn: map === null ? skipToken : queryFnWithArgs(api.bin.locateMapFiles, sandbox, map),
+      /* The same map in another sandbox, so a change of chosen layers keeps the scene open. */
+      placeholderData: (previous, query) => (query?.queryKey.at(-1) === map ? previous : undefined),
       staleTime: Infinity,
       retry: false,
     }),
@@ -102,6 +104,8 @@ export const mapQueries = {
       queryKey: [...MAP_FILES_NEAR_ROOT, sandbox, paths],
       queryFn: async () =>
         paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(sandbox, paths)),
+      placeholderData: (previous, query) =>
+        JSON.stringify(query?.queryKey.at(-1)) === JSON.stringify(paths) ? previous : undefined,
       staleTime: Infinity,
       retry: false,
     }),

@@ -99,6 +99,10 @@ const DOCUMENT_READS = [
   ["map-material-defs"],
   /* The map backdrop's model carries the sun, post effects and materials that the bins state. */
   ["viewport-backdrop", "model"],
+  ["viewport-backdrop", "programs"],
+  ["map-variants"],
+  ["skin-default-program"],
+  ["vfx-missile-spells"],
 ] as const;
 
 /** How the header's dependency list takes an edit. "Dependencies" in docs/ux/BIN_EDITOR.md. */

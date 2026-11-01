@@ -628,6 +628,44 @@ impl BinDocuments {
         }
     }
 
+    /// Moves `id` onto the tree of `from` and drops `from`, so reads keyed by `id` stay valid.
+    ///
+    /// The old tree leaves the store with its last id, unless it holds unsaved edits. Such a
+    /// tree stays with no holder, and the next open over its asset takes it up.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NotOpen`] if either id is closed. Neither id changes then.
+    pub fn adopt(&self, id: BinDocumentId, from: BinDocumentId) -> Result<(), BinDocumentError> {
+        let mut store = self.inner.lock();
+        if !store.ids.contains_key(&id) {
+            return Err(BinDocumentError::NotOpen(id));
+        }
+        let key = store
+            .ids
+            .remove(&from)
+            .ok_or(BinDocumentError::NotOpen(from))?;
+
+        match store.subsets.remove(&from) {
+            Some(subset) => store.subsets.insert(id, subset),
+            None => store.subsets.remove(&id),
+        };
+        let Some(old) = store.ids.insert(id, key) else {
+            return Ok(());
+        };
+
+        let last = store.trees.peek_mut(&old).is_some_and(|tree| {
+            tree.holders = tree.holders.saturating_sub(1);
+            tree.holders == 0 && tree.is_clean()
+        });
+        if last {
+            store.trees.pop(&old);
+            store.shrink();
+        }
+
+        Ok(())
+    }
+
     /// Drop one id. Its asset leaves the store with its last id. A closed id is left as it is.
     pub fn close(&self, id: BinDocumentId) {
         let mut store = self.inner.lock();

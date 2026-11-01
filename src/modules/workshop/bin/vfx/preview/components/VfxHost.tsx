@@ -1,5 +1,11 @@
 import { useFrame } from "@react-three/fiber";
-import { queryOptions, skipToken, useQueries, useQuery } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  queryOptions,
+  skipToken,
+  useQueries,
+  useQuery,
+} from "@tanstack/react-query";
 import { type ReactNode, use, useEffect, useMemo } from "react";
 
 import { api, type AssetRef, type BinRow, type GraphClip } from "@/lib/tauri";
@@ -21,6 +27,7 @@ import {
   jointsOf,
   playableClips,
   playlistOf,
+  HELD_TEXTURES,
   textureAssets,
 } from "../../../skin/utils/skinScene";
 import { useVfxRun, VfxRunContext } from "../../playback/state/run";
@@ -110,8 +117,15 @@ export function useVfxHost() {
     queries: steps.map((clip) => viewportQueries.clip(clip.animation?.asset ?? null)),
     combine: clipData,
   });
-  const mesh = useQuery(viewportQueries.mesh(model?.mesh?.asset ?? null));
-  const skeleton = useQuery(viewportQueries.skeleton(model?.skeleton?.asset ?? null));
+  /* A change of chosen layers can swap either file, and the old one draws until the new lands. */
+  const mesh = useQuery({
+    ...viewportQueries.mesh(model?.mesh?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
+  const skeleton = useQuery({
+    ...viewportQueries.skeleton(model?.skeleton?.asset ?? null),
+    placeholderData: keepPreviousData,
+  });
 
   const pose = useMemo(() => {
     const held = skeleton.data;
@@ -129,7 +143,7 @@ export function useVfxHost() {
     [pose, scale, offset],
   );
   const assets = useMemo(() => (model === undefined ? NO_TEXTURES : textureAssets(model)), [model]);
-  const textures = useAssetTextures(assets);
+  const textures = useAssetTextures(assets, HELD_TEXTURES);
 
   return {
     offset,

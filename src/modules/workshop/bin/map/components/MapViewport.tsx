@@ -9,6 +9,7 @@ import {
   FrameOnCommit,
   meshVisible,
   useBackdropSun,
+  useHeldBackdropSource,
   useSceneColors,
 } from "@/modules/viewport";
 import {
@@ -23,6 +24,7 @@ import {
   usePreviewSun,
 } from "@/stores";
 
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { usePaneCommands } from "../../menus/state/paneCommands";
 import { Notice } from "../../shared/preview/Notice";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
@@ -136,12 +138,23 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const onKeyDown = useMapEditKeys(actions, meshes, edits.drop);
   const colors = useSceneColors();
   const shaders = usePreviewShaders();
-  const source = useMemo(
-    () =>
-      geometryOpening
-        ? null
-        : { map: chosen.map, document, geometry, shaders, edited: geometryEdited },
-    [chosen.map, document, geometry, shaders, geometryEdited, geometryOpening],
+  const sandbox = useSandbox();
+  const source = useHeldBackdropSource(
+    useMemo(
+      () =>
+        geometryOpening
+          ? null
+          : {
+              map: chosen.map,
+              document,
+              geometry,
+              shaders,
+              edited: geometryEdited,
+              ...(sandbox.kind === "layers" && { sandbox }),
+            },
+      [chosen.map, document, geometry, shaders, geometryEdited, geometryOpening, sandbox],
+    ),
+    chosen.map,
   );
   const clicks = !picking.boxing && (tool !== "place" || editable);
 

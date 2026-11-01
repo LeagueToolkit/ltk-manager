@@ -10,7 +10,7 @@ import { skinQueries } from "../api/skinQueries";
 import { outlineMaskAssets, outlineMaterialHashes, submeshOutline } from "../utils/skinScene";
 
 /** Masks and program textures load without colour decoding. */
-const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
+const RAW_TEXTURES = { colorSpace: NoColorSpace, holdWhileLoading: true } as const;
 
 /** The outline materials read while the shaders are off, which is none. */
 const NO_HASHES: readonly string[] = [];

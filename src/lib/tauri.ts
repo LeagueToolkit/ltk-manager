@@ -343,6 +343,7 @@ export const api = {
     roots: bin.binRoots,
     dependencies: bin.binDependencies,
     close: bin.binClose,
+    adopt: bin.binAdopt,
     classSchema: bin.classSchema,
     derivedClasses: bin.derivedClasses,
     classDocs: bin.classDocs,

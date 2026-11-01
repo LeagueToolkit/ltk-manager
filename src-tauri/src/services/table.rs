@@ -9,6 +9,7 @@ services! {
         bin_save,
         bin_reload,
         bin_close,
+        bin_adopt,
         // Reads
         bin_roots,
         bin_children,

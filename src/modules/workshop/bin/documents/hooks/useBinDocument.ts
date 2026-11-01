@@ -30,6 +30,7 @@ import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { sandboxKey, sandboxProject } from "../../../sandbox/utils/sandboxRef";
 import { binSaveKey, flushBinSave, isQueuedThrough } from "../../../state";
 import { expectKind } from "../../shared/utils/expectKind";
+import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { type LoadedChildren, mergePages, PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
 import { useDeclarationsOn } from "./useDeclared";
 import { registerReopen, sendOn } from "./useDocumentCall";
@@ -91,8 +92,10 @@ export function useBinDocument(
   const [generation, setGeneration] = useState(0);
   const [state, setState] = useState<BinOpenState>({ status: "opening" });
   const heldKey = useRef(shownKey);
-  const latestShownKey = useRef(shownKey);
-  latestShownKey.current = shownKey;
+  /* The id on screen and the sandbox it reads in, which a change of chosen layers moves. */
+  const live = useRef<{ id: BinDocumentId; sandbox: SandboxRef } | null>(null);
+  const moves = useRef(Promise.resolve());
+  const invalidateReads = useInvalidateBinReads();
   /* The reopens waiting on the next open to land. */
   const waiting = useRef<((id: BinDocumentId | null) => void)[]>([]);
   /* Declared before the open's effect, so its cleanup has run by the time that one's does. */
@@ -121,16 +124,16 @@ export function useBinDocument(
 
   /* Keyed by what the reference names. A new object for the same asset is not a reopen. */
   useEffect(() => {
-    let live = true;
+    let current = true;
     let opened: BinDocumentId | null = null;
     let unregister = () => {};
-    const same = heldKey.current === latestShownKey.current;
-    heldKey.current = latestShownKey.current;
+    const same = heldKey.current === shownKey;
+    heldKey.current = shownKey;
     setState((previous) => (same && previous.status === "open" ? previous : { status: "opening" }));
 
     const { sandbox: openIn, asset: opening, entry: object, variantOf: over } = latest.current;
     void openGated(openIn, opening, object, over, () => latest.current.declaring).then((result) => {
-      if (!live) {
+      if (!current) {
         if (result.ok) void api.bin.close(result.value.document);
         return;
       }
@@ -138,6 +141,7 @@ export function useBinDocument(
       waiting.current = [];
       if (result.ok) {
         opened = result.value.document;
+        live.current = { id: opened, sandbox: openIn };
         unregister = registerReopen(opened, reopen);
         setState({ status: "open", handle: result.value });
         for (const resolve of settled) resolve(opened);
@@ -147,12 +151,13 @@ export function useBinDocument(
       for (const resolve of settled) resolve(null);
     });
 
-    const held = binSaveKey(latest.current.sandbox, latest.current.asset);
     return () => {
-      live = false;
+      current = false;
       unregister();
       if (opened === null) return;
       const closing = opened;
+      const held = binSaveKey(live.current?.sandbox ?? openIn, opening);
+      live.current = null;
       /* The last id over a tree takes its edits with it, so a queued save lands first. */
       if (isQueuedThrough(held, closing)) {
         void flushBinSave(held).finally(() => void api.bin.close(closing));
@@ -162,9 +167,49 @@ export function useBinDocument(
         void api.bin.close(closing);
       }
     };
-  }, [key, generation, reopen]);
+  }, [shownKey, generation, reopen]);
 
   const openId = state.status === "open" ? state.handle.document : null;
+
+  /* In order, so the last choice of layers is the tree the id ends on. The id stays, so reads
+     keyed by it refresh in the background and a viewport keeps drawing what it has. */
+  useEffect(() => {
+    if (openId === null) return;
+
+    const move = async () => {
+      const held = live.current;
+      const { sandbox: target, asset: file, entry: object, variantOf: over } = latest.current;
+      if (held?.id !== openId || sandboxKey(held.sandbox) === sandboxKey(target)) return;
+
+      const saves = binSaveKey(held.sandbox, file);
+      if (isQueuedThrough(saves, openId)) await flushBinSave(saves);
+
+      const fresh = await openGated(target, file, object, over, () => latest.current.declaring);
+      if (!fresh.ok) {
+        setState({ status: "failed", error: fresh.error });
+        return;
+      }
+
+      const moved = await api.bin.adopt(openId, fresh.value.document);
+      if (!moved.ok) {
+        void api.bin.close(fresh.value.document);
+        if (moved.error.code === "BIN_NOT_OPEN") void reopen();
+        return;
+      }
+
+      if (live.current?.id === openId) live.current = { id: openId, sandbox: target };
+      setState((previous) =>
+        previous.status === "open" && previous.handle.document === openId
+          ? { status: "open", handle: { ...fresh.value, document: openId } }
+          : previous,
+      );
+      invalidateReads();
+    };
+
+    moves.current = moves.current.then(move).catch((error: unknown) => {
+      console.warn("Failed to change the layers of an open bin:", error);
+    });
+  }, [key, openId, reopen, invalidateReads]);
   const declared = state.status === "open" && Boolean(state.handle.declared);
   useEffect(() => {
     if (openId === null || !declared) return;

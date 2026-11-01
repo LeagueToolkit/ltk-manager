@@ -580,6 +580,50 @@ fn a_layer_subset_refuses_a_game_chunk_and_shares_a_layer_file_with_the_project(
     assert!(store.sandbox_of(in_whole).is_some());
 }
 
+#[test]
+fn adopt_moves_an_id_onto_the_other_tree_and_releases_the_old_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = BinDocuments::new(std::num::NonZeroUsize::new(4).unwrap());
+    let subset = SandboxRef::Layers {
+        project: dir.path().display().to_string(),
+        layers: vec!["base".to_owned()],
+    };
+    let whole = in_project(dir.path());
+    let id = store
+        .open(&whole, teemo_chunk(), || Ok(game_bin()))
+        .unwrap();
+    let fresh = store
+        .open(&subset, teemo_chunk(), || Ok(game_bin()))
+        .unwrap();
+
+    store.adopt(id, fresh).unwrap();
+
+    assert_eq!(store.sandbox_of(id), Some(subset));
+    assert_eq!(store.read_only(id).unwrap(), Some(ReadOnly::LayerSubset));
+    assert_eq!(store.sandbox_of(fresh), None);
+    assert!(store.open_tree(&whole, &teemo_chunk()).is_none());
+}
+
+#[test]
+fn adopt_keeps_a_closed_id_closed_and_the_other_id_open() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = BinDocuments::new(std::num::NonZeroUsize::new(4).unwrap());
+    let whole = in_project(dir.path());
+    let closed = store
+        .open(&whole, teemo_chunk(), || Ok(game_bin()))
+        .unwrap();
+    let fresh = store
+        .open(&whole, teemo_chunk(), || Ok(game_bin()))
+        .unwrap();
+    store.close(closed);
+
+    assert_matches!(
+        store.adopt(closed, fresh),
+        Err(BinDocumentError::NotOpen(_))
+    );
+    assert_eq!(store.sandbox_of(fresh), Some(whole));
+}
+
 /// Acceptance test 3 of docs/plans/sandbox.md, in the store: one chunk opened in two
 /// sandboxes is two documents.
 #[test]
