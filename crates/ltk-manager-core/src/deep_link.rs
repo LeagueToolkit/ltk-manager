@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
 
-pub use download::download_mod_file;
+pub use download::{DownloadError, download_mod_file};
 
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::events::{

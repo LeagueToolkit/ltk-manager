@@ -4,7 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DeepLinkInstallRequest, Settings } from "@/lib/tauri";
+import type { AppError, DeepLinkInstallRequest, Settings } from "@/lib/tauri";
 import { useDialogQueueStore } from "@/stores";
 import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
@@ -21,18 +21,23 @@ vi.mock("@tauri-apps/api/event", () => ({
 const world = {
   settings: createMockSettings({ trustedDomains: ["runeforge.dev"] }),
   installKind: "installed" as "installed" | "updated" | "alreadyInstalled",
+  refusal: null as AppError | null,
 };
 
-function answer(command: string): unknown {
+function answer(command: string): { ok: true; value: unknown } | { ok: false; error: AppError } {
   switch (command) {
     case commandNames.settings.getSettings:
-      return world.settings;
+      return { ok: true, value: world.settings };
     case commandNames.settings.saveSettings:
-      return null;
+      return { ok: true, value: null };
     case commandNames.links.deepLinkInstallMod:
-      return { kind: world.installKind, mod: { id: "a", name: "Zama Iroha Master Yi" } };
+      if (world.refusal) return { ok: false, error: world.refusal };
+      return {
+        ok: true,
+        value: { kind: world.installKind, mod: { id: "a", name: "Zama Iroha Master Yi" } },
+      };
     default:
-      return null;
+      return { ok: true, value: null };
   }
 }
 
@@ -54,11 +59,10 @@ function request(over: Partial<DeepLinkInstallRequest> = {}): DeepLinkInstallReq
 describe("ProtocolInstallDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockInvoke.mockImplementation((command: string) =>
-      Promise.resolve({ ok: true, value: answer(command) }),
-    );
+    mockInvoke.mockImplementation((command: string) => Promise.resolve(answer(command)));
     world.settings = createMockSettings({ trustedDomains: ["runeforge.dev"] });
     world.installKind = "installed";
+    world.refusal = null;
     useDeepLinkStore.getState().reset();
     useDialogQueueStore.setState({ current: null, claims: [] });
   });
@@ -145,5 +149,17 @@ describe("ProtocolInstallDialog", () => {
 
     expect(await screen.findByText(/has been updated to the newer version/)).toBeVisible();
     expect(useDeepLinkStore.getState().status).toBe("updated");
+  });
+
+  it("draws the cause and the remedy when the server refuses the link", async () => {
+    world.refusal = { code: "DOWNLOAD", error: { kind: "LINK_EXPIRED" } };
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText("The link expired")).toBeVisible();
+    expect(screen.getByText("Press Install on the mod page again.")).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("error");
   });
 });

@@ -19,6 +19,7 @@ import { isAppError } from "@/utils/errors";
 import { formatBytes } from "@/utils/formatBytes";
 
 import { describeAudioConvertError } from "./audioErrors";
+import { describeDownloadError } from "./downloadErrors";
 import { describeRuneforgeError } from "./runeforgeErrors";
 
 /** The copy for one error: what went wrong, the remedy, and any prose from outside the app. */
@@ -122,6 +123,7 @@ export function describeError(error: AppError): ErrorCopy {
     }))
     .with({ code: "GITHUB" }, (e) => describeGitHubError(e))
     .with({ code: "RUNEFORGE" }, ({ error }) => describeRuneforgeError(error))
+    .with({ code: "DOWNLOAD" }, ({ error }) => describeDownloadError(error))
     .with({ code: "AUDIO_CONVERT" }, ({ error }) => describeAudioConvertError(error))
     .exhaustive();
 }

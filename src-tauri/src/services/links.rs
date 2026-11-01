@@ -89,7 +89,8 @@ pub fn deep_link_install_mod(
         );
 
         let events = TauriEventSink::new(app_handle.clone());
-        let temp_path = deep_link::download_mod_file(&url, &events)?;
+        let version = crate::running_version().to_string();
+        let temp_path = deep_link::download_mod_file(&url, &version, &events)?;
         let temp_path_str = temp_path.to_string_lossy().to_string();
 
         let config = settings.config();

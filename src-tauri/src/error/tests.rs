@@ -375,3 +375,17 @@ fn a_domain_failure_keeps_its_own_code() {
         "BIN_READ_TOO_LARGE"
     );
 }
+
+/// A refused download travels whole, so the frontend switches on its kind.
+#[test]
+fn a_refused_download_carries_its_kind() {
+    use ltk_manager_core::deep_link::DownloadError;
+
+    let json = wire(AppError::from(DownloadError::RateLimited {
+        retry_after: Some(42),
+    }));
+
+    assert_eq!(json["code"], "DOWNLOAD");
+    assert_eq!(json["error"]["kind"], "RATE_LIMITED");
+    assert_eq!(json["error"]["retryAfter"], 42);
+}
