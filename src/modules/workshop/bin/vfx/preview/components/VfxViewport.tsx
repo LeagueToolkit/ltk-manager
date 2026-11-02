@@ -32,7 +32,8 @@ import { ViewModeMenu } from "../../../shared/preview/ViewModeMenu";
 import {
   ControlDivider,
   FitButton,
-  ViewportControls,
+  RailSpacer,
+  ViewportRail,
 } from "../../../shared/preview/ViewportControls";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
@@ -219,6 +220,32 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
 
   return (
     <div data-ui="VfxViewport" className="flex min-h-0 flex-1 flex-col select-none">
+      <ViewportRail side="top" data-ui="VfxViewport:controls">
+        {handleable && (
+          <>
+            <HandleMenu
+              value={handle}
+              blocked={(kind) => handleHint(kind, opened, translationRow, rotationRow)}
+              adds={adds}
+              onChange={(kind) => void choose(kind)}
+            />
+            <ControlDivider />
+          </>
+        )}
+        <RigControl />
+        <RailSpacer />
+        <div className="flex shrink-0 items-center gap-0.5">
+          <ShowMenu />
+          <ShadersToggle />
+          <SoundToggle unresolved={unresolvedSounds} />
+          <ViewModeMenu />
+        </div>
+        <ControlDivider />
+        <div className="flex shrink-0 items-center gap-0.5">
+          <CameraMenu />
+          <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
+        </div>
+      </ViewportRail>
       <div className="relative min-h-0 flex-1">
         <PreviewViewport
           renderer="shared"
@@ -317,36 +344,6 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
         {!pending && error === null && shown === null && (
           <ViewportNotice text={m.workshop_bin_preview_emitters_empty()} />
         )}
-
-        <ViewportControls
-          data-ui="VfxViewport:controls"
-          className="max-w-[calc(100%-1rem)] flex-wrap justify-end"
-        >
-          <div className="flex shrink-0 items-center gap-0.5">
-            <ShowMenu />
-            <ShadersToggle />
-            <SoundToggle unresolved={unresolvedSounds} />
-            <ViewModeMenu />
-          </div>
-          <ControlDivider />
-          <div className="flex shrink-0 items-center gap-0.5">
-            <CameraMenu />
-            <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
-          </div>
-          {handleable && (
-            <>
-              <ControlDivider />
-              <HandleMenu
-                value={handle}
-                blocked={(kind) => handleHint(kind, opened, translationRow, rotationRow)}
-                adds={adds}
-                onChange={(kind) => void choose(kind)}
-              />
-            </>
-          )}
-          <ControlDivider />
-          <RigControl />
-        </ViewportControls>
 
         <div className="absolute bottom-2 left-2 flex flex-col items-start gap-1 select-none">
           {pinned !== null && (

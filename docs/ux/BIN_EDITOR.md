@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-11-02 | Dock every viewport's controls on a rail across its top edge             |
 | 2026-10-31 | Add a menu bar to every object tab, in place of the kebab and Panes      |
 | 2026-10-15 | Draw the sprite sheet in the Texture group, and pick its frames on it    |
 | 2026-10-15 | Duplicate an object as a new one from its own tab                        |
@@ -20,7 +21,6 @@
 | 2026-09-27 | Select an emitter by a click on its particles in the viewer              |
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text                     |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws                    |
-| 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2015,11 +2015,29 @@ Loop toggle and the chance pin, with the timeline closed or the preview maximize
 the mini transport, and its Emitters section keeps the strip. Its scrub is a rail filled up to the
 playhead, which is a line over it, and both it and the time follow the clock every frame.
 
+### The viewport rails
+
+Every viewport of a class view docks its controls on a rail across its top edge, outside the drawn
+frame, as the header of a Blender or Maya viewport is. A rail is a filled strip of the pane's
+own surface rather than a glass bar over the scene, so no control covers what the camera draws
+and a capture holds the whole frame. The map's viewport adds a tool rail down its left edge, per
+"Tools" in docs/ux/MAP_EDITOR.md.
+
+A top rail reads left to right by one rule. The left holds what the viewport draws and edits:
+the subject's switches, the tool's options, the handle and the rig. The right holds how the
+scene is viewed: the Show menu, the shaders switch, the view mode, the camera menu, Frame and
+Capture. A rule parts each group. The rail wraps to a second line in a pane too narrow for one.
+
+Frame is a pill, named Frame on every rail, whose hover names the subject it frames: the
+character, the system, the shape or the map. A readout that belongs to the scene, such as the
+held socket's name and gizmo mode, sits on a glass plate over the bottom left corner.
+
 ### The viewer
 
 The preview pane draws the run on the particle renderer of `docs/plans/vfx-particle-renderer.md`.
-Its controls sit at its top right: the Show menu, the view mode menu, the camera menu, Fit and the
-rig.
+Its controls sit on the rail across its top edge, per "The viewport rails": the handle menu and
+the rig on the left, and the Show menu, the shaders switch, the view mode menu, the camera menu
+and Frame on the right.
 
 **The Show menu** ticks Ground, Midlane, Gizmo, Stencil masks and Stats, and stays open while they
 are set. Its trigger counts the ones on. Midlane draws on the ground alone, so it is off while
@@ -2154,9 +2172,9 @@ drag while the run plays, and the camera does not reframe. The drag changes the 
 one, and Reset to auto returns the target the system picks. The rig's target is a preview
 setting, so a drag writes nothing to the file.
 
-**The controls** over the viewport's top right corner are grouped by a rule: what is drawn
-(Show, the shaders switch, the view mode), the camera and Frame the system, the handle menu,
-and the rig. The bar wraps to a second line in a pane too narrow for one.
+**The controls** on the viewport's rail are grouped by the rule of "The viewport rails": the
+handle menu and the rig on the left, then what is drawn (Show, the shaders switch, the sound
+switch, the view mode), and the camera and Frame the system on the right.
 
 **Background color and Capture image** are on the skin and map viewports. The background color
 replaces the sky and the theme's color, is exact in a capture, and persists until it is reset. The
