@@ -10,7 +10,11 @@ export type PropertyReset =
   | { readonly kind: "remove" }
   | { readonly kind: "leaf"; readonly leaf: LeafValue }
   | { readonly kind: "value"; readonly edits: ValueEdit[] }
+  | { readonly kind: "unchanged" }
   | { readonly kind: "refused" };
+
+/** The edit that empties an option, which then reads as the game's default. */
+export const EMPTY_OPTION: readonly ValueEdit[] = [{ type: "removeItem", path: "[0]" }];
 
 const CONSTANT_FIELD = nameHash("constantValue");
 const CONSTANT = CONSTANT_FIELD.slice(2);
@@ -38,6 +42,11 @@ export function propertyReset(
   curve: boolean,
 ): PropertyReset {
   if (!declares) return { kind: "remove" };
+
+  if (row.kind === "option") {
+    const absent = row.value.type === "optional" && !row.value.present;
+    return absent ? { kind: "unchanged" } : { kind: "value", edits: [...EMPTY_OPTION] };
+  }
 
   const raw = parseDefault(field?.defaultValue);
   if (row.value.type === "struct" && VALUE_WIDTH.has(row.value.classHash)) {
@@ -83,8 +92,8 @@ export function valueResetEdits(
   return edits;
 }
 
-/** The holder path of the property at `path`, which the property's own segment ends. */
-export function holderPath(path: string): string {
+/** The path of the struct that the property at `path` sits in, which the property's own segment ends. */
+export function parentPath(path: string): string {
   return path.length > 8 ? path.slice(0, -9) : "";
 }
 

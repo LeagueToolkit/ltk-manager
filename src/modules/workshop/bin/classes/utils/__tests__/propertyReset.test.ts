@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { holderPath, propertyReset } from "../propertyReset";
+import { parentPath, propertyReset } from "../propertyReset";
 
 const CONSTANT = nameHash("constantValue");
 const DYNAMICS = nameHash("dynamics").slice(2);
@@ -88,6 +88,30 @@ describe("propertyReset", () => {
     });
   });
 
+  it("empties a present option in a declared document", () => {
+    const period = row({ kind: "option", value: { type: "float", value: 2 } });
+
+    expect(propertyReset(period, undefined, true, false)).toEqual({
+      kind: "value",
+      edits: [{ type: "removeItem", path: "[0]" }],
+    });
+  });
+
+  it("leaves an empty option unchanged", () => {
+    const period = row({
+      kind: "option",
+      value: { type: "optional", present: false, itemKind: "f32" },
+    });
+
+    expect(propertyReset(period, undefined, true, false)).toEqual({ kind: "unchanged" });
+  });
+
+  it("removes an option where the document can drop one", () => {
+    const period = row({ kind: "option", value: { type: "float", value: 2 } });
+
+    expect(propertyReset(period, undefined, false, false)).toEqual({ kind: "remove" });
+  });
+
   it("refuses a list in a declared document", () => {
     const list = row({ kind: "list", value: { type: "container", len: 2, itemKind: "f32" } });
 
@@ -95,9 +119,9 @@ describe("propertyReset", () => {
   });
 });
 
-describe("holderPath", () => {
+describe("parentPath", () => {
   it("drops the property's own segment", () => {
-    expect(holderPath("aaaaaaaa[2].bbbbbbbb")).toBe("aaaaaaaa[2]");
-    expect(holderPath("bbbbbbbb")).toBe("");
+    expect(parentPath("aaaaaaaa[2].bbbbbbbb")).toBe("aaaaaaaa[2]");
+    expect(parentPath("bbbbbbbb")).toBe("");
   });
 });

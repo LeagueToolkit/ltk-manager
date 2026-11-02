@@ -10,7 +10,14 @@ import {
   followedBar,
   snapTime,
 } from "../barDrag";
-import { draggedEdits, TIMING, withBar } from "../timingEdits";
+import {
+  clearedEdits,
+  cycleEdits,
+  draggedEdits,
+  noCycleEdits,
+  TIMING,
+  withBar,
+} from "../timingEdits";
 
 const view = { from: 0, to: 10 };
 const bar = { start: 1, end: 3, tail: 1, linger: 1, period: null, burst: false };
@@ -110,6 +117,36 @@ describe("draggedEdits", () => {
       { entry: "0x1", holder: "", field: "0xaaaaaaaa", edits: [...leaf(0, 2), ...leaf(4, 5)] },
       { entry: "0x1", holder: "", field: "0xbbbbbbbb", edits: leaf(1, 3) },
     ]);
+  });
+});
+
+describe("cycleEdits", () => {
+  const period = TIMING.period.slice(2);
+  const active = TIMING.timeActiveDuringPeriod.slice(2);
+
+  it("writes a second's cycle with half of it active", () => {
+    expect(cycleEdits(2, null)).toEqual([
+      { type: "ensureProperty", path: "[2]", field: TIMING.period },
+      { type: "setLeaf", path: `[2].${period}`, value: { type: "float", value: 1 } },
+      { type: "ensureProperty", path: "[2]", field: TIMING.timeActiveDuringPeriod },
+      { type: "setLeaf", path: `[2].${active}`, value: { type: "float", value: 0.5 } },
+    ]);
+  });
+
+  it("keeps a held active time and grows the cycle past it", () => {
+    expect(cycleEdits(0, 3)).toEqual([
+      { type: "ensureProperty", path: "[0]", field: TIMING.period },
+      { type: "setLeaf", path: `[0].${period}`, value: { type: "float", value: 6 } },
+    ]);
+  });
+
+  it("clears the period alone, or with the active time the emitter holds", () => {
+    expect(noCycleEdits(1, null)).toEqual([{ type: "removeItem", path: `[1].${period}[0]` }]);
+    expect(noCycleEdits(1, 0.5)).toEqual([
+      { type: "removeItem", path: `[1].${period}[0]` },
+      { type: "removeItem", path: `[1].${active}[0]` },
+    ]);
+    expect(clearedEdits(1, [])).toEqual([]);
   });
 });
 

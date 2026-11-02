@@ -1,4 +1,10 @@
-import { DiceFiveIcon, MinusIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
+import {
+  DiceFiveIcon,
+  EraserIcon,
+  MinusIcon,
+  WarningCircleIcon,
+  WaveSineIcon,
+} from "@phosphor-icons/react";
 import { type ReactNode, use, useMemo } from "react";
 
 import {
@@ -6,6 +12,7 @@ import {
   DataTableCells,
   DataTableHeaders,
   type DataTableColumn,
+  IconButton,
   InputDefaultContext,
   Tooltip,
 } from "@/components";
@@ -52,6 +59,7 @@ import { rowTag } from "../../values/utils/kindTag";
 import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
 import { FieldLabelsContext, RandomFieldsContext } from "../state/fieldLabels";
 import type { LayoutFrame, PlacedSection } from "../utils/classLayouts";
+import { EMPTY_OPTION, parentPath } from "../utils/propertyReset";
 import { ClassCard } from "./ClassCard";
 import { FieldCard } from "./FieldCard";
 
@@ -355,9 +363,15 @@ export function FieldRow({
   const vertical =
     verticalValues &&
     (family !== null || axes !== null || row.value.type === "color" || row.value.type === "matrix");
-  const editable = use(LeafEditContext) !== null;
+  const edit = use(LeafEditContext);
+  const editable = edit !== null;
   const document = use(RowDocumentContext);
   const folds = document !== null && family === null && axes === null && canExpand(row);
+  const unsets =
+    row.node === "property" &&
+    row.kind === "option" &&
+    row.value.type !== "optional" &&
+    edit?.editProperty !== undefined;
   const [open, toggle] = useRowFold(row);
   const caret = folds ? (
     <FoldCaret open={open} onToggle={toggle} label={m.workshop_bin_row_fields_action()} />
@@ -431,12 +445,42 @@ export function FieldRow({
             <RowValue row={row} owner={owner} />
           )}
           {valueAction}
+          {unsets && <UnsetAction row={row} />}
           <ChangeMark rowKey={rowKey(row)} />
           <DeclaredRowState rowKey={rowKey(row)} />
         </div>
       </div>
       {nested}
     </>
+  );
+}
+
+/**
+ * Empties the option of `row`, which then reads as unset and the game reads its default.
+ *
+ * "An optional draws what it holds" in docs/ux/BIN_EDITOR.md. Shown on hover and focus alone,
+ * as the row's other actions are.
+ */
+function UnsetAction({ row }: { row: BinRow }) {
+  const edit = use(LeafEditContext);
+  if (edit?.editProperty === undefined) return null;
+
+  const editProperty = edit.editProperty;
+  const parent = { ...row, path: parentPath(row.path) };
+
+  return (
+    <IconButton
+      size="row"
+      muted
+      icon={<EraserIcon />}
+      label={m.workshop_bin_row_unset_action()}
+      tooltip={m.workshop_bin_row_unset_hint()}
+      className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+      onClick={(event) => {
+        event.stopPropagation();
+        void editProperty(parent, fieldHash(row.path), [...EMPTY_OPTION]);
+      }}
+    />
   );
 }
 

@@ -807,8 +807,8 @@ describe("ClassView over a particle system", () => {
             fields: [
               ...SCHEMA.fields,
               {
-                hash: nameHash("period"),
-                name: "period",
+                hash: nameHash("timeBeforeFirstEmission"),
+                name: "timeBeforeFirstEmission",
                 declared: { kind: "f32", key: null, value: null },
                 classHash: null,
                 defaultValue: "0",
@@ -861,7 +861,7 @@ describe("ClassView over a particle system", () => {
     });
     renderSystem(vi.fn(), true);
     const input = within(await fieldRow("emitterLinger")).getByPlaceholderText("0");
-    const period = within(await fieldRow("period")).getByPlaceholderText("0");
+    const delay = within(await fieldRow("timeBeforeFirstEmission")).getByPlaceholderText("0");
     const emission = section("Emission").closest("section")!;
     const rowOrder = () =>
       Array.from(
@@ -886,7 +886,7 @@ describe("ClassView over a particle system", () => {
     );
     expect(await screen.findByDisplayValue("2.5")).not.toHaveAttribute("placeholder");
     expect(rowOrder()).toEqual(orderBeforeEdit);
-    expect(within(await fieldRow("period")).getByPlaceholderText("0")).toBe(period);
+    expect(within(await fieldRow("timeBeforeFirstEmission")).getByPlaceholderText("0")).toBe(delay);
     expect(section("Emission")).toHaveAttribute("aria-expanded", "true");
     await waitFor(
       () => expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binSave, { document: 9 }),

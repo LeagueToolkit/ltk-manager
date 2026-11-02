@@ -1,4 +1,4 @@
-import { use } from "react";
+import { type ReactNode, use } from "react";
 
 import { Checkbox, Popover, Select, StepperField } from "@/components";
 import { m } from "@/i18n";
@@ -11,8 +11,17 @@ import { holderRow } from "../../drivers/utils/holderRow";
 import { LINGER_TYPE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import { emissionEnd } from "../../engine/model/systemModel";
+import { CycleStrip } from "../../inspector/components/CycleStrip";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
-import { clearedEdits, seconds, TIMING, timingEdits, type TimingName } from "../utils/timingEdits";
+import {
+  clearedEdits,
+  cycleEdits,
+  noCycleEdits,
+  seconds,
+  TIMING,
+  timingEdits,
+  type TimingName,
+} from "../utils/timingEdits";
 
 /** The most seconds a timing field takes, ten minutes being past any system's span. */
 const MOST_SECONDS = 600;
@@ -27,22 +36,25 @@ interface BarEditorProps {
 }
 
 /**
- * A popover with an emitter's timing fields: start delay, end time, lingers, period, single
- * burst and variable start. A line under the name states how long the emitter emits for. Each
- * field commits on its own as one undo step. A double click on the lane's bar opens it. "The
- * timeline" in docs/ux/BIN_EDITOR.md.
+ * A popover with an emitter's timing fields in three bands: its window, its cycle, and its
+ * flags. A line under the name states how long the emitter emits for. Each field commits on
+ * its own as one undo step, and Repeats writes or clears the period and its active part
+ * together. A double click on the lane's bar opens it. "The timeline" in
+ * docs/ux/BIN_EDITOR.md.
  */
 export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
   const editProperty = use(LeafEditContext)?.editProperty;
   const place = emitterPlace(row.path);
   if (editProperty === undefined || place === null) return null;
 
-  const holder = holderRow(row.entry, "");
+  const system = holderRow(row.entry, "");
   const write = (field: TimingName, value: LeafValue) =>
-    void editProperty(holder, place.list, timingEdits(place.index, [{ field, value }]));
+    void editProperty(system, place.list, timingEdits(place.index, [{ field, value }]));
   const clear = (field: TimingName) =>
-    void editProperty(holder, place.list, clearedEdits(place.index, field));
-  const cycle = emitter.period?.length ?? null;
+    void editProperty(system, place.list, clearedEdits(place.index, [field]));
+  const period = emitter.period;
+  const cycle = period?.length ?? null;
+  const active = period?.active ?? null;
 
   return (
     <Popover.Root
@@ -57,95 +69,140 @@ export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
         align="start"
         sideOffset={6}
         data-ui="BarEditor"
-        className="flex w-80 flex-col gap-2 p-3"
+        className="flex w-80 flex-col gap-3 p-3"
       >
-        <Popover.Title className="truncate text-row font-medium text-surface-200">
-          {emitter.name}
-        </Popover.Title>
-        <p data-ui="BarEditor:span" className="text-meta text-surface-400">
-          {spanText(emitter)}
-        </p>
-        <Seconds
-          label={label("timeBeforeFirstEmission")}
-          value={emitter.timeBeforeFirstEmission}
-          onCommit={(value) => write("timeBeforeFirstEmission", seconds(value))}
-        />
-        <Seconds
-          label={label("lifetime")}
-          value={emitter.lifetime ?? 0}
-          disabled={emitter.lifetime === null}
-          onCommit={(value) => write("lifetime", seconds(value))}
-        />
-        <Checkbox
-          size="sm"
-          label={m.workshop_bin_timeline_endless_action()}
-          checked={emitter.lifetime === null}
-          onCheckedChange={(endless) => {
-            if (endless) clear("lifetime");
-            else write("lifetime", seconds(1));
-          }}
-        />
-        <Seconds
-          label={label("emitterLinger")}
-          value={emitter.emitterLinger}
-          onCommit={(value) => write("emitterLinger", seconds(value))}
-        />
-        {!emitter.simple && (
-          <>
-            <Seconds
-              label={label("particleLinger")}
-              value={emitter.particleLinger}
-              onCommit={(value) => write("particleLinger", seconds(value))}
-            />
-            <LingerKind
-              value={emitter.lingerType}
-              onCommit={(value) =>
-                write("particleLingerType", { type: "integer", text: String(value) })
+        <div className="flex flex-col gap-0.5">
+          <Popover.Title className="truncate text-row font-medium text-surface-200">
+            {emitter.name}
+          </Popover.Title>
+          <p data-ui="BarEditor:span" className="text-meta text-surface-400 tabular-nums">
+            {spanText(emitter)}
+          </p>
+        </div>
+
+        <Band>
+          <Seconds
+            label={label("timeBeforeFirstEmission")}
+            value={emitter.timeBeforeFirstEmission}
+            onCommit={(value) => write("timeBeforeFirstEmission", seconds(value))}
+          />
+          <Seconds
+            label={label("lifetime")}
+            value={emitter.lifetime ?? 0}
+            disabled={emitter.lifetime === null}
+            onCommit={(value) => write("lifetime", seconds(value))}
+          />
+          <Flag
+            label={m.workshop_bin_timeline_endless_action()}
+            checked={emitter.lifetime === null}
+            onChange={(endless) => {
+              if (endless) clear("lifetime");
+              else write("lifetime", seconds(1));
+            }}
+          />
+          <Seconds
+            label={label("emitterLinger")}
+            value={emitter.emitterLinger}
+            onCommit={(value) => write("emitterLinger", seconds(value))}
+          />
+          {!emitter.simple && (
+            <>
+              <Seconds
+                label={label("particleLinger")}
+                value={emitter.particleLinger}
+                onCommit={(value) => write("particleLinger", seconds(value))}
+              />
+              <LingerKind
+                value={emitter.lingerType}
+                onCommit={(value) =>
+                  write("particleLingerType", { type: "integer", text: String(value) })
+                }
+              />
+            </>
+          )}
+        </Band>
+
+        <Band>
+          <Flag
+            label={m.workshop_bin_timeline_repeats_action()}
+            checked={cycle !== null}
+            onChange={(repeats) =>
+              void editProperty(
+                system,
+                place.list,
+                repeats ? cycleEdits(place.index, active) : noCycleEdits(place.index, active),
+              )
+            }
+          >
+            {period !== null && <CycleStrip period={period} />}
+          </Flag>
+          {cycle !== null && (
+            <>
+              <Seconds
+                label={label("period")}
+                value={cycle}
+                onCommit={(value) => write("period", seconds(value))}
+              />
+              <Seconds
+                label={label("timeActiveDuringPeriod")}
+                value={active ?? cycle}
+                onCommit={(value) => write("timeActiveDuringPeriod", seconds(value))}
+              />
+            </>
+          )}
+        </Band>
+
+        <Band>
+          <Flag
+            label={label("isSingleParticle")}
+            checked={emitter.singleParticle}
+            onChange={(burst) => write("isSingleParticle", { type: "bool", value: burst })}
+          />
+          {!emitter.simple && (
+            <Flag
+              label={label("HasVariableStartTime")}
+              checked={emitter.hasVariableStartTime}
+              onChange={(variable) =>
+                write("HasVariableStartTime", { type: "bool", value: variable })
               }
             />
-          </>
-        )}
-        <Checkbox
-          size="sm"
-          label={m.workshop_bin_timeline_repeats_action()}
-          checked={cycle !== null}
-          onCheckedChange={(repeats) => {
-            if (repeats) write("period", seconds(1));
-            else clear("period");
-          }}
-        />
-        {cycle !== null && (
-          <>
-            <Seconds
-              label={label("period")}
-              value={cycle}
-              onCommit={(value) => write("period", seconds(value))}
-            />
-            <Seconds
-              label={label("timeActiveDuringPeriod")}
-              value={emitter.period?.active ?? cycle}
-              onCommit={(value) => write("timeActiveDuringPeriod", seconds(value))}
-            />
-          </>
-        )}
-        <Checkbox
-          size="sm"
-          label={label("isSingleParticle")}
-          checked={emitter.singleParticle}
-          onCheckedChange={(burst) => write("isSingleParticle", { type: "bool", value: burst })}
-        />
-        {!emitter.simple && (
-          <Checkbox
-            size="sm"
-            label={label("HasVariableStartTime")}
-            checked={emitter.hasVariableStartTime}
-            onCheckedChange={(variable) =>
-              write("HasVariableStartTime", { type: "bool", value: variable })
-            }
-          />
-        )}
+          )}
+        </Band>
       </Popover.Content>
     </Popover.Root>
+  );
+}
+
+/** One band of the popover's fields, ruled off from the band above it. */
+function Band({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-surface-700/40 pt-3 first:border-t-0 first:pt-0">
+      {children}
+    </div>
+  );
+}
+
+/** A row with a checkbox in the control seat, laid out as a `Seconds` row is. */
+function Flag({
+  label: text,
+  checked,
+  onChange,
+  children,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  /** Drawn between the label and the box: the cycle strip. */
+  children?: ReactNode;
+}) {
+  return (
+    <label className="flex min-h-6 items-center justify-between gap-2 text-meta text-surface-300">
+      <span className="truncate">{text}</span>
+      <span className="flex shrink-0 items-center gap-2">
+        {children}
+        <Checkbox size="sm" checked={checked} aria-label={text} onCheckedChange={onChange} />
+      </span>
+    </label>
   );
 }
 
