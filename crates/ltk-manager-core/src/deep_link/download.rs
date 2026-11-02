@@ -80,7 +80,7 @@ impl DownloadError {
     }
 
     /// Reads a transport failure of `reqwest` into a variant.
-    fn transport(error: &reqwest::Error) -> Self {
+    pub(crate) fn transport(error: &reqwest::Error) -> Self {
         Self::Offline {
             detail: without_url(error),
         }
@@ -114,6 +114,14 @@ fn without_url(error: &reqwest::Error) -> String {
     text
 }
 
+/// The `User-Agent` every request of a link sends, naming the running `version`.
+///
+/// The site tells installs apart from browsers by it, and it is not one of the crawler names
+/// the site refuses a download link to.
+pub(crate) fn user_agent(version: &str) -> String {
+    format!("ltk-manager/{version}")
+}
+
 /// Builds the client of one download, which names the running `version` in the `User-Agent`.
 ///
 /// The client has a connect timeout and no total timeout, so a large mod on a slow connection
@@ -125,7 +133,7 @@ fn without_url(error: &reqwest::Error) -> String {
 /// Fails with [`DownloadError::Offline`] if the TLS backend cannot be set up.
 fn client(version: &str) -> Result<reqwest::blocking::Client, DownloadError> {
     reqwest::blocking::Client::builder()
-        .user_agent(format!("ltk-manager/{version}"))
+        .user_agent(user_agent(version))
         .connect_timeout(CONNECT_TIMEOUT)
         .timeout(None)
         .build()

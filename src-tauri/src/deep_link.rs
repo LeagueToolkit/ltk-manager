@@ -2,21 +2,24 @@
 //! hand-off to a frontend that is not yet listening, and the window a link raises.
 
 pub mod files;
+pub mod install_list;
 
 use std::time::Instant;
 
 use ltk_manager_core::deep_link::{
-    download_host, is_domain_trusted, parse_deep_link_url, DeepLinkInstallRequest, DeepLinkRequest,
+    download_host, is_domain_trusted, parse_deep_link_url, DeepLinkRequest,
 };
 use parking_lot::Mutex;
 use tauri::{Emitter, Manager};
 
+use crate::error::{AppError, AppResult};
 use crate::state::SettingsState;
 
 /// Sends `request` to the frontend, on the event its route is heard on.
 fn emit_to(app_handle: &tauri::AppHandle, request: &DeepLinkRequest) {
     let _ = match request {
         DeepLinkRequest::Install(request) => app_handle.emit("deep-link-install", request),
+        DeepLinkRequest::InstallList(request) => app_handle.emit("deep-link-install-list", request),
         DeepLinkRequest::Settings(request) => app_handle.emit("deep-link-settings", request),
     };
 }
@@ -32,6 +35,8 @@ struct Handoff {
 pub struct DeepLinkState {
     last_invocation: Mutex<Option<Instant>>,
     handoff: Mutex<Handoff>,
+    /// Whether the reader asked the running install list to stop.
+    pub install_list_cancel: install_list::InstallListCancel,
 }
 
 impl DeepLinkState {
@@ -39,6 +44,7 @@ impl DeepLinkState {
         Self {
             last_invocation: Mutex::new(None),
             handoff: Mutex::new(Handoff::default()),
+            install_list_cancel: install_list::InstallListCancel::default(),
         }
     }
 
@@ -125,8 +131,14 @@ fn handle_single(app_handle: &tauri::AppHandle, raw_url: &str) {
         Ok(mut request) => {
             tracing::info!("Parsed deep-link request: {:?}", request);
 
-            if let DeepLinkRequest::Install(install) = &mut request {
-                install.untrusted_domain = untrusted_domain(app_handle, install);
+            match &mut request {
+                DeepLinkRequest::Install(install) => {
+                    install.untrusted_domain = untrusted_domain(app_handle, &install.url);
+                }
+                DeepLinkRequest::InstallList(list) => {
+                    list.untrusted_domain = untrusted_domain(app_handle, &list.url);
+                }
+                DeepLinkRequest::Settings(_) => {}
             }
 
             deep_link_state.deliver(app_handle, request);
@@ -137,25 +149,42 @@ fn handle_single(app_handle: &tauri::AppHandle, raw_url: &str) {
     }
 }
 
-/// The host an install would download from, where the allowlist does not cover it.
+/// The host a link would fetch `url` from, where the allowlist does not cover it.
 ///
 /// The link still reaches the frontend, which asks the reader to trust the domain
-/// or reject the install. Nothing downloads until they answer, because
-/// `deep_link_install_mod` reads the same allowlist.
-fn untrusted_domain(
-    app_handle: &tauri::AppHandle,
-    request: &DeepLinkInstallRequest,
-) -> Option<String> {
+/// or reject the install. Nothing downloads until they answer, because the install
+/// commands read the same allowlist through [`reject_if_untrusted`].
+fn untrusted_domain(app_handle: &tauri::AppHandle, url: &str) -> Option<String> {
     let settings_state: tauri::State<'_, SettingsState> = app_handle.state();
     let settings = settings_state.0.lock();
 
-    if is_domain_trusted(&request.url, &settings.trusted_domains) {
+    if is_domain_trusted(url, &settings.trusted_domains) {
         return None;
     }
 
-    let domain = download_host(&request.url)?;
+    let domain = download_host(url)?;
     tracing::warn!("Deep-link domain '{domain}' is not in the trusted list, asking the reader");
     Some(domain)
+}
+
+/// Refuse a fetch of `url` from a domain the reader's allowlist does not cover.
+///
+/// The deep-link handler already marks such a link, and the dialog it opens asks
+/// the reader to trust the domain. Reading the list here too is what makes that
+/// answer the gate rather than a formality, so a download only ever runs against
+/// a domain the settings already hold.
+///
+/// # Errors
+///
+/// Returns [`AppError::UntrustedDomain`] naming the domain that was refused.
+pub(crate) fn reject_if_untrusted(url: &str, settings: &SettingsState) -> AppResult<()> {
+    let trusted = settings.0.lock().trusted_domains.clone();
+    if is_domain_trusted(url, &trusted) {
+        return Ok(());
+    }
+
+    let domain = download_host(url).unwrap_or_else(|| url.to_owned());
+    Err(AppError::UntrustedDomain(domain))
 }
 
 #[cfg(test)]

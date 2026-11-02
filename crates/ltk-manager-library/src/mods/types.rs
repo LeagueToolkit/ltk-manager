@@ -161,6 +161,29 @@ pub struct InstalledMod {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub harvest: Option<HarvestSummary>,
+    /// The site and the listing this mod was installed from. `None` for a mod
+    /// that arrived as a file or through a single install link.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub origin: Option<ModOrigin>,
+}
+
+/// Where a mod came from, as the install list that installed it named it.
+///
+/// A second install of the same list skips the mods whose origin names the
+/// same `id` at the same `version`, which is what makes a re-run install only
+/// what changed.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ModOrigin {
+    /// The site, as the link's `source` named it.
+    pub source: String,
+    /// The mod's id on that site.
+    pub id: String,
+    /// The version the site listed, as the site writes it. Not always the
+    /// project's own version.
+    pub version: Option<String>,
 }
 
 /// Fields to change on a mod's metadata. `None` leaves a field untouched.

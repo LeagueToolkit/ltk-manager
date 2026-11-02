@@ -605,6 +605,7 @@ pub(crate) fn register_staged_mod(
         slug: Some(slug),
         harvest: staged.harvest,
         source_sha256: Some(staged.digest.sha256),
+        origin: None,
     };
     let id = entry.id.clone();
     index.mods.push(entry.clone());

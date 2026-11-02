@@ -12,7 +12,7 @@ use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::reconcile::reconcile_library_index;
 use crate::mods::slug::ModSlug;
-use crate::mods::types::{LibraryFolder, Profile, ProfileSlug, ROOT_FOLDER_ID};
+use crate::mods::types::{LibraryFolder, ModOrigin, Profile, ProfileSlug, ROOT_FOLDER_ID};
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::config::Config;
@@ -335,6 +335,10 @@ pub(crate) struct LibraryModEntry {
     /// in lowercase hex. `None` for a discovered directory and older entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) source_sha256: Option<String>,
+    /// The site and the listing this mod was installed from, for a mod an
+    /// install list brought in. `None` otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) origin: Option<ModOrigin>,
 }
 
 impl LibraryModEntry {

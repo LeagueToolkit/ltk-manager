@@ -4,6 +4,7 @@
 
 | Date       | Change                                                      |
 | ---------- | ----------------------------------------------------------- |
+| 2026-11-02 | Installing a list from one `ltk://install-list` link        |
 | 2026-10-16 | Draw the title bar on the page ground, as the workshop does |
 | 2026-10-09 | A library index that a newer version wrote can be rebuilt   |
 | 2026-10-02 | Table load order by drag, and Move to folder                |
@@ -13,7 +14,6 @@
 | 2026-10-02 | Opening a mod file from Explorer installs it                |
 | 2026-09-30 | A library edit reaches a running patcher between games      |
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane   |
-| 2026-09-12 | The licenses tab follows the open mod, like the other two   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -239,6 +239,48 @@ How the result reaches the reader:
 A mod is matched to an archive it already holds by the archive it was installed or last updated
 from. A mod installed before the check existed has no record of that archive, so its stored archive
 stands in, and it matches only when the import left that archive unchanged.
+
+## Installing a list
+
+`ltk://install-list?url=<manifest>&source=<site>` installs a whole list - a Runeforge collection -
+from one press on the site. The link names a manifest and nothing else; the manager reads the
+manifest and mints each mod's download link just before that mod downloads. The reasons are
+ADR-0076, and the contract is `.specify/specs/002-ltk-protocol-install-list/contracts/`.
+
+**One dialog for the list.** It draws the list's name, author, source and count, then every mod
+as a row with a checkbox, all checked. `Install N` counts the checked rows. `Select all` and
+`Select none` sit over the rows. The dialog is the `install-list` claim of ADR-0022, right under
+the single install's.
+
+**A mod the library holds at the listed version is marked, not offered.** Its row says
+`Installed` and has no checkbox. The mark reads the origin the manager records on every mod a
+list installs: the site, the mod's id there and the version the site listed. A second Install
+all of a collection offers only what changed, and a list with nothing to offer says so and has
+no Install button.
+
+**Install into the active profile, or a new one.** Two cards over the rows: the active profile,
+named, and `New profile`, named after the list in a field the reader can edit. A new profile is
+created and switched to before the first mod installs, so the list's mods are enabled there and
+nowhere else.
+
+**The run reports each row.** A row moves through `Preparing...`, `Downloading...` with the
+bytes under it, and `Installing...`, and settles as `Installed`, `Updated`, `Already installed`
+or `Failed` with the reason under it, the same cause the single install draws. A bar over the
+rows counts the settled ones. A failed row does not stop the run.
+
+**Stop ends the run after the mod it is on.** The mods installed by then stay, and the report
+says the run was stopped.
+
+**The report is the same dialog.** A line counts installed, updated, already there and failed.
+`Retry failed` runs the failed rows again, into the profile that is active by then. `Done`
+closes.
+
+**The top of the list wins.** Once the run ends, the list's mods sit at the front of the load
+order in the list's order, whichever order they landed in.
+
+**A host outside the trusted providers list is asked about before the read**, as the single
+install asks before its download. `Trust and continue` writes the host into the list and reads
+the manifest in the same press.
 
 ## A library that a newer version wrote
 

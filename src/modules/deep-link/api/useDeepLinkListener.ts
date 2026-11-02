@@ -1,10 +1,15 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
 
-import { api, type DeepLinkInstallRequest, type DeepLinkSettingsRequest } from "@/lib/tauri";
+import {
+  api,
+  type DeepLinkInstallListRequest,
+  type DeepLinkInstallRequest,
+  type DeepLinkSettingsRequest,
+} from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 
-import { useDeepLinkStore } from "../state";
+import { useDeepLinkStore, useInstallListStore } from "../state";
 
 export function useDeepLinkListener() {
   const navigate = useNavigate();
@@ -20,6 +25,10 @@ export function useDeepLinkListener() {
     useDeepLinkStore.getState().setRequest(payload);
   });
 
+  useTauriEvent<DeepLinkInstallListRequest>("deep-link-install-list", (payload) => {
+    useInstallListStore.getState().setRequest(payload);
+  });
+
   useTauriEvent<DeepLinkSettingsRequest>("deep-link-settings", openSettings);
 
   /* A URL the app was launched with reaches the backend before this listener
@@ -27,11 +36,16 @@ export function useDeepLinkListener() {
   useEffect(() => {
     void api.takePendingDeepLink().then((result) => {
       if (!result.ok || !result.value) return;
-      if (result.value.kind === "settings") {
-        openSettings(result.value);
+      const pending = result.value;
+      if (pending.kind === "settings") {
+        openSettings(pending);
         return;
       }
-      useDeepLinkStore.getState().setRequest(result.value);
+      if (pending.kind === "installList") {
+        useInstallListStore.getState().setRequest(pending);
+        return;
+      }
+      useDeepLinkStore.getState().setRequest(pending);
     });
   }, [openSettings]);
 }

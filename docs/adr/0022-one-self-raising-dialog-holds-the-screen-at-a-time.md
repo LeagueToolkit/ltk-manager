@@ -51,6 +51,7 @@ The order, most urgent first, is what the reader loses by acting uninformed:
 | Dialog              | Why here                                               |
 | ------------------- | ------------------------------------------------------ |
 | `protocol-install`  | the reader asked for this one, from outside the app    |
+| `install-list`      | the same ask, for a whole list                         |
 | `wad-scan-failed`   | the patcher stopped and no mods loaded                 |
 | `library-migration` | a report, and the move is retried next launch          |
 | `mod-health`        | findings, and the status bar keeps a way back to them  |

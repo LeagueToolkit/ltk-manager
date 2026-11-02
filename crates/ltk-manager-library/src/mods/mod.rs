@@ -51,7 +51,7 @@ pub use index::layout_migration::LayoutMigrationState;
 pub use layout::{StorageLayout, is_library_entry};
 pub use types::{
     BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,
-    ModLicense, Profile,
+    ModLicense, ModOrigin, Profile,
 };
 
 use crate::overlay::OverlayStorageExt;

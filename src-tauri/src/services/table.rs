@@ -294,6 +294,9 @@ services! {
     }
     links("links") {
         deep_link_install_mod,
+        deep_link_install_list_fetch,
+        deep_link_install_list,
+        deep_link_install_list_cancel,
         take_pending_deep_link,
         take_pending_opened_files,
     }

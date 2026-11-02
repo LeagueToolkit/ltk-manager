@@ -12,7 +12,7 @@ use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::LibraryModEntry;
 use crate::mods::index::get_active_profile;
-use crate::mods::types::{EditModMetadataArgs, InstalledMod};
+use crate::mods::types::{EditModMetadataArgs, InstalledMod, ModOrigin};
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};
@@ -141,6 +141,31 @@ impl ModLibrary {
                 index.sync_profile_orders();
             }
 
+            Ok(())
+        })
+    }
+
+    /// Record where `mod_id` came from, replacing any origin it had.
+    ///
+    /// An install list writes this on every mod it installs, updates or finds
+    /// already present, so a later run of the same list knows what is current.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::ModNotFound`] for an id the index does not hold.
+    pub fn set_mod_origin(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        origin: ModOrigin,
+    ) -> AppResult<()> {
+        self.mutate_index(config, |_storage_dir, index| {
+            let entry = index
+                .mods
+                .iter_mut()
+                .find(|m| m.id == mod_id)
+                .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
+            entry.origin = Some(origin);
             Ok(())
         })
     }

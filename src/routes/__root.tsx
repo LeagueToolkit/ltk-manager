@@ -14,7 +14,11 @@ import {
   WEIGHT_TIERS,
 } from "@/lib/fonts";
 import type { OpenOn } from "@/lib/tauri";
-import { ProtocolInstallDialogLazy, useDeepLinkListener } from "@/modules/deep-link";
+import {
+  InstallListDialogLazy,
+  ProtocolInstallDialogLazy,
+  useDeepLinkListener,
+} from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import {
   InstallMismatchDialog,
@@ -243,6 +247,7 @@ function RootLayout() {
       <DiagnosticsNoticeDialog />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />
+        <InstallListDialogLazy />
         {import.meta.env.DEV && <DevConsoleLazy />}
       </Suspense>
       {/* Its own boundary: the workshop chunk is the slowest of these to arrive. */}

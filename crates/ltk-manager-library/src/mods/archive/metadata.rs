@@ -75,6 +75,7 @@ pub(crate) fn read_installed_mod(
         license: project.license.as_ref().map(ModLicense::from),
         slug: entry.slug.as_ref().map(|slug| slug.as_str().to_string()),
         harvest: entry.harvest,
+        origin: entry.origin.clone(),
     })
 }
 

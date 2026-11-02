@@ -1,6 +1,8 @@
-//! `ltk://` deep links: the route a link names, and the download an install link starts.
+//! `ltk://` deep links: the route a link names, the download an install link starts, and the
+//! list an install-list link names.
 
 mod download;
+pub mod install_list;
 
 use std::collections::HashMap;
 
@@ -20,6 +22,7 @@ use ltk_manager_base::events::{
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum DeepLinkRequest {
     Install(DeepLinkInstallRequest),
+    InstallList(DeepLinkInstallListRequest),
     Settings(DeepLinkSettingsRequest),
 }
 
@@ -36,6 +39,22 @@ pub struct DeepLinkInstallRequest {
     ///
     /// Stamped by the host rather than by parsing, since the trust is a property of the
     /// reader's settings and not of the URL.
+    pub untrusted_domain: Option<String>,
+}
+
+/// Parsed representation of a `ltk://install-list` deep-link URL.
+///
+/// The list itself is not in the link: `url` names the manifest the app fetches once the reader
+/// has seen where it comes from, per [`install_list`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct DeepLinkInstallListRequest {
+    /// The manifest URL, opaque to the app. Checked as an install link's `url` is.
+    pub url: String,
+    pub source: Option<String>,
+    /// The host outside the allowlist, or `None` where the allowlist covers it. Stamped by the
+    /// host, as [`DeepLinkInstallRequest::untrusted_domain`] is.
     pub untrusted_domain: Option<String>,
 }
 
@@ -75,12 +94,16 @@ pub fn parse_deep_link_url(raw_url: &str) -> AppResult<DeepLinkRequest> {
 
     match action {
         "install" => parse_install(&pairs).map(DeepLinkRequest::Install),
+        "install-list" => parse_install_list(&pairs).map(DeepLinkRequest::InstallList),
         "settings" => parse_settings(&pairs).map(DeepLinkRequest::Settings),
         _ => Err(AppError::ValidationFailed(format!(
-            "Unknown action '{action}', expected 'install' or 'settings'"
+            "Unknown action '{action}', expected 'install', 'install-list' or 'settings'"
         ))),
     }
 }
+
+/// Longest `name`, `author` or `source` value kept, in characters.
+const LABEL_MAX_CHARS: usize = 256;
 
 /// Longest `?focus=` value accepted, well past the longest id the app draws.
 const FOCUS_MAX_CHARS: usize = 128;
@@ -114,21 +137,67 @@ fn parse_settings(pairs: &HashMap<String, String>) -> AppResult<DeepLinkSettings
 }
 
 fn parse_install(pairs: &HashMap<String, String>) -> AppResult<DeepLinkInstallRequest> {
-    let download_url = pairs
+    let download_url = required_url(pairs)?;
+
+    Ok(DeepLinkInstallRequest {
+        url: download_url.clone(),
+        name: label(pairs, "name"),
+        author: label(pairs, "author"),
+        source: label(pairs, "source"),
+        untrusted_domain: None,
+    })
+}
+
+fn parse_install_list(pairs: &HashMap<String, String>) -> AppResult<DeepLinkInstallListRequest> {
+    let manifest_url = required_url(pairs)?;
+
+    Ok(DeepLinkInstallListRequest {
+        url: manifest_url.clone(),
+        source: label(pairs, "source"),
+        untrusted_domain: None,
+    })
+}
+
+/// The `url` parameter, which every route that fetches something carries.
+///
+/// # Errors
+///
+/// Fails with [`AppError::ValidationFailed`] for a missing `url`, or one that
+/// [`public_https_url`] refuses.
+fn required_url(pairs: &HashMap<String, String>) -> AppResult<&String> {
+    let url = pairs
         .get("url")
         .ok_or_else(|| AppError::ValidationFailed("Missing required 'url' parameter".into()))?;
+    public_https_url(url)?;
+    Ok(url)
+}
 
-    let download_parsed = Url::parse(download_url)
+/// A display value of `key`, cut to [`LABEL_MAX_CHARS`].
+fn label(pairs: &HashMap<String, String>, key: &str) -> Option<String> {
+    pairs
+        .get(key)
+        .map(|s| truncate_str(s, LABEL_MAX_CHARS).to_string())
+}
+
+/// Parses `url` as one the app fetches from: `https`, on a host that is not local or private.
+///
+/// The private-host refusal is SSRF prevention, for a link that would otherwise have the app
+/// reach something on the reader's own network.
+///
+/// # Errors
+///
+/// Fails with [`AppError::ValidationFailed`] naming what was wrong.
+pub fn public_https_url(url: &str) -> AppResult<Url> {
+    let parsed = Url::parse(url)
         .map_err(|e| AppError::ValidationFailed(format!("Invalid download URL: {e}")))?;
 
-    if download_parsed.scheme() != "https" {
+    if parsed.scheme() != "https" {
         return Err(AppError::ValidationFailed(
             "Download URL must use HTTPS".into(),
         ));
     }
 
-    // SSRF prevention: reject loopback/private hosts
-    if let Some(host) = download_parsed.host_str() {
+    if let Some(host) = parsed.host_str() {
         let lower = host.to_lowercase();
         let normalized = lower.trim_start_matches('[').trim_end_matches(']');
         if normalized == "localhost"
@@ -155,21 +224,7 @@ fn parse_install(pairs: &HashMap<String, String>) -> AppResult<DeepLinkInstallRe
         }
     }
 
-    let name = pairs.get("name").map(|s| truncate_str(s, 256).to_string());
-    let author = pairs
-        .get("author")
-        .map(|s| truncate_str(s, 256).to_string());
-    let source = pairs
-        .get("source")
-        .map(|s| truncate_str(s, 256).to_string());
-
-    Ok(DeepLinkInstallRequest {
-        url: download_url.clone(),
-        name,
-        author,
-        source,
-        untrusted_domain: None,
-    })
+    Ok(parsed)
 }
 
 /// Report a finished protocol install through `events`.

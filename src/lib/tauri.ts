@@ -308,6 +308,9 @@ export const api = {
     author?: string | null,
     source?: string | null,
   ) => links.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
+  deepLinkInstallListFetch: links.deepLinkInstallListFetch,
+  deepLinkInstallList: links.deepLinkInstallList,
+  deepLinkInstallListCancel: links.deepLinkInstallListCancel,
   takePendingDeepLink: links.takePendingDeepLink,
   takePendingOpenedFiles: links.takePendingOpenedFiles,
 
