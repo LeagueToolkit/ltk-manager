@@ -55,7 +55,8 @@ export const commands = {
 	 * 
 	 *  The install's declarations come from the index, in the slot it is in. The declarations
 	 *  in the sandbox's layer files go before them (ADR-0056), and an install declaration in a
-	 *  chunk a layer ships is removed, because the build packs the layer's copy instead. With
+	 *  chunk a layer ships is removed, because the build packs the layer's copy instead. An
+	 *  object that a game data module creates is declared in the module's target chunk. With
 	 *  `document` open, the document's own declarations are added and every list is ordered as a
 	 *  link resolves it (ADR-0028): this file, then a file the bin depends on, then the rest.
 	 */

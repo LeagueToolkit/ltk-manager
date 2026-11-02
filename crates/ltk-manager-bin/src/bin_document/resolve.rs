@@ -269,6 +269,14 @@ pub fn vector4(value: Option<&PropertyValueEnum>) -> Option<[f32; 4]> {
     }
 }
 
+/// The `Color` `value` holds, as its red, green, blue and alpha bytes.
+pub fn color(value: Option<&PropertyValueEnum>) -> Option<[u8; 4]> {
+    match leaf(value)? {
+        Leaf::Color(color) => Some([color.r, color.g, color.b, color.a]),
+        _ => None,
+    }
+}
+
 /// The object `value` links to, and none for a null link.
 pub fn link(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
     match leaf(value)? {

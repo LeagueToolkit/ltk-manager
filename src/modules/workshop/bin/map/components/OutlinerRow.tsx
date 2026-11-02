@@ -40,6 +40,7 @@ const KIND_ICON: Record<MapItemKind, Icon> = {
   probe: GlobeSimpleIcon,
   volume: BoundingBoxIcon,
   path: PathIcon,
+  region: PolygonIcon,
   other: CubeIcon,
 };
 

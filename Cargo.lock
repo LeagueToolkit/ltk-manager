@@ -3642,6 +3642,7 @@ dependencies = [
  "ltk_mesh",
  "ltk_meta",
  "ltk_modpkg",
+ "ltk_primitives",
  "ltk_wad",
  "parking_lot",
  "rayon",

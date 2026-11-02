@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapVariant } from "@/lib/tauri";
@@ -19,6 +19,7 @@ import {
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
+  usePreviewMapRegions,
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
@@ -38,10 +39,12 @@ import { useMeshImport } from "../hooks/useMeshImport";
 import { usePlaceableActions } from "../hooks/usePlaceableActions";
 import { useSunEdit } from "../hooks/useSunEdit";
 import { useViewportEdits } from "../hooks/useViewportEdits";
-import { isGizmoTool, useMapDragged, useMapScene } from "../state/mapScene";
+import { isGizmoTool, type MapTool, useMapDragged, useMapScene } from "../state/mapScene";
 import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
+import type { PlacedItem } from "../utils/mapOutline";
 import { meshIndexOf } from "../utils/meshSelection";
 import { withDragged } from "../utils/placeableSpace";
+import type { Vertex } from "../utils/regionEdits";
 import { BoxSelect } from "./BoxSelect";
 import { CanvasClick } from "./CanvasClick";
 import { GroundProbe, type GroundProbeFn } from "./GroundProbe";
@@ -55,6 +58,8 @@ import { MeshHighlight } from "./MeshHighlight";
 import { PlaceableGizmo } from "./PlaceableGizmo";
 import { usePlaceablePicking } from "./PlaceablePicking";
 import { PlaceableShapes } from "./PlaceableShapes";
+import { type DraggedVertices, RegionBoundaries } from "./RegionBoundaries";
+import { RegionHandles } from "./RegionHandles";
 import { ReimportMeshDialog } from "./ReimportMeshDialog";
 import { RenamePlaceableDialog } from "./RenamePlaceableDialog";
 import { SunHandle } from "./SunHandle";
@@ -66,6 +71,18 @@ import { SunHandle } from "./SunHandle";
  * to, and the match camera frames nothing, standing a distance of its own off the point.
  */
 const MAP_FRAME: Bounds = { min: [-1500, 0, -1500], max: [1500, 600, 1500] };
+
+/** The tools under which the lead region's vertex handles draw: the ones that pick and move. */
+function handlesTool(tool: MapTool): boolean {
+  return tool === "select" || tool === "move";
+}
+
+/** The vertices of a region placeable's polygon, and null for a placeable of another shape. */
+function regionVertices(placed: PlacedItem | null): readonly Vertex[] | null {
+  const shape = placed?.item.shape ?? null;
+  if (shape === null || (shape.type !== "region" && shape.type !== "polygon")) return null;
+  return shape.points.map(([x, y, z]) => [x ?? 0, y ?? 0, z ?? 0]);
+}
 
 export interface MapViewportProps {
   /**
@@ -108,7 +125,7 @@ interface MapSceneProps {
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { pick, materials, hidden, focus, selected, backdrop, editable, tool } = useMapScene();
   const { renaming, setRenaming, geometryEdited, geometryOpening, reimport } = useMapScene();
-  const { space, snap, sunHandle, geometryDocument } = useMapScene();
+  const { space, snap, sunHandle, geometryDocument, apply } = useMapScene();
   const dragged = useMapDragged();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
@@ -179,6 +196,20 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { warps, softens } = useMemo(() => passesOf(played.map((group) => group.system)), [played]);
 
   const [fitToken, refit] = useFitRequest();
+
+  const regions = usePreviewMapRegions();
+  const leadRegion = actions.lead?.item.kind === "region" ? actions.lead : null;
+  const leadVertices = regionVertices(leadRegion);
+  const [draggedVertices, setDraggedVertices] = useState<DraggedVertices | null>(null);
+  /* The outline's read of a commit replaces the dragged vertices, as a new lead does. */
+  useEffect(() => setDraggedVertices(null), [leadRegion]);
+  const dragVertices = useCallback(
+    (points: readonly Vertex[] | null) =>
+      setDraggedVertices(
+        points === null || leadRegion === null ? null : { id: leadRegion.id, points },
+      ),
+    [leadRegion],
+  );
 
   usePaneCommands("map.viewport", {
     [MAP_PANE_COMMANDS.importMesh]: {
@@ -254,6 +285,24 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
                 selected={selected}
                 colors={colors}
               />
+              <RegionBoundaries
+                items={picking.items}
+                hidden={hidden}
+                selected={selected}
+                shown={regions}
+                colors={colors}
+                dragged={draggedVertices}
+              />
+              {editable && leadRegion !== null && leadVertices !== null && handlesTool(tool) && (
+                <RegionHandles
+                  placed={leadRegion}
+                  points={draggedVertices?.points ?? leadVertices}
+                  snap={snap}
+                  colors={colors}
+                  onDrag={dragVertices}
+                  onCommit={apply}
+                />
+              )}
               <MeshHighlight
                 map={meshes.drawn}
                 meshes={meshes.selection}

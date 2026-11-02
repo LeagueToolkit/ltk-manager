@@ -7,6 +7,7 @@ import {
   MapPinIcon,
   PathIcon,
   PersonSimpleIcon,
+  PolygonIcon,
   SelectionIcon,
   SparkleIcon,
   SpeakerHighIcon,
@@ -28,6 +29,7 @@ export const KIND_ICON: Readonly<Record<MapItemKind, Icon>> = {
   probe: GlobeSimpleIcon,
   volume: CubeTransparentIcon,
   path: PathIcon,
+  region: PolygonIcon,
   other: CircleIcon,
 };
 

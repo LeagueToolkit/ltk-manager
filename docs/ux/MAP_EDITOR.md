@@ -52,7 +52,8 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Editable placeable inspector                         | In progress | Fields edit in place. Rename, duplicate and delete in the header                                                                                                                                                                                                         |
 | Placeable gizmo                                      | In progress | Move, rotate, scale, world or local axes (X), grid snap with Ctrl to invert, typed transform fields, End drops to the floor                                                                                                                                              |
 | Place, duplicate, delete and rename placeables       | In progress | All four work. The target chunk is picked in the place menu or the outliner                                                                                                                                                                                              |
-| Draw every placeable kind                            | In progress | An icon per kind, light reach and frustums, probe and banner boxes, paths, volume boxes, light region polygons                                                                                                                                                           |
+| Draw every placeable kind                            | In progress | An icon per kind, light reach and frustums, probe and banner boxes, paths, volume boxes, light region polygons, region boundaries with their walls                                                                                                                       |
+| Region boundary editing                              | In progress | Vertices drag in the viewport, an edge knob inserts one, Alt and a click removes one. `DrawHeight` and the colors edit in the inspector                                                                                                                                  |
 | Map settings                                         | In progress | The inspector with nothing selected: container, skin, audio, fog of war, minimap, flags and dependency sections. No dependency picker                                                                                                                                    |
 | Lighting pane                                        | In progress | Every section of the table, with Add for a missing component and the sun direction handle. Edits draw before the save                                                                                                                                                    |
 | Lighting volumes and light regions                   | In progress | Listed and placed from the Lighting pane, drawn as a box and a polygon. The volume extent and the polygon points do not drag yet                                                                                                                                         |
@@ -87,19 +88,20 @@ map document of its own. The TFT boards of Map22 are out of scope. Their camera 
 cutscene and transition components have no editor support, as the map-skins built-in mod already
 excludes Map22 (ADR-0052).
 
-| Area                                                                                                       | Who owns it                                | What the editor does                            |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------- |
-| Geometry, materials, textures                                                                              | Client                                     | Edits                                           |
-| Lighting, sky, fog, post effects, shadows                                                                  | Client                                     | Edits                                           |
-| Light grid, lightmaps, cubemap probes                                                                      | Client                                     | Edits and bakes                                 |
-| Cosmetic placeables: particles, audio, lights, props, locators, banners                                    | Client                                     | Edits                                           |
-| Cosmetic entity templates: `VfxEntityTemplate`, `CharacterMeshEntityTemplate`, `EnvironmentEntityTemplate` | Client, unless `IsReplicated` is set       | Edits                                           |
-| Minimap, grass tint, fog of war overlay, terrain paint                                                     | Client                                     | Edits and paints                                |
-| Map skins, per-state assets, map audio, fog of war rendering                                               | Client                                     | Edits                                           |
-| Visibility states: which element or pit state is active                                                    | Server selects, client draws               | Previews every state, edits the content of each |
-| Ground height, walls, brush                                                                                | Server navgrid, client geometry must match | Shows as guides, checks the geometry            |
-| Structures, camps, spawns, shops, superwards, regions, area triggers, lanes                                | Server                                     | Shows as guides, read-only                      |
-| Level scripts, game mode rules, spawning                                                                   | Server                                     | Out of scope                                    |
+| Area                                                                                                       | Who owns it                                  | What the editor does                            |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ----------------------------------------------- |
+| Geometry, materials, textures                                                                              | Client                                       | Edits                                           |
+| Lighting, sky, fog, post effects, shadows                                                                  | Client                                       | Edits                                           |
+| Light grid, lightmaps, cubemap probes                                                                      | Client                                       | Edits and bakes                                 |
+| Cosmetic placeables: particles, audio, lights, props, locators, banners                                    | Client                                       | Edits                                           |
+| Cosmetic entity templates: `VfxEntityTemplate`, `CharacterMeshEntityTemplate`, `EnvironmentEntityTemplate` | Client, unless `IsReplicated` is set         | Edits                                           |
+| Minimap, grass tint, fog of war overlay, terrain paint                                                     | Client                                       | Edits and paints                                |
+| Map skins, per-state assets, map audio, fog of war rendering                                               | Client                                       | Edits                                           |
+| Visibility states: which element or pit state is active                                                    | Server selects, client draws                 | Previews every state, edits the content of each |
+| Ground height, walls, brush                                                                                | Server navgrid, client geometry must match   | Shows as guides, checks the geometry            |
+| Structures, camps, spawns, shops, superwards, regions, area triggers, lanes                                | Server                                       | Shows as guides, read-only                      |
+| Region boundaries: `RegionBoundary`, the vertex placeable `0x5a9697c1`                                     | Client draws, the match's read is not traced | Edits                                           |
+| Level scripts, game mode rules, spawning                                                                   | Server                                       | Out of scope                                    |
 
 **A server-owned object is a guide.** The editor draws it, lists it and inspects it, and it offers
 no tool that moves or deletes it. If the client copy differs from the server copy, the player sees
@@ -307,7 +309,7 @@ edge holds the tools, the box select, the local axes switch and the snap switch 
 across the top edge holds labeled controls: the options of the current tool, such as the class that
 Place adds, Add mesh and Save, and the variant menu on the left, and the Show menu, the view mode,
 the camera and Frame on the right. The Show menu switches particles, structures, the sky, shaders,
-event effects and placeable markers. The orientation gizmo sits in the bottom right corner. Each
+event effects, region boundaries and placeable markers. The orientation gizmo sits in the bottom right corner. Each
 tool has a single-key shortcut that works while the viewport or the outliner has focus.
 
 | Tool   | Key | Action                                                |
@@ -584,6 +586,7 @@ drawn in the viewport with an icon at one screen size:
 | Environment mesh    | `EnvironmentEntityTemplate`                                   | The mesh                                                          |
 | Banner              | `GdsMapObject`                                                | Its box, and the banner when its skin resolves                    |
 | Motion path         | `MapMotionPath`                                               | The curve with its control points                                 |
+| Region boundary     | `RegionBoundary`, `0x5a9697c1`                                | Its polygon and its walls, in its own colors. See below           |
 
 **The inspector edits the placeable.** `PlaceableInspector` passes `editable` to its `BinTree`, so
 the placeable's fields are edited in place through `useLeafEdit`. The gizmo writes the
@@ -591,6 +594,25 @@ placeable's `transform`, which is the matrix that positions the object in the cl
 every other field unchanged. `MapPlaceable` declares a second matrix `0x617a316c`, which no
 shipped bin sets and no client code that was traced reads. The outline carries the full
 `transform` of each placeable and the extent that the viewport draws (`MapItemShape`).
+
+**Region boundaries.** A `RegionBoundary` is a closed polygon of `Vertices`, local to its
+transform, that the client draws as walls `DrawHeight` tall in its `LineColor` and `FillColor`.
+The viewport draws every region the outliner lists the same way: the polygon and the top in the
+line color, the walls in the fill color at a low opacity, and a selected region in the selection
+color. The unnamed placeable `0x5a9697c1` holds `Vertices` too and draws as its flat polygon. Region
+boundaries in the Show menu switches the drawing, and starts on. Off, the selected regions still
+draw.
+
+The lead region's vertices edit in the viewport under the Select and Move tools:
+
+- a knob stands on each vertex. Dragging it slides the vertex along the ground at its own
+  height, the scene follows every frame, and the release writes `Vertices[i]` as one undo step.
+  Esc during the drag puts the vertex back. The grid snap applies, in the region's own units,
+  and Ctrl inverts it
+- a smaller knob stands on the middle of each edge. A click on it inserts a vertex there
+- Alt and a click on a vertex removes it. A polygon keeps three vertices at least
+- the inspector's `Vertices` rows, `DrawHeight` and the colors edit as any field does, and the
+  viewport redraws when the edit is read back
 
 **Place.** The Palette pane lists the placeable classes that the client reads, grouped as Effects,
 Audio, Lighting, Markers and Props. Selecting a class and clicking in the viewport with the Place
@@ -779,7 +801,7 @@ The toolbar's Guides menu switches the guides on and off. Guides start on.
 | Guide                                        | Source                                                                  | Status  |
 | -------------------------------------------- | ----------------------------------------------------------------------- | ------- |
 | Structures, camps, spawns, shops, superwards | Named map objects and the gameplay entity templates of the chunks       | Planned |
-| Regions and area triggers                    | `RegionEntityTemplate`, `RegionBoundary`, `AreaTriggerEntityTemplate`   | Planned |
+| Regions and area triggers                    | `RegionEntityTemplate`, `AreaTriggerEntityTemplate`                     | Planned |
 | Lanes                                        | The `__NAV_` waypoint chains and the minion paths of class `0x3c995caf` | Planned |
 | Bounds                                       | `boundsMin` and `boundsMax`, and the minimap rectangle                  | Planned |
 | Navgrid                                      | The `.aimesh_ngrid` cells, colored by the tag colors of `NavGridConfig` | Blocked |

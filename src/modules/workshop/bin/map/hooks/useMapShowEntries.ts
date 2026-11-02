@@ -20,6 +20,7 @@ export function useMapShowEntries(
   const sky = usePreviewFlag("previewBackdropSky");
   const shaders = usePreviewFlag("previewShaders");
   const events = usePreviewFlag("previewBackdropEvents");
+  const regions = usePreviewFlag("previewMapRegions");
   const setDisplay = useSetPreviewDisplay();
 
   const check = (
@@ -49,6 +50,9 @@ export function useMapShowEntries(
       previewBackdropEvents: !events,
     }),
     { kind: "separator" },
+    check("regions", m.workshop_bin_map_regions_label(), regions, {
+      previewMapRegions: !regions,
+    }),
     {
       kind: "check",
       id: "map.show.markers",

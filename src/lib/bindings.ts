@@ -4895,6 +4895,8 @@ export type MapItemKind =
 "volume" | 
 /**  A `MapMotionPath`. */
 "path" | 
+/**  A `RegionBoundary`, or the unnamed placeable of vertices, a polygon on the ground. */
+"region" | 
 /**  Any other class. */
 "other";
 
@@ -4911,7 +4913,12 @@ export type MapItemShape =
 /**  A lighting volume: the cube from -0.5 to 0.5 on each axis under its transform. */
 { type: "volume" } | 
 /**  The closed polygon of a light region, in the space of its transform. */
-{ type: "polygon"; points: ([(number | null), (number | null), (number | null)])[] };
+{ type: "polygon"; points: ([(number | null), (number | null), (number | null)])[] } | 
+/**
+ *  The closed polygon of a `RegionBoundary` in the space of its transform, its walls
+ *  `height` units tall, and the colors the client draws its lines and fill in.
+ */
+{ type: "region"; points: ([(number | null), (number | null), (number | null)])[]; height: number | null; lineColor: [number, number, number, number]; fillColor: [number, number, number, number] };
 
 /**
  *  One map's materials, one per path asked for and in that order, its visibility controllers, and

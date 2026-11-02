@@ -152,6 +152,9 @@ export function shapeLines(items: readonly ShapedItem[]): Float32Array {
       case "polygon":
         polygon(out, shape.points, transform);
         break;
+      /* Drawn by `RegionBoundaries` in its own colors. */
+      case "region":
+        break;
     }
   }
   return new Float32Array(out);
