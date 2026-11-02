@@ -37,3 +37,4 @@ xxhash-rust = { workspace = true }
 
 [dev-dependencies]
 ltk_modpkg = { workspace = true }
+ltk_primitives = { workspace = true }

@@ -55,6 +55,8 @@ interface PreviewDisplay {
   previewBackdropStructures: boolean;
   /** The backdrop draws the sky cube map behind its map. */
   previewBackdropSky: boolean;
+  /** The map viewport draws every region boundary, not only the selected ones. */
+  previewMapRegions: boolean;
   /** The sun control's fields over every backdrop's own sun, and null for each map's own. */
   previewSun: SunOverride | null;
   /** The post effects of every backdrop, and null for each map's own. */
@@ -294,6 +296,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewBackdropEvents: false,
   previewBackdropStructures: true,
   previewBackdropSky: true,
+  previewMapRegions: true,
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
@@ -554,6 +557,7 @@ export const usePreviewBackdropEvents = () =>
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
+export const usePreviewMapRegions = () => useWorkshopLayoutStore((s) => s.previewMapRegions);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
 export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.previewAntiAliasing);

@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
+use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
@@ -15,8 +16,8 @@ use super::component::MAP_CONTAINER;
 use super::particles::PARTICLE;
 use super::placeable::{NAME, Placed, controller, placeables, transform, visibility};
 use ltk_manager_bin::bin_document::{
-    BinDocument, Fields, Namer, RowNames, boolean, entries, fields_of, float, hash_hex, hex, items,
-    leaf, link, vector3,
+    BinDocument, Fields, Namer, RowNames, boolean, color, entries, fields_of, float, hash_hex, hex,
+    items, leaf, link, unsigned, vector3,
 };
 
 /// `MapContainer.chunks`, a `Map<Hash, Link<MapPlaceableContainer>>`.
@@ -35,6 +36,9 @@ const LIGHTING_VOLUME: BinHash = named("MapLightingVolume");
 const LIGHT_REGION: BinHash = named("LightRegionEntityTemplate");
 const MOTION_PATH: BinHash = named("MapMotionPath");
 const BANNER: BinHash = named("GdsMapObject");
+const REGION_BOUNDARY: BinHash = named("RegionBoundary");
+/// A `MapPlaceable` of `Vertices`, a `type` and a `Min` and `Max` box, which no table names.
+const VERTEX_REGION: BinHash = BinHash(0x5a96_97c1);
 
 /// The frustum fields of `MapFrustum`, which both spotlight classes derive from, with the
 /// defaults the schema publishes.
@@ -55,6 +59,11 @@ const SEGMENTS: BinHash = named("Segments");
 const LIGHT_REGION_FIELD: BinHash = named("LightRegion");
 const POLYGON: BinHash = named("Polygon");
 const END_POSITION: BinHash = named("EndPosition");
+/// The polygon fields of `RegionBoundary`, with the defaults the schema publishes.
+const VERTICES: BinHash = named("Vertices");
+const DRAW_HEIGHT: (BinHash, f32) = (named("DrawHeight"), 100.0);
+const LINE_COLOR: (BinHash, [u8; 4]) = (named("LineColor"), [255, 0, 0, 255]);
+const FILL_COLOR: (BinHash, [u8; 4]) = (named("FillColor"), [255, 255, 0, 255]);
 
 /// What a placeable is to a scene, which is what an outliner marks its row with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -79,6 +88,8 @@ pub enum MapItemKind {
     Volume,
     /// A `MapMotionPath`.
     Path,
+    /// A `RegionBoundary`, or the unnamed placeable of vertices, a polygon on the ground.
+    Region,
     /// Any other class.
     Other,
 }
@@ -111,6 +122,14 @@ pub enum MapItemShape {
     Volume,
     /// The closed polygon of a light region, in the space of its transform.
     Polygon { points: Vec<[f32; 3]> },
+    /// The closed polygon of a `RegionBoundary` in the space of its transform, its walls
+    /// `height` units tall, and the colors the client draws its lines and fill in.
+    Region {
+        points: Vec<[f32; 3]>,
+        height: f32,
+        line_color: [u8; 4],
+        fill_color: [u8; 4],
+    },
 }
 
 /// One placeable of a chunk.
@@ -215,6 +234,7 @@ fn kind_of(placed: &Placed<'_>) -> MapItemKind {
         CUBEMAP_PROBE => MapItemKind::Probe,
         LIGHTING_VOLUME | LIGHT_REGION => MapItemKind::Volume,
         MOTION_PATH => MapItemKind::Path,
+        REGION_BOUNDARY | VERTEX_REGION => MapItemKind::Region,
         class if skin_of(class, placed.fields).is_some() => MapItemKind::Character,
         _ => MapItemKind::Other,
     }
@@ -266,14 +286,28 @@ fn shape_of(class: BinHash, fields: &Fields, position: [f32; 3]) -> Option<MapIt
         LIGHT_REGION => {
             let region = fields_of(fields.get(&LIGHT_REGION_FIELD))?;
             Some(MapItemShape::Polygon {
-                points: items(region.get(&POLYGON))
-                    .iter()
-                    .filter_map(|point| vector3(Some(point)))
-                    .collect(),
+                points: points_of(region.get(&POLYGON)),
             })
         }
+        REGION_BOUNDARY => Some(MapItemShape::Region {
+            points: points_of(fields.get(&VERTICES)),
+            height: unsigned(fields.get(&DRAW_HEIGHT.0)).map_or(DRAW_HEIGHT.1, |n| n as f32),
+            line_color: color(fields.get(&LINE_COLOR.0)).unwrap_or(LINE_COLOR.1),
+            fill_color: color(fields.get(&FILL_COLOR.0)).unwrap_or(FILL_COLOR.1),
+        }),
+        VERTEX_REGION => Some(MapItemShape::Polygon {
+            points: points_of(fields.get(&VERTICES)),
+        }),
         _ => None,
     }
+}
+
+/// The `Vec3` items of the list `value`, and none of any other kind.
+fn points_of(value: Option<&PropertyValueEnum>) -> Vec<[f32; 3]> {
+    items(value)
+        .iter()
+        .filter_map(|point| vector3(Some(point)))
+        .collect()
 }
 
 /// The key each chunk is listed under by a `MapContainer` of the same file.

@@ -266,6 +266,8 @@ export default tseslint.config(
       "src/modules/workshop/bin/map/components/MeshHighlight.tsx",
       "src/modules/workshop/bin/map/components/PlaceableGizmo.tsx",
       "src/modules/workshop/bin/map/components/PlaceableShapes.tsx",
+      "src/modules/workshop/bin/map/components/RegionBoundaries.tsx",
+      "src/modules/workshop/bin/map/components/RegionHandles.tsx",
       "src/modules/workshop/bin/map/components/SunHandle.tsx",
       "src/modules/workshop/bin/spells/components/MissileViewport.tsx",
       "src/modules/workshop/bin/spells/components/AbilityPreview.tsx",

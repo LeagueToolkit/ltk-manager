@@ -204,6 +204,82 @@ fn map_outline_reads_shapes_of_lighting_volumes_and_light_regions() {
 }
 
 #[test]
+fn map_outline_reads_region_boundaries_and_vertex_regions() {
+    let vertices = values::Container::new(
+        Kind::Vector3,
+        vec![
+            values::Vector3::new(vec3(-1.0, 0.0, -1.0)).into(),
+            values::Vector3::new(vec3(1.0, 0.0, -1.0)).into(),
+            values::Vector3::new(vec3(0.0, 0.0, 1.0)).into(),
+        ],
+    )
+    .unwrap();
+    let document = document_of(vec![container(
+        PLANTS,
+        vec![
+            (
+                "Wall",
+                placeable(
+                    "RegionBoundary",
+                    vec![
+                        (VERTICES, vertices.clone().into()),
+                        (DRAW_HEIGHT.0, values::U32::new(200).into()),
+                        (
+                            LINE_COLOR.0,
+                            values::Color::new(ltk_primitives::Color {
+                                r: 1,
+                                g: 2,
+                                b: 3,
+                                a: 4,
+                            })
+                            .into(),
+                        ),
+                    ],
+                ),
+            ),
+            ("Bare", placeable("RegionBoundary", vec![])),
+            (
+                "Zone",
+                values::Struct {
+                    class_hash: VERTEX_REGION,
+                    properties: [(VERTICES, vertices.into())].into_iter().collect(),
+                }
+                .into(),
+            ),
+        ],
+    )]);
+
+    let items = &map_outline(&document, &Tables)[0].items;
+
+    assert_eq!(items[0].kind, MapItemKind::Region);
+    assert_eq!(
+        items[0].shape,
+        Some(MapItemShape::Region {
+            points: vec![[-1.0, 0.0, -1.0], [1.0, 0.0, -1.0], [0.0, 0.0, 1.0]],
+            height: 200.0,
+            line_color: [1, 2, 3, 4],
+            fill_color: [255, 255, 0, 255],
+        })
+    );
+    assert_eq!(
+        items[1].shape,
+        Some(MapItemShape::Region {
+            points: vec![],
+            height: 100.0,
+            line_color: [255, 0, 0, 255],
+            fill_color: [255, 255, 0, 255],
+        })
+    );
+    assert_eq!(items[2].kind, MapItemKind::Region);
+    assert_eq!(
+        items[2].shape,
+        Some(MapItemShape::Polygon {
+            points: vec![[-1.0, 0.0, -1.0], [1.0, 0.0, -1.0], [0.0, 0.0, 1.0]],
+        })
+    );
+}
+
+#[test]
 fn a_chunk_no_table_names_reads_as_the_key_its_container_lists_it_under() {
     let listing = values::Map::new(
         Kind::Hash,

@@ -19,6 +19,7 @@ const KIND_ORDER: readonly MapItemKind[] = [
   "probe",
   "volume",
   "path",
+  "region",
   "other",
 ];
 
@@ -32,6 +33,7 @@ const KIND_LABEL: Record<MapItemKind, () => string> = {
   probe: m.workshop_bin_map_outliner_kind_probe_label,
   volume: m.workshop_bin_map_outliner_kind_volume_label,
   path: m.workshop_bin_map_outliner_kind_path_label,
+  region: m.workshop_bin_map_outliner_kind_region_label,
   other: m.workshop_bin_map_outliner_kind_other_label,
 };
 
