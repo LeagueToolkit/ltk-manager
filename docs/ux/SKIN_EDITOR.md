@@ -14,6 +14,7 @@ the plan of the pose modifiers and sockets is docs/plans/pose-dynamics-preview.m
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-11-02 | Dock the preview's controls on a rail across its top edge                |
 | 2026-10-31 | Name clips and events from game data, file names and `mName`             |
 | 2026-10-31 | Correct clip, condition, material and socket behaviour                   |
 | 2026-10-31 | Add the skin and animation graph menu bars                               |
@@ -100,6 +101,13 @@ Inspector takes ownership when its tab or content receives focus.
 **The preview takes the viewer's keys**, the camera menu with Fit, the axis gizmo and the speed
 detents, per "The viewer". Its clip plays on its own clock under its own transport, and it has
 no timeline. The keys answer while focus is anywhere in the preview or its transport.
+
+**The controls sit on the rail across the preview's top edge**, per "The viewport rails". The
+left holds the scene and the character: the map backdrop with its visibility, sun and post
+effects, then Move, Stage, Midlane and the background color, then Effects, the effects menu,
+Armature, Physics, Shaders, Sound, Bake tangents and Submeshes. The right holds the view mode,
+the camera menu, Frame and Capture, and after a rule, Hide UI. Hide UI takes the rail and the
+transport out of the pane, so the scene fills it, and Esc brings them back.
 
 ## Menu bar
 
@@ -284,8 +292,8 @@ each joint's name beside its dot in the fine type, dimmed with the joint under a
 ticked while the armature is on. The names are painted on one canvas over the scene each
 frame rather than laid out as text, because a hundred labels the layout moves each frame is
 what a reader feels as lag. The controls are icons named on hover, because five words in a
-row over the character cost more of it than five glyphs. Both are display preferences and
-last across skins.
+row take more of the rail than five glyphs. Both are display preferences and last across
+skins.
 
 **Submeshes show and hide by hand.** The Submeshes menu in the preview's controls lists the
 `.skn`'s submeshes, each ticked while it draws. A tick shows or hides the submesh over

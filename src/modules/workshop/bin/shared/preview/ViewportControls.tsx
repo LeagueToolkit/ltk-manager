@@ -1,22 +1,9 @@
 import { CaretDownIcon, FrameCornersIcon } from "@phosphor-icons/react";
 import type { ComponentProps, ReactNode } from "react";
 
-import { ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { Button, ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
-
-/** The glass bar of switches and menus over a preview's top right corner. */
-export function ViewportControls({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      {...props}
-      /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
-      className={twMerge(
-        "absolute top-2 right-2 flex items-center gap-0.5 rounded-md border border-surface-veil bg-scrim p-1 shadow-md backdrop-blur-sm [&_button]:text-meta",
-        className,
-      )}
-    />
-  );
-}
 
 /** The edge of a preview that a rail or a divider runs along. */
 export type ControlsSide = "top" | "left";
@@ -28,7 +15,9 @@ export interface ViewportRailProps extends ComponentProps<"div"> {
 
 /**
  * A rail of controls docked to one edge of a preview, outside the drawn frame, as the header
- * and the toolbar of Blender and Maya are.
+ * and the toolbar of Blender and Maya are. Per "The viewport rails" in docs/ux/BIN_EDITOR.md.
+ *
+ * A top rail wraps to a second line in a pane too narrow for one.
  */
 export function ViewportRail({ side, className, ...props }: ViewportRailProps) {
   return (
@@ -36,15 +25,34 @@ export function ViewportRail({ side, className, ...props }: ViewportRailProps) {
       {...props}
       /* DS-GROUND. The descendant selector outranks each button's own size. */
       className={twMerge(
-        "flex shrink-0 gap-0.5 border-surface-700/50 bg-surface-900 p-1 [&_button]:text-meta",
-        side === "top" ? "items-center border-b" : "flex-col items-center border-r",
+        "flex shrink-0 gap-0.5 border-surface-700/50 bg-surface-900 p-1 select-none [&_button]:text-meta",
+        side === "top" ? "flex-wrap items-center border-b" : "flex-col items-center border-r",
         className,
       )}
     />
   );
 }
 
-/** A rule between two groups of controls on a bar or a rail along `side`. */
+/** The space that parts a top rail's left group from its right. */
+export function RailSpacer() {
+  return <span className="flex-1" />;
+}
+
+/** A glass plate over a preview's bottom left corner: a readout and the controls of what it names. */
+export function ViewportPlate({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      {...props}
+      /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
+      className={twMerge(
+        "absolute bottom-2 left-2 flex items-center gap-0.5 rounded-md border border-surface-veil bg-scrim p-1 shadow-md backdrop-blur-sm [&_button]:text-meta",
+        className,
+      )}
+    />
+  );
+}
+
+/** A rule between two groups of controls on a rail along `side`. */
 export function ControlDivider({ side = "top" }: { side?: ControlsSide }) {
   return (
     <span
@@ -57,9 +65,20 @@ export function ControlDivider({ side = "top" }: { side?: ControlsSide }) {
   );
 }
 
-/** The button that frames the camera on the subject again. */
+/** The pill that frames the camera on the subject again. `label` names the subject on hover. */
 export function FitButton({ label, onFit }: { label: string; onFit: () => void }) {
-  return <IconButton icon={<FrameCornersIcon />} onClick={onFit} label={label} />;
+  return (
+    <Tooltip content={label}>
+      <Button
+        variant="ghost"
+        size="xs"
+        left={<FrameCornersIcon weight="bold" className="size-4" />}
+        onClick={onFit}
+      >
+        {m.workshop_bin_preview_frame_label()}
+      </Button>
+    </Tooltip>
+  );
 }
 
 export interface SplitToggleProps {

@@ -67,8 +67,8 @@ export function ProgramNotes({
   return (
     <ul
       data-ui="ProgramNotes"
-      /* DS-GLASS, DS-RADIUS. `top-12` clears the `ViewportControls` row, which can span the width. */
-      className="absolute top-12 left-2 z-10 flex max-w-[60%] flex-col gap-0.5 rounded-md bg-scrim px-2 py-1 text-meta backdrop-blur-sm"
+      /* DS-GLASS, DS-RADIUS. `top-11` clears the rail of `MaterialViewport`, which the notes overlay from `MaterialPreview`. */
+      className="absolute top-11 left-2 z-10 flex max-w-[60%] flex-col gap-0.5 rounded-md bg-scrim px-2 py-1 text-meta backdrop-blur-sm"
     >
       {notes.map((note, at) => (
         <li key={at} className="flex min-w-0 flex-col">

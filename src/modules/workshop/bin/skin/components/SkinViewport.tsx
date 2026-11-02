@@ -92,8 +92,10 @@ import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
 import {
   ControlDivider,
   FitButton,
+  RailSpacer,
   SplitToggle,
-  ViewportControls,
+  ViewportPlate,
+  ViewportRail,
 } from "../../shared/preview/ViewportControls";
 import { runSoundCues } from "../../vfx/playback/utils/runSound";
 import { Passes } from "../../vfx/rendering/components/Passes";
@@ -614,6 +616,103 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           pose={pose}
           scale={scale}
         />
+        {!controlsHidden && (
+          <ViewportRail side="top" data-ui="SkinViewport:controls">
+            <div className="flex shrink-0 items-center gap-0.5">
+              <BackdropToggle />
+              {backdrop !== null && (
+                <>
+                  <span ref={visibilitySlot} className="contents">
+                    <BackdropVisibilityControl backdrop={backdropFlags} />
+                  </span>
+                  <span ref={sunSlot} className="contents">
+                    <SunControl source={backdropSource} />
+                  </span>
+                  <span ref={postEffectsSlot} className="contents">
+                    <PostEffectsControl source={backdropSource} />
+                  </span>
+                </>
+              )}
+            </div>
+            <ControlDivider />
+            <div className="flex shrink-0 items-center gap-0.5">
+              <PlacementToggle />
+              {backdrop === null && (
+                <PreviewToggle
+                  flag="previewGround"
+                  label={m.workshop_bin_preview_stage_label()}
+                  icon={<GridFourIcon />}
+                />
+              )}
+              {backdrop === null && ground && (
+                <PreviewToggle
+                  flag="previewMidlane"
+                  label={m.workshop_bin_preview_midlane_label()}
+                  icon={<MapTrifoldIcon />}
+                />
+              )}
+              <BackgroundControl />
+            </div>
+            <ControlDivider />
+            <div className="flex shrink-0 items-center gap-0.5">
+              {(idle.length > 0 || cues.length > 0) && (
+                <IconButton
+                  pressed={effects}
+                  icon={<SparkleIcon />}
+                  onClick={() => setEffects(!effects)}
+                  label={m.workshop_bin_mesh_preview_effects_label()}
+                />
+              )}
+              <SkinEffectsMenu
+                document={document}
+                asset={asset}
+                skin={entry}
+                clip={chosen === BIND_POSE ? "" : chosen}
+                clipName={chosenClip?.name ?? null}
+                idle={idle}
+                cues={cues}
+                pose={pose}
+                scale={scale}
+              />
+              <ArmatureMenu />
+              {overlaid && (
+                <PhysicsMenu
+                  rate={simulates ? simulatedRate : null}
+                  onRateChange={setSimulatedRate}
+                />
+              )}
+              <ShadersToggle />
+              <SoundToggle unresolved={sound.unresolved} />
+              <BakeTangentsButton
+                document={document}
+                entry={entry}
+                asset={asset}
+                mesh={skin.mesh?.asset ?? null}
+              />
+              <SubmeshMenu
+                submeshes={submeshes}
+                hidden={hidden}
+                overridden={shown.size > 0}
+                onShow={setShown}
+                onReset={resetShown}
+              />
+            </div>
+            <RailSpacer />
+            <div className="flex shrink-0 items-center gap-0.5">
+              <ViewModeMenu />
+              <CameraMenu />
+              <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
+              <CaptureButton capture={capture} />
+            </div>
+            <ControlDivider />
+            <IconButton
+              aria-label={m.workshop_bin_preview_hide_ui_action()}
+              icon={<EyeSlashIcon />}
+              onClick={() => setControlsHidden(true)}
+              tooltip={m.workshop_bin_preview_hide_ui_hint()}
+            />
+          </ViewportRail>
+        )}
         <div data-ui="SkinViewport:scene" className="relative min-h-0 flex-1">
           <PreviewViewport
             renderer="shared"
@@ -777,113 +876,12 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           )}
 
           {heldSocket != null && (
-            <ViewportControls
-              data-ui="SkinViewport:socket-gizmo"
-              className="top-auto right-auto bottom-2 left-2"
-            >
+            <ViewportPlate data-ui="SkinViewport:socket-gizmo">
               <span className="max-w-48 truncate px-1.5 text-meta text-surface-200 select-none">
                 {heldSocket.name}
               </span>
               <SocketGizmoMode socket={heldSocket} />
-            </ViewportControls>
-          )}
-
-          {!controlsHidden && (
-            <ViewportControls data-ui="SkinViewport:controls">
-              <div className="flex shrink-0 items-center gap-0.5">
-                <BackdropToggle />
-                {backdrop !== null && (
-                  <>
-                    <span ref={visibilitySlot} className="contents">
-                      <BackdropVisibilityControl backdrop={backdropFlags} />
-                    </span>
-                    <span ref={sunSlot} className="contents">
-                      <SunControl source={backdropSource} />
-                    </span>
-                    <span ref={postEffectsSlot} className="contents">
-                      <PostEffectsControl source={backdropSource} />
-                    </span>
-                  </>
-                )}
-              </div>
-              <ControlDivider />
-              <div className="flex shrink-0 items-center gap-0.5">
-                <PlacementToggle />
-                {backdrop === null && (
-                  <PreviewToggle
-                    flag="previewGround"
-                    label={m.workshop_bin_preview_stage_label()}
-                    icon={<GridFourIcon />}
-                  />
-                )}
-                {backdrop === null && ground && (
-                  <PreviewToggle
-                    flag="previewMidlane"
-                    label={m.workshop_bin_preview_midlane_label()}
-                    icon={<MapTrifoldIcon />}
-                  />
-                )}
-                <BackgroundControl />
-              </div>
-              <ControlDivider />
-              <div className="flex shrink-0 items-center gap-0.5">
-                {(idle.length > 0 || cues.length > 0) && (
-                  <IconButton
-                    pressed={effects}
-                    icon={<SparkleIcon />}
-                    onClick={() => setEffects(!effects)}
-                    label={m.workshop_bin_mesh_preview_effects_label()}
-                  />
-                )}
-                <SkinEffectsMenu
-                  document={document}
-                  asset={asset}
-                  skin={entry}
-                  clip={chosen === BIND_POSE ? "" : chosen}
-                  clipName={chosenClip?.name ?? null}
-                  idle={idle}
-                  cues={cues}
-                  pose={pose}
-                  scale={scale}
-                />
-                <ArmatureMenu />
-                {overlaid && (
-                  <PhysicsMenu
-                    rate={simulates ? simulatedRate : null}
-                    onRateChange={setSimulatedRate}
-                  />
-                )}
-                <ShadersToggle />
-                <SoundToggle unresolved={sound.unresolved} />
-                <BakeTangentsButton
-                  document={document}
-                  entry={entry}
-                  asset={asset}
-                  mesh={skin.mesh?.asset ?? null}
-                />
-                <SubmeshMenu
-                  submeshes={submeshes}
-                  hidden={hidden}
-                  overridden={shown.size > 0}
-                  onShow={setShown}
-                  onReset={resetShown}
-                />
-              </div>
-              <ControlDivider />
-              <div className="flex shrink-0 items-center gap-0.5">
-                <ViewModeMenu />
-                <CameraMenu />
-                <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
-                <CaptureButton capture={capture} />
-              </div>
-              <ControlDivider />
-              <IconButton
-                aria-label={m.workshop_bin_preview_hide_ui_action()}
-                icon={<EyeSlashIcon />}
-                onClick={() => setControlsHidden(true)}
-                tooltip={m.workshop_bin_preview_hide_ui_hint()}
-              />
-            </ViewportControls>
+            </ViewportPlate>
           )}
         </div>
 

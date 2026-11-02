@@ -38,7 +38,12 @@ import { Notice } from "../../shared/preview/Notice";
 import { PreviewToggle } from "../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
 import { useFitRequest } from "../../shared/preview/useFitRequest";
-import { ControlDivider, FitButton, ViewportControls } from "../../shared/preview/ViewportControls";
+import {
+  ControlDivider,
+  FitButton,
+  RailSpacer,
+  ViewportRail,
+} from "../../shared/preview/ViewportControls";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { useMaterialProgram } from "../hooks/useMaterialProgram";
 import { useHeldValue } from "../state/heldValue";
@@ -111,26 +116,15 @@ export default function MaterialViewport({
   }
 
   return (
-    <div data-ui="MaterialViewport" className="relative min-h-0 flex-1">
-      <PreviewViewport plainView stage={ground} textured={false}>
-        <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={fitToken} />
-        <Passes warps={false} softens={false} />
-        <MaterialSubject
-          programs={drawn}
-          skinned={program.kind === "skinnedMesh"}
-          shape={shape}
-          turntable={turntable}
-          held={held}
-        />
-      </PreviewViewport>
-
-      <ViewportControls data-ui="MaterialViewport:controls">
+    <div data-ui="MaterialViewport" className="flex min-h-0 flex-1 flex-col">
+      <ViewportRail side="top" data-ui="MaterialViewport:controls">
         {shader && entry !== null && <ShaderMaterialMenu document={document} entry={entry} />}
         {shader && entry !== null && <PermutationMenu document={document} entry={entry} />}
         <ShapeMenu
           shape={shape}
           onPick={(picked) => setDisplay({ previewMaterialShape: picked })}
         />
+        <RailSpacer />
         <PreviewToggle
           flag="previewTurntable"
           label={m.workshop_bin_material_preview_turntable_label()}
@@ -144,7 +138,20 @@ export default function MaterialViewport({
         <ControlDivider />
         <CameraMenu />
         <FitButton label={m.workshop_bin_material_fit_action()} onFit={refit} />
-      </ViewportControls>
+      </ViewportRail>
+      <div data-ui="MaterialViewport:scene" className="relative min-h-0 flex-1">
+        <PreviewViewport plainView stage={ground} textured={false}>
+          <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={fitToken} />
+          <Passes warps={false} softens={false} />
+          <MaterialSubject
+            programs={drawn}
+            skinned={program.kind === "skinnedMesh"}
+            shape={shape}
+            turntable={turntable}
+            held={held}
+          />
+        </PreviewViewport>
+      </div>
     </div>
   );
 }

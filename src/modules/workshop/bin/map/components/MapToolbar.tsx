@@ -5,7 +5,6 @@ import {
   EyeIcon,
   FilePlusIcon,
   FloppyDiskIcon,
-  FrameCornersIcon,
   MagnetIcon,
 } from "@phosphor-icons/react";
 import { type RefObject, useRef } from "react";
@@ -21,7 +20,12 @@ import { BackgroundControl } from "../../shared/preview/BackgroundControl";
 import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { CaptureButton } from "../../shared/preview/CaptureButton";
 import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
-import { ControlDivider, ViewportRail } from "../../shared/preview/ViewportControls";
+import {
+  ControlDivider,
+  FitButton,
+  RailSpacer,
+  ViewportRail,
+} from "../../shared/preview/ViewportControls";
 import { useMapShowEntries } from "../hooks/useMapShowEntries";
 import { useMeshExport } from "../hooks/useMeshFiles";
 import { useMapScene } from "../state/mapScene";
@@ -155,7 +159,7 @@ export function TopRail({
         </>
       )}
       {variants.length > 1 && <VariantMenu variants={variants} chosen={chosen} onPick={onPick} />}
-      <span className="flex-1" />
+      <RailSpacer />
       <ShowMenu picking={picking} />
       {/* An editable map edits its sun and post effects in the Lighting pane. */}
       {!editable && (
@@ -172,9 +176,7 @@ export function TopRail({
       <ControlDivider />
       <ViewModeMenu />
       <CameraMenu />
-      <Button variant="ghost" size="xs" left={<FrameCornersIcon weight="bold" />} onClick={onFrame}>
-        {m.workshop_bin_map_frame_label()}
-      </Button>
+      <FitButton label={m.workshop_bin_menu_map_frame_map_action()} onFit={onFrame} />
       <CaptureButton capture={capture} />
     </ViewportRail>
   );
