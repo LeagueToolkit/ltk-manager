@@ -2009,6 +2009,23 @@ export type DecodedIncident = {
 	overlayDetail: string | null,
 };
 
+/**
+ *  Parsed representation of a `ltk://install-list` deep-link URL.
+ * 
+ *  The list itself is not in the link: `url` names the manifest the app fetches once the reader
+ *  has seen where it comes from, per [`install_list`].
+ */
+export type DeepLinkInstallListRequest = {
+	/**  The manifest URL, opaque to the app. Checked as an install link's `url` is. */
+	url: string,
+	source: string | null,
+	/**
+	 *  The host outside the allowlist, or `None` where the allowlist covers it. Stamped by the
+	 *  host, as [`DeepLinkInstallRequest::untrusted_domain`] is.
+	 */
+	untrustedDomain: string | null,
+};
+
 /**  Parsed representation of a `ltk://install` deep-link URL. */
 export type DeepLinkInstallRequest = {
 	url: string,
@@ -2028,6 +2045,8 @@ export type DeepLinkInstallRequest = {
 export type DeepLinkRequest = {
 	kind: "install",
 } & DeepLinkInstallRequest | {
+	kind: "installList",
+} & DeepLinkInstallListRequest | {
 	kind: "settings",
 } & DeepLinkSettingsRequest;
 
@@ -2199,6 +2218,23 @@ export type DownloadError =
 { kind: "HTTP"; status: number } | 
 /**  The server was not reached, or the connection broke before the headers arrived. */
 { kind: "OFFLINE"; detail: string };
+
+/**  Where an item's file comes from. */
+export type DownloadLink = {
+	method: DownloadMethod,
+	/**  On the manifest's host, over `https`. */
+	url: string,
+};
+
+/**  How a [`DownloadLink`] turns into a file. */
+export type DownloadMethod = 
+/**
+ *  A POST to the URL answers `{ path, expiresAt }`: the signed path to download, relative to
+ *  the URL's origin.
+ */
+"POST" | 
+/**  The URL is the file. */
+"GET";
 
 /**  Fields to change on a mod's metadata. `None` leaves a field untouched. */
 export type EditModMetadataArgs = {
@@ -3942,6 +3978,139 @@ export type InjectionStage =
 /**  The host ran, but the game was never patched. */
 "INJECTION";
 
+/**  A list of mods to install, as the manifest names them, within the limits. */
+export type InstallList = {
+	name: string,
+	author: string | null,
+	/**  The site, as the manifest names it. The link's `source` stands in where this is `None`. */
+	source: string | null,
+	/**  The page the list is read on. */
+	pageUrl: string | null,
+	/**
+	 *  In the owner's order, top first. Only mods the reader could install when the manifest
+	 *  was minted.
+	 */
+	items: InstallListItem[],
+};
+
+/**  One item that did not reach the library, and why. */
+export type InstallListFailure = {
+	itemId: string,
+	error: AppErrorResponse,
+};
+
+/**  One mod of a list. */
+export type InstallListItem = {
+	/**  The mod's id on the site, which the origin record of an installed mod keeps. */
+	id: string,
+	name: string,
+	author: string | null,
+	/**  The version the site lists, as the site writes it. */
+	version: string | null,
+	pageUrl: string | null,
+	download: DownloadLink,
+};
+
+/**  What the reader confirmed: which items of the list, and into which profile. */
+export type InstallListPlan = {
+	/**  The manifest URL the link carried. Every item's download must stay on its host. */
+	manifestUrl: string,
+	/**  The site's name, as the origin record of each installed mod keeps it. */
+	source: string,
+	/**  The items to install, in the list's order. */
+	items: InstallListItem[],
+	profile: InstallListProfile,
+};
+
+/**  Which profile the list's mods are enabled in. */
+export type InstallListProfile = 
+/**  The profile that is active as the run starts. */
+{ kind: "active" } | 
+/**  A profile created and switched to before the first item, named by the reader. */
+{ kind: "new"; name: string };
+
+/**  One item of an install list moved to the next stage. */
+export type InstallListProgress = {
+	/**  The item's position among the items the run was handed, from 0. */
+	index: number,
+	/**  How many items the run was handed. */
+	total: number,
+	/**  The item's id on the site. */
+	itemId: string,
+	stage: InstallListStage,
+	/**  For [`InstallListStage::Failed`], the failure in a sentence. */
+	error: string | null,
+};
+
+/**  What a run did, item by item. */
+export type InstallListReport = InstallListReport_Serialize | InstallListReport_Deserialize;
+
+/**  What a run did, item by item. */
+export type InstallListReport_Deserialize = {
+	installed: InstallListResult_Deserialize[],
+	/**  Items that replaced an older version of their mod. */
+	updated: InstallListResult_Deserialize[],
+	/**  Items whose file the library already held. */
+	alreadyInstalled: InstallListResult_Deserialize[],
+	failed: InstallListFailure[],
+	/**
+	 *  Whether the reader stopped the run. The items after the last one reported were not
+	 *  attempted.
+	 */
+	cancelled: boolean,
+	/**  The profile the mods were enabled in. */
+	profile: Profile,
+};
+
+/**  What a run did, item by item. */
+export type InstallListReport_Serialize = {
+	installed: InstallListResult_Serialize[],
+	/**  Items that replaced an older version of their mod. */
+	updated: InstallListResult_Serialize[],
+	/**  Items whose file the library already held. */
+	alreadyInstalled: InstallListResult_Serialize[],
+	failed: InstallListFailure[],
+	/**
+	 *  Whether the reader stopped the run. The items after the last one reported were not
+	 *  attempted.
+	 */
+	cancelled: boolean,
+	/**  The profile the mods were enabled in. */
+	profile: Profile,
+};
+
+/**  One item that reached the library, and the mod it is there as. */
+export type InstallListResult = InstallListResult_Serialize | InstallListResult_Deserialize;
+
+/**  One item that reached the library, and the mod it is there as. */
+export type InstallListResult_Deserialize = {
+	itemId: string,
+	mod: InstalledMod_Deserialize,
+};
+
+/**  One item that reached the library, and the mod it is there as. */
+export type InstallListResult_Serialize = {
+	itemId: string,
+	mod: InstalledMod_Serialize,
+};
+
+/**  Where one item of an install list has got to. */
+export type InstallListStage = 
+/**  The item's download link is being minted. */
+"resolving" | 
+/**  The item's file is arriving. Its bytes go out as [`ProtocolInstallProgress`]. */
+"downloading" | 
+/**  The file is being read into the library. */
+"installing" | 
+/**  The item is in the library as a new mod. */
+"installed" | 
+/**  The item replaced an older version of its mod. */
+"updated" | 
+/**  The library already held the item's file. */
+"alreadyInstalled" | 
+/**  The item did not install. The report the run returns carries why. */
+"failed";
+
 /**
  *  The install the manager is set up for, against the one the client's League
  *  session runs from.
@@ -4029,6 +4198,11 @@ export type InstalledMod_Deserialize = {
 	 *  and for mods installed before the preserve existed.
 	 */
 	harvest?: HarvestSummary | null,
+	/**
+	 *  The site and the listing this mod was installed from. `None` for a mod
+	 *  that arrived as a file or through a single install link.
+	 */
+	origin?: ModOrigin | null,
 };
 
 /**  A mod entry shown in the UI Library. */
@@ -4072,6 +4246,11 @@ export type InstalledMod_Serialize = {
 	 *  and for mods installed before the preserve existed.
 	 */
 	harvest?: HarvestSummary | null,
+	/**
+	 *  The site and the listing this mod was installed from. `None` for a mod
+	 *  that arrived as a file or through a single install link.
+	 */
+	origin?: ModOrigin | null,
 };
 
 /**  The requested installation change. */
@@ -5682,6 +5861,25 @@ export type ModLicense_Serialize = {
 	name: string,
 	/**  Where the full terms are, for a license that points anywhere. */
 	url?: string | null,
+};
+
+/**
+ *  Where a mod came from, as the install list that installed it named it.
+ * 
+ *  A second install of the same list skips the mods whose origin names the
+ *  same `id` at the same `version`, which is what makes a re-run install only
+ *  what changed.
+ */
+export type ModOrigin = {
+	/**  The site, as the link's `source` named it. */
+	source: string,
+	/**  The mod's id on that site. */
+	id: string,
+	/**
+	 *  The version the site listed, as the site writes it. Not always the
+	 *  project's own version.
+	 */
+	version: string | null,
 };
 
 /**  One mod a repair could not finish, and what stopped it. */

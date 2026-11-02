@@ -363,6 +363,43 @@ pub struct ProtocolInstallProgress {
     pub error: Option<String>,
 }
 
+/// Where one item of an install list has got to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum InstallListStage {
+    /// The item's download link is being minted.
+    Resolving,
+    /// The item's file is arriving. Its bytes go out as [`ProtocolInstallProgress`].
+    Downloading,
+    /// The file is being read into the library.
+    Installing,
+    /// The item is in the library as a new mod.
+    Installed,
+    /// The item replaced an older version of its mod.
+    Updated,
+    /// The library already held the item's file.
+    AlreadyInstalled,
+    /// The item did not install. The report the run returns carries why.
+    Failed,
+}
+
+/// One item of an install list moved to the next stage.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct InstallListProgress {
+    /// The item's position among the items the run was handed, from 0.
+    pub index: u32,
+    /// How many items the run was handed.
+    pub total: u32,
+    /// The item's id on the site.
+    pub item_id: String,
+    pub stage: InstallListStage,
+    /// For [`InstallListStage::Failed`], the failure in a sentence.
+    pub error: Option<String>,
+}
+
 /// Where a publish to RuneForge has got to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -471,6 +508,8 @@ declare_events! {
     GitImportProgress(GitImportProgress) => "git-import-progress",
     /// The download an install link started advanced.
     ProtocolInstallProgress(ProtocolInstallProgress) => "protocol-install-progress",
+    /// An install of a list moved one of its items to the next stage.
+    InstallListProgress(InstallListProgress) => "install-list-progress",
     /// A publish of a project to RuneForge advanced. Throttled by its emitter.
     RuneforgePublishProgress(RuneforgePublishProgress) => "runeforge-publish-progress",
     /// A League launch request advanced.

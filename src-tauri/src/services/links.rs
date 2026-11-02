@@ -1,36 +1,20 @@
 //! The links service: installing the mod an `ltk://` link names, and the link or mod files that
 //! arrived before the frontend listened.
 
+use ltk_manager_core::deep_link::install_list::{fetch_install_list, InstallList};
 use ltk_manager_core::deep_link::{self, DeepLinkRequest};
 
 use crate::deep_link::files::{self, FilesOpened};
+use crate::deep_link::install_list::{self as list_run, InstallListPlan, InstallListReport};
+use crate::deep_link::{reject_if_untrusted, DeepLinkState};
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::mods::{InstallOutcome, ModLibraryState};
 use crate::patcher::PatcherState;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use fs_err as fs;
-use tauri::{AppHandle, State};
-
-/// Refuse a download from a domain the reader's allowlist does not cover.
-///
-/// The deep-link handler already marks such a link, and the dialog it opens asks
-/// the reader to trust the domain. Reading the list here too is what makes that
-/// answer the gate rather than a formality, so a download only ever runs against
-/// a domain the settings already hold.
-///
-/// # Errors
-///
-/// Returns [`AppError::UntrustedDomain`] naming the domain that was refused.
-fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<()> {
-    let trusted = settings.0.lock().trusted_domains.clone();
-    if deep_link::is_domain_trusted(url, &trusted) {
-        return Ok(());
-    }
-
-    let domain = deep_link::download_host(url).unwrap_or_else(|| url.to_owned());
-    Err(AppError::UntrustedDomain(domain))
-}
+use tauri::{AppHandle, Manager, State};
 
 /// Take the deep link that arrived before the frontend could listen for it.
 ///
@@ -106,6 +90,61 @@ pub fn deep_link_install_mod(
     })();
     patcher.refresh_overlay();
     result.into()
+}
+
+/// Fetch the list an `ltk://install-list` link names, within its limits.
+///
+/// Runs only against a host the allowlist holds, as the install does: the dialog that asks the
+/// reader to trust the domain saves before it asks for the list.
+#[tauri::command]
+#[specta::specta]
+pub async fn deep_link_install_list_fetch(
+    url: String,
+    app_handle: AppHandle,
+) -> IpcResult<InstallList> {
+    if let Err(error) = reject_if_untrusted(&url, &app_handle.state::<SettingsState>()) {
+        return AppResult::<InstallList>::Err(error).into();
+    }
+    let version = crate::running_version().to_string();
+    off_thread(move || fetch_install_list(&url, &version)).await
+}
+
+/// Install the items of a list the reader confirmed, one after another, and report each.
+///
+/// Holds for the whole run. The frontend hears each item on `install-list-progress` and each
+/// file's bytes on `protocol-install-progress`, and `deep_link_install_list_cancel` stops the
+/// run between items.
+#[tauri::command]
+#[specta::specta]
+pub async fn deep_link_install_list(
+    plan: InstallListPlan,
+    app_handle: AppHandle,
+) -> IpcResult<InstallListReport> {
+    off_thread(move || {
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        let settings = app_handle.state::<SettingsState>();
+        let deep_link = app_handle.state::<DeepLinkState>();
+        let version = crate::running_version().to_string();
+        let context = list_run::RunContext {
+            app: &app_handle,
+            library: &library,
+            settings: &settings,
+            cancel: &deep_link.install_list_cancel,
+            version: &version,
+        };
+        let result = list_run::run(plan, &context);
+        app_handle.state::<PatcherState>().refresh_overlay();
+        result
+    })
+    .await
+}
+
+/// Stop the running install list after the item it is on.
+#[tauri::command]
+#[specta::specta]
+pub fn deep_link_install_list_cancel(deep_link: State<DeepLinkState>) -> IpcResult<()> {
+    deep_link.install_list_cancel.cancel();
+    IpcResult::ok(())
 }
 
 /// The links service's row of `services/table.rs`.

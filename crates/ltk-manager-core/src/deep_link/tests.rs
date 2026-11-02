@@ -82,6 +82,32 @@ fn rejects_unknown_action() {
     assert!(err.is_err());
 }
 
+// --- The install-list route ---
+
+#[test]
+fn parse_install_list_route() {
+    let request = parse_deep_link_url(
+        "ltk://install-list?url=https://runeforge.dev/api/collections/5a00/install-list%3Fsig%3Dabc&source=Runeforge",
+    )
+    .unwrap();
+
+    assert_eq!(
+        request,
+        DeepLinkRequest::InstallList(DeepLinkInstallListRequest {
+            url: "https://runeforge.dev/api/collections/5a00/install-list?sig=abc".into(),
+            source: Some("Runeforge".into()),
+            untrusted_domain: None,
+        })
+    );
+}
+
+#[test]
+fn install_list_takes_the_same_url_checks_as_install() {
+    assert!(parse_deep_link_url("ltk://install-list?source=Runeforge").is_err());
+    assert!(parse_deep_link_url("ltk://install-list?url=http://runeforge.dev/list").is_err());
+    assert!(parse_deep_link_url("ltk://install-list?url=https://192.168.1.1/list").is_err());
+}
+
 // --- The settings route ---
 
 #[test]

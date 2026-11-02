@@ -25,8 +25,12 @@ fn builder() -> Builder<Wry> {
     use ltk_manager_runtime::diagnostics::incident::Incident;
 
     use crate::patcher::thread::{GameAttachedPayload, GameOverlayPayload, WadScanFailedPayload};
-    use ltk_manager_base::events::{ProtocolInstallProgress, RuneforgePublishProgress};
-    use ltk_manager_core::deep_link::{DeepLinkInstallRequest, DeepLinkSettingsRequest};
+    use ltk_manager_base::events::{
+        InstallListProgress, ProtocolInstallProgress, RuneforgePublishProgress,
+    };
+    use ltk_manager_core::deep_link::{
+        DeepLinkInstallListRequest, DeepLinkInstallRequest, DeepLinkSettingsRequest,
+    };
 
     /* A 64-bit integer crosses as a JS number. None reaches the range where that loses
     a digit, and `JSON.stringify` refuses a `bigint`. */
@@ -56,8 +60,10 @@ fn builder() -> Builder<Wry> {
         .typ::<ReferenceWalkProgress>()
         .typ::<LayerFilesChanged>()
         .typ::<DeepLinkInstallRequest>()
+        .typ::<DeepLinkInstallListRequest>()
         .typ::<DeepLinkSettingsRequest>()
         .typ::<ProtocolInstallProgress>()
+        .typ::<InstallListProgress>()
         .typ::<RuneforgePublishProgress>()
         .typ::<GameAttachedPayload>()
         .typ::<GameOverlayPayload>()

@@ -612,9 +612,10 @@ who already knows the setting can type `appearance.theme` at it.
 `ltk://settings?focus=<id>` opens the app on one setting or one place, and `Copy link` in the menu
 is what mints one. It is `Copy ID` with somewhere to click.
 
-`parse_deep_link_url` routes on the action rather than checking for one, so `install` and
-`settings` are two arms of one enum and a third route is an arm rather than a rewrite. The rate
-limiter, the scheme check and the unknown-action error were already there and are shared.
+`parse_deep_link_url` routes on the action rather than checking for one, so `install`,
+`install-list` and `settings` are three arms of one enum and a fourth route is an arm rather than
+a rewrite. The rate limiter, the scheme check and the unknown-action error are shared.
+`ltk://install-list` is "Installing a list" in [LIBRARY.md](LIBRARY.md).
 
 `focus` is held to the id alphabet at the boundary - letters, digits, `.`, `/`, `-` and `_`, up to
 128 characters, with no empty segment and never both separators in one value - because the value is
