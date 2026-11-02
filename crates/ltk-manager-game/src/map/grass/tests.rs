@@ -76,6 +76,17 @@ fn map_grass_tints_lists_skins_that_link_map_in_file_order() {
     );
 }
 
+#[test]
+fn map_grass_tints_matches_link_in_any_case() {
+    let document = document_of(vec![skin("Default", BASE_SRX, Some(DEFAULT_TINT))]);
+    let listed = MapPath::from(BASE_SRX.to_lowercase());
+
+    let tints = map_grass_tints(&document, &listed, &(), &Everything);
+
+    assert_eq!(tints.len(), 1);
+    assert_eq!(tints[0].skin, "Default");
+}
+
 fn flag(name: &str, bit: u8) -> PropertyValueEnum {
     embedded(
         "MapVisibilityFlagDefinition",
