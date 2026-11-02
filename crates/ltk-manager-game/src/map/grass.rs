@@ -60,7 +60,9 @@ pub struct MapBounds {
 
 /// Returns the grass tint of every `MapSkin` of `map_bin` that links `map`, in file order.
 ///
-/// Skips a skin that states no tint and a skin whose texture `assets` cannot locate.
+/// A link matches `map` in any case, because a path read off a WAD listing is lowercase
+/// while the bin writes `Maps/MapGeometry/Map11/Base_SRX`. Skips a skin that states no tint
+/// and a skin whose texture `assets` cannot locate.
 #[must_use]
 pub fn map_grass_tints(
     map_bin: &BinDocument,
@@ -74,7 +76,10 @@ pub fn map_grass_tints(
         .entries()
         .filter_map(|entry| map_bin.object_at(entry))
         .filter(|object| object.class_hash == MAP_SKIN)
-        .filter(|object| text(object.properties.get(&CONTAINER_LINK)) == Some(map.as_str()))
+        .filter(|object| {
+            text(object.properties.get(&CONTAINER_LINK))
+                .is_some_and(|link| link.eq_ignore_ascii_case(map.as_str()))
+        })
         .filter_map(|object| {
             let fields = &object.properties;
             let texture = locator.asset(fields.get(&GRASS_TINT))?.asset?;
