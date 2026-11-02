@@ -58,9 +58,42 @@ export function draggedEdits(
   return [...lists].map(([field, edits]) => ({ entry, holder: "", field, edits }));
 }
 
-/** The edit that empties the optional `field` of the emitter at `index`, which then reads unset. */
-export function clearedEdits(index: number, field: TimingName): ValueEdit[] {
-  return [{ type: "removeItem", path: `[${index}].${TIMING[field].slice(2)}[0]` }];
+/**
+ * The edits that empty each optional of `fields` on the emitter at `index`, which then read
+ * unset, as one undo step. A field the emitter leaves empty is not in `fields`, since the
+ * edit of an empty option is refused.
+ */
+export function clearedEdits(index: number, fields: readonly TimingName[]): ValueEdit[] {
+  return fields.map((field) => ({
+    type: "removeItem",
+    path: `[${index}].${TIMING[field].slice(2)}[0]`,
+  }));
+}
+
+/** The cycle a fresh `period` writes, in seconds, with its active part half of it. */
+export const DEFAULT_CYCLE = { length: 1, active: 0.5 } as const;
+
+/**
+ * The edits that give the emitter at `index` a cycle: `DEFAULT_CYCLE`'s length, and its
+ * active part where `active` is null, as one undo step. An active part the emitter holds
+ * that is past the length stays, and the length grows to it so the cycle still pauses.
+ */
+export function cycleEdits(index: number, active: number | null): ValueEdit[] {
+  const length =
+    active === null ? DEFAULT_CYCLE.length : Math.max(DEFAULT_CYCLE.length, active * 2);
+  const values: { field: TimingName; value: LeafValue }[] = [
+    { field: "period", value: seconds(length) },
+  ];
+  if (active === null) {
+    values.push({ field: "timeActiveDuringPeriod", value: seconds(DEFAULT_CYCLE.active) });
+  }
+
+  return timingEdits(index, values);
+}
+
+/** The edits that take the cycle off the emitter at `index`: its length, and its active part where it holds one. */
+export function noCycleEdits(index: number, active: number | null): ValueEdit[] {
+  return clearedEdits(index, active === null ? ["period"] : ["period", "timeActiveDuringPeriod"]);
 }
 
 export function seconds(value: number): LeafValue {

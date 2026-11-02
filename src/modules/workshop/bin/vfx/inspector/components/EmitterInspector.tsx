@@ -43,6 +43,7 @@ import { VfxRunContext } from "../../playback/state/run";
 import { STENCIL_FIELD } from "../../stencil/stencilEdits";
 import { StencilNotes } from "../../stencil/StencilNotes";
 import { StencilMaskProperty, StencilModeProperty } from "../../stencil/StencilProperty";
+import { TIMING } from "../../timeline/utils/timingEdits";
 import { VFX_COMMAND, VFX_PANE } from "../../utils/vfxCommands";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
@@ -75,6 +76,7 @@ import { DefaultProperty } from "./DefaultProperty";
 import { EmissionNotes } from "./EmissionNotes";
 import { FlipbookView } from "./FlipbookView";
 import { InspectorActions } from "./InspectorActions";
+import { PeriodProperty } from "./PeriodProperty";
 import { PrimitiveProperty } from "./PrimitiveProperty";
 import { RateReadout } from "./RateReadout";
 import { ShapeProperty } from "./ShapeProperty";
@@ -475,6 +477,7 @@ function GroupSection({
   const title = GROUP_TITLE[group]();
   const properties = inspectorProperties(held);
   const visible = properties.length > 0;
+  const hasPeriod = properties.some((property) => property.hash === TIMING.period);
   const requested =
     navigation.key === card?.key && navigation.request !== jumpRequest && aimed?.group === group;
   if (navigation.key !== card?.key || navigation.request !== jumpRequest) {
@@ -554,6 +557,25 @@ function GroupSection({
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
+          if (property.hash === TIMING.period && card !== undefined) {
+            return (
+              <PeriodProperty
+                key={key}
+                period={property}
+                active={properties.find((each) => each.hash === TIMING.timeActiveDuringPeriod)}
+                emitter={card.row}
+                owner={owner}
+                fields={schema?.fields}
+                width={NAME_COLUMN}
+              />
+            );
+          }
+
+          /* Drawn under Repeats, beside its period. */
+          if (property.hash === TIMING.timeActiveDuringPeriod && card !== undefined && hasPeriod) {
+            return null;
+          }
+
           if (property.hash === PRIMITIVE_FIELD && card !== undefined) {
             return (
               <PrimitiveProperty

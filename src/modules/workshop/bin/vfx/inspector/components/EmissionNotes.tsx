@@ -74,6 +74,10 @@ function checkText(check: EmissionCheck): string {
       });
     case "neverActive":
       return m.workshop_bin_emission_check_never_active_hint();
+    case "activeWithoutPeriod":
+      return m.workshop_bin_emission_check_active_without_period_hint({
+        active: plain(check.active),
+      });
     case "burstWithPeriod":
       return m.workshop_bin_emission_check_burst_with_period_hint();
     case "rateReplaced":

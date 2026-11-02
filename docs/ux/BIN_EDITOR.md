@@ -458,6 +458,11 @@ row had not already said. An optional holding a struct or a container keeps its 
 those rows have to hang off something. The tag stays `option[...]` either way, so the row still
 says it is an option.
 
+A row that holds an option's value carries Unset, an eraser shown on hover and focus, which
+empties the option as one undo step. The row then reads Not set and the game reads the class
+default. It is the same edit as the row menu's Reset to default on an option, and the one way
+back from a value that has no default to type, such as a `period` of 0.
+
 **A kind with no widget still has a row.** It shows its name and its kind, says that this
 viewer does not draw it, and offers the file in VS Code. It is never hidden, because a row a
 user cannot see is a row a user believes is absent.
@@ -757,6 +762,9 @@ Reset to default puts a property back to its class default. It is one undo step.
   colour
 - a value class (`ValueFloat`, `ValueVector3`, `ValueColor` and the rest) resets its constant
   the same way and drops its curve
+- an option (`period`, `lifetime` and every other `Option<f32>`) is emptied, since an empty
+  option is what the game reads its default from. An option that is already empty disables
+  the item
 - in a declared document, a list, a map, an embed or a pointer has no single default to write,
   so the item is disabled with the reason as its title
 
@@ -1875,12 +1883,16 @@ and the value reads beside the edge during the drag.
   release writes all of them as one edit. A bar without the dragged edge stays as it is: an
   endless bar on an end or a linger drag, and a simple emitter's bar on a linger drag
 
-**A double click opens the exact times.** A double click on the bar opens a popover with the
-start delay, the lifetime, Emits until the system stops, the emitter linger, the particle linger
-and its mode, Repeats in cycles with the period and its active part, the single burst switch and
+**A double click opens the exact times.** A double click on the bar opens a popover in three
+bands: the window, which is the start delay, the lifetime, Emits until the system stops, the
+emitter linger, and the particle linger and its mode; the cycle, which is Repeats in cycles with
+the period and its active part; and the flags, the single burst switch and
 `HasVariableStartTime`. Each field commits on its own. Emits until the system stops clears
-`lifetime`, which no drag can do. A line under the emitter's name states how long the emitter
-emits for, because `lifetime` is an end time counted from the system's start and not a duration.
+`lifetime`, which no drag can do. Repeats in cycles writes `period` and `timeActiveDuringPeriod`
+together, a second with half of it active, and off empties both, each as one undo step, so a
+cycle never leaves its active part behind. The cycle strip beside it draws two cycles as the bar
+does. A line under the emitter's name states how long the emitter emits for, because `lifetime`
+is an end time counted from the system's start and not a duration.
 
 **Bursts and cycles are marked.** An `isSingleParticle` emitter's whole output is one burst,
 drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` and a
@@ -2501,6 +2513,7 @@ from.
 | Emission | Warning | The rate is zero and nothing else makes the emitter emit                   |
 | Emission | Warning | The end time is at or before the start delay                               |
 | Emission | Warning | A period has no active time                                                |
+| Emission | Info    | An active time has no period, so emission ends at it for good              |
 | Emission | Info    | A single burst has a period                                                |
 | Emission | Info    | `rateByVelocityFunction` replaces `rate` and `flexRate`                    |
 | Source   | Warning | A simple emitter names an emission mesh or a surface                       |
@@ -2518,6 +2531,14 @@ from.
 the emitter's phase and the most one step spawns at that rate, which is the rate times 0.33 plus
 one, and at most 1000. A single burst shows its count and its time. Outside the emitter's window
 the line shows Not emitting at the playhead.
+
+**Repeats is the Emission group's cycle.** The row stands where `period` is listed and reads
+the cycle back as the timeline's bar does: a checkbox, the cycle strip, and the period and its
+active part in a line, or No cycle. The `period` and `timeActiveDuringPeriod` rows draw under
+it, one step in, while the emitter writes either, and are the rows the values are typed in.
+Checking Repeats writes a cycle of a second with half of it active, and unchecking it empties
+both options, each as one undo step - the same edit as the bar's popover. An active time with no
+period is kept and noted, since the game reads it as an end of emission.
 
 **What the preview does not model.** The spawn generator's offset and its rate factor, `flexRate`
 and `flexParticleLifetime`, and a linked mesh, which only a superward region links.

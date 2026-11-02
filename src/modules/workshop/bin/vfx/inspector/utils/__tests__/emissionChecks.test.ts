@@ -108,6 +108,11 @@ describe("emissionChecks", () => {
       ]);
     });
 
+    it("reports an active time with no period", () => {
+      expect(timing({ period: { length: null, active: 1 } })).toEqual(["activeWithoutPeriod"]);
+      expect(timing({ period: { length: null, active: 0 } })).toEqual(["neverActive"]);
+    });
+
     it("reports the speed function's values when it replaces the rate", () => {
       const [check] = emissionChecks(
         emitterWith(null),

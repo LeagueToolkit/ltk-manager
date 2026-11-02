@@ -11,7 +11,7 @@ import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../tree/utils/binRows";
 import { useClassSchema } from "../hooks/useClassSchema";
-import { holderPath, propertyReset } from "../utils/propertyReset";
+import { parentPath, propertyReset } from "../utils/propertyReset";
 
 /**
  * Reset to default on a property row of a class view, which takes leaf edits.
@@ -52,8 +52,8 @@ export function ResetMenuItem({
     if (reset.kind === "leaf")
       landed = (await edit.commit(row, { ok: true, leaf: reset.leaf })) ?? false;
     if (reset.kind === "value") {
-      const holder = { ...row, path: holderPath(row.path) };
-      landed = (await edit.editProperty?.(holder, fieldHash(row.path), reset.edits)) ?? false;
+      const parent = { ...row, path: parentPath(row.path) };
+      landed = (await edit.editProperty?.(parent, fieldHash(row.path), reset.edits)) ?? false;
     }
 
     if (landed && target !== null && rowKey(target.row) === rowKey(row)) clear();
@@ -62,12 +62,14 @@ export function ResetMenuItem({
   let hint: string;
   if (reset.kind === "remove") hint = m.workshop_bin_reset_default_remove_hint();
   else if (reset.kind === "refused") hint = m.workshop_bin_reset_default_refused_hint();
+  else if (reset.kind === "unchanged") hint = m.workshop_bin_reset_default_unchanged_hint();
+  else if (row.kind === "option") hint = m.workshop_bin_reset_default_empty_hint();
   else hint = m.workshop_bin_reset_default_write_hint();
 
   return (
     <ContextMenu.Item
       icon={<ArrowCounterClockwiseIcon />}
-      disabled={reset.kind === "refused" || pending}
+      disabled={reset.kind === "refused" || reset.kind === "unchanged" || pending}
       title={hint}
       onClick={() => void run()}
     >

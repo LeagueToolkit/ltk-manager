@@ -31,6 +31,12 @@ export type EmissionCheck =
       readonly start: number;
     }
   | { readonly id: "neverActive"; readonly group: "emission"; readonly tone: "warning" }
+  | {
+      readonly id: "activeWithoutPeriod";
+      readonly group: "emission";
+      readonly tone: "info";
+      readonly active: number;
+    }
   | { readonly id: "burstWithPeriod"; readonly group: "emission"; readonly tone: "info" }
   | {
       readonly id: "rateReplaced";
@@ -94,6 +100,8 @@ function timingChecks(emitter: EmitterModel | undefined): EmissionCheck[] {
   const active = period?.active ?? null;
   if (active !== null && (active <= 0 || period?.length === 0)) {
     checks.push({ id: "neverActive", group: "emission", tone: "warning" });
+  } else if (active !== null && period?.length === null) {
+    checks.push({ id: "activeWithoutPeriod", group: "emission", tone: "info", active });
   }
   if (emitter.singleParticle && period !== null && period.length !== null) {
     checks.push({ id: "burstWithPeriod", group: "emission", tone: "info" });
