@@ -234,6 +234,8 @@ services! {
         list_available_wads,
         list_forcible_map_skins,
         list_map_decorations,
+        list_inking_maps,
+        inking_outline,
         export_settings,
         read_settings_backup,
         plan_data_move,

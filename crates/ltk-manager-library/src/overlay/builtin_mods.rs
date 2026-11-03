@@ -2,6 +2,7 @@
 
 mod baked_meshes;
 mod base_skins;
+mod character_inking;
 mod game_maps;
 mod game_skins;
 mod map_decorations;
@@ -13,6 +14,8 @@ mod stand_in;
 mod ward_skins;
 
 use base_skins::BaseSkins;
+use character_inking::CharacterInking;
+pub use character_inking::{InkingMap, InkingOutline, InkingSide, inking_maps, outline_values};
 use fs_err as fs;
 use ltk_manager_base::config::BuiltinModSettings;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
@@ -65,6 +68,9 @@ fn enabled(settings: &BuiltinModSettings) -> Vec<Box<dyn BuiltinMod>> {
     }
     if let Some(base_skins) = BaseSkins::of(settings.base_skins) {
         enabled.push(Box::new(base_skins));
+    }
+    if let Some(character_inking) = CharacterInking::of(settings) {
+        enabled.push(Box::new(character_inking));
     }
     if let Some(map_skins) = MapSkins::of(settings) {
         enabled.push(Box::new(map_skins));

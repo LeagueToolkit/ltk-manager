@@ -1,4 +1,5 @@
-import type { InstalledMod, Profile, Settings } from "@/lib/tauri";
+import type { CharacterInking, InstalledMod, Profile, Settings } from "@/lib/tauri";
+import { FRESH_INKING } from "@/modules/settings/builtinMods";
 
 export function createMockSettings(overrides?: Partial<Settings>): Settings {
   return {
@@ -55,10 +56,16 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
       mapSkin: "game",
       forcedMapSkin: "",
       mapDecorations: {},
+      characterInking: createMockInking(),
     },
     audio: { wwiseConsolePath: null },
     ...overrides,
   };
+}
+
+/** The character inking settings of a fresh install: off, on the Original preset. */
+export function createMockInking(overrides?: Partial<CharacterInking>): CharacterInking {
+  return { ...FRESH_INKING, ...overrides };
 }
 
 export function createMockInstalledMod(overrides?: Partial<InstalledMod>): InstalledMod {

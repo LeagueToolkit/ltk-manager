@@ -29,6 +29,7 @@ ltk_game_data = { workspace = true }
 ltk_hash = { workspace = true }
 ltk_hashtable = { workspace = true }
 ltk_mapgeo = { workspace = true }
+ltk_mesh = { workspace = true }
 ltk_meta = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_modpkg = { workspace = true }

@@ -6,8 +6,10 @@
 //! persists to a single `settings.json`.
 
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 fn default_true() -> bool {
     true
@@ -192,6 +194,255 @@ pub struct BuiltinModSettings {
     /// What each map decoration does, by the mutator that switches it. One absent follows the
     /// game.
     pub map_decorations: BTreeMap<String, MapDecorationMode>,
+    /// Character inking: which champions get an outline, on which maps, and how it looks.
+    pub character_inking: CharacterInking,
+}
+
+/// The settings of the character inking built-in mod.
+///
+/// Every value is an integer, so the struct keeps `Eq`. A number out of its documented range is
+/// clamped when the material is built, so an edited `settings.json` still loads. A color that is
+/// not `#rrggbb` reads as its default.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct CharacterInking {
+    /// Whether the mod runs.
+    pub enabled: bool,
+    /// Which champions get an outline.
+    pub scope: InkingScope,
+    /// Lowercased champion names, as the champion archives are named, for
+    /// [`InkingScope::Chosen`].
+    pub chosen_champions: BTreeSet<String>,
+    /// Which maps draw the outline.
+    pub maps: InkingMaps,
+    /// Lowercased map names such as `map11`, for [`InkingMaps::Chosen`].
+    pub chosen_maps: BTreeSet<String>,
+    /// One color, or one per team.
+    pub color_mode: InkingColorMode,
+    /// The color of [`InkingColorMode::Single`].
+    pub color: Rgb8,
+    /// The ally color of [`InkingColorMode::Team`].
+    pub ally_color: Rgb8,
+    /// The enemy color of [`InkingColorMode::Team`].
+    pub enemy_color: Rgb8,
+    /// `Outline_Width` in tenths of a world unit, 10 to 150.
+    pub width: u16,
+    /// `Outline_FinalAlphaMult` in percent, 10 to 100.
+    pub opacity: u8,
+    /// `Outline_CameraDistanceMod` in world units, 1000 to 9000.
+    pub camera_distance: u16,
+    /// How long the outline takes to fade out when a champion dies, in milliseconds, 0 to 2000.
+    pub death_fade: u16,
+}
+
+impl Default for CharacterInking {
+    /// The Original preset, with the mod off.
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            scope: InkingScope::default(),
+            chosen_champions: BTreeSet::new(),
+            maps: InkingMaps::default(),
+            chosen_maps: BTreeSet::new(),
+            color_mode: InkingColorMode::default(),
+            color: Rgb8::from_u32(0x000000),
+            ally_color: Rgb8::from_u32(0x3399ff),
+            enemy_color: Rgb8::from_u32(0xff3333),
+            width: 50,
+            opacity: 100,
+            camera_distance: 4500,
+            death_fade: 500,
+        }
+    }
+}
+
+/// Which champions character inking draws an outline around.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum InkingScope {
+    /// Every champion.
+    #[default]
+    All,
+    /// Each champion an enabled mod gives a new base skin.
+    Modded,
+    /// The champions in `chosenChampions`.
+    Chosen,
+}
+
+/// Which maps character inking draws the outline on.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum InkingMaps {
+    /// Every map but TFT's.
+    #[default]
+    All,
+    /// `Map11`, Summoner's Rift.
+    SummonersRift,
+    /// The maps in `chosenMaps`.
+    Chosen,
+}
+
+/// Whether the outline has one color or one per team.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum InkingColorMode {
+    /// One color for every champion.
+    #[default]
+    Single,
+    /// One color for allies and the player's champion, and one for enemies.
+    Team,
+}
+
+/// An sRGB color with 8 bits per channel, written as `#rrggbb`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[cfg_attr(feature = "ts", specta(transparent))]
+#[serde(try_from = "String", into = "String")]
+pub struct Rgb8(#[cfg_attr(feature = "ts", specta(type = String))] pub [u8; 3]);
+
+impl Rgb8 {
+    /// The color whose `#rrggbb` form is the low 24 bits of `rgb`.
+    #[must_use]
+    pub const fn from_u32(rgb: u32) -> Self {
+        let [_, r, g, b] = rgb.to_be_bytes();
+        Self([r, g, b])
+    }
+}
+
+/// The error of a color that is not `#` and six hexadecimal digits.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseRgb8Error(String);
+
+impl fmt::Display for ParseRgb8Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "`{}` is not a color of the form #rrggbb", self.0)
+    }
+}
+
+impl std::error::Error for ParseRgb8Error {}
+
+impl FromStr for Rgb8 {
+    type Err = ParseRgb8Error;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        let error = || ParseRgb8Error(text.to_owned());
+        let digits = text.strip_prefix('#').ok_or_else(error)?;
+        if digits.len() != 6 || !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(error());
+        }
+
+        let rgb = u32::from_str_radix(digits, 16).map_err(|_| error())?;
+        Ok(Self::from_u32(rgb))
+    }
+}
+
+impl fmt::Display for Rgb8 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let [r, g, b] = self.0;
+        write!(f, "#{r:02x}{g:02x}{b:02x}")
+    }
+}
+
+impl TryFrom<String> for Rgb8 {
+    type Error = ParseRgb8Error;
+
+    fn try_from(text: String) -> Result<Self, Self::Error> {
+        text.parse()
+    }
+}
+
+impl From<Rgb8> for String {
+    fn from(color: Rgb8) -> Self {
+        color.to_string()
+    }
+}
+
+/// A color as `settings.json` holds it, `None` if the value is not `#rrggbb`.
+#[derive(Debug, Default)]
+struct LenientColor(Option<Rgb8>);
+
+impl<'de> Deserialize<'de> for LenientColor {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Text(String),
+            Other(serde::de::IgnoredAny),
+        }
+
+        Ok(Self(match Raw::deserialize(deserializer)? {
+            Raw::Text(text) => text.parse().ok(),
+            Raw::Other(_) => None,
+        }))
+    }
+}
+
+/// [`CharacterInking`] as `settings.json` holds it, each color read leniently.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+struct StoredInking {
+    enabled: bool,
+    scope: InkingScope,
+    chosen_champions: BTreeSet<String>,
+    maps: InkingMaps,
+    chosen_maps: BTreeSet<String>,
+    color_mode: InkingColorMode,
+    color: LenientColor,
+    ally_color: LenientColor,
+    enemy_color: LenientColor,
+    width: u16,
+    opacity: u8,
+    camera_distance: u16,
+    death_fade: u16,
+}
+
+impl Default for StoredInking {
+    fn default() -> Self {
+        let defaults = CharacterInking::default();
+        Self {
+            enabled: defaults.enabled,
+            scope: defaults.scope,
+            chosen_champions: defaults.chosen_champions,
+            maps: defaults.maps,
+            chosen_maps: defaults.chosen_maps,
+            color_mode: defaults.color_mode,
+            color: LenientColor::default(),
+            ally_color: LenientColor::default(),
+            enemy_color: LenientColor::default(),
+            width: defaults.width,
+            opacity: defaults.opacity,
+            camera_distance: defaults.camera_distance,
+            death_fade: defaults.death_fade,
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for CharacterInking {
+    /// Reads the settings with each missing field at its default, and a color that is not
+    /// `#rrggbb` at its default too, so one bad color does not fail the whole settings file.
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let stored = StoredInking::deserialize(deserializer)?;
+        let defaults = Self::default();
+        Ok(Self {
+            enabled: stored.enabled,
+            scope: stored.scope,
+            chosen_champions: stored.chosen_champions,
+            maps: stored.maps,
+            chosen_maps: stored.chosen_maps,
+            color_mode: stored.color_mode,
+            color: stored.color.0.unwrap_or(defaults.color),
+            ally_color: stored.ally_color.0.unwrap_or(defaults.ally_color),
+            enemy_color: stored.enemy_color.0.unwrap_or(defaults.enemy_color),
+            width: stored.width,
+            opacity: stored.opacity,
+            camera_distance: stored.camera_distance,
+            death_fade: stored.death_fade,
+        })
+    }
 }
 
 /// What a map decoration a mutator switches does, whatever mutators the game applies.
@@ -319,6 +570,71 @@ mod tests {
                 .get("SR_Hall_Of_Legends"),
             Some(&MapDecorationMode::Hide)
         );
+    }
+
+    #[test]
+    fn character_inking_reads_off_from_an_empty_group() {
+        let config: Config = serde_json::from_str(r#"{ "builtinMods": {} }"#).unwrap();
+        assert_eq!(
+            config.builtin_mods.character_inking,
+            CharacterInking::default()
+        );
+
+        let inking: CharacterInking = serde_json::from_str("{}").unwrap();
+        assert!(!inking.enabled);
+        assert_eq!(inking.scope, InkingScope::All);
+        assert_eq!(inking.maps, InkingMaps::All);
+        assert_eq!(inking.color_mode, InkingColorMode::Single);
+        assert_eq!(inking.color, Rgb8([0, 0, 0]));
+        assert_eq!(
+            (inking.width, inking.opacity, inking.camera_distance),
+            (50, 100, 4500)
+        );
+        assert_eq!(inking.death_fade, 500);
+    }
+
+    #[test]
+    fn character_inking_round_trips_through_json() {
+        let inking = CharacterInking {
+            enabled: true,
+            scope: InkingScope::Chosen,
+            chosen_champions: BTreeSet::from(["ahri".to_owned()]),
+            maps: InkingMaps::SummonersRift,
+            color_mode: InkingColorMode::Team,
+            color: Rgb8([0x1a, 0x2b, 0x3c]),
+            ..CharacterInking::default()
+        };
+
+        let json = serde_json::to_value(&inking).unwrap();
+        assert_eq!(json["color"], "#1a2b3c");
+        assert_eq!(json["maps"], "summonersRift");
+        assert_eq!(json["colorMode"], "team");
+        assert_eq!(
+            serde_json::from_value::<CharacterInking>(json).unwrap(),
+            inking
+        );
+    }
+
+    #[test]
+    fn rgb8_parses_only_hash_and_six_hex_digits() {
+        assert_eq!("#1a2b3c".parse(), Ok(Rgb8([0x1a, 0x2b, 0x3c])));
+        assert_eq!("#FFAA00".parse(), Ok(Rgb8([0xff, 0xaa, 0x00])));
+        assert_eq!(Rgb8([0x1a, 0x2b, 0x3c]).to_string(), "#1a2b3c");
+        for bad in ["#12345", "red", "#gg0000", "1a2b3c", "#1a2b3c4d", ""] {
+            assert!(bad.parse::<Rgb8>().is_err(), "{bad} parsed");
+        }
+    }
+
+    #[test]
+    fn character_inking_falls_back_per_color_when_a_color_is_bad() {
+        let inking: CharacterInking = serde_json::from_str(
+            r##"{ "enabled": true, "color": "red", "allyColor": 7, "enemyColor": "#00ff00" }"##,
+        )
+        .unwrap();
+        assert!(inking.enabled);
+        assert_eq!(inking.color, Rgb8([0, 0, 0]));
+        assert_eq!(inking.ally_color, Rgb8([0x33, 0x99, 0xff]));
+        assert_eq!(inking.enemy_color, Rgb8([0, 0xff, 0]));
     }
 
     /// A config written before the retention setting was removed still carries

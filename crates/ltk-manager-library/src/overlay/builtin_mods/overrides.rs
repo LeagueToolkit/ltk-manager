@@ -21,6 +21,8 @@ pub(super) struct Overrides {
     copies: BTreeMap<Utf8PathBuf, PathBuf>,
     /// Each property's value as YAML text, by target chunk path, entry and property.
     declared: BTreeMap<String, BTreeMap<String, BTreeMap<String, String>>>,
+    /// Each created object's body as block YAML, by target chunk path and object name.
+    created: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl Overrides {
@@ -58,15 +60,36 @@ impl Overrides {
             .insert(property.to_owned(), value);
     }
 
+    /// Create the object `name` in the chunk at `target`.
+    ///
+    /// `body` is the object's `class` and `set` as a block YAML mapping at no indentation.
+    pub(super) fn create(&mut self, target: &str, name: &str, body: String) {
+        self.created
+            .entry(target.to_owned())
+            .or_default()
+            .insert(name.to_owned(), body);
+    }
+
     /// The layer's `game_data.yaml`, one `target` module per chunk, and none with nothing declared.
     pub(super) fn declarations(&self) -> Option<String> {
-        if self.declared.is_empty() {
+        let targets: BTreeSet<&String> = self.declared.keys().chain(self.created.keys()).collect();
+        if targets.is_empty() {
             return None;
         }
+
         let mut text = String::from("version: 1\nmodules:\n");
-        for (target, entries) in &self.declared {
+        for target in targets {
             text.push_str(&format!("  - target: {}\n", quoted(target)));
-            for (entry, properties) in entries {
+            if let Some(objects) = self.created.get(target) {
+                text.push_str("    objects:\n");
+                for (name, body) in objects {
+                    text.push_str(&format!("      {}:\n", quoted(name)));
+                    for line in body.lines() {
+                        text.push_str(&format!("        {line}\n"));
+                    }
+                }
+            }
+            for (entry, properties) in self.declared.get(target).into_iter().flatten() {
                 text.push_str(&format!("    {}:\n", quoted(entry)));
                 for (property, value) in properties {
                     text.push_str(&format!("      {property}: {value}\n"));

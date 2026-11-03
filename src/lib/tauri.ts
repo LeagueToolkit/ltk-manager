@@ -134,6 +134,8 @@ export const api = {
   listAvailableWads: settings.listAvailableWads,
   listForcibleMapSkins: settings.listForcibleMapSkins,
   listMapDecorations: settings.listMapDecorations,
+  listInkingMaps: settings.listInkingMaps,
+  inkingOutline: settings.inkingOutline,
   planDataMove: settings.planDataMove,
   moveData: settings.moveData,
   dataUsage: settings.dataUsage,

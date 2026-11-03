@@ -3,6 +3,7 @@ export { hashtableQueries, leagueInstallQueries, settingsQueries } from "./queri
 export { useAppInfo } from "./useAppInfo";
 export { useAutoDetectLeaguePath } from "./useAutoDetectLeaguePath";
 export { useAvailableWads } from "./useAvailableWads";
+export { useInkingMaps, useInkingOutline, useUpdateInking } from "./useCharacterInking";
 export { useCheckSetupRequired } from "./useCheckSetupRequired";
 export { useMoveData, usePlanDataMove } from "./useDataMove";
 export { useClearDataArea, useDataUsage } from "./useDataUsage";

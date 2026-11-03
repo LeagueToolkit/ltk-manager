@@ -4,11 +4,15 @@ import {
   api,
   type AppError,
   type AppInfo,
+  type CharacterInking,
   type DataUsage,
   type ForcibleMapSkin,
   type MapDecoration,
   type HashtableCacheStatus,
   type HashtableUpdateCheck,
+  type InkingMap,
+  type InkingOutline,
+  type InkingSide,
   type Settings,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
@@ -117,6 +121,26 @@ export const leagueInstallQueries = {
       enabled: !!leaguePath,
       staleTime: 60 * 60 * 1000,
       retry: false,
+    }),
+
+  /* The maps change only with a patch, so they stay fresh for an hour, keyed on the path they
+     were read from. */
+  inkingMaps: (leaguePath: string | null | undefined) =>
+    queryOptions<InkingMap[], AppError>({
+      queryKey: settingsKeys.inkingMaps(leaguePath ?? ""),
+      queryFn: queryFn(api.listInkingMaps),
+      enabled: !!leaguePath,
+      staleTime: 60 * 60 * 1000,
+      retry: false,
+    }),
+
+  /* A pure function of its arguments, so an answer never goes stale. */
+  inkingOutline: (settings: CharacterInking, side: InkingSide) =>
+    queryOptions<InkingOutline, AppError>({
+      queryKey: settingsKeys.inkingOutline(settings, side),
+      queryFn: queryFnWithArgs(api.inkingOutline, settings, side),
+      staleTime: Infinity,
+      placeholderData: (previous) => previous,
     }),
 
   /* Always stale, so the query reads the `RUNASADMIN` layer again when the window

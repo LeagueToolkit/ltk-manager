@@ -11,11 +11,12 @@ use crate::mods::ModLibraryState;
 use crate::patcher::PatcherState;
 use crate::settings_backup;
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
-use ltk_manager_base::config::Config;
+use ltk_manager_base::config::{CharacterInking, Config};
 use ltk_manager_base::events::{BackendEvent, DataMoveProgress, DataMoveStage, EventSink as _};
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_library::overlay::{
-    forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
+    forcible_map_skins, inking_maps, map_decorations, outline_values, ForcibleMapSkin, InkingMap,
+    InkingOutline, InkingSide, MapDecoration,
 };
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -357,6 +358,25 @@ pub fn list_map_decorations(state: State<SettingsState>) -> IpcResult<Vec<MapDec
 fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<MapDecoration>> {
     let config = state.config();
     map_decorations(&GameDir::resolve(&config)?)
+}
+
+/// Every map of the configured install that character inking can draw the outline on.
+#[tauri::command]
+#[specta::specta]
+pub fn list_inking_maps(state: State<SettingsState>) -> IpcResult<Vec<InkingMap>> {
+    list_inking_maps_inner(&state).into()
+}
+
+fn list_inking_maps_inner(state: &State<SettingsState>) -> AppResult<Vec<InkingMap>> {
+    let config = state.config();
+    inking_maps(&GameDir::resolve(&config)?)
+}
+
+/// The outline that `settings` give a champion on `side`, the values the overlay writes.
+#[tauri::command]
+#[specta::specta]
+pub fn inking_outline(settings: CharacterInking, side: InkingSide) -> IpcResult<InkingOutline> {
+    IpcResult::ok(outline_values(&settings, side))
 }
 
 /// Whether League is configured to launch as administrator (an AppCompatFlags

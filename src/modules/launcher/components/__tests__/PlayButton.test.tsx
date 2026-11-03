@@ -11,7 +11,7 @@ import type { LaunchMode } from "@/lib/tauri";
 import { useInstalledMods } from "@/modules/library";
 import { usePatcherSessionStore, usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 import { commandNames } from "@/test/commandNames";
-import { createMockInstalledMod, createMockSettings } from "@/test/fixtures";
+import { createMockInking, createMockInstalledMod, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -64,6 +64,7 @@ function mockBackend({
               mapSkin: "game",
               forcedMapSkin: "",
               mapDecorations: {},
+              characterInking: createMockInking(),
             },
           }),
         });

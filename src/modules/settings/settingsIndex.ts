@@ -135,6 +135,56 @@ const INDEX = [
     key: "builtinMods.mapDecorations",
     title: m.settings_builtins_map_decorations_title(),
   },
+  {
+    id: "builtins.characterInking",
+    key: "builtinMods.characterInking.enabled",
+    title: m.settings_builtins_inking_title(),
+  },
+  {
+    id: "builtins.inkingScope",
+    key: "builtinMods.characterInking.scope",
+    title: m.settings_builtins_inking_scope_title(),
+  },
+  {
+    id: "builtins.inkingChampions",
+    key: "builtinMods.characterInking.chosenChampions",
+    title: m.settings_builtins_inking_champions_title(),
+  },
+  {
+    id: "builtins.inkingMaps",
+    key: "builtinMods.characterInking.maps",
+    title: m.settings_builtins_inking_maps_title(),
+  },
+  {
+    id: "builtins.inkingChosenMaps",
+    key: "builtinMods.characterInking.chosenMaps",
+    title: m.settings_builtins_inking_chosen_maps_title(),
+  },
+  {
+    id: "builtins.inkingColor",
+    key: "builtinMods.characterInking.color",
+    title: m.settings_builtins_inking_color_title(),
+  },
+  {
+    id: "builtins.inkingWidth",
+    key: "builtinMods.characterInking.width",
+    title: m.settings_builtins_inking_width_title(),
+  },
+  {
+    id: "builtins.inkingOpacity",
+    key: "builtinMods.characterInking.opacity",
+    title: m.settings_builtins_inking_opacity_title(),
+  },
+  {
+    id: "builtins.inkingCameraDistance",
+    key: "builtinMods.characterInking.cameraDistance",
+    title: m.settings_builtins_inking_camera_distance_title(),
+  },
+  {
+    id: "builtins.inkingDeathFade",
+    key: "builtinMods.characterInking.deathFade",
+    title: m.settings_builtins_inking_death_fade_title(),
+  },
 
   {
     id: "integrations.registerFileTypes",

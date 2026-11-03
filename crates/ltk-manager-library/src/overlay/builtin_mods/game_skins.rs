@@ -120,6 +120,15 @@ impl<'t> GameSkins<'t> {
             .collect()
     }
 
+    /// The checksum of the chunk at `path` in the first archive that holds it.
+    pub(super) fn checksum(&self, path: &str) -> Option<u64> {
+        let hash = WadHash::from(path);
+        self.archives
+            .iter()
+            .find_map(|archive| archive.wad.chunks().get(hash))
+            .map(|chunk| chunk.checksum())
+    }
+
     /// The bytes of `bin` in the first archive holding it, where it reads.
     pub(super) fn read(&mut self, bin: &SkinBin) -> Option<Vec<u8>> {
         self.read_chunk(&bin.path())
