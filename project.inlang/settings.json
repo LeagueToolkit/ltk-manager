@@ -12,6 +12,7 @@
       "./messages/{locale}/editor.json",
       "./messages/{locale}/errors.json",
       "./messages/{locale}/home.json",
+      "./messages/{locale}/keys.json",
       "./messages/{locale}/launcher.json",
       "./messages/{locale}/library.json",
       "./messages/{locale}/patcher.json",

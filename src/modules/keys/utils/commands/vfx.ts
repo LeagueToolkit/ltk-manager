@@ -1,0 +1,200 @@
+import { m } from "@/i18n";
+
+import type { ScopeId } from "../scopes";
+import type { CommandSpec } from "../types";
+
+/** The run's keys answer anywhere in the particle shell outside a field and a keyed control. */
+const RUN = ["!typing", "!keyedControl"] as const;
+
+const EMITTER_LISTS = [
+  "focus:vfx.timeline",
+  "focus:vfx.graph",
+] as const satisfies readonly ScopeId[];
+
+/** The commands of a particle system's shell: the run, the timeline, the graph and the curves. */
+export const VFX_COMMANDS = [
+  {
+    id: "vfx.play",
+    title: m.keys_vfx_play_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["Space"],
+    when: RUN,
+  },
+  {
+    id: "vfx.stepBack",
+    title: m.keys_vfx_step_back_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["ArrowLeft"],
+    when: RUN,
+  },
+  {
+    id: "vfx.stepForward",
+    title: m.keys_vfx_step_forward_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["ArrowRight"],
+    when: RUN,
+  },
+  {
+    id: "vfx.jumpBack",
+    title: m.keys_vfx_jump_back_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["Shift+ArrowLeft"],
+    when: RUN,
+  },
+  {
+    id: "vfx.jumpForward",
+    title: m.keys_vfx_jump_forward_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["Shift+ArrowRight"],
+    when: RUN,
+  },
+  {
+    id: "vfx.restart",
+    title: m.keys_vfx_restart_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["Home"],
+    when: RUN,
+  },
+  {
+    id: "vfx.end",
+    title: m.keys_vfx_end_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["End"],
+    when: RUN,
+  },
+  {
+    id: "vfx.loop",
+    title: m.keys_vfx_loop_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["L"],
+    when: RUN,
+  },
+  {
+    id: "vfx.slower",
+    title: m.keys_vfx_slower_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["["],
+    when: RUN,
+  },
+  {
+    id: "vfx.faster",
+    title: m.keys_vfx_faster_label,
+    group: "transport",
+    scopes: ["document:vfx"],
+    keys: ["]"],
+    when: RUN,
+  },
+  {
+    id: "vfx.fit",
+    title: m.keys_vfx_fit_label,
+    group: "view",
+    scopes: ["document:vfx"],
+    keys: ["F"],
+    when: RUN,
+  },
+  {
+    id: "vfx.solo",
+    title: m.keys_vfx_solo_label,
+    group: "view",
+    scopes: ["document:vfx"],
+    keys: ["S"],
+    when: RUN,
+  },
+  {
+    id: "vfx.mute",
+    title: m.keys_vfx_mute_label,
+    group: "view",
+    scopes: ["document:vfx"],
+    keys: ["M"],
+    when: RUN,
+  },
+  {
+    id: "vfx.markerAdd",
+    title: m.keys_vfx_marker_add_label,
+    group: "editing",
+    scopes: ["document:vfx"],
+    keys: ["Ctrl+M"],
+    when: RUN,
+  },
+  {
+    id: "vfx.systemPrevious",
+    title: m.keys_vfx_system_previous_label,
+    group: "navigation",
+    scopes: ["document:vfx"],
+    keys: ["Alt+ArrowUp"],
+  },
+  {
+    id: "vfx.systemNext",
+    title: m.keys_vfx_system_next_label,
+    group: "navigation",
+    scopes: ["document:vfx"],
+    keys: ["Alt+ArrowDown"],
+  },
+
+  {
+    id: "vfx.copy",
+    title: m.keys_vfx_copy_label,
+    group: "editing",
+    scopes: EMITTER_LISTS,
+    keys: ["Ctrl+C"],
+  },
+  {
+    id: "vfx.duplicate",
+    title: m.keys_vfx_duplicate_label,
+    group: "editing",
+    scopes: EMITTER_LISTS,
+    keys: ["Ctrl+D"],
+  },
+  {
+    id: "vfx.paste",
+    title: m.keys_vfx_paste_label,
+    group: "editing",
+    scopes: EMITTER_LISTS,
+    keys: ["Ctrl+V"],
+  },
+  {
+    id: "vfx.remove",
+    title: m.keys_vfx_remove_label,
+    group: "editing",
+    scopes: EMITTER_LISTS,
+    keys: ["Delete"],
+  },
+  {
+    id: "vfx.selectAll",
+    title: m.keys_vfx_select_all_label,
+    group: "editing",
+    scopes: EMITTER_LISTS,
+    keys: ["Ctrl+A"],
+  },
+  {
+    id: "vfx.selectNone",
+    title: m.keys_vfx_select_none_label,
+    group: "editing",
+    scopes: ["focus:vfx.graph"],
+    keys: ["Escape"],
+    shadows: ["editor.restorePanel"],
+  },
+  {
+    id: "vfx.quickAdd",
+    title: m.keys_vfx_quick_add_label,
+    group: "editing",
+    scopes: ["focus:vfx.graph"],
+    keys: ["Tab", "Shift+A"],
+  },
+  {
+    id: "vfx.curveKeyDelete",
+    title: m.keys_vfx_curve_key_delete_label,
+    group: "editing",
+    scopes: ["focus:vfx.curve"],
+    keys: ["Delete"],
+  },
+] as const satisfies readonly CommandSpec[];

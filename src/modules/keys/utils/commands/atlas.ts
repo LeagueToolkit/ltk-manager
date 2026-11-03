@@ -1,0 +1,221 @@
+import { m } from "@/i18n";
+
+import type { ScopeId } from "../scopes";
+import type { CommandSpec } from "../types";
+
+const CANVAS = "focus:atlas.canvas";
+const LAYERS = "focus:atlas.layers";
+const SPRITES = "focus:atlas.sprites";
+
+const SELECTION = [CANVAS, LAYERS] as const satisfies readonly ScopeId[];
+
+/** The commands of the atlas editor's canvas, its layers and its sprites. */
+export const ATLAS_COMMANDS = [
+  {
+    id: "atlas.frame",
+    title: m.keys_atlas_frame_label,
+    group: "view",
+    scopes: [CANVAS, SPRITES],
+    keys: ["F"],
+  },
+  { id: "atlas.fit", title: m.keys_atlas_fit_label, group: "view", scopes: [CANVAS], keys: ["0"] },
+  {
+    id: "atlas.actual",
+    title: m.keys_atlas_actual_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["1"],
+  },
+  {
+    id: "atlas.zoomIn",
+    title: m.keys_atlas_zoom_in_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["=", "+"],
+  },
+  {
+    id: "atlas.zoomOut",
+    title: m.keys_atlas_zoom_out_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["-"],
+  },
+  {
+    id: "atlas.pan",
+    title: m.keys_atlas_pan_label,
+    group: "pointer",
+    scopes: [CANVAS],
+    keys: ["Space"],
+  },
+  {
+    id: "atlas.nudgeLeft",
+    title: m.keys_atlas_nudge_left_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["ArrowLeft", "Shift+ArrowLeft"],
+  },
+  {
+    id: "atlas.nudgeRight",
+    title: m.keys_atlas_nudge_right_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["ArrowRight", "Shift+ArrowRight"],
+  },
+  {
+    id: "atlas.nudgeUp",
+    title: m.keys_atlas_nudge_up_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["ArrowUp", "Shift+ArrowUp"],
+  },
+  {
+    id: "atlas.nudgeDown",
+    title: m.keys_atlas_nudge_down_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["ArrowDown", "Shift+ArrowDown"],
+  },
+  {
+    id: "atlas.forward",
+    title: m.keys_atlas_forward_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["]"],
+  },
+  {
+    id: "atlas.backward",
+    title: m.keys_atlas_backward_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["["],
+  },
+  {
+    id: "atlas.front",
+    title: m.keys_atlas_front_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["}"],
+  },
+  {
+    id: "atlas.back",
+    title: m.keys_atlas_back_label,
+    group: "editing",
+    scopes: [CANVAS],
+    keys: ["{"],
+  },
+  {
+    id: "atlas.delete",
+    title: m.keys_atlas_delete_label,
+    group: "editing",
+    scopes: SELECTION,
+    keys: ["Delete", "Backspace"],
+  },
+  {
+    id: "atlas.clear",
+    title: m.keys_atlas_clear_label,
+    group: "editing",
+    scopes: SELECTION,
+    keys: ["Escape"],
+    shadows: ["editor.restorePanel"],
+  },
+  {
+    id: "atlas.selectAll",
+    title: m.keys_atlas_select_all_label,
+    group: "editing",
+    scopes: SELECTION,
+    keys: ["Ctrl+A"],
+  },
+  {
+    id: "atlas.findLayer",
+    title: m.keys_atlas_find_layer_label,
+    group: "navigation",
+    scopes: [LAYERS],
+    keys: ["Ctrl+F"],
+    shadows: ["editor.find"],
+  },
+  {
+    id: "atlas.transform",
+    title: m.keys_atlas_transform_label,
+    group: "tools",
+    scopes: [CANVAS],
+    keys: ["V"],
+  },
+  {
+    id: "atlas.interact",
+    title: m.keys_atlas_interact_label,
+    group: "tools",
+    scopes: [CANVAS],
+    keys: ["I"],
+  },
+  {
+    id: "atlas.safeZone",
+    title: m.keys_atlas_safe_zone_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["Z"],
+  },
+  {
+    id: "atlas.showDisabled",
+    title: m.keys_atlas_show_disabled_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["H"],
+  },
+  {
+    id: "atlas.effects",
+    title: m.keys_atlas_effects_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["E"],
+  },
+  {
+    id: "atlas.samples",
+    title: m.keys_atlas_samples_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["S"],
+  },
+  {
+    id: "atlas.stackScenes",
+    title: m.keys_atlas_stack_scenes_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["L"],
+  },
+  {
+    id: "atlas.buttonState",
+    title: m.keys_atlas_button_state_label,
+    group: "view",
+    scopes: [CANVAS],
+    keys: ["B"],
+  },
+  {
+    id: "atlas.play",
+    title: m.keys_atlas_play_label,
+    group: "transport",
+    scopes: [CANVAS],
+    keys: ["P"],
+  },
+  {
+    id: "atlas.exportSprite",
+    title: m.keys_atlas_export_sprite_label,
+    group: "editing",
+    scopes: [SPRITES],
+    keys: ["E"],
+  },
+  {
+    id: "atlas.replaceSprite",
+    title: m.keys_atlas_replace_sprite_label,
+    group: "editing",
+    scopes: [SPRITES],
+    keys: ["R"],
+  },
+  {
+    id: "atlas.extendedTooltip",
+    title: m.keys_atlas_extended_tooltip_label,
+    group: "pointer",
+    scopes: [CANVAS],
+    keys: [],
+    gesture: true,
+  },
+] as const satisfies readonly CommandSpec[];

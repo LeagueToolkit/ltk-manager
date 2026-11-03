@@ -18,6 +18,7 @@ const MODULES = [
   "editor",
   "gallery",
   "home",
+  "keys",
   "launcher",
   "library",
   "migration",
