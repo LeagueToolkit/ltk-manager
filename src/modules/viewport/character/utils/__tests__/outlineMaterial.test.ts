@@ -9,8 +9,6 @@ import {
   createOutlineMaterial,
   OutlineMaterials,
   type OutlineUniforms,
-  rangedStock,
-  scaleOutlines,
   type SubmeshOutline,
 } from "../outlineMaterial";
 
@@ -109,18 +107,5 @@ describe("OutlineMaterials", () => {
 
     expect(disposed).toBe(true);
     expect(outlines.acquire(stock(JADE))).toBe(kept);
-  });
-});
-
-describe("scaleOutlines", () => {
-  it("writes the stated camera distance times the factor, from the stated value each time", () => {
-    const material = createOutlineMaterial();
-    applyOutline(material, JADE, null);
-    const ranged = [rangedStock(material)];
-
-    scaleOutlines(ranged, 0.25);
-    scaleOutlines(ranged, 0.5);
-
-    expect((material.uniforms as unknown as OutlineUniforms).cameraDistance.value).toBe(2250);
   });
 });

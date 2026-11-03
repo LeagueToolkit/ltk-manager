@@ -10,6 +10,7 @@ import {
   type SkinModel,
 } from "@/lib/tauri";
 import {
+  type CameraPreset,
   Character,
   createPose,
   createSceneClock,
@@ -49,15 +50,19 @@ export interface ShippedSkinViewerProps {
   readonly skin: ShippedSkin;
   /** Rewrites each submesh's outline before it draws, for a value the bins do not hold yet. */
   readonly adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
-  /** The camera distance the outline is drawn as seen from, and none for the camera's own. */
-  readonly outlineRange?: number;
+  /** The camera the skin is drawn through, orbit by default. */
+  readonly camera?: CameraPreset;
 }
 
 /**
- * One skin of a project on its idle clip, drawn with the game's shaders under an orbit camera
- * that frames it. The viewer takes no edits.
+ * One skin of a project on its idle clip, drawn with the game's shaders under a camera that
+ * frames it. The viewer takes no edits.
  */
-export function ShippedSkinViewer({ skin, adjustOutline, outlineRange }: ShippedSkinViewerProps) {
+export function ShippedSkinViewer({
+  skin,
+  adjustOutline,
+  camera = "orbit",
+}: ShippedSkinViewerProps) {
   const document = useSkinDocument(skin);
 
   return (
@@ -74,7 +79,7 @@ export function ShippedSkinViewer({ skin, adjustOutline, outlineRange }: Shipped
           document={document}
           entry={skin.entry}
           adjustOutline={adjustOutline}
-          outlineRange={outlineRange}
+          camera={camera}
         />
       )}
     </div>
@@ -120,22 +125,17 @@ interface SkinReadProps {
   document: BinDocumentId;
   entry: string;
   adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
-  outlineRange?: number;
+  camera: CameraPreset;
 }
 
-function SkinRead({ document, entry, adjustOutline, outlineRange }: SkinReadProps) {
+function SkinRead({ document, entry, adjustOutline, camera }: SkinReadProps) {
   const read = useQuery(skinQueries.skin(document, entry));
 
   if (read.error !== null) return <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />;
   if (read.data === undefined) return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
 
   return (
-    <SkinStage
-      document={document}
-      skin={read.data}
-      adjustOutline={adjustOutline}
-      outlineRange={outlineRange}
-    />
+    <SkinStage document={document} skin={read.data} adjustOutline={adjustOutline} camera={camera} />
   );
 }
 
@@ -143,10 +143,10 @@ interface SkinStageProps {
   document: BinDocumentId;
   skin: SkinModel;
   adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
-  outlineRange?: number;
+  camera: CameraPreset;
 }
 
-function SkinStage({ document, skin, adjustOutline, outlineRange }: SkinStageProps) {
+function SkinStage({ document, skin, adjustOutline, camera }: SkinStageProps) {
   const clock = useMemo(createSceneClock, []);
   const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
   const skeleton = useQuery(viewportQueries.skeleton(skin.skeleton?.asset ?? null));
@@ -207,7 +207,7 @@ function SkinStage({ document, skin, adjustOutline, outlineRange }: SkinStagePro
   }
 
   return (
-    <Viewport renderer="shared" stage textured={false} camera="orbit">
+    <Viewport renderer="shared" stage textured={false} camera={camera}>
       <Clock clock={clock} playing speed={1} />
       <FitCamera bounds={bounds} ground={FEET} token={0} />
       <Passes warps={false} softens={false} />
@@ -217,7 +217,6 @@ function SkinStage({ document, skin, adjustOutline, outlineRange }: SkinStagePro
         clock={clock}
         bindingOf={bindingFor}
         programsOf={programsFor}
-        outlineRange={outlineRange}
         outlineOf={outlineFor}
         colors={colors}
         hidden={skin.hidden}
