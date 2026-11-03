@@ -9,14 +9,15 @@ import { type DocumentHistory, useDocumentHistory } from "../state/documentHisto
 import { useDocumentSave } from "../state/documentSaves";
 import { type EditorKeysOptions, useEditorKeys } from "../useEditorKeys";
 
-/**
- * The bindings are matched against `event.code`, which is what the library reads,
- * so every case sends the code the physical key reports rather than the
- * character it produces.
- */
+/** Returns the character a US layout types for `code`, as `KeyboardEvent.key` carries it. */
+function keyOf(code: string): string {
+  return /^Key([A-Z])$/.exec(code)?.[1]?.toLowerCase() ?? /^Digit(\d)$/.exec(code)?.[1] ?? code;
+}
+
+/** Sends the code the physical key reports and the character it types, as a browser does. */
 function press(code: string, modifiers: Partial<KeyboardEvent> = {}) {
   act(() => {
-    const init = { code, key: code, bubbles: true, ...modifiers };
+    const init = { code, key: keyOf(code), bubbles: true, ...modifiers };
     document.dispatchEvent(new KeyboardEvent("keydown", init));
     document.dispatchEvent(new KeyboardEvent("keyup", init));
   });

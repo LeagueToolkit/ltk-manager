@@ -11,6 +11,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { m } from "@/i18n";
+import { shortcutOf } from "@/modules/keys";
 
 import { useOpenFolder } from "../../folders/hooks/useOpenFolder";
 import { useRefreshGameIndex } from "../../gameBrowser";
@@ -43,7 +44,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
         id: "workshop.newProject",
         title: m.workshop_command_new_project_action(),
         group: m.workshop_nav_label(),
-        shortcut: "Ctrl+N",
+        shortcut: shortcutOf("workshop.newProject"),
         keywords: ["create", "add", "blank"],
         icon: <PlusIcon weight="bold" className={GLYPH} />,
         run: openNewProjectDialog,
@@ -52,7 +53,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
         id: "workshop.openFolder",
         title: m.workshop_folder_open_action(),
         group: m.workshop_nav_label(),
-        shortcut: "Ctrl+O",
+        shortcut: shortcutOf("workshop.openFolder"),
         keywords: ["folder", "directory", "recent", "cslol"],
         icon: <FolderOpenIcon weight="bold" className={GLYPH} />,
         run: openFolder.pick,
@@ -93,7 +94,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
         id: "settings.open",
         title: m.workshop_command_settings_open_action(),
         group: m.workshop_command_settings_group_label(),
-        shortcut: "Ctrl+,",
+        shortcut: shortcutOf("app.settings"),
         keywords: ["preferences", "options"],
         icon: <GearSixIcon className={GLYPH} />,
         run: () => void navigate({ to: "/settings" }),

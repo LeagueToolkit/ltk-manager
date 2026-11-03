@@ -1,6 +1,6 @@
 import { InfoIcon, PackageIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 
 import { Button, Code, Field, SectionCard, Tooltip, useToast } from "@/components";
 import { errorMessage, m, Marked } from "@/i18n";
@@ -40,38 +40,27 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
     return () => setDocumentDirty(DETAILS_DOCUMENT_ID, false);
   }, [setDocumentDirty]);
 
-  /* This is the one document that holds its edits until it is asked, so it is
-     the one the close dialog offers a save for. */
-  useDocumentSave(DETAILS_DOCUMENT_ID, editor.save);
+  /* This is the one document that holds its edits until it is asked, so it is the one the close
+     dialog offers a save for. `editor.save` reaches it through the same write and confirms it,
+     and the editor reports a failure. */
+  const { save } = editor;
+  const saveAndConfirm = useCallback(
+    () =>
+      save().then(() => {
+        toast.success(m.workshop_details_saved_hint());
+      }),
+    [save, toast],
+  );
+  useDocumentSave(DETAILS_DOCUMENT_ID, saveAndConfirm);
 
-  /** Write, and say what the write did. What the button and `Ctrl+S` ask for. */
+  /** Write, and say what the write did. What the button asks for. */
   function reportSave() {
-    editor.save().then(
+    save().then(
       () => toast.success(m.workshop_details_saved_hint()),
       (error: unknown) =>
         toast.error(m.workshop_details_save_failed_hint({ reason: errorMessage(error) })),
     );
   }
-
-  const save = useRef(reportSave);
-  useEffect(() => {
-    save.current = reportSave;
-  });
-
-  useEffect(() => {
-    if (!active) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (!event.ctrlKey && !event.metaKey) return;
-      if (event.key.toLowerCase() !== "s") return;
-
-      event.preventDefault();
-      save.current();
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [active]);
 
   return (
     <DocumentFrame data-ui="DetailsDocument">

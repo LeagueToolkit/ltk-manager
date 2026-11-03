@@ -1,34 +1,10 @@
-import { useHotkeys } from "react-hotkeys-hook";
-
 import { useToast } from "@/components";
 import { errorMessage, m } from "@/i18n";
-import { isOverlayOpen } from "@/utils";
+import { useKeys } from "@/modules/keys";
 
 import { documentFind } from "./state/documentFinds";
 import { documentHistory } from "./state/documentHistory";
 import { documentSave } from "./state/documentSaves";
-
-/** Every key an editor group answers is held while a field has the caret. */
-const OPTIONS = { preventDefault: true, enableOnFormTags: true } as const;
-
-/* The palette draws as a combobox rather than a dialog, so `isOverlayOpen` does
-   not see it. */
-function paletteHasCaret(): boolean {
-  const focused = document.activeElement;
-  return focused instanceof Element && focused.closest('[role="combobox"]') !== null;
-}
-
-/** Whether something over the editor owns the keyboard: a dialog, a menu, the palette. */
-function claimed(): boolean {
-  return isOverlayOpen() || paletteHasCaret();
-}
-
-/* `Alt` rather than `Ctrl`, which the routes hold: "The editor's keys" in
-   `docs/ux/PROJECT_EDITOR.md`. */
-const BY_INDEX = "alt+1, alt+2, alt+3, alt+4, alt+5, alt+6, alt+7, alt+8, alt+9";
-
-/** Undo, and the two redo spellings Windows and the web both use. */
-const HISTORY_KEYS = "ctrl+z, ctrl+shift+z, ctrl+y, meta+z, meta+shift+z";
 
 /** The ninth key is the last tab of the strip, whatever the count. */
 const LAST_INDEX_KEY = 9;
@@ -49,11 +25,12 @@ export interface EditorKeysOptions {
 }
 
 /**
- * The keys one editor group answers: close, reopen, walk, take by index, save, find.
+ * Answers the `editor.*` commands of one editor group: close, reopen, walk, take by index, save,
+ * find and the history.
  *
- * Per "The editor's keys" in `docs/ux/PROJECT_EDITOR.md`. Bound by every group
- * and answered by the focused one, so a key reads the strip a reader is looking
- * at rather than one it was handed.
+ * Per "The editor's keys" in `docs/ux/PROJECT_EDITOR.md`. Bound by every group and answered by
+ * the focused one, so a key reads the strip a reader is looking at rather than one it was handed.
+ * The commands exclude an open dialog, menu or palette.
  */
 export function useEditorKeys({
   enabled,
@@ -68,33 +45,28 @@ export function useEditorKeys({
 
   /** The tab `delta` steps from the active one, wrapping at both ends. */
   function walk(delta: number) {
-    if (claimed() || documentIds.length === 0) return;
+    if (documentIds.length === 0) return;
 
     const from = activeId === null ? 0 : Math.max(documentIds.indexOf(activeId), 0);
     const next = documentIds[(from + delta + documentIds.length) % documentIds.length];
     if (next !== undefined) onActivate(next);
   }
 
-  function takeByIndex(event: KeyboardEvent) {
-    if (claimed() || documentIds.length === 0) return;
-
-    /* The digit the physical key reports, which is `Digit3` or `Numpad3`. */
-    const digit = Number(event.code.replace(/^(Digit|Numpad)/, ""));
-    if (!Number.isInteger(digit)) return;
-
-    const index = digit === LAST_INDEX_KEY ? documentIds.length - 1 : digit - 1;
+  function takeAt(position: number) {
+    const index = position === LAST_INDEX_KEY ? documentIds.length - 1 : position - 1;
     const id = documentIds[index];
     if (id !== undefined) onActivate(id);
   }
 
-  function closeActive() {
-    if (claimed() || activeId === null) return;
-    onClose(activeId);
+  /* The digit the physical key reports, which is `Digit3` or `Numpad3`. */
+  function takeByIndex(event: KeyboardEvent) {
+    const digit = Number(event.code.replace(/^(Digit|Numpad)/, ""));
+    if (Number.isInteger(digit)) takeAt(digit);
   }
 
   /** A document offering no write, a game archive among them, writes nothing. */
   function saveActive() {
-    if (claimed() || activeId === null) return;
+    if (activeId === null) return;
 
     const write = documentSave(activeId);
     if (!write) return;
@@ -105,8 +77,6 @@ export function useEditorKeys({
   }
 
   function findInActive() {
-    if (claimed()) return;
-
     const reveal = activeId === null ? null : documentFind(activeId);
     if (reveal) {
       reveal();
@@ -115,42 +85,32 @@ export function useEditorKeys({
     onFindElsewhere?.();
   }
 
-  function reopenClosed() {
-    if (claimed()) return;
-    onReopenClosed?.();
-  }
-
-  /* Default left to the field unless the document takes the step, so a text field keeps its text undo. */
-  function stepActive(event: KeyboardEvent) {
-    if (claimed() || activeId === null) return;
+  /* Declines the press unless the document takes the step, so a text field keeps its text undo. */
+  function stepActive(step: "undo" | "redo", event: KeyboardEvent): boolean {
+    if (activeId === null) return false;
 
     const history = documentHistory(activeId);
-    if (history === null) return;
+    if (history === null) return false;
 
-    const step = event.code === "KeyY" || event.shiftKey ? "redo" : "undo";
     const target = event.target instanceof Element ? event.target : null;
-    if (history(step, target)) event.preventDefault();
+
+    return history(step, target);
   }
 
-  useHotkeys("ctrl+w", closeActive, { ...OPTIONS, enabled }, [enabled, activeId, onClose]);
-  useHotkeys("ctrl+shift+t", reopenClosed, { ...OPTIONS, enabled }, [enabled, onReopenClosed]);
-  useHotkeys("ctrl+tab, ctrl+pagedown", () => walk(1), { ...OPTIONS, enabled }, [
-    enabled,
-    documentIds,
-    activeId,
-    onActivate,
-  ]);
-  useHotkeys("ctrl+shift+tab, ctrl+pageup", () => walk(-1), { ...OPTIONS, enabled }, [
-    enabled,
-    documentIds,
-    activeId,
-    onActivate,
-  ]);
-  useHotkeys(BY_INDEX, takeByIndex, { ...OPTIONS, enabled }, [enabled, documentIds, onActivate]);
-  useHotkeys("ctrl+s", saveActive, { ...OPTIONS, enabled }, [enabled, activeId, toast]);
-  useHotkeys("ctrl+f", findInActive, { ...OPTIONS, enabled }, [enabled, activeId, onFindElsewhere]);
-  useHotkeys(HISTORY_KEYS, stepActive, { ...OPTIONS, preventDefault: false, enabled }, [
-    enabled,
-    activeId,
-  ]);
+  useKeys(
+    "editor",
+    {
+      "editor.closeTab": () => activeId !== null && onClose(activeId),
+      "editor.reopenTab": () => onReopenClosed?.(),
+      "editor.nextTab": () => walk(1),
+      "editor.previousTab": () => walk(-1),
+      "editor.tabAt": takeByIndex,
+      "editor.lastTab": () => takeAt(LAST_INDEX_KEY),
+      "editor.save": saveActive,
+      "editor.find": findInActive,
+      "editor.undo": (event) => stepActive("undo", event),
+      "editor.redo": (event) => stepActive("redo", event),
+    },
+    { enabled },
+  );
 }

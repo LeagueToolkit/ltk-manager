@@ -15,6 +15,7 @@ import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { IgnoreMatch } from "@/lib/tauri";
 import { api } from "@/lib/tauri";
+import { shortcutOf } from "@/modules/keys";
 
 import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
@@ -131,7 +132,7 @@ export function ContentTreeContextMenu({
           <ContextMenu.Item
             icon={<TrashIcon className="size-4" />}
             variant="danger"
-            shortcut="Del"
+            shortcut={shortcutOf("content.delete")}
             onClick={() => onDelete(node)}
           >
             {m.workshop_tree_delete_action()}

@@ -1,5 +1,7 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
+import { isChord } from "@/modules/keys";
+
 import { useAtlasPreviewActions } from "../state/atlasPreview";
 
 /** The handlers of the keys the canvas reads while they are held down. */
@@ -25,7 +27,7 @@ export function useHeldKeys(holdSpace: (held: boolean) => void, interact: boolea
         if (interact) setShiftHeld(true);
         return true;
       }
-      if (event.key !== " " || event.ctrlKey || event.metaKey || event.altKey) return false;
+      if (!isChord(event, "atlas.pan")) return false;
 
       holdSpace(true);
       event.preventDefault();

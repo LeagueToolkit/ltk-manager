@@ -5,6 +5,7 @@ import { ContextMenu, Count, SearchField } from "@/components";
 import { useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
+import { isChord } from "@/modules/keys";
 import { toggledIn } from "@/utils";
 
 import { steppedRow, useActiveRow } from "../../../shared/hooks/useActiveRow";
@@ -196,7 +197,7 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
       else setShut(matches.above);
       return;
     }
-    if (command && event.key.toLowerCase() === "f") {
+    if (isChord(event, "atlas.findLayer")) {
       event.preventDefault();
       search.current?.focus();
       search.current?.select();
@@ -207,14 +208,14 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
       setSelection(key, [...(matches?.matched ?? tree.elements.keys())]);
       return;
     }
-    if (event.key === "Escape" && selection.length > 0) {
+    if (isChord(event, "atlas.clear") && selection.length > 0) {
       event.preventDefault();
       event.stopPropagation();
       select(key, null);
       return;
     }
     if (command || event.altKey) return;
-    if (event.key === "Delete" || event.key === "Backspace") {
+    if (isChord(event, "atlas.delete")) {
       event.preventDefault();
       void deleter.run(selection);
       return;

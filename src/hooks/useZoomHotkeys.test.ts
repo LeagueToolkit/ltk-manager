@@ -7,11 +7,7 @@ import { useDisplayStore, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from "@/stores";
 
 import { useZoomHotkeys } from "./useZoomHotkeys";
 
-/**
- * The bindings are written against `event.code`, which is what the library
- * matches on by default, so every case sends the code the physical key reports
- * rather than the character it produces.
- */
+/** Sends the code the physical key reports and the character it produces, as a browser does. */
 function press(code: string, key: string, target: EventTarget = document) {
   act(() => {
     target.dispatchEvent(new KeyboardEvent("keydown", { key, code, ctrlKey: true, bubbles: true }));

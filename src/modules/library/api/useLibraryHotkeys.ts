@@ -1,15 +1,14 @@
-import { useHotkeys } from "react-hotkeys-hook";
-
+import { useKeys } from "@/modules/keys";
 import { usePatcherRunning, useStopPatcher } from "@/modules/patcher/api";
 import { useHddWarning } from "@/modules/settings/hooks";
 
 import { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 
 /**
- * The library's keys, on any page that offers its actions.
+ * Answers `library.import` and `library.patcher` on any page that offers the library's actions.
  *
- * Ctrl+I imports, and Ctrl+P starts or stops the patcher, which is what the
- * Play button's tooltip promises wherever that button is drawn.
+ * The patcher key starts or stops the patcher, which is what the Play button's tooltip promises
+ * wherever that button is drawn.
  */
 export function useLibraryHotkeys(importMods: () => void): void {
   const running = usePatcherRunning();
@@ -37,6 +36,5 @@ export function useLibraryHotkeys(importMods: () => void): void {
     void startPatcher();
   }
 
-  useHotkeys("ctrl+i", () => importMods(), { preventDefault: true });
-  useHotkeys("ctrl+p", togglePatcher, { preventDefault: true });
+  useKeys("library", { "library.import": () => importMods(), "library.patcher": togglePatcher });
 }

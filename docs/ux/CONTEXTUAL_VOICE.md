@@ -181,10 +181,10 @@ a null `CooldownModifications` or `mAudioAction` gives the pointer its class fir
 
 ### Keys and gestures
 
-The list is one tab stop. Focus selects the first line if no line is selected. The keys come from
-the one keymap of the audio views, `utils/keymap.ts`, per "Keys and gestures" in docs/ux/AUDIO.md.
-The menus, the tooltips and the sheet read the same table. `?` opens the sheet of this view, and
-Keys and gestures in the View menu opens it too.
+The list is one tab stop. Focus selects the first line if no line is selected. The keys are the
+audio commands of the key registry, per "Keys and gestures" in docs/ux/AUDIO.md. The menus, the
+tooltips and the shortcut sheet read the same registry. `?` and F1 open the sheet with this view's
+keys first, and Keys and gestures in the View menu opens it too.
 
 | Key                                 | Action                                                     |
 | ----------------------------------- | ---------------------------------------------------------- |

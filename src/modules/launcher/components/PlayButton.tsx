@@ -18,6 +18,7 @@ import {
 } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
+import { shortcutOf } from "@/modules/keys";
 import { useGuardedStartPatcher } from "@/modules/library";
 import { type GuardedLaunch, ModHealthLaunchGuard } from "@/modules/library";
 import { useInstalledMods } from "@/modules/library/api";
@@ -285,7 +286,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
             {stopping && m.library_patcher_stopping_hint()}
             {!stopping && (
               <>
-                {m.library_patcher_stop_hint()} <Kbd shortcut="Ctrl+P" />
+                {m.library_patcher_stop_hint()} <Kbd shortcut={shortcutOf("library.patcher")} />
               </>
             )}
           </>
@@ -351,7 +352,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
       content={
         <>
           {primaryTooltip(patcherOnly, leagueRunning, hasModsToApply)}{" "}
-          {patcherOnly && <Kbd shortcut="Ctrl+P" />}
+          {patcherOnly && <Kbd shortcut={shortcutOf("library.patcher")} />}
         </>
       }
     >
@@ -402,7 +403,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
               icon={<PatcherIcon className="size-4" />}
               onClick={() => ask(handleStartPatcherOnly)}
               disabled={!hasModsToApply}
-              shortcut="Ctrl+P"
+              shortcut={shortcutOf("library.patcher")}
             >
               {m.library_patcher_only_action()}
             </Menu.Item>

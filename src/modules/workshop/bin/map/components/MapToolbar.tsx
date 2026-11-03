@@ -13,6 +13,7 @@ import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { MapPath, MapVariant } from "@/lib/tauri";
 import { CommandMenuItems } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 import type { BackdropSource, CaptureFrame } from "@/modules/viewport";
 
 import { usePaneCommands } from "../../menus/state/paneCommands";
@@ -218,7 +219,7 @@ function SaveGeometryButton({ dirty }: { dirty: boolean }) {
       left={<FloppyDiskIcon weight="bold" />}
       disabled={!dirty}
       onClick={() => void saveGeometry()}
-      aria-label={m.workshop_bin_map_geometry_save_action()}
+      aria-label={m.workshop_bin_map_geometry_save_action({ key: shortcutOf("editor.save") })}
     >
       {m.workshop_bin_map_geometry_save_label()}
     </Button>

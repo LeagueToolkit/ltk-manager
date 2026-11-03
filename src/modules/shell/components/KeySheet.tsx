@@ -1,14 +1,15 @@
 import { Dialog, Grid, Kbd, Stack } from "@/components";
 import { m } from "@/i18n";
-import { useSettings } from "@/modules/settings/api";
+import {
+  chordLabel,
+  type CommandGroup,
+  osHotkeys,
+  type SheetSection,
+  sheetSections,
+  useKeySheet,
+} from "@/modules/keys";
+import { useSettings } from "@/modules/settings";
 import { useDialog } from "@/stores";
-
-import { useKeySheet } from "../state/keySheet";
-import { chordLabel } from "../utils/chords";
-import { osHotkeys } from "../utils/osHotkeys";
-import type { SheetSection } from "../utils/scopes";
-import { sheetSections } from "../utils/sheet";
-import type { CommandGroup } from "../utils/types";
 
 const SECTION_TITLES: Readonly<Record<SheetSection, () => string>> = {
   app: m.keys_section_app_title,

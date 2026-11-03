@@ -1,5 +1,6 @@
 import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useCallback } from "react";
 
+import { commandAt, typesText } from "@/modules/keys";
 import { type ExplorerView, useSetExplorerView } from "@/stores";
 
 export interface UseExplorerKeysParams {
@@ -10,11 +11,19 @@ export interface UseExplorerKeysParams {
   boxRef: RefObject<HTMLInputElement | null>;
 }
 
+const VIEWS: Readonly<Record<string, ExplorerView | undefined>> = {
+  "explorer.viewTree": "tree",
+  "explorer.viewGrid": "grid",
+  "explorer.viewDetails": "details",
+};
+
 /**
- * The keys that belong to the explorer rather than to whichever view is drawing.
+ * Returns the handler of the `focus:explorer` commands that belong to the explorer rather than to
+ * whichever view is drawing.
  *
- * `Alt+←` stays with the navigation history. A move to a parent is not a move
- * back, so `Alt+↑` is its own key and never borrows that one.
+ * `Alt+Left` stays with the navigation history. A move to a parent is not a move back, so
+ * `explorer.up` is its own key and never borrows that one. A taken press stops here, so the app's
+ * commands on the same chords stay out of it.
  */
 export function useExplorerKeys({
   onUp,
@@ -25,59 +34,23 @@ export function useExplorerKeys({
 
   return useCallback(
     (event: ReactKeyboardEvent<HTMLElement>) => {
-      const key = event.key.toLowerCase();
+      const command = commandAt(event, "focus:explorer");
+      const view = command === null ? undefined : VIEWS[command];
+      /* An input holds `/` and Backspace as characters. */
+      const typed = command === "explorer.parent" || event.key === "/";
+      if (typed && typesText(event.target)) return;
 
-      if (event.altKey && event.key === "ArrowUp") {
+      const run = (action: () => void) => {
         event.preventDefault();
-        onUp();
-        return;
-      }
+        event.stopPropagation();
+        action();
+      };
 
-      if (!event.ctrlKey && !event.metaKey) {
-        /* An input holds both of these as characters, so they only reach the
-           explorer when the focus is on its rows. */
-        if (holdsText(event.target)) return;
-
-        if (key === "/") {
-          event.preventDefault();
-          boxRef.current?.focus();
-          return;
-        }
-        if (event.key === "Backspace") {
-          event.preventDefault();
-          onUp();
-        }
-        return;
-      }
-
-      if (key === "l") {
-        event.preventDefault();
-        onType();
-        return;
-      }
-
-      if (key === "f") {
-        event.preventDefault();
-        boxRef.current?.focus();
-        return;
-      }
-
-      const view = VIEW_KEYS[key];
-      if (view) {
-        event.preventDefault();
-        setView(view);
-      }
+      if (command === "explorer.up" || command === "explorer.parent") run(onUp);
+      else if (command === "explorer.find") run(() => boxRef.current?.focus());
+      else if (command === "explorer.typePath") run(onType);
+      else if (view !== undefined) run(() => setView(view));
     },
     [onUp, onType, boxRef, setView],
   );
-}
-
-const VIEW_KEYS: Readonly<Record<string, ExplorerView | undefined>> = {
-  "1": "tree",
-  "2": "grid",
-  "3": "details",
-};
-
-function holdsText(target: EventTarget): boolean {
-  return target instanceof HTMLElement && target.matches("input, textarea, [contenteditable]");
 }

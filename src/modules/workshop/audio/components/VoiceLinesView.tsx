@@ -13,6 +13,7 @@ import { ContextMenu, EmptyState, Spinner, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AudienceLine, BinEdit, ValueEdit, VoiceRule, VoiceSituation } from "@/lib/tauri";
+import { openKeySheet } from "@/modules/keys";
 import { useAudioInspector, useSetAudioInspector } from "@/stores";
 import { twMerge } from "@/utils";
 
@@ -75,7 +76,6 @@ import {
   triggerChoices,
   type TriggerContext,
 } from "../utils/voiceTrigger";
-import { AudioKeysDialog, LINES_SCOPE } from "./AudioKeys";
 import { AudioMenubar, VolumeReadout } from "./AudioMenubar";
 import { AUDIO_LIST_GROUP } from "./audioRow";
 import { PlayButton, RowFrame, rowId } from "./EventRowParts";
@@ -184,7 +184,6 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
   );
 
   const listId = useId();
-  const [help, setHelp] = useState(false);
   const toggleLoop = useToggleLoop();
   const nudgeVolume = useNudgeVolume();
   const typeAhead = useTypeAhead(
@@ -577,7 +576,6 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
       loop: toggleLoop,
       volumeDown: () => nudgeVolume(-1),
       volumeUp: () => nudgeVolume(1),
-      help: () => setHelp(true),
       toggleInspector: () => setInspecting(!inspecting),
     };
     const runView = command === null ? undefined : viewKeys[command];
@@ -823,7 +821,7 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
     toggleInspector: () => setInspecting(!inspecting),
     expandAll: folded.size === 0 ? undefined : () => setFolded(new Set()),
     collapseAll: collapsed ? undefined : () => setFolded(new Set(situationKeys)),
-    help: () => setHelp(true),
+    help: () => openKeySheet(),
     copyForSkin: editable && skin !== null ? () => void copyForSkin(skin) : undefined,
   };
 
@@ -940,7 +938,6 @@ function VoiceLinesView({ view, editable, path }: VoiceLinesViewProps) {
         )}
       </div>
       <RowDragGhost source={listId} />
-      <AudioKeysDialog open={help} onClose={() => setHelp(false)} scope={LINES_SCOPE} />
     </div>
   );
 }

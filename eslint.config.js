@@ -183,7 +183,7 @@ export default tseslint.config(
               "invoke",
               "listen",
               "emit",
-              "useHotkeys",
+              "useKeys",
               "navigate",
               "console\\..*",
               "setProperty",
@@ -204,7 +204,9 @@ export default tseslint.config(
               // Ids, paths and class tokens: copy has a capital or a space.
               "^[a-z0-9_./:-]+$",
               // Punctuation bracketing a value the code interpolates, never a sentence.
-              "^[\\s(){}\\[\\]<>,.:;/|·–—-]+$",
+              "^[\\s(){}\\[\\]<>,.:;/|·–—+-]+$",
+              // A modifier or a key name of a chord, which a keycap shows as it is.
+              "^(Ctrl|Control|Alt|Shift|Space)$",
               // A CSS value that reads a custom property, or a bare length.
               ".*var\\(--.*",
               "^[\\d.]+(px|%|em|rem)?( [\\d.]+(px|%|em|rem)?)*$",

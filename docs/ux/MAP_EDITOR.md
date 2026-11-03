@@ -350,7 +350,8 @@ object, as Enter does.
 The tab's header row draws the bar above the panes, so it works in every frame and in Properties.
 A `.mapgeo` or `.materials.bin` tab draws the same bar in its toolbar, with its own Save, Undo and
 Redo. Each item runs the action of the rail, the top bar or the row menu that it mirrors. The
-handler and the menus read the keys from one table, `MAP_KEYS` in `map/utils/mapKeys.ts`.
+handler and the menus read the keys from the `map.*` commands of the key registry, per "The
+registry" in docs/ux/KEYS.md.
 
 | Menu   | Items                                                                                                                                                                                      |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

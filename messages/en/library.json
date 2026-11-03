@@ -366,7 +366,7 @@
   "library_selection_check_syncing_hint": "Syncing the hashtables a check needs. Try again in a moment.",
   "library_selection_check_unsynced_hint": "The hashtables a check needs are not synced. Sync them in Settings.",
   "library_selection_clear_action": "Clear selection",
-  "library_selection_clear_hint": "Clear selection (Esc)",
+  "library_selection_clear_hint": "Clear selection ({key})",
   "library_selection_count_label": "*{count}* selected",
   "library_selection_disable_action": "Disable {count}",
   "library_selection_enable_action": "Enable {count}",

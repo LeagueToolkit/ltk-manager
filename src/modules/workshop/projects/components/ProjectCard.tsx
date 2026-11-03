@@ -4,6 +4,7 @@ import { Checkbox } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { SuspectBadge } from "@/modules/diagnostics";
+import { isChord } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import { useWorkshopSelectionStore } from "../../state";
@@ -44,7 +45,7 @@ export function ProjectCard({ project, onEdit, tabIndex }: ProjectCardProps) {
   /* The kebab's popup is a descendant in the React tree, so its keys reach the
      card unless the press landed on the card itself. */
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "F2" || event.target !== event.currentTarget) return;
+    if (!isChord(event, "projects.rename") || event.target !== event.currentTarget) return;
     event.preventDefault();
     actions.handleOpenRenameDialog();
   }

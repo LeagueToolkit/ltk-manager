@@ -9,11 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { Badge, ChromePortal } from "@/components";
 import { useClickOutside } from "@/hooks";
 import { m } from "@/i18n";
+import { ariaShortcutOf, useKeys } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import { useRevealGameSearch } from "../../gameBrowser";
@@ -117,28 +117,14 @@ export function WorkshopBar({ actions, trailing }: WorkshopBarProps) {
      of that tab rather than a box the document holds. */
   usePaletteRevealTarget(openWith);
 
-  useHotkeys("ctrl+p, ctrl+k", () => openWith(null), {
-    preventDefault: true,
-    enableOnFormTags: true,
+  /* `workshop.filter` holds over the grid alone, where the bar is the only box the key could
+     mean. In a project's editor `editor.find` routes the key to the active document. */
+  useKeys("workshop", {
+    "workshop.palette": () => openWith(null),
+    "workshop.projects": () => openWith("projects"),
+    "workshop.commands": () => openWith("commands"),
+    "workshop.filter": openFilter,
   });
-  useHotkeys("ctrl+r", () => openWith("projects"), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
-  useHotkeys("ctrl+shift+p", () => openWith("commands"), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
-
-  /* Only over the grid, where the bar is the only box the key could mean. In a
-     project's editor the key belongs to the active document, which `useEditorKeys`
-     routes to its own box or to the `@` scope of this palette. */
-  useHotkeys(
-    "ctrl+f",
-    openFilter,
-    { enabled: project === null, preventDefault: true, enableOnFormTags: true },
-    [project, openFilter],
-  );
 
   /* One text across the two modes. What a prefix reaches past moves into the
      palette's own query, and a dropped scope hands it back to the grid. */
@@ -291,15 +277,13 @@ function PaletteBranch(props: PaletteBranchProps) {
   return <WorkshopPalette {...props} />;
 }
 
-/* The key answers while the bar is closed, so it is bound beside the bar rather
-   than inside the palette it opens. */
+/* Mounted while a project is open, which is what makes the `project` scope active. The key
+   answers while the bar is closed, so it is bound beside the bar rather than inside the palette
+   it opens. */
 function ProjectKeys() {
   const revealGameSearch = useRevealGameSearch();
 
-  useHotkeys("ctrl+shift+f", revealGameSearch, {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
+  useKeys("project", { "project.findGame": revealGameSearch });
 
   return null;
 }
@@ -345,7 +329,7 @@ function IdleBar({ onOpen, onFilterOpenChange, actions, ref }: IdleBarProps) {
         type="button"
         onClick={onOpen}
         aria-label={label}
-        aria-keyshortcuts="Control+P"
+        aria-keyshortcuts={ariaShortcutOf("workshop.palette")}
         className="flex h-full min-w-0 flex-1 cursor-pointer items-center pl-0.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
       >
         <span className="truncate text-sm font-medium text-surface-100">{name}</span>

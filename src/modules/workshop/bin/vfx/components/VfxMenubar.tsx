@@ -1,7 +1,6 @@
-import { m } from "@/i18n";
 import type { CommandMenu } from "@/modules/editor";
 
-import { ClassMenubar, type ExtraKey } from "../../menus/components/ClassMenubar";
+import { ClassMenubar } from "../../menus/components/ClassMenubar";
 import { useObjectMenus } from "../../menus/hooks/useObjectMenus";
 import { useMenuScope, useRunCommands } from "../menus/menuItems";
 import { useCurveMenu } from "../menus/useCurveMenu";
@@ -11,7 +10,6 @@ import { useGraphMenu } from "../menus/useGraphMenu";
 import { useInsertMenu } from "../menus/useInsertMenu";
 import { usePlaybackMenu } from "../menus/usePlaybackMenu";
 import { useViewExtras } from "../menus/useViewExtras";
-import { vfxShortcut } from "../utils/vfxKeys";
 
 /**
  * The menu bar of a particle system: File, Edit, Insert, View, Playback, Emitter, Graph, Curve.
@@ -42,9 +40,5 @@ export function VfxMenubar() {
     curve,
   ];
 
-  const extraKeys: readonly ExtraKey[] = [
-    { keys: vfxShortcut("quickAddAlternate"), title: m.workshop_bin_menu_vfx_quick_add_action() },
-  ];
-
-  return <ClassMenubar menus={menus} extraKeys={extraKeys} />;
+  return <ClassMenubar menus={menus} />;
 }

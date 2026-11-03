@@ -23,6 +23,7 @@ import {
   useMarkHomeSeen,
   WhatsNew,
 } from "@/modules/home";
+import { shortcutOf } from "@/modules/keys";
 import { PlayButton } from "@/modules/launcher";
 import {
   DragDropOverlay,
@@ -72,7 +73,7 @@ export function Home() {
             <Tooltip
               content={
                 <>
-                  {m.home_library_add_hint()} <Kbd shortcut="Ctrl+I" />
+                  {m.home_library_add_hint()} <Kbd shortcut={shortcutOf("library.import")} />
                 </>
               }
             >

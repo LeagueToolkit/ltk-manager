@@ -1,8 +1,8 @@
 import { Fragment, type ReactNode, useId, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 
-import { isOverlayOpen, twMerge } from "@/utils";
+import { useKeys } from "@/modules/keys";
+import { twMerge } from "@/utils";
 
 import { findLeaf, type LayoutNode, type LeafNode, leaves } from "./tree";
 
@@ -59,11 +59,11 @@ export function SplitLayout({
   /* A click's resize is not a user interaction to the library, and the tree has to store it. */
   const expanding = useRef(false);
 
-  /* A dialog or a menu over the tree owns Escape while it is open, where the key means
-     "close this". */
-  useHotkeys("escape", () => !isOverlayOpen() && onRestore?.(), {
-    enabled: onRestore !== undefined && Boolean(maximized),
-  });
+  useKeys(
+    "editor",
+    { "editor.restorePanel": () => onRestore?.() },
+    { enabled: onRestore !== undefined && Boolean(maximized) },
+  );
 
   if (maximized) return renderLeaf(maximized);
 

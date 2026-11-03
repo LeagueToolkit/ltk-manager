@@ -17,6 +17,7 @@ import type { Group } from "three";
 import { IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
+import { shortcutOf, useKeys } from "@/modules/keys";
 import {
   Armature,
   type BackdropChoice,
@@ -139,7 +140,6 @@ import {
   SKIN_SUN_COMMAND,
   SKIN_VISIBILITY_COMMAND,
 } from "../utils/skinCommands";
-import { SKIN_SHOW_UI_KEY } from "../utils/skinKeys";
 import {
   BIND_POSE,
   bindingOf,
@@ -270,16 +270,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const [scrubbing, setScrubbing] = useState(false);
   const setDisplay = useSetPreviewDisplay();
 
-  useEffect(() => {
-    if (!controlsHidden) return;
-
-    const showControls = (event: KeyboardEvent) => {
-      if (event.key === SKIN_SHOW_UI_KEY.key) setControlsHidden(false);
-    };
-    window.addEventListener("keydown", showControls);
-
-    return () => window.removeEventListener("keydown", showControls);
-  }, [controlsHidden]);
+  useKeys(
+    "document:skin",
+    { "skin.showUi": () => setControlsHidden(false) },
+    { enabled: controlsHidden },
+  );
 
   /* A change of chosen layers can swap either file, and the old one draws until the new lands. */
   const mesh = useQuery({
@@ -709,7 +704,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               aria-label={m.workshop_bin_preview_hide_ui_action()}
               icon={<EyeSlashIcon />}
               onClick={() => setControlsHidden(true)}
-              tooltip={m.workshop_bin_preview_hide_ui_hint()}
+              tooltip={m.workshop_bin_preview_hide_ui_hint({ key: shortcutOf("skin.showUi") })}
             />
           </ViewportRail>
         )}

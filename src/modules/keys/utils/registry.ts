@@ -8,6 +8,7 @@ import { type Chord, chordLabel, chordText, type KeyPress } from "./chords";
 import { APP_COMMANDS } from "./commands/app";
 import { ATLAS_COMMANDS } from "./commands/atlas";
 import { AUDIO_COMMANDS } from "./commands/audio";
+import { AUDIO_MENU_COMMANDS } from "./commands/audioMenu";
 import { EDITOR_COMMANDS } from "./commands/editor";
 import { LIST_COMMANDS } from "./commands/lists";
 import { MAP_COMMANDS } from "./commands/map";
@@ -21,6 +22,7 @@ const TABLES = [
   EDITOR_COMMANDS,
   LIST_COMMANDS,
   AUDIO_COMMANDS,
+  AUDIO_MENU_COMMANDS,
   VFX_COMMANDS,
   SKIN_COMMANDS,
   MAP_COMMANDS,
@@ -50,11 +52,11 @@ export function keysOf(id: CommandId): readonly Chord[] {
   return commandOf(id).keys;
 }
 
-/** Returns the first chord of `id` in the words that a keycap shows, or undefined for none. */
-export function shortcutOf(id: CommandId): string | undefined {
+/** Returns the first chord of `id` in the words that a keycap shows, or `""` for a command without one. */
+export function shortcutOf(id: CommandId): string {
   const [first] = keysOf(id);
 
-  return first === undefined ? undefined : chordLabel(first);
+  return first === undefined ? "" : chordLabel(first);
 }
 
 /** Returns the chords of `id` in the words of a keycap, joined for a sentence such as a tooltip. */

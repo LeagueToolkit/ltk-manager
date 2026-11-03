@@ -16,6 +16,7 @@ import {
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useChampionRoster } from "@/modules/champions";
+import { isChord } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import {
@@ -241,7 +242,7 @@ export function ProjectTable({ projects, onEdit }: ProjectTableProps) {
       if (!locked) pick(current.key, current.project.path);
       return;
     }
-    if (event.key === "F2") {
+    if (isChord(event, "projects.rename")) {
       event.preventDefault();
       openRename(current.project);
     }

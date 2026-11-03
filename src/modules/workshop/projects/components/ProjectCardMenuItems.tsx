@@ -13,6 +13,7 @@ import { match } from "ts-pattern";
 import { Menu, RuneforgeIcon } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
+import { shortcutOf } from "@/modules/keys";
 import { useStopPatcher } from "@/modules/patcher";
 import { usePublishToRuneforge } from "@/modules/runeforge";
 import {
@@ -70,7 +71,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
       </Menu.Item>
       <Menu.Item
         icon={<CursorTextIcon weight="bold" className="size-4" />}
-        shortcut="F2"
+        shortcut={shortcutOf("projects.rename")}
         onClick={actions.handleOpenRenameDialog}
       >
         {m.workshop_card_rename_action()}

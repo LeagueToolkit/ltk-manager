@@ -6,6 +6,7 @@ import { Count, IconButton, SearchField } from "@/components";
 import { useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinDocumentId, SheetSpec } from "@/lib/tauri";
+import { isChord } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
@@ -141,17 +142,17 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
       choose(row.sprite);
       return;
     }
-    if (event.key === "f" || event.key === "F") {
+    if (isChord(event, "atlas.frame")) {
       event.preventDefault();
       frame(row.sprite);
       return;
     }
-    if (event.key.toUpperCase() === EXPORT_KEY && !exports.exporting) {
+    if (isChord(event, "atlas.exportSprite") && !exports.exporting) {
       event.preventDefault();
       exportRow(row);
       return;
     }
-    if (event.key.toUpperCase() === REPLACE_KEY && sprites.available && !sprites.importing) {
+    if (isChord(event, "atlas.replaceSprite") && sprites.available && !sprites.importing) {
       event.preventDefault();
       void sprites.run(
         row.sprite.elements,

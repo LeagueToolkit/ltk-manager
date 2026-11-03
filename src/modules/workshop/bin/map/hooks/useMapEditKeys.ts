@@ -1,5 +1,7 @@
 import type { KeyboardEvent } from "react";
 
+import { isChord } from "@/modules/keys";
+
 import { useMapScene } from "../state/mapScene";
 import { mapKeyCommand } from "../utils/mapKeys";
 import type { GeometryMeshes } from "./useGeometryMeshes";
@@ -31,10 +33,8 @@ export function useMapEditKeys(
 
     /* The shell steps the edits it recorded in the order they were made, across both
        files. The tab's own history takes an undo past them. */
-    const ctrl = event.ctrlKey || event.metaKey;
-    const key = event.key.toLowerCase();
-    const undo = ctrl && key === "z" && !event.shiftKey;
-    const redo = ctrl && (key === "y" || (key === "z" && event.shiftKey));
+    const undo = isChord(event, "editor.undo");
+    const redo = isChord(event, "editor.redo");
     if (editable && (undo || redo) && stepsHistory(undo)) {
       event.preventDefault();
       event.stopPropagation();

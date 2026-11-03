@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SHIFT_FRAMES, SKIN_KEYS, skinKeyOf, type SkinKeyTarget, SOCKET_KEYS } from "../skinKeys";
+import { SHIFT_FRAMES, SKIN_KEYS, type SkinKeyTarget, SOCKET_KEYS } from "../skinKeys";
 
 function target(time: number, speed = 1) {
   const calls: { seek?: number; playing?: boolean; speed?: number; fits: number } = { fits: 0 };
@@ -43,37 +43,20 @@ describe("SOCKET_KEYS", () => {
       },
     };
 
-    for (const hotkey of ["w", "e", "x"]) {
-      skinKeyOf(hotkey)?.run(armed);
-      skinKeyOf(hotkey)?.run(keys);
+    for (const key of Object.values(SOCKET_KEYS)) {
+      key.run(armed);
+      key.run(keys);
     }
 
     expect(pressed).toEqual(["move", "turn", "axes"]);
   });
-
-  it("takes no hotkey of `SKIN_KEYS`", () => {
-    const taken = new Set(Object.values(SKIN_KEYS).map((key) => key.hotkey));
-
-    expect(Object.values(SOCKET_KEYS).filter((key) => taken.has(key.hotkey))).toEqual([]);
-  });
 });
 
 describe("SKIN_KEYS", () => {
-  it("gives each key one hotkey and one shortcut", () => {
-    const keys = Object.values(SKIN_KEYS);
-
-    expect(new Set(keys.map((key) => key.hotkey)).size).toBe(keys.length);
-    expect(new Set(keys.map((key) => key.shortcut)).size).toBe(keys.length);
-  });
-
-  it("resolves every hotkey that it lists", () => {
-    for (const key of Object.values(SKIN_KEYS)) {
-      expect(skinKeyOf(key.hotkey)).toBe(key);
-    }
-  });
-
-  it("returns undefined for a hotkey that it does not list", () => {
-    expect(skinKeyOf("z")).toBeUndefined();
+  it("shows the first chord of its registry command", () => {
+    expect(SKIN_KEYS.play.shortcut).toBe("Space");
+    expect(SKIN_KEYS.stepBackLong.shortcut).toBe("Shift+Left");
+    expect(SOCKET_KEYS.turn.shortcut).toBe("E");
   });
 
   it("pauses and moves one frame on an arrow", () => {

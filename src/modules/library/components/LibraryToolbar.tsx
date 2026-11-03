@@ -5,7 +5,6 @@ import {
   TableIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, useRef } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import {
   Button,
@@ -21,6 +20,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
+import { shortcutOf, useKeys } from "@/modules/keys";
 import type { FilterOptions } from "@/modules/library/api";
 import type { useLibraryActions, ViewMode } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
@@ -72,10 +72,7 @@ export function LibraryToolbar({
 }: LibraryToolbarProps) {
   const { viewMode, setViewMode } = useLibraryViewMode();
   const searchRef = useRef<HTMLInputElement>(null);
-  useHotkeys("ctrl+f", () => searchRef.current?.select(), {
-    preventDefault: true,
-    enableOnFormTags: true,
-  });
+  useKeys("library", { "library.find": () => searchRef.current?.select() });
   const isInstalling = actions.installMod.isPending || actions.bulkInstallMods.isPending;
   const importLabel = isInstalling ? "Importing..." : "Import";
 
@@ -120,7 +117,7 @@ export function LibraryToolbar({
           <Tooltip
             content={
               <>
-                Import mods <Kbd shortcut="Ctrl+I" />
+                Import mods <Kbd shortcut={shortcutOf("library.import")} />
               </>
             }
           >

@@ -1,20 +1,11 @@
-/** The collapse-all combo as a tooltip draws it, after VS Code's `list.collapseAll`. */
-export const COLLAPSE_ALL_SHORTCUT = "Ctrl+←";
+import { isChord, type KeyPress, shortcutOf } from "@/modules/keys";
 
-/** Whether a key press on a focused tree asks it to shut every folder. */
-export function isCollapseAllKey(event: {
-  key: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  altKey: boolean;
-  shiftKey: boolean;
-}): boolean {
-  return (
-    event.key === "ArrowLeft" &&
-    (event.ctrlKey || event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey
-  );
+/** The collapse-all chord as a tooltip draws it, after VS Code's `list.collapseAll`. */
+export const COLLAPSE_ALL_SHORTCUT = shortcutOf("tree.collapseAll");
+
+/** Returns `true` if a key press on a focused tree is `tree.collapseAll`. */
+export function isCollapseAllKey(event: KeyPress): boolean {
+  return isChord(event, "tree.collapseAll");
 }
 
 /** Whether a chevron click asks for the whole subtree rather than one level: Alt, Shift or Ctrl. */

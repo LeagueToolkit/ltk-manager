@@ -1,44 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AUDIO_KEYMAP, resolveCommand, sheetGroups, shortcutOf } from "../keymap";
-
-/**
- * The chords that the app answers outside the audio document, per "The editor's keys" in
- * docs/ux/PROJECT_EDITOR.md, the routes and the palette. `Ctrl+D` is absent: the trees take it
- * for Duplicate and stop it there, as the VFX timeline does.
- */
-const APP_CHORDS = [
-  "Ctrl+W",
-  "Ctrl+Shift+T",
-  "Ctrl+Tab",
-  "Ctrl+Shift+Tab",
-  "Ctrl+PageUp",
-  "Ctrl+PageDown",
-  "Ctrl+S",
-  "Ctrl+F",
-  "Ctrl+Z",
-  "Ctrl+Y",
-  "Ctrl+Shift+Z",
-  "Ctrl+P",
-  "Ctrl+K",
-  "Ctrl+R",
-  "Ctrl+Shift+P",
-  "Ctrl+Shift+F",
-  "Ctrl+Shift+D",
-  "Ctrl+Shift+I",
-  "Ctrl+N",
-  "Ctrl+O",
-  "Ctrl+1",
-  "Ctrl+2",
-  "Ctrl+3",
-  "Ctrl+,",
-  "Ctrl+=",
-  "Ctrl+-",
-  "Ctrl+0",
-  "Alt+ArrowLeft",
-  "Alt+ArrowRight",
-  ...Array.from({ length: 9 }, (_, at) => `Alt+${at + 1}`),
-];
+import { AUDIO_KEYMAP, bindingOf, resolveCommand, shortcutOf } from "../keymap";
 
 /** Returns a key press of `key` with the modifiers of `held`. */
 function press(
@@ -72,13 +34,13 @@ describe("resolveCommand", () => {
   });
 
   it("resolves a symbol that the layout types with Shift", () => {
-    expect(resolveCommand(press("?", { shift: true }), "document")).toBe("help");
     expect(resolveCommand(press("+", { shift: true }), "lines")).toBe("volumeUp");
   });
 
-  it("returns null for a chord that an app-wide handler answers", () => {
+  it("returns null for a chord that the editor or the app answers", () => {
     expect(resolveCommand(press("s", { ctrl: true }), "document")).toBeNull();
     expect(resolveCommand(press("f", { ctrl: true }), "document")).toBeNull();
+    expect(resolveCommand(press("?", { shift: true }), "document")).toBeNull();
   });
 
   it("returns null for a command that the surface does not bind", () => {
@@ -89,61 +51,16 @@ describe("resolveCommand", () => {
 });
 
 describe("AUDIO_KEYMAP", () => {
-  it("binds each chord to one command of this module per surface", () => {
-    const seen = new Map<string, string>();
-    const clashes: string[] = [];
-    for (const binding of AUDIO_KEYMAP.filter((each) => each.owner === "audio")) {
-      for (const surface of binding.surfaces) {
-        for (const key of binding.keys) {
-          const slot = `${surface} ${key}`;
-          const held = seen.get(slot);
-          if (held !== undefined) clashes.push(`${slot}: ${held} and ${binding.id}`);
-          seen.set(slot, binding.id);
-        }
-      }
-    }
+  it("lists each command once", () => {
+    const ids = AUDIO_KEYMAP.map((binding) => binding.id);
 
-    expect(clashes).toEqual([]);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("takes no chord that the app answers", () => {
-    const taken = AUDIO_KEYMAP.filter((each) => each.owner === "audio").flatMap((each) =>
-      each.keys.filter((key) => APP_CHORDS.includes(key)).map((key) => `${each.id} ${key}`),
-    );
-
-    expect(taken).toEqual([]);
-  });
-});
-
-describe("sheetGroups", () => {
-  it("lists the bindings of the surfaces in the order of the groups, without empty groups", () => {
-    const groups = sheetGroups(["media"]);
-
-    expect(groups.map((group) => group.group)).toEqual([
-      "transport",
-      "navigation",
-      "editing",
-      "pointer",
-    ]);
-    expect(groups[0]?.bindings.map((binding) => binding.id)).toEqual(["play", "stop"]);
-  });
-
-  it("leaves out a binding that no surface of the scope answers", () => {
-    const ids = sheetGroups(["lines"]).flatMap((group) => group.bindings.map((each) => each.id));
-
-    expect(ids).toContain("dragEvent");
-    expect(ids).not.toContain("viewMedia");
-    expect(ids).not.toContain("wrap");
-  });
-
-  it("leaves out a command that only a menu runs", () => {
-    const ids = sheetGroups(["voices", "document"]).flatMap((group) =>
-      group.bindings.map((each) => each.id),
-    );
-
-    expect(ids).toContain("wrap");
-    expect(ids).not.toContain("rename");
-    expect(ids).not.toContain("details");
+  it("lists the surfaces of a command from its registry scopes", () => {
+    expect(bindingOf("wrap").surfaces).toEqual(["voices"]);
+    expect(bindingOf("loop").surfaces).toEqual(["lines", "document"]);
+    expect(bindingOf("save").surfaces).toEqual(["document", "lines"]);
   });
 });
 

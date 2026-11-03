@@ -1,10 +1,10 @@
 import { ArrowLeftIcon, ArrowRightIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { shortcutOf, useKeys } from "@/modules/keys";
 
 import { contentEditors } from "../../documents";
 import { useWorkshopProjects } from "../../projects/api/useWorkshopProjects";
@@ -30,8 +30,7 @@ export function NavigationArrows() {
   const goBack = useCallback(() => walk(-1), [walk]);
   const goForward = useCallback(() => walk(1), [walk]);
 
-  useHotkeys("alt+left", goBack, { preventDefault: true, enableOnFormTags: true });
-  useHotkeys("alt+right", goForward, { preventDefault: true, enableOnFormTags: true });
+  useKeys("workshop", { "workshop.back": goBack, "workshop.forward": goForward });
 
   /**
    * The thumb buttons, taken off the webview before it walks its own history.
@@ -141,8 +140,8 @@ function Arrow({ direction, entry, onClick }: ArrowProps) {
   if (entry === null) return button;
 
   const hint = back
-    ? m.workshop_history_back_hint({ title })
-    : m.workshop_history_forward_hint({ title });
+    ? m.workshop_history_back_hint({ title, key: shortcutOf("workshop.back") })
+    : m.workshop_history_forward_hint({ title, key: shortcutOf("workshop.forward") });
 
   return <Tooltip content={hint}>{button}</Tooltip>;
 }

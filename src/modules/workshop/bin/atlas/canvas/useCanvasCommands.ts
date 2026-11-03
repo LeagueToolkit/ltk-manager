@@ -137,9 +137,9 @@ export function useCanvasCommands(inputs: CanvasCommandInputs): CanvasCommands {
     }
 
     if (event.ctrlKey || event.metaKey || event.altKey) return false;
-    if (previewKey(event.key, actions)) return true;
+    if (previewKey(event, actions)) return true;
 
-    return canvasKey(event.key, targetsAt(event.shiftKey ? NUDGE_FAR : NUDGE));
+    return canvasKey(event, targetsAt(event.shiftKey ? NUDGE_FAR : NUDGE));
   };
 
   const stack = useMemo(() => {

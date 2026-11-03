@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useZoomedPx } from "@/hooks";
 import type { LayerContent } from "@/lib/tauri";
+import { isChord } from "@/modules/keys";
 
 import {
   declarationsDocument,
@@ -190,7 +191,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
      the way. The delete is confirmed either way. */
   const deleteKey = useCallback(
     (event: KeyboardEvent<HTMLDivElement>, node: ContentTreeNode) => {
-      if (event.key !== "Delete") return false;
+      if (!isChord(event, "content.delete")) return false;
 
       event.preventDefault();
       requestDelete(node);

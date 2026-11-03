@@ -15,6 +15,7 @@ import { Menu } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { DeclaredEntry, DeclaredModule } from "@/lib/tauri";
+import { shortcutOf } from "@/modules/keys";
 
 import type { OpenIntent } from "../../palette/utils/types";
 import type { OutlineActions } from "../hooks/useOutlineActions";
@@ -121,7 +122,11 @@ function ModuleItems({ node, handlers }: { node: ModuleNode; handlers: OutlineMe
 
   return (
     <>
-      <Menu.Item icon={<PencilSimpleIcon />} shortcut="F2" onClick={() => handlers.onRename(node)}>
+      <Menu.Item
+        icon={<PencilSimpleIcon />}
+        shortcut={shortcutOf("outline.rename")}
+        onClick={() => handlers.onRename(node)}
+      >
         {m.workshop_declarations_rename_action()}
       </Menu.Item>
       <Menu.Item
@@ -137,7 +142,7 @@ function ModuleItems({ node, handlers }: { node: ModuleNode; handlers: OutlineMe
       <Menu.Separator />
       <Menu.Item
         icon={<ArrowUpIcon />}
-        shortcut="Alt+↑"
+        shortcut={shortcutOf("outline.moveUp")}
         disabled={module.index === 0}
         onClick={() => actions.move(layer, module, module.index - 1)}
       >
@@ -145,7 +150,7 @@ function ModuleItems({ node, handlers }: { node: ModuleNode; handlers: OutlineMe
       </Menu.Item>
       <Menu.Item
         icon={<ArrowDownIcon />}
-        shortcut="Alt+↓"
+        shortcut={shortcutOf("outline.moveDown")}
         disabled={module.index >= last}
         onClick={() => actions.move(layer, module, module.index + 1)}
       >
@@ -157,7 +162,7 @@ function ModuleItems({ node, handlers }: { node: ModuleNode; handlers: OutlineMe
       <Menu.Item
         icon={<TrashIcon />}
         variant="danger"
-        shortcut="Del"
+        shortcut={shortcutOf("outline.delete")}
         onClick={() => actions.remove(layer, module)}
       >
         {m.workshop_declarations_remove_module_action()}
@@ -186,7 +191,7 @@ function GoToItem({
   return (
     <Menu.Item
       icon={<ArrowSquareOutIcon />}
-      shortcut="Enter"
+      shortcut={shortcutOf("tree.open")}
       disabled={disabled}
       title={disabled ? m.workshop_declarations_go_to_created_hint() : undefined}
       onClick={() => handlers.onOpen(node, "default")}

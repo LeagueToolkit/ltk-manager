@@ -1,12 +1,10 @@
-import type { RefObject } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { type RefObject, useRef } from "react";
 
-import { ignoredKey } from "../../vfx/playback/utils/ignoredKey";
-import { SKIN_KEYS, skinKeyOf, type SkinKeyTarget, SOCKET_KEYS } from "../utils/skinKeys";
+import { type KeyHandlers, useKeys } from "@/modules/keys";
 
-const HOTKEYS = [...Object.values(SKIN_KEYS), ...Object.values(SOCKET_KEYS)]
-  .map((key) => key.hotkey)
-  .join(", ");
+import { SKIN_KEYS, type SkinKeyTarget, SOCKET_KEYS } from "../utils/skinKeys";
+
+const KEYS = [...Object.values(SKIN_KEYS), ...Object.values(SOCKET_KEYS)];
 
 /**
  * Answers the keys of `SKIN_KEYS` and `SOCKET_KEYS` while focus is inside the box the returned ref is on.
@@ -15,10 +13,12 @@ const HOTKEYS = [...Object.values(SKIN_KEYS), ...Object.values(SOCKET_KEYS)]
  * arms the keys and a press on a transport control keeps them.
  */
 export function useSkinKeys(target: SkinKeyTarget): RefObject<HTMLDivElement | null> {
-  return useHotkeys<HTMLDivElement>(
-    HOTKEYS,
-    (_, handler) => skinKeyOf(handler.hotkey)?.run(target),
-    { preventDefault: true, ignoreEventWhen: ignoredKey },
-    [target],
+  const ref = useRef<HTMLDivElement>(null);
+  const handlers: KeyHandlers = Object.fromEntries(
+    KEYS.map((key) => [key.command, () => key.run(target)]),
   );
+
+  useKeys("document:skin", handlers, { ref });
+
+  return ref;
 }
