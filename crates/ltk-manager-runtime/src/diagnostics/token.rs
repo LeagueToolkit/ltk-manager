@@ -1165,6 +1165,7 @@ mod tests {
         incident.overlay = OverlayOutcome::HookFailed;
         incident.overlay_detail = Some("hook CreateFileW".to_string());
         incident.origin = SessionOrigin::Workshop {
+            include_profile: true,
             projects: vec![r"C:\work\aatrox".to_string()],
         };
         incident.host_elevated = true;

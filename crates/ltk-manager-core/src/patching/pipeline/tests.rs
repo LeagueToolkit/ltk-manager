@@ -213,3 +213,52 @@ fn no_mod_name_or_path_reaches_a_reported_session() {
         );
     }
 }
+
+#[test]
+fn alone_test_incidents_exclude_enabled_library_mods() {
+    let mut harness = Harness::new();
+    let project = harness._dirs.0.path().join("workshop-project");
+    fs_err::create_dir_all(&project).unwrap();
+    fs_err::write(
+        project.join("mod.config.json"),
+        serde_json::to_vec(&ltk_manager_assets::test_util::mod_project_named(
+            "Test Project",
+        ))
+        .unwrap(),
+    )
+    .unwrap();
+    harness.pipeline.workshop_projects = vec![WorkshopTestProject::all_layers(&project)];
+    let source = harness._dirs.0.path().join("input.fantome");
+    ltk_manager_assets::test_util::make_full_fantome_zip(&source);
+    let library = &harness.pipeline.library;
+    let config = &harness.pipeline.config;
+    library
+        .install_mod_from_package(config, source.to_str().unwrap())
+        .unwrap();
+    let installed = library.get_installed_mods(config).unwrap();
+    assert_eq!(installed.len(), 1);
+    if !installed[0].enabled {
+        library
+            .toggle_mod_enabled(config, &installed[0].id, true)
+            .unwrap();
+    }
+    assert_eq!(harness.pipeline.mod_footprints().len(), 1);
+
+    for include_profile in [false, true] {
+        let mut record = crashed_record();
+        record.origin = SessionOrigin::Workshop {
+            projects: vec![project.to_string_lossy().into_owned()],
+            include_profile,
+        };
+        let incident = harness.pipeline.run(record).unwrap();
+        assert_eq!(incident.enabled_count, 1 + u16::from(include_profile));
+        if !include_profile {
+            assert!(
+                incident
+                    .suspects
+                    .iter()
+                    .all(|suspect| suspect.mod_id.as_deref() != Some(installed[0].id.as_str()))
+            );
+        }
+    }
+}

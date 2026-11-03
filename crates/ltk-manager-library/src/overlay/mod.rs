@@ -133,7 +133,8 @@ impl ModLibrary {
     /// UI events as a side effect of asking for one.
     ///
     /// Workshop projects (if any) are loaded via `FsModContent` with the layers each
-    /// test turns on and prepended to the enabled mod list, and the built-in mods
+    /// test turns on. Profile mods are included only when `include_profile` is true.
+    /// Projects precede profile mods, and the built-in mods
     /// `config` turns on go above them.
     ///
     /// # Errors
@@ -145,6 +146,7 @@ impl ModLibrary {
         &self,
         config: &Config,
         workshop_projects: &[WorkshopTestProject],
+        include_profile: bool,
         force_rebuild: bool,
         called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
@@ -154,7 +156,8 @@ impl ModLibrary {
         storage_dir.invalidate_stale_overlays(self.app_version());
 
         let game_dir = ltk_manager_base::utils::game::GameDir::resolve(config)?;
-        let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
+        let (profile_slug, enabled_mods) =
+            self.get_enabled_mods_for_overlay(config, include_profile)?;
 
         let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
@@ -314,7 +317,7 @@ impl ModLibrary {
     /// Records the build, since refreshing the stale badge caches is half of what
     /// the user is asking for when they reach for this.
     pub fn rebuild_overlay(&self, config: &Config) -> AppResult<PathBuf> {
-        let build = self.ensure_overlay(config, &[], true, || false)?;
+        let build = self.ensure_overlay(config, &[], true, true, || false)?;
         self.record_overlay_build(build.outcome);
         Ok(build.overlay_root)
     }

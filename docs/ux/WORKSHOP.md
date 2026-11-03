@@ -2,20 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                    |
-| ---------- | ------------------------------------------------------------------------- |
-| 2026-10-27 | Add Publish to RuneForge on the card menu and the editor overflow menu    |
-| 2026-10-06 | Draw the view control and the picks in a footer under the list            |
-| 2026-10-06 | Fold the title bar's navigation to icons, then drop the wordmark          |
-| 2026-10-06 | Draw the title bar on the workshop's ground, and the grid in a page inset |
-| 2026-10-06 | Draw the list's Test in a dock over the list's bottom right corner        |
-| 2026-10-06 | Draw the bar in the title bar and the run actions in the status row       |
-| 2026-10-02 | Replace list mode with a table of arranged columns                        |
-| 2026-09-10 | Take the whole thumb-button gesture off the webview                       |
-| 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount          |
-| 2026-09-10 | Climb out of a directory a tab opened inside, rather than out of the tab  |
-| 2026-09-10 | Record an explorer's directory as a stop of its own                       |
-| 2026-09-07 | Put one menu on the card's right click and its kebab, and add Rename      |
+| Date       | Change                                                                         |
+| ---------- | ------------------------------------------------------------------------------ |
+| 2026-11-01 | Test projects without profile mods by default, with an explicit profile option |
+| 2026-10-27 | Add Publish to RuneForge on the card menu and the editor overflow menu         |
+| 2026-10-06 | Draw the view control and the picks in a footer under the list                 |
+| 2026-10-06 | Fold the title bar's navigation to icons, then drop the wordmark               |
+| 2026-10-06 | Draw the title bar on the workshop's ground, and the grid in a page inset      |
+| 2026-10-06 | Draw the list's Test in a dock over the list's bottom right corner             |
+| 2026-10-06 | Draw the bar in the title bar and the run actions in the status row            |
+| 2026-10-02 | Replace list mode with a table of arranged columns                             |
+| 2026-09-10 | Take the whole thumb-button gesture off the webview                            |
+| 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount               |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -71,10 +69,11 @@ The workshop is the authoring side. A user makes a project here, fills its layer
 game and packs it for distribution.
 
 The **mod library** is the other side and a different screen: the mods a user installed, the
-profiles that enable them, and the patcher run over those. The two meet in one place only - a
-test started from the workshop layers its projects on top of whatever the active profile has
-enabled, which is why the grid names that profile on the tooltip of the button that starts the
-run.
+profiles that enable them, and the patcher run over those. A workshop test excludes profile
+mods by default. The workshop cannot show the profile's conflicts alongside the project, so
+including those mods by default makes a test harder to diagnose. **Test over profile** explicitly
+includes the active profile's enabled mods below the tested projects. Global built-in mods
+remain enabled according to their settings in either mode.
 
 Everything under `/workshop` is one route tree:
 
@@ -424,9 +423,18 @@ it ends.** So select-all goes quiet while the patcher is up - the checkbox and t
 doubles for it, both gated on the same state - while Test stays in its dock, as the one control
 that ends the session. The dock draws while a session is up even where there is nothing to list.
 
-Test names the profile it runs over on its own tooltip. The overlay build prepends the workshop
-paths to the enabled mods of the active profile, so a project is tested on top of that profile,
-and with the profile selector gone the workshop drew it nowhere else.
+The primary Test action excludes the active profile's mods from the overlay and the incident's
+mod list. The project header and the grid dock offer **Test over <profile>** in their caret menus.
+The card overflow and the command palette also offer **Test over profile**. The table row's
+inline Test and selection context-menu Test remain alone. The dock's primary tooltip describes
+an alone test, and its caret tooltip names the selected profile once loaded.
+
+The header's caret retains layer selection and remains available for base-only projects. An
+active session disables alternate test actions. The session origin records profile inclusion,
+and hot reload retains that choice. For an included profile, the session bar displays its live
+**Selected profile** name and explains that selection changes apply when the overlay rebuilds.
+It marks changes deferred until the game ends. This is not a claim that a newly selected profile
+has already been applied to a running game. Alone tests display no profile label.
 
 ### Sort, filter and the count
 

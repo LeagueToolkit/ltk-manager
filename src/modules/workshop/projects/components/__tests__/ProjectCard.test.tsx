@@ -62,20 +62,21 @@ beforeEach(() => {
 });
 
 describe("ProjectCard menu", () => {
-  it("opens the six commands on a right click", () => {
+  it("opens project commands on a right click", () => {
     show();
 
     fireEvent.contextMenu(card());
 
     expect(item(/Edit Project/)).toBeInTheDocument();
-    expect(item(/^Test/)).toBeInTheDocument();
+    expect(item(/^Test$/)).toBeInTheDocument();
+    expect(item(/^Test over profile$/)).toBeInTheDocument();
     expect(item(/^Pack/)).toBeInTheDocument();
     expect(item(/Rename/)).toBeInTheDocument();
     expect(item(/Open Location/)).toBeInTheDocument();
     expect(item(/Delete/)).toBeInTheDocument();
   });
 
-  it("opens the same six on the kebab", async () => {
+  it("opens the same commands on the kebab", async () => {
     const { user } = show();
 
     await user.click(screen.getByRole("button", { name: /More options/ }));
@@ -121,6 +122,7 @@ describe("ProjectCard menu", () => {
 
     expect(picked()).toEqual(["X:/mods/other"]);
     expect(item(/Edit Project/)).toBeInTheDocument();
+    expect(item(/^Test over profile$/)).toHaveAttribute("aria-disabled", "true");
   });
 
   it("reads over the selection on a right click inside it", () => {

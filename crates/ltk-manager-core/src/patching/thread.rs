@@ -92,6 +92,7 @@ pub struct PatcherThread {
     config: Config,
     library: ModLibrary,
     workshop_projects: Vec<WorkshopTestProject>,
+    include_profile: bool,
     host_flags: u32,
     force_rebuild: bool,
     telemetry: Telemetry,
@@ -117,6 +118,7 @@ impl PatcherThread {
         }
 
         let origin = stored_config.origin();
+        let include_profile = origin.includes_profile();
         patcher_state.stop_flag.store(false, Ordering::SeqCst);
         patcher_state.begin_session(origin.clone());
         patcher_state.last_config = Some(stored_config);
@@ -151,6 +153,7 @@ impl PatcherThread {
             Arc::new(move |record| pipeline.spawn(record)),
         ));
         let session = Self {
+            include_profile,
             events,
             observer,
             state: Arc::clone(state),
@@ -222,6 +225,7 @@ impl PatcherThread {
         let build = match self.library.ensure_overlay(
             &self.config,
             &self.workshop_projects,
+            self.include_profile,
             force_rebuild,
             move || stop_flag.load(Ordering::SeqCst),
         ) {

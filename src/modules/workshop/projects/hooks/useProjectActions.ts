@@ -29,6 +29,14 @@ export function useProjectActions(project: WorkshopProject | undefined) {
     );
   }, [project, testMutate]);
 
+  const handleTestOverProfile = useCallback(() => {
+    if (!project) return;
+    testMutate(
+      { projects: [project], includeProfile: true },
+      { onError: (err) => console.error("Failed to test project:", err) },
+    );
+  }, [project, testMutate]);
+
   const handlePack = useCallback(() => {
     if (project) void packProjects([project]);
   }, [packProjects, project]);
@@ -56,6 +64,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       isTesting,
       isPacking,
       handleTestProject,
+      handleTestOverProfile,
       handlePack,
       handleOpenDeleteDialog,
       handleOpenRenameDialog,
@@ -65,6 +74,7 @@ export function useProjectActions(project: WorkshopProject | undefined) {
       isTesting,
       isPacking,
       handleTestProject,
+      handleTestOverProfile,
       handlePack,
       handleOpenDeleteDialog,
       handleOpenRenameDialog,

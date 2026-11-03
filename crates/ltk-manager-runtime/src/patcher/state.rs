@@ -24,6 +24,8 @@ pub enum PatcherPhase {
 #[derive(Debug, Clone)]
 pub struct StoredPatcherConfig {
     pub flags: Option<u64>,
+    /// Whether the active profile's enabled mods are included.
+    pub include_profile: bool,
     pub workshop_projects: Option<Vec<String>>,
     /// The layers each workshop project is tested with, by project path. A
     /// project missing from the map is tested with every layer.
@@ -36,6 +38,7 @@ impl StoredPatcherConfig {
         match self.workshop_projects.as_deref() {
             Some(projects) if !projects.is_empty() => SessionOrigin::Workshop {
                 projects: projects.to_vec(),
+                include_profile: self.include_profile,
             },
             _ => SessionOrigin::Library,
         }
@@ -53,10 +56,28 @@ pub enum SessionOrigin {
     Workshop {
         /// Absolute paths to the project directories under test.
         projects: Vec<String>,
+        /// Whether the test includes the active profile's enabled mods.
+        #[serde(default = "legacy_include_profile", rename = "includeProfile")]
+        include_profile: bool,
     },
 }
 
+// Workshop sessions recorded before this flag always included the profile.
+fn legacy_include_profile() -> bool {
+    true
+}
+
 impl SessionOrigin {
+    /// Whether the overlay includes library mods from the active profile.
+    pub fn includes_profile(&self) -> bool {
+        match self {
+            Self::Library => true,
+            Self::Workshop {
+                include_profile, ..
+            } => *include_profile,
+        }
+    }
+
     /// Whether the session is a workshop test rather than a library run.
     pub fn is_workshop(&self) -> bool {
         matches!(self, Self::Workshop { .. })

@@ -1090,6 +1090,7 @@ fn the_id_is_the_log_stamp_when_there_is_a_log() {
 fn a_workshop_test_names_the_project_and_the_open_hint() {
     let mut record = clean(modded_game());
     record.origin = SessionOrigin::Workshop {
+        include_profile: true,
         projects: vec![r"C:\ws\aatrox".to_string()],
     };
     record.skipped = vec![SkippedArchive {
@@ -1613,6 +1614,7 @@ fn a_shader_with_named_programs_gets_no_definition_hint() {
 ";
     let mut record = outline_record(log);
     record.origin = SessionOrigin::Workshop {
+        include_profile: true,
         projects: vec!["C:/mods/rengar-outline".to_string()],
     };
     let incident = classify_with(&record, &outline_mods()).unwrap();
