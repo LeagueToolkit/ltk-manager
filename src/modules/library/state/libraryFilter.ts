@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -9,6 +10,7 @@ import {
   type SortConfig as FacetSortConfig,
   type SortDirection,
 } from "@/stores/facetFilter";
+import { keepUnversioned, localJsonStorage } from "@/stores/storage";
 
 export type SortField =
   | "priority"
@@ -29,15 +31,27 @@ export type { SortDirection };
 
 type LibraryFilterStore = FacetFilterState<SortField>;
 
-export const useLibraryFilterStore = create<LibraryFilterStore>()((set) =>
-  facetFilterSlice<SortField>({ field: "priority", direction: "desc" }, set),
+/**
+ * How the library is narrowed and sorted.
+ *
+ * The sort is per machine and outlives a restart, like the table layout. The facets are
+ * session state, because a filter left on reads as a library that lost its mods.
+ */
+export const useLibraryFilterStore = create<LibraryFilterStore>()(
+  persist((set) => facetFilterSlice<SortField>({ field: "priority", direction: "desc" }, set), {
+    name: "ltk-library-sort",
+    version: 1,
+    migrate: keepUnversioned,
+    storage: localJsonStorage,
+    partialize: (state) => ({ sort: state.sort }),
+  }),
 );
 
 export function useHasActiveFilters() {
   return useLibraryFilterStore(hasActiveFacets);
 }
 
-/** Reordering only applies in priority sort. Any other sort imposes its own order. */
+/** Reordering only applies in the load order. Any other sort imposes its own order. */
 export function useReorderDisabled() {
   return useLibraryFilterStore((s) => s.sort.field !== "priority");
 }

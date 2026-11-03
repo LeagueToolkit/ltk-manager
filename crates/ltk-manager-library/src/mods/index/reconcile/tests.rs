@@ -31,6 +31,7 @@ fn index_with(mods: Vec<LibraryModEntry>, enabled: Vec<&str>) -> LibraryIndex {
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: ids,
+            kept_sort: None,
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     }

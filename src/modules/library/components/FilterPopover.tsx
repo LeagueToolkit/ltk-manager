@@ -11,6 +11,7 @@ import type { FilterOptions } from "@/modules/library/api";
 
 import { type SortField, useHasActiveFilters, useLibraryFilterStore } from "../state";
 import { FacetFilterPopover, type SortOption } from "./FacetFilterPopover";
+import { LoadOrderNote } from "./LoadOrderNote";
 
 function sortOptions(): SortOption<SortField>[] {
   const alphabetical = {
@@ -71,6 +72,7 @@ export function FilterPopover({ filterOptions }: FilterPopoverProps) {
       hasActive={hasActive}
       triggerLabel={m.library_filter_trigger_label()}
       triggerSize="md"
+      sortNote={<LoadOrderNote />}
     />
   );
 }

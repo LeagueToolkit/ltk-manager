@@ -3,6 +3,7 @@ export * from "./categories";
 export * from "./dnd";
 export * from "./filterIcons";
 export * from "./folders";
+export * from "./keptSort";
 export * from "./labels";
 export * from "./skinhackCheck";
 export * from "./sorting";

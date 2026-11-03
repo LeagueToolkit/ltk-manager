@@ -65,9 +65,11 @@ export function LibraryContent({
     );
   }
 
+  const groundFolderId = folderId ?? "root";
+
   if (tableReady) {
     return (
-      <LibraryContextMenu>
+      <LibraryContextMenu folderId={groundFolderId}>
         <div className="flex min-h-0 flex-1 flex-col">
           {contentView.type === "folder-drilldown" && (
             <div className="shrink-0 px-4 pt-4 pb-3">
@@ -138,7 +140,7 @@ export function LibraryContent({
      the element React reconciles at this position, so passing through loading,
      error or empty built a new scroller and the offset went with the old one. */
   return (
-    <LibraryContextMenu>
+    <LibraryContextMenu folderId={groundFolderId}>
       <div className={scrollClass}>
         <ModThumbnails modIds={modIds}>{content()}</ModThumbnails>
       </div>

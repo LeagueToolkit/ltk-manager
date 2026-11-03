@@ -1,4 +1,9 @@
-import { Pencil, Power, PowerOff, Trash2 } from "lucide-react";
+import {
+  PencilSimpleIcon,
+  ToggleLeftIcon,
+  ToggleRightIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { ContextMenu } from "@/components";
@@ -6,6 +11,7 @@ import { m } from "@/i18n";
 
 import { useDeleteFolder, useRenameFolder, useToggleFolder } from "../api";
 import { FolderNameDialog } from "./FolderNameDialog";
+import { KeptSortMenuItems } from "./KeptSortMenuItems";
 
 interface FolderContextMenuProps {
   folderId: string;
@@ -27,31 +33,32 @@ export function FolderContextMenu({ folderId, folderName, children }: FolderCont
         </ContextMenu.Trigger>
         <ContextMenu.Content>
           <ContextMenu.Item
-            icon={<Pencil className="size-4" />}
+            icon={<PencilSimpleIcon className="size-4" />}
             onClick={() => setRenameOpen(true)}
           >
-            Rename
+            {m.library_folder_menu_rename_action()}
           </ContextMenu.Item>
+          <KeptSortMenuItems folderId={folderId} />
           <ContextMenu.Separator />
           <ContextMenu.Item
-            icon={<Power className="size-4" />}
+            icon={<ToggleRightIcon className="size-4" />}
             onClick={() => toggleFolder.mutate({ folderId, enabled: true })}
           >
-            Enable All
+            {m.library_folder_menu_enable_all_action()}
           </ContextMenu.Item>
           <ContextMenu.Item
-            icon={<PowerOff className="size-4" />}
+            icon={<ToggleLeftIcon className="size-4" />}
             onClick={() => toggleFolder.mutate({ folderId, enabled: false })}
           >
-            Disable All
+            {m.library_folder_menu_disable_all_action()}
           </ContextMenu.Item>
           <ContextMenu.Separator />
           <ContextMenu.Item
-            icon={<Trash2 className="size-4" />}
+            icon={<TrashIcon className="size-4" />}
             variant="danger"
             onClick={() => deleteFolder.mutate(folderId)}
           >
-            Delete
+            {m.library_folder_menu_delete_action()}
           </ContextMenu.Item>
         </ContextMenu.Content>
       </ContextMenu.Root>

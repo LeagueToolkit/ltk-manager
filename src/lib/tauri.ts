@@ -59,6 +59,7 @@ export type {
   Incident_Serialize as Incident,
   InstalledMod_Serialize as InstalledMod,
   InstallOutcome_Serialize as InstallOutcome,
+  LibraryFolder_Serialize as LibraryFolder,
   ModHealthVerdict_Serialize as ModHealthVerdict,
   ModLicense_Serialize as ModLicense,
   NodeAddress_Serialize as NodeAddress,
@@ -230,6 +231,7 @@ export const api = {
   toggleFolder: library.toggleFolder,
   reorderFolderMods: library.reorderFolderMods,
   reorderFolders: library.reorderFolders,
+  setKeptSort: library.setKeptSort,
 
   // Hashtables
   getHashtableCacheStatus: game.getHashtableCacheStatus,

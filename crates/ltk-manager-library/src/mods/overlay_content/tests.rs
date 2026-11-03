@@ -173,6 +173,7 @@ fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_missing_mod() {
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: vec!["keep".into(), "gone".into()],
+            kept_sort: None,
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     };

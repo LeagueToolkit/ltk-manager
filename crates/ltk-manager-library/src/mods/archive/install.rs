@@ -316,6 +316,7 @@ impl ModLibrary {
         }
 
         let (_entry, installed) = register_staged_mod(storage_dir, index, staged, taken)?;
+        self.place_by_kept_sort(storage_dir, index, ROOT_FOLDER_ID);
         Ok(Registration::done(InstallOutcome::Installed(installed)))
     }
 

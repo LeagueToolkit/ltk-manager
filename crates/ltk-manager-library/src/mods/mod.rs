@@ -50,8 +50,9 @@ pub use index::document::ModArchiveFormat;
 pub use index::layout_migration::LayoutMigrationState;
 pub use layout::{StorageLayout, is_library_entry};
 pub use types::{
-    BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,
-    ModLicense, ModOrigin, Profile,
+    BulkInstallResult, ClearedKeptSort, EditModMetadataArgs, InstallOutcome, InstalledMod,
+    KeptSort, KeptSortField, LibraryFolder, ModLicense, ModOrigin, Profile, ReorderOutcome,
+    SortDirection,
 };
 
 use crate::overlay::OverlayStorageExt;

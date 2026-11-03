@@ -68,6 +68,7 @@ impl ModLibrary {
                 states.retain(|name, _| project.layers.iter().any(|layer| &layer.name == name));
             }
         }
+        self.place_mod_by_kept_sort(storage_dir, index, mod_id);
 
         let installed = read_library_mod(storage_dir, index, &entry)?;
         self.invalidate_overlay_for(storage_dir, &[mod_id.to_owned()]);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createMockInstalledMod } from "@/test/fixtures";
 
-import { sortMods, sortModsByFolder } from "../sorting";
+import { arrangedFolderOrder, keptSortOf, sortMods, sortModsByFolder } from "../sorting";
 
 describe("sortMods", () => {
   const modA = createMockInstalledMod({
@@ -68,6 +68,75 @@ describe("sortMods", () => {
   it("handles single mod", () => {
     const result = sortMods([modA], { field: "name", direction: "desc" });
     expect(result.map((m) => m.id)).toEqual(["a"]);
+  });
+
+  it("sorts by the champions the context files a mod under", () => {
+    const derived = createMockInstalledMod({ id: "d", displayName: "Derived", champions: [] });
+    const declared = createMockInstalledMod({
+      id: "e",
+      displayName: "Declared",
+      champions: ["Zed"],
+    });
+    const championsOf = (mod: typeof derived) => (mod.id === "d" ? ["Ahri"] : mod.champions);
+
+    const withContext = sortMods(
+      [declared, derived],
+      { field: "champion", direction: "asc" },
+      {
+        championsOf,
+      },
+    );
+    expect(withContext.map((m) => m.id)).toEqual(["d", "e"]);
+
+    const declaredOnly = sortMods([declared, derived], { field: "champion", direction: "asc" });
+    expect(declaredOnly.map((m) => m.id)).toEqual(["e", "d"]);
+  });
+});
+
+describe("keptSortOf", () => {
+  it("maps the sorts a folder keeps and refuses the rest", () => {
+    expect(keptSortOf({ field: "name", direction: "desc" })).toEqual({
+      field: "name",
+      direction: "desc",
+    });
+    expect(keptSortOf({ field: "installedAt", direction: "asc" })).toEqual({
+      field: "installedAt",
+      direction: "asc",
+    });
+    expect(keptSortOf({ field: "priority", direction: "desc" })).toBeNull();
+    expect(keptSortOf({ field: "health", direction: "desc" })).toBeNull();
+  });
+});
+
+describe("arrangedFolderOrder", () => {
+  const folders = [
+    { id: "root", name: "", modIds: [] },
+    { id: "f1", name: "Zulu", modIds: [] },
+    { id: "f2", name: "Alpha", modIds: [] },
+  ];
+
+  it("arranges the user folders by name and keeps root in place", () => {
+    const order = arrangedFolderOrder(["root", "f1", "f2"], folders, {
+      field: "name",
+      direction: "asc",
+    });
+    expect(order).toEqual(["root", "f2", "f1"]);
+  });
+
+  it("keeps the manual order under a sort that does not order folders", () => {
+    const order = arrangedFolderOrder(["f1", "root", "f2"], folders, {
+      field: "installedAt",
+      direction: "desc",
+    });
+    expect(order).toEqual(["f1", "root", "f2"]);
+  });
+
+  it("drops a folder id that no folder carries", () => {
+    const order = arrangedFolderOrder(["root", "gone", "f1"], folders, {
+      field: "name",
+      direction: "asc",
+    });
+    expect(order).toEqual(["root", "f1"]);
   });
 });
 

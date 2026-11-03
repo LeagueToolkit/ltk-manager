@@ -2,7 +2,7 @@ use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
     ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState, ModWadReport,
-    WadReportState,
+    ReorderOutcome, WadReportState,
 };
 use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
@@ -109,10 +109,10 @@ pub fn toggle_mod(mod_id: String, enabled: bool, library: Library) -> IpcResult<
     library.with_refresh(|library, config| library.toggle_mod_enabled(config, &mod_id, enabled))
 }
 
-/// Reorder the enabled mods in the active profile.
+/// Reorder the mods of the active profile. A folder whose order changed stops keeping its sort.
 #[tauri::command]
 #[specta::specta]
-pub fn reorder_mods(mod_ids: Vec<String>, library: Library) -> IpcResult<()> {
+pub fn reorder_mods(mod_ids: Vec<String>, library: Library) -> IpcResult<ReorderOutcome> {
     library.with_refresh(|library, config| library.reorder_mods(config, mod_ids))
 }
 

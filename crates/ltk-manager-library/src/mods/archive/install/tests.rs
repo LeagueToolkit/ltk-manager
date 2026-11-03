@@ -531,6 +531,7 @@ fn seed_index(library: &ModLibrary, config: &Config, mods: Vec<LibraryModEntry>)
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: ids,
+            kept_sort: None,
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     };
@@ -598,6 +599,7 @@ fn an_update_keeps_identity_folders_and_every_profiles_choices() {
                 id: "custom".to_owned(),
                 name: "Custom".to_owned(),
                 mod_ids: vec![original.id.clone()],
+                kept_sort: None,
             });
             Ok(index.clone())
         })

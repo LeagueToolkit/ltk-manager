@@ -171,6 +171,7 @@ pub(crate) fn seed_library(library: &ModLibrary, config: &Config, mods: Vec<Libr
             id: crate::mods::types::ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: ids,
+            kept_sort: None,
         }],
         folder_order: vec![crate::mods::types::ROOT_FOLDER_ID.to_string()],
     };

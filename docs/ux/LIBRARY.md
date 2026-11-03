@@ -4,6 +4,7 @@
 
 | Date       | Change                                                      |
 | ---------- | ----------------------------------------------------------- |
+| 2026-11-03 | A folder keeps a sort, and a sort can be set as load order  |
 | 2026-11-02 | Installing a list from one `ltk://install-list` link        |
 | 2026-10-16 | Draw the title bar on the page ground, as the workshop does |
 | 2026-10-09 | A library index that a newer version wrote can be rebuilt   |
@@ -13,7 +14,6 @@
 | 2026-10-02 | Importing a mod the library holds                           |
 | 2026-10-02 | Opening a mod file from Explorer installs it                |
 | 2026-09-30 | A library edit reaches a running patcher between games      |
-| 2026-09-12 | The documents panel is a drawer over the grid, not a pane   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -56,6 +56,8 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Filters and sort       | Available | A popover off the search box, and chips under the toolbar     |
 | Search                 | Available | `Ctrl+F`. Flattens the folders while it has a query           |
 | Manual reorder         | Available | Drag within a folder. Off under a search, a filter or a pick  |
+| Set as load order      | Available | Writes the view's sort into the load order, once              |
+| Kept sort              | Available | A folder places new, renamed and moved mods by a sort         |
 | Import                 | Available | `Ctrl+I`, the toolbar button, a drop, or a file from Explorer |
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
@@ -167,6 +169,48 @@ than on the selection, which is what makes them useful with nothing picked at al
 Manual reorder is off while anything is picked. A drag and a pick compete for the same press, and
 the drag is the one that can be reached again a moment later. Reorder is off under a search and
 under a filter for the same reason it always was - the order on screen is not the order stored.
+
+## Load order and sort
+
+The load order is the one record. It is the order of the folders and the order of the mods inside
+each, and the patcher applies the enabled mods in it, with the first mod winning a conflict. Every
+other sort in the popover - Name, Champion, Date Added, Enabled, and the table's columns - changes
+the view and nothing else. The popover calls the record **Load order**, the same word the table's
+column and its `Back to load order` use, so one word names the thing the game reads.
+
+**A sort says it is a view.** Under any sort other than the load order, a line under the sort
+pills says so and offers the two ways to make it the record. Drag is off under such a sort,
+because the order on screen is not the order stored, and the line is what says why.
+
+**`Set as load order` writes the view into the record once.** Every folder is resequenced by the
+sort the library is drawn in, the folders themselves are arranged under the Name sort, and the
+view returns to the load order, so the drag is back. A folder that kept a sort stops keeping it,
+which the toast reports with an Undo.
+
+**A folder can keep a sort.** `Keep sorted by` on a folder's menu, and on the library ground's menu
+for the mods outside every folder, names one of Name A-Z, Name Z-A, Champion, Newest first, Oldest
+first or Enabled first. Every write that adds a mod to the folder or changes a sort key places the
+mod by it: an install, a move into the folder, an update, a rename, and an enable under Enabled
+first. The card and the folder header name the kept sort beside the count. `Keep this sort` in the
+popover sets the view's sort as the kept sort of every folder at once, where the sort is one a
+folder can keep.
+
+**Dragging a mod in a kept folder puts the folder back in manual order.** The drag is the stronger
+gesture, and a drop that the rule silently undid on the next write would read as a drag that did
+not take. The toast says which folder stopped keeping its sort and offers Undo, which sets the sort
+back and re-sorts the folder by it. A drag that leaves the order as it was clears nothing.
+
+**A new install still lands at the top of a folder that keeps no sort.** The newest mod wins a
+conflict and is the one a reader is about to test. A folder that keeps a sort places it by the
+sort instead.
+
+**The champion sort files a mod under the champions its footprint names.** The filter, the card
+chips and the table's grouping all read the declared champions and the derived ones together, so
+the sort reads the same list, and a mod with no declared champion sorts under the champion its
+files belong to rather than last.
+
+**The view's sort is per machine and outlives a restart**, as the table's layout does. The facets
+stay session state, because a filter left on reads as a library that lost its mods.
 
 ## The selection leaves with the page
 
@@ -428,8 +472,8 @@ is Compact, Default or Comfortable, and the art column scales with it. The name 
 width the others leave, so it has no edge to drag, and it stays in view beside the checkbox and
 the switch when a narrow window scrolls the table sideways. The layout is per machine and survives a
 restart: column order, widths and visibility, row height, grouping, which groups are collapsed,
-and the dock's width and whether it is collapsed. Sort is shared with the grid and lasts the
-session, like the filters.
+and the dock's width and whether it is collapsed. Sort is shared with the grid and is per machine as
+well. The filters last the session.
 
 ### What a click does
 
@@ -553,6 +597,12 @@ and names a new one, and it is the keyboard's way to file a mod.
 | Is a license text cached to disk?               | No. It is read once per session and held in memory         |
 | Can the library be edited while patching?       | Yes. The overlay is rebuilt between games                  |
 | Does an edit reach a game already running?      | No. It applies to the next game                            |
+| Does a sort change what the game loads?         | No. Set as load order or a kept sort writes the record     |
+| Where does a kept sort live?                    | On each folder, the root included. Not on the library      |
+| What does a drag do in a kept folder?           | Puts it in manual order, with a toast that offers Undo     |
+| Is the view's sort kept across a restart?       | Yes, per machine. The filters are not                      |
+| What is the record called?                      | Load order, in the popover, the table and Settings         |
+| Where does a new install land with no sort?     | At the top of the root folder, as before                   |
 
 ## Open questions
 

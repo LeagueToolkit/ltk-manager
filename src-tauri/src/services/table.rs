@@ -117,6 +117,7 @@ services! {
         toggle_folder,
         reorder_folder_mods,
         reorder_folders,
+        set_kept_sort,
         // Profiles
         list_mod_profiles,
         get_active_mod_profile,

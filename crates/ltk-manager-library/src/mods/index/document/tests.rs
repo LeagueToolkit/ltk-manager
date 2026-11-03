@@ -51,6 +51,7 @@ fn get_active_profile_returns_error_when_missing() {
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: Vec::new(),
+            kept_sort: None,
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     };
