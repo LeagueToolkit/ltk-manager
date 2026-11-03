@@ -1192,6 +1192,13 @@ export type ClassSchema = {
 	fields: FieldSchema[],
 };
 
+/**  A kept sort that a reorder by hand cleared, for the toast that offers it back. */
+export type ClearedKeptSort = {
+	folderId: string,
+	folderName: string,
+	keptSort: KeptSort,
+};
+
 /**  One entry of `mEventDataMap`, of any kind of `BaseEventData`. */
 export type ClipEvent = {
 	/**  The event's key as the tables name it, and its hash where none does. */
@@ -4407,6 +4414,28 @@ export type JointTreeGroup = {
 	tipsWithoutRadius: boolean,
 };
 
+/**
+ *  A sort a folder keeps its load order in.
+ * 
+ *  Every write that adds a mod to the folder or changes a sort key places the mod by this
+ *  rule. A reorder by hand clears it.
+ */
+export type KeptSort = {
+	field: KeptSortField,
+	direction: SortDirection,
+};
+
+/**  What a kept sort orders a folder's mods by. */
+export type KeptSortField = 
+/**  The mod's display name, compared case-insensitively. */
+"name" | 
+/**  The alphabetically first champion of the mod. A mod naming none sorts last either way. */
+"champion" | 
+/**  When the mod was installed. */
+"installedAt" | 
+/**  Enabled mods first. The direction is ignored. */
+"enabled";
+
 /**  A key one clip names into a map of the graph. */
 export type KeyRef = {
 	/**  The key as the tables name it, and its hash where none does. */
@@ -4731,10 +4760,24 @@ export type LeafValue =
 { type: "objectLink"; text: string };
 
 /**  A named folder for grouping mods in the library. */
-export type LibraryFolder = {
+export type LibraryFolder = LibraryFolder_Serialize | LibraryFolder_Deserialize;
+
+/**  A named folder for grouping mods in the library. */
+export type LibraryFolder_Deserialize = {
 	id: string,
 	name: string,
 	modIds: string[],
+	/**  The sort the folder keeps its load order in. `None` for a folder ordered by hand. */
+	keptSort?: KeptSort | null,
+};
+
+/**  A named folder for grouping mods in the library. */
+export type LibraryFolder_Serialize = {
+	id: string,
+	name: string,
+	modIds: string[],
+	/**  The sort the folder keeps its load order in. `None` for a folder ordered by hand. */
+	keptSort?: KeptSort | null,
 };
 
 /**  What one repair over several mods became of each of them. */
@@ -7795,6 +7838,12 @@ export type RenderState = {
 	depthTest: boolean,
 };
 
+/**  What a reorder by hand changed beyond the order itself. */
+export type ReorderOutcome = {
+	/**  The kept sorts of the folders whose order the reorder changed. */
+	clearedKeptSorts: ClearedKeptSort[],
+};
+
 /**  A sound that plays a replaced media, and the `in_memory_size` that the replacement writes. */
 export type ReplacedSound = {
 	/**  The object ID of the sound. */
@@ -9070,6 +9119,9 @@ path: string;
 name: string; 
 /**  The socket's class as the tables name it, and its hash where none does. */
 class: string };
+
+/**  Which way a kept sort runs. */
+export type SortDirection = "asc" | "desc";
 
 /**  What one event name resolves to. */
 export type SoundResolution = 

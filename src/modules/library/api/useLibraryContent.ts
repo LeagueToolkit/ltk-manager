@@ -10,6 +10,7 @@ import {
   useLibraryViewStore,
 } from "../state";
 import { useFolderOrder, useFolders } from "./queries";
+import { useEffectiveCategories } from "./useEffectiveCategories";
 import { useFilteredMods, useSortContext } from "./useFilteredMods";
 import { useLibraryViewMode } from "./useLibraryViewMode";
 
@@ -47,7 +48,7 @@ export function useLibraryContent({
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
   const sort = useLibrarySort();
-  const sortContext = useSortContext();
+  const sortContext = useSortContext(useEffectiveCategories(mods));
   const { data: folders } = useFolders();
   const { data: folderOrder } = useFolderOrder();
   const cleanupStaleFolders = useLibraryViewStore((s) => s.cleanupStaleFolders);

@@ -1,11 +1,11 @@
+import { FolderOpenIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
-import { FolderOpen } from "lucide-react";
 import { useMemo } from "react";
 
 import { Checkbox } from "@/components";
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { useFolderToggle } from "@/modules/library/api";
-import { getFolderEnabledState, getFolderSummary } from "@/modules/library/utils";
+import { getFolderEnabledState, getFolderSummary, keptSortLabel } from "@/modules/library/utils";
 
 import { FolderCardThumbnail } from "./FolderCardThumbnail";
 import { FolderContextMenu } from "./FolderContextMenu";
@@ -19,6 +19,7 @@ export function FolderCard({ folder, mods }: FolderCardProps) {
   const { handleToggle, checked, indeterminate } = useFolderToggle(folder, mods);
   const { enabledCount } = getFolderEnabledState(mods);
   const summary = useMemo(() => getFolderSummary(mods), [mods]);
+  const kept = keptSortLabel(folder.keptSort);
 
   return (
     <FolderContextMenu folderId={folder.id} folderName={folder.name}>
@@ -49,16 +50,17 @@ export function FolderCard({ folder, mods }: FolderCardProps) {
 
         <div className="flex flex-1 flex-col p-3">
           <div className="flex items-center gap-2">
-            <FolderOpen className="size-4 shrink-0 text-accent-400" />
+            <FolderOpenIcon className="size-4 shrink-0 text-accent-400" />
             <h3 className="flex-1 truncate text-sm font-medium text-surface-100">{folder.name}</h3>
           </div>
 
-          <div className="mb-1 min-h-5 text-xs text-surface-400">
+          <div className="mb-1 flex min-h-5 items-center gap-1 text-xs text-surface-400">
             {mods.length > 0 && (
               <span>
                 {enabledCount}/{mods.length} enabled
               </span>
             )}
+            {kept && <span className="truncate text-surface-500">· {kept}</span>}
           </div>
 
           <div className="mt-auto flex items-center text-xs text-surface-500">

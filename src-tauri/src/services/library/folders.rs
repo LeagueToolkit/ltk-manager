@@ -1,5 +1,5 @@
 use crate::error::IpcResult;
-use crate::mods::LibraryFolder;
+use crate::mods::{KeptSort, LibraryFolder, ReorderOutcome};
 use crate::services::shared::Library;
 
 #[tauri::command]
@@ -44,14 +44,26 @@ pub fn toggle_folder(folder_id: String, enabled: bool, library: Library) -> IpcR
     library.with_refresh(|library, config| library.toggle_folder(config, &folder_id, enabled))
 }
 
+/// Reorder the mods of one folder. A changed order clears the folder's kept sort.
 #[tauri::command]
 #[specta::specta]
 pub fn reorder_folder_mods(
     folder_id: String,
     mod_ids: Vec<String>,
     library: Library,
-) -> IpcResult<()> {
+) -> IpcResult<ReorderOutcome> {
     library.with_refresh(|library, config| library.reorder_folder_mods(config, &folder_id, mod_ids))
+}
+
+/// Set the sort each of `folder_ids` keeps its load order in, or clear it with `null`.
+#[tauri::command]
+#[specta::specta]
+pub fn set_kept_sort(
+    folder_ids: Vec<String>,
+    kept_sort: Option<KeptSort>,
+    library: Library,
+) -> IpcResult<()> {
+    library.with_refresh(|library, config| library.set_kept_sort(config, &folder_ids, kept_sort))
 }
 
 #[tauri::command]

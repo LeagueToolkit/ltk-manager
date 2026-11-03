@@ -209,6 +209,65 @@ pub struct LibraryFolder {
     pub id: String,
     pub name: String,
     pub mod_ids: Vec<String>,
+    /// The sort the folder keeps its load order in. `None` for a folder ordered by hand.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub kept_sort: Option<KeptSort>,
+}
+
+/// Which way a kept sort runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum SortDirection {
+    Asc,
+    Desc,
+}
+
+/// What a kept sort orders a folder's mods by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum KeptSortField {
+    /// The mod's display name, compared case-insensitively.
+    Name,
+    /// The alphabetically first champion of the mod. A mod naming none sorts last either way.
+    Champion,
+    /// When the mod was installed.
+    InstalledAt,
+    /// Enabled mods first. The direction is ignored.
+    Enabled,
+}
+
+/// A sort a folder keeps its load order in.
+///
+/// Every write that adds a mod to the folder or changes a sort key places the mod by this
+/// rule. A reorder by hand clears it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct KeptSort {
+    pub field: KeptSortField,
+    pub direction: SortDirection,
+}
+
+/// A kept sort that a reorder by hand cleared, for the toast that offers it back.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ClearedKeptSort {
+    pub folder_id: String,
+    pub folder_name: String,
+    pub kept_sort: KeptSort,
+}
+
+/// What a reorder by hand changed beyond the order itself.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReorderOutcome {
+    /// The kept sorts of the folders whose order the reorder changed.
+    pub cleared_kept_sorts: Vec<ClearedKeptSort>,
 }
 
 /// Sentinel ID for the implicit root folder that holds ungrouped mods.
@@ -308,6 +367,7 @@ mod tests {
                 id: ROOT_FOLDER_ID.to_string(),
                 name: String::new(),
                 mod_ids: Vec::new(),
+                kept_sort: None,
             }],
             folder_order: vec![ROOT_FOLDER_ID.to_string()],
         };
@@ -335,6 +395,7 @@ mod tests {
                 id: ROOT_FOLDER_ID.to_string(),
                 name: String::new(),
                 mod_ids: Vec::new(),
+                kept_sort: None,
             }],
             folder_order: vec![ROOT_FOLDER_ID.to_string()],
         };
@@ -362,6 +423,7 @@ mod tests {
                 id: ROOT_FOLDER_ID.to_string(),
                 name: String::new(),
                 mod_ids: Vec::new(),
+                kept_sort: None,
             }],
             folder_order: vec![ROOT_FOLDER_ID.to_string()],
         };
@@ -389,6 +451,7 @@ mod tests {
                 id: ROOT_FOLDER_ID.to_string(),
                 name: String::new(),
                 mod_ids: Vec::new(),
+                kept_sort: None,
             }],
             folder_order: vec![ROOT_FOLDER_ID.to_string()],
         };

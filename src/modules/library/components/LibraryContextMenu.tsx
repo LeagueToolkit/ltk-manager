@@ -1,4 +1,4 @@
-import { FolderPlus } from "lucide-react";
+import { FolderPlusIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { ContextMenu } from "@/components";
@@ -6,12 +6,16 @@ import { m } from "@/i18n";
 import { useCreateFolder } from "@/modules/library/api";
 
 import { FolderNameDialog } from "./FolderNameDialog";
+import { KeptSortMenuItems } from "./KeptSortMenuItems";
 
 interface LibraryContextMenuProps {
+  /** The folder the ground belongs to: the open folder, or `root` on the library page. */
+  folderId: string;
   children: React.ReactNode;
 }
 
-export function LibraryContextMenu({ children }: LibraryContextMenuProps) {
+/** The menu a right click on the library ground opens: a new folder, and the ground's kept sort. */
+export function LibraryContextMenu({ folderId, children }: LibraryContextMenuProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const createFolder = useCreateFolder();
 
@@ -23,11 +27,12 @@ export function LibraryContextMenu({ children }: LibraryContextMenuProps) {
         </ContextMenu.Trigger>
         <ContextMenu.Content>
           <ContextMenu.Item
-            icon={<FolderPlus className="size-4" />}
+            icon={<FolderPlusIcon className="size-4" />}
             onClick={() => setDialogOpen(true)}
           >
-            New Folder
+            {m.library_folder_menu_new_action()}
           </ContextMenu.Item>
+          <KeptSortMenuItems folderId={folderId} />
         </ContextMenu.Content>
       </ContextMenu.Root>
       <FolderNameDialog

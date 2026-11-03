@@ -74,7 +74,8 @@ impl ModLibrary {
         let mut index = load_library_index(&storage_dir)?;
         let mut refreshed_ids: Vec<String> = Vec::new();
         let reconciled =
-            reconcile_library_index(&storage_dir, &mut index, &mut refreshed_ids, &context);
+            reconcile_library_index(&storage_dir, &mut index, &mut refreshed_ids, &context)
+                | self.place_by_kept_sort(&storage_dir, &mut index, ROOT_FOLDER_ID);
         if reconciled {
             save_library_index(&storage_dir, &index)?;
             self.stamp_mutation();
@@ -215,6 +216,7 @@ impl Default for LibraryIndex {
                 id: ROOT_FOLDER_ID.to_string(),
                 name: String::new(),
                 mod_ids: Vec::new(),
+                kept_sort: None,
             }],
             folder_order: vec![ROOT_FOLDER_ID.to_string()],
         }

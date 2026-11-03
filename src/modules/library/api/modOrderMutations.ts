@@ -1,6 +1,6 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type InstalledMod } from "@/lib/tauri";
+import { api, type AppError, type InstalledMod, type ReorderOutcome } from "@/lib/tauri";
 import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
@@ -27,7 +27,7 @@ export const modOrderMutations = {
   /* Takes a partial list - the root mods alone, say - and appends the rest from
      the cache, because the backend is given the whole order or none of it. */
   reorder: (client: QueryClient) =>
-    mutationOptions<null, AppError, string[], ModsRollback>({
+    mutationOptions<ReorderOutcome, AppError, string[], ModsRollback>({
       mutationFn: async (modIds) => {
         const all = client.getQueryData<InstalledMod[]>(libraryKeys.mods());
         return unwrapForQuery(await api.reorderMods(fullOrder(modIds, all)));
@@ -53,7 +53,7 @@ export const modOrderMutations = {
     }),
 
   reorderInFolder: (client: QueryClient) =>
-    mutationOptions<null, AppError, ReorderFolderModsVariables>({
+    mutationOptions<ReorderOutcome, AppError, ReorderFolderModsVariables>({
       mutationFn: async ({ folderId, modIds }) =>
         unwrapForQuery(await api.reorderFolderMods(folderId, modIds)),
       onSettled: () => refreshPlacement(client),

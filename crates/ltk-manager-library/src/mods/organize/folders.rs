@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryIndex;
-use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
+use crate::mods::types::{ClearedKeptSort, LibraryFolder, ROOT_FOLDER_ID, ReorderOutcome};
 
 /// The folder-shaped view of the index: what groups a mod, and in what order.
 ///
@@ -93,21 +93,33 @@ impl LibraryIndex {
     /// `Profile.mod_order` is re-derived from, so an order saved only on the
     /// profile is dropped by the next sync. Each folder keeps its own mods,
     /// resequenced by where `mod_ids` puts them. A mod the list does not name
-    /// sinks to the end of its folder.
-    pub(crate) fn apply_flat_mod_order(&mut self, mod_ids: &[String]) {
+    /// sinks to the end of its folder. A folder whose order changed stops
+    /// keeping its sort, and the cleared sorts are returned.
+    pub(crate) fn apply_flat_mod_order(&mut self, mod_ids: &[String]) -> Vec<ClearedKeptSort> {
         let rank: HashMap<&str, usize> = mod_ids
             .iter()
             .enumerate()
             .map(|(position, id)| (id.as_str(), position))
             .collect();
 
+        let mut resequenced = Vec::new();
         for folder in &mut self.folders {
+            let before = folder.mod_ids.clone();
             folder
                 .mod_ids
                 .sort_by_key(|id| rank.get(id.as_str()).copied().unwrap_or(usize::MAX));
+            if folder.mod_ids != before {
+                resequenced.push(folder.id.clone());
+            }
         }
 
+        let cleared = resequenced
+            .iter()
+            .filter_map(|folder_id| self.clear_kept_sort(folder_id))
+            .collect();
+
         self.sync_profile_orders();
+        cleared
     }
 
     /// Move `mod_id` to the front of the folder holding it.
@@ -182,6 +194,7 @@ impl ModLibrary {
                 id: Uuid::new_v4().to_string(),
                 name,
                 mod_ids: Vec::new(),
+                kept_sort: None,
             };
             index.folder_order.push(folder.id.clone());
             index.folders.push(folder.clone());
@@ -224,7 +237,7 @@ impl ModLibrary {
             ));
         }
 
-        self.mutate_index(config, |_storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let folder_idx = index
                 .folders
                 .iter()
@@ -242,6 +255,7 @@ impl ModLibrary {
             }
 
             index.sync_profile_orders();
+            self.place_by_kept_sort(storage_dir, index, ROOT_FOLDER_ID);
             Ok(())
         })
     }
@@ -253,7 +267,7 @@ impl ModLibrary {
         mod_id: &str,
         folder_id: &str,
     ) -> AppResult<()> {
-        self.mutate_index(config, |_storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             }
@@ -291,13 +305,14 @@ impl ModLibrary {
             target.mod_ids.push(mod_id.to_string());
 
             index.sync_profile_orders();
+            self.place_by_kept_sort(storage_dir, index, folder_id);
             Ok(())
         })
     }
 
     /// Enable or disable all mods in a folder for the active profile.
     pub fn toggle_folder(&self, config: &Config, folder_id: &str, enabled: bool) -> AppResult<()> {
-        self.mutate_index(config, |_storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             let folder = index
                 .folders
                 .iter()
@@ -350,17 +365,18 @@ impl ModLibrary {
                     .retain(|id| !remove_set.contains(id.as_str()));
             }
 
+            self.place_enabled_by_kept_sort(storage_dir, index, folder_id);
             Ok(())
         })
     }
 
-    /// Reorder mods within a folder.
+    /// Reorder mods within a folder. A changed order clears the folder's kept sort.
     pub fn reorder_folder_mods(
         &self,
         config: &Config,
         folder_id: &str,
         mod_ids: Vec<String>,
-    ) -> AppResult<()> {
+    ) -> AppResult<ReorderOutcome> {
         self.mutate_index(config, |_storage_dir, index| {
             let folder = index
                 .folders
@@ -381,9 +397,19 @@ impl ModLibrary {
                 ));
             }
 
+            let changed = folder.mod_ids != mod_ids;
             folder.mod_ids = mod_ids;
+
+            let cleared = if changed {
+                index.clear_kept_sort(folder_id)
+            } else {
+                None
+            };
+
             index.sync_profile_orders();
-            Ok(())
+            Ok(ReorderOutcome {
+                cleared_kept_sorts: cleared.into_iter().collect(),
+            })
         })
     }
 
@@ -436,6 +462,7 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             mod_ids: mod_ids.into_iter().map(String::from).collect(),
+            kept_sort: None,
         }
     }
 

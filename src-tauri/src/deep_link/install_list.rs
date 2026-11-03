@@ -304,7 +304,8 @@ fn retry_wait(error: &AppError) -> Option<Duration> {
 /// Puts the list's mods at the front of the active profile's order, in the list's order.
 ///
 /// A fresh install lands at the front, so a list installed top first would leave its bottom
-/// item in front. The owner's order is the one the reader saw, and the top of it wins.
+/// item in front. The owner's order is the one the reader saw, and the top of it wins. A
+/// folder that keeps a sort keeps it, and places the list's mods by it.
 fn put_list_first(
     report: &InstallListReport,
     items: &[InstallListItem],
@@ -338,5 +339,10 @@ fn put_list_first(
             .filter(|id| !list_ids.contains(id))
             .cloned(),
     );
-    library.reorder_mods(config, order)
+    let outcome = library.reorder_mods(config, order)?;
+    for cleared in outcome.cleared_kept_sorts {
+        library.set_kept_sort(config, &[cleared.folder_id], Some(cleared.kept_sort))?;
+    }
+
+    Ok(())
 }

@@ -12,7 +12,7 @@ use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::LibraryModEntry;
 use crate::mods::index::get_active_profile;
-use crate::mods::types::{EditModMetadataArgs, InstalledMod, ModOrigin};
+use crate::mods::types::{EditModMetadataArgs, InstalledMod, ModOrigin, ReorderOutcome};
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};
@@ -75,7 +75,7 @@ impl ModLibrary {
     /// order. The order is written into the folders rather than onto the
     /// profile, which is what makes it survive the next sync, and
     /// `mod_order` and `enabled_mods` are re-derived from there.
-    pub fn reorder_mods(&self, config: &Config, mod_ids: Vec<String>) -> AppResult<()> {
+    pub fn reorder_mods(&self, config: &Config, mod_ids: Vec<String>) -> AppResult<ReorderOutcome> {
         self.mutate_index(config, |_storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
 
@@ -101,9 +101,9 @@ impl ModLibrary {
                 ));
             }
 
-            index.apply_flat_mod_order(&mod_ids);
+            let cleared_kept_sorts = index.apply_flat_mod_order(&mod_ids);
 
-            Ok(())
+            Ok(ReorderOutcome { cleared_kept_sorts })
         })
     }
 
@@ -113,7 +113,7 @@ impl ModLibrary {
         mod_id: &str,
         enabled: bool,
     ) -> AppResult<()> {
-        self.mutate_index(config, |_storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             // Validate mod exists
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
@@ -129,6 +129,7 @@ impl ModLibrary {
 
             if !enabled {
                 profile.enabled_mods.retain(|id| id != mod_id);
+                self.place_mod_enabled_by_kept_sort(storage_dir, index, mod_id);
                 return Ok(());
             }
 
@@ -140,6 +141,7 @@ impl ModLibrary {
             } else {
                 index.sync_profile_orders();
             }
+            self.place_mod_enabled_by_kept_sort(storage_dir, index, mod_id);
 
             Ok(())
         })
@@ -204,7 +206,7 @@ impl ModLibrary {
         mod_id: &str,
         layer_states: HashMap<String, bool>,
     ) -> AppResult<()> {
-        self.mutate_index(config, |_storage_dir, index| {
+        self.mutate_index(config, |storage_dir, index| {
             if !index.mods.iter().any(|m| m.id == mod_id) {
                 return Err(AppError::ModNotFound(mod_id.to_string()));
             }
@@ -229,6 +231,7 @@ impl ModLibrary {
             } else {
                 index.sync_profile_orders();
             }
+            self.place_mod_enabled_by_kept_sort(storage_dir, index, mod_id);
 
             Ok(())
         })
@@ -245,6 +248,7 @@ impl ModLibrary {
                 .mods
                 .iter()
                 .find(|m| m.id == mod_id)
+                .cloned()
                 .ok_or_else(|| AppError::ModNotFound(mod_id.to_string()))?;
 
             let mod_dir = entry.mod_dir(storage_dir);
@@ -274,6 +278,7 @@ impl ModLibrary {
 
             let config_path = mod_dir.join("mod.config.json");
             fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
+            self.place_mod_by_kept_sort(storage_dir, index, mod_id);
 
             // Determine if enabled
             let mut enabled = false;
@@ -283,7 +288,7 @@ impl ModLibrary {
                 layer_states = active_profile.layer_states.get(mod_id);
             }
 
-            read_installed_mod(entry, enabled, storage_dir, layer_states)
+            read_installed_mod(&entry, enabled, storage_dir, layer_states)
         })
     }
 

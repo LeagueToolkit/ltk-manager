@@ -1,19 +1,68 @@
-import type { InstalledMod, LibraryFolder, ModHealthVerdict } from "@/lib/tauri";
+import type {
+  InstalledMod,
+  KeptSort,
+  KeptSortField,
+  LibraryFolder,
+  ModHealthVerdict,
+} from "@/lib/tauri";
 
 import type { SortConfig } from "../state";
+
+/** The sort that draws the library in its load order. */
+export const LOAD_ORDER: SortConfig = { field: "priority", direction: "desc" };
 
 /** What a sort needs beyond the mod itself, for the fields another query answers. */
 export interface SortContext {
   folderName?: (folderId: string) => string | undefined;
   healthOf?: (modId: string) => ModHealthVerdict | null | undefined;
+  /** The champions a mod is filed under, declared and derived. Defaults to the declared ones. */
+  championsOf?: (mod: InstalledMod) => readonly string[];
 }
 
 /** Alphabetically first champion of a mod, or null when it names none. */
-function championKey(mod: InstalledMod): string | null {
-  if (mod.champions.length === 0) return null;
-  return mod.champions.reduce((first, champion) =>
+function championKey(mod: InstalledMod, context: SortContext): string | null {
+  const champions = context.championsOf?.(mod) ?? mod.champions;
+  if (champions.length === 0) return null;
+  return champions.reduce((first, champion) =>
     champion.localeCompare(first) < 0 ? champion : first,
   );
+}
+
+const KEPT_SORT_FIELDS: Partial<Record<SortConfig["field"], KeptSortField>> = {
+  name: "name",
+  champion: "champion",
+  installedAt: "installedAt",
+  enabled: "enabled",
+};
+
+/** The kept sort that places mods the way `sort` draws them, or null for a sort no folder keeps. */
+export function keptSortOf(sort: SortConfig): KeptSort | null {
+  const field = KEPT_SORT_FIELDS[sort.field];
+  if (!field) return null;
+  return { field, direction: sort.direction };
+}
+
+/**
+ * The folder order with the user folders arranged by `sort`, for the arrange that writes
+ * the view's order back. The root folder keeps its place, and a folder the order does
+ * not name is left out.
+ */
+export function arrangedFolderOrder(
+  folderOrder: readonly string[],
+  folders: readonly LibraryFolder[],
+  sort: SortConfig,
+): string[] {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const userFolders = folderOrder
+    .filter((id) => id !== "root")
+    .map((id) => byId.get(id))
+    .filter((folder): folder is LibraryFolder => folder !== undefined);
+  const sorted = sortFolders(userFolders, sort).map((folder) => folder.id);
+
+  let next = 0;
+  return folderOrder
+    .filter((id) => id === "root" || byId.has(id))
+    .map((id) => (id === "root" ? id : sorted[next++]));
 }
 
 /** Numeric parts of a version, so `1.10.0` sorts after `1.9.0`. */
@@ -70,7 +119,7 @@ export function sortMods(
       case "name":
         return dir * byName(a, b);
       case "champion":
-        return absentLast(championKey(a), championKey(b), dir) || byName(a, b);
+        return absentLast(championKey(a, context), championKey(b, context), dir) || byName(a, b);
       case "installedAt":
         return dir * (new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime());
       case "enabled":

@@ -7,4 +7,5 @@
 //! flatten/sync helpers that [`super::index::reconcile`] leans on.
 
 pub(super) mod folders;
+pub(super) mod kept_sort;
 pub(super) mod profiles;

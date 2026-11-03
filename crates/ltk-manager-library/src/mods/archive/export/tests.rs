@@ -34,6 +34,7 @@ fn library_of_two(storage_dir: &Path, enabled: Vec<&str>) -> (crate::mods::ModLi
             id: ROOT_FOLDER_ID.to_string(),
             name: String::new(),
             mod_ids: vec!["m1".to_string(), "m2".to_string()],
+            kept_sort: None,
         }],
         folder_order: vec![ROOT_FOLDER_ID.to_string()],
     };

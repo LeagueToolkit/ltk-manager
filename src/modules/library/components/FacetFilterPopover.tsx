@@ -85,6 +85,8 @@ export interface FacetFilterPopoverProps<F extends string> {
   /** The trigger's size, `xs` unless the caller seats it in a taller bar. */
   triggerSize?: "xs" | "md";
   onOpenChange?: (open: boolean) => void;
+  /** A line under the sort pills, for what the active sort does beyond the view. */
+  sortNote?: ReactNode;
   /** Sections between the sort and the facet columns. */
   children?: ReactNode;
 }
@@ -98,6 +100,7 @@ export function FacetFilterPopover<F extends string>({
   triggerLabel,
   triggerSize = "xs",
   onOpenChange,
+  sortNote,
   children,
 }: FacetFilterPopoverProps<F>) {
   const selectedTags = useStore(store, (s) => s.selectedTags);
@@ -178,6 +181,7 @@ export function FacetFilterPopover<F extends string>({
             action={<SortDirectionToggle options={sortOptions} sort={sort} onSort={setSort} />}
           >
             <SortOptions options={sortOptions} sort={sort} onSort={setSort} />
+            {sortNote}
           </FilterSection>
 
           {children}
