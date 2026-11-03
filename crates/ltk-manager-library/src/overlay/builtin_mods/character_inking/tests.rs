@@ -958,3 +958,27 @@ fn lane_minions_and_structures_get_a_list_only_when_their_setting_is_on() {
         [minion, turret]
     );
 }
+
+#[test]
+fn a_declaration_source_is_named_after_its_target_not_a_chunk_hash() {
+    let mut overrides = Overrides::default();
+    overrides.declare(
+        &skin_path("ahri", 0),
+        "Characters/Ahri/Skins/Skin0",
+        "skinMeshProperties.OutlineCategorySubmeshes",
+        "[]".to_owned(),
+    );
+    let dir = tempfile::tempdir().unwrap();
+    overrides.write(dir.path(), "inking", "Inking").unwrap();
+
+    let source = dir
+        .path()
+        .join("content/base/game-data/data/characters/ahri/skins/skin0.bin.yaml");
+    assert!(source.is_file(), "missing {}", source.display());
+    let hex_named = walkdir::WalkDir::new(dir.path().join("content/base/game-data"))
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.path().file_stem()?.to_str().map(str::to_owned))
+        .any(|stem| stem.len() == 16 && stem.bytes().all(|b| b.is_ascii_hexdigit()));
+    assert!(!hex_named, "a source name reads as a chunk hash");
+}

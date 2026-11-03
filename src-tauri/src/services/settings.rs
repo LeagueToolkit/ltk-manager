@@ -372,15 +372,16 @@ fn list_inking_maps_inner(state: &State<SettingsState>) -> AppResult<Vec<InkingM
     inking_maps(&GameDir::resolve(&config)?)
 }
 
-/// Writes the preview project that shows `settings` on `champion`, in the app cache directory.
+/// Writes the preview project that shows `settings` on `champion`, in a directory of the
+/// champion's own under the app cache directory.
 ///
 /// The project holds the declarations the overlay build writes for that champion on Summoner's
 /// Rift, so a skin viewer reading it through a project sandbox draws the game's outline.
 ///
 /// # Errors
 ///
-/// Fails when no League install is configured, the game cannot be read or the project cannot be
-/// written.
+/// Fails when `champion` is not a name of letters, digits and underscores, no League install is
+/// configured, the game cannot be read or the project cannot be written.
 #[tauri::command]
 #[specta::specta]
 pub async fn prepare_inking_preview(
@@ -391,6 +392,16 @@ pub async fn prepare_inking_preview(
     off_thread(move || {
         let config = app_handle.state::<SettingsState>().config();
         let game_dir = GameDir::resolve(&config)?;
+        let character = champion.to_ascii_lowercase();
+        if character.is_empty()
+            || !character
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ltk_manager_base::error::AppError::Other(format!(
+                "`{champion}` is not a champion name"
+            )));
+        }
         let dir = app_handle
             .path()
             .app_cache_dir()
@@ -399,8 +410,9 @@ pub async fn prepare_inking_preview(
                     "the app cache directory is unknown: {e}"
                 ))
             })?
-            .join(INKING_PREVIEW_DIR);
-        write_inking_preview(&dir, &settings, &champion, &game_dir)
+            .join(INKING_PREVIEW_DIR)
+            .join(&character);
+        write_inking_preview(&dir, &settings, &character, &game_dir)
     })
     .await
 }

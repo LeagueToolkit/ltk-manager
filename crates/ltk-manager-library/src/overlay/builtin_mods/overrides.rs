@@ -95,7 +95,8 @@ impl Overrides {
     /// document under `game-data/`, and each source, by its path below the layer.
     ///
     /// The parser bounds the nodes of one document, so every target's bindings go in a document
-    /// of their own.
+    /// of their own. A source is named after its target's path, because a project reads a file
+    /// whose name is 16 hex digits as the chunk with that path hash.
     fn declaration_files(&self) -> Vec<(String, String)> {
         let targets = self.targets();
         if targets.is_empty() {
@@ -105,10 +106,7 @@ impl Overrides {
         let mut manifest = String::from("version: 1\nmodules:\n");
         let mut files = Vec::with_capacity(targets.len() + 1);
         for target in targets {
-            let source = format!(
-                "{SOURCES_DIR}/{:016x}.yaml",
-                ltk_wad::WadHash::from(target.as_str()).0
-            );
+            let source = format!("{SOURCES_DIR}/{target}.yaml");
             manifest.push_str(&format!(
                 "  - target: {}\n    source: {}\n",
                 quoted(target),
