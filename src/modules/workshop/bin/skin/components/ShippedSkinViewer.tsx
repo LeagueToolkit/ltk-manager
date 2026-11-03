@@ -49,13 +49,15 @@ export interface ShippedSkinViewerProps {
   readonly skin: ShippedSkin;
   /** Rewrites each submesh's outline before it draws, for a value the bins do not hold yet. */
   readonly adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  /** The camera distance the outline is drawn as seen from, and none for the camera's own. */
+  readonly outlineRange?: number;
 }
 
 /**
  * One skin of a project on its idle clip, drawn with the game's shaders under an orbit camera
  * that frames it. The viewer takes no edits.
  */
-export function ShippedSkinViewer({ skin, adjustOutline }: ShippedSkinViewerProps) {
+export function ShippedSkinViewer({ skin, adjustOutline, outlineRange }: ShippedSkinViewerProps) {
   const document = useSkinDocument(skin);
 
   return (
@@ -68,7 +70,12 @@ export function ShippedSkinViewer({ skin, adjustOutline }: ShippedSkinViewerProp
       {document === "failed" && <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />}
       {document === null && <Notice text={m.workshop_bin_mesh_preview_loading_label()} />}
       {typeof document === "number" && (
-        <SkinRead document={document} entry={skin.entry} adjustOutline={adjustOutline} />
+        <SkinRead
+          document={document}
+          entry={skin.entry}
+          adjustOutline={adjustOutline}
+          outlineRange={outlineRange}
+        />
       )}
     </div>
   );
@@ -113,24 +120,33 @@ interface SkinReadProps {
   document: BinDocumentId;
   entry: string;
   adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  outlineRange?: number;
 }
 
-function SkinRead({ document, entry, adjustOutline }: SkinReadProps) {
+function SkinRead({ document, entry, adjustOutline, outlineRange }: SkinReadProps) {
   const read = useQuery(skinQueries.skin(document, entry));
 
   if (read.error !== null) return <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />;
   if (read.data === undefined) return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
 
-  return <SkinStage document={document} skin={read.data} adjustOutline={adjustOutline} />;
+  return (
+    <SkinStage
+      document={document}
+      skin={read.data}
+      adjustOutline={adjustOutline}
+      outlineRange={outlineRange}
+    />
+  );
 }
 
 interface SkinStageProps {
   document: BinDocumentId;
   skin: SkinModel;
   adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  outlineRange?: number;
 }
 
-function SkinStage({ document, skin, adjustOutline }: SkinStageProps) {
+function SkinStage({ document, skin, adjustOutline, outlineRange }: SkinStageProps) {
   const clock = useMemo(createSceneClock, []);
   const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
   const skeleton = useQuery(viewportQueries.skeleton(skin.skeleton?.asset ?? null));
@@ -201,6 +217,7 @@ function SkinStage({ document, skin, adjustOutline }: SkinStageProps) {
         clock={clock}
         bindingOf={bindingFor}
         programsOf={programsFor}
+        outlineRange={outlineRange}
         outlineOf={outlineFor}
         colors={colors}
         hidden={skin.hidden}

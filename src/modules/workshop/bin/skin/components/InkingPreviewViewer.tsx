@@ -3,7 +3,7 @@ import { useCallback } from "react";
 
 import { m } from "@/i18n";
 import type { InkingOutline, InkingPreview, PassParam } from "@/lib/tauri";
-import type { SubmeshOutline } from "@/modules/viewport";
+import { GAME_ZOOM, type SubmeshOutline } from "@/modules/viewport";
 
 import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../api/skinQueries";
@@ -22,7 +22,9 @@ export interface InkingPreviewViewerProps {
  * The project holds the declarations the overlay build writes, so the outline comes from the
  * skin's own `OutlineCategorySubmeshes` through the same reads and translated shaders the skin
  * editor uses. `outline` is written into every drawn outline, its stock material and its
- * translated pass alike, so a new value lands without reading the project again.
+ * translated pass alike, so a new value lands without reading the project again. The outline
+ * is drawn as seen from the in-match camera at its farthest zoom, so it keeps its in-game width
+ * beside the champion while the preview camera stands closer.
  */
 export function InkingPreviewViewer({ preview, outline }: InkingPreviewViewerProps) {
   const located = useQuery(
@@ -45,6 +47,7 @@ export function InkingPreviewViewer({ preview, outline }: InkingPreviewViewerPro
       key={preview.revision}
       skin={{ project: preview.project, asset: located.data, entry: preview.entry }}
       adjustOutline={adjustOutline}
+      outlineRange={GAME_ZOOM.farthest}
     />
   );
 }

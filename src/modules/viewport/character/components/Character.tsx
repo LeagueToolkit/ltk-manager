@@ -46,7 +46,14 @@ import {
   lightFrom,
   lightGridUniforms,
 } from "../utils/lightGridShading";
-import { OutlineMaterials, type SubmeshOutline } from "../utils/outlineMaterial";
+import {
+  OutlineMaterials,
+  type RangedOutline,
+  rangedProgram,
+  rangedStock,
+  scaleOutlines,
+  type SubmeshOutline,
+} from "../utils/outlineMaterial";
 import {
   type FallbackColors,
   applyBinding,
@@ -73,6 +80,12 @@ export interface CharacterProps {
    * the `material` surface alone.
    */
   readonly outlineOf?: (submesh: string) => SubmeshOutline | null;
+  /**
+   * The camera distance in engine units that the outline is drawn as seen from, and none for
+   * the camera's own. `Outline_CameraDistanceMod` scales with the camera's distance over this
+   * one, so the outline keeps the width it has beside the character at that distance.
+   */
+  readonly outlineRange?: number;
   /** A value a material's control holds, drawn in place of its program's own until let go. */
   readonly held?: HeldValue | null;
   /** What a submesh no texture or no material reaches is drawn in. */
@@ -146,6 +159,7 @@ export function Character({
   bindingOf,
   programsOf,
   outlineOf,
+  outlineRange,
   held = null,
   colors,
   hidden,
@@ -236,21 +250,29 @@ export function Character({
   }, [skinned, outline]);
 
   const scrolling = useRef<readonly Scrolling[]>([]);
+  const ranged = useRef<readonly RangedOutline[]>([]);
   const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
   const outlines = useMemo(() => new OutlineMaterials(), []);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    scrolling.current = bind(skinned, twins, outline, shaded, drawn.ranges, {
-      bindingOf,
-      programsOf,
-      outlineOf,
-      programs,
-      outlines,
-      colors,
-      hidden,
-      highlighted,
-      surface,
-    });
+    ({ scrolling: scrolling.current, ranged: ranged.current } = bind(
+      skinned,
+      twins,
+      outline,
+      shaded,
+      drawn.ranges,
+      {
+        bindingOf,
+        programsOf,
+        outlineOf,
+        programs,
+        outlines,
+        colors,
+        hidden,
+        highlighted,
+        surface,
+      },
+    ));
   }, [
     skinned,
     twins,
@@ -315,12 +337,15 @@ export function Character({
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
   const centre = useMemo(() => new Vector3(), []);
-  useFrame(() => {
+  useFrame(({ camera }) => {
     if (asleep?.current === true) return;
 
     /* The game lights a character by the cell under the centre of its bounds. */
     centre.copy(drawn.centre).applyMatrix4(skinned.matrixWorld);
     lightFrom(lightGrid, centre.x, centre.z, ambient);
+    if (outlineRange !== undefined) {
+      scaleOutlines(ranged.current, camera.position.distanceTo(centre) / outlineRange);
+    }
     pose.localsInto(clock.time, locals);
     rig.bones.forEach((bone, slot) => {
       const at = slot * LOCAL_FLOATS;
@@ -443,7 +468,7 @@ function bind(
     highlighted,
     surface,
   }: Bind,
-): readonly Scrolling[] {
+): { readonly scrolling: readonly Scrolling[]; readonly ranged: readonly RangedOutline[] } {
   const tangents = skinned.geometry.hasAttribute("tangent");
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
@@ -452,6 +477,7 @@ function bind(
   const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
   const used = new Set<RawShaderMaterial>();
   const outlined = new Set<Material>();
+  const ranged: RangedOutline[] = [];
   outline.material = ranges.map((range) => {
     const drawn = surface === "material" && !skip.has(range.name.toLowerCase());
     const held = drawn ? (outlineOf?.(range.name) ?? null) : null;
@@ -460,10 +486,13 @@ function bind(
     if (held.program !== null) {
       const material = programs.acquire(held.program);
       used.add(material);
+      const programRange = rangedProgram(material, held.program);
+      if (programRange !== null) ranged.push(programRange);
       return material;
     }
     const material = outlines.acquire(held);
     outlined.add(material);
+    ranged.push(rangedStock(material));
     return material;
   });
 
@@ -507,7 +536,7 @@ function bind(
   });
   programs.retain(used);
   outlines.retain(outlined);
-  return scrolling;
+  return { scrolling, ranged };
 }
 
 /** The material `binding` draws with under `surface`, out of the submesh's shading models. */

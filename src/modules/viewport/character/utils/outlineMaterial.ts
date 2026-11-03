@@ -3,6 +3,7 @@ import {
   DoubleSide,
   type Material,
   NormalBlending,
+  type RawShaderMaterial,
   ShaderMaterial,
   SRGBColorSpace,
   type Texture,
@@ -11,7 +12,7 @@ import {
 import type { OutlineMaterial } from "@/lib/tauri";
 
 import { whiteTexel } from "../../hexshade/neutralTextures";
-import type { SubmeshProgram } from "../../hexshade/programMaterial";
+import { type SubmeshProgram, writeProgramMember } from "../../hexshade/programMaterial";
 
 /** The outline drawn around one submesh, as its skin's `OutlineCategorySubmeshes` names it. */
 export interface SubmeshOutline<T = Texture> {
@@ -136,6 +137,48 @@ export function applyOutline(
   uniforms.mask.value = mask ?? whiteTexel();
   const [x, y, z, w] = outline.maskChannels;
   uniforms.maskChannels.value = [x ?? 0, y ?? 0, z ?? 0, w ?? 0];
+}
+
+/** The `$Globals` member of `Jade_CharacterOutline` that the outline width divides by. */
+const CAMERA_DISTANCE_MEMBER = "Outline_CameraDistanceMod";
+
+/** An outline material with the `Outline_CameraDistanceMod` its outline states. */
+export type RangedOutline =
+  | { readonly kind: "stock"; readonly material: ShaderMaterial; readonly distance: number }
+  | { readonly kind: "program"; readonly material: RawShaderMaterial; readonly distance: number };
+
+/** The stock outline `material` with the camera distance its uniforms hold. */
+export function rangedStock(material: ShaderMaterial): RangedOutline {
+  const uniforms = material.uniforms as unknown as OutlineUniforms;
+  return { kind: "stock", material, distance: uniforms.cameraDistance.value };
+}
+
+/**
+ * The translated outline `material` with the camera distance of `program`'s pass. Returns null
+ * if the pass names no `Outline_CameraDistanceMod`.
+ */
+export function rangedProgram(
+  material: RawShaderMaterial,
+  program: SubmeshProgram,
+): RangedOutline | null {
+  const distance = program.pass.params.find((param) => param.name === CAMERA_DISTANCE_MEMBER)
+    ?.value[0];
+  return distance == null ? null : { kind: "program", material, distance };
+}
+
+/**
+ * Writes each outline's `Outline_CameraDistanceMod` as its own value times `factor`, the
+ * camera's distance over the distance the outline is drawn as seen from.
+ */
+export function scaleOutlines(ranged: readonly RangedOutline[], factor: number): void {
+  for (const outline of ranged) {
+    const distance = outline.distance * factor;
+    if (outline.kind === "program") {
+      writeProgramMember(outline.material, CAMERA_DISTANCE_MEMBER, [distance]);
+      continue;
+    }
+    (outline.material.uniforms as unknown as OutlineUniforms).cameraDistance.value = distance;
+  }
 }
 
 /** The stock outline materials of one character, one per outline material. */
