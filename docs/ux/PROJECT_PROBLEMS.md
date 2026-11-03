@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-11-01 | Settings explains when no patch-dependent rule is waiting    |
 | 2026-10-30 | `bin/skinhack` removes the audio of another skin             |
 | 2026-10-25 | `bin/skinhack` reports a base skin built from another skin   |
 | 2026-10-22 | The material name table claims live patch 16.21              |
@@ -13,7 +14,6 @@
 | 2026-10-15 | `bin/texture-file` reports a non-image texture file          |
 | 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
-| 2026-09-30 | Name each unchecked file once, with its reason               |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -751,6 +751,19 @@ alternative reading - that an unknown build means the change has not landed - wo
 away from the person least able to notice it went quiet.
 
 ### A rule that waits
+
+Settings shows a hint directly below **Lints for the coming patch** when no patch-dependent
+rule is dormant. The hint reports the newest patch supported by the manager and the installed
+game patch. One backend query compares the meta schema snapshot with all migration tables and
+reads the configured install's `content-metadata.json`. A newer table does not make an already
+active rule dormant. The hint disappears while the rule waits for its first supported patch.
+
+With no configured install, the hint states "No League install is configured." If the configured
+install's metadata cannot be read, it reports that the installed version could not be read,
+without claiming that nothing is waiting. A schema without a patch name uses its content build
+number. Loading and failed queries show no hint. The hint is not a dependent setting row and
+remains visible when the switch is off. It refreshes after install-path or schema changes and
+when Settings is reopened or focused.
 
 **A dormant rule finds everything and claims nothing.** Every finding is in the run, because the
 day the build lands is the day each of them stops the mod working, and a modder who cannot see

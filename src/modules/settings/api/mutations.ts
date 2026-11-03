@@ -32,6 +32,10 @@ export const settingsMutations = {
       onSuccess: () => {
         client.invalidateQueries({ queryKey: settingsKeys.setupRequired() });
       },
+      onSettled: () => {
+        // An optimistic path change can query before the backend saves that path.
+        client.invalidateQueries({ queryKey: settingsKeys.patchStatus() });
+      },
     }),
 
   exportSettings: () =>
@@ -88,6 +92,7 @@ export const hashtableMutations = {
       mutationFn: mutationFn(api.syncHashtables),
       onSettled: () => {
         client.invalidateQueries({ queryKey: settingsKeys.hashtableCache() });
+        client.invalidateQueries({ queryKey: settingsKeys.patchStatus() });
         client.invalidateQueries({ queryKey: settingsKeys.hashtableUpdates() });
         /* The sync drops the game index behind it, so every placement read out of the
            old one now names a file by a name that install no longer resolves. */
