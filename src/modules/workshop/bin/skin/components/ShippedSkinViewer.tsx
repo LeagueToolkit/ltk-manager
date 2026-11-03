@@ -10,12 +10,14 @@ import {
   type SkinModel,
 } from "@/lib/tauri";
 import {
+  type CameraPreset,
   Character,
   createPose,
   createSceneClock,
   FitCamera,
   meshBounds,
   sequencePose,
+  type SubmeshOutline,
   useAssetTextures,
   useSceneColors,
   Viewport,
@@ -46,13 +48,21 @@ const FEET = [0, 0, 0] as const;
 
 export interface ShippedSkinViewerProps {
   readonly skin: ShippedSkin;
+  /** Rewrites each submesh's outline before it draws, for a value the bins do not hold yet. */
+  readonly adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  /** The camera the skin is drawn through, orbit by default. */
+  readonly camera?: CameraPreset;
 }
 
 /**
- * One skin of a project on its idle clip, drawn with the game's shaders under an orbit camera
- * that frames it. The viewer takes no edits.
+ * One skin of a project on its idle clip, drawn with the game's shaders under a camera that
+ * frames it. The viewer takes no edits.
  */
-export function ShippedSkinViewer({ skin }: ShippedSkinViewerProps) {
+export function ShippedSkinViewer({
+  skin,
+  adjustOutline,
+  camera = "orbit",
+}: ShippedSkinViewerProps) {
   const document = useSkinDocument(skin);
 
   return (
@@ -64,7 +74,14 @@ export function ShippedSkinViewer({ skin }: ShippedSkinViewerProps) {
     >
       {document === "failed" && <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />}
       {document === null && <Notice text={m.workshop_bin_mesh_preview_loading_label()} />}
-      {typeof document === "number" && <SkinRead document={document} entry={skin.entry} />}
+      {typeof document === "number" && (
+        <SkinRead
+          document={document}
+          entry={skin.entry}
+          adjustOutline={adjustOutline}
+          camera={camera}
+        />
+      )}
     </div>
   );
 }
@@ -104,16 +121,32 @@ function useSkinDocument(skin: ShippedSkin): BinDocumentId | "failed" | null {
   return document;
 }
 
-function SkinRead({ document, entry }: { document: BinDocumentId; entry: string }) {
+interface SkinReadProps {
+  document: BinDocumentId;
+  entry: string;
+  adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  camera: CameraPreset;
+}
+
+function SkinRead({ document, entry, adjustOutline, camera }: SkinReadProps) {
   const read = useQuery(skinQueries.skin(document, entry));
 
   if (read.error !== null) return <Notice text={m.workshop_bin_mesh_preview_failed_empty()} />;
   if (read.data === undefined) return <Notice text={m.workshop_bin_mesh_preview_loading_label()} />;
 
-  return <SkinStage document={document} skin={read.data} />;
+  return (
+    <SkinStage document={document} skin={read.data} adjustOutline={adjustOutline} camera={camera} />
+  );
 }
 
-function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinModel }) {
+interface SkinStageProps {
+  document: BinDocumentId;
+  skin: SkinModel;
+  adjustOutline?: (outline: SubmeshOutline) => SubmeshOutline;
+  camera: CameraPreset;
+}
+
+function SkinStage({ document, skin, adjustOutline, camera }: SkinStageProps) {
   const clock = useMemo(createSceneClock, []);
   const mesh = useQuery(viewportQueries.mesh(skin.mesh?.asset ?? null));
   const skeleton = useQuery(viewportQueries.skeleton(skin.skeleton?.asset ?? null));
@@ -149,7 +182,14 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
     [skin, textures, maps],
   );
   const programsFor = useSkinPrograms(document, skin, true, Boolean(mesh.data?.tangents));
-  const outlineFor = useSkinOutlines(document, skin, true);
+  const listedOutlines = useSkinOutlines(document, skin, true);
+  const outlineFor = useMemo(() => {
+    if (adjustOutline === undefined) return listedOutlines;
+    return (submesh: string) => {
+      const outline = listedOutlines(submesh);
+      return outline === null ? null : adjustOutline(outline);
+    };
+  }, [listedOutlines, adjustOutline]);
   const colors = useSceneColors();
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
@@ -167,7 +207,7 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
   }
 
   return (
-    <Viewport renderer="shared" stage textured={false} camera="orbit">
+    <Viewport renderer="shared" stage textured={false} camera={camera}>
       <Clock clock={clock} playing speed={1} />
       <FitCamera bounds={bounds} ground={FEET} token={0} />
       <Passes warps={false} softens={false} />

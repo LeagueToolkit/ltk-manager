@@ -931,6 +931,8 @@ export type BuiltinModSettings = {
 	 *  game.
 	 */
 	mapDecorations?: { [key in string]: MapDecorationMode },
+	/**  Character inking: which champions get an outline, on which maps, and how it looks. */
+	characterInking?: CharacterInking,
 };
 
 /**  Error info for a single file that failed during bulk install. */
@@ -1036,6 +1038,49 @@ export type ChangeKind =
 export type ChangedPostField = {
 	/**  The field that changes. */
 	field: PostField,
+};
+
+/**
+ *  The settings of the character inking built-in mod.
+ * 
+ *  Every value is an integer, so the struct keeps `Eq`. A number out of its documented range is
+ *  clamped when the material is built, so an edited `settings.json` still loads. A color that is
+ *  not `#rrggbb` reads as its default.
+ */
+export type CharacterInking = {
+	/**  Whether the mod runs. */
+	enabled: boolean,
+	/**  Which champions get an outline. */
+	scope: InkingScope,
+	/**
+	 *  Lowercased champion names, as the champion archives are named, for
+	 *  [`InkingScope::Chosen`].
+	 */
+	chosenChampions: string[],
+	/**  Whether lane minions get an outline. */
+	minions: boolean,
+	/**  Whether turrets, inhibitors and nexuses get an outline. */
+	structures: boolean,
+	/**  Which maps draw the outline. */
+	maps: InkingMaps,
+	/**  Lowercased map names such as `map11`, for [`InkingMaps::Chosen`]. */
+	chosenMaps: string[],
+	/**  One color, or one per team. */
+	colorMode: InkingColorMode,
+	/**  The color of [`InkingColorMode::Single`]. */
+	color: Rgb8,
+	/**  The ally color of [`InkingColorMode::Team`]. */
+	allyColor: Rgb8,
+	/**  The enemy color of [`InkingColorMode::Team`]. */
+	enemyColor: Rgb8,
+	/**  `Outline_Width` in tenths of a world unit, 10 to 150. */
+	width: number,
+	/**  `Outline_FinalAlphaMult` in percent, 10 to 100. */
+	opacity: number,
+	/**  `Outline_CameraDistanceMod` in world units, 1000 to 9000. */
+	cameraDistance: number,
+	/**  How long the outline takes to fade out when a champion dies, in milliseconds, 0 to 2000. */
+	deathFade: number,
 };
 
 /**  One named spell and every file declaring its object. */
@@ -3984,6 +4029,80 @@ export type InjectionStage =
 "HOST" | 
 /**  The host ran, but the game was never patched. */
 "INJECTION";
+
+/**  Whether the outline has one color or one per team. */
+export type InkingColorMode = 
+/**  One color for every champion. */
+"single" | 
+/**  One color for allies and the player's champion, and one for enemies. */
+"team";
+
+/**  A map whose bin can hold the outline category, which draws the outline on that map only. */
+export type InkingMap = {
+	/**
+	 *  The archive's name lowercased without its extensions, such as `map11`, which the setting
+	 *  stores.
+	 */
+	name: string,
+	/**  The archive, such as `Map11.wad.client`. */
+	archive: string,
+};
+
+/**  Which maps character inking draws the outline on. */
+export type InkingMaps = 
+/**  Every map but TFT's. */
+"all" | 
+/**  `Map11`, Summoner's Rift. */
+"summonersRift" | 
+/**  The maps in `chosenMaps`. */
+"chosen";
+
+/**  The `Jade_CharacterOutline` parameters that character inking writes for one side. */
+export type InkingOutline = {
+	/**  `Outline_Color`, each channel the sRGB byte over 255. The shader does not read alpha. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `Outline_Width`, in world units at `camera_distance` from the camera. */
+	width: number | null,
+	/**  `Outline_CameraDistanceMod`, the camera distance at which the outline is `width` wide. */
+	cameraDistance: number | null,
+	/**  `Outline_CameraDepthOffset`, in world units toward the camera. */
+	depthOffset: number | null,
+	/**  `Outline_FinalAlphaMult`, which scales the masked alpha. */
+	alpha: number | null,
+	/**  The seconds that the outline takes to fade out when the champion dies. */
+	deathFade: number | null,
+};
+
+/**  A preview project of character inking for one champion, as [`write_inking_preview`] writes it. */
+export type InkingPreview = {
+	/**  The project directory, which a project sandbox reads over the game. */
+	project: string,
+	/**  The champion's base skin bin, `data/characters/<champion>/skins/skin0.bin`. */
+	skinBin: string,
+	/**
+	 *  The path hash of the base skin's object, `Characters/<champion>/Skins/Skin0`, written as
+	 *  `0x` and eight hex digits.
+	 */
+	entry: string,
+	/**  The content hash of the project's declarations, which changes with every rewrite. */
+	revision: string,
+};
+
+/**  Which champions character inking draws an outline around. */
+export type InkingScope = 
+/**  Every champion. */
+"all" | 
+/**  Each champion an enabled mod gives a new base skin. */
+"modded" | 
+/**  The champions in `chosenChampions`. */
+"chosen";
+
+/**  The side of the player that a champion is on, which picks the color with team colors on. */
+export type InkingSide = 
+/**  The player's own champion and its allies. */
+"ally" | 
+/**  The champions of the other team. */
+"enemy";
 
 /**  A list of mods to install, as the manifest names them, within the limits. */
 export type InstallList = {
@@ -7940,6 +8059,9 @@ export type Revision = {
 	modifiedMs: number,
 	size: number,
 };
+
+/**  An sRGB color with 8 bits per channel, written as `#rrggbb`. */
+export type Rgb8 = string;
 
 /**
  *  What a row copies as. Each half is absent where the row has no spelling for it: a path

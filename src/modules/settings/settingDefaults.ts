@@ -3,8 +3,15 @@ import type { AudioSettings, BuiltinModSettings, Settings } from "@/lib/tauri";
 import type { AppearanceKey, LayoutSettingKey } from "@/stores";
 
 import { LTK_PRESET } from "./api";
-import { baseSkinsOptions, mapSkinOptions } from "./builtinMods";
-import type { SettingKey } from "./settingKey";
+import {
+  baseSkinsOptions,
+  inkingColorModeOptions,
+  inkingOf,
+  inkingMapsOptions,
+  inkingScopeOptions,
+  mapSkinOptions,
+} from "./builtinMods";
+import { inkingField, type SettingKey } from "./settingKey";
 
 /** Reads a key from whichever store owns it. */
 export function settingValue(
@@ -15,6 +22,8 @@ export function settingValue(
 ): unknown {
   if (key.startsWith("display.")) return display[key.slice(8) as AppearanceKey];
   if (key.startsWith("layout.")) return layout[key.slice(7) as LayoutSettingKey];
+  const inking = inkingField(key);
+  if (inking) return inkingOf(settings)[inking];
   if (key.startsWith("builtinMods."))
     return settings.builtinMods[key.slice(12) as keyof BuiltinModSettings];
   if (key.startsWith("audio.")) return settings.audio[key.slice(6) as keyof AudioSettings];
@@ -124,6 +133,24 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
     const changed = Object.keys((value as object | null) ?? {}).length;
     return changed === 0 ? "Game" : `${String(changed)} forced`;
   },
+  "builtinMods.characterInking.enabled": onOff,
+  "builtinMods.characterInking.scope": (value) =>
+    inkingScopeOptions().find((option) => option.value === value)?.label ?? titleCase(value),
+  "builtinMods.characterInking.chosenChampions": (value) =>
+    (value as string[] | null)?.length ? `${String((value as string[]).length)} chosen` : "None",
+  "builtinMods.characterInking.minions": onOff,
+  "builtinMods.characterInking.structures": onOff,
+  "builtinMods.characterInking.maps": (value) =>
+    inkingMapsOptions().find((option) => option.value === value)?.label ?? titleCase(value),
+  "builtinMods.characterInking.chosenMaps": (value) =>
+    (value as string[] | null)?.length ? `${String((value as string[]).length)} chosen` : "None",
+  "builtinMods.characterInking.colorMode": (value) =>
+    inkingColorModeOptions().find((option) => option.value === value)?.label ?? titleCase(value),
+  "builtinMods.characterInking.color": plain,
+  "builtinMods.characterInking.width": (value) => (Number(value) / 10).toFixed(1),
+  "builtinMods.characterInking.opacity": percent,
+  "builtinMods.characterInking.cameraDistance": plain,
+  "builtinMods.characterInking.deathFade": (value) => `${(Number(value) / 1000).toFixed(1)} s`,
 
   theme: titleCase,
   accentColor: accentName,

@@ -1,3 +1,5 @@
+import type { CharacterInking, InkingSide } from "@/lib/tauri";
+
 export const settingsKeys = {
   all: ["settings"] as const,
   settings: () => [...settingsKeys.all, "current"] as const,
@@ -9,6 +11,10 @@ export const settingsKeys = {
     [...settingsKeys.all, "forcibleMapSkins", leaguePath] as const,
   mapDecorations: (leaguePath: string) =>
     [...settingsKeys.all, "mapDecorations", leaguePath] as const,
+  inkingMaps: (leaguePath: string) => [...settingsKeys.all, "inkingMaps", leaguePath] as const,
+  inkingPreview: (champion: string) => [...settingsKeys.all, "inkingPreview", champion] as const,
+  inkingOutline: (settings: CharacterInking, side: InkingSide) =>
+    [...settingsKeys.all, "inkingOutline", settings, side] as const,
   leagueRunAsAdmin: () => [...settingsKeys.all, "leagueRunAsAdmin"] as const,
   hashtableCache: () => [...settingsKeys.all, "hashtableCache"] as const,
   hashtableUpdates: () => [...settingsKeys.all, "hashtableUpdates"] as const,

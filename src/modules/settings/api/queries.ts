@@ -4,15 +4,21 @@ import {
   api,
   type AppError,
   type AppInfo,
+  type CharacterInking,
   type DataUsage,
   type ForcibleMapSkin,
   type MapDecoration,
   type HashtableCacheStatus,
   type HashtableUpdateCheck,
+  type InkingMap,
+  type InkingOutline,
+  type InkingPreview,
+  type InkingSide,
   type Settings,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
+import { FRESH_INKING } from "../builtinMods";
 import { settingsKeys } from "./keys";
 import type { ThirdPartyLicensesManifest } from "./thirdPartyLicenses";
 import { fetchThirdPartyLicenses } from "./thirdPartyLicenses";
@@ -119,6 +125,36 @@ export const leagueInstallQueries = {
       retry: false,
     }),
 
+  /* The maps change only with a patch, so they stay fresh for an hour, keyed on the path they
+     were read from. */
+  inkingMaps: (leaguePath: string | null | undefined) =>
+    queryOptions<InkingMap[], AppError>({
+      queryKey: settingsKeys.inkingMaps(leaguePath ?? ""),
+      queryFn: queryFn(api.listInkingMaps),
+      enabled: !!leaguePath,
+      staleTime: 60 * 60 * 1000,
+      retry: false,
+    }),
+
+  /* Writes the preview project of `champion` once. The outline values are patched in live, so
+     the project is written with the fresh settings and stands until the champion changes. */
+  inkingPreview: (champion: string) =>
+    queryOptions<InkingPreview, AppError>({
+      queryKey: settingsKeys.inkingPreview(champion),
+      queryFn: queryFnWithArgs(api.prepareInkingPreview, FRESH_INKING, champion),
+      staleTime: Infinity,
+      retry: false,
+    }),
+
+  /* A pure function of its arguments, so an answer never goes stale. The previous answer stays
+     on screen while a slider moves. */
+  inkingOutline: (settings: CharacterInking, side: InkingSide) =>
+    queryOptions<InkingOutline, AppError>({
+      queryKey: settingsKeys.inkingOutline(settings, side),
+      queryFn: queryFnWithArgs(api.inkingOutline, settings, side),
+      staleTime: Infinity,
+      placeholderData: (previous) => previous,
+    }),
   /* Always stale, so the query reads the `RUNASADMIN` layer again when the window
      regains focus after the elevated terminal. */
   runAsAdmin: () =>

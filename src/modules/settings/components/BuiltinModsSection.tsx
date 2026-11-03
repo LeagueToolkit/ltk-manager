@@ -8,6 +8,7 @@ import type { ForcibleMapSkin } from "@/lib/tauri";
 import { useForcibleMapSkins } from "../api";
 import { useLoadedSettings, useUpdateSettings } from "../api";
 import { baseSkinsOptions, mapSkinDescription, mapSkinOptions } from "../builtinMods";
+import { CharacterInkingRows } from "./CharacterInkingRows";
 import { ForcedMapSkinPicker } from "./ForcedMapSkinPicker";
 import { MapDecorationsControl } from "./MapDecorationsControl";
 import { SettingRow } from "./SettingRow";
@@ -77,6 +78,8 @@ export function BuiltinModsSection() {
           hint={m.settings_builtins_map_decorations_hint()}
           control={<MapDecorationsControl />}
         />
+
+        <CharacterInkingRows />
       </SettingRows>
     </SectionCard>
   );

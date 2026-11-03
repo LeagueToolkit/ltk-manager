@@ -40,7 +40,7 @@ impl BaseSkins {
     /// Each skin past the base the mod stands in for, by character, with the archive holding it.
     ///
     /// A skin bin a mod ships stays that mod's.
-    fn stand_in_targets(
+    pub(super) fn stand_in_targets(
         self,
         game: &GameSkins<'_>,
         mods: &ModSkins<'_>,

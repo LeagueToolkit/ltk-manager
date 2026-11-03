@@ -19,8 +19,9 @@ import {
 } from "@/stores";
 
 import { settingsKeys, useSaveSettings, useSettingDefaults, useSettings } from "../api";
+import { inkingOf } from "../builtinMods";
 import { isSettingDefault, settingFormat, settingValue } from "../settingDefaults";
-import type { SettingKey } from "../settingKey";
+import { inkingField, type SettingKey } from "../settingKey";
 
 /** A key mapped to whether the row holding it is currently drawing nothing. */
 type Registry = ReadonlyMap<SettingKey, boolean>;
@@ -121,18 +122,26 @@ function useWriteSettings() {
       const display: Record<string, unknown> = {};
       const layout: Record<string, unknown> = {};
       const builtinMods: Record<string, unknown> = {};
+      const inking: Record<string, unknown> = {};
       let touchesBackend = false;
 
       for (const [key, value] of values) {
+        const inkingKey = inkingField(key);
         if (key.startsWith("display.")) display[key.slice(8)] = value;
         else if (key.startsWith("layout.")) layout[key.slice(7)] = value;
-        else if (key.startsWith("builtinMods.")) {
+        else if (inkingKey) {
+          inking[inkingKey] = value;
+          touchesBackend = true;
+        } else if (key.startsWith("builtinMods.")) {
           builtinMods[key.slice(12)] = value;
           touchesBackend = true;
         } else {
           next[key] = value;
           touchesBackend = true;
         }
+      }
+      if (Object.keys(inking).length > 0) {
+        builtinMods.characterInking = { ...inkingOf(current), ...inking };
       }
       if (Object.keys(builtinMods).length > 0) {
         next.builtinMods = { ...current.builtinMods, ...builtinMods };
@@ -163,6 +172,8 @@ function useCurrentValue(key: SettingKey | undefined): unknown {
   if (!key) return undefined;
   if (key.startsWith("display.")) return display;
   if (key.startsWith("layout.")) return layout;
+  const inking = inkingField(key);
+  if (inking) return settings && inkingOf(settings)[inking];
   if (key.startsWith("builtinMods.")) {
     return settings?.builtinMods[key.slice(12) as keyof BuiltinModSettings];
   }

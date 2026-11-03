@@ -11,11 +11,12 @@ use crate::mods::ModLibraryState;
 use crate::patcher::PatcherState;
 use crate::settings_backup;
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
-use ltk_manager_base::config::Config;
+use ltk_manager_base::config::{CharacterInking, Config};
 use ltk_manager_base::events::{BackendEvent, DataMoveProgress, DataMoveStage, EventSink as _};
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_library::overlay::{
-    forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
+    forcible_map_skins, inking_maps, map_decorations, outline_values, write_inking_preview,
+    ForcibleMapSkin, InkingMap, InkingOutline, InkingPreview, InkingSide, MapDecoration,
 };
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -358,6 +359,73 @@ fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<Map
     let config = state.config();
     map_decorations(&GameDir::resolve(&config)?)
 }
+
+/// Every map of the configured install that character inking can draw the outline on.
+#[tauri::command]
+#[specta::specta]
+pub fn list_inking_maps(state: State<SettingsState>) -> IpcResult<Vec<InkingMap>> {
+    list_inking_maps_inner(&state).into()
+}
+
+fn list_inking_maps_inner(state: &State<SettingsState>) -> AppResult<Vec<InkingMap>> {
+    let config = state.config();
+    inking_maps(&GameDir::resolve(&config)?)
+}
+
+/// Writes the preview project that shows `settings` on `champion`, in a directory of the
+/// champion's own under the app cache directory.
+///
+/// The project holds the declarations the overlay build writes for that champion on Summoner's
+/// Rift, so a skin viewer reading it through a project sandbox draws the game's outline.
+///
+/// # Errors
+///
+/// Fails when `champion` is not a name of letters, digits and underscores, no League install is
+/// configured, the game cannot be read or the project cannot be written.
+#[tauri::command]
+#[specta::specta]
+pub async fn prepare_inking_preview(
+    settings: CharacterInking,
+    champion: String,
+    app_handle: AppHandle,
+) -> IpcResult<InkingPreview> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let game_dir = GameDir::resolve(&config)?;
+        let character = champion.to_ascii_lowercase();
+        if character.is_empty()
+            || !character
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        {
+            return Err(ltk_manager_base::error::AppError::Other(format!(
+                "`{champion}` is not a champion name"
+            )));
+        }
+        let dir = app_handle
+            .path()
+            .app_cache_dir()
+            .map_err(|e| {
+                ltk_manager_base::error::AppError::Other(format!(
+                    "the app cache directory is unknown: {e}"
+                ))
+            })?
+            .join(INKING_PREVIEW_DIR)
+            .join(&character);
+        write_inking_preview(&dir, &settings, &character, &game_dir)
+    })
+    .await
+}
+
+/// The outline that `settings` give a champion on `side`, the values the overlay build writes.
+#[tauri::command]
+#[specta::specta]
+pub fn inking_outline(settings: CharacterInking, side: InkingSide) -> IpcResult<InkingOutline> {
+    IpcResult::ok(outline_values(&settings, side))
+}
+
+/// The directory under the app cache that holds the character inking preview project.
+const INKING_PREVIEW_DIR: &str = "inking-preview";
 
 /// Whether League is configured to launch as administrator (an AppCompatFlags
 /// `RUNASADMIN` layer on its executable).

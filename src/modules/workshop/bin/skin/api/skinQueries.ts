@@ -14,6 +14,8 @@ import {
 } from "@/lib/tauri";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
+import { projectSandbox } from "../../../sandbox/utils/sandboxRef";
+
 /** The reads a skin viewport draws from, keyed on the document as `vfxKeys.system` is. */
 export const skinQueries = {
   /** One skin object as a viewport draws it. */
@@ -68,6 +70,19 @@ export const skinQueries = {
         document === null || graph === null
           ? skipToken
           : queryFnWithArgs(api.bin.readAnimationGraph, document, graph),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * The skin bin at `path` as the project at `project` holds it over the game, and null if
+   * neither holds it. `revision` names the project's content, so a rewrite locates it again.
+   */
+  projectSkinBin: (project: string, path: string, revision: string) =>
+    queryOptions<AssetRef | null, AppError>({
+      queryKey: ["skin-project-bin", project, path, revision],
+      queryFn: async () =>
+        unwrapForQuery(await api.bin.locateFilesNear(projectSandbox(project), [path]))[path] ??
+        null,
       staleTime: Infinity,
       retry: false,
     }),
