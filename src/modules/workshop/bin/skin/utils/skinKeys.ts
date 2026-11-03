@@ -1,3 +1,4 @@
+import { type CommandId, shortcutOf } from "@/modules/keys";
 import type { SceneClock } from "@/modules/viewport";
 
 import { speedDetent } from "../../vfx/playback/components/Transport";
@@ -27,9 +28,9 @@ export interface SocketGizmoKeys {
   readonly toggleAxes: () => void;
 }
 
-/** One key of the preview: its `react-hotkeys-hook` name, its keycaps and its action. */
+/** One key of the preview: its registry command, the keycaps it shows and its action. */
 export interface SkinKey {
-  readonly hotkey: string;
+  readonly command: CommandId;
   readonly shortcut: string;
   readonly run: (target: SkinKeyTarget) => void;
 }
@@ -45,6 +46,10 @@ export type SkinKeyId =
   | "faster"
   | "fit";
 
+function skinKey(command: CommandId, run: SkinKey["run"]): SkinKey {
+  return { command, shortcut: shortcutOf(command), run };
+}
+
 /** Pauses and moves the clip by whole frames. */
 function step(target: SkinKeyTarget, frames: number): void {
   target.setPlaying(false);
@@ -53,62 +58,20 @@ function step(target: SkinKeyTarget, frames: number): void {
 
 /** The keys of the preview, which `useSkinKeys` and the Animation menu both read. */
 export const SKIN_KEYS: Readonly<Record<SkinKeyId, SkinKey>> = {
-  play: {
-    hotkey: "space",
-    shortcut: "Space",
-    run: (target) => target.setPlaying(!target.playing),
-  },
-  restart: { hotkey: "home", shortcut: "Home", run: (target) => target.clock.restart() },
-  stepBack: { hotkey: "left", shortcut: "Left", run: (target) => step(target, -1) },
-  stepForward: { hotkey: "right", shortcut: "Right", run: (target) => step(target, 1) },
-  stepBackLong: {
-    hotkey: "shift+left",
-    shortcut: "Shift+Left",
-    run: (target) => step(target, -SHIFT_FRAMES),
-  },
-  stepForwardLong: {
-    hotkey: "shift+right",
-    shortcut: "Shift+Right",
-    run: (target) => step(target, SHIFT_FRAMES),
-  },
-  slower: {
-    hotkey: "bracketleft",
-    shortcut: "[",
-    run: (target) => target.setSpeed(speedDetent(target.speed, -1)),
-  },
-  faster: {
-    hotkey: "bracketright",
-    shortcut: "]",
-    run: (target) => target.setSpeed(speedDetent(target.speed, 1)),
-  },
-  fit: { hotkey: "f", shortcut: "F", run: (target) => target.fit() },
+  play: skinKey("skin.play", (target) => target.setPlaying(!target.playing)),
+  restart: skinKey("skin.restart", (target) => target.clock.restart()),
+  stepBack: skinKey("skin.stepBack", (target) => step(target, -1)),
+  stepForward: skinKey("skin.stepForward", (target) => step(target, 1)),
+  stepBackLong: skinKey("skin.stepBackLong", (target) => step(target, -SHIFT_FRAMES)),
+  stepForwardLong: skinKey("skin.stepForwardLong", (target) => step(target, SHIFT_FRAMES)),
+  slower: skinKey("skin.slower", (target) => target.setSpeed(speedDetent(target.speed, -1))),
+  faster: skinKey("skin.faster", (target) => target.setSpeed(speedDetent(target.speed, 1))),
+  fit: skinKey("skin.fit", (target) => target.fit()),
 };
 
 /** The keys of the socket gizmo, the same keys that the map editor's gizmo takes. */
 export const SOCKET_KEYS = {
-  move: {
-    hotkey: "w",
-    shortcut: "W",
-    run: (target) => target.socketGizmo?.move(),
-  },
-  turn: {
-    hotkey: "e",
-    shortcut: "E",
-    run: (target) => target.socketGizmo?.turn(),
-  },
-  axes: {
-    hotkey: "x",
-    shortcut: "X",
-    run: (target) => target.socketGizmo?.toggleAxes(),
-  },
+  move: skinKey("skin.socketMove", (target) => target.socketGizmo?.move()),
+  turn: skinKey("skin.socketTurn", (target) => target.socketGizmo?.turn()),
+  axes: skinKey("skin.socketAxes", (target) => target.socketGizmo?.toggleAxes()),
 } as const satisfies Readonly<Record<string, SkinKey>>;
-
-/** The key that shows the preview's controls again after Hide UI. */
-export const SKIN_SHOW_UI_KEY = { key: "Escape", shortcut: "Esc" } as const;
-
-/** Returns the entry of `SKIN_KEYS` that answers the `react-hotkeys-hook` name `hotkey`. */
-export function skinKeyOf(hotkey: string): SkinKey | undefined {
-  return [...Object.values(SKIN_KEYS), ...Object.values(SOCKET_KEYS)].find(
-    (key) => key.hotkey === hotkey,
-  );
-}

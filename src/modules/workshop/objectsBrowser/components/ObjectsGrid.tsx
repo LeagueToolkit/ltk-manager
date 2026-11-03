@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { ContextMenu } from "@/components";
 import { useContentVisible, useReducedMotion, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
+import { isChord } from "@/modules/keys";
 
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
 import { nameTypeFor } from "../../explorer/utils/tileName";
@@ -321,7 +322,7 @@ export function ObjectsGrid({
                 if (node?.type === "object") {
                   open(node, "beside");
                 }
-              } else if (event.key === " ") {
+              } else if (isChord(event, "objects.preview")) {
                 event.preventDefault();
                 toggleLarge();
               } else if (event.key === "Backspace" || (event.altKey && event.key === "ArrowUp")) {

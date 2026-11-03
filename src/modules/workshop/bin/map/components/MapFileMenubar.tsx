@@ -4,10 +4,10 @@ import type { RefObject } from "react";
 import { useToast } from "@/components";
 import { errorMessage, m } from "@/i18n";
 import { CommandMenubar, documentHistory, documentSave, MENU_SEPARATOR } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 
 import { useMapMenus } from "../hooks/useMapMenus";
 import { useMapScene } from "../state/mapScene";
-import { MAP_SAVE_KEY } from "../utils/mapKeys";
 
 interface MapFileMenubarProps {
   /** The editor's id for the tab, which the save, the history and the palette are keyed on. */
@@ -49,7 +49,7 @@ export function MapFileMenubar({ documentId, keyScope }: MapFileMenubarProps) {
                 id: "save",
                 title: m.workshop_bin_menu_save_action(),
                 icon: <FloppyDiskIcon className="size-4" />,
-                shortcut: MAP_SAVE_KEY,
+                shortcut: shortcutOf("editor.save"),
                 run: save,
               },
               MENU_SEPARATOR,
@@ -66,7 +66,7 @@ export function MapFileMenubar({ documentId, keyScope }: MapFileMenubarProps) {
                 id: "undo",
                 title: m.workshop_bin_menu_undo_action(),
                 icon: <ArrowArcLeftIcon className="size-4" />,
-                shortcut: "Ctrl+Z",
+                shortcut: shortcutOf("editor.undo"),
                 run: editable ? () => documentHistory(documentId)?.("undo", null) : null,
               },
               {
@@ -74,7 +74,7 @@ export function MapFileMenubar({ documentId, keyScope }: MapFileMenubarProps) {
                 id: "redo",
                 title: m.workshop_bin_menu_redo_action(),
                 icon: <ArrowArcRightIcon className="size-4" />,
-                shortcut: "Ctrl+Shift+Z",
+                shortcut: shortcutOf("editor.redo"),
                 run: editable ? () => documentHistory(documentId)?.("redo", null) : null,
               },
               MENU_SEPARATOR,

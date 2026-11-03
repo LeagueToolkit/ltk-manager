@@ -109,7 +109,7 @@ export function useCanvasAdds({ box, entry, layout, picked }: CanvasAddsOptions)
   };
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
-    if (!pressedKey(event, "quickAdd") && !pressedKey(event, "quickAddAlternate")) return false;
+    if (!pressedKey(event, "quickAdd")) return false;
 
     open(pointer.current ?? middle(), null);
     return true;

@@ -1,9 +1,9 @@
 import { TrashIcon, XIcon } from "@phosphor-icons/react";
 import { Terminal } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { IconButton } from "@/components";
+import { useKeys } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import { isLevelVisible, type LogEntry, useDevConsoleStore } from "../state";
@@ -45,7 +45,7 @@ export function DevConsole() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldAutoScroll = useRef(true);
 
-  useHotkeys("ctrl+shift+d", toggle, { preventDefault: true });
+  useKeys("app", { "app.devConsole": toggle });
 
   // Auto-scroll to bottom when new entries arrive
   useEffect(() => {

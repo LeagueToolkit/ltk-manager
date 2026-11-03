@@ -42,18 +42,11 @@ import {
   WaveformIcon,
 } from "@phosphor-icons/react";
 
-import { Dialog, Grid, Kbd, Stack } from "@/components";
 import { m } from "@/i18n";
 
-import {
-  type AudioCommandGroup,
-  type AudioCommandId,
-  type AudioSurface,
-  chordLabel,
-  sheetGroups,
-} from "../utils/keymap";
+import type { AudioCommandId } from "../utils/keymap";
 
-/** The words of each command, which the sheet and the palette show. */
+/** The words of each command, which the palette shows. */
 export const COMMAND_LABELS: Readonly<Record<AudioCommandId, () => string>> = {
   play: m.audio_key_play_label,
   playAll: m.audio_key_play_all_label,
@@ -216,70 +209,3 @@ export const COMMAND_ICONS: Partial<Readonly<Record<AudioCommandId, Icon>>> = {
   removeChance: MinusCircleIcon,
   pickRandom: ShuffleIcon,
 };
-
-const GROUP_TITLES: Readonly<Record<AudioCommandGroup, () => string>> = {
-  transport: m.audio_keys_transport_title,
-  navigation: m.audio_keys_navigation_title,
-  view: m.audio_keys_view_title,
-  editing: m.audio_keys_editing_title,
-  pointer: m.audio_keys_pointer_title,
-};
-
-/** The surfaces whose keys the sheet of the audio file document lists. */
-export const DOCUMENT_SCOPE: readonly AudioSurface[] = ["media", "voices", "document", "knob"];
-
-/** The surfaces whose keys the sheet of the Voice lines view lists. */
-export const LINES_SCOPE: readonly AudioSurface[] = ["lines", "knob"];
-
-interface AudioKeysDialogProps {
-  readonly open: boolean;
-  readonly onClose: () => void;
-  /** The surfaces of the view that opened the sheet. */
-  readonly scope: readonly AudioSurface[];
-}
-
-/**
- * The shortcut sheet: every key and gesture of `scope`, read from the keymap, by group.
- *
- * Per "Keys and gestures" in docs/ux/AUDIO.md.
- */
-export function AudioKeysDialog({ open, onClose, scope }: AudioKeysDialogProps) {
-  return (
-    <Dialog.Shell open={open} onClose={onClose} title={m.audio_keys_title()} size="lg">
-      <Dialog.Body>
-        <Grid minColumnWidth="18rem" gap={6} rowGap={5} align="start" data-ui="AudioKeysDialog">
-          {sheetGroups(scope).map((section) => (
-            <Stack key={section.group} gap={2}>
-              <h3 className="text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
-                {GROUP_TITLES[section.group]()}
-              </h3>
-              <Grid columns="minmax(0, 1fr) fit-content(50%)" gap={3} rowGap={1.5} align="center">
-                {section.bindings.map((binding) => (
-                  <KeyRow
-                    key={binding.id}
-                    label={COMMAND_LABELS[binding.id]()}
-                    keys={binding.keys}
-                  />
-                ))}
-              </Grid>
-            </Stack>
-          ))}
-        </Grid>
-      </Dialog.Body>
-    </Dialog.Shell>
-  );
-}
-
-/** One command of the sheet: its words, then each chord as keycaps. */
-function KeyRow({ label, keys }: { label: string; keys: readonly string[] }) {
-  return (
-    <>
-      <span className="text-meta text-surface-200 select-none">{label}</span>
-      <span className="flex flex-wrap justify-end gap-1">
-        {keys.map((key) => (
-          <Kbd key={key} shortcut={chordLabel(key)} />
-        ))}
-      </span>
-    </>
-  );
-}

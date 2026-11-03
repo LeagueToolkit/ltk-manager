@@ -1,6 +1,7 @@
 import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
+import { shortcutOf } from "@/modules/keys";
 
 import { type ExtractHow, useExtractActions } from "../hooks/useExtractActions";
 
@@ -23,7 +24,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
       {layerLabel && (
         <ContextMenu.Item
           icon={<StackPlusIcon className="size-4" />}
-          shortcut="Ctrl+I"
+          shortcut={shortcutOf("explorer.copyToLayer")}
           disabled={busy}
           onClick={() => onRun("copy")}
         >
@@ -33,7 +34,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
       {lastFolder && (
         <ContextMenu.Item
           icon={<DownloadSimpleIcon className="size-4" />}
-          shortcut="Ctrl+E"
+          shortcut={shortcutOf("explorer.extract")}
           disabled={busy}
           onClick={() => onRun("quick")}
         >
@@ -45,7 +46,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
           is the only extract there is. */}
       <ContextMenu.Item
         icon={<DownloadSimpleIcon className="size-4" />}
-        shortcut={lastFolder ? "Ctrl+Shift+E" : "Ctrl+E"}
+        shortcut={shortcutOf(lastFolder ? "explorer.extractTo" : "explorer.extract")}
         onClick={() => onRun("dialog")}
       >
         Extract…

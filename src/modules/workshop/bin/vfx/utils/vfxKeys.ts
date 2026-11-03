@@ -1,35 +1,41 @@
-import { chordLabel, chordText, type KeyPress } from "@/modules/editor/utils/chords";
+import {
+  chordParts,
+  type CommandId,
+  isChord,
+  type KeyPress,
+  keysOf,
+  shortcutOf,
+} from "@/modules/keys";
 
-/** Every key of the particle shell as `chordText` spells it. The handlers and the menu bar read it. */
-export const VFX_KEYS = {
-  play: "Space",
-  stepBack: "ArrowLeft",
-  stepForward: "ArrowRight",
-  jumpBack: "Shift+ArrowLeft",
-  jumpForward: "Shift+ArrowRight",
-  restart: "Home",
-  end: "End",
-  loop: "L",
-  fit: "F",
-  solo: "S",
-  mute: "M",
-  slower: "[",
-  faster: "]",
-  markerAdd: "Ctrl+M",
-  copy: "Ctrl+C",
-  duplicate: "Ctrl+D",
-  paste: "Ctrl+V",
-  remove: "Delete",
-  selectAll: "Ctrl+A",
-  selectNone: "Escape",
-  quickAdd: "Tab",
-  quickAddAlternate: "Shift+A",
-  systemPrevious: "Alt+ArrowUp",
-  systemNext: "Alt+ArrowDown",
-  curveKeyDelete: "Delete",
-} as const;
+/** The registry command of each key of the particle shell, by the name its handlers and menus use. */
+const VFX_COMMANDS = {
+  play: "vfx.play",
+  stepBack: "vfx.stepBack",
+  stepForward: "vfx.stepForward",
+  jumpBack: "vfx.jumpBack",
+  jumpForward: "vfx.jumpForward",
+  restart: "vfx.restart",
+  end: "vfx.end",
+  loop: "vfx.loop",
+  fit: "vfx.fit",
+  solo: "vfx.solo",
+  mute: "vfx.mute",
+  slower: "vfx.slower",
+  faster: "vfx.faster",
+  markerAdd: "vfx.markerAdd",
+  copy: "vfx.copy",
+  duplicate: "vfx.duplicate",
+  paste: "vfx.paste",
+  remove: "vfx.remove",
+  selectAll: "vfx.selectAll",
+  selectNone: "vfx.selectNone",
+  quickAdd: "vfx.quickAdd",
+  systemPrevious: "vfx.systemPrevious",
+  systemNext: "vfx.systemNext",
+  curveKeyDelete: "vfx.curveKeyDelete",
+} as const satisfies Readonly<Record<string, CommandId>>;
 
-export type VfxKey = keyof typeof VFX_KEYS;
+export type VfxKey = keyof typeof VFX_COMMANDS;
 
 /** The keys that `RunKeys` answers. */
 export type RunKey =
@@ -48,42 +54,24 @@ export type RunKey =
   | "faster"
   | "markerAdd";
 
-/** The names of `react-hotkeys-hook` for the key parts that it does not spell as `chordText` does. */
-const HOTKEY_PARTS: Readonly<Record<string, string>> = {
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  ArrowUp: "up",
-  ArrowDown: "down",
-  "[": "bracketleft",
-  "]": "bracketright",
-};
-
-/** The words that a keycap shows beyond `chordLabel`. */
-const SHORT_KEYS: Readonly<Record<string, string>> = { Delete: "Del", Escape: "Esc" };
-
-/** Returns `chord` in the spelling of `react-hotkeys-hook`, such as `shift+left`. */
-export function hotkeyOf(chord: string): string {
-  return chord
-    .split("+")
-    .map((part) => HOTKEY_PARTS[part] ?? part.toLowerCase())
-    .join("+");
+/** Returns the registry command of the key `name`. */
+export function vfxCommand(name: VfxKey): CommandId {
+  return VFX_COMMANDS[name];
 }
 
 /** Returns the text that a menu item shows for the key `name`. */
 export function vfxShortcut(name: VfxKey): string {
-  const label = chordLabel(VFX_KEYS[name]);
-
-  return SHORT_KEYS[label] ?? label;
+  return shortcutOf(VFX_COMMANDS[name]);
 }
 
-/** Returns `true` if `press` is the key `name`. */
+/** Returns `true` if `press` is a chord of the key `name`. */
 export function pressedKey(press: KeyPress, name: VfxKey): boolean {
-  return chordText(press) === VFX_KEYS[name];
+  return isChord(press, VFX_COMMANDS[name]);
 }
 
-/** Returns the event fields of the key `name`, for a command that runs what the key runs. */
+/** Returns the event fields of the first chord of `name`, for a command that runs what the key runs. */
 export function keyEventOf(name: VfxKey): KeyboardEventInit {
-  const parts: readonly string[] = VFX_KEYS[name].split("+");
+  const parts = chordParts(keysOf(VFX_COMMANDS[name])[0] ?? "");
   const key = parts.at(-1) ?? "";
 
   return {

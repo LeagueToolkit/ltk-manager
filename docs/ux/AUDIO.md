@@ -835,12 +835,12 @@ many octaves as `LPF` spans. This is an approximation, and the field card of eac
 
 ## Keys and gestures
 
-The keys of the media table, the event tree and the Voice lines view come from one keymap,
-`AUDIO_KEYMAP` in `utils/keymap.ts`. The key handlers resolve a press through it, and the context
-menu bar, the context menus, the palette and the shortcut sheet read their keys from it. `?` and
-View - Keys and gestures open the sheet, which lists the
-keys of the views of the document. The palette lists the commands of the active audio document
-under Audio, each with its key, while the command applies.
+The keys of the media table, the event tree and the Voice lines view are commands of the key
+registry, per "The registry" in docs/ux/KEYS.md. The key handlers resolve a press through it, and
+the menu bar, the context menus and the palette read their keys from it. `?`, F1 and View - Keys
+and gestures open the app's shortcut sheet, which lists the keys of the document's views first.
+The palette lists the commands of the active audio document under Audio, each with its key, while
+the command applies.
 
 A list answers its keys while it has focus, and a key that it answers stops there. A key that is
 marked Document answers from anywhere in the document but a text field and an open menu or dialog.
@@ -866,7 +866,7 @@ marked Document answers from anywhere in the document but a text field and an op
 | Ctrl+Shift+M                         | Document | Show the Media view                                                                                  |
 | Ctrl+Shift+E                         | Document | Show the Events view                                                                                 |
 | Ctrl+Alt+B                           | Document | Show or hide the inspector of the event tree                                                         |
-| `?`                                  | Document | Show the keys and gestures                                                                           |
+| `?`, F1                              | Document | Show the shortcut sheet, per "The shortcut sheet" in docs/ux/KEYS.md                                 |
 | Enter, F2                            | Lists    | Open the entry of the cell, a target, the media picker or the add row. Enter plays a row without one |
 | Backspace                            | Tree     | Reset the field of the active cell or the field row to its default                                   |
 | Ctrl+Enter                           | Tree     | Open the add row of the nearest container that has one, or of the event                              |

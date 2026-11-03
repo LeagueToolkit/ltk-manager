@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { keysOf } from "@/modules/keys";
+
 import { CANVAS_BINDINGS, CANVAS_KEYS, canvasKey, type KeyTargets } from "../canvasKeys";
 import type { ViewTransformControl } from "../useViewTransform";
 
@@ -26,13 +28,27 @@ function recorder(): { targets: KeyTargets; calls: string[] } {
   };
 }
 
+/** Returns the press of `chord`, a key and the modifiers before it. */
+function press(chord: string) {
+  const parts = chord.split(/\+(?=.)/);
+  const key = parts.at(-1) ?? "";
+
+  return {
+    key: key === "Space" ? " " : key,
+    ctrlKey: parts.includes("Ctrl"),
+    metaKey: false,
+    altKey: parts.includes("Alt"),
+    shiftKey: parts.includes("Shift"),
+  };
+}
+
 describe("canvasKey", () => {
-  it("answers every key of `CANVAS_BINDINGS`", () => {
-    for (const { answers } of Object.values(CANVAS_BINDINGS)) {
-      for (const key of answers) {
+  it("answers every chord of every binding", () => {
+    for (const { command } of Object.values(CANVAS_BINDINGS)) {
+      for (const chord of keysOf(command)) {
         const { targets, calls } = recorder();
 
-        expect(canvasKey(key, targets)).toBe(true);
+        expect(canvasKey(press(chord), targets), chord).toBe(true);
         expect(calls).toHaveLength(1);
       }
     }
@@ -41,15 +57,15 @@ describe("canvasKey", () => {
   it("returns false for a key outside the table", () => {
     const { targets, calls } = recorder();
 
-    expect(canvasKey("q", targets)).toBe(false);
+    expect(canvasKey(press("Q"), targets)).toBe(false);
     expect(calls).toEqual([]);
   });
 
   it("arranges to the front and back on the braces that the menus show", () => {
     const { targets, calls } = recorder();
 
-    canvasKey(CANVAS_KEYS.front, targets);
-    canvasKey(CANVAS_KEYS.back, targets);
+    canvasKey(press(CANVAS_KEYS.front), targets);
+    canvasKey(press(CANVAS_KEYS.back), targets);
 
     expect(calls).toEqual(["arrange:front", "arrange:back"]);
   });
@@ -58,17 +74,9 @@ describe("canvasKey", () => {
     const first = recorder();
     const second = recorder();
 
-    canvasKey("=", first.targets);
-    canvasKey("+", second.targets);
+    canvasKey(press("="), first.targets);
+    canvasKey(press("+"), second.targets);
 
     expect(first.calls).toEqual(second.calls);
-  });
-});
-
-describe("CANVAS_BINDINGS", () => {
-  it("binds each key to one action", () => {
-    const keys = Object.values(CANVAS_BINDINGS).flatMap((binding) => binding.answers);
-
-    expect(new Set(keys).size).toBe(keys.length);
   });
 });

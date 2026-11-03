@@ -26,7 +26,6 @@ import {
   offerChecks,
   offerRadio,
 } from "../utils/skinCommands";
-import { SKIN_SHOW_UI_KEY, SOCKET_KEYS } from "../utils/skinKeys";
 
 /**
  * The menu bar of a skin: File, Edit, View, Animation, Skin, Physics and Spells.
@@ -54,13 +53,6 @@ export function SkinMenubar() {
         skin,
         physics,
         spells,
-      ]}
-      extraKeys={[
-        { keys: SKIN_SHOW_UI_KEY.shortcut, title: m.workshop_bin_menu_skin_show_ui_label() },
-        { keys: SOCKET_KEYS.move.shortcut, title: m.workshop_bin_physics_socket_move_action() },
-        { keys: SOCKET_KEYS.turn.shortcut, title: m.workshop_bin_physics_socket_rotate_action() },
-        { keys: SOCKET_KEYS.axes.shortcut, title: m.workshop_bin_physics_socket_axes_action() },
-        { keys: "Ctrl", title: m.workshop_bin_physics_socket_snap_action() },
       ]}
     />
   );

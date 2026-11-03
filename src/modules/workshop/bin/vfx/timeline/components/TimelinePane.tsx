@@ -2,6 +2,7 @@ import { ChartBarIcon, FlagIcon, MagnetIcon } from "@phosphor-icons/react";
 
 import { ErrorBoundary, IconButton, Separator } from "@/components";
 import { m } from "@/i18n";
+import { shortcutOf } from "@/modules/keys";
 import { useSetPreviewDisplay, useTimelineHistogram, useTimelineSnap } from "@/stores";
 
 import { Notice } from "../../../shared/preview/Notice";
@@ -66,7 +67,7 @@ export function TimelineTransport() {
             muted
             icon={<FlagIcon />}
             onClick={() => markers.add(driver.phase)}
-            tooltip={m.workshop_bin_timeline_marker_add_hint()}
+            tooltip={m.workshop_bin_timeline_marker_add_hint({ key: shortcutOf("vfx.markerAdd") })}
           />
         )}
         <IconButton

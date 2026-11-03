@@ -2,8 +2,9 @@ import { KeyboardIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, ButtonGroup, IconButton, SectionCard, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, isErr } from "@/lib/tauri";
+import { chordLabel, chordOfAccelerator, commandTakenBy } from "@/modules/keys";
 
 import { useLoadedSettings, useUpdateSettings } from "../api";
 import type { IndexedSettingKey } from "../settingsIndex";
@@ -105,6 +106,21 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
     keys.push(keyName);
 
     const accelerator = keys.join("+");
+
+    /* An OS-global hotkey takes its chord from the whole system, which would shadow an in-app
+       command while the app has focus. */
+    const taken = commandTakenBy(accelerator);
+    if (taken !== null) {
+      toast.warning(
+        m.keys_hotkey_taken_title(),
+        m.keys_hotkey_taken_description({
+          chord: chordLabel(chordOfAccelerator(accelerator) ?? accelerator),
+          command: taken.title(),
+        }),
+      );
+      return;
+    }
+
     setIsCapturing(false);
     setIsPending(true);
 

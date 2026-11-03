@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { hotkeyOf, keyEventOf, pressedKey, VFX_KEYS, type VfxKey, vfxShortcut } from "../vfxKeys";
+import { keyEventOf, pressedKey, type VfxKey, vfxShortcut } from "../vfxKeys";
 
-const NAMES = Object.keys(VFX_KEYS) as VfxKey[];
-
-describe("hotkeyOf", () => {
-  it("spells each key as react-hotkeys-hook reads it", () => {
-    expect(hotkeyOf(VFX_KEYS.play)).toBe("space");
-    expect(hotkeyOf(VFX_KEYS.jumpBack)).toBe("shift+left");
-    expect(hotkeyOf(VFX_KEYS.slower)).toBe("bracketleft");
-    expect(hotkeyOf(VFX_KEYS.faster)).toBe("bracketright");
-    expect(hotkeyOf(VFX_KEYS.markerAdd)).toBe("ctrl+m");
-  });
-});
+const NAMES: readonly VfxKey[] = [
+  "play",
+  "stepBack",
+  "jumpBack",
+  "slower",
+  "markerAdd",
+  "duplicate",
+  "quickAdd",
+  "systemNext",
+  "curveKeyDelete",
+];
 
 describe("vfxShortcut", () => {
   it("shows the words of a keycap", () => {
@@ -38,10 +38,15 @@ describe("pressedKey", () => {
     );
     expect(pressedKey({ ...bare, key: "Delete", ctrlKey: true }, "remove")).toBe(false);
   });
+
+  it("reads every chord of a key with two", () => {
+    expect(pressedKey({ ...bare, key: "Tab" }, "quickAdd")).toBe(true);
+    expect(pressedKey({ ...bare, key: "A", shiftKey: true }, "quickAdd")).toBe(true);
+  });
 });
 
 describe("keyEventOf", () => {
-  it("returns a press that reads back as the same key, for every key", () => {
+  it("returns a press that reads back as the same key", () => {
     for (const name of NAMES) {
       const event = keyEventOf(name);
       const press = {

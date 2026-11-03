@@ -1,7 +1,6 @@
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { Spinner } from "@/components";
 import { useOverscrollSpring, useReducedMotion, useZoomHotkeys } from "@/hooks";
@@ -20,6 +19,7 @@ import {
   useDeepLinkListener,
 } from "@/modules/deep-link";
 import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
+import { openKeySheet, useKeys } from "@/modules/keys";
 import {
   InstallMismatchDialog,
   SessionBar,
@@ -45,7 +45,13 @@ import {
   useCheckSetupRequired,
   useSettings,
 } from "@/modules/settings";
-import { DevConsoleLazy, TitleBar, useAutoStartPatcher, useDevLogStream } from "@/modules/shell";
+import {
+  DevConsoleLazy,
+  KeySheet,
+  TitleBar,
+  useAutoStartPatcher,
+  useDevLogStream,
+} from "@/modules/shell";
 import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
 import { useDisplayStore, useSearchObjects, useUpdaterFoundAtLaunch } from "@/stores";
 
@@ -186,19 +192,16 @@ function RootLayout() {
     document.documentElement.dataset.scrollbars = scrollbarSize;
   }, [scrollbarSize]);
 
-  useHotkeys("ctrl+1", () => navigate({ to: "/" }), { preventDefault: true });
-  useHotkeys("ctrl+2", () => navigate({ to: "/mods" }), { preventDefault: true });
-  useHotkeys("ctrl+3", () => navigate({ to: "/workshop" }), { preventDefault: true });
-  /* An editor binds Duplicate to this key, and a press it does not answer must not leave the project. */
-  useHotkeys("ctrl+d", () => navigate({ to: "/diagnostics", search: { tab: "games" } }), {
-    preventDefault: true,
-    enabled: !location.pathname.startsWith("/workshop/"),
+  useKeys("app", {
+    "app.home": () => void navigate({ to: "/" }),
+    "app.library": () => void navigate({ to: "/mods" }),
+    "app.workshop": () => void navigate({ to: "/workshop" }),
+    "app.diagnostics": () => void navigate({ to: "/diagnostics", search: { tab: "games" } }),
+    "app.settings": () => void navigate({ to: "/settings" }),
+    "app.gallery": () => void navigate({ to: "/gallery" }),
+    "app.keys": () => openKeySheet(),
   });
-  useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
-  useHotkeys("ctrl+shift+g", () => navigate({ to: "/gallery" }), {
-    preventDefault: true,
-    enabled: import.meta.env.DEV,
-  });
+
   // Redirect to settings if setup is required
   useEffect(() => {
     if (setupRequired && location.pathname !== "/settings") {
@@ -245,6 +248,7 @@ function RootLayout() {
       <WadScanFailedDialog />
       <InstallMismatchDialog />
       <DiagnosticsNoticeDialog />
+      <KeySheet />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />
         <InstallListDialogLazy />

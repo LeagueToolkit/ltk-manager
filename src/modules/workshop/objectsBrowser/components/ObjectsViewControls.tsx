@@ -11,6 +11,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import { useInToolbarOverflow } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 interface ObjectsViewControlsProps {
@@ -110,7 +111,9 @@ export function ObjectsViewControls({
                     aria-label={m.workshop_explorer_thumbnails_label()}
                   />
                 </label>
-                <p className="text-meta text-surface-400">{m.workshop_objects_thumbnails_hint()}</p>
+                <p className="text-meta text-surface-400">
+                  {m.workshop_objects_thumbnails_hint({ key: shortcutOf("objects.preview") })}
+                </p>
               </div>
             </>
           )}

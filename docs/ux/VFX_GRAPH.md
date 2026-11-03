@@ -365,9 +365,8 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
 
 The object tab's menu bar lists what the rails, the transport, the toolbars and the context menus
 of a particle system offer. Those surfaces stay. `VfxMenubar` in
-`src/modules/workshop/bin/vfx/components/VfxMenubar.tsx` draws the bar, and each key comes from
-one table, `VFX_KEYS` in `src/modules/workshop/bin/vfx/utils/vfxKeys.ts`, that the handlers read
-too.
+`src/modules/workshop/bin/vfx/components/VfxMenubar.tsx` draws the bar, and each key is a `vfx.*`
+command of the key registry, per "The registry" in docs/ux/KEYS.md, that the handlers read too.
 
 | Menu     | Items                                                                                                                                                                                                                                                                               |
 | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -21,6 +21,7 @@ import {
   type SegmentedOption,
 } from "@/components";
 import { m } from "@/i18n";
+import { shortcutOf } from "@/modules/keys";
 import { ViewOptionsPopover } from "@/modules/library";
 
 import { RecentProjectMenuItems } from "../../folders/components/RecentProjectMenuItems";
@@ -159,7 +160,8 @@ export function NewProjectButton() {
         aria-label={m.workshop_controls_new_project_label()}
         tooltip={
           <>
-            {m.workshop_controls_new_project_label()} <Kbd shortcut="Ctrl+N" />
+            {m.workshop_controls_new_project_label()}{" "}
+            <Kbd shortcut={shortcutOf("workshop.newProject")} />
           </>
         }
       />
@@ -179,7 +181,7 @@ export function NewProjectButton() {
         <Menu.Content className="w-72">
           <Menu.Item
             icon={<FolderOpenIcon weight="bold" className="size-4" />}
-            shortcut="Ctrl+O"
+            shortcut={shortcutOf("workshop.openFolder")}
             onClick={openFolder.pick}
           >
             {m.workshop_folder_open_action()}

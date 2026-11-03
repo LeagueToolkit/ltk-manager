@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Kbd, OVERLINE } from "@/components";
 import { m } from "@/i18n";
+import { shortcutOf } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
 import { useOpenedFolders } from "../api/projectFolders";
@@ -36,7 +37,7 @@ export function WorkshopStartPage() {
           <StartAction
             icon={<FolderOpenIcon weight="bold" className="size-4" />}
             label={m.workshop_folder_open_action()}
-            shortcut="Ctrl+O"
+            shortcut={shortcutOf("workshop.openFolder")}
             onClick={openFolder.pick}
           />
           <StartAction

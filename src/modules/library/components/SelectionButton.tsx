@@ -1,10 +1,9 @@
 import { CaretDownIcon, ChecksIcon, CheckSquareIcon, ProhibitIcon } from "@phosphor-icons/react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { ButtonGroup, IconButton, Kbd, Menu } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
+import { shortcutOf, useKeys } from "@/modules/keys";
 import type { useLibraryActions } from "@/modules/library/api";
-import { isOverlayOpen } from "@/utils";
 
 import { useLibrarySelectionStore } from "../state";
 
@@ -43,13 +42,9 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
     addMany(visibleIds);
   }
 
-  /* The health panel owns Ctrl+A while it is showing: "It takes focus while it
-     is open" in docs/ux/MOD_HEALTH.md. So does every other overlay, for the
-     same reason. */
-  useHotkeys("ctrl+a, meta+a", () => !isOverlayOpen() && handleToggleAll(), {
-    preventDefault: true,
-    enabled: !disabled,
-  });
+  /* `library.selectAll` excludes an open overlay: the health panel owns Ctrl+A while it is
+     showing, per "It takes focus while it is open" in docs/ux/MOD_HEALTH.md. */
+  useKeys("library", { "library.selectAll": handleToggleAll }, { enabled: !disabled });
 
   return (
     <ButtonGroup>
@@ -63,7 +58,8 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
         onClick={handleToggleAll}
         tooltip={
           <>
-            {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
+            {clearsOnClick ? "Clear selection" : "Select all"}{" "}
+            <Kbd shortcut={shortcutOf("library.selectAll")} />
           </>
         }
       />

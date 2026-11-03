@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
 import { type ReactNode, useEffect } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { ChromeGround, PageInset } from "@/components";
+import { useKeys } from "@/modules/keys";
 import { RuneforgeDialogs } from "@/modules/runeforge";
 import {
   ProjectProvider,
@@ -45,10 +45,11 @@ function WorkshopShell() {
   const project = projects?.find((candidate) => candidate.id === projectId) ?? null;
 
   const openNewProjectDialog = useNewProjectDialog((s) => s.open);
-  useHotkeys("ctrl+n", () => openNewProjectDialog(), { preventDefault: true });
-
   const openFolder = useOpenFolder();
-  useHotkeys("ctrl+o", openFolder.pick, { preventDefault: true }, [openFolder.pick]);
+  useKeys("workshop", {
+    "workshop.newProject": () => openNewProjectDialog(),
+    "workshop.openFolder": () => void openFolder.pick(),
+  });
 
   /* The route rather than the resolved project, which arrives a frame late and
      would record a grid the user never stood on. A document records itself. */

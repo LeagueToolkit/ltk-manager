@@ -10,6 +10,7 @@ import {
   documentSave,
   MENU_SEPARATOR,
 } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 
 import { ObjectEditItems, ObjectFileItems, ObjectViewItems } from "../components/ObjectBarItems";
 import { ObjectMenuContext } from "../state/objectMenu";
@@ -79,7 +80,7 @@ export function useObjectMenus(): ObjectMenus {
           id: "save",
           title: m.workshop_bin_menu_save_action(),
           icon: <FloppyDiskIcon className="size-4" />,
-          shortcut: "Ctrl+S",
+          shortcut: shortcutOf("editor.save"),
           run: save,
           reason,
         },
@@ -99,7 +100,7 @@ export function useObjectMenus(): ObjectMenus {
           id: "undo",
           title: m.workshop_bin_menu_undo_action(),
           icon: <ArrowArcLeftIcon className="size-4" />,
-          shortcut: "Ctrl+Z",
+          shortcut: shortcutOf("editor.undo"),
           run: undo,
           reason,
         },
@@ -108,7 +109,7 @@ export function useObjectMenus(): ObjectMenus {
           id: "redo",
           title: m.workshop_bin_menu_redo_action(),
           icon: <ArrowArcRightIcon className="size-4" />,
-          shortcut: "Ctrl+Shift+Z",
+          shortcut: shortcutOf("editor.redo"),
           run: redo,
           reason,
         },

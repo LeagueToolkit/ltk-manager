@@ -896,8 +896,9 @@ document. An item that does not apply there is disabled, and it shows the reason
 where the reader cannot see it. An item that the class can never have is left out.
 
 The bar lists what the viewport rails, the toolbars and the context menus offer, and those stay
-where they are. Keys and gestures opens a sheet of each key that the bar shows, by menu. The
-palette lists the bar's commands while the tab is open.
+where they are. Keys and gestures opens the shortcut sheet with the keys of the tab's view first,
+per "The shortcut sheet" in docs/ux/KEYS.md. The palette lists the bar's commands while the tab is
+open.
 
 A pane offers the commands that read its own state through `usePaneCommands`. Where two panes offer
 one command, such as Delete in the Graph and in the timeline, the item acts on the pane the reader

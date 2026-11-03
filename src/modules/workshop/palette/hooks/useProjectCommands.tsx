@@ -24,6 +24,7 @@ import { useMemo } from "react";
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
 import { m } from "@/i18n";
 import { useOfferedCommands } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
 import { useDeclarationsOn } from "../../bin/documents/hooks/useDeclared";
@@ -313,7 +314,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         id: "game.find",
         title: "Search the game files",
         group: "Game",
-        shortcut: "Ctrl+Shift+F",
+        shortcut: shortcutOf("project.findGame"),
         keywords: ["find", "grep", "regex", "wad"],
         icon: <MagnifyingGlassIcon weight="bold" className={GLYPH} />,
         run: revealGameSearch,

@@ -210,6 +210,7 @@ the same way. Every other page keeps the title bar one rung up with its hairline
 | `Ctrl+2`           | Anywhere       | Goes to the workshop                                       |
 | `Ctrl+P`, `Ctrl+K` | Either surface | Opens the palette on its listing                           |
 | `Ctrl+Shift+P`     | Either surface | Opens the palette scoped to Commands                       |
+| `Ctrl+Shift+O`     | Either surface | Opens the palette scoped to Projects                       |
 | `Ctrl+N`           | Either surface | New project                                                |
 | `Ctrl+F`           | The grid       | Opens the filter, or asks for the box back from the cards  |
 | `Ctrl+A`           | The grid       | Selects every visible project, while no session is running |
@@ -511,7 +512,8 @@ The id replaces the folder name in the route, so two opened projects with the sa
 - **Open folder…** on the New caret, `Ctrl+O`, and the palette's command list
 - A folder dropped on the grid
 - A row of the Recent group on the caret, or of the palette's `/` source, which ranks by last
-  opened. `Ctrl+R` opens the palette on that source with an empty query.
+  opened. `Ctrl+Shift+O` opens the palette on that source with an empty query. `Ctrl+R` reloads
+  the webview, so no command takes it, per "Reserved chords" in docs/ux/KEYS.md.
 - The start page, when no workshop folder is set and there is nothing to list
 
 ### What the picked folder decides

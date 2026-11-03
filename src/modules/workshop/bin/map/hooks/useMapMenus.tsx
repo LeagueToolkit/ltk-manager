@@ -22,12 +22,13 @@ import type { ReactNode } from "react";
 
 import { m } from "@/i18n";
 import type { CommandMenuEntry } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 
 import { cameraSubmenu, viewModeSubmenu } from "../../menus/components/LazyPreviewItems";
 import { usePaneCommandLookup } from "../../menus/state/paneCommands";
 import { useMapScene } from "../state/mapScene";
 import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
-import { MAP_KEYS, MAP_SAVE_KEY } from "../utils/mapKeys";
+import { MAP_KEYS } from "../utils/mapKeys";
 import { editCommand, editReason, MENU_ICON } from "../utils/mapMenuItems";
 import { type MapAuthoringMenus, useMapAuthoringMenus } from "./useMapAuthoringMenus";
 import { useMapCommands } from "./useMapCommands";
@@ -117,7 +118,7 @@ export function useMapMenus(viewportHidden: boolean): MapMenus {
       id: "map.saveGeometry",
       title: m.workshop_bin_menu_map_save_geometry_action(),
       icon: <FloppyDiskIcon className={MENU_ICON} />,
-      shortcut: MAP_SAVE_KEY,
+      shortcut: shortcutOf("editor.save"),
       run: geometryDocument?.dirty === true ? () => void saveGeometry() : null,
       reason: opened ? m.workshop_bin_menu_map_clean_reason() : geometryReason,
     },

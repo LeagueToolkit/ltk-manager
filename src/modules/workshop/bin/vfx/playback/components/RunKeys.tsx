@@ -1,22 +1,15 @@
-import { type ReactNode, useEffect } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
+import { type ReactNode, useEffect, useRef } from "react";
 
 import { useContentVisible } from "@/hooks";
+import { type KeyHandlers, useKeys } from "@/modules/keys";
 
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { useTimelineMarkers } from "../../timeline/hooks/useTimelineMarkers";
-import { hotkeyOf, type RunKey, VFX_KEYS } from "../../utils/vfxKeys";
+import { type RunKey, vfxCommand } from "../../utils/vfxKeys";
 import { useVfxRun } from "../state/run";
-import { ignoredKey } from "../utils/ignoredKey";
 import { RUN_ACTIONS, runSelection } from "../utils/runActions";
 
-/** The action of each key, by the key's `react-hotkeys-hook` spelling. */
-const KEYS = new Map(
-  (Object.keys(RUN_ACTIONS) as RunKey[]).map((name) => [
-    hotkeyOf(VFX_KEYS[name]),
-    RUN_ACTIONS[name],
-  ]),
-);
+const RUN_KEYS = Object.keys(RUN_ACTIONS) as RunKey[];
 
 /**
  * The run's keys, live wherever focus is inside this box and outside an editable field.
@@ -29,26 +22,22 @@ export function RunKeys({ children }: { children: ReactNode }) {
   const { cards, root, selected } = useEmitters();
   const markers = useTimelineMarkers();
   const visible = useContentVisible();
+  const ref = useRef<HTMLDivElement>(null);
 
-  const ref = useHotkeys<HTMLDivElement>(
-    [...KEYS.keys()].join(", "),
-    (_, handler) => {
-      KEYS.get(handler.hotkey)?.(run, runSelection(run.system, cards, root, selected), markers);
-    },
-    {
-      preventDefault: true,
-      enableOnFormTags: true,
-      ignoreEventWhen: ignoredKey,
-    },
-    [run, cards, root, selected, markers],
+  const handlers: KeyHandlers = Object.fromEntries(
+    RUN_KEYS.map((name) => [
+      vfxCommand(name),
+      () => RUN_ACTIONS[name](run, runSelection(run.system, cards, root, selected), markers),
+    ]),
   );
+  useKeys("document:vfx", handlers, { ref });
 
   useEffect(() => {
     const box = ref.current;
     if (!visible || box === null || !focusIsFree(box)) return;
 
     box.focus({ preventScroll: true });
-  }, [ref, visible]);
+  }, [visible]);
 
   return (
     <div

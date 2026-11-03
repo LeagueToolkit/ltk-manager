@@ -10,6 +10,7 @@ import {
 import { useMemo } from "react";
 
 import { anyClosable, type LeafCloses, leafCloses } from "@/modules/editor";
+import { shortcutOf } from "@/modules/keys";
 
 import {
   useActiveLeafId,
@@ -118,7 +119,7 @@ export function useGroupCommands(): readonly ProjectCommand[] {
         group: VIEW,
         keywords: ["restore", "undo", "back", "strip"],
         icon: <ArrowCounterClockwiseIcon className={GLYPH} />,
-        shortcut: "Ctrl+Shift+T",
+        shortcut: shortcutOf("editor.reopenTab"),
         enabled: hasClosed,
         disabledReason: "Nothing closed yet",
         run: reopenClosed,

@@ -1,0 +1,121 @@
+import { m } from "@/i18n";
+
+import type { CommandSpec } from "../types";
+
+/** The commands of the map editor's viewport and outliner. Per "Keys" in docs/ux/MAP_EDITOR.md. */
+export const MAP_COMMANDS = [
+  {
+    id: "map.select",
+    title: m.keys_map_select_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["Q"],
+  },
+  {
+    id: "map.move",
+    title: m.keys_map_move_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["W"],
+  },
+  {
+    id: "map.rotate",
+    title: m.keys_map_rotate_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["E"],
+  },
+  {
+    id: "map.scale",
+    title: m.keys_map_scale_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["R"],
+  },
+  {
+    id: "map.place",
+    title: m.keys_map_place_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["P"],
+  },
+  {
+    id: "map.localAxes",
+    title: m.keys_map_local_axes_label,
+    group: "tools",
+    scopes: ["document:map"],
+    keys: ["X"],
+  },
+  {
+    id: "map.frameSelection",
+    title: m.keys_map_frame_selection_label,
+    group: "view",
+    scopes: ["document:map"],
+    keys: ["F"],
+  },
+  {
+    id: "map.hide",
+    title: m.keys_map_hide_label,
+    group: "view",
+    scopes: ["document:map"],
+    keys: ["H"],
+  },
+  {
+    id: "map.showAll",
+    title: m.keys_map_show_all_label,
+    group: "view",
+    scopes: ["document:map"],
+    keys: ["Alt+H"],
+  },
+  {
+    id: "map.delete",
+    title: m.keys_map_delete_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["Delete"],
+  },
+  {
+    id: "map.duplicate",
+    title: m.keys_map_duplicate_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["Ctrl+D"],
+  },
+  {
+    id: "map.rename",
+    title: m.keys_map_rename_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["F2"],
+  },
+  {
+    id: "map.drop",
+    title: m.keys_map_drop_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["End"],
+  },
+  {
+    id: "map.selectAll",
+    title: m.keys_map_select_all_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["Ctrl+A"],
+  },
+  {
+    id: "map.selectNone",
+    title: m.keys_map_select_none_label,
+    group: "editing",
+    scopes: ["document:map"],
+    keys: ["Escape"],
+    shadows: ["editor.restorePanel"],
+  },
+  {
+    id: "map.snap",
+    title: m.keys_map_snap_label,
+    group: "pointer",
+    scopes: ["document:map"],
+    keys: [],
+    gesture: true,
+  },
+] as const satisfies readonly CommandSpec[];

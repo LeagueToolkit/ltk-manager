@@ -1,6 +1,7 @@
 import { PaletteIcon } from "@phosphor-icons/react";
 
 import { SectionCard } from "@/components";
+import { shortcutOf } from "@/modules/keys";
 import { useRotateAppMark } from "@/stores";
 
 import { SettingGroup } from "../SettingGroup";
@@ -74,7 +75,7 @@ export function AppearanceSection() {
             kind="action"
             setting="display.zoomLevel"
             description="Scales the whole interface."
-            hint="Click the percentage to type an exact level. Ctrl+Plus and Ctrl+Minus step the zoom from anywhere, and Ctrl+0 returns to 100%."
+            hint={`Click the percentage to type an exact level. ${shortcutOf("app.zoomIn")} and ${shortcutOf("app.zoomOut")} step the zoom from anywhere, and ${shortcutOf("app.zoomReset")} returns to 100%.`}
             controlClassName="w-72 shrink"
             control={<ZoomLevelPicker />}
           />

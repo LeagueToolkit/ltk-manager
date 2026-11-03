@@ -13,5 +13,4 @@ export * from "./useEditorKeys";
 export * from "./useNarrowToolbar";
 export * from "./useTextDocumentEditor";
 export * from "./useTextFind";
-export * from "./utils/chords";
 export * from "./utils/commandMenu";

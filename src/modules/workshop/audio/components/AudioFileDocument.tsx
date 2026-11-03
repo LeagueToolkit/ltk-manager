@@ -16,6 +16,7 @@ import {
 import { m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
 import type { AssetRef, AudioContainer, AudioInfo, MediaRow } from "@/lib/tauri";
+import { openKeySheet } from "@/modules/keys";
 import { useAudioInspector } from "@/stores";
 import { formatBytes } from "@/utils/formatBytes";
 
@@ -32,7 +33,6 @@ import { type PanelCommands, PanelCommandsContext, usePanelCommands } from "../s
 import { useNudgeVolume, usePreviewRepeat, useToggleLoop } from "../state/previewTransport";
 import { AUDIO_KEYMAP, type AudioCommandId, type AudioSurface } from "../utils/keymap";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
-import { AudioKeysDialog, DOCUMENT_SCOPE } from "./AudioKeys";
 import { AudioMenubar, VolumeReadout } from "./AudioMenubar";
 import { AudioPanelTools, AudioToolbar, AudioToolsSlotContext } from "./AudioToolbar";
 import { BankUnitItems } from "./BankUnits";
@@ -97,7 +97,6 @@ export function AudioFileDocument({
   const [view, setView] = useState<AudioView | null>(null);
   const [focused, setFocused] = useState<number | null>(null);
   const [tools, setTools] = useState<HTMLSpanElement | null>(null);
-  const [help, setHelp] = useState(false);
   const [details, setDetails] = useState(false);
   const frame = useRef<HTMLDivElement>(null);
   const row = useRef<HTMLDivElement>(null);
@@ -119,7 +118,7 @@ export function AudioFileDocument({
     loop: toggleLoop,
     volumeDown: () => nudgeVolume(-1),
     volumeUp: () => nudgeVolume(1),
-    help: () => setHelp(true),
+    help: () => openKeySheet(frame.current),
     details: audio === null ? undefined : () => setDetails(true),
     viewMedia: hierarchy ? () => setView("media") : undefined,
     viewEvents: hierarchy ? () => setView("events") : undefined,
@@ -189,7 +188,6 @@ export function AudioFileDocument({
           </AudioToolsSlotContext>
         </Tabs.Root>
       </PanelCommandsContext>
-      <AudioKeysDialog open={help} onClose={() => setHelp(false)} scope={DOCUMENT_SCOPE} />
     </DocumentFrame>
   );
 }

@@ -14,6 +14,7 @@ import {
 import { ContextMenu } from "@/components";
 import { useRemeasure, useZoomedPx } from "@/hooks";
 import type { DeclarationsLayer, DeclaredModule } from "@/lib/tauri";
+import { commandAt } from "@/modules/keys";
 
 import { useReadOnlyTreeNav } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
@@ -375,16 +376,17 @@ function moduleKey(
   const { layer, module } = node;
   const last = handlers.modulesOf(layer).length - 1;
 
-  if (event.key === "F2") {
+  const command = commandAt(event, "focus:outline");
+  if (command === "outline.rename") {
     handlers.onRename(node);
     return true;
   }
-  if (event.key === "Delete") {
+  if (command === "outline.delete") {
     actions.remove(layer, module);
     return true;
   }
-  if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-    const to = module.index + (event.key === "ArrowUp" ? -1 : 1);
+  if (command === "outline.moveUp" || command === "outline.moveDown") {
+    const to = module.index + (command === "outline.moveUp" ? -1 : 1);
     if (to < 0 || to > last) return true;
 
     void actions.move(layer, module, to).then(follow);

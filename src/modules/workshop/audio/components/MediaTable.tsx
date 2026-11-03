@@ -26,7 +26,7 @@ import { instantScroll } from "../../shared/utils/instantScroll";
 import type { MediaActions } from "../hooks/useMediaActions";
 import type { MediaPlayer } from "../hooks/useMediaPlayer";
 import { useTypeAhead } from "../hooks/useTypeAhead";
-import { type AudioCommandId, resolveCommand } from "../utils/keymap";
+import { type AudioCommandId, menuShortcut, resolveCommand } from "../utils/keymap";
 import {
   codecLabel,
   decodedExtension,
@@ -403,9 +403,6 @@ function unplayableReason(row: MediaRow, failed: boolean): string | null {
   return null;
 }
 
-/** The key that copies the source ID of the selected row. */
-const COPY_KEY = "Ctrl+C";
-
 /** The actions of one row: its two saves and the copy of its source ID. */
 function MediaContextMenu({ row, actions }: { row: MediaRow; actions: MediaActions }) {
   const decodable = row.playback.kind === "playable";
@@ -428,7 +425,7 @@ function MediaContextMenu({ row, actions }: { row: MediaRow; actions: MediaActio
       </ContextMenu.Item>
       <ContextMenu.Item
         icon={<HashIcon />}
-        shortcut={COPY_KEY}
+        shortcut={menuShortcut("copy")}
         onClick={() => actions.copySource(row)}
       >
         {m.audio_copy_source_action()}

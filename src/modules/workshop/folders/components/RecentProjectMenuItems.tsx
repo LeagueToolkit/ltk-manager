@@ -4,6 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Menu } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
+import { shortcutOf } from "@/modules/keys";
 
 import { ProjectGlyph } from "../../palette/components/projectRows";
 import { useRevealPalette } from "../../palette/state/paletteReveal";
@@ -35,7 +36,7 @@ export function RecentProjectMenuItems() {
         ))}
         <Menu.Item
           icon={<MagnifyingGlassIcon className="size-4" />}
-          shortcut="Ctrl+R"
+          shortcut={shortcutOf("workshop.projects")}
           onClick={() => revealPalette("projects")}
           className="text-surface-400"
         >

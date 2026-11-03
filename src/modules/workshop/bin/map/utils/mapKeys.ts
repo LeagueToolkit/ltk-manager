@@ -1,64 +1,57 @@
 /**
- * The key of each map command, which the key handler answers and the menus show.
+ * The map commands of the key registry, by the name that the map's handlers and menus use.
  *
  * Per "Keys" in docs/ux/MAP_EDITOR.md. The tools keep their `MapTool` name.
  */
-export const MAP_KEYS = {
-  select: "Q",
-  move: "W",
-  rotate: "E",
-  scale: "R",
-  place: "P",
-  localAxes: "X",
-  frameSelection: "F",
-  hide: "H",
-  showAll: "Alt+H",
-  delete: "Del",
-  duplicate: "Ctrl+D",
-  rename: "F2",
-  drop: "End",
-  selectAll: "Ctrl+A",
-  selectNone: "Esc",
-} as const;
+import { commandAt, type CommandId, shortcutOf } from "@/modules/keys";
 
-/** The key of the tab's save, which the editor answers rather than the map's handler. */
-export const MAP_SAVE_KEY = "Ctrl+S";
+/** The registry command of each map command. */
+const MAP_COMMANDS = {
+  select: "map.select",
+  move: "map.move",
+  rotate: "map.rotate",
+  scale: "map.scale",
+  place: "map.place",
+  localAxes: "map.localAxes",
+  frameSelection: "map.frameSelection",
+  hide: "map.hide",
+  showAll: "map.showAll",
+  delete: "map.delete",
+  duplicate: "map.duplicate",
+  rename: "map.rename",
+  drop: "map.drop",
+  selectAll: "map.selectAll",
+  selectNone: "map.selectNone",
+} as const satisfies Readonly<Record<string, CommandId>>;
 
 /** A command that a key of the map answers. */
-export type MapKeyCommand = keyof typeof MAP_KEYS;
+export type MapKeyCommand = keyof typeof MAP_COMMANDS;
+
+/** The key that a menu or a tooltip shows for each map command. */
+export const MAP_KEYS = Object.fromEntries(
+  Object.entries(MAP_COMMANDS).map(([name, id]) => [name, shortcutOf(id)]),
+) as Readonly<Record<MapKeyCommand, string>>;
 
 /** The fields of a keyboard event that decide its command. */
 export interface MapKeyEvent {
   readonly key: string;
+  readonly code?: string;
   readonly ctrlKey: boolean;
   readonly metaKey: boolean;
   readonly altKey: boolean;
 }
 
-/** The `KeyboardEvent.key` of each key whose shown name differs from it. */
-const EVENT_KEYS: Readonly<Record<string, string>> = { Del: "delete", Esc: "escape" };
-
-const BINDINGS = (Object.entries(MAP_KEYS) as [MapKeyCommand, string][]).map(
-  ([command, binding]) => {
-    const parts = binding.split("+");
-    const name = parts.at(-1) ?? binding;
-
-    return {
-      command,
-      key: (EVENT_KEYS[name] ?? name).toLowerCase(),
-      ctrl: parts.includes("Ctrl"),
-      alt: parts.includes("Alt"),
-    };
-  },
+const BY_ID: ReadonlyMap<CommandId, MapKeyCommand> = new Map(
+  Object.entries(MAP_COMMANDS).map(([name, id]) => [id, name as MapKeyCommand]),
 );
 
-/** Returns the command that `event` asks for, or null if it matches no entry of `MAP_KEYS`. */
+/**
+ * Returns the command that `event` asks for, or null if it matches no map command.
+ *
+ * Shift is ignored, so a tool key answers while Shift is held for a drag.
+ */
 export function mapKeyCommand(event: MapKeyEvent): MapKeyCommand | null {
-  const key = event.key.toLowerCase();
-  const ctrl = event.ctrlKey || event.metaKey;
-  const found = BINDINGS.find(
-    (binding) => binding.key === key && binding.ctrl === ctrl && binding.alt === event.altKey,
-  );
+  const id = commandAt({ ...event, shiftKey: false }, "document:map");
 
-  return found?.command ?? null;
+  return id === null ? null : (BY_ID.get(id) ?? null);
 }

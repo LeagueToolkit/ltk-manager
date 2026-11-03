@@ -1,4 +1,4 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { commandAt, type CommandId, isChord, type KeyPress, shortcutOf } from "@/modules/keys";
 
 import type { LayerStep } from "../engine/edit/targets";
 import type { PixelRect } from "../engine/layout/solve";
@@ -22,26 +22,41 @@ export type CanvasAction =
   | "delete"
   | "clear";
 
-/** The word that a surface shows for each action, and the `KeyboardEvent.key` values it answers. */
+/** The registry command of each action. */
+const ACTION_COMMANDS = {
+  frame: "atlas.frame",
+  fit: "atlas.fit",
+  actual: "atlas.actual",
+  zoomIn: "atlas.zoomIn",
+  zoomOut: "atlas.zoomOut",
+  nudgeLeft: "atlas.nudgeLeft",
+  nudgeRight: "atlas.nudgeRight",
+  nudgeUp: "atlas.nudgeUp",
+  nudgeDown: "atlas.nudgeDown",
+  forward: "atlas.forward",
+  backward: "atlas.backward",
+  front: "atlas.front",
+  back: "atlas.back",
+  delete: "atlas.delete",
+  clear: "atlas.clear",
+} as const satisfies Readonly<Record<CanvasAction, CommandId>>;
+
+/** The registry command of each action and the keycaps that a surface shows for it. */
 export const CANVAS_BINDINGS: Readonly<
-  Record<CanvasAction, { readonly shown: string; readonly answers: readonly string[] }>
-> = {
-  frame: { shown: "F", answers: ["f", "F"] },
-  fit: { shown: "0", answers: ["0"] },
-  actual: { shown: "1", answers: ["1"] },
-  zoomIn: { shown: "=", answers: ["=", "+"] },
-  zoomOut: { shown: "-", answers: ["-"] },
-  nudgeLeft: { shown: "←", answers: ["ArrowLeft"] },
-  nudgeRight: { shown: "→", answers: ["ArrowRight"] },
-  nudgeUp: { shown: "↑", answers: ["ArrowUp"] },
-  nudgeDown: { shown: "↓", answers: ["ArrowDown"] },
-  forward: { shown: "]", answers: ["]"] },
-  backward: { shown: "[", answers: ["["] },
-  front: { shown: "}", answers: ["}"] },
-  back: { shown: "{", answers: ["{"] },
-  delete: { shown: "Del", answers: ["Delete", "Backspace"] },
-  clear: { shown: "Esc", answers: ["Escape"] },
-};
+  Record<CanvasAction, { readonly command: CommandId; readonly shown: string }>
+> = Object.fromEntries(
+  (Object.entries(ACTION_COMMANDS) as [CanvasAction, CommandId][]).map(([action, command]) => [
+    action,
+    { command, shown: shortcutOf(command) },
+  ]),
+) as Record<CanvasAction, { readonly command: CommandId; readonly shown: string }>;
+
+const NUDGES = [
+  CANVAS_BINDINGS.nudgeLeft.shown,
+  CANVAS_BINDINGS.nudgeUp.shown,
+  CANVAS_BINDINGS.nudgeDown.shown,
+  CANVAS_BINDINGS.nudgeRight.shown,
+].join(" ");
 
 /** The keys that the canvas's tooltips, shortcut list and menus show. */
 export const CANVAS_KEYS = {
@@ -50,26 +65,30 @@ export const CANVAS_KEYS = {
   actual: CANVAS_BINDINGS.actual.shown,
   zoomIn: CANVAS_BINDINGS.zoomIn.shown,
   zoomOut: CANVAS_BINDINGS.zoomOut.shown,
-  nudge: "←↑↓→",
-  nudgeFar: "Shift+←↑↓→",
+  nudge: NUDGES,
+  nudgeFar: `Shift+${NUDGES}`,
   forward: CANVAS_BINDINGS.forward.shown,
   backward: CANVAS_BINDINGS.backward.shown,
   front: CANVAS_BINDINGS.front.shown,
   back: CANVAS_BINDINGS.back.shown,
-  pan: "Space",
+  pan: shortcutOf("atlas.pan"),
   delete: CANVAS_BINDINGS.delete.shown,
   clear: CANVAS_BINDINGS.clear.shown,
-  selectAll: "Ctrl+A",
+  selectAll: shortcutOf("atlas.selectAll"),
 } as const;
 
-const ACTION_OF_KEY: ReadonlyMap<string, CanvasAction> = new Map(
-  (
-    Object.entries(CANVAS_BINDINGS) as [CanvasAction, (typeof CANVAS_BINDINGS)[CanvasAction]][]
-  ).flatMap(([action, binding]) => binding.answers.map((key) => [key, action] as const)),
+const ACTION_OF_COMMAND: ReadonlyMap<CommandId, CanvasAction> = new Map(
+  (Object.entries(ACTION_COMMANDS) as [CanvasAction, CommandId][]).map(([action, command]) => [
+    command,
+    action,
+  ]),
 );
 
-/** The keys that the sprites pane answers on its active row. */
-export const SPRITE_KEYS = { replace: "R", export: "E" } as const;
+/** The keys that the sprites pane shows on its active row. */
+export const SPRITE_KEYS = {
+  replace: shortcutOf("atlas.replaceSprite"),
+  export: shortcutOf("atlas.exportSprite"),
+} as const;
 
 export interface KeyTargets {
   readonly transform: ViewTransformControl;
@@ -131,21 +150,17 @@ export function runCanvasAction(
   }
 }
 
-/** Runs the canvas's action for `key`, and returns whether it had one. */
-export function canvasKey(key: string, targets: KeyTargets): boolean {
-  const action = ACTION_OF_KEY.get(key);
+/** Runs the canvas's action for `press`, and returns whether it had one. */
+export function canvasKey(press: KeyPress, targets: KeyTargets): boolean {
+  const command = commandAt(press, "focus:atlas.canvas");
+  const action = command === null ? undefined : ACTION_OF_COMMAND.get(command);
   if (action === undefined) return false;
 
   runCanvasAction(action, targets);
   return true;
 }
 
-/** Returns `true` if `event` is the select all chord that `CANVAS_KEYS.selectAll` shows. */
-export function isSelectAllKey(event: ReactKeyboardEvent): boolean {
-  return (
-    (event.ctrlKey || event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey &&
-    event.key.toLowerCase() === "a"
-  );
+/** Returns `true` if `press` is `atlas.selectAll`. */
+export function isSelectAllKey(press: KeyPress): boolean {
+  return isChord(press, "atlas.selectAll");
 }

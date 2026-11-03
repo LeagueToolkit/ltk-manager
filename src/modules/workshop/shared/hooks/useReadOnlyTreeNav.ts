@@ -1,6 +1,8 @@
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, type RefObject, useCallback, useEffect, useState } from "react";
 
+import { isChord } from "@/modules/keys";
+
 import type { OpenIntent } from "../../palette/utils/types";
 import { isCollapseAllKey } from "../utils/treeGestures";
 
@@ -109,7 +111,7 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
           const does = activation(node);
           if (does === "open") {
             e.preventDefault();
-            onOpen(node, e.ctrlKey || e.metaKey ? "beside" : "default");
+            onOpen(node, isChord(e, "tree.openBeside") ? "beside" : "default");
           } else if (does === "toggle") {
             e.preventDefault();
             onToggle(node);

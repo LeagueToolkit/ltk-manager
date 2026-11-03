@@ -14,10 +14,12 @@ const sizeClasses = {
 
 /**
  * A key combination drawn as keycaps, split on the `+` in `shortcut`.
+ *
+ * A `+` at the end is the plus key, so `Ctrl++` draws `Ctrl` and `+`.
  */
 export const Kbd = forwardRef<HTMLElement, KbdProps>(
   ({ shortcut, size = "sm", className, ...props }, ref) => {
-    const keys = shortcut.split("+");
+    const keys = shortcut.split(/\+(?=.)/);
 
     return (
       <span

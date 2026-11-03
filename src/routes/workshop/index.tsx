@@ -1,9 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { ErrorState, LoadingState } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
+import { useKeys } from "@/modules/keys";
 import { useSettings } from "@/modules/settings";
 import {
   MissingProjects,
@@ -46,10 +46,11 @@ function WorkshopIndex() {
   const testState = useWorkshopTestState();
   useFolderDrop((path) => void openFolder.openPath(path), testState.kind === "idle");
 
-  useHotkeys("ctrl+a", () => selectAll(filteredProjects.map((p) => p.path)), {
-    preventDefault: true,
-    enabled: testState.kind === "idle",
-  });
+  useKeys(
+    "workshop",
+    { "workshop.selectAll": () => selectAll(filteredProjects.map((p) => p.path)) },
+    { enabled: testState.kind === "idle" },
+  );
 
   function handleEditProject(project: WorkshopProject) {
     navigate({ to: "/workshop/$projectId", params: { projectId: project.id } });

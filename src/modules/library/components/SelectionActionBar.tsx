@@ -8,13 +8,12 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
-import { useHotkeys } from "react-hotkeys-hook";
 
 import { Button, IconButton, Menu, Tooltip } from "@/components";
 import { m, Marked } from "@/i18n";
 import type { HealthCheckReadiness, InstalledMod } from "@/lib/tauri";
+import { shortcutOf, useKeys } from "@/modules/keys";
 import { useSelectionActions } from "@/modules/library/api";
-import { isOverlayOpen } from "@/utils";
 
 import { useLibrarySelectionStore } from "../state";
 import { MoveToFolderItems } from "./MoveToFolderMenu";
@@ -39,10 +38,9 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
   const selectedIds = useLibrarySelectionStore((s) => s.selectedIds);
   const actions = useSelectionActions();
 
-  /* The health panel, an uninstall confirmation, a mod's details and a card
-     menu are all reachable with a selection standing, and Escape in each of
-     them means "close this" rather than "drop the picks". */
-  useHotkeys("escape", () => !isOverlayOpen() && actions.clear(), [actions.clear]);
+  /* `library.clearSelection` excludes an open overlay: the health panel, an uninstall
+     confirmation, a mod's details and a card menu each take Escape as "close this". */
+  useKeys("library", { "library.clearSelection": actions.clear });
 
   const visibleSelectedCount = useMemo(
     () => visibleMods.reduce((n, m) => n + (selectedIds.has(m.id) ? 1 : 0), 0),
@@ -58,7 +56,9 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
           size="md"
           onClick={actions.clear}
           aria-label={m.library_selection_clear_action()}
-          tooltip={m.library_selection_clear_hint()}
+          tooltip={m.library_selection_clear_hint({
+            key: shortcutOf("library.clearSelection"),
+          })}
         />
 
         <span className="px-2 text-sm whitespace-nowrap text-surface-200 select-none">
