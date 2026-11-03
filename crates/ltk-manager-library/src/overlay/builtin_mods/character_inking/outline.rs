@@ -12,6 +12,21 @@ const DEPTH_OFFSET: f32 = -20.0;
 /// The mask texture of every shipped outline material, read on its red channel.
 const MASK_TEXTURE: &str = "assets/shared/materials/white.tex";
 
+/// Reads the mask on its red channel, for the white texture.
+const RED: [f32; 4] = [1.0, 0.0, 0.0, 0.0];
+
+/// Reads the mask on its alpha channel, for a submesh's own texture.
+pub(super) const ALPHA: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
+
+/// A texture that masks an outline, and the weight of each of its channels.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub(super) struct Mask {
+    /// The texture's path hash.
+    pub(super) texture: u64,
+    /// `Outline_Mask_ChannelMask`.
+    pub(super) channels: [f32; 4],
+}
+
 /// The side of the player that a champion is on, which picks the color with team colors on.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -81,7 +96,11 @@ pub(super) fn category_body(material: &str) -> String {
 /// The pass state and the techniques are those of the shipped League Classic material. With
 /// team colors on, a `ColorChooserMaterialDriver` on `IsEnemyDynamicMaterialBoolDriver` picks
 /// the enemy color.
-pub(super) fn material_body(settings: &InkingSettings) -> String {
+///
+/// With a `mask`, the path hash of the texture a submesh draws with, the outline is masked by
+/// that texture's alpha, as the League Classic materials of capes and props are. Without one it
+/// reads a white texture and covers the whole submesh.
+pub(super) fn material_body(settings: &InkingSettings, mask: Option<Mask>) -> String {
     let ally = outline_values(settings, InkingSide::Ally);
     let enemy = outline_values(settings, InkingSide::Enemy);
 
@@ -89,7 +108,14 @@ pub(super) fn material_body(settings: &InkingSettings) -> String {
     text.push_str("  samplerValues:\n");
     text.push_str("    - !embed(StaticMaterialShaderSamplerDef)\n");
     text.push_str("      TextureName: Outline_Mask\n");
-    let _ = writeln!(text, "      texturePath: {MASK_TEXTURE}");
+    match mask {
+        Some(Mask { texture, .. }) => {
+            let _ = writeln!(text, "      texturePath: \"0x{texture:016x}\"");
+        }
+        None => {
+            let _ = writeln!(text, "      texturePath: {MASK_TEXTURE}");
+        }
+    }
 
     text.push_str("  paramValues:\n");
     let params = [
@@ -97,7 +123,10 @@ pub(super) fn material_body(settings: &InkingSettings) -> String {
         ("Outline_CameraDistanceMod", scalar(ally.camera_distance)),
         ("Outline_Color", ally.color),
         ("Outline_FinalAlphaMult", scalar(ally.alpha)),
-        ("Outline_Mask_ChannelMask", [1.0, 0.0, 0.0, 0.0]),
+        (
+            "Outline_Mask_ChannelMask",
+            mask.map_or(RED, |mask| mask.channels),
+        ),
         ("Outline_Width", scalar(ally.width)),
     ];
     for (name, value) in params {

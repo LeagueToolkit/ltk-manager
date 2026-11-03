@@ -12,7 +12,12 @@ export function useInkingMaps(leaguePath: string | null | undefined) {
   return useQuery(leagueInstallQueries.inkingMaps(leaguePath));
 }
 
-/** The outline values the overlay writes for `settings` on `side`, as the backend computes them. */
+/** The preview project of `champion`, written by the backend. */
+export function useInkingPreview(champion: string) {
+  return useQuery(leagueInstallQueries.inkingPreview(champion));
+}
+
+/** The outline values the overlay build writes for `settings` on `side`. */
 export function useInkingOutline(settings: CharacterInking, side: InkingSide) {
   return useQuery(leagueInstallQueries.inkingOutline(settings, side));
 }

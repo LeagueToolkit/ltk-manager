@@ -12,6 +12,7 @@ export const settingsKeys = {
   mapDecorations: (leaguePath: string) =>
     [...settingsKeys.all, "mapDecorations", leaguePath] as const,
   inkingMaps: (leaguePath: string) => [...settingsKeys.all, "inkingMaps", leaguePath] as const,
+  inkingPreview: (champion: string) => [...settingsKeys.all, "inkingPreview", champion] as const,
   inkingOutline: (settings: CharacterInking, side: InkingSide) =>
     [...settingsKeys.all, "inkingOutline", settings, side] as const,
   leagueRunAsAdmin: () => [...settingsKeys.all, "leagueRunAsAdmin"] as const,

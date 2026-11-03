@@ -82,6 +82,10 @@ fn skin_bin(character: &str, id: u32, mesh: &str, listed: bool) -> Vec<u8> {
         BinHash::from("simpleSkin"),
         values::String::new(mesh.to_owned()).into(),
     );
+    mesh_properties.properties.insert(
+        BinHash::from("texture"),
+        values::WadChunkLink::new(WadHash::from(texture_path(character).as_str())).into(),
+    );
     if listed {
         let entry = values::Embedded(values::Struct {
             class_hash: BinHash::from("CharacterOutlineSubmeshes"),
@@ -110,6 +114,31 @@ fn skin_bin(character: &str, id: u32, mesh: &str, listed: bool) -> Vec<u8> {
     bin.to_writer(&mut bytes).unwrap();
     bytes.into_inner()
 }
+
+/// The base texture of character's test skins.
+fn texture_path(character: &str) -> String {
+    format!(
+        "assets/characters/{0}/skins/base/{0}_tx_cm.tex",
+        character.to_ascii_lowercase()
+    )
+}
+
+/// A 4x4 TEX of `format`, the code the format byte holds, with `block` as its one block.
+fn tex(format: u8, block: &[u8]) -> Vec<u8> {
+    let mut bytes = b"TEX\0".to_vec();
+    bytes.extend([4, 0, 4, 0, 1, format, 1, 0]);
+    bytes.extend(block);
+    bytes
+}
+
+/// A BC1 block in its four-color mode, which has no transparent texel.
+const BC1_OPAQUE: [u8; 8] = [0xff, 0xff, 0, 0, 0xff, 0xff, 0xff, 0xff];
+
+/// A BC1 block in its three-color mode whose texels all take index 3, the transparent one.
+const BC1_CUTOUT: [u8; 8] = [0, 0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
+
+/// A BC3 block whose alpha endpoints are 0, which is transparent.
+const BC3_CUTOUT: [u8; 16] = [0; 16];
 
 fn skin_path(character: &str, id: u32) -> String {
     format!("data/characters/{character}/skins/skin{id}.bin")
@@ -141,6 +170,7 @@ fn game() -> tempfile::TempDir {
             ),
             (lower(AHRI_BASE_MESH), skn(&["Body", "Tails", "Body"])),
             (lower(AHRI_SKIN1_MESH), skn(&["Skin01_Body"])),
+            (texture_path("ahri"), tex(12, &BC3_CUTOUT)),
         ],
     );
     write_wad(
@@ -155,6 +185,7 @@ fn game() -> tempfile::TempDir {
                 skin_bin("AnnieTibbers", 1, TIBBERS_MESH, false),
             ),
             (lower(ANNIE_BASE_MESH), skn(&["Annie"])),
+            (texture_path("annie"), tex(10, &BC1_OPAQUE)),
             (lower(TIBBERS_MESH), skn(&["Tibbers"])),
         ],
     );
@@ -523,7 +554,7 @@ fn the_material_drives_the_alive_opacity_and_the_enemy_color() {
         ..InkingSettings::default()
     };
 
-    let body = outline::material_body(&settings);
+    let body = outline::material_body(&settings, None);
 
     assert!(body.contains("mOffValue: 0.6"), "{body}");
     assert!(body.contains("name: Outline_Color\n"), "{body}");
@@ -537,4 +568,393 @@ fn submesh_names_read_the_header_and_refuse_other_files() {
         Ok(names(&["Body", "Weapon"]))
     );
     assert!(skins::submesh_names(b"PROP").is_err());
+}
+
+#[test]
+fn a_submesh_whose_texture_carries_alpha_links_a_material_masked_by_it() {
+    let game = game();
+
+    let overrides = generate(&on(InkingScope::All), game.path(), &mut []);
+    let text = overrides.declarations().unwrap();
+
+    let ahri = WadHash::from(texture_path("ahri").as_str()).0;
+    let masked = format!("Mods/builtin/character-inking/Masks/{ahri:016x}-8");
+    let ahri_module = text
+        .split("  - target: ")
+        .find(|module| module.starts_with("\"data/characters/ahri/skins/skin0.bin\""))
+        .unwrap();
+    assert!(
+        ahri_module.contains(&format!("\"{masked}\":")),
+        "{ahri_module}"
+    );
+    assert!(ahri_module.contains(&format!("materialOverride: \"{masked}\"")));
+    assert!(ahri_module.contains(&format!("texturePath: \"0x{ahri:016x}\"")));
+    assert!(ahri_module.contains("value: [0.0, 0.0, 0.0, 1.0]"));
+
+    let annie_module = text
+        .split("  - target: ")
+        .find(|module| module.starts_with("\"data/characters/annie/skins/skin0.bin\""))
+        .unwrap();
+    assert!(!annie_module.contains("materialOverride"), "{annie_module}");
+}
+
+#[test]
+fn has_transparency_finds_a_transparent_texel_in_any_scanned_format() {
+    assert!(!textures::has_transparency(&tex(10, &BC1_OPAQUE)));
+    assert!(textures::has_transparency(&tex(10, &BC1_CUTOUT)));
+    assert!(textures::has_transparency(&tex(12, &BC3_CUTOUT)));
+    assert!(!textures::has_transparency(&tex(12, &[0xff; 16])));
+    assert!(!textures::has_transparency(&tex(20, &[0xff; 4])));
+    assert!(!textures::has_transparency(&tex(1, &[0; 8])));
+    assert!(textures::has_transparency(b"DDS "));
+}
+
+/// A `StaticMaterialDef` at `path` with `samplers`, each a texture name and a texture path, and
+/// `params`, each a parameter name and a vector.
+fn material(path: &str, samplers: &[(&str, &str)], params: &[(&str, [f32; 4])]) -> BinObject {
+    let embed = |class: &str, fields: Vec<(&str, ltk_meta::PropertyValueEnum)>| {
+        let mut value = values::Struct {
+            class_hash: BinHash::from(class),
+            properties: Default::default(),
+        };
+        for (name, field) in fields {
+            value.properties.insert(BinHash::from(name), field);
+        }
+        ltk_meta::PropertyValueEnum::from(values::Embedded(value))
+    };
+    let samplers = samplers
+        .iter()
+        .map(|(name, texture)| {
+            embed(
+                "StaticMaterialShaderSamplerDef",
+                vec![
+                    (
+                        "TextureName",
+                        values::String::new((*name).to_owned()).into(),
+                    ),
+                    (
+                        "texturePath",
+                        values::WadChunkLink::new(WadHash::from(*texture)).into(),
+                    ),
+                ],
+            )
+        })
+        .collect();
+    let params = params
+        .iter()
+        .map(|(name, value)| {
+            embed(
+                "StaticMaterialShaderParamDef",
+                vec![
+                    ("name", values::String::new((*name).to_owned()).into()),
+                    (
+                        "value",
+                        values::Vector4::new(glam::Vec4::from(*value)).into(),
+                    ),
+                ],
+            )
+        })
+        .collect();
+    BinObject::builder(BinHash::from(path), BinHash::from("StaticMaterialDef"))
+        .property(
+            BinHash::from("samplerValues"),
+            values::Container::new(Kind::Embedded, samplers).unwrap(),
+        )
+        .property(
+            BinHash::from("paramValues"),
+            values::Container::new(Kind::Embedded, params).unwrap(),
+        )
+        .build()
+}
+
+/// A skin bin of `character` skin 0 drawn by `material`, holding `objects` beside the skin and
+/// listing `outlines`, each a `Submeshes` value and its outline material.
+fn material_skin_bin(
+    character: &str,
+    mesh: &str,
+    material_path: &str,
+    outlines: &[(&str, Option<&str>)],
+    objects: Vec<BinObject>,
+) -> Vec<u8> {
+    let mut mesh_properties = values::Struct {
+        class_hash: BinHash::from("SkinMeshDataProperties"),
+        properties: Default::default(),
+    };
+    mesh_properties.properties.insert(
+        BinHash::from("simpleSkin"),
+        values::String::new(mesh.to_owned()).into(),
+    );
+    mesh_properties.properties.insert(
+        BinHash::from("Material"),
+        values::ObjectLink::new(BinHash::from(material_path)).into(),
+    );
+    if !outlines.is_empty() {
+        let entries = outlines
+            .iter()
+            .map(|(submeshes, material)| {
+                let mut entry = values::Struct {
+                    class_hash: BinHash::from("CharacterOutlineSubmeshes"),
+                    properties: Default::default(),
+                };
+                entry.properties.insert(
+                    BinHash::from("Submeshes"),
+                    values::String::new((*submeshes).to_owned()).into(),
+                );
+                if let Some(material) = material {
+                    entry.properties.insert(
+                        BinHash::from("materialOverride"),
+                        values::ObjectLink::new(BinHash::from(*material)).into(),
+                    );
+                }
+                values::Embedded(entry).into()
+            })
+            .collect();
+        mesh_properties.properties.insert(
+            BinHash::from("OutlineCategorySubmeshes"),
+            values::Container::new(Kind::Embedded, entries)
+                .unwrap()
+                .into(),
+        );
+    }
+
+    let skin = BinObject::builder(
+        BinHash::from(format!("Characters/{character}/Skins/Skin0").as_str()),
+        BinHash::from("SkinCharacterDataProperties"),
+    )
+    .property(
+        BinHash::from("skinMeshProperties"),
+        values::Embedded(mesh_properties),
+    )
+    .build();
+    let mut bin = Bin::default();
+    bin.objects.insert(skin.path_hash, skin);
+    for object in objects {
+        bin.objects.insert(object.path_hash, object);
+    }
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    bin.to_writer(&mut bytes).unwrap();
+    bytes.into_inner()
+}
+
+#[test]
+fn a_skin_with_a_league_classic_copy_takes_riot_s_outline_list_and_mask_swaps() {
+    let game = tempfile::tempdir().unwrap();
+    let mesh = "ASSETS/Characters/Ahri/Skins/Base/Ahri.skn";
+    let body = "Characters/Ahri/Skins/Skin0/Materials/Body";
+    let jade_body = "Characters/Jade_Ahri/Skins/Skin0/Materials/Body";
+    let tails = "Characters/Jade_Ahri/Skins/Skin0/Materials/Tails_Outline";
+    write_wad(
+        &game.path().join("DATA/FINAL/Champions/Ahri.wad.client"),
+        &[
+            (
+                skin_path("ahri", 0),
+                material_skin_bin(
+                    "Ahri",
+                    mesh,
+                    body,
+                    &[],
+                    vec![material(
+                        body,
+                        &[
+                            ("Diffuse_Texture", "ahri_tx.tex"),
+                            ("Mask_Texture", "ahri_mask.tex"),
+                        ],
+                        &[],
+                    )],
+                ),
+            ),
+            (
+                skin_path("jade_ahri", 0),
+                material_skin_bin(
+                    "Jade_Ahri",
+                    mesh,
+                    jade_body,
+                    &[("Body", None), ("Tails", Some(tails))],
+                    vec![
+                        material(
+                            jade_body,
+                            &[
+                                ("Diffuse_Texture", "jade_ahri_tx.tex"),
+                                ("Mask_Texture", "jade_ahri_mask.tex"),
+                            ],
+                            &[],
+                        ),
+                        material(
+                            tails,
+                            &[("Outline_Mask", "ahri_tails_tx.tex")],
+                            &[("Outline_Mask_ChannelMask", [0.0, 0.0, 0.0, 1.0])],
+                        ),
+                    ],
+                ),
+            ),
+            (lower(mesh), skn(&["Body", "Tails", "Eyes"])),
+        ],
+    );
+    write_wad(
+        &game
+            .path()
+            .join("DATA/FINAL/Maps/Shipping/Map11.wad.client"),
+        &[(
+            "data/maps/shipping/map11/map11.bin".to_owned(),
+            b"PROP".to_vec(),
+        )],
+    );
+
+    let mut settings = on(InkingScope::Chosen);
+    settings.character_inking.chosen_champions = BTreeSet::from(["ahri".to_owned()]);
+    let overrides = generate(&settings, game.path(), &mut []);
+    let text = overrides.declarations().unwrap();
+
+    let mask = format!(
+        "Mods/builtin/character-inking/Masks/{:016x}-8",
+        WadHash::from("ahri_tails_tx.tex").0
+    );
+    assert_eq!(
+        outlined(&overrides),
+        [(skin_path("ahri", 0), names(&["Body", "Tails"]))]
+    );
+    assert!(text.contains(&format!(
+        "Submeshes: \"Tails\", materialOverride: \"{mask}\""
+    )));
+    assert!(text.contains(&format!(
+        "samplerValues[1].texturePath: \"0x{:016x}\"",
+        WadHash::from("jade_ahri_mask.tex").0
+    )));
+    assert!(!text.contains("samplerValues[0]"), "{text}");
+}
+
+#[test]
+fn a_manifest_past_the_parser_node_budget_still_loads() {
+    let mut overrides = Overrides::default();
+    let list = format!("[{}]", vec!["{a: 1, b: 2}"; 40].join(", "));
+    for skin in 0..2000 {
+        overrides.declare(
+            &skin_path("ahri", skin),
+            &format!("Characters/Ahri/Skins/Skin{skin}"),
+            "skinMeshProperties.OutlineCategorySubmeshes",
+            list.clone(),
+        );
+    }
+    let dir = tempfile::tempdir().unwrap();
+    overrides.write(dir.path(), "inking", "Inking").unwrap();
+
+    let mut content = FsModContent::new(dir.path().to_path_buf().try_into().unwrap());
+    let declarations = content.game_data_declarations("base").unwrap().unwrap();
+
+    assert_eq!(declarations.modules.len(), 2000);
+}
+
+#[test]
+fn a_part_the_league_classic_mesh_names_differently_takes_the_generic_outline() {
+    let game = tempfile::tempdir().unwrap();
+    let mesh = "ASSETS/Characters/Akali/Skins/Base/Akali.skn";
+    let jade_mesh = "ASSETS/Characters/Jade_Akali/Skins/Base/Jade_Akali.skn";
+    let body = "Characters/Akali/Skins/Skin0/Materials/Body";
+    write_wad(
+        &game.path().join("DATA/FINAL/Champions/Akali.wad.client"),
+        &[
+            (
+                skin_path("akali", 0),
+                material_skin_bin("Akali", mesh, body, &[], vec![material(body, &[], &[])]),
+            ),
+            (
+                skin_path("jade_akali", 0),
+                material_skin_bin(
+                    "Jade_Akali",
+                    jade_mesh,
+                    body,
+                    &[("Akali_Base_Body_Mat", None), ("kama", None)],
+                    vec![],
+                ),
+            ),
+            (lower(mesh), skn(&["Body", "kama", "ramen"])),
+            (
+                lower(jade_mesh),
+                skn(&["Akali_Base_Body_Mat", "kama", "ramen"]),
+            ),
+        ],
+    );
+    write_wad(
+        &game
+            .path()
+            .join("DATA/FINAL/Maps/Shipping/Map11.wad.client"),
+        &[(
+            "data/maps/shipping/map11/map11.bin".to_owned(),
+            b"PROP".to_vec(),
+        )],
+    );
+
+    let mut settings = on(InkingScope::Chosen);
+    settings.character_inking.chosen_champions = BTreeSet::from(["akali".to_owned()]);
+    let overrides = generate(&settings, game.path(), &mut []);
+
+    assert_eq!(
+        outlined(&overrides),
+        [(skin_path("akali", 0), names(&["Body", "kama"]))]
+    );
+}
+
+/// A game whose Map11 archive holds a lane minion's base skin and a turret's skin 3, and no
+/// champion.
+fn map_characters_game() -> tempfile::TempDir {
+    let game = tempfile::tempdir().unwrap();
+    let minion_mesh = "ASSETS/Characters/SRU_OrderMinionMelee/Skins/Base/SRU_OrderMinionMelee.skn";
+    let turret_mesh = "ASSETS/Characters/Turret/Skins/Skin03/Turret_Skin03.skn";
+    write_wad(
+        &game.path().join("DATA/FINAL/Champions/Ahri.wad.client"),
+        &[],
+    );
+    write_wad(
+        &game
+            .path()
+            .join("DATA/FINAL/Maps/Shipping/Map11.wad.client"),
+        &[
+            (
+                "data/maps/shipping/map11/map11.bin".to_owned(),
+                b"PROP".to_vec(),
+            ),
+            (
+                skin_path("sru_orderminionmelee", 0),
+                skin_bin("SRU_OrderMinionMelee", 0, minion_mesh, false),
+            ),
+            (
+                skin_path("turret", 3),
+                skin_bin("Turret", 3, turret_mesh, false),
+            ),
+            (lower(minion_mesh), skn(&["Body"])),
+            (lower(turret_mesh), skn(&["Tower", "Crystal"])),
+            (texture_path("sru_orderminionmelee"), tex(10, &BC1_OPAQUE)),
+            (texture_path("turret"), tex(10, &BC1_OPAQUE)),
+        ],
+    );
+    game
+}
+
+#[test]
+fn lane_minions_and_structures_get_a_list_only_when_their_setting_is_on() {
+    let game = map_characters_game();
+    let minion = (skin_path("sru_orderminionmelee", 0), names(&["Body"]));
+    let turret = (skin_path("turret", 3), names(&["Tower", "Crystal"]));
+    let mut settings = on(InkingScope::All);
+
+    assert_eq!(outlined(&generate(&settings, game.path(), &mut [])), []);
+
+    settings.character_inking.minions = true;
+    assert_eq!(
+        outlined(&generate(&settings, game.path(), &mut [])),
+        std::slice::from_ref(&minion)
+    );
+
+    settings.character_inking.minions = false;
+    settings.character_inking.structures = true;
+    assert_eq!(
+        outlined(&generate(&settings, game.path(), &mut [])),
+        std::slice::from_ref(&turret)
+    );
+
+    settings.character_inking.minions = true;
+    assert_eq!(
+        outlined(&generate(&settings, game.path(), &mut [])),
+        [minion, turret]
+    );
 }

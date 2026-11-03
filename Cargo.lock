@@ -3664,6 +3664,7 @@ dependencies = [
  "chrono",
  "filetime",
  "fs-err",
+ "glam",
  "ltk-declarations",
  "ltk-manager-assets",
  "ltk-manager-base",

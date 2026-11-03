@@ -214,6 +214,10 @@ pub struct CharacterInking {
     /// Lowercased champion names, as the champion archives are named, for
     /// [`InkingScope::Chosen`].
     pub chosen_champions: BTreeSet<String>,
+    /// Whether lane minions get an outline.
+    pub minions: bool,
+    /// Whether turrets, inhibitors and nexuses get an outline.
+    pub structures: bool,
     /// Which maps draw the outline.
     pub maps: InkingMaps,
     /// Lowercased map names such as `map11`, for [`InkingMaps::Chosen`].
@@ -243,6 +247,8 @@ impl Default for CharacterInking {
             enabled: false,
             scope: InkingScope::default(),
             chosen_champions: BTreeSet::new(),
+            minions: false,
+            structures: false,
             maps: InkingMaps::default(),
             chosen_maps: BTreeSet::new(),
             color_mode: InkingColorMode::default(),
@@ -388,6 +394,8 @@ struct StoredInking {
     enabled: bool,
     scope: InkingScope,
     chosen_champions: BTreeSet<String>,
+    minions: bool,
+    structures: bool,
     maps: InkingMaps,
     chosen_maps: BTreeSet<String>,
     color_mode: InkingColorMode,
@@ -407,6 +415,8 @@ impl Default for StoredInking {
             enabled: defaults.enabled,
             scope: defaults.scope,
             chosen_champions: defaults.chosen_champions,
+            minions: defaults.minions,
+            structures: defaults.structures,
             maps: defaults.maps,
             chosen_maps: defaults.chosen_maps,
             color_mode: defaults.color_mode,
@@ -431,6 +441,8 @@ impl<'de> Deserialize<'de> for CharacterInking {
             enabled: stored.enabled,
             scope: stored.scope,
             chosen_champions: stored.chosen_champions,
+            minions: stored.minions,
+            structures: stored.structures,
             maps: stored.maps,
             chosen_maps: stored.chosen_maps,
             color_mode: stored.color_mode,

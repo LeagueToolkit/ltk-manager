@@ -122,7 +122,11 @@ impl<'t> GameSkins<'t> {
 
     /// The checksum of the chunk at `path` in the first archive that holds it.
     pub(super) fn checksum(&self, path: &str) -> Option<u64> {
-        let hash = WadHash::from(path);
+        self.checksum_of(WadHash::from(path))
+    }
+
+    /// The checksum of the chunk at `hash` in the first archive that holds it.
+    pub(super) fn checksum_of(&self, hash: WadHash) -> Option<u64> {
         self.archives
             .iter()
             .find_map(|archive| archive.wad.chunks().get(hash))
@@ -136,7 +140,12 @@ impl<'t> GameSkins<'t> {
 
     /// The bytes of the chunk at `path` in the first archive holding it, where it reads.
     pub(super) fn read_chunk(&mut self, path: &str) -> Option<Vec<u8>> {
-        let hash = WadHash::from(path);
+        self.read_hash(WadHash::from(path), path)
+    }
+
+    /// The bytes of the chunk at `hash` in the first archive holding it, where it reads. `path`
+    /// names the chunk in the warning a failed read logs.
+    pub(super) fn read_hash(&mut self, hash: WadHash, path: &str) -> Option<Vec<u8>> {
         let archive = self
             .archives
             .iter_mut()

@@ -50,5 +50,6 @@ zip = { workspace = true }
 specta = { workspace = true, optional = true }
 
 [dev-dependencies]
+glam = { workspace = true }
 ltk-manager-assets = { workspace = true, features = ["test-util"] }
 assert_matches = { workspace = true }

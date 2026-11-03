@@ -235,6 +235,7 @@ services! {
         list_forcible_map_skins,
         list_map_decorations,
         list_inking_maps,
+        prepare_inking_preview,
         inking_outline,
         export_settings,
         read_settings_backup,

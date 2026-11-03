@@ -135,6 +135,7 @@ export const api = {
   listForcibleMapSkins: settings.listForcibleMapSkins,
   listMapDecorations: settings.listMapDecorations,
   listInkingMaps: settings.listInkingMaps,
+  prepareInkingPreview: settings.prepareInkingPreview,
   inkingOutline: settings.inkingOutline,
   planDataMove: settings.planDataMove,
   moveData: settings.moveData,

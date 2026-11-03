@@ -15,7 +15,10 @@ mod ward_skins;
 
 use base_skins::BaseSkins;
 use character_inking::CharacterInking;
-pub use character_inking::{InkingMap, InkingOutline, InkingSide, inking_maps, outline_values};
+pub use character_inking::{
+    InkingMap, InkingOutline, InkingPreview, InkingSide, inking_maps, outline_values,
+    write_inking_preview,
+};
 use fs_err as fs;
 use ltk_manager_base::config::BuiltinModSettings;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};

@@ -3,6 +3,8 @@
 use super::super::game_skins::GameSkins;
 use super::super::mod_skins::ModSkins;
 use super::super::skin_bin::SkinBin;
+use super::classic::{self, Bins, Classic};
+use super::textures::{self, SkinTextures};
 use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_manager_base::error::AppResult;
@@ -10,6 +12,7 @@ use ltk_manager_base::utils::fs::atomic_write;
 use ltk_mesh::{SKN_MAGIC, SkinnedMeshRange};
 use ltk_meta::{Bin, PropertyValueEnum};
 use ltk_overlay::ContentHash;
+use ltk_wad::WadHash;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read};
@@ -19,7 +22,7 @@ use std::path::{Path, PathBuf};
 const CACHE_FILE: &str = "inking-skins.json";
 
 /// Changes when [`SkinFacts`] or the mesh read changes, so an older cache is read again.
-const CACHE_VERSION: u32 = 1;
+const CACHE_VERSION: u32 = 5;
 
 /// The `SkinMeshDataProperties` field that lists the outlined submeshes.
 pub(super) const OUTLINE_LIST: &str = "OutlineCategorySubmeshes";
@@ -31,6 +34,8 @@ pub(super) struct SkinFacts {
     pub(super) listed: bool,
     /// `skinMeshProperties.simpleSkin`, lowercased.
     pub(super) mesh: Option<String>,
+    /// The texture each submesh draws with.
+    pub(super) textures: SkinTextures,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -40,6 +45,11 @@ struct Cache {
     skins: BTreeMap<String, SkinFacts>,
     /// Each mesh's submesh names in mesh order, keyed as `skins` is.
     meshes: BTreeMap<String, Vec<String>>,
+    /// Whether each texture has a transparent texel, keyed as `skins` is.
+    alpha: BTreeMap<String, bool>,
+    /// The League Classic changes of each skin, by the game checksums of the skin bin and of its
+    /// League Classic copy.
+    classic: BTreeMap<String, Option<Classic>>,
 }
 
 /// The skin and mesh reads of one build, through a cache that the build rewrites.
@@ -95,7 +105,7 @@ impl SkinReads {
             Some(bytes) => bytes,
             None => game.read(source)?,
         };
-        let facts = skin_facts(source, &bytes);
+        let facts = skin_facts(source, &bytes, &mut |path| game.read_chunk(path));
         self.used.skins.insert(key, facts.clone());
         Some(facts)
     }
@@ -129,6 +139,55 @@ impl SkinReads {
         Some(names)
     }
 
+    /// Whether the texture at the path hash `texture` has a transparent texel. A texture the game
+    /// does not hold, such as one a mod ships, counts as one that has.
+    pub(super) fn has_transparency(&mut self, texture: u64, game: &mut GameSkins<'_>) -> bool {
+        let hash = WadHash(texture);
+        let Some(checksum) = game.checksum_of(hash) else {
+            return true;
+        };
+        let key = format!("g{checksum:016x}");
+        if let Some(alpha) = self.cached.alpha.get(&key) {
+            self.used.alpha.insert(key, *alpha);
+            return *alpha;
+        }
+
+        let alpha = game
+            .read_hash(hash, &format!("{texture:016x}"))
+            .is_none_or(|bytes| textures::has_transparency(&bytes));
+        self.used.alpha.insert(key, alpha);
+        alpha
+    }
+
+    /// Reads what the League Classic skin `jade` changes for `source`, both out of the game.
+    /// Returns `None` if either bin is missing or the League Classic skin lists no outline.
+    pub(super) fn classic(
+        &mut self,
+        source: &SkinBin,
+        jade: &SkinBin,
+        game: &mut GameSkins<'_>,
+    ) -> Option<Classic> {
+        let key = format!(
+            "g{:016x}|g{:016x}",
+            game.checksum(&source.path())?,
+            game.checksum(&jade.path())?
+        );
+        if let Some(found) = self.cached.classic.get(&key) {
+            self.used.classic.insert(key, found.clone());
+            return found.clone();
+        }
+
+        let normal_bytes = game.read(source)?;
+        let jade_bytes = game.read(jade)?;
+        let normal = Bins::load(&source.path(), &normal_bytes, &mut |path| {
+            game.read_chunk(path)
+        })?;
+        let jade_bins = Bins::load(&jade.path(), &jade_bytes, &mut |path| game.read_chunk(path))?;
+        let found = classic::classic(&normal, skin_object(source), &jade_bins, skin_object(jade));
+        self.used.classic.insert(key, found.clone());
+        found
+    }
+
     /// Writes the entries this build used. A cache that does not write is logged, since the next
     /// build reads the chunks again.
     pub(super) fn save(self) {
@@ -147,7 +206,14 @@ impl SkinReads {
 
 /// Reads the facts of `bin`'s skin object out of `bytes`. A bin that does not read, or holds no
 /// such object, has no mesh.
-fn skin_facts(bin: &SkinBin, bytes: &[u8]) -> SkinFacts {
+///
+/// A material the bin does not hold is looked up in the bins it links, which `read_linked` reads
+/// by lowercased chunk path.
+fn skin_facts(
+    bin: &SkinBin,
+    bytes: &[u8],
+    read_linked: &mut dyn FnMut(&str) -> Option<Vec<u8>>,
+) -> SkinFacts {
     let Ok(parsed) = Bin::from_reader(&mut Cursor::new(bytes)) else {
         tracing::warn!("Built-in mods: cannot read {}", bin.path());
         return SkinFacts::default();
@@ -173,7 +239,25 @@ fn skin_facts(bin: &SkinBin, bytes: &[u8]) -> SkinFacts {
         }
         _ => None,
     };
-    SkinFacts { listed, mesh }
+
+    let linked: Vec<Bin> = if textures::needs_linked(&mesh_properties.0, &parsed) {
+        parsed
+            .dependencies
+            .iter()
+            .filter_map(|path| read_linked(&path.replace('\\', "/").to_ascii_lowercase()))
+            .filter_map(|bytes| Bin::from_reader(&mut Cursor::new(bytes)).ok())
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let bins: Vec<&Bin> = std::iter::once(&parsed).chain(&linked).collect();
+    let textures = textures::skin_textures(&mesh_properties.0, &bins);
+
+    SkinFacts {
+        listed,
+        mesh,
+        textures,
+    }
 }
 
 /// `Characters/<character>/Skins/Skin<id>`, the object of `bin` that holds the skin.

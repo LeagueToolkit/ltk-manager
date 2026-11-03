@@ -12,6 +12,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+/// The directory under the layer that holds each target's declaration document.
+const SOURCES_DIR: &str = "game-data";
+
 /// The chunks a built-in mod overrides, by game archive and chunk path, and the properties it
 /// declares.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -70,9 +73,10 @@ impl Overrides {
             .insert(name.to_owned(), body);
     }
 
-    /// The layer's `game_data.yaml`, one `target` module per chunk, and none with nothing declared.
+    /// The layer's declarations as one `game_data.yaml`, one `target` module per chunk with its
+    /// bindings inline, and none with nothing declared.
     pub(super) fn declarations(&self) -> Option<String> {
-        let targets: BTreeSet<&String> = self.declared.keys().chain(self.created.keys()).collect();
+        let targets = self.targets();
         if targets.is_empty() {
             return None;
         }
@@ -80,25 +84,68 @@ impl Overrides {
         let mut text = String::from("version: 1\nmodules:\n");
         for target in targets {
             text.push_str(&format!("  - target: {}\n", quoted(target)));
-            if let Some(objects) = self.created.get(target) {
-                text.push_str("    objects:\n");
-                for (name, body) in objects {
-                    text.push_str(&format!("      {}:\n", quoted(name)));
-                    for line in body.lines() {
-                        text.push_str(&format!("        {line}\n"));
-                    }
-                }
-            }
-            for (entry, properties) in self.declared.get(target).into_iter().flatten() {
-                text.push_str(&format!("    {}:\n", quoted(entry)));
-                for (property, value) in properties {
-                    text.push_str(&format!("      {property}: {value}\n"));
-                }
+            for line in self.bindings(target).lines() {
+                text.push_str(&format!("    {line}\n"));
             }
         }
         Some(text)
     }
 
+    /// The layer's declarations as written: a `game_data.yaml` whose modules each name a source
+    /// document under `game-data/`, and each source, by its path below the layer.
+    ///
+    /// The parser bounds the nodes of one document, so every target's bindings go in a document
+    /// of their own.
+    fn declaration_files(&self) -> Vec<(String, String)> {
+        let targets = self.targets();
+        if targets.is_empty() {
+            return Vec::new();
+        }
+
+        let mut manifest = String::from("version: 1\nmodules:\n");
+        let mut files = Vec::with_capacity(targets.len() + 1);
+        for target in targets {
+            let source = format!(
+                "{SOURCES_DIR}/{:016x}.yaml",
+                ltk_wad::WadHash::from(target.as_str()).0
+            );
+            manifest.push_str(&format!(
+                "  - target: {}\n    source: {}\n",
+                quoted(target),
+                quoted(&source)
+            ));
+            files.push((source, format!("version: 1\n{}", self.bindings(target))));
+        }
+        files.push((ltk_declarations::FILE_NAME.to_owned(), manifest));
+        files
+    }
+
+    /// Every chunk with a declared property or a created object, in path order.
+    fn targets(&self) -> BTreeSet<&String> {
+        self.declared.keys().chain(self.created.keys()).collect()
+    }
+
+    /// The bindings of `target` as block YAML at no indentation: its created objects, then each
+    /// declared entry.
+    fn bindings(&self, target: &str) -> String {
+        let mut text = String::new();
+        if let Some(objects) = self.created.get(target) {
+            text.push_str("objects:\n");
+            for (name, body) in objects {
+                text.push_str(&format!("  {}:\n", quoted(name)));
+                for line in body.lines() {
+                    text.push_str(&format!("    {line}\n"));
+                }
+            }
+        }
+        for (entry, properties) in self.declared.get(target).into_iter().flatten() {
+            text.push_str(&format!("{}:\n", quoted(entry)));
+            for (property, value) in properties {
+                text.push_str(&format!("  {property}: {value}\n"));
+            }
+        }
+        text
+    }
     /// Each override by its path below the layer, `<wad>/<chunk path>`, in path order.
     pub(super) fn iter(&self) -> impl Iterator<Item = (&Utf8Path, &[u8])> {
         self.files
@@ -142,8 +189,11 @@ impl Overrides {
             copy_if_changed(source, &path)?;
             kept.insert(path);
         }
-        if let Some(text) = self.declarations() {
-            let path = layer_dir.join(ltk_declarations::FILE_NAME);
+        for (path, text) in self.declaration_files() {
+            let path = layer_dir.join(path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
             write_if_changed(&path, text.as_bytes())?;
             kept.insert(path);
         }

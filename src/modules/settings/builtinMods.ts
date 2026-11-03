@@ -30,6 +30,8 @@ export const FRESH_INKING: CharacterInking = {
   enabled: false,
   scope: "all",
   chosenChampions: [],
+  minions: false,
+  structures: false,
   maps: "all",
   chosenMaps: [],
   colorMode: "single",

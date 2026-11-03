@@ -13,8 +13,8 @@ mod resolve;
 pub(crate) use artifacts::{BUILD_VERSION_MARKER, OverlayStorageExt};
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub use builtin_mods::{
-    ForcibleMapSkin, InkingMap, InkingOutline, InkingSide, MapDecoration, forcible_map_skins,
-    inking_maps, map_decorations, outline_values,
+    ForcibleMapSkin, InkingMap, InkingOutline, InkingPreview, InkingSide, MapDecoration,
+    forcible_map_skins, inking_maps, map_decorations, outline_values, write_inking_preview,
 };
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 

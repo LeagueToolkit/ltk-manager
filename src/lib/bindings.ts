@@ -1057,6 +1057,10 @@ export type CharacterInking = {
 	 *  [`InkingScope::Chosen`].
 	 */
 	chosenChampions: string[],
+	/**  Whether lane minions get an outline. */
+	minions: boolean,
+	/**  Whether turrets, inhibitors and nexuses get an outline. */
+	structures: boolean,
 	/**  Which maps draw the outline. */
 	maps: InkingMaps,
 	/**  Lowercased map names such as `map11`, for [`InkingMaps::Chosen`]. */
@@ -4067,6 +4071,21 @@ export type InkingOutline = {
 	alpha: number | null,
 	/**  The seconds that the outline takes to fade out when the champion dies. */
 	deathFade: number | null,
+};
+
+/**  A preview project of character inking for one champion, as [`write_inking_preview`] writes it. */
+export type InkingPreview = {
+	/**  The project directory, which a project sandbox reads over the game. */
+	project: string,
+	/**  The champion's base skin bin, `data/characters/<champion>/skins/skin0.bin`. */
+	skinBin: string,
+	/**
+	 *  The path hash of the base skin's object, `Characters/<champion>/Skins/Skin0`, written as
+	 *  `0x` and eight hex digits.
+	 */
+	entry: string,
+	/**  The content hash of the project's declarations, which changes with every rewrite. */
+	revision: string,
 };
 
 /**  Which champions character inking draws an outline around. */

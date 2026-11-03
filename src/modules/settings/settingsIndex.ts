@@ -151,6 +151,16 @@ const INDEX = [
     title: m.settings_builtins_inking_champions_title(),
   },
   {
+    id: "builtins.inkingMinions",
+    key: "builtinMods.characterInking.minions",
+    title: m.settings_builtins_inking_minions_title(),
+  },
+  {
+    id: "builtins.inkingStructures",
+    key: "builtinMods.characterInking.structures",
+    title: m.settings_builtins_inking_structures_title(),
+  },
+  {
     id: "builtins.inkingMaps",
     key: "builtinMods.characterInking.maps",
     title: m.settings_builtins_inking_maps_title(),

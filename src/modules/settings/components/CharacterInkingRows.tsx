@@ -67,6 +67,32 @@ export function CharacterInkingRows() {
       <ChosenChampionsRow inking={inking} hidden={off || inking.scope !== "chosen"} />
 
       <SettingRow
+        setting="builtinMods.characterInking.minions"
+        dependent
+        hidden={off}
+        description={m.settings_builtins_inking_minions_description()}
+        control={
+          <Switch
+            checked={inking.minions}
+            onCheckedChange={(minions) => updateInking({ minions })}
+          />
+        }
+      />
+
+      <SettingRow
+        setting="builtinMods.characterInking.structures"
+        dependent
+        hidden={off}
+        description={m.settings_builtins_inking_structures_description()}
+        control={
+          <Switch
+            checked={inking.structures}
+            onCheckedChange={(structures) => updateInking({ structures })}
+          />
+        }
+      />
+
+      <SettingRow
         setting="builtinMods.characterInking.maps"
         dependent
         hidden={off}

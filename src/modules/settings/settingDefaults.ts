@@ -138,6 +138,8 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
     inkingScopeOptions().find((option) => option.value === value)?.label ?? titleCase(value),
   "builtinMods.characterInking.chosenChampions": (value) =>
     (value as string[] | null)?.length ? `${String((value as string[]).length)} chosen` : "None",
+  "builtinMods.characterInking.minions": onOff,
+  "builtinMods.characterInking.structures": onOff,
   "builtinMods.characterInking.maps": (value) =>
     inkingMapsOptions().find((option) => option.value === value)?.label ?? titleCase(value),
   "builtinMods.characterInking.chosenMaps": (value) =>

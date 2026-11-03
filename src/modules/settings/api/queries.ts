@@ -12,11 +12,13 @@ import {
   type HashtableUpdateCheck,
   type InkingMap,
   type InkingOutline,
+  type InkingPreview,
   type InkingSide,
   type Settings,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
+import { FRESH_INKING } from "../builtinMods";
 import { settingsKeys } from "./keys";
 import type { ThirdPartyLicensesManifest } from "./thirdPartyLicenses";
 import { fetchThirdPartyLicenses } from "./thirdPartyLicenses";
@@ -134,7 +136,18 @@ export const leagueInstallQueries = {
       retry: false,
     }),
 
-  /* A pure function of its arguments, so an answer never goes stale. */
+  /* Writes the preview project of `champion` once. The outline values are patched in live, so
+     the project is written with the fresh settings and stands until the champion changes. */
+  inkingPreview: (champion: string) =>
+    queryOptions<InkingPreview, AppError>({
+      queryKey: settingsKeys.inkingPreview(champion),
+      queryFn: queryFnWithArgs(api.prepareInkingPreview, FRESH_INKING, champion),
+      staleTime: Infinity,
+      retry: false,
+    }),
+
+  /* A pure function of its arguments, so an answer never goes stale. The previous answer stays
+     on screen while a slider moves. */
   inkingOutline: (settings: CharacterInking, side: InkingSide) =>
     queryOptions<InkingOutline, AppError>({
       queryKey: settingsKeys.inkingOutline(settings, side),
@@ -142,7 +155,6 @@ export const leagueInstallQueries = {
       staleTime: Infinity,
       placeholderData: (previous) => previous,
     }),
-
   /* Always stale, so the query reads the `RUNASADMIN` layer again when the window
      regains focus after the elevated terminal. */
   runAsAdmin: () =>
