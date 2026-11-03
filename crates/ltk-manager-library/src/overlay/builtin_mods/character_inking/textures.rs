@@ -149,17 +149,23 @@ pub(super) fn has_transparency(bytes: &[u8]) -> bool {
 
     match format {
         ETC1 | BC5 => false,
-        BC1 | BC1_ALT => data.chunks_exact(8).any(bc1_transparent),
+        BC1 | BC1_ALT => data.as_chunks::<8>().0.iter().any(bc1_transparent),
         BC3 => data
-            .chunks_exact(16)
+            .as_chunks::<16>()
+            .0
+            .iter()
             .any(|block| block[0] != u8::MAX || block[1] != u8::MAX),
-        BGRA8 => data.chunks_exact(4).any(|texel| texel[3] != u8::MAX),
+        BGRA8 => data
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .any(|texel| texel[3] != u8::MAX),
         _ => true,
     }
 }
 
 /// Whether the BC1 `block` is in its three-color mode and uses index 3, the transparent texel.
-fn bc1_transparent(block: &[u8]) -> bool {
+fn bc1_transparent(block: &[u8; 8]) -> bool {
     let color0 = u16::from_le_bytes([block[0], block[1]]);
     let color1 = u16::from_le_bytes([block[2], block[3]]);
     if color0 > color1 {
