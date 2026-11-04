@@ -144,6 +144,7 @@ export { bindWorld } from "./dynamics/world";
 export { MaterialSubject, type MaterialSubjectProps } from "./hexshade/components/MaterialSubject";
 export { engineColors } from "./hexshade/engineColors";
 export { EngineEnvironment, type ParticleEmitter } from "./hexshade/engineEnvironment";
+export { GLOW_LAYER, glowing, useGlowing } from "./hexshade/glowLayer";
 export { glowMaterial } from "./hexshade/glowMaterial";
 export { blackCube, blackTexel, whiteTexel } from "./hexshade/neutralTextures";
 export { passTwin } from "./hexshade/passTwin";

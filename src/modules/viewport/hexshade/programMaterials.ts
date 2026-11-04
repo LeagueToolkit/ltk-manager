@@ -3,6 +3,7 @@ import type { RawShaderMaterial } from "three";
 import type { ResolvedPass } from "@/lib/tauri";
 
 import type { EngineEnvironment } from "./engineEnvironment";
+import { glowMaterial } from "./glowMaterial";
 import {
   applyPassState,
   bindProgramTextures,
@@ -82,6 +83,8 @@ export function programKey(program: SubmeshProgram): string {
 interface Built {
   readonly material: RawShaderMaterial;
   program: SubmeshProgram;
+  /** The glow copy, null for a pass with one target, and undefined until it is first read. */
+  glow?: RawShaderMaterial | null;
 }
 
 /**
@@ -113,9 +116,22 @@ export class ProgramMaterials {
       found.program = program;
       bindProgramTextures(found.material, program);
       applyPassState(found.material, program.pass.state);
+      if (found.glow) applyPassState(found.glow, program.pass.state);
       this.write(found);
     }
     return found.material;
+  }
+
+  /**
+   * Returns the glow copy of the material `program` draws with, made on its first read.
+   * Returns null if `program` has not been acquired or if its pixel stage writes no bloom.
+   */
+  glowOf(program: SubmeshProgram): RawShaderMaterial | null {
+    const found = this.built.get(programKey(program));
+    if (found === undefined) return null;
+
+    found.glow ??= glowMaterial(found.material);
+    return found.glow;
   }
 
   /** Draw `held` in place of what its material's reads hold, or let the last one go. */
@@ -135,12 +151,16 @@ export class ProgramMaterials {
     for (const [key, entry] of this.built) {
       if (used.has(entry.material)) continue;
       entry.material.dispose();
+      entry.glow?.dispose();
       this.built.delete(key);
     }
   }
 
   dispose(): void {
-    for (const entry of this.built.values()) entry.material.dispose();
+    for (const entry of this.built.values()) {
+      entry.material.dispose();
+      entry.glow?.dispose();
+    }
     this.built.clear();
   }
 

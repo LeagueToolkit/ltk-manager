@@ -1,5 +1,7 @@
 import { InstancedMesh, Matrix4, Mesh, SkinnedMesh } from "three";
 
+import { GLOW_LAYER } from "./glowLayer";
+
 /**
  * A mesh over the geometry of `of` that draws one later pass of its programs.
  *
@@ -40,4 +42,14 @@ function twinOf(of: Mesh): Mesh {
 /** Twins of `of` for each pass after the first, where the deepest program has `passes`. */
 export function passTwins(of: Mesh, passes: number): Mesh[] {
   return Array.from({ length: Math.max(passes - 1, 0) }, (_, at) => passTwin(of, at + 1));
+}
+
+/** Meshes over `of` on `GLOW_LAYER`, one for each of `passes`, that draw the passes' glow copies. */
+export function glowMeshesOf(of: Mesh, passes: number): Mesh[] {
+  return Array.from({ length: passes }, (_, at) => {
+    const mesh = passTwin(of, at);
+    mesh.layers.set(GLOW_LAYER);
+
+    return mesh;
+  });
 }
