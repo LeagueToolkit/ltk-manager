@@ -12,7 +12,7 @@ use crate::material::tests::{
 use crate::material::{
     ADDRESS_U, ADDRESS_W, DATA, FEATURE_DEFINES, FIELDS, FILTER_MIN, LOGICAL_PARAMETERS,
     OBJECT_PATH, ON_BY_DEFAULT, PARAMETERS, RUNTIME_SWITCH, SAMPLER_NAME, STATIC_SWITCHES,
-    SWITCHES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
+    SWITCHED_SHADER, SWITCHED_SWITCH, SWITCHES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
 };
 
 fn shader_switch_runtime(name: &str, on_by_default: bool) -> values::Embedded {
@@ -161,6 +161,34 @@ fn a_player_position_driver_marks_a_parameter_without_shader_defs() {
             .map(|driver| driver.param.as_str())
             .collect::<Vec<_>>(),
         ["TintColor"]
+    );
+}
+
+#[test]
+fn an_entry_another_pass_declares_raises_no_warning() {
+    let material = Material::new()
+        .samplers(vec![
+            sampler("Diffuse_Texture", file(DIFFUSE), None),
+            sampler("Main_Texture", file(DIFFUSE), None),
+        ])
+        .params(vec![
+            param("TintColor", Some([1.0; 4])),
+            param("Nobody", Some([1.0; 4])),
+        ])
+        .switches(vec![switch(SWITCHED_SWITCH, None)])
+        .passes(vec![
+            pass(SHADER_PATH, vec![]),
+            pass(SWITCHED_SHADER, vec![]),
+        ]);
+
+    let resolved = resolve(material, Some(&shaders()));
+
+    assert_eq!(resolved.passes.len(), 2);
+    assert_eq!(
+        resolved.warnings,
+        [MaterialWarning::UndeclaredParam {
+            name: "Nobody".to_owned()
+        }]
     );
 }
 

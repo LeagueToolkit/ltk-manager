@@ -5,6 +5,7 @@ import type { MaterialWarning, ShaderSchema } from "@/lib/tauri";
 import type { ViewContext } from "../../classes/components/ClassCells";
 import { materialQueries } from "../api/materialQueries";
 import { warningText } from "../utils/materialWarnings";
+import { mergedSchema } from "../utils/passSchemas";
 
 /** The warnings the program read raises about one texture, which mark its row. */
 const TEXTURE_WARNINGS: ReadonlySet<MaterialWarning["kind"]> = new Set([
@@ -17,9 +18,9 @@ function useProgram(view: ViewContext) {
   return useQuery(materialQueries.program(view.document, view.entry || null)).data ?? null;
 }
 
-/** The pass shader's declarations, once the program read answers them. */
+/** The declarations of every pass shader, merged, once the program read answers them. */
 export function useSchema(view: ViewContext): ShaderSchema | null {
-  return useProgram(view)?.passes.find((each) => each.pass.schema !== null)?.pass.schema ?? null;
+  return mergedSchema(useProgram(view)?.passes.map((each) => each.pass.schema) ?? []);
 }
 
 /** Every name the shader declares, which the tables' one name column is measured over. */
