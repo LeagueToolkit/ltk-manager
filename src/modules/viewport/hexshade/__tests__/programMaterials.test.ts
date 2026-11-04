@@ -182,4 +182,46 @@ describe("ProgramMaterials", () => {
     expect(other).not.toBe(own);
     expect(globals(other, "Globals_ps").slice(4)).toEqual([1, 1, 1, 1]);
   });
+
+  it("returns null from glowOf for a pixel stage with one target", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+    const read = program([1, 1, 1, 1]);
+    materials.acquire(read);
+
+    expect(materials.glowOf(read)).toBeNull();
+  });
+
+  it("returns null from glowOf for a program that was not acquired", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+
+    expect(materials.glowOf(blooming())).toBeNull();
+  });
+
+  it("returns one glow copy per material that shares its uniforms", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+    const read = blooming();
+    const material = materials.acquire(read);
+
+    const glow = materials.glowOf(read);
+
+    expect(glow).not.toBeNull();
+    expect(glow?.uniforms).toBe(material.uniforms);
+    expect(materials.glowOf(read)).toBe(glow);
+  });
 });
+
+/** A program whose pixel stage writes the colour target and the bloom target. */
+function blooming(): SubmeshProgram {
+  const read = program([1, 1, 1, 1]);
+  const { pixel } = read.program;
+  const glsl = pixel.glsl.replace(
+    "void main() {}",
+    [
+      "layout(location = 0) out vec4 SV_Target;",
+      "layout(location = 1) out vec4 SV_Target1;",
+      "void main() {}",
+    ].join("\n"),
+  );
+
+  return { ...read, program: { ...read.program, pixel: { ...pixel, glsl } } };
+}

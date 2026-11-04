@@ -9,7 +9,8 @@ import {
 } from "three";
 import { describe, expect, it } from "vitest";
 
-import { passTwin } from "../passTwin";
+import { GLOW_LAYER } from "../glowLayer";
+import { glowTwins, passTwin } from "../passTwin";
 
 describe("passTwin", () => {
   it("draws the instances of an instanced mesh", () => {
@@ -32,5 +33,17 @@ describe("passTwin", () => {
 
     expect(twin.bindMode).toBe(DetachedBindMode);
     expect(twin.skeleton).toBe(of.skeleton);
+  });
+});
+
+describe("glowTwins", () => {
+  it("returns one twin per pass, on the glow layer alone, in pass order", () => {
+    const of = new SkinnedMesh(new BoxGeometry(), new MeshBasicMaterial());
+    of.renderOrder = 2;
+
+    const twins = glowTwins(of, 2);
+
+    expect(twins.map((twin) => twin.renderOrder)).toEqual([2, 3]);
+    expect(twins.every((twin) => twin.layers.mask === 1 << GLOW_LAYER)).toBe(true);
   });
 });

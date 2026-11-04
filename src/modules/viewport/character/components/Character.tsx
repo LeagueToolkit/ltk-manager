@@ -1,5 +1,5 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Bone,
   BufferAttribute,
@@ -28,7 +28,8 @@ import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/par
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { engineColors } from "../../hexshade/engineColors";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
-import { passTwin, passTwins } from "../../hexshade/passTwin";
+import { useGlowing } from "../../hexshade/glowLayer";
+import { glowTwins, passTwin, passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
 import { useCharacterLight } from "../../scene/state/characterLightContext";
@@ -219,14 +220,16 @@ export function Character({
     [surface, programsOf, drawn],
   );
   const twins = useMemo(() => passTwins(skinned, depth), [skinned, depth]);
+  const glows = useMemo(() => glowTwins(skinned, depth), [skinned, depth]);
   useLayoutEffect(() => {
-    if (twins.length === 0) return;
+    const added = [...twins, ...glows];
+    if (added.length === 0) return;
 
-    skinned.add(...twins);
+    skinned.add(...added);
     return () => {
-      skinned.remove(...twins);
+      skinned.remove(...added);
     };
-  }, [skinned, twins]);
+  }, [skinned, twins, glows]);
 
   const outline = useMemo(() => passTwin(skinned, OUTLINE_LAYER), [skinned]);
   useLayoutEffect(() => {
@@ -239,9 +242,11 @@ export function Character({
   const scrolling = useRef<readonly Scrolling[]>([]);
   const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
   const outlines = useMemo(() => new OutlineMaterials(), []);
+  const [glowing, setGlowing] = useState(false);
+  useGlowing(glowing);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    scrolling.current = bind(skinned, twins, outline, shaded, drawn.ranges, {
+    const bound = bind(skinned, { twins, glows, outline }, shaded, drawn.ranges, {
       bindingOf,
       programsOf,
       outlineOf,
@@ -252,9 +257,12 @@ export function Character({
       highlighted,
       surface,
     });
+    scrolling.current = bound.scrolling;
+    setGlowing(bound.glows);
   }, [
     skinned,
     twins,
+    glows,
     outline,
     shaded,
     drawn,
@@ -414,13 +422,30 @@ interface Scrolling {
   readonly scroll: readonly [number, number];
 }
 
+/** The meshes over the character's geometry that draw its later passes, glows and outline. */
+interface Twins {
+  /** One per pass after the first. */
+  readonly twins: readonly Mesh[];
+  /** One per pass, on `GLOW_LAYER`. */
+  readonly glows: readonly Mesh[];
+  readonly outline: Mesh;
+}
+
+/** What a bind leaves for the frame. */
+interface Bound {
+  readonly scrolling: readonly Scrolling[];
+  /** `true` if any shown submesh draws a pass with a bloom target. */
+  readonly glows: boolean;
+}
+
 /**
  * Each submesh bound to its material under the shading model the binding calls for, and
  * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
  * maps that scroll.
  *
  * A submesh with translated programs draws its first pass instead, and each later pass on
- * the twin of that layer. There is one material per pass for the program's life, with
+ * the twin of that layer. A pass with a bloom target also draws its glow copy on the glow
+ * twin of its index. There is one material per pass for the program's life, with
  * whatever textures have arrived bound on every bind here. A program material neither
  * dims nor scrolls, since the shader owns its colour.
  *
@@ -429,8 +454,7 @@ interface Scrolling {
  */
 function bind(
   skinned: SkinnedMesh,
-  twins: readonly Mesh[],
-  outline: Mesh,
+  { twins, glows, outline }: Twins,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
   {
@@ -444,13 +468,15 @@ function bind(
     highlighted,
     surface,
   }: Bind,
-): readonly Scrolling[] {
+): Bound {
   const tangents = skinned.geometry.hasAttribute("tangent");
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
   const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
+  const glowLayers: Material[][] = glows.map(() => ranges.map(() => HIDDEN));
+  let glowing = false;
   const used = new Set<RawShaderMaterial>();
   const outlined = new Set<Material>();
   outline.material = ranges.map((range) => {
@@ -485,6 +511,16 @@ function bind(
         const twin = layers[layer];
         if (shown && twin !== undefined) twin[at] = drawn;
       });
+
+      if (!shown) return;
+      passes.forEach((program, index) => {
+        const glow = programs.glowOf(program);
+        const twin = glowLayers[index];
+        if (glow === null || twin === undefined) return;
+
+        twin[at] = glow;
+        glowing = true;
+      });
       return;
     }
     /* A character stands on no navigation grid, so `conformance` draws it untextured. */
@@ -508,9 +544,12 @@ function bind(
   twins.forEach((twin, layer) => {
     twin.material = layers[layer] ?? [];
   });
+  glows.forEach((twin, layer) => {
+    twin.material = glowLayers[layer] ?? [];
+  });
   programs.retain(used);
   outlines.retain(outlined);
-  return scrolling;
+  return { scrolling, glows: glowing };
 }
 
 /** The material `binding` draws with under `surface`, out of the submesh's shading models. */

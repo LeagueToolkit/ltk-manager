@@ -1,5 +1,5 @@
 import { useThree } from "@react-three/fiber";
-import { type RefObject, useEffect, useLayoutEffect } from "react";
+import { type RefObject, useLayoutEffect } from "react";
 import {
   type Camera,
   Color,
@@ -19,6 +19,8 @@ import {
   WebGLRenderTarget,
 } from "three";
 
+import { GLOW_LAYER, glowing, useGlowing } from "@/modules/viewport";
+
 import type { EmitterModel } from "../../engine/model/model";
 import { drawBloom, releaseBloom } from "./bloom";
 import { drawPhases } from "./drawKind";
@@ -35,8 +37,8 @@ export const DISTORTION_LAYER = 1;
  */
 export const PARTICLE_LAYER = 2;
 
-/** The layer a pass's glow copy draws on, which only the glow pass sees. */
-export const GLOW_LAYER = 3;
+/* A character draws glow copies too, so the glow layer is the viewport module's. */
+export { GLOW_LAYER, glowing, useGlowing };
 
 /**
  * The layer an emitter drawing colour before the late distortion sits on, the engine's
@@ -224,26 +226,6 @@ export function grabDepth(gl: WebGLRenderer, scene: Scene, camera: Camera): void
   color.setMask(true);
   scene.background = background;
   SCENE_DEPTH.sourceTexture = glTextureOf(gl, depth.depthTexture);
-}
-
-const GLOWING = new WeakMap<Scene, number>();
-
-/** Count the scene as holding a glow copy while `glows`, which turns its glow pass on. */
-export function useGlowing(glows: boolean): void {
-  const scene = useThree((state) => state.scene);
-  useEffect(() => {
-    if (!glows) return;
-
-    GLOWING.set(scene, (GLOWING.get(scene) ?? 0) + 1);
-    return () => {
-      GLOWING.set(scene, (GLOWING.get(scene) ?? 1) - 1);
-    };
-  }, [glows, scene]);
-}
-
-/** Whether `scene` holds a glow copy the frame draws a glow pass for. */
-export function glowing(scene: Scene): boolean {
-  return (GLOWING.get(scene) ?? 0) > 0;
 }
 
 const CLEAR_COLOR = new Color();
