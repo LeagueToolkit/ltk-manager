@@ -111,7 +111,7 @@ fn a_construction_declares_an_object_of_the_class_holding_no_property() {
     );
     assert!(
         manifest(dir.path(), "base")
-            .contains("      Mods/jade-teemo/Skin0Copy: !SkinCharacterDataProperties {}\n"),
+            .contains("      Mods/jade-teemo/Skin0Copy: !SkinCharacterDataProperties\n"),
         "a class only the schema names is spelled by the schema's name"
     );
 }
@@ -331,7 +331,7 @@ fn a_class_typed_by_name_is_written_as_typed() {
         )
         .unwrap();
 
-    assert!(manifest(dir.path(), "base").ends_with(": !VfxSystemDefinitionData {}\n"));
+    assert!(manifest(dir.path(), "base").ends_with(": !VfxSystemDefinitionData\n"));
 }
 
 #[test]
