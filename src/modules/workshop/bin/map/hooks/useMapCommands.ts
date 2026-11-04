@@ -1,13 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 
 import type { MapChunk, MapGeometryMesh } from "@/lib/tauri";
+import { cellCenter } from "@/modules/viewport";
 
 import { mapQueries } from "../api/mapQueries";
 import { type MapTool, useMapScene } from "../state/mapScene";
 import type { MapKeyCommand } from "../utils/mapKeys";
 import { meshIndexOf, selectionMiddle } from "../utils/meshSelection";
+import { navCellOf } from "../utils/navCells";
 import { listedIds } from "../utils/sceneOutline";
 import { useMeshActions } from "./useMeshActions";
+import { useNavGridBase } from "./useNavGridBase";
 import type { PlaceableActions } from "./usePlaceableActions";
 
 const NO_CHUNKS: readonly MapChunk[] = [];
@@ -37,20 +40,28 @@ export function useMapCommands(
   const { setTool, setRenaming, focusOn, space, setSpace, filter, backdrop } = useMapScene();
   const chunks = useQuery(mapQueries.outline(materials)).data ?? NO_CHUNKS;
   const meshActions = useMeshActions(meshes.length);
+  const navGrid = useNavGridBase();
 
   const meshLead = lead !== null && meshIndexOf(lead) !== null;
-  const ids = [...selected];
+  const selectedIds = [...selected];
+  /* A cell guide is read-only and draws while its guide does, so hiding passes it over. */
+  const ids = selectedIds.filter((id) => navCellOf(id) === null);
+  const cellCenters = selectedIds.flatMap((id) => {
+    const cell = navCellOf(id);
+    const center = cell === null || navGrid === null ? null : cellCenter(navGrid, ...cell);
+    return center === null ? [] : [center];
+  });
   const indices = selection.map((mesh) => mesh.index);
   const hides = ids.some((id) => !hidden.has(id));
   const hasTarget = meshLead ? indices.length > 0 : actions.selection.length > 0;
-  const framed = actions.selection.length > 0 || selection.length > 0;
+  const framed = actions.selection.length > 0 || selection.length > 0 || cellCenters.length > 0;
 
   const frameSelection = () => {
-    const middle = selectionMiddle(actions.selection, selection);
+    const middle = selectionMiddle(actions.selection, selection, cellCenters);
     if (middle === null) return;
 
     focusOn({
-      id: ids.length === 1 ? (ids[0] ?? "") : `selection:${ids.join(",")}`,
+      id: selectedIds.length === 1 ? (selectedIds[0] ?? "") : `selection:${selectedIds.join(",")}`,
       position: middle,
     });
   };
@@ -86,7 +97,7 @@ export function useMapCommands(
       drop:
         editable && !meshLead && actions.selection.length > 0 && drop !== undefined ? drop : null,
       selectAll: meshes.length > 0 || chunks.length > 0 ? selectAll : null,
-      selectNone: ids.length === 0 ? null : () => select([], "replace"),
+      selectNone: selectedIds.length === 0 ? null : () => select([], "replace"),
     },
   };
 }

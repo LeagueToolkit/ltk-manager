@@ -42,6 +42,23 @@ export function transformOf(parts: TransformParts): number[] {
     .toArray();
 }
 
+/** The most fraction digits a transform field shows. */
+const AXIS_DIGITS = 3;
+
+/** Returns `value` as a transform field shows it, rounded to three fraction digits. A negative zero reads as 0. */
+export function axisText(value: number): string {
+  return String(Number(value.toFixed(AXIS_DIGITS)));
+}
+
+/** Reads the number typed into a transform field. Returns null if the text is not a finite number. */
+export function parseAxis(text: string): number | null {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : null;
+}
+
 /** The viewport's mirror of the engine's space, which is its own inverse. */
 const MIRROR = new Matrix4().makeScale(...AXIS_SIGN);
 
@@ -84,6 +101,37 @@ export function withDragged(
     };
     return { ...placed, item };
   });
+}
+
+/** The reads that change when a gizmo edit lands, and again when it is undone or redone. */
+export interface DragBasis {
+  /** The placeable outline of the `.materials.bin`, compared by identity. */
+  readonly outline: unknown;
+  /** The revision of the open `.mapgeo`, and null while none is open. */
+  readonly geometryRevision: number | null;
+}
+
+/** The transforms of a gizmo drag by selection id, and the basis of its last step. */
+export interface HeldDrag {
+  readonly transforms: ReadonlyMap<string, readonly (number | null)[]>;
+  readonly basis: DragBasis;
+}
+
+/**
+ * Returns the transforms of `held` if `basis` is the basis of its last step, else null.
+ *
+ * A placeable edit changes the outline and a mesh edit changes the geometry revision. Each changes
+ * again on an undo or a redo, so the scene then draws the selection where the documents hold it.
+ */
+export function shownDrag(
+  held: HeldDrag | null,
+  basis: DragBasis,
+): ReadonlyMap<string, readonly (number | null)[]> | null {
+  if (held === null) return null;
+
+  const same =
+    held.basis.outline === basis.outline && held.basis.geometryRevision === basis.geometryRevision;
+  return same ? held.transforms : null;
 }
 
 /** Something the gizmo moves: a placeable or a mesh, by its selection id. */

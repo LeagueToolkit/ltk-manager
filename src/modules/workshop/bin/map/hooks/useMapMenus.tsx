@@ -12,6 +12,7 @@ import {
   FloppyDiskIcon,
   FrameCornersIcon,
   PencilSimpleIcon,
+  RulerIcon,
   SelectionAllIcon,
   SelectionPlusIcon,
   SunIcon,
@@ -32,6 +33,7 @@ import { MAP_KEYS } from "../utils/mapKeys";
 import { editCommand, editReason, MENU_ICON } from "../utils/mapMenuItems";
 import { type MapAuthoringMenus, useMapAuthoringMenus } from "./useMapAuthoringMenus";
 import { useMapCommands } from "./useMapCommands";
+import { useMapGuideEntries } from "./useMapGuideEntries";
 import { useMapShowEntries } from "./useMapShowEntries";
 import { useMeshExport, useMeshReimport } from "./useMeshFiles";
 import { usePlaceableActions } from "./usePlaceableActions";
@@ -73,6 +75,7 @@ export function useMapMenus(viewportHidden: boolean): MapMenus {
   const showEntries = useMapShowEntries(markers || boxing, () => {
     if (boxing) box?.run?.();
   });
+  const guideEntries = useMapGuideEntries();
 
   const readOnly = editReason(scene);
   const selectionReason = m.workshop_bin_menu_map_selection_reason();
@@ -232,8 +235,16 @@ export function useMapMenus(viewportHidden: boolean): MapMenus {
       className: "w-52",
       items: showEntries,
     },
+    {
+      kind: "submenu",
+      id: "map.guides",
+      title: m.workshop_bin_map_guides_label(),
+      icon: <RulerIcon className={MENU_ICON} />,
+      className: "w-52",
+      items: guideEntries,
+    },
     cameraSubmenu(),
-    viewModeSubmenu(),
+    viewModeSubmenu(backdrop.navGrid !== null),
     { kind: "separator" },
     {
       kind: "command",

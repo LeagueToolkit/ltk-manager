@@ -3481,6 +3481,7 @@ dependencies = [
  "ltk_mimir_cache",
  "ltk_mod_project",
  "ltk_modpkg",
+ "ltk_navgrid",
  "ltk_primitives",
  "ltk_rst",
  "ltk_texture",
@@ -3631,6 +3632,7 @@ dependencies = [
 name = "ltk-manager-game"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.13.1",
  "fs-err",
  "glam",
  "hexshade",
@@ -3639,9 +3641,11 @@ dependencies = [
  "ltk-manager-base",
  "ltk-manager-bin",
  "ltk_hash",
+ "ltk_mapgeo",
  "ltk_mesh",
  "ltk_meta",
  "ltk_modpkg",
+ "ltk_navgrid",
  "ltk_primitives",
  "ltk_wad",
  "parking_lot",
@@ -3986,9 +3990,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_io_ext"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb7d8109559ce8fd5c364be0c793d51f658a6c2d5afb35ffb8b8ce7f8731d3b7"
+checksum = "6ff7fe619ba993ae8cc2ca34f653bc18a200d6f9221dab7bab3a27e4739d598e"
 dependencies = [
  "byteorder",
  "glam",
@@ -4127,6 +4131,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk_navgrid"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57abb143cce0894f4c018ed013abfc57582f0394892de622dbe6557dfc78f773"
+dependencies = [
+ "bitflags 2.13.1",
+ "byteorder",
+ "glam",
+ "ltk_io_ext",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ltk_overlay"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4160,9 +4177,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_primitives"
-version = "0.3.8"
+version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d2ec61599fb7ad880c5b7febc317c52cc0b2aa3d18367437af007796f2ac85b"
+checksum = "15f489895c23015bd9eeed05ee362bd12decf8ca863c3e5b06541f011a66fc6b"
 dependencies = [
  "byteorder",
  "glam",

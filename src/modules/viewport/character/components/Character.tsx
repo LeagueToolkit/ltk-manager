@@ -486,7 +486,9 @@ function bind(
       });
       return;
     }
-    const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
+    /* A character stands on no navigation grid, so `conformance` draws it untextured. */
+    const binding =
+      surface === "untextured" || surface === "conformance" ? UNTEXTURED : bindingOf(range.name);
     const material = shadingModel(shaded[at], binding, surface);
     bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());

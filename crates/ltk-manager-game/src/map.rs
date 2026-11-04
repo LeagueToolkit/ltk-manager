@@ -19,6 +19,7 @@ use crate::material::{MaterialPreview, resolve_material};
 
 mod characters;
 mod component;
+mod conformance;
 mod controllers;
 mod custom_skin;
 #[cfg(test)]
@@ -26,6 +27,7 @@ mod fixtures;
 mod flags;
 mod grass;
 mod lighting;
+mod navgrid;
 mod outline;
 mod particles;
 mod placeable;
@@ -36,6 +38,7 @@ mod sun;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
+pub use conformance::{ConformanceArea, ConformanceKind, Ground, ShownMeshes, conformance_areas};
 pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
 pub use custom_skin::{
     MapSkinContainer, custom_skin_path, map_skin_containers, moved_container, shipping_bin_path,
@@ -44,6 +47,10 @@ pub use custom_skin::{
 pub use flags::{MapFlag, map_bin_path, map_flags};
 pub use grass::{MapBounds, MapGrassAlternate, MapGrassTint, map_bounds, map_grass_tints};
 pub use lighting::light_grid_path;
+pub use navgrid::{
+    MapNavGridModel, MapNavGridOverlay, NavGridSource, NavRegionGroup, NavRegionTag, NavTerrainTag,
+    compose_nav_grid, map_nav_grid,
+};
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, MapItemShape, map_outline};
 pub use particles::{MapParticle, map_particles};
 pub use post_effects::{MapDepthOfField, MapFog, MapPostEffects, map_post_effects};
@@ -152,10 +159,14 @@ pub struct MapModel {
     pub grass_tints: Vec<MapGrassTint>,
     /// Null where the map's container states no bounds.
     pub bounds: Option<MapBounds>,
+    /// Null where neither the map's container nor a skin names a navigation grid that resolves.
+    /// The skin grid and the overlay flag bits stay empty until the caller reads the map's own
+    /// bin.
+    pub nav_grid: Option<MapNavGridModel>,
 }
 
-/// The materials `paths` name, the visibility controllers and the lighting and screen effects of
-/// `map`, read out of its own `.materials.bin`.
+/// The materials `paths` name, the visibility controllers, the lighting and screen effects and the
+/// navigation grid of `map`, read out of its own `.materials.bin`.
 ///
 /// `paths` are the entry paths an `LTKM` buffer's string table carries, so the two sides
 /// join on the string itself and neither hashes on the other's behalf. `shaders` is
@@ -185,6 +196,7 @@ pub fn resolve_map(
         light_grid: light_grid_path(materials, map).and_then(|path| assets.locate(path)),
         grass_tints: Vec::new(),
         bounds: map_bounds(materials, map),
+        nav_grid: map_nav_grid(materials, None, map, names, assets),
     }
 }
 
@@ -202,6 +214,7 @@ pub fn unresolved_map(paths: &[String]) -> MapModel {
         light_grid: None,
         grass_tints: Vec::new(),
         bounds: None,
+        nav_grid: None,
     }
 }
 

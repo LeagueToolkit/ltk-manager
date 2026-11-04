@@ -79,6 +79,9 @@ const BLOCKS_PARAMETER: &str = "bc";
 /// The [`FORM_PARAMETER`] value asking a light grid for its ambient buffer.
 const LIGHT_GRID_FORM: &str = "lightgrid";
 
+/// The [`FORM_PARAMETER`] value asking a navigation grid or one of its overlays for its buffer.
+const NAV_GRID_FORM: &str = "navgrid";
+
 /// The [`FORM_PARAMETER`] value asking an OpenType or TrueType file for its own bytes.
 const FONT_FORM: &str = "font";
 
@@ -255,6 +258,7 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
             blocks: parameter(query, BLOCKS_PARAMETER) == Some("1"),
         }),
         Some(LIGHT_GRID_FORM) => Ok(PreviewRequest::LightGrid),
+        Some(NAV_GRID_FORM) => Ok(PreviewRequest::NavGrid),
         Some(FONT_FORM) => Ok(PreviewRequest::Font),
         Some(FILE_FORM) => Ok(PreviewRequest::File),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
@@ -313,8 +317,12 @@ fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
 
 /// The status that tells a caller what went wrong.
 fn status_for(error: &AppError) -> StatusCode {
-    if let Some(PreviewError::Unsupported(_) | PreviewError::NotCube | PreviewError::NotFont) =
-        error.domain::<PreviewError>()
+    if let Some(
+        PreviewError::Unsupported(_)
+        | PreviewError::NotCube
+        | PreviewError::NotFont
+        | PreviewError::NotNavGrid,
+    ) = error.domain::<PreviewError>()
     {
         return StatusCode::UNSUPPORTED_MEDIA_TYPE;
     }
@@ -482,6 +490,11 @@ mod tests {
             requested(Some("as=lightgrid")),
             Ok(PreviewRequest::LightGrid)
         );
+    }
+
+    #[test]
+    fn a_nav_grid_form_asks_for_the_grid_or_overlay_buffer() {
+        assert_eq!(requested(Some("as=navgrid")), Ok(PreviewRequest::NavGrid));
     }
 
     #[test]

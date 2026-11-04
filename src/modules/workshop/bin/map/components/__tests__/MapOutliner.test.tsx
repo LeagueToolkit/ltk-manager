@@ -48,6 +48,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 vi.mock("../../state/mapScene", async () => {
   const { useState } = await import("react");
   const { NO_FILTER } = await import("../../utils/mapOutline");
+  const { NAV_GUIDE_DEFAULT } = await import("../../utils/navGuide");
   return {
     useMapScene: () => {
       const [filter, setFilter] = useState(NO_FILTER);
@@ -70,7 +71,9 @@ vi.mock("../../state/mapScene", async () => {
           setSelected(new Set(ids));
           setLead(ids[0] ?? null);
         },
-        backdrop: { controllers: [] },
+        backdrop: { controllers: [], navGrid: null, visibility: { flags: 0 } },
+        navGuide: NAV_GUIDE_DEFAULT,
+        setNavGuide: vi.fn(),
         geometry: null,
         geometryDocument: null,
         geometryEdited: null,

@@ -31,6 +31,8 @@ export {
   readMapBuffer,
 } from "./assets/parsing/mapBuffer";
 export { type MeshGeometry, type MeshRange, readMeshBuffer } from "./assets/parsing/meshBuffer";
+export * from "./assets/parsing/navGridBuffer";
+export * from "./assets/parsing/navGridColors";
 export {
   type JointModel,
   readSkeletonBuffer,
@@ -193,6 +195,7 @@ export {
   useHeldBackdropSource,
   useMapBackdrop,
 } from "./scene/hooks/useMapBackdrop";
+export { useViewMode, type ViewModeState } from "./scene/state/viewModeContext";
 export {
   type AmbientOcclusion,
   NO_AMBIENT_OCCLUSION,
@@ -203,6 +206,9 @@ export {
   type AntiAliasing,
   DEFAULT_ANTI_ALIASING,
 } from "./scene/utils/antiAliasing";
+export type { MeshDrag } from "./scene/utils/backdropRuns";
+export type { ConformanceGround } from "./scene/utils/conformanceSurface";
+export { type NavProjection, withinCutoff } from "./scene/utils/navProjection";
 export {
   type DepthOfField,
   type Fog,
@@ -226,9 +232,12 @@ export {
   EDGE_OVERLAY_OPACITY,
   type Edges,
   edgesOf,
+  offeredViewMode,
+  pullDepthToEye,
   takesWireOverlay,
   VIEW_MODES,
   type ViewMode,
+  viewModesOf,
 } from "./scene/utils/viewMode";
 export {
   AXIS_SIGN,

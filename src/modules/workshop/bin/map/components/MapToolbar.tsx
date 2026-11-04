@@ -6,6 +6,8 @@ import {
   FilePlusIcon,
   FloppyDiskIcon,
   MagnetIcon,
+  MagnetStraightIcon,
+  RulerIcon,
 } from "@phosphor-icons/react";
 import { type RefObject, useRef } from "react";
 
@@ -14,7 +16,8 @@ import { m } from "@/i18n";
 import type { MapPath, MapVariant } from "@/lib/tauri";
 import { CommandMenuItems } from "@/modules/editor";
 import { shortcutOf } from "@/modules/keys";
-import type { BackdropSource, CaptureFrame } from "@/modules/viewport";
+import { type BackdropSource, type CaptureFrame, offeredViewMode } from "@/modules/viewport";
+import { usePreviewNavGrid, usePreviewViewMode } from "@/stores";
 
 import { usePaneCommands } from "../../menus/state/paneCommands";
 import { BackgroundControl } from "../../shared/preview/BackgroundControl";
@@ -27,13 +30,17 @@ import {
   RailSpacer,
   ViewportRail,
 } from "../../shared/preview/ViewportControls";
+import { useMapGuideEntries } from "../hooks/useMapGuideEntries";
 import { useMapShowEntries } from "../hooks/useMapShowEntries";
 import { useMeshExport } from "../hooks/useMeshFiles";
+import type { NavGridView } from "../hooks/useNavGrid";
 import { useMapScene } from "../state/mapScene";
 import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
 import { MAP_KEYS } from "../utils/mapKeys";
 import { MAP_TOOLS } from "../utils/mapTools";
 import { variantLabel } from "../utils/mapVariants";
+import { ConformanceControl } from "./ConformanceControl";
+import { NavCutoffControl } from "./NavCutoffControl";
 import { BoxSelectButton, type PlaceablePicking } from "./PlaceablePicking";
 import { PlaceMenu } from "./PlaceMenu";
 import { PostEffectsControl } from "./PostEffectsControl";
@@ -44,13 +51,20 @@ function pressTrigger(box: HTMLElement | null): void {
   box?.querySelector("button")?.click();
 }
 
+export interface ToolRailProps {
+  readonly picking: PlaceablePicking;
+  /** The navgrid that Guides snapping reads has arrived. */
+  readonly navGridLoaded: boolean;
+}
+
 /**
  * The tool rail down the viewport's left edge: the tools of an editable map, one pressed at a
- * time, the box select, and the gizmo's axes and snap. A read-only map shows only the box select.
- * Per "Tools" in docs/ux/MAP_EDITOR.md.
+ * time, the box select, and the gizmo's axes, grid snap and Guides snap. A read-only map shows
+ * only the box select. Per "Tools" in docs/ux/MAP_EDITOR.md.
  */
-export function ToolRail({ picking }: { picking: PlaceablePicking }) {
+export function ToolRail({ picking, navGridLoaded }: ToolRailProps) {
   const { tool, setTool, space, setSpace, snap, setSnap, editable } = useMapScene();
+  const { guideSnap, setGuideSnap } = useMapScene();
   const local = space === "local";
 
   return (
@@ -82,6 +96,13 @@ export function ToolRail({ picking }: { picking: PlaceablePicking }) {
             onClick={() => setSnap(!snap)}
             label={m.workshop_bin_map_tool_snap_label()}
           />
+          <IconButton
+            pressed={guideSnap && navGridLoaded}
+            disabled={!navGridLoaded}
+            icon={<MagnetStraightIcon />}
+            onClick={() => setGuideSnap(!guideSnap)}
+            label={m.workshop_bin_map_tool_guide_snap_label()}
+          />
         </>
       )}
     </ViewportRail>
@@ -100,6 +121,8 @@ export interface TopRailProps {
   readonly onFrame: () => void;
   /** The capture function of the viewport under the rail. */
   readonly capture: RefObject<CaptureFrame | null>;
+  /** The navigation grid of the shown map state, which the Conformance control checks. */
+  readonly navGrid: NavGridView | null;
 }
 
 /**
@@ -115,8 +138,12 @@ export function TopRail({
   onAddMesh,
   onFrame,
   capture,
+  navGrid,
 }: TopRailProps) {
-  const { editable, tool, geometryDocument } = useMapScene();
+  const { editable, tool, geometryDocument, backdrop } = useMapScene();
+  const hasNavGrid = backdrop.navGrid !== null;
+  const conformance = offeredViewMode(usePreviewViewMode(), hasNavGrid) === "conformance";
+  const navShown = usePreviewNavGrid() && hasNavGrid;
   const exportMeshes = useMeshExport();
   const sun = useRef<HTMLSpanElement>(null);
   const postEffects = useRef<HTMLSpanElement>(null);
@@ -162,6 +189,8 @@ export function TopRail({
       {variants.length > 1 && <VariantMenu variants={variants} chosen={chosen} onPick={onPick} />}
       <RailSpacer />
       <ShowMenu picking={picking} />
+      <GuidesMenu />
+      {navShown && <NavCutoffControl />}
       {/* An editable map edits its sun and post effects in the Lighting pane. */}
       {!editable && (
         <span ref={sun} className="contents">
@@ -175,7 +204,8 @@ export function TopRail({
       )}
       <BackgroundControl />
       <ControlDivider />
-      <ViewModeMenu />
+      <ViewModeMenu navGrid={hasNavGrid} />
+      {conformance && <ConformanceControl source={source} navGrid={navGrid} />}
       <CameraMenu />
       <FitButton label={m.workshop_bin_menu_map_frame_map_action()} onFit={onFrame} />
       <CaptureButton capture={capture} />
@@ -202,6 +232,32 @@ function ShowMenu({ picking }: { picking: PlaceablePicking }) {
         }
       />
       <Menu.Content align="end" data-ui="MapShowMenu" className="w-52">
+        <CommandMenuItems items={entries} />
+      </Menu.Content>
+    </Menu.Root>
+  );
+}
+
+/** The guides the viewport draws over the map, left out while the map has none. */
+function GuidesMenu() {
+  const entries = useMapGuideEntries();
+  if (entries.length === 0) return null;
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <Button
+            variant="ghost"
+            size="xs"
+            left={<RulerIcon weight="bold" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
+          >
+            {m.workshop_bin_map_guides_label()}
+          </Button>
+        }
+      />
+      <Menu.Content align="end" data-ui="MapGuidesMenu" className="w-52">
         <CommandMenuItems items={entries} />
       </Menu.Content>
     </Menu.Root>

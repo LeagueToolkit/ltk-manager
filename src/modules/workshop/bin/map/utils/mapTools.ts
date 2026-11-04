@@ -9,8 +9,9 @@ import {
 
 import { m } from "@/i18n";
 
-import type { MapTool } from "../state/mapScene";
+import type { GizmoTool, MapTool } from "../state/mapScene";
 import { MAP_KEYS } from "./mapKeys";
+import type { TransformParts } from "./placeableSpace";
 
 /** One tool as the rail and the Tools menu show it. */
 export interface MapToolEntry {
@@ -54,6 +55,21 @@ export const MAP_TOOLS: readonly MapToolEntry[] = [
     label: () => m.workshop_bin_map_tool_place_label({ key: MAP_KEYS.place }),
   },
 ];
+
+/** The gizmo tool that edits each part of a transform, which a button beside its inspector row picks. */
+export const TRANSFORM_TOOLS: Readonly<Record<keyof TransformParts, GizmoTool>> = {
+  position: "move",
+  rotation: "rotate",
+  scale: "scale",
+};
+
+/** Returns the entry of `tool` in `MAP_TOOLS`. Throws if the list has no entry for it. */
+export function toolEntry(tool: MapTool): MapToolEntry {
+  const entry = MAP_TOOLS.find((each) => each.tool === tool);
+  if (entry === undefined) throw new Error(`MAP_TOOLS has no entry for the "${tool}" tool`);
+
+  return entry;
+}
 
 /** The classes the Place tool adds, grouped as the palette groups them. */
 export const PLACE_GROUPS: readonly {

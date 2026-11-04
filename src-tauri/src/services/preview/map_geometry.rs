@@ -64,6 +64,19 @@ impl MapGeometryDocuments {
         Ok(self.get(id)?.lock().document.preview()?)
     }
 
+    /// Runs `read` over the open `.mapgeo` under `id` while its lock is held.
+    ///
+    /// # Errors
+    ///
+    /// Fails if no `.mapgeo` is open under `id`.
+    pub fn read<T>(
+        &self,
+        id: MapGeometryId,
+        read: impl FnOnce(&MapGeometryDocument) -> T,
+    ) -> AppResult<T> {
+        Ok(read(&self.get(id)?.lock().document))
+    }
+
     /// Encodes the meshes at `meshes` of the open `.mapgeo` under `id`, in that order.
     ///
     /// # Errors

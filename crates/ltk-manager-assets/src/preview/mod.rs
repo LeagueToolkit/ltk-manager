@@ -12,6 +12,7 @@ mod light_grid;
 mod map;
 mod mesh;
 mod mips;
+mod navgrid;
 mod skeleton;
 mod source;
 mod texture;
@@ -33,7 +34,9 @@ use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind};
 pub use animation::{ClipHeader, header as clip_header};
 pub use audio::{AudioContainer, AudioInfo, BankFacts};
 pub use ltk_file::LeagueFileKind;
-pub use map::{encode_map, encode_map_meshes};
+pub use map::{encode_map, encode_map_meshes, for_each_mesh_triangle, is_region_anchored};
+#[cfg(any(test, feature = "test-util"))]
+pub use navgrid::nav_grid_file;
 pub use skeleton::joint_names;
 pub use source::AssetRef;
 pub use texture::{TextureContainer, TextureInfo};
@@ -64,6 +67,8 @@ pub enum PreviewRequest {
     },
     /// A map's baked light grid, as one ambient buffer.
     LightGrid,
+    /// A navigation grid as one grid buffer, or a navigation grid overlay as one overlay buffer.
+    NavGrid,
     /// An OpenType or TrueType font's own bytes.
     Font,
     /// The file's own bytes, under the media type a `<video>` or an `<audio>` plays them
@@ -219,6 +224,14 @@ pub enum PreviewError {
     /// The bytes are not a light grid the game reads.
     #[error("Not a readable light grid: {0}")]
     LightGridRead(&'static str),
+
+    /// The bytes are not a navigation grid or an overlay of the kind that the file's name selects.
+    #[error("Not a readable navigation grid: {0}")]
+    NavGridRead(#[from] ltk_navgrid::ParseError),
+
+    /// A file without a navigation grid extension reads as no navigation grid file.
+    #[error("The file is not a navigation grid or a navigation grid overlay")]
+    NotNavGrid,
 }
 
 impl From<PreviewError> for AppError {
@@ -260,6 +273,9 @@ impl AssetRef {
                 return Ok(Preview::Buffer(mips::render(&bytes, min_width, blocks)?));
             }
             PreviewRequest::LightGrid => return Ok(Preview::Buffer(light_grid::render(&bytes)?)),
+            PreviewRequest::NavGrid => {
+                return Ok(Preview::Buffer(navgrid::render(self.name(), &bytes)?));
+            }
             PreviewRequest::Font => return Ok(Preview::Font(font::render(bytes)?)),
             PreviewRequest::File => {
                 let mime = web::media_mime(&bytes).unwrap_or("application/octet-stream");

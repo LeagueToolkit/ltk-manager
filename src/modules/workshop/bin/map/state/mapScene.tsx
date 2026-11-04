@@ -47,6 +47,8 @@ import { NO_FILTER, type OutlineFilter } from "../utils/mapOutline";
 import { type SelectMode, selectedBy } from "../utils/mapSelection";
 import { openingVariant } from "../utils/mapVariants";
 import type { ReimportRequest } from "../utils/meshImport";
+import { NAV_GUIDE_DEFAULT, type NavGuide } from "../utils/navGuide";
+import { type DragBasis, type HeldDrag, shownDrag } from "../utils/placeableSpace";
 
 /**
  * What a press in the viewport does: pick, move, turn or scale the selection with a gizmo, or
@@ -57,7 +59,7 @@ export type MapTool = "select" | "move" | "rotate" | "scale" | "place";
 /** The file an edit of the map shell went to. */
 type EditedFile = "bin" | "geometry" | "both";
 
-/** Placeable transforms by `itemId`, column major in the engine's space. */
+/** Placeable and mesh transforms by selection id, column major in the engine's space. */
 export type DraggedTransforms = ReadonlyMap<string, readonly (number | null)[]>;
 
 /** The tools that draw a gizmo on the selection. */
@@ -125,6 +127,9 @@ export interface MapSceneState {
   /** The gizmo snaps to the grid step. Ctrl during a drag inverts it. */
   readonly snap: boolean;
   readonly setSnap: (snap: boolean) => void;
+  /** A dragged or placed position snaps to the center of its navgrid cell. */
+  readonly guideSnap: boolean;
+  readonly setGuideSnap: (snap: boolean) => void;
   /** The class the Place tool adds. */
   readonly placeClass: string;
   readonly setPlaceClass: (className: string) => void;
@@ -166,6 +171,9 @@ export interface MapSceneState {
   /** The viewport draws the sun direction handle, while the Lighting pane shows its Sun section. */
   readonly sunHandle: boolean;
   readonly setSunHandle: (shown: boolean) => void;
+  /** The navgrid overlay switches of this document, per docs/plans/navgrid-guides.md section 3.4. */
+  readonly navGuide: NavGuide;
+  readonly setNavGuide: (next: NavGuide) => void;
   /** The rename dialog is open on the lead placeable. */
   readonly renaming: boolean;
   readonly setRenaming: (renaming: boolean) => void;
@@ -204,8 +212,9 @@ const MapDraggedContext = createContext<DraggedTransforms | null>(null);
 const NONE: ReadonlySet<string> = new Set();
 
 /**
- * The transforms a gizmo drag gives the placeables it moves, by `itemId`, and null outside a
- * drag. A committed drag keeps them until the outline reads the edit back.
+ * The transforms a gizmo drag gives the placeables or meshes it moves, by selection id, and null
+ * outside a drag. A committed drag keeps them until the outline or the `.mapgeo` revision reads
+ * the edit back.
  */
 export function useMapDragged(): DraggedTransforms | null {
   return use(MapDraggedContext);
@@ -441,14 +450,28 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
   const [tool, setTool] = useState<MapTool>("select");
   const [space, setSpace] = useState<"world" | "local">("world");
   const [snap, setSnap] = useState(false);
+  const [guideSnap, setGuideSnap] = useState(false);
   const [placeClass, setPlaceClass] = useState("MapParticle");
   const [target, setTarget] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [reimport, setReimport] = useState<ReimportRequest | null>(null);
   const [sunHandle, setSunHandle] = useState(false);
-  const [dragged, setDragged] = useState<DraggedTransforms | null>(null);
+  const [navGuide, setNavGuide] = useState<NavGuide>(NAV_GUIDE_DEFAULT);
   const outline = useQuery(mapQueries.outline(materialsFile === null ? null : opened)).data;
-  useEffect(() => setDragged(null), [outline]);
+  const geometryRevision = geometry.state?.revision ?? null;
+  const dragBasis = useMemo<DragBasis>(
+    () => ({ outline, geometryRevision }),
+    [outline, geometryRevision],
+  );
+  /* A placeable edit is read back with the outline and a mesh edit with the `.mapgeo` revision,
+     so a committed drag shows until then, and an undo or a redo never shows it again. */
+  const [heldDrag, setHeldDrag] = useState<HeldDrag | null>(null);
+  const setDragged = useCallback(
+    (transforms: DraggedTransforms | null) =>
+      setHeldDrag(transforms === null ? null : { transforms, basis: dragBasis }),
+    [dragBasis],
+  );
+  const dragged = shownDrag(heldDrag, dragBasis);
 
   /* The same map, document and geometry that the viewport draws its backdrop from, so the
      two share one read of the geometry and one of the model. Null until the viewport
@@ -530,6 +553,8 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       setSpace,
       snap,
       setSnap,
+      guideSnap,
+      setGuideSnap,
       placeClass,
       setPlaceClass,
       target,
@@ -541,6 +566,8 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       setReimport,
       sunHandle,
       setSunHandle,
+      navGuide,
+      setNavGuide,
       geometryDocument: geometry.state,
       geometryEdited,
       geometryOpening,
@@ -576,11 +603,14 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       tool,
       space,
       snap,
+      guideSnap,
       placeClass,
       target,
+      setDragged,
       renaming,
       reimport,
       sunHandle,
+      navGuide,
       geometry.state,
       geometryEdited,
       geometryOpening,

@@ -19,8 +19,8 @@ let holder: RendererLease | null = null;
 
 /**
  * The `userData` key of an object whose geometry groups are listed nearest first: its
- * opaque groups are drawn in that order and its blended groups in the reverse, which
- * [`opaqueOrder`] and [`transparentOrder`] read.
+ * opaque groups are drawn in that order and its blended groups by tier, then in the reverse,
+ * which [`opaqueOrder`] and [`transparentOrder`] read.
  */
 export const KEEPS_GROUP_ORDER = "keepsGroupOrder";
 
@@ -31,6 +31,8 @@ export interface OrderedGroup {
   materialIndex?: number;
   /** The index of the group in the geometry's list, which the owner writes. */
   order?: number;
+  /** The blend tier of the group's material, lower drawn first. Read for a blended group only. */
+  tier?: number;
 }
 
 /** The id ThreeJS gives every material, which its typings leave out. */
@@ -70,11 +72,12 @@ export function opaqueOrder(a: RenderItem, b: RenderItem): number {
 
 /**
  * The order of two blended draws: ThreeJS's own order, except that the groups of one
- * object under [`KEEPS_GROUP_ORDER`] are drawn last listed first.
+ * object under [`KEEPS_GROUP_ORDER`] are drawn by `tier`, lowest first, and within a tier
+ * last listed first.
  *
  * A blended surface has to be drawn over what is behind it, so the groups that the owner
  * lists nearest first are drawn farthest first. ThreeJS's own order leaves the groups of
- * one object equal, so reversing them moves no other draw.
+ * one object equal, so the tiers and the reversal move no other draw.
  */
 export function transparentOrder(a: RenderItem, b: RenderItem): number {
   if (a.groupOrder !== b.groupOrder) return a.groupOrder - b.groupOrder;
@@ -83,9 +86,13 @@ export function transparentOrder(a: RenderItem, b: RenderItem): number {
   if (a.id !== b.id) return a.id - b.id;
   if (!keepsGroupOrder(a)) return 0;
 
-  const orderA = (a.group as OrderedGroup | null)?.order ?? 0;
-  const orderB = (b.group as OrderedGroup | null)?.order ?? 0;
-  return orderB - orderA;
+  const groupA = a.group as OrderedGroup | null;
+  const groupB = b.group as OrderedGroup | null;
+  const tierA = groupA?.tier ?? 0;
+  const tierB = groupB?.tier ?? 0;
+  if (tierA !== tierB) return tierA - tierB;
+
+  return (groupB?.order ?? 0) - (groupA?.order ?? 0);
 }
 
 /**

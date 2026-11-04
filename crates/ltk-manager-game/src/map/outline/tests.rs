@@ -280,6 +280,65 @@ fn map_outline_reads_region_boundaries_and_vertex_regions() {
 }
 
 #[test]
+fn map_outline_reads_region_entity_polygon_from_its_shape_data() {
+    let vertices = values::Container::new(
+        Kind::Vector3,
+        vec![
+            values::Vector3::new(vec3(-166.5, 0.0, 30.5)).into(),
+            values::Vector3::new(vec3(-58.0, 0.0, -148.5)).into(),
+            values::Vector3::new(vec3(371.5, 0.0, 85.0)).into(),
+        ],
+    )
+    .unwrap();
+    let polygon = values::Struct {
+        class_hash: h("EntityPolygonData"),
+        properties: [(VERTICES, vertices.into())].into_iter().collect(),
+    };
+    let circle = values::Struct {
+        class_hash: h("EntityCircleData"),
+        properties: Default::default(),
+    };
+    let component = |shape: values::Struct| values::Struct {
+        class_hash: h("RegionGeComponentDef"),
+        properties: [(SHAPE_DATA, shape.into())].into_iter().collect(),
+    };
+    let document = document_of(vec![container(
+        PLANTS,
+        vec![
+            (
+                "Brush",
+                placeable(
+                    "RegionEntityTemplate",
+                    vec![(REGION_FIELD, values::Embedded(component(polygon)).into())],
+                ),
+            ),
+            (
+                "Circle",
+                placeable(
+                    "RegionEntityTemplate",
+                    vec![(REGION_FIELD, values::Embedded(component(circle)).into())],
+                ),
+            ),
+        ],
+    )]);
+
+    let items = &map_outline(&document, &Tables)[0].items;
+
+    assert_eq!(items[0].kind, MapItemKind::Other);
+    assert_eq!(
+        items[0].shape,
+        Some(MapItemShape::Polygon {
+            points: vec![
+                [-166.5, 0.0, 30.5],
+                [-58.0, 0.0, -148.5],
+                [371.5, 0.0, 85.0]
+            ],
+        })
+    );
+    assert_eq!(items[1].shape, None);
+}
+
+#[test]
 fn a_chunk_no_table_names_reads_as_the_key_its_container_lists_it_under() {
     let listing = values::Map::new(
         Kind::Hash,

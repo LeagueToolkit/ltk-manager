@@ -39,6 +39,8 @@ const BANNER: BinHash = named("GdsMapObject");
 const REGION_BOUNDARY: BinHash = named("RegionBoundary");
 /// A `MapPlaceable` of `Vertices`, a `type` and a `Min` and `Max` box, which no table names.
 const VERTEX_REGION: BinHash = BinHash(0x5a96_97c1);
+/// A server-owned region, such as a brush area of Summoner's Rift, which the editor shows as a guide.
+const REGION_ENTITY: BinHash = named("RegionEntityTemplate");
 
 /// The frustum fields of `MapFrustum`, which both spotlight classes derive from, with the
 /// defaults the schema publishes.
@@ -58,6 +60,10 @@ const SEGMENTS: BinHash = named("Segments");
 /// `LightRegionEntityTemplate.LightRegion`, which holds the region's `Polygon`.
 const LIGHT_REGION_FIELD: BinHash = named("LightRegion");
 const POLYGON: BinHash = named("Polygon");
+/// `RegionEntityTemplate.Region`, a `RegionGeComponentDef` whose `shapeData` points at the
+/// region's shape. An `EntityPolygonData` holds its `Vertices`, and an `EntityCircleData` holds none.
+const REGION_FIELD: BinHash = named("Region");
+const SHAPE_DATA: BinHash = named("shapeData");
 const END_POSITION: BinHash = named("EndPosition");
 /// The polygon fields of `RegionBoundary`, with the defaults the schema publishes.
 const VERTICES: BinHash = named("Vertices");
@@ -120,7 +126,8 @@ pub enum MapItemShape {
     Path { points: Vec<[f32; 3]> },
     /// A lighting volume: the cube from -0.5 to 0.5 on each axis under its transform.
     Volume,
-    /// The closed polygon of a light region, in the space of its transform.
+    /// The closed polygon of a light region, a vertex region or a region entity, in the space of
+    /// its transform.
     Polygon { points: Vec<[f32; 3]> },
     /// The closed polygon of a `RegionBoundary` in the space of its transform, its walls
     /// `height` units tall, and the colors the client draws its lines and fill in.
@@ -298,6 +305,13 @@ fn shape_of(class: BinHash, fields: &Fields, position: [f32; 3]) -> Option<MapIt
         VERTEX_REGION => Some(MapItemShape::Polygon {
             points: points_of(fields.get(&VERTICES)),
         }),
+        REGION_ENTITY => {
+            let region = fields_of(fields.get(&REGION_FIELD))?;
+            let shape = fields_of(region.get(&SHAPE_DATA))?;
+            Some(MapItemShape::Polygon {
+                points: points_of(Some(shape.get(&VERTICES)?)),
+            })
+        }
         _ => None,
     }
 }

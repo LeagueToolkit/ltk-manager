@@ -51,9 +51,9 @@
 
 use std::io::Cursor;
 
-use glam::{Mat3, Vec2, Vec3};
+use glam::{Mat3, Mat4, Vec2, Vec3};
 use indexmap::IndexSet;
-use ltk_mapgeo::{EnvironmentAsset, EnvironmentAssetChannel, EnvironmentMesh};
+use ltk_mapgeo::{EnvironmentAsset, EnvironmentAssetChannel, EnvironmentMesh, EnvironmentSubmesh};
 use ltk_mesh::mem::VertexBuffer;
 use ltk_mesh::mem::vertex::ElementName;
 
@@ -136,6 +136,69 @@ pub fn encode_map_meshes(
 ) -> Result<Vec<u8>, PreviewError> {
     let chosen = meshes.iter().filter_map(|&at| asset.meshes().get(at));
     Map::of_meshes(asset, chosen)?.encode()
+}
+
+/// Returns `true` if the game places `mesh` through a map region rather than at the world
+/// origin, so the transform that [`encode_map`] bakes is not where the mesh lands.
+#[must_use]
+pub fn is_region_anchored(mesh: &EnvironmentMesh) -> bool {
+    mesh.region_path_hash() != 0
+}
+
+/// Calls `visit` with the corners and the unit vertex normals of each triangle of `mesh`, in
+/// world space with the transform baked in as [`encode_map`] bakes it.
+///
+/// A submesh whose index count is not a multiple of 3 drops its last partial triangle.
+///
+/// # Errors
+///
+/// Fails with [`PreviewError::MapVertexLayout`] if the mesh carries no positions this build
+/// decodes, and with [`PreviewError::MeshOutOfBounds`] if a submesh names indices or vertices
+/// that the asset does not hold. `visit` can have seen triangles of earlier submeshes.
+pub fn for_each_mesh_triangle(
+    asset: &EnvironmentAsset,
+    mesh: &EnvironmentMesh,
+    mut visit: impl FnMut([Vec3; 3], [Vec3; 3]),
+) -> Result<(), PreviewError> {
+    let count = mesh.vertex_count() as usize;
+    let positions = stream(asset, mesh, ElementName::Position)
+        .and_then(|buffer| buffer.accessor::<Vec3>(ElementName::Position))
+        .ok_or(PreviewError::MapVertexLayout)?;
+    let normals = stream(asset, mesh, ElementName::Normal)
+        .and_then(|buffer| buffer.accessor::<Vec3>(ElementName::Normal));
+
+    let placement = Placement::of(mesh);
+    let world: Vec<Vec3> = (0..count)
+        .map(|vertex| placement.position(positions.get(vertex)))
+        .collect();
+    let unit_normals: Vec<Vec3> = (0..count)
+        .map(|vertex| placement.normal(normals.as_ref().map(|block| block.get(vertex))))
+        .collect();
+
+    let buffer = asset
+        .index_buffer(mesh.index_buffer_id())
+        .ok_or(PreviewError::MeshOutOfBounds)?;
+    for submesh in mesh.submeshes() {
+        let range = submesh_range(submesh, buffer.count())?;
+        let triangles = range.len() / 3;
+
+        for first in range.step_by(3).take(triangles) {
+            let mut corners = [0usize; 3];
+            for (corner, at) in corners.iter_mut().zip(first..) {
+                *corner = usize::from(buffer.get(at));
+                if *corner >= count {
+                    return Err(PreviewError::MeshOutOfBounds);
+                }
+            }
+
+            visit(
+                corners.map(|at| world[at]),
+                corners.map(|at| unit_normals[at]),
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// One map's geometry, in the blocks the buffer holds it in.
@@ -266,24 +329,19 @@ impl Map {
         let uv1 = stream(asset, mesh, UV1_ELEMENT)
             .and_then(|buffer| buffer.accessor::<Vec2>(UV1_ELEMENT));
 
-        let transform = *mesh.transform();
-        /* A non-uniform scale bends a normal that is only rotated, so the normals take
-        the inverse transpose of the upper 3 by 3 rather than the transform itself. */
-        let rotation = Mat3::from_mat4(transform).inverse().transpose();
+        let placement = Placement::of(mesh);
 
         let mut min = Vec3::splat(f32::INFINITY);
         let mut max = Vec3::splat(f32::NEG_INFINITY);
 
         for vertex in 0..count {
-            let world = (transform * positions.get(vertex).extend(1.0)).truncate();
+            let world = placement.position(positions.get(vertex));
             min = min.min(world);
             max = max.max(world);
             self.positions.extend(world.to_array());
 
-            let normal = normals
-                .as_ref()
-                .map_or(DEFAULT_NORMAL, |block| rotation * block.get(vertex));
-            self.normals.extend(unit(normal).to_array());
+            let normal = placement.normal(normals.as_ref().map(|block| block.get(vertex)));
+            self.normals.extend(normal.to_array());
 
             self.uv0.extend(
                 uv0.as_ref()
@@ -305,17 +363,10 @@ impl Map {
         let first_submesh = count_of(self.submeshes.len())?;
 
         for submesh in mesh.submeshes() {
-            let start = usize::try_from(submesh.start_index())
-                .map_err(|_| PreviewError::MeshOutOfBounds)?;
-            let length = usize::try_from(submesh.index_count())
-                .map_err(|_| PreviewError::MeshOutOfBounds)?;
-            let end = start
-                .checked_add(length)
-                .filter(|end| *end <= buffer.count())
-                .ok_or(PreviewError::MeshOutOfBounds)?;
+            let range = submesh_range(submesh, buffer.count())?;
 
             let start_index = count_of(self.indices.len())?;
-            for at in start..end {
+            for at in range {
                 let index = buffer.get(at) as usize;
                 if index >= count {
                     return Err(PreviewError::MeshOutOfBounds);
@@ -336,7 +387,7 @@ impl Map {
         if mesh.disable_backface_culling() {
             flags |= MESH_CULL_DISABLED;
         }
-        if mesh.region_path_hash() != 0 {
+        if is_region_anchored(mesh) {
             flags |= MESH_REGION_ANCHORED;
         }
         self.meshes.push(Mesh {
@@ -450,6 +501,55 @@ impl Map {
 
         Ok(buffer)
     }
+}
+
+/// The transform that places the vertices of one mesh in world space.
+struct Placement {
+    transform: Mat4,
+    /// The inverse transpose of the upper 3 by 3 of `transform`. A non-uniform scale bends a
+    /// normal that is only rotated.
+    normals: Mat3,
+}
+
+impl Placement {
+    fn of(mesh: &EnvironmentMesh) -> Self {
+        let transform = *mesh.transform();
+        Self {
+            transform,
+            normals: Mat3::from_mat4(transform).inverse().transpose(),
+        }
+    }
+
+    fn position(&self, local: Vec3) -> Vec3 {
+        (self.transform * local.extend(1.0)).truncate()
+    }
+
+    /// Returns the unit world normal of the vertex normal `local`, or of [`DEFAULT_NORMAL`] for
+    /// a mesh that has no normals.
+    fn normal(&self, local: Option<Vec3>) -> Vec3 {
+        unit(local.map_or(DEFAULT_NORMAL, |normal| self.normals * normal))
+    }
+}
+
+/// Returns the range of the index buffer of `count` indices that `submesh` draws.
+///
+/// # Errors
+///
+/// Fails with [`PreviewError::MeshOutOfBounds`] if the range is negative or ends past `count`.
+fn submesh_range(
+    submesh: &EnvironmentSubmesh,
+    count: usize,
+) -> Result<std::ops::Range<usize>, PreviewError> {
+    let start =
+        usize::try_from(submesh.start_index()).map_err(|_| PreviewError::MeshOutOfBounds)?;
+    let length =
+        usize::try_from(submesh.index_count()).map_err(|_| PreviewError::MeshOutOfBounds)?;
+    let end = start
+        .checked_add(length)
+        .filter(|end| *end <= count)
+        .ok_or(PreviewError::MeshOutOfBounds)?;
+
+    Ok(start..end)
 }
 
 /// The stream of `mesh` carrying `element`, of the one or two it declares.

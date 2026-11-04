@@ -5,12 +5,13 @@ import { type ReactNode, useMemo } from "react";
 import { Button, Checkbox, IconButton, Menu, Switch } from "@/components";
 import { m } from "@/i18n";
 import type { MapGeometryMesh } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
 import { mapQueries } from "../api/mapQueries";
 import { useGeometryMeshes } from "../hooks/useGeometryMeshes";
 import { useMeshActions } from "../hooks/useMeshActions";
 import { useMapScene } from "../state/mapScene";
-import { meshId, meshTransformEdit } from "../utils/meshSelection";
+import { meshTransformEdit, movableMeshes } from "../utils/meshSelection";
 import { movesToLead } from "../utils/placeableSpace";
 import { ChoicePicker } from "./ChoicePicker";
 import { TransformFields } from "./TransformFields";
@@ -40,7 +41,7 @@ const NO_REGION = "";
  */
 export function MeshInspector() {
   const { selection, meshes } = useGeometryMeshes();
-  const { editGeometry, backdrop, materials } = useMapScene();
+  const { editGeometry, backdrop, materials, editable, tool, setTool } = useMapScene();
   const actions = useMeshActions(meshes.length);
   const defs = useQuery(mapQueries.materialDefs(materials)).data;
   const chunks = useQuery(mapQueries.outline(materials)).data;
@@ -63,6 +64,7 @@ export function MeshInspector() {
   if (lead === undefined) return null;
 
   const indices = selection.map((mesh) => mesh.index);
+  const tools = editable ? { current: tool, pick: setTool } : undefined;
   const controllerName = (hash: string) =>
     backdrop.controllers.find((each) => each.hash === hash)?.name ?? hash;
 
@@ -102,128 +104,169 @@ export function MeshInspector() {
         </span>
       </header>
 
-      <MeshField label={m.workshop_bin_map_transform_label()}>
+      <MeshGroup>
         <TransformFields
           transform={lead.transform}
           disabled={lead.region !== null}
+          tools={tools}
           onCommit={(next) => {
-            const items = selection
-              .filter((mesh) => mesh.region === null)
-              .map((mesh) => ({
-                id: meshId(mesh.index),
-                transform: mesh.transform,
-              }));
-            const edit = meshTransformEdit(movesToLead(items, next));
+            const edit = meshTransformEdit(movesToLead(movableMeshes(selection), next));
             if (edit !== null) void editGeometry(edit);
           }}
         />
-      </MeshField>
+      </MeshGroup>
 
-      <MeshField label={m.workshop_bin_map_mesh_materials_label()}>
-        <div className="flex min-w-0 flex-col gap-1">
-          {lead.materials.map((material, submesh) => (
-            <div key={submesh} className="flex min-w-0 items-center gap-2">
-              <span className="w-4 shrink-0 text-meta text-surface-400 tabular-nums">
-                {submesh}
-              </span>
-              <ChoicePicker
-                choices={materialChoices}
-                value={material}
-                label={m.workshop_bin_map_mesh_material_label({ submesh })}
-                empty={m.workshop_bin_map_mesh_material_empty()}
-                onPick={(picked) =>
-                  void editGeometry({
-                    kind: "material",
-                    mesh: lead.index,
-                    submesh,
-                    material: picked,
-                  })
-                }
+      <MeshGroup>
+        <MeshField label={m.workshop_bin_map_mesh_materials_label()}>
+          <div className="flex min-w-0 flex-col gap-1">
+            {lead.materials.map((material, submesh) => (
+              <div key={submesh} className="flex min-w-0 items-center gap-2">
+                {lead.materials.length > 1 && (
+                  <span className="w-4 shrink-0 text-meta text-surface-400 tabular-nums">
+                    {submesh}
+                  </span>
+                )}
+                <ChoicePicker
+                  choices={materialChoices}
+                  value={material}
+                  label={m.workshop_bin_map_mesh_material_label({ submesh })}
+                  empty={m.workshop_bin_map_mesh_material_empty()}
+                  onPick={(picked) =>
+                    void editGeometry({
+                      kind: "material",
+                      mesh: lead.index,
+                      submesh,
+                      material: picked,
+                    })
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        </MeshField>
+
+        <MeshField label={m.workshop_bin_map_mesh_region_label()}>
+          <ChoicePicker
+            choices={regionChoices}
+            value={lead.region ?? NO_REGION}
+            label={m.workshop_bin_map_mesh_region_label()}
+            empty={m.workshop_bin_map_mesh_region_empty()}
+            onPick={(picked) =>
+              void editGeometry({
+                kind: "region",
+                meshes: indices,
+                region: picked === NO_REGION ? null : picked,
+              })
+            }
+          />
+          {lead.region !== null && (
+            <span className="text-meta text-surface-400">
+              {m.workshop_bin_map_mesh_region_hint()}
+            </span>
+          )}
+        </MeshField>
+      </MeshGroup>
+
+      <MeshGroup>
+        <MeshField label={m.workshop_bin_map_mesh_layers_label()}>
+          <div
+            className={twMerge(
+              "grid gap-x-3 gap-y-1",
+              backdrop.flagNames.size > 0 ? "grid-cols-2" : "grid-cols-4",
+            )}
+          >
+            {Array.from({ length: LAYER_COUNT }, (_, bit) => (
+              <Checkbox
+                key={bit}
+                size="sm"
+                label={<LayerLabel bit={bit} name={backdrop.flagNames.get(bit)} />}
+                checked={(lead.visibility & (1 << bit)) !== 0}
+                onCheckedChange={(on) => setBit("visibility", bit, on)}
               />
-            </div>
-          ))}
-        </div>
-      </MeshField>
+            ))}
+          </div>
+        </MeshField>
 
-      <MeshField label={m.workshop_bin_map_mesh_region_label()}>
-        <ChoicePicker
-          choices={regionChoices}
-          value={lead.region ?? NO_REGION}
-          label={m.workshop_bin_map_mesh_region_label()}
-          empty={m.workshop_bin_map_mesh_region_empty()}
-          onPick={(picked) =>
-            void editGeometry({
-              kind: "region",
-              meshes: indices,
-              region: picked === NO_REGION ? null : picked,
-            })
-          }
-        />
-        {lead.region !== null && (
-          <span className="text-meta text-surface-400">
-            {m.workshop_bin_map_mesh_region_hint()}
-          </span>
-        )}
-      </MeshField>
+        <MeshField label={m.workshop_bin_map_mesh_controller_label()}>
+          <ControllerMenu
+            mesh={lead}
+            name={controllerName}
+            onPick={(controller) => void actions.setController(indices, controller)}
+          />
+        </MeshField>
 
-      <MeshField label={m.workshop_bin_map_mesh_layers_label()}>
-        <div className="grid grid-cols-4 gap-1">
-          {Array.from({ length: LAYER_COUNT }, (_, bit) => (
-            <Checkbox
-              key={bit}
-              size="sm"
-              label={String(bit)}
-              checked={(lead.visibility & (1 << bit)) !== 0}
-              onCheckedChange={(on) => setBit("visibility", bit, on)}
-            />
-          ))}
-        </div>
-      </MeshField>
+        <MeshField label={m.workshop_bin_map_mesh_quality_label()}>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {QUALITIES.map((label, bit) => (
+              <Checkbox
+                key={bit}
+                size="sm"
+                label={label()}
+                checked={(lead.quality & (1 << bit)) !== 0}
+                onCheckedChange={(on) => setBit("quality", bit, on)}
+              />
+            ))}
+          </div>
+        </MeshField>
+      </MeshGroup>
 
-      <MeshField label={m.workshop_bin_map_mesh_controller_label()}>
-        <ControllerMenu
-          mesh={lead}
-          name={controllerName}
-          onPick={(controller) => void actions.setController(indices, controller)}
-        />
-      </MeshField>
-
-      <MeshField label={m.workshop_bin_map_mesh_quality_label()}>
-        <div className="flex flex-wrap gap-2">
-          {QUALITIES.map((label, bit) => (
-            <Checkbox
-              key={bit}
-              size="sm"
-              label={label()}
-              checked={(lead.quality & (1 << bit)) !== 0}
-              onCheckedChange={(on) => setBit("quality", bit, on)}
-            />
-          ))}
-        </div>
-      </MeshField>
-
-      <MeshField label={m.workshop_bin_map_mesh_culling_label()}>
-        <Switch
-          checked={!lead.backfaceCullingDisabled}
-          onCheckedChange={(on) =>
-            void editGeometry({
-              kind: "backfaceCulling",
-              meshes: indices,
-              disabled: !on,
-            })
-          }
-        />
-      </MeshField>
+      <MeshGroup>
+        <MeshField label={m.workshop_bin_map_mesh_culling_label()} inline>
+          <Switch
+            checked={!lead.backfaceCullingDisabled}
+            aria-label={m.workshop_bin_map_mesh_culling_label()}
+            onCheckedChange={(on) =>
+              void editGeometry({
+                kind: "backfaceCulling",
+                meshes: indices,
+                disabled: !on,
+              })
+            }
+          />
+        </MeshField>
+      </MeshGroup>
     </section>
   );
 }
 
-function MeshField({ label, children }: { label: string; children: ReactNode }) {
+/** A run of related fields, set off from the run above it by a hairline. */
+function MeshGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 px-1">
-      <span className="text-meta text-surface-400">{label}</span>
-      {children}
+    <div className="flex flex-col gap-2 border-t border-surface-700/40 px-1 pt-2">{children}</div>
+  );
+}
+
+interface MeshFieldProps {
+  readonly label: string;
+  /** The control sits on the label's line, for a control as short as a switch. */
+  readonly inline?: boolean;
+  readonly children: ReactNode;
+}
+
+/** One property: its label in the inspector's label column and its control beside it. */
+function MeshField({ label, inline = false, children }: MeshFieldProps) {
+  return (
+    <div className="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-x-1">
+      <span
+        className={twMerge(
+          "truncate pr-1 text-meta text-surface-400",
+          inline ? "self-center" : "pt-1.5",
+        )}
+      >
+        {label}
+      </span>
+      <div className="flex min-w-0 flex-col gap-1">{children}</div>
     </div>
+  );
+}
+
+/** A visibility layer's bit, and the name the map's flag definitions give it. */
+function LayerLabel({ bit, name }: { bit: number; name: string | undefined }) {
+  return (
+    <span className="flex min-w-0 items-baseline gap-1.5">
+      <span className="text-surface-400 tabular-nums">{bit}</span>
+      {name !== undefined && <span className="truncate">{name}</span>}
+    </span>
   );
 }
 
@@ -233,7 +276,7 @@ interface ControllerMenuProps {
   readonly onPick: (controller: string | null) => void;
 }
 
-/** The visibility controller of a mesh, named on a pill over a menu of the map's controllers. */
+/** The visibility controller of a mesh, named on a full-width trigger over a menu of the map's controllers. */
 function ControllerMenu({ mesh, name, onPick }: ControllerMenuProps) {
   const { backdrop } = useMapScene();
   const shown =
@@ -246,12 +289,13 @@ function ControllerMenu({ mesh, name, onPick }: ControllerMenuProps) {
       <Menu.Trigger
         render={
           <Button
-            variant="ghost"
-            size="xs"
+            variant="outline"
+            size="md"
+            className="w-full justify-between font-normal"
             aria-label={m.workshop_bin_map_mesh_controller_label()}
-            right={<CaretDownIcon weight="bold" className="size-3" />}
+            right={<CaretDownIcon weight="bold" className="size-3 text-surface-400" />}
           >
-            {shown}
+            <span className="min-w-0 truncate">{shown}</span>
           </Button>
         }
       />

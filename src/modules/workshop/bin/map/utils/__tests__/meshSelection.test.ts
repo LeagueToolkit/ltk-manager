@@ -1,20 +1,23 @@
-import { Ray, Vector3 } from "three";
+import { Euler, Group, Matrix4, Object3D, Quaternion, Ray, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
 
 import type { MapGeometryMesh } from "@/lib/tauri";
-import type { MapGeometry } from "@/modules/viewport";
+import { AXIS_SIGN, type MapGeometry } from "@/modules/viewport";
 
 import type { PlacedItem } from "../mapOutline";
 import {
   dragDelta,
+  heldMeshDrag,
   meshAnchor,
   meshId,
   meshIndexOf,
   meshPatch,
   meshTransformEdit,
+  movableMeshes,
   pickMesh,
   selectionMiddle,
 } from "../meshSelection";
+import { movesOf, movesToLead, shownDrag } from "../placeableSpace";
 
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 
@@ -104,6 +107,44 @@ describe("meshTransformEdit", () => {
   });
 });
 
+describe("movableMeshes", () => {
+  const anchored = { ...mesh(1, [0, 0, 0], [2, 2, 2]), region: "0xabc" };
+
+  it("keeps the lead first and skips a region-anchored mesh", () => {
+    const items = movableMeshes([
+      mesh(4, [0, 0, 0], [2, 2, 2]),
+      anchored,
+      mesh(2, [0, 0, 0], [4, 0, 0]),
+    ]);
+
+    expect(items.map((each) => each.id)).toEqual([meshId(4), meshId(2)]);
+    expect(items[1]?.anchor?.slice(12, 15)).toEqual([2, 0, 0]);
+  });
+
+  it("returns none if the lead is region-anchored", () => {
+    expect(movableMeshes([anchored, mesh(2, [0, 0, 0], [1, 1, 1])])).toEqual([]);
+    expect(movableMeshes([])).toEqual([]);
+  });
+
+  it("builds one transform edit that moves the selection with the lead", () => {
+    const next = [...IDENTITY];
+    next[12] = 10;
+
+    const edit = meshTransformEdit(
+      movesToLead(
+        movableMeshes([mesh(0, [0, 0, 0], [1, 1, 1]), mesh(5, [0, 0, 0], [1, 1, 1])]),
+        next,
+      ),
+    );
+
+    expect(edit?.kind).toBe("transform");
+    expect(edit?.kind === "transform" && edit.meshes.map((each) => each.mesh)).toEqual([0, 5]);
+    expect(edit?.kind === "transform" && edit.meshes.map((each) => each.transform[12])).toEqual([
+      10, 10,
+    ]);
+  });
+});
+
 describe("meshPatch", () => {
   it("copies a mesh's triangles over its own vertices alone", () => {
     const map = {
@@ -136,5 +177,119 @@ describe("dragDelta", () => {
     expect(dragDelta(meshes, new Map([[meshId(0), moved]])).elements.slice(12, 15)).toEqual([
       100, 0, 0,
     ]);
+  });
+
+  it("draws an undone mesh move at the restored transform", () => {
+    const original = mesh(0, [0, 0, 0], [1, 1, 1]);
+    const [step] = movesOf(
+      movableMeshes([original]),
+      new Matrix4(),
+      new Matrix4().makeTranslation(100, 0, 0),
+    );
+    if (step === undefined) throw new Error("the drag moved no mesh");
+    const held = {
+      transforms: new Map([[step.id, step.transform]]),
+      basis: { outline: undefined, geometryRevision: 3 },
+    };
+
+    /* The commit lands as revision 4 and its undo as revision 5, which holds the original. */
+    const committed = { ...original, transform: step.transform as MapGeometryMesh["transform"] };
+    const dragging = shownDrag(held, held.basis);
+    const landed = shownDrag(held, { outline: undefined, geometryRevision: 4 });
+    const undone = shownDrag(held, { outline: undefined, geometryRevision: 5 });
+
+    expect(dragDelta([original], dragging).equals(new Matrix4())).toBe(false);
+    expect(dragDelta([committed], landed).equals(new Matrix4())).toBe(true);
+    expect(dragDelta([original], undone).equals(new Matrix4())).toBe(true);
+    /* The drag kept past the undo would draw the mesh at the dragged place. */
+    expect(dragDelta([original], held.transforms).equals(new Matrix4())).toBe(false);
+  });
+});
+
+describe("dragDelta in the backdrop's mirrored group", () => {
+  it("draws a vertex of the buffer where the dragged transform puts it, applied before the mirror", () => {
+    const transform = new Matrix4().compose(
+      new Vector3(5, 0, 2),
+      new Quaternion().setFromEuler(new Euler(0, Math.PI / 6, 0)),
+      new Vector3(1, 1, 1),
+    );
+    const moved = new Matrix4().compose(
+      new Vector3(100, 20, -50),
+      new Quaternion().setFromEuler(new Euler(Math.PI / 4, 0, Math.PI / 5)),
+      new Vector3(1.5, 1.5, 1.5),
+    );
+    const lead = {
+      ...mesh(0, [0, 0, 0], [1, 1, 1]),
+      transform: transform.toArray() as MapGeometryMesh["transform"],
+    };
+    const delta = dragDelta([lead], new Map([[meshId(0), [...moved.elements]]]));
+
+    /* As the backdrop nests them: the mirror's group, then the copy with the delta as its matrix. */
+    const mirror = new Group();
+    mirror.scale.set(...AXIS_SIGN);
+    const copy = new Object3D();
+    copy.matrixAutoUpdate = false;
+    copy.matrix.copy(delta);
+    mirror.add(copy);
+    mirror.updateMatrixWorld(true);
+
+    const local = new Vector3(1, 2, 3);
+    const stored = local.clone().applyMatrix4(transform);
+    const expected = local
+      .clone()
+      .applyMatrix4(moved)
+      .multiply(new Vector3(...AXIS_SIGN));
+
+    expect(stored.clone().applyMatrix4(copy.matrixWorld).distanceTo(expected)).toBeLessThan(1e-4);
+    /* The delta applied after the mirror misses the dragged place. */
+    const mirroredFirst = stored
+      .clone()
+      .multiply(new Vector3(...AXIS_SIGN))
+      .applyMatrix4(delta);
+    expect(mirroredFirst.distanceTo(expected)).toBeGreaterThan(1);
+  });
+});
+
+describe("heldMeshDrag", () => {
+  const drawn = { meshes: [] } as unknown as MapGeometry;
+  const next = { meshes: [] } as unknown as MapGeometry;
+  const moved = [...IDENTITY];
+  moved[12] = 100;
+  const selection = [mesh(2, [0, 0, 0], [1, 1, 1]), mesh(5, [0, 0, 0], [1, 1, 1])];
+  const dragged = new Map([
+    [meshId(2), moved],
+    [meshId(5), moved],
+    ["0x1/0x2", moved],
+  ]);
+  const dragging = heldMeshDrag(null, { drawn, selection, dragged, revision: 3 });
+
+  it("returns the dragged meshes of the drawn buffer and the lead's change during a drag", () => {
+    expect(dragging?.drag.map).toBe(drawn);
+    expect([...(dragging?.drag.meshes ?? [])]).toEqual([2, 5]);
+    expect(dragging?.drag.delta.elements.slice(12, 15)).toEqual([100, 0, 0]);
+  });
+
+  it("keeps the mesh set of the last step while it holds the same meshes", () => {
+    const step = heldMeshDrag(dragging, { drawn, selection, dragged, revision: 3 });
+
+    expect(step?.drag.meshes).toBe(dragging?.drag.meshes);
+  });
+
+  it("holds a committed drag until the buffer with the move is drawn", () => {
+    const landed = heldMeshDrag(dragging, { drawn, selection, dragged: null, revision: 4 });
+    const drawnMoved = heldMeshDrag(landed, { drawn: next, selection, dragged: null, revision: 4 });
+
+    expect(landed).toBe(dragging);
+    expect(drawnMoved).toBeNull();
+  });
+
+  it("drops a cancelled drag at once", () => {
+    expect(heldMeshDrag(dragging, { drawn, selection, dragged: null, revision: 3 })).toBeNull();
+  });
+
+  it("returns null for a drag of placeables alone", () => {
+    const placeables = new Map([["0x1/0x2", moved]]);
+
+    expect(heldMeshDrag(null, { drawn, selection, dragged: placeables, revision: 3 })).toBeNull();
   });
 });

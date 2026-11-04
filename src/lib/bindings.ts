@@ -1525,6 +1525,28 @@ export type Config_Serialize = {
 	audio: AudioSettings,
 };
 
+/**  A 4-connected area of cells that fail the check for the same reason. */
+export type ConformanceArea = {
+	/**  The reason that every cell of the area fails. */
+	kind: ConformanceKind,
+	/**  The number of cells. */
+	cells: number,
+	/**
+	 *  The ground height minus the navigation grid height with the largest magnitude, in world
+	 *  units. 0 for an [`ConformanceKind::Uncovered`] area.
+	 */
+	maxDelta: number | null,
+	/**  The mean world `x` and `z` of the cell centers. */
+	center: [(number | null), (number | null)],
+};
+
+/**  Why a cell fails the check. */
+export type ConformanceKind = 
+/**  The ground nearest to the navigation grid differs from it by more than the threshold. */
+"offGround" | 
+/**  No ground triangle covers the cell center. */
+"uncovered";
+
 /**  The account of the stored token. It holds nothing secret, so `settings.json` keeps it. */
 export type ConnectedAccount = {
 	/**  The id of the user on the site. */
@@ -5253,7 +5275,10 @@ export type MapItemShape =
 { type: "path"; points: ([(number | null), (number | null), (number | null)])[] } | 
 /**  A lighting volume: the cube from -0.5 to 0.5 on each axis under its transform. */
 { type: "volume" } | 
-/**  The closed polygon of a light region, in the space of its transform. */
+/**
+ *  The closed polygon of a light region, a vertex region or a region entity, in the space of
+ *  its transform.
+ */
 { type: "polygon"; points: ([(number | null), (number | null), (number | null)])[] } | 
 /**
  *  The closed polygon of a `RegionBoundary` in the space of its transform, its walls
@@ -5299,6 +5324,12 @@ export type MapModel = {
 	grassTints: MapGrassTint[],
 	/**  Null where the map's container states no bounds. */
 	bounds: MapBounds | null,
+	/**
+	 *  Null where neither the map's container nor a skin names a navigation grid that resolves.
+	 *  The skin grid and the overlay flag bits stay empty until the caller reads the map's own
+	 *  bin.
+	 */
+	navGrid: MapNavGridModel | null,
 };
 
 /**  One string field that names a placeable, addressed as a property edit addresses it. */
@@ -5309,6 +5340,40 @@ export type MapNameReference = {
 	holder: string,
 	/**  The field, as `0x` and eight hex digits. */
 	field: string,
+};
+
+/**  The navigation grid of a map and the data that colors it. */
+export type MapNavGridModel = {
+	/**  The grid that the guide draws. The container's grid comes first, else the skin's. */
+	grid: AssetRef,
+	/**  The component that names `grid`. */
+	source: NavGridSource,
+	/**  The skin's grid, if it is a file other than `grid`. */
+	skinGrid: AssetRef | null,
+	/**  The overlays of the container, in list order. */
+	overlays: MapNavGridOverlay[],
+	/**  The terrain tags of the `NavGridConfig`, in list order. */
+	terrainTags: NavTerrainTag[],
+	/**  The region groups of the `NavGridConfig`, in list order. */
+	regionGroups: NavRegionGroup[],
+	/**  The color of a cell that no tag matches. */
+	errorColor: [number, number, number, number],
+};
+
+/**  One overlay of a map: a flag overlay file and a region overlay file. */
+export type MapNavGridOverlay = {
+	/**
+	 *  The file stem of `navGridFileName`, such as `NavGrid_Ocean_SEASONAL`, else the file stem
+	 *  of `regionsFilename`, else the hash of the overlay's `name` in hex. Empty if the overlay
+	 *  has none of the three.
+	 */
+	label: string,
+	/**  The visibility flag bit whose `NavGrid_` name the overlay's `name` is. */
+	flagBit: number | null,
+	/**  The `.ngrid_overlay`. `None` if the path is empty or resolves no file. */
+	flags: AssetRef | null,
+	/**  The `.rg_overlay`. `None` if the path is empty or resolves no file. */
+	regions: AssetRef | null,
 };
 
 /**  The number of visible parents that makes a child controller visible. */
@@ -6236,6 +6301,45 @@ export type NamedAsset = {
 	path: string,
 	/**  Absent for a path nothing on this machine holds, which is not an error. */
 	asset: AssetRef | null,
+};
+
+/**  The component of a map that names a navigation grid. */
+export type NavGridSource = 
+/**  `MapNavGrid.NavGridPath` of the `MapContainer`. */
+"container" | 
+/**  `mNavigationMesh` of a `MapSkin` that links the container. */
+"skin";
+
+/**  One region group of a `NavGridConfig`. */
+export type NavRegionGroup = {
+	/**  `groupName`. */
+	name: string,
+	/**  FNV-1 of the lowercased name, as the grid stores it. */
+	nameHash: number,
+	/**  `IsGameplayGroup`. */
+	gameplay: boolean,
+	/**  The tags of the group, in list order. */
+	tags: NavRegionTag[],
+};
+
+/**  One region tag of a region group. */
+export type NavRegionTag = {
+	/**  `name` of the `NavGridRegionTagDefinition`. */
+	name: string,
+	/**  FNV-1 of the lowercased name, as the grid stores it. */
+	nameHash: number,
+	/**  Red, green, blue and alpha. */
+	color: [number, number, number, number],
+};
+
+/**  One terrain tag of a `NavGridConfig`. */
+export type NavTerrainTag = {
+	/**  The resolved tag name, else the `CellFlags` constant for `flags`, else the hash in hex. */
+	name: string,
+	/**  The cell flag bits that the tag matches. */
+	flags: number,
+	/**  Red, green, blue and alpha. */
+	color: [number, number, number, number],
 };
 
 /**  An item Add item writes into a list, a map or an option. */
@@ -9040,6 +9144,20 @@ export type ShippedSkin = {
 	asset: AssetRef,
 	/**  The `SkinCharacterDataProperties` object's hash, `0x` and eight hex digits. */
 	entry: string,
+};
+
+/**
+ *  The meshes that a viewport draws: the visibility flags it shows and the state of each
+ *  visibility controller that it computed.
+ */
+export type ShownMeshes = {
+	/**  The visibility layer mask. */
+	flags: number,
+	/**
+	 *  The visibility of each controller, by path hash. A mesh whose controller has no entry
+	 *  is shown by its layer mask.
+	 */
+	controllers: { [key in HexBinHash]: boolean },
 };
 
 /**  What a translated stage binds. */

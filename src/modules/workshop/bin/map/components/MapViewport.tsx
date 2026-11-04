@@ -19,7 +19,12 @@ import {
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
+  usePreviewConformanceThreshold,
   usePreviewMapRegions,
+  usePreviewNavGrid,
+  usePreviewNavGridColor,
+  usePreviewNavGridCutoff,
+  usePreviewNavGridPick,
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
@@ -35,16 +40,20 @@ import { passesOf } from "../../vfx/rendering/utils/passes";
 import { useGeometryMeshes } from "../hooks/useGeometryMeshes";
 import { useMapEditKeys } from "../hooks/useMapEditKeys";
 import { useMapParticles } from "../hooks/useMapParticles";
+import { useMeshDrag } from "../hooks/useMeshDrag";
 import { useMeshImport } from "../hooks/useMeshImport";
+import { useNavGrid } from "../hooks/useNavGrid";
 import { usePlaceableActions } from "../hooks/usePlaceableActions";
 import { useSunEdit } from "../hooks/useSunEdit";
 import { useViewportEdits } from "../hooks/useViewportEdits";
-import { isGizmoTool, type MapTool, useMapDragged, useMapScene } from "../state/mapScene";
+import { isGizmoTool, useMapDragged, useMapScene } from "../state/mapScene";
 import { MAP_PANE_COMMANDS } from "../utils/mapCommands";
-import type { PlacedItem } from "../utils/mapOutline";
 import { meshIndexOf } from "../utils/meshSelection";
+import { navCellOf } from "../utils/navCells";
+import { colorModeOf } from "../utils/navGuide";
 import { withDragged } from "../utils/placeableSpace";
 import type { Vertex } from "../utils/regionEdits";
+import { leadVertices } from "../utils/regionVertices";
 import { BoxSelect } from "./BoxSelect";
 import { CanvasClick } from "./CanvasClick";
 import { GroundProbe, type GroundProbeFn } from "./GroundProbe";
@@ -55,11 +64,13 @@ import { MapMarkers } from "./MapMarkers";
 import { MapParticles } from "./MapParticles";
 import { ToolRail, TopRail } from "./MapToolbar";
 import { MeshHighlight } from "./MeshHighlight";
+import { NavGridOutlines } from "./NavGridOutlines";
 import { PlaceableGizmo } from "./PlaceableGizmo";
 import { usePlaceablePicking } from "./PlaceablePicking";
 import { PlaceableShapes } from "./PlaceableShapes";
 import { type DraggedVertices, RegionBoundaries } from "./RegionBoundaries";
 import { RegionHandles } from "./RegionHandles";
+import { RegionVertexMarkers } from "./RegionVertexMarkers";
 import { ReimportMeshDialog } from "./ReimportMeshDialog";
 import { RenamePlaceableDialog } from "./RenamePlaceableDialog";
 import { SunHandle } from "./SunHandle";
@@ -71,18 +82,6 @@ import { SunHandle } from "./SunHandle";
  * to, and the match camera frames nothing, standing a distance of its own off the point.
  */
 const MAP_FRAME: Bounds = { min: [-1500, 0, -1500], max: [1500, 600, 1500] };
-
-/** The tools under which the lead region's vertex handles draw: the ones that pick and move. */
-function handlesTool(tool: MapTool): boolean {
-  return tool === "select" || tool === "move";
-}
-
-/** The vertices of a region placeable's polygon, and null for a placeable of another shape. */
-function regionVertices(placed: PlacedItem | null): readonly Vertex[] | null {
-  const shape = placed?.item.shape ?? null;
-  if (shape === null || (shape.type !== "region" && shape.type !== "polygon")) return null;
-  return shape.points.map(([x, y, z]) => [x ?? 0, y ?? 0, z ?? 0]);
-}
 
 export interface MapViewportProps {
   /**
@@ -125,7 +124,42 @@ interface MapSceneProps {
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { pick, materials, hidden, focus, selected, backdrop, editable, tool } = useMapScene();
   const { renaming, setRenaming, geometryEdited, geometryOpening, reimport } = useMapScene();
-  const { space, snap, sunHandle, geometryDocument, apply } = useMapScene();
+  const { space, snap, sunHandle, geometryDocument, apply, navGuide } = useMapScene();
+  const { guideSnap } = useMapScene();
+  const navGrid = useNavGrid(backdrop.navGrid, navGuide, backdrop.visibility.flags);
+  const navShown = usePreviewNavGrid();
+  const navPick = usePreviewNavGridPick();
+  const navColor = usePreviewNavGridColor();
+  const navCutoff = usePreviewNavGridCutoff();
+  const navModel = navGrid?.model ?? null;
+  const navMode = useMemo(
+    () => (navModel === null ? null : colorModeOf(navModel, navColor)),
+    [navModel, navColor],
+  );
+  const navCells = useMemo(
+    () =>
+      [...selected].flatMap((id) => {
+        const cell = navCellOf(id);
+        return cell === null ? [] : [cell];
+      }),
+    [selected],
+  );
+  const drawnNavGrid = navGrid?.grid ?? null;
+  const guides = useMemo(
+    () => ({
+      pick:
+        navShown && navPick && drawnNavGrid !== null
+          ? { grid: drawnNavGrid, cutoff: navCutoff }
+          : null,
+      snap: guideSnap ? drawnNavGrid : null,
+    }),
+    [navShown, navPick, guideSnap, drawnNavGrid, navCutoff],
+  );
+  const conformanceThreshold = usePreviewConformanceThreshold();
+  const conformance = useMemo(
+    () => (drawnNavGrid === null ? null : { grid: drawnNavGrid, threshold: conformanceThreshold }),
+    [drawnNavGrid, conformanceThreshold],
+  );
   const dragged = useMapDragged();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
@@ -149,11 +183,31 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
     },
     [meshes.drawn, drawnVisibility],
   );
-  const edits = useViewportEdits(actions, meshes, picking, shownMesh);
+  const meshDrag = useMeshDrag({
+    drawn: meshes.drawn,
+    selection: meshes.selection,
+    dragged,
+    revision: geometryDocument?.revision ?? null,
+  });
+  const edits = useViewportEdits(actions, meshes, picking, shownMesh, guides);
   const probe = useRef<GroundProbeFn | null>(null);
   const importer = useMeshImport(box, probe);
   const onKeyDown = useMapEditKeys(actions, meshes, edits.drop);
   const colors = useSceneColors();
+  const navProjection = useMemo(
+    () =>
+      navShown && navGrid !== null && navMode !== null
+        ? {
+            grid: navGrid.grid,
+            config: navGrid.model,
+            mode: navMode,
+            cutoff: navCutoff,
+            selected: navCells,
+            highlight: colors.gizmo,
+          }
+        : null,
+    [navShown, navGrid, navMode, navCutoff, navCells, colors.gizmo],
+  );
   const shaders = usePreviewShaders();
   const sandbox = useSandbox();
   const source = useHeldBackdropSource(
@@ -198,8 +252,8 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const [fitToken, refit] = useFitRequest();
 
   const regions = usePreviewMapRegions();
-  const leadRegion = actions.lead?.item.kind === "region" ? actions.lead : null;
-  const leadVertices = regionVertices(leadRegion);
+  const vertices = leadVertices(actions.lead, editable, tool);
+  const leadRegion = vertices?.access === "drag" ? actions.lead : null;
   const [draggedVertices, setDraggedVertices] = useState<DraggedVertices | null>(null);
   /* The outline's read of a commit replaces the dragged vertices, as a new lead does. */
   useEffect(() => setDraggedVertices(null), [leadRegion]);
@@ -240,9 +294,10 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           onAddMesh={() => void importer.pick()}
           onFrame={refit}
           capture={capture}
+          navGrid={navGrid}
         />
         <div className="flex min-h-0 flex-1">
-          <ToolRail picking={picking} />
+          <ToolRail picking={picking} navGridLoaded={navGrid !== null} />
           <div ref={box} data-ui="MapViewport:canvas" className="relative min-h-0 min-w-0 flex-1">
             <PreviewViewport
               gizmoCorner="bottom-right"
@@ -260,6 +315,9 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
               sun={editable ? null : sun}
               postEffects={editable ? null : postEffects}
               ambientOcclusion={ambientOcclusion}
+              conformance={conformance}
+              navProjection={navProjection}
+              meshDrag={meshDrag}
               onBackdropOrigin={setOrigin}
             >
               <FrameOnCommit />
@@ -293,20 +351,28 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
                 colors={colors}
                 dragged={draggedVertices}
               />
-              {editable && leadRegion !== null && leadVertices !== null && handlesTool(tool) && (
+              {navGrid !== null && <NavGridOutlines grid={navGrid.grid} colors={colors} />}
+              {leadRegion !== null && vertices !== null && (
                 <RegionHandles
                   placed={leadRegion}
-                  points={draggedVertices?.points ?? leadVertices}
+                  points={draggedVertices?.points ?? vertices.points}
                   snap={snap}
                   colors={colors}
                   onDrag={dragVertices}
                   onCommit={apply}
                 />
               )}
+              {vertices?.access === "show" && actions.lead !== null && (
+                <RegionVertexMarkers
+                  placed={actions.lead}
+                  points={vertices.points}
+                  colors={colors}
+                />
+              )}
               <MeshHighlight
                 map={meshes.drawn}
                 meshes={meshes.selection}
-                dragged={dragged}
+                delta={meshDrag?.delta ?? null}
                 colors={colors}
               />
               {sunHandle && sunEdit !== null && origin !== null && mapSun !== null && (
@@ -323,6 +389,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
                   tool={tool}
                   space={space}
                   snap={snap}
+                  guideGrid={guides.snap}
                   onCommit={edits.commit}
                   onDrag={edits.drag}
                 />

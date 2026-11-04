@@ -19,10 +19,12 @@ function item(
   name: string,
   of: Object3D,
   material: Material,
-  over: { renderOrder?: number; z?: number; order?: number } = {},
+  over: { renderOrder?: number; z?: number; order?: number; tier?: number } = {},
 ): RenderItem & { name: string } {
   const group: OrderedGroup | null =
-    over.order === undefined ? null : { start: 0, count: 3, materialIndex: 0, order: over.order };
+    over.order === undefined
+      ? null
+      : { start: 0, count: 3, materialIndex: 0, order: over.order, tier: over.tier };
   return {
     name,
     id: of.id,
@@ -112,6 +114,35 @@ describe("transparentOrder", () => {
     ];
 
     expect(names(items.sort(transparentOrder))).toEqual(["far", "middle", "near"]);
+  });
+
+  it("orders the groups of a flagged object by tier, then last listed first", () => {
+    const backdrop = object(true);
+    const items = [
+      item("near decal", backdrop, material, { order: 0, tier: 1 }),
+      item("near water", backdrop, material, { order: 1, tier: 2 }),
+      item("near ground", backdrop, material, { order: 2, tier: 0 }),
+      item("far decal", backdrop, material, { order: 3, tier: 1 }),
+      item("far ground", backdrop, material, { order: 4, tier: 0 }),
+    ];
+
+    expect(names(items.sort(transparentOrder))).toEqual([
+      "far ground",
+      "near ground",
+      "far decal",
+      "near decal",
+      "near water",
+    ]);
+  });
+
+  it("ignores the tier of the groups of an unflagged object", () => {
+    const plain = object();
+    const items = [
+      item("a", plain, material, { order: 0, tier: 2 }),
+      item("b", plain, material, { order: 1, tier: 0 }),
+    ];
+
+    expect(names(items.sort(transparentOrder))).toEqual(["a", "b"]);
   });
 
   it("keeps the given order of the groups of an unflagged object", () => {

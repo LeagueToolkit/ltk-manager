@@ -26,11 +26,13 @@ import { useGeometryMeshes } from "../hooks/useGeometryMeshes";
 import { useMapCommands } from "../hooks/useMapCommands";
 import { useMapEditKeys } from "../hooks/useMapEditKeys";
 import { useMeshActions } from "../hooks/useMeshActions";
+import { useOutlinerGuides } from "../hooks/useOutlinerGuides";
 import { usePlaceableActions } from "../hooks/usePlaceableActions";
 import { useMapScene } from "../state/mapScene";
 import { filtering, isHidden, kindCounts, type OutlineFilter } from "../utils/mapOutline";
 import { modeOf, type SelectMode } from "../utils/mapSelection";
 import { meshIndexOf } from "../utils/meshSelection";
+import { navCellOf } from "../utils/navCells";
 import {
   groupId,
   OUTLINER_DRAG_TYPE,
@@ -63,8 +65,9 @@ const NONE: ReadonlySet<string> = new Set();
  * Summoner's Rift holds a thousand.
  */
 export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
-  const { materials, chosen, variants, failed, hidden, setHidden, focus, focusOn } = useMapScene();
+  const { materials, chosen, variants, failed, hidden, focus, focusOn } = useMapScene();
   const { filter, setFilter, selected, lead, select, backdrop } = useMapScene();
+  const { guides, toggleEye } = useOutlinerGuides();
   const outline = useQuery(mapQueries.outline(materials));
   const chunks = outline.data;
   const geometry = useGeometryMeshes();
@@ -91,8 +94,9 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
         opened,
         shut,
         controllerName,
+        guides,
       }),
-    [geometry.meshes, chunks, filter, opened, shut, controllerName],
+    [geometry.meshes, chunks, filter, opened, shut, controllerName, guides],
   );
   const sectioned = rows[0]?.type === "section";
   const counts = useMemo(() => kindCounts(chunks ?? []), [chunks]);
@@ -151,6 +155,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
   const revealed = useRef<string | null>(null);
   useEffect(() => {
     if (lead === null || lead === revealed.current || !selected.has(lead)) return;
+    if (navCellOf(lead) !== null) return;
     revealed.current = lead;
     reveal(lead);
 
@@ -356,7 +361,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
                     dropping={dropOn === row.id}
                     controllerName={controllerName}
                     onActivate={(event) => act(row, modeOf(event))}
-                    onHide={() => setHidden(row.id, !rowIsHidden)}
+                    onHide={() => toggleEye(row, rowIsHidden)}
                     onDragStart={movable ? startDrag(row) : undefined}
                     onDragOver={dragOver(row)}
                     onDragLeave={() => setDropOn((held) => (held === row.id ? null : held))}
@@ -405,6 +410,8 @@ function rowHidden(row: SceneRow, hidden: ReadonlySet<string>): boolean {
       return isHidden(hidden, row.chunk.entry, row.item.key);
     case "mesh":
       return hidden.has(row.id);
+    case "guide":
+      return !row.shown;
     default:
       return false;
   }

@@ -1,31 +1,33 @@
 import { useMemo } from "react";
-import { BufferAttribute, BufferGeometry, DoubleSide, MeshBasicMaterial } from "three";
+import { BufferAttribute, BufferGeometry, DoubleSide, Matrix4, MeshBasicMaterial } from "three";
 
 import { useDisposable } from "@/hooks";
 import type { MapGeometryMesh } from "@/lib/tauri";
-import { AXIS_SIGN, type MapGeometry, type SceneColors } from "@/modules/viewport";
+import { AXIS_SIGN, type MapGeometry, pullDepthToEye, type SceneColors } from "@/modules/viewport";
 
-import type { DraggedTransforms } from "../state/mapScene";
-import { dragDelta, meshPatch } from "../utils/meshSelection";
+import { meshPatch } from "../utils/meshSelection";
 
 /** Drawn over the map's own meshes, under the markers. */
 const OVER_THE_MAP = 997;
+
+const NO_DELTA = new Matrix4();
 
 export interface MeshHighlightProps {
   /** The map buffer the backdrop draws, which the highlight copies the triangles of. */
   readonly map: MapGeometry | undefined;
   /** The selected meshes, the lead first. */
   readonly meshes: readonly MapGeometryMesh[];
-  readonly dragged: DraggedTransforms | null;
+  /** The change a drag makes to the meshes of `map`, in the engine's space, and null outside one. */
+  readonly delta: Matrix4 | null;
   readonly colors: SceneColors;
 }
 
 /**
- * The selected meshes drawn in the selection color: a faint fill where they show, and their
- * wireframe through whatever stands in front of them. During a drag the highlight follows the
- * gizmo, because the drawn map updates only once the edit lands.
+ * The selected meshes drawn in the selection color: a faint fill and their wireframe where they
+ * show, both hidden behind whatever stands in front of them. During a drag the highlight moves by
+ * `delta`, the change that the backdrop draws the dragged meshes at.
  */
-export function MeshHighlight({ map, meshes, dragged, colors }: MeshHighlightProps) {
+export function MeshHighlight({ map, meshes, delta, colors }: MeshHighlightProps) {
   const indices = useMemo(() => meshes.map((mesh) => mesh.index), [meshes]);
   const geometry = useDisposable(() => {
     const made = new BufferGeometry();
@@ -53,22 +55,22 @@ export function MeshHighlight({ map, meshes, dragged, colors }: MeshHighlightPro
   );
   const wire = useDisposable(
     () =>
-      new MeshBasicMaterial({
-        color: colors.gizmo,
-        wireframe: true,
-        transparent: true,
-        opacity: 0.45,
-        depthTest: false,
-      }),
+      pullDepthToEye(
+        new MeshBasicMaterial({
+          color: colors.gizmo,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.45,
+          depthWrite: false,
+        }),
+      ),
     [colors.gizmo],
   );
-  const moved = useMemo(() => dragDelta(meshes, dragged), [meshes, dragged]);
-
   if (meshes.length === 0) return null;
 
   return (
     <group scale={[AXIS_SIGN[0], AXIS_SIGN[1], AXIS_SIGN[2]]}>
-      <group matrix={moved} matrixAutoUpdate={false}>
+      <group matrix={delta ?? NO_DELTA} matrixAutoUpdate={false}>
         <mesh
           geometry={geometry}
           material={fill}

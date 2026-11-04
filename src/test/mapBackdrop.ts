@@ -42,6 +42,7 @@ export function backdropFlags(over: Partial<BackdropFlags> = {}): BackdropFlags 
     setController: vi.fn(),
     customized: false,
     reset: vi.fn(),
+    navGrid: null,
     ...over,
   };
 }

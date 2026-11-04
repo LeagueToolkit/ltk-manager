@@ -19,15 +19,16 @@ bins of the installed client.
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
+| 2026-11-04 | Draw a dragged mesh live at the gizmo's transform         |
+| 2026-11-04 | Add the transform tool buttons and component fields       |
+| 2026-11-04 | Show the vertices of every lead polygon and region guide  |
+| 2026-11-04 | Plan the navigation guides on `ltk_navgrid` 0.1           |
 | 2026-10-31 | Add the menu bar, one key table and the combined save     |
 | 2026-10-19 | Record the import preview, export and reimport status     |
 | 2026-10-19 | Custom map skin from geometry keeps the skin's placeables |
 | 2026-10-19 | Record the New project Map entry status                   |
 | 2026-10-18 | Split the viewport toolbar into a tool rail and a top bar |
 | 2026-10-18 | Record the mesh import status and the texture folder      |
-| 2026-10-18 | Record the Lighting pane, map settings and icons status   |
-| 2026-10-18 | Record the visibility authoring status                    |
-| 2026-10-17 | Record the placeable tools and the client code research   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -53,10 +54,10 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Placeable gizmo                                      | In progress | Move, rotate, scale, world or local axes (X), grid snap with Ctrl to invert, typed transform fields, End drops to the floor                                                                                                                                              |
 | Place, duplicate, delete and rename placeables       | In progress | All four work. The target chunk is picked in the place menu or the outliner                                                                                                                                                                                              |
 | Draw every placeable kind                            | In progress | An icon per kind, light reach and frustums, probe and banner boxes, paths, volume boxes, light region polygons, region boundaries with their walls                                                                                                                       |
-| Region boundary editing                              | In progress | Vertices drag in the viewport, an edge knob inserts one, Alt and a click removes one. `DrawHeight` and the colors edit in the inspector                                                                                                                                  |
+| Region boundary editing                              | In progress | Vertices drag in the viewport under Select and Move, an edge knob inserts one, Alt and a click removes one. Under the other tools and on a read-only map they show as dots. `DrawHeight` and the colors edit in the inspector                                            |
 | Map settings                                         | In progress | The inspector with nothing selected: container, skin, audio, fog of war, minimap, flags and dependency sections. No dependency picker                                                                                                                                    |
 | Lighting pane                                        | In progress | Every section of the table, with Add for a missing component and the sun direction handle. Edits draw before the save                                                                                                                                                    |
-| Lighting volumes and light regions                   | In progress | Listed and placed from the Lighting pane, drawn as a box and a polygon. The volume extent and the polygon points do not drag yet                                                                                                                                         |
+| Lighting volumes and light regions                   | In progress | Listed and placed from the Lighting pane, drawn as a box and a polygon. The volume extent does not drag yet, and the polygon points show as dots on the lead                                                                                                             |
 | Visibility authoring                                 | In progress | Drop to assign, row menus, New controller, child parents, layers named by flag                                                                                                                                                                                           |
 | Minimap render                                       | Planned     | Top-down render to a 512x512 `.tex`                                                                                                                                                                                                                                      |
 | Map texture painting                                 | Planned     | Grass tint, fog of war overlay, terrain paint                                                                                                                                                                                                                            |
@@ -71,8 +72,8 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Map entry in New project                             | In progress | SR, ARAM and Arena, the three starting points and the skin to start from. Custom map skin from geometry copies the skin's container with only its controller and region meshes, and the geometry is added with Add mesh. No shipped container declares LOD files to copy |
 | Cubemap probe bake                                   | Blocked     | Needs a DDS cubemap writer                                                                                                                                                                                                                                               |
 | Light grid bake                                      | Blocked     | Needs a `LightGrid.dat` v3 writer                                                                                                                                                                                                                                        |
-| Navigation guides                                    | Blocked     | No `.aimesh_ngrid` reader exists                                                                                                                                                                                                                                         |
-| Conformance checks                                   | Blocked     | Needs the navigation guides                                                                                                                                                                                                                                              |
+| Navigation guides                                    | In progress | docs/plans/navgrid-guides.md, on `ltk_navgrid` 0.1                                                                                                                                                                                                                       |
+| Conformance checks                                   | In progress | The view mode and `Ground off navgrid`. The brush and wall checks need a rule for brush meshes                                                                                                                                                                           |
 | Navgrid painting                                     | Proposed    | See Ideas for review                                                                                                                                                                                                                                                     |
 | Scatter brush                                        | Proposed    | Places props and particles over an area                                                                                                                                                                                                                                  |
 
@@ -139,7 +140,7 @@ the `.mapgeo` format and the bake outputs.
 | Placeables: lights, probes, particles, audio, props, locators, paths, volumes | Inferred from the schema                                             | Place tool and palette                      | Planned                |
 | Gameplay entities: camps, spawns, shops, triggers, regions                    | Inferred from the schema                                             | Guides                                      | Blocked                |
 | Visibility layers and controllers for variants                                | Inferred from the schema and mapgeo                                  | Visibility authoring                        | In progress            |
-| Nav region and terrain tags with display colors                               | Inferred from `NavGridConfig`                                        | Navigation guides                           | Blocked                |
+| Nav region and terrain tags with display colors                               | Inferred from `NavGridConfig`                                        | Navigation guides                           | Planned                |
 | Terrain textures                                                              | Inferred                                                             | Map texture painting                        | Planned                |
 | Ambient map actions and behaviors                                             | Inferred from `MapAction*`, `MapBehavior`                            | Inspector only                              | Planned                |
 | Sub-maps in one container                                                     | Inferred from `MapContainsOtherMaps`                                 | One map document per sub-container          | Planned                |
@@ -160,6 +161,7 @@ the `.mapgeo` format and the bake outputs.
 | Controller       | A visibility controller object in the `.materials.bin`, rules in ADR-0064                                                         |
 | Map state        | The variant, the visibility layer mask and the controller states that the viewport shows                                          |
 | Guide            | A server-owned object that the editor draws and does not edit                                                                     |
+| Navgrid          | The `.aimesh_ngrid` that the container names, and its overlays                                                                    |
 | Dynamic light    | A light that the game draws at runtime: `MapDynamicPointLight` or `MapDynamicSpotlight`                                           |
 | Static light     | A light that only the lightmap baker reads: `MapPointLight`, `MapSpotlight` or `MapUniquePointLight`                              |
 | Bake             | A job that computes a file from the map: a minimap, a probe, a light grid or a lightmap                                           |
@@ -293,8 +295,8 @@ placeables. It now contains meshes, submeshes, placeables and guides.
 - Box select selects the placeables inside the box, and the meshes whose screen-space bounds are
   inside it.
 - Three chips in the toolbar limit picking to Meshes, Placeables and Guides. All three start on.
-- A selected mesh is drawn in the selection color: a faint fill where it shows and its wireframe
-  through whatever stands in front of it. The highlight follows the gizmo during a drag.
+- A selected mesh is drawn in the selection color: a faint fill and its wireframe where it shows.
+  A surface in front of it hides both. The highlight follows the gizmo during a drag.
 - A guide can be selected and inspected. The gizmo does not attach to it, and Delete skips it.
 - `Ctrl+A` selects everything that the outliner lists under its current filter.
 
@@ -325,7 +327,27 @@ The Paint tool of "Painting" is Planned. The rail has no Paint tool, and `B` has
 **The gizmo commits on release.** A drag updates the scene on every frame and sends no edit.
 Releasing the pointer sends one edit, and Esc during the drag restores the start transform. This
 is the pattern of `bin/vfx/preview/components/EmitterTransform.tsx`. A gizmo on several items
-moves them around the lead and sends one edit for all of them.
+moves them around the lead and sends one edit for all of them. The scene draws the dragged
+transforms until the edit is read back: the placeable outline for a placeable, and for a mesh the
+`.mapgeo` revision and then the map buffer that holds the move. Both change again on an undo or a
+redo, so `Ctrl+Z` after a drag draws the selection at its original transform.
+
+**A dragged mesh moves live, as in Maya.** The viewport draws a dragged mesh at the gizmo's
+transform on every frame, with its own materials and light maps, and its highlight moves with it.
+The map's draw leaves the mesh out until the buffer with the move is drawn, so no frame shows the
+mesh twice or at its old place. Three things do not follow the drag, and each draws again at the
+committed transform:
+
+- The navgrid projection skips a dragged mesh.
+- The Conformance view mode draws a dragged mesh in flat grey.
+- A translated shader lights a turned mesh as if it had not turned, and reads its fog and its
+  map-wide texture at the stored place.
+
+**The gizmo moves the lead's kind.** If the lead is a mesh, the gizmo and the transform fields move
+the selected meshes, and the selected placeables stay in place. If the lead is a placeable, they
+move the selected placeables, and the meshes stay in place. They skip a region-anchored mesh. If
+the lead is a region-anchored mesh, the viewport shows no gizmo and the transform fields are
+disabled.
 
 **Snapping.** The toolbar has a snap menu with three switches:
 
@@ -338,8 +360,12 @@ not the scene graphs, because the scene graph is a simplified proxy and its heig
 the drawn ground.
 
 **Transform space.** The gizmo works in world space by default. `X` toggles local space. The
-inspector shows the position, rotation in degrees and scale of the lead, and a typed value applies
-on Enter.
+inspector shows the position, rotation in degrees and scale of the lead in the component fields of
+the VFX inspector: one field per axis with its channel color, the arrow keys and the step buttons.
+A typed or stepped value applies on Enter or when the field loses focus, and Esc drops it. A
+button beside each row label picks the tool of that row, Move for Position, Rotate for Rotation and
+Scale for Scale, and shows pressed while that tool is current. The buttons are disabled while the
+fields are, and a map that takes no edits shows none.
 
 **Frame and focus.** `F` frames the middle of every selected mesh and placeable, in the viewport,
 the outliner, the selection bar and the menu bar. A click on an outliner row frames that row's
@@ -588,6 +614,7 @@ drawn in the viewport with an icon at one screen size:
 | Banner              | `GdsMapObject`                                                | Its box, and the banner when its skin resolves                    |
 | Motion path         | `MapMotionPath`                                               | The curve with its control points                                 |
 | Region boundary     | `RegionBoundary`, `0x5a9697c1`                                | Its polygon and its walls, in its own colors. See below           |
+| Region guide        | `RegionEntityTemplate`                                        | Its polygon, a guide. See below                                   |
 
 **The inspector edits the placeable.** `PlaceableInspector` passes `editable` to its `BinTree`, so
 the placeable's fields are edited in place through `useLeafEdit`. The gizmo writes the
@@ -601,10 +628,21 @@ transform, that the client draws as walls `DrawHeight` tall in its `LineColor` a
 The viewport draws every region the outliner lists the same way: the polygon and the top in the
 line color, the walls in the fill color at a low opacity, and a selected region in the selection
 color. The unnamed placeable `0x5a9697c1` holds `Vertices` too and draws as its flat polygon. Region
-boundaries in the Show menu switches the drawing, and starts on. Off, the selected regions still
-draw.
+boundaries in the Show menu switches the drawing of every polygon: region boundaries, light regions
+and region guides. It starts on. Off, the selected polygons still draw.
 
-The lead region's vertices edit in the viewport under the Select and Move tools:
+**Region guides.** A `RegionEntityTemplate` is a server-owned region, a guide. Its polygon is the
+`Vertices` of the `EntityPolygonData` that `Region.shapeData` points at, local to its transform,
+and it draws flat in the guide color. A region of an `EntityCircleData` draws no polygon.
+Summoner's Rift has twelve, all in the `base_srx` materials bin, and no `RegionBoundary` or
+`0x5a9697c1`. An `AreaTriggerEntityTemplate` declares no shape, and draws as its marker alone.
+
+**The lead polygon shows its vertices.** A dot stands on each vertex of the lead's polygon wherever
+its vertices do not drag: on a region guide, on a light region, on a read-only map, and under the
+Rotate, Scale and Place tools. The dots take no clicks.
+
+The lead region boundary's vertices edit in the viewport on an editable map, under the Select and
+Move tools:
 
 - a knob stands on each vertex. Dragging it slides the vertex along the ground at its own
   height, the scene follows every frame, and the release writes `Vertices[i]` as one undo step.
@@ -799,17 +837,20 @@ changes.
 
 The toolbar's Guides menu switches the guides on and off. Guides start on.
 
-| Guide                                        | Source                                                                  | Status  |
-| -------------------------------------------- | ----------------------------------------------------------------------- | ------- |
-| Structures, camps, spawns, shops, superwards | Named map objects and the gameplay entity templates of the chunks       | Planned |
-| Regions and area triggers                    | `RegionEntityTemplate`, `AreaTriggerEntityTemplate`                     | Planned |
-| Lanes                                        | The `__NAV_` waypoint chains and the minion paths of class `0x3c995caf` | Planned |
-| Bounds                                       | `boundsMin` and `boundsMax`, and the minimap rectangle                  | Planned |
-| Navgrid                                      | The `.aimesh_ngrid` cells, colored by the tag colors of `NavGridConfig` | Blocked |
-| Navgrid overlays                             | The grid of the shown map state, from `MapNavGridOverlaysComponent`     | Blocked |
+| Guide                                        | Source                                                                  | Status      |
+| -------------------------------------------- | ----------------------------------------------------------------------- | ----------- |
+| Structures, camps, spawns, shops, superwards | Named map objects and the gameplay entity templates of the chunks       | Planned     |
+| Regions and area triggers                    | `RegionEntityTemplate`, `AreaTriggerEntityTemplate`                     | In progress |
+| Lanes                                        | The `__NAV_` waypoint chains and the minion paths of class `0x3c995caf` | Planned     |
+| Bounds                                       | `boundsMin` and `boundsMax`, and the minimap rectangle                  | Planned     |
+| Navgrid                                      | `MapNavGrid.NavGridPath`, colored by the tag colors of `NavGridConfig`  | In progress |
+| Navgrid overlays                             | The overlays of `MapNavGridOverlaysComponent` that the shown state uses | In progress |
 
 A guide is drawn in a muted color and carries a lock in the outliner. The guides are listed in the
 outliner under Guides.
+
+The navgrid guides, their Guides menu entries, the cell inspector and the Conformance view mode
+are designed in docs/plans/navgrid-guides.md, and their buffers in ADR-0079.
 
 **Conformance.** With a navgrid read, the viewport's view mode menu gets Conformance. It colors the
 ground by the height difference to the navgrid cell under it, and outlines the brush cells and wall
@@ -897,6 +938,7 @@ The map rules report into the project's Problems pane. Each rule selects its obj
 | Stale bake                 | Warning  | An input of the bake changed                                                   |
 | Ground off navgrid         | Warning  | Conformance                                                                    |
 | Uncovered brush cell       | Warning  | Conformance                                                                    |
+| Uncovered wall cell        | Warning  | Conformance                                                                    |
 
 ## Undo and saving
 
@@ -940,9 +982,9 @@ Each step is usable without the next one. The `ltk_mapgeo` additions that step 4
 5. Lightmap bake, with the wgpu baker and xatlas
 6. Import, export and reimport, and the Map entry in New project
 7. Cubemap probe and light grid bakes on the baker's renderer, after their writers
-8. Guides and conformance, after a navgrid reader
+8. Guides and conformance, on `ltk_navgrid` 0.1
 
-Steps 1 to 6 need no change outside this repository.
+Steps 1 to 6 and step 8 need no change outside this repository.
 
 ## How it is built
 
@@ -961,18 +1003,21 @@ Steps 1 to 6 need no change outside this repository.
 | Mapgeo edits            | `map_edit`, a new command beside `bin_edit`                                                                     |
 | Mapgeo writer use today | `crates/ltk-manager-library/src/overlay/builtin_mods/baked_meshes.rs`                                           |
 | Bin edits, saves, undo  | `useLeafEdit.ts`, `binSaves.ts`, `useBinTab.ts`, `historyLoans.ts`                                              |
+| Navgrid guides          | docs/plans/navgrid-guides.md section 7, `LTKN` and `LTKO` buffers (ADR-0079)                                    |
 
 `ltk_mapgeo` 0.3.5 (league-toolkit #285 to #288) provides `set_mesh_transform` with the bounding box
 recompute and the mesh property setters, `insert_mesh`, `duplicate_mesh` and `remove_mesh`, a scene
 graph bake that applies the mesh matrix, and the baked paint override on write.
 
+`ltk_navgrid` 0.1.0 (league-toolkit #314) reads and writes the `.aimesh_ngrid`, `.ngrid_overlay`
+and `.rg_overlay` files, applies an overlay to a grid, and interpolates the height samples.
+
 Changes still outside this repository, each through a league-toolkit PR:
 
-| Crate                | Change                    | Unblocks            |
-| -------------------- | ------------------------- | ------------------- |
-| New                  | `.aimesh_ngrid` reader    | Guides, conformance |
-| New or `ltk_texture` | DDS cubemap writer        | Probe bake          |
-| New                  | `LightGrid.dat` v3 writer | Light grid bake     |
+| Crate                | Change                    | Unblocks        |
+| -------------------- | ------------------------- | --------------- |
+| New or `ltk_texture` | DDS cubemap writer        | Probe bake      |
+| New                  | `LightGrid.dat` v3 writer | Light grid bake |
 
 New dependencies in this repository: the `gltf` crate, the `ufbx` crate (a C library, built as
 `dxbc-spirv-sys` is), wgpu for the baker, and xatlas for lightmap UVs.
@@ -1008,6 +1053,8 @@ These are proposals. None is a decision.
 | How does a shader combine the stationary channel selector with the `stationaryLight` mask?         | The stationary channel bake                      |
 | Do light regions and the rim light change the image of a map whose materials set no Mantis define? | Whether their sections stay in the Lighting pane |
 | Which code clamps the free camera to the map?                                                      | A camera bounds guide                            |
+| Does the client load `MapNavGrid.NavGridPath` or `MapSkin.mNavigationMesh`?                        | Which file the Navgrid guide draws               |
+| Which code switches a navgrid overlay on?                                                          | Which overlays follow the map state              |
 | How long does a v18 save of Summoner's Rift take, with the scene graph bake?                       | Whether the save needs progress in the toolbar   |
 
 ### Answered

@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { MapChunk, MapGeometryMesh } from "@/lib/tauri";
 
 import { NO_FILTER } from "../mapOutline";
-import { groupId, listedIds, sceneRows } from "../sceneOutline";
+import {
+  type GuideOutline,
+  groupId,
+  guideRowId,
+  listedIds,
+  rowLevel,
+  sceneRows,
+} from "../sceneOutline";
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -127,5 +134,56 @@ describe("sceneRows", () => {
       "section:placeables",
       CHUNK.entry,
     ]);
+  });
+
+  const guides: GuideOutline = {
+    navGridShown: true,
+    overlays: [
+      { label: "NavGrid_Ocean_SEASONAL", on: false, following: true },
+      { label: "NavGrid_AtakhanTop", on: true, following: false },
+    ],
+  };
+
+  it("lists the navgrid and its overlays under a guides section after the placeables", () => {
+    const rows = sceneRows({
+      meshes: [],
+      chunks: [CHUNK],
+      filter: NO_FILTER,
+      opened: NONE,
+      shut: NONE,
+      controllerName: names,
+      guides,
+    });
+
+    expect(rows.map((row) => row.id)).toEqual([
+      "section:placeables",
+      CHUNK.entry,
+      "section:guides",
+      guideRowId({ kind: "navGrid" }),
+      guideRowId({ kind: "overlay", index: 0 }),
+      guideRowId({ kind: "overlay", index: 1 }),
+    ]);
+    expect(rows.map((row) => rowLevel(row, true))).toEqual([1, 2, 1, 2, 3, 3]);
+    expect(
+      rows.flatMap((row) => (row.type === "guide" ? [[row.shown, row.following]] : [])),
+    ).toEqual([
+      [true, false],
+      [false, true],
+      [true, false],
+    ]);
+  });
+
+  it("leaves the guide rows out while the guides section is shut", () => {
+    const rows = sceneRows({
+      meshes: [],
+      chunks: [CHUNK],
+      filter: NO_FILTER,
+      opened: NONE,
+      shut: new Set(["section:guides"]),
+      controllerName: names,
+      guides,
+    });
+
+    expect(rows.at(-1)).toEqual({ type: "section", id: "section:guides", open: false, count: 3 });
   });
 });

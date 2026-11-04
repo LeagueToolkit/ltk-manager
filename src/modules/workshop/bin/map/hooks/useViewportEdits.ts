@@ -1,19 +1,20 @@
 import { useCallback, useMemo } from "react";
 import { Plane, Ray, Vector3 } from "three";
 
-import type { MapGeometry } from "@/modules/viewport";
+import type { MapGeometry, NavGrid } from "@/modules/viewport";
 
 import type { CanvasHit } from "../components/CanvasClick";
 import type { PlaceablePicking } from "../components/PlaceablePicking";
 import { useMapScene } from "../state/mapScene";
 import { modeOf, nearest } from "../utils/mapSelection";
 import {
-  meshAnchor,
   meshId,
   meshIndexOf,
   meshTransformEdit,
+  movableMeshes,
   pickMesh,
 } from "../utils/meshSelection";
+import { navCellId, pickNavCell, snapToNavCell } from "../utils/navCells";
 import { type Moved, placeableMoves, type Positioned } from "../utils/placeableSpace";
 import type { GeometryMeshes } from "./useGeometryMeshes";
 import type { PlaceableActions } from "./usePlaceableActions";
@@ -44,9 +45,24 @@ function groundPoint(ray: Ray): [number, number, number] | null {
   return point === null ? null : [point.x, point.y, point.z];
 }
 
+/** The grid whose cells a click selects, and the height cutoff of the projection that draws it. */
+export interface NavCellPicking {
+  readonly grid: NavGrid;
+  /** The projection's cutoff in world units, and null for none. */
+  readonly cutoff: number | null;
+}
+
+/** The navgrids that the viewport's clicks read, each null while its guide is off. */
+export interface ViewportGuides {
+  /** The cells that a click selects, while the navgrid guide is shown and Pick cells is on. */
+  readonly pick: NavCellPicking | null;
+  /** The grid whose cell centers a placed position snaps to, while Guides snapping is on. */
+  readonly snap: NavGrid | null;
+}
+
 /** What the viewport's gizmo and clicks do to the selection. */
 export interface ViewportEdits {
-  /** The selection the gizmo moves, the lead first: meshes when the lead is a mesh. */
+  /** The selection the gizmo moves, the lead first: only meshes when the lead is a mesh, else only placeables. */
   readonly gizmoItems: readonly Positioned[];
   readonly commit: (moved: readonly Moved[]) => Promise<boolean>;
   readonly drag: (moved: readonly Moved[] | null) => void;
@@ -59,29 +75,23 @@ export interface ViewportEdits {
 /**
  * The gizmo items, the commit and the click handling of the map viewport.
  *
- * A click selects the placeable marker within reach of it first, then the nearest mesh that
- * `shown` draws along its ray, and a plain click on nothing clears the selection.
+ * A click selects the placeable marker within reach of it first. Else, where its ray meets a mesh
+ * that `shown` draws, it selects the cell of `guides.pick` under that point if the projection
+ * tints the point, and the mesh if not. A plain click on nothing clears the selection. A placed
+ * position snaps to the center of its cell of `guides.snap`.
  */
 export function useViewportEdits(
   actions: PlaceableActions,
   geometry: GeometryMeshes,
   picking: PlaceablePicking,
   shown: (mesh: number) => boolean,
+  guides: ViewportGuides,
 ): ViewportEdits {
   const { lead, tool, placeClass, setDragged, editGeometry, select } = useMapScene();
   const meshLead = lead === null ? null : meshIndexOf(lead);
 
   const gizmoItems = useMemo<readonly Positioned[]>(() => {
-    if (meshLead !== null) {
-      /* A region mesh's matrix is its region's placement, so it moves only with the region. */
-      return geometry.selection
-        .filter((mesh) => mesh.region === null)
-        .map((mesh) => ({
-          id: meshId(mesh.index),
-          transform: mesh.transform,
-          anchor: meshAnchor(mesh),
-        }));
-    }
+    if (meshLead !== null) return movableMeshes(geometry.selection);
     if (actions.lead === null) return [];
 
     return [actions.lead, ...actions.selection.filter((each) => each !== actions.lead)].map(
@@ -107,13 +117,17 @@ export function useViewportEdits(
 
   const { place } = actions;
   const { drawn } = geometry;
+  const { pick: cellPicking, snap: snapGrid } = guides;
   const click = useCallback(
     ({ ray, at, event }: CanvasHit) => {
       const hit = drawn === undefined ? null : pickMesh(drawn, ray, shown);
 
       if (tool === "place") {
         const ground = hit?.point ?? groundPoint(ray);
-        if (ground !== null) void place(placeClass, ground);
+        if (ground === null) return;
+
+        const snapped = snapGrid === null ? null : snapToNavCell(snapGrid, ground);
+        void place(placeClass, snapped ?? ground);
         return;
       }
 
@@ -125,11 +139,17 @@ export function useViewportEdits(
             at,
           )
         : null;
+      const cell =
+        cellPicking === null || hit === null
+          ? null
+          : pickNavCell(cellPicking.grid, hit.point, cellPicking.cutoff);
+
       if (marker !== null) select([marker], mode);
+      else if (cell !== null) select([navCellId(...cell)], mode);
       else if (hit !== null) select([meshId(hit.mesh)], mode);
       else if (mode === "replace") select([], "replace");
     },
-    [tool, place, placeClass, drawn, select, shown, picking],
+    [tool, place, placeClass, drawn, select, shown, picking, cellPicking, snapGrid],
   );
 
   const { move, selection } = actions;

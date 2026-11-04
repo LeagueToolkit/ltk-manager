@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import { useMapScene } from "../state/mapScene";
 import { SETTINGS_SECTIONS } from "../utils/mapSettings";
 import { MeshInspector } from "./MeshInspector";
+import { NavCellInspector } from "./NavCellInspector";
 import { PlaceableInspector } from "./PlaceableInspector";
 import { SettingsSections, type TabBin } from "./SettingsSections";
 
@@ -18,8 +19,8 @@ export interface MapInspectorProps {
 }
 
 /**
- * The inspector of the map shell: the lead mesh or placeable, or the map settings when nothing
- * is selected. Per "Selection" and "Map settings" in docs/ux/MAP_EDITOR.md.
+ * The inspector of the map shell: the lead mesh, placeable or navgrid cell, or the map settings
+ * when nothing is selected. Per "Selection" and "Map settings" in docs/ux/MAP_EDITOR.md.
  */
 export function MapInspector({ tab, objectName, onNotOpen, children }: MapInspectorProps) {
   const { selected } = useMapScene();
@@ -29,6 +30,7 @@ export function MapInspector({ tab, objectName, onNotOpen, children }: MapInspec
       <InspectorScroll>
         <MeshInspector />
         <PlaceableInspector objectName={objectName} onNotOpen={onNotOpen} />
+        <NavCellInspector />
       </InspectorScroll>
     );
   }

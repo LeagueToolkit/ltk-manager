@@ -2,8 +2,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Box3,
-  BufferAttribute,
-  BufferGeometry,
+  type BufferGeometry,
   Color,
   DoubleSide,
   Frustum,
@@ -33,10 +32,23 @@ import { programWith } from "../../hexshade/programTextures";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
 import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
-import { type DrawGroup, type MeshRun, runsInView } from "../utils/backdropRuns";
+import { useConformanceUniforms } from "../hooks/useConformanceUniforms";
+import { useNavHeights } from "../hooks/useNavHeights";
+import { createMapGeometry } from "../utils/backdropGeometry";
+import {
+  type DrawGroup,
+  type MeshDrag,
+  type MeshRun,
+  runsInView,
+  splitRuns,
+  surfaceBlendTier,
+  writeGroups,
+} from "../utils/backdropRuns";
+import { type ConformanceGround, createConformanceMaterial } from "../utils/conformanceSurface";
 import { createEdgeGeometry, edgeIndexOf, writeEdgeGroups } from "../utils/edgeGeometry";
 import { type GrassTextures, grassTextureFor } from "../utils/grassTint";
-import { KEEPS_GROUP_ORDER, type OrderedGroup } from "../utils/sharedRenderer";
+import type { NavProjection } from "../utils/navProjection";
+import { KEEPS_GROUP_ORDER } from "../utils/sharedRenderer";
 import type { SunLight } from "../utils/sunLight";
 import {
   createEdgeMaterial,
@@ -45,6 +57,8 @@ import {
   surfaceOf,
   type ViewMode,
 } from "../utils/viewMode";
+import { DraggedMeshes } from "./DraggedMeshes";
+import { NavProjectionMesh } from "./NavProjectionMesh";
 
 /** A flat neutral the map's own shape reads against, where no material reaches it. */
 const STONE = 0x9a958c;
@@ -96,7 +110,8 @@ interface Drawn {
 
 /** The groups that one backdrop last wrote into its geometry, and the view it wrote them for. */
 interface Written {
-  drawn: Drawn | null;
+  /** The runs that the last write culled and ordered. */
+  fixed: readonly MeshRun[] | null;
   /** The clip transform of the geometry at the last write. */
   readonly projection: Matrix4;
   /** The value of the geometry's `userData.written` after the last write. */
@@ -122,6 +137,7 @@ const ORDERED = { [KEEPS_GROUP_ORDER]: true };
 
 const PROJECTION = new Matrix4();
 const INVERSE = new Matrix4();
+const NO_DELTA = new Matrix4();
 const SEEN = new Frustum();
 const EYE = new Vector3();
 
@@ -138,7 +154,10 @@ function covers(slots: MaterialPreview | null | undefined): boolean {
  * group points at the material its submesh names, doubled where a mesh disables backface
  * culling, since a material is shared between flagged and unflagged meshes. A material
  * with a translated program draws under it, the stock one standing in where none did.
- * The edges of a wireframe mode are line segments that follow the same groups.
+ * The edges of a wireframe mode are line segments that follow the same groups, and so does
+ * the navgrid projection, a second draw of the geometry that tints it from above. During a
+ * `drag` the groups leave out the dragged meshes, which `DraggedMeshes` draws at the drag's
+ * transform, so the projection skips them until the drag lands.
  */
 export function Backdrop({
   map,
@@ -154,6 +173,9 @@ export function Backdrop({
   viewMode = "lit",
   edges = "none",
   edgeColour,
+  conformance = null,
+  navProjection = null,
+  drag = null,
 }: {
   readonly map: MapGeometry;
   readonly materials: readonly (MaterialPreview | null)[];
@@ -176,10 +198,16 @@ export function Backdrop({
   readonly edges?: Edges;
   /** What the triangle edges draw in, where any draw. */
   readonly edgeColour: Color;
+  /** The navigation grid that the `conformance` surface measures the ground against. */
+  readonly conformance?: ConformanceGround | null;
+  /** The navigation grid cells that tint the drawn surfaces from above, and null for none. */
+  readonly navProjection?: NavProjection | null;
+  /** The meshes that a gizmo drag moves, and null outside a drag. */
+  readonly drag?: MeshDrag | null;
 }) {
   const clock = useThree((state) => state.clock);
   const held = useRef<Mesh>(null);
-  const geometry = useRetained(GEOMETRIES, map, () => mapGeometry(map));
+  const geometry = useRetained(GEOMETRIES, map, () => createMapGeometry(map));
 
   const colors = useMemo(() => ({ untextured: new Color(STONE), errored: new Color(STONE) }), []);
   const environment = useDisposable(() => new EngineEnvironment(), []);
@@ -191,6 +219,9 @@ export function Backdrop({
   }, [environment, light, grassTint, visibility.flags, bounds]);
 
   const surface = surfaceOf(viewMode);
+
+  const heights = useNavHeights(conformance?.grid ?? navProjection?.grid ?? null);
+  const conformanceUniforms = useConformanceUniforms(conformance, heights);
 
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
@@ -209,16 +240,19 @@ export function Backdrop({
       const held = byKey.get(key);
       if (held !== undefined) return held;
 
-      const named = surface === "untextured" ? null : (slots[material] ?? null);
+      const named =
+        surface === "untextured" || surface === "conformance" ? null : (slots[material] ?? null);
       const translated = surface === "material" ? (programs[material] ?? null) : null;
       const program = programWith(translated, NO_TEXTURES);
       const drawnWith: Bound["material"] =
         program !== null
           ? createProgramMaterial(program, environment)
-          : surface !== "unlit" &&
-              lit({ material: named, base: null, texture: null, pbr: null, emissive: null })
-            ? new MeshLambertMaterial()
-            : new MeshBasicMaterial();
+          : surface === "conformance"
+            ? createConformanceMaterial(conformanceUniforms)
+            : surface !== "unlit" &&
+                lit({ material: named, base: null, texture: null, pbr: null, emissive: null })
+              ? new MeshLambertMaterial()
+              : new MeshBasicMaterial();
       bound.push({
         material: drawnWith,
         path: map.materials[material] ?? "",
@@ -239,7 +273,7 @@ export function Backdrop({
       }
     }
     return { bound, ofSubmesh };
-  }, [map, slots, programs, environment, surface]);
+  }, [map, slots, programs, environment, surface, conformanceUniforms]);
 
   const drawn = useMemo<Drawn>(() => {
     const runs: MeshRun[] = [];
@@ -265,10 +299,15 @@ export function Backdrop({
       if (groups.length === 0) continue;
 
       const box = new Box3(new Vector3(...mesh.min), new Vector3(...mesh.max));
-      runs.push({ box: box.expandByScalar(CULL_MARGIN), groups, depth: 0 });
+      runs.push({ mesh: index, box: box.expandByScalar(CULL_MARGIN), groups, depth: 0 });
     }
     return { runs, meshOf };
   }, [map, surfaces, visibility]);
+
+  /* A drag of another buffer, such as the one that a committed move replaces, moves nothing. */
+  const dragged = drag !== null && drag.map === map ? drag : null;
+  const draggedMeshes = dragged?.meshes ?? null;
+  const split = useMemo(() => splitRuns(drawn.runs, draggedMeshes), [drawn, draggedMeshes]);
 
   /* The light maps of each mesh, looked up per draw by the group's first index. */
   const lightsOf = useMemo(() => {
@@ -294,6 +333,7 @@ export function Backdrop({
 
   const bound = surfaces.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
+  const tiers = useMemo(() => bound.map(surfaceBlendTier), [bound]);
 
   const drawsEdges = edges !== "none";
   const edgeIndex = useMemo(
@@ -328,7 +368,7 @@ export function Backdrop({
   /* A translated program reads the frame's time, so a map drawn with one changes every frame. */
   const animated = useMemo(() => bound.some((entry) => entry.program !== null), [bound]);
   const written = useRef<Written>({
-    drawn: null,
+    fixed: null,
     projection: new Matrix4(),
     token: null,
     runs: [],
@@ -354,7 +394,7 @@ export function Backdrop({
 
     const last = written.current;
     const stale =
-      last.drawn !== drawn ||
+      last.fixed !== split.fixed ||
       last.edges !== edgeGeometry ||
       last.token !== geometry.userData.written ||
       !last.projection.equals(PROJECTION);
@@ -363,13 +403,13 @@ export function Backdrop({
       EYE.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(
         INVERSE.copy(mesh.matrixWorld).invert(),
       );
-      writeGroups(geometry, runsInView(drawn.runs, SEEN, EYE, last.runs));
+      writeGroups(geometry, runsInView(split.fixed, SEEN, EYE, last.runs), tiers);
       if (edgeGeometry !== null && edgeIndex !== null) {
         writeEdgeGroups(edgeGeometry, geometry.groups, edgeIndex.ranges);
       }
 
       last.edges = edgeGeometry;
-      last.drawn = drawn;
+      last.fixed = split.fixed;
       last.projection.copy(PROJECTION);
       last.token = geometry.userData.written as object;
     }
@@ -445,6 +485,29 @@ export function Backdrop({
         }}
         ref={held}
       />
+      <DraggedMeshes
+        geometry={geometry}
+        runs={split.dragged}
+        delta={dragged?.delta ?? NO_DELTA}
+        surfaces={bound}
+        tiers={tiers}
+        surface={surface}
+        programTextures={programTextures}
+        lights={lightsOf}
+        environment={environment}
+        solids={drawsSolids(viewMode)}
+        edgeGeometry={edgeGeometry}
+        edgeIndex={edgeIndex}
+        edgeMaterials={edgeMaterials}
+      />
+      <NavProjectionMesh
+        geometry={geometry}
+        surfaces={bound}
+        textures={textures}
+        projection={navProjection}
+        heights={heights}
+        viewMode={viewMode}
+      />
       {edgeMaterials !== null && edgeGeometry !== null && (
         <lineSegments
           geometry={edgeGeometry}
@@ -457,65 +520,6 @@ export function Backdrop({
   );
 }
 
-/** Each input a translated vertex shader declares, and the stock attribute it is. */
-const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
-  ["a_POSITION", "position"],
-  ["a_NORMAL", "normal"],
-  ["a_TEXCOORD", "uv"],
-  ["a_TEXCOORD7", "uv1"],
-];
-
 function isProgram(material: Bound["material"]): material is RawShaderMaterial {
   return (material as RawShaderMaterial).isRawShaderMaterial === true;
-}
-
-/** The whole map as one geometry, its groups written by whichever backdrop draws it. */
-function mapGeometry(map: MapGeometry): BufferGeometry {
-  const held = new BufferGeometry();
-  held.setAttribute("position", new BufferAttribute(map.positions, 3));
-  held.setAttribute("normal", new BufferAttribute(map.normals, 3));
-  held.setAttribute("uv", new BufferAttribute(map.uv0, 2));
-  if (map.uv1 !== null) held.setAttribute("uv1", new BufferAttribute(map.uv1, 2));
-  held.setIndex(new BufferAttribute(map.indices, 1));
-  for (const [name, of] of PROGRAM_ATTRIBUTES) {
-    const attribute = held.getAttribute(of);
-    if (attribute !== undefined) held.setAttribute(name, attribute);
-  }
-  /* Over 2.04 million vertices, so it is computed with the geometry and never again. */
-  held.computeBoundingSphere();
-  return held;
-}
-
-/**
- * Point `geometry`'s groups at the draw groups of `runs`, in order, each with its place
- * in the list, and mark the write with a new `userData.written` token.
- *
- * The group objects of the geometry are reused, so a write each frame allocates nothing
- * once the list has reached its longest.
- */
-function writeGroups(geometry: BufferGeometry, runs: readonly MeshRun[]): void {
-  const groups: OrderedGroup[] = geometry.groups;
-  let count = 0;
-
-  for (const run of runs) {
-    for (const group of run.groups) {
-      const slot = groups[count];
-      if (slot === undefined) {
-        groups.push({
-          start: group.startIndex,
-          count: group.indexCount,
-          materialIndex: group.material,
-          order: count,
-        });
-      } else {
-        slot.start = group.startIndex;
-        slot.count = group.indexCount;
-        slot.materialIndex = group.material;
-        slot.order = count;
-      }
-      count += 1;
-    }
-  }
-  groups.length = count;
-  geometry.userData.written = {};
 }

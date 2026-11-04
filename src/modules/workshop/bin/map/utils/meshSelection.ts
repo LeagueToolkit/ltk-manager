@@ -1,10 +1,10 @@
 import { Box3, Matrix4, type Ray, Vector3 } from "three";
 
 import type { MapGeometryEdit, MapGeometryMesh, MeshTransform } from "@/lib/tauri";
-import type { MapGeometry } from "@/modules/viewport";
+import type { MapGeometry, MeshDrag } from "@/modules/viewport";
 
 import type { PlacedItem } from "./mapOutline";
-import type { Moved } from "./placeableSpace";
+import type { Moved, Positioned } from "./placeableSpace";
 
 /** What a mesh's selection id starts with, apart from a placeable's `chunk/key`. */
 const MESH_PREFIX = "mesh:";
@@ -142,19 +142,74 @@ export function dragDelta(
     .multiply(new Matrix4().fromArray(lead.transform.map((cell) => cell ?? 0)).invert());
 }
 
+/** A mesh drag that the backdrop draws, and the revision of the `.mapgeo` at its last step. */
+export interface HeldMeshDrag {
+  readonly drag: MeshDrag;
+  readonly revision: number | null;
+}
+
+/** What [`heldMeshDrag`] reads on each render of the map scene. */
+export interface MeshDragInputs {
+  /** The map buffer that the backdrop draws, and undefined while none is read. */
+  readonly drawn: MapGeometry | undefined;
+  /** The selected meshes, the lead first. */
+  readonly selection: readonly MapGeometryMesh[];
+  /** The transforms of the shown drag by selection id, and null outside a drag. */
+  readonly dragged: ReadonlyMap<string, readonly (number | null)[]> | null;
+  /** The revision of the open `.mapgeo`, and null while none is open. */
+  readonly revision: number | null;
+}
+
 /**
- * The middle of a selection: the mean of each placeable's position and each mesh's bounds
- * middle, in the engine's space, and null for an empty selection.
+ * Returns the mesh drag that the backdrop draws, given the one that it drew last.
+ *
+ * During a drag, returns the dragged meshes of `drawn` and their [`dragDelta`], with the mesh set
+ * of `last` kept while it holds the same meshes. Outside a drag, returns `last` while `drawn` is
+ * the buffer that it moves and the revision differs from its own, because a commit changes the
+ * revision before the buffer with the move lands. Returns null otherwise, such as after Esc.
+ */
+export function heldMeshDrag(
+  last: HeldMeshDrag | null,
+  { drawn, selection, dragged, revision }: MeshDragInputs,
+): HeldMeshDrag | null {
+  if (drawn === undefined) return null;
+
+  if (dragged === null) {
+    const landing = last !== null && last.drag.map === drawn && last.revision !== revision;
+    return landing ? last : null;
+  }
+
+  const meshes = new Set<number>();
+  for (const id of dragged.keys()) {
+    const index = meshIndexOf(id);
+    if (index !== null) meshes.add(index);
+  }
+  if (meshes.size === 0) return null;
+
+  const held = last?.drag.map === drawn ? last.drag.meshes : null;
+  const same =
+    held !== null && held.size === meshes.size && [...meshes].every((mesh) => held.has(mesh));
+  return {
+    drag: { map: drawn, meshes: same ? held : meshes, delta: dragDelta(selection, dragged) },
+    revision,
+  };
+}
+
+/**
+ * The middle of a selection: the mean of each placeable's position, each mesh's bounds middle
+ * and each of `others`, in the engine's space, and null for an empty selection.
  */
 export function selectionMiddle(
   placeables: readonly PlacedItem[],
   meshes: readonly MapGeometryMesh[],
+  others: readonly (readonly number[])[] = [],
 ): [number, number, number] | null {
   const points = [
     ...placeables.map(({ item }) => item.position.map((cell) => cell ?? 0)),
     ...meshes.map((mesh) =>
       [0, 1, 2].map((axis) => ((mesh.min[axis] ?? 0) + (mesh.max[axis] ?? 0)) / 2),
     ),
+    ...others,
   ];
   if (points.length === 0) return null;
 
@@ -174,6 +229,26 @@ export function meshAnchor(mesh: MapGeometryMesh): number[] {
     anchor[12 + axis] = ((mesh.min[axis] ?? 0) + (mesh.max[axis] ?? 0)) / 2;
   }
   return anchor;
+}
+
+/**
+ * Returns the meshes of `selection` that a transform edit moves, the lead first, each with its
+ * gizmo anchor.
+ *
+ * Skips a region-anchored mesh, and returns none if the lead is one. Per "A region mesh does not
+ * move by its matrix" in docs/ux/MAP_EDITOR.md.
+ */
+export function movableMeshes(selection: readonly MapGeometryMesh[]): Positioned[] {
+  const lead = selection[0];
+  if (lead === undefined || lead.region !== null) return [];
+
+  return selection
+    .filter((mesh) => mesh.region === null)
+    .map((mesh) => ({
+      id: meshId(mesh.index),
+      transform: mesh.transform,
+      anchor: meshAnchor(mesh),
+    }));
 }
 
 /** The edit that sets the transforms of the meshes among `moved`, and null if there are none. */
