@@ -44,12 +44,12 @@ export function passTwins(of: Mesh, passes: number): Mesh[] {
   return Array.from({ length: Math.max(passes - 1, 0) }, (_, at) => passTwin(of, at + 1));
 }
 
-/** Twins of `of` on `GLOW_LAYER`, one for each of `passes`, that draw the passes' glow copies. */
-export function glowTwins(of: Mesh, passes: number): Mesh[] {
+/** Meshes over `of` on `GLOW_LAYER`, one for each of `passes`, that draw the passes' glow copies. */
+export function glowMeshesOf(of: Mesh, passes: number): Mesh[] {
   return Array.from({ length: passes }, (_, at) => {
-    const twin = passTwin(of, at);
-    twin.layers.set(GLOW_LAYER);
+    const mesh = passTwin(of, at);
+    mesh.layers.set(GLOW_LAYER);
 
-    return twin;
+    return mesh;
   });
 }

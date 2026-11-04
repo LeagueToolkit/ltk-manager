@@ -29,7 +29,7 @@ import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { engineColors } from "../../hexshade/engineColors";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
 import { useGlowing } from "../../hexshade/glowLayer";
-import { glowTwins, passTwin, passTwins } from "../../hexshade/passTwin";
+import { glowMeshesOf, passTwin, passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
 import { useCharacterLight } from "../../scene/state/characterLightContext";
@@ -219,17 +219,17 @@ export function Character({
         : 0,
     [surface, programsOf, drawn],
   );
-  const twins = useMemo(() => passTwins(skinned, depth), [skinned, depth]);
-  const glows = useMemo(() => glowTwins(skinned, depth), [skinned, depth]);
+  const passMeshes = useMemo(() => passTwins(skinned, depth), [skinned, depth]);
+  const glowMeshes = useMemo(() => glowMeshesOf(skinned, depth), [skinned, depth]);
   useLayoutEffect(() => {
-    const added = [...twins, ...glows];
+    const added = [...passMeshes, ...glowMeshes];
     if (added.length === 0) return;
 
     skinned.add(...added);
     return () => {
       skinned.remove(...added);
     };
-  }, [skinned, twins, glows]);
+  }, [skinned, passMeshes, glowMeshes]);
 
   const outline = useMemo(() => passTwin(skinned, OUTLINE_LAYER), [skinned]);
   useLayoutEffect(() => {
@@ -246,7 +246,7 @@ export function Character({
   useGlowing(glowing);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    const bound = bind(skinned, { twins, glows, outline }, shaded, drawn.ranges, {
+    const bound = bind(skinned, { passMeshes, glowMeshes, outline }, shaded, drawn.ranges, {
       bindingOf,
       programsOf,
       outlineOf,
@@ -261,8 +261,8 @@ export function Character({
     setGlowing(bound.glows);
   }, [
     skinned,
-    twins,
-    glows,
+    passMeshes,
+    glowMeshes,
     outline,
     shaded,
     drawn,
@@ -423,11 +423,11 @@ interface Scrolling {
 }
 
 /** The meshes over the character's geometry that draw its later passes, glows and outline. */
-interface Twins {
+interface ExtraMeshes {
   /** One per pass after the first. */
-  readonly twins: readonly Mesh[];
+  readonly passMeshes: readonly Mesh[];
   /** One per pass, on `GLOW_LAYER`. */
-  readonly glows: readonly Mesh[];
+  readonly glowMeshes: readonly Mesh[];
   readonly outline: Mesh;
 }
 
@@ -444,8 +444,8 @@ interface Bound {
  * maps that scroll.
  *
  * A submesh with translated programs draws its first pass instead, and each later pass on
- * the twin of that layer. A pass with a bloom target also draws its glow copy on the glow
- * twin of its index. There is one material per pass for the program's life, with
+ * the pass mesh of that layer. A pass with a bloom target also draws its glow copy on the glow
+ * mesh of its index. There is one material per pass for the program's life, with
  * whatever textures have arrived bound on every bind here. A program material neither
  * dims nor scrolls, since the shader owns its colour.
  *
@@ -454,7 +454,7 @@ interface Bound {
  */
 function bind(
   skinned: SkinnedMesh,
-  { twins, glows, outline }: Twins,
+  { passMeshes, glowMeshes, outline }: ExtraMeshes,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
   {
@@ -474,8 +474,8 @@ function bind(
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
-  const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
-  const glowLayers: Material[][] = glows.map(() => ranges.map(() => HIDDEN));
+  const layers: Material[][] = passMeshes.map(() => ranges.map(() => HIDDEN));
+  const glowLayers: Material[][] = glowMeshes.map(() => ranges.map(() => HIDDEN));
   let glowing = false;
   const used = new Set<RawShaderMaterial>();
   const outlined = new Set<Material>();
@@ -508,17 +508,17 @@ function bind(
       later.forEach((program, layer) => {
         const drawn = programs.acquire(program);
         used.add(drawn);
-        const twin = layers[layer];
-        if (shown && twin !== undefined) twin[at] = drawn;
+        const slots = layers[layer];
+        if (shown && slots !== undefined) slots[at] = drawn;
       });
 
       if (!shown) return;
       passes.forEach((program, index) => {
         const glow = programs.glowOf(program);
-        const twin = glowLayers[index];
-        if (glow === null || twin === undefined) return;
+        const slots = glowLayers[index];
+        if (glow === null || slots === undefined) return;
 
-        twin[at] = glow;
+        slots[at] = glow;
         glowing = true;
       });
       return;
@@ -541,11 +541,11 @@ function bind(
     }
   });
 
-  twins.forEach((twin, layer) => {
-    twin.material = layers[layer] ?? [];
+  passMeshes.forEach((mesh, layer) => {
+    mesh.material = layers[layer] ?? [];
   });
-  glows.forEach((twin, layer) => {
-    twin.material = glowLayers[layer] ?? [];
+  glowMeshes.forEach((mesh, layer) => {
+    mesh.material = glowLayers[layer] ?? [];
   });
   programs.retain(used);
   outlines.retain(outlined);
