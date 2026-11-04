@@ -162,7 +162,7 @@ windows-native-keyring-store = "1.1.0"
 zip = "2.2.0"
 # Lossless YAML: the declarations writer edits `game_data.yaml` in place (#626).
 # `rowan` is the tree it is built on, pinned to the same minor.
-yaml-edit = { version = "0.3.2", default-features = false }
+yaml-edit = { version = "0.3.6", default-features = false }
 rowan = "0.16"
 
 rmp-serde = "1"

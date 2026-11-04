@@ -120,7 +120,7 @@ fn a_creation_joins_the_last_target_module_of_the_chunk_and_keeps_its_comments()
         text,
         format!(
             "{TARGETED}    objects:
-      Mods/jade-teemo/Glow: !StaticMaterialDef {{}}
+      Mods/jade-teemo/Glow: !StaticMaterialDef
       Mods/jade-teemo/Spark:
         class: '0x0a1b2c3d'
 "
@@ -171,7 +171,7 @@ fn a_creation_for_another_chunk_writes_a_trailing_module() {
         format!(
             "{TARGETED}  - target: data/characters/annie/skins/skin0.bin
     objects:
-      Mods/jade-teemo/Glow: !StaticMaterialDef {{}}
+      Mods/jade-teemo/Glow: !StaticMaterialDef
 "
         )
     );
@@ -453,6 +453,30 @@ modules:
 }
 
 #[test]
+fn a_drop_of_a_bodyless_class_tag_object_leaves_the_objects_after_it() {
+    let manifest = "\
+version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade-teemo/Glow: !StaticMaterialDef
+      Mods/jade-teemo/Bare: !StaticMaterialDef
+      Mods/jade-teemo/Spark:
+        clone: Characters/Teemo/Skins/Skin0
+";
+
+    let text = edited(
+        Some(manifest),
+        vec![Step::Object(object(GLOW, ObjectOperation::Drop))],
+    );
+
+    assert_eq!(
+        text,
+        manifest.replace("      Mods/jade-teemo/Glow: !StaticMaterialDef\n", "")
+    );
+}
+
+#[test]
 fn a_drop_takes_the_object_and_the_module_it_leaves_empty() {
     let created = edited(
         Some(TARGETED),
@@ -470,7 +494,7 @@ fn a_drop_takes_the_object_and_the_module_it_leaves_empty() {
         one,
         format!(
             "{TARGETED}    objects:
-      Mods/jade-teemo/Spark: !StaticMaterialDef {{}}
+      Mods/jade-teemo/Spark: !StaticMaterialDef
 "
         )
     );

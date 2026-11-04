@@ -21,7 +21,7 @@
 //! - An [`ObjectEdit`] replaces the body of the last `objects` entry naming the
 //!   object in a `target` module of the chunk. A new entry joins the last
 //!   `target` module of the chunk, else a new trailing `target` module. A
-//!   constructed object is a class tag, `!Class {}`.
+//!   constructed object is a class tag, `!Class`.
 //! - A [`LinkEdit`] adds an item to the `links` or `-links` list of the last
 //!   `target` module of the chunk, else of a new trailing `target` module. It
 //!   drops the chunk's opposite item of the same path instead where one exists.
@@ -248,7 +248,7 @@ impl Edit {
 pub enum ObjectOperation {
     /// Create the object as a copy of an object of the chunk: `clone`.
     Clone(EntryName),
-    /// Create an object of a class, holding no property: a class tag, `!Class {}`. A class
+    /// Create an object of a class, holding no property: a class tag, `!Class`. A class
     /// spelled as a hash writes `class`.
     Construct(ClassName),
     /// Remove the object: `remove: true`.
@@ -263,9 +263,8 @@ impl ObjectOperation {
     fn body(&self) -> Option<String> {
         match self {
             Self::Clone(source) => Some(format!("clone: {}", syntax::spell_key(source.as_str()))),
-            /* `{}`: yaml_edit reads the entries after a bodyless tag as its body. */
             Self::Construct(class) if is_tag_name(class.as_str()) => {
-                Some(format!("!{} {{}}", class.as_str()))
+                Some(format!("!{}", class.as_str()))
             }
             Self::Construct(class) => Some(format!("class: {}", syntax::spell_key(class.as_str()))),
             Self::Remove => Some("remove: true".to_owned()),

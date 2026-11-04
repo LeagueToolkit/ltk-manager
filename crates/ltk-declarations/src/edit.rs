@@ -205,15 +205,7 @@ impl DocumentText {
         let node = object.syntax();
         match object.value_node() {
             Some(YamlNode::TaggedNode(tagged)) => {
-                /* yaml_edit parses the siblings after a bodyless tag as its body, so a body
-                counts only where it is flow or indented under the object's key. */
-                let body = tagged.as_mapping().filter(|body| {
-                    body.is_flow_style()
-                        || syntax::entries(body)
-                            .first()
-                            .is_some_and(|first| self.column(first.syntax()) > self.column(node))
-                });
-                match body {
+                match tagged.as_mapping() {
                     Some(body) if !body.is_flow_style() || !syntax::entries(&body).is_empty() => {
                         let (block, rest) = locate::deepest_block(&body, &site.segments);
                         self.insert_path(&block, site.sign, rest, value)
