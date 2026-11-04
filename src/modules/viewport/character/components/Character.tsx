@@ -26,6 +26,7 @@ import { LOCAL_FLOATS, type Pose } from "../../animation/evaluation/pose";
 import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
+import { engineColors } from "../../hexshade/engineColors";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
 import { passTwin, passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
@@ -616,6 +617,9 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
     new BufferAttribute(new Float32Array(tintFloats(vertices)).fill(1), 3),
   );
   nameForPrograms(geometry, joints);
+  /* A `VERTEX_COLOR_MASK` program reads the file's colours, and a file without them keeps
+     the joint tint. */
+  if (mesh.colors !== null) geometry.setAttribute("a_COLOR", engineColors(mesh.colors));
 
   const ranges = drawnRanges(mesh, []);
   ranges.forEach((range, at) => geometry.addGroup(range.startIndex, range.indexCount, at));

@@ -142,6 +142,7 @@ export {
 } from "./dynamics/take";
 export { bindWorld } from "./dynamics/world";
 export { MaterialSubject, type MaterialSubjectProps } from "./hexshade/components/MaterialSubject";
+export { engineColors } from "./hexshade/engineColors";
 export { EngineEnvironment, type ParticleEmitter } from "./hexshade/engineEnvironment";
 export { glowMaterial } from "./hexshade/glowMaterial";
 export { blackCube, blackTexel, whiteTexel } from "./hexshade/neutralTextures";

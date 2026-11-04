@@ -326,6 +326,43 @@ fn a_skinned_mesh_keeps_its_tangents_and_their_sign() {
     assert_eq!(decoded.tangents, Some(tangents.concat()));
 }
 
+/// A `Color` vertex is a `Basic` one and a colour packed blue first.
+#[test]
+fn skinned_mesh_colors_read_as_rgba() {
+    let packed: [[u8; 4]; 3] = [[10, 20, 30, 40], [0, 128, 255, 255], [1, 2, 3, 4]];
+    let vertices: Vec<u8> = packed
+        .iter()
+        .flat_map(|bgra| {
+            let mut bytes = vertex([0.0; 3], [0.0, 1.0, 0.0], [0.0, 0.0]);
+            bytes.extend(bgra);
+            bytes
+        })
+        .collect();
+    let mesh = SkinnedMesh::from_absolute_indices(
+        vec![SkinnedMeshRange::new("body", 0, 3, 0, 3)],
+        VertexBuffer::new(
+            VertexBufferDescription::from(SkinnedMeshVertexType::Color),
+            vertices,
+        ),
+        IndexBuffer::<u16>::new(
+            [0u16, 1, 2]
+                .into_iter()
+                .flat_map(u16::to_le_bytes)
+                .collect(),
+        ),
+    );
+    let mut bytes = Vec::new();
+    mesh.to_writer(&mut bytes).unwrap();
+
+    let decoded = decode(&render(&bytes).unwrap());
+
+    assert_ne!(decoded.flags & HAS_COLORS, 0);
+    assert_eq!(
+        decoded.colors,
+        Some(vec![30, 20, 10, 40, 255, 128, 0, 255, 3, 2, 1, 4])
+    );
+}
+
 /// The influences are what a skeleton poses the mesh by, so each vertex keeps its own
 /// four in the order the file gives them.
 #[test]
