@@ -47,6 +47,7 @@ function pass(tint: [number, number, number, number]): ResolvedPass {
       depthCompareFunc: 3,
       writeMask: 31,
     },
+    drivers: [],
     schema: null,
   };
 }

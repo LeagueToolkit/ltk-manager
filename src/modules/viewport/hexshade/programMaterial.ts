@@ -39,6 +39,7 @@ import {
 
 import type {
   BlendFactor,
+  PassDriver,
   PassState,
   PassTexture,
   ProgramRead,
@@ -238,7 +239,7 @@ export function createProgramMaterial(
       return [];
     });
   });
-  GLOBALS_OF.set(material, { members, samplers });
+  GLOBALS_OF.set(material, { members, samplers, drivers: [...pass.drivers] });
   bindProgramTextures(material, program);
   applyPassState(material, pass.state);
   return material;
@@ -298,7 +299,7 @@ export function createInlinedProgramMaterial(
       }
     }
   }
-  GLOBALS_OF.set(material, { members, samplers });
+  GLOBALS_OF.set(material, { members, samplers, drivers: [] });
   return material;
 }
 
@@ -337,6 +338,11 @@ export interface ProgramGlobals {
   readonly members: ReadonlyMap<string, readonly GlobalsMember[]>;
   /** The combined samplers of each texture, by the bytecode's texture name. */
   readonly samplers: ReadonlyMap<string, readonly string[]>;
+  /**
+   * The members a `dynamicMaterial` driver writes on every frame, which the environment
+   * writes on every draw. Kept in place, so a material sharing these globals sees a refresh.
+   */
+  readonly drivers: PassDriver[];
 }
 
 /** Where one `$Globals` member sits: the uniform holding its stage's block, and floats in. */
@@ -489,6 +495,7 @@ export function writeProgramGlobals(
       data.set(globalsData(block, pass).subarray(0, data.length));
     }
   }
+  GLOBALS_OF.get(material)?.drivers.splice(0, Infinity, ...pass.drivers);
   material.uniformsNeedUpdate = true;
 }
 

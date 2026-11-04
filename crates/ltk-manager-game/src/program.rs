@@ -738,6 +738,7 @@ pub fn read_default_skinned_program(
             })
             .collect(),
         params: Vec::new(),
+        drivers: Vec::new(),
         state: PassState::default(),
         schema: None,
     };
@@ -801,6 +802,7 @@ fn particle_pass(shader: ParticleShader, defines: &[ParticleDefine]) -> Resolved
         runtime_switches: Vec::new(),
         textures: Vec::new(),
         params: Vec::new(),
+        drivers: Vec::new(),
         state: PassState::default(),
         schema: None,
     }

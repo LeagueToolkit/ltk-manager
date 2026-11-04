@@ -383,6 +383,7 @@ describe("customParticleMaterial", () => {
             depthCompareFunc: 3,
             writeMask: 15,
           },
+          drivers: [],
           schema: null,
         },
         program: {
