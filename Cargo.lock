@@ -3378,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "ltk-manager"
-version = "1.32.2"
+version = "1.33.0"
 dependencies = [
  "anyhow",
  "assert_matches",
