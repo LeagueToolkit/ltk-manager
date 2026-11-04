@@ -2543,7 +2543,7 @@
     },
     {
       "name": "ltk-manager",
-      "version": "1.33.0",
+      "version": "1.34.0-rc.1",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
         71
