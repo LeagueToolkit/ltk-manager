@@ -59,10 +59,34 @@ export function attest({ client, version, commit, protocol }, pem) {
   const signature = sign(
     null,
     Buffer.concat([Buffer.from(PURPOSE), statement]),
-    createPrivateKey(normalizePem(pem)),
+    privateKey(normalizePem(pem)),
   );
 
   return `${statement.toString("base64url")}.${signature.toString("base64url")}`;
+}
+
+/**
+ * Returns the Ed25519 private key of the PKCS#8 PEM `pem`.
+ *
+ * Fails with the decoded length and the key type if the PEM body is not a PKCS#8 Ed25519
+ * private key, such as the base64 public key pasted in its place.
+ */
+function privateKey(pem) {
+  const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").replace(/\s+/g, "");
+  let key;
+  try {
+    key = createPrivateKey(pem);
+  } catch (cause) {
+    throw new Error(
+      `Not a PKCS#8 private key: the PEM body decodes to ${Buffer.from(body, "base64").length} bytes (an Ed25519 key is 48)`,
+      { cause },
+    );
+  }
+  if (key.asymmetricKeyType !== "ed25519") {
+    throw new Error(`Not an Ed25519 key: ${key.asymmetricKeyType}`);
+  }
+
+  return key;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
