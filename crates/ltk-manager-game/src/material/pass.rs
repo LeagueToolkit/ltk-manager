@@ -7,7 +7,7 @@
 //! per section 11 stages 3 to 7 of docs/research/static-material-studio-rendering.md.
 //! An absent field reads as the class default, rule 1 of that note.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
@@ -494,15 +494,24 @@ pub fn resolve_shader_pass(
 
 impl<'a> Reader<'a> {
     fn resolved(mut self) -> ResolvedMaterial {
-        let passes = self
+        let passes: Vec<ResolvedPass> = self
             .passes()
             .into_iter()
             .map(|pass| self.resolved_pass(pass))
             .collect();
 
+        /* Every pass reads the material's entries by name, so an entry that one pass shader
+        does not declare is undeclared only if no pass shader declares it. */
+        let declared = declared_names(&passes);
         let mut warnings = Vec::new();
         for warning in self.warnings {
-            if !warnings.contains(&warning) {
+            let elsewhere = match &warning {
+                MaterialWarning::UndeclaredParam { name }
+                | MaterialWarning::UndeclaredSampler { name }
+                | MaterialWarning::UndeclaredSwitch { name } => declared.contains(name.as_str()),
+                _ => false,
+            };
+            if !elsewhere && !warnings.contains(&warning) {
                 warnings.push(warning);
             }
         }
@@ -823,6 +832,20 @@ impl ShaderDef {
                     .map(|at| (at, 0b1111))
             })
     }
+}
+
+/// Every parameter, texture and switch name that the shader of any of `passes` declares.
+fn declared_names(passes: &[ResolvedPass]) -> HashSet<&str> {
+    passes
+        .iter()
+        .filter_map(|pass| pass.schema.as_ref())
+        .flat_map(|schema| {
+            let params = schema.params.iter().map(|param| param.name.as_str());
+            let textures = schema.textures.iter().map(|texture| texture.name.as_str());
+            let switches = schema.switches.iter().map(|switch| switch.name.as_str());
+            params.chain(textures).chain(switches)
+        })
+        .collect()
 }
 
 /// `input` written into the components of `target` that `mask` selects, in order, as
