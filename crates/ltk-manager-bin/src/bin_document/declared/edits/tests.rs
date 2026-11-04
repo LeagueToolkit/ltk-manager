@@ -699,7 +699,7 @@ fn a_field_of_a_list_element_is_a_set_under_its_index() {
 
     assert_eq!(
         body(dir.path(), SKIN),
-        ["complexEmitterDefinitionData[2].emitterName: last"]
+        ["complexEmitterDefinitionData[2]:", "emitterName: last"]
     );
 }
 

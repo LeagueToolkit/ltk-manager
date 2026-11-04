@@ -140,6 +140,26 @@ pub(crate) fn sequence_entries(sequence: &Node) -> Vec<Node> {
 /// columns in, except for a tag or a block scalar indicator on its first line,
 /// which stays beside the key.
 pub(crate) fn layout_entry(key: &str, value: &str, column: usize, comment: Option<&str>) -> String {
+    layout_entry_in(key, value, column, comment, SequenceIndent::Nested)
+}
+
+/// Where a block sequence value's dashes stand relative to its key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SequenceIndent {
+    /// Two columns in, as every other block value.
+    Nested,
+    /// At the key's column: `key:` then `- item` under its first letter.
+    Indentless,
+}
+
+/// As [`layout_entry`], a block sequence value's dashes placed by `sequences`.
+pub(crate) fn layout_entry_in(
+    key: &str,
+    value: &str,
+    column: usize,
+    comment: Option<&str>,
+    sequences: SequenceIndent,
+) -> String {
     let pad = " ".repeat(column);
     let beside = comment
         .map(|comment| format!(" {comment}"))
@@ -156,6 +176,16 @@ pub(crate) fn layout_entry(key: &str, value: &str, column: usize, comment: Optio
         [first, rest @ ..] if is_header(first) => {
             let _ = writeln!(out, "{pad}{key}: {first}{beside}");
             push_nested(&mut out, &pad, rest);
+        }
+        all @ [first, ..] if sequences == SequenceIndent::Indentless && first.starts_with("- ") => {
+            let _ = writeln!(out, "{pad}{key}:{beside}");
+            for line in all {
+                if line.is_empty() {
+                    out.push('\n');
+                } else {
+                    let _ = writeln!(out, "{pad}{line}");
+                }
+            }
         }
         all => {
             let _ = writeln!(out, "{pad}{key}:{beside}");

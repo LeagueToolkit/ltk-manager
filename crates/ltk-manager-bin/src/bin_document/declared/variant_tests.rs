@@ -95,7 +95,7 @@ fn an_edit_of_a_variant_lands_in_a_target_module_of_the_variant() {
         manifest(dir.path(), "base"),
         format!(
             "version: 1\nmodules:\n  - target: {VARIANT}\n    {SKIN}:\n      \
-             skinMeshProperties.selfIllumination: 0.5\n"
+             skinMeshProperties:\n        selfIllumination: 0.5\n"
         ),
     );
     assert_eq!(

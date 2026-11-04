@@ -301,7 +301,7 @@ fn a_key_moves_to_another_module_out_of_its_block() {
             )
             .replace(
                 "        foo: 1 # kept\n",
-                "        foo: 1 # kept\n      Characters/Teemo/Skins/Skin0:\n        skinMeshProperties.selfIllumination: 0.5\n",
+                "        foo: 1 # kept\n      Characters/Teemo/Skins/Skin0:\n        skinMeshProperties:\n          selfIllumination: 0.5\n",
             )
     );
 }

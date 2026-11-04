@@ -11,12 +11,17 @@
 //!   deepest block its path runs through (ADR-0048). With no choice it joins
 //!   the last `entries` module naming the entry, else the last module where
 //!   that is an `entries` module, else a new trailing `entries` module.
+//! - A new key is a nested block for each step of its path below that block,
+//!   with the sign on the innermost key. It is one dotted key in a flow mapping,
+//!   or where the mapping already holds a key for the path's first step.
 //! - A `target` module is edited only where the key already exists, except for
 //!   an object it creates: a new key of that object joins the object's `set`,
-//!   whatever module the choice names (ADR-0049).
+//!   or the body under its class tag, whatever module the choice names
+//!   (ADR-0049).
 //! - An [`ObjectEdit`] replaces the body of the last `objects` entry naming the
 //!   object in a `target` module of the chunk. A new entry joins the last
-//!   `target` module of the chunk, else a new trailing `target` module.
+//!   `target` module of the chunk, else a new trailing `target` module. A
+//!   constructed object is a class tag, `!Class {}`.
 //! - A [`LinkEdit`] adds an item to the `links` or `-links` list of the last
 //!   `target` module of the chunk, else of a new trailing `target` module. It
 //!   drops the chunk's opposite item of the same path instead where one exists.
@@ -56,7 +61,8 @@
 //! modules:
 //!   - entries:
 //!       Characters/Teemo/Skins/Skin0:
-//!         skinMeshProperties.selfIllumination: 0.37
+//!         skinMeshProperties:
+//!           selfIllumination: 0.37
 //! ",
 //! );
 //! # Ok::<(), Box<dyn std::error::Error>>(())
@@ -242,7 +248,8 @@ impl Edit {
 pub enum ObjectOperation {
     /// Create the object as a copy of an object of the chunk: `clone`.
     Clone(EntryName),
-    /// Create an object of a class, holding no property: `class`.
+    /// Create an object of a class, holding no property: a class tag, `!Class {}`. A class
+    /// spelled as a hash writes `class`.
     Construct(ClassName),
     /// Remove the object: `remove: true`.
     Remove,
@@ -256,11 +263,22 @@ impl ObjectOperation {
     fn body(&self) -> Option<String> {
         match self {
             Self::Clone(source) => Some(format!("clone: {}", syntax::spell_key(source.as_str()))),
+            /* `{}`: yaml_edit reads the entries after a bodyless tag as its body. */
+            Self::Construct(class) if is_tag_name(class.as_str()) => {
+                Some(format!("!{} {{}}", class.as_str()))
+            }
             Self::Construct(class) => Some(format!("class: {}", syntax::spell_key(class.as_str()))),
             Self::Remove => Some("remove: true".to_owned()),
             Self::Drop => None,
         }
     }
+}
+
+/// Whether `class` can stand as a YAML tag: a name of ASCII letters, digits and `_` that
+/// starts with a letter or `_`, so a `0x` hash is not one.
+fn is_tag_name(class: &str) -> bool {
+    class.starts_with(|first: char| first.is_ascii_alphabetic() || first == '_')
+        && class.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// One edit of one object of one chunk: an entry of a `target` module's `objects`.

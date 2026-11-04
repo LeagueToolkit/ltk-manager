@@ -10,7 +10,7 @@ use yaml_edit::{Document, Mapping, MappingEntry, Sequence, SyntaxKind, YamlNode}
 
 use crate::document_text::DocumentText;
 use crate::locate::{self, DocumentKind, Site};
-use crate::syntax::{self, Node};
+use crate::syntax::{self, Node, SequenceIndent};
 use crate::{Edit, ModuleChoice, Operation, Refusal, ValueText};
 
 impl DocumentText {
@@ -59,10 +59,7 @@ impl DocumentText {
         let doc = self.parse()?;
 
         let (text, _) = self.apply_parsed(&doc, &site, &edit.operation, |value| {
-            let object = locate::last_source_creation(&doc, site.entry)
-                .as_ref()
-                .and_then(locate::creation)
-                .ok_or(Refusal::NoKey)?;
+            let object = locate::last_source_creation(&doc, site.entry).ok_or(Refusal::NoKey)?;
             Ok((self.insert_set(&object, &site, value)?, None))
         })?;
         Ok(text)
@@ -123,12 +120,9 @@ impl DocumentText {
         value: &str,
         choice: &ModuleChoice,
     ) -> Result<(Self, usize), Refusal> {
-        let created = locate::last_object(doc, site.chunk_hash, site.entry).and_then(|object| {
-            Some((
-                locate::module_of(doc, object.syntax())?,
-                locate::creation(&object)?,
-            ))
-        });
+        let created = locate::last_object(doc, site.chunk_hash, site.entry)
+            .filter(locate::creates)
+            .and_then(|object| Some((locate::module_of(doc, object.syntax())?, object)));
         if let Some((index, object)) = created {
             return Ok((self.insert_set(&object, site, value)?, index));
         }
@@ -166,7 +160,7 @@ impl DocumentText {
 
         if let Some((index, body)) = locate::last_entries_body(doc, site.entry) {
             let (block, rest) = locate::deepest_block(&body, &site.segments);
-            let text = self.insert_entry(&block, &key_for(site.sign, rest), value)?;
+            let text = self.insert_path(&block, site.sign, rest, value)?;
             return Ok((text, index));
         }
         if let Some((index, entries)) = locate::trailing_entries(doc) {
@@ -194,21 +188,102 @@ impl DocumentText {
             .find_map(syntax::mapping_value)
         {
             let (block, rest) = locate::deepest_block(&body, &site.segments);
-            return self.insert_entry(&block, &key_for(site.sign, rest), value);
+            return self.insert_path(&block, site.sign, rest, value);
         }
-        let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+        let body = path_entry(site.sign, &site.segments, value);
         self.insert_entry(entries, spelled, body.trim_end())
     }
 
-    /// The text with a key for `site` in the `set` of `object`, a creation's body.
-    fn insert_set(&self, object: &Mapping, site: &Site<'_>, value: &str) -> Result<Self, Refusal> {
-        if let Some(set) = object.get_mapping("set") {
-            let (block, rest) = locate::deepest_block(&set, &site.segments);
-            return self.insert_entry(&block, &key_for(site.sign, rest), value);
+    /// The text with a key for `site` in the properties `object` sets, an `objects` entry that
+    /// creates its object. Fails with [`Refusal::NoKey`] if `object` creates nothing.
+    fn insert_set(
+        &self,
+        object: &MappingEntry,
+        site: &Site<'_>,
+        value: &str,
+    ) -> Result<Self, Refusal> {
+        let node = object.syntax();
+        match object.value_node() {
+            Some(YamlNode::TaggedNode(tagged)) => {
+                /* yaml_edit parses the siblings after a bodyless tag as its body, so a body
+                counts only where it is flow or indented under the object's key. */
+                let body = tagged.as_mapping().filter(|body| {
+                    body.is_flow_style()
+                        || syntax::entries(body)
+                            .first()
+                            .is_some_and(|first| self.column(first.syntax()) > self.column(node))
+                });
+                match body {
+                    Some(body) if !body.is_flow_style() || !syntax::entries(&body).is_empty() => {
+                        let (block, rest) = locate::deepest_block(&body, &site.segments);
+                        self.insert_path(&block, site.sign, rest, value)
+                    }
+                    Some(empty) => {
+                        /* `!Class {}`: the first property turns the body into a block. */
+                        let start = syntax::start(empty.syntax());
+                        let end = self.as_str()[start..]
+                            .find('}')
+                            .map_or(start, |close| start + close + 1);
+                        let tag_end = self.as_str()[..start].trim_end().len();
+                        let text = self.splice(tag_end, end, "");
+                        Ok(text.insert_under(tag_end, self.column(node) + 2, site, value))
+                    }
+                    None => Ok(self.insert_under(
+                        syntax::start(node),
+                        self.column(node) + 2,
+                        site,
+                        value,
+                    )),
+                }
+            }
+            Some(YamlNode::Mapping(creation)) if locate::creates(object) => {
+                if let Some(set) = creation.get_mapping("set") {
+                    let (block, rest) = locate::deepest_block(&set, &site.segments);
+                    return self.insert_path(&block, site.sign, rest, value);
+                }
+                let body = path_entry(site.sign, &site.segments, value);
+                self.insert_entry(&creation, "set", body.trim_end())
+            }
+            _ => Err(Refusal::NoKey),
+        }
+    }
+
+    /// The text with a key for `site` on the lines under the line `at` is on, at `column`.
+    fn insert_under(&self, at: usize, column: usize, site: &Site<'_>, value: &str) -> Self {
+        let next_line = self.as_str()[at..]
+            .find('\n')
+            .map_or(self.as_str().len(), |newline| at + newline + 1);
+        let (key, nested) = path_key(site.sign, &site.segments, value);
+        self.insert_lines(
+            next_line,
+            &syntax::layout_entry(&key, &nested, column, None),
+        )
+    }
+
+    /// The text with a key for `segments` signed `sign` as the last entry of `mapping`.
+    ///
+    /// Each field step past the first is a nested block, and the sign is on the innermost
+    /// key. In a flow mapping, or where `mapping` already holds a key for the first step,
+    /// the key is one dotted path, so no key repeats.
+    fn insert_path(
+        &self,
+        mapping: &Mapping,
+        sign: Sign,
+        segments: &[Segment<'_>],
+        value: &str,
+    ) -> Result<Self, Refusal> {
+        let held = segments.first().is_some_and(|first| {
+            let first = first.to_string();
+            syntax::entries(mapping).iter().any(|entry| {
+                syntax::key_string(entry).is_some_and(|key| key.eq_ignore_ascii_case(&first))
+            })
+        });
+        if held || mapping.is_flow_style() {
+            return self.insert_entry(mapping, &key_for(sign, segments), value);
         }
 
-        let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
-        self.insert_entry(object, "set", body.trim_end())
+        let (key, nested) = path_key(sign, segments, value);
+        self.insert_entry(mapping, &key, &nested)
     }
 
     /// The text with `key: value` as the last entry of `mapping`.
@@ -312,12 +387,22 @@ impl DocumentText {
             .and_then(Mapping::cast)
             .is_some_and(|mapping| mapping.is_flow_style());
         let inline = syntax::is_inline(value);
+        let mut sequences = SequenceIndent::Nested;
         if let Some(old) = entry.value_node() {
-            let old = syntax::node(&old);
-            let start = syntax::start(&old);
-            let old_text = self.as_str()[start..syntax::end(&old)].trim_end();
+            let old_node = syntax::node(&old);
+            let start = syntax::start(&old_node);
+            let old_text = self.as_str()[start..syntax::end(&old_node)].trim_end();
             if inline && (in_flow || !old_text.contains('\n')) {
                 return Ok(self.splice(start, start + old_text.len(), value));
+            }
+            /* A list laid out again keeps its dashes where the author put them. */
+            if let YamlNode::Sequence(list) = &old
+                && !list.is_flow_style()
+                && syntax::sequence_entries(list.syntax())
+                    .first()
+                    .is_some_and(|first| self.column(first) == self.column(node))
+            {
+                sequences = SequenceIndent::Indentless;
             }
         }
         if in_flow {
@@ -327,7 +412,13 @@ impl DocumentText {
         let comment = self.key_line_comment(node);
         Ok(self.replace_lines(
             node,
-            &syntax::layout_entry(&key, value, self.column(node), comment.as_deref()),
+            &syntax::layout_entry_in(
+                &key,
+                value,
+                self.column(node),
+                comment.as_deref(),
+                sequences,
+            ),
         ))
     }
 
@@ -512,6 +603,38 @@ pub(crate) fn key_for(sign: Sign, segments: &[Segment<'_>]) -> String {
     syntax::spell_key(&format!("{}{path}", sign.as_str())).into_owned()
 }
 
+/// The value of a nested block that declares `segments` signed `sign`: one block per step,
+/// the sign on the innermost key and `value` under it.
+fn nested_value(sign: Sign, segments: &[Segment<'_>], value: &str) -> String {
+    let Some((last, outer)) = segments.split_last() else {
+        return value.to_owned();
+    };
+    let mut body = syntax::layout_entry(&key_for(sign, std::slice::from_ref(last)), value, 0, None);
+    for segment in outer.iter().rev() {
+        let key = syntax::spell_key(&segment.to_string()).into_owned();
+        body = syntax::layout_entry(&key, body.trim_end(), 0, None);
+    }
+    body.trim_end().to_owned()
+}
+
+/// The key and the value of a new key that declares `segments` signed `sign`: a nested block
+/// for each step past the first.
+fn path_key(sign: Sign, segments: &[Segment<'_>], value: &str) -> (String, String) {
+    match segments {
+        [first, rest @ ..] if !rest.is_empty() => (
+            syntax::spell_key(&first.to_string()).into_owned(),
+            nested_value(sign, rest, value),
+        ),
+        _ => (key_for(sign, segments), value.to_owned()),
+    }
+}
+
+/// [`path_key`] laid out at column 0.
+fn path_entry(sign: Sign, segments: &[Segment<'_>], value: &str) -> String {
+    let (key, value) = path_key(sign, segments, value);
+    syntax::layout_entry(&key, &value, 0, None)
+}
+
 /// A manifest holding one module, which declares one key.
 fn new_manifest(
     name: Option<&ModuleName>,
@@ -529,7 +652,7 @@ fn module_text(
     site: &Site<'_>,
     value: &str,
 ) -> String {
-    let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+    let body = path_entry(site.sign, &site.segments, value);
     let named = syntax::layout_entry(&syntax::spell_key(entry.as_str()), body.trim_end(), 0, None);
     let mut module = name.map(syntax::name_line).unwrap_or_default();
     module.push_str(&syntax::layout_entry("entries", named.trim_end(), 0, None));
@@ -538,7 +661,7 @@ fn module_text(
 
 /// A `target` module of `target` declaring one key, as a standalone document.
 fn target_module_text(target: &Target, entry: &EntryName, site: &Site<'_>, value: &str) -> String {
-    let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+    let body = path_entry(site.sign, &site.segments, value);
     let named = syntax::layout_entry(&syntax::spell_key(entry.as_str()), body.trim_end(), 0, None);
     format!("target: {}\n{named}", syntax::spell_key(target.as_str()))
 }

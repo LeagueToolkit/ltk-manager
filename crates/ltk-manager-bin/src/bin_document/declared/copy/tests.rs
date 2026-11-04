@@ -104,7 +104,10 @@ fn a_leaf_copies_as_a_module_that_loads_to_one_set() {
     assert_eq!(loaded.modules.len(), 1);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].properties.len(), 1);
-    assert_eq!(entries[0].properties[0].value, Value::Float(0.0));
+    assert_eq!(
+        entries[0].properties[0].value,
+        Value::Mapping([("selfIllumination".to_owned(), Value::Float(0.0))].into())
+    );
 }
 
 #[test]

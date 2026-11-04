@@ -41,6 +41,40 @@ fn glow_path() -> String {
 }
 
 #[test]
+fn a_key_of_a_class_tag_object_is_edited_in_its_body() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    fs::write(
+        dir.path()
+            .join("content/base")
+            .join(ltk_declarations::FILE_NAME),
+        format!(
+            "version: 1\nmodules:\n  - target: {}\n    objects:\n      \
+             {COPY}: !SkinCharacterDataProperties\n        championSkinName: Jade\n",
+            target()
+        ),
+    )
+    .unwrap();
+    let mut document = declared(project);
+
+    document
+        .set_leaf(
+            h(COPY),
+            &format!("{:08x}", *h("championSkinName")),
+            LeafValue::String {
+                value: "Teemo".to_owned(),
+            },
+        )
+        .unwrap();
+
+    let text = manifest(dir.path(), "base");
+    assert!(
+        text.ends_with(": !SkinCharacterDataProperties\n        championSkinName: Teemo\n"),
+        "{text}"
+    );
+}
+
+#[test]
 fn a_clone_declares_a_copy_of_the_object_under_the_new_name() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));
@@ -76,7 +110,8 @@ fn a_construction_declares_an_object_of_the_class_holding_no_property() {
         Some(&BinObject::new(h(COPY), class))
     );
     assert!(
-        manifest(dir.path(), "base").contains("        class: SkinCharacterDataProperties\n"),
+        manifest(dir.path(), "base")
+            .contains("      Mods/jade-teemo/Skin0Copy: !SkinCharacterDataProperties {}\n"),
         "a class only the schema names is spelled by the schema's name"
     );
 }
@@ -119,7 +154,9 @@ fn a_key_of_a_created_object_lands_in_its_set_and_applies() {
 
     let text = manifest(dir.path(), "base");
     assert!(
-        text.ends_with("        set:\n          skinMeshProperties.selfIllumination: 0.5\n"),
+        text.ends_with(
+            "        set:\n          skinMeshProperties:\n            selfIllumination: 0.5\n"
+        ),
         "{text}"
     );
     assert!(!text.contains("entries"), "{text}");
@@ -294,7 +331,7 @@ fn a_class_typed_by_name_is_written_as_typed() {
         )
         .unwrap();
 
-    assert!(manifest(dir.path(), "base").ends_with("        class: VfxSystemDefinitionData\n"));
+    assert!(manifest(dir.path(), "base").ends_with(": !VfxSystemDefinitionData {}\n"));
 }
 
 #[test]
@@ -370,7 +407,7 @@ fn a_template_declares_a_system_of_its_value_under_its_own_name() {
         PropertyValueEnum::Container(list) if list.len() == 7
     );
     let text = manifest(dir.path(), "base");
-    assert!(text.contains("class: VfxSystemDefinitionData"), "{text}");
+    assert!(text.contains(": !VfxSystemDefinitionData"), "{text}");
     assert!(text.contains("complexEmitterDefinitionData"), "{text}");
 }
 
@@ -454,7 +491,7 @@ fn a_copy_declares_an_object_another_chunk_holds_and_undoes_as_one_step() {
         copy.properties.get(&h("typeData")),
         Some(&values::ObjectLink::new(h("UX/Fonts/Types/Body")).into())
     );
-    assert!(manifest(dir.path(), "base").contains("class: GameFontDescription"));
+    assert!(manifest(dir.path(), "base").contains(": !GameFontDescription"));
 
     assert!(document.undo().unwrap());
     assert!(document.object_at(created).is_none());
@@ -487,7 +524,7 @@ fn create_and_edit_declares_pasted_object_as_one_step() {
         document.object_at(h(COPY)).unwrap().properties,
         font.properties
     );
-    assert!(manifest(dir.path(), "base").contains("class: GameFontDescription"));
+    assert!(manifest(dir.path(), "base").contains(": !GameFontDescription"));
     assert!(document.undo().unwrap());
     assert!(document.object_at(h(COPY)).is_none());
     assert!(!document.undo().unwrap());
@@ -616,7 +653,7 @@ fn a_constructed_ui_element_takes_its_scene_and_rect_as_one_step() {
         Ok(PropertyValueEnum::Vector2(size)) if size.value.x == 128.0 && size.value.y == 128.0
     );
     let text = manifest(dir.path(), "base");
-    assert!(text.contains("class: UiElementIconData"), "{text}");
+    assert!(text.contains(": !UiElementIconData"), "{text}");
     assert!(text.contains("UiPositionRect"), "{text}");
     assert!(text.contains("AnchorSingle"), "{text}");
 

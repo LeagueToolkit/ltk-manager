@@ -146,7 +146,7 @@ fn a_new_path_never_lands_in_a_target_module() {
         text,
         manifest_with(&[(
             "jade_teemo_circle_301.tex # circle\n",
-            "jade_teemo_circle_301.tex # circle\n        skinMeshProperties.simpleSkin: assets/a.skn\n"
+            "jade_teemo_circle_301.tex # circle\n        skinMeshProperties:\n          simpleSkin: assets/a.skn\n"
         )])
     );
 }
@@ -167,7 +167,7 @@ fn a_target_module_of_another_chunk_is_left_alone() {
         text,
         manifest_with(&[(
             "jade_teemo_circle_301.tex # circle\n",
-            "jade_teemo_circle_301.tex # circle\n        skinMeshProperties.texture: assets/y.tex\n"
+            "jade_teemo_circle_301.tex # circle\n        skinMeshProperties:\n          texture: assets/y.tex\n"
         )])
     );
 }
@@ -328,7 +328,7 @@ fn a_new_signed_key_lands_in_the_entry_body() {
         text,
         manifest_with(&[(
             "jade_teemo_circle_301.tex # circle\n",
-            "jade_teemo_circle_301.tex # circle\n        +skinAudioProperties.tagEventList: [Jade_Teemo]\n"
+            "jade_teemo_circle_301.tex # circle\n        skinAudioProperties:\n          +tagEventList: [Jade_Teemo]\n"
         )])
     );
 }
@@ -423,7 +423,8 @@ version: 1
 modules:
   - entries:
       Characters/Teemo/Skins/Skin0:
-        skinMeshProperties.selfIllumination: 0.37
+        skinMeshProperties:
+          selfIllumination: 0.37
         iconCircle: assets/c.tex
 "
     );
@@ -826,7 +827,8 @@ fn an_edit_spells_the_module_a_clipboard_takes() {
         Some(
             "- entries:
     Characters/Teemo/Skins/Skin0:
-      skinMeshProperties.selfIllumination: 0.37"
+      skinMeshProperties:
+        selfIllumination: 0.37"
         ),
     );
 
@@ -903,7 +905,7 @@ fn a_target_choice_writes_a_target_module_into_a_blank_manifest() {
         text,
         "version: 1\nmodules:\n  - target: clientstates/gameplay/ux/test/uirtl\n    \
          ClientStates/Gameplay/UX/Test/UIBase/Root/Icon:\n      \
-         Position.UIRect.Position: [10, 20]\n"
+         Position:\n        UIRect:\n          Position: [10, 20]\n"
     );
 }
 
