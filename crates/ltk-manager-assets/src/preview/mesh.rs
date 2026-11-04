@@ -156,6 +156,7 @@ impl Geometry {
         let joints = vertices.accessor::<[u8; 4]>(ElementName::BlendIndex);
         let weights = vertices.accessor::<Vec4>(ElementName::BlendWeight);
         let tangent = vertices.accessor::<Vec4>(ElementName::Texcoord6);
+        let color = vertices.accessor::<[u8; 4]>(ElementName::PrimaryColor);
 
         let mut indices = Vec::with_capacity(mesh.index_buffer().count());
         let mut submeshes = Vec::with_capacity(mesh.ranges().len());
@@ -188,7 +189,15 @@ impl Geometry {
                 indices: (0..count).flat_map(|v| joints.get(v)).collect(),
                 weights: (0..count).flat_map(|v| weights.get(v).to_array()).collect(),
             }),
-            colors: None,
+            /* The `.skn` packs blue first. */
+            colors: color.map(|block| {
+                (0..count)
+                    .flat_map(|v| {
+                        let [b, g, r, a] = block.get(v);
+                        [r, g, b, a]
+                    })
+                    .collect()
+            }),
             tangents: tangent
                 .map(|block| (0..count).flat_map(|v| block.get(v).to_array()).collect()),
             indices,
