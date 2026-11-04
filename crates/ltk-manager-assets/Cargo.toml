@@ -34,6 +34,7 @@ ltk_hashtable = { workspace = true }
 ltk_mapgeo = { workspace = true }
 ltk_mesh = { workspace = true }
 ltk_meta = { workspace = true }
+ltk_navgrid = { workspace = true }
 ltk_mimir_cache = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_modpkg = { workspace = true }

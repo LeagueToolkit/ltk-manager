@@ -47,7 +47,7 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
   const { backdrop, geometryDocument } = useMapScene();
   const exportMeshes = useMeshExport();
   const reimport = useMeshReimport();
-  if (row === null || row.type === "section") return null;
+  if (row === null || row.type === "section" || row.type === "guide") return null;
 
   const ids = selected.has(row.id) ? [...selected] : [row.id];
   const meshIndices = ids.flatMap((id) => {

@@ -4,6 +4,7 @@ import {
   FolderSimpleIcon,
   LightbulbIcon,
   MagnetIcon,
+  MagnetStraightIcon,
   PlusCircleIcon,
   PlusIcon,
   SelectionIcon,
@@ -48,6 +49,7 @@ export function useMapAuthoringMenus(): MapAuthoringMenus {
   const scene = useMapScene();
   const { editable, tool, setTool, space, snap, setSnap, placeClass, setPlaceClass } = scene;
   const { variants, chosen, pick, target, setTarget, selected, lead, select, backdrop } = scene;
+  const { guideSnap, setGuideSnap } = scene;
 
   const chunks = useQuery(mapQueries.outline(scene.materials)).data ?? [];
   const actions = usePlaceableActions();
@@ -165,6 +167,14 @@ export function useMapAuthoringMenus(): MapAuthoringMenus {
         icon: <MagnetIcon className={MENU_ICON} />,
         checked: snap,
         run: editable ? () => setSnap(!snap) : null,
+      },
+      {
+        kind: "check",
+        id: "map.guideSnap",
+        title: m.workshop_bin_menu_map_tool_guide_snap_action(),
+        icon: <MagnetStraightIcon className={MENU_ICON} />,
+        checked: guideSnap && backdrop.navGrid !== null,
+        run: editable && backdrop.navGrid !== null ? () => setGuideSnap(!guideSnap) : null,
       },
     ],
   };

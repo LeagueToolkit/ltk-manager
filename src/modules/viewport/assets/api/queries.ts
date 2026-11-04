@@ -8,6 +8,7 @@ import { readClipBuffer } from "../parsing/clipBuffer";
 import { readLightGridBuffer } from "../parsing/lightGridBuffer";
 import { type MapGeometry, readMapBuffer } from "../parsing/mapBuffer";
 import { readMeshBuffer } from "../parsing/meshBuffer";
+import { readNavGridFile } from "../parsing/navGridBuffer";
 import { readSkeletonBuffer } from "../parsing/skeletonBuffer";
 
 /** The bytes of `asset`'s buffer of `form`, or the backend's own words for why not. */
@@ -96,6 +97,18 @@ export const viewportQueries = {
         asset === null
           ? skipToken
           : async () => readLightGridBuffer(await fetchBuffer(asset, "lightgrid")),
+      staleTime: Infinity,
+      structuralSharing: false,
+      retry: false,
+    }),
+  /* A grid or an overlay, by the magic of the buffer that the one `navgrid` form answers. */
+  navGrid: (asset: AssetRef | null) =>
+    queryOptions({
+      queryKey: ["viewport", "navGrid", asset],
+      queryFn:
+        asset === null
+          ? skipToken
+          : async () => readNavGridFile(await fetchBuffer(asset, "navgrid")),
       staleTime: Infinity,
       structuralSharing: false,
       retry: false,

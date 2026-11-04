@@ -37,8 +37,13 @@ export function cameraSubmenu(): CommandMenuSubmenu {
   };
 }
 
-/** The submenu of the preview's view mode, overlay, smoothing and effects quality. */
-export function viewModeSubmenu(): CommandMenuSubmenu {
+/**
+ * The submenu of the preview's view mode, overlay, smoothing and effects quality.
+ *
+ * `navGrid` is true for a viewport that draws a navigation grid, which offers the Conformance
+ * mode.
+ */
+export function viewModeSubmenu(navGrid = false): CommandMenuSubmenu {
   return {
     kind: "submenu",
     id: "view-mode",
@@ -51,7 +56,7 @@ export function viewModeSubmenu(): CommandMenuSubmenu {
         id: "view-mode-items",
         node: (
           <Suspense fallback={null}>
-            <ViewModeItems />
+            <ViewModeItems navGrid={navGrid} />
           </Suspense>
         ),
       },

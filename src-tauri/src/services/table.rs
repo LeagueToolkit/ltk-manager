@@ -195,6 +195,7 @@ services! {
         read_map_variants,
         read_map_outline,
         read_map_name_references,
+        map_conformance,
         map_geometry_open,
         map_geometry_close,
         map_geometry_meshes,

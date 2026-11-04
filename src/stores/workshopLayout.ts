@@ -57,6 +57,17 @@ interface PreviewDisplay {
   previewBackdropSky: boolean;
   /** The map viewport draws every region boundary, not only the selected ones. */
   previewMapRegions: boolean;
+  /** The map viewport draws the navgrid guide. */
+  previewNavGrid: boolean;
+  /** A click in the map viewport selects the navgrid cell under the point that it hits. */
+  previewNavGridPick: boolean;
+  /** The region group that the navgrid guide colors by, by `groupName`, and null for terrain. */
+  previewNavGridColor: string | null;
+  /**
+   * The largest height above the navgrid at which the navgrid guide tints a surface, in world
+   * units, and null for no cutoff.
+   */
+  previewNavGridCutoff: number | null;
   /** The sun control's fields over every backdrop's own sun, and null for each map's own. */
   previewSun: SunOverride | null;
   /** The post effects of every backdrop, and null for each map's own. */
@@ -100,6 +111,11 @@ interface PreviewDisplay {
   previewViewMode: ViewMode;
   /** The triangle edges draw over a lit or untextured scene. */
   previewWireOverlay: boolean;
+  /**
+   * The largest height difference between the ground and the navigation grid that the
+   * Conformance view mode accepts, in world units.
+   */
+  previewConformanceThreshold: number;
   /** The subject carries a gizmo that moves it around the scene. */
   previewMove: boolean;
   /** Which drag the gizmo does. */
@@ -297,6 +313,10 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewBackdropStructures: true,
   previewBackdropSky: true,
   previewMapRegions: true,
+  previewNavGrid: true,
+  previewNavGridPick: false,
+  previewNavGridColor: null,
+  previewNavGridCutoff: null,
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
@@ -318,6 +338,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewCamera: "game",
   previewViewMode: "lit",
   previewWireOverlay: false,
+  previewConformanceThreshold: 20,
   previewMove: false,
   previewMoveMode: "translate",
   previewPlacement: null,
@@ -558,6 +579,10 @@ export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
 export const usePreviewMapRegions = () => useWorkshopLayoutStore((s) => s.previewMapRegions);
+export const usePreviewNavGrid = () => useWorkshopLayoutStore((s) => s.previewNavGrid);
+export const usePreviewNavGridPick = () => useWorkshopLayoutStore((s) => s.previewNavGridPick);
+export const usePreviewNavGridColor = () => useWorkshopLayoutStore((s) => s.previewNavGridColor);
+export const usePreviewNavGridCutoff = () => useWorkshopLayoutStore((s) => s.previewNavGridCutoff);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
 export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.previewAntiAliasing);
@@ -581,6 +606,8 @@ export const usePreviewSockets = () => useWorkshopLayoutStore((s) => s.previewSo
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewViewMode = () => useWorkshopLayoutStore((s) => s.previewViewMode);
 export const usePreviewWireOverlay = () => useWorkshopLayoutStore((s) => s.previewWireOverlay);
+export const usePreviewConformanceThreshold = () =>
+  useWorkshopLayoutStore((s) => s.previewConformanceThreshold);
 export const usePreviewMove = () => useWorkshopLayoutStore((s) => s.previewMove);
 export const usePreviewMoveMode = () => useWorkshopLayoutStore((s) => s.previewMoveMode);
 export const usePreviewPlacement = () => useWorkshopLayoutStore((s) => s.previewPlacement);

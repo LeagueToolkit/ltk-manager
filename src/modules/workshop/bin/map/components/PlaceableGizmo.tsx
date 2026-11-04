@@ -1,10 +1,15 @@
 import { TransformControls } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
-import { Group, type Matrix4 } from "three";
+import { Group, type Matrix4, Vector3 } from "three";
+
+import { AXIS_SIGN, type NavGrid } from "@/modules/viewport";
 
 import type { GizmoTool } from "../state/mapScene";
+import { snapToNavCell } from "../utils/navCells";
 import { type Moved, movesOf, type Positioned, viewportMatrix } from "../utils/placeableSpace";
+
+const MIRROR = new Vector3(...AXIS_SIGN);
 
 const MODE: Record<GizmoTool, "translate" | "rotate" | "scale"> = {
   move: "translate",
@@ -40,6 +45,8 @@ interface Props {
   readonly space: "world" | "local";
   /** The drag snaps to the grid, unless Ctrl is held. Off, Ctrl snaps it. */
   readonly snap: boolean;
+  /** The navgrid whose cell centers a move snaps to, and null while Guides snapping is off. */
+  readonly guideGrid: NavGrid | null;
   readonly onCommit: (moves: readonly Moved[]) => Promise<boolean>;
   /** Told the moves of each step of a drag, and null when a drag is cancelled or refused. */
   readonly onDrag: (moves: readonly Moved[] | null) => void;
@@ -51,7 +58,7 @@ interface Props {
  * item, and Esc during a drag puts the gizmo and the selection back. Per "The gizmo commits on
  * release" in docs/ux/MAP_EDITOR.md.
  */
-export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: Props) {
+export function PlaceableGizmo({ items, tool, space, snap, guideGrid, onCommit, onDrag }: Props) {
   const controls = useThree((state) => state.controls);
   const invalidate = useThree((state) => state.invalidate);
   const object = useMemo(() => new Group(), []);
@@ -69,7 +76,7 @@ export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: P
       window.removeEventListener("keyup", press);
     };
   }, []);
-  const drag = useRef<{ start: Matrix4; cameraEnabled: boolean } | null>(null);
+  const drag = useRef<{ start: Matrix4 } | null>(null);
   const lead = items[0];
 
   /* The gizmo stands where the lead does, read back each time the outline answers. */
@@ -86,7 +93,10 @@ export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: P
     invalidate();
   }, [lead, object, invalidate]);
 
-  function release(restore: boolean) {
+  /* `TransformControls` turns the default camera controls off and on through `dragging-changed`,
+     so a release leaves them alone. A gizmo removed mid-drag never sees the mouse-up, and turns
+     the camera back on itself. */
+  function release(restore: boolean, unmounting = false) {
     const held = drag.current;
     if (held === null) return;
 
@@ -97,7 +107,7 @@ export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: P
       transform.current?.reset();
       onDrag(null);
     }
-    if (controls !== null && "enabled" in controls) controls.enabled = held.cameraEnabled;
+    if (unmounting && controls !== null && "enabled" in controls) controls.enabled = true;
     invalidate();
   }
 
@@ -115,13 +125,21 @@ export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: P
 
     return () => {
       window.removeEventListener("keydown", cancel, true);
-      releaseRef.current(true);
+      releaseRef.current(true, true);
     };
   }, []);
 
   function change() {
     const held = drag.current;
     if (held === null) return;
+
+    /* The controls set the position from the drag start on every step, so a snapped position
+       does not carry into the next step. */
+    if (tool === "move" && guideGrid !== null) {
+      const engine = object.position.clone().multiply(MIRROR);
+      const snapped = snapToNavCell(guideGrid, [engine.x, engine.y, engine.z]);
+      if (snapped !== null) object.position.set(...snapped).multiply(MIRROR);
+    }
 
     object.updateMatrix();
     onDrag(movesOf(items, held.start, object.matrix));
@@ -162,9 +180,7 @@ export function PlaceableGizmo({ items, tool, space, snap, onCommit, onDrag }: P
         onMouseDown={() => {
           grabGizmo();
           object.updateMatrix();
-          const cameraEnabled =
-            controls !== null && "enabled" in controls ? Boolean(controls.enabled) : true;
-          drag.current = { start: object.matrix.clone(), cameraEnabled };
+          drag.current = { start: object.matrix.clone() };
         }}
         onObjectChange={change}
         onMouseUp={() => {

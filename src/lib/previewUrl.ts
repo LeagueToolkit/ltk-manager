@@ -22,7 +22,7 @@ const BLOCKS_PARAMETER = "bc";
  * A buffer the scheme answers, each in the layout the Rust module of its name documents
  * under `crates/ltk-manager-assets/src/preview/`.
  */
-export type PreviewForm = "geometry" | "map" | "skeleton" | "animation" | "lightgrid";
+export type PreviewForm = "geometry" | "map" | "skeleton" | "animation" | "lightgrid" | "navgrid";
 
 /**
  * The URL an `<img>` draws this asset from.

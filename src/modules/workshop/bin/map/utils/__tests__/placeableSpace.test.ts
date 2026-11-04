@@ -6,9 +6,12 @@ import type { MapChunkItem } from "@/lib/tauri";
 import type { PlacedItem } from "../mapOutline";
 import { shapeLines } from "../placeableShapes";
 import {
+  axisText,
   engineTransform,
   movesOf,
+  parseAxis,
   placeableMoves,
+  shownDrag,
   transformOf,
   type TransformParts,
   transformParts,
@@ -93,6 +96,26 @@ describe("placeableMoves", () => {
   });
 });
 
+describe("shownDrag", () => {
+  const outline = [{ entry: "0x1" }];
+  const transforms = new Map([["0x1/0xa", translation(5, 0, 0)]]);
+  const held = { transforms, basis: { outline, geometryRevision: 2 } };
+
+  it("shows a drag over the reads it started on", () => {
+    expect(shownDrag(held, { outline, geometryRevision: 2 })).toBe(transforms);
+    expect(shownDrag(null, { outline, geometryRevision: 2 })).toBeNull();
+  });
+
+  it("drops a drag once a placeable edit or its undo changes the outline", () => {
+    expect(shownDrag(held, { outline: [{ entry: "0x1" }], geometryRevision: 2 })).toBeNull();
+  });
+
+  it("drops a drag once a mesh edit or its undo changes the geometry revision", () => {
+    expect(shownDrag(held, { outline, geometryRevision: 3 })).toBeNull();
+    expect(shownDrag(held, { outline, geometryRevision: null })).toBeNull();
+  });
+});
+
 describe("shapeLines", () => {
   it("draws a box as twelve edges", () => {
     const lines = shapeLines([
@@ -119,5 +142,31 @@ describe("shapeLines", () => {
     ]);
 
     expect(lines.length).toBe(16 * 2 * 3);
+  });
+});
+
+describe("axisText", () => {
+  it("rounds to three fraction digits", () => {
+    expect(axisText(89.99999999)).toBe("90");
+    expect(axisText(1.23456)).toBe("1.235");
+    expect(axisText(-12.5)).toBe("-12.5");
+  });
+
+  it("reads a negative zero as 0", () => {
+    expect(axisText(-0)).toBe("0");
+    expect(axisText(-0.0001)).toBe("0");
+  });
+});
+
+describe("parseAxis", () => {
+  it("reads a typed number", () => {
+    expect(parseAxis(" 12.5 ")).toBe(12.5);
+    expect(parseAxis("-3")).toBe(-3);
+  });
+
+  it("returns null if the text is not a finite number", () => {
+    expect(parseAxis("")).toBeNull();
+    expect(parseAxis("abc")).toBeNull();
+    expect(parseAxis("Infinity")).toBeNull();
   });
 });

@@ -7,12 +7,15 @@ import {
   EyeSlashIcon,
   FolderSimpleIcon,
   GlobeSimpleIcon,
+  GridFourIcon,
   type Icon,
   LightbulbIcon,
   LightningIcon,
+  LockSimpleIcon,
   MapPinIcon,
   PathIcon,
   PolygonIcon,
+  RulerIcon,
   SelectionIcon,
   ShuffleIcon,
   SparkleIcon,
@@ -28,7 +31,7 @@ import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
 import { chunkLabel, isDrawn } from "../utils/mapOutline";
-import type { SceneRow } from "../utils/sceneOutline";
+import type { SceneRow, SectionId } from "../utils/sceneOutline";
 
 const KIND_ICON: Record<MapItemKind, Icon> = {
   particle: SparkleIcon,
@@ -42,6 +45,18 @@ const KIND_ICON: Record<MapItemKind, Icon> = {
   path: PathIcon,
   region: PolygonIcon,
   other: CubeIcon,
+};
+
+const SECTION_ICON: Record<SectionId, Icon> = {
+  "section:meshes": PolygonIcon,
+  "section:placeables": StackIcon,
+  "section:guides": RulerIcon,
+};
+
+const SECTION_LABEL: Record<SectionId, () => string> = {
+  "section:meshes": m.workshop_bin_map_outliner_meshes_label,
+  "section:placeables": m.workshop_bin_map_markers_label,
+  "section:guides": m.workshop_bin_map_guides_label,
 };
 
 /** How far each level of the tree steps in, in pixels at 100% zoom. */
@@ -108,7 +123,10 @@ export function OutlinerRow({
   const Glyph = glyphOf(row);
   const text = labelOf(row, controllerName);
   const eye =
-    row.type === "chunk" || row.type === "mesh" || (row.type === "item" && isDrawn(row.item));
+    row.type === "chunk" ||
+    row.type === "mesh" ||
+    row.type === "guide" ||
+    (row.type === "item" && isDrawn(row.item));
 
   return (
     <div
@@ -149,7 +167,14 @@ export function OutlinerRow({
       <span className="ml-auto min-w-0 shrink-[4] truncate pl-2 text-meta text-surface-400">
         <RowMeta row={row} narrowed={narrowed} query={query} />
       </span>
-      {eye && <EyeButton hidden={hidden} onClick={onHide} />}
+      {row.type === "guide" && <GuideLock />}
+      {eye && (
+        <EyeButton
+          hidden={hidden}
+          disabled={row.type === "guide" && row.following}
+          onClick={onHide}
+        />
+      )}
     </div>
   );
 }
@@ -157,7 +182,9 @@ export function OutlinerRow({
 function glyphOf(row: SceneRow): Icon | null {
   switch (row.type) {
     case "section":
-      return row.id === "section:meshes" ? PolygonIcon : StackIcon;
+      return SECTION_ICON[row.id];
+    case "guide":
+      return row.guide.kind === "navGrid" ? GridFourIcon : StackIcon;
     case "group":
       return ShuffleIcon;
     case "mesh":
@@ -172,9 +199,9 @@ function glyphOf(row: SceneRow): Icon | null {
 function labelOf(row: SceneRow, controllerName: (hash: string) => string): string {
   switch (row.type) {
     case "section":
-      return row.id === "section:meshes"
-        ? m.workshop_bin_map_outliner_meshes_label()
-        : m.workshop_bin_map_markers_label();
+      return SECTION_LABEL[row.id]();
+    case "guide":
+      return row.label ?? m.workshop_bin_map_navgrid_label();
     case "group":
       return row.controller === null
         ? m.workshop_bin_map_mesh_no_controller_label()
@@ -201,7 +228,21 @@ function RowMeta({ row, narrowed, query }: { row: SceneRow; narrowed: boolean; q
       return `${row.shown}/${row.chunk.items.length}`;
     case "item":
       return <MatchedText text={row.item.class} query={query} />;
+    case "guide":
+      return null;
   }
+}
+
+/** The lock that marks a guide row as read-only. */
+function GuideLock() {
+  const hint = m.workshop_bin_map_guide_lock_hint();
+  return (
+    <Tooltip content={hint}>
+      <span aria-label={hint} className="flex shrink-0 text-surface-500">
+        <LockSimpleIcon weight="bold" className="size-3" />
+      </span>
+    </Tooltip>
+  );
 }
 
 /** The last segment of a material's entry path, which tells most of a map's materials apart. */
@@ -221,7 +262,14 @@ function EventMark() {
   );
 }
 
-function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }) {
+interface EyeButtonProps {
+  readonly hidden: boolean;
+  /** The eye shows a state that something else sets, such as an overlay that follows the map state. */
+  readonly disabled?: boolean;
+  readonly onClick: () => void;
+}
+
+function EyeButton({ hidden, disabled = false, onClick }: EyeButtonProps) {
   const label = hidden
     ? m.workshop_bin_map_outliner_show_action()
     : m.workshop_bin_map_outliner_hide_action();
@@ -232,10 +280,12 @@ function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }
       tabIndex={-1}
       aria-label={label}
       title={label}
+      disabled={disabled}
       /* DS-VEIL, DS-RADIUS. A hidden row keeps its eye on screen, since that is what says it is hidden. */
       className={twMerge(
         "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
         !hidden && "opacity-0 group-hover/row:opacity-100",
+        disabled && "cursor-default opacity-50 hover:bg-transparent hover:text-surface-400",
       )}
       onClick={(event) => {
         event.stopPropagation();

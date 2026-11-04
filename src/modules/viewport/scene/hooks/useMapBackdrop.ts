@@ -9,6 +9,7 @@ import {
   type MapBounds,
   type MapController,
   type MapModel,
+  type MapNavGridModel,
   type MapPath,
   type MaterialPreview,
   type MaterialProgram,
@@ -257,6 +258,7 @@ export const backdropQueries = {
             lightGrid: null,
             grassTints: [],
             bounds: null,
+            navGrid: null,
           };
         const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) throw answer.error;
@@ -344,6 +346,8 @@ export interface Backdrop {
   readonly grassTint: GrassTextures | null;
   /** The rectangle that a map-wide texture covers, and null where the container states none. */
   readonly bounds: MapBounds | null;
+  /** The navigation grid of the map and the data that colors it, and null where it names none. */
+  readonly navGrid: MapNavGridModel | null;
   /** The bytes are on their way. One map is 73 to 93 MiB, so this is seconds. */
   readonly loading: boolean;
   /** Why there is nothing to draw, for the one line a disabled option carries. */
@@ -375,6 +379,7 @@ const EMPTY: Backdrop = {
   lightGrid: null,
   grassTint: null,
   bounds: null,
+  navGrid: null,
   loading: false,
   failure: null,
 };
@@ -534,6 +539,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     lightGrid: lightGrid ?? null,
     grassTint,
     bounds: model.data?.bounds ?? null,
+    navGrid: model.data?.navGrid ?? null,
     loading: false,
     failure: null,
   };
@@ -648,6 +654,8 @@ export interface BackdropFlags {
   readonly customized: boolean;
   /** Return to the opening flags and remove every controller override. */
   readonly reset: () => void;
+  /** The navigation grid of the map and the data that colors it. Null until the model is loaded or where the map names none. */
+  readonly navGrid: MapNavGridModel | null;
 }
 
 /**
@@ -737,6 +745,7 @@ export function useBackdropFlags(source: BackdropSource | null): BackdropFlags {
     setController,
     customized: flags !== opening || overrides.size > 0,
     reset,
+    navGrid: model?.navGrid ?? null,
   };
 }
 

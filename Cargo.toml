@@ -81,7 +81,7 @@ ltk-meta-docs = { path = "crates/ltk-meta-docs" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.13", features = ["serde"] }
-ltk_hash = { version = "0.5.1", features = ["serde"] }
+ltk_hash = { version = "0.5.3", features = ["serde"] }
 ltk_meta = { version = "0.9.1", features = ["serde"] }
 
 ltk_fantome = "0.18.2"
@@ -102,10 +102,14 @@ lewton = "0.10.2"
 
 ltk_anim = "0.3.12"
 ltk_mapgeo = "0.3.5"
+# Navigation grids and their overlays, for the map editor's navgrid guides.
+ltk_navgrid = "0.1"
 ltk_mesh = { version = "0.5.5", features = ["tangent-baking"] }
 ltk_rst = "0.2.3"
 ltk_texture = { version = "0.6.6", features = ["intel-tex"] }
 
+# The `Flags` trait, which lists the named values of `ltk_navgrid::CellFlags`.
+bitflags = "2"
 brex = "0.2"
 camino = "1.2"
 chrono = { version = "0.4", features = ["serde"] }

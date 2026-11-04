@@ -6,6 +6,7 @@ import {
   type AppError,
   type AssetRef,
   type BinDocumentId,
+  type ConformanceArea,
   type MapCharacter,
   type MapChunk,
   type MapFiles,
@@ -19,6 +20,7 @@ import {
 import { MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
+import { conformanceArgs, type ConformanceRequest } from "../utils/conformance";
 import { type ModelPreview, readModelPreview } from "../utils/meshImport";
 
 /** The reads a map's scene draws from, each keyed on the open document it asks. */
@@ -81,6 +83,18 @@ export const mapQueries = {
     queryOptions<MapGeometryMesh[], AppError>({
       queryKey: ["map-geometry-meshes", id, revision],
       queryFn: id === null ? skipToken : queryFnWithArgs(api.bin.mapGeometryMeshes, id),
+      staleTime: Infinity,
+      retry: false,
+      placeholderData: keepPreviousData,
+    }),
+  /** The failing areas of the `map_conformance` check of `request`, which waits while it is null. */
+  conformance: (request: ConformanceRequest | null) =>
+    queryOptions<ConformanceArea[], AppError>({
+      queryKey: ["map-conformance", request],
+      queryFn:
+        request === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.mapConformance(...conformanceArgs(request))),
       staleTime: Infinity,
       retry: false,
       placeholderData: keepPreviousData,

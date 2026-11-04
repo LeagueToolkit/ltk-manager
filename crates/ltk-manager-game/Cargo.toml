@@ -17,12 +17,15 @@ ltk-manager-assets = { workspace = true }
 ltk-manager-base = { workspace = true }
 ltk-manager-bin = { workspace = true }
 
+bitflags = { workspace = true }
 fs-err = { workspace = true }
 glam = { workspace = true }
 indexmap = { workspace = true }
 ltk_hash = { workspace = true }
+ltk_mapgeo = { workspace = true }
 ltk_mesh = { workspace = true }
 ltk_meta = { workspace = true }
+ltk_navgrid = { workspace = true }
 ltk_wad = { workspace = true }
 
 parking_lot = { workspace = true }
@@ -36,5 +39,6 @@ tracing = { workspace = true }
 xxhash-rust = { workspace = true }
 
 [dev-dependencies]
+ltk-manager-assets = { workspace = true, features = ["test-util"] }
 ltk_modpkg = { workspace = true }
 ltk_primitives = { workspace = true }

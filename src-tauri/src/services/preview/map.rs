@@ -7,16 +7,20 @@ use crate::services::shared::document_assets::{
 use crate::services::shared::installed::ProjectGame;
 use std::collections::HashMap;
 
+use super::map_geometry::{MapGeometryDocuments, MapGeometryId};
 use super::material::shader_defs;
-use crate::error::IpcResult;
+use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::shared::off_thread;
+use crate::state::SettingsState;
+use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_bin::bin_document::{BinDocument, BinDocumentId, BinDocuments};
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_bin::sandbox::SandboxRef;
 use ltk_manager_game::map::{
-    map_bin_path, map_characters, map_flags, map_grass_tints, map_name_references, map_outline,
-    map_particles, map_variants, resolve_map, unresolved_map, MapCharacter, MapChunk, MapFiles,
-    MapModel, MapNameReference, MapParticle, MapPath, MapVariant,
+    compose_nav_grid, conformance_areas, map_bin_path, map_characters, map_flags, map_grass_tints,
+    map_name_references, map_nav_grid, map_outline, map_particles, map_variants, resolve_map,
+    unresolved_map, ConformanceArea, Ground, MapCharacter, MapChunk, MapFiles, MapModel,
+    MapNameReference, MapParticle, MapPath, MapVariant, NavGridSource, ShownMeshes,
 };
 use tauri::{AppHandle, Manager};
 
@@ -43,41 +47,137 @@ pub async fn read_map(
     off_thread(move || {
         let sandbox = sandbox_of(&app_handle, document);
         with_resolution(&app_handle, document, |names, assets| {
-            let read = |asset: &AssetRef| read_declared_bin(&app_handle, &sandbox, asset);
             let Some(source) = assets.locate(&map.materials()) else {
                 return Ok(unresolved_map(&materials));
             };
-            /* An open `.materials.bin` answers with its unsaved edits, so a lighting or
-            controller edit draws before the save. */
-            let documents = app_handle.state::<BinDocuments>();
-            let open = documents.open_tree(&sandbox, &source);
-            let declared = open.as_ref().and_then(|open| {
-                ProjectGame::new(&app_handle, &sandbox).declared_view(&source, open)
-            });
-            let parsed;
-            let bin: &BinDocument = match (&declared, &open) {
-                (Some(declared), _) => declared,
-                (None, Some(open)) => open,
-                (None, None) => {
-                    parsed = read(&source)?;
-                    &parsed
+
+            with_materials(&app_handle, &sandbox, &source, |bin| {
+                /* The shader defs only decide which slot a texture came from, so a map draws
+                without them. */
+                let shaders = shader_defs(&app_handle, assets);
+                let mut model =
+                    resolve_map(bin, &map, &materials, names, assets, shaders.as_deref());
+
+                /* The flag names only label the layers, the grass tint only colors the brush and
+                the skin grid and the overlay bits only extend the navgrid guide, so a map reads
+                without them. */
+                if let Some(map_bin) = read_map_bin(&app_handle, &sandbox, assets, &map) {
+                    model.flags = map_flags(&map_bin);
+                    model.grass_tints = map_grass_tints(&map_bin, &map, names, assets);
+                    model.nav_grid = map_nav_grid(bin, Some(&map_bin), &map, names, assets);
                 }
-            };
-            /* The shader defs only decide which slot a texture came from, so a map draws
-            without them. */
-            let shaders = shader_defs(&app_handle, assets);
-            let mut model = resolve_map(bin, &map, &materials, names, assets, shaders.as_deref());
 
-            /* The flag names only label the layers and the grass tint only colors the brush,
-            so a map reads without them. */
-            let map_bin = map_bin_path(&map).and_then(|path| assets.locate(&path));
-            if let Some(Ok(map_bin)) = map_bin.map(|asset| read(&asset)) {
-                model.flags = map_flags(&map_bin);
-                model.grass_tints = map_grass_tints(&map_bin, &map, names, assets);
-            }
-
-            Ok(model)
+                Ok(model)
+            })
         })
+    })
+    .await
+}
+
+/// Runs `read` over the `.materials.bin` at `source` in `sandbox`.
+///
+/// Reads the declared view of the open document of `source`, else the open document, else the
+/// file. An open `.materials.bin` has its unsaved edits, so a lighting or controller edit draws
+/// before the save.
+fn with_materials<T>(
+    app_handle: &AppHandle,
+    sandbox: &SandboxRef,
+    source: &AssetRef,
+    read: impl FnOnce(&BinDocument) -> AppResult<T>,
+) -> AppResult<T> {
+    let documents = app_handle.state::<BinDocuments>();
+    let open = documents.open_tree(sandbox, source);
+    let declared = open
+        .as_ref()
+        .and_then(|open| ProjectGame::new(app_handle, sandbox).declared_view(source, open));
+
+    match (&declared, &open) {
+        (Some(declared), _) => read(declared),
+        (None, Some(open)) => read(open),
+        (None, None) => read(&read_declared_bin(app_handle, sandbox, source)?),
+    }
+}
+
+/// Reads the bin that holds the `Map` object of `map`. Returns `None` if no file holds it or
+/// the file does not read.
+fn read_map_bin(
+    app_handle: &AppHandle,
+    sandbox: &SandboxRef,
+    assets: &dyn AssetLookup,
+    map: &MapPath,
+) -> Option<BinDocument> {
+    let asset = assets.locate(&map_bin_path(map)?)?;
+    read_declared_bin(app_handle, sandbox, &asset).ok()
+}
+
+/// Returns the areas of walkable navigation grid cells of `map` whose ground differs from the
+/// grid by more than `threshold` world units, or that no ground covers.
+///
+/// `grid` selects the container's grid or the skin's. `overlays` are the indices into
+/// `MapNavGridModel.overlays` of the overlays that are on. `shown` is the visibility state that
+/// selects the meshes of the ground. `geometry` names the `.mapgeo` open in the map editor,
+/// whose unsaved edits the check reads. Without it, the check reads the `.mapgeo` of `map`.
+///
+/// # Errors
+///
+/// Fails if `threshold` is not a finite number of 0 or more, if `map` has no navigation grid
+/// of the `grid` source, if an index of `overlays` is not an overlay of the map, if a
+/// navigation grid file or the `.mapgeo` does not read, if no `.mapgeo` is open under
+/// `geometry`, or if the ground is too large to check.
+#[tauri::command]
+#[specta::specta]
+#[expect(clippy::too_many_arguments)]
+pub async fn map_conformance(
+    document: Option<BinDocumentId>,
+    map: MapPath,
+    grid: NavGridSource,
+    overlays: Vec<u32>,
+    shown: ShownMeshes,
+    threshold: f32,
+    geometry: Option<MapGeometryId>,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<ConformanceArea>> {
+    off_thread(move || {
+        if !threshold.is_finite() || threshold < 0.0 {
+            return Err(AppError::ValidationFailed(format!(
+                "The conformance threshold {threshold} is not a finite number of 0 or more"
+            )));
+        }
+
+        let sandbox = sandbox_of(&app_handle, document);
+        let config = app_handle.state::<SettingsState>().config();
+        let wads = app_handle.state::<WadCache>();
+        let read = |asset: &AssetRef| asset.read(&config, &wads);
+
+        let (model, mapgeo) = with_resolution(&app_handle, document, |names, assets| {
+            let source = assets.locate(&map.materials()).ok_or_else(|| {
+                AppError::ValidationFailed(format!("No .materials.bin of {map} was found"))
+            })?;
+            let map_bin = read_map_bin(&app_handle, &sandbox, assets, &map);
+            let model = with_materials(&app_handle, &sandbox, &source, |bin| {
+                Ok(map_nav_grid(bin, map_bin.as_ref(), &map, names, assets))
+            })?;
+
+            Ok((model, assets.locate(&map.geometry())))
+        })?;
+
+        let model = model
+            .ok_or_else(|| AppError::ValidationFailed(format!("{map} has no navigation grid")))?;
+        let nav_grid = compose_nav_grid(&model, grid, &overlays, read)?;
+
+        let ground = match geometry {
+            Some(id) => app_handle
+                .state::<MapGeometryDocuments>()
+                .read(id, |open| Ground::from_map(open.asset(), &shown))??,
+            None => {
+                let mapgeo = mapgeo.ok_or_else(|| {
+                    AppError::ValidationFailed(format!("No .mapgeo of {map} was found"))
+                })?;
+                Ground::read(&read(&mapgeo)?, &shown)?
+            }
+        };
+
+        conformance_areas(&nav_grid, &ground, threshold)
     })
     .await
 }

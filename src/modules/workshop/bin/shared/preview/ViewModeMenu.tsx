@@ -5,9 +5,10 @@ import { m } from "@/i18n";
 import {
   ANTI_ALIASING_MODES,
   type AntiAliasing,
+  offeredViewMode,
   takesWireOverlay,
-  VIEW_MODES,
   type ViewMode,
+  viewModesOf,
 } from "@/modules/viewport";
 import {
   type PreviewEffectsQuality,
@@ -23,7 +24,13 @@ const MODE_LABEL: Record<ViewMode, () => string> = {
   unshaded: m.workshop_bin_preview_view_unshaded_label,
   untextured: m.workshop_bin_preview_view_untextured_label,
   wireframe: m.workshop_bin_preview_view_wireframe_label,
+  conformance: m.workshop_bin_preview_view_conformance_label,
 };
+
+export interface ViewModeMenuProps {
+  /** The viewport draws a navigation grid, which offers the Conformance mode. */
+  readonly navGrid?: boolean;
+}
 
 /** Every Effects Quality level, lowest first, as the client's settings list them. */
 const QUALITIES: readonly PreviewEffectsQuality[] = [0, 1, 2, 3, 4];
@@ -47,8 +54,8 @@ const ANTI_ALIASING_LABEL: Record<AntiAliasing, () => string> = {
  * frame's edges are smoothed, and the client's Effects Quality that every particle preview
  * simulates.
  */
-export function ViewModeMenu() {
-  const mode = usePreviewViewMode();
+export function ViewModeMenu({ navGrid = false }: ViewModeMenuProps) {
+  const mode = offeredViewMode(usePreviewViewMode(), navGrid);
 
   return (
     <Menu.Root>
@@ -66,15 +73,19 @@ export function ViewModeMenu() {
         }
       />
       <Menu.Content align="end" data-ui="ViewModeMenu" className="w-48">
-        <ViewModeItems />
+        <ViewModeItems navGrid={navGrid} />
       </Menu.Content>
     </Menu.Root>
   );
 }
 
-/** The items of `ViewModeMenu`, which a menu bar also draws as a submenu. */
-export function ViewModeItems() {
-  const mode = usePreviewViewMode();
+/**
+ * The items of `ViewModeMenu`, which a menu bar also draws as a submenu.
+ *
+ * A stored mode that the viewport does not offer shows as Lit, which the viewport draws.
+ */
+export function ViewModeItems({ navGrid = false }: ViewModeMenuProps) {
+  const mode = offeredViewMode(usePreviewViewMode(), navGrid);
   const overlay = usePreviewWireOverlay();
   const antiAliasing = usePreviewAntiAliasing();
   const quality = usePreviewEffectsQuality();
@@ -86,7 +97,7 @@ export function ViewModeItems() {
         value={mode}
         onValueChange={(each) => setDisplay({ previewViewMode: each as ViewMode })}
       >
-        {VIEW_MODES.map((each) => (
+        {viewModesOf(navGrid).map((each) => (
           <Menu.RadioItem key={each} value={each}>
             {MODE_LABEL[each]()}
           </Menu.RadioItem>

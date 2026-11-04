@@ -25,10 +25,13 @@ import {
   NO_AMBIENT_OCCLUSION,
 } from "../utils/ambientOcclusion";
 import { type AntiAliasing, DEFAULT_ANTI_ALIASING } from "../utils/antiAliasing";
+import type { MeshDrag } from "../utils/backdropRuns";
+import type { ConformanceGround } from "../utils/conformanceSurface";
+import type { NavProjection } from "../utils/navProjection";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
 import type { RendererUse } from "../utils/sharedRenderer";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
-import { edgesOf, type ViewMode } from "../utils/viewMode";
+import { edgesOf, offeredViewMode, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
@@ -97,8 +100,17 @@ export interface ViewportProps {
   readonly background?: string | null;
   /** The ref that receives the function that captures this viewport's frames. */
   readonly captureRef?: RefObject<CaptureFrame | null>;
-  /** How the backdrop and every character draw their meshes. */
+  /**
+   * How the backdrop and every character draw their meshes. `conformance` draws as `lit`
+   * without a `conformance` grid.
+   */
   readonly viewMode?: ViewMode;
+  /** The navigation grid that the `conformance` view mode measures the backdrop against. */
+  readonly conformance?: ConformanceGround | null;
+  /** The navigation grid cells that the backdrop projects onto its surfaces, and null for none. */
+  readonly navProjection?: NavProjection | null;
+  /** The backdrop meshes that a gizmo drag moves, and null outside a drag. */
+  readonly meshDrag?: MeshDrag | null;
   /** The triangle edges draw over a lit or untextured scene. */
   readonly wireOverlay?: boolean;
   /** The reader stood the camera on `preset`: Orbit by a drag, an axis view by the gizmo. */
@@ -143,7 +155,10 @@ export function Viewport({
   clearColor = "backdrop",
   background = null,
   captureRef,
-  viewMode = "lit",
+  viewMode: chosenMode = "lit",
+  conformance = null,
+  navProjection = null,
+  meshDrag = null,
   wireOverlay = false,
   onCameraStand,
   onBackdropOrigin,
@@ -154,6 +169,7 @@ export function Viewport({
   const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
   const grid = map.geometry === null ? null : map.lightGrid;
   const characterLight = useMemo<CharacterLight>(() => ({ grid, sun: light }), [grid, light]);
+  const viewMode = offeredViewMode(chosenMode, conformance !== null);
   const edges = edgesOf(viewMode, wireOverlay);
   const view = useMemo(
     () => ({ mode: viewMode, edges, edgeColour: colors.edge }),
@@ -249,6 +265,9 @@ export function Viewport({
               viewMode={viewMode}
               edges={edges}
               edgeColour={colors.edge}
+              conformance={conformance}
+              navProjection={navProjection}
+              drag={meshDrag}
             />
           )}
           <CharacterLightContext value={characterLight}>

@@ -12,10 +12,35 @@ import { meshId } from "./meshSelection";
 /** The drag data type of a drag that carries the outliner's own selection. */
 export const OUTLINER_DRAG_TYPE = "application/x-ltk-map-outliner";
 
-/** The two collections of the outliner: the meshes of the `.mapgeo` and the chunks. */
-export type SectionId = "section:meshes" | "section:placeables";
+/** The collections of the outliner: the meshes of the `.mapgeo`, the chunks and the guides. */
+export type SectionId = "section:meshes" | "section:placeables" | "section:guides";
 
-/** One row of the scene outliner: a collection, a controller group, a mesh, a chunk or a placeable. */
+/** Which guide a guide row stands for: the navgrid, or one of its overlays by list index. */
+export type GuideRef =
+  | { readonly kind: "navGrid" }
+  | { readonly kind: "overlay"; readonly index: number };
+
+/** One overlay of the navgrid as the outliner lists it. */
+export interface GuideOverlay {
+  /** The overlay's file stem. */
+  readonly label: string;
+  /** The overlay is applied in the shown state. */
+  readonly on: boolean;
+  /** The overlay follows the map state, so its switch takes no click. */
+  readonly following: boolean;
+}
+
+/** The guides that the outliner lists: the navgrid and its overlays. */
+export interface GuideOutline {
+  /** The Navgrid switch. */
+  readonly navGridShown: boolean;
+  readonly overlays: readonly GuideOverlay[];
+}
+
+/**
+ * One row of the scene outliner: a collection, a controller group, a mesh, a chunk, a placeable
+ * or a guide.
+ */
 export type SceneRow =
   | OutlineRow
   | {
@@ -33,7 +58,18 @@ export type SceneRow =
       readonly meshes: readonly MapGeometryMesh[];
       readonly open: boolean;
     }
-  | { readonly type: "mesh"; readonly id: string; readonly mesh: MapGeometryMesh };
+  | { readonly type: "mesh"; readonly id: string; readonly mesh: MapGeometryMesh }
+  | {
+      readonly type: "guide";
+      readonly id: string;
+      readonly guide: GuideRef;
+      /** The overlay's file stem, and null for the navgrid. */
+      readonly label: string | null;
+      /** The guide draws: the Navgrid switch, or the overlay is applied. */
+      readonly shown: boolean;
+      /** The eye takes no click, since the overlay follows the map state. */
+      readonly following: boolean;
+    };
 
 /** The id of the group of meshes under `controller`, or of the meshes with none. */
 export function groupId(controller: string | null): string {
@@ -49,6 +85,8 @@ export function rowLevel(row: SceneRow, sectioned: boolean): number {
     case "group":
     case "chunk":
       return base + 1;
+    case "guide":
+      return base + (row.guide.kind === "navGrid" ? 1 : 2);
     default:
       return base + 2;
   }
@@ -65,28 +103,39 @@ export interface SceneOutlineInput {
   readonly shut: ReadonlySet<string>;
   /** The name a controller hash reads as. */
   readonly controllerName: (hash: string) => string;
+  /** The guides of the map, and null or absent where it has none. */
+  readonly guides?: GuideOutline | null;
+}
+
+/** The id of the outliner row of `guide`. */
+export function guideRowId(guide: GuideRef): string {
+  return guide.kind === "navGrid" ? "guide:navgrid" : `guide:navgrid/${guide.index}`;
 }
 
 /**
  * The scene flattened to the rows on screen.
  *
  * With meshes, two sections head the tree: Meshes, grouped by controller with the meshes of no
- * controller first, and Placeables, holding the chunks. Without meshes the chunks stand at the
- * top as they always did. A section is open unless shut, and a group opens as a chunk does.
- * The filter's kinds narrow the placeables and its `hideMeshes` leaves the meshes out, and its
- * text keeps the meshes whose material, controller or number holds it.
+ * controller first, and Placeables, holding the chunks. Without meshes or guides the chunks
+ * stand at the top as they always did. Guides follow as the last section: the navgrid, and under
+ * it one row per overlay. A section is open unless shut, and a group opens as a chunk does. The
+ * filter's kinds narrow the placeables and its `hideMeshes` leaves the meshes out, and its text
+ * keeps the meshes whose material, controller or number holds it.
  */
 export function sceneRows(input: SceneOutlineInput): SceneRow[] {
   const { meshes, chunks, filter, opened, shut } = input;
+  const guides = input.guides ?? null;
   const placed = outlineRows(chunks, opened, filter, shut);
-  if (meshes.length === 0) return placed;
+  if (meshes.length === 0 && guides === null) return placed;
 
   const narrowed = filtering(filter);
   const kept = filter.hideMeshes === true ? [] : meshes.filter((mesh) => meshMatches(mesh, input));
   const rows: SceneRow[] = [];
 
-  const meshesOpen = !shut.has("section:meshes");
-  rows.push({ type: "section", id: "section:meshes", open: meshesOpen, count: kept.length });
+  const meshesOpen = meshes.length > 0 && !shut.has("section:meshes");
+  if (meshes.length > 0) {
+    rows.push({ type: "section", id: "section:meshes", open: meshesOpen, count: kept.length });
+  }
   if (meshesOpen) {
     for (const [controller, held] of byController(kept, input.controllerName)) {
       const id = groupId(controller);
@@ -102,6 +151,38 @@ export function sceneRows(input: SceneOutlineInput): SceneRow[] {
   const count = placed.reduce((total, row) => total + (row.type === "chunk" ? row.shown : 0), 0);
   rows.push({ type: "section", id: "section:placeables", open: placeablesOpen, count });
   if (placeablesOpen) rows.push(...placed);
+
+  if (guides !== null) rows.push(...guideRows(guides, !shut.has("section:guides")));
+  return rows;
+}
+
+/** The Guides section and, while it is open, the navgrid row and a row per overlay. */
+function guideRows(guides: GuideOutline, open: boolean): SceneRow[] {
+  const count = 1 + guides.overlays.length;
+  const rows: SceneRow[] = [{ type: "section", id: "section:guides", open, count }];
+  if (!open) return rows;
+
+  const navGrid: GuideRef = { kind: "navGrid" };
+  rows.push({
+    type: "guide",
+    id: guideRowId(navGrid),
+    guide: navGrid,
+    label: null,
+    shown: guides.navGridShown,
+    following: false,
+  });
+  guides.overlays.forEach((overlay, index) => {
+    const guide: GuideRef = { kind: "overlay", index };
+    rows.push({
+      type: "guide",
+      id: guideRowId(guide),
+      guide,
+      label: overlay.label,
+      shown: overlay.on,
+      following: overlay.following,
+    });
+  });
+
   return rows;
 }
 

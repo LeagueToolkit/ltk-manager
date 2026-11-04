@@ -303,6 +303,12 @@ impl MapGeometryDocument {
         })
     }
 
+    /// Returns the map with its edits applied.
+    #[must_use]
+    pub fn asset(&self) -> &EnvironmentAsset {
+        &self.asset
+    }
+
     /// The count of changes applied, undone and redone since the open.
     #[must_use]
     pub fn revision(&self) -> u64 {

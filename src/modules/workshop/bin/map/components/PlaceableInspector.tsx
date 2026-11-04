@@ -42,8 +42,17 @@ export function PlaceableInspector({
   objectName: (entry: string) => string;
   onNotOpen: () => void;
 }) {
-  const { materials, materialsAsset, chosen, selected, lead, editable, setRenaming } =
-    useMapScene();
+  const {
+    materials,
+    materialsAsset,
+    chosen,
+    selected,
+    lead,
+    editable,
+    setRenaming,
+    tool,
+    setTool,
+  } = useMapScene();
   const actions = usePlaceableActions();
   const outline = useQuery(mapQueries.outline(materials));
   const placed = useMemo(
@@ -73,6 +82,7 @@ export function PlaceableInspector({
   }
   const rows = pages.get(holder)?.rows ?? [];
   const { chunk, item } = placed;
+  const tools = editable ? { current: tool, pick: setTool } : undefined;
 
   const showInChunk = (event: MouseEvent) => {
     const file = chosen === null ? chunk.entry : `${chosen.map}.materials.bin`;
@@ -130,6 +140,7 @@ export function PlaceableInspector({
         <TransformFields
           transform={item.transform}
           disabled={!editable}
+          tools={tools}
           onCommit={(next) => {
             const others = actions.selection.filter((each) => each.id !== placed.id);
             const items = [placed, ...others].map(({ id, item: each }) => ({
