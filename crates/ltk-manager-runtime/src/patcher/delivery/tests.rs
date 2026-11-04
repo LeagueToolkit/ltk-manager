@@ -483,15 +483,23 @@ fn sync_fails_if_attestation_is_refused() {
 }
 
 #[test]
-fn attested_manager_reads_statement_version() {
-    let statement = URL_SAFE_NO_PAD.encode(br#"{"manager":"1.29.0","commit":"0"}"#);
+fn attested_build_reads_statement_version_and_protocol() {
+    let statement = URL_SAFE_NO_PAD
+        .encode(br#"{"client":"ltk-manager","version":"1.29.0","commit":"0","protocol":3}"#);
 
     assert_eq!(
-        attested_manager(&format!("{statement}.sig")).as_deref(),
-        Some("1.29.0")
+        attested_build(&format!("{statement}.sig")),
+        Some(AttestedBuild {
+            version: "1.29.0".to_string(),
+            protocol: 3,
+        })
     );
-    assert_eq!(attested_manager("not base64url!.sig"), None);
-    assert_eq!(attested_manager(""), None);
+    assert_eq!(
+        attested_build(&URL_SAFE_NO_PAD.encode(br#"{"manager":"1.29.0","commit":"0"}"#)),
+        None
+    );
+    assert_eq!(attested_build("not base64url!.sig"), None);
+    assert_eq!(attested_build(""), None);
 }
 
 #[test]

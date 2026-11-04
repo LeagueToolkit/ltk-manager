@@ -215,7 +215,9 @@ jobs:
             exit 0
           fi
 
-          ATTESTATION=$(node scripts/attest-build.mjs "${{ steps.version.outputs.version }}" "$GITHUB_SHA")
+          ATTESTATION=$(node scripts/attest-build.mjs --client ltk-manager \
+            --protocol "$(cat src-tauri/host-protocol)" \
+            "${{ steps.version.outputs.version }}" "$GITHUB_SHA")
           echo "LTK_PATCHER_ATTESTATION=$ATTESTATION" >> "$GITHUB_ENV"
           echo "LTK_PATCHER_DELIVERY=$LTK_PATCHER_DELIVERY" >> "$GITHUB_ENV"
 

@@ -31,6 +31,9 @@ pub use manifest::{Envelope, MAX_DLL_BYTES, Manifest, Release};
 /// File in the delivery root that holds the install registration and cached manifests.
 const STATE_FILE: &str = "delivery.json";
 
+/// Client name that this manager registers as, and the first word of its User-Agent.
+const CLIENT: &str = "ltk-manager";
+
 /// A delivery channel.
 #[derive(
     Debug,
@@ -266,7 +269,7 @@ impl PatcherDelivery {
             return Err(DeliveryError::Unattested);
         }
 
-        let service = Service::new(&self.url, &format!("ltk-manager/{}", self.manager))?;
+        let service = Service::new(&self.url, &format!("{CLIENT}/{}", self.manager))?;
         let mut state = self.load();
         let cached = self.cached(&state, channel);
 
@@ -443,7 +446,7 @@ impl PatcherDelivery {
             .attestation
             .as_deref()
             .ok_or(DeliveryError::Unattested)?;
-        let token = service.register(&install, &self.manager.to_string(), attestation)?;
+        let token = service.register(&install, CLIENT, &self.manager.to_string(), attestation)?;
 
         state.token = Some(token.clone());
         self.save(state)?;
@@ -570,21 +573,23 @@ fn stage_host(dir: &Path, bundled_host: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-/// Returns the manager version that the statement of `attestation` names.
-///
-/// Returns `None` if the statement is not base64url JSON with a `manager` field. The
-/// signature is not checked, because only the service holds the key to do so.
-pub fn attested_manager(attestation: &str) -> Option<String> {
-    #[derive(Deserialize)]
-    struct Statement {
-        manager: String,
-    }
+/// The build that the statement of an attestation names.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct AttestedBuild {
+    /// Release version of the build, without a pre-release suffix.
+    pub version: String,
+    /// Host protocol that the build injects the DLL with.
+    pub protocol: u32,
+}
 
+/// Returns the build that the statement of `attestation` names.
+///
+/// Returns `None` if the statement is not base64url JSON with a `version` and a `protocol`
+/// field. The signature is not checked, because only the service holds the key to do so.
+pub fn attested_build(attestation: &str) -> Option<AttestedBuild> {
     let statement = attestation.split('.').next()?;
     let bytes = URL_SAFE_NO_PAD.decode(statement).ok()?;
-    serde_json::from_slice::<Statement>(&bytes)
-        .ok()
-        .map(|statement| statement.manager)
+    serde_json::from_slice(&bytes).ok()
 }
 
 #[cfg(test)]

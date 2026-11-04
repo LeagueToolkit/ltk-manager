@@ -1,6 +1,6 @@
 // Prints a new Ed25519 pair for build attestations: the PKCS#8 PEM private key for the
 // LTK_PATCHER_ATTESTATION_KEY repository secret, then the base64 raw public key for the
-// delivery service's MANAGER_ATTESTATION_PUBLIC_KEYS.
+// delivery service's client registry.
 
 import { generateKeyPairSync } from "node:crypto";
 
