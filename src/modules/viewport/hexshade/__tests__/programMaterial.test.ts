@@ -48,6 +48,7 @@ function pass(over: Partial<ResolvedPass> = {}): ResolvedPass {
     textures: [],
     params: [],
     state: OPAQUE,
+    drivers: [],
     schema: null,
     ...over,
   };

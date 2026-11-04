@@ -81,6 +81,89 @@ fn define(name: &str, value: &str, source: DefineSource) -> Define {
     }
 }
 
+/// A `dynamicMaterial` parameter on `name` whose driver is of `class`, enabled unless `enabled`
+/// says otherwise.
+fn dynamic_param(name: &str, class: &str, enabled: Option<bool>) -> values::Embedded {
+    let mut fields = vec![
+        (NAME, values::String::from(name).into()),
+        (
+            DRIVER,
+            values::Struct {
+                class_hash: h(class),
+                properties: Default::default(),
+            }
+            .into(),
+        ),
+    ];
+    if let Some(enabled) = enabled {
+        fields.push((ENABLED, values::Bool::new(enabled).into()));
+    }
+    embedded("DynamicMaterialParameterDef", fields)
+}
+
+/// `material` with a `dynamicMaterial` holding `parameters`.
+fn animated(material: Material, parameters: Vec<values::Embedded>) -> Material {
+    material.with(
+        DYNAMIC_MATERIAL,
+        values::Struct {
+            class_hash: h("DynamicMaterialDef"),
+            properties: [(DYNAMIC_PARAMETERS, list(parameters))].into(),
+        }
+        .into(),
+    )
+}
+
+#[test]
+fn a_player_position_driver_marks_its_parameter() {
+    let material = animated(
+        body(),
+        vec![
+            dynamic_param("TintColor", "PlayerPositionDynamicMaterialDriver", None),
+            dynamic_param(
+                "Bloom_Intensity",
+                "PlayerPositionDynamicMaterialDriver",
+                Some(false),
+            ),
+            dynamic_param("Alpha", "LerpMaterialDriver", None),
+            dynamic_param("Undeclared", "PlayerPositionDynamicMaterialDriver", None),
+        ],
+    );
+
+    let resolved = resolve(material, Some(&shaders()));
+
+    assert_eq!(
+        only_pass(&resolved).drivers,
+        [PassDriver {
+            param: "TintColor".to_owned(),
+            fields: 0b1111,
+            kind: ParamDriverKind::PlayerPosition,
+        }]
+    );
+}
+
+#[test]
+fn a_player_position_driver_marks_a_parameter_without_shader_defs() {
+    let material = animated(
+        body(),
+        vec![dynamic_param(
+            "TintColor",
+            "PlayerPositionDynamicMaterialDriver",
+            None,
+        )],
+    );
+
+    let resolved = resolve(material, None);
+
+    assert_eq!(
+        only_pass(&resolved)
+            .drivers
+            .iter()
+            .map(|driver| driver.param.as_str())
+            .collect::<Vec<_>>(),
+        ["TintColor"]
+    );
+}
+
 #[test]
 fn a_body_material_resolves_every_input_its_shader_declares() {
     let resolved = resolve(body(), Some(&shaders()));

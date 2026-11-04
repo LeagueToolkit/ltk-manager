@@ -22,7 +22,7 @@ import {
   type WebGLRenderer,
 } from "three";
 
-import type { MapBounds, UniformBlock } from "@/lib/tauri";
+import type { MapBounds, ParamDriverKind, UniformBlock } from "@/lib/tauri";
 
 import {
   CUBE_FACES as GRID_FACES,
@@ -39,7 +39,12 @@ import {
   SKY_FACE_SIZE,
   skyCubeTexels,
 } from "./pbrLighting";
-import { GRASS_TINTS, type InlinedBlock, programGlobals } from "./programMaterial";
+import {
+  GRASS_TINTS,
+  type InlinedBlock,
+  type ProgramGlobals,
+  programGlobals,
+} from "./programMaterial";
 
 /** The light grid of a physically based shader, one texel per layer. */
 const LIGHT_GRID_TEXTURE = "LIGHT_GRID_TEXTURE_SharedTexture";
@@ -182,6 +187,8 @@ export class EngineEnvironment {
       }
     }
 
+    this.writeDrivers(globals, program);
+
     const grids = globals.samplers.get(LIGHT_GRID_TEXTURE);
     if (grids !== undefined) bindSamplers(program, grids, this.lightGridTexture());
     const cubes = globals.samplers.get(IBL_CUBEMAP);
@@ -197,6 +204,55 @@ export class EngineEnvironment {
         program.uniformsNeedUpdate = true;
       }
     }
+  }
+
+  /**
+   * Writes each member of `globals` that a `dynamicMaterial` driver writes in the game, for
+   * the object this frame draws, through the driver's component mask.
+   */
+  private writeDrivers(globals: ProgramGlobals, program: RawShaderMaterial): void {
+    const uniforms: Record<string, IUniform> = program.uniforms;
+    for (const driver of globals.drivers) {
+      const value = this.driverValue(driver.kind);
+      for (const at of globals.members.get(driver.param) ?? []) {
+        const block = floatsOf(uniforms[at.block]?.value);
+        if (block === null) continue;
+
+        let next = 0;
+        for (let component = 0; component < VEC4_FLOATS; component += 1) {
+          if ((driver.fields & (1 << component)) === 0) continue;
+          const written = value[next] ?? 0;
+          next += 1;
+          if (block[at.offset + component] === written) continue;
+          block[at.offset + component] = written;
+          program.uniformsNeedUpdate = true;
+        }
+      }
+    }
+  }
+
+  /** Returns what a driver of `kind` writes for the object this frame draws. */
+  private driverValue(kind: ParamDriverKind): readonly number[] {
+    switch (kind) {
+      case "playerPosition":
+        return this.playerPosition();
+    }
+  }
+
+  /**
+   * Returns the drawn character's position in the space its vertices reach the shader in.
+   *
+   * A skinned subject's vertices reach it in the world through the bones. Any other subject
+   * is drawn in its own space, since `clip` folds in its transform, so it stands at the origin.
+   */
+  private playerPosition(): readonly number[] {
+    const subject = this.subject;
+    if (subject === null || !isSkinned(subject) || subject.bindMode === DetachedBindMode) {
+      return ORIGIN;
+    }
+
+    PLAYER.setFromMatrixPosition(subject.matrixWorld);
+    return [PLAYER.x, PLAYER.y, PLAYER.z];
   }
 
   /** Every buffer written for `object` as `camera` sees it, once per frame. */
@@ -382,6 +438,10 @@ type Writer = (
 
 const FLOAT_BYTES = 4;
 const VEC4_FLOATS = 4;
+
+/** The position of a subject drawn in its own space. */
+const ORIGIN: readonly number[] = [0, 0, 0];
+const PLAYER = new Vector3();
 
 /** The light map transform of a mesh without one, reading its `uv1` as it is. */
 const UNIT_SCALE: readonly [number, number] = [1, 1];

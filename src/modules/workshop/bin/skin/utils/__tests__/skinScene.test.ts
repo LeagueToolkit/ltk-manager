@@ -620,6 +620,7 @@ describe("submeshOutline", () => {
             depthCompareFunc: 3,
             writeMask: 31,
           },
+          drivers: [],
           schema: null,
         },
         program: { kind: "ready", defines: [], vertex: stage, pixel: stage },

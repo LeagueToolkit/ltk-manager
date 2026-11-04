@@ -6988,6 +6988,14 @@ export type PagePatch = {
 	sprites: PatchSprite[],
 };
 
+/**  What a [`PassDriver`] writes. */
+export type ParamDriverKind = 
+/**
+ *  `PlayerPositionDynamicMaterialDriver`: the character's position in the world, `x`, `y`
+ *  and `z`.
+ */
+"playerPosition";
+
 /**  Which step of section 11.6 last wrote a parameter. */
 export type ParamSource = 
 /**  `ShaderPhysicalParameter.data`. */
@@ -7056,6 +7064,15 @@ export type ParticleShader =
  *  attached mesh.
  */
 "distortionAttachedMesh";
+
+/**  A physical parameter that a `dynamicMaterial` driver writes on every frame. */
+export type PassDriver = {
+	/**  The physical name, which the `$Globals` member carries. */
+	param: string,
+	/**  The components the driver's value fills, in order, bit `i` for component `i`. */
+	fields: number,
+	kind: ParamDriverKind,
+};
 
 /**  One `ShaderPhysicalParameter` after the material's and the pass's values wrote into it. */
 export type PassParam = {
@@ -8130,6 +8147,11 @@ export type ResolvedPass = {
 	textures: PassTexture[],
 	/**  Every physical parameter in declaration order, each a `$Globals` member. */
 	params: PassParam[],
+	/**
+	 *  The parameters a `dynamicMaterial` driver writes on every frame that a preview can
+	 *  compute. `params` holds their static values.
+	 */
+	drivers: PassDriver[],
 	state: PassState,
 	/**  What the pass shader declares, and none where the defs were not opened. */
 	schema: ShaderSchema | null,

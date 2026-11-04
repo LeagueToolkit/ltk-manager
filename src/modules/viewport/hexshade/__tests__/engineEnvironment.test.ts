@@ -11,7 +11,7 @@ import {
 } from "three";
 import { describe, expect, it } from "vitest";
 
-import type { UniformBlock } from "@/lib/tauri";
+import type { PassDriver, UniformBlock } from "@/lib/tauri";
 
 import { DEFAULT_SUN } from "../../scene/utils/sunLight";
 import { ambientCube, EngineEnvironment, writeRows } from "../engineEnvironment";
@@ -116,6 +116,7 @@ function programMaterial(
   environment: EngineEnvironment,
   vertex: readonly (readonly [UniformBlock, string])[],
   pixel: readonly (readonly [UniformBlock, string])[],
+  drivers: PassDriver[] = [],
 ): RawShaderMaterial {
   const stage = (blocks: readonly (readonly [UniformBlock, string])[]) => ({
     id: 1,
@@ -145,6 +146,7 @@ function programMaterial(
           depthCompareFunc: 3,
           writeMask: 31,
         },
+        drivers,
         schema: null,
       },
       program: { kind: "ready", defines: [], vertex: stage(vertex), pixel: stage(pixel) },
@@ -152,6 +154,31 @@ function programMaterial(
     },
     environment,
   );
+}
+
+/** A skinned mesh standing at `x`, `y` and `z` in the world. */
+function skinnedAt(x: number, y: number, z: number): SkinnedMesh {
+  const mesh = new SkinnedMesh();
+  mesh.position.set(x, y, z);
+  mesh.updateMatrixWorld();
+  return mesh;
+}
+
+/** The pixel globals after one draw of `subject` with `Tint` driven by its position. */
+function drivenTint(subject: Object3D): number[] {
+  const environment = new EngineEnvironment();
+  const material = programMaterial(
+    environment,
+    [],
+    [[GLOBALS, declared("Globals_ps", "vec4", 2)]],
+    [{ param: "Tint", fields: 0b0111, kind: "playerPosition" }],
+  );
+  const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+  environment.write(renderer, new PerspectiveCamera(), subject, 0);
+  environment.draw(material);
+
+  return [...(material.uniforms["Globals_ps"]?.value as Float32Array)];
 }
 
 describe("EngineEnvironment.draw", () => {
@@ -174,6 +201,20 @@ describe("EngineEnvironment.draw", () => {
       0.5, 0.25, 0.125, 0, 1, 2, 3, 4,
     ]);
     expect(material.uniformsNeedUpdate).toBe(true);
+  });
+
+  it("writes a skinned subject's world position into a player position member through its mask", () => {
+    const driven = drivenTint(skinnedAt(10, 20, 30));
+
+    expect(driven).toEqual([1, 1, 0, 0, 10, 20, 30, 4]);
+  });
+
+  it("writes the origin for a subject drawn in its own space", () => {
+    const placed = new Object3D();
+    placed.position.set(10, 20, 30);
+    placed.updateMatrixWorld();
+
+    expect(drivenTint(placed)).toEqual([1, 1, 0, 0, 0, 0, 0, 4]);
   });
 
   it("keeps a globals block the translation reads as integers bit for bit", () => {

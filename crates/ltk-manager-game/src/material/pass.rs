@@ -38,6 +38,14 @@ const DEPTH_COMPARE_FUNC: BinHash = named("depthCompareFunc");
 const DEPTH_LESS_EQUAL: u32 = 3;
 /// The `writeMask` the class defaults to, colour and depth.
 const WRITE_ALL: u32 = 31;
+/// `DynamicMaterialDef.parameters`.
+const DYNAMIC_PARAMETERS: BinHash = named("parameters");
+/// `DynamicMaterialParameterDef.driver`.
+const DRIVER: BinHash = named("driver");
+/// `DynamicMaterialParameterDef.Enabled`, true where the field is absent.
+const ENABLED: BinHash = named("Enabled");
+/// The driver class whose value is the character's world position.
+const PLAYER_POSITION_DRIVER: BinHash = named("PlayerPositionDynamicMaterialDriver");
 
 /// One `StaticMaterialDef` as the engine builds it: every pass of its `normal` technique
 /// with everything the pass shader is bound with.
@@ -126,6 +134,9 @@ pub struct ResolvedPass {
     pub textures: Vec<PassTexture>,
     /// Every physical parameter in declaration order, each a `$Globals` member.
     pub params: Vec<PassParam>,
+    /// The parameters a `dynamicMaterial` driver writes on every frame that a preview can
+    /// compute. `params` holds their static values.
+    pub drivers: Vec<PassDriver>,
     pub state: PassState,
     /// What the pass shader declares, and none where the defs were not opened.
     pub schema: Option<ShaderSchema>,
@@ -308,6 +319,29 @@ pub enum ParamSource {
     Material,
     /// `StaticMaterialPassDef.paramValues`.
     Pass,
+}
+
+/// A physical parameter that a `dynamicMaterial` driver writes on every frame.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct PassDriver {
+    /// The physical name, which the `$Globals` member carries.
+    pub param: String,
+    /// The components the driver's value fills, in order, bit `i` for component `i`.
+    pub fields: u32,
+    pub kind: ParamDriverKind,
+}
+
+/// What a [`PassDriver`] writes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[non_exhaustive]
+pub enum ParamDriverKind {
+    /// `PlayerPositionDynamicMaterialDriver`: the character's position in the world, `x`, `y`
+    /// and `z`.
+    PlayerPosition,
 }
 
 /// The pass's render state, field by field, with the class defaults filled in.
@@ -517,6 +551,7 @@ impl<'a> Reader<'a> {
             .collect();
         let textures = self.pass_textures(&shader);
         let params = self.pass_params(pass, &shader);
+        let drivers = self.pass_drivers(&shader, &params);
 
         let schema = shader.declared.then(|| shader.schema());
 
@@ -526,9 +561,54 @@ impl<'a> Reader<'a> {
             runtime_switches,
             textures,
             params,
+            drivers,
             state: pass_state(pass),
             schema,
         }
+    }
+
+    /// The parameters of `params` that an enabled `dynamicMaterial` driver of a known kind
+    /// writes. A parameter the pass shader does not declare is skipped.
+    fn pass_drivers(&self, shader: &ShaderDef, params: &[PassParam]) -> Vec<PassDriver> {
+        let parameters = struct_of(self.material.get(&DYNAMIC_MATERIAL))
+            .map_or(&[][..], |(_, dynamic)| {
+                items(dynamic.get(&DYNAMIC_PARAMETERS))
+            });
+
+        let mut drivers = Vec::new();
+        for fields in parameters.iter().filter_map(|item| fields_of(Some(item))) {
+            if boolean(fields.get(&ENABLED)) == Some(false) {
+                continue;
+            }
+            let Some(name) = text(fields.get(&NAME)) else {
+                continue;
+            };
+            let kind = match struct_of(fields.get(&DRIVER)) {
+                Some((class, _)) if class == PLAYER_POSITION_DRIVER => {
+                    ParamDriverKind::PlayerPosition
+                }
+                _ => continue,
+            };
+
+            let target = if shader.declared {
+                shader
+                    .logical_target(name)
+                    .map(|(at, mask)| (shader.physical[at].name.clone(), mask))
+            } else {
+                params
+                    .iter()
+                    .any(|param| param.name == name)
+                    .then(|| (name.to_owned(), 0b1111))
+            };
+            if let Some((param, fields)) = target {
+                drivers.push(PassDriver {
+                    param,
+                    fields,
+                    kind,
+                });
+            }
+        }
+        drivers
     }
 
     /// The define list of section 2.2: the material's macros, the shader's feature

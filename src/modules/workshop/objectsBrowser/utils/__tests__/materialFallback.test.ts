@@ -37,6 +37,7 @@ function failedPass(textures: readonly (readonly [string, AssetRef | null])[]): 
         depthCompareFunc: 3,
         writeMask: 31,
       },
+      drivers: [],
       schema: null,
     },
     program: { kind: "failed", reason: "no permutation" },
