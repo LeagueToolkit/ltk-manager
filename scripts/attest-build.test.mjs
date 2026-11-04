@@ -73,6 +73,27 @@ describe("normalizePem", () => {
   });
 });
 
+describe("attest with a wrong key", () => {
+  const build = { client: "ltk-manager", version: "1.29.0", commit: COMMIT, protocol: 3 };
+
+  it("names the decoded length when the PEM body is not PKCS#8, such as a public key", () => {
+    const { publicKey } = pair();
+    const raw = Buffer.from(publicKey.export({ format: "jwk" }).x, "base64url").toString("base64");
+
+    expect(() => attest(build, raw)).toThrow(
+      "Not a PKCS#8 private key: the PEM body decodes to 32 bytes",
+    );
+  });
+
+  it("names the key type when the key is not Ed25519", () => {
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+
+    expect(() => attest(build, privateKey.export({ type: "pkcs8", format: "pem" }))).toThrow(
+      "Not an Ed25519 key: rsa",
+    );
+  });
+});
+
 describe("releaseVersion", () => {
   it("strips a pre-release and build suffix", () => {
     expect(releaseVersion("1.29.0")).toBe("1.29.0");
