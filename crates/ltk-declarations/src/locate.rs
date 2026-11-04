@@ -6,7 +6,7 @@
 //! key names a property by its full path, `skinMeshProperties.selfIllumination`,
 //! or by the part of it below an unsigned block key, `selfIllumination` under
 //! `skinMeshProperties:`. An object a `target` module creates takes its keys in
-//! the `set` of its `objects` entry.
+//! the `set` of its `objects` entry, or under its class tag.
 
 use ltk_game_data::{BinHash, EntryName, Sign, Target};
 use ltk_meta::path::{PropertyPath, Segment, Subscript};
@@ -120,8 +120,8 @@ fn binding_bodies(body: &Mapping, entry: BinHash, bodies: &mut Vec<Mapping>) {
     bodies.extend(
         object_entries(body, entry)
             .iter()
-            .filter_map(creation)
-            .filter_map(|object| object.get_mapping("set")),
+            .filter(|object| creates(object))
+            .filter_map(object_set),
     );
     bodies.extend(entry_bodies(body, entry, &MODULE_KEYS));
 }
@@ -146,7 +146,7 @@ pub(crate) fn last_source_creation(doc: &Document, entry: BinHash) -> Option<Map
     source_bodies(doc)
         .iter()
         .flat_map(|body| object_entries(body, entry))
-        .rfind(|object| creation(object).is_some())
+        .rfind(creates)
 }
 
 /// Returns the index of the last `target` module of the chunk `chunk_hash` that creates
@@ -170,11 +170,9 @@ pub(crate) fn last_creation(
             .and_then(|source| source.as_scalar().map(yaml_edit::Scalar::as_string));
         let creates = match &source {
             Some(source) => source_creates(source),
-            None => module_bodies(module, chunk_hash).iter().any(|body| {
-                object_entries(body, entry)
-                    .iter()
-                    .any(|object| creation(object).is_some())
-            }),
+            None => module_bodies(module, chunk_hash)
+                .iter()
+                .any(|body| object_entries(body, entry).iter().any(creates)),
         };
         if creates {
             found = Some((index, source));
@@ -228,10 +226,23 @@ pub(crate) fn object_entries(body: &Mapping, entry: BinHash) -> Vec<MappingEntry
         .unwrap_or_default()
 }
 
-/// The body of an `objects` entry that creates its object, by `clone` or by `class`.
-pub(crate) fn creation(object: &MappingEntry) -> Option<Mapping> {
-    syntax::mapping_value(object)
-        .filter(|body| body.get("clone").is_some() || body.get("class").is_some())
+/// Whether an `objects` entry creates its object: by `clone`, by `class`, or by a class tag
+/// (`Name: !Class`), with or without a body.
+pub(crate) fn creates(object: &MappingEntry) -> bool {
+    match object.value_node() {
+        Some(YamlNode::TaggedNode(_)) => true,
+        Some(YamlNode::Mapping(body)) => body.get("clone").is_some() || body.get("class").is_some(),
+        _ => false,
+    }
+}
+
+/// The properties an `objects` entry sets: the body of a class-tag object, else its `set`.
+pub(crate) fn object_set(object: &MappingEntry) -> Option<Mapping> {
+    match object.value_node()? {
+        YamlNode::TaggedNode(tagged) => tagged.as_mapping(),
+        YamlNode::Mapping(body) => body.get_mapping("set"),
+        _ => None,
+    }
 }
 
 /// The last `objects` entry naming `entry` in a `target` module of the chunk `chunk_hash`.

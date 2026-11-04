@@ -245,7 +245,7 @@ fn a_leaf_set_writes_one_line_and_marks_its_row() {
     assert_eq!(
         manifest(dir.path(), "base"),
         format!(
-            "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.37\n"
+            "version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties:\n          selfIllumination: 0.37\n"
         ),
     );
     assert!((glow(&document) - 0.37).abs() < f32::EPSILON);
@@ -1020,7 +1020,7 @@ fn a_new_module_choice_makes_one_module_that_later_edits_join() {
     assert_eq!(
         manifest(dir.path(), "base"),
         format!(
-            "{text}  - name: Name\n    entries:\n      {SKIN}:\n        championSkinName: Jade\n        skinMeshProperties.texture: assets/jade.tex\n"
+            "{text}  - name: Name\n    entries:\n      {SKIN}:\n        championSkinName: Jade\n        skinMeshProperties:\n          texture: assets/jade.tex\n"
         )
     );
 }
@@ -1047,7 +1047,7 @@ fn a_key_moved_between_modules_keeps_the_view_and_undoes() {
     assert_eq!(
         manifest(dir.path(), "base"),
         format!(
-            "version: 1\nmodules:\n  - name: Later\n    entries:\n      Characters/Other:\n        q: 1\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.5\n"
+            "version: 1\nmodules:\n  - name: Later\n    entries:\n      Characters/Other:\n        q: 1\n      {SKIN}:\n        skinMeshProperties:\n          selfIllumination: 0.5\n"
         )
     );
     assert!((glow(&document) - 0.5).abs() < f32::EPSILON);

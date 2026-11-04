@@ -13,7 +13,7 @@ use yaml_edit::{Document, Mapping, MappingEntry};
 
 use crate::Refusal;
 use crate::document_text::DocumentText;
-use crate::syntax;
+use crate::{locate, syntax};
 
 /// The keys of a `target` body that are not entry names.
 const BINDING_KEYS: [&str; 8] = [
@@ -160,10 +160,11 @@ impl Layout {
         key: &str,
     ) -> Option<KeyLayout> {
         let found = self.entry_key(body, binding, entry)?;
-        let mut properties = syntax::mapping_value(&found)?;
-        if binding == Binding::Object {
-            properties = properties.get_mapping("set")?;
-        }
+        let properties = if binding == Binding::Object {
+            locate::object_set(&found)?
+        } else {
+            syntax::mapping_value(&found)?
+        };
 
         let property = syntax::entries(&properties).into_iter().find(|candidate| {
             syntax::key_string(candidate).is_some_and(|spelled| same_key(&spelled, key))

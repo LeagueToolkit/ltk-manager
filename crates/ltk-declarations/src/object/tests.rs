@@ -13,6 +13,7 @@ const OTHER_CHUNK: &str = "data/characters/annie/skins/skin0.bin";
 const SKIN0: &str = "Characters/Teemo/Skins/Skin0";
 const GLOW: &str = "Mods/jade-teemo/Glow";
 const SPARK: &str = "Mods/jade-teemo/Spark";
+const BARE: &str = "Mods/jade-teemo/Bare";
 
 /// A manifest whose last module is a hand-written `target` module of the chunk, with
 /// comments beside its keys.
@@ -119,8 +120,7 @@ fn a_creation_joins_the_last_target_module_of_the_chunk_and_keeps_its_comments()
         text,
         format!(
             "{TARGETED}    objects:
-      Mods/jade-teemo/Glow:
-        class: StaticMaterialDef
+      Mods/jade-teemo/Glow: !StaticMaterialDef {{}}
       Mods/jade-teemo/Spark:
         class: '0x0a1b2c3d'
 "
@@ -171,8 +171,7 @@ fn a_creation_for_another_chunk_writes_a_trailing_module() {
         format!(
             "{TARGETED}  - target: data/characters/annie/skins/skin0.bin
     objects:
-      Mods/jade-teemo/Glow:
-        class: StaticMaterialDef
+      Mods/jade-teemo/Glow: !StaticMaterialDef {{}}
 "
         )
     );
@@ -254,7 +253,8 @@ modules:
       Mods/jade-teemo/Glow:
         clone: Characters/Teemo/Skins/Skin0
         set:
-          skinMeshProperties.texture: c.tex
+          skinMeshProperties:
+            texture: c.tex
           iconCircle: b.tex
 "
     );
@@ -273,6 +273,105 @@ modules:
     };
     assert_eq!(properties.len(), 2);
     assert_eq!(properties[0].sign, Sign::Set);
+}
+
+#[test]
+fn a_key_of_a_class_tag_object_joins_its_body() {
+    let manifest = "\
+version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade-teemo/Glow: !StaticMaterialDef
+        paramValues:
+        - !embed(StaticMaterialShaderParamDef)
+          name: Tint
+          value: [1.0, 1.0, 1.0, 1.0]
+      Mods/jade-teemo/Bare: !StaticMaterialDef
+      Mods/jade-teemo/Spark: !StaticMaterialDef {} # empty
+";
+
+    let text = edited(
+        Some(manifest),
+        vec![
+            Step::Key(set(GLOW, "paramValues", "[]")),
+            Step::Key(set(GLOW, "techniques[0].name", "normal")),
+            Step::Key(set(BARE, "iconSquare", "a.tex")),
+            Step::Key(set(SPARK, "iconCircle", "b.tex")),
+            Step::Key(set(SPARK, "skinMeshProperties.texture", "c.tex")),
+        ],
+    );
+
+    assert_eq!(
+        text,
+        "\
+version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade-teemo/Glow: !StaticMaterialDef
+        paramValues: []
+        techniques[0]:
+          name: normal
+      Mods/jade-teemo/Bare: !StaticMaterialDef
+        iconSquare: a.tex
+      Mods/jade-teemo/Spark: !StaticMaterialDef # empty
+        iconCircle: b.tex
+        skinMeshProperties:
+          texture: c.tex
+"
+    );
+}
+
+#[test]
+fn a_list_laid_out_again_keeps_its_dashes_at_the_key() {
+    let manifest = "\
+version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade-teemo/Glow: !StaticMaterialDef
+        paramValues:
+        - name: Tint
+          value: 1.0
+        - name: Glow
+          value: 2.0
+";
+
+    let text = edited(
+        Some(manifest),
+        vec![Step::Key(set(
+            GLOW,
+            "paramValues",
+            "- name: Tint\n  value: 1.0\n- name: Glow\n  value: 3.0",
+        ))],
+    );
+
+    assert_eq!(text, manifest.replace("value: 2.0", "value: 3.0"));
+}
+
+#[test]
+fn a_constructed_object_is_a_class_tag_that_takes_keys_as_a_block() {
+    let text = edited(
+        None,
+        vec![
+            Step::Object(object(GLOW, class("StaticMaterialDef"))),
+            Step::Key(set(GLOW, "skinMeshProperties.texture", "c.tex")),
+        ],
+    );
+
+    assert_eq!(
+        text,
+        "\
+version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade-teemo/Glow: !StaticMaterialDef
+        skinMeshProperties:
+          texture: c.tex
+"
+    );
 }
 
 #[test]
@@ -371,8 +470,7 @@ fn a_drop_takes_the_object_and_the_module_it_leaves_empty() {
         one,
         format!(
             "{TARGETED}    objects:
-      Mods/jade-teemo/Spark:
-        class: StaticMaterialDef
+      Mods/jade-teemo/Spark: !StaticMaterialDef {{}}
 "
         )
     );

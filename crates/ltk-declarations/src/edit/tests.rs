@@ -106,7 +106,7 @@ fn new_key_of_source_created_object_joins_its_set() {
 
     assert_eq!(
         source_on_disk(&dir),
-        format!("{PARTICLES}      complexEmitterDefinitionData[0].emitterName: Sparks\n")
+        format!("{PARTICLES}      complexEmitterDefinitionData[0]:\n        emitterName: Sparks\n")
     );
 }
 
