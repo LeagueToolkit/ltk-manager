@@ -5,39 +5,57 @@ import { describe, expect, it } from "vitest";
 import { attest, normalizePem, releaseVersion } from "./attest-build.mjs";
 
 const COMMIT = "a".repeat(40);
-const PURPOSE = Buffer.from("ltk-manager-attestation\0");
+const PURPOSE = Buffer.from("ltk-patcher-attestation\0");
+
+function pair() {
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  return { pem: privateKey.export({ type: "pkcs8", format: "pem" }), publicKey };
+}
+
+function verifies(value, publicKey) {
+  const [statement, signature] = value.split(".");
+  return verify(
+    null,
+    Buffer.concat([PURPOSE, Buffer.from(statement, "base64url")]),
+    publicKey,
+    Buffer.from(signature, "base64url"),
+  );
+}
 
 describe("attest", () => {
-  it("signs the release version and the commit", () => {
-    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+  it("signs the client, the release version, the commit and the protocol", () => {
+    const { pem, publicKey } = pair();
 
     const value = attest(
-      "1.29.0-rc.1",
-      COMMIT,
-      privateKey.export({ type: "pkcs8", format: "pem" }),
+      { client: "ltk-manager", version: "1.29.0-rc.1", commit: COMMIT, protocol: 3 },
+      pem,
     );
 
-    const [statement, signature] = value.split(".");
-    const bytes = Buffer.from(statement, "base64url");
-    expect(JSON.parse(bytes.toString())).toEqual({ manager: "1.29.0", commit: COMMIT });
-    expect(
-      verify(null, Buffer.concat([PURPOSE, bytes]), publicKey, Buffer.from(signature, "base64url")),
-    ).toBe(true);
+    const [statement] = value.split(".");
+    expect(JSON.parse(Buffer.from(statement, "base64url").toString())).toEqual({
+      client: "ltk-manager",
+      version: "1.29.0",
+      commit: COMMIT,
+      protocol: 3,
+    });
+    expect(verifies(value, publicKey)).toBe(true);
   });
 
-  it("fails if the commit is not 40 hex", () => {
-    const { privateKey } = generateKeyPairSync("ed25519");
+  it("fails if the client name, the commit or the protocol is malformed", () => {
+    const { pem } = pair();
+    const build = { client: "ltk-manager", version: "1.29.0", commit: COMMIT, protocol: 3 };
 
-    expect(() =>
-      attest("1.29.0", "abc", privateKey.export({ type: "pkcs8", format: "pem" })),
-    ).toThrow("Not a commit hash");
+    expect(() => attest({ ...build, commit: "abc" }, pem)).toThrow("Not a commit hash");
+    expect(() => attest({ ...build, client: "LTK Manager" }, pem)).toThrow("Not a client name");
+    expect(() => attest({ ...build, protocol: 1.5 }, pem)).toThrow("Not a host protocol");
+    expect(() => attest({ ...build, protocol: Number.NaN }, pem)).toThrow("Not a host protocol");
   });
 });
 
 describe("normalizePem", () => {
   it("restores a PEM that lost its line breaks or carries the public key line", () => {
-    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
-    const pem = privateKey.export({ type: "pkcs8", format: "pem" });
+    const { pem, publicKey } = pair();
+    const build = { client: "ltk-manager", version: "1.30.2", commit: COMMIT, protocol: 3 };
 
     for (const text of [
       pem.replace(/\n/g, ""),
@@ -45,16 +63,7 @@ describe("normalizePem", () => {
       `${pem}Public key: ${publicKey.export({ format: "jwk" }).x}\n`,
       pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").trim(),
     ]) {
-      const value = attest("1.30.2", COMMIT, text);
-      const [statement, signature] = value.split(".");
-      expect(
-        verify(
-          null,
-          Buffer.concat([PURPOSE, Buffer.from(statement, "base64url")]),
-          publicKey,
-          Buffer.from(signature, "base64url"),
-        ),
-      ).toBe(true);
+      expect(verifies(attest(build, text), publicKey)).toBe(true);
     }
     expect(normalizePem(pem)).toBe(pem);
   });

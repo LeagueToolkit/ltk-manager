@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ltk_manager_base::config::Config;
 use ltk_manager_runtime::patcher::delivery::{
-    attested_manager, Channel, DeliveryError, PatcherDelivery, StagedPatcher,
+    attested_build, Channel, DeliveryError, PatcherDelivery, StagedPatcher,
 };
 use parking_lot::Mutex;
 use semver::{Prerelease, Version};
@@ -33,8 +33,11 @@ const ATTESTATION: Option<&str> = option_env!("LTK_PATCHER_ATTESTATION");
 /// Read by `option_env!` at compile time, beside [`ATTESTATION`].
 const DELIVERY: Option<&str> = option_env!("LTK_PATCHER_DELIVERY");
 
-/// Host protocol of `resources/ltk_patcher_host.exe`. It must change together with the binary.
-const BUNDLED_HOST_PROTOCOL: u32 = 3;
+/// Host protocol of `resources/ltk_patcher_host.exe`, as decimal text.
+///
+/// The release workflow reads the same file into the build attestation, so the file must
+/// change together with the binary.
+const BUNDLED_HOST_PROTOCOL: &str = include_str!("../../host-protocol");
 
 /// Tauri-managed delivery client, and the lock that allows one sync at a time.
 #[derive(Clone)]
@@ -49,24 +52,30 @@ impl PatcherDeliveryState {
     /// Removes the staged builds that no cached manifest offers, before any session can
     /// select one. Returns a state without a client if the target is not Windows or if
     /// `data_dir` is `None`. The client has no attestation if the build has none or if its
-    /// attestation names another manager version.
+    /// attestation names another manager version or host protocol.
     pub fn new(data_dir: Option<&Path>) -> Self {
         let manager = Version {
             pre: Prerelease::EMPTY,
             ..Version::parse(env!("CARGO_PKG_VERSION")).expect("CARGO_PKG_VERSION is semver")
         };
         let release = manager.to_string();
+        let protocol: u32 = BUNDLED_HOST_PROTOCOL
+            .trim()
+            .parse()
+            .expect("src-tauri/host-protocol holds a decimal protocol number");
         let (url, public_key) = match DELIVERY {
             Some("staging") => STAGING,
             _ => PRODUCTION,
         };
         let attestation = ATTESTATION.filter(|attestation| {
-            attested_manager(attestation).as_deref() == Some(release.as_str())
+            attested_build(attestation)
+                .is_some_and(|build| build.version == release && build.protocol == protocol)
         });
         if ATTESTATION.is_some() && attestation.is_none() {
             tracing::warn!(
                 %release,
-                "The build attestation does not name this manager version. The patcher DLL is not downloaded"
+                protocol,
+                "The build attestation does not name this manager version and host protocol. The patcher DLL is not downloaded"
             );
         }
 
@@ -77,7 +86,7 @@ impl PatcherDeliveryState {
                 public_key: public_key.to_string(),
                 attestation: attestation.map(str::to_string),
                 manager,
-                protocol: BUNDLED_HOST_PROTOCOL,
+                protocol,
             })
         });
         if let Some(delivery) = &delivery {

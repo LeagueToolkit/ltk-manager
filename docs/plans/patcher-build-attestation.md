@@ -2,6 +2,11 @@
 
 Design spec, 2026-10-21. Draft for planning.
 
+Since 2026-11-04 the statement is `{"client":"ltk-manager","version":"<version>","commit":"<commit>","protocol":<n>}`
+under the purpose prefix `ltk-patcher-attestation\0`, where `protocol` is the host protocol in
+`src-tauri/host-protocol`. The registration body carries `client` and `version`, and the offer
+query `version`. The sections below describe the first form.
+
 A manager build proves to the delivery service that it is a release build of one version, with a
 statement that the release workflow signs at build time. The service verifies the statement
 against a pinned public key and denies a version by name. This replaces the shared client key,

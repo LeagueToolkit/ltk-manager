@@ -54,14 +54,16 @@ impl Service {
         })
     }
 
-    /// Registers `install` with its build `attestation` and returns its bearer token.
+    /// Registers `install` as a `version` build of `client` with its build `attestation`
+    /// and returns its bearer token.
     ///
     /// Solves the proof-of-work challenge of the service first. Fails if the challenge
     /// difficulty is above [`MAX_DIFFICULTY`].
     pub(super) fn register(
         &self,
         install: &str,
-        manager: &str,
+        client: &str,
+        version: &str,
         attestation: &str,
     ) -> Result<String, DeliveryError> {
         #[derive(Deserialize)]
@@ -92,7 +94,8 @@ impl Service {
                 .post(format!("{}/v1/installs", self.url))
                 .json(&json!({
                     "install": install,
-                    "manager": manager,
+                    "client": client,
+                    "version": version,
                     "attestation": attestation,
                     "challenge": challenge.challenge,
                     "nonce": nonce,
@@ -104,7 +107,7 @@ impl Service {
         Ok(registered.token)
     }
 
-    /// Requests the manifest that `channel` offers to `manager`.
+    /// Requests the manifest that `channel` offers to the `version` build of this client.
     ///
     /// Returns [`Offer::Unchanged`] if `etag` is still current. Returns
     /// [`Offer::Incompatible`] if the service answers `409`.
@@ -112,7 +115,7 @@ impl Service {
         &self,
         token: &str,
         channel: Channel,
-        manager: &str,
+        version: &str,
         etag: Option<&str>,
     ) -> Result<Offer, DeliveryError> {
         #[derive(Deserialize)]
@@ -123,7 +126,7 @@ impl Service {
         let mut request = self
             .client
             .get(format!("{}/v1/offer", self.url))
-            .query(&[("channel", channel.as_str()), ("manager", manager)])
+            .query(&[("channel", channel.as_str()), ("version", version)])
             .bearer_auth(token);
         if let Some(etag) = etag {
             request = request.header(IF_NONE_MATCH, etag);
