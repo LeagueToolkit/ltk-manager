@@ -50,8 +50,8 @@ and embeds the ones the community hashtables cannot resolve into the archive cop
 Embedded Hashtables standard. The names merge into the archive's first `game` table, or into a
 new `META/hashes/game.hashes.txt`. The entry records the counts as `EmbeddedNames`: how many
 names the archive gained (`embedded`), and how many chunks arrived with no readable name
-(`unnamed`). Before the step reads names, the import drops each table declaration whose file is
-absent or does not parse.
+(`unnamed`). The step skips each table declaration whose file is absent or does not parse, and
+logs it.
 
 **Mod archive** — `mods/<slug>.fantome` or `mods/<slug>.modpkg`, the file the mod arrived as,
 beside its directory. For a mod stored `archive` it is the mod — the content provider reads from
