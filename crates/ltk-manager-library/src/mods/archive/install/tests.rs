@@ -87,7 +87,7 @@ fn a_hashtable_containing_only_a_bom_installs_as_an_empty_table() {
 }
 
 #[test]
-fn an_invalid_hashtable_is_not_declared_by_the_staged_archive() {
+fn an_invalid_hashtable_is_skipped_by_the_staged_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("invalid-table.fantome");
@@ -97,12 +97,13 @@ fn an_invalid_hashtable_is_not_declared_by_the_staged_archive() {
 
     let mut reader =
         ltk_fantome::FantomeReader::new(fs::File::open(staged.staged_archive).unwrap()).unwrap();
-    reader.read_hashtables().unwrap();
-    assert!(
-        !reader
-            .entry_names()
-            .any(|name| name.eq_ignore_ascii_case("meta/hashes/game.hashes.txt"))
-    );
+    let tables = reader.read_hashtables().unwrap();
+    assert!(tables.iter().all(|(entry, _)| {
+        !entry
+            .path()
+            .as_str()
+            .eq_ignore_ascii_case("meta/HASHES/GAME.hashes.txt")
+    }));
 }
 
 #[test]

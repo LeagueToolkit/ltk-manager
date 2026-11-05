@@ -293,14 +293,14 @@ pub struct EmbeddedNames {
     pub unnamed: usize,
 }
 
-impl From<ltk_mod_project::HarvestReport> for EmbeddedNames {
-    fn from(report: ltk_mod_project::HarvestReport) -> Self {
+impl From<&ltk_mod_project::EmbedReport> for EmbeddedNames {
+    fn from(report: &ltk_mod_project::EmbedReport) -> Self {
         Self {
             embedded: match report.outcome {
-                ltk_mod_project::PreserveOutcome::Unchanged => 0,
-                ltk_mod_project::PreserveOutcome::Rewritten { names_added } => names_added,
+                ltk_mod_project::EmbedOutcome::Unchanged => 0,
+                ltk_mod_project::EmbedOutcome::Rewritten { embedded } => embedded,
             },
-            unnamed: report.unharvestable,
+            unnamed: report.unnamed,
         }
     }
 }

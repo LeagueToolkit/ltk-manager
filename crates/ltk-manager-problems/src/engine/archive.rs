@@ -108,11 +108,9 @@ impl ArchiveFiles {
         let entries = Self::layer_entries(zip.clone())?;
         let mut reader = open_fantome(archive)?;
 
-        // Read before the WADs and propagated as an error. The mod's own tables
-        // name its chunks before the caller's resolver does, as in an unpack,
-        // so an archive whose manifest lists a table it does not hold would get
-        // names an unpack cannot reproduce. The import refuses such an archive,
-        // and so does the scan.
+        // The mod's own tables name its chunks before the caller's resolver does, as in an
+        // unpack. `read_hashtables` skips an absent or unreadable table the same way the
+        // unpack does, so the scan and the repair name each chunk alike.
         let declared = reader.read_hashtables()?;
         let own_names = HashtableSet::build(declared.iter().cloned());
         let chained = Chained {

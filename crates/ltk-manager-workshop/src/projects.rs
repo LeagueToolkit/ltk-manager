@@ -1,4 +1,3 @@
-use super::fantome_tables::repair_declared_hashtables;
 use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
@@ -300,17 +299,13 @@ impl Workshop {
             .to_path_buf()
             .try_into_utf8("project directory")?;
 
-        let source = Path::new(&args.file_path);
-        let repaired = repair_declared_hashtables(source, &std::env::temp_dir())?;
-        let source = repaired.as_ref().map_or(source, |file| file.path());
-
         ProjectImporter::new(&utf8_project_dir)
             .with_config(|project| {
                 project.name = args.name.clone();
                 project.display_name = args.display_name.clone();
             })
             .import_with_progress(
-                FantomeImporter::new(fs::File::open(source)?).with_path_resolver(resolver),
+                FantomeImporter::new(fs::File::open(&args.file_path)?).with_path_resolver(resolver),
                 &mut |progress| self.emit_fantome_progress(progress.into()),
             )
             .map_err(|e| AppError::Fantome(format!("Failed to import fantome archive: {e}")))?;

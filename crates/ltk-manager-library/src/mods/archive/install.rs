@@ -37,7 +37,6 @@ mod existing;
 mod update;
 
 use existing::{SourceDigest, installed_from, older_version_of, read_library_mod};
-use ltk_manager_workshop::repair_declared_hashtables;
 use update::Replacement;
 
 /// Prefix an in-flight install's directory and archive copy share under `mods/`.
@@ -459,8 +458,6 @@ fn stage_into(
         // `Unknown` never reaches here — it is what a discovered directory
         // records, and nothing installs one.
         ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-            let repaired = repair_declared_hashtables(file_path, staging_dir)?;
-            let file_path = repaired.as_ref().map_or(file_path, |file| file.path());
             let source = file_path.to_path_buf().try_into_utf8("archive path")?;
             let dest = staged_archive
                 .to_path_buf()
@@ -500,16 +497,20 @@ fn embed_names(
     dest: &Utf8Path,
     context: &InstallContext<'_>,
 ) -> AppResult<EmbeddedNames> {
-    let report = ltk_mod_project::preserve_archive_names(source, dest, Some(context.resolver))
+    let report = ltk_mod_project::embed_archive_names(source, dest, Some(context.resolver))
         .map_err(|e| AppError::Other(format!("Failed to read the mod's chunk names: {e}")))?;
+
+    for skipped in &report.skipped {
+        tracing::warn!(archive = %source, "{skipped}");
+    }
     tracing::info!(
         archive = %source,
         outcome = ?report.outcome,
-        unnamed = report.unharvestable,
+        unnamed = report.unnamed,
         "Embedded the mod's chunk names on import"
     );
 
-    Ok(report.into())
+    Ok(EmbeddedNames::from(&report))
 }
 
 /// Assign a slug, move the staged files into place, and record the mod.

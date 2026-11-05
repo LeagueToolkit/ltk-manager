@@ -3,7 +3,6 @@
 mod chunk_names;
 mod content;
 mod declarations;
-mod fantome_tables;
 mod folders;
 mod ignore_rules;
 pub mod layer;
@@ -25,7 +24,6 @@ pub use declarations::{
     ManifestChange, ManifestConversionFailure, ManifestConversions, ModuleAction,
     declarations_error,
 };
-pub use fantome_tables::repair_declared_hashtables;
 pub use folders::{
     AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
     FolderInspection, FolderWad,

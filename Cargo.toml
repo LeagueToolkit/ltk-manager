@@ -84,14 +84,14 @@ ltk_file = { version = "0.2.13", features = ["serde"] }
 ltk_hash = { version = "0.5.3", features = ["serde"] }
 ltk_meta = { version = "0.9.1", features = ["serde"] }
 
-ltk_fantome = "0.18.2"
+ltk_fantome = "0.19.0"
 ltk_game_data = "0.12.0"
 # `rayon` mounts the archives of a chunk index build in parallel.
 ltk_game_index = { version = "0.2.0", features = ["rayon"] }
-ltk_mod_project = { version = "0.20.1", features = ["modpkg", "fantome"] }
+ltk_mod_project = { version = "0.21.0", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.2.2"
 ltk_modpkg = "0.12.18"
-ltk_overlay = "0.21.1"
+ltk_overlay = "0.21.2"
 ltk_wad = "0.5.10"
 # The files a `BankUnit` names: banks, media banks and packages.
 ltk_wwise = "0.2.0"

@@ -932,17 +932,13 @@ mod archive {
         assert_eq!(paths(&in_archive), paths(&layer(&from_tree, "base")));
     }
 
-    /// An archive that declares a hashtable it does not hold cannot name its
-    /// chunks as declared. The unpack refuses such an archive, and a scan that
-    /// continues would name its chunks differently from the repair that
-    /// follows.
     #[test]
-    fn an_undeclarable_hashtable_fails_the_scan() {
+    fn an_absent_declared_hashtable_is_skipped_by_the_scan() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("missing-table.fantome");
         ltk_manager_assets::test_util::make_missing_hashtable_fantome_zip(&archive);
 
-        let refused = ProjectFiles::in_archive(
+        let scanned = ProjectFiles::in_archive(
             &archive,
             &Config::default(),
             Budget::repair(),
@@ -951,8 +947,8 @@ mod archive {
         );
 
         assert!(
-            refused.is_err(),
-            "a manifest naming an absent table was accepted"
+            scanned.is_ok(),
+            "a manifest naming an absent table failed the scan"
         );
     }
 
