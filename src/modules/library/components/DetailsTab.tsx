@@ -1,6 +1,7 @@
 import {
   ArrowsClockwiseIcon,
   FolderOpenIcon,
+  InfoIcon,
   PackageIcon,
   PencilSimpleIcon,
   SpinnerGapIcon,
@@ -63,6 +64,7 @@ function Details({ mod, showCover }: { mod: InstalledMod; showCover: boolean }) 
       <Layers mod={mod} />
       <WadFootprint modId={mod.id} />
       <Packaging modId={mod.id} />
+      <ChunkNames mod={mod} />
     </div>
   );
 }
@@ -349,6 +351,24 @@ function Packaging({ modId }: { modId: string }) {
           ))}
         </ul>
       </div>
+    </Section>
+  );
+}
+
+/** The chunks the import found no name for, for a mod that has any. */
+function ChunkNames({ mod }: { mod: InstalledMod }) {
+  const unnamed = mod.embeddedNames?.unnamed ?? 0;
+  if (unnamed === 0) return null;
+
+  return (
+    <Section className="flex flex-col gap-2">
+      <p className="flex items-center gap-1.5 text-row font-medium text-surface-200 select-none">
+        <InfoIcon className="size-4 text-info-text" />
+        {m.library_details_chunk_names_label()}
+      </p>
+      <p className="text-meta leading-relaxed text-surface-300 select-none">
+        {m.library_details_chunk_names_description({ count: unnamed })}
+      </p>
     </Section>
   );
 }
