@@ -11,6 +11,8 @@ use crate::patcher::{
     PatcherSession, PatcherState, PatcherThread, PreparedHost, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
+use crate::workshop::{ProjectKey, Workshop, WorkshopState};
+use ltk_manager_base::config::Config;
 use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
@@ -20,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::services::shared::off_thread;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
@@ -139,6 +141,37 @@ fn resolve_resource(app_handle: &AppHandle, file_name: &str) -> AppResult<PathBu
     )))
 }
 
+/// Rejects overlay project paths the workshop does not list.
+///
+/// A start request can name absolute paths to read as mod content, so accepting
+/// one the workshop does not list would let any path the caller can reach become
+/// overlay content. The workshop lists its folder's children and the folders the
+/// user opened; everything else, including a spelling that climbs out with `..`,
+/// is refused.
+fn validate_workshop_projects(
+    requested: Option<&[String]>,
+    workshop: &Workshop,
+    config: &Config,
+) -> AppResult<()> {
+    let Some(requested) = requested else {
+        return Ok(());
+    };
+
+    let known: HashSet<ProjectKey> = workshop
+        .get_projects(config)?
+        .into_iter()
+        .map(|project| ProjectKey::of(Path::new(&project.path)))
+        .collect();
+
+    for path in requested {
+        if !known.contains(&ProjectKey::of(Path::new(path))) {
+            return Err(AppError::InvalidPath(path.clone()));
+        }
+    }
+
+    Ok(())
+}
+
 /// Start the patcher with the given configuration.
 ///
 /// Returns immediately after spawning a background thread that builds the overlay
@@ -151,6 +184,7 @@ pub fn start_patcher(
     state: State<PatcherState>,
     host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
+    workshop: State<WorkshopState>,
     library: State<ModLibraryState>,
     incidents: State<IncidentStoreState>,
 ) -> IpcResult<()> {
@@ -160,6 +194,7 @@ pub fn start_patcher(
         &state,
         &host_state,
         &settings,
+        &workshop,
         &library,
         &incidents,
     );
@@ -175,6 +210,7 @@ pub(crate) fn start_patcher_inner(
     state: &State<PatcherState>,
     host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
+    workshop: &WorkshopState,
     library: &State<ModLibraryState>,
     incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
@@ -187,6 +223,13 @@ pub(crate) fn start_patcher_inner(
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
+    let config_snapshot = settings.config();
+    validate_workshop_projects(
+        config.workshop_projects.as_deref(),
+        &workshop.0,
+        &config_snapshot,
+    )?;
+
     let stored_config = StoredPatcherConfig {
         workshop_projects: config.workshop_projects.clone(),
         workshop_layers: config.workshop_layers.clone(),
@@ -196,7 +239,6 @@ pub(crate) fn start_patcher_inner(
 
     let workshop_projects = ltk_manager_core::patching::workshop_tests(&stored_config);
 
-    let config_snapshot = settings.config();
     tracing::debug!(
         "Config snapshot: league_path={} mod_storage_path={}",
         config_snapshot
