@@ -50,6 +50,7 @@ function program(passes: PassProgram[]): MaterialProgram {
     name: null,
     animated: false,
     kind: "staticMesh",
+    technique: 0,
     passes,
     warnings: [],
   };

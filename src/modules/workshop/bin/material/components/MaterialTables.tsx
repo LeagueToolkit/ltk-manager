@@ -1,12 +1,12 @@
-import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
-import { type ReactNode, use } from "react";
+import { ArrowsClockwiseIcon, ArrowsSplitIcon } from "@phosphor-icons/react";
+import { type ReactNode, use, useMemo, useState } from "react";
 
-import { Checkbox, type DataTableColumn } from "@/components";
+import { Checkbox, type DataTableColumn, IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow, SchemaParam, SchemaSwitch, SchemaTexture } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { Cell, fieldsOf, type WidgetProps } from "../../classes/components/ClassCells";
+import { Cell, elementsOf, fieldsOf, type WidgetProps } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
@@ -17,14 +17,24 @@ import {
   useMaterialEntry,
   useOverride,
 } from "../hooks/useEntryEdits";
-import { useDeclaredNames, useSchema, useTextureWarnings } from "../hooks/useShaderSchema";
+import { type PassList, usePassParams } from "../hooks/usePassParams";
+import { usePerPass } from "../hooks/usePerPass";
+import {
+  useDeclaredNames,
+  useProgram,
+  useSchema,
+  useTextureWarnings,
+} from "../hooks/useShaderSchema";
 import { type ListKind, TableContext } from "../state/declaredTable";
+import { PassScopeContext } from "../state/passScope";
 import { type DeclaredRow, paramDefault } from "../utils/declaredRows";
 import { setField } from "../utils/entryEdits";
+import { entriesByName, entryValues } from "../utils/passPaths";
 import { DeclaredCell, Heading } from "./DeclaredRow";
 import { DeclaredTable } from "./DeclaredTable";
 import { isColor, LiveParam, ParamReadout, SwatchLaneContext } from "./LiveParam";
 import { DEFAULT_BOX, FIELD, Unset, VALUE_WIDTH, ValueCell } from "./MaterialCells";
+import { PassScopeBar } from "./PassScopeBar";
 
 const PARAMS: ListKind = {
   list: nameHash("paramValues"),
@@ -324,20 +334,242 @@ const SWITCH_COLUMNS: DataTableColumn<DeclaredRow<SchemaSwitch>>[] = [
   },
 ];
 
-/** `paramValues` as a table of every parameter the shader declares, and its value. */
-export function MaterialParams(props: WidgetProps) {
-  const schema = useSchema(props.view);
-  const names = useDeclaredNames(props.view);
+/**
+ * A parameter of one pass's table that the material sets, which wins over the pass's own: the
+ * material's value, muted, and a press that moves it into every pass.
+ */
+function MaterialSet({
+  name,
+  param,
+  values,
+}: {
+  name: string;
+  param: SchemaParam;
+  values: readonly number[];
+}) {
+  const perPass = use(PassScopeContext)?.perPass ?? null;
+
   return (
-    <SwatchLaneContext value={schema?.params.some(isColor) ?? false}>
-      <DeclaredTable
-        {...props}
-        kind={PARAMS}
-        declarations={schema?.params ?? null}
-        names={names}
-        columns={PARAM_COLUMNS}
+    <span className="flex min-w-0 flex-1 items-center gap-1">
+      <ParamReadout
+        param={param}
+        values={values}
+        inherited
+        note={m.workshop_bin_material_material_sets_label()}
       />
+      {perPass !== null && (
+        <IconButton
+          icon={<ArrowsSplitIcon />}
+          size="row"
+          label={m.workshop_bin_material_per_pass_action()}
+          onClick={() => perPass(name)}
+        />
+      )}
+    </span>
+  );
+}
+
+/** A parameter of one pass's table: the pass's own entry, the material's, or the default. */
+function PassParamValue({ row }: { row: DeclaredRow<SchemaParam> }) {
+  const material = use(PassScopeContext)?.material.get(row.name);
+  if (row.element === null && material !== undefined && row.declared !== null) {
+    return <MaterialSet name={row.name} param={row.declared} values={material} />;
+  }
+  return <ParamValue row={row} />;
+}
+
+const PASS_PARAM_COLUMNS: DataTableColumn<DeclaredRow<SchemaParam>>[] = [
+  {
+    id: "value",
+    header: () => <Heading className={FILL}>{m.workshop_bin_material_value_label()}</Heading>,
+    cell: ({ row }) => (
+      <DeclaredCell className={FILL}>
+        <PassParamValue row={row.original} />
+      </DeclaredCell>
+    ),
+  },
+];
+
+const NO_TEXTS: ReadonlyMap<string, string> = new Map();
+
+/** Pass numbers as a reader lists them: "2 and 3". */
+const PASS_LIST = new Intl.ListFormat(undefined, { type: "conjunction" });
+
+/** The passes, numbered from one, that hold an entry of their own for each name. */
+function passesByName(passes: readonly PassList[]): Map<string, number[]> {
+  const byName = new Map<string, number[]>();
+  for (const pass of passes) {
+    for (const name of pass.entries.keys()) {
+      byName.set(name, [...(byName.get(name) ?? []), pass.index + 1]);
+    }
+  }
+  return byName;
+}
+
+/**
+ * `paramValues` as a table of every parameter the shader declares, and its value.
+ *
+ * A material of more than one pass carries a tab per pass, whose table writes that pass's own
+ * `paramValues`. "Pass values" in docs/ux/BIN_EDITOR.md.
+ */
+export function MaterialParams(props: WidgetProps) {
+  const { section, pages, view } = props;
+  const program = useProgram(view);
+  const schema = useSchema(view);
+  const names = useDeclaredNames(view);
+  const [scope, setScope] = useState<number | null>(null);
+
+  const programPasses = program?.passes ?? [];
+  const technique = program?.technique ?? null;
+  const scoped = technique !== null && programPasses.length > 1;
+  const passParams = usePassParams(view, scoped ? technique : null, programPasses.length);
+  const passes = passParams?.passes ?? null;
+
+  const material = useMemo(() => {
+    const byName = entriesByName(elementsOf(section.rows, pages), pages, FIELD.name);
+    return new Map(
+      [...byName].map(([name, element]) => [
+        name,
+        { element, values: entryValues(element, pages, FIELD.value) ?? [0, 0, 0, 0] },
+      ]),
+    );
+  }, [section.rows, pages]);
+  const materialValues = useMemo(
+    () => new Map([...material].map(([name, { values }]) => [name, values])),
+    [material],
+  );
+
+  const perPass = usePerPass({
+    entry: view.entry,
+    material,
+    passes,
+    declared: (pass, name) =>
+      programPasses[pass]?.pass.schema?.params.find((param) => param.name === name),
+  });
+
+  /* What the material's tab says of a name a pass also writes: a note where the pass's value
+     draws, and a warning where the material's wins over it. */
+  const { notes, warnings } = useMemo(() => {
+    if (passes === null) return { notes: NO_TEXTS, warnings: NO_TEXTS };
+
+    const notes = new Map<string, string>();
+    const warnings = new Map<string, string>();
+    for (const [name, numbers] of passesByName(passes)) {
+      const one = numbers.length === 1 ? String(numbers[0]) : null;
+      const many = PASS_LIST.format(numbers.map(String));
+      if (material.has(name)) {
+        warnings.set(
+          name,
+          one === null
+            ? m.workshop_bin_material_material_overrides_many_label({ passes: many })
+            : m.workshop_bin_material_material_overrides_one_label({ pass: one }),
+        );
+      } else {
+        notes.set(
+          name,
+          one === null
+            ? m.workshop_bin_material_pass_sets_many_label({ passes: many })
+            : m.workshop_bin_material_pass_sets_one_label({ pass: one }),
+        );
+      }
+    }
+    return { notes, warnings };
+  }, [passes, material]);
+
+  const active = scoped && scope !== null && scope < programPasses.length ? scope : null;
+  const lane = schema?.params.some(isColor) ?? false;
+
+  const materialTable = (
+    <DeclaredTable
+      {...props}
+      kind={PARAMS}
+      declarations={schema?.params ?? null}
+      names={names}
+      columns={PARAM_COLUMNS}
+      notes={notes}
+      warnings={warnings}
+      perPass={scoped ? perPass : null}
+    />
+  );
+  if (!scoped) {
+    return <SwatchLaneContext value={lane}>{materialTable}</SwatchLaneContext>;
+  }
+
+  return (
+    <SwatchLaneContext value={lane}>
+      <PassScopeBar passes={programPasses} scope={active} onScope={setScope}>
+        {active === null ? (
+          materialTable
+        ) : (
+          <PassParams
+            {...props}
+            pass={active}
+            list={passes?.[active] ?? null}
+            passPages={passParams?.pages ?? null}
+            declarations={programPasses[active]?.pass.schema?.params ?? null}
+            names={names}
+            material={materialValues}
+            perPass={perPass}
+          />
+        )}
+      </PassScopeBar>
     </SwatchLaneContext>
+  );
+}
+
+/** The table of one pass's own `paramValues`, under the material's values that win over it. */
+function PassParams({
+  section,
+  view,
+  pass,
+  list,
+  passPages,
+  declarations,
+  names,
+  material,
+  perPass,
+}: WidgetProps & {
+  pass: number;
+  list: PassList | null;
+  passPages: WidgetProps["pages"] | null;
+  declarations: readonly SchemaParam[] | null;
+  names: readonly string[];
+  material: ReadonlyMap<string, readonly number[]>;
+  perPass: ((name: string) => void) | null;
+}) {
+  const scope = useMemo(() => ({ pass, material, perPass }), [pass, material, perPass]);
+  const warnings = useMemo(() => {
+    const overridden = new Map<string, string>();
+    for (const name of list?.entries.keys() ?? []) {
+      if (material.has(name)) {
+        overridden.set(name, m.workshop_bin_material_material_wins_label());
+      }
+    }
+    return overridden;
+  }, [list, material]);
+
+  if (list === null || passPages === null) {
+    return (
+      <span className="text-meta text-surface-400">
+        {m.workshop_bin_material_preview_loading_label()}
+      </span>
+    );
+  }
+
+  return (
+    <PassScopeContext value={scope}>
+      <DeclaredTable
+        section={{ ...section, rows: list.list === null ? [] : [list.list] }}
+        pages={passPages}
+        view={view}
+        kind={PARAMS}
+        holder={list.holder}
+        declarations={declarations}
+        names={names}
+        columns={PASS_PARAM_COLUMNS}
+        warnings={warnings}
+      />
+    </PassScopeContext>
   );
 }
 

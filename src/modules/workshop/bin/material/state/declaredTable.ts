@@ -15,6 +15,8 @@ export interface TableState {
   readonly pages: LayoutPages;
   readonly view: ViewContext;
   readonly kind: ListKind;
+  /** The wire path of the struct holding the list: empty for the material, a pass's for a pass. */
+  readonly holder: string;
   /** How many entries the list holds, which is the index a new one lands at. */
   readonly count: number;
   /** The shader answered, so an entry it does not name is marked. */
@@ -23,6 +25,11 @@ export interface TableState {
   readonly warnings: ReadonlyMap<string, string>;
   /** The info notes of the rows, by row name. */
   readonly notes: ReadonlyMap<string, string>;
+  /**
+   * Move the material's entry of a name into the passes, or null where the table offers no move:
+   * a table of a pass, a material of one pass, or a view that does not edit.
+   */
+  readonly perPass: ((name: string) => void) | null;
 }
 
 export const TableContext = createContext<TableState | null>(null);
@@ -39,6 +46,8 @@ export interface RowState {
   readonly toDefault: (() => void) | null;
   /** Why the row's last edit was refused. */
   readonly refusal: string | null;
+  /** Move the row's entry into the passes, or null where the table offers no move. */
+  readonly perPass: (() => void) | null;
   /** How many edits of the row have landed, which restarts the landing pulse. */
   readonly pulse: number;
 }

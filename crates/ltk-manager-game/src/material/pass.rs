@@ -62,6 +62,9 @@ pub struct ResolvedMaterial {
     pub animated: bool,
     /// `type`, which decides the global defines the engine adds.
     pub kind: MaterialKind,
+    /// The index in `techniques` of the technique `passes` come from, and none where the
+    /// material has none or the read is of a shader def's defaults.
+    pub technique: Option<u32>,
     /// The passes of the `normal` technique, in draw order.
     pub passes: Vec<ResolvedPass>,
     /// Every drop, miss and fallback the read made, in the order it made them.
@@ -487,6 +490,7 @@ pub fn resolve_shader_pass(
         name: names.entry_name(entry),
         animated: false,
         kind,
+        technique: None,
         passes: vec![pass],
         warnings: reader.warnings,
     })
@@ -494,6 +498,9 @@ pub fn resolve_shader_pass(
 
 impl<'a> Reader<'a> {
     fn resolved(mut self) -> ResolvedMaterial {
+        let technique = self
+            .technique_at()
+            .and_then(|(at, _)| u32::try_from(at).ok());
         let passes: Vec<ResolvedPass> = self
             .passes()
             .into_iter()
@@ -521,6 +528,7 @@ impl<'a> Reader<'a> {
             name: self.locator.names.entry_name(self.hash),
             animated: struct_of(self.material.get(&DYNAMIC_MATERIAL)).is_some(),
             kind: MaterialKind::of(self.material.get(&MATERIAL_TYPE)),
+            technique,
             passes,
             warnings,
         }

@@ -21,15 +21,18 @@ interface Note {
 function notesOf(program: MaterialProgram): Note[] {
   const notes: Note[] = [];
 
-  for (const pass of program.passes) {
-    if (pass.program.kind === "failed") {
-      notes.push({
-        tone: "danger",
-        text: m.workshop_bin_material_program_failed_label(),
-        detail: pass.program.reason,
-      });
-    }
-  }
+  const several = program.passes.length > 1;
+  program.passes.forEach((pass, index) => {
+    if (pass.program.kind !== "failed") return;
+    notes.push({
+      tone: "danger",
+      /* With more than one pass, the note names the one that failed, as the Params tabs do. */
+      text: several
+        ? m.workshop_bin_material_pass_program_failed_label({ number: index + 1 })
+        : m.workshop_bin_material_program_failed_label(),
+      detail: pass.program.reason,
+    });
+  });
   const drawn = program.passes.some((pass) => pass.program.kind === "ready");
   if (!drawn && notes.length === 0) {
     notes.push({ tone: "danger", text: m.workshop_bin_material_preview_no_program_empty() });

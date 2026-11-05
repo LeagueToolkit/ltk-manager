@@ -697,12 +697,24 @@ impl<'a> Reader<'a> {
 
     /// The `normal` technique, or the first where none is named so.
     fn technique(&self) -> Option<&'a Fields> {
+        self.technique_at().map(|(_, fields)| fields)
+    }
+
+    /// The `normal` technique, or the first where none is named so, with its index in
+    /// `techniques`.
+    fn technique_at(&self) -> Option<(usize, &'a Fields)> {
         let techniques = items(self.material.get(&TECHNIQUES));
         techniques
             .iter()
-            .filter_map(|item| fields_of(Some(item)))
-            .find(|fields| text(fields.get(&NAME)) == Some(NORMAL_TECHNIQUE))
-            .or_else(|| techniques.first().and_then(|item| fields_of(Some(item))))
+            .enumerate()
+            .filter_map(|(at, item)| fields_of(Some(item)).map(|fields| (at, fields)))
+            .find(|(_, fields)| text(fields.get(&NAME)) == Some(NORMAL_TECHNIQUE))
+            .or_else(|| {
+                techniques
+                    .first()
+                    .and_then(|item| fields_of(Some(item)))
+                    .map(|fields| (0, fields))
+            })
     }
 
     /// What the pass shader declares, out of the defs where they were opened.

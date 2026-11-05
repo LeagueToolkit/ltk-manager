@@ -133,7 +133,15 @@ function failed(): PassProgram {
 }
 
 function program(hash: string, passes: PassProgram[]): MaterialProgram {
-  return { hash, name: null, animated: false, kind: "skinnedMesh", passes, warnings: [] };
+  return {
+    hash,
+    name: null,
+    animated: false,
+    kind: "skinnedMesh",
+    technique: 0,
+    passes,
+    warnings: [],
+  };
 }
 
 describe("materialHashes", () => {

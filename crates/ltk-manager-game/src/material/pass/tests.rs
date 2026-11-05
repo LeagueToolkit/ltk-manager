@@ -7,12 +7,12 @@ use super::*;
 use crate::material::tests::{
     BLACK, DIFFUSE, MASK, MATERIAL, Material, Placed, SHADER_PATH, Tables, body, document_of,
     embedded, file, h, list, param, pass, placed, sampler, shader_param, shader_switch,
-    shader_texture, shaders, string_map, switch,
+    shader_texture, shaders, string_map, switch, technique,
 };
 use crate::material::{
     ADDRESS_U, ADDRESS_W, DATA, FEATURE_DEFINES, FIELDS, FILTER_MIN, LOGICAL_PARAMETERS,
     OBJECT_PATH, ON_BY_DEFAULT, PARAMETERS, RUNTIME_SWITCH, SAMPLER_NAME, STATIC_SWITCHES,
-    SWITCHED_SHADER, SWITCHED_SWITCH, SWITCHES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
+    SWITCHED_SHADER, SWITCHED_SWITCH, SWITCHES, TECHNIQUES, TEXTURE_NAME, TEXTURE_PATH, TEXTURES,
 };
 
 fn shader_switch_runtime(name: &str, on_by_default: bool) -> values::Embedded {
@@ -790,4 +790,19 @@ fn of_shader_path_returns_the_kind_of_the_namespace() {
         MaterialKind::of_shader_path("Unnamed"),
         MaterialKind::Unknown
     );
+}
+
+#[test]
+fn the_read_names_the_index_of_the_technique_it_draws() {
+    let normal_second = Material::new().with(
+        TECHNIQUES,
+        list(vec![
+            technique("transition", vec![pass(SHADER_PATH, vec![])]),
+            technique("normal", vec![pass(SHADER_PATH, vec![])]),
+        ]),
+    );
+    assert_eq!(resolve(normal_second, None).technique, Some(1));
+
+    assert_eq!(resolve(body(), None).technique, Some(0));
+    assert_eq!(resolve(Material::new(), None).technique, None);
 }

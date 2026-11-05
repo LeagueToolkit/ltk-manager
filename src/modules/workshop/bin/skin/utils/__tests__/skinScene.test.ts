@@ -600,6 +600,7 @@ describe("submeshOutline", () => {
     name: null,
     animated: true,
     kind: "skinnedMesh",
+    technique: 0,
     passes: [
       {
         pass: {

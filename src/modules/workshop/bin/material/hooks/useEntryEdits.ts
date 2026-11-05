@@ -5,8 +5,9 @@ import type { BinRow, LeafValue, ValueEdit } from "@/lib/tauri";
 import { fieldsOf } from "../../classes/components/ClassCells";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
+import { holderRow } from "../../vfx/drivers/utils/holderRow";
 import { TableContext } from "../state/declaredTable";
-import { itemStep, objectRow, setField } from "../utils/entryEdits";
+import { itemStep, setField } from "../utils/entryEdits";
 
 /** The field `field` of an entry, as the read answered it. */
 export function useElementField(element: BinRow, field: string): BinRow | undefined {
@@ -31,7 +32,7 @@ export function useOverride():
 
   return (name, fill) => {
     const at = `[${table.count}]`;
-    return editProperty(objectRow(table.view.entry), table.kind.list, [
+    return editProperty(holderRow(table.view.entry, table.holder), table.kind.list, [
       {
         type: "insertItem",
         path: "",
@@ -60,7 +61,7 @@ export function useEntryFields():
     if (fields.length === 0) return true;
 
     return editProperty(
-      objectRow(table.view.entry),
+      holderRow(table.view.entry, table.holder),
       table.kind.list,
       fields.flatMap(([field, value]) => setField(at, field, value)),
     );
@@ -87,7 +88,7 @@ export function useEntryRemove(): ((element: BinRow) => Promise<boolean>) | null
     const at = itemStep(element);
     if (at === null) return false;
 
-    return editProperty(objectRow(table.view.entry), table.kind.list, [
+    return editProperty(holderRow(table.view.entry, table.holder), table.kind.list, [
       { type: "removeItem", path: at },
     ]);
   };

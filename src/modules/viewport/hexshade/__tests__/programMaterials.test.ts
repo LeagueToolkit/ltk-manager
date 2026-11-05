@@ -123,7 +123,7 @@ describe("scatter", () => {
 
 describe("withHeld", () => {
   it("scatters a held value into its physical parameter", () => {
-    const held = withHeld(pass([1, 1, 1, 1]), MATERIAL, HELD);
+    const held = withHeld(pass([1, 1, 1, 1]), MATERIAL, HELD, 0);
 
     expect(held.params[0]?.value).toEqual([9, 8, 7, 1]);
   });
@@ -131,7 +131,15 @@ describe("withHeld", () => {
   it("leaves a pass of another material alone", () => {
     const own = pass([1, 1, 1, 1]);
 
-    expect(withHeld(own, "0x0badf00d", HELD)).toBe(own);
+    expect(withHeld(own, "0x0badf00d", HELD, 0)).toBe(own);
+  });
+
+  it("scatters a value held for one pass into that pass alone", () => {
+    const own = pass([1, 1, 1, 1]);
+    const held: HeldValue = { ...HELD, pass: 2 };
+
+    expect(withHeld(own, MATERIAL, held, 2).params[0]?.value).toEqual([9, 8, 7, 1]);
+    expect(withHeld(own, MATERIAL, held, 0)).toBe(own);
   });
 });
 

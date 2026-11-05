@@ -24,6 +24,11 @@ export interface HeldValue {
   /** The logical parameter's component mask, which places the value's components. */
   readonly fields: number;
   readonly value: readonly number[];
+  /**
+   * The place in the technique of the one pass that takes the value, as a pass's own
+   * `paramValues` entry does. Absent for a value of the material, which every pass takes.
+   */
+  readonly pass?: number;
 }
 
 /**
@@ -45,13 +50,18 @@ export function scatter(
   return out;
 }
 
-/** `pass` with `held` scattered into its physical parameter, and `pass` itself where none applies. */
+/**
+ * `pass` with `held` scattered into its physical parameter, and `pass` itself where none applies.
+ * `index` is the pass's place in the technique, which a value held for one pass is matched by.
+ */
 export function withHeld(
   pass: ResolvedPass,
   material: string,
   held: HeldValue | null,
+  index: number,
 ): ResolvedPass {
   if (held === null || held.material !== material) return pass;
+  if (held.pass !== undefined && held.pass !== index) return pass;
   if (!pass.params.some((param) => param.name === held.physical)) return pass;
 
   return {
@@ -165,6 +175,10 @@ export class ProgramMaterials {
   }
 
   private write({ material, program }: Built): void {
-    writeProgramGlobals(material, program, withHeld(program.pass, program.material, this.held));
+    writeProgramGlobals(
+      material,
+      program,
+      withHeld(program.pass, program.material, this.held, program.index),
+    );
   }
 }

@@ -7,7 +7,14 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
+import type {
+  AssetRef,
+  BinRow,
+  BinRows,
+  BinValue,
+  PropertyEdit,
+  WorkshopProject,
+} from "@/lib/tauri";
 import { editCall, isEdit, landed, sentEdit } from "@/test/binEdit";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
@@ -516,6 +523,136 @@ describe("ClassView over a material whose shader answers", () => {
     );
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument(),
+    );
+  });
+});
+
+/** The wire path of the pass at `pass` of the first technique. */
+function passPath(pass: number): string {
+  return `${nameHash("techniques").slice(2)}[0].${nameHash("passes").slice(2)}[${pass}]`;
+}
+
+describe("ClassView over a material of two passes", () => {
+  beforeEach(() => {
+    const read = mockInvoke.getMockImplementation();
+    const pass = {
+      pass: { shader: "Shaders/Test", schema: SCHEMA },
+      program: { kind: "failed", reason: "" },
+    };
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === commandNames.preview.readMaterialPrograms) {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            {
+              hash: ENTRY,
+              name: null,
+              animated: false,
+              kind: "skinnedMesh",
+              technique: 0,
+              passes: [pass, pass],
+              warnings: [],
+            },
+          ],
+        });
+      }
+      if (command === commandNames.bin.binEdit) return landed();
+      return read!(command, args);
+    });
+  });
+
+  it("names the pass whose shader did not build", async () => {
+    renderView();
+
+    expect(await screen.findByText("Pass 2: the shader did not build")).toBeInTheDocument();
+  });
+
+  it("writes a pass's own entry from that pass's tab", async () => {
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("tab", { name: "Pass 2" }));
+    const field = await screen.findByRole("textbox", { name: "Alpha X" });
+    await user.clear(field);
+    await user.type(field, "0.5{Enter}");
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: passPath(1),
+        field: nameHash("paramValues"),
+        edits: [
+          {
+            type: "insertItem",
+            path: "",
+            item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
+          },
+          { type: "ensureProperty", path: "[0]", field: nameHash("name") },
+          {
+            type: "setLeaf",
+            path: `[0].${nameHash("name").slice(2)}`,
+            value: { type: "string", value: "Alpha" },
+          },
+          { type: "ensureProperty", path: "[0]", field: nameHash("value") },
+          {
+            type: "setLeaf",
+            path: `[0].${nameHash("value").slice(2)}`,
+            value: { type: "vector", values: [0.5, 0, 0, 0] },
+          },
+        ],
+      }),
+    );
+  });
+
+  it("moves the material's value into every pass, as one edit", async () => {
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("tab", { name: "Pass 1" }));
+    await user.click(await screen.findByRole("button", { name: "Set per pass" }));
+
+    const paramValues = nameHash("paramValues");
+    const entry = (pass: number): PropertyEdit => ({
+      entry: ENTRY,
+      holder: passPath(pass),
+      field: paramValues,
+      edits: [
+        {
+          type: "insertItem",
+          path: "",
+          item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
+        },
+        { type: "ensureProperty", path: "[0]", field: nameHash("name") },
+        {
+          type: "setLeaf",
+          path: `[0].${nameHash("name").slice(2)}`,
+          value: { type: "string", value: "Fresnel_Power" },
+        },
+        { type: "ensureProperty", path: "[0]", field: nameHash("value") },
+        {
+          type: "setLeaf",
+          path: `[0].${nameHash("value").slice(2)}`,
+          value: { type: "vector", values: [4, 0, 0, 0] },
+        },
+      ],
+    });
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(7, {
+          kind: "editProperties",
+          edits: [
+            {
+              entry: ENTRY,
+              holder: "",
+              field: paramValues,
+              edits: [{ type: "removeItem", path: "[0]" }],
+            },
+            entry(0),
+            entry(1),
+          ],
+        }),
+      ),
     );
   });
 });

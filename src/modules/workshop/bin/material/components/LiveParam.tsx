@@ -10,6 +10,7 @@ import { twMerge } from "@/utils";
 import { Swatch } from "../../values/components/ColorMark";
 import { SwatchPicker } from "../../values/components/SwatchPicker";
 import { useHeldValueStore } from "../state/heldValue";
+import { PassScopeContext } from "../state/passScope";
 import { componentCount, paramDefault } from "../utils/declaredRows";
 
 const AXES = ["X", "Y", "Z", "W"] as const;
@@ -106,12 +107,15 @@ export function LiveParam({ param, material, stored, write }: LiveParamProps) {
   const color = isColor(param);
   const labels = color ? CHANNELS : AXES;
   const lane = use(SwatchLaneContext);
+  /* A value of one pass's table is drawn on that pass alone, as its entry is read. */
+  const pass = use(PassScopeContext)?.pass;
 
   const heldOf = (values: readonly number[]): HeldValue => ({
     material,
     physical: param.physical,
     fields: param.fields,
     value: values,
+    ...(pass !== undefined && { pass }),
   });
 
   const change = (values: number[]) => {
@@ -200,10 +204,12 @@ export interface ParamReadoutProps {
   values: readonly (number | null)[];
   /** The values are the shader's default rather than the material's own. */
   inherited: boolean;
+  /** Where muted values come from, which their tooltip says. The shader's default by default. */
+  note?: string;
 }
 
 /** One parameter's components as read-only boxes, laid out as the live fields are. */
-export function ParamReadout({ param, values, inherited }: ParamReadoutProps) {
+export function ParamReadout({ param, values, inherited, note }: ParamReadoutProps) {
   const count =
     param === null
       ? values.length
@@ -215,7 +221,7 @@ export function ParamReadout({ param, values, inherited }: ParamReadoutProps) {
   return (
     <span
       className={twMerge(COMPONENTS, lane ? COLUMNS_WITH_SWATCH : COLUMNS)}
-      title={inherited ? m.workshop_bin_material_shader_default_label() : undefined}
+      title={inherited ? (note ?? m.workshop_bin_material_shader_default_label()) : undefined}
     >
       {values.slice(0, count).map((value, at) => (
         <span key={labels[at]} className={twMerge(BOX, inherited ? DEFAULT_BOX : WRITTEN_BOX)}>
