@@ -278,31 +278,29 @@ impl ModArchiveFormat {
     }
 }
 
-/// What preserving a mod's names at import found.
+/// Counts of the chunk names an import embedded in a mod's archive.
 ///
-/// Recorded on the entry rather than only logged: `unharvestable` is what
-/// tells a mod that preserved cleanly from one that arrived already lossy,
-/// and that distinction should outlive a log rotation.
+/// Recorded on the entry so that a mod whose names were embedded completely is told apart
+/// from one that arrived without some names, after the import log rotates.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct HarvestSummary {
-    /// Names the archive gained on the way in. Zero means every recoverable
-    /// name was already declared or covered by the community tables.
-    pub names_added: usize,
-    /// Chunks with no recoverable name: hex-named, and named by nothing the
-    /// harvest could read.
-    pub unharvestable: usize,
+pub struct EmbeddedNames {
+    /// Names the archive gained at import. Zero if every readable name was already declared
+    /// or the community tables resolve it.
+    pub embedded: usize,
+    /// Chunks with no readable name: hex-named, and named by no bin in the archive.
+    pub unnamed: usize,
 }
 
-impl From<ltk_mod_project::HarvestReport> for HarvestSummary {
-    fn from(report: ltk_mod_project::HarvestReport) -> Self {
+impl From<&ltk_mod_project::EmbedReport> for EmbeddedNames {
+    fn from(report: &ltk_mod_project::EmbedReport) -> Self {
         Self {
-            names_added: match report.outcome {
-                ltk_mod_project::PreserveOutcome::Unchanged => 0,
-                ltk_mod_project::PreserveOutcome::Rewritten { names_added } => names_added,
+            embedded: match report.outcome {
+                ltk_mod_project::EmbedOutcome::Unchanged => 0,
+                ltk_mod_project::EmbedOutcome::Rewritten { embedded } => embedded,
             },
-            unharvestable: report.unharvestable,
+            unnamed: report.unnamed,
         }
     }
 }
@@ -329,10 +327,10 @@ pub(crate) struct LibraryModEntry {
     /// on that, and a release after the migration ships removes them.
     #[serde(default)]
     pub(crate) slug: Option<ModSlug>,
-    /// What preserving the mod's names found, for a fantome installed since
-    /// the preserve existed. `None` for a modpkg and for older entries.
+    /// The chunk names the import embedded, for a fantome. `None` for a modpkg and for
+    /// entries older than the embedding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) harvest: Option<HarvestSummary>,
+    pub(crate) embedded_names: Option<EmbeddedNames>,
     /// The SHA-256 of the archive this mod was installed or last updated from,
     /// in lowercase hex. `None` for a discovered directory and older entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]

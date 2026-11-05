@@ -60,7 +60,7 @@ impl ModLibrary {
 
         entry.format = staged.format;
         entry.storage = staged.format.installed_storage();
-        entry.harvest = staged.harvest;
+        entry.embedded_names = staged.embedded_names;
         entry.source_sha256 = Some(staged.digest.sha256.clone());
         index.mods[pos] = entry.clone();
         for profile in &mut index.profiles {

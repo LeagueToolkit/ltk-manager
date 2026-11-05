@@ -293,21 +293,14 @@ fn declare_held_table(
     Ok(())
 }
 
-/// A conventional table path under the archive's `META/hashes/` that no
-/// manifest entry uses.
-///
-/// It follows the naming sequence of a project's `hashes/`.
+/// A conventional `game` table path under the archive's `META/hashes/` that no manifest entry
+/// uses.
 fn free_archive_table_path(manifests: &[FantomeHashtable]) -> String {
-    let taken: Vec<String> = manifests
-        .iter()
-        .map(|manifest| manifest.path.to_ascii_lowercase())
-        .collect();
-    std::iter::once(format!("{ARCHIVE_HASHES_DIR}/game.hashes.txt"))
-        .chain(
-            (1..).map(|attempt| format!("{ARCHIVE_HASHES_DIR}/game.repaired{attempt}.hashes.txt")),
-        )
-        .find(|candidate| !taken.contains(&candidate.to_ascii_lowercase()))
-        .expect("the candidate sequence is unbounded")
+    ltk_fantome::free_table_path(&Category::Game, |candidate| {
+        manifests
+            .iter()
+            .any(|manifest| manifest.path.eq_ignore_ascii_case(candidate))
+    })
 }
 
 /// Where the archive keeps the table a project declares at `declared`.

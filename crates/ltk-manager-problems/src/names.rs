@@ -1,9 +1,10 @@
 //! Turning the hashes a bin addresses things by back into names.
 //!
-//! A bin stores hashes, and two sources turn them back. Four mimir tables -
+//! A bin stores hashes, and three sources turn them back. Four mimir tables -
 //! `binentries` names an object's path, `bintypes` a class, `binfields` a
-//! property and `binhashes` the string behind a `Hash` value - and the tables
-//! the mod itself declares under `hashes/`, for the names only it holds.
+//! property and `binhashes` the string behind a `Hash` value - the tables
+//! the mod itself declares under `hashes/`, and, for a project directory, the
+//! object paths and strings its game data declarations and skeletons write.
 //!
 //! **Each kind is looked up in its own table.** All four are `FNV1a32`, and 32
 //! bits over that many rows collide freely, so asking one shared lookup would
@@ -37,6 +38,7 @@ use ltk_mod_project::ModProject;
 
 use ltk_manager_assets::hashtables::{BinHashTables, HashtableCache};
 use ltk_manager_base::utils::lazy_slot::LazySlot;
+use ltk_manager_workshop::LayerChunks;
 
 /// The names a bin's hashes can be given, out of the shared mimir cache and
 /// the mod's own declared tables.
@@ -56,6 +58,9 @@ pub struct BinNames {
     /// Per instance because this is the half that differs between mods, and it
     /// is a few hundred names where mimir's is millions.
     declared_fnv: OnceLock<FnvIndex<u32>>,
+    /// The object paths and strings a project directory's declarations and skeletons write.
+    /// Empty for a mod read out of an archive.
+    project: LayerChunks,
 }
 
 /// `FNV1a32` to whatever reads the name back, be that a key or a position.
@@ -74,7 +79,8 @@ type FnvIndex<T> = HashMap<u32, Option<T>>;
 static GAME_FNV: LazySlot<FnvIndex<u64>> = LazySlot::new();
 
 impl BinNames {
-    /// Open the bin tables of the shared cache, and `project_root`'s own.
+    /// Open the bin tables of the shared cache, and `project_root`'s own tables,
+    /// declarations and skeletons.
     ///
     /// A cache that is not there names nothing, which reads the same way a hash
     /// no table holds does: the row prints the number. A project declaring no
@@ -88,7 +94,10 @@ impl BinNames {
                 super::preserve::read_tables(project_root, &project.hashtables)
             });
 
-        Self::with_declared(tables)
+        Self {
+            project: LayerChunks::scan_bin_names(project_root),
+            ..Self::with_declared(tables)
+        }
     }
 
     /// The shared cache's tables, plus `declared`.
@@ -118,6 +127,7 @@ impl BinNames {
             declared_game,
             wad,
             declared_fnv: OnceLock::new(),
+            project: LayerChunks::default(),
         }
     }
 
@@ -149,6 +159,7 @@ impl BinNames {
         self.cache
             .value(hash)
             .or_else(|| self.resolve_declared(&Category::BinHashes, hash))
+            .or_else(|| self.project.value(hash).map(str::to_owned))
     }
 
     /// The path behind a `Hash` value, for the repair that rewrites it as
@@ -172,6 +183,7 @@ impl BinNames {
         self.cache
             .entry(hash)
             .or_else(|| self.resolve_declared(&Category::BinEntries, hash))
+            .or_else(|| self.project.entry(hash).map(str::to_owned))
     }
 
     /// The name of a class.
@@ -291,6 +303,7 @@ impl Default for BinNames {
             declared_game: Vec::new(),
             wad: LayeredHashDb::new(),
             declared_fnv: OnceLock::new(),
+            project: LayerChunks::default(),
         }
     }
 }

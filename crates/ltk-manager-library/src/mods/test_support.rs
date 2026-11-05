@@ -130,7 +130,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         format,
         storage: ModStorage::Archive,
         slug: None,
-        harvest: None,
+        embedded_names: None,
         source_sha256: None,
         origin: None,
     }

@@ -45,18 +45,19 @@ its `display_name`), assigned once at install and never re-derived. **Id** is th
 UUID, and it is what profiles, folders and reports refer to. Two mods can want the same slug; the
 second gets a numeric suffix.
 
-**Preserve** — the import step that reads the names a fantome's own files still hold and embeds
-the ones the community hashtables cannot recover into the archive copy, per the Embedded
-Hashtables standard. The **harvest** is what that step found, recorded on the entry as
-`HarvestSummary`: how many names the archive gained, and how many chunks arrived with no
-recoverable name at all (`unharvestable` — what tells a mod that preserved cleanly from one that
-was already lossy).
+**Embedded names** - the import step that reads the names a fantome's own files still contain
+and embeds the ones the community hashtables cannot resolve into the archive copy, per the
+Embedded Hashtables standard. The names merge into the archive's first `game` table, or into a
+new `META/hashes/game.hashes.txt`. The entry records the counts as `EmbeddedNames`: how many
+names the archive gained (`embedded`), and how many chunks arrived with no readable name
+(`unnamed`). The step skips each table declaration whose file is absent or does not parse, and
+logs it.
 
 **Mod archive** — `mods/<slug>.fantome` or `mods/<slug>.modpkg`, the file the mod arrived as,
 beside its directory. For a mod stored `archive` it is the mod — the content provider reads from
 it. An unpack consumes it and a repack packs the tree into a fresh one (ADR-0007), so exactly one
-of tree or archive is the mod at any moment. A fantome's copy is made through the preserve, so
-names the community tables cannot recover ride in the archive itself.
+of tree or archive is the mod at any moment. A fantome's copy is made with its embedded names,
+so the archive itself contains the names the community tables cannot resolve.
 
 **Storage** — where a mod's content is: `project` for the unpacked tree, `archive` for a mod read
 out of the file beside it. Recorded on the entry rather than derived. Every install lands as
@@ -179,8 +180,8 @@ this, and a repair is the wrong instrument for this — and no **verdict** word 
 **Preserved names** — the paths a repair writes into the mod's own `hashes/game.hashes.txt`
 before it hashes them into `File` properties, so the mod still names what it holds. Additive and
 idempotent, and it excludes what the community hashtables already resolve. It is what replaced
-the restore point and Undo — see ADR-0006. Not the same as the **harvest** at import, which
-recovers names off an incoming archive rather than keeping ones a write is about to destroy.
+the restore point and Undo — see ADR-0006. Not the same as the **embedded names** of an import,
+which reads names off an incoming archive instead of keeping the ones a write removes.
 
 ## The four migrations
 
