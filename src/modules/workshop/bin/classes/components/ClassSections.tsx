@@ -9,6 +9,7 @@ import { twMerge } from "@/utils";
 
 import { VoiceLinesSection } from "../../../audio/components/VoiceLinesView";
 import { MaterialMacros } from "../../material/components/MaterialMacros";
+import { MaterialPasses } from "../../material/components/MaterialPasses";
 import {
   MaterialParams,
   MaterialSamplers,
@@ -183,6 +184,7 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   "material-samplers": MaterialSamplers,
   "material-switches": MaterialSwitches,
   "material-macros": MaterialMacros,
+  "material-passes": MaterialPasses,
   "shader-params": ShaderParams,
   "shader-textures": ShaderTextures,
   "shader-switches": ShaderSwitches,

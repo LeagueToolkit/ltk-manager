@@ -30,6 +30,7 @@ export type SectionWidget =
   | "material-samplers"
   | "material-switches"
   | "material-macros"
+  | "material-passes"
   | "shader-params"
   | "shader-textures"
   | "shader-switches";
@@ -117,6 +118,11 @@ export const materialLayout: ClassLayout = {
       title: m.workshop_bin_section_macros_label,
       fields: ["shaderMacros"],
       as: "material-macros",
+    },
+    {
+      title: m.workshop_bin_section_passes_label,
+      fields: ["techniques"],
+      as: "material-passes",
     },
     { title: m.workshop_bin_section_techniques_label, fields: ["techniques"], as: "tree" },
   ],
@@ -552,6 +558,18 @@ export function sectionCount(
       return lists(section.rows);
     case "material-macros":
       return section.rows.reduce((sum, row) => sum + childCount(row), 0);
+    case "material-passes": {
+      /* Every technique's passes, which is the drawn one's for the material of one technique. */
+      const passes = section.rows
+        .flatMap((row) => pages.get(rowKey(row))?.rows ?? [])
+        .flatMap(
+          (technique) =>
+            pages
+              .get(rowKey(technique))
+              ?.rows.filter((child) => fieldHash(child.path) === TECHNIQUE_PASSES) ?? [],
+        );
+      return passes.length === 0 ? null : lists(passes);
+    }
     case "effect-table":
     case "condition-rows":
       return lists(section.rows.filter((row) => fieldHash(row.path) !== EFFECT.resolver));
@@ -568,6 +586,9 @@ export function sectionCount(
       return null;
   }
 }
+
+/** `StaticMaterialTechniqueDef.passes`. */
+const TECHNIQUE_PASSES = nameHash("passes");
 
 function isList(row: BinRow): boolean {
   return row.value.type === "container" || row.value.type === "map";
@@ -605,6 +626,8 @@ const DESCENT: Record<SectionWidget, Descent> = {
   "material-switches": ["all", "all"],
   /* A macro is a map entry, which holds its value itself. */
   "material-macros": ["all"],
+  /* Each technique, its `passes`, then each pass. The widget reads each pass's fields itself. */
+  "material-passes": ["all", ["passes"], "all"],
   "shader-params": ["all", "all"],
   "shader-textures": ["all", "all"],
   "shader-switches": ["all", "all"],
