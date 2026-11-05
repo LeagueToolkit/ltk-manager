@@ -27,7 +27,8 @@ at once, and a sync runs in the background. The session thread syncs first if no
 staged or if the staged DLL is past its end of life. If that sync fails, a staged DLL still runs and
 decides its end of life itself. With no staged DLL, the start fails with the sync failure.
 
-**A beta session falls back to stable** if the beta channel has no usable build.
+**A beta session falls back to stable** if the beta channel has no usable build, or if its build is
+past its end of life and the stable build is not.
 
 **A build without an attestation never contacts the service.** It reads the DLLs that an official
 install staged under the same data directory.

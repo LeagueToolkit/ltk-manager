@@ -109,9 +109,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let patcher_delivery = PatcherDeliveryState::new(storage_dir.as_deref());
     let delivery_channel = crate::patcher::delivery::channel(&settings.config);
-    let staged_patcher = patcher_delivery
-        .delivery()
-        .and_then(|delivery| delivery.staged_version(delivery_channel));
+    let staged_patcher = patcher_delivery.delivery().and_then(|delivery| {
+        delivery.staged_version(delivery_channel, crate::patcher::delivery::now())
+    });
     patcher_delivery.sync_in_background(&settings.config);
 
     let launcher_state = LauncherState::new(&app_handle, &settings.config)?;

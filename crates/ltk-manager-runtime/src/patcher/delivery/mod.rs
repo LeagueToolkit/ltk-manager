@@ -4,7 +4,8 @@
 //! The service offers one minisign-signed manifest per channel and manager version
 //! range. A sync verifies the manifest, downloads its DLL into a directory named by
 //! the digest, and caches the manifest. A session waits for the network only if no usable
-//! DLL is staged or the staged DLL is past its end of life, per
+//! DLL is staged or the staged DLL is past its end of life, and a beta session falls back to
+//! stable if the beta build is past its end of life, per
 //! `docs/adr/0074-every-session-runs-a-delivered-patcher-dll.md`.
 
 mod manifest;
@@ -328,14 +329,16 @@ impl PatcherDelivery {
     /// Selects the build that a session on `channel` runs, with the host copied beside it.
     ///
     /// Reads only the cache. Returns `None` if no cached manifest of the channel is usable
-    /// by this manager with its DLL staged. A beta session falls back to stable. Fails if
+    /// by this manager with its DLL staged. A beta session falls back to stable if the beta
+    /// build is not staged or is past its end of life at `now`, in Unix seconds. Fails if
     /// the host cannot be copied beside the DLL.
     pub fn select(
         &self,
         channel: Channel,
         bundled_host: &Path,
+        now: u64,
     ) -> Result<Option<StagedPatcher>, DeliveryError> {
-        let Some(staged) = self.staged(channel) else {
+        let Some(staged) = self.staged(channel, now) else {
             return Ok(None);
         };
 
@@ -363,47 +366,72 @@ impl PatcherDelivery {
             }
 
             if self
-                .staged(channel)
+                .staged(channel, now)
                 .is_some_and(|staged| !staged.is_expired(now))
             {
                 break;
             }
         }
 
-        match self.select(channel, bundled_host)? {
+        match self.select(channel, bundled_host, now)? {
             Some(staged) => Ok(staged),
             None => Err(failure.unwrap_or(DeliveryError::NoRelease)),
         }
     }
 
-    /// Returns the path of the DLL that a session on `channel` runs, if one is staged.
-    pub fn staged_dll_path(&self, channel: Channel) -> Option<PathBuf> {
-        self.staged(channel)
+    /// Returns the path of the DLL that a session on `channel` runs at `now`, if one is staged.
+    pub fn staged_dll_path(&self, channel: Channel, now: u64) -> Option<PathBuf> {
+        self.staged(channel, now)
             .map(|staged| staged.dir.join(HOOK_DLL_NAME))
     }
 
-    /// Returns the release name of the DLL that a session on `channel` runs, if one is staged.
-    pub fn staged_version(&self, channel: Channel) -> Option<String> {
-        self.staged(channel).map(|staged| staged.version)
+    /// Returns the release name of the DLL that a session on `channel` runs at `now`, if one
+    /// is staged.
+    pub fn staged_version(&self, channel: Channel, now: u64) -> Option<String> {
+        self.staged(channel, now).map(|staged| staged.version)
     }
 
-    /// Returns the first build of the channels of `channel` that is usable and staged.
-    fn staged(&self, channel: Channel) -> Option<StagedPatcher> {
+    /// Returns the build that a session on `channel` runs at `now`, in Unix seconds.
+    ///
+    /// Searches the channels of `channel` in order for a build that is usable and staged.
+    /// Returns the first such build within its end of life. If every such build is past its
+    /// end of life, returns the first one, because the DLL itself decides that.
+    fn staged(&self, channel: Channel, now: u64) -> Option<StagedPatcher> {
         let state = self.load();
         let revoked = self.revoked(&state);
+        let mut expired = None;
 
-        channel.search_order().iter().find_map(|candidate| {
-            let manifest = self
-                .cached(&state, *candidate)
-                .filter(|manifest| self.usable(manifest, &revoked))?;
-            let dir = self.staged_dll(&manifest.release)?;
+        for candidate in channel.search_order() {
+            let Some(staged) = self.staged_on(&state, &revoked, *candidate) else {
+                continue;
+            };
+            if !staged.is_expired(now) {
+                return Some(staged);
+            }
 
-            Some(StagedPatcher {
-                dir,
-                version: manifest.release.version,
-                digest: manifest.release.digest,
-                eol: manifest.release.eol,
-            })
+            expired.get_or_insert(staged);
+        }
+
+        expired
+    }
+
+    /// Returns the build of `channel` if its cached manifest is usable and its DLL is staged.
+    fn staged_on(
+        &self,
+        state: &State,
+        revoked: &HashSet<String>,
+        channel: Channel,
+    ) -> Option<StagedPatcher> {
+        let manifest = self
+            .cached(state, channel)
+            .filter(|manifest| self.usable(manifest, revoked))?;
+        let dir = self.staged_dll(&manifest.release)?;
+
+        Some(StagedPatcher {
+            dir,
+            version: manifest.release.version,
+            digest: manifest.release.digest,
+            eol: manifest.release.eol,
         })
     }
 
