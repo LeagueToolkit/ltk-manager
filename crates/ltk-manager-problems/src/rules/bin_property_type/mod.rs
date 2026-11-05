@@ -75,7 +75,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ltk_hash::{BinHash, Hash as _, HashAlgorithm, HashWidth, Hasher, WadHash};
+use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::walk::{Node, PropertyRefMut, Visit, Visitor, VisitorMut};
 use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
@@ -88,7 +88,7 @@ use crate::{
     Rule, RuleId, RuleMeta, Sink, TypeMismatch, Walk,
 };
 use ltk_manager_base::game_build::GameBuild;
-use ltk_manager_bin::bin_document::{PropertyKind, hash_hex, owned};
+use ltk_manager_bin::bin_document::{PropertyKind, WIDE_HASHER, hash_hex, owned};
 use ltk_manager_bin::bin_walk::{Address, Declared, FieldNames};
 use ltk_manager_bin::meta_schema::{self, MetaSchema};
 
@@ -97,13 +97,6 @@ use table::{Conversion, Migration, MigrationTable};
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/property-type");
-
-/// The function behind an 8-byte `Hash`: XXH3 of the lowercased path, stored in 8 bytes.
-const WIDE_XXH3: Hasher = Hasher {
-    width: HashWidth::W8,
-    algorithm: HashAlgorithm::Xxh3,
-    lowercased: true,
-};
 
 /// Repairs the properties Riot changed to `File`, and to the 8-byte `Hash`.
 #[derive(Debug, Default)]
@@ -902,7 +895,7 @@ const FILE: Road = Road {
 const WIDE_HASH: Road = Road {
     kind: Kind::Hash,
     of: |path| wide_hash(path).into(),
-    render: |path| format!("0x{:016x}", WIDE_XXH3.hash_str(path).as_u64()),
+    render: |path| format!("0x{:016x}", WIDE_HASHER.hash_str(path).as_u64()),
 };
 
 /// Take a road of two steps, or leave the value as it was. Reports whether it
@@ -1383,7 +1376,7 @@ fn link(path: &str) -> values::WadChunkLink {
 
 /// The 8-byte `Hash` of a path, which is XXH3 of it lowercased.
 fn wide_hash(path: &str) -> values::Hash {
-    values::Hash::new(WIDE_XXH3.hash_str(path))
+    values::Hash::new(WIDE_HASHER.hash_str(path))
 }
 
 /// A map key, as a subscript reads, in the form the file holds.

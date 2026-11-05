@@ -16,7 +16,8 @@ use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
 use super::{
-    BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hash_hex, hex, inlines, is_null,
+    BinDocument, BinDocumentError, Declaring, PropertyKind, Step, WIDE_HASHER, hash_hex, hex,
+    inlines, is_null,
 };
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
@@ -861,17 +862,22 @@ pub(super) fn bin_hash(text: &str) -> Result<BinHash, EditRejection> {
 /// The `hash` value `text` writes at `width`.
 ///
 /// A 4-byte hash reads as [`bin_hash`] does. An 8-byte hash is `0x` and sixteen hex digits,
-/// because a bin does not hold the hash function of an 8-byte hash.
+/// or the [`WIDE_HASHER`] hash of any other text, which is how a material's `name` holds its
+/// path.
 fn hash_value(text: &str, width: HashWidth) -> Result<HashValue, EditRejection> {
     match width {
         HashWidth::W4 => bin_hash(text).map(HashValue::from),
         HashWidth::W8 => {
-            let digits = text
-                .trim()
-                .strip_prefix("0x")
-                .ok_or(EditRejection::MalformedHash)?;
-
-            hex_digits(digits, 16).map(HashValue::wide)
+            let text = text.trim();
+            if let Some(digits) = text.strip_prefix("0x")
+                && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return hex_digits(digits, 16).map(HashValue::wide);
+            }
+            if text.is_empty() {
+                return Err(EditRejection::MalformedHash);
+            }
+            Ok(WIDE_HASHER.hash_str(text))
         }
     }
 }

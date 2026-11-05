@@ -3,12 +3,12 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, HashValue, WadHash};
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 
-use super::{BinValue, as_struct, hash_hex, hex, inlines, is_null, owned};
+use super::{BinValue, WIDE_HASHER, as_struct, hash_hex, hex, inlines, is_null, owned};
 use crate::meta_schema::SchemaAt;
 use ltk_manager_assets::hashtables::CacheNames;
 use ltk_manager_workshop::LayerChunks;
@@ -192,14 +192,24 @@ pub(crate) struct Wanted {
     pub(crate) classes: Vec<BinHash>,
     pub(crate) fields: Vec<BinHash>,
     pub(crate) values: Vec<BinHash>,
+    /// 8-byte `Hash` values, which [`WIDE_HASHER`] of a path in `entries` may name.
+    pub(crate) wide: Vec<u64>,
     pub(crate) chunks: Vec<WadHash>,
 }
 
 impl Wanted {
+    /// A `Hash` value, by its width.
+    fn hash(&mut self, hash: HashValue) {
+        match hash.try_as_bin_hash() {
+            Some(hash) => self.values.push(hash),
+            None => self.wide.push(hash.as_u64()),
+        }
+    }
+
     /// The hashes a row's value column names.
     pub(crate) fn value(&mut self, value: &PropertyValueEnum) {
         match value {
-            PropertyValueEnum::Hash(hash) => self.values.extend(hash.value.try_as_bin_hash()),
+            PropertyValueEnum::Hash(hash) => self.hash(hash.value),
             PropertyValueEnum::ObjectLink(link) => self.entries.push(link.value),
             PropertyValueEnum::WadChunkLink(link) => self.chunks.push(link.value),
             PropertyValueEnum::Optional(optional) => {
@@ -218,7 +228,7 @@ impl Wanted {
     /// The hash a map key names.
     pub(crate) fn key(&mut self, key: &PropertyValueEnum) {
         if let PropertyValueEnum::Hash(hash) = key {
-            self.values.extend(hash.value.try_as_bin_hash());
+            self.hash(hash.value);
         }
     }
 
@@ -233,6 +243,8 @@ impl Wanted {
             list.sort_unstable();
             list.dedup();
         }
+        self.wide.sort_unstable();
+        self.wide.dedup();
         self.chunks.sort_unstable();
         self.chunks.dedup();
 
@@ -240,6 +252,14 @@ impl Wanted {
         names.for_each_entry(&self.entries, &mut |at, name| {
             named.entries.insert(self.entries[at], name.to_owned());
         });
+        if !self.wide.is_empty() {
+            for name in named.entries.values() {
+                let hash = WIDE_HASHER.hash_str(name).as_u64();
+                if self.wide.binary_search(&hash).is_ok() {
+                    named.wide.insert(hash, name.clone());
+                }
+            }
+        }
         names.for_each_class(&self.classes, &mut |at, name| {
             named.classes.insert(self.classes[at], name.to_owned());
         });
@@ -273,10 +293,20 @@ pub(crate) struct Named {
     pub(crate) classes: HashMap<BinHash, String>,
     pub(crate) fields: HashMap<BinHash, String>,
     pub(crate) values: HashMap<BinHash, String>,
+    /// The paths behind 8-byte `Hash` values, by the hash.
+    pub(crate) wide: HashMap<u64, String>,
     pub(crate) chunks: HashMap<WadHash, String>,
 }
 
 impl Named {
+    /// The string behind a `Hash` value, where a table or a path of the read names it.
+    pub(crate) fn hash_name(&self, hash: HashValue) -> Option<&String> {
+        match hash.try_as_bin_hash() {
+            Some(hash) => self.values.get(&hash),
+            None => self.wide.get(&hash.as_u64()),
+        }
+    }
+
     /// An object's path, or its hex and the flag that says so.
     pub(crate) fn entry(&self, hash: BinHash) -> (String, bool) {
         match self.entries.get(&hash) {
@@ -355,9 +385,7 @@ impl Named {
             },
             Some(Leaf::Hash(hash)) => BinValue::Hash {
                 hash: hash_hex(hash),
-                name: hash
-                    .try_as_bin_hash()
-                    .and_then(|hash| self.values.get(&hash).cloned()),
+                name: self.hash_name(hash).cloned(),
             },
             Some(Leaf::File(hash)) => BinValue::WadChunkLink {
                 hash: format!("{hash:016x}"),

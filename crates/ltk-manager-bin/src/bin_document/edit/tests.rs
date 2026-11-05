@@ -329,7 +329,7 @@ fn an_eight_byte_hash_takes_sixteen_hex_digits_and_keeps_its_width() {
         }
     );
 
-    for text in ["Aatrox_Mat", "0x000000ff"] {
+    for text in ["0x000000ff", "0x", "  "] {
         assert!(
             matches!(
                 set(&mut document, text),
@@ -348,6 +348,49 @@ fn an_eight_byte_hash_takes_sixteen_hex_digits_and_keeps_its_width() {
             text: "0x00000000000000ff".to_owned()
         },
         "a refused edit leaves the value"
+    );
+}
+
+#[test]
+fn an_eight_byte_hash_takes_a_path_as_its_xxh3() {
+    let wide = values::Hash::new(HashValue::wide(0));
+    let object = BinObject::builder(edited(), h("Record"))
+        .property(h("material"), wide)
+        .build();
+    let bin = Bin::new([object], ["common.bin"]);
+    let mut document = BinDocument::parse(bytes_of(&bin)).unwrap();
+
+    let previous = document
+        .set_leaf(
+            edited(),
+            &field("material"),
+            LeafValue::Hash {
+                text: "Characters/Zac/Skins/Skin31/Materials/ult".to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        previous,
+        LeafValue::Hash {
+            text: "0x0000000000000000".to_owned()
+        }
+    );
+
+    let undone = document
+        .set_leaf(
+            edited(),
+            &field("material"),
+            LeafValue::Hash {
+                text: "0x0000000000000000".to_owned(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        undone,
+        LeafValue::Hash {
+            text: "0x5d07ca0d22ff9588".to_owned()
+        },
+        "the hash a 16.21 skin bin holds for that path"
     );
 }
 

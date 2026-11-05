@@ -303,6 +303,11 @@ impl BinDocument {
                 }
             }
         }
+        if !wanted.wide.is_empty() {
+            /* An 8-byte `Hash` holds a path, most often the object's own: a material's
+            `name` is its path. */
+            wanted.entries.push(entry);
+        }
         let lens = Lens {
             named: wanted.resolve(&self.typed.over(names), schema),
             schema,

@@ -143,20 +143,14 @@ pub(super) fn elements(items: &[PropertyValueEnum]) -> Vec<Child<'_>> {
 /// digits. Every other kind reads as it does in the hash path.
 pub(super) fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
     match owned(key.as_leaf()) {
-        Some(Leaf::Hash(hash)) => {
-            let name = hash
-                .try_as_bin_hash()
-                .and_then(|hash| named.values.get(&hash));
-
-            match name {
-                Some(name) => {
-                    let mut out = String::new();
-                    walk::write_json_string(&mut out, name);
-                    (out, false)
-                }
-                None => (hash_hex(hash), true),
+        Some(Leaf::Hash(hash)) => match named.hash_name(hash) {
+            Some(name) => {
+                let mut out = String::new();
+                walk::write_json_string(&mut out, name);
+                (out, false)
             }
-        }
+            None => (hash_hex(hash), true),
+        },
         leaf => {
             let mut out = String::new();
             walk::write_key(&mut out, leaf);

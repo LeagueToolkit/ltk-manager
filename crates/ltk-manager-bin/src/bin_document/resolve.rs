@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use indexmap::IndexMap;
-use ltk_hash::{BinHash, HashValue, WadHash};
+use ltk_hash::{BinHash, HashAlgorithm, HashValue, HashWidth, Hasher, WadHash};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::Serialize;
@@ -34,6 +34,16 @@ pub struct NamedAsset {
 pub fn hex(hash: BinHash) -> String {
     format!("0x{:08x}", hash.0)
 }
+
+/// The function behind an 8-byte `Hash`: XXH3 of the lowercased string, stored in 8 bytes.
+///
+/// Since 16.21 a `StaticMaterialDef`'s `name` holds this hash of the object's own path. No
+/// shared table names an 8-byte hash, so a read names one by hashing the paths it holds.
+pub const WIDE_HASHER: Hasher = Hasher {
+    width: HashWidth::W8,
+    algorithm: HashAlgorithm::Xxh3,
+    lowercased: true,
+};
 
 /// `0x` and the hex digits of a `hash` value: eight for a 4-byte hash, sixteen for an 8-byte one.
 pub fn hash_hex(hash: HashValue) -> String {
