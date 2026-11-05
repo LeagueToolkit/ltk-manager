@@ -3,7 +3,7 @@
 use super::baked_meshes::{material_name, move_under};
 use super::game_maps::{self, MapArchive, MapBin};
 use super::overrides::{Overrides, quoted};
-use super::{BuiltinMod, Context};
+use super::{BuiltinMod, Context, check_called_off};
 use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_manager_base::config::{BuiltinModSettings, MapDecorationMode};
@@ -102,6 +102,7 @@ impl BuiltinMod for MapDecorations {
         let cache = cx.cache_dir.join(MAPGEO_CACHE);
         let mut cached = BTreeSet::new();
         for map in game_maps::read(cx.game_dir)? {
+            check_called_off(cx.called_off)?;
             let mut archive: Option<MapArchive> = None;
             for (materials, controllers) in controllers_of(&map)? {
                 for controller in controllers {

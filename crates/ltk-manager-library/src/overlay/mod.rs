@@ -13,8 +13,9 @@ mod resolve;
 pub(crate) use artifacts::{BUILD_VERSION_MARKER, OverlayStorageExt};
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub use builtin_mods::{
-    ForcibleMapSkin, InkingMap, InkingOutline, InkingPreview, InkingSide, MapDecoration,
-    forcible_map_skins, inking_maps, map_decorations, outline_values, write_inking_preview,
+    BuiltinTiming, ForcibleMapSkin, InkingMap, InkingOutline, InkingPreview, InkingSide,
+    MapDecoration, Regenerate, forcible_map_skins, inking_maps, map_decorations, outline_values,
+    write_inking_preview,
 };
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
@@ -23,13 +24,14 @@ use crate::mods::StorageLayout as _;
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
-use ltk_manager_base::events::BackendEvent;
+use ltk_manager_base::events::{BackendEvent, OverlayProgress, PrepareStep};
 use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_bin::meta_schema::{self, PatchSchema};
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 /// A workshop project an overlay tests, with the layers the test turns on.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,6 +68,19 @@ pub struct OverlayBuild {
     /// [`ModLibrary::record_overlay_build`] to persist and announce it, or drop
     /// it if the frontend has no use for it.
     pub outcome: OverlayBuildOutcome,
+    /// How long the parts of the build took.
+    pub timings: OverlayTimings,
+}
+
+/// How long the parts of one overlay build took.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OverlayTimings {
+    /// From the start of [`ModLibrary::ensure_overlay`] to the builder's first stage.
+    pub prepare: Duration,
+    /// The builder itself.
+    pub build: Duration,
+    /// Each built-in mod turned on, in priority order.
+    pub builtins: Vec<BuiltinTiming>,
 }
 
 impl ModLibrary {
@@ -139,6 +154,9 @@ impl ModLibrary {
     /// test turns on and prepended to the enabled mod list, and the built-in mods
     /// `config` turns on go above them.
     ///
+    /// Reports each step before the builder runs as [`OverlayStage::Preparing`] progress, and
+    /// reads `called_off` between those steps as well as inside the builder.
+    ///
     /// # Errors
     ///
     /// [`AppError::Overlay`](ltk_manager_base::error::AppError::Overlay) holding
@@ -152,6 +170,22 @@ impl ModLibrary {
         called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
         let _building = self.overlay_lock().lock();
+        let started = Instant::now();
+        let called_off = Arc::new(called_off);
+        let events = Arc::clone(self.events());
+        let preparing = |step: PrepareStep| {
+            events.emit(BackendEvent::OverlayProgress(OverlayProgress::preparing(
+                step,
+            )));
+        };
+        let check_called_off = || -> AppResult<()> {
+            if called_off() {
+                return Err(ltk_overlay::Error::CalledOff.into());
+            }
+            Ok(())
+        };
+
+        preparing(PrepareStep::Library);
         let storage_dir = self.storage_dir(config)?;
 
         storage_dir.invalidate_stale_overlays(self.app_version());
@@ -175,15 +209,35 @@ impl ModLibrary {
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
         let mods = self.collect_overlay_mods(workshop_projects, enabled_mods)?;
+        check_called_off()?;
+
         let tables = self.wad_resolver();
-        let mods = builtin_mods::inject(
+        let regenerate = if force_rebuild {
+            Regenerate::Always
+        } else {
+            Regenerate::IfChanged
+        };
+        let builtin_mods::Injected {
+            mods,
+            timings: builtin_timings,
+        } = builtin_mods::inject(
             &storage_dir,
             &config.builtin_mods,
             &game_dir,
             &*tables,
             mods,
+            self.app_version(),
+            regenerate,
+            &mut |name| {
+                preparing(PrepareStep::BuiltinMod {
+                    name: name.to_owned(),
+                })
+            },
+            &*called_off,
         )?;
+        check_called_off()?;
 
+        preparing(PrepareStep::Game);
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
 
@@ -218,14 +272,21 @@ impl ModLibrary {
             mods,
         };
 
+        check_called_off()?;
+        let prepare = started.elapsed();
+        tracing::info!("Overlay: inputs prepared in {prepare:?}");
+
         let progress_events = Arc::clone(self.events());
+        let build_called_off = Arc::clone(&called_off);
+        let building = Instant::now();
         let outcome = build_overlay(
             inputs,
             move |progress| {
                 progress_events.emit(BackendEvent::OverlayProgress(progress));
             },
-            called_off,
+            move || build_called_off(),
         )?;
+        let build = building.elapsed();
 
         for diagnostic in &outcome.game_data_diagnostics {
             log_game_data_diagnostic(diagnostic);
@@ -234,6 +295,11 @@ impl ModLibrary {
         Ok(OverlayBuild {
             overlay_root,
             outcome,
+            timings: OverlayTimings {
+                prepare,
+                build,
+                builtins: builtin_timings,
+            },
         })
     }
 

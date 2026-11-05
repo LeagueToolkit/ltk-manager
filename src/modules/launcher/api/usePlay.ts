@@ -21,8 +21,6 @@ const BUSY_STEPS = new Set<PlayStep>(["starting-patcher", "launching", "cancelli
 
 /** How long `start_patcher` gets to move the phase off idle at all. */
 const STARTUP_TIMEOUT_MS = 10_000;
-/** How long the overlay build itself may take - a first build on an HDD is minutes. */
-const BUILD_TIMEOUT_MS = 30 * 60_000;
 const POLL_INTERVAL_MS = 500;
 
 export type { PlayStep };
@@ -36,29 +34,26 @@ function sleep(ms: number) {
  *
  * `start_patcher` returns as soon as its background thread is spawned, so
  * watching the phase is the only way to know the overlay finished building.
- * Two budgets rather than one: a short one for the thread to pick the work up
- * at all, then a long one once it has. A start that was refused never leaves
- * idle, and making that case wait out the full build timeout would read as a
- * hang.
+ * The build itself has no budget: the thread ends it with `patching` or
+ * `idle`, and Stop moves it to `idle`. Only the pickup has one, because a start
+ * that was refused never leaves idle.
  */
 async function waitForPatcher(): Promise<boolean> {
   const startupDeadline = Date.now() + STARTUP_TIMEOUT_MS;
-  let buildDeadline: number | null = null;
+  let building = false;
 
   for (;;) {
     const result = await api.getPatcherStatus();
     if (isOk(result)) {
       const { phase } = result.value;
       if (phase === "patching") return true;
-      if (phase === "building" && buildDeadline === null) {
-        buildDeadline = Date.now() + BUILD_TIMEOUT_MS;
-      }
+      if (phase === "building") building = true;
       // Idle after the build had started means it failed or was stopped;
       // `usePatcherError` has already surfaced the reason.
-      if (phase === "idle" && buildDeadline !== null) return false;
+      if (phase === "idle" && building) return false;
     }
 
-    if (Date.now() > (buildDeadline ?? startupDeadline)) return false;
+    if (!building && Date.now() > startupDeadline) return false;
     await sleep(POLL_INTERVAL_MS);
   }
 }

@@ -2,7 +2,7 @@
 
 use super::game_skins::GameSkins;
 use super::overrides::Overrides;
-use super::{BuiltinMod, Context};
+use super::{BuiltinMod, Context, mounted};
 use ltk_manager_base::error::AppResult;
 
 /// What a ward skin bin is replaced with, so the game falls back to the ward's base skin. No bin
@@ -24,7 +24,7 @@ impl BuiltinMod for DefaultWardSkins {
 
     /// `JUNK` over each ward skin bin past the base that a map archive holds.
     fn generate(&self, cx: &mut Context<'_>) -> AppResult<Overrides> {
-        let maps = GameSkins::maps(cx.game_dir, cx.tables)?;
+        let maps = mounted(&mut cx.maps, || GameSkins::maps(cx.game_dir, cx.tables))?;
         let mut overrides = Overrides::default();
         for (archive, bin) in maps.past_base_of("sightward") {
             overrides.insert(archive, &bin.path(), JUNK);

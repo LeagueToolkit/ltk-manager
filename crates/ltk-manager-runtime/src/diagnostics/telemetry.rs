@@ -32,6 +32,64 @@ pub const PATCHER_START_FAILED: &str = "patcher_start_failed";
 /// The event a failed background sync of the patcher delivery reports.
 pub const PATCHER_DELIVERY_SYNC_FAILED: &str = "patcher_delivery_sync_failed";
 
+/// The event one overlay build of a session reports, the first and every rebuild.
+pub const OVERLAY_BUILT: &str = "overlay_built";
+
+/// The boundaries a build step's length is reported in, in seconds.
+///
+/// The edges are the shapes a build takes: a reused overlay, a rebuild of a few archives, a
+/// first build on a solid-state disk, a first build on a hard disk, and a build that reads as
+/// a hang.
+const WORK_BUCKETS: [(u64, &str); 6] = [
+    (1, "under-1s"),
+    (5, "1-5s"),
+    (15, "5-15s"),
+    (60, "15-60s"),
+    (5 * 60, "1-5m"),
+    (u64::MAX, "over-5m"),
+];
+
+/// The bucket a step of `seconds` falls in.
+#[must_use]
+pub fn work_bucket(seconds: u64) -> &'static str {
+    for (edge, name) in WORK_BUCKETS {
+        if seconds < edge {
+            return name;
+        }
+    }
+    "over-5m"
+}
+
+/// What one overlay build of a session reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OverlayBuildFacts {
+    /// Whether the build followed a library edit rather than the session start.
+    pub rebuild: bool,
+    /// How many rebuilds the session ran before this build.
+    pub rebuilds: u64,
+    /// The work before the builder ran, in seconds.
+    pub prepare_secs: u64,
+    /// The builder itself, in seconds.
+    pub build_secs: u64,
+    /// How many built-in mods are turned on.
+    pub builtins: u64,
+    /// How many of them reused their last project unchanged.
+    pub builtins_reused: u64,
+}
+
+/// The properties one overlay build reports.
+#[must_use]
+pub fn overlay_built(app_version: &str, facts: &OverlayBuildFacts) -> Properties {
+    Properties::new()
+        .with("app_version", app_version)
+        .with("reason", if facts.rebuild { "refresh" } else { "start" })
+        .with("rebuilds", facts.rebuilds)
+        .with("prepare_bucket", work_bucket(facts.prepare_secs))
+        .with("build_bucket", work_bucket(facts.build_secs))
+        .with("builtins", facts.builtins)
+        .with("builtins_reused", facts.builtins_reused)
+}
+
 /// How a session ended, which is the property every other one is read against.
 const OUTCOME_CLEAN: &str = "clean";
 const OUTCOME_VERDICT: &str = "verdict";

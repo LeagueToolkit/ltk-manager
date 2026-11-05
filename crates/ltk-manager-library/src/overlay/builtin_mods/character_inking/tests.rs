@@ -1,6 +1,6 @@
 //! Unit tests for character inking.
 
-use super::super::{Context, inject};
+use super::super::{Context, Regenerate, inject};
 use super::*;
 use fs_err as fs;
 use ltk_hash::BinHash;
@@ -240,12 +240,12 @@ fn generate_in(
 ) -> Overrides {
     CharacterInking::of(settings)
         .unwrap()
-        .generate(&mut Context {
-            game_dir: &GameDir::from_path(game),
-            tables: &tables(&["data/characters/annietibbers/skins/skin1.bin"]),
+        .generate(&mut Context::new(
+            &GameDir::from_path(game),
+            &tables(&["data/characters/annietibbers/skins/skin1.bin"]),
             mods,
             cache_dir,
-        })
+        ))
         .unwrap()
 }
 
@@ -474,8 +474,13 @@ fn an_injected_inking_project_declares_a_manifest_that_loads() {
         &GameDir::from_path(game.path()),
         &tables(&[]),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, ["builtin:character-inking"]);

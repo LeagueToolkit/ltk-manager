@@ -1,6 +1,6 @@
 //! Unit tests for the map skins built-in mod.
 
-use super::super::{Context, ForcibleMapSkin, forcible_map_skins, inject};
+use super::super::{Context, ForcibleMapSkin, Regenerate, forcible_map_skins, inject};
 use super::*;
 use fs_err as fs;
 use ltk_game_data::{
@@ -235,12 +235,12 @@ fn generate(game: &Path, settings: &BuiltinModSettings) -> Overrides {
     let cache = tempfile::tempdir().unwrap();
     MapSkins::of(settings)
         .unwrap()
-        .generate(&mut Context {
-            game_dir: &GameDir::from_path(game),
-            tables: &NoTables,
-            mods: &mut [],
-            cache_dir: cache.path(),
-        })
+        .generate(&mut Context::new(
+            &GameDir::from_path(game),
+            &NoTables,
+            &mut [],
+            cache.path(),
+        ))
         .unwrap()
 }
 
@@ -617,8 +617,13 @@ fn an_injected_map_skins_project_carries_its_declarations() {
         &GameDir::from_path(game.path()),
         &NoTables,
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, ["builtin:map-skins"]);

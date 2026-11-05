@@ -44,11 +44,32 @@ impl EventSink for NullEventSink {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum OverlayStage {
+    /// Resolving the build inputs before the builder runs. `OverlayProgress::step` names the
+    /// step.
+    Preparing,
     Indexing,
     Collecting,
     Patching,
     Strings,
     Complete,
+}
+
+/// A step of the work before the overlay builder runs, reported under
+/// [`OverlayStage::Preparing`].
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PrepareStep {
+    /// The patcher DLL is being delivered.
+    Patcher,
+    /// The last game's process is closing.
+    GameExit,
+    /// The library index and the enabled mods are being read.
+    Library,
+    /// A built-in mod's project is being generated. `name` is the mod's display name.
+    BuiltinMod { name: String },
+    /// The game install is being read.
+    Game,
 }
 
 /// Progress of an overlay build.
@@ -60,6 +81,22 @@ pub struct OverlayProgress {
     pub current_file: Option<String>,
     pub current: u32,
     pub total: u32,
+    /// The step under [`OverlayStage::Preparing`], `None` under every other stage.
+    pub step: Option<PrepareStep>,
+}
+
+impl OverlayProgress {
+    /// Progress at `step` of [`OverlayStage::Preparing`].
+    #[must_use]
+    pub fn preparing(step: PrepareStep) -> Self {
+        Self {
+            stage: OverlayStage::Preparing,
+            current_file: None,
+            current: 0,
+            total: 0,
+            step: Some(step),
+        }
+    }
 }
 
 /// Progress of a bulk mod install, emitted per file.

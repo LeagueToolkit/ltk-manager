@@ -55,6 +55,39 @@ fn a_duration_falls_in_the_bucket_that_holds_it() {
 }
 
 #[test]
+fn a_build_step_falls_in_the_bucket_that_holds_it() {
+    assert_eq!(work_bucket(0), "under-1s");
+    assert_eq!(work_bucket(4), "1-5s");
+    assert_eq!(work_bucket(14), "5-15s");
+    assert_eq!(work_bucket(59), "15-60s");
+    assert_eq!(work_bucket(4 * 60), "1-5m");
+    assert_eq!(work_bucket(5 * 60), "over-5m");
+}
+
+#[test]
+fn an_overlay_build_reports_its_reason_and_the_bucket_of_each_part() {
+    let properties = overlay_built(
+        "1.17.0",
+        &OverlayBuildFacts {
+            rebuild: true,
+            rebuilds: 2,
+            prepare_secs: 7,
+            build_secs: 0,
+            builtins: 3,
+            builtins_reused: 2,
+        },
+    );
+
+    assert_eq!(properties.get("app_version"), Some(&json!("1.17.0")));
+    assert_eq!(properties.get("reason"), Some(&json!("refresh")));
+    assert_eq!(properties.get("rebuilds"), Some(&json!(2)));
+    assert_eq!(properties.get("prepare_bucket"), Some(&json!("5-15s")));
+    assert_eq!(properties.get("build_bucket"), Some(&json!("under-1s")));
+    assert_eq!(properties.get("builtins"), Some(&json!(3)));
+    assert_eq!(properties.get("builtins_reused"), Some(&json!(2)));
+}
+
+#[test]
 fn a_clean_session_says_so_and_carries_no_verdict() {
     let properties = clean_session(&environment(), &facts());
 

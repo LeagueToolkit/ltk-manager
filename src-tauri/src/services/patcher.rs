@@ -11,6 +11,7 @@ use crate::patcher::{
     PatcherSession, PatcherState, PatcherThread, PreparedHost, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
@@ -75,6 +76,9 @@ pub struct PatcherStatus {
     /// Whether a library edit waits for the running game to end before the
     /// overlay is rebuilt.
     pub changes_after_game: bool,
+    /// The last progress the build phase reported. `null` outside the build phase, and
+    /// until the first report of one.
+    pub overlay_progress: Option<OverlayProgress>,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -240,11 +244,13 @@ pub(crate) fn start_patcher_inner(
     let delivery = app_handle.state::<PatcherDeliveryState>().inner().clone();
     delivery.sync_in_background(&config_snapshot);
 
-    let channel = crate::patcher::delivery::channel(&config_snapshot);
-    let prepare_host = Box::new(move || prepare_host(&delivery, channel, &injector_exe));
-
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));
+
+    let channel = crate::patcher::delivery::channel(&config_snapshot);
+    let prepare_events = Arc::clone(&events);
+    let prepare_host =
+        Box::new(move || prepare_host(&delivery, channel, &injector_exe, &*prepare_events));
     // The cap is a setting, so the session's store reads it as a snapshot.
     let incident_store = Arc::new(
         incidents
@@ -274,18 +280,24 @@ pub(crate) fn start_patcher_inner(
 
 /// Selects the delivered build of a session and identifies its binaries.
 ///
+/// Reports the delivery as a build step through `events` when it has to wait for the network.
 /// Fails with [`PatcherError::DllUnavailable`] if no build is usable.
 fn prepare_host(
     delivery: &PatcherDeliveryState,
     channel: Channel,
     bundled_host: &Path,
+    events: &dyn PatcherEvents,
 ) -> AppResult<PreparedHost> {
-    let staged = delivery.prepare(channel, bundled_host).map_err(|error| {
-        tracing::error!(%error, "No patcher DLL is available");
-        PatcherError::DllUnavailable {
-            reason: error.kind(),
-        }
-    })?;
+    let staged = delivery
+        .prepare(channel, bundled_host, || {
+            events.overlay_progress(OverlayProgress::preparing(PrepareStep::Patcher));
+        })
+        .map_err(|error| {
+            tracing::error!(%error, "No patcher DLL is available");
+            PatcherError::DllUnavailable {
+                reason: error.kind(),
+            }
+        })?;
     tracing::info!(
         version = %staged.version,
         digest = %staged.digest,
@@ -376,6 +388,11 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> PatcherStatus {
                 None
             },
             changes_after_game: running && patcher_state.overlay_refresh.waits_for_game(),
+            overlay_progress: if running {
+                patcher_state.overlay_progress.clone()
+            } else {
+                None
+            },
         }
     })
 }

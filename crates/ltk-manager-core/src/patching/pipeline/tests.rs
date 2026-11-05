@@ -23,6 +23,7 @@ struct SilentEvents;
 impl PatcherEvents for SilentEvents {
     fn phase_changed(&self, _phase: PatcherPhase) {}
     fn error(&self, _error: AppError) {}
+    fn overlay_progress(&self, _progress: ltk_manager_base::events::OverlayProgress) {}
     fn wad_scan_failed(&self, _failures: Vec<WadScanFailure>) {}
     fn game_attached(&self, _pid: Option<u64>) {}
     fn game_overlay(&self, _outcome: OverlayOutcome) {}
