@@ -6933,7 +6933,12 @@ export type OverlayProgress = {
 };
 
 /**  Stage of an overlay build. */
-export type OverlayStage = "indexing" | "collecting" | "patching" | "strings" | "complete";
+export type OverlayStage = 
+/**
+ *  Resolving the build inputs before the builder runs: the library, the built-in mods and
+ *  the game. `current_file` names the step.
+ */
+"preparing" | "indexing" | "collecting" | "patching" | "strings" | "complete";
 
 /**  One post of `GET /api/v1/me/mods`, with its newest release. */
 export type OwnedModPost = {

@@ -151,6 +151,7 @@ fn payloads_serialize_as_camel_case() {
 #[test]
 fn overlay_stages_serialize_to_their_wire_names() {
     for (stage, expected) in [
+        (OverlayStage::Preparing, "\"preparing\""),
         (OverlayStage::Indexing, "\"indexing\""),
         (OverlayStage::Collecting, "\"collecting\""),
         (OverlayStage::Patching, "\"patching\""),

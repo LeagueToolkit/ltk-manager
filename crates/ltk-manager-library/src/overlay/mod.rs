@@ -23,13 +23,14 @@ use crate::mods::StorageLayout as _;
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
-use ltk_manager_base::events::BackendEvent;
+use ltk_manager_base::events::{BackendEvent, OverlayProgress, OverlayStage};
 use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_bin::meta_schema::{self, PatchSchema};
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 /// A workshop project an overlay tests, with the layers the test turns on.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -139,6 +140,9 @@ impl ModLibrary {
     /// test turns on and prepended to the enabled mod list, and the built-in mods
     /// `config` turns on go above them.
     ///
+    /// Reports each step before the builder runs as [`OverlayStage::Preparing`] progress, and
+    /// reads `called_off` between those steps as well as inside the builder.
+    ///
     /// # Errors
     ///
     /// [`AppError::Overlay`](ltk_manager_base::error::AppError::Overlay) holding
@@ -152,6 +156,25 @@ impl ModLibrary {
         called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
         let _building = self.overlay_lock().lock();
+        let started = Instant::now();
+        let called_off = Arc::new(called_off);
+        let events = Arc::clone(self.events());
+        let preparing = |step: String| {
+            events.emit(BackendEvent::OverlayProgress(OverlayProgress {
+                stage: OverlayStage::Preparing,
+                current_file: Some(step),
+                current: 0,
+                total: 0,
+            }));
+        };
+        let check_called_off = || -> AppResult<()> {
+            if called_off() {
+                return Err(ltk_overlay::Error::CalledOff.into());
+            }
+            Ok(())
+        };
+
+        preparing("Reading the library".to_owned());
         let storage_dir = self.storage_dir(config)?;
 
         storage_dir.invalidate_stale_overlays(self.app_version());
@@ -175,6 +198,8 @@ impl ModLibrary {
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
         let mods = self.collect_overlay_mods(workshop_projects, enabled_mods)?;
+        check_called_off()?;
+
         let tables = self.wad_resolver();
         let mods = builtin_mods::inject(
             &storage_dir,
@@ -182,8 +207,12 @@ impl ModLibrary {
             &game_dir,
             &*tables,
             mods,
+            &mut |name| preparing(format!("Generating {name}")),
+            &*called_off,
         )?;
+        check_called_off()?;
 
+        preparing("Reading the game".to_owned());
         let utf8_state_dir = profile_dir.try_into_utf8("profile directory")?;
         artifacts::clean_corrupt_overlay_state(&utf8_state_dir);
 
@@ -218,13 +247,17 @@ impl ModLibrary {
             mods,
         };
 
+        check_called_off()?;
+        tracing::info!("Overlay: inputs prepared in {:?}", started.elapsed());
+
         let progress_events = Arc::clone(self.events());
+        let build_called_off = Arc::clone(&called_off);
         let outcome = build_overlay(
             inputs,
             move |progress| {
                 progress_events.emit(BackendEvent::OverlayProgress(progress));
             },
-            called_off,
+            move || build_called_off(),
         )?;
 
         for diagnostic in &outcome.game_data_diagnostics {

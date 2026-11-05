@@ -617,6 +617,8 @@ fn an_injected_map_skins_project_carries_its_declarations() {
         &GameDir::from_path(game.path()),
         &NoTables,
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 

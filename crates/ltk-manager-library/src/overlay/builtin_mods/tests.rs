@@ -300,6 +300,8 @@ fn a_built_in_mod_turned_on_is_written_and_injected() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -326,6 +328,8 @@ fn a_built_in_mod_turned_off_is_removed() {
         &game_dir,
         &Tables::default(),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -335,6 +339,8 @@ fn a_built_in_mod_turned_off_is_removed() {
         &game_dir,
         &Tables::default(),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -361,6 +367,8 @@ fn a_directory_no_built_in_mod_owns_is_removed() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -377,6 +385,58 @@ fn a_game_without_maps_generates_no_override() {
 }
 
 #[test]
+fn inject_reports_each_built_in_mod_before_it_generates() {
+    let game = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let mut reported = Vec::new();
+
+    inject(
+        storage.path(),
+        &ward_skins_turned(true),
+        &GameDir::from_path(game.path()),
+        &Tables::default(),
+        Vec::new(),
+        &mut |name| reported.push(name.to_owned()),
+        &|| false,
+    )
+    .unwrap();
+
+    assert_eq!(reported, ["Default ward skins"]);
+}
+
+#[test]
+fn inject_fails_with_called_off_before_a_built_in_mod_generates() {
+    let game = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let mut reported = Vec::new();
+
+    let result = inject(
+        storage.path(),
+        &ward_skins_turned(true),
+        &GameDir::from_path(game.path()),
+        &Tables::default(),
+        Vec::new(),
+        &mut |name| reported.push(name.to_owned()),
+        &|| true,
+    );
+
+    assert!(matches!(
+        result,
+        Err(ltk_manager_base::error::AppError::Overlay(
+            ltk_overlay::Error::CalledOff
+        ))
+    ));
+    assert!(reported.is_empty());
+    assert!(
+        !storage
+            .path()
+            .join("builtin")
+            .join("default-ward-skins")
+            .exists()
+    );
+}
+
+#[test]
 fn a_built_in_mod_goes_above_every_other_mod() {
     let game = tempfile::tempdir().unwrap();
     let storage = tempfile::tempdir().unwrap();
@@ -388,6 +448,8 @@ fn a_built_in_mod_goes_above_every_other_mod() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         vec![fs_mod("installed", installed.path())],
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -415,6 +477,8 @@ fn every_built_in_mod_turned_on_is_injected_in_priority_order() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 

@@ -46,6 +46,7 @@ export type SessionView =
   | ({ readonly kind: "progress"; readonly steps: Step[]; readonly working: boolean } & Work);
 
 const overlayStageLabels: Record<OverlayProgress["stage"], string> = {
+  preparing: "Preparing build...",
   indexing: "Indexing game files...",
   collecting: "Collecting mod overrides...",
   patching: "Patching WAD files...",

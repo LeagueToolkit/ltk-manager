@@ -31,6 +31,7 @@ use overrides::Overrides;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::time::Instant;
 use ward_skins::DefaultWardSkins;
 
 /// The directory under the storage directory holding every built-in mod's project.
@@ -167,17 +168,22 @@ pub fn count_enabled(settings: &BuiltinModSettings) -> usize {
 /// Put the built-in mods `settings` turns on above `mods`, writing each one's project first.
 ///
 /// The storage directory keeps the project of each built-in mod turned on and nothing else.
-/// `tables` names the chunks of the game in `game_dir`.
+/// `tables` names the chunks of the game in `game_dir`. `report` is called with the display
+/// name of each built-in mod before it generates.
 ///
 /// # Errors
 ///
-/// Fails when a project cannot be generated against the game in `game_dir` or written.
+/// Fails when a project cannot be generated against the game in `game_dir` or written, and
+/// with [`ltk_overlay::Error::CalledOff`] if `called_off` answers `true` before a built-in mod
+/// generates.
 pub(crate) fn inject(
     storage_dir: &Path,
     settings: &BuiltinModSettings,
     game_dir: &GameDir,
     tables: &dyn PathResolver,
     mut mods: Vec<EnabledMod>,
+    report: &mut dyn FnMut(&str),
+    called_off: &dyn Fn() -> bool,
 ) -> AppResult<Vec<EnabledMod>> {
     let root = storage_dir.join(DIR);
     let enabled = enabled(settings);
@@ -185,6 +191,12 @@ pub(crate) fn inject(
 
     let mut injected = Vec::with_capacity(enabled.len() + mods.len());
     for builtin in &enabled {
+        if called_off() {
+            return Err(ltk_overlay::Error::CalledOff.into());
+        }
+        report(builtin.display_name());
+
+        let started = Instant::now();
         let dir = root.join(builtin.slug());
         let mut cx = Context {
             game_dir,
@@ -197,7 +209,12 @@ pub(crate) fn inject(
             .write(&dir, builtin.slug(), builtin.display_name())?;
 
         let id = format!("builtin:{}", builtin.slug());
-        tracing::info!("Adding built-in mod: id={}, path={}", id, dir.display());
+        tracing::info!(
+            "Adding built-in mod: id={}, path={}, generated in {:?}",
+            id,
+            dir.display(),
+            started.elapsed()
+        );
         injected.push(EnabledMod {
             id,
             content: Box::new(FsModContent::new(dir.try_into_utf8("built-in mod path")?)),

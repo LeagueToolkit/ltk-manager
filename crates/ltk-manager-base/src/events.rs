@@ -44,6 +44,9 @@ impl EventSink for NullEventSink {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum OverlayStage {
+    /// Resolving the build inputs before the builder runs: the library, the built-in mods and
+    /// the game. `current_file` names the step.
+    Preparing,
     Indexing,
     Collecting,
     Patching,

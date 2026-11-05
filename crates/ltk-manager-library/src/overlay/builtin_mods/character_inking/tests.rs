@@ -474,6 +474,8 @@ fn an_injected_inking_project_declares_a_manifest_that_loads() {
         &GameDir::from_path(game.path()),
         &tables(&[]),
         Vec::new(),
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 

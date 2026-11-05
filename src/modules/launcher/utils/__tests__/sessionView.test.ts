@@ -51,6 +51,25 @@ describe("deriveSessionView", () => {
     ]);
     expect(view.working).toBe(true);
     expect(view.label).toBe("Preparing build...");
+    expect(view.detail).toBeNull();
+  });
+
+  it("names the preparing step under the build label", () => {
+    const view = deriveSessionView({
+      ...IDLE,
+      phase: "building",
+      overlayProgress: {
+        stage: "preparing",
+        currentFile: "Generating Character inking",
+        current: 0,
+        total: 0,
+      },
+    });
+    if (view.kind !== "progress") throw new Error(view.kind);
+
+    expect(view.label).toBe("Preparing build...");
+    expect(view.detail).toBe("Generating Character inking");
+    expect(view.value).toBeNull();
   });
 
   it("rests in game while nothing else has progress", () => {

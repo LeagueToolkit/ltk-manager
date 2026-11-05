@@ -181,6 +181,12 @@ impl PatcherThread {
         };
         self.observer.set_patcher(host.binaries);
 
+        if self.stop_flag.load(Ordering::SeqCst) {
+            tracing::info!("Stop requested while preparing the patcher host, exiting");
+            self.reset_to_idle();
+            return;
+        }
+
         let mut force_rebuild = self.force_rebuild;
 
         loop {
