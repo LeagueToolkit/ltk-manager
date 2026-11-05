@@ -9,6 +9,7 @@ pub mod recorder;
 pub mod refresh;
 pub mod session;
 pub mod state;
+mod tamper;
 
 pub use dll_lines::{DllLevel, DllLine};
 pub use elevation::check_unelevated;
@@ -21,3 +22,4 @@ pub use session::{RecordHandler, SessionObserver};
 pub use state::{
     PatcherPhase, PatcherSession, PatcherStateInner, SessionOrigin, StoredPatcherConfig,
 };
+pub use tamper::check_untampered;

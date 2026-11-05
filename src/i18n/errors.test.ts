@@ -127,6 +127,13 @@ describe("describePatcherError", () => {
     });
   });
 
+  it("describes a controlled manager", () => {
+    expect(describePatcherError({ kind: "TAMPERED" })).toEqual({
+      title: m["patcher.TAMPERED.title"](),
+      description: m["patcher.TAMPERED.description"](),
+    });
+  });
+
   it("describes a missing DLL by its delivery failure", () => {
     expect(describePatcherError({ kind: "DLL_UNAVAILABLE", reason: "NETWORK" })).toEqual({
       title: m["patcher.DLL_UNAVAILABLE.title"](),

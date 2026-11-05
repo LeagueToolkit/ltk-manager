@@ -26,6 +26,7 @@ pub(crate) mod processes;
 pub mod report;
 mod storage_medium;
 pub mod store;
+pub mod tamper;
 pub mod telemetry;
 pub mod token;
 pub mod windows;

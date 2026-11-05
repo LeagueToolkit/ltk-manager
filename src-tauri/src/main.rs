@@ -111,6 +111,10 @@ fn main() {
         .plugin(services::runeforge::plugin())
         .plugin(services::workshop::plugin());
 
+    // A DLL injected before main can write the variables after the first clear.
+    // Clear again immediately before the WebView2 is created.
+    launcher_environment::clear();
+
     builder
         /* The preview's pixels come this way rather than over IPC, so an
         `<img>` draws them with the webview's own decoder. */

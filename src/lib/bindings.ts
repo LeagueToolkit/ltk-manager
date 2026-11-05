@@ -7197,6 +7197,8 @@ export type PatcherError =
 { kind: "LEAGUE_ELEVATED" } | 
 /**  LTK Manager runs as administrator, and a session runs unelevated. */
 { kind: "MANAGER_ELEVATED" } | 
+/**  Another program controls this manager through a debugging bridge. */
+{ kind: "TAMPERED" } | 
 /**
  *  No patcher DLL could be selected for the session. `reason` is the delivery failure's
  *  kind, which the frontend turns into copy.

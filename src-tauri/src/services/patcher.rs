@@ -217,6 +217,7 @@ pub(crate) fn start_patcher_inner(
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
     }
+    ltk_manager_runtime::patcher::check_untampered(crate::launcher_environment::is_controlled())?;
     let telemetry = crate::telemetry::state(app_handle);
 
     tracing::debug!("Start patcher requested (external injector)");

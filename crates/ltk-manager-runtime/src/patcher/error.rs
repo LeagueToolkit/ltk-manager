@@ -61,6 +61,12 @@ pub enum PatcherError {
     )]
     ManagerElevated,
 
+    /// Another program controls this manager through a debugging bridge.
+    #[error(
+        "Close the external launcher and open LTK Manager normally, then start the patcher again"
+    )]
+    Tampered,
+
     /// No patcher DLL could be selected for the session. `reason` is the delivery failure's
     /// kind, which the frontend turns into copy.
     #[error("no patcher DLL is available: {reason}")]

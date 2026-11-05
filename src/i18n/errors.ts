@@ -294,6 +294,10 @@ export function describePatcherError(error: PatcherError): ErrorCopy {
       title: m["patcher.MANAGER_ELEVATED.title"](),
       description: m["patcher.MANAGER_ELEVATED.description"](),
     }))
+    .with({ kind: "TAMPERED" }, () => ({
+      title: m["patcher.TAMPERED.title"](),
+      description: m["patcher.TAMPERED.description"](),
+    }))
     .with({ kind: "DLL_UNAVAILABLE" }, ({ reason }) => ({
       title: m["patcher.DLL_UNAVAILABLE.title"](),
       description: deliveryFailureDescription(reason),

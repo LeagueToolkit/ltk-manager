@@ -24,6 +24,29 @@ fn ignores_unrelated_variables() {
 }
 
 #[test]
+fn only_marks_variables_that_can_control_the_manager() {
+    let value = |value: &str| std::ffi::OsStr::new(value);
+
+    assert!(is_control_variable("LTF_CDP_PORT", value("46321")));
+    assert!(is_control_variable(
+        "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+        value(r"C:\Temp\WebView2")
+    ));
+    assert!(is_control_variable(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        value("--disable-gpu --remote-debugging-port=9222")
+    ));
+    assert!(!is_control_variable(
+        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+        value("--disable-gpu")
+    ));
+    assert!(!is_control_variable(
+        "WEBVIEW2_RELEASE_CHANNEL_PREFERENCE",
+        value("1")
+    ));
+}
+
+#[test]
 fn clears_a_launcher_variable() {
     std::env::set_var(
         "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
@@ -35,5 +58,9 @@ fn clears_a_launcher_variable() {
     assert!(
         std::env::var_os("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").is_none(),
         "the debugging arguments are removed"
+    );
+    assert!(
+        is_controlled(),
+        "the launcher's control is remembered after clearing"
     );
 }
