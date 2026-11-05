@@ -172,13 +172,13 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-function renderView(onShowInProperties = vi.fn(), editable = false) {
+function renderView(onShowInProperties = vi.fn(), editable = false, roots = ROOTS) {
   render(
     <ClassView
       document={7}
       asset={ASSET}
       editable={editable}
-      roots={ROOTS}
+      roots={roots}
       classHash={MATERIAL}
       layout={materialLayout}
       objectName={() => "Characters/Ezreal/Skins/Base/Materials/Ezreal_Base_Mat"}
@@ -653,6 +653,177 @@ describe("ClassView over a material of two passes", () => {
           ],
         }),
       ),
+    );
+  });
+});
+
+const TECHNIQUES = nameHash("techniques").slice(2);
+const PASSES = nameHash("passes").slice(2);
+const STATE = {
+  blendEnable: false,
+  srcColor: "one",
+  dstColor: "zero",
+  srcAlpha: "one",
+  dstAlpha: "zero",
+  cullEnable: true,
+  windingToCull: "ccw",
+  depthEnable: true,
+  depthCompareFunc: 3,
+  writeMask: 31,
+};
+
+describe("ClassView over the passes of a material", () => {
+  beforeEach(() => {
+    const read = mockInvoke.getMockImplementation();
+    const pass = (shader: string) => ({
+      pass: { shader, schema: SCHEMA, state: STATE },
+      program: { kind: "failed", reason: "" },
+    });
+    const technique = `${TECHNIQUES}[0]`;
+    const passes = `${technique}.${PASSES}`;
+    const reads: Record<string, BinRows> = {
+      [TECHNIQUES]: page([
+        row(technique, "[0]", embed("StaticMaterialTechniqueDef", 2), "element"),
+      ]),
+      [technique]: page([row(passes, "passes", list(2))]),
+      [passes]: page(
+        [0, 1].map((at) =>
+          row(`${passes}[${at}]`, `[${at}]`, embed("StaticMaterialPassDef", 1), "element"),
+        ),
+      ),
+      ...Object.fromEntries(
+        ["Shaders/Body", "Shaders/Glow"].map((shader, at) => [
+          `${passes}[${at}]`,
+          page([
+            row(`${passes}[${at}].${nameHash("shader").slice(2)}`, "shader", {
+              type: "objectLink",
+              hash: nameHash(shader),
+              name: shader,
+            }),
+          ]),
+        ]),
+      ),
+    };
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === commandNames.preview.readMaterialPrograms) {
+        return Promise.resolve({
+          ok: true,
+          value: [
+            {
+              hash: ENTRY,
+              name: null,
+              animated: false,
+              kind: "skinnedMesh",
+              technique: 0,
+              passes: [pass("Shaders/Body"), pass("Shaders/Glow")],
+              warnings: [],
+            },
+          ],
+        });
+      }
+      if (command === commandNames.bin.binRead) {
+        const paths = (args?.paths ?? []) as string[];
+        if (paths.some((path) => path in reads)) {
+          const answered = paths.map(
+            (path) => reads[path] ?? ELEMENTS[path] ?? FIELDS[path] ?? page([]),
+          );
+          return Promise.resolve({ ok: true, value: answered });
+        }
+      }
+      if (command === commandNames.bin.binEdit) return landed();
+      return read!(command, args);
+    });
+  });
+
+  const roots = [...ROOTS, field("techniques", list(1))];
+
+  it("lists each pass with its shader", async () => {
+    renderView(vi.fn(), true, roots);
+
+    const rows = () => [...document.querySelectorAll('[data-ui="MaterialPasses:pass"]')];
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    /* The link index of this test names no object, so each shader link draws as its hash. */
+    await waitFor(() => expect(rows()[1]?.textContent).toContain(nameHash("Shaders/Glow")));
+    expect(rows()[0]?.textContent).toContain(nameHash("Shaders/Body"));
+    expect(screen.getAllByRole("combobox", { name: "Blend" })).toHaveLength(2);
+  });
+
+  it("sets a pass's blend as one edit of its factors", async () => {
+    renderView(vi.fn(), true, roots);
+    const user = userEvent.setup();
+
+    const blends = await screen.findAllByRole("combobox", { name: "Blend" });
+    await user.click(blends[1]!);
+    await user.click(await screen.findByRole("option", { name: "Additive" }));
+
+    const holder = `${TECHNIQUES}[0].${PASSES}[1]`;
+    const set = (name: string, value: object) => ({
+      entry: ENTRY,
+      holder,
+      field: nameHash(name),
+      edits: [{ type: "setLeaf", path: "", value }],
+    });
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(7, {
+          kind: "editProperties",
+          edits: [
+            set("blendEnable", { type: "bool", value: true }),
+            set("srcColorBlendFactor", { type: "integer", text: "6" }),
+            set("dstColorBlendFactor", { type: "integer", text: "1" }),
+            set("srcAlphaBlendFactor", { type: "integer", text: "6" }),
+            set("dstAlphaBlendFactor", { type: "integer", text: "1" }),
+          ] as PropertyEdit[],
+        }),
+      ),
+    );
+  });
+
+  it("moves, copies and removes a pass through its menu, and adds one", async () => {
+    renderView(vi.fn(), true, roots);
+    const user = userEvent.setup();
+    const technique = `${TECHNIQUES}[0]`;
+    const passEdit = (edits: object[]) =>
+      editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: technique,
+        field: nameHash("passes"),
+        edits: edits as PropertyEdit["edits"],
+      });
+
+    await user.click(await screen.findByRole("button", { name: "Pass 1 actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Move down" }));
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(7, {
+          kind: "moveItem",
+          entry: ENTRY,
+          path: `${technique}.${PASSES}[0]`,
+          to: 1,
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Pass 2 actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...passEdit([{ type: "copyItem", from: "[1]", path: "", index: 2, unique: null }]),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Pass 1 actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove pass" }));
+    expect(mockInvoke).toHaveBeenCalledWith(...passEdit([{ type: "removeItem", path: "[0]" }]));
+
+    await user.click(screen.getByRole("button", { name: "Add pass" }));
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...passEdit([
+        {
+          type: "insertItem",
+          path: "",
+          item: { index: null, key: null, class: "StaticMaterialPassDef" },
+        },
+      ]),
     );
   });
 });

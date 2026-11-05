@@ -165,11 +165,13 @@ describe("placeRows", () => {
     field("childTechniques", list(0)),
   ];
 
-  it("places every depth-zero row once, and every one the layout does not name in Other", () => {
+  it("places every depth-zero row, and every one the layout does not name in Other", () => {
     const placed = placeRows(roots, materialLayout);
 
     const drawn = placed.flatMap((section) => section.rows.map((row) => row.name));
-    expect([...drawn].sort()).toEqual(roots.map((row) => row.name).sort());
+    expect([...new Set(drawn)].sort()).toEqual(roots.map((row) => row.name).sort());
+    /* Passes and Techniques draw the one `techniques` row two ways. */
+    expect(drawn.filter((name) => name === "techniques")).toHaveLength(2);
 
     const other = placed.at(-1);
     expect(other?.other).toBe(true);
@@ -197,6 +199,7 @@ describe("placeRows", () => {
       "Params",
       "Switches",
       "Macros",
+      "Passes",
       "Techniques",
       "Other",
     ]);
@@ -230,6 +233,7 @@ describe("placeRows", () => {
       "material-params",
       "material-switches",
       "material-macros",
+      "material-passes",
       "tree",
       undefined,
     ]);
@@ -245,7 +249,7 @@ describe("placeRows", () => {
     const placed = placeRows(roots, materialLayout);
     const counts = placed.map((section) => sectionCount(section, new Map()));
 
-    expect(counts).toEqual([null, 2, 1, 0, 3, null, 2]);
+    expect(counts).toEqual([null, 2, 1, 0, 3, null, null, 2]);
   });
 });
 
