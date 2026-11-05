@@ -10,6 +10,7 @@ mod error;
 mod events;
 mod hotkeys;
 mod ipc;
+mod launcher_environment;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
@@ -46,6 +47,9 @@ fn running_version() -> Version {
 }
 
 fn main() {
+    // Before the WebView2 starts and before a shell relaunch copies the environment.
+    launcher_environment::clear();
+
     // Before logging, so a panic while that is still being set up is reported.
     telemetry::install_panic_hook();
 
