@@ -3,7 +3,7 @@
 use super::*;
 use fs_err as fs;
 use indexmap::IndexMap;
-use ltk_hash::HashValue;
+use ltk_hash::{HashValue, HashWidth};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::hashing::named;
 use ltk_meta::{Bin, BinFile};
@@ -2391,7 +2391,7 @@ fn a_fix_writes_the_wide_hash_of_a_material_name_and_keeps_the_path() {
     let PropertyValueEnum::Hash(hash) = value else {
         panic!("expected a Hash");
     };
-    assert_eq!(hash.value, WIDE_XXH3.hash_str(FIXTURE_MATERIAL));
+    assert_eq!(hash.value, WIDE_HASHER.hash_str(FIXTURE_MATERIAL));
 
     let table = fs::read_to_string(tmp.path().join("hashes").join("game.hashes.txt")).unwrap();
     assert!(table.contains(FIXTURE_MATERIAL), "{table}");

@@ -1477,3 +1477,47 @@ fn a_plain_dependency_carries_no_brex_spelling() {
 
     assert_eq!(plain.packed, None);
 }
+
+#[test]
+fn an_eight_byte_hash_is_named_by_the_path_it_hashes() {
+    const PATH: &str = "Characters/Zac/Skins/Skin31/Materials/ult";
+    let object = BinObject::builder(h(PATH), h("StaticMaterialDef"))
+        .property(
+            h("name"),
+            values::Hash::new(ltk_hash::HashValue::wide(0x5d07_ca0d_22ff_9588)),
+        )
+        .property(
+            h("other"),
+            values::Hash::new(ltk_hash::HashValue::wide(0x0123_4567_89ab_cdef)),
+        )
+        .build();
+    let bin = Bin::builder().object(object).build();
+    let mut out = Cursor::new(Vec::new());
+    bin.to_writer(&mut out).unwrap();
+    let document = BinDocument::parse(out.into_inner()).unwrap();
+    let mut names = named();
+    names.entries.insert(h(PATH), PATH);
+
+    let rows = document
+        .children(h(PATH), "", 0, usize::MAX, &names, None)
+        .unwrap()
+        .rows;
+
+    assert_eq!(
+        row(&rows, "name").value,
+        BinValue::Hash {
+            hash: "0x5d07ca0d22ff9588".to_owned(),
+            name: Some(PATH.to_owned()),
+        },
+        "a material's name is its own path"
+    );
+    let other = rows.iter().find(|row| row.name != "name").unwrap();
+    assert_eq!(
+        other.value,
+        BinValue::Hash {
+            hash: "0x0123456789abcdef".to_owned(),
+            name: None,
+        },
+        "a hash no path of the read makes stays hex"
+    );
+}

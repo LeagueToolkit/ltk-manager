@@ -51,9 +51,9 @@ pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, O
 pub use document::BinDocument;
 pub use names::{ProjectNames, RowNames};
 pub use resolve::{
-    AssetLookup, Fields, Locator, NamedAsset, Namer, boolean, chunk_asset, color, entries,
-    fields_of, float, hash_hex, hex, items, leaf, link, object_at, optional, owned, string_map,
-    struct_entries, struct_of, text, unsigned, vector2, vector3, vector4,
+    AssetLookup, Fields, Locator, NamedAsset, Namer, WIDE_HASHER, boolean, chunk_asset, color,
+    entries, fields_of, float, hash_hex, hex, items, leaf, link, object_at, optional, owned,
+    string_map, struct_entries, struct_of, text, unsigned, vector2, vector3, vector4,
 };
 pub use store::{BinDocuments, CAPACITY, DocumentRead};
 pub use types::{

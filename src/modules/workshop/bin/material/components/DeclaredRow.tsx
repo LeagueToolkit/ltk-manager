@@ -1,5 +1,6 @@
 import {
   ArrowCounterClockwiseIcon,
+  ArrowsSplitIcon,
   DotsThreeVerticalIcon,
   EraserIcon,
   InfoIcon,
@@ -186,7 +187,7 @@ function RowActions() {
   const state = use(RowStateContext);
   if (state === null) return <DeclaredCell className="pl-0" />;
 
-  const { revert, revertLabel, toDefault, refusal } = state;
+  const { revert, revertLabel, toDefault, refusal, perPass } = state;
 
   return (
     <DeclaredCell className="pl-0">
@@ -200,7 +201,7 @@ function RowActions() {
             label={revertLabel}
           />
         )}
-        {(revert !== null || toDefault !== null) && (
+        {(revert !== null || toDefault !== null || perPass !== null) && (
           <Menu.Root>
             <Menu.Trigger
               render={
@@ -216,6 +217,11 @@ function RowActions() {
               {revert !== null && (
                 <Menu.Item icon={<ArrowCounterClockwiseIcon className="size-4" />} onClick={revert}>
                   {revertLabel}
+                </Menu.Item>
+              )}
+              {perPass !== null && (
+                <Menu.Item icon={<ArrowsSplitIcon className="size-4" />} onClick={perPass}>
+                  {m.workshop_bin_material_per_pass_action()}
                 </Menu.Item>
               )}
               {toDefault !== null && (

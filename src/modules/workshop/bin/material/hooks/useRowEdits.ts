@@ -4,10 +4,11 @@ import { errorSummary, m } from "@/i18n";
 
 import { type LeafEdit, LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
+import { holderRow } from "../../vfx/drivers/utils/holderRow";
 import { type RowState, TableContext } from "../state/declaredTable";
 import { baselineKey, useRowBaseline, useRowBaselineStore } from "../state/rowBaselines";
 import type { DeclaredRow } from "../utils/declaredRows";
-import { objectRow, setField } from "../utils/entryEdits";
+import { setField } from "../utils/entryEdits";
 import { revertFields, revertLabel, sameSnapshot, snapshotOf } from "../utils/rowSnapshot";
 import { useEntryFields, useEntryRemove, useOverride } from "./useEntryEdits";
 
@@ -38,7 +39,12 @@ export function useRowEdits<D>(row: DeclaredRow<D>): RowEdits {
   const key =
     table === null
       ? ""
-      : baselineKey(table.view.document, table.view.entry, table.kind.list, row.name);
+      : baselineKey(
+          table.view.document,
+          table.view.entry,
+          `${table.holder}:${table.kind.list}`,
+          row.name,
+        );
   const baseline = useRowBaseline(key);
   const current = table === null ? null : snapshotOf(row.element, table.pages);
   const changed = baseline !== undefined && current !== null && !sameSnapshot(baseline, current);
@@ -94,7 +100,9 @@ export function useRowEdits<D>(row: DeclaredRow<D>): RowEdits {
 
   let refusal: string | null = null;
   if (failed) {
-    const error = edit?.refused.get(rowKey(objectRow(table?.view.entry ?? "")));
+    const error = edit?.refused.get(
+      rowKey(holderRow(table?.view.entry ?? "", table?.holder ?? "")),
+    );
     refusal =
       error === undefined ? m.workshop_bin_material_edit_refused_label() : errorSummary(error);
   }
@@ -108,6 +116,10 @@ export function useRowEdits<D>(row: DeclaredRow<D>): RowEdits {
           })
       : null;
 
+  const move = table?.perPass ?? null;
+  const perPass =
+    element !== null && row.declared !== null && move !== null ? () => move(row.name) : null;
+
   return {
     state: {
       changed,
@@ -115,6 +127,7 @@ export function useRowEdits<D>(row: DeclaredRow<D>): RowEdits {
       revertLabel: baseline === undefined ? "" : revertLabel(baseline, current, nameField),
       toDefault,
       refusal,
+      perPass,
       pulse,
     },
     scoped,

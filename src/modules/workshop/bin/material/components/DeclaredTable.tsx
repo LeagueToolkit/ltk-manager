@@ -47,8 +47,14 @@ export function DeclaredTable<D extends { readonly name: string }>({
   columns,
   warnings = NO_MARKS,
   notes = NO_MARKS,
+  holder = "",
+  perPass = null,
 }: WidgetProps & {
   kind: ListKind;
+  /** The wire path of the struct holding the list, empty for the material itself. */
+  holder?: string;
+  /** Move the material's entry of a name into the passes, which each row's menu offers. */
+  perPass?: ((name: string) => void) | null;
   declarations: readonly D[] | null;
   /** The names every table of the material lists, which one name column is measured over. */
   names: readonly string[];
@@ -69,10 +75,12 @@ export function DeclaredTable<D extends { readonly name: string }>({
     pages,
     view,
     kind,
+    holder,
     count: list === undefined ? 0 : childCount(list),
     known: declarations !== null,
     warnings,
     notes,
+    perPass,
   };
 
   const all = useMemo(

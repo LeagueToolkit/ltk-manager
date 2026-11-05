@@ -290,6 +290,9 @@ pub struct MaterialProgram {
     /// material.
     pub animated: bool,
     pub kind: MaterialKind,
+    /// The index in `techniques` of the technique `passes` come from, which an edit of a
+    /// pass's own entries is addressed under. None for a shader def's defaults.
+    pub technique: Option<u32>,
     /// The passes of the `normal` technique, in draw order.
     pub passes: Vec<PassProgram>,
     /// Every drop, miss and fallback the read made, in the order it made them.
@@ -698,6 +701,7 @@ fn material_program(
         name: material.name,
         animated: material.animated,
         kind: material.kind,
+        technique: material.technique,
         passes,
         warnings: material.warnings,
     }

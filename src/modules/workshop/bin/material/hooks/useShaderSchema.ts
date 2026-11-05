@@ -14,7 +14,8 @@ const TEXTURE_WARNINGS: ReadonlySet<MaterialWarning["kind"]> = new Set([
   "noTexturePath",
 ]);
 
-function useProgram(view: ViewContext) {
+/** The program read of the view's material, null until it answers. */
+export function useProgram(view: ViewContext) {
   return useQuery(materialQueries.program(view.document, view.entry || null)).data ?? null;
 }
 
