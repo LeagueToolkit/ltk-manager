@@ -5,7 +5,6 @@ use super::*;
 #[test]
 fn workshop_tests_take_each_projects_layers() {
     let config = StoredPatcherConfig {
-        flags: None,
         workshop_projects: Some(vec!["a".to_owned(), "b".to_owned()]),
         workshop_layers: Some(HashMap::from([("a".to_owned(), vec!["extras".to_owned()])])),
     };

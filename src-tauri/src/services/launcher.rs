@@ -11,6 +11,7 @@ use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::services::shared::InFlight;
 use crate::state::{IncidentStoreState, SettingsState};
+use crate::workshop::WorkshopState;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::EventSink;
 use ltk_manager_base::events::SessionStarted;
@@ -193,6 +194,7 @@ fn switch_league_install_inner(app_handle: &AppHandle, install_root: PathBuf) ->
                 &patcher_state,
                 &app_handle.state::<PatcherHostState>(),
                 &settings_state,
+                &app_handle.state::<WorkshopState>(),
                 &app_handle.state::<ModLibraryState>(),
                 &app_handle.state::<IncidentStoreState>(),
             )

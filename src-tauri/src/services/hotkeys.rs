@@ -6,6 +6,7 @@ use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, IncidentStoreState, SettingsState};
+use crate::workshop::WorkshopState;
 use ltk_manager_runtime::launcher::{kill_game, reconnect_client};
 use tauri::{AppHandle, Manager, State};
 
@@ -18,6 +19,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
     let patcher_state = app_handle.state::<PatcherState>();
     let host_state = app_handle.state::<PatcherHostState>();
     let settings_state = app_handle.state::<SettingsState>();
+    let workshop_state = app_handle.state::<WorkshopState>();
     let library_state = app_handle.state::<ModLibraryState>();
     let incidents_state = app_handle.state::<IncidentStoreState>();
 
@@ -46,6 +48,7 @@ pub(crate) fn execute_hot_reload(app_handle: &AppHandle) -> AppResult<()> {
         &patcher_state,
         &host_state,
         &settings_state,
+        &workshop_state,
         &library_state,
         &incidents_state,
     )?;

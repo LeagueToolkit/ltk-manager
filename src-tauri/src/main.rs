@@ -10,6 +10,7 @@ mod error;
 mod events;
 mod hotkeys;
 mod ipc;
+mod launcher_environment;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
@@ -46,6 +47,9 @@ fn running_version() -> Version {
 }
 
 fn main() {
+    // Before the WebView2 starts and before a shell relaunch copies the environment.
+    launcher_environment::clear();
+
     // Before logging, so a panic while that is still being set up is reported.
     telemetry::install_panic_hook();
 
@@ -106,6 +110,10 @@ fn main() {
         .plugin(services::news::plugin())
         .plugin(services::runeforge::plugin())
         .plugin(services::workshop::plugin());
+
+    // A DLL injected before main can write the variables after the first clear.
+    // Clear again immediately before the WebView2 is created.
+    launcher_environment::clear();
 
     builder
         /* The preview's pixels come this way rather than over IPC, so an

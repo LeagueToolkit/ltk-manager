@@ -11,6 +11,8 @@ use crate::patcher::{
     PatcherSession, PatcherState, PatcherThread, PreparedHost, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
+use crate::workshop::{ProjectKey, Workshop, WorkshopState};
+use ltk_manager_base::config::Config;
 use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
@@ -20,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::services::shared::off_thread;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Manager, State};
 
@@ -29,11 +31,8 @@ const BINARY_HASH_LEN: usize = 16;
 
 /// Configuration for starting the patcher.
 #[derive(Debug, Clone, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PatcherConfig {
-    /// Optional hook flags bitmask forwarded to the injection host
-    #[specta(optional)]
-    pub flags: Option<u64>,
     /// Absolute paths to workshop project directories to include in the overlay.
     ///
     /// These are loaded directly from disk via `FsModContent` and prepended to
@@ -55,7 +54,6 @@ impl PatcherConfig {
     /// The config a session ran with, for starting it again.
     pub(crate) fn from_stored(stored: StoredPatcherConfig, force_rebuild: bool) -> Self {
         Self {
-            flags: stored.flags,
             workshop_projects: stored.workshop_projects,
             workshop_layers: stored.workshop_layers,
             force_rebuild: Some(force_rebuild),
@@ -143,18 +141,51 @@ fn resolve_resource(app_handle: &AppHandle, file_name: &str) -> AppResult<PathBu
     )))
 }
 
+/// Rejects overlay project paths the workshop does not list.
+///
+/// A start request can name absolute paths to read as mod content, so accepting
+/// one the workshop does not list would let any path the caller can reach become
+/// overlay content. The workshop lists its folder's children and the folders the
+/// user opened; everything else, including a spelling that climbs out with `..`,
+/// is refused.
+fn validate_workshop_projects(
+    requested: Option<&[String]>,
+    workshop: &Workshop,
+    config: &Config,
+) -> AppResult<()> {
+    let Some(requested) = requested else {
+        return Ok(());
+    };
+
+    let known: HashSet<ProjectKey> = workshop
+        .get_projects(config)?
+        .into_iter()
+        .map(|project| ProjectKey::of(Path::new(&project.path)))
+        .collect();
+
+    for path in requested {
+        if !known.contains(&ProjectKey::of(Path::new(path))) {
+            return Err(AppError::InvalidPath(path.clone()));
+        }
+    }
+
+    Ok(())
+}
+
 /// Start the patcher with the given configuration.
 ///
 /// Returns immediately after spawning a background thread that builds the overlay
 /// and then runs the patcher loop. Progress is reported via events.
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub fn start_patcher(
     config: PatcherConfig,
     app_handle: AppHandle,
     state: State<PatcherState>,
     host_state: State<PatcherHostState>,
     settings: State<SettingsState>,
+    workshop: State<WorkshopState>,
     library: State<ModLibraryState>,
     incidents: State<IncidentStoreState>,
 ) -> IpcResult<()> {
@@ -164,6 +195,7 @@ pub fn start_patcher(
         &state,
         &host_state,
         &settings,
+        &workshop,
         &library,
         &incidents,
     );
@@ -173,26 +205,35 @@ pub fn start_patcher(
     result.into()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn start_patcher_inner(
     config: PatcherConfig,
     app_handle: &AppHandle,
     state: &State<PatcherState>,
     host_state: &State<PatcherHostState>,
     settings: &State<SettingsState>,
+    workshop: &WorkshopState,
     library: &State<ModLibraryState>,
     incidents: &State<IncidentStoreState>,
 ) -> AppResult<()> {
     if cfg!(not(target_os = "windows")) {
         return Err(PatcherError::UnsupportedPlatform.into());
     }
+    ltk_manager_runtime::patcher::check_untampered(crate::launcher_environment::is_controlled())?;
     let telemetry = crate::telemetry::state(app_handle);
 
     tracing::debug!("Start patcher requested (external injector)");
     let injector_exe = resolve_resource(app_handle, INJECTOR_EXE_NAME)?;
     tracing::debug!("Using injector: {}", injector_exe.display());
 
+    let config_snapshot = settings.config();
+    validate_workshop_projects(
+        config.workshop_projects.as_deref(),
+        &workshop.0,
+        &config_snapshot,
+    )?;
+
     let stored_config = StoredPatcherConfig {
-        flags: config.flags,
         workshop_projects: config.workshop_projects.clone(),
         workshop_layers: config.workshop_layers.clone(),
     };
@@ -201,7 +242,6 @@ pub(crate) fn start_patcher_inner(
 
     let workshop_projects = ltk_manager_core::patching::workshop_tests(&stored_config);
 
-    let config_snapshot = settings.config();
     tracing::debug!(
         "Config snapshot: league_path={} mod_storage_path={}",
         config_snapshot
@@ -216,10 +256,11 @@ pub(crate) fn start_patcher_inner(
             .unwrap_or_else(|| "<unset>".to_string())
     );
 
-    let mut host_flags = config.flags.unwrap_or(0) as u32;
-    if config_snapshot.full_wad_scan {
-        host_flags |= crate::patcher::host::hook_flags::FULL_WAD_SCAN;
-    }
+    let host_flags = if config_snapshot.full_wad_scan {
+        crate::patcher::host::hook_flags::FULL_WAD_SCAN
+    } else {
+        0
+    };
 
     // The client rewrites its own settings when it exits, so the preference is
     // re-applied at every start rather than once.
@@ -419,3 +460,6 @@ pub struct Table;
 pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     super::plugin::<Table>().build()
 }
+
+#[cfg(test)]
+mod tests;
