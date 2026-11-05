@@ -178,6 +178,7 @@ fn validate_workshop_projects(
 /// and then runs the patcher loop. Progress is reported via events.
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub fn start_patcher(
     config: PatcherConfig,
     app_handle: AppHandle,
@@ -204,6 +205,7 @@ pub fn start_patcher(
     result.into()
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn start_patcher_inner(
     config: PatcherConfig,
     app_handle: &AppHandle,

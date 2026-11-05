@@ -25,7 +25,9 @@ fn ignores_unrelated_variables() {
 
 #[test]
 fn only_marks_variables_that_can_control_the_manager() {
-    let value = |value: &str| std::ffi::OsStr::new(value);
+    fn value(value: &str) -> &std::ffi::OsStr {
+        std::ffi::OsStr::new(value)
+    }
 
     assert!(is_control_variable("LTF_CDP_PORT", value("46321")));
     assert!(is_control_variable(
