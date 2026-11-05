@@ -73,6 +73,12 @@ jobs:
     env:
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
+      # `libwebp-sys2` (through `ltk_mod_project`'s `webp-animation`) links the
+      # system libwebp where pkg-config finds one, and its build script reruns
+      # only when this variable changes. The cache key does not name the runner
+      # image, so a build cached on an image with libwebp asks for `-lwebp` on
+      # an image without it. Static builds the vendored copy on every image.
+      LIBWEBP_SYS_STATIC: "1"
     steps:
       - uses: actions/checkout@v5
         with:
@@ -93,6 +99,12 @@ jobs:
     env:
       CARGO_PROFILE_DEV_DEBUG: line-tables-only
       CARGO_PROFILE_TEST_DEBUG: line-tables-only
+      # `libwebp-sys2` (through `ltk_mod_project`'s `webp-animation`) links the
+      # system libwebp where pkg-config finds one, and its build script reruns
+      # only when this variable changes. The cache key does not name the runner
+      # image, so a build cached on an image with libwebp asks for `-lwebp` on
+      # an image without it. Static builds the vendored copy on every image.
+      LIBWEBP_SYS_STATIC: "1"
     steps:
       - uses: actions/checkout@v5
         with:
