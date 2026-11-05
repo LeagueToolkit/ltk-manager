@@ -38,6 +38,9 @@ const MAX_SKIN: u32 = 999;
 /// The most bins that a skin object is looked up in, following linked bins.
 const MAX_LINKED_BINS: usize = 64;
 
+/// Magic number at byte 4 of a modern skeleton file.
+const SKL_MAGIC: [u8; 4] = 0x22FD_4FC3_u32.to_le_bytes();
+
 /// Reports a base skin that uses the mesh or the name of another skin.
 #[derive(Debug, Default)]
 pub struct BinSkinhack;
@@ -423,29 +426,23 @@ fn evidence_in(
         let Some(path) = mesh_path(&ours, slot) else {
             return Ok(Vec::new());
         };
-        let Some((size, digest)) = merged_digest(project, layer, game, path)? else {
+        let Some(mesh) = merged_mesh(project, layer, game, path)? else {
             return Ok(Vec::new());
         };
 
-        let base_digest = match mesh_path(&base, slot) {
-            Some(base_path) => game.digest(WadHash::from(base_path))?,
-            None => None,
-        };
-        if base_digest == Some(digest) {
+        if let Some(base_path) = mesh_path(&base, slot)
+            && mesh.matches(slot, game, WadHash::from(base_path))?
+        {
             return Ok(Vec::new());
         }
-        modified.push((slot, size, digest));
+        modified.push((slot, mesh));
     }
 
     let others = other_skin_meshes(game, &champion);
-    for (slot, size, digest) in modified {
+    for (slot, mesh) in modified {
         for other in others.iter().filter(|other| other.slot == slot) {
             let hash = WadHash::from(other.path.as_str());
-            /* The size is in the table of contents, so most meshes are never read. */
-            if game.size(hash) != Some(size) {
-                continue;
-            }
-            if game.digest(hash)? == Some(digest) {
+            if mesh.matches(slot, game, hash)? {
                 return Ok(vec![Evidence::Mesh {
                     slot,
                     skin: other.skin,
@@ -590,28 +587,107 @@ fn read_merged(
     }
 }
 
-/// Returns the decompressed size and the SHA-256 of `path`, from layer `layer` or from the
-/// game if the layer does not ship it. Returns `None` if neither contains it.
+/// A mesh resolved from a layer or from the installed game.
+enum MergedMesh {
+    /// Bytes that the layer ships, with the length up to the last non-zero byte.
+    Shipped { bytes: Vec<u8>, non_zero_len: usize },
+    /// Decompressed size and SHA-256 of a chunk in the installed game.
+    Game { size: u64, digest: [u8; 32] },
+}
+
+impl MergedMesh {
+    /// Returns `true` if this mesh has the content of `hash` in `game`, ignoring trailing zero
+    /// bytes on a shipped mesh.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `hash` does not read.
+    fn matches(&self, slot: Slot, game: &dyn GameContent, hash: WadHash) -> Result<bool, String> {
+        let Some(target_size) = game.size(hash) else {
+            return Ok(false);
+        };
+
+        match self {
+            Self::Game { size, digest } => {
+                if target_size != *size {
+                    return Ok(false);
+                }
+                Ok(game.digest(hash)? == Some(*digest))
+            }
+            Self::Shipped {
+                bytes,
+                non_zero_len,
+            } => {
+                let Ok(target_len) = usize::try_from(target_size) else {
+                    return Ok(false);
+                };
+                /* The size is in the table of contents, so most meshes are never read. */
+                if !(*non_zero_len..=bytes.len()).contains(&target_len) {
+                    return Ok(false);
+                }
+                let Some(target_digest) = game.digest(hash)? else {
+                    return Ok(false);
+                };
+                if <[u8; 32]>::from(Sha256::digest(&bytes[..target_len])) == target_digest {
+                    return Ok(true);
+                }
+                if slot == Slot::Skeleton
+                    && target_len < bytes.len()
+                    && let Some(digest) = unpadded_skl_digest(bytes, target_len)
+                {
+                    return Ok(digest == target_digest);
+                }
+                Ok(false)
+            }
+        }
+    }
+}
+
+/// Returns the SHA-256 of `bytes[..target_len]` with its 4-byte `.skl` size field set back to
+/// `target_len`, or `None` if `bytes` is not a modern skeleton whose size field equals
+/// `bytes.len()`.
+fn unpadded_skl_digest(bytes: &[u8], target_len: usize) -> Option<[u8; 32]> {
+    let header_size = u32::from_le_bytes(bytes.get(..4)?.try_into().ok()?);
+    let magic = bytes.get(4..8)?;
+    let target_u32 = u32::try_from(target_len).ok()?;
+    if magic != SKL_MAGIC || usize::try_from(header_size).ok()? != bytes.len() {
+        return None;
+    }
+
+    let mut hasher = Sha256::new();
+    hasher.update(target_u32.to_le_bytes());
+    hasher.update(&bytes[4..target_len]);
+    Some(hasher.finalize().into())
+}
+
+/// Reads the mesh at `path` from layer `layer`, or its size and SHA-256 from `game` if the
+/// layer does not ship it. Returns `None` if neither contains it.
 ///
 /// # Errors
 ///
 /// Fails if the chunk does not read.
-fn merged_digest(
+fn merged_mesh(
     project: &ProjectFiles,
     layer: &str,
     game: &dyn GameContent,
     path: &str,
-) -> Result<Option<(u64, [u8; 32])>, String> {
+) -> Result<Option<MergedMesh>, String> {
     let hash = WadHash::from(path);
     if let Some(file) = shipped(project, layer, hash) {
         let bytes = file.bytes()?;
-        return Ok(Some((bytes.len() as u64, Sha256::digest(&bytes).into())));
+        let non_zero_len = bytes.iter().rposition(|&b| b != 0).map_or(0, |i| i + 1);
+        return Ok(Some(MergedMesh::Shipped {
+            bytes,
+            non_zero_len,
+        }));
     }
 
     let Some(size) = game.size(hash) else {
         return Ok(None);
     };
-    Ok(game.digest(hash)?.map(|digest| (size, digest)))
+    Ok(game
+        .digest(hash)?
+        .map(|digest| MergedMesh::Game { size, digest }))
 }
 
 /// Returns the path that `slot` of the skin object `object` names.
@@ -623,7 +699,7 @@ fn mesh_path(object: &BinObject, slot: Slot) -> Option<&str> {
 /// Returns every name field of the skin object `object` that names another skin.
 ///
 /// Reads `ChampionSkinName`, then `SkinAudioProperties.TagEventList` and
-/// `SkinAudioProperties.BankUnits.Name` into one [`Evidence::Audio`].
+/// `SkinAudioProperties.BankUnits` into one [`Evidence::Audio`].
 fn other_skin_names(object: &BinObject, markers: &Markers) -> Vec<Evidence> {
     let mut found = Vec::new();
 
@@ -646,8 +722,8 @@ fn other_skin_names(object: &BinObject, markers: &Markers) -> Vec<Evidence> {
         .collect();
     let units: Vec<String> = items(audio.properties.get(&named("BankUnits")))
         .iter()
+        .filter(|unit| unit_names_other_skin(unit, markers))
         .filter_map(unit_name)
-        .filter(|name| markers.names_unit(name))
         .map(str::to_owned)
         .collect();
 
@@ -660,6 +736,31 @@ fn other_skin_names(object: &BinObject, markers: &Markers) -> Vec<Evidence> {
 /// Returns the `Name` of the bank unit `unit`.
 fn unit_name(unit: &PropertyValueEnum) -> Option<&str> {
     text(embed(Some(unit))?.properties.get(&named("Name")))
+}
+
+/// Returns `true` if `unit` is marked `voiceOver`.
+fn is_voice_over(unit: &PropertyValueEnum) -> bool {
+    embed(Some(unit))
+        .and_then(|unit| unit.properties.get(&named("voiceOver")))
+        .is_some_and(|flag| matches!(flag, PropertyValueEnum::Bool(flag) if flag.value))
+}
+
+/// Returns `true` if the bank unit `unit` is named for the SFX of another skin, or is an SFX
+/// unit whose `events` list an event of another skin.
+fn unit_names_other_skin(unit: &PropertyValueEnum, markers: &Markers) -> bool {
+    if unit_name(unit).is_some_and(|name| markers.names_unit(name)) {
+        return true;
+    }
+    if is_voice_over(unit) {
+        return false;
+    }
+    let Some(unit) = embed(Some(unit)) else {
+        return false;
+    };
+    items(unit.properties.get(&named("events")))
+        .iter()
+        .filter_map(|event| text(Some(event)))
+        .any(|event| markers.names(event))
 }
 
 /// Returns whether `value` contains `marker`, then a skin number other than 0, then `suffix`.
