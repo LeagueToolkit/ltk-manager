@@ -341,7 +341,7 @@ fn free_table_path(manifests: &[ModProjectHashtable]) -> String {
         .map(|manifest| manifest.path.to_ascii_lowercase())
         .collect();
     std::iter::once(GAME_TABLE_PATH.to_owned())
-        .chain((1..).map(|attempt| format!("{HASHES_DIR_NAME}/game.repaired{attempt}.hashes.txt")))
+        .chain((2..).map(|n| format!("{HASHES_DIR_NAME}/game{n}.hashes.txt")))
         .find(|candidate| !taken.contains(&candidate.to_ascii_lowercase()))
         .expect("the candidate sequence is unbounded")
 }

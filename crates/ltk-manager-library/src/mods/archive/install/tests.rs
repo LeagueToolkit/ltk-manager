@@ -7,6 +7,7 @@ use assert_matches::assert_matches;
 use ltk_manager_assets::test_util::{make_named_fantome_zip, make_versioned_fantome_zip};
 use ltk_manager_base::events::ModStorage;
 use ltk_wad::NoResolver;
+use std::io::Write;
 
 fn context() -> InstallContext<'static> {
     InstallContext {
@@ -86,16 +87,50 @@ fn a_hashtable_containing_only_a_bom_installs_as_an_empty_table() {
 }
 
 #[test]
-fn stripping_a_bom_does_not_hide_invalid_hashtable_content() {
+fn an_invalid_hashtable_is_not_declared_by_the_staged_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("invalid-table.fantome");
     fantome_with_hashtable(&archive, b"\xef\xbb\xbfdata/skin0.bin\ninvalid\x00name\n");
 
-    let result = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context());
+    let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
-    assert!(result.is_err());
-    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 0);
+    let mut reader =
+        ltk_fantome::FantomeReader::new(fs::File::open(staged.staged_archive).unwrap()).unwrap();
+    reader.read_hashtables().unwrap();
+    assert!(
+        !reader
+            .entry_names()
+            .any(|name| name.eq_ignore_ascii_case("meta/hashes/game.hashes.txt"))
+    );
+}
+
+#[test]
+fn a_fantome_declaring_an_absent_hashtable_installs_and_unpacks() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("missing-table.fantome");
+    ltk_manager_assets::test_util::make_missing_hashtable_fantome_zip(&archive);
+
+    let installed = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap()
+        .into_mod();
+    library
+        .set_mod_storage(&config, &installed.id, ModStorage::Project)
+        .unwrap();
+
+    let mod_dir = PathBuf::from(&installed.mod_dir);
+    let project = load_mod_project(&mod_dir).unwrap();
+    for table in &project.hashtables {
+        assert!(
+            mod_dir.join(&table.path).is_file(),
+            "{} is absent",
+            table.path
+        );
+    }
+    assert!(mod_dir.join("content/base/Ashe.wad.client").is_dir());
 }
 
 fn install(storage: &Path, archive: &Path) -> AppResult<LibraryModEntry> {
@@ -283,11 +318,9 @@ fn a_leftover_archive_keeps_its_slug_from_being_reused() {
     );
 }
 
-/// Names the preserve embedded survive a later unpack: the unpacked tree holds
-/// the declared table and the manifest names it, so the project carries its own
-/// names wherever it goes next.
+/// The unpacked tree holds the table of embedded names, and the project manifest declares it.
 #[test]
-fn harvested_names_land_in_the_unpacked_projects_hashes_directory() {
+fn embedded_names_land_in_the_unpacked_projects_hashes_directory() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
@@ -311,9 +344,8 @@ fn harvested_names_land_in_the_unpacked_projects_hashes_directory() {
     assert_eq!(project.hashtables[0].path, "hashes/game.hashes.txt");
 }
 
-/// A packed WAD whose only name record is a bin inside it round-trips to a
-/// named file: the preserve harvests the name into the archive's table, and
-/// a later unpack names the chunk from the mod's own table rather than hex.
+/// The import embeds a name that only a bin in the packed WAD contains, and the unpack
+/// names the chunk from that table instead of hex.
 #[test]
 fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
     let storage = tempfile::tempdir().unwrap();
@@ -337,15 +369,12 @@ fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
         .join("Ashe.wad.client");
     assert!(
         wad_dir.join("assets/custom/recovered.tex").is_file(),
-        "chunk should unpack under its harvested name"
+        "chunk should unpack under its embedded name"
     );
 }
 
-/// What a preserve found outlives the import: the index remembers it, and the
-/// mod the frontend receives carries it. A mod that preserved cleanly and one
-/// that arrived already lossy are told apart by `unharvestable` alone.
 #[test]
-fn the_harvest_is_recorded_on_the_entry_and_the_installed_mod() {
+fn embedded_names_are_recorded_on_the_entry_and_the_installed_mod() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
@@ -357,14 +386,14 @@ fn the_harvest_is_recorded_on_the_entry_and_the_installed_mod() {
         .unwrap()
         .into_mod();
 
-    let expected = crate::mods::index::HarvestSummary {
-        names_added: 1,
-        unharvestable: 2,
+    let expected = crate::mods::index::EmbeddedNames {
+        embedded: 1,
+        unnamed: 2,
     };
-    assert_eq!(installed.harvest, Some(expected));
+    assert_eq!(installed.embedded_names, Some(expected));
     library
         .with_index(&config, |_storage, index| {
-            assert_eq!(index.mods[0].harvest, Some(expected));
+            assert_eq!(index.mods[0].embedded_names, Some(expected));
             Ok(())
         })
         .unwrap();

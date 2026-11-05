@@ -17,18 +17,18 @@ use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::{extract_metadata, load_mod_project, read_installed_mod};
 use crate::mods::index::document::archive_path;
-use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
+use crate::mods::index::{EmbeddedNames, LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::{
     BulkInstallError, BulkInstallResult, InstallOutcome, InstalledMod, ROOT_FOLDER_ID,
 };
+use camino::Utf8Path;
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, io_context};
 use ltk_manager_base::events::{BackendEvent, InstallProgress};
 use ltk_wad::PathResolver;
-use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
@@ -37,6 +37,7 @@ mod existing;
 mod update;
 
 use existing::{SourceDigest, installed_from, older_version_of, read_library_mod};
+use ltk_manager_workshop::repair_declared_hashtables;
 use update::Replacement;
 
 /// Prefix an in-flight install's directory and archive copy share under `mods/`.
@@ -68,8 +69,8 @@ pub(crate) struct StagedMod {
     /// The file this came from, so a register that fails names something the
     /// user recognizes rather than an empty row.
     source_path: String,
-    /// What preserving the mod's names found. `None` for a modpkg.
-    harvest: Option<HarvestSummary>,
+    /// The chunk names the import embedded. `None` for a modpkg.
+    embedded_names: Option<EmbeddedNames>,
     /// The source archive's bytes, which is what tells a repeat import.
     digest: SourceDigest,
 }
@@ -138,8 +139,8 @@ impl Registration {
 struct StagedContent {
     /// The project's `name`, which the slug is derived from.
     project_name: String,
-    /// What preserving the mod's names found. `None` for a modpkg.
-    harvest: Option<HarvestSummary>,
+    /// The chunk names the import embedded. `None` for a modpkg.
+    embedded_names: Option<EmbeddedNames>,
 }
 
 impl ModLibrary {
@@ -436,7 +437,7 @@ fn stage_digested(
         staged_archive,
         project_name: staged.project_name,
         source_path: file_path.display().to_string(),
-        harvest: staged.harvest,
+        embedded_names: staged.embedded_names,
         digest,
     })
 }
@@ -445,7 +446,7 @@ fn stage_digested(
 /// `staging_dir`.
 ///
 /// The archive is the mod: every install keeps it, and the content provider
-/// reads out of it. A fantome's copy is made through the name preserve, so the
+/// reads out of it. A fantome's copy is made by embedding its chunk names, so the
 /// names its packed WADs carry survive into the library with it.
 fn stage_into(
     staging_dir: &Path,
@@ -458,23 +459,13 @@ fn stage_into(
         // `Unknown` never reaches here — it is what a discovered directory
         // records, and nothing installs one.
         ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-            let normalized = strip_hashtable_boms(file_path, staging_dir)?;
-            let file_path = normalized.as_ref().map_or(file_path, |file| file.path());
+            let repaired = repair_declared_hashtables(file_path, staging_dir)?;
+            let file_path = repaired.as_ref().map_or(file_path, |file| file.path());
             let source = file_path.to_path_buf().try_into_utf8("archive path")?;
             let dest = staged_archive
                 .to_path_buf()
                 .try_into_utf8("staged archive")?;
-            let report =
-                ltk_mod_project::preserve_archive_names(&source, &dest, Some(context.resolver))
-                    .map_err(|e| {
-                        AppError::Other(format!("Failed to preserve the mod's names: {e}"))
-                    })?;
-            tracing::info!(
-                archive = %source,
-                outcome = ?report.outcome,
-                unharvestable = report.unharvestable,
-                "Preserved the mod's names on import"
-            );
+            let embedded_names = Some(embed_names(&source, &dest, context)?);
 
             let outcome = ltk_fantome::normalize_archive(&dest, &dest)
                 .map_err(|e| AppError::Other(format!("Failed to normalize the archive: {e}")))?;
@@ -484,7 +475,7 @@ fn stage_into(
 
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
-                harvest: Some(report.into()),
+                embedded_names,
             })
         }
         ModArchiveFormat::Modpkg => {
@@ -493,66 +484,32 @@ fn stage_into(
 
             Ok(StagedContent {
                 project_name: load_mod_project(staging_dir)?.name,
-                harvest: None,
+                embedded_names: None,
             })
         }
     }
 }
 
-/// An import copy with UTF-8 byte order marks removed from declared hashtables.
-fn strip_hashtable_boms(
-    source: &Path,
-    staging_dir: &Path,
-) -> AppResult<Option<tempfile::NamedTempFile>> {
-    let mut reader = ltk_fantome::FantomeReader::new(BufReader::new(fs::File::open(source)?))?;
-    let info = reader.read_info()?;
-    drop(reader);
+/// Copies the fantome at `source` to `dest` with the names of its chunks embedded.
+///
+/// # Errors
+///
+/// Fails if the archive or a packed WAD in it cannot be read, or `dest` cannot be written.
+fn embed_names(
+    source: &Utf8Path,
+    dest: &Utf8Path,
+    context: &InstallContext<'_>,
+) -> AppResult<EmbeddedNames> {
+    let report = ltk_mod_project::preserve_archive_names(source, dest, Some(context.resolver))
+        .map_err(|e| AppError::Other(format!("Failed to read the mod's chunk names: {e}")))?;
+    tracing::info!(
+        archive = %source,
+        outcome = ?report.outcome,
+        unnamed = report.unharvestable,
+        "Embedded the mod's chunk names on import"
+    );
 
-    if info.hashtables.is_empty() {
-        return Ok(None);
-    }
-
-    let mut archive = zip::ZipArchive::new(BufReader::new(fs::File::open(source)?))?;
-    let mut replacements = std::collections::HashMap::new();
-    for index in 0..archive.len() {
-        let mut entry = archive.by_index(index)?;
-        if !info.hashtables.iter().any(|table| {
-            table.to_entry().is_some() && entry.name().eq_ignore_ascii_case(&table.path)
-        }) {
-            continue;
-        }
-
-        let mut prefix = Vec::with_capacity(3);
-        entry.by_ref().take(3).read_to_end(&mut prefix)?;
-        if prefix != b"\xef\xbb\xbf" {
-            continue;
-        }
-
-        let mut content = Vec::new();
-        entry.read_to_end(&mut content)?;
-        replacements.insert(index, content);
-    }
-
-    if replacements.is_empty() {
-        return Ok(None);
-    }
-
-    let mut normalized = tempfile::NamedTempFile::new_in(staging_dir)?;
-    let mut writer = zip::ZipWriter::new(normalized.as_file_mut());
-    writer.set_raw_comment(archive.comment().into());
-
-    for index in 0..archive.len() {
-        let entry = archive.by_index(index)?;
-        if let Some(content) = replacements.get(&index) {
-            writer.start_file(entry.name(), entry.options())?;
-            writer.write_all(content)?;
-        } else {
-            writer.raw_copy_file(entry)?;
-        }
-    }
-
-    writer.finish()?;
-    Ok(Some(normalized))
+    Ok(report.into())
 }
 
 /// Assign a slug, move the staged files into place, and record the mod.
@@ -604,7 +561,7 @@ pub(crate) fn register_staged_mod(
         format: staged.format,
         storage: staged.format.installed_storage(),
         slug: Some(slug),
-        harvest: staged.harvest,
+        embedded_names: staged.embedded_names,
         source_sha256: Some(staged.digest.sha256),
         origin: None,
     };

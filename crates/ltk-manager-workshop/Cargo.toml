@@ -40,15 +40,15 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 slug = { workspace = true }
 tar = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 walkdir = { workspace = true }
+zip = { workspace = true }
 specta = { workspace = true, optional = true }
 
 [dev-dependencies]
 ltk-manager-assets = { workspace = true, features = ["test-util"] }
 assert_matches = { workspace = true }
 image = { workspace = true }
-tempfile = { workspace = true }
-zip = { workspace = true }

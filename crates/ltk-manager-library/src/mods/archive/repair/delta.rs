@@ -303,9 +303,7 @@ fn free_archive_table_path(manifests: &[FantomeHashtable]) -> String {
         .map(|manifest| manifest.path.to_ascii_lowercase())
         .collect();
     std::iter::once(format!("{ARCHIVE_HASHES_DIR}/game.hashes.txt"))
-        .chain(
-            (1..).map(|attempt| format!("{ARCHIVE_HASHES_DIR}/game.repaired{attempt}.hashes.txt")),
-        )
+        .chain((2..).map(|n| format!("{ARCHIVE_HASHES_DIR}/game{n}.hashes.txt")))
         .find(|candidate| !taken.contains(&candidate.to_ascii_lowercase()))
         .expect("the candidate sequence is unbounded")
 }

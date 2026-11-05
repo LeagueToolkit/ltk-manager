@@ -462,9 +462,9 @@ pub fn make_dot_file_fantome_zip(path: &Path) {
 /// An archive whose manifest declares a hashtable file the archive does not
 /// hold.
 ///
-/// Its chunks cannot be named the way the manifest declares, so an import
-/// refuses it. A check that accepts it names chunks differently from the
-/// repair that follows.
+/// An import drops the declaration. A check that reads the archive unrepaired
+/// refuses it, because it would name chunks differently from the repair that
+/// follows.
 pub fn make_missing_hashtable_fantome_zip(path: &Path) {
     let mut info = fantome_info("Missing Table Mod");
     info.hashtables = vec![ltk_fantome::FantomeHashtable {

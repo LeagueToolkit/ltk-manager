@@ -2410,6 +2410,22 @@ export type EffectSystem = {
 	name: string | null,
 };
 
+/**
+ *  Counts of the chunk names an import embedded in a mod's archive.
+ * 
+ *  Recorded on the entry so that a mod whose names were embedded completely is told apart
+ *  from one that arrived without some names, after the import log rotates.
+ */
+export type EmbeddedNames = {
+	/**
+	 *  Names the archive gained at import. Zero if every readable name was already declared
+	 *  or the community tables resolve it.
+	 */
+	embedded: number,
+	/**  Chunks with no readable name: hex-named, and named by no bin in the archive. */
+	unnamed: number,
+};
+
 /**  How the game ended, as far as anything said. */
 export type Ending = {
 	/**
@@ -3440,26 +3456,6 @@ export type GraphClip = {
 };
 
 /**
- *  What preserving a mod's names at import found.
- * 
- *  Recorded on the entry rather than only logged: `unharvestable` is what
- *  tells a mod that preserved cleanly from one that arrived already lossy,
- *  and that distinction should outlive a log rotation.
- */
-export type HarvestSummary = {
-	/**
-	 *  Names the archive gained on the way in. Zero means every recoverable
-	 *  name was already declared or covered by the community tables.
-	 */
-	namesAdded: number,
-	/**
-	 *  Chunks with no recoverable name: hex-named, and named by nothing the
-	 *  harvest could read.
-	 */
-	unharvestable: number,
-};
-
-/**
  *  A hash a bin names something outside the graph by, such as a submesh or a joint.
  * 
  *  The tables name a few of them. A viewport matches the hash against the names the `.skn`
@@ -4342,10 +4338,10 @@ export type InstalledMod_Deserialize = {
 	 */
 	slug?: string | null,
 	/**
-	 *  What preserving the mod's names at import found. `None` for a modpkg
-	 *  and for mods installed before the preserve existed.
+	 *  The chunk names the import embedded. `None` for a modpkg and for mods installed
+	 *  before the embedding.
 	 */
-	harvest?: HarvestSummary | null,
+	embeddedNames?: EmbeddedNames | null,
 	/**
 	 *  The site and the listing this mod was installed from. `None` for a mod
 	 *  that arrived as a file or through a single install link.
@@ -4390,10 +4386,10 @@ export type InstalledMod_Serialize = {
 	 */
 	slug?: string | null,
 	/**
-	 *  What preserving the mod's names at import found. `None` for a modpkg
-	 *  and for mods installed before the preserve existed.
+	 *  The chunk names the import embedded. `None` for a modpkg and for mods installed
+	 *  before the embedding.
 	 */
-	harvest?: HarvestSummary | null,
+	embeddedNames?: EmbeddedNames | null,
 	/**
 	 *  The site and the listing this mod was installed from. `None` for a mod
 	 *  that arrived as a file or through a single install link.

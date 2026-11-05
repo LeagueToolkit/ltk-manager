@@ -67,6 +67,13 @@ impl LayerChunks {
         Self::scan_where(project_dir, |name| layers.iter().any(|layer| layer == name))
     }
 
+    /// Every name `project_dir` holds for a bin hash: its declared tables, its game data
+    /// declarations and the joints of its skeletons. Walks no layer for chunk paths.
+    #[must_use]
+    pub fn scan_bin_names(project_dir: &Path) -> Self {
+        Self::scan_where(project_dir, |_| false)
+    }
+
     fn scan_where(project_dir: &Path, walks: impl Fn(&str) -> bool) -> Self {
         let project = Utf8Path::from_path(project_dir).and_then(|root| ModProject::load(root).ok());
 

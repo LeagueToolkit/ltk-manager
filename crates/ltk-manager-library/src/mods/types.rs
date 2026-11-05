@@ -4,7 +4,7 @@
 //! and bulk-install results. The on-disk index that backs them lives in
 //! [`super::index`].
 
-use crate::mods::index::{HarvestSummary, LibraryIndex, ModArchiveFormat};
+use crate::mods::index::{EmbeddedNames, LibraryIndex, ModArchiveFormat};
 use chrono::{DateTime, Utc};
 use ltk_manager_base::events::ModStorage;
 use serde::{Deserialize, Serialize};
@@ -156,11 +156,11 @@ pub struct InstalledMod {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub slug: Option<String>,
-    /// What preserving the mod's names at import found. `None` for a modpkg
-    /// and for mods installed before the preserve existed.
+    /// The chunk names the import embedded. `None` for a modpkg and for mods installed
+    /// before the embedding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
-    pub harvest: Option<HarvestSummary>,
+    pub embedded_names: Option<EmbeddedNames>,
     /// The site and the listing this mod was installed from. `None` for a mod
     /// that arrived as a file or through a single install link.
     #[serde(default, skip_serializing_if = "Option::is_none")]

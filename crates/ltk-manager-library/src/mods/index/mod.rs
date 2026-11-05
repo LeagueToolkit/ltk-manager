@@ -17,6 +17,6 @@ pub(super) mod schema_migration;
 pub(super) mod startup;
 
 pub(crate) use document::{
-    HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat, get_active_profile,
+    EmbeddedNames, LibraryIndex, LibraryModEntry, ModArchiveFormat, get_active_profile,
     get_profile_by_id, library_index_path, resolve_profile_dirs,
 };
