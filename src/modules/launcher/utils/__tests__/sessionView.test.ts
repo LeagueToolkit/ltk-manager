@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { LeagueSession } from "@/stores";
 
-import { deriveSessionView, type SessionInputs } from "../sessionView";
+import { deriveSessionView, prepareStepLabel, type SessionInputs } from "../sessionView";
 
 const IDLE: SessionInputs = {
   phase: "idle",
@@ -60,16 +60,43 @@ describe("deriveSessionView", () => {
       phase: "building",
       overlayProgress: {
         stage: "preparing",
-        currentFile: "Generating Character inking",
+        currentFile: null,
         current: 0,
         total: 0,
+        step: { kind: "builtinMod", name: "Character inking" },
       },
     });
     if (view.kind !== "progress") throw new Error(view.kind);
 
     expect(view.label).toBe("Preparing build...");
-    expect(view.detail).toBe("Generating Character inking");
+    expect(view.detail).toBe("Generating Character inking...");
     expect(view.value).toBeNull();
+  });
+
+  it("names the file under a patching stage", () => {
+    const view = deriveSessionView({
+      ...IDLE,
+      phase: "building",
+      overlayProgress: {
+        stage: "patching",
+        currentFile: "Aatrox.wad.client",
+        current: 2,
+        total: 8,
+        step: null,
+      },
+    });
+    if (view.kind !== "progress") throw new Error(view.kind);
+
+    expect(view.label).toBe("Patching WAD files...");
+    expect(view.detail).toBe("Aatrox.wad.client");
+    expect(view.counter).toBe("2 / 8");
+  });
+
+  it("gives every preparing step a line", () => {
+    expect(prepareStepLabel({ kind: "patcher" })).toBe("Downloading the patcher...");
+    expect(prepareStepLabel({ kind: "gameExit" })).toBe("Waiting for the game to close...");
+    expect(prepareStepLabel({ kind: "library" })).toBe("Reading the library...");
+    expect(prepareStepLabel({ kind: "game" })).toBe("Reading the game...");
   });
 
   it("rests in game while nothing else has progress", () => {

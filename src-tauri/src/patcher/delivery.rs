@@ -126,9 +126,9 @@ impl PatcherDeliveryState {
 
     /// Selects the build that a session on `channel` runs, downloading it if needed.
     ///
-    /// Returns the staged build at once if it is within its end of life. Otherwise waits
-    /// for any running sync, then syncs. This blocks on the network, so it must not run on
-    /// the main thread.
+    /// Returns the staged build at once if it is within its end of life. Otherwise calls
+    /// `on_wait`, waits for any running sync, then syncs. This blocks on the network, so it
+    /// must not run on the main thread.
     ///
     /// # Errors
     ///
@@ -138,6 +138,7 @@ impl PatcherDeliveryState {
         &self,
         channel: Channel,
         bundled_host: &Path,
+        on_wait: impl FnOnce(),
     ) -> Result<StagedPatcher, DeliveryError> {
         let Some(delivery) = self.delivery() else {
             return Err(DeliveryError::NoRelease);
@@ -151,6 +152,7 @@ impl PatcherDeliveryState {
             return Ok(staged);
         }
 
+        on_wait();
         let _guard = self.syncing.lock();
         delivery.refresh(channel, bundled_host, now)
     }

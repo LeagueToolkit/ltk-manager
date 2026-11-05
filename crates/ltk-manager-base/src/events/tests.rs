@@ -14,6 +14,7 @@ fn event_names_are_stable() {
             current_file: None,
             current: 0,
             total: 0,
+            step: None,
         })
         .name(),
         "overlay-progress"
@@ -128,12 +129,26 @@ fn payloads_serialize_as_camel_case() {
         current_file: Some("test.wad.client".to_string()),
         current: 5,
         total: 10,
+        step: None,
     })
     .unwrap();
     assert_eq!(json["stage"], "patching");
     assert_eq!(json["currentFile"], "test.wad.client");
     assert_eq!(json["current"], 5);
     assert_eq!(json["total"], 10);
+    assert_eq!(json["step"], serde_json::Value::Null);
+
+    let json = serde_json::to_value(OverlayProgress::preparing(PrepareStep::BuiltinMod {
+        name: "Base skins".to_string(),
+    }))
+    .unwrap();
+    assert_eq!(json["stage"], "preparing");
+    assert_eq!(json["step"]["kind"], "builtinMod");
+    assert_eq!(json["step"]["name"], "Base skins");
+    assert_eq!(
+        serde_json::to_value(OverlayProgress::preparing(PrepareStep::GameExit)).unwrap()["step"],
+        serde_json::json!({ "kind": "gameExit" })
+    );
 
     let json = serde_json::to_value(FantomeImportProgress {
         stage: FantomeImportStage::Finalizing,

@@ -6930,13 +6930,15 @@ export type OverlayProgress = {
 	currentFile: string | null,
 	current: number,
 	total: number,
+	/**  The step under [`OverlayStage::Preparing`], `None` under every other stage. */
+	step: PrepareStep | null,
 };
 
 /**  Stage of an overlay build. */
 export type OverlayStage = 
 /**
- *  Resolving the build inputs before the builder runs: the library, the built-in mods and
- *  the game. `current_file` names the step.
+ *  Resolving the build inputs before the builder runs. `OverlayProgress::step` names the
+ *  step.
  */
 "preparing" | "indexing" | "collecting" | "patching" | "strings" | "complete";
 
@@ -7236,6 +7238,11 @@ export type PatcherStatus = {
 	 *  overlay is rebuilt.
 	 */
 	changesAfterGame: boolean,
+	/**
+	 *  The last progress the build phase reported. `null` outside the build phase, and
+	 *  until the first report of one.
+	 */
+	overlayProgress: OverlayProgress | null,
 };
 
 /**  A release newer than the running build. */
@@ -7528,6 +7535,22 @@ export type PrefillSources = {
 	/**  The sources of the release fields. */
 	release: ReleaseSources,
 };
+
+/**
+ *  A step of the work before the overlay builder runs, reported under
+ *  [`OverlayStage::Preparing`].
+ */
+export type PrepareStep = 
+/**  The patcher DLL is being delivered. */
+{ kind: "patcher" } | 
+/**  The last game's process is closing. */
+{ kind: "gameExit" } | 
+/**  The library index and the enabled mods are being read. */
+{ kind: "library" } | 
+/**  A built-in mod's project is being generated. `name` is the mod's display name. */
+{ kind: "builtinMod"; name: string } | 
+/**  The game install is being read. */
+{ kind: "game" };
 
 /**  A `StaticMaterialDef` that a shader def's preview draws the def through. */
 export type PreviewMaterial = {

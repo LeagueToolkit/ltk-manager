@@ -9,7 +9,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 
 use crate::error::{AppError, AppErrorResponse};
+use crate::events::TauriEventSink;
 use crate::tray::AppTrayState;
+use ltk_manager_base::events::{BackendEvent, EventSink as _, OverlayProgress};
 use ltk_manager_runtime::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
 use ltk_manager_runtime::patcher::events::PatcherEvents;
 use ltk_manager_runtime::patcher::injector::WadScanFailure;
@@ -87,6 +89,11 @@ impl PatcherEvents for TauriPatcherEvents {
         let response: AppErrorResponse = error.into();
         let _ = self.app_handle.emit("patcher-error", &response);
         let _ = self.app_handle.emit("patcher-status-changed", ());
+    }
+
+    /// Through the same sink as the library's own progress, so the status keeps it as well.
+    fn overlay_progress(&self, progress: OverlayProgress) {
+        TauriEventSink::new(self.app_handle.clone()).emit(BackendEvent::OverlayProgress(progress));
     }
 
     fn wad_scan_failed(&self, failures: Vec<WadScanFailure>) {

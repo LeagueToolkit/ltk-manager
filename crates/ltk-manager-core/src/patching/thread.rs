@@ -14,8 +14,9 @@ use ltk_telemetry::Telemetry;
 
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, message_with_sources};
+use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_library::mods::ModLibrary;
-use ltk_manager_library::overlay::{OverlayBuild, WorkshopTestProject};
+use ltk_manager_library::overlay::{OverlayBuild, OverlayTimings, WorkshopTestProject};
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
 use ltk_manager_runtime::diagnostics::incident::SessionFailure;
 use ltk_manager_runtime::diagnostics::store::IncidentStore;
@@ -188,9 +189,10 @@ impl PatcherThread {
         }
 
         let mut force_rebuild = self.force_rebuild;
+        let mut rebuilds = 0u64;
 
         loop {
-            let Some(overlay_prefix) = self.build_overlay(force_rebuild) else {
+            let Some(overlay_prefix) = self.build_overlay(force_rebuild, rebuilds) else {
                 return;
             };
             force_rebuild = false;
@@ -198,6 +200,7 @@ impl PatcherThread {
             if self.run_session(&host.exe, overlay_prefix) == SessionEnd::Stopped {
                 break;
             }
+            rebuilds += 1;
             self.resume_building();
         }
 
@@ -220,8 +223,9 @@ impl PatcherThread {
     }
 
     /// Build the overlay and return its prefix path, or `None` on failure or
-    /// an early stop (state already reset).
-    fn build_overlay(&self, force_rebuild: bool) -> Option<String> {
+    /// an early stop (state already reset). `rebuilds` counts the builds the
+    /// session ran before this one.
+    fn build_overlay(&self, force_rebuild: bool, rebuilds: u64) -> Option<String> {
         self.refresh.clear();
 
         let stop_flag = Arc::clone(&self.stop_flag);
@@ -253,7 +257,9 @@ impl PatcherThread {
         let OverlayBuild {
             overlay_root,
             outcome,
+            timings,
         } = build;
+        self.report_overlay_built(&timings, rebuilds);
         // Refreshes the library badges. Advisory, so it happens even if we are
         // about to bail on a stop request - the data is already correct.
         self.library.record_overlay_build(outcome);
@@ -322,12 +328,33 @@ impl PatcherThread {
         }
     }
 
+    /// Reports how long a build took, by the bucket of each part.
+    fn report_overlay_built(&self, timings: &OverlayTimings, rebuilds: u64) {
+        let count = |n: usize| u64::try_from(n).unwrap_or(u64::MAX);
+        let facts = telemetry::OverlayBuildFacts {
+            rebuild: rebuilds > 0,
+            rebuilds,
+            prepare_secs: timings.prepare.as_secs(),
+            build_secs: timings.build.as_secs(),
+            builtins: count(timings.builtins.len()),
+            builtins_reused: count(timings.builtins.iter().filter(|t| t.reused).count()),
+        };
+        self.telemetry.track(
+            telemetry::OVERLAY_BUILT,
+            telemetry::overlay_built(self.library.app_version(), &facts),
+        );
+    }
+
     /// Return to the build phase for a rebuild, once the last game's process has
     /// let go of the overlay or the wait runs out.
     fn resume_building(&self) {
         self.state.lock().resume_building();
         self.events.phase_changed(PatcherPhase::Building);
 
+        if is_game_running() {
+            self.events
+                .overlay_progress(OverlayProgress::preparing(PrepareStep::GameExit));
+        }
         let deadline = Instant::now() + GAME_RELEASE_TIMEOUT;
         while is_game_running() && !self.stop_flag.load(Ordering::SeqCst) {
             if Instant::now() >= deadline {

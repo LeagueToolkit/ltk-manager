@@ -103,6 +103,7 @@ const patching: OverlayProgress = {
   currentFile: "Aatrox.wad.client",
   current: 3,
   total: 10,
+  step: null,
 };
 
 const missingData: Incident = {

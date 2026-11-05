@@ -6,7 +6,7 @@ use super::mod_skins::ModSkins;
 use super::overrides::Overrides;
 use super::skin_bin::SkinBin;
 use super::stand_in::BaseSkin;
-use super::{BuiltinMod, Context};
+use super::{BuiltinMod, Context, check_called_off, mounted};
 use ltk_manager_base::config::BaseSkinsScope;
 use ltk_manager_base::error::AppResult;
 use std::collections::BTreeMap;
@@ -78,12 +78,16 @@ impl BuiltinMod for BaseSkins {
     /// A stand-in over each target skin bin, and none for a character whose base skin does not
     /// read.
     fn generate(&self, cx: &mut Context<'_>) -> AppResult<Overrides> {
-        let mut game = GameSkins::champions(cx.game_dir, cx.tables)?;
-        let mut mods = ModSkins::load(cx.mods, &mut game, cx.cache_dir);
+        let called_off = cx.called_off;
+        let game = mounted(&mut cx.champions, || {
+            GameSkins::champions(cx.game_dir, cx.tables)
+        })?;
+        let mut mods = ModSkins::load(cx.mods, game, cx.cache_dir);
 
         let mut overrides = Overrides::default();
-        for (character, targets) in self.stand_in_targets(&game, &mods) {
-            let Some(base) = read_base_skin(&character, &mut game, &mut mods) else {
+        for (character, targets) in self.stand_in_targets(game, &mods) {
+            check_called_off(called_off)?;
+            let Some(base) = read_base_skin(&character, game, &mut mods) else {
                 continue;
             };
             for (archive, bin) in targets {

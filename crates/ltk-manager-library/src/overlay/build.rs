@@ -111,5 +111,6 @@ fn translate_progress(progress: ltk_overlay::OverlayProgress) -> Option<OverlayP
         current_file: progress.current_file,
         current: progress.current,
         total: progress.total,
+        step: None,
     })
 }

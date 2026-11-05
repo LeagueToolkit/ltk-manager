@@ -1,4 +1,10 @@
-import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/tauri";
+import type {
+  Incident,
+  LaunchProgress,
+  OverlayProgress,
+  PatcherPhase,
+  PrepareStep,
+} from "@/lib/tauri";
 import type { LeagueSession, PatcherFailure, PlayStep } from "@/stores";
 
 export type StepState = "pending" | "active" | "done" | "failed";
@@ -53,6 +59,29 @@ const overlayStageLabels: Record<OverlayProgress["stage"], string> = {
   strings: "Applying string overrides...",
   complete: "Overlay built successfully!",
 };
+
+/** What the build is doing before the builder runs, drawn under "Preparing build...". */
+export function prepareStepLabel(step: PrepareStep): string {
+  switch (step.kind) {
+    case "patcher":
+      return "Downloading the patcher...";
+    case "gameExit":
+      return "Waiting for the game to close...";
+    case "library":
+      return "Reading the library...";
+    case "builtinMod":
+      return `Generating ${step.name}...`;
+    case "game":
+      return "Reading the game...";
+  }
+}
+
+/** The detail line of an overlay stage: the preparing step, or the file being patched. */
+function overlayDetail(overlay: OverlayProgress | null): string | null {
+  if (!overlay) return null;
+  if (overlay.step) return prepareStepLabel(overlay.step);
+  return overlay.currentFile;
+}
 
 /**
  * What each launch stage is actually waiting on.
@@ -263,7 +292,7 @@ function describeCurrentWork(
       label: (stage && overlayStageLabels[stage]) ?? "Preparing build...",
       value: hasCounts ? (overlay.current / overlay.total) * 100 : null,
       counter: hasCounts ? `${overlay.current} / ${overlay.total}` : null,
-      detail: overlay?.currentFile ?? null,
+      detail: overlayDetail(overlay),
     };
   }
 
