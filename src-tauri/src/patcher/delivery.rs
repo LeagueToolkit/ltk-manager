@@ -143,11 +143,9 @@ impl PatcherDeliveryState {
             return Err(DeliveryError::NoRelease);
         };
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
+        let now = now();
         if let Some(staged) = delivery
-            .select(channel, bundled_host)?
+            .select(channel, bundled_host, now)?
             .filter(|staged| !staged.is_expired(now))
         {
             return Ok(staged);
@@ -156,6 +154,13 @@ impl PatcherDeliveryState {
         let _guard = self.syncing.lock();
         delivery.refresh(channel, bundled_host, now)
     }
+}
+
+/// Returns the current time in Unix seconds, or 0 if the clock is before the epoch.
+pub fn now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
 }
 
 /// Returns the delivery channel that `config` selects.

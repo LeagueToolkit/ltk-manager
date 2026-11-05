@@ -26,9 +26,10 @@ use tauri::{AppHandle, Manager, State};
 fn staged_patcher_dll(app_handle: &AppHandle, config: &Config) -> Option<PathBuf> {
     let delivery = app_handle.state::<PatcherDeliveryState>();
 
-    delivery
-        .delivery()?
-        .staged_dll_path(crate::patcher::delivery::channel(config))
+    delivery.delivery()?.staged_dll_path(
+        crate::patcher::delivery::channel(config),
+        crate::patcher::delivery::now(),
+    )
 }
 
 #[tauri::command]

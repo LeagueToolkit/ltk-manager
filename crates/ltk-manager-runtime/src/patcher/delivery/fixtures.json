@@ -1,11 +1,19 @@
 {
-  "publicKey": "RWR1XBPjzWd14gZWL5p5VSpYcSBIMNejmfloiCwAclyyvYm1rOgfz/kF",
+  "publicKey": "RWT7UI9Uz8Tz4uF9R6SmubAF7Q/mZpdY4fZEqZyV/BDQChnW84YO+jep",
   "offered": {
     "manifest": "eyJzY2hlbWEiOjEsImNoYW5uZWwiOiJzdGFibGUiLCJzZXF1ZW5jZSI6MiwiaXNzdWVkIjowLCJyZWxlYXNlIjp7InZlcnNpb24iOiJsdGtfcGF0Y2hlci0yMCIsImRpZ2VzdCI6IjIzN2NhNWE5ZjM3NjE3Y2Q3YzM1YTI5ODEyZGFhODMxM2YwYWFjMWI0ZjJmMWUyMzJmOTEzOGE0MzNkNmI4Y2YiLCJzaXplIjoxMywicHJvdG9jb2wiOjIsIm1hbmFnZXJzIjoiPj0xLjAuMCwgPDIuMC4wIiwiZW9sIjoyMTQ3NDgzNjQ3fSwicmV2b2tlZCI6W119",
-    "signature": "untrusted comment: signature from minisign secret key\nRUR1XBPjzWd14i31yd4gZeZ8tUtuYdlSPFuWAHiPqXc0txn+gdezhoWMOkGP7nylu5sh2tJ12Alu6wxs37Fs4N+xupVTOa4BMgo=\ntrusted comment: stable 2 ltk_patcher-20\n3RtLS81eX7YxGOBVzprH+E7wwa4X/s9bWfW3VmBrHfpZzR2U4bpDvVtrp35t0JoXxeGmjydegtwT0K6t7c+JDg==\n"
+    "signature": "untrusted comment: signature from minisign secret key\nRUT7UI9Uz8Tz4pz3v9enepqMt7X072/uc0S6r6FG2meIOPgCurvcRu0Mmg47rrBIyU0AA+Lb6LvhAS07MYlXlPUD+A4or0Ip3QI=\ntrusted comment: stable 2 ltk_patcher-20\ngmziXsRdYVvfmLL6cafvOdyMlS0iP1Hu0fv06qKwsG7bpCe2hQIYSyG1rMikgnj5Ww3vHDwBgciQ3RobvVPeBA==\n"
   },
   "withdrawn": {
     "manifest": "eyJzY2hlbWEiOjEsImNoYW5uZWwiOiJzdGFibGUiLCJzZXF1ZW5jZSI6MywiaXNzdWVkIjowLCJyZWxlYXNlIjp7InZlcnNpb24iOiJsdGtfcGF0Y2hlci0yMCIsImRpZ2VzdCI6IjIzN2NhNWE5ZjM3NjE3Y2Q3YzM1YTI5ODEyZGFhODMxM2YwYWFjMWI0ZjJmMWUyMzJmOTEzOGE0MzNkNmI4Y2YiLCJzaXplIjoxMywicHJvdG9jb2wiOjIsIm1hbmFnZXJzIjoiPj0xLjAuMCwgPDIuMC4wIiwiZW9sIjoyMTQ3NDgzNjQ3fSwicmV2b2tlZCI6WyI1YjVkOWRkYTk2ZWQ1Nzc5ZjczNjk4YjQxYzI4ODk0YTEzMDhiZDYyNWQyNGU4YTJhZTQ4Njk3ZjM3NTE2ZTYyIiwiMjM3Y2E1YTlmMzc2MTdjZDdjMzVhMjk4MTJkYWE4MzEzZjBhYWMxYjRmMmYxZTIzMmY5MTM4YTQzM2Q2YjhjZiJdfQ==",
-    "signature": "untrusted comment: signature from minisign secret key\nRUR1XBPjzWd14vxPr0KdTkwn4+/qnIbJQue9KRoh0AVpHvPAa9IwCNjN3jqCVy5Ow/ARJZghiBmIZhvcENYXa4ZLxnxQBuXz9A4=\ntrusted comment: stable 3 ltk_patcher-20\nsuSFHwnlvfVFYcaGw9HyeeMnMM4KpcKpfvQLtZcxjL+3VUZwimZbjK2gfxOFS0ilUN5YBtwdA0/0UDb6lU8KAw==\n"
+    "signature": "untrusted comment: signature from minisign secret key\nRUT7UI9Uz8Tz4i1msCFvfd9U0BUq6k2ldSdloAK1AC4A/Hx2HTpSGa2eSbtkBmm9sxoUdJpOKVgAXd+XD1smULZ9KCHTTECNewQ=\ntrusted comment: stable 3 ltk_patcher-20\nUnhs7swvbBnzeY35FyjWBS3yMy8P5Z6+VbMaQYpl2m7XJvGtRp1DEMAbxGb3m4v9Aa70YX8X3eVxHNjF0bugDQ==\n"
+  },
+  "beta_expired": {
+    "manifest": "eyJzY2hlbWEiOjEsImNoYW5uZWwiOiJiZXRhIiwic2VxdWVuY2UiOjEsImlzc3VlZCI6MCwicmVsZWFzZSI6eyJ2ZXJzaW9uIjoibHRrX3BhdGNoZXItMTkiLCJkaWdlc3QiOiI2MjI4NzNmMmI0ODQzM2Q5ZWIzMzQ5YTc5NTE0ODhhZjY4NzEwNWJhYWY2NDMxZWQ4NmU1NzYyZWY1YTUyN2NhIiwic2l6ZSI6MTYsInByb3RvY29sIjoyLCJtYW5hZ2VycyI6Ij49MS4wLjAsIDwyLjAuMCIsImVvbCI6MTcwMDAwMDAwMH0sInJldm9rZWQiOltdfQ==",
+    "signature": "untrusted comment: signature from minisign secret key\nRUT7UI9Uz8Tz4jOdc6BglMGY7hYmhdOT3C3gXrknWY7p2JDy5aVMeYiGb55/eIsOQ9pqRFJ/i/HGvAQz4ECouQIFq1ZRzfPj/wU=\ntrusted comment: beta 1 ltk_patcher-19\nX4yG+BZXQbqSXDt0b8lWdj19TzuDhvlMuRWaSnlZaJZASZ7e88fwPe9oTESJ+zTmX/itjOk4T7gGGnr+s1ORDw==\n"
+  },
+  "beta_current": {
+    "manifest": "eyJzY2hlbWEiOjEsImNoYW5uZWwiOiJiZXRhIiwic2VxdWVuY2UiOjIsImlzc3VlZCI6MCwicmVsZWFzZSI6eyJ2ZXJzaW9uIjoibHRrX3BhdGNoZXItMjEiLCJkaWdlc3QiOiJmYzQ0MDYyYTQ1Yzc5NDhmZDMyN2IwZTVkOGMzOTdlMTcwOWQ0NjNmODBhYzdiOWZkNWRmNDMzNTVlYjg1OGRhIiwic2l6ZSI6OCwicHJvdG9jb2wiOjIsIm1hbmFnZXJzIjoiPj0xLjAuMCwgPDIuMC4wIiwiZW9sIjoyMTQ3NDgzNjQ3fSwicmV2b2tlZCI6W119",
+    "signature": "untrusted comment: signature from minisign secret key\nRUT7UI9Uz8Tz4syJGKsfhEIOAqS3KWv4BQKv/T8oVPobZ1DmE7tLaNwcofVzmE+VXlemhUVZ69HVXKZ4FONmQZ1yDCTeVxRekwI=\ntrusted comment: beta 2 ltk_patcher-21\nGnYmXzML5ZHOSrFs2z5+LRnaz7F5lZ7W6Q4wlotfEU1rAVA/Ye+t+3OgPWlkAOY/PtjL+0wLLSa+NJvYSQlRCQ==\n"
   }
 }

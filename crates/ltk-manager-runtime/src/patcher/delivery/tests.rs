@@ -17,21 +17,30 @@ const SERVICE_MESSAGE: &str = r#"{"schema":1,"channel":"stable","sequence":1,"is
 const SERVICE_SIGNATURE: &str = "untrusted comment: signature from minisign secret key\r\nRUQlo0fqQ4hvQhGoMSgiiYZCsrxx+TKDhNaFMgzqn2RFp+5vUBjNLuew9tTD1YZGsigN0uFuGBAly8byFsMHKI8F+knbnlBRHAk=\r\ntrusted comment: stable 1 ltk_patcher-15\r\nKnTQ9K1m4O6Lx0xsfYlo+aOr/ezAp9dzLQu88waAFUC5MbKl9NKwftiHacHzouY8kaDRq4x21+qYAyz/RsCFDg==\r\n";
 
 const DELIVERED_DLL: &[u8] = b"delivered dll";
+const EXPIRED_BETA_DLL: &[u8] = b"expired beta dll";
+const BETA_DLL: &[u8] = b"beta dll";
 
 /// A time before the end of life of every fixture, in Unix seconds.
 const BEFORE_EOL: u64 = 0;
 
+/// A time after the end of life of `beta_expired` and before that of every other fixture.
+const AFTER_BETA_EOL: u64 = 1_800_000_000;
+
 /// A time after the end of life of every fixture, in Unix seconds.
 const AFTER_EOL: u64 = u64::MAX;
 
-/// Manifests signed with a throwaway key. `offered` offers the
-/// DLL with the bytes [`DELIVERED_DLL`], and `withdrawn` revokes it.
+/// Manifests signed with a throwaway key. `offered` offers the DLL with the bytes
+/// [`DELIVERED_DLL`] on stable, and `withdrawn` revokes it. `beta_expired` offers
+/// [`EXPIRED_BETA_DLL`] on beta with an end of life before [`AFTER_BETA_EOL`], and
+/// `beta_current` offers [`BETA_DLL`] on beta.
 #[derive(Deserialize)]
 struct Fixtures {
     #[serde(rename = "publicKey")]
     public_key: String,
     offered: Envelope,
     withdrawn: Envelope,
+    beta_expired: Envelope,
+    beta_current: Envelope,
 }
 
 static FIXTURES: LazyLock<Fixtures> =
@@ -97,8 +106,32 @@ impl Setup {
         dir
     }
 
+    /// Stages `bytes` under their own digest, as a download does.
+    fn stage_release(&self, bytes: &[u8]) -> PathBuf {
+        let dir = self.delivery.root.join(digest(bytes));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(HOOK_DLL_NAME), bytes).unwrap();
+        dir
+    }
+
+    fn cache(&self, channel: Channel, envelope: &Envelope) {
+        let mut state = self.delivery.load();
+        state.channels.insert(
+            channel,
+            Cached {
+                etag: None,
+                envelope: envelope.clone(),
+            },
+        );
+        self.delivery.save(&state).unwrap();
+    }
+
     fn select(&self) -> Option<StagedPatcher> {
-        self.delivery.select(Channel::Stable, &self.host).unwrap()
+        self.select_on(Channel::Stable, BEFORE_EOL)
+    }
+
+    fn select_on(&self, channel: Channel, now: u64) -> Option<StagedPatcher> {
+        self.delivery.select(channel, &self.host, now).unwrap()
     }
 }
 
@@ -214,13 +247,55 @@ fn select_falls_back_to_stable_on_beta_channel() {
     let setup = setup(Some(&FIXTURES.offered));
     setup.stage(DELIVERED_DLL);
 
-    assert!(
-        setup
-            .delivery
-            .select(Channel::Beta, &setup.host)
-            .unwrap()
-            .is_some()
-    );
+    assert!(setup.select_on(Channel::Beta, BEFORE_EOL).is_some());
+}
+
+#[test]
+fn select_returns_beta_build_within_its_eol() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    setup.cache(Channel::Beta, &FIXTURES.beta_current);
+    setup.stage_release(BETA_DLL);
+
+    let staged = setup.select_on(Channel::Beta, BEFORE_EOL).unwrap();
+
+    assert_eq!(staged.version, "ltk_patcher-21");
+}
+
+#[test]
+fn select_falls_back_to_stable_if_beta_build_is_expired() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    setup.cache(Channel::Beta, &FIXTURES.beta_expired);
+    setup.stage_release(EXPIRED_BETA_DLL);
+
+    let staged = setup.select_on(Channel::Beta, AFTER_BETA_EOL).unwrap();
+
+    assert_eq!(staged.version, "ltk_patcher-20");
+    assert_eq!(staged.digest, digest(DELIVERED_DLL));
+}
+
+#[test]
+fn select_returns_expired_beta_build_if_every_build_is_expired() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    setup.cache(Channel::Beta, &FIXTURES.beta_expired);
+    setup.stage_release(EXPIRED_BETA_DLL);
+
+    let staged = setup.select_on(Channel::Beta, AFTER_EOL).unwrap();
+
+    assert_eq!(staged.version, "ltk_patcher-19");
+}
+
+#[test]
+fn select_returns_expired_beta_build_if_stable_is_not_staged() {
+    let setup = setup(Some(&FIXTURES.offered));
+    setup.cache(Channel::Beta, &FIXTURES.beta_expired);
+    setup.stage_release(EXPIRED_BETA_DLL);
+
+    let staged = setup.select_on(Channel::Beta, AFTER_BETA_EOL).unwrap();
+
+    assert_eq!(staged.version, "ltk_patcher-19");
 }
 
 #[test]
@@ -239,7 +314,7 @@ fn staged_dll_path_names_the_dll_of_the_selected_build() {
     let dir = setup.stage(DELIVERED_DLL);
 
     assert_eq!(
-        setup.delivery.staged_dll_path(Channel::Stable),
+        setup.delivery.staged_dll_path(Channel::Stable, BEFORE_EOL),
         Some(dir.join(HOOK_DLL_NAME))
     );
 }
@@ -287,6 +362,22 @@ fn refresh_returns_expired_dll_if_sync_fails() {
         .unwrap();
 
     assert_eq!(staged.digest, digest(DELIVERED_DLL));
+}
+
+#[test]
+fn refresh_falls_back_to_stable_if_beta_build_is_expired_and_sync_fails() {
+    let mut setup = setup(Some(&FIXTURES.offered));
+    setup.stage(DELIVERED_DLL);
+    setup.cache(Channel::Beta, &FIXTURES.beta_expired);
+    setup.stage_release(EXPIRED_BETA_DLL);
+    setup.delivery.attestation = None;
+
+    let staged = setup
+        .delivery
+        .refresh(Channel::Beta, &setup.host, AFTER_BETA_EOL)
+        .unwrap();
+
+    assert_eq!(staged.version, "ltk_patcher-20");
 }
 
 #[test]
