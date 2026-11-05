@@ -7147,8 +7147,6 @@ export type PatcherBinaries_Serialize = {
 
 /**  Configuration for starting the patcher. */
 export type PatcherConfig = {
-	/**  Optional hook flags bitmask forwarded to the injection host */
-	flags?: number | null,
 	/**
 	 *  Absolute paths to workshop project directories to include in the overlay.
 	 * 

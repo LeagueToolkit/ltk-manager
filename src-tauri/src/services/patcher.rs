@@ -28,11 +28,8 @@ const BINARY_HASH_LEN: usize = 16;
 
 /// Configuration for starting the patcher.
 #[derive(Debug, Clone, Deserialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PatcherConfig {
-    /// Optional hook flags bitmask forwarded to the injection host
-    #[specta(optional)]
-    pub flags: Option<u64>,
     /// Absolute paths to workshop project directories to include in the overlay.
     ///
     /// These are loaded directly from disk via `FsModContent` and prepended to
@@ -54,7 +51,6 @@ impl PatcherConfig {
     /// The config a session ran with, for starting it again.
     pub(crate) fn from_stored(stored: StoredPatcherConfig, force_rebuild: bool) -> Self {
         Self {
-            flags: stored.flags,
             workshop_projects: stored.workshop_projects,
             workshop_layers: stored.workshop_layers,
             force_rebuild: Some(force_rebuild),
@@ -188,7 +184,6 @@ pub(crate) fn start_patcher_inner(
     tracing::debug!("Using injector: {}", injector_exe.display());
 
     let stored_config = StoredPatcherConfig {
-        flags: config.flags,
         workshop_projects: config.workshop_projects.clone(),
         workshop_layers: config.workshop_layers.clone(),
     };
@@ -212,10 +207,11 @@ pub(crate) fn start_patcher_inner(
             .unwrap_or_else(|| "<unset>".to_string())
     );
 
-    let mut host_flags = config.flags.unwrap_or(0) as u32;
-    if config_snapshot.full_wad_scan {
-        host_flags |= crate::patcher::host::hook_flags::FULL_WAD_SCAN;
-    }
+    let host_flags = if config_snapshot.full_wad_scan {
+        crate::patcher::host::hook_flags::FULL_WAD_SCAN
+    } else {
+        0
+    };
 
     // The client rewrites its own settings when it exits, so the preference is
     // re-applied at every start rather than once.
@@ -402,3 +398,6 @@ pub struct Table;
 pub fn plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
     super::plugin::<Table>().build()
 }
+
+#[cfg(test)]
+mod tests;

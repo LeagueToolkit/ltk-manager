@@ -23,7 +23,6 @@ pub enum PatcherPhase {
 /// options.
 #[derive(Debug, Clone)]
 pub struct StoredPatcherConfig {
-    pub flags: Option<u64>,
     pub workshop_projects: Option<Vec<String>>,
     /// The layers each workshop project is tested with, by project path. A
     /// project missing from the map is tested with every layer.
