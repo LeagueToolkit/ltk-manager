@@ -93,13 +93,19 @@ export function AddNodeLine({
   }
 
   async function importFile() {
-    const file = await open({
-      multiple: false,
+    const selected = await open({
+      multiple: true,
       directory: false,
       title: m.audio_add_file_title(),
       filters: [{ name: m.audio_add_file_filter_label(), extensions: ["wem"] }],
     });
-    if (typeof file === "string") await editing.importWem(into, file);
+    if (typeof selected === "string") {
+      await editing.importWem(into, selected);
+    } else if (Array.isArray(selected)) {
+      for (const file of selected) {
+        await editing.importWem(into, file);
+      }
+    }
     onLeave();
   }
 

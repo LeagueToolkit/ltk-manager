@@ -524,15 +524,23 @@ export function EventsPanel({ asset, bank, random = Math.random }: EventsPanelPr
     setMediaRequest(added);
   }
 
-  /** Imports a WEM that the reader picks into `parent`, as From file of an add row does. */
+  /** Imports WEMs that the reader picks into `parent`, as From file of an add row does. */
   async function importInto(parent: NodeParent) {
-    const file = await open({
-      multiple: false,
+    const selected = await open({
+      multiple: true,
       directory: false,
       title: m.audio_add_file_title(),
       filters: [{ name: m.audio_add_file_filter_label(), extensions: ["wem"] }],
     });
-    if (typeof file === "string" && editing !== null) await editing.importWem(parent, file);
+    if (editing === null || selected === null) return;
+
+    if (typeof selected === "string") {
+      await editing.importWem(parent, selected);
+    } else if (Array.isArray(selected)) {
+      for (const file of selected) {
+        await editing.importWem(parent, file);
+      }
+    }
   }
 
   const announcement =

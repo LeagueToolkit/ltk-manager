@@ -1,6 +1,6 @@
 //! A media bank or a package that an event bank document adds media to.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::Cursor;
 
 use ltk_manager_assets::preview::AssetRef;
@@ -9,10 +9,11 @@ use xxhash_rust::xxh64::xxh64;
 
 use super::BankEditError;
 
-/// A media bank or a package of the bank set, with the media that the document added to it.
+/// A media bank or a package of the bank set, with the media that the document added to it or
+/// removed from it.
 ///
-/// The file writes the bytes it was read from while it holds no added media, so an undo of every
-/// import restores those bytes exactly.
+/// The file writes the bytes it was read from while it holds no added media and no removed media, so
+/// an undo of every change restores those bytes exactly.
 #[derive(Debug)]
 pub struct MediaFile {
     path: String,
@@ -23,15 +24,17 @@ pub struct MediaFile {
     model: MediaModel,
     /// The media that the document added, by source ID.
     added: BTreeMap<SourceId, Vec<u8>>,
-    /// The file with the added media, written out. `None` while it holds none.
+    /// The media that the document removed from the file, by source ID.
+    removed: BTreeSet<SourceId>,
+    /// The file with the added media and removed media, written out. `None` while it holds neither.
     written: Option<Vec<u8>>,
     /// The xxh64 of the bytes that the file was read from or last saved as.
     base: u64,
-    /// The added media changed since the file was last written.
+    /// The added or removed media changed since the file was last written.
     stale: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum MediaModel {
     Bank(Bank),
     Package(Package),
@@ -66,6 +69,7 @@ impl MediaFile {
             opened: bytes,
             model,
             added: BTreeMap::new(),
+            removed: BTreeSet::new(),
             written: None,
             stale: false,
         })
@@ -118,9 +122,13 @@ impl MediaFile {
         !self.is_base(self.bytes())
     }
 
-    /// Returns `true` if the file holds the media `source`, added or as read.
+    /// Returns `true` if the file holds the media `source`, added or as read and not removed.
     #[must_use]
     pub fn contains(&self, source: SourceId) -> bool {
+        if self.removed.contains(&source) {
+            return false;
+        }
+
         self.added.contains_key(&source)
             || match &self.model {
                 MediaModel::Bank(bank) => bank.media().is_some_and(|media| media.contains(source)),
@@ -128,12 +136,17 @@ impl MediaFile {
             }
     }
 
-    /// Returns the WEM bytes of the media `source`, added or as read.
+    /// Returns the WEM bytes of the media `source`, added or as read and not removed.
     #[must_use]
     pub fn media(&self, source: SourceId) -> Option<&[u8]> {
+        if self.removed.contains(&source) {
+            return None;
+        }
+
         if let Some(data) = self.added.get(&source) {
             return Some(data);
         }
+
         match &self.model {
             MediaModel::Bank(bank) => bank.media()?.get(source),
             MediaModel::Package(package) => package.wem(source),
@@ -146,13 +159,14 @@ impl MediaFile {
         self.added.contains_key(&source)
     }
 
-    /// Returns `true` if the file held the media `source` when it was read.
+    /// Returns `true` if the file held the media `source` when it was read and has not removed it.
     #[must_use]
     pub fn is_original(&self, source: SourceId) -> bool {
-        match &self.model {
-            MediaModel::Bank(bank) => bank.media().is_some_and(|media| media.contains(source)),
-            MediaModel::Package(package) => package.wem(source).is_some(),
-        }
+        !self.removed.contains(&source)
+            && match &self.model {
+                MediaModel::Bank(bank) => bank.media().is_some_and(|media| media.contains(source)),
+                MediaModel::Package(package) => package.wem(source).is_some(),
+            }
     }
 
     /// Returns the source IDs of the media that the file held when it was read and that the
@@ -165,7 +179,18 @@ impl MediaFile {
     }
 
     pub(super) fn add(&mut self, source: SourceId, data: Vec<u8>) {
-        self.added.insert(source, data);
+        self.removed.remove(&source);
+
+        let in_model_same = match &self.model {
+            MediaModel::Bank(bank) => bank.media().and_then(|m| m.get(source)) == Some(&data),
+            MediaModel::Package(package) => package.wem(source) == Some(&data),
+        };
+        if in_model_same {
+            self.added.remove(&source);
+        } else {
+            self.added.insert(source, data);
+        }
+
         self.stale = true;
     }
 
@@ -173,6 +198,8 @@ impl MediaFile {
     /// added at `source` before.
     pub(super) fn set(&mut self, source: SourceId, data: Option<Vec<u8>>) -> Option<Vec<u8>> {
         self.stale = true;
+        self.removed.remove(&source);
+
         match data {
             Some(data) => self.added.insert(source, data),
             None => self.added.remove(&source),
@@ -180,19 +207,32 @@ impl MediaFile {
     }
 
     pub(super) fn remove(&mut self, source: SourceId) -> Option<Vec<u8>> {
-        let removed = self.added.remove(&source);
-        self.stale |= removed.is_some();
-        removed
+        let previous = self.media(source).map(Vec::from);
+        if previous.is_none() {
+            return None;
+        }
+
+        self.added.remove(&source);
+        let in_model = match &self.model {
+            MediaModel::Bank(bank) => bank.media().is_some_and(|media| media.contains(source)),
+            MediaModel::Package(package) => package.wem(source).is_some(),
+        };
+        if in_model {
+            self.removed.insert(source);
+        }
+
+        self.stale = true;
+        previous
     }
 
-    /// Writes the file again if its added media changed.
+    /// Writes the file again if its media changed.
     pub(super) fn refresh(&mut self) -> Result<(), BankEditError> {
         if !self.stale {
             return Ok(());
         }
         self.stale = false;
 
-        if self.added.is_empty() {
+        if self.added.is_empty() && self.removed.is_empty() {
             self.written = None;
             return Ok(());
         }
@@ -200,17 +240,21 @@ impl MediaFile {
         let mut bytes = Vec::with_capacity(
             self.opened.len() + self.added.values().map(Vec::len).sum::<usize>(),
         );
-        match &self.model {
+        match &mut self.model.clone() {
             MediaModel::Bank(bank) => {
-                let mut bank = bank.clone();
                 let media = bank.media_mut().ok_or(BankEditError::NoMediaFile)?;
+                for source in &self.removed {
+                    media.remove(*source);
+                }
                 for (source, data) in &self.added {
                     media.insert(*source, data.clone());
                 }
                 bank.to_writer(&mut bytes)?;
             }
             MediaModel::Package(package) => {
-                let mut package = package.clone();
+                for source in &self.removed {
+                    package.remove(crate::sound::package_key(*source));
+                }
                 for (source, data) in &self.added {
                     package.insert_wem(*source, data.clone());
                 }

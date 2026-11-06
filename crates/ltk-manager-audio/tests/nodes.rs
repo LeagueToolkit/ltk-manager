@@ -757,18 +757,46 @@ fn delete_of_imported_sound_drops_its_media() {
 }
 
 #[test]
+fn delete_of_imported_streamed_sound_drops_its_package_entry() {
+    let mut document = document();
+    let sound_id = import(
+        &mut document,
+        &[MEDIA, PACKAGE],
+        NodeParent::Container { container: RANDOM },
+        fixture("clipped_vorbis.wem"),
+    )
+    .expect("import");
+
+    let read_before = Package::from_reader(&mut &document.media()[0].bytes()[..]).expect("read");
+    assert_eq!(read_before.len(), 3);
+
+    edit(
+        &mut document,
+        BankEdit::Delete {
+            object: sound_id,
+            parent: Some(RANDOM),
+        },
+    );
+
+    let read_after = Package::from_reader(&mut &document.media()[0].bytes()[..]).expect("read");
+    assert_eq!(read_after.len(), 2);
+    assert_eq!(document.bytes(), fixture("events_v145.bnk"));
+    assert_eq!(document.media()[0].bytes(), fixture("package.wpk"));
+}
+
+#[test]
 fn import_refuses_wem_of_other_codec() {
     let mut document = document();
-    let pcm = pcm_wem();
+    let unsupported = unsupported_wem();
 
     let refused = import(
         &mut document,
         &[MEDIA],
         NodeParent::Container { container: RANDOM },
-        pcm,
+        unsupported,
     );
 
-    assert!(matches!(refused, Err(BankEditError::Codec(0x0001))));
+    assert!(matches!(refused, Err(BankEditError::Codec(0x1234))));
     assert_eq!(document.bytes(), fixture("events_v145.bnk"));
     assert!(document.media().is_empty());
 }
@@ -787,15 +815,15 @@ fn import_refuses_file_that_is_not_wem() {
     assert!(matches!(refused, Err(BankEditError::Wem(_))));
 }
 
-/// A RIFF `WAVE` of 16-bit mono PCM with four samples.
-fn pcm_wem() -> Vec<u8> {
+/// A RIFF `WAVE` of an unsupported codec 0x1234.
+fn unsupported_wem() -> Vec<u8> {
     let data = [0u8; 8];
     let mut wem = Vec::new();
     wem.extend_from_slice(b"RIFF");
     wem.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
     wem.extend_from_slice(b"WAVEfmt ");
     wem.extend_from_slice(&16u32.to_le_bytes());
-    wem.extend_from_slice(&1u16.to_le_bytes());
+    wem.extend_from_slice(&0x1234u16.to_le_bytes());
     wem.extend_from_slice(&1u16.to_le_bytes());
     wem.extend_from_slice(&48_000u32.to_le_bytes());
     wem.extend_from_slice(&96_000u32.to_le_bytes());

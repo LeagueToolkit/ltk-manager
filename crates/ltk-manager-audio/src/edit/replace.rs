@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use super::history::Tx;
 use super::media_file::MediaFile;
-use super::structure::{VORBIS_PLUGIN, read_media_file};
+use super::structure::{plugin_id_for_codec, read_media_file};
 use super::{BankEditError, EditContext};
 use crate::bank_set::BankContent;
 use crate::events::SoundStream;
@@ -125,6 +125,10 @@ pub(super) fn replace(
     source: SourceId,
     wem: Vec<u8>,
 ) -> Result<(), BankEditError> {
+    let info = super::structure::check_wem(&wem)?;
+    let plugin_id =
+        plugin_id_for_codec(info.codec).ok_or(BankEditError::Codec(info.codec.0))?;
+
     let Plan {
         replacement,
         home: (path, package),
@@ -151,7 +155,7 @@ pub(super) fn replace(
             continue;
         };
         typed.source.in_memory_size = sound.new_size;
-        typed.source.plugin_id = VORBIS_PLUGIN;
+        typed.source.plugin_id = plugin_id;
         tx.put(&Typed::Sound(typed))?;
     }
     Ok(())
@@ -181,7 +185,7 @@ fn playing_sounds(
             let new_size = match sound.source.stream_type {
                 StreamType::DATA_BANK => length,
                 StreamType::PREFETCH => size.min(length),
-                _ => size,
+                _ => 0,
             };
             if !opened && new_size != size {
                 return Err(BankEditError::SharedSound {

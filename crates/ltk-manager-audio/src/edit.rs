@@ -441,7 +441,7 @@ pub enum BankEditError {
 
     /// The WEM is of a codec that the game does not play.
     #[error(
-        "The WEM is codec {0:#06x}, and the game plays only Wwise Vorbis. Convert it to Vorbis \
+        "The WEM is codec {0:#06x}, which is not supported. Convert it to Vorbis \
          in the Wwise authoring tool, then import the converted file."
     )]
     Codec(u16),
@@ -655,7 +655,7 @@ impl EventBankDocument {
     ///
     /// # Errors
     ///
-    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if no media file of the set holds
+    /// Fails if `wem` is not a WEM that decodes or has an unsupported codec, if no media file of the set holds
     /// the media, if the opened bank holds it itself, if a sound of another bank would need
     /// another size, and for the reasons of [`EventBankDocument::edit`].
     pub fn replace(
@@ -697,7 +697,7 @@ impl EventBankDocument {
     ///
     /// # Errors
     ///
-    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if the set has no sound to copy or
+    /// Fails if `wem` is not a WEM that decodes or has an unsupported codec, if the set has no sound to copy or
     /// no media file to add the media to, and for the reasons of [`EventBankDocument::edit`].
     pub fn import(
         &mut self,
@@ -1128,6 +1128,7 @@ fn set_source(sound: &mut Sound, source: u32, set: &BankSet) -> Result<(), BankE
                 media: source,
                 container: "package",
             })?;
+            sound.source.in_memory_size = 0;
         }
         _ => return Err(BankEditError::Prefetched(sound.id.0)),
     }

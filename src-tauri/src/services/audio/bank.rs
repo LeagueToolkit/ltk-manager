@@ -698,7 +698,7 @@ pub(super) fn layer_copy(
 fn saved_file(asset: &AssetRef) -> AppResult<PathBuf> {
     match asset {
         AssetRef::Layer { .. } => asset
-            .layer_file()
+            .layer_target_file()
             .expect("a layer asset names a layer file"),
         AssetRef::File { path } => Ok(PathBuf::from(path)),
         AssetRef::GameChunk { .. } | AssetRef::LcuChunk { .. } => Err(AppError::ValidationFailed(

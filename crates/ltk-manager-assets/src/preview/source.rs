@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::game_wads::{GameArchives, WadCache, WadSource};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};
-use ltk_manager_base::utils::path::resolve_within;
+use ltk_manager_base::utils::path::{resolve_target_within, resolve_within};
 
 /// Where a previewed asset's bytes come from.
 ///
@@ -111,6 +111,26 @@ impl AssetRef {
         name as well as the path inside it. */
         let root = Path::new(project).join("content");
         Some(resolve_within(&root, &format!("{layer}/{path}")))
+    }
+
+    /// The file on disk that a layer asset writes or reads, or `None` for an asset of another source.
+    ///
+    /// Resolves the path within its layer root without requiring the destination file to exist yet.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::InvalidPath`] when the path escapes its layer.
+    pub fn layer_target_file(&self) -> Option<AppResult<PathBuf>> {
+        let Self::Layer {
+            project,
+            layer,
+            path,
+        } = self
+        else {
+            return None;
+        };
+        let root = Path::new(project).join("content");
+        Some(resolve_target_within(&root, &format!("{layer}/{path}")))
     }
 
     /// The name a viewer shows, and what a guess at the file kind falls back to.
