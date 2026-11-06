@@ -79,6 +79,12 @@ export const settingsQueries = {
       queryKey: settingsKeys.telemetryIdentity(),
       queryFn: queryFn(api.diagnostics.telemetryIdentity),
     }),
+
+  ffmpeg: () =>
+    queryOptions<boolean, AppError>({
+      queryKey: settingsKeys.ffmpegDetect(),
+      queryFn: queryFn(api.integrations.detectFfmpeg),
+    }),
 } as const;
 
 /** What the configured League install answers about itself. */

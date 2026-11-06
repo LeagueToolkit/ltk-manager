@@ -44,15 +44,16 @@ export const commands = {
 	/**  Every map of the configured install that character inking can draw the outline on. */
 	listInkingMaps: () => __TAURI_INVOKE<({ ok: true; value: InkingMap[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|list_inking_maps"),
 	/**
-	 *  Writes the preview project that shows `settings` on `champion`, in the app cache directory.
+	 *  Writes the preview project that shows `settings` on `champion`, in a directory of the
+	 *  champion's own under the app cache directory.
 	 * 
 	 *  The project holds the declarations the overlay build writes for that champion on Summoner's
 	 *  Rift, so a skin viewer reading it through a project sandbox draws the game's outline.
 	 * 
 	 *  # Errors
 	 * 
-	 *  Fails when no League install is configured, the game cannot be read or the project cannot be
-	 *  written.
+	 *  Fails when `champion` is not a name of letters, digits and underscores, no League install is
+	 *  configured, the game cannot be read or the project cannot be written.
 	 */
 	prepareInkingPreview: (settings: CharacterInking, champion: string) => __TAURI_INVOKE<({ ok: true; value: InkingPreview }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|prepare_inking_preview", { settings, champion }),
 	/**  The outline that `settings` give a champion on `side`, the values the overlay build writes. */

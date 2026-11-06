@@ -290,6 +290,7 @@ services! {
         detect_storage_medium,
     }
     integrations("integrations") {
+        detect_ffmpeg,
         integration_status,
         integration_release,
         change_integration,

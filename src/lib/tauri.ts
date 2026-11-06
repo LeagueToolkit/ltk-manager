@@ -96,6 +96,7 @@ export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 // API functions
 export const api = {
   integrations: {
+    detectFfmpeg: integrations.detectFfmpeg,
     status: integrations.integrationStatus,
     release: integrations.integrationRelease,
     change: integrations.changeIntegration,

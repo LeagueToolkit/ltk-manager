@@ -1,6 +1,7 @@
 import { CheckCircleIcon, FolderOpenIcon, WarningCircleIcon, XIcon } from "@phosphor-icons/react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type DialogFilter, open } from "@tauri-apps/plugin-dialog";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { twMerge } from "@/utils";
 
@@ -86,6 +87,32 @@ export function PathField({
   pick,
   filters,
 }: PathFieldProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const currentWindow = getCurrentWindow();
+      const unlisten = currentWindow.onDragDropEvent((event) => {
+        const payload = event.payload;
+        if (payload.type === "drop" && Array.isArray(payload.paths) && payload.paths.length > 0) {
+          const rect = containerRef.current?.getBoundingClientRect();
+          if (rect && payload.position) {
+            const { x, y } = payload.position;
+            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+              onSelect(payload.paths[0]);
+            }
+          }
+        }
+      });
+      return () => {
+        unlisten.then((fn) => fn());
+      };
+    } catch {
+      // In web or tests
+    }
+  }, [onSelect]);
+
   async function handleBrowse() {
     try {
       const selected = await open({
@@ -102,6 +129,30 @@ export function PathField({
     }
   }
 
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(true);
+  }
+
+  function handleDragLeave(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragOver(false);
+    const files = event.dataTransfer.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      const path = (file as unknown as { path?: string }).path || file.name;
+      if (path) onSelect(path);
+    }
+  }
+
   const hint = browseHint[pick];
   const shown = value && display === "name" ? basename(value) : (value ?? "");
   const icon = browseIcon ?? <FolderOpenIcon />;
@@ -110,7 +161,16 @@ export function PathField({
   return (
     <Field.Root label={label} description={description} error={error} className={className}>
       <div className="flex items-center gap-2">
-        <div className="relative flex min-w-0 flex-1 items-center">
+        <div
+          ref={containerRef}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={twMerge(
+            "relative flex min-w-0 flex-1 items-center rounded-md transition-all",
+            isDragOver && "ring-2 ring-accent-500 ring-offset-1 ring-offset-surface-900",
+          )}
+        >
           <Field.Control
             type="text"
             value={shown}

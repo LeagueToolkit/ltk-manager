@@ -11,6 +11,48 @@ use tauri::{AppHandle, Manager};
 use crate::error::IpcResult;
 use crate::services::shared::integration;
 
+/// Reports whether FFmpeg is available on the machine.
+#[tauri::command]
+#[specta::specta]
+pub fn detect_ffmpeg() -> IpcResult<bool> {
+    IpcResult::ok(find_ffmpeg().is_some())
+}
+
+fn find_ffmpeg() -> Option<std::path::PathBuf> {
+    if let Ok(base) = std::env::var("LOCALAPPDATA")
+        .or_else(|_| std::env::var("XDG_DATA_HOME"))
+        .or_else(|_| std::env::var("HOME").map(|h| format!("{h}/.local/share")))
+    {
+        let managed =
+            std::path::PathBuf::from(base).join("LeagueToolkit/Manager/integrations/ffmpeg");
+        let exe = if cfg!(windows) {
+            managed.join("ffmpeg.exe")
+        } else {
+            managed.join("ffmpeg")
+        };
+        if exe.is_file() {
+            return Some(exe);
+        }
+    }
+
+    let cmd = if cfg!(windows) {
+        "ffmpeg.exe"
+    } else {
+        "ffmpeg"
+    };
+    if std::process::Command::new(cmd)
+        .arg("-version")
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
+    {
+        return Some(std::path::PathBuf::from(cmd));
+    }
+
+    None
+}
+
 /// Where the installer puts the `.ico` files, under the resource directory.
 const FILE_ICONS: &str = "file-icons";
 
