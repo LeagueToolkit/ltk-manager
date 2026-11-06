@@ -22,6 +22,9 @@ camino = { workspace = true }
 chrono = { workspace = true }
 filetime = { workspace = true }
 fs-err = { workspace = true }
+glam = { workspace = true }
+image = { workspace = true }
+indexmap = { workspace = true }
 ltk-declarations = { workspace = true }
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
@@ -34,6 +37,7 @@ ltk_meta = { workspace = true }
 ltk_mod_project = { workspace = true }
 ltk_modpkg = { workspace = true }
 ltk_overlay = { workspace = true }
+ltk_texture = { workspace = true }
 ltk_wad = { workspace = true }
 parking_lot = { workspace = true }
 regex = { workspace = true }

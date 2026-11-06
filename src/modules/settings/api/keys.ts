@@ -22,4 +22,5 @@ export const settingsKeys = {
   thirdPartyLicenses: () => [...settingsKeys.all, "thirdPartyLicenses"] as const,
   telemetryIdentity: () => [...settingsKeys.all, "telemetryIdentity"] as const,
   dataUsage: () => [...settingsKeys.all, "dataUsage"] as const,
+  ffmpegDetect: () => [...settingsKeys.all, "ffmpegDetect"] as const,
 };

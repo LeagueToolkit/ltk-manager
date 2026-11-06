@@ -136,6 +136,16 @@ const INDEX = [
     title: m.settings_builtins_map_decorations_title(),
   },
   {
+    id: "builtins.loadingScreen",
+    key: "builtinMods.loadingScreen.enabled",
+    title: m.settings_builtins_loading_screen_title(),
+  },
+  {
+    id: "builtins.loadingScreenAssets",
+    key: "builtinMods.loadingScreen.assets",
+    title: m.settings_builtins_loading_screen_assets_title(),
+  },
+  {
     id: "builtins.characterInking",
     key: "builtinMods.characterInking.enabled",
     title: m.settings_builtins_inking_title(),

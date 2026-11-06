@@ -196,6 +196,19 @@ pub struct BuiltinModSettings {
     pub map_decorations: BTreeMap<String, MapDecorationMode>,
     /// Character inking: which champions get an outline, on which maps, and how it looks.
     pub character_inking: CharacterInking,
+    /// Custom loading screen background.
+    pub loading_screen: LoadingScreenSettings,
+}
+
+/// The settings of the custom loading screen background built-in mod.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase", default)]
+pub struct LoadingScreenSettings {
+    /// Whether the mod runs.
+    pub enabled: bool,
+    /// Path to the custom loading screen image or video.
+    pub assets: Option<PathBuf>,
 }
 
 /// The settings of the character inking built-in mod.
