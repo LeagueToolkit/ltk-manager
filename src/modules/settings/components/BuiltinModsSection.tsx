@@ -1,13 +1,11 @@
 import { PuzzlePieceIcon } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
-import { AlertBox, Button, PathField, SectionCard, SegmentedControl, Switch } from "@/components";
+import { PathField, SectionCard, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
 import type { ForcibleMapSkin } from "@/lib/tauri";
 
-import { settingsQueries, useForcibleMapSkins, useLoadedSettings, useUpdateSettings } from "../api";
+import { useForcibleMapSkins, useLoadedSettings, useUpdateSettings } from "../api";
 import {
   baseSkinsOptions,
   loadingScreenOf,
@@ -148,36 +146,42 @@ function forcedMapSkinDescription(
   return m.settings_builtins_forced_map_skin_description();
 }
 
+const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "bmp"];
+const VIDEO_EXTENSIONS = ["webm"];
+
 const MEDIA_FILTERS = [
   {
-    name: "Images and Videos",
-    extensions: ["png", "jpg", "jpeg", "webp", "bmp", "mp4", "webm", "mov", "mkv", "avi", "gif"],
+    name: "Images and WebM videos",
+    extensions: [...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS],
   },
   {
     name: "Images",
-    extensions: ["png", "jpg", "jpeg", "webp", "bmp"],
+    extensions: IMAGE_EXTENSIONS,
   },
   {
-    name: "Videos",
-    extensions: ["mp4", "webm", "mov", "mkv", "avi", "gif"],
+    name: "WebM videos",
+    extensions: VIDEO_EXTENSIONS,
   },
 ];
 
-function isVideoPath(path: string | null | undefined): boolean {
-  if (!path) return false;
-  const ext = path.split(".").pop()?.toLowerCase();
-  return ["mp4", "webm", "mov", "mkv", "avi", "gif"].includes(ext ?? "");
+/** The extension of `path`, lowercased, or an empty string if it has none. */
+function extensionOf(path: string | null | undefined): string {
+  if (!path) return "";
+  return path.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function isSupportedPath(path: string | null | undefined): boolean {
+  const extension = extensionOf(path);
+  return IMAGE_EXTENSIONS.includes(extension) || VIDEO_EXTENSIONS.includes(extension);
 }
 
 /** Controls for the custom loading screen background. */
 function LoadingScreenRows() {
   const settings = useLoadedSettings();
   const update = useUpdateSettings();
-  const navigate = useNavigate({ from: "/settings" });
   const loadingScreen = loadingScreenOf(settings);
-  const { data: ffmpegInstalled = true } = useQuery(settingsQueries.ffmpeg());
-
-  const isVideo = isVideoPath(loadingScreen.assets);
+  const hasAsset = !!loadingScreen.assets;
+  const isSupported = isSupportedPath(loadingScreen.assets);
 
   return (
     <>
@@ -213,6 +217,12 @@ function LoadingScreenRows() {
               filters={MEDIA_FILTERS}
               aria-label={m.settings_builtins_loading_screen_assets_title()}
               value={loadingScreen.assets}
+              validity={hasAsset ? (isSupported ? "valid" : "invalid") : undefined}
+              error={
+                hasAsset && !isSupported
+                  ? m.settings_builtins_loading_screen_assets_unsupported()
+                  : undefined
+              }
               onSelect={(path) =>
                 update({
                   builtinMods: {
@@ -232,26 +242,6 @@ function LoadingScreenRows() {
               placeholder={m.settings_builtins_loading_screen_assets_placeholder()}
               dialogTitle={m.settings_builtins_loading_screen_title()}
             />
-            {isVideo && !ffmpegInstalled && (
-              <AlertBox
-                tone="warning"
-                actions={
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    onClick={() =>
-                      navigate({
-                        search: (prev) => ({ ...prev, tab: "integrations" }),
-                      })
-                    }
-                  >
-                    {m.settings_builtins_loading_screen_integrations_action()}
-                  </Button>
-                }
-              >
-                {m.settings_builtins_loading_screen_ffmpeg_notice()}
-              </AlertBox>
-            )}
           </div>
         }
       />

@@ -1,8 +1,8 @@
 //! The built-in mod that replaces the loading screen with the user's own image or video.
 //!
-//! An image becomes a static, full-screen element. A video becomes a sprite sheet that the game
-//! plays as a flipbook. Either way the mod overrides two files in one game archive: the new `.tex`
-//! texture and the loading screen bin, patched to hold one extra element.
+//! An image becomes a static texture. A WebM video is copied into the archive and played by the
+//! game through `AtlasDataVideo`. Either way the mod overrides the loading screen bin, patched to
+//! hold one extra element.
 
 use super::overrides::Overrides;
 use super::{BuiltinMod, Context, check_called_off};
@@ -19,11 +19,11 @@ use ltk_texture::tex::{EncodeFormat, EncodeOptions};
 use ltk_wad::{Wad, WadHash};
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 
 const ROOT_PATH: &str = "ClientStates/LoadingScreen/UX/LoadingScreenClassic/UIBase/LoadingScreen";
 const ENTRY_NAME: &str = "CustomLoadingScreen";
 const TEX_PATH: &str = "assets/ux/loadingscreen/custom/custom_loading_screen.tex";
+const VIDEO_PATH: &str = "assets/ux/loadingscreen/custom/custom_loading_screen.webm";
 
 /// The archive holding the stock loading screen bin.
 const STOCK_ARCHIVE: &str = "DATA/FINAL/UI.wad.client";
@@ -31,65 +31,28 @@ const STOCK_ARCHIVE: &str = "DATA/FINAL/UI.wad.client";
 /// The path of the stock loading screen bin inside [`STOCK_ARCHIVE`].
 const STOCK_BIN_PATH: &str = "clientstates/loadingscreen/ux/loadingscreenclassic/uibase";
 
-/// The reference space the element is laid out in, and the size it covers.
+/// The reference space the image is laid out in, and the size it covers.
 const SCREEN_W: u32 = 1920;
 const SCREEN_H: u32 = 1080;
-const MAX_SIDE: u32 = 16384;
-const MAX_SHEET_BYTES: u64 = 64 * 1024 * 1024;
-const MIN_FRAME_WIDTH: u32 = 64;
+
 const TEX_HEADER: usize = 12;
 const TEX_FORMAT_BC3: u8 = 12;
+
+/// The EBML header every WebM file starts with.
+const WEBM_MAGIC: [u8; 4] = [0x1A, 0x45, 0xDF, 0xA3];
 
 /// What the user chose to show while loading.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Settings {
     pub(super) source: PathBuf,
-    pub(super) fps: u32,
-    pub(super) max_frames: u32,
-    pub(super) frame_width: u32,
-    pub(super) frame_height: u32,
     pub(super) layer: u32,
-    /// Where ffmpeg is located.
-    pub(super) ffmpeg: PathBuf,
 }
 
 impl Settings {
-    /// The defaults for `source`: small frames, so the sheet stays far below the limits.
+    /// The settings for `source`.
     pub(super) fn new(source: PathBuf) -> Self {
-        Self {
-            source,
-            fps: 30,
-            max_frames: 120,
-            frame_width: 640,
-            frame_height: 360,
-            layer: 70,
-            ffmpeg: resolve_ffmpeg(),
-        }
+        Self { source, layer: 70 }
     }
-}
-
-/// Resolves the FFmpeg binary from managed integrations or system PATH.
-fn resolve_ffmpeg() -> PathBuf {
-    if let Ok(base) = std::env::var("LOCALAPPDATA")
-        .or_else(|_| std::env::var("XDG_DATA_HOME"))
-        .or_else(|_| std::env::var("HOME").map(|h| format!("{h}/.local/share")))
-    {
-        let managed = PathBuf::from(base).join("LeagueToolkit/Manager/integrations/ffmpeg");
-        let exe = if cfg!(windows) {
-            managed.join("ffmpeg.exe")
-        } else {
-            managed.join("ffmpeg")
-        };
-        if exe.is_file() {
-            return exe;
-        }
-    }
-
-    PathBuf::from(if cfg!(windows) {
-        "ffmpeg.exe"
-    } else {
-        "ffmpeg"
-    })
 }
 
 /// The built-in mod itself.
@@ -125,15 +88,34 @@ impl BuiltinMod for LoadingScreen {
         "Custom loading screen"
     }
 
-    /// Generates the texture and the patched bin.
+    /// Generates the texture or copies the video, then the patched bin.
     fn generate(&self, cx: &mut Context<'_>) -> AppResult<Overrides> {
         let called_off = cx.called_off;
         let mut overrides = Overrides::default();
 
-        let built = build_assets(&self.settings, cx.cache_dir, || {
-            check_called_off(called_off)
-        })?;
+        let media = media_kind(&self.settings.source)
+            .ok_or_else(|| fail("the file is not a supported image or WebM video"))?;
         check_called_off(called_off)?;
+
+        let kind = match media {
+            Media::Image => {
+                let built = build_image(&self.settings.source, cx.cache_dir, || {
+                    check_called_off(called_off)
+                })?;
+                check_called_off(called_off)?;
+                overrides.insert(STOCK_ARCHIVE, TEX_PATH, built.tex);
+                Kind::Image {
+                    texture_hash: WadHash::hash_str(TEX_PATH).0,
+                    texture_size: (built.width, built.height),
+                }
+            }
+            Media::Video => {
+                validate_webm(&self.settings.source)?;
+                check_called_off(called_off)?;
+                register_video(&mut overrides, &self.settings.source);
+                Kind::Video { file: VIDEO_PATH }
+            }
+        };
 
         let Some(stock) = read_game_file(cx.game_dir.path(), STOCK_ARCHIVE, STOCK_BIN_PATH) else {
             tracing::warn!("Built-in mods: {STOCK_BIN_PATH} could not be read");
@@ -141,14 +123,11 @@ impl BuiltinMod for LoadingScreen {
         };
 
         let object = entry_object(&Entry {
-            texture_hash: WadHash::hash_str(TEX_PATH).0,
-            texture_size: (built.width, built.height),
-            anim: built.anim,
+            kind,
             layer: self.settings.layer,
         });
         let bin = patch_bin(&stock, object)?;
 
-        overrides.insert(STOCK_ARCHIVE, TEX_PATH, built.tex);
         overrides.insert(STOCK_ARCHIVE, STOCK_BIN_PATH, bin);
         Ok(overrides)
     }
@@ -180,148 +159,28 @@ fn media_kind(path: &Path) -> Option<Media> {
     let extension = path.extension()?.to_str()?.to_ascii_lowercase();
     match extension.as_str() {
         "png" | "jpg" | "jpeg" | "webp" | "bmp" => Some(Media::Image),
-        "mp4" | "webm" | "mov" | "mkv" | "avi" | "gif" => Some(Media::Video),
+        "webm" => Some(Media::Video),
         _ => None,
     }
 }
 
-/// How the frames of a sprite sheet are laid out, left to right and then top to bottom.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Layout {
-    frames: u32,
-    cols: u32,
-    rows: u32,
-    frame_w: u32,
-    frame_h: u32,
+/// Registers `source` as the video the loading screen plays.
+fn register_video(overrides: &mut Overrides, source: &Path) {
+    overrides.insert_copy(STOCK_ARCHIVE, VIDEO_PATH, source.to_path_buf());
 }
 
-impl Layout {
-    fn sheet_w(self) -> u32 {
-        self.cols * self.frame_w
-    }
+/// Fails unless `path` starts with the EBML header a WebM file must have.
+fn validate_webm(path: &Path) -> AppResult<()> {
+    let mut magic = [0u8; 4];
+    fs_err::File::open(path)
+        .and_then(|mut file| file.read_exact(&mut magic))
+        .map_err(|error| fail(format!("the video could not be read: {error}")))?;
 
-    fn sheet_h(self) -> u32 {
-        self.rows * self.frame_h
+    if magic == WEBM_MAGIC {
+        Ok(())
+    } else {
+        Err(fail("the video is not a WebM file"))
     }
-
-    /// The bytes of the `.tex` pixels, at one byte a pixel.
-    fn tex_bytes(self) -> u64 {
-        u64::from(self.sheet_w()) * u64::from(self.sheet_h())
-    }
-
-    fn fits(self) -> bool {
-        self.sheet_w() <= MAX_SIDE
-            && self.sheet_h() <= MAX_SIDE
-            && self.tex_bytes() <= MAX_SHEET_BYTES
-    }
-}
-
-/// `value` rounded down to a multiple of 4, which BC3 blocks need, and at least 4.
-fn round4(value: u32) -> u32 {
-    (value / 4 * 4).max(4)
-}
-
-/// The layout of `frames` frames of `frame_w` by `frame_h` that is closest to a square.
-fn near_square(frames: u32, frame_w: u32, frame_h: u32) -> Layout {
-    let frames = frames.max(1);
-    let ideal = (f64::from(frames) * f64::from(frame_h) / f64::from(frame_w)).sqrt();
-    let cols = (ideal.ceil() as u32).clamp(1, frames);
-    Layout {
-        frames,
-        cols,
-        rows: frames.div_ceil(cols),
-        frame_w,
-        frame_h,
-    }
-}
-
-/// The layout of `frames` frames, with the frame shrunk until the sheet is within the limits.
-fn fit_layout(frames: u32, frame_w: u32, frame_h: u32) -> Option<Layout> {
-    let (mut frame_w, mut frame_h) = (round4(frame_w), round4(frame_h));
-    loop {
-        let layout = near_square(frames, frame_w, frame_h);
-        if layout.fits() {
-            return Some(layout);
-        }
-        let next = (round4(frame_w * 85 / 100), round4(frame_h * 85 / 100));
-        if next.0 < MIN_FRAME_WIDTH || next == (frame_w, frame_h) {
-            return None;
-        }
-        (frame_w, frame_h) = next;
-    }
-}
-
-/// The raw RGBA frames of the video, back to back, scaled to cover and cropped to `layout`.
-fn decode_frames<F>(settings: &Settings, layout: Layout, check: F) -> AppResult<Vec<u8>>
-where
-    F: Fn() -> AppResult<()>,
-{
-    check()?;
-    let (w, h) = (layout.frame_w, layout.frame_h);
-    let filter = format!(
-        "fps={},scale={w}:{h}:force_original_aspect_ratio=increase,crop={w}:{h}",
-        settings.fps
-    );
-    let mut child = Command::new(&settings.ffmpeg)
-        .args(["-v", "error", "-i"])
-        .arg(&settings.source)
-        .args(["-vf", &filter, "-an", "-frames:v"])
-        .arg(layout.frames.to_string())
-        .args(["-f", "rawvideo", "-pix_fmt", "rgba", "pipe:1"])
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                fail("FFmpeg is not installed. Please install FFmpeg via Integrations.")
-            } else {
-                fail(format!("ffmpeg could not start: {error}"))
-            }
-        })?;
-
-    let mut raw = Vec::new();
-    if let Some(mut stdout) = child.stdout.take() {
-        stdout
-            .read_to_end(&mut raw)
-            .map_err(|error| fail(format!("ffmpeg output could not be read: {error}")))?;
-    }
-    let status = child
-        .wait()
-        .map_err(|error| fail(format!("ffmpeg did not finish: {error}")))?;
-    if !status.success() {
-        return Err(fail("ffmpeg could not read the video"));
-    }
-    check()?;
-    Ok(raw)
-}
-
-/// The sprite sheet of `raw` frames, with the layout that holds the frames actually decoded.
-fn build_sheet(raw: &[u8], plan: Layout) -> AppResult<(RgbaImage, Layout)> {
-    let frame_bytes = plan.frame_w as usize * plan.frame_h as usize * 4;
-    let frames = (raw.len() / frame_bytes) as u32;
-    if frames == 0 {
-        return Err(fail("the video holds no frames"));
-    }
-    let layout = Layout {
-        frames,
-        rows: frames.div_ceil(plan.cols),
-        ..plan
-    };
-
-    let mut sheet = RgbaImage::new(layout.sheet_w(), layout.sheet_h());
-    let stride = layout.sheet_w() as usize * 4;
-    let row_bytes = layout.frame_w as usize * 4;
-    let pixels: &mut [u8] = &mut sheet;
-    for (index, frame) in raw.chunks_exact(frame_bytes).enumerate() {
-        let col = index as u32 % layout.cols;
-        let row = index as u32 / layout.cols;
-        let origin = row as usize * layout.frame_h as usize * stride + col as usize * row_bytes;
-        for (line, source) in frame.chunks_exact(row_bytes).enumerate() {
-            let at = origin + line * stride;
-            pixels[at..at + row_bytes].copy_from_slice(source);
-        }
-    }
-    Ok((sheet, layout))
 }
 
 /// `img` as the bytes of a BC3 `.tex` without mipmaps.
@@ -357,94 +216,44 @@ fn validate_tex(bytes: &[u8], width: u32, height: u32) -> AppResult<()> {
     }
 }
 
-/// What is known of a sprite sheet beyond its pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct Anim {
-    frames: u32,
-    cols: u32,
-    frame_w: u32,
-    frame_h: u32,
-    fps: u32,
-}
-
-/// The texture and what the bin needs to know of it.
+/// The texture and its size.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Built {
     tex: Vec<u8>,
     width: u32,
     height: u32,
-    /// None for a still image.
-    anim: Option<Anim>,
 }
 
-/// The `.tex` and its animation, from the cache when the file and settings are unchanged.
-fn build_assets<F>(settings: &Settings, cache_dir: &Path, check: F) -> AppResult<Built>
+/// The `.tex` of `source` scaled to the screen, from the cache when the file is unchanged.
+fn build_image<F>(source: &Path, cache_dir: &Path, check: F) -> AppResult<Built>
 where
     F: Fn() -> AppResult<()>,
 {
-    let media = media_kind(&settings.source)
-        .ok_or_else(|| fail("the file is not a supported image or video"))?;
-
-    let key = cache_key(settings);
+    let key = cache_key(source);
     let tex_path = cache_dir.join(format!("loading-screen-{key}.tex"));
     let meta_path = cache_dir.join(format!("loading-screen-{key}.meta"));
     if let Some(built) = read_cache(&tex_path, &meta_path) {
         return Ok(built);
     }
 
-    let built = match media {
-        Media::Image => {
-            let image = image::open(&settings.source)
-                .map_err(|error| fail(format!("the image could not be read: {error}")))?;
-            let sheet =
-                DynamicImage::resize_to_fill(&image, SCREEN_W, SCREEN_H, FilterType::Lanczos3)
-                    .to_rgba8();
-            Built {
-                tex: encode_tex(&sheet)?,
-                width: sheet.width(),
-                height: sheet.height(),
-                anim: None,
-            }
-        }
-        Media::Video => {
-            let fps = settings.fps.clamp(1, 60);
-            let plan = fit_layout(
-                settings.max_frames.max(1),
-                settings.frame_width,
-                settings.frame_height,
-            )
-            .ok_or_else(|| {
-                fail("the video does not fit a sprite sheet, even at the smallest size")
-            })?;
-            let plan_settings = Settings {
-                fps,
-                ..settings.clone()
-            };
-            let raw = decode_frames(&plan_settings, plan, &check)?;
-            let (sheet, layout) = build_sheet(&raw, plan)?;
-            check()?;
-            Built {
-                tex: encode_tex(&sheet)?,
-                width: sheet.width(),
-                height: sheet.height(),
-                anim: Some(Anim {
-                    frames: layout.frames,
-                    cols: layout.cols,
-                    frame_w: layout.frame_w,
-                    frame_h: layout.frame_h,
-                    fps,
-                }),
-            }
-        }
+    let image = image::open(source)
+        .map_err(|error| fail(format!("the image could not be read: {error}")))?;
+    let sheet =
+        DynamicImage::resize_to_fill(&image, SCREEN_W, SCREEN_H, FilterType::Lanczos3).to_rgba8();
+    check()?;
+    let built = Built {
+        tex: encode_tex(&sheet)?,
+        width: sheet.width(),
+        height: sheet.height(),
     };
 
     write_cache(cache_dir, &tex_path, &meta_path, &built);
     Ok(built)
 }
 
-/// A key that changes with the file's size and time and with every setting that shapes the output.
-fn cache_key(settings: &Settings) -> String {
-    let (len, modified) = fs_err::metadata(&settings.source)
+/// A key that changes with the file's size and modification time.
+fn cache_key(source: &Path) -> String {
+    let (len, modified) = fs_err::metadata(source)
         .map(|meta| {
             let modified = meta
                 .modified()
@@ -454,61 +263,30 @@ fn cache_key(settings: &Settings) -> String {
             (meta.len(), modified)
         })
         .unwrap_or((0, 0));
-    let text = format!(
-        "{}|{len}|{modified}|{}|{}|{}|{}",
-        settings.source.display(),
-        settings.fps,
-        settings.max_frames,
-        settings.frame_width,
-        settings.frame_height,
-    );
+    let text = format!("{}|{len}|{modified}", source.display());
     format!("{:016x}", WadHash::hash_str(text).0)
 }
 
-/// The cached texture and its details, when both are there and agree.
+/// The cached texture and its size, when both are there and agree.
 fn read_cache(tex_path: &Path, meta_path: &Path) -> Option<Built> {
     let tex = fs_err::read(tex_path).ok()?;
     let meta = fs_err::read_to_string(meta_path).ok()?;
-    let mut values = [0u32; 7];
+    let mut values = [0u32; 2];
     for line in meta.lines() {
         let (name, value) = line.split_once('=')?;
-        let slot = [
-            "width", "height", "frames", "cols", "frame_w", "frame_h", "fps",
-        ]
-        .iter()
-        .position(|known| *known == name)?;
+        let slot = ["width", "height"]
+            .iter()
+            .position(|known| *known == name)?;
         values[slot] = value.parse().ok()?;
     }
-    let [width, height, frames, cols, frame_w, frame_h, fps] = values;
+    let [width, height] = values;
     validate_tex(&tex, width, height).ok()?;
-    let anim = (frames > 0).then_some(Anim {
-        frames,
-        cols,
-        frame_w,
-        frame_h,
-        fps,
-    });
-    Some(Built {
-        tex,
-        width,
-        height,
-        anim,
-    })
+    Some(Built { tex, width, height })
 }
 
 /// Saves `built` in the cache. A failure only costs the next run its speed.
 fn write_cache(cache_dir: &Path, tex_path: &Path, meta_path: &Path, built: &Built) {
-    let anim = built.anim.unwrap_or(Anim {
-        frames: 0,
-        cols: 0,
-        frame_w: 0,
-        frame_h: 0,
-        fps: 0,
-    });
-    let meta = format!(
-        "width={}\nheight={}\nframes={}\ncols={}\nframe_w={}\nframe_h={}\nfps={}\n",
-        built.width, built.height, anim.frames, anim.cols, anim.frame_w, anim.frame_h, anim.fps
-    );
+    let meta = format!("width={}\nheight={}\n", built.width, built.height);
     let saved = fs_err::create_dir_all(cache_dir)
         .and_then(|()| fs_err::write(tex_path, &built.tex))
         .and_then(|()| fs_err::write(meta_path, meta));
@@ -519,11 +297,20 @@ fn write_cache(cache_dir: &Path, tex_path: &Path, meta_path: &Path, built: &Buil
 
 /// What the added element shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Kind {
+    Image {
+        texture_hash: u64,
+        texture_size: (u32, u32),
+    },
+    Video {
+        file: &'static str,
+    },
+}
+
+/// What the added element shows and where it sits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Entry {
-    texture_hash: u64,
-    texture_size: (u32, u32),
-    /// None for a still image.
-    anim: Option<Anim>,
+    kind: Kind,
     layer: u32,
 }
 
@@ -532,16 +319,43 @@ fn entry_object(entry: &Entry) -> BinObject {
     let path = format!("{ROOT_PATH}/{ENTRY_NAME}");
     let key = BinHash::hash_str(&path);
     let parent = BinHash::hash_str(ROOT_PATH);
-    let class_hash = if entry.anim.is_some() {
-        BinHash(0xa742_684a)
-    } else {
-        BinHash(0x1a65_e950)
-    };
-    let (atlas_w, atlas_h) = entry.texture_size;
-    let (crop_w, crop_h) = entry
-        .anim
-        .map_or((atlas_w, atlas_h), |anim| (anim.frame_w, anim.frame_h));
 
+    let position = match entry.kind {
+        Kind::Image { .. } => image_position(),
+        Kind::Video { .. } => values::Struct {
+            class_hash: BinHash(0xc931_f1b9),
+            properties: IndexMap::new(),
+        },
+    };
+
+    let texture = match entry.kind {
+        Kind::Image {
+            texture_hash,
+            texture_size,
+        } => image_texture(texture_hash, texture_size),
+        Kind::Video { file } => video_texture(file),
+    };
+
+    let properties: IndexMap<BinHash, PropertyValueEnum> = [
+        (BinHash(0x8d39_bde6), values::String::new(path).into()),
+        (BinHash(0x2063_cb13), values::ObjectLink::new(parent).into()),
+        (BinHash(0x02f3_b39e), values::Bool::new(true).into()),
+        (BinHash(0x07a6_40f6), values::U32::new(entry.layer).into()),
+        (BinHash(0x934f_4e0a), PropertyValueEnum::Struct(position)),
+        (BinHash(0xe502_c1dc), PropertyValueEnum::Struct(texture)),
+    ]
+    .into_iter()
+    .collect();
+
+    BinObject {
+        path_hash: key,
+        class_hash: BinHash(0x1a65_e950),
+        properties,
+    }
+}
+
+/// The position of the image: the whole reference screen.
+fn image_position() -> values::Struct {
     let layout_embed = values::Struct {
         class_hash: BinHash(0x4eb9_ba4f),
         properties: [
@@ -566,7 +380,7 @@ fn entry_object(entry: &Entry) -> BinObject {
         .collect(),
     };
 
-    let layout_ptr = values::Struct {
+    values::Struct {
         class_hash: BinHash(0x4460_0fb6),
         properties: [
             (BinHash(0x3a8b_fbed), values::Embedded(layout_embed).into()),
@@ -574,63 +388,50 @@ fn entry_object(entry: &Entry) -> BinObject {
         ]
         .into_iter()
         .collect(),
-    };
+    }
+}
 
-    let texture_ptr = values::Struct {
+/// The texture of the image, a link to its chunk.
+fn image_texture(texture_hash: u64, texture_size: (u32, u32)) -> values::Struct {
+    let (width, height) = texture_size;
+    values::Struct {
         class_hash: BinHash(0x719f_1a94),
         properties: [
             (
                 BinHash(0xf972_1a78),
-                values::WadChunkLink::new(WadHash(entry.texture_hash)).into(),
+                values::WadChunkLink::new(WadHash(texture_hash)).into(),
             ),
-            (BinHash(0xabb7_9fd0), values::U32::new(atlas_w).into()),
-            (BinHash(0x9f97_05c7), values::U32::new(atlas_h).into()),
+            (BinHash(0xabb7_9fd0), values::U32::new(width).into()),
+            (BinHash(0x9f97_05c7), values::U32::new(height).into()),
             (
                 BinHash(0x257c_e80c),
                 values::Vector4::new(glam::Vec4::new(
                     0.0,
                     0.0,
-                    (crop_w - 1) as f32,
-                    (crop_h - 1) as f32,
+                    (width - 1) as f32,
+                    (height - 1) as f32,
                 ))
                 .into(),
             ),
         ]
         .into_iter()
         .collect(),
-    };
-
-    let mut properties: IndexMap<BinHash, PropertyValueEnum> = [
-        (BinHash(0x8d39_bde6), values::String::new(path).into()),
-        (BinHash(0x2063_cb13), values::ObjectLink::new(parent).into()),
-        (BinHash(0x02f3_b39e), values::Bool::new(true).into()),
-        (BinHash(0x07a6_40f6), values::U32::new(entry.layer).into()),
-        (BinHash(0x934f_4e0a), PropertyValueEnum::Struct(layout_ptr)),
-        (BinHash(0xe502_c1dc), PropertyValueEnum::Struct(texture_ptr)),
-    ]
-    .into_iter()
-    .collect();
-
-    if let Some(anim) = entry.anim {
-        properties.insert(
-            BinHash(0xff72_f56a),
-            values::F32::new(anim.fps as f32).into(),
-        );
-        properties.insert(
-            BinHash(0xa651_7bab),
-            values::F32::new(anim.frames as f32).into(),
-        );
-        properties.insert(
-            BinHash(0x9e17_f690),
-            values::F32::new(anim.cols as f32).into(),
-        );
-        properties.insert(BinHash(0xee3c_0711), values::U8::new(1).into());
     }
+}
 
-    BinObject {
-        path_hash: key,
-        class_hash,
-        properties,
+/// The texture of the video, played by the game on a loop.
+fn video_texture(file: &str) -> values::Struct {
+    values::Struct {
+        class_hash: BinHash(0x48b5_25af),
+        properties: [
+            (
+                BinHash(0xaaea_5743),
+                values::String::new(file.to_owned()).into(),
+            ),
+            (BinHash(0xddef_486b), values::Bool::new(true).into()),
+        ]
+        .into_iter()
+        .collect(),
     }
 }
 

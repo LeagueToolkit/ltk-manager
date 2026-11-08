@@ -5,8 +5,6 @@ import type { AppErrorResponse, FileTypeStatus, IntegrationAction, IntegrationRe
 
 /** Commands */
 export const commands = {
-	/**  Reports whether FFmpeg is available on the machine. */
-	detectFfmpeg: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:integrations|detect_ffmpeg"),
 	/**  Local executable and Explorer state for each tool. */
 	integrationStatus: () => __TAURI_INVOKE<({ ok: true; value: IntegrationStatus[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:integrations|integration_status"),
 	/**  Latest stable release available for a tool. */
@@ -22,4 +20,4 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"cancelIntegrationDownload":"plugin:integrations|cancel_integration_download","changeIntegration":"plugin:integrations|change_integration","detectFfmpeg":"plugin:integrations|detect_ffmpeg","fileTypeStatus":"plugin:integrations|file_type_status","integrationRelease":"plugin:integrations|integration_release","integrationStatus":"plugin:integrations|integration_status","openDefaultApps":"plugin:integrations|open_default_apps"} as const;
+export const commandNames = {"cancelIntegrationDownload":"plugin:integrations|cancel_integration_download","changeIntegration":"plugin:integrations|change_integration","fileTypeStatus":"plugin:integrations|file_type_status","integrationRelease":"plugin:integrations|integration_release","integrationStatus":"plugin:integrations|integration_status","openDefaultApps":"plugin:integrations|open_default_apps"} as const;

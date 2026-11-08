@@ -18,7 +18,6 @@ import {
   useIntegrationRelease,
   useIntegrations,
 } from "../api/useIntegrations";
-import { FfmpegCard } from "./FfmpegCard";
 import { FileTypesSection } from "./FileTypesSection";
 import { IntegrationActions } from "./IntegrationActions";
 import { IntegrationPaths } from "./IntegrationPaths";
@@ -358,7 +357,6 @@ export function IntegrationsSection() {
       {data?.map((status) => (
         <IntegrationCard key={status.tool} status={status} busy={busy} />
       ))}
-      <FfmpegCard />
     </div>
   );
 }
