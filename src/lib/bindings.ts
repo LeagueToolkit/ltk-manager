@@ -500,6 +500,8 @@ export type BankEdit =
 { kind: "newEvent"; name: string } | 
 /**  Creates the event `name` with a copy of every action of `event` and of what they play. */
 { kind: "copyEvent"; event: number; name: string } | 
+/**  Creates the event `name` with shallow copies of the actions of `event` without duplicating their subtrees. */
+{ kind: "aliasEvent"; event: number; name: string } | 
 /**  Gives the event `event` the ID of `name`, with its actions. */
 { kind: "renameEvent"; event: number; name: string } | 
 /**  Adds `node` under `parent`. */
@@ -524,7 +526,9 @@ export type BankEdit =
  */
 { kind: "wrap"; objects: number[]; parent: number; container: ContainerKind } | 
 /**  Applies every edit of `edits`, in order, as one undo step. */
-{ kind: "batch"; edits: BankEdit[] };
+{ kind: "batch"; edits: BankEdit[] } | 
+/**  Upgrades the bank to version 145. */
+{ kind: "upgrade" };
 
 /**  The `BKHD` header of a bank, and whether the client loads the bank. */
 export type BankFacts = {

@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -27,6 +28,10 @@ export interface BankDocument {
   readonly state: AudioBankState | null;
   /** The revision that reads apply the edits of, and null while no document is open. */
   readonly revision: BankRevision | null;
+  /** Upgrades an older bank to version 145. Resolves false, after a toast, if it was refused. */
+  readonly upgrade: () => Promise<boolean>;
+  /** The reason why the bank cannot be edited, or null if it takes edits or is not a hierarchy bank. */
+  readonly readOnlyReason: "game" | "no_project" | "legacy" | null;
   /** Applies `edit` as one undo step. Resolves false, after a toast, if it was refused. */
   readonly edit: (edit: BankEdit) => Promise<boolean>;
   /**
@@ -106,6 +111,21 @@ export function useBankDocument(
       if (id !== null) void api.audioBankClose(id);
     };
   }, [key, open, toast]);
+
+  const upgrade = useCallback(async () => {
+    const current = latest.current;
+    if (current === null) return false;
+
+    const result = await api.audioBankUpgrade(current.id);
+    if (!result.ok) {
+      toast.error(m.audio_edit_refused_title(), errorSummary(result.error));
+      return false;
+    }
+    setState(result.value);
+    setHistory(afterEdit);
+    void invalidateBinReads(queryClient);
+    return true;
+  }, [queryClient, toast]);
 
   const edit = useCallback(
     async (change: BankEdit) => {
@@ -238,10 +258,22 @@ export function useBankDocument(
   );
   useDocumentHistory(tab, stepFromKeys, state?.editable === true);
 
+  const readOnlyReason = match({
+    sandboxKind: sandbox.kind,
+    project,
+    editable: state?.editable,
+  })
+    .with({ sandboxKind: "game" }, () => "game" as const)
+    .with({ project: null }, () => "no_project" as const)
+    .with({ editable: false }, () => "legacy" as const)
+    .otherwise(() => null);
+
   const revision = state === null ? null : { id: state.id, revision: state.revision };
   return {
     state,
     revision,
+    upgrade,
+    readOnlyReason,
     edit,
     importWem,
     previewReplace,

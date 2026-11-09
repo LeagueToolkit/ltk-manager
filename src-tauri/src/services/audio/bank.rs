@@ -45,6 +45,8 @@ struct OpenBank {
     linked: LinkedBins,
     /// The file name of each WEM file that an import added, by the source ID of its media.
     imported: HashMap<u32, String>,
+    /// Pre-edit and known event names, by event ID.
+    known_names: HashMap<u32, String>,
 }
 
 /// Every open event bank, by id.
@@ -186,6 +188,26 @@ pub async fn audio_bank_open(
 
         let documents = app_handle.state::<AudioBankDocuments>();
         let id = documents.next.fetch_add(1, Ordering::Relaxed);
+
+        let mut known_names: HashMap<u32, String> = HashMap::new();
+        let project = sandbox.project().map(project_audio_index);
+        let (game, _) = game_audio_index(&app_handle);
+        let indexes: Vec<&AudioIndex> = project.iter().chain(game.as_deref()).collect();
+        for index in &indexes {
+            for unit in index.units_naming(&path) {
+                for event in &unit.unit.events {
+                    known_names.insert(ObjectId::from_name(event).0, event.to_string());
+                }
+            }
+        }
+        for event_id in document.events() {
+            if let std::collections::hash_map::Entry::Vacant(e) = known_names.entry(event_id) {
+                if let Some(name) = indexes.iter().find_map(|idx| idx.name(ObjectId(event_id))) {
+                    e.insert(name.to_owned());
+                }
+            }
+        }
+
         let open = OpenBank {
             document,
             asset,
@@ -193,6 +215,7 @@ pub async fn audio_bank_open(
             path,
             linked: LinkedBins::default(),
             imported: HashMap::new(),
+            known_names,
         };
         let state = state_of(id, &open);
         documents.open.lock().insert(id, Arc::new(Mutex::new(open)));
@@ -216,6 +239,27 @@ pub async fn audio_bank_close(id: AudioBankId, app_handle: AppHandle) -> IpcResu
             .close(&app_handle.state::<BinDocuments>());
     }
     IpcResult::ok(())
+}
+
+/// Upgrades the open bank under `id` to version 145.
+///
+/// # Errors
+///
+/// Fails if the bank cannot be upgraded.
+#[tauri::command]
+#[specta::specta]
+pub async fn audio_bank_upgrade(
+    id: AudioBankId,
+    app_handle: AppHandle,
+) -> IpcResult<AudioBankState> {
+    off_thread(move || {
+        let documents = app_handle.state::<AudioBankDocuments>();
+        let open_arc = documents.get(id)?;
+        let mut open = open_arc.lock();
+        open.document.upgrade()?;
+        Ok(state_of(id, &open))
+    })
+    .await
 }
 
 /// Applies `edit` to the event bank open under `id` as one undo step.
@@ -407,28 +451,50 @@ fn follow_bank_events(
     let project = open.sandbox.project().map(project_audio_index);
     let indexes: Vec<&AudioIndex> = project.iter().chain(game).collect();
     let created = open.document.created_names();
-    let name_of = |id: u32| {
+    let name_of = |id: u32, known: &HashMap<u32, String>| {
         created
             .iter()
             .rev()
             .find(|name| ObjectId::from_name(name).0 == id)
             .cloned()
+            .or_else(|| known.get(&id).cloned())
             .or_else(|| {
                 indexes
                     .iter()
                     .find_map(|index| index.name(ObjectId(id)).map(str::to_owned))
             })
+            .or_else(|| {
+                indexes.iter().find_map(|index| {
+                    index.units_naming(&open.path).find_map(|indexed| {
+                        indexed
+                            .unit
+                            .events
+                            .iter()
+                            .find(|e| ObjectId::from_name(e).0 == id)
+                            .cloned()
+                    })
+                })
+            })
     };
+
     let removed: Vec<String> = before
         .iter()
         .filter(|id| !after.contains(id))
-        .filter_map(|&id| name_of(id))
+        .filter_map(|&id| name_of(id, &open.known_names))
         .collect();
     let added: Vec<String> = after
         .iter()
         .filter(|id| !before.contains(id))
-        .filter_map(|&id| name_of(id))
+        .filter_map(|&id| name_of(id, &open.known_names))
         .collect();
+
+    for name in &added {
+        open.known_names
+            .insert(ObjectId::from_name(name).0, name.clone());
+    }
+    for name in &removed {
+        open.known_names.remove(&ObjectId::from_name(name).0);
+    }
     if removed.is_empty() && added.is_empty() {
         return Vec::new();
     }
@@ -698,7 +764,7 @@ pub(super) fn layer_copy(
 fn saved_file(asset: &AssetRef) -> AppResult<PathBuf> {
     match asset {
         AssetRef::Layer { .. } => asset
-            .layer_file()
+            .layer_target_file()
             .expect("a layer asset names a layer file"),
         AssetRef::File { path } => Ok(PathBuf::from(path)),
         AssetRef::GameChunk { .. } | AssetRef::LcuChunk { .. } => Err(AppError::ValidationFailed(

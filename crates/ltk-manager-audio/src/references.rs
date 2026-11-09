@@ -117,7 +117,7 @@ impl BankReferences {
         };
 
         let mut groups: Vec<(GroupKey, Vec<&IndexedUnit>)> = Vec::new();
-        for indexed in ranked_units(path, indexes) {
+        for indexed in ranked_units(path, indexes, Some(names)) {
             let key = GroupKey::of(indexed);
             match groups.iter_mut().find(|(grouped, _)| *grouped == key) {
                 Some((_, declarations)) => declarations.push(indexed),
@@ -209,38 +209,112 @@ impl GroupKey {
 /// ranks the declarations of a group.
 ///
 /// A bank at a locale other than `en_US` also takes the units that name its `en_US` path.
-pub(crate) fn ranked_units<'a>(path: &str, indexes: &[&'a AudioIndex]) -> Vec<&'a IndexedUnit> {
+pub(crate) fn ranked_units<'a>(
+    path: &str,
+    indexes: &[&'a AudioIndex],
+    names: Option<&dyn SiteNames>,
+) -> Vec<&'a IndexedUnit> {
     let bank_skin = bank_skin(path);
+    let bank_map = map_number(path);
+    let is_announcer = is_announcer_bank(path);
     let shipped = shipped(path);
-    let mut units: Vec<(usize, u8, &IndexedUnit)> = indexes
+
+    let mut units: Vec<(usize, u8, &'a IndexedUnit)> = indexes
         .iter()
         .enumerate()
         .flat_map(|(position, index)| {
             let localized = shipped
                 .iter()
                 .flat_map(|(shipped, _)| index.units_naming(shipped));
-            index
-                .units_naming(path)
-                .chain(localized)
-                .map(move |indexed| (position, rank(&indexed.bin, bank_skin), indexed))
+            let direct = index.units_naming(path);
+
+            let extra: Vec<&'a IndexedUnit> = if position == 0 && is_announcer {
+                index
+                    .units_listing("announcer")
+                    .chain(index.units_naming("announcer"))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+            direct.chain(localized).chain(extra).map(move |indexed| {
+                let in_layer = names.is_some_and(|names| {
+                    matches!(names.locate(&indexed.bin), Some(AssetRef::Layer { .. }))
+                });
+                let r = rank(&indexed.bin, bank_skin, bank_map, is_announcer, in_layer);
+                (position, r, indexed)
+            })
         })
         .collect();
-    units.sort_by_key(|(position, rank, _)| (*position, *rank));
+
+    units.sort_by_key(|(position, rank, indexed)| (*position, *rank, indexed.bin.clone()));
+    units.dedup_by(|a, b| a.0 == b.0 && a.2 == b.2);
     units.into_iter().map(|(_, _, indexed)| indexed).collect()
 }
 
-/// Returns the rank of the bin `bin` among the declarations of a bank of the skin `bank_skin`.
-fn rank(bin: &str, bank_skin: Option<u32>) -> u8 {
+/// Returns the rank of the bin `bin` among candidate declarations for a bank.
+fn rank(
+    bin: &str,
+    bank_skin: Option<u32>,
+    bank_map: Option<u32>,
+    is_announcer: bool,
+    in_layer: bool,
+) -> u8 {
     let file = bin.rsplit('/').next().unwrap_or(bin);
     let stem = file.split_once('.').map_or(file, |(stem, _)| stem);
+    let bin_map = map_number(bin);
 
     if bank_skin.is_some() && skin_number(stem) == bank_skin {
-        return 0;
+        return if in_layer { 0 } else { 1 };
     }
+
+    if bank_map.is_some() && bin_map == bank_map {
+        return if in_layer { 0 } else { 1 };
+    }
+
+    if in_layer {
+        if is_announcer && (bin_map.is_some() || stem.to_ascii_lowercase().contains("announcer")) {
+            return 0;
+        }
+        return 2;
+    }
+
     if stem.eq_ignore_ascii_case("root") {
-        return 1;
+        return 3;
     }
-    2
+
+    if is_announcer && bin_map.is_some() {
+        return 4;
+    }
+
+    5
+}
+
+/// Returns `true` if `path` is an announcer bank.
+fn is_announcer_bank(path: &str) -> bool {
+    path.to_ascii_lowercase().contains("announcer")
+}
+
+/// Returns the map number from `text` if it names a map.
+fn map_number(text: &str) -> Option<u32> {
+    let lower = text.to_ascii_lowercase();
+    let file = lower.rsplit('/').next().unwrap_or(&lower);
+    let stem = file.split_once('.').map_or(file, |(stem, _)| stem);
+
+    if let Some(rest) = stem.strip_prefix("map")
+        && let Ok(num) = rest.parse::<u32>()
+    {
+        return Some(num);
+    }
+
+    for segment in lower.split('/') {
+        if let Some(rest) = segment.strip_prefix("map")
+            && let Ok(num) = rest.parse::<u32>()
+        {
+            return Some(num);
+        }
+    }
+    None
 }
 
 /// Returns the skin number of the `Skins/<skin>` segment of the bank path `path`.
@@ -266,7 +340,8 @@ fn skin_number(segment: &str) -> Option<u32> {
 const SKIN_PREFIX: &str = "skin";
 
 /// Returns the row of the bank unit `indexed`, with `extra` steps after the steps of the unit.
-pub(crate) fn unit_row(
+#[must_use]
+pub fn unit_row(
     indexed: &IndexedUnit,
     extra: Option<&[SiteStep]>,
     names: &dyn SiteNames,

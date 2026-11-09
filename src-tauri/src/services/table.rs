@@ -166,6 +166,7 @@ services! {
         // An event bank document
         audio_bank_open,
         audio_bank_close,
+        audio_bank_upgrade,
         audio_bank_edit,
         audio_bank_import,
         audio_bank_replace_preview,

@@ -490,22 +490,28 @@ fn source_edit_refuses_media_outside_set_and_wrong_container() {
 }
 
 #[test]
-fn legacy_bank_refuses_edits() {
+fn legacy_bank_can_upgrade_and_takes_edits() {
     let mut document =
         EventBankDocument::parse(fixture("events_v134.bnk")).expect("parse the legacy fixture");
     let set = set_of(&document);
 
-    let refused = document.edit(
-        &BankEdit::Property {
-            object: SOUND,
-            property: NodeProperty::Volume,
-            value: -3.0,
+    assert!(document.can_upgrade());
+    assert!(document.is_editable());
+    assert_eq!(document.version(), 134);
+
+    let result = document.edit(
+        &BankEdit::NewEvent {
+            name: "test_new_event".to_owned(),
         },
         &EditContext::new(&set),
     );
 
-    assert!(matches!(refused, Err(BankEditError::Legacy(134))));
-    assert!(!document.is_editable());
+    assert!(
+        result.is_ok(),
+        "edit failed with: {:?}",
+        result.unwrap_err()
+    );
+    assert_eq!(document.version(), 145);
 }
 
 #[test]

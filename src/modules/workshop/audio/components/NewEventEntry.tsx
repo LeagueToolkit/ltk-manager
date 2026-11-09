@@ -5,10 +5,12 @@ import { twMerge } from "@/utils";
 
 import { LINE_FIELD_CLASSES } from "../../bin/tree/components/AddLineFrame";
 
-/** The name entry of an event: blank, the name of a copy of `copyOf`, or a rename of `renames`. */
+/** The name entry of an event: blank, the name of a copy of `copyOf`, an alias of `aliasOf`, or a rename of `renames`. */
 export interface Naming {
   /** The event that the new event copies, or null for an event with no action. */
   readonly copyOf: number | null;
+  /** The event that the new event aliases, or null for a copy or new event. */
+  readonly aliasOf?: number | null;
   /** The event that the name renames, or null for a new event. */
   readonly renames?: number | null;
   readonly initial: string;
@@ -35,7 +37,7 @@ export function NewEventEntry({ naming, onNaming, onCommit }: NewEventEntryProps
 
   return (
     <NameField
-      key={`${naming.copyOf ?? "new"}:${naming.renames ?? ""}:${naming.initial}`}
+      key={`${naming.copyOf ?? "new"}:${naming.aliasOf ?? ""}:${naming.renames ?? ""}:${naming.initial}`}
       naming={naming}
       onClose={() => onNaming(null)}
       onCommit={onCommit}
