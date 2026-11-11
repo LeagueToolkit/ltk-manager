@@ -170,6 +170,15 @@ fn filter_keeps_benign_switches_and_drops_debugging_ones() {
 }
 
 #[test]
+fn filter_drops_a_switch_that_starts_another_executable() {
+    let filtered =
+        filter(r"--renderer-cmd-prefix=C:\x.exe --no-sandbox --ssl-key-log-file=C:\keys");
+
+    assert!(filtered.kept.is_empty());
+    assert_eq!(filtered.dropped.len(), 3);
+}
+
+#[test]
 fn filter_of_nothing_is_empty() {
     assert_eq!(filter(""), Filtered::default());
 }

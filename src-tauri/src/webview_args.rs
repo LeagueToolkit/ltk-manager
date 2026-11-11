@@ -20,10 +20,11 @@ pub const LAUNCHER_PORT_VAR: &str = "LTF_CDP_PORT";
 /// Chromium switches that let another process drive, script or intercept the frontend.
 ///
 /// Names without their leading dashes, lowercase, as Chromium compares them on Windows.
-pub const DEBUG_SWITCHES: [&str; 16] = [
+pub const DEBUG_SWITCHES: [&str; 28] = [
     // Chrome DevTools Protocol
     "remote-debugging-port",
     "remote-debugging-pipe",
+    "remote-debugging-io-pipes",
     "remote-debugging-address",
     "remote-allow-origins",
     "auto-open-devtools-for-tabs",
@@ -34,12 +35,24 @@ pub const DEBUG_SWITCHES: [&str; 16] = [
     "disable-extensions-except",
     "js-flags",
     "disable-web-security",
+    // Another executable started in place of a browser child process
+    "renderer-cmd-prefix",
+    "utility-cmd-prefix",
+    "gpu-launcher",
+    "browser-subprocess-path",
+    "no-sandbox",
     // Traffic interception
     "proxy-server",
     "proxy-pac-url",
+    "proxy-bypass-list",
+    "proxy-auto-detect",
     "host-resolver-rules",
     "host-rules",
     "ignore-certificate-errors",
+    "ignore-certificate-errors-spki-list",
+    "allow-insecure-localhost",
+    "ssl-key-log-file",
+    "log-net-log",
 ];
 
 /// What this process inherited through the WebView2 variables, which are removed on the way.
