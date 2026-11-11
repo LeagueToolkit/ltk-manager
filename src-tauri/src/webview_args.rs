@@ -292,6 +292,10 @@ fn arguments(line: &str) -> Vec<Argument> {
     arguments
 }
 
+/// The telemetry code of a browser process that [`verify_browser_process`] could not read.
+#[cfg(windows)]
+const UNREADABLE_CODE: &str = "WEBVIEW_CHECK_UNREADABLE";
+
 /// Closes the manager if its WebView2 browser process runs with a debugging switch.
 ///
 /// WebView2 appends the registry policy, and whatever a library loaded into this process put
@@ -318,10 +322,16 @@ pub fn verify_browser_process(window: &tauri::WebviewWindow) -> tauri::Result<()
         };
         if let Err(error) = read {
             tracing::warn!(%error, "Could not read the WebView2 browser process id");
+            crate::telemetry::report_app_error(UNREADABLE_CODE, Some("PID"), &error.to_string());
             return;
         }
         let Some(command_line) = process::command_line(pid) else {
             tracing::warn!(pid, "Could not read the browser process's command line");
+            crate::telemetry::report_app_error(
+                UNREADABLE_CODE,
+                Some("COMMAND_LINE"),
+                "The command line of the WebView2 browser process could not be read",
+            );
             return;
         };
         let Some(switch) = debug_switch_in(&command_line) else {
