@@ -235,16 +235,9 @@ fn inherited_is_debugging_on_a_dropped_switch_or_a_launcher_port() {
     .is_debugging());
 }
 
-/* The one test that touches the process environment, so it cannot race another. */
 #[test]
-fn take_inherited_removes_both_variables_and_splits_the_switches() {
-    std::env::set_var(
-        BROWSER_ARGS_VAR,
-        "--disable-gpu --remote-debugging-port=9222",
-    );
-    std::env::set_var(LAUNCHER_PORT_VAR, "9222");
-
-    let inherited = take_inherited();
+fn inherited_new_splits_the_switches() {
+    let inherited = Inherited::new("--disable-gpu --remote-debugging-port=9222", true, vec![]);
 
     assert_eq!(
         inherited,
@@ -252,10 +245,16 @@ fn take_inherited_removes_both_variables_and_splits_the_switches() {
             kept: strings(&["--disable-gpu"]),
             dropped: strings(&["--remote-debugging-port=9222"]),
             launcher_port: true,
+            overrides: vec![],
         }
     );
     assert!(inherited.is_debugging());
-    assert_eq!(std::env::var_os(BROWSER_ARGS_VAR), None);
-    assert_eq!(std::env::var_os(LAUNCHER_PORT_VAR), None);
-    assert!(take_inherited().is_empty());
+}
+
+#[test]
+fn inherited_is_not_empty_if_an_override_variable_was_set() {
+    let inherited = Inherited::new("", false, vec![OVERRIDE_VARS[0]]);
+
+    assert!(!inherited.is_empty());
+    assert!(!inherited.is_debugging());
 }

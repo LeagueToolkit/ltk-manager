@@ -65,6 +65,7 @@ fn main() {
             kept = ?inherited.kept,
             dropped = ?inherited.dropped,
             launcher_port = inherited.launcher_port,
+            overrides = ?inherited.overrides,
             debugging = inherited.is_debugging(),
             "Inherited WebView2 browser arguments"
         );

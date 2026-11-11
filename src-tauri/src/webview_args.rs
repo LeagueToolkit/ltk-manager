@@ -17,6 +17,18 @@ pub const BROWSER_ARGS_VAR: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
 /// A launcher's variable naming the port it reads back. WebView2 ignores it.
 pub const LAUNCHER_PORT_VAR: &str = "LTF_CDP_PORT";
 
+/// WebView2 variables that replace the runtime folder, the release channel or the user data
+/// folder, or that attach a script debugger.
+pub const OVERRIDE_VARS: [&str; 7] = [
+    "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+    "WEBVIEW2_USER_DATA_FOLDER",
+    "WEBVIEW2_CHANNEL_SEARCH_KIND",
+    "WEBVIEW2_RELEASE_CHANNELS",
+    "WEBVIEW2_RELEASE_CHANNEL_PREFERENCE",
+    "WEBVIEW2_PIPE_FOR_SCRIPT_DEBUGGER",
+    "WEBVIEW2_WAIT_FOR_SCRIPT_DEBUGGER",
+];
+
 /// Chromium switches that let another process drive, script or intercept the frontend.
 ///
 /// Names without their leading dashes, lowercase, as Chromium compares them on Windows.
@@ -64,17 +76,33 @@ pub struct Inherited {
     pub dropped: Vec<String>,
     /// Whether [`LAUNCHER_PORT_VAR`] was set.
     pub launcher_port: bool,
+    /// The variables of [`OVERRIDE_VARS`] that were set.
+    pub overrides: Vec<&'static str>,
 }
 
 impl Inherited {
+    /// Splits the value `args` of [`BROWSER_ARGS_VAR`] into the kept and the dropped switches.
+    pub fn new(args: &str, launcher_port: bool, overrides: Vec<&'static str>) -> Self {
+        let Filtered { kept, dropped } = filter(args);
+        Self {
+            kept,
+            dropped,
+            launcher_port,
+            overrides,
+        }
+    }
+
     /// Returns `true` if a launcher tried to open a debugging channel into the frontend.
     pub fn is_debugging(&self) -> bool {
         self.launcher_port || !self.dropped.is_empty()
     }
 
-    /// Returns `true` if neither variable was set.
+    /// Returns `true` if no variable was set.
     pub fn is_empty(&self) -> bool {
-        self.kept.is_empty() && self.dropped.is_empty() && !self.launcher_port
+        self.kept.is_empty()
+            && self.dropped.is_empty()
+            && !self.launcher_port
+            && self.overrides.is_empty()
     }
 }
 
@@ -84,19 +112,23 @@ impl Inherited {
 pub fn take_inherited() -> Inherited {
     let args = std::env::var_os(BROWSER_ARGS_VAR);
     let launcher_port = std::env::var_os(LAUNCHER_PORT_VAR).is_some();
-    std::env::remove_var(BROWSER_ARGS_VAR);
-    std::env::remove_var(LAUNCHER_PORT_VAR);
+    let overrides: Vec<&'static str> = OVERRIDE_VARS
+        .into_iter()
+        .filter(|name| std::env::var_os(name).is_some())
+        .collect();
+
+    for name in [BROWSER_ARGS_VAR, LAUNCHER_PORT_VAR]
+        .into_iter()
+        .chain(OVERRIDE_VARS)
+    {
+        std::env::remove_var(name);
+    }
 
     let args = args
         .as_deref()
         .map(OsStr::to_string_lossy)
         .unwrap_or_default();
-    let Filtered { kept, dropped } = filter(&args);
-    Inherited {
-        kept,
-        dropped,
-        launcher_port,
-    }
+    Inherited::new(&args, launcher_port, overrides)
 }
 
 /// The switches of a browser argument string, split by [`filter`].
