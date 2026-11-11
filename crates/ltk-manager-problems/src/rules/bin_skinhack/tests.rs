@@ -311,6 +311,51 @@ fn base_skin_shipping_zero_padded_skeleton_with_adjusted_size_header_is_reported
     );
 }
 
+#[test]
+fn base_skin_shipping_other_skin_mesh_with_appended_bytes_is_reported() {
+    let mut padded = SKIN7_SKN_BYTES.to_vec();
+    padded.extend_from_slice(&[0, 0, 7, 0, 1]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), CUSTOM_SKL_BYTES.to_vec()),
+            (in_layer(CUSTOM_SKN), padded),
+        ],
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.SimpleSkin is the mesh of skin 7"]
+    );
+}
+
+/* The patcher takes a padded base mesh as a modified slot, so it does not clear the skin. */
+#[test]
+fn base_skin_shipping_padded_base_skeleton_and_other_skin_mesh_is_reported() {
+    let mut padded = BASE_SKL_BYTES.to_vec();
+    padded.extend_from_slice(&[0; 8]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), padded),
+            (in_layer(CUSTOM_SKN), SKIN7_SKN_BYTES.to_vec()),
+        ],
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.SimpleSkin is the mesh of skin 7"]
+    );
+}
+
 /* The patcher allows a base skin that still renders a stock mesh, whatever it names. */
 #[test]
 fn base_skin_keeping_base_skeleton_is_not_reported() {
@@ -389,6 +434,38 @@ fn base_skin_with_other_skin_event_in_renamed_sfx_unit_is_reported() {
         messages(&found_in(&files)),
         ["SkinAudioProperties.BankUnits.Name names another skin: Ahri_Base_SFX"]
     );
+}
+
+/* The base skin of Sylas lists `SylasSkin01` events in `Sylas_Base_SFX`. */
+#[test]
+fn base_skin_with_other_skin_event_of_game_base_skin_is_not_reported() {
+    let stock = || {
+        unit(
+            "Ahri_Base_SFX",
+            &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+            &[BASE_EVENT, SKIN7_MAPPED_EVENT],
+            false,
+        )
+    };
+    let game = FakeContent::containing_bytes(&[
+        (
+            SKIN0,
+            &skin_bin(
+                0,
+                BASE_SKL,
+                BASE_SKN,
+                vec![("SkinAudioProperties", audio(&["Ahri"], vec![stock()]))],
+            ),
+        ),
+        (SKIN7, &skin_bin(7, SKIN7_SKL, SKIN7_SKN, Vec::new())),
+        (BASE_SKL, BASE_SKL_BYTES),
+        (BASE_SKN, BASE_SKN_BYTES),
+        (SKIN7_SKL, SKIN7_SKL_BYTES),
+        (SKIN7_SKN, SKIN7_SKN_BYTES),
+    ]);
+    let (_tmp, files) = tree(&with_audio(audio(&["Ahri"], vec![stock()])), Some(game));
+
+    assert!(found_in(&files).is_empty());
 }
 
 #[test]

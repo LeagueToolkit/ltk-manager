@@ -431,7 +431,7 @@ fn evidence_in(
         };
 
         if let Some(base_path) = mesh_path(&base, slot)
-            && mesh.matches(slot, game, WadHash::from(base_path))?
+            && mesh.equals(game, WadHash::from(base_path))?
         {
             return Ok(Vec::new());
         }
@@ -451,7 +451,11 @@ fn evidence_in(
         }
     }
 
-    Ok(other_skin_names(&ours, &Markers::of(&champion)))
+    Ok(other_skin_names(
+        &ours,
+        &Markers::of(&champion),
+        &bank_unit_events(&base),
+    ))
 }
 
 /// Returns the lowercase champion of the base skin `handle`, or `None` if `handle` is not
@@ -596,50 +600,66 @@ enum MergedMesh {
 }
 
 impl MergedMesh {
-    /// Returns `true` if this mesh has the content of `hash` in `game`, ignoring trailing zero
-    /// bytes on a shipped mesh.
+    /// Returns `true` if this mesh has exactly the content of `hash` in `game`.
+    ///
+    /// The patcher accepts a base skin only for a slot with the exact stock content, so
+    /// appended bytes are not ignored here.
+    ///
+    /// # Errors
+    ///
+    /// Fails if `hash` does not read.
+    fn equals(&self, game: &dyn GameContent, hash: WadHash) -> Result<bool, String> {
+        let (size, digest) = match self {
+            Self::Game { size, digest } => (*size, *digest),
+            Self::Shipped { bytes, .. } => (bytes.len() as u64, Sha256::digest(bytes).into()),
+        };
+
+        /* The size is in the table of contents, so a mesh of another size is never read. */
+        if game.size(hash) != Some(size) {
+            return Ok(false);
+        }
+        Ok(game.digest(hash)? == Some(digest))
+    }
+
+    /// Returns `true` if this mesh has the content of `hash` in `game`, ignoring bytes that a
+    /// shipped mesh appends to that content.
+    ///
+    /// For a skeleton, a zero-padded mesh also matches if its size field holds the padded
+    /// length.
     ///
     /// # Errors
     ///
     /// Fails if `hash` does not read.
     fn matches(&self, slot: Slot, game: &dyn GameContent, hash: WadHash) -> Result<bool, String> {
-        let Some(target_size) = game.size(hash) else {
+        let Self::Shipped {
+            bytes,
+            non_zero_len,
+        } = self
+        else {
+            return self.equals(game, hash);
+        };
+
+        let Some(target_len) = game.size(hash).and_then(|size| usize::try_from(size).ok()) else {
+            return Ok(false);
+        };
+        /* The size is in the table of contents, so a longer mesh is never read. */
+        if target_len == 0 || target_len > bytes.len() {
+            return Ok(false);
+        }
+        let Some(target_digest) = game.digest(hash)? else {
             return Ok(false);
         };
 
-        match self {
-            Self::Game { size, digest } => {
-                if target_size != *size {
-                    return Ok(false);
-                }
-                Ok(game.digest(hash)? == Some(*digest))
-            }
-            Self::Shipped {
-                bytes,
-                non_zero_len,
-            } => {
-                let Ok(target_len) = usize::try_from(target_size) else {
-                    return Ok(false);
-                };
-                /* The size is in the table of contents, so most meshes are never read. */
-                if !(*non_zero_len..=bytes.len()).contains(&target_len) {
-                    return Ok(false);
-                }
-                let Some(target_digest) = game.digest(hash)? else {
-                    return Ok(false);
-                };
-                if <[u8; 32]>::from(Sha256::digest(&bytes[..target_len])) == target_digest {
-                    return Ok(true);
-                }
-                if slot == Slot::Skeleton
-                    && target_len < bytes.len()
-                    && let Some(digest) = unpadded_skl_digest(bytes, target_len)
-                {
-                    return Ok(digest == target_digest);
-                }
-                Ok(false)
-            }
+        if <[u8; 32]>::from(Sha256::digest(&bytes[..target_len])) == target_digest {
+            return Ok(true);
         }
+        if slot == Slot::Skeleton
+            && (*non_zero_len..bytes.len()).contains(&target_len)
+            && let Some(digest) = unpadded_skl_digest(bytes, target_len)
+        {
+            return Ok(digest == target_digest);
+        }
+        Ok(false)
     }
 }
 
@@ -699,8 +719,9 @@ fn mesh_path(object: &BinObject, slot: Slot) -> Option<&str> {
 /// Returns every name field of the skin object `object` that names another skin.
 ///
 /// Reads `ChampionSkinName`, then `SkinAudioProperties.TagEventList` and
-/// `SkinAudioProperties.BankUnits` into one [`Evidence::Audio`].
-fn other_skin_names(object: &BinObject, markers: &Markers) -> Vec<Evidence> {
+/// `SkinAudioProperties.BankUnits` into one [`Evidence::Audio`]. `stock` are the events that
+/// [`unit_names_other_skin`] ignores.
+fn other_skin_names(object: &BinObject, markers: &Markers, stock: &HashSet<&str>) -> Vec<Evidence> {
     let mut found = Vec::new();
 
     if let Some(name) = text(object.properties.get(&named("ChampionSkinName")))
@@ -722,7 +743,7 @@ fn other_skin_names(object: &BinObject, markers: &Markers) -> Vec<Evidence> {
         .collect();
     let units: Vec<String> = items(audio.properties.get(&named("BankUnits")))
         .iter()
-        .filter(|unit| unit_names_other_skin(unit, markers))
+        .filter(|unit| unit_names_other_skin(unit, markers, stock))
         .filter_map(unit_name)
         .map(str::to_owned)
         .collect();
@@ -745,9 +766,30 @@ fn is_voice_over(unit: &PropertyValueEnum) -> bool {
         .is_some_and(|flag| matches!(flag, PropertyValueEnum::Bool(flag) if flag.value))
 }
 
+/// Returns every event that a bank unit of the skin object `object` lists.
+fn bank_unit_events(object: &BinObject) -> HashSet<&str> {
+    let Some(audio) = embed(object.properties.get(&named("SkinAudioProperties"))) else {
+        return HashSet::new();
+    };
+
+    items(audio.properties.get(&named("BankUnits")))
+        .iter()
+        .filter_map(|unit| embed(Some(unit)))
+        .flat_map(|unit| items(unit.properties.get(&named("events"))))
+        .filter_map(|event| text(Some(event)))
+        .collect()
+}
+
 /// Returns `true` if the bank unit `unit` is named for the SFX of another skin, or is an SFX
-/// unit whose `events` list an event of another skin.
-fn unit_names_other_skin(unit: &PropertyValueEnum, markers: &Markers) -> bool {
+/// unit whose `events` list an event of another skin that is not in `stock`.
+///
+/// `stock` are the events of the game's base skin. The base skin of some champions lists
+/// events of another skin itself, such as `Play_sfx_SylasSkin01_Recall_cast`.
+fn unit_names_other_skin(
+    unit: &PropertyValueEnum,
+    markers: &Markers,
+    stock: &HashSet<&str>,
+) -> bool {
     if unit_name(unit).is_some_and(|name| markers.names_unit(name)) {
         return true;
     }
@@ -760,7 +802,7 @@ fn unit_names_other_skin(unit: &PropertyValueEnum, markers: &Markers) -> bool {
     items(unit.properties.get(&named("events")))
         .iter()
         .filter_map(|event| text(Some(event)))
-        .any(|event| markers.names(event))
+        .any(|event| !stock.contains(event) && markers.names(event))
 }
 
 /// Returns whether `value` contains `marker`, then a skin number other than 0, then `suffix`.
