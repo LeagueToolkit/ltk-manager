@@ -51,7 +51,7 @@ pub fn relaunch_if_needed(inherited: &Inherited) -> bool {
     };
     let parent = parent_pid();
     let debugging = inherited.is_debugging();
-    if parent == Some(shell) && !debugging {
+    if !must_relaunch(parent, shell, debugging) {
         return false;
     }
 
@@ -79,6 +79,11 @@ pub fn relaunch_if_needed(inherited: &Inherited) -> bool {
             false
         }
     }
+}
+
+/// Returns `true` if `shell` is not `parent`, or if a launcher tried to debug the frontend.
+fn must_relaunch(parent: Option<u32>, shell: u32, debugging: bool) -> bool {
+    parent != Some(shell) || debugging
 }
 
 /// The pid of the process that owns the desktop window, or `None` if no shell runs.
