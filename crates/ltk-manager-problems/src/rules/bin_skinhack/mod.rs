@@ -287,10 +287,15 @@ enum Evidence {
     Audio {
         /// The `TagEventList` entries.
         tags: Vec<String>,
-        /// The `BankUnits` entries, by `Name`.
+        /// The `BankUnits` entries whose `Name` names another skin.
         units: Vec<String>,
+        /// The events of another skin in the `BankUnits` entries that `units` does not hold.
+        events: Vec<String>,
     },
 }
+
+/// The most events that a message lists.
+const MAX_LISTED_EVENTS: usize = 3;
 
 impl Evidence {
     fn message(&self) -> String {
@@ -302,7 +307,11 @@ impl Evidence {
                 )
             }
             Self::Name { value } => format!("ChampionSkinName names another skin: {value}"),
-            Self::Audio { tags, units } => {
+            Self::Audio {
+                tags,
+                units,
+                events,
+            } => {
                 let mut lines = Vec::new();
                 if !tags.is_empty() {
                     lines.push(format!(
@@ -314,6 +323,17 @@ impl Evidence {
                     lines.push(format!(
                         "SkinAudioProperties.BankUnits.Name names another skin: {}",
                         units.join(", ")
+                    ));
+                }
+                if !events.is_empty() {
+                    let listed = events[..events.len().min(MAX_LISTED_EVENTS)].join(", ");
+                    let more = match events.len() - events.len().min(MAX_LISTED_EVENTS) {
+                        0 => String::new(),
+                        more => format!(" and {more} more"),
+                    };
+
+                    lines.push(format!(
+                        "SkinAudioProperties.BankUnits.Events names another skin: {listed}{more}"
                     ));
                 }
                 lines.join(". ")
@@ -741,15 +761,27 @@ fn other_skin_names(object: &BinObject, markers: &Markers, stock: &HashSet<&str>
         .filter(|tag| markers.names(tag))
         .map(str::to_owned)
         .collect();
-    let units: Vec<String> = items(audio.properties.get(&named("BankUnits")))
+    let bank_units = items(audio.properties.get(&named("BankUnits")));
+    let (named_units, other_units): (Vec<_>, Vec<_>) = bank_units
         .iter()
-        .filter(|unit| unit_names_other_skin(unit, markers, stock))
+        .partition(|unit| unit_name(unit).is_some_and(|name| markers.names_unit(name)));
+    let units: Vec<String> = named_units
+        .into_iter()
         .filter_map(unit_name)
         .map(str::to_owned)
         .collect();
+    let events: Vec<String> = other_units
+        .into_iter()
+        .flat_map(|unit| other_skin_events(unit, markers, stock))
+        .map(str::to_owned)
+        .collect();
 
-    if !tags.is_empty() || !units.is_empty() {
-        found.push(Evidence::Audio { tags, units });
+    if !tags.is_empty() || !units.is_empty() || !events.is_empty() {
+        found.push(Evidence::Audio {
+            tags,
+            units,
+            events,
+        });
     }
     found
 }
@@ -790,19 +822,29 @@ fn unit_names_other_skin(
     markers: &Markers,
     stock: &HashSet<&str>,
 ) -> bool {
-    if unit_name(unit).is_some_and(|name| markers.names_unit(name)) {
-        return true;
-    }
+    unit_name(unit).is_some_and(|name| markers.names_unit(name))
+        || !other_skin_events(unit, markers, stock).is_empty()
+}
+
+/// Returns the events of another skin that the bank unit `unit` lists and `stock` does not
+/// contain. Returns no event for a `voiceOver` unit.
+fn other_skin_events<'a>(
+    unit: &'a PropertyValueEnum,
+    markers: &Markers,
+    stock: &HashSet<&str>,
+) -> Vec<&'a str> {
     if is_voice_over(unit) {
-        return false;
+        return Vec::new();
     }
     let Some(unit) = embed(Some(unit)) else {
-        return false;
+        return Vec::new();
     };
+
     items(unit.properties.get(&named("events")))
         .iter()
         .filter_map(|event| text(Some(event)))
-        .any(|event| !stock.contains(event) && markers.names(event))
+        .filter(|event| !stock.contains(event) && markers.names(event))
+        .collect()
 }
 
 /// Returns whether `value` contains `marker`, then a skin number other than 0, then `suffix`.

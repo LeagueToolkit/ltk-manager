@@ -432,7 +432,33 @@ fn base_skin_with_other_skin_event_in_renamed_sfx_unit_is_reported() {
 
     assert_eq!(
         messages(&found_in(&files)),
-        ["SkinAudioProperties.BankUnits.Name names another skin: Ahri_Base_SFX"]
+        ["SkinAudioProperties.BankUnits.Events names another skin: \
+             Play_sfx_AhriSkin07_BasicAttack_OnCast"]
+    );
+}
+
+#[test]
+fn base_skin_with_many_other_skin_events_lists_three_of_them() {
+    let disguised = unit(
+        "Ahri_Base_SFX",
+        &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+        &[
+            "Play_sfx_AhriSkin07_A",
+            "Play_sfx_AhriSkin07_B",
+            "Play_sfx_AhriSkin07_C",
+            "Play_sfx_AhriSkin07_D",
+            "Play_sfx_AhriSkin07_E",
+        ],
+        false,
+    );
+    let (_tmp, files) = tree(&with_audio(audio(&["Ahri"], vec![disguised])), Some(game()));
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        [
+            "SkinAudioProperties.BankUnits.Events names another skin: Play_sfx_AhriSkin07_A, \
+             Play_sfx_AhriSkin07_B, Play_sfx_AhriSkin07_C and 2 more"
+        ]
     );
 }
 
