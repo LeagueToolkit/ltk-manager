@@ -155,7 +155,10 @@ pub fn filter(args: &str) -> Filtered {
 
 /// Returns `switches` cut before `=`, for a log. A value can hold a path or a proxy password.
 pub fn without_values(switches: &[String]) -> Vec<&str> {
-    switches.iter().map(|switch| without_value(switch)).collect()
+    switches
+        .iter()
+        .map(|switch| without_value(switch))
+        .collect()
 }
 
 /// Returns `switch` cut before `=`.
@@ -296,11 +299,12 @@ fn arguments(line: &str) -> Vec<Argument> {
 #[cfg(windows)]
 const UNREADABLE_CODE: &str = "WEBVIEW_CHECK_UNREADABLE";
 
-/// Closes the manager if its WebView2 browser process runs with a debugging switch.
+/// Closes the manager if its WebView2 browser process runs with a debugging switch, or if a
+/// registry policy replaces the WebView2 runtime folder.
 ///
-/// WebView2 appends the registry policy, and whatever a library loaded into this process put
-/// back into the environment, so the browser process's command line is the only word that
-/// counts. The check runs on the webview's thread once the controller exists.
+/// WebView2 appends the registry policy and the variable that a library loaded into this
+/// process set again, so the check reads the command line of the browser process. The check
+/// runs on the webview's thread once the controller exists.
 ///
 /// # Errors
 ///
@@ -311,6 +315,21 @@ pub fn verify_browser_process(window: &tauri::WebviewWindow) -> tauri::Result<()
 
     let app = window.app_handle().clone();
     window.with_webview(move |webview| {
+        if let Some(name) = process::executable_folder_policy() {
+            tracing::error!(
+                %name,
+                "A BrowserExecutableFolder policy replaces the WebView2 runtime; closing"
+            );
+            process::alert(&format!(
+                "A registry policy replaces the WebView2 Runtime of LTK Manager, and LTK Manager \
+                 will close.\n\nRemove the value \"{name}\" from the registry key {}, then start \
+                 LTK Manager again.",
+                process::EXECUTABLE_FOLDER_POLICY
+            ));
+            app.exit(1);
+            return;
+        }
+
         let mut pid = 0u32;
         // SAFETY: `with_webview` runs on the thread that owns the controller, and `pid`
         // outlives the call.
@@ -352,11 +371,14 @@ pub fn verify_browser_process(window: &tauri::WebviewWindow) -> tauri::Result<()
     })
 }
 
-/// Reads another process's command line, and tells the user about a refused one.
+/// Reads another process's command line and the runtime folder policy, and tells the user
+/// about a refused one.
 #[cfg(windows)]
 mod process {
     use std::ptr::null_mut;
 
+    use windows::Win32::System::Com::CoTaskMemFree;
+    use windows::Win32::UI::Shell::GetCurrentProcessExplicitAppUserModelID;
     use windows_sys::Wdk::System::Threading::{
         NtQueryInformationProcess, ProcessCommandLineInformation,
     };
@@ -365,6 +387,57 @@ mod process {
     };
     use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
     use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
+
+    /// The registry key whose values replace the WebView2 runtime folder of an app.
+    pub const EXECUTABLE_FOLDER_POLICY: &str =
+        r"Software\Policies\Microsoft\Edge\WebView2\BrowserExecutableFolder";
+
+    /// Returns the name of the [`EXECUTABLE_FOLDER_POLICY`] value that WebView2 reads for this
+    /// process. Returns `None` if no value applies.
+    ///
+    /// WebView2 reads HKLM, then HKCU.
+    pub fn executable_folder_policy() -> Option<String> {
+        let exe = std::env::current_exe().ok()?;
+        let exe = exe.file_name()?.to_str()?;
+        let app_id = explicit_app_id();
+
+        [HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER]
+            .into_iter()
+            .find_map(|root| {
+                let key = RegKey::predef(root)
+                    .open_subkey(EXECUTABLE_FOLDER_POLICY)
+                    .ok()?;
+                let name = key
+                    .enum_values()
+                    .filter_map(Result::ok)
+                    .map(|(name, _)| name)
+                    .find(|name| policy_applies(name, exe, app_id.as_deref()))?;
+                let folder: String = key.get_value(&name).ok()?;
+
+                (!folder.is_empty()).then_some(name)
+            })
+    }
+
+    /// Returns `true` if WebView2 reads the policy value `name` for the executable `exe` with
+    /// the Application User Model ID `app_id`.
+    pub fn policy_applies(name: &str, exe: &str, app_id: Option<&str>) -> bool {
+        name == "*"
+            || name.eq_ignore_ascii_case(exe)
+            || app_id.is_some_and(|app_id| name.eq_ignore_ascii_case(app_id))
+    }
+
+    /// The Application User Model ID set for this process, or `None` if none is set.
+    fn explicit_app_id() -> Option<String> {
+        // SAFETY: the call returns a null-terminated string, which is freed once after the copy.
+        unsafe {
+            let id = GetCurrentProcessExplicitAppUserModelID().ok()?;
+            let text = id.to_string().ok();
+            CoTaskMemFree(Some(id.as_ptr().cast()));
+            text
+        }
+    }
 
     /// The command line of process `pid`, or `None` if it cannot be read.
     ///

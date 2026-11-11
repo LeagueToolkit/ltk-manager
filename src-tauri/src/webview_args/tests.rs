@@ -26,6 +26,18 @@ fn command_line_of_no_process_is_none() {
     assert_eq!(process::command_line(0), None);
 }
 
+#[cfg(windows)]
+#[test]
+fn policy_applies_to_the_executable_the_app_id_and_the_wildcard() {
+    let applies = |name| process::policy_applies(name, "ltk-manager.exe", Some("dev.ltk"));
+
+    assert!(applies("*"));
+    assert!(applies("LTK-Manager.exe"));
+    assert!(applies("dev.ltk"));
+    assert!(!applies("other.exe"));
+    assert!(!process::policy_applies("dev.ltk", "ltk-manager.exe", None));
+}
+
 fn values(line: &str) -> Vec<String> {
     arguments(line)
         .into_iter()
