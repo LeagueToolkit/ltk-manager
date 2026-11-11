@@ -11,6 +11,8 @@
   "app": {
     "windows": [
       {
+        "label": "main",
+        "create": false,
         "title": "LTK Manager",
         "width": 1200,
         "height": 800,

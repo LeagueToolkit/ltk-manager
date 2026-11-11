@@ -2,7 +2,8 @@
 //!
 //! If another process, such as the installer or a browser, starts the manager, the process
 //! starts a copy through `IShellDispatch2::ShellExecute` and exits. That call runs inside
-//! explorer, so the copy runs as the signed-in user, as if it was clicked on the desktop.
+//! explorer, so the copy runs as the signed-in user, as if it was clicked on the desktop, with
+//! explorer's environment rather than the starter's.
 
 use std::mem::{size_of, zeroed};
 use std::os::windows::ffi::OsStrExt;
@@ -26,14 +27,21 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     GetShellWindow, GetWindowThreadProcessId, SW_SHOWNORMAL,
 };
 
+use crate::webview_args::Inherited;
+
 /// Appended to the copy's arguments, so a copy never restarts again.
 const RELAUNCHED_ARG: &str = "--shell-relaunched";
 
-/// Starts a copy of the manager through the shell if the shell is not this process's parent.
+/// Starts a copy of the manager through the shell if the shell is not this process's parent, or
+/// if `inherited` says a launcher tried to debug the frontend.
+///
+/// A launcher can start the manager under explorer as a seeded parent, so a debugging launcher
+/// is restarted whatever the parent looks like. A copy never restarts, whatever its
+/// environment: a variable the shell itself carries would otherwise restart it forever.
 ///
 /// Returns `true` if the copy started and this process must exit. Returns `false` if no shell
 /// runs, if this process is already a copy, or if the start fails.
-pub fn relaunch_if_needed() -> bool {
+pub fn relaunch_if_needed(inherited: &Inherited) -> bool {
     if std::env::args_os().any(|arg| arg == RELAUNCHED_ARG) {
         return false;
     }
@@ -42,7 +50,8 @@ pub fn relaunch_if_needed() -> bool {
         return false;
     };
     let parent = parent_pid();
-    if parent == Some(shell) {
+    let debugging = inherited.is_debugging();
+    if !must_relaunch(parent, shell, debugging) {
         return false;
     }
 
@@ -60,6 +69,7 @@ pub fn relaunch_if_needed() -> bool {
             tracing::info!(
                 ?parent,
                 shell,
+                debugging,
                 "Restarted the manager as a child of the shell"
             );
             true
@@ -69,6 +79,11 @@ pub fn relaunch_if_needed() -> bool {
             false
         }
     }
+}
+
+/// Returns `true` if `shell` is not `parent`, or if a launcher tried to debug the frontend.
+fn must_relaunch(parent: Option<u32>, shell: u32, debugging: bool) -> bool {
+    parent != Some(shell) || debugging
 }
 
 /// The pid of the process that owns the desktop window, or `None` if no shell runs.

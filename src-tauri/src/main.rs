@@ -29,6 +29,7 @@ mod state;
 mod telemetry;
 mod tray;
 mod updater;
+mod webview_args;
 mod workshop;
 
 use ltk_manager_bin::bin_document::BinDocuments;
@@ -36,7 +37,7 @@ use semver::Version;
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
 
-/// The one window the frontend runs in, as `tauri.conf.json` leaves it unlabelled.
+/// The one window the frontend runs in, which `tauri.conf.json` describes and `setup` creates.
 const MAIN_WINDOW: &str = "main";
 
 /// The version this build runs at.
@@ -46,6 +47,9 @@ fn running_version() -> Version {
 }
 
 fn main() {
+    // First of all, while this is the only thread, so no thread reads the environment meanwhile.
+    let inherited = webview_args::take_inherited();
+
     // Before logging, so a panic while that is still being set up is reported.
     telemetry::install_panic_hook();
 
@@ -56,15 +60,26 @@ fn main() {
         tracing::info!("Log directory: {}", p.display());
         logging::cleanup_old_logs(p, 7);
     }
+    if !inherited.is_empty() {
+        tracing::warn!(
+            kept = ?webview_args::without_values(&inherited.kept),
+            dropped = ?webview_args::without_values(&inherited.dropped),
+            launcher_port = inherited.launcher_port,
+            overrides = ?inherited.overrides,
+            debugging = inherited.is_debugging(),
+            "Inherited WebView2 browser arguments"
+        );
+    }
 
     // Before the single-instance plugin, which the copy must be the first to take.
     // A debug build is a child of `tauri dev` and stays one.
     #[cfg(all(windows, not(debug_assertions)))]
-    if shell_relaunch::relaunch_if_needed() {
+    if shell_relaunch::relaunch_if_needed(&inherited) {
         return;
     }
 
     let builder = tauri::Builder::default()
+        .manage(inherited)
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             deep_link::handle_argv(app, &argv, std::path::Path::new(&cwd));
         }))

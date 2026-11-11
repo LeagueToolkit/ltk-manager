@@ -3451,6 +3451,7 @@ dependencies = [
  "windows 0.61.3",
  "windows-core 0.61.2",
  "windows-sys 0.59.0",
+ "winreg 0.55.0",
  "zip 2.4.2",
  "zstd 0.13.3",
 ]
