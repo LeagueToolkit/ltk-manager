@@ -1,0 +1,6 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "champions_picker_add_action": "添加 \"{name}\"",
+  "champions_picker_empty": "没有匹配的英雄",
+  "champions_picker_placeholder": "添加英雄"
+}

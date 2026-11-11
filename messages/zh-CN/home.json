@@ -1,0 +1,93 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "home_changes_all_action": "全部更新日志",
+  "home_changes_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} 项更新",
+        "countPlural=other": "{count} 项更新"
+      }
+    }
+  ],
+  "home_changes_fewer_action": "隐藏更新日志",
+  "home_changes_title": "最新动态",
+  "home_last_game_review_action": "查看",
+  "home_last_game_title": "上一局游戏",
+  "home_learn_discord_label": "Discord",
+  "home_learn_getting_started_label": "入门指南",
+  "home_learn_managing_mods_label": "管理模组",
+  "home_learn_repository_label": "GitHub",
+  "home_learn_troubleshooting_label": "故障排查",
+  "home_library_add_action": "导入",
+  "home_library_add_hint": "导入模组",
+  "home_library_enabled_count_label": "已启用 {enabled} / 共 {total}",
+  "home_library_export_action": "导出模组",
+  "home_library_export_confirm_action": "导出",
+  "home_library_export_count_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "将写入 {count} 个模组",
+        "countPlural=other": "将写入 {count} 个模组"
+      }
+    }
+  ],
+  "home_library_export_done_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "已导出 {count} 个模组",
+        "countPlural=other": "已导出 {count} 个模组"
+      }
+    }
+  ],
+  "home_library_export_failed_title": "无法导出你的模组",
+  "home_library_export_folder_title": "导出模组到",
+  "home_library_export_partial_title": "已导出 {exported} / {total} 个模组",
+  "home_library_export_reveal_action": "查看",
+  "home_library_export_running_label": "正在导出",
+  "home_library_export_scope_all_label": "全部",
+  "home_library_export_scope_enabled_label": "已启用",
+  "home_library_export_scope_label": "导出内容",
+  "home_library_export_shape_folder_label": "文件夹",
+  "home_library_export_shape_label": "格式",
+  "home_library_export_shape_zip_label": "单个 .zip",
+  "home_library_export_skipped_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} 个模组没有可导出的存档",
+        "countPlural=other": "{count} 个模组没有可导出的存档"
+      }
+    }
+  ],
+  "home_library_export_title": "导出模组",
+  "home_library_export_zip_title": "导出模组为",
+  "home_library_health_checking_label": "检查中",
+  "home_library_health_clean_label": "健康",
+  "home_library_health_stale_label": "未检查",
+  "home_library_health_syncing_label": "同步中",
+  "home_library_health_title": "健康状态",
+  "home_library_health_unsynced_label": "无数组表",
+  "home_library_import_action": "从 cslol-manager 导入",
+  "home_library_import_dismiss_action": "忽略",
+  "home_library_import_title": "正在从 cslol-manager 迁移？",
+  "home_library_more_action": "更多模组库操作",
+  "home_library_open_action": "打开模组",
+  "home_library_storage_action": "打开模组存储",
+  "home_library_title": "你的模组库",
+  "home_nav_label": "首页",
+  "home_news_title": "新闻",
+  "home_notice_link_action": "如何处理",
+  "home_release_update_action": "更新",
+  "home_runeforge_title": "Runeforge",
+  "home_runeforge_wiki_title": "Runeforge 维基",
+  "home_status_league_unset_action": "去设置",
+  "home_status_league_unset_label": "英雄联盟文件夹未设置",
+  "home_status_platform_label": "补丁程序尚未在此系统上运行"
+}

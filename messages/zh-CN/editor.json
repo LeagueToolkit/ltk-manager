@@ -1,0 +1,71 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "editor_find_close_action": "关闭查找",
+  "editor_find_count_label": "{index} / {count}",
+  "editor_find_empty_label": "无结果",
+  "editor_find_label": "查找",
+  "editor_find_next_action": "下一个匹配",
+  "editor_find_previous_action": "上一个匹配",
+  "editor_group_lock_action": "锁定组",
+  "editor_group_unlock_action": "解锁组",
+  "editor_quit_save_all_action": "全部保存",
+  "editor_quit_save_failed_hint": "无法保存全部：{reason}",
+  "editor_quit_save_missing_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} 个文档需从其自身标签页保存。",
+        "countPlural=other": "{count} 个文档需从其各自标签页保存。"
+      }
+    }
+  ],
+  "editor_quit_unsaved_hint": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} 个文档有未保存的更改。现在退出将丢弃它们。",
+        "countPlural=other": "{count} 个文档有未保存的更改。现在退出将丢弃它们。"
+      }
+    }
+  ],
+  "editor_quit_unsaved_title": "不保存就退出？",
+  "editor_save_failed_hint": "无法保存",
+  "editor_save_retry_action": "重试",
+  "editor_pane_float_action": "浮动",
+  "editor_pane_float_label": "浮动 {title}",
+  "editor_pane_maximize_action": "最大化",
+  "editor_pane_restore_action": "还原",
+  "editor_tab_close_action": "关闭",
+  "editor_tab_close_all_action": "全部关闭",
+  "editor_tab_close_label": "关闭 {title}",
+  "editor_tab_close_others_action": "关闭其他",
+  "editor_tab_close_right_action": "关闭右侧",
+  "editor_tab_copy_name_action": "复制名称",
+  "editor_tab_copy_path_action": "复制路径",
+  "editor_tab_drag_label": "可拖动标签页",
+  "editor_tab_pin_action": "固定",
+  "editor_tab_split_down_action": "向下拆分",
+  "editor_tab_split_right_action": "向右拆分",
+  "editor_tab_unpin_action": "取消固定",
+  "editor_tab_unpin_label": "取消固定 {title}",
+  "editor_tabs_overflow_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} 个标签页在屏幕外",
+        "countPlural=other": "{count} 个标签页在屏幕外"
+      }
+    }
+  ],
+  "editor_toolbar_more_action": "更多工具栏控件",
+  "editor_toolbar_more_label": "更多",
+  "editor_unsaved_cancel_action": "取消",
+  "editor_unsaved_close_hint": "{title} 有未保存的更改。现在关闭将丢弃它们。",
+  "editor_unsaved_close_title": "不保存就关闭？",
+  "editor_unsaved_discard_action": "放弃更改",
+  "editor_unsaved_save_action": "保存",
+  "editor_unsaved_save_failed_hint": "无法保存 {title}：{reason}"
+}
