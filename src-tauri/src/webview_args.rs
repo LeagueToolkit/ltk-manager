@@ -153,6 +153,16 @@ pub fn filter(args: &str) -> Filtered {
     filtered
 }
 
+/// Returns `switches` cut before `=`, for a log. A value can hold a path or a proxy password.
+pub fn without_values(switches: &[String]) -> Vec<&str> {
+    switches.iter().map(|switch| without_value(switch)).collect()
+}
+
+/// Returns `switch` cut before `=`.
+fn without_value(switch: &str) -> &str {
+    switch.split('=').next().unwrap_or(switch)
+}
+
 /// Returns the first debugging switch on `command_line`, or `None` if it has none.
 #[cfg_attr(
     not(any(windows, test)),
@@ -321,7 +331,7 @@ pub fn verify_browser_process(window: &tauri::WebviewWindow) -> tauri::Result<()
 
         tracing::error!(
             pid,
-            %switch,
+            switch = without_value(&switch),
             "The WebView2 browser process runs with a debugging switch; closing"
         );
         process::alert(&format!(

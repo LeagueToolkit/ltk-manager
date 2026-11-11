@@ -62,8 +62,8 @@ fn main() {
     }
     if !inherited.is_empty() {
         tracing::warn!(
-            kept = ?inherited.kept,
-            dropped = ?inherited.dropped,
+            kept = ?webview_args::without_values(&inherited.kept),
+            dropped = ?webview_args::without_values(&inherited.dropped),
             launcher_port = inherited.launcher_port,
             overrides = ?inherited.overrides,
             debugging = inherited.is_debugging(),

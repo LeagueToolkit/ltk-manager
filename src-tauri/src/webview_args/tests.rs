@@ -236,6 +236,14 @@ fn inherited_is_debugging_on_a_dropped_switch_or_a_launcher_port() {
 }
 
 #[test]
+fn without_values_cuts_a_switch_before_its_value() {
+    assert_eq!(
+        without_values(&strings(&["--proxy-server=user:pw@host", "--disable-gpu"])),
+        ["--proxy-server", "--disable-gpu"]
+    );
+}
+
+#[test]
 fn inherited_new_splits_the_switches() {
     let inherited = Inherited::new("--disable-gpu --remote-debugging-port=9222", true, vec![]);
 
