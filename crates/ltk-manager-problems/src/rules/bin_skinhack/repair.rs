@@ -10,8 +10,8 @@ use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyKind, PropertyVa
 use ltk_wad::WadHash;
 
 use super::{
-    Markers, champion_of, embed, embed_mut, items, list_mut, resolve_skin, skin_bin, skin_object,
-    text, unit_name,
+    Markers, bank_unit_events, champion_of, embed, embed_mut, is_voice_over, items, list_mut,
+    resolve_skin, skin_bin, skin_object, text, unit_name, unit_names_other_skin,
 };
 use crate::engine::parse_bin;
 use crate::{FileHandle, FixFacts, FixPreview, ProjectFiles, SkinAudioRepair};
@@ -190,6 +190,7 @@ pub(super) fn plan(project: &ProjectFiles, handle: &FileHandle<'_>) -> Result<Pl
         .map_err(Refusal::Unreadable)?;
     let index = base_index(&root, base.as_ref())?;
     let base_units = base.as_ref().map(base_sfx_units).unwrap_or_default();
+    let stock = base.as_ref().map(bank_unit_events).unwrap_or_default();
 
     let bytes = handle.bytes().map_err(Refusal::Unreadable)?;
     let mut bin = parse_bin(&bytes).map_err(Refusal::Unreadable)?;
@@ -211,9 +212,7 @@ pub(super) fn plan(project: &ProjectFiles, handle: &FileHandle<'_>) -> Result<Pl
         None => Vec::new(),
     };
     let removed_units = match list_mut(audio.properties.get_mut(&named("BankUnits"))) {
-        Some(units) => retain(units, |unit| {
-            !unit_name(unit).is_some_and(|name| markers.names_unit(name))
-        })?,
+        Some(units) => retain(units, |unit| !unit_names_other_skin(unit, &markers, &stock))?,
         None => Vec::new(),
     };
     if removed_tags.is_empty() && removed_units.is_empty() {
@@ -301,12 +300,7 @@ fn base_sfx_units(base: &BinObject) -> Vec<PropertyValueEnum> {
 
     items(audio.properties.get(&named("BankUnits")))
         .iter()
-        .filter(|unit| {
-            let voice_over = embed(Some(unit))
-                .and_then(|unit| unit.properties.get(&named("voiceOver")))
-                .is_some_and(|flag| matches!(flag, PropertyValueEnum::Bool(flag) if flag.value));
-            !voice_over
-        })
+        .filter(|unit| !is_voice_over(unit))
         .cloned()
         .collect()
 }

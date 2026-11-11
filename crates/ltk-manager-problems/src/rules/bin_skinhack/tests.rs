@@ -252,6 +252,110 @@ fn base_skin_shipping_copy_of_other_skin_mesh_is_reported() {
     );
 }
 
+#[test]
+fn base_skin_shipping_zero_padded_copy_of_other_skin_mesh_is_reported() {
+    let mut padded = SKIN7_SKN_BYTES.to_vec();
+    padded.extend_from_slice(&[0u8; 16]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), CUSTOM_SKL_BYTES.to_vec()),
+            (in_layer(CUSTOM_SKN), padded),
+        ],
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.SimpleSkin is the mesh of skin 7"]
+    );
+}
+
+#[test]
+fn base_skin_shipping_zero_padded_skeleton_with_adjusted_size_header_is_reported() {
+    let mut game_skl = Vec::new();
+    game_skl.extend_from_slice(&16u32.to_le_bytes());
+    game_skl.extend_from_slice(&0x22FD_4FC3_u32.to_le_bytes());
+    game_skl.extend_from_slice(b"skin7skl");
+
+    let mut padded_skl = game_skl.clone();
+    padded_skl[..4].copy_from_slice(&32u32.to_le_bytes());
+    padded_skl.extend_from_slice(&[0u8; 16]);
+
+    let game = FakeContent::containing_bytes(&[
+        (SKIN0, &base()),
+        (SKIN7, &skin_bin(7, SKIN7_SKL, SKIN7_SKN, Vec::new())),
+        (BASE_SKL, BASE_SKL_BYTES),
+        (BASE_SKN, BASE_SKN_BYTES),
+        (SKIN7_SKL, &game_skl),
+        (SKIN7_SKN, SKIN7_SKN_BYTES),
+    ]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), padded_skl),
+            (in_layer(CUSTOM_SKN), CUSTOM_SKN_BYTES.to_vec()),
+        ],
+        Some(game),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.Skeleton is the mesh of skin 7"]
+    );
+}
+
+#[test]
+fn base_skin_shipping_other_skin_mesh_with_appended_bytes_is_reported() {
+    let mut padded = SKIN7_SKN_BYTES.to_vec();
+    padded.extend_from_slice(&[0, 0, 7, 0, 1]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), CUSTOM_SKL_BYTES.to_vec()),
+            (in_layer(CUSTOM_SKN), padded),
+        ],
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.SimpleSkin is the mesh of skin 7"]
+    );
+}
+
+/* The patcher takes a padded base mesh as a modified slot, so it does not clear the skin. */
+#[test]
+fn base_skin_shipping_padded_base_skeleton_and_other_skin_mesh_is_reported() {
+    let mut padded = BASE_SKL_BYTES.to_vec();
+    padded.extend_from_slice(&[0; 8]);
+    let (_tmp, files) = tree(
+        &[
+            (
+                in_layer(SKIN0),
+                skin_bin(0, CUSTOM_SKL, CUSTOM_SKN, Vec::new()),
+            ),
+            (in_layer(CUSTOM_SKL), padded),
+            (in_layer(CUSTOM_SKN), SKIN7_SKN_BYTES.to_vec()),
+        ],
+        Some(game()),
+    );
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinMeshProperties.SimpleSkin is the mesh of skin 7"]
+    );
+}
+
 /* The patcher allows a base skin that still renders a stock mesh, whatever it names. */
 #[test]
 fn base_skin_keeping_base_skeleton_is_not_reported() {
@@ -314,6 +418,96 @@ fn base_skin_with_other_skin_bank_unit_is_reported() {
         messages(&found_in(&files)),
         ["SkinAudioProperties.BankUnits.Name names another skin: Ahri_Skin07_SFX"]
     );
+}
+
+#[test]
+fn base_skin_with_other_skin_event_in_renamed_sfx_unit_is_reported() {
+    let disguised = unit(
+        "Ahri_Base_SFX",
+        &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+        &[SKIN7_MAPPED_EVENT],
+        false,
+    );
+    let (_tmp, files) = tree(&with_audio(audio(&["Ahri"], vec![disguised])), Some(game()));
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        ["SkinAudioProperties.BankUnits.Events names another skin: \
+             Play_sfx_AhriSkin07_BasicAttack_OnCast"]
+    );
+}
+
+#[test]
+fn base_skin_with_many_other_skin_events_lists_three_of_them() {
+    let disguised = unit(
+        "Ahri_Base_SFX",
+        &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+        &[
+            "Play_sfx_AhriSkin07_A",
+            "Play_sfx_AhriSkin07_B",
+            "Play_sfx_AhriSkin07_C",
+            "Play_sfx_AhriSkin07_D",
+            "Play_sfx_AhriSkin07_E",
+        ],
+        false,
+    );
+    let (_tmp, files) = tree(&with_audio(audio(&["Ahri"], vec![disguised])), Some(game()));
+
+    assert_eq!(
+        messages(&found_in(&files)),
+        [
+            "SkinAudioProperties.BankUnits.Events names another skin: Play_sfx_AhriSkin07_A, \
+             Play_sfx_AhriSkin07_B, Play_sfx_AhriSkin07_C and 2 more"
+        ]
+    );
+}
+
+/* The base skin of Sylas lists `SylasSkin01` events in `Sylas_Base_SFX`. */
+#[test]
+fn base_skin_with_other_skin_event_of_game_base_skin_is_not_reported() {
+    let stock = || {
+        unit(
+            "Ahri_Base_SFX",
+            &[BASE_SFX_AUDIO, BASE_SFX_EVENTS],
+            &[BASE_EVENT, SKIN7_MAPPED_EVENT],
+            false,
+        )
+    };
+    let game = FakeContent::containing_bytes(&[
+        (
+            SKIN0,
+            &skin_bin(
+                0,
+                BASE_SKL,
+                BASE_SKN,
+                vec![("SkinAudioProperties", audio(&["Ahri"], vec![stock()]))],
+            ),
+        ),
+        (SKIN7, &skin_bin(7, SKIN7_SKL, SKIN7_SKN, Vec::new())),
+        (BASE_SKL, BASE_SKL_BYTES),
+        (BASE_SKN, BASE_SKN_BYTES),
+        (SKIN7_SKL, SKIN7_SKL_BYTES),
+        (SKIN7_SKN, SKIN7_SKN_BYTES),
+    ]);
+    let (_tmp, files) = tree(&with_audio(audio(&["Ahri"], vec![stock()])), Some(game));
+
+    assert!(found_in(&files).is_empty());
+}
+
+#[test]
+fn base_skin_with_other_skin_event_in_voice_over_unit_is_not_reported() {
+    let vo = unit(
+        "Ahri_Base_VO",
+        &[BASE_VO_AUDIO],
+        &["Play_vo_AhriSkin07_Attack"],
+        true,
+    );
+    let (_tmp, files) = tree(
+        &with_audio(audio(&["Ahri"], vec![base_sfx_unit(), vo])),
+        Some(game()),
+    );
+
+    assert!(found_in(&files).is_empty());
 }
 
 #[test]

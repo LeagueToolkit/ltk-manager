@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-11-05 | `bin/skinhack` checks padded meshes and bank unit events     |
 | 2026-10-30 | `bin/skinhack` removes the audio of another skin             |
 | 2026-10-25 | `bin/skinhack` reports a base skin built from another skin   |
 | 2026-10-22 | The material name table claims live patch 16.21              |
@@ -13,7 +14,6 @@
 | 2026-10-15 | `bin/texture-file` reports a non-image texture file          |
 | 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
-| 2026-09-30 | Name each unchecked file once, with its reason               |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -855,12 +855,12 @@ it, so a repair never writes a type the installed game does not read.
 `bin/skinhack` reads the `skin0.bin` of a champion in that champion's own WAD, and compares it
 with the installed game. The rule reports nothing if the project has no installed game.
 
-| Hit             | What the rule reads                                                          |
-| --------------- | ---------------------------------------------------------------------------- |
-| Mesh            | `Skeleton` or `SimpleSkin` has the content of the mesh of another skin       |
-| Skin name       | `ChampionSkinName` names another skin, such as `AhriSkin07`                  |
-| Audio tag       | A `SkinAudioProperties.TagEventList` entry names another skin                |
-| Audio bank unit | A `SkinAudioProperties.BankUnits` entry is named for the SFX of another skin |
+| Hit             | What the rule reads                                                                                                                                                          |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mesh            | `Skeleton` or `SimpleSkin` has the content of the mesh of another skin, ignoring bytes appended to it                                                                        |
+| Skin name       | `ChampionSkinName` names another skin, such as `AhriSkin07`                                                                                                                  |
+| Audio tag       | A `SkinAudioProperties.TagEventList` entry names another skin                                                                                                                |
+| Audio bank unit | A `SkinAudioProperties.BankUnits` entry is named for the SFX of another skin, or is an SFX unit that lists an event of another skin which the game's base skin does not list |
 
 A mesh hit is reported alone. Otherwise the row names every hit, so a bin with an audio tag and a
 bank unit of another skin reports both in one message.
