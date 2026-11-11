@@ -26,13 +26,97 @@ fn command_line_of_no_process_is_none() {
     assert_eq!(process::command_line(0), None);
 }
 
+fn values(line: &str) -> Vec<String> {
+    arguments(line)
+        .into_iter()
+        .map(|argument| argument.value)
+        .collect()
+}
+
+/* Spellings that `CommandLineToArgvW` reads as one switch, or as two arguments. */
+const QUOTED_LINES: [&str; 12] = [
+    r#"--a=1   --b="x y"  "--c=z" plain"#,
+    r#"--remote"-debugging-port"=9222 --type=browser"#,
+    r#"--re""mote-debugging-port=9222"#,
+    r#""--re""mote-debugging-port=9222""#,
+    r#"--a=\" --remote-debugging-port=9222"#,
+    r#"--a=\\" --remote-debugging-port=9222"#,
+    r#"--a="x\\\"y" --b"#,
+    r#"--a="""x""" --b"#,
+    r#""" --a "" """" --b"#,
+    "--a\t--b  \t --c",
+    r#"--path=C:\dir\ --b"#,
+    r#"--a="unclosed --b"#,
+];
+
 #[test]
-fn tokens_split_at_blanks_outside_quotes() {
+fn arguments_split_at_blanks_outside_quotes() {
     assert_eq!(
-        tokens(r#"--a=1   --b="x y"  "--c=z" plain"#),
-        strings(&["--a=1", r#"--b="x y""#, r#""--c=z""#, "plain"])
+        arguments(r#"--a=1   --b="x y"  "--c=z" plain"#),
+        [
+            ("--a=1", "--a=1"),
+            (r#"--b="x y""#, "--b=x y"),
+            (r#""--c=z""#, "--c=z"),
+            ("plain", "plain"),
+        ]
+        .map(|(raw, value)| Argument {
+            raw: raw.to_owned(),
+            value: value.to_owned(),
+        })
     );
-    assert!(tokens("   ").is_empty());
+    assert!(arguments("   ").is_empty());
+}
+
+#[test]
+fn arguments_remove_quotes_inside_a_switch_name() {
+    assert_eq!(
+        values(r#"--remote"-debugging-port"=9222 --type=browser"#),
+        strings(&["--remote-debugging-port=9222", "--type=browser"])
+    );
+    assert_eq!(
+        values(r#"--re""mote-debugging-port=9222"#),
+        strings(&["--remote-debugging-port=9222"])
+    );
+}
+
+#[test]
+fn arguments_split_after_an_escaped_quote() {
+    assert_eq!(
+        values(r#"--a=\" --remote-debugging-port=9222"#),
+        strings(&[r#"--a=""#, "--remote-debugging-port=9222"])
+    );
+}
+
+/* The parser's reference is the Windows function itself. */
+#[cfg(windows)]
+#[test]
+fn arguments_match_command_line_to_argv() {
+    use windows_sys::Win32::Foundation::LocalFree;
+    use windows_sys::Win32::UI::Shell::CommandLineToArgvW;
+
+    for line in QUOTED_LINES {
+        let wide: Vec<u16> = format!("program.exe {line}")
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        let mut count = 0;
+        // SAFETY: `wide` is null-terminated, and the returned block holds `count` strings.
+        let expected: Vec<String> = unsafe {
+            let argv = CommandLineToArgvW(wide.as_ptr(), &mut count);
+            assert!(!argv.is_null());
+            let parsed = (1..count as usize)
+                .map(|index| {
+                    let argument = *argv.add(index);
+                    let len = (0..).take_while(|&at| *argument.add(at) != 0).count();
+                    String::from_utf16_lossy(std::slice::from_raw_parts(argument, len))
+                })
+                .collect();
+            LocalFree(argv.cast());
+            parsed
+        };
+
+        assert_eq!(values(line), expected, "{line:?}");
+    }
 }
 
 #[test]
@@ -49,12 +133,21 @@ fn switch_name_takes_any_prefix_and_drops_the_value() {
         switch_name("/proxy-server=1.2.3.4:80"),
         Some("proxy-server")
     );
-    assert_eq!(
-        switch_name(r#""--load-extension=C:\x""#),
-        Some("load-extension")
-    );
     assert_eq!(switch_name("plain"), None);
     assert_eq!(switch_name("--"), None);
+}
+
+#[test]
+fn filter_drops_a_debugging_switch_with_quotes_in_its_name() {
+    let filtered = filter(r#"--disable-gpu --remote"-debugging-port"=9222 "--user-agent=a b""#);
+
+    assert_eq!(
+        filtered,
+        Filtered {
+            kept: strings(&["--disable-gpu", r#""--user-agent=a b""#]),
+            dropped: strings(&[r#"--remote"-debugging-port"=9222"#]),
+        }
+    );
 }
 
 #[test]

@@ -98,11 +98,11 @@ pub struct Filtered {
 /// Splits the browser arguments `args` into the switches WebView2 may see and the debugging ones.
 pub fn filter(args: &str) -> Filtered {
     let mut filtered = Filtered::default();
-    for token in tokens(args) {
-        if is_debug_switch(&token) {
-            filtered.dropped.push(token);
+    for argument in arguments(args) {
+        if is_debug_switch(&argument.value) {
+            filtered.dropped.push(argument.raw);
         } else {
-            filtered.kept.push(token);
+            filtered.kept.push(argument.raw);
         }
     }
     filtered
@@ -114,9 +114,10 @@ pub fn filter(args: &str) -> Filtered {
     expect(dead_code, reason = "only Windows reads the browser process")
 )]
 pub fn debug_switch_in(command_line: &str) -> Option<String> {
-    tokens(command_line)
+    arguments(command_line)
         .into_iter()
-        .find(|token| is_debug_switch(token))
+        .map(|argument| argument.value)
+        .find(|value| is_debug_switch(value))
 }
 
 /// The arguments the main window passes WebView2: `configured`, from `tauri.conf.json`, then
@@ -127,9 +128,9 @@ pub fn browser_args(configured: Option<&str>, kept: &[String]) -> Option<String>
     (!args.is_empty()).then(|| args.join(" "))
 }
 
-/// Returns `true` if `token` is a switch in [`DEBUG_SWITCHES`], whatever its value.
-fn is_debug_switch(token: &str) -> bool {
-    let Some(name) = switch_name(token) else {
+/// Returns `true` if `argument` is a switch in [`DEBUG_SWITCHES`], whatever its value.
+fn is_debug_switch(argument: &str) -> bool {
+    let Some(name) = switch_name(argument) else {
         return false;
     };
     DEBUG_SWITCHES
@@ -137,43 +138,103 @@ fn is_debug_switch(token: &str) -> bool {
         .any(|switch| name.eq_ignore_ascii_case(switch))
 }
 
-/// The name of the switch `token`, without its prefix and value, or `None` for a plain argument.
+/// Returns the name of the switch `argument`, without its prefix and value. Returns `None` for
+/// a plain argument.
 ///
-/// Chromium on Windows takes `--name`, `-name` and `/name`, and `CommandLineToArgvW` has
-/// removed the quotes by the time it looks, so a leading quote is skipped here.
-fn switch_name(token: &str) -> Option<&str> {
-    let token = token.trim_start_matches('"');
-    let name = token
+/// Chromium on Windows takes `--name`, `-name` and `/name`.
+fn switch_name(argument: &str) -> Option<&str> {
+    let name = argument
         .strip_prefix("--")
-        .or_else(|| token.strip_prefix('-'))
-        .or_else(|| token.strip_prefix('/'))?;
-    let name = name.split(['=', '"']).next().unwrap_or(name);
+        .or_else(|| argument.strip_prefix('-'))
+        .or_else(|| argument.strip_prefix('/'))?;
+    let name = name.split('=').next().unwrap_or(name);
     (!name.is_empty()).then_some(name)
 }
 
-/// Splits `line` at blanks outside double quotes, keeping the quotes on the tokens.
-fn tokens(line: &str) -> Vec<String> {
-    let mut tokens = Vec::new();
-    let mut current = String::new();
-    let mut quoted = false;
-    for c in line.chars() {
-        match c {
-            '"' => {
-                quoted = !quoted;
-                current.push(c);
+/// One argument of a browser command line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Argument {
+    /// The argument as the command line spells it, with its quotes and backslashes.
+    raw: String,
+    /// The argument as `CommandLineToArgvW` returns it to Chromium.
+    value: String,
+}
+
+/// Splits `line` into arguments by the rules of `CommandLineToArgvW`.
+///
+/// Chromium compares a switch name after that function removed the quotes, so
+/// `--remote"-debugging-port"=1` is a debugging switch. A switch is matched on `value` and
+/// passed on as `raw`.
+fn arguments(line: &str) -> Vec<Argument> {
+    let chars: Vec<char> = line.chars().collect();
+    let mut arguments = Vec::new();
+    let mut raw = String::new();
+    let mut value = String::new();
+    let mut started = false;
+    let mut backslashes = 0;
+    // Consecutive quotes, counted from the one that opened a quoted part. 1 inside quotes.
+    let mut quotes = 0;
+
+    let mut index = 0;
+    while index < chars.len() {
+        let c = chars[index];
+        index += 1;
+
+        if (c == ' ' || c == '\t') && quotes == 0 {
+            if started {
+                arguments.push(Argument {
+                    raw: std::mem::take(&mut raw),
+                    value: std::mem::take(&mut value),
+                });
             }
-            c if c.is_whitespace() && !quoted => {
-                if !current.is_empty() {
-                    tokens.push(std::mem::take(&mut current));
+            started = false;
+            backslashes = 0;
+            continue;
+        }
+
+        started = true;
+        raw.push(c);
+        match c {
+            '\\' => {
+                value.push(c);
+                backslashes += 1;
+            }
+            '"' => {
+                // 2n backslashes and a quote are n backslashes and a delimiter. 2n+1 are n
+                // backslashes and a literal quote.
+                value.truncate(value.len() - (backslashes - backslashes / 2));
+                if backslashes % 2 == 0 {
+                    quotes += 1;
+                } else {
+                    value.push('"');
+                }
+                backslashes = 0;
+
+                // Every third consecutive quote is a literal one.
+                while chars.get(index) == Some(&'"') {
+                    index += 1;
+                    raw.push('"');
+                    quotes += 1;
+                    if quotes == 3 {
+                        value.push('"');
+                        quotes = 0;
+                    }
+                }
+                if quotes == 2 {
+                    quotes = 0;
                 }
             }
-            c => current.push(c),
+            _ => {
+                value.push(c);
+                backslashes = 0;
+            }
         }
     }
-    if !current.is_empty() {
-        tokens.push(current);
+
+    if started {
+        arguments.push(Argument { raw, value });
     }
-    tokens
+    arguments
 }
 
 /// Closes the manager if its WebView2 browser process runs with a debugging switch.
