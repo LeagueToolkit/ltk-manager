@@ -46,6 +46,7 @@ fn values(line: &str) -> Vec<String> {
 }
 
 /* Spellings that `CommandLineToArgvW` reads as one switch, or as two arguments. */
+#[cfg(windows)]
 const QUOTED_LINES: [&str; 12] = [
     r#"--a=1   --b="x y"  "--c=z" plain"#,
     r#"--remote"-debugging-port"=9222 --type=browser"#,
