@@ -6,6 +6,10 @@ use ltk_mod_project::{ModProject, ModProjectAuthor};
 use semver::Version;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
+use std::io::BufReader;
+
+/// The read size of [`SourceDigest::of`]. `io::copy` reads a bare `File` 8 KiB at a time.
+const HASH_BUFFER_SIZE: usize = 1024 * 1024;
 
 /// An archive's bytes, as the SHA-256 an import is compared by and their length.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -22,9 +26,10 @@ impl SourceDigest {
     ///
     /// Fails when the file cannot be read.
     pub(crate) fn of(path: &Path) -> AppResult<Self> {
-        let mut file = fs::File::open(path)?;
+        let file = fs::File::open(path)?;
+        let mut reader = BufReader::with_capacity(HASH_BUFFER_SIZE, file);
         let mut hasher = Sha256::new();
-        let len = std::io::copy(&mut file, &mut hasher)?;
+        let len = std::io::copy(&mut reader, &mut hasher)?;
 
         Ok(Self {
             sha256: format!("{:x}", hasher.finalize()),
