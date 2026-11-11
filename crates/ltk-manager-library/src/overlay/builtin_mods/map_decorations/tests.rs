@@ -136,12 +136,12 @@ fn generate_in(game: &Path, project: &Path, settings: &BuiltinModSettings) -> Ov
         ..MapDecorations::of(settings).unwrap()
     };
     decorations
-        .generate(&mut Context {
-            game_dir: &GameDir::from_path(game),
-            tables: &NoTables,
-            mods: &mut [],
-            cache_dir: project,
-        })
+        .generate(&mut Context::new(
+            &GameDir::from_path(game),
+            &NoTables,
+            &mut [],
+            project,
+        ))
         .unwrap()
 }
 
@@ -166,12 +166,12 @@ fn generate(game: &Path, settings: &BuiltinModSettings) -> Overrides {
     let cache = tempfile::tempdir().unwrap();
     MapDecorations::of(settings)
         .unwrap()
-        .generate(&mut Context {
-            game_dir: &GameDir::from_path(game),
-            tables: &NoTables,
-            mods: &mut [],
-            cache_dir: cache.path(),
-        })
+        .generate(&mut Context::new(
+            &GameDir::from_path(game),
+            &NoTables,
+            &mut [],
+            cache.path(),
+        ))
         .unwrap()
 }
 

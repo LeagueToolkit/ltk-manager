@@ -207,11 +207,14 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     crate::telemetry::refresh_from_document(&app_handle);
 
+    // Below the `manage` calls, which the page invokes as soon as it loads.
+    create_main_window(app)?;
+
     crate::tray::setup(app)?;
 
     #[cfg(target_os = "macos")]
     {
-        if let Some(window) = app_handle.get_webview_window("main") {
+        if let Some(window) = app_handle.get_webview_window(crate::MAIN_WINDOW) {
             let _ = window.set_decorations(true);
         }
     }
@@ -250,6 +253,40 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     });
 
     Ok(())
+}
+
+/// Creates the main window from its `tauri.conf.json` entry.
+///
+/// The entry sets `create` to `false`, so the window is created here, with the browser
+/// arguments a launcher left in the environment filtered in after the configured ones. On
+/// Windows the browser process is then checked for a debugging switch.
+///
+/// # Errors
+///
+/// Fails if the window does not build.
+fn create_main_window(app: &tauri::App) -> tauri::Result<tauri::WebviewWindow> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == crate::MAIN_WINDOW)
+        .expect("tauri.conf.json describes the main window, with `create` false");
+    let inherited: tauri::State<'_, crate::webview_args::Inherited> = app.state();
+
+    let mut builder = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?;
+    if let Some(args) = crate::webview_args::browser_args(
+        config.additional_browser_args.as_deref(),
+        &inherited.kept,
+    ) {
+        builder = builder.additional_browser_args(&args);
+    }
+    let window = builder.build()?;
+
+    #[cfg(windows)]
+    crate::webview_args::verify_browser_process(&window)?;
+
+    Ok(window)
 }
 
 /// Runtime event hook for [`tauri::App::run`].

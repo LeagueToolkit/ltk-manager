@@ -4,6 +4,7 @@ use super::injector::WadScanFailure;
 use super::state::PatcherPhase;
 use crate::diagnostics::incident::{Incident, OverlayOutcome};
 use ltk_manager_base::error::AppError;
+use ltk_manager_base::events::OverlayProgress;
 
 /// Notable conditions the patcher surfaces while a session runs.
 ///
@@ -17,6 +18,11 @@ pub trait PatcherEvents: Send + Sync {
 
     /// The session failed. Terminal - the thread resets to idle right after.
     fn error(&self, error: AppError);
+
+    /// The build phase advanced to a step the session thread runs itself, such as the DLL
+    /// delivery or the wait for the last game to close. The overlay build reports its own
+    /// steps through the library's event sink.
+    fn overlay_progress(&self, progress: OverlayProgress);
 
     /// One or more archives failed the injected DLL's integrity scan, so no
     /// mods were applied and the session auto-stops.

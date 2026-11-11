@@ -10,7 +10,11 @@ import { libraryKeys } from "./keys";
 
 const TERMINAL_STAGES = ["complete"];
 
-export function useOverlayProgress() {
+/**
+ * The overlay build's progress: the last `overlay-progress` event, or the one the patcher
+ * status kept while this hook was not mounted to hear it.
+ */
+export function useOverlayProgress(): OverlayProgress | null {
   const { progress, clear } = useTauriProgress<OverlayProgress>("overlay-progress", {
     terminalStages: TERMINAL_STAGES,
   });
@@ -51,5 +55,8 @@ export function useOverlayProgress() {
     wasPatcherRunning.current = isPatcherRunning;
   }, [patcherStatus?.running, clear]);
 
-  return progress;
+  // The status is polled every second while the patcher runs, so a build that started
+  // before this hook mounted still shows its step.
+  const kept = patcherStatus?.phase === "building" ? patcherStatus.overlayProgress : null;
+  return progress ?? kept;
 }

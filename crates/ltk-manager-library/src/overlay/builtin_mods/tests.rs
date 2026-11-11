@@ -56,12 +56,12 @@ fn generate(
     mods: &mut [EnabledMod],
 ) -> Overrides {
     builtin
-        .generate(&mut Context {
-            game_dir: &GameDir::from_path(game),
+        .generate(&mut Context::new(
+            &GameDir::from_path(game),
             tables,
             mods,
             cache_dir,
-        })
+        ))
         .unwrap()
 }
 
@@ -300,8 +300,13 @@ fn a_built_in_mod_turned_on_is_written_and_injected() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, ["builtin:default-ward-skins"]);
@@ -326,6 +331,10 @@ fn a_built_in_mod_turned_off_is_removed() {
         &game_dir,
         &Tables::default(),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -335,8 +344,13 @@ fn a_built_in_mod_turned_off_is_removed() {
         &game_dir,
         &Tables::default(),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     assert!(mods.is_empty());
     assert!(
@@ -361,6 +375,10 @@ fn a_directory_no_built_in_mod_owns_is_removed() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
     .unwrap();
 
@@ -377,6 +395,186 @@ fn a_game_without_maps_generates_no_override() {
 }
 
 #[test]
+fn inject_reports_each_built_in_mod_before_it_generates() {
+    let game = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let mut reported = Vec::new();
+
+    inject(
+        storage.path(),
+        &ward_skins_turned(true),
+        &GameDir::from_path(game.path()),
+        &Tables::default(),
+        Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |name| reported.push(name.to_owned()),
+        &|| false,
+    )
+    .unwrap();
+
+    assert_eq!(reported, ["Default ward skins"]);
+}
+
+/// A game directory whose content build reads, so a stamp can be written.
+fn game_with_build(build: &str) -> tempfile::TempDir {
+    let game = tempfile::tempdir().unwrap();
+    fs::write(
+        game.path().join("content-metadata.json"),
+        format!(r#"{{ "version": "{build}+branch.releases.content.release" }}"#),
+    )
+    .unwrap();
+    game
+}
+
+fn reused(timings: &[BuiltinTiming]) -> Vec<bool> {
+    timings.iter().map(|timing| timing.reused).collect()
+}
+
+#[test]
+fn inject_reuses_a_project_whose_inputs_are_unchanged() {
+    let game = game_with_build("16.22.8348910");
+    build_wad(
+        &maps_dir(game.path()).join("Map11.wad.client"),
+        &["data/characters/sightward/skins/skin1.bin"],
+    );
+    let storage = tempfile::tempdir().unwrap();
+    let game_dir = GameDir::from_path(game.path());
+    let run = |settings: &BuiltinModSettings, app: &str, regenerate: Regenerate| {
+        inject(
+            storage.path(),
+            settings,
+            &game_dir,
+            &Tables::default(),
+            Vec::new(),
+            app,
+            regenerate,
+            &mut |_| {},
+            &|| false,
+        )
+        .unwrap()
+    };
+
+    let first = run(&ward_skins_turned(true), "1.0.0", Regenerate::IfChanged);
+    let second = run(&ward_skins_turned(true), "1.0.0", Regenerate::IfChanged);
+    let newer_app = run(&ward_skins_turned(true), "1.0.1", Regenerate::IfChanged);
+    let forced = run(&ward_skins_turned(true), "1.0.1", Regenerate::Always);
+    let after_forced = run(&ward_skins_turned(true), "1.0.1", Regenerate::IfChanged);
+
+    assert_eq!(reused(&first.timings), [false]);
+    assert_eq!(reused(&second.timings), [true]);
+    assert_eq!(reused(&newer_app.timings), [false]);
+    assert_eq!(reused(&forced.timings), [false]);
+    assert_eq!(
+        reused(&after_forced.timings),
+        [false],
+        "a forced run writes no stamp"
+    );
+    assert_eq!(
+        overrides(&storage.path().join("builtin").join("default-ward-skins")),
+        [(
+            "Map11.wad.client".to_string(),
+            "data/characters/sightward/skins/skin1.bin".to_string(),
+            b"JUNK".to_vec()
+        )]
+    );
+}
+
+#[test]
+fn inject_regenerates_a_project_when_a_setting_or_the_game_changes() {
+    let storage = tempfile::tempdir().unwrap();
+    let settings = BuiltinModSettings {
+        default_ward_skins: true,
+        base_skins: ltk_manager_base::config::BaseSkinsScope::AllChampions,
+        ..BuiltinModSettings::default()
+    };
+    let run = |game: &Path, settings: &BuiltinModSettings| {
+        inject(
+            storage.path(),
+            settings,
+            &GameDir::from_path(game),
+            &Tables::default(),
+            Vec::new(),
+            "1.0.0",
+            Regenerate::IfChanged,
+            &mut |_| {},
+            &|| false,
+        )
+        .unwrap()
+    };
+
+    let game = game_with_build("16.22.8348910");
+    run(game.path(), &settings);
+    let same = run(game.path(), &settings);
+    let other_settings = run(game.path(), &ward_skins_turned(true));
+    let patched = game_with_build("16.23.8400000");
+    let other_game = run(patched.path(), &ward_skins_turned(true));
+
+    assert_eq!(reused(&same.timings), [true, true]);
+    assert_eq!(reused(&other_settings.timings), [false]);
+    assert_eq!(reused(&other_game.timings), [false]);
+}
+
+#[test]
+fn inject_never_reuses_a_project_of_a_game_whose_build_is_unknown() {
+    let game = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let run = || {
+        inject(
+            storage.path(),
+            &ward_skins_turned(true),
+            &GameDir::from_path(game.path()),
+            &Tables::default(),
+            Vec::new(),
+            "1.0.0",
+            Regenerate::IfChanged,
+            &mut |_| {},
+            &|| false,
+        )
+        .unwrap()
+    };
+
+    run();
+    let again = run();
+
+    assert_eq!(reused(&again.timings), [false]);
+}
+
+#[test]
+fn inject_fails_with_called_off_before_a_built_in_mod_generates() {
+    let game = tempfile::tempdir().unwrap();
+    let storage = tempfile::tempdir().unwrap();
+    let mut reported = Vec::new();
+
+    let result = inject(
+        storage.path(),
+        &ward_skins_turned(true),
+        &GameDir::from_path(game.path()),
+        &Tables::default(),
+        Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |name| reported.push(name.to_owned()),
+        &|| true,
+    );
+
+    assert!(matches!(
+        result,
+        Err(ltk_manager_base::error::AppError::Overlay(
+            ltk_overlay::Error::CalledOff
+        ))
+    ));
+    assert!(reported.is_empty());
+    assert!(
+        !storage
+            .path()
+            .join("builtin")
+            .join("default-ward-skins")
+            .exists()
+    );
+}
+
+#[test]
 fn a_built_in_mod_goes_above_every_other_mod() {
     let game = tempfile::tempdir().unwrap();
     let storage = tempfile::tempdir().unwrap();
@@ -388,8 +586,13 @@ fn a_built_in_mod_goes_above_every_other_mod() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         vec![fs_mod("installed", installed.path())],
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, ["builtin:default-ward-skins", "installed"]);
@@ -415,8 +618,13 @@ fn every_built_in_mod_turned_on_is_injected_in_priority_order() {
         &GameDir::from_path(game.path()),
         &Tables::default(),
         Vec::new(),
+        "1.0.0",
+        Regenerate::Always,
+        &mut |_| {},
+        &|| false,
     )
-    .unwrap();
+    .unwrap()
+    .mods;
 
     let ids: Vec<&str> = mods.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, ["builtin:default-ward-skins", "builtin:base-skins"]);

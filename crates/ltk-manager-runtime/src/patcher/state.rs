@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::thread::JoinHandle;
 
+use ltk_manager_base::events::OverlayProgress;
 use serde::{Deserialize, Serialize};
 
 use super::refresh::OverlayRefresh;
@@ -23,7 +24,6 @@ pub enum PatcherPhase {
 /// options.
 #[derive(Debug, Clone)]
 pub struct StoredPatcherConfig {
-    pub flags: Option<u64>,
     pub workshop_projects: Option<Vec<String>>,
     /// The layers each workshop project is tested with, by project path. A
     /// project missing from the map is tested with every layer.
@@ -87,6 +87,9 @@ pub struct PatcherStateInner {
     pub session: Option<PatcherSession>,
     /// Current phase of the patcher lifecycle.
     pub phase: PatcherPhase,
+    /// The last progress the build phase reported, so a reader that subscribed after the
+    /// event still sees it. `None` outside the build phase.
+    pub overlay_progress: Option<OverlayProgress>,
     /// Last patcher config used, for hot-reload.
     pub last_config: Option<StoredPatcherConfig>,
 }
@@ -99,7 +102,16 @@ impl PatcherStateInner {
             thread_handle: None,
             session: None,
             phase: PatcherPhase::Idle,
+            overlay_progress: None,
             last_config: None,
+        }
+    }
+
+    /// Keep `progress` as the build phase's last report. Dropped outside the build phase,
+    /// because a rebuild outside a session has no session reader.
+    pub fn record_overlay_progress(&mut self, progress: OverlayProgress) {
+        if self.phase == PatcherPhase::Building {
+            self.overlay_progress = Some(progress);
         }
     }
 
@@ -113,6 +125,7 @@ impl PatcherStateInner {
     /// Open a session and enter the build phase.
     pub fn begin_session(&mut self, origin: SessionOrigin) {
         self.phase = PatcherPhase::Building;
+        self.overlay_progress = None;
         self.session = Some(PatcherSession {
             origin,
             overlay_prefix: None,
@@ -130,11 +143,13 @@ impl PatcherStateInner {
     /// Return to the build phase to rebuild a running session's overlay.
     pub fn resume_building(&mut self) {
         self.phase = PatcherPhase::Building;
+        self.overlay_progress = None;
     }
 
     /// Enter the patching phase against the overlay the build produced.
     pub fn enter_patching(&mut self, overlay_prefix: String) {
         self.phase = PatcherPhase::Patching;
+        self.overlay_progress = None;
         if let Some(session) = self.session.as_mut() {
             session.overlay_prefix = Some(overlay_prefix);
         }
@@ -143,6 +158,7 @@ impl PatcherStateInner {
     /// Close the session and return to idle.
     pub fn end_session(&mut self) {
         self.phase = PatcherPhase::Idle;
+        self.overlay_progress = None;
         self.session = None;
     }
 }
@@ -180,6 +196,22 @@ mod tests {
                 .overlay_refresh
                 .is_due(std::time::Instant::now() + std::time::Duration::from_secs(60))
         );
+    }
+
+    #[test]
+    fn overlay_progress_is_kept_in_the_build_phase_only() {
+        let mut inner = PatcherStateInner::new();
+        let progress = OverlayProgress::preparing(ltk_manager_base::events::PrepareStep::Library);
+
+        inner.record_overlay_progress(progress.clone());
+        assert!(inner.overlay_progress.is_none());
+
+        inner.begin_session(SessionOrigin::Library);
+        inner.record_overlay_progress(progress);
+        assert!(inner.overlay_progress.is_some());
+
+        inner.enter_patching("prefix".to_string());
+        assert!(inner.overlay_progress.is_none());
     }
 
     #[test]

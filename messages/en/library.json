@@ -3,6 +3,17 @@
   "library_card_select_label": "Select {name}",
   "library_details_cancel_action": "Cancel",
   "library_details_champions_label": "Champions",
+  "library_details_chunk_names_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} chunk has no name. An unpack writes it under its hash.",
+        "countPlural=other": "{count} chunks have no name. An unpack writes them under their hash."
+      }
+    }
+  ],
+  "library_details_chunk_names_label": "Chunk names",
   "library_details_discard_action": "Discard",
   "library_details_discard_description": "Leaving this mod drops what you typed. Nothing is saved until you save it.",
   "library_details_discard_heading": "Discard your changes?",

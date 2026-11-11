@@ -13,7 +13,7 @@ use super::game_skins::GameSkins;
 use super::mod_skins::ModSkins;
 use super::overrides::{Overrides, quoted};
 use super::skin_bin::SkinBin;
-use super::{BuiltinMod, Context};
+use super::{BuiltinMod, Context, check_called_off, mounted};
 use ltk_manager_assets::game_wads::mount_wad;
 use ltk_manager_base::config::{
     BaseSkinsScope, BuiltinModSettings, CharacterInking as InkingSettings, InkingMaps, InkingScope,
@@ -181,12 +181,7 @@ pub fn write_inking_preview(
         base_skins: None,
     };
 
-    let overrides = preview.generate(&mut Context {
-        game_dir,
-        tables: &NoTables,
-        mods: &mut [],
-        cache_dir: dir,
-    })?;
+    let overrides = preview.generate(&mut Context::new(game_dir, &NoTables, &mut [], dir))?;
     overrides.write(dir, preview.slug(), preview.display_name())?;
 
     let bin = SkinBin::new(&character, 0);
@@ -423,13 +418,16 @@ impl BuiltinMod for CharacterInking {
             );
         }
 
-        let mut game = GameSkins::champions(cx.game_dir, cx.tables)?;
-        let mut mods = ModSkins::load(cx.mods, &mut game, cx.cache_dir);
+        let called_off = cx.called_off;
+        let game = mounted(&mut cx.champions, || {
+            GameSkins::champions(cx.game_dir, cx.tables)
+        })?;
+        let mut mods = ModSkins::load(cx.mods, game, cx.cache_dir);
         let stood_in: BTreeSet<SkinBin> = self
             .base_skins
             .map(|champions| {
                 BaseSkins { champions }
-                    .stand_in_targets(&game, &mods)
+                    .stand_in_targets(game, &mods)
                     .into_values()
                     .flatten()
                     .map(|(_, bin)| bin)
@@ -438,44 +436,32 @@ impl BuiltinMod for CharacterInking {
             .unwrap_or_default();
 
         let champions: Vec<String> = self
-            .champions(&game, &mods)
+            .champions(game, &mods)
             .into_iter()
             .map(str::to_owned)
             .collect();
         let champions: BTreeSet<&str> = champions.iter().map(String::as_str).collect();
-        let bins = self.skin_bins(&champions, &game, &mods);
+        let bins = self.skin_bins(&champions, game, &mods);
 
         let mut reads = SkinReads::open(cx.cache_dir);
         let mut declared = 0usize;
         for bin in bins {
+            check_called_off(called_off)?;
             let source = if stood_in.contains(&bin) {
                 SkinBin::new(&bin.character, 0)
             } else {
                 bin.clone()
             };
-            if self.outline_skin(
-                &bin,
-                &source,
-                &mut reads,
-                &mut game,
-                &mut mods,
-                &mut overrides,
-            ) {
+            if self.outline_skin(&bin, &source, &mut reads, game, &mut mods, &mut overrides) {
                 declared += 1;
             }
         }
 
         if self.settings.minions || self.settings.structures {
-            let mut map_game = GameSkins::maps(cx.game_dir, cx.tables)?;
-            for bin in self.map_bins(&map_game) {
-                if self.outline_skin(
-                    &bin,
-                    &bin,
-                    &mut reads,
-                    &mut map_game,
-                    &mut mods,
-                    &mut overrides,
-                ) {
+            let map_game = mounted(&mut cx.maps, || GameSkins::maps(cx.game_dir, cx.tables))?;
+            for bin in self.map_bins(map_game) {
+                check_called_off(called_off)?;
+                if self.outline_skin(&bin, &bin, &mut reads, map_game, &mut mods, &mut overrides) {
                     declared += 1;
                 }
             }
