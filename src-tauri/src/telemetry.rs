@@ -260,6 +260,17 @@ fn panic_message(info: &std::panic::PanicHookInfo<'_>) -> String {
     "a panic carrying no message".to_owned()
 }
 
+/// Writes the panic that `info` describes to the log, at `error` with the target `panic`.
+///
+/// Writes nothing if the panic happens before logging is initialized.
+fn log_panic(info: &std::panic::PanicHookInfo<'_>) {
+    let message = panic_message(info);
+    match info.location() {
+        Some(location) => tracing::error!(target: "panic", "{message} at {location}"),
+        None => tracing::error!(target: "panic", "{message}"),
+    }
+}
+
 /// Report the frontend crash `error` describes.
 pub fn report_ui_error(error: &UiError) {
     if let Some(state) = STATE.get() {
@@ -275,6 +286,7 @@ pub fn report_ui_error(error: &UiError) {
 pub fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
+        log_panic(info);
         report_panic(info);
         previous(info);
     }));

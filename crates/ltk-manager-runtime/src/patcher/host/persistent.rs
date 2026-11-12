@@ -179,7 +179,10 @@ fn forward_stderr<R: Read + Send + 'static>(stream: R) -> JoinHandle<()> {
         for line in BufReader::new(stream).lines() {
             match line {
                 Ok(text) if !text.trim().is_empty() => {
-                    tracing::warn!("[ltk-host stderr] {}", text);
+                    super::log_at(
+                        super::stderr_line_level(&text),
+                        format_args!("[ltk-host stderr] {text}"),
+                    );
                 }
                 Ok(_) => {}
                 Err(_) => break,
