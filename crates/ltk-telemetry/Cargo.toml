@@ -9,6 +9,7 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 [dependencies]
 chrono = { workspace = true }
 fs-err = { workspace = true }
+ltk-redact = { workspace = true }
 parking_lot = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }

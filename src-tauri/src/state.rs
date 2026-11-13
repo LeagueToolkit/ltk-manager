@@ -33,6 +33,27 @@ pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
     get_app_data_dir(app_handle).map(|p| p.join("settings.json"))
 }
 
+/// Registers the paths and the secret of `settings` with the shared redactor, so that the
+/// log file and every report replace them.
+fn register_private_values(settings: &Settings) {
+    use ltk_redact::Placeholder;
+
+    let config = &settings.config;
+    let paths = [
+        (Placeholder::League, &config.league_path),
+        (Placeholder::Data, &config.mod_storage_path),
+        (Placeholder::Workshop, &config.workshop_path),
+    ];
+    for (placeholder, path) in paths {
+        if let Some(path) = path {
+            ltk_redact::register_path(placeholder, path);
+        }
+    }
+    if let Some(secret) = &settings.telemetry_secret {
+        ltk_redact::register_value(Placeholder::Secret, secret);
+    }
+}
+
 /// Load settings from disk, returning defaults if the file doesn't exist.
 pub fn load_settings(settings_path: &Path) -> Settings {
     if !settings_path.exists() {
@@ -44,6 +65,7 @@ pub fn load_settings(settings_path: &Path) -> Settings {
         Ok(contents) => match serde_json::from_str(&contents) {
             Ok(settings) => {
                 tracing::info!("Loaded settings from {:?}", settings_path);
+                register_private_values(&settings);
                 settings
             }
             Err(e) => {
@@ -67,6 +89,7 @@ pub fn save_settings_to_disk(
         fs::create_dir_all(parent)?;
     }
 
+    register_private_values(settings);
     let contents = serde_json::to_string_pretty(settings)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 

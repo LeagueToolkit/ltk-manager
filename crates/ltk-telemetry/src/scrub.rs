@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 
+use ltk_redact::{Placeholder, Redactor};
 use serde_json::Value;
 
 use crate::event::Properties;
@@ -19,7 +20,7 @@ pub const PROFILE_PLACEHOLDER: &str = "%USERPROFILE%";
 /// routes, and only one of them can be reviewed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Scrubber {
-    profile_dir: Option<String>,
+    redactor: Redactor,
 }
 
 impl Scrubber {
@@ -44,51 +45,20 @@ impl Scrubber {
     /// A scrubber for a named profile directory, as a test drives it.
     #[must_use]
     pub fn for_profile_dir(dir: impl Into<String>) -> Self {
-        let dir = dir.into();
-        let trimmed = dir.trim_end_matches(['/', '\\']);
-        if trimmed.is_empty() {
-            return Self::none();
-        }
-        Self {
-            profile_dir: Some(trimmed.to_owned()),
-        }
+        let mut redactor = Redactor::new();
+        redactor.register_path(Placeholder::Profile, &dir.into());
+        Self { redactor }
     }
 
     /// `value` with the profile path replaced, or `value` when it holds none.
     #[must_use]
     pub fn scrub<'a>(&self, value: &'a str) -> Cow<'a, str> {
-        let Some(profile_dir) = &self.profile_dir else {
-            return Cow::Borrowed(value);
-        };
-
-        // Both sides are folded onto one separator and one case so that a path
-        // written either way matches. Folding is byte for byte, so an offset
-        // into the folded string is the same offset into the original.
-        let needle = fold(profile_dir);
-        let folded = fold(value);
-        if !folded.contains(&needle) {
-            return Cow::Borrowed(value);
-        }
-
-        let mut scrubbed = String::with_capacity(value.len());
-        let mut cursor = 0;
-        while let Some(offset) = folded[cursor..].find(&needle) {
-            let start = cursor + offset;
-            let end = start + needle.len();
-            if !value.is_char_boundary(start) || !value.is_char_boundary(end) {
-                break;
-            }
-            scrubbed.push_str(&value[cursor..start]);
-            scrubbed.push_str(PROFILE_PLACEHOLDER);
-            cursor = end;
-        }
-        scrubbed.push_str(&value[cursor..]);
-        Cow::Owned(scrubbed)
+        self.redactor.redact_known(value)
     }
 
     /// Scrub every string in `properties`, however deeply it is nested.
     pub fn scrub_properties(&self, properties: &mut Properties) {
-        if self.profile_dir.is_none() {
+        if self.redactor.has_no_known_value() {
             return;
         }
         for value in properties.values_mut() {
@@ -116,15 +86,4 @@ impl Scrubber {
             Value::Null | Value::Bool(_) | Value::Number(_) => {}
         }
     }
-}
-
-/// One case and one separator, so a path written either way compares equal.
-fn fold(value: &str) -> String {
-    value
-        .chars()
-        .map(|character| match character {
-            '/' => '\\',
-            other => other.to_ascii_lowercase(),
-        })
-        .collect()
 }

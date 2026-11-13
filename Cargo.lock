@@ -3403,6 +3403,7 @@ dependencies = [
  "ltk-manager-runeforge",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
+ "ltk-redact",
  "ltk-telemetry",
  "ltk_file",
  "ltk_game_data",
@@ -3849,11 +3850,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk-redact"
+version = "0.1.0"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "ltk-telemetry"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "fs-err",
+ "ltk-redact",
  "parking_lot",
  "reqwest 0.12.28",
  "serde",
