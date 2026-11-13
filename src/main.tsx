@@ -6,7 +6,7 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React, { type ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
-import { ErrorBoundary } from "./components";
+import { ErrorBoundary, RouteCrashScreen } from "./components";
 import { ConfirmHost } from "./components/ConfirmDialog";
 import { ToastProvider } from "./components/ToastProvider";
 import { installGlobalErrorHandlers } from "./lib/crashReporting";
@@ -15,7 +15,10 @@ import { api } from "./lib/tauri";
 import { useTheme } from "./modules/settings";
 import { routeTree } from "./routeTree.gen";
 
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  defaultErrorComponent: RouteCrashScreen,
+});
 
 declare module "@tanstack/react-router" {
   interface Register {

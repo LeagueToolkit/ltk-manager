@@ -181,6 +181,9 @@ export const OVERLAY_LABELS: Readonly<Record<OverlayOutcome, string>> = {
   get "hook-failed"() {
     return m.diagnostics_overlay_hook_failed_label();
   },
+  get refused() {
+    return m.diagnostics_overlay_refused_label();
+  },
   get none() {
     return m.diagnostics_overlay_none_label();
   },
@@ -244,6 +247,9 @@ export const OVERLAY_DETAIL_LABELS: Readonly<Partial<Record<OverlayOutcome, stri
   },
   get disabled() {
     return m.diagnostics_overlay_detail_disabled_label();
+  },
+  get refused() {
+    return m.diagnostics_overlay_detail_refused_label();
   },
 };
 

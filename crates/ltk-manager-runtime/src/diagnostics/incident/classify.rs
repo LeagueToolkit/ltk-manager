@@ -208,6 +208,7 @@ impl GameRecord {
         Self::rule_out_of_date,
         Self::rule_scan_rejection,
         Self::rule_overlay_disabled,
+        Self::rule_overlay_refused,
         Self::rule_unmodded,
         Self::rule_missing_data,
         Self::rule_corrupt_archive,
@@ -387,6 +388,20 @@ impl GameRecord {
         }
         verdict.cause = cause;
         Some((verdict, suspects))
+    }
+
+    /// The DLL refused the overlay, and the game ran unmodded. Fires on a clean ending.
+    ///
+    /// The cause carries the refusal code and no description of the check that failed.
+    fn rule_overlay_refused(&self, _ctx: &ClassifyContext<'_>) -> Option<(Verdict, Vec<Suspect>)> {
+        if self.overlay != OverlayOutcome::Refused {
+            return None;
+        }
+        let mut cause = String::from("No mod was in this game. The patcher refused the overlay.");
+        if let Some(OverlayDetail::Code(code)) = &self.overlay_detail {
+            cause.push_str(&format!(" The patcher's code is {code}."));
+        }
+        Some((Verdict::new(VerdictKind::Unmodded, cause), Vec::new()))
     }
 
     /// A game where no mod reached it, and why the DLL made none.
