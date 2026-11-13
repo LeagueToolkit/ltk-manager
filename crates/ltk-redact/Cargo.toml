@@ -1,0 +1,10 @@
+[package]
+name = "ltk-redact"
+version = "0.1.0"
+description = "Redaction of private values for LTK Manager"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+
+[dependencies]
+regex = { workspace = true }

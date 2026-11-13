@@ -1,4 +1,5 @@
 use fs_err as fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
@@ -96,14 +97,90 @@ fn build_file_writer() -> (
         return (None, None, None);
     }
 
+    // Before the appender opens today's file, so that the rewrite can replace it.
+    redact_existing_logs(&log_dir);
+
     let file_appender = rolling::RollingFileAppender::builder()
         .rotation(rolling::Rotation::DAILY)
         .filename_prefix("ltk-manager")
         .filename_suffix("log")
         .build(&log_dir)
         .expect("failed to create log file appender");
-    let (writer, guard) = non_blocking(file_appender);
+    let (writer, guard) = non_blocking(RedactingWriter(file_appender));
     (Some(guard), Some(writer), Some(log_dir))
+}
+
+/// Redacts each log event before `W` writes it.
+///
+/// The appender's worker thread calls `write` once for each event, with the whole event.
+struct RedactingWriter<W>(W);
+
+impl<W: Write> Write for RedactingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match std::str::from_utf8(buf) {
+            Ok(text) => self.0.write_all(ltk_redact::redact(text).as_bytes())?,
+            Err(_) => self.0.write_all(buf)?,
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
+}
+
+/// The file in the log directory that holds the ruleset version of the last rewrite.
+const REDACTED_MARKER: &str = ".redacted";
+
+/// Rewrites each log file in `log_dir` through the redactor, once for each ruleset version.
+///
+/// A release that did not redact the log wrote the existing files. Skips the rewrite if the
+/// marker file holds the current ruleset version. Leaves a file unchanged if it cannot be
+/// read or replaced, and then writes no marker, so the next start tries again.
+fn redact_existing_logs(log_dir: &Path) {
+    let marker = log_dir.join(REDACTED_MARKER);
+    let current = ltk_redact::RULESET_VERSION.to_string();
+    if fs::read_to_string(&marker).is_ok_and(|done| done.trim() == current) {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(log_dir) else {
+        return;
+    };
+
+    let mut complete = true;
+    for path in entries.flatten().map(|entry| entry.path()) {
+        if !is_log_file(&path) {
+            continue;
+        }
+        if let Err(e) = redact_log_file(&path) {
+            eprintln!("Failed to redact log file {}: {}", path.display(), e);
+            complete = false;
+        }
+    }
+    if complete {
+        let _ = fs::write(&marker, current);
+    }
+}
+
+/// Rewrites the file at `path` through the redactor. Writes nothing if no line changes.
+fn redact_log_file(path: &Path) -> std::io::Result<()> {
+    let original = String::from_utf8_lossy(&fs::read(path)?).into_owned();
+    let mut redacted = String::with_capacity(original.len());
+    for line in original.split_inclusive('\n') {
+        redacted.push_str(&ltk_redact::redact(line));
+    }
+    if redacted == original {
+        return Ok(());
+    }
+    let temporary = path.with_extension("log.redacting");
+    fs::write(&temporary, redacted)?;
+    fs::rename(&temporary, path)
+}
+
+fn is_log_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with("ltk-manager.") && name.ends_with(".log"))
 }
 
 /// Delete log files older than `max_age_days` from the log directory.
@@ -179,4 +256,46 @@ pub(crate) fn default_log_dir() -> Option<PathBuf> {
     }
 
     Some(std::env::temp_dir().join("ltk-manager"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacting_writer_replaces_a_deep_link_payload() {
+        let mut out = Vec::new();
+        let event = b"INFO opened ltk://install?url=https://cdn.example.com/a.modpkg\n";
+        let written = RedactingWriter(&mut out).write(event).unwrap();
+
+        assert_eq!(written, event.len());
+        assert_eq!(out, b"INFO opened ltk://install\n");
+    }
+
+    #[test]
+    fn redact_existing_logs_rewrites_log_files_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("ltk-manager.2026-11-01.log");
+        let other = dir.path().join("notes.txt");
+        fs::write(&log, "GET https://a.example/b?sig=1\nplain line\n").unwrap();
+        fs::write(&other, "https://a.example/b?sig=1").unwrap();
+
+        redact_existing_logs(dir.path());
+
+        assert_eq!(
+            fs::read_to_string(&log).unwrap(),
+            "GET https://a.example/b\nplain line\n"
+        );
+        assert_eq!(
+            fs::read_to_string(&other).unwrap(),
+            "https://a.example/b?sig=1"
+        );
+
+        fs::write(&log, "GET https://a.example/b?sig=2\n").unwrap();
+        redact_existing_logs(dir.path());
+        assert_eq!(
+            fs::read_to_string(&log).unwrap(),
+            "GET https://a.example/b?sig=2\n"
+        );
+    }
 }

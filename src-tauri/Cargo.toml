@@ -42,6 +42,7 @@ ltk-manager-problems = { path = "../crates/ltk-manager-problems", features = ["t
 ltk-manager-runeforge = { path = "../crates/ltk-manager-runeforge", features = ["ts"] }
 ltk-manager-runtime = { path = "../crates/ltk-manager-runtime", features = ["ts"] }
 ltk-manager-workshop = { path = "../crates/ltk-manager-workshop", features = ["ts"] }
+ltk-redact = { workspace = true }
 ltk-telemetry = { workspace = true }
 
 ltk_mod_core = { version = "0.1.1" }
