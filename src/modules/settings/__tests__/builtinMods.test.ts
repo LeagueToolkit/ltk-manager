@@ -21,6 +21,7 @@ function withBuiltinMods(builtinMods: Partial<BuiltinModSettings>) {
     forcedMapSkin: "",
     mapDecorations: {},
     characterInking: createMockInking(),
+    loadingScreen: { enabled: false, assets: null },
   };
   return createMockSettings({ builtinMods: { ...defaults, ...builtinMods } as BuiltinModSettings });
 }
@@ -67,6 +68,18 @@ describe("hasBuiltinMods", () => {
       hasBuiltinMods(withBuiltinMods({ characterInking: createMockInking({ enabled: true }) })),
     ).toBe(true);
     expect(hasBuiltinMods(withBuiltinMods({ characterInking: createMockInking() }))).toBe(false);
+  });
+
+  it("counts custom loading screen only while enabled and an asset is chosen", () => {
+    expect(
+      hasBuiltinMods(withBuiltinMods({ loadingScreen: { enabled: true, assets: "bg.png" } })),
+    ).toBe(true);
+    expect(
+      hasBuiltinMods(withBuiltinMods({ loadingScreen: { enabled: true, assets: null } })),
+    ).toBe(false);
+    expect(
+      hasBuiltinMods(withBuiltinMods({ loadingScreen: { enabled: false, assets: "bg.png" } })),
+    ).toBe(false);
   });
 });
 

@@ -5,6 +5,7 @@ mod base_skins;
 mod character_inking;
 mod game_maps;
 mod game_skins;
+mod loadingscreen;
 mod map_decorations;
 mod map_skins;
 mod mod_skins;
@@ -21,6 +22,7 @@ pub use character_inking::{
 };
 use fs_err as fs;
 use game_skins::GameSkins;
+use loadingscreen::LoadingScreen;
 use ltk_manager_base::config::BuiltinModSettings;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
 use ltk_manager_base::game_build::GameBuild;
@@ -152,6 +154,9 @@ fn enabled(settings: &BuiltinModSettings) -> Vec<Box<dyn BuiltinMod>> {
     }
     if let Some(map_decorations) = MapDecorations::of(settings) {
         enabled.push(Box::new(map_decorations));
+    }
+    if let Some(loading_screen) = LoadingScreen::of(&settings.loading_screen) {
+        enabled.push(Box::new(loading_screen));
     }
     enabled
 }

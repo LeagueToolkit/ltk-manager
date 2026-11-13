@@ -933,6 +933,8 @@ export type BuiltinModSettings = {
 	mapDecorations?: { [key in string]: MapDecorationMode },
 	/**  Character inking: which champions get an outline, on which maps, and how it looks. */
 	characterInking?: CharacterInking,
+	/**  Custom loading screen background. */
+	loadingScreen?: LoadingScreenSettings,
 };
 
 /**  Error info for a single file that failed during bulk install. */
@@ -4950,6 +4952,14 @@ export type LinkChange =
 "added" | 
 /**  A `-links` item of a dependency of the game's list the applied one lacks. */
 "removed";
+
+/**  The settings of the custom loading screen background built-in mod. */
+export type LoadingScreenSettings = {
+	/**  Whether the mod runs. */
+	enabled?: boolean,
+	/**  Path to the custom loading screen image or video. */
+	assets?: string | null,
+};
 
 /**  A layer whose declaration files could not be converted to YAML. */
 export type ManifestConversionFailure = {
