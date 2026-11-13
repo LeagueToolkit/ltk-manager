@@ -292,7 +292,10 @@ impl Injector {
                 level,
                 message,
             }) => {
-                tracing::info!("[ltk-dll pid={} tid={} {}] {}", pid, tid, level, message);
+                host::log_at(
+                    host::dll_record_level(&level),
+                    format_args!("[ltk-dll pid={pid} tid={tid} {level}] {message}"),
+                );
                 self.handle_dll_record(pid, &timestamp, &level, &message, state);
             }
             None => tracing::trace!("[ltk-host] unparsed: {}", line),

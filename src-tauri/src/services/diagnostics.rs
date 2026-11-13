@@ -255,6 +255,35 @@ pub fn telemetry_identity(telemetry: State<Arc<TelemetryState>>) -> IpcResult<Op
     AppResult::Ok(identity).into()
 }
 
+/// The number of frontend errors that one run writes to the log.
+const UI_ERROR_LOG_LIMIT: u32 = 50;
+
+/// Writes `error` to the log, at `error` with the target `ui`.
+///
+/// Writes nothing after `UI_ERROR_LOG_LIMIT` errors in one run, so that an error in a
+/// render loop cannot fill the log file.
+fn log_ui_error(error: &UiError) {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static WRITTEN: AtomicU32 = AtomicU32::new(0);
+
+    let written = WRITTEN.fetch_add(1, Ordering::Relaxed);
+    if written >= UI_ERROR_LOG_LIMIT {
+        return;
+    }
+    tracing::error!(
+        target: "ui",
+        route = error.route.as_deref().unwrap_or("/"),
+        handled = error.handled,
+        stack = ?error.stack,
+        "{}: {}",
+        error.name,
+        error.message
+    );
+    if written + 1 == UI_ERROR_LOG_LIMIT {
+        tracing::error!(target: "ui", "frontend error limit reached, later errors are not logged");
+    }
+}
+
 /// Report a crash the frontend caught, which is its only route to the wire.
 ///
 /// The frontend does not reach the network, so a boundary, a window error and a
@@ -262,6 +291,7 @@ pub fn telemetry_identity(telemetry: State<Arc<TelemetryState>>) -> IpcResult<Op
 #[tauri::command]
 #[specta::specta]
 pub fn track_ui_error(error: UiError) -> IpcResult<()> {
+    log_ui_error(&error);
     crate::telemetry::report_ui_error(&error);
     AppResult::Ok(()).into()
 }
