@@ -52,6 +52,10 @@ export const commands = {
 	/**  Closes the event bank open under `id`, dropping its unsaved changes. */
 	audioBankClose: (id: number) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:audio|audio_bank_close", { id }),
 	/**
+	 *  Upgrades the open bank under `id` to version 145.
+	 */
+	audioBankUpgrade: (id: number) => __TAURI_INVOKE<({ ok: true; value: AudioBankState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:audio|audio_bank_upgrade", { id }),
+	/**
 	 *  Applies `edit` to the event bank open under `id` as one undo step.
 	 * 
 	 *  The bank set of the bank checks every new target, child and source, and a new ID avoids
@@ -161,4 +165,4 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"audioBankClose":"plugin:audio|audio_bank_close","audioBankEdit":"plugin:audio|audio_bank_edit","audioBankImport":"plugin:audio|audio_bank_import","audioBankNodes":"plugin:audio|audio_bank_nodes","audioBankOpen":"plugin:audio|audio_bank_open","audioBankReplace":"plugin:audio|audio_bank_replace","audioBankReplacePreview":"plugin:audio|audio_bank_replace_preview","audioBankSave":"plugin:audio|audio_bank_save","audioBankStep":"plugin:audio|audio_bank_step","audioScopedEvents":"plugin:audio|audio_scoped_events","audioSearchEvents":"plugin:audio|audio_search_events","audioVoiceLines":"plugin:audio|audio_voice_lines","audioVoiceRuleTemplate":"plugin:audio|audio_voice_rule_template","exportAudioMedia":"plugin:audio|export_audio_media","readAudioEvent":"plugin:audio|read_audio_event","readAudioEvents":"plugin:audio|read_audio_events","readAudioMedia":"plugin:audio|read_audio_media","readBankReferences":"plugin:audio|read_bank_references","resolveSounds":"plugin:audio|resolve_sounds"} as const;
+export const commandNames = {"audioBankClose":"plugin:audio|audio_bank_close","audioBankEdit":"plugin:audio|audio_bank_edit","audioBankImport":"plugin:audio|audio_bank_import","audioBankNodes":"plugin:audio|audio_bank_nodes","audioBankOpen":"plugin:audio|audio_bank_open","audioBankReplace":"plugin:audio|audio_bank_replace","audioBankReplacePreview":"plugin:audio|audio_bank_replace_preview","audioBankSave":"plugin:audio|audio_bank_save","audioBankStep":"plugin:audio|audio_bank_step","audioBankUpgrade":"plugin:audio|audio_bank_upgrade","audioScopedEvents":"plugin:audio|audio_scoped_events","audioSearchEvents":"plugin:audio|audio_search_events","audioVoiceLines":"plugin:audio|audio_voice_lines","audioVoiceRuleTemplate":"plugin:audio|audio_voice_rule_template","exportAudioMedia":"plugin:audio|export_audio_media","readAudioEvent":"plugin:audio|read_audio_event","readAudioEvents":"plugin:audio|read_audio_events","readAudioMedia":"plugin:audio|read_audio_media","readBankReferences":"plugin:audio|read_bank_references","resolveSounds":"plugin:audio|resolve_sounds"} as const;

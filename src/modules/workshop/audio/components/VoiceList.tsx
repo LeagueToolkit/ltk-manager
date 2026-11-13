@@ -519,6 +519,13 @@ export function VoiceList({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
 
+    if (event.key === "Escape") {
+      picks.clear();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     const command = resolveCommand(event, "voices");
     const handled = command === null ? typeAhead(event) : run(command, event.key, selectedRow);
     if (!handled) return;
@@ -794,8 +801,19 @@ export function VoiceList({
           aria-multiselectable
           aria-activedescendant={selected === null ? undefined : rowId(selected)}
           onKeyDown={handleKeyDown}
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('[data-ui="RowFrame"]') === null) {
+              picks.clear();
+            }
+          }}
           onFocus={(event) => {
-            if (event.target === event.currentTarget && selectedIndex < 0) selectAt(0);
+            if (
+              event.target === event.currentTarget &&
+              selectedIndex < 0 &&
+              event.currentTarget.matches(":focus-visible")
+            ) {
+              selectAt(0);
+            }
           }}
           onPointerLeave={() => guides.set({ hover: null, hoverAt: null })}
           data-ui="VoiceList"

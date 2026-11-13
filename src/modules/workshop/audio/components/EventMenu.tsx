@@ -33,6 +33,7 @@ export interface NodeActions {
   /** Opens the add row of the row's container or event. */
   readonly add: (() => void) | null;
   readonly duplicate: (() => void) | null;
+  readonly alias?: (() => void) | null;
   readonly wrap: ((container: ContainerKind) => void) | null;
   readonly remove: (() => void) | null;
   readonly copy: () => void;
@@ -121,6 +122,11 @@ export function EventMenu({ subject, actions, count, onCopy }: EventMenuProps) {
               onClick={actions.duplicate}
             >
               {m.audio_node_duplicate_action()}
+            </ContextMenu.Item>
+          )}
+          {actions.alias != null && subject.kind === "event" && (
+            <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={actions.alias}>
+              {m.audio_event_alias_action()}
             </ContextMenu.Item>
           )}
           {actions.cut !== null && (

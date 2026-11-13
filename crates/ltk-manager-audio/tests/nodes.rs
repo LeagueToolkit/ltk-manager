@@ -234,6 +234,34 @@ fn new_event_refuses_name_of_existing_event() {
 }
 
 #[test]
+fn alias_event_shares_target_without_duplicating_subtree() {
+    let mut document = document();
+    let original_objects = document.events().len();
+
+    edit(
+        &mut document,
+        BankEdit::AliasEvent {
+            event: EVENT,
+            name: "Play_sfx_Alias".to_owned(),
+        },
+    );
+
+    let written = bank_of(document.bytes());
+    let alias_id = ObjectId::from_name("Play_sfx_Alias").0;
+    let alias_actions = actions(&written, alias_id);
+
+    assert_eq!(alias_actions.len(), 1);
+    let new_action_id = alias_actions[0];
+    assert_ne!(new_action_id, PLAY);
+
+    let Typed::Action(action) = typed(&written, new_action_id) else {
+        panic!("expected an action");
+    };
+    assert_eq!(action.target.0, RANDOM);
+    assert_eq!(document.events().len(), original_objects + 1);
+}
+
+#[test]
 fn new_event_refuses_name_that_index_names() {
     let mut document = document();
     let mut builder = AudioIndex::builder();
@@ -757,18 +785,46 @@ fn delete_of_imported_sound_drops_its_media() {
 }
 
 #[test]
+fn delete_of_imported_streamed_sound_drops_its_package_entry() {
+    let mut document = document();
+    let sound_id = import(
+        &mut document,
+        &[MEDIA, PACKAGE],
+        NodeParent::Container { container: RANDOM },
+        fixture("clipped_vorbis.wem"),
+    )
+    .expect("import");
+
+    let read_before = Package::from_reader(&mut &document.media()[0].bytes()[..]).expect("read");
+    assert_eq!(read_before.len(), 3);
+
+    edit(
+        &mut document,
+        BankEdit::Delete {
+            object: sound_id,
+            parent: Some(RANDOM),
+        },
+    );
+
+    let read_after = Package::from_reader(&mut &document.media()[0].bytes()[..]).expect("read");
+    assert_eq!(read_after.len(), 2);
+    assert_eq!(document.bytes(), fixture("events_v145.bnk"));
+    assert_eq!(document.media()[0].bytes(), fixture("package.wpk"));
+}
+
+#[test]
 fn import_refuses_wem_of_other_codec() {
     let mut document = document();
-    let pcm = pcm_wem();
+    let unsupported = unsupported_wem();
 
     let refused = import(
         &mut document,
         &[MEDIA],
         NodeParent::Container { container: RANDOM },
-        pcm,
+        unsupported,
     );
 
-    assert!(matches!(refused, Err(BankEditError::Codec(0x0001))));
+    assert!(matches!(refused, Err(BankEditError::Codec(0x1234))));
     assert_eq!(document.bytes(), fixture("events_v145.bnk"));
     assert!(document.media().is_empty());
 }
@@ -787,15 +843,15 @@ fn import_refuses_file_that_is_not_wem() {
     assert!(matches!(refused, Err(BankEditError::Wem(_))));
 }
 
-/// A RIFF `WAVE` of 16-bit mono PCM with four samples.
-fn pcm_wem() -> Vec<u8> {
+/// A RIFF `WAVE` of an unsupported codec 0x1234.
+fn unsupported_wem() -> Vec<u8> {
     let data = [0u8; 8];
     let mut wem = Vec::new();
     wem.extend_from_slice(b"RIFF");
     wem.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
     wem.extend_from_slice(b"WAVEfmt ");
     wem.extend_from_slice(&16u32.to_le_bytes());
-    wem.extend_from_slice(&1u16.to_le_bytes());
+    wem.extend_from_slice(&0x1234u16.to_le_bytes());
     wem.extend_from_slice(&1u16.to_le_bytes());
     wem.extend_from_slice(&48_000u32.to_le_bytes());
     wem.extend_from_slice(&96_000u32.to_le_bytes());
@@ -833,4 +889,35 @@ fn objects_keep_kind_after_copy() {
         Some(ObjectKind::RANDOM_SEQUENCE_CONTAINER)
     );
     assert_eq!(children(&written, container).len(), 7);
+}
+
+#[test]
+fn copy_event_places_subtree_before_parent_mixer() {
+    let mut document = document();
+    edit(
+        &mut document,
+        BankEdit::CopyEvent {
+            event: EVENT,
+            name: "Play_sfx_Copy".to_owned(),
+        },
+    );
+
+    let written = bank_of(document.bytes());
+    let copy = ObjectId::from_name("Play_sfx_Copy").0;
+    let [play] = actions(&written, copy)[..] else {
+        panic!("not one action");
+    };
+    let container = target(&written, play);
+    let objects = written.hierarchy().expect("hierarchy").objects();
+    let pos = |id: u32| {
+        objects
+            .iter()
+            .position(|o| o.id().0 == id)
+            .unwrap_or_else(|| panic!("missing {id}"))
+    };
+
+    assert!(pos(container) < pos(MIXER));
+    for child in children(&written, container) {
+        assert!(pos(child) < pos(container));
+    }
 }

@@ -290,6 +290,7 @@ export const api = {
   // Event bank documents
   audioBankOpen: audio.audioBankOpen,
   audioBankClose: audio.audioBankClose,
+  audioBankUpgrade: audio.audioBankUpgrade,
   audioBankEdit: audio.audioBankEdit,
   audioBankImport: audio.audioBankImport,
   audioBankReplacePreview: audio.audioBankReplacePreview,

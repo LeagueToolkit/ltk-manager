@@ -21,6 +21,8 @@ export interface TreePicks<T = NodeTarget> {
   readonly pick: (key: string, mode: PickMode) => void;
   /** Picks every drawn row that stands for an object. */
   readonly pickAll: () => void;
+  /** Clears the cursor and the selection. */
+  readonly clear: () => void;
 }
 
 /**
@@ -32,7 +34,7 @@ export interface TreePicks<T = NodeTarget> {
 export function useTreePicks<T = NodeTarget>(
   targets: ReadonlyMap<string, T>,
   cursor: string | null,
-  setCursor: (key: string) => void,
+  setCursor: (key: string | null) => void,
 ): TreePicks<T> {
   const [selection, setSelection] = useState<RowSelection>(NO_SELECTION);
   const order = useMemo(() => [...targets.keys()], [targets]);
@@ -52,9 +54,14 @@ export function useTreePicks<T = NodeTarget>(
 
   const pickAll = useCallback(() => setSelection(selectAll(order, cursor)), [order, cursor]);
 
+  const clear = useCallback(() => {
+    setCursor(null);
+    setSelection(NO_SELECTION);
+  }, [setCursor]);
+
   const picked = pickedInOrder(shown, order).flatMap((key) => {
     const target = targets.get(key);
     return target === undefined ? [] : [target];
   });
-  return { picked: shown.keys, targets: picked, pick, pickAll };
+  return { picked: shown.keys, targets: picked, pick, pickAll, clear };
 }

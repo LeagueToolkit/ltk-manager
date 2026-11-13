@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, type RefObject, useMemo, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useCallback, useMemo, useRef, useState } from "react";
 
 import {
   AlertBox,
+  Button,
   Code,
   EmptyState,
   LoadingState,
@@ -33,6 +34,7 @@ import { type PanelCommands, PanelCommandsContext, usePanelCommands } from "../s
 import { useNudgeVolume, usePreviewRepeat, useToggleLoop } from "../state/previewTransport";
 import { AUDIO_KEYMAP, type AudioCommandId, type AudioSurface } from "../utils/keymap";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
+import type { PickMode } from "../utils/rowSelection";
 import { AudioMenubar, VolumeReadout } from "./AudioMenubar";
 import { AudioPanelTools, AudioToolbar, AudioToolsSlotContext } from "./AudioToolbar";
 import { BankUnitItems } from "./BankUnits";
@@ -181,7 +183,9 @@ export function AudioFileDocument({
               onOpenChange={setDetails}
             />
           )}
-          {audio !== null && <AudioNotices asset={asset} audio={audio} view={shownView} />}
+          {audio !== null && (
+            <AudioNotices asset={asset} audio={audio} view={shownView} bank={bank} />
+          )}
           <AudioToolsSlotContext value={tools}>
             {!hierarchy && <MediaPanel asset={asset} name={name} />}
             {hierarchy && <ViewPanels asset={asset} name={name} bank={bank} />}
@@ -270,10 +274,18 @@ interface ViewPanelsProps {
 function ViewPanels({ asset, name, bank }: ViewPanelsProps) {
   return (
     <>
-      <Tabs.Panel value="media" className="flex min-h-0 flex-1 flex-col">
+      <Tabs.Panel
+        value="media"
+        keepMounted
+        className="flex min-h-0 flex-1 flex-col data-[hidden]:hidden"
+      >
         <MediaPanel asset={asset} name={name} />
       </Tabs.Panel>
-      <Tabs.Panel value="events" className="flex min-h-0 flex-1 flex-col">
+      <Tabs.Panel
+        value="events"
+        keepMounted
+        className="flex min-h-0 flex-1 flex-col data-[hidden]:hidden"
+      >
         <EventsPanel asset={asset} bank={bank} />
       </Tabs.Panel>
     </>
@@ -353,6 +365,7 @@ interface AudioNoticesProps {
   readonly asset: AssetRef;
   readonly audio: AudioInfo;
   readonly view: AudioView;
+  readonly bank?: BankDocument;
 }
 
 /**
@@ -362,7 +375,7 @@ interface AudioNoticesProps {
  * The Events view shows its own notice for the building index, so this one shows in the Media
  * view alone.
  */
-function AudioNotices({ asset, audio, view }: AudioNoticesProps) {
+function AudioNotices({ asset, audio, view, bank: bankDoc }: AudioNoticesProps) {
   const sandbox = useSandbox();
   const version = useAssetVersion(asset);
   const named = audio.container !== "media";
@@ -374,10 +387,43 @@ function AudioNotices({ asset, audio, view }: AudioNoticesProps) {
   const bank = audio.bank;
   const mismatch = bank !== null && bank.nameId !== null && bank.nameId !== bank.headerId;
   const building = named && view === "media" && references.data?.index.status === "building";
-  if (audio.failure === null && bank?.rejection == null && !mismatch && !building) return null;
+  const readOnlyGame = bankDoc?.readOnlyReason === "game";
+  const readOnlyNoProject = bankDoc?.readOnlyReason === "no_project";
+  const canUpgrade =
+    bankDoc?.readOnlyReason === "legacy" &&
+    bankDoc?.state !== null &&
+    bankDoc.state.version < 145;
+
+  const shown =
+    audio.failure !== null ||
+    bank?.rejection != null ||
+    mismatch ||
+    building ||
+    readOnlyGame ||
+    readOnlyNoProject ||
+    canUpgrade;
+  if (!shown) return null;
 
   return (
     <NoticeBand>
+      {readOnlyGame && <AlertBox tone="info">{m.audio_bank_read_only_game_description()}</AlertBox>}
+      {readOnlyNoProject && (
+        <AlertBox tone="info">{m.audio_bank_read_only_no_project_description()}</AlertBox>
+      )}
+      {canUpgrade && bankDoc?.state !== null && (
+        <AlertBox
+          tone="warning"
+          actions={
+            <Button variant="outline" size="xs" onClick={() => void bankDoc.upgrade()}>
+              {m.audio_bank_upgrade_action()}
+            </Button>
+          }
+        >
+          {m.audio_bank_legacy_upgrade_description({
+            version: String(bankDoc.state.version),
+          })}
+        </AlertBox>
+      )}
       {audio.failure !== null && (
         <AlertBox tone="danger" title={m.audio_read_failure_title()}>
           <span className="select-text">{audio.failure}</span>
@@ -410,6 +456,8 @@ function MediaPanel({ asset, name }: { asset: AssetRef; name: string }) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<MediaSort | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const [picked, setPicked] = useState<ReadonlySet<number>>(() => new Set());
+  const [anchor, setAnchor] = useState<number | null>(null);
   const focus = useMediaFocus(asset);
   const [focused, setFocused] = useState<number | null>(null);
   const filterBox = useRef<HTMLInputElement>(null);
@@ -417,6 +465,8 @@ function MediaPanel({ asset, name }: { asset: AssetRef; name: string }) {
   if (focus !== null && focus.serial !== focused) {
     setFocused(focus.serial);
     setSelected(focus.source);
+    setPicked((current) => new Set([...current, focus.source]));
+    setAnchor(focus.source);
     setFilter("");
   }
 
@@ -425,6 +475,53 @@ function MediaPanel({ asset, name }: { asset: AssetRef; name: string }) {
     [media.data, filter, sort],
   );
   const selectedRow = rows.find((row) => row.sourceId === selected);
+
+  const handleSelect = useCallback(
+    (sourceId: number, mode: PickMode) => {
+      setSelected(sourceId);
+      if (mode === "only") {
+        setPicked(new Set([sourceId]));
+        setAnchor(sourceId);
+        return;
+      }
+      if (mode === "toggle") {
+        setPicked((current) => {
+          const next = new Set(current);
+          if (next.has(sourceId)) next.delete(sourceId);
+          else next.add(sourceId);
+          return next;
+        });
+        setAnchor(sourceId);
+        return;
+      }
+      const order = rows.map((r) => r.sourceId);
+      const from = anchor === null ? -1 : order.indexOf(anchor);
+      const to = order.indexOf(sourceId);
+      if (from === -1 || to === -1) {
+        setPicked(new Set([sourceId]));
+        setAnchor(sourceId);
+        return;
+      }
+      const [start, end] = from <= to ? [from, to] : [to, from];
+      const range = order.slice(start, end + 1);
+      setPicked((current) => {
+        const next = new Set(current);
+        for (const id of range) next.add(id);
+        return next;
+      });
+    },
+    [anchor, rows],
+  );
+
+  const handleSelectAll = useCallback(() => {
+    setPicked(new Set(rows.map((r) => r.sourceId)));
+  }, [rows]);
+
+  const handleClear = useCallback(() => {
+    setSelected(null);
+    setPicked(new Set());
+    setAnchor(null);
+  }, []);
 
   usePanelCommands("media", {
     find: () => filterBox.current?.select(),
@@ -466,9 +563,13 @@ function MediaPanel({ asset, name }: { asset: AssetRef; name: string }) {
           sort={sort}
           onSort={setSort}
           selected={selected}
-          onSelect={setSelected}
+          picked={picked}
+          onSelect={handleSelect}
+          onSelectAll={handleSelectAll}
+          onClear={handleClear}
           player={player}
           actions={actions}
+          focusSerial={focused}
         />
       </MediaBody>
       {media.data !== undefined && media.data.length > 0 && (
