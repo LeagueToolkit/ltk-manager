@@ -56,6 +56,15 @@ body:
     validations:
       required: false
 
+  - type: input
+    id: diagnostic
+    attributes:
+      label: Diagnostic Token
+      description: The token of the game that went wrong. `Report a Bug` in the app fills it in. `Copy token` on the Diagnostics page copies it.
+      placeholder: "DIAG1-..."
+    validations:
+      required: false
+
   - type: textarea
     id: context
     attributes:

@@ -165,7 +165,10 @@ impl IncidentToken {
             .map(str::to_string);
         let overlay_detail = matches!(
             incident.overlay,
-            OverlayOutcome::EndOfLife | OverlayOutcome::Disabled | OverlayOutcome::HookFailed
+            OverlayOutcome::EndOfLife
+                | OverlayOutcome::Disabled
+                | OverlayOutcome::HookFailed
+                | OverlayOutcome::Refused
         )
         .then(|| incident.overlay_detail.as_deref())
         .flatten()

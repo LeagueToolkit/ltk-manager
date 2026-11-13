@@ -382,6 +382,17 @@ fn a_rejection_reads_back_the_status_it_wrote() {
 }
 
 #[test]
+fn a_refused_overlay_records_on_a_clean_ending() {
+    let mut record = clean(modded_game());
+    record.overlay = OverlayOutcome::Refused;
+    record.overlay_detail = Some(OverlayDetail::Code("VRF00000008".to_string()));
+    let incident = classify(&record, &no_path).unwrap();
+    assert_eq!(incident.verdict.kind, VerdictKind::Unmodded);
+    assert!(incident.verdict.cause.contains("VRF00000008"));
+    assert!(incident.suspects.is_empty());
+}
+
+#[test]
 fn a_disabled_overlay_records_on_a_clean_ending() {
     let mut record = clean(modded_game());
     record.overlay = OverlayOutcome::Disabled;
@@ -1201,6 +1212,7 @@ fn the_token_numbers_are_pinned() {
             (OverlayOutcome::EndOfLife, 3),
             (OverlayOutcome::Disabled, 4),
             (OverlayOutcome::HookFailed, 5),
+            (OverlayOutcome::Refused, 6),
         ],
         OverlayOutcome::code,
         OverlayOutcome::from_code,

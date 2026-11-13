@@ -18,6 +18,13 @@ pub const HOOK_FAILED_SUFFIX: &str = " hook";
 pub const OVERLAY_DISABLED: &str = "overlay verification failed, disabling overlay: ";
 pub const WAD_SKIPPED: &str = "lazy verification failed, not overlaying: ";
 pub const WAD_SCAN_FAILED: &str = "WAD scan failed";
+pub const OVERLAY_REFUSED: &str = "host verification failed, refusing overlay";
+pub const WAD_OPEN_FAILED: &str = "overlay open failed for verified wad ";
+pub const WAD_ALLOC_FAILED: &str = "overlay string alloc failed for verified wad ";
+pub const USING_ORIGINAL: &str = ", using original";
+/// The reason that a `WadSkipped` line carries when the DLL verified an archive and
+/// then failed to open it.
+pub const WAD_OPEN_FAILED_WHY: &str = "the patcher could not open the modded archive";
 pub const REDIRECTED: &str = "redirected wad: ";
 pub const LAUNCH_SUFFIX: &str = " launch; anti-hack scan will not block";
 pub const LAUNCH_SPECTATOR: &str = "spectator";
@@ -47,11 +54,28 @@ impl DllLevel {
 pub enum DllLine {
     InitDone,
     JoinedTooLate,
-    EndOfLife { build: String },
-    OverlayDisabled { wad: String, why: String },
-    WadSkipped { wad: String, why: String },
-    HookFailed { hook: String },
-    Redirected { wad: String },
+    EndOfLife {
+        build: String,
+    },
+    OverlayDisabled {
+        wad: String,
+        why: String,
+    },
+    WadSkipped {
+        wad: String,
+        why: String,
+    },
+    HookFailed {
+        hook: String,
+    },
+    /// The DLL refused the overlay. `code` is the bracketed code of the record, if
+    /// the record has one.
+    OverlayRefused {
+        code: Option<String>,
+    },
+    Redirected {
+        wad: String,
+    },
     ScanFailed,
     Launch(LaunchKind),
 }
@@ -85,6 +109,21 @@ impl DllLine {
         if let Some(rest) = text.strip_prefix(OVERLAY_DISABLED) {
             let (wad, why) = split_wad_and_why(rest);
             return Some(Self::OverlayDisabled { wad, why });
+        }
+        if let Some(rest) = text.strip_prefix(OVERLAY_REFUSED) {
+            return Some(Self::OverlayRefused {
+                code: bracketed_code(rest),
+            });
+        }
+        if let Some(wad) = text
+            .strip_prefix(WAD_OPEN_FAILED)
+            .or_else(|| text.strip_prefix(WAD_ALLOC_FAILED))
+            .and_then(|rest| rest.strip_suffix(USING_ORIGINAL))
+        {
+            return Some(Self::WadSkipped {
+                wad: last_segment(wad).to_string(),
+                why: WAD_OPEN_FAILED_WHY.to_string(),
+            });
         }
         if let Some(rest) = text.strip_prefix(WAD_SKIPPED) {
             let (wad, why) = split_wad_and_why(rest);
@@ -121,6 +160,14 @@ fn looks_like_target(prefix: &str) -> bool {
         && prefix
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == ':')
+}
+
+/// Returns the text between the first `[` and the next `]` of `text`, if it is
+/// ASCII letters and digits only.
+fn bracketed_code(text: &str) -> Option<String> {
+    let (_, rest) = text.split_once('[')?;
+    let (code, _) = rest.split_once(']')?;
+    (!code.is_empty() && code.chars().all(|c| c.is_ascii_alphanumeric())).then(|| code.to_string())
 }
 
 fn last_segment(path: &str) -> &str {
@@ -175,6 +222,42 @@ mod tests {
             DllLine::parse("ltk_patcher_dll::entry: init done"),
             Some(DllLine::InitDone)
         );
+    }
+
+    #[test]
+    fn overlay_refused_keeps_the_code_and_drops_its_arguments() {
+        assert_eq!(
+            DllLine::parse(
+                "ltk_patcher_dll::verify: host verification failed, refusing overlay: [VRF00000008] (4312,ab12)"
+            ),
+            Some(DllLine::OverlayRefused {
+                code: Some("VRF00000008".to_string())
+            })
+        );
+    }
+
+    #[test]
+    fn overlay_refused_without_a_code_has_no_code() {
+        assert_eq!(
+            DllLine::parse("host verification failed, refusing overlay: access denied"),
+            Some(DllLine::OverlayRefused { code: None })
+        );
+    }
+
+    #[test]
+    fn wad_open_failure_is_a_skipped_archive() {
+        for line in [
+            "overlay open failed for verified wad DATA/FINAL/Champions/Ahri.wad.client, using original",
+            "overlay string alloc failed for verified wad DATA/FINAL/Champions/Ahri.wad.client, using original",
+        ] {
+            assert_eq!(
+                DllLine::parse(&format!("{TARGET}{line}")),
+                Some(DllLine::WadSkipped {
+                    wad: "Ahri.wad.client".to_string(),
+                    why: WAD_OPEN_FAILED_WHY.to_string(),
+                })
+            );
+        }
     }
 
     #[test]

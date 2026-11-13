@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ErrorBoundary } from "@/components";
+import { ErrorBoundary, RouteCrashScreen } from "@/components";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -85,5 +85,17 @@ describe("ErrorBoundary", () => {
 
     expect(screen.getByText("the app")).toBeInTheDocument();
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("renders the crash screen for a route error and reports the error", () => {
+    render(<RouteCrashScreen error={new RangeError("out of range")} />);
+
+    expect(screen.getByText("The manager hit a problem")).toBeInTheDocument();
+    const call = mockInvoke.mock.calls.find(
+      ([name]) => name === commandNames.diagnostics.trackUiError,
+    );
+    const { error } = call![1] as { error: Record<string, unknown> };
+    expect(error.name).toBe("RangeError");
+    expect(error.handled).toBe(true);
   });
 });

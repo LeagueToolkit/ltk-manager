@@ -906,8 +906,8 @@ interface Incident {
     matchesBundle?: boolean;
   };
   /** What the DLL said after it attached. */
-  overlay: "live" | "too-late" | "end-of-life" | "disabled" | "hook-failed" | "none";
-  /** The DLL's word on the outcome, for the three outcomes that carry one. */
+  overlay: "live" | "too-late" | "end-of-life" | "disabled" | "hook-failed" | "refused" | "none";
+  /** The DLL's word on the outcome, for the four outcomes that carry one. */
   overlayDetail: string | null;
   /** The archives the DLL served from the overlay. */
   redirected: string[];
@@ -921,7 +921,11 @@ interface Incident {
   /** How far the game got, as its log says. */
   phase: "unknown" | "loading" | "in-game" | "torn-down";
   game: { version: string; contentVersion: string; logPath: string } | null;
-  ending: { exitReason: string | null; exitCode: number | null; crashed: boolean | null };
+  ending: {
+    exitReason: string | null;
+    exitCode: number | null;
+    crashed: boolean | null;
+  };
   /** Set when the session failed before any game, which is the whole story. */
   failure: SessionFailure | null;
   verdict: Verdict;

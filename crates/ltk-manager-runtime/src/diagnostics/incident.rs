@@ -37,6 +37,8 @@ pub enum OverlayOutcome {
     Disabled,
     /// A hook did not take.
     HookFailed,
+    /// The DLL refused the overlay after `init done`.
+    Refused,
     /// The DLL never attached, or said nothing.
     None,
 }
@@ -55,6 +57,8 @@ pub enum OverlayDetail {
     Rejected { wad: String, why: String },
     /// The hook that did not install, for [`OverlayOutcome::HookFailed`].
     Hook(String),
+    /// The code of the refusal, for [`OverlayOutcome::Refused`].
+    Code(String),
 }
 
 impl fmt::Display for OverlayDetail {
@@ -63,6 +67,7 @@ impl fmt::Display for OverlayDetail {
             Self::Build(build) => f.write_str(build),
             Self::Rejected { wad, why } => write!(f, "{wad}: {why}"),
             Self::Hook(hook) => f.write_str(hook),
+            Self::Code(code) => f.write_str(code),
         }
     }
 }
@@ -628,6 +633,7 @@ impl OverlayOutcome {
             Self::EndOfLife => 3,
             Self::Disabled => 4,
             Self::HookFailed => 5,
+            Self::Refused => 6,
         }
     }
 
@@ -640,6 +646,7 @@ impl OverlayOutcome {
             3 => Self::EndOfLife,
             4 => Self::Disabled,
             5 => Self::HookFailed,
+            6 => Self::Refused,
             _ => return None,
         })
     }

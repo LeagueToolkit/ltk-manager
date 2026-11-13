@@ -402,6 +402,10 @@ impl Injector {
                 outcome: OverlayOutcome::HookFailed,
                 detail: Some(OverlayDetail::Hook(hook)),
             },
+            DllLine::OverlayRefused { code } => InjectorEvent::Overlay {
+                outcome: OverlayOutcome::Refused,
+                detail: code.map(OverlayDetail::Code),
+            },
             DllLine::Redirected { wad } => {
                 self.emit_event(InjectorEvent::WadRedirected { wad });
                 return;
