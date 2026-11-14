@@ -26,11 +26,16 @@ pub const RULESET_VERSION: u32 = 1;
 /// ordinary words.
 const MIN_BARE_VALUE_CHARS: usize = 4;
 
-/// The text that replaces a known value, which also decides how the value is matched.
+/// The text that replaces every private value that is not a known path.
+const REDACTED: &str = "<redacted>";
+
+/// The kind of a known value, which decides the text that replaces the value and how the
+/// value is matched.
 ///
-/// `Profile`, `League`, `Data` and `Workshop` replace a path. A path matches with either
-/// separator, with doubled backslashes and in any ASCII letter case. Any other placeholder
-/// replaces a bare value, which matches where it stands alone.
+/// `Profile`, `League`, `Data` and `Workshop` are paths. A path matches with either
+/// separator, with doubled backslashes and in any ASCII letter case, and each has a
+/// placeholder of its own. Any other kind is a bare value, which matches where it stands
+/// alone and reads `<redacted>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Placeholder {
     /// The profile directory.
@@ -57,14 +62,12 @@ impl Placeholder {
     fn text(self) -> &'static str {
         match self {
             Self::Profile => "%USERPROFILE%",
-            Self::User => "<user>",
-            Self::Machine => "<machine>",
             Self::League => "<league>",
             Self::Data => "<data>",
             Self::Workshop => "<workshop>",
-            Self::Secret => "<secret>",
-            Self::Install => "<install>",
-            Self::RuneforgeUser => "<runeforge-user>",
+            Self::User | Self::Machine | Self::Secret | Self::Install | Self::RuneforgeUser => {
+                REDACTED
+            }
         }
     }
 

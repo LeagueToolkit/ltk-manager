@@ -184,18 +184,21 @@ A pattern guesses what a private string looks like. A known value is the string 
 matched exactly in every spelling. The redactor is built at startup from the values the process
 holds, and a value is registered when the process reads it.
 
-| Known value                                  | Replaced with      |
-| -------------------------------------------- | ------------------ |
-| The profile directory                        | `%USERPROFILE%`    |
-| The username, four characters or longer      | `<user>`           |
-| The computer name                            | `<machine>`        |
-| The League install path                      | `<league>`         |
-| The mod storage path                         | `<data>`           |
-| The workshop path, and each project path     | `<workshop>`       |
-| `telemetrySecret`, the delivery bearer token | `<secret>`         |
-| The delivery install id                      | `<install>`        |
-| The RuneForge username and user id           | `<runeforge-user>` |
-| The lockfile password, once read             | `<secret>`         |
+| Known value                                  | Replaced with   |
+| -------------------------------------------- | --------------- |
+| The profile directory                        | `%USERPROFILE%` |
+| The League install path                      | `<league>`      |
+| The mod storage path                         | `<data>`        |
+| The workshop path, and each project path     | `<workshop>`    |
+| The username, four characters or longer      | `<redacted>`    |
+| The computer name                            | `<redacted>`    |
+| `telemetrySecret`, the delivery bearer token | `<redacted>`    |
+| The delivery install id                      | `<redacted>`    |
+| The RuneForge username and user id           | `<redacted>`    |
+| The lockfile password, once read             | `<redacted>`    |
+
+Only a path has a placeholder of its own, because a maintainer needs to see which folder a path is
+under. Every other value reads `<redacted>`, which is also what the game log reader writes.
 
 A path value is matched in each spelling the code can write: backslashes, forward slashes, the
 `{:?}` form with doubled backslashes, the `\\?\` prefix, the 8.3 short name, and any letter case.
@@ -211,15 +214,17 @@ username would match inside ordinary words.
 
 | Pattern                                       | Replaced with                       |
 | --------------------------------------------- | ----------------------------------- |
-| `<drive>:\Users\<name>\` for any other name   | `<drive>:\Users\<other>\`           |
+| `<drive>:\Users\<name>\` for any other name   | `<drive>:\Users\<redacted>\`        |
 | A URL                                         | The scheme, host and path. No query |
 | An `ltk://` link                              | The action. No payload              |
-| An IPv4 or IPv6 address, loopback excepted    | `<ip>`                              |
-| A UUID                                        | `<uuid>`                            |
-| A Riot ID in quotes, `'Name#Tag'`             | `<riot-id>`                         |
-| An email address                              | `<email>`                           |
-| `Bearer <text>`, and `token=`, `key=` values  | `<secret>`                          |
+| An IPv4 or IPv6 address, loopback excepted    | `<redacted>`                        |
+| A Riot ID in quotes, `'Name#Tag'`             | `'<redacted>'`                      |
+| An email address                              | `<redacted>`                        |
+| `Bearer <text>`, and `token=`, `key=` values  | `<redacted>`                        |
 | The game log fields `redact_line` drops today | As today                            |
+
+A UUID is kept. A mod id is a UUID, and the log lines of one mod are joined by it. The game log
+reader removes the UUIDs of game log lines.
 
 ### Where it runs
 
