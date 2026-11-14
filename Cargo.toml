@@ -17,6 +17,7 @@ members = [
     "crates/ltk-manager-runtime",
     "crates/ltk-manager-workshop",
     "crates/ltk-meta-docs",
+    "crates/ltk-redact",
     "crates/ltk-telemetry",
 ]
 resolver = "2"
@@ -78,6 +79,7 @@ ltk-manager-runeforge = { path = "crates/ltk-manager-runeforge" }
 ltk-manager-runtime = { path = "crates/ltk-manager-runtime" }
 ltk-manager-workshop = { path = "crates/ltk-manager-workshop" }
 ltk-meta-docs = { path = "crates/ltk-meta-docs" }
+ltk-redact = { path = "crates/ltk-redact" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
 ltk_file = { version = "0.2.13", features = ["serde"] }

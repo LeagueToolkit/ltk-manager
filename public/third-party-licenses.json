@@ -2646,6 +2646,14 @@
       ]
     },
     {
+      "name": "ltk-redact",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        71
+      ]
+    },
+    {
       "name": "ltk-telemetry",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
