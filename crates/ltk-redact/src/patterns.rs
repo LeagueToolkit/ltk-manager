@@ -6,107 +6,96 @@ use std::sync::LazyLock;
 
 use regex::{Captures, Regex, RegexSet};
 
-/// Returns the replacement for one match, or `None` to keep the match. `after` is the text
-/// that follows the match.
-type Replace = fn(&Captures<'_>, after: &str) -> Option<String>;
+use crate::{and_then, splice};
+
+/// The replacement of a rule.
+enum Replace {
+    /// A template in the syntax of [`Captures::expand`].
+    With(&'static str),
+    /// A function that returns the replacement for one match, or `None` to keep the match.
+    /// The second argument is the text that follows the match.
+    By(fn(&Captures<'_>, &str) -> Option<String>),
+}
+
+use Replace::{By, With};
 
 /// The rules in the order they run. A deep link runs before a URL, because a deep link
 /// carries a URL in its query. A URL runs before a `key=value` pair, because the placeholder
 /// of the pair would end the URL match before its fragment.
 const RULES: &[(&str, Replace)] = &[
-    (r"(?i)\bbearer\s+[a-z0-9._~+/=-]{8,}", bearer),
-    (r#"(?i)\bltk://([a-z0-9_-]*)[^\s"'<>]*"#, deep_link),
-    (r#"(?i)\bhttps?://[^\s"'<>]+"#, url),
+    (
+        r"(?i)\bbearer\s+[a-z0-9._~+/=-]{8,}",
+        With("Bearer <secret>"),
+    ),
+    (r#"(?i)\b(ltk://[a-z0-9_-]*)[^\s"'<>]*"#, With("$1")),
+    (r#"(?i)\bhttps?://[^\s"'<>]+"#, By(url)),
     (
         r#"(?i)\b(token|key|secret|password|signature|sig)=[^\s&"']+"#,
-        key_value,
+        With("$1=<secret>"),
     ),
     (
         r#"(?i)\b([a-z]:[\\/]+users[\\/]+)(?:([^\\/"<>|:*?\r\n]+)([\\/])|([^\\/"<>|:*?\s]+))"#,
-        other_user,
+        By(other_user),
     ),
-    (r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b", email),
-    (r"\b\d{1,3}(?:\.\d{1,3}){3}\b", ipv4),
-    (r"[0-9A-Fa-f:]{3,45}", ipv6),
-    (r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'", riot_id),
+    (
+        r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
+        With("<email>"),
+    ),
+    (r"\b\d{1,3}(?:\.\d{1,3}){3}\b", By(ipv4)),
+    (r"[0-9A-Fa-f:]{3,45}", By(ipv6)),
+    (r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'", With("'<riot-id>'")),
 ];
 
-struct Patterns {
-    set: RegexSet,
-    rules: Vec<(Regex, Replace)>,
-}
-
-static PATTERNS: LazyLock<Patterns> = LazyLock::new(|| Patterns {
-    set: RegexSet::new(RULES.iter().map(|(pattern, _)| pattern)).expect("valid patterns"),
-    rules: RULES
-        .iter()
-        .map(|(pattern, replace)| (Regex::new(pattern).expect("a valid pattern"), *replace))
-        .collect(),
+/// The set that selects the rules that match a text, and the regex of each rule.
+static PATTERNS: LazyLock<(RegexSet, Vec<Regex>)> = LazyLock::new(|| {
+    let patterns = RULES.iter().map(|(pattern, _)| *pattern);
+    (
+        RegexSet::new(patterns.clone()).expect("valid patterns"),
+        patterns
+            .map(|pattern| Regex::new(pattern).expect("a valid pattern"))
+            .collect(),
+    )
 });
 
 /// Returns `text` with each pattern match replaced. Returns `text` borrowed if no rule
 /// replaces anything.
 pub(crate) fn redact(text: &str) -> Cow<'_, str> {
-    let patterns = &*PATTERNS;
+    let (set, regexes) = &*PATTERNS;
     let mut out = Cow::Borrowed(text);
-    for index in patterns.set.matches(text) {
-        let (regex, replace) = &patterns.rules[index];
-        if let Some(replaced) = apply(&out, regex, *replace) {
-            out = Cow::Owned(replaced);
-        }
+    for index in set.matches(text) {
+        out = and_then(out, |text| apply(text, &regexes[index], &RULES[index].1));
     }
     out
 }
 
-/// Returns `text` with the matches of `regex` that `replace` accepts replaced, or `None` if
-/// `replace` accepts none.
-fn apply(text: &str, regex: &Regex, replace: Replace) -> Option<String> {
-    let mut out: Option<String> = None;
-    let mut cursor = 0;
-    for captures in regex.captures_iter(text) {
-        let whole = captures.get(0).expect("group 0 always exists");
-        let Some(replacement) = replace(&captures, &text[whole.end()..]) else {
-            continue;
+/// Returns `text` with each match of `regex` replaced as `replace` states.
+fn apply<'a>(text: &'a str, regex: &Regex, replace: &Replace) -> Cow<'a, str> {
+    let replacements = regex.captures_iter(text).filter_map(|captures| {
+        let whole = captures.get(0)?;
+        let replacement = match replace {
+            With(template) => {
+                let mut replacement = String::new();
+                captures.expand(template, &mut replacement);
+                replacement
+            }
+            By(replace) => replace(&captures, &text[whole.end()..])?,
         };
-        let out = out.get_or_insert_with(|| String::with_capacity(text.len()));
-        out.push_str(&text[cursor..whole.start()]);
-        out.push_str(&replacement);
-        cursor = whole.end();
-    }
-    out.map(|mut out| {
-        out.push_str(&text[cursor..]);
-        out
-    })
-}
-
-fn bearer(_: &Captures<'_>, _: &str) -> Option<String> {
-    Some("Bearer <secret>".to_owned())
-}
-
-fn key_value(captures: &Captures<'_>, _: &str) -> Option<String> {
-    Some(format!("{}=<secret>", &captures[1]))
-}
-
-/// Keeps the action of an `ltk://` link and drops the rest.
-fn deep_link(captures: &Captures<'_>, _: &str) -> Option<String> {
-    let action = &captures[1];
-    let kept = format!("ltk://{action}");
-    (kept.len() != captures[0].len()).then_some(kept)
+        Some((whole.range(), replacement))
+    });
+    splice(text, replacements)
 }
 
 /// Keeps the scheme, the host and the path of a URL. Drops the user info, the query and the
 /// fragment.
 fn url(captures: &Captures<'_>, _: &str) -> Option<String> {
-    let whole = &captures[0];
-    let (scheme, rest) = whole.split_once("://")?;
+    let (scheme, rest) = captures[0].split_once("://")?;
     let rest = &rest[..rest.find(['?', '#']).unwrap_or(rest.len())];
     let authority_end = rest.find('/').unwrap_or(rest.len());
     let rest = match rest[..authority_end].rfind('@') {
         Some(at) => &rest[at + 1..],
         None => rest,
     };
-    let kept = format!("{scheme}://{rest}");
-    (kept.len() != whole.len()).then_some(kept)
+    Some(format!("{scheme}://{rest}"))
 }
 
 /// Replaces the name in `<drive>:\Users\<name>`. Keeps the profile names that Windows
@@ -122,10 +111,6 @@ fn other_user(captures: &Captures<'_>, _: &str) -> Option<String> {
     }
     let separator = captures.get(3).map_or("", |m| m.as_str());
     Some(format!("{}<other>{separator}", &captures[1]))
-}
-
-fn email(_: &Captures<'_>, _: &str) -> Option<String> {
-    Some("<email>".to_owned())
 }
 
 /// Replaces an IPv4 address. Keeps the loopback and the unspecified address, and a match
@@ -158,8 +143,4 @@ fn ipv6(captures: &Captures<'_>, after: &str) -> Option<String> {
     }
     let address: Ipv6Addr = candidate.parse().ok()?;
     (!address.is_loopback() && !address.is_unspecified()).then(|| format!("<ip>{tail}"))
-}
-
-fn riot_id(_: &Captures<'_>, _: &str) -> Option<String> {
-    Some("'<riot-id>'".to_owned())
 }

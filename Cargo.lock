@@ -3853,6 +3853,7 @@ dependencies = [
 name = "ltk-redact"
 version = "0.1.0"
 dependencies = [
+ "parking_lot",
  "regex",
 ]
 

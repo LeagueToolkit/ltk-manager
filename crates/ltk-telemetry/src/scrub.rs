@@ -10,9 +10,6 @@ use crate::event::Properties;
 #[cfg(test)]
 mod tests;
 
-/// What stands in for the user profile path once it has been taken out.
-pub const PROFILE_PLACEHOLDER: &str = "%USERPROFILE%";
-
 /// The last thing every outgoing string passes through.
 ///
 /// It sits here rather than at the call sites because a panic message, an error
@@ -33,17 +30,17 @@ impl Scrubber {
     /// A scrubber for the profile directory of whoever is running.
     #[must_use]
     pub fn from_env() -> Self {
-        match Environment::read().profile_dir {
-            Some(dir) => Self::for_profile_dir(dir),
-            None => Self::none(),
-        }
+        Environment::read()
+            .profile_dir
+            .map(Self::for_profile_dir)
+            .unwrap_or_default()
     }
 
     /// A scrubber for a named profile directory, as a test drives it.
     #[must_use]
     pub fn for_profile_dir(dir: impl Into<String>) -> Self {
         let mut redactor = Redactor::new();
-        redactor.register_path(Placeholder::Profile, &dir.into());
+        redactor.register(Placeholder::Profile, [dir.into()]);
         Self { redactor }
     }
 
@@ -55,9 +52,6 @@ impl Scrubber {
 
     /// Scrub every string in `properties`, however deeply it is nested.
     pub fn scrub_properties(&self, properties: &mut Properties) {
-        if self.redactor.has_no_known_value() {
-            return;
-        }
         for value in properties.values_mut() {
             self.scrub_value(value);
         }

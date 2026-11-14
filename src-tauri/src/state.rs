@@ -36,22 +36,13 @@ pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
 /// Registers the paths and the secret of `settings` with the shared redactor, so that the
 /// log file and every report replace them.
 fn register_private_values(settings: &Settings) {
-    use ltk_redact::Placeholder;
+    use ltk_redact::{register, Placeholder};
 
     let config = &settings.config;
-    let paths = [
-        (Placeholder::League, &config.league_path),
-        (Placeholder::Data, &config.mod_storage_path),
-        (Placeholder::Workshop, &config.workshop_path),
-    ];
-    for (placeholder, path) in paths {
-        if let Some(path) = path {
-            ltk_redact::register_path(placeholder, path);
-        }
-    }
-    if let Some(secret) = &settings.telemetry_secret {
-        ltk_redact::register_value(Placeholder::Secret, secret);
-    }
+    register(Placeholder::League, &config.league_path);
+    register(Placeholder::Data, &config.mod_storage_path);
+    register(Placeholder::Workshop, &config.workshop_path);
+    register(Placeholder::Secret, &settings.telemetry_secret);
 }
 
 /// Load settings from disk, returning defaults if the file doesn't exist.

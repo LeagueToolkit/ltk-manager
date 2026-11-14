@@ -4,12 +4,15 @@
 //! string that the process holds, such as the profile directory, so it is matched exactly. A
 //! pattern matches text that has the form of a private value, such as a URL query.
 //!
-//! [`redact`] applies the redactor that the whole process shares. [`register_path`] and
-//! [`register_value`] add a known value to it when the process reads one.
+//! [`redact`] applies the redactor that the whole process shares. [`register`] adds known
+//! values to it when the process reads them.
 
 use std::borrow::Cow;
-use std::path::Path;
-use std::sync::{LazyLock, RwLock};
+use std::ffi::OsStr;
+use std::ops::Range;
+use std::sync::LazyLock;
+
+use parking_lot::RwLock;
 
 mod environment;
 mod patterns;
@@ -26,7 +29,11 @@ pub const RULESET_VERSION: u32 = 1;
 /// ordinary words.
 const MIN_BARE_VALUE_CHARS: usize = 4;
 
-/// The text that replaces a known value.
+/// The text that replaces a known value, which also decides how the value is matched.
+///
+/// `Profile`, `League`, `Data` and `Workshop` replace a path. A path matches with either
+/// separator, with doubled backslashes and in any ASCII letter case. Any other placeholder
+/// replaces a bare value, which matches where it stands alone.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Placeholder {
     /// The profile directory.
@@ -50,28 +57,25 @@ pub enum Placeholder {
 }
 
 impl Placeholder {
-    fn name(self) -> &'static str {
+    fn text(self) -> &'static str {
         match self {
-            Self::Profile => "USERPROFILE",
-            Self::User => "user",
-            Self::Machine => "machine",
-            Self::League => "league",
-            Self::Data => "data",
-            Self::Workshop => "workshop",
-            Self::Secret => "secret",
-            Self::Install => "install",
-            Self::RuneforgeUser => "runeforge-user",
+            Self::Profile => "%USERPROFILE%",
+            Self::User => "<user>",
+            Self::Machine => "<machine>",
+            Self::League => "<league>",
+            Self::Data => "<data>",
+            Self::Workshop => "<workshop>",
+            Self::Secret => "<secret>",
+            Self::Install => "<install>",
+            Self::RuneforgeUser => "<runeforge-user>",
         }
     }
 
-    /// Returns the replacement text. `non_ascii` adds the mark for a replaced path that holds
-    /// a character outside ASCII.
-    fn text(self, non_ascii: bool) -> String {
-        let mark = if non_ascii { ":non-ascii" } else { "" };
-        match self {
-            Self::Profile => format!("%{}{mark}%", self.name()),
-            _ => format!("<{}{mark}>", self.name()),
-        }
+    fn is_path(self) -> bool {
+        matches!(
+            self,
+            Self::Profile | Self::League | Self::Data | Self::Workshop
+        )
     }
 }
 
@@ -103,71 +107,60 @@ impl Redactor {
     #[must_use]
     pub fn for_environment(environment: &Environment) -> Self {
         let mut redactor = Self::new();
-        if let Some(dir) = &environment.profile_dir {
-            redactor.register_path(Placeholder::Profile, dir);
-        }
-        if let Some(username) = &environment.username {
-            redactor.register_value(Placeholder::User, username);
-        }
-        if let Some(machine) = &environment.machine {
-            redactor.register_value(Placeholder::Machine, machine);
-        }
+        redactor.register(Placeholder::Profile, &environment.profile_dir);
+        redactor.register(Placeholder::User, &environment.username);
+        redactor.register(Placeholder::Machine, &environment.machine);
         redactor
     }
 
-    /// Returns whether the redactor has no known value.
-    #[must_use]
-    pub fn has_no_known_value(&self) -> bool {
-        self.known.is_empty()
+    /// Adds each of `values` as a known value that `placeholder` replaces.
+    ///
+    /// Skips a path that is empty or is a drive root. Skips a bare value that is shorter
+    /// than four characters.
+    pub fn register<V: AsRef<str>>(
+        &mut self,
+        placeholder: Placeholder,
+        values: impl IntoIterator<Item = V>,
+    ) {
+        for value in values {
+            let value = value.as_ref().trim();
+            if placeholder.is_path() {
+                self.register_path(placeholder.text(), value);
+            } else if value.chars().count() >= MIN_BARE_VALUE_CHARS {
+                self.insert(fold(value), placeholder.text().to_owned(), true);
+            }
+        }
     }
 
-    /// Adds `path` as a known value. The path matches with either separator, with doubled
-    /// backslashes and in any ASCII letter case.
-    ///
-    /// Adds nothing if `path` is empty or is a drive root.
-    pub fn register_path(&mut self, placeholder: Placeholder, path: &str) {
-        let trimmed = path.trim().trim_end_matches(['/', '\\']);
-        let trimmed = trimmed.strip_prefix(r"\\?\").unwrap_or(trimmed);
-        if !trimmed.contains(['/', '\\']) {
+    fn register_path(&mut self, placeholder: &str, path: &str) {
+        let path = path.trim_end_matches(['/', '\\']);
+        let path = path.strip_prefix(r"\\?\").unwrap_or(path);
+        if !path.contains(['/', '\\']) {
             return;
         }
-        let replacement = placeholder.text(!trimmed.is_ascii());
-        let folded = fold(trimmed);
-        let doubled = folded.replace('\\', r"\\");
-        self.insert(Known {
-            needle: doubled,
-            replacement: replacement.clone(),
-            bare: false,
-        });
-        self.insert(Known {
-            needle: folded,
-            replacement,
-            bare: false,
-        });
+        let replacement = if path.is_ascii() {
+            placeholder.to_owned()
+        } else {
+            let (body, close) = placeholder.split_at(placeholder.len() - 1);
+            format!("{body}:non-ascii{close}")
+        };
+        let folded = fold(path);
+        self.insert(folded.replace('\\', r"\\"), replacement.clone(), false);
+        self.insert(folded, replacement, false);
     }
 
-    /// Adds `value` as a known value that is replaced where it stands alone.
-    ///
-    /// Adds nothing if `value` is shorter than four characters.
-    pub fn register_value(&mut self, placeholder: Placeholder, value: &str) {
-        let value = value.trim();
-        if value.chars().count() < MIN_BARE_VALUE_CHARS {
-            return;
-        }
-        self.insert(Known {
-            needle: fold(value),
-            replacement: placeholder.text(false),
-            bare: true,
-        });
-    }
-
-    fn insert(&mut self, known: Known) {
-        if self.known.iter().any(|k| k.needle == known.needle) {
+    fn insert(&mut self, needle: String, replacement: String, bare: bool) {
+        if self.known.iter().any(|known| known.needle == needle) {
             return;
         }
         let at = self
             .known
-            .partition_point(|k| k.needle.len() >= known.needle.len());
+            .partition_point(|known| known.needle.len() >= needle.len());
+        let known = Known {
+            needle,
+            replacement,
+            bare,
+        };
         self.known.insert(at, known);
     }
 
@@ -184,42 +177,77 @@ impl Redactor {
         }
         // Folding keeps every byte offset, so an offset into `folded` is an offset into `text`.
         let folded = fold(text);
-        let mut matches: Vec<(usize, usize, &str)> = Vec::new();
+        let mut matches: Vec<(Range<usize>, &str)> = Vec::new();
         for known in &self.known {
             let mut from = 0;
             while let Some(offset) = folded[from..].find(&known.needle) {
                 let start = from + offset;
                 let end = start + known.needle.len();
-                let free = matches.iter().all(|&(s, e, _)| end <= s || start >= e);
+                let free = matches
+                    .iter()
+                    .all(|(taken, _)| end <= taken.start || start >= taken.end);
                 if free && is_bounded(&folded, start, end, known.bare) {
-                    matches.push((start, end, &known.replacement));
+                    matches.push((start..end, &known.replacement));
                 }
                 from = start + folded[start..].chars().next().map_or(1, char::len_utf8);
             }
         }
-        if matches.is_empty() {
-            return Cow::Borrowed(text);
-        }
-        matches.sort_unstable_by_key(|&(start, _, _)| start);
-
-        let mut out = String::with_capacity(text.len());
-        let mut cursor = 0;
-        for (start, end, replacement) in matches {
-            out.push_str(&text[cursor..start]);
-            out.push_str(replacement);
-            cursor = end;
-        }
-        out.push_str(&text[cursor..]);
-        Cow::Owned(out)
+        matches.sort_unstable_by_key(|(range, _)| range.start);
+        splice(text, matches)
     }
 
     /// Returns `text` with each known value and each pattern match replaced. Returns `text`
     /// borrowed if nothing is replaced.
     #[must_use]
     pub fn redact<'a>(&self, text: &'a str) -> Cow<'a, str> {
-        match self.redact_known(text) {
-            Cow::Borrowed(text) => patterns::redact(text),
-            Cow::Owned(text) => Cow::Owned(patterns::redact(&text).into_owned()),
+        and_then(self.redact_known(text), patterns::redact)
+    }
+}
+
+/// Returns `text` with each range replaced by the text beside it. The ranges are in ascending
+/// order and do not overlap.
+///
+/// Skips a replacement that equals the text it replaces. Returns `text` borrowed if every
+/// replacement is skipped.
+fn splice<'a>(
+    text: &'a str,
+    replacements: impl IntoIterator<Item = (Range<usize>, impl AsRef<str>)>,
+) -> Cow<'a, str> {
+    let mut out: Option<String> = None;
+    let mut cursor = 0;
+    for (range, replacement) in replacements {
+        let replacement = replacement.as_ref();
+        if &text[range.clone()] == replacement {
+            continue;
+        }
+        let out = out.get_or_insert_with(|| String::with_capacity(text.len()));
+        out.push_str(&text[cursor..range.start]);
+        out.push_str(replacement);
+        cursor = range.end;
+    }
+    match out {
+        Some(mut out) => {
+            out.push_str(&text[cursor..]);
+            Cow::Owned(out)
+        }
+        None => Cow::Borrowed(text),
+    }
+}
+
+/// Returns the text that `pass` returns for `text`. Returns `text` itself, without a copy, if
+/// `pass` returns its input borrowed.
+fn and_then<'a>(
+    text: Cow<'a, str>,
+    pass: impl for<'b> FnOnce(&'b str) -> Cow<'b, str>,
+) -> Cow<'a, str> {
+    match text {
+        Cow::Borrowed(text) => pass(text),
+        Cow::Owned(text) => {
+            let changed = match pass(&text) {
+                Cow::Owned(changed) => Some(changed),
+                Cow::Borrowed(_) => None,
+            };
+            Cow::Owned(changed.unwrap_or(text))
         }
     }
 }
@@ -250,18 +278,15 @@ static SHARED: LazyLock<RwLock<Redactor>> =
 /// Returns `text` redacted by the redactor that the process shares.
 #[must_use]
 pub fn redact(text: &str) -> Cow<'_, str> {
-    let redactor = SHARED.read().unwrap_or_else(|e| e.into_inner());
-    redactor.redact(text)
+    SHARED.read().redact(text)
 }
 
-/// Adds `path` as a known value of the shared redactor.
-pub fn register_path(placeholder: Placeholder, path: &Path) {
-    let mut redactor = SHARED.write().unwrap_or_else(|e| e.into_inner());
-    redactor.register_path(placeholder, &path.to_string_lossy());
-}
-
-/// Adds `value` as a known value of the shared redactor.
-pub fn register_value(placeholder: Placeholder, value: &str) {
-    let mut redactor = SHARED.write().unwrap_or_else(|e| e.into_inner());
-    redactor.register_value(placeholder, value);
+/// Adds each of `values` as a known value of the shared redactor. See [`Redactor::register`].
+///
+/// Reads a value that is not valid Unicode lossily.
+pub fn register<V: AsRef<OsStr>>(placeholder: Placeholder, values: impl IntoIterator<Item = V>) {
+    let values = values
+        .into_iter()
+        .map(|value| value.as_ref().to_string_lossy().into_owned());
+    SHARED.write().register(placeholder, values);
 }

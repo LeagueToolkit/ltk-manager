@@ -143,15 +143,12 @@ fn redact_existing_logs(log_dir: &Path) {
     if fs::read_to_string(&marker).is_ok_and(|done| done.trim() == current) {
         return;
     }
-    let Ok(entries) = fs::read_dir(log_dir) else {
+    let Ok(files) = log_files(log_dir) else {
         return;
     };
 
     let mut complete = true;
-    for path in entries.flatten().map(|entry| entry.path()) {
-        if !is_log_file(&path) {
-            continue;
-        }
+    for path in files {
         if let Err(e) = redact_log_file(&path) {
             eprintln!("Failed to redact log file {}: {}", path.display(), e);
             complete = false;
@@ -177,36 +174,33 @@ fn redact_log_file(path: &Path) -> std::io::Result<()> {
     fs::rename(&temporary, path)
 }
 
-fn is_log_file(path: &Path) -> bool {
-    path.file_name()
-        .and_then(|name| name.to_str())
-        .is_some_and(|name| name.starts_with("ltk-manager.") && name.ends_with(".log"))
+/// Returns the path of each log file in `log_dir`.
+fn log_files(log_dir: &Path) -> std::io::Result<impl Iterator<Item = PathBuf>> {
+    let is_log_file = |name: &str| name.starts_with("ltk-manager.") && name.ends_with(".log");
+    Ok(fs::read_dir(log_dir)?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(move |path| {
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(is_log_file)
+        }))
 }
 
 /// Delete log files older than `max_age_days` from the log directory.
 pub fn cleanup_old_logs(log_dir: &Path, max_age_days: u64) {
     let max_age = Duration::from_secs(max_age_days * 24 * 60 * 60);
 
-    let entries = match fs::read_dir(log_dir) {
-        Ok(e) => e,
+    let files = match log_files(log_dir) {
+        Ok(files) => files,
         Err(e) => {
             tracing::warn!("Failed to read log directory for cleanup: {}", e);
             return;
         }
     };
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        let file_name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-
-        if !file_name.starts_with("ltk-manager.") || !file_name.ends_with(".log") {
-            continue;
-        }
-
-        let modified = match entry.metadata().and_then(|m| m.modified()) {
+    for path in files {
+        let modified = match fs::metadata(&path).and_then(|m| m.modified()) {
             Ok(t) => t,
             Err(_) => continue,
         };

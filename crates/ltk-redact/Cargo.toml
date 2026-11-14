@@ -7,4 +7,5 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 
 [dependencies]
+parking_lot = { workspace = true }
 regex = { workspace = true }

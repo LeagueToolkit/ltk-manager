@@ -4,14 +4,14 @@ use super::*;
 
 fn redactor() -> Redactor {
     let mut redactor = Redactor::new();
-    redactor.register_path(Placeholder::Profile, r"C:\Users\someone");
-    redactor.register_value(Placeholder::User, "someone");
-    redactor.register_path(
+    redactor.register(Placeholder::Profile, [r"C:\Users\someone"]);
+    redactor.register(Placeholder::User, ["someone"]);
+    redactor.register(
         Placeholder::Workshop,
-        r"C:\Users\someone\Documents\workshop",
+        [r"C:\Users\someone\Documents\workshop"],
     );
-    redactor.register_path(Placeholder::League, r"D:\Riot Games\League of Legends\");
-    redactor.register_value(Placeholder::Secret, "s3cr3t-value");
+    redactor.register(Placeholder::League, [r"D:\Riot Games\League of Legends\"]);
+    redactor.register(Placeholder::Secret, ["s3cr3t-value"]);
     redactor
 }
 
@@ -63,24 +63,24 @@ fn redact_known_replaces_a_bare_value_between_boundaries_only() {
 }
 
 #[test]
-fn register_value_skips_a_value_shorter_than_four_characters() {
+fn register_skips_a_bare_value_shorter_than_four_characters() {
     let mut redactor = Redactor::new();
-    redactor.register_value(Placeholder::User, "bob");
-    assert!(redactor.has_no_known_value());
+    redactor.register(Placeholder::User, ["bob"]);
+    assert_eq!(redactor, Redactor::new());
 }
 
 #[test]
-fn register_path_skips_a_drive_root() {
+fn register_skips_a_drive_root() {
     let mut redactor = Redactor::new();
-    redactor.register_path(Placeholder::Data, r"D:\");
-    assert!(redactor.has_no_known_value());
+    redactor.register(Placeholder::Data, [r"D:\"]);
+    assert_eq!(redactor, Redactor::new());
 }
 
 #[test]
-fn register_path_marks_a_path_with_a_character_outside_ascii() {
+fn register_marks_a_path_with_a_character_outside_ascii() {
     for name in ["Иван", "田中", "José Luis"] {
         let mut redactor = Redactor::new();
-        redactor.register_path(Placeholder::Profile, &format!(r"C:\Users\{name}"));
+        redactor.register(Placeholder::Profile, [format!(r"C:\Users\{name}")]);
         assert_eq!(
             redactor.redact_known(&format!(r"C:\Users\{name}\AppData")),
             r"%USERPROFILE:non-ascii%\AppData"
