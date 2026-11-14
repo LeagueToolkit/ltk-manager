@@ -30,6 +30,7 @@ use ltk_manager_base::{
 };
 use ltk_manager_core::{
     deep_link::parse_deep_link_url,
+    log_dir::LogDir,
     patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
     support_report::{AppIdentity, Description, Problem, SupportReport},
 };
@@ -268,7 +269,7 @@ impl Fixture {
             ),
         };
         let mut report = SupportReport::new(app, description, chrono::Utc::now());
-        report.add_log(&log_dir);
+        report.add_log(&LogDir::new(&log_dir));
         report.add_settings(&serde_json::json!({
             "leaguePath": self.config.league_path,
             "modStoragePath": self.config.mod_storage_path,

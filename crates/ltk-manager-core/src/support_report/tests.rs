@@ -1,9 +1,11 @@
 use std::io::{Cursor, Read};
 
 use chrono::TimeZone;
+use fs_err as fs;
 use serde_json::json;
 
 use super::*;
+use crate::log_dir::RUN_START;
 
 fn app() -> AppIdentity {
     AppIdentity {
@@ -32,56 +34,16 @@ fn file<'a>(report: &'a BuiltReport, path: &str) -> &'a str {
         .contents
 }
 
-/// A log directory with one file for each of `days`, in the order given.
-fn log_dir(days: &[(&str, &str)]) -> tempfile::TempDir {
+/// A log directory that holds one file with `contents`.
+fn log_dir(contents: &str) -> (tempfile::TempDir, LogDir) {
     let dir = tempfile::tempdir().expect("a temporary directory");
-    for (date, contents) in days {
-        fs::write(dir.path().join(format!("ltk-manager.{date}.log")), contents).unwrap();
-    }
-    dir
+    fs::write(dir.path().join("ltk-manager.2026-11-15.log"), contents).unwrap();
+    let logs = LogDir::new(dir.path());
+    (dir, logs)
 }
 
 fn run(name: &str) -> String {
     format!("INFO {RUN_START}1.34.0\nINFO {name} line\n")
-}
-
-#[test]
-fn recent_runs_keeps_the_newest_runs_across_files() {
-    let dir = log_dir(&[
-        ("2026-11-13", &[run("first"), run("second")].concat()),
-        ("2026-11-14", &run("third")),
-        ("2026-11-15", &run("fourth")),
-    ]);
-    fs::write(dir.path().join("notes.txt"), run("other")).unwrap();
-
-    let log = recent_runs(dir.path(), 3, MAX_REPORT_BYTES).unwrap();
-
-    assert_eq!(log, [run("second"), run("third"), run("fourth")].concat());
-}
-
-#[test]
-fn recent_runs_returns_the_whole_log_if_it_holds_fewer_runs() {
-    let dir = log_dir(&[("2026-11-15", "INFO a line before any start\n")]);
-
-    assert_eq!(
-        recent_runs(dir.path(), 3, MAX_REPORT_BYTES).unwrap(),
-        "INFO a line before any start\n"
-    );
-}
-
-#[test]
-fn recent_runs_cuts_the_oldest_lines_at_the_size_limit() {
-    let dir = log_dir(&[("2026-11-15", "one\ntwo\nthree\nfour\n")]);
-
-    assert_eq!(recent_runs(dir.path(), 3, 12).unwrap(), "three\nfour\n");
-}
-
-#[test]
-fn recent_runs_returns_none_if_the_directory_holds_no_log_file() {
-    let dir = tempfile::tempdir().unwrap();
-
-    assert_eq!(recent_runs(dir.path(), 3, MAX_REPORT_BYTES), None);
-    assert_eq!(recent_runs(&dir.path().join("missing"), 3, 64), None);
 }
 
 #[test]
@@ -125,9 +87,9 @@ fn report_md_states_the_build_first_and_redacts_the_description() {
 
 #[test]
 fn finish_lists_every_other_file_in_the_manifest() {
-    let dir = log_dir(&[("2026-11-15", &run("only"))]);
+    let (_dir, logs) = log_dir(&run("only"));
     let mut report = report(Description::default());
-    report.add_log(dir.path());
+    report.add_log(&logs);
     report.add_settings(&json!({ "readGameLog": true }));
 
     let report = report.finish();
@@ -160,9 +122,9 @@ fn finish_lists_every_other_file_in_the_manifest() {
 fn finish_cuts_the_log_first_if_the_files_exceed_the_limit() {
     let line = "INFO a log line of some length that repeats\n";
     let lines = MAX_REPORT_BYTES / line.len() + 100;
-    let dir = log_dir(&[("2026-11-15", &line.repeat(lines))]);
+    let (_dir, logs) = log_dir(&line.repeat(lines));
     let mut report = report(Description::default());
-    report.add_log(dir.path());
+    report.add_log(&logs);
     report.add_settings(&json!({ "readGameLog": true }));
 
     let report = report.finish();
@@ -180,9 +142,9 @@ fn finish_cuts_the_log_first_if_the_files_exceed_the_limit() {
 
 #[test]
 fn write_zip_holds_each_file_with_its_contents() {
-    let dir = log_dir(&[("2026-11-15", &run("only"))]);
+    let (_dir, logs) = log_dir(&run("only"));
     let mut report = report(Description::default());
-    report.add_log(dir.path());
+    report.add_log(&logs);
     let report = report.finish();
 
     let mut bytes = Cursor::new(Vec::new());

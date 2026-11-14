@@ -9,14 +9,14 @@
 use std::{
     collections::BTreeMap,
     io::{self, Seek, Write},
-    path::{Path, PathBuf},
 };
 
 use chrono::{DateTime, Utc};
-use fs_err as fs;
 use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
+
+use crate::log_dir::{LogDir, newest};
 
 #[cfg(test)]
 mod tests;
@@ -29,9 +29,6 @@ pub const MAX_REPORT_BYTES: usize = 2 * 1024 * 1024;
 
 /// The number of runs that the log of a report holds, the current run included.
 const LOG_RUNS: usize = 3;
-
-/// The text that starts the first log line of a run.
-pub const RUN_START: &str = "Starting LTK Manager v";
 
 const REPORT_MD: &str = "report.md";
 const MANIFEST_JSON: &str = "manifest.json";
@@ -193,13 +190,12 @@ impl SupportReport {
         });
     }
 
-    /// Adds `log/ltk-manager.log`: the current run and the two runs before it, from the log
-    /// files in `log_dir`.
+    /// Adds `log/ltk-manager.log`: the current run and the two runs before it, from the
+    /// files of `log_dir`.
     ///
-    /// Adds nothing if `log_dir` holds no log file. A log file that cannot be read is
-    /// skipped.
-    pub fn add_log(&mut self, log_dir: &Path) {
-        if let Some(log) = recent_runs(log_dir, LOG_RUNS, MAX_REPORT_BYTES) {
+    /// Adds nothing if `log_dir` holds no log text.
+    pub fn add_log(&mut self, log_dir: &LogDir) {
+        if let Some(log) = log_dir.recent_runs(LOG_RUNS, MAX_REPORT_BYTES) {
             self.add(LOG_FILE, &log);
         }
     }
@@ -357,68 +353,5 @@ impl BuiltReport {
         }
         zip.finish()?;
         Ok(())
-    }
-}
-
-/// Returns the path of each log file in `log_dir`.
-///
-/// # Errors
-///
-/// Returns the error of the directory read.
-pub fn log_files(log_dir: &Path) -> io::Result<impl Iterator<Item = PathBuf>> {
-    let is_log_file = |name: &str| name.starts_with("ltk-manager.") && name.ends_with(".log");
-    Ok(fs::read_dir(log_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(move |path| {
-            path.file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(is_log_file)
-        }))
-}
-
-/// Returns the newest `runs` runs of the log files in `log_dir`, `max_bytes` at most.
-///
-/// A run starts at a line that holds [`RUN_START`]. Returns the whole log if it holds fewer
-/// runs. Cuts the oldest lines if the runs exceed `max_bytes`. Returns `None` if `log_dir`
-/// holds no log text.
-fn recent_runs(log_dir: &Path, runs: usize, max_bytes: usize) -> Option<String> {
-    // The file name holds the date, so the order of the names is the order of the days.
-    let mut paths: Vec<PathBuf> = log_files(log_dir).ok()?.collect();
-    paths.sort();
-
-    let mut log = String::new();
-    for path in paths.iter().rev() {
-        let Ok(bytes) = fs::read(path) else {
-            continue;
-        };
-        log.insert_str(0, &String::from_utf8_lossy(&bytes));
-        if log.matches(RUN_START).count() >= runs || log.len() >= max_bytes {
-            break;
-        }
-    }
-
-    let starts: Vec<usize> = log.match_indices(RUN_START).map(|(at, _)| at).collect();
-    if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
-        // The marker sits after the timestamp and the level, so the run starts at the
-        // start of its line.
-        let line_start = log[..start].rfind('\n').map_or(0, |newline| newline + 1);
-        log.drain(..line_start);
-    }
-    let log = newest(&log, max_bytes);
-    (!log.is_empty()).then(|| log.to_owned())
-}
-
-/// Returns the last `max_bytes` bytes of `text`, starting at the start of a line.
-fn newest(text: &str, max_bytes: usize) -> &str {
-    let Some(mut cut) = text.len().checked_sub(max_bytes).filter(|cut| *cut > 0) else {
-        return text;
-    };
-    while !text.is_char_boundary(cut) {
-        cut += 1;
-    }
-    match text[cut..].find('\n') {
-        Some(newline) => &text[cut + newline + 1..],
-        None => "",
     }
 }
