@@ -689,15 +689,16 @@ impl From<Wire> for IncidentToken {
 static DISK_PATH: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"[A-Za-z]:[\\/][^:"'<>|\r\n]*"#).expect("a valid path pattern"));
 
-/// `text` with every path on disk cut to its last segment, so a message keeps
-/// the file it names and drops the directories above it.
+/// `text` with every drive path cut to its last segment, so a message keeps
+/// the file it names and drops the directories above it. What is left passes
+/// through the shared redactor, which replaces a path without a drive letter
+/// and every other private value.
 fn without_paths(text: &str) -> String {
-    DISK_PATH
-        .replace_all(text, |found: &regex::Captures<'_>| {
-            let path = found[0].trim_end_matches(['\\', '/']);
-            path.rsplit(['\\', '/']).next().unwrap_or(path).to_string()
-        })
-        .into_owned()
+    let cut = DISK_PATH.replace_all(text, |found: &regex::Captures<'_>| {
+        let path = found[0].trim_end_matches(['\\', '/']);
+        path.rsplit(['\\', '/']).next().unwrap_or(path).to_string()
+    });
+    ltk_redact::redact(&cut).into_owned()
 }
 
 fn is_default<T: Default + PartialEq>(value: &T) -> bool {
@@ -1129,6 +1130,19 @@ mod tests {
         );
         assert_eq!(without_paths(r"wrote D:\mods\out\"), "wrote out");
         assert_eq!(without_paths("no path here: fine"), "no path here: fine");
+    }
+
+    #[test]
+    fn a_known_path_without_a_drive_letter_is_replaced() {
+        ltk_redact::register(
+            ltk_redact::Placeholder::Data,
+            ["/srv/token-test-storage/mods"],
+        );
+
+        assert_eq!(
+            without_paths("Failed to spawn host '/srv/token-test-storage/mods/host.exe'"),
+            "Failed to spawn host '<data>/host.exe'"
+        );
     }
 
     #[test]
