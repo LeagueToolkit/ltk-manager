@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use ltk_redact::{Placeholder, Redactor};
+use ltk_redact::{Environment, Placeholder, Redactor};
 use serde_json::Value;
 
 use crate::event::Properties;
@@ -33,10 +33,7 @@ impl Scrubber {
     /// A scrubber for the profile directory of whoever is running.
     #[must_use]
     pub fn from_env() -> Self {
-        let profile_dir = std::env::var("USERPROFILE")
-            .or_else(|_| std::env::var("HOME"))
-            .ok();
-        match profile_dir {
+        match Environment::read().profile_dir {
             Some(dir) => Self::for_profile_dir(dir),
             None => Self::none(),
         }

@@ -11,7 +11,10 @@ use std::borrow::Cow;
 use std::path::Path;
 use std::sync::{LazyLock, RwLock};
 
+mod environment;
 mod patterns;
+
+pub use environment::Environment;
 
 #[cfg(test)]
 mod tests;
@@ -96,28 +99,18 @@ impl Redactor {
     }
 
     /// Returns a redactor that knows the profile directory, the username and the computer
-    /// name of the running process.
+    /// name of `environment`.
     #[must_use]
-    pub fn from_env() -> Self {
+    pub fn for_environment(environment: &Environment) -> Self {
         let mut redactor = Self::new();
-        let profile_dir = std::env::var("USERPROFILE")
-            .or_else(|_| std::env::var("HOME"))
-            .ok();
-        if let Some(dir) = &profile_dir {
+        if let Some(dir) = &environment.profile_dir {
             redactor.register_path(Placeholder::Profile, dir);
         }
-        let username = std::env::var("USERNAME")
-            .or_else(|_| std::env::var("USER"))
-            .ok()
-            .or_else(|| {
-                let dir = profile_dir.as_deref()?.trim_end_matches(['/', '\\']);
-                dir.rsplit(['/', '\\']).next().map(str::to_owned)
-            });
-        if let Some(username) = username {
-            redactor.register_value(Placeholder::User, &username);
+        if let Some(username) = &environment.username {
+            redactor.register_value(Placeholder::User, username);
         }
-        if let Ok(machine) = std::env::var("COMPUTERNAME") {
-            redactor.register_value(Placeholder::Machine, &machine);
+        if let Some(machine) = &environment.machine {
+            redactor.register_value(Placeholder::Machine, machine);
         }
         redactor
     }
@@ -251,7 +244,8 @@ fn fold(value: &str) -> String {
         .collect()
 }
 
-static SHARED: LazyLock<RwLock<Redactor>> = LazyLock::new(|| RwLock::new(Redactor::from_env()));
+static SHARED: LazyLock<RwLock<Redactor>> =
+    LazyLock::new(|| RwLock::new(Redactor::for_environment(&Environment::read())));
 
 /// Returns `text` redacted by the redactor that the process shares.
 #[must_use]

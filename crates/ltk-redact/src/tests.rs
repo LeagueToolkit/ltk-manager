@@ -181,3 +181,56 @@ fn redact_is_idempotent() {
     let once = redactor.redact(text).into_owned();
     assert_eq!(redactor.redact(&once), once);
 }
+
+fn lookup<'a>(vars: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+    |name| {
+        vars.iter()
+            .find(|(key, _)| *key == name)
+            .map(|(_, value)| (*value).to_owned())
+    }
+}
+
+#[test]
+fn environment_reads_the_windows_variables() {
+    let environment = Environment::from_lookup(lookup(&[
+        ("USERPROFILE", r"C:\Users\someone"),
+        ("USERNAME", "someone"),
+        ("COMPUTERNAME", "DESKTOP-1A2B"),
+        ("HOME", "/ignored"),
+    ]));
+    assert_eq!(
+        environment,
+        Environment {
+            profile_dir: Some(r"C:\Users\someone".to_owned()),
+            username: Some("someone".to_owned()),
+            machine: Some("DESKTOP-1A2B".to_owned()),
+        }
+    );
+}
+
+#[test]
+fn environment_falls_back_to_home_and_to_the_last_component() {
+    let environment =
+        Environment::from_lookup(lookup(&[("USERPROFILE", ""), ("HOME", "/home/someone/")]));
+    assert_eq!(environment.profile_dir.as_deref(), Some("/home/someone/"));
+    assert_eq!(environment.username.as_deref(), Some("someone"));
+    assert_eq!(environment.machine, None);
+}
+
+#[test]
+fn environment_holds_nothing_if_no_variable_is_set() {
+    assert_eq!(Environment::from_lookup(|_| None), Environment::default());
+}
+
+#[test]
+fn for_environment_registers_each_value() {
+    let redactor = Redactor::for_environment(&Environment {
+        profile_dir: Some(r"C:\Users\someone".to_owned()),
+        username: Some("someone".to_owned()),
+        machine: Some("DESKTOP-1A2B".to_owned()),
+    });
+    assert_eq!(
+        redactor.redact_known(r"C:\Users\someone\x opened by someone on desktop-1a2b"),
+        r"%USERPROFILE%\x opened by <user> on <machine>"
+    );
+}
