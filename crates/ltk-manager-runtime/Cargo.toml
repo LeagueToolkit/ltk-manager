@@ -17,6 +17,7 @@ ltk-manager-base = { workspace = true }
 base64 = { workspace = true }
 chrono = { workspace = true }
 fs-err = { workspace = true }
+ltk-redact = { workspace = true }
 ltk-telemetry = { workspace = true }
 minisign-verify = { workspace = true }
 parking_lot = { workspace = true }

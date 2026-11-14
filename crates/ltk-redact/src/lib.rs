@@ -9,6 +9,7 @@
 
 use std::borrow::Cow;
 use std::ffi::OsStr;
+use std::io::Write;
 use std::ops::Range;
 use std::sync::LazyLock;
 
@@ -289,4 +290,33 @@ pub fn register<V: AsRef<OsStr>>(placeholder: Placeholder, values: impl IntoIter
         .into_iter()
         .map(|value| value.as_ref().to_string_lossy().into_owned());
     SHARED.write().register(placeholder, values);
+}
+
+/// A writer that redacts each write through the shared redactor before the inner writer
+/// receives it.
+///
+/// The caller passes one whole log event to each `write`. Bytes that are not valid UTF-8
+/// are written unchanged.
+#[derive(Debug)]
+pub struct RedactingWriter<W>(W);
+
+impl<W> RedactingWriter<W> {
+    /// Returns a writer that redacts what it receives and writes the result to `inner`.
+    pub fn new(inner: W) -> Self {
+        Self(inner)
+    }
+}
+
+impl<W: Write> Write for RedactingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match std::str::from_utf8(buf) {
+            Ok(text) => self.0.write_all(redact(text).as_bytes())?,
+            Err(_) => self.0.write_all(buf)?,
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
 }

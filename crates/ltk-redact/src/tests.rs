@@ -182,6 +182,16 @@ fn redact_is_idempotent() {
     assert_eq!(redactor.redact(&once), once);
 }
 
+#[test]
+fn redacting_writer_replaces_a_deep_link_payload() {
+    let mut out = Vec::new();
+    let event = b"INFO opened ltk://install?url=https://cdn.example.com/a.modpkg\n";
+    let written = RedactingWriter::new(&mut out).write(event).unwrap();
+
+    assert_eq!(written, event.len());
+    assert_eq!(out, b"INFO opened ltk://install\n");
+}
+
 fn lookup<'a>(vars: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
     |name| {
         vars.iter()
