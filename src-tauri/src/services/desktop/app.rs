@@ -18,7 +18,7 @@ pub struct AppInfo {
 #[specta::specta]
 pub fn get_app_info() -> IpcResult<AppInfo> {
     let log_file_path = crate::logging::default_log_dir()
-        .map(|p: std::path::PathBuf| p.to_string_lossy().into_owned());
+        .map(|log_dir| log_dir.path().to_string_lossy().into_owned());
 
     IpcResult::ok(AppInfo {
         name: "LTK Manager".to_string(),

@@ -5,9 +5,10 @@
 //! pattern matches text that has the form of a private value, such as a URL query.
 //!
 //! [`redact`] applies the redactor that the whole process shares. [`register`] adds known
-//! values to it when the process reads them.
+//! values to it when the process reads them. [`redact_counting`] also counts the replacements
+//! of each rule, for the manifest of a support report.
 
-use std::{borrow::Cow, ffi::OsStr, io::Write, ops::Range, sync::LazyLock};
+use std::{borrow::Cow, collections::BTreeMap, ffi::OsStr, io::Write, ops::Range, sync::LazyLock};
 
 use parking_lot::RwLock;
 
@@ -71,6 +72,21 @@ impl Placeholder {
         }
     }
 
+    /// Returns the name that [`Counts`] holds the replacements of this kind under.
+    fn rule(self) -> &'static str {
+        match self {
+            Self::Profile => "profile",
+            Self::User => "user",
+            Self::Machine => "machine",
+            Self::League => "league",
+            Self::Data => "data",
+            Self::Workshop => "workshop",
+            Self::Secret => "secret",
+            Self::Install => "install",
+            Self::RuneforgeUser => "runeforge-user",
+        }
+    }
+
     fn is_path(self) -> bool {
         matches!(
             self,
@@ -79,11 +95,37 @@ impl Placeholder {
     }
 }
 
+/// The number of replacements that each rule made, by the name of the rule.
+///
+/// A known value counts under its kind, such as `profile` or `user`. A pattern counts under
+/// its own name, such as `url` or `email`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Counts(BTreeMap<&'static str, usize>);
+
+impl Counts {
+    fn add(&mut self, rule: &'static str) {
+        *self.0.entry(rule).or_default() += 1;
+    }
+
+    /// Returns each rule that replaced something, with its count, in the order of the names.
+    pub fn iter(&self) -> impl Iterator<Item = (&'static str, usize)> + '_ {
+        self.0.iter().map(|(rule, count)| (*rule, *count))
+    }
+
+    /// Returns the number of replacements of all rules.
+    #[must_use]
+    pub fn total(&self) -> usize {
+        self.0.values().sum()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Known {
     /// The value in folded form.
     needle: String,
     replacement: String,
+    /// The name that a replacement counts under.
+    rule: &'static str,
     /// Whether the character before a match must also be a boundary. A path sets `false`.
     bare: bool,
 }
@@ -125,31 +167,38 @@ impl Redactor {
         for value in values {
             let value = value.as_ref().trim();
             if placeholder.is_path() {
-                self.register_path(placeholder.text(), value);
+                self.register_path(placeholder, value);
             } else if value.chars().count() >= MIN_BARE_VALUE_CHARS {
-                self.insert(fold(value), placeholder.text().to_owned(), true);
+                self.insert(
+                    fold(value),
+                    placeholder.text().to_owned(),
+                    placeholder,
+                    true,
+                );
             }
         }
     }
 
-    fn register_path(&mut self, placeholder: &str, path: &str) {
+    fn register_path(&mut self, placeholder: Placeholder, path: &str) {
         let path = path.trim_end_matches(['/', '\\']);
         let path = path.strip_prefix(r"\\?\").unwrap_or(path);
         if !path.contains(['/', '\\']) {
             return;
         }
+        let text = placeholder.text();
         let replacement = if path.is_ascii() {
-            placeholder.to_owned()
+            text.to_owned()
         } else {
-            let (body, close) = placeholder.split_at(placeholder.len() - 1);
+            let (body, close) = text.split_at(text.len() - 1);
             format!("{body}:non-ascii{close}")
         };
         let folded = fold(path);
-        self.insert(folded.replace('\\', r"\\"), replacement.clone(), false);
-        self.insert(folded, replacement, false);
+        let doubled = folded.replace('\\', r"\\");
+        self.insert(doubled, replacement.clone(), placeholder, false);
+        self.insert(folded, replacement, placeholder, false);
     }
 
-    fn insert(&mut self, needle: String, replacement: String, bare: bool) {
+    fn insert(&mut self, needle: String, replacement: String, kind: Placeholder, bare: bool) {
         if self.known.iter().any(|known| known.needle == needle) {
             return;
         }
@@ -159,6 +208,7 @@ impl Redactor {
         let known = Known {
             needle,
             replacement,
+            rule: kind.rule(),
             bare,
         };
         self.known.insert(at, known);
@@ -172,12 +222,16 @@ impl Redactor {
     // number of known values grows past a few dozen.
     #[must_use]
     pub fn redact_known<'a>(&self, text: &'a str) -> Cow<'a, str> {
+        self.replace_known(text, None)
+    }
+
+    fn replace_known<'a>(&self, text: &'a str, counts: Option<&mut Counts>) -> Cow<'a, str> {
         if self.known.is_empty() {
             return Cow::Borrowed(text);
         }
         // Folding keeps every byte offset, so an offset into `folded` is an offset into `text`.
         let folded = fold(text);
-        let mut matches: Vec<(Range<usize>, &str)> = Vec::new();
+        let mut matches: Vec<(Range<usize>, &str, &'static str)> = Vec::new();
         for known in &self.known {
             let mut from = 0;
             while let Some(offset) = folded[from..].find(&known.needle) {
@@ -185,40 +239,56 @@ impl Redactor {
                 let end = start + known.needle.len();
                 let free = matches
                     .iter()
-                    .all(|(taken, _)| end <= taken.start || start >= taken.end);
+                    .all(|(taken, ..)| end <= taken.start || start >= taken.end);
                 if free && is_bounded(&folded, start, end, known.bare) {
-                    matches.push((start..end, &known.replacement));
+                    matches.push((start..end, &known.replacement, known.rule));
                 }
                 from = start + folded[start..].chars().next().map_or(1, char::len_utf8);
             }
         }
-        matches.sort_unstable_by_key(|(range, _)| range.start);
-        splice(text, matches)
+        matches.sort_unstable_by_key(|(range, ..)| range.start);
+        splice(text, matches, counts)
     }
 
     /// Returns `text` with each known value and each pattern match replaced. Returns `text`
     /// borrowed if nothing is replaced.
     #[must_use]
     pub fn redact<'a>(&self, text: &'a str) -> Cow<'a, str> {
-        and_then(self.redact_known(text), patterns::redact)
+        self.replace(text, None)
+    }
+
+    /// Returns `text` redacted as [`Self::redact`] does, and adds each replacement to
+    /// `counts`.
+    #[must_use]
+    pub fn redact_counting<'a>(&self, text: &'a str, counts: &mut Counts) -> Cow<'a, str> {
+        self.replace(text, Some(counts))
+    }
+
+    fn replace<'a>(&self, text: &'a str, mut counts: Option<&mut Counts>) -> Cow<'a, str> {
+        let known = self.replace_known(text, counts.as_deref_mut());
+        and_then(known, |text| patterns::redact(text, counts))
     }
 }
 
-/// Returns `text` with each range replaced by the text beside it. The ranges are in ascending
-/// order and do not overlap.
+/// Returns `text` with each range replaced by the text beside it, and adds the rule of each
+/// replacement to `counts`. The ranges are in ascending order and do not overlap.
 ///
 /// Skips a replacement that equals the text it replaces. Returns `text` borrowed if every
 /// replacement is skipped.
 fn splice<'a>(
     text: &'a str,
-    replacements: impl IntoIterator<Item = (Range<usize>, impl AsRef<str>)>,
+    replacements: impl IntoIterator<Item = (Range<usize>, impl AsRef<str>, &'static str)>,
+    mut counts: Option<&mut Counts>,
 ) -> Cow<'a, str> {
     let mut out: Option<String> = None;
     let mut cursor = 0;
-    for (range, replacement) in replacements {
+    for (range, replacement, rule) in replacements {
         let replacement = replacement.as_ref();
         if &text[range.clone()] == replacement {
             continue;
+        }
+        if let Some(counts) = counts.as_deref_mut() {
+            counts.add(rule);
         }
         let out = out.get_or_insert_with(|| String::with_capacity(text.len()));
         out.push_str(&text[cursor..range.start]);
@@ -274,6 +344,12 @@ fn fold(value: &str) -> String {
 
 static SHARED: LazyLock<RwLock<Redactor>> =
     LazyLock::new(|| RwLock::new(Redactor::for_environment(&Environment::read())));
+
+/// Returns `text` redacted by the shared redactor, and adds each replacement to `counts`.
+#[must_use]
+pub fn redact_counting<'a>(text: &'a str, counts: &mut Counts) -> Cow<'a, str> {
+    SHARED.read().redact_counting(text, counts)
+}
 
 /// Returns `text` redacted by the redactor that the process shares.
 #[must_use]

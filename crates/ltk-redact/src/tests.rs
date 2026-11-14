@@ -183,6 +183,24 @@ fn redact_is_idempotent() {
 }
 
 #[test]
+fn redact_counting_counts_the_replacements_of_each_rule() {
+    let mut counts = Counts::default();
+    let text = r"C:\Users\someone\a, C:\Users\someone\b by someone from https://a.example/b?c=d";
+
+    let redacted = redactor().redact_counting(text, &mut counts);
+
+    assert_eq!(
+        redacted,
+        r"%USERPROFILE%\a, %USERPROFILE%\b by <redacted> from https://a.example/b"
+    );
+    assert_eq!(
+        counts.iter().collect::<Vec<_>>(),
+        [("profile", 2), ("url", 1), ("user", 1)]
+    );
+    assert_eq!(counts.total(), 4);
+}
+
+#[test]
 fn redacting_writer_replaces_a_deep_link_payload() {
     let mut out = Vec::new();
     let event = b"INFO opened ltk://install?url=https://cdn.example.com/a.modpkg\n";

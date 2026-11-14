@@ -40,6 +40,9 @@ use tauri::Manager;
 /// The one window the frontend runs in, which `tauri.conf.json` describes and `setup` creates.
 const MAIN_WINDOW: &str = "main";
 
+/// The age at which a log file is deleted at startup.
+const LOG_RETENTION: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
+
 /// The version this build runs at.
 fn running_version() -> Version {
     Version::parse(env!("CARGO_PKG_VERSION"))
@@ -55,10 +58,14 @@ fn main() {
 
     let logging_guards = logging::init();
 
-    tracing::info!("Starting LTK Manager v{}", env!("CARGO_PKG_VERSION"));
-    if let Some(ref p) = logging_guards.log_path {
-        tracing::info!("Log directory: {}", p.display());
-        logging::cleanup_old_logs(p, 7);
+    tracing::info!(
+        "{}{}",
+        ltk_manager_core::log_dir::RUN_START,
+        env!("CARGO_PKG_VERSION")
+    );
+    if let Some(log_dir) = &logging_guards.log_dir {
+        tracing::info!("Log directory: {}", log_dir.path().display());
+        log_dir.remove_older_than(LOG_RETENTION);
     }
     if !inherited.is_empty() {
         tracing::warn!(
