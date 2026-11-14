@@ -8,7 +8,7 @@ use std::{
 
 use regex::{Captures, Regex, RegexSet};
 
-use crate::{REDACTED, and_then, splice};
+use crate::{Counts, REDACTED, and_then, splice};
 
 /// The replacement of a rule.
 enum Replace {
@@ -21,36 +21,50 @@ enum Replace {
 
 use Replace::{By, With};
 
-/// The rules in the order they run. A deep link runs before a URL, because a deep link
-/// carries a URL in its query. A URL runs before a `key=value` pair, because the placeholder
-/// of the pair would end the URL match before its fragment.
-const RULES: &[(&str, Replace)] = &[
+/// The rules in the order they run, each with the name that its replacements count under.
+///
+/// A deep link runs before a URL, because a deep link carries a URL in its query. A URL runs
+/// before a `key=value` pair, because the placeholder of the pair would end the URL match
+/// before its fragment.
+const RULES: &[(&str, &str, Replace)] = &[
     (
+        "bearer",
         r"(?i)\bbearer\s+[a-z0-9._~+/=-]{8,}",
         With("Bearer <redacted>"),
     ),
-    (r#"(?i)\b(ltk://[a-z0-9_-]*)[^\s"'<>]*"#, With("$1")),
-    (r#"(?i)\bhttps?://[^\s"'<>]+"#, By(url)),
     (
+        "deep-link",
+        r#"(?i)\b(ltk://[a-z0-9_-]*)[^\s"'<>]*"#,
+        With("$1"),
+    ),
+    ("url", r#"(?i)\bhttps?://[^\s"'<>]+"#, By(url)),
+    (
+        "key-value",
         r#"(?i)\b(token|key|secret|password|signature|sig)=[^\s&"']+"#,
         With("$1=<redacted>"),
     ),
     (
+        "other-user",
         r#"(?i)\b([a-z]:[\\/]+users[\\/]+)(?:([^\\/"<>|:*?\r\n]+)([\\/])|([^\\/"<>|:*?\s]+))"#,
         By(other_user),
     ),
     (
+        "email",
         r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
         With("<redacted>"),
     ),
-    (r"\b\d{1,3}(?:\.\d{1,3}){3}\b", By(ipv4)),
-    (r"[0-9A-Fa-f:]{3,45}", By(ipv6)),
-    (r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'", With("'<redacted>'")),
+    ("ipv4", r"\b\d{1,3}(?:\.\d{1,3}){3}\b", By(ipv4)),
+    ("ipv6", r"[0-9A-Fa-f:]{3,45}", By(ipv6)),
+    (
+        "riot-id",
+        r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'",
+        With("'<redacted>'"),
+    ),
 ];
 
 /// The set that selects the rules that match a text, and the regex of each rule.
 static PATTERNS: LazyLock<(RegexSet, Vec<Regex>)> = LazyLock::new(|| {
-    let patterns = RULES.iter().map(|(pattern, _)| *pattern);
+    let patterns = RULES.iter().map(|(_, pattern, _)| *pattern);
     (
         RegexSet::new(patterns.clone()).expect("valid patterns"),
         patterns
@@ -59,19 +73,29 @@ static PATTERNS: LazyLock<(RegexSet, Vec<Regex>)> = LazyLock::new(|| {
     )
 });
 
-/// Returns `text` with each pattern match replaced. Returns `text` borrowed if no rule
-/// replaces anything.
-pub(crate) fn redact(text: &str) -> Cow<'_, str> {
+/// Returns `text` with each pattern match replaced, and adds each replacement to `counts`.
+/// Returns `text` borrowed if no rule replaces anything.
+pub(crate) fn redact<'a>(text: &'a str, mut counts: Option<&mut Counts>) -> Cow<'a, str> {
     let (set, regexes) = &*PATTERNS;
     let mut out = Cow::Borrowed(text);
     for index in set.matches(text) {
-        out = and_then(out, |text| apply(text, &regexes[index], &RULES[index].1));
+        let (rule, _, replace) = &RULES[index];
+        let regex = &regexes[index];
+        out = and_then(out, |text| {
+            apply(text, regex, rule, replace, counts.as_deref_mut())
+        });
     }
     out
 }
 
 /// Returns `text` with each match of `regex` replaced as `replace` states.
-fn apply<'a>(text: &'a str, regex: &Regex, replace: &Replace) -> Cow<'a, str> {
+fn apply<'a>(
+    text: &'a str,
+    regex: &Regex,
+    rule: &'static str,
+    replace: &Replace,
+    counts: Option<&mut Counts>,
+) -> Cow<'a, str> {
     let replacements = regex.captures_iter(text).filter_map(|captures| {
         let whole = captures.get(0)?;
         let replacement = match replace {
@@ -82,9 +106,9 @@ fn apply<'a>(text: &'a str, regex: &Regex, replace: &Replace) -> Cow<'a, str> {
             }
             By(replace) => replace(&captures, &text[whole.end()..])?,
         };
-        Some((whole.range(), replacement))
+        Some((whole.range(), replacement, rule))
     });
-    splice(text, replacements)
+    splice(text, replacements, counts)
 }
 
 /// Keeps the scheme, the host and the path of a URL. Drops the user info, the query and the

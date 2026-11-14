@@ -1,4 +1,5 @@
 use fs_err as fs;
+use ltk_manager_core::support_report::log_files;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
@@ -152,19 +153,6 @@ fn redact_log_file(path: &Path) -> std::io::Result<()> {
     let temporary = path.with_extension("log.redacting");
     fs::write(&temporary, redacted)?;
     fs::rename(&temporary, path)
-}
-
-/// Returns the path of each log file in `log_dir`.
-fn log_files(log_dir: &Path) -> std::io::Result<impl Iterator<Item = PathBuf>> {
-    let is_log_file = |name: &str| name.starts_with("ltk-manager.") && name.ends_with(".log");
-    Ok(fs::read_dir(log_dir)?
-        .flatten()
-        .map(|entry| entry.path())
-        .filter(move |path| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(is_log_file)
-        }))
 }
 
 /// Delete log files older than `max_age_days` from the log directory.

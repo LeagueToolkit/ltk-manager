@@ -2,8 +2,9 @@
 //!
 //! The test registers a set of private values, then runs an install, a patcher session that
 //! fails and a patcher start that fails. It searches every output for each private value: the
-//! log as the log file writer writes it, the incident report text, the incident token and the
-//! telemetry events. One private value in one output fails the test.
+//! log as the log file writer writes it, the incident report text, the incident token, the
+//! telemetry events and every file of a support report. One private value in one output fails
+//! the test.
 //!
 //! The binary holds one test, because the tracing subscriber and the redactor are
 //! process-wide.
@@ -30,6 +31,7 @@ use ltk_manager_base::{
 use ltk_manager_core::{
     deep_link::parse_deep_link_url,
     patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
+    support_report::{AppIdentity, Description, Problem, SupportReport},
 };
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
 use ltk_manager_runtime::{
@@ -67,8 +69,10 @@ fn no_output_holds_a_private_value() {
     let log = Log::install();
 
     for username in USERNAMES {
-        let outputs = Fixture::new(username).run();
+        let fixture = Fixture::new(username);
+        let outputs = fixture.run();
         let (raw_log, redacted_log) = log.take();
+        let support_report = fixture.support_report(&raw_log);
 
         // The run has to write the private values, or the searches below prove nothing.
         for value in [username, LEAGUE, STORAGE, LINK_TOKEN] {
@@ -85,6 +89,10 @@ fn no_output_holds_a_private_value() {
             outputs.telemetry.contains("game_session_ended"),
             "the `{username}` run sent no session event"
         );
+        assert!(
+            support_report.contains("%USERPROFILE"),
+            "the support report of the `{username}` run holds no replaced path"
+        );
 
         let everywhere = [username, MACHINE, SECRET, LINK_TOKEN];
         let paths = [LEAGUE, STORAGE, WORKSHOP];
@@ -94,6 +102,7 @@ fn no_output_holds_a_private_value() {
         assert_clean("incident token", username, &outputs.token, &all);
         // Telemetry replaces the profile directory only, so the other paths are not searched.
         assert_clean("telemetry", username, &outputs.telemetry, &everywhere);
+        assert_clean("support report", username, &support_report, &all);
     }
 }
 
@@ -232,6 +241,48 @@ impl Fixture {
             token: serde_json::to_string(&decoded).expect("the decoded token serializes"),
             telemetry: events,
         }
+    }
+
+    /// Builds a support report and returns every file of it as one text.
+    ///
+    /// The log file of the report holds `raw_log`, as a release that did not redact the log
+    /// wrote it. The settings hold the paths, the secret and two fields that the allowlist
+    /// does not name. The description holds the username and a path.
+    fn support_report(&self, raw_log: &str) -> String {
+        let log_dir = self.app_data.join("logs");
+        fs::create_dir_all(&log_dir).expect("the log directory");
+        fs::write(log_dir.join("ltk-manager.2026-11-15.log"), raw_log).expect("the log file");
+
+        let app = AppIdentity {
+            identifier: "dev.leaguetoolkit.manager".to_owned(),
+            version: MANAGER_VERSION.to_owned(),
+            release_build: true,
+        };
+        let description = Description {
+            problem: Some(Problem::ModNotShown),
+            mod_name: Some("Test Mod".to_owned()),
+            text: format!(
+                "{} installed it from {}",
+                self.username,
+                self.profile.join("Downloads").display()
+            ),
+        };
+        let mut report = SupportReport::new(app, description, chrono::Utc::now());
+        report.add_log(&log_dir);
+        report.add_settings(&serde_json::json!({
+            "leaguePath": self.config.league_path,
+            "modStoragePath": self.config.mod_storage_path,
+            "workshopPath": self.config.workshop_path,
+            "telemetrySecret": SECRET,
+            "runeforge": { "username": self.username },
+        }));
+
+        report
+            .finish()
+            .files()
+            .iter()
+            .map(|file| format!("{}\n{}\n", file.path, file.contents))
+            .collect()
     }
 
     /// Writes the two log lines of the app's deep link handler for a link with a signed URL.

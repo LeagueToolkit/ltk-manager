@@ -55,7 +55,11 @@ fn main() {
 
     let logging_guards = logging::init();
 
-    tracing::info!("Starting LTK Manager v{}", env!("CARGO_PKG_VERSION"));
+    tracing::info!(
+        "{}{}",
+        ltk_manager_core::support_report::RUN_START,
+        env!("CARGO_PKG_VERSION")
+    );
     if let Some(ref p) = logging_guards.log_path {
         tracing::info!("Log directory: {}", p.display());
         logging::cleanup_old_logs(p, 7);

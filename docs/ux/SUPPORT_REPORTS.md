@@ -95,7 +95,7 @@ gives it.
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
-| Support report          | Planned     | An allowlisted zip, built by named builders                                          |
+| Support report          | In progress | An allowlisted zip, built by named builders. The log and the settings are built      |
 | Report preview          | Planned     | The file list, the redacted text and the replacement counts                          |
 | Save and copy           | Planned     | A file on disk, and a short summary on the clipboard                                 |
 | `Get help` entry points | Planned     | Error toasts, both crash screens, the menu, the mod card                             |
@@ -270,18 +270,18 @@ before anything leaves. Telemetry sends a digest and never a name, and that rule
 `crates/ltk-manager-core/tests/redaction_canary.rs` uses a profile directory, a username, a
 computer name, a League path, a mod storage path, a workshop path, a deep link with a signed URL
 and the telemetry secret. It installs a mod, runs a patcher session whose host does not exist, and
-runs a patcher start that fails before the build. It then searches four outputs for each of those
+runs a patcher start that fails before the build. It then searches five outputs for each of those
 values: the log as the log file writer writes it, the incident report text, the fields of the
-incident token and the telemetry events. One hit fails the build. The username runs in
-four forms: ASCII, with a space, Cyrillic and CJK. A log call added next year is covered without
-anybody remembering this document.
+incident token, the telemetry events and every file of a support report. The log file of that
+report holds the unredacted log, as an older release wrote it. One hit fails the build. The
+username runs in four forms: ASCII, with a space, Cyrillic and CJK. A log call added next year is
+covered without anybody remembering this document.
 
 A value is searched in any letter case, with either separator, with doubled separators and in its
 percent-encoded form. The 8.3 short name is not searched.
 
 The test does not run the code that needs a window. It repeats the two log lines of the deep link
-handler over the real parser. The files of a support report join the searched outputs when the
-report exists.
+handler over the real parser.
 
 Telemetry replaces the profile directory only. The test does not search the telemetry events for
 the League path, the mod storage path or the workshop path.
