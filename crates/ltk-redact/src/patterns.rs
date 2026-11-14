@@ -1,8 +1,10 @@
 //! The pattern rules, which run after the known values.
 
-use std::borrow::Cow;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::sync::LazyLock;
+use std::{
+    borrow::Cow,
+    net::{Ipv4Addr, Ipv6Addr},
+    sync::LazyLock,
+};
 
 use regex::{Captures, Regex, RegexSet};
 

@@ -7,11 +7,7 @@
 //! [`redact`] applies the redactor that the whole process shares. [`register`] adds known
 //! values to it when the process reads them.
 
-use std::borrow::Cow;
-use std::ffi::OsStr;
-use std::io::Write;
-use std::ops::Range;
-use std::sync::LazyLock;
+use std::{borrow::Cow, ffi::OsStr, io::Write, ops::Range, sync::LazyLock};
 
 use parking_lot::RwLock;
 

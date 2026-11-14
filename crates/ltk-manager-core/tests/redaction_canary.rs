@@ -1,62 +1,73 @@
 //! The redaction canary.
 //!
-//! The test plants private values, then runs an install, a patcher session that fails and a
-//! patcher start that fails. It searches every output for each planted value: the log as the
-//! log file writer writes it, the incident report text, the incident token and the telemetry
-//! events. One planted value in one output fails the test.
+//! The test registers a set of private values, then runs an install, a patcher session that
+//! fails and a patcher start that fails. It searches every output for each private value: the
+//! log as the log file writer writes it, the incident report text, the incident token and the
+//! telemetry events. One private value in one output fails the test.
 //!
 //! The binary holds one test, because the tracing subscriber and the redactor are
 //! process-wide.
 
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, mpsc};
-use std::time::Duration;
+use std::{
+    io::Write,
+    path::{Path, PathBuf},
+    sync::{Arc, mpsc},
+    time::Duration,
+};
 
 use fs_err as fs;
 use parking_lot::Mutex;
 
-use ltk_manager_assets::hashtables::WadPathResolverState;
-use ltk_manager_assets::test_util::{
-    make_named_fantome_zip, place_game_wad, point_at_installed_build,
+use ltk_manager_assets::{
+    hashtables::WadPathResolverState,
+    test_util::{make_named_fantome_zip, place_game_wad, point_at_installed_build},
 };
-use ltk_manager_base::config::Config;
-use ltk_manager_base::error::AppError;
-use ltk_manager_base::events::{NullEventSink, OverlayProgress};
-use ltk_manager_core::deep_link::parse_deep_link_url;
-use ltk_manager_core::patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams};
+use ltk_manager_base::{
+    config::Config,
+    error::AppError,
+    events::{NullEventSink, OverlayProgress},
+};
+use ltk_manager_core::{
+    deep_link::parse_deep_link_url,
+    patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
+};
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
-use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
-use ltk_manager_runtime::diagnostics::incident::{Incident, OverlayOutcome};
-use ltk_manager_runtime::diagnostics::store::IncidentStore;
-use ltk_manager_runtime::diagnostics::token::IncidentToken;
-use ltk_manager_runtime::patcher::events::PatcherEvents;
-use ltk_manager_runtime::patcher::injector::WadScanFailure;
-use ltk_manager_runtime::patcher::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+use ltk_manager_runtime::{
+    diagnostics::{
+        binary_id::PatcherBinaries,
+        incident::{Incident, OverlayOutcome},
+        store::IncidentStore,
+        token::IncidentToken,
+    },
+    patcher::{
+        events::PatcherEvents,
+        injector::WadScanFailure,
+        state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig},
+    },
+};
 use ltk_redact::{Environment, Placeholder, RedactingWriter};
-use ltk_telemetry::sink::RecordingSink;
-use ltk_telemetry::{Config as TelemetryConfig, Scrubber, Secret, Telemetry};
+use ltk_telemetry::{Config as TelemetryConfig, Scrubber, Secret, Telemetry, sink::RecordingSink};
 
-/// The usernames that the test plants, one run each: ASCII, with a space, Cyrillic and CJK.
-const USERNAMES: [&str; 4] = ["plantedcanary", "planted canary", "Подсадной", "植入金丝雀"];
+/// The usernames of the runs: ASCII, with a space, Cyrillic and CJK.
+const USERNAMES: [&str; 4] = ["privateuser", "private user", "Пользователь", "私人用户名"];
 
-const MACHINE: &str = "PLANTED-PC-07";
-const SECRET: &str = "planted-telemetry-secret-5f1c";
-const LINK_TOKEN: &str = "plantedlinktoken";
+const MACHINE: &str = "PRIVATE-PC-07";
+const SECRET: &str = "private-telemetry-secret-5f1c";
+const LINK_TOKEN: &str = "privatelinktoken";
 /// The directory names that mark the League path, the mod storage path and the workshop path.
-const LEAGUE: &str = "PlantedLeague";
-const STORAGE: &str = "PlantedStorage";
-const WORKSHOP: &str = "PlantedWorkshop";
+const LEAGUE: &str = "PrivateLeague";
+const STORAGE: &str = "PrivateStorage";
+const WORKSHOP: &str = "PrivateWorkshop";
 
 const MANAGER_VERSION: &str = "1.0.0";
 const SESSION_TIMEOUT: Duration = Duration::from_secs(120);
 
 #[test]
-fn no_output_holds_a_planted_value() {
+fn no_output_holds_a_private_value() {
     let log = Log::install();
 
     for username in USERNAMES {
-        let outputs = Planted::new(username).run();
+        let outputs = Fixture::new(username).run();
         let (raw_log, redacted_log) = log.take();
 
         // The run has to write the private values, or the searches below prove nothing.
@@ -95,8 +106,8 @@ struct Outputs {
     telemetry: String,
 }
 
-/// The planted values of one run, in a directory tree of their own.
-struct Planted {
+/// The private values of one run, in a directory tree of their own.
+struct Fixture {
     _root: tempfile::TempDir,
     username: &'static str,
     profile: PathBuf,
@@ -104,7 +115,7 @@ struct Planted {
     config: Config,
 }
 
-impl Planted {
+impl Fixture {
     fn new(username: &'static str) -> Self {
         let temp = tempfile::tempdir().expect("a temporary directory");
         let root = canonical(temp.path());
@@ -126,21 +137,21 @@ impl Planted {
             &[("data/characters/ashe/skins/skin0.bin", b"PROP")],
         );
         for dir in [&app_data, &root.join(STORAGE), &root.join(WORKSHOP)] {
-            fs::create_dir_all(dir).expect("a planted directory");
+            fs::create_dir_all(dir).expect("a fixture directory");
         }
 
-        let planted = Self {
+        let fixture = Self {
             _root: temp,
             username,
             profile,
             app_data,
             config,
         };
-        planted.register();
-        planted
+        fixture.register();
+        fixture
     }
 
-    /// Registers the planted values with the shared redactor, the way the app does.
+    /// Registers the private values with the shared redactor, the way the app does.
     fn register(&self) {
         let profile = self.profile.to_string_lossy().into_owned();
         let environment = Environment::from_lookup(|name| match name {
@@ -238,8 +249,8 @@ impl Planted {
     fn install_mod(&self, library: &ModLibrary) {
         let downloads = self.profile.join("Downloads");
         fs::create_dir_all(&downloads).expect("the downloads directory");
-        let archive = downloads.join("canary mod.fantome");
-        make_named_fantome_zip(&archive, "Canary Mod");
+        let archive = downloads.join("test mod.fantome");
+        make_named_fantome_zip(&archive, "Test Mod");
         library
             .install_mod_from_package(&self.config, &archive.to_string_lossy())
             .expect("the mod installs");
@@ -420,7 +431,7 @@ fn assert_clean(output_name: &str, username: &str, output: &str, values: &[&str]
     let hits = found(output, values);
     assert!(
         hits.is_empty(),
-        "the {output_name} of the `{username}` run holds a planted value:\n{}",
+        "the {output_name} of the `{username}` run holds a private value:\n{}",
         hits.join("\n")
     );
 }

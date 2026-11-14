@@ -94,7 +94,7 @@ gives it.
 | Run, session, game ids  | Planned     | Three spans, written on every line                                                   |
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
-| Canary test             | Available   | A CI run that plants private values and searches every output                        |
+| Canary test             | Available   | A CI run that registers private values and searches every output                     |
 | Support report          | Planned     | An allowlisted zip, built by named builders                                          |
 | Report preview          | Planned     | The file list, the redacted text and the replacement counts                          |
 | Save and copy           | Planned     | A file on disk, and a short summary on the clipboard                                 |
@@ -262,12 +262,12 @@ before anything leaves. Telemetry sends a digest and never a name, and that rule
 
 ### The canary test
 
-`crates/ltk-manager-core/tests/redaction_canary.rs` plants a profile directory, a username, a
+`crates/ltk-manager-core/tests/redaction_canary.rs` uses a profile directory, a username, a
 computer name, a League path, a mod storage path, a workshop path, a deep link with a signed URL
 and the telemetry secret. It installs a mod, runs a patcher session whose host does not exist, and
-runs a patcher start that fails before the build. It then searches four outputs for each planted
-value: the log as the log file writer writes it, the incident report text, the fields of the
-incident token and the telemetry events. One hit fails the build. The planted username runs in
+runs a patcher start that fails before the build. It then searches four outputs for each of those
+values: the log as the log file writer writes it, the incident report text, the fields of the
+incident token and the telemetry events. One hit fails the build. The username runs in
 four forms: ASCII, with a space, Cyrillic and CJK. A log call added next year is covered without
 anybody remembering this document.
 
