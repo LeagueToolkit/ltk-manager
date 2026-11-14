@@ -12,6 +12,9 @@ impl Incident {
     /// `token` is the incident's own [token](super::token), carried on the
     /// second line so a pasted report holds the short form of itself. `hints`
     /// are the verdict's hints as sentences, which the frontend catalog owns.
+    ///
+    /// The text passes through the shared redactor, because a failure message
+    /// can hold a path.
     pub fn report_text(
         &self,
         manager_version: &str,
@@ -126,7 +129,7 @@ impl Incident {
                 let _ = writeln!(out, "  {line}");
             }
         }
-        out
+        ltk_redact::redact(&out).into_owned()
     }
 
     fn shader_line(&self) -> Option<String> {

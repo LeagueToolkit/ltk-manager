@@ -1,12 +1,14 @@
 //! The pattern rules, which run after the known values.
 
-use std::borrow::Cow;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::sync::LazyLock;
+use std::{
+    borrow::Cow,
+    net::{Ipv4Addr, Ipv6Addr},
+    sync::LazyLock,
+};
 
 use regex::{Captures, Regex, RegexSet};
 
-use crate::{and_then, splice};
+use crate::{REDACTED, and_then, splice};
 
 /// The replacement of a rule.
 enum Replace {
@@ -25,13 +27,13 @@ use Replace::{By, With};
 const RULES: &[(&str, Replace)] = &[
     (
         r"(?i)\bbearer\s+[a-z0-9._~+/=-]{8,}",
-        With("Bearer <secret>"),
+        With("Bearer <redacted>"),
     ),
     (r#"(?i)\b(ltk://[a-z0-9_-]*)[^\s"'<>]*"#, With("$1")),
     (r#"(?i)\bhttps?://[^\s"'<>]+"#, By(url)),
     (
         r#"(?i)\b(token|key|secret|password|signature|sig)=[^\s&"']+"#,
-        With("$1=<secret>"),
+        With("$1=<redacted>"),
     ),
     (
         r#"(?i)\b([a-z]:[\\/]+users[\\/]+)(?:([^\\/"<>|:*?\r\n]+)([\\/])|([^\\/"<>|:*?\s]+))"#,
@@ -39,11 +41,11 @@ const RULES: &[(&str, Replace)] = &[
     ),
     (
         r"(?i)\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b",
-        With("<email>"),
+        With("<redacted>"),
     ),
     (r"\b\d{1,3}(?:\.\d{1,3}){3}\b", By(ipv4)),
     (r"[0-9A-Fa-f:]{3,45}", By(ipv6)),
-    (r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'", With("'<riot-id>'")),
+    (r"'[^'#\r\n]{1,32}#[^'\s]{1,8}'", With("'<redacted>'")),
 ];
 
 /// The set that selects the rules that match a text, and the regex of each rule.
@@ -110,7 +112,7 @@ fn other_user(captures: &Captures<'_>, _: &str) -> Option<String> {
         return None;
     }
     let separator = captures.get(3).map_or("", |m| m.as_str());
-    Some(format!("{}<other>{separator}", &captures[1]))
+    Some(format!("{}{REDACTED}{separator}", &captures[1]))
 }
 
 /// Replaces an IPv4 address. Keeps the loopback and the unspecified address, and a match
@@ -120,7 +122,7 @@ fn ipv4(captures: &Captures<'_>, after: &str) -> Option<String> {
     let mut following = after.chars();
     let longer =
         following.next() == Some('.') && following.next().is_some_and(|c| c.is_ascii_digit());
-    (!longer && !address.is_loopback() && !address.is_unspecified()).then(|| "<ip>".to_owned())
+    (!longer && !address.is_loopback() && !address.is_unspecified()).then(|| REDACTED.to_owned())
 }
 
 /// Replaces an IPv6 address. The candidate must hold a digit, so that a Rust path such as
@@ -142,5 +144,5 @@ fn ipv6(captures: &Captures<'_>, after: &str) -> Option<String> {
         return None;
     }
     let address: Ipv6Addr = candidate.parse().ok()?;
-    (!address.is_loopback() && !address.is_unspecified()).then(|| format!("<ip>{tail}"))
+    (!address.is_loopback() && !address.is_unspecified()).then(|| format!("{REDACTED}{tail}"))
 }

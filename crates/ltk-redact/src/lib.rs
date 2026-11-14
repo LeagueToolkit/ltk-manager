@@ -7,10 +7,7 @@
 //! [`redact`] applies the redactor that the whole process shares. [`register`] adds known
 //! values to it when the process reads them.
 
-use std::borrow::Cow;
-use std::ffi::OsStr;
-use std::ops::Range;
-use std::sync::LazyLock;
+use std::{borrow::Cow, ffi::OsStr, io::Write, ops::Range, sync::LazyLock};
 
 use parking_lot::RwLock;
 
@@ -29,11 +26,16 @@ pub const RULESET_VERSION: u32 = 1;
 /// ordinary words.
 const MIN_BARE_VALUE_CHARS: usize = 4;
 
-/// The text that replaces a known value, which also decides how the value is matched.
+/// The text that replaces every private value that is not a known path.
+const REDACTED: &str = "<redacted>";
+
+/// The kind of a known value, which decides the text that replaces the value and how the
+/// value is matched.
 ///
-/// `Profile`, `League`, `Data` and `Workshop` replace a path. A path matches with either
-/// separator, with doubled backslashes and in any ASCII letter case. Any other placeholder
-/// replaces a bare value, which matches where it stands alone.
+/// `Profile`, `League`, `Data` and `Workshop` are paths. A path matches with either
+/// separator, with doubled backslashes and in any ASCII letter case, and each has a
+/// placeholder of its own. Any other kind is a bare value, which matches where it stands
+/// alone and reads `<redacted>`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Placeholder {
     /// The profile directory.
@@ -60,14 +62,12 @@ impl Placeholder {
     fn text(self) -> &'static str {
         match self {
             Self::Profile => "%USERPROFILE%",
-            Self::User => "<user>",
-            Self::Machine => "<machine>",
             Self::League => "<league>",
             Self::Data => "<data>",
             Self::Workshop => "<workshop>",
-            Self::Secret => "<secret>",
-            Self::Install => "<install>",
-            Self::RuneforgeUser => "<runeforge-user>",
+            Self::User | Self::Machine | Self::Secret | Self::Install | Self::RuneforgeUser => {
+                REDACTED
+            }
         }
     }
 
@@ -289,4 +289,33 @@ pub fn register<V: AsRef<OsStr>>(placeholder: Placeholder, values: impl IntoIter
         .into_iter()
         .map(|value| value.as_ref().to_string_lossy().into_owned());
     SHARED.write().register(placeholder, values);
+}
+
+/// A writer that redacts each write through the shared redactor before the inner writer
+/// receives it.
+///
+/// The caller passes one whole log event to each `write`. Bytes that are not valid UTF-8
+/// are written unchanged.
+#[derive(Debug)]
+pub struct RedactingWriter<W>(W);
+
+impl<W> RedactingWriter<W> {
+    /// Returns a writer that redacts what it receives and writes the result to `inner`.
+    pub fn new(inner: W) -> Self {
+        Self(inner)
+    }
+}
+
+impl<W: Write> Write for RedactingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        match std::str::from_utf8(buf) {
+            Ok(text) => self.0.write_all(redact(text).as_bytes())?,
+            Err(_) => self.0.write_all(buf)?,
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
+    }
 }

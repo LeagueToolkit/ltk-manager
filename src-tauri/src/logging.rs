@@ -1,5 +1,4 @@
 use fs_err as fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime};
@@ -106,27 +105,8 @@ fn build_file_writer() -> (
         .filename_suffix("log")
         .build(&log_dir)
         .expect("failed to create log file appender");
-    let (writer, guard) = non_blocking(RedactingWriter(file_appender));
+    let (writer, guard) = non_blocking(ltk_redact::RedactingWriter::new(file_appender));
     (Some(guard), Some(writer), Some(log_dir))
-}
-
-/// Redacts each log event before `W` writes it.
-///
-/// The appender's worker thread calls `write` once for each event, with the whole event.
-struct RedactingWriter<W>(W);
-
-impl<W: Write> Write for RedactingWriter<W> {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        match std::str::from_utf8(buf) {
-            Ok(text) => self.0.write_all(ltk_redact::redact(text).as_bytes())?,
-            Err(_) => self.0.write_all(buf)?,
-        }
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.0.flush()
-    }
 }
 
 /// The file in the log directory that holds the ruleset version of the last rewrite.
@@ -255,16 +235,6 @@ pub(crate) fn default_log_dir() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn redacting_writer_replaces_a_deep_link_payload() {
-        let mut out = Vec::new();
-        let event = b"INFO opened ltk://install?url=https://cdn.example.com/a.modpkg\n";
-        let written = RedactingWriter(&mut out).write(event).unwrap();
-
-        assert_eq!(written, event.len());
-        assert_eq!(out, b"INFO opened ltk://install\n");
-    }
 
     #[test]
     fn redact_existing_logs_rewrites_log_files_once() {

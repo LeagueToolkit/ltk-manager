@@ -57,7 +57,7 @@ fn redact_known_replaces_a_bare_value_between_boundaries_only() {
     let redactor = redactor();
     assert_eq!(
         redactor.redact_known("owner someone, key s3cr3t-value."),
-        "owner <user>, key <secret>."
+        "owner <redacted>, key <redacted>."
     );
     assert_eq!(redactor.redact_known("handsomeones"), "handsomeones");
 }
@@ -93,11 +93,11 @@ fn redact_replaces_the_name_of_another_user() {
     let redactor = redactor();
     assert_eq!(
         redactor.redact(r"copied from C:\Users\Other Person\Desktop\skin.fantome"),
-        r"copied from C:\Users\<other>\Desktop\skin.fantome"
+        r"copied from C:\Users\<redacted>\Desktop\skin.fantome"
     );
     assert_eq!(
         redactor.redact(r"missing C:\Users\other"),
-        r"missing C:\Users\<other>"
+        r"missing C:\Users\<redacted>"
     );
     assert_eq!(
         redactor.redact(r"C:\Users\Public\Documents"),
@@ -129,11 +129,11 @@ fn redact_replaces_secrets_in_headers_and_pairs() {
     let redactor = redactor();
     assert_eq!(
         redactor.redact("Authorization: Bearer abcDEF123456.xyz"),
-        "Authorization: Bearer <secret>"
+        "Authorization: Bearer <redacted>"
     );
     assert_eq!(
         redactor.redact("retry with token=abc123 hotkey=F5"),
-        "retry with token=<secret> hotkey=F5"
+        "retry with token=<redacted> hotkey=F5"
     );
 }
 
@@ -142,11 +142,11 @@ fn redact_replaces_addresses_and_keeps_loopback_and_versions() {
     let redactor = redactor();
     assert_eq!(
         redactor.redact("connect 203.0.113.7:5000 failed"),
-        "connect <ip>:5000 failed"
+        "connect <redacted>:5000 failed"
     );
     assert_eq!(
         redactor.redact("peer 2001:db8::ff00:42:8329 closed"),
-        "peer <ip> closed"
+        "peer <redacted> closed"
     );
     for kept in [
         "listening on 127.0.0.1:8394",
@@ -164,7 +164,7 @@ fn redact_replaces_an_email_and_a_quoted_riot_id() {
     let redactor = redactor();
     assert_eq!(
         redactor.redact("author a.b@example.com, player 'Some Name#EUW'"),
-        "author <email>, player '<riot-id>'"
+        "author <redacted>, player '<redacted>'"
     );
 }
 
@@ -180,6 +180,16 @@ fn redact_is_idempotent() {
     let text = r"C:\Users\someone\x from ltk://install?url=https://a.example/b?c=d by someone";
     let once = redactor.redact(text).into_owned();
     assert_eq!(redactor.redact(&once), once);
+}
+
+#[test]
+fn redacting_writer_replaces_a_deep_link_payload() {
+    let mut out = Vec::new();
+    let event = b"INFO opened ltk://install?url=https://cdn.example.com/a.modpkg\n";
+    let written = RedactingWriter::new(&mut out).write(event).unwrap();
+
+    assert_eq!(written, event.len());
+    assert_eq!(out, b"INFO opened ltk://install\n");
 }
 
 fn lookup<'a>(vars: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
@@ -231,6 +241,6 @@ fn for_environment_registers_each_value() {
     });
     assert_eq!(
         redactor.redact_known(r"C:\Users\someone\x opened by someone on desktop-1a2b"),
-        r"%USERPROFILE%\x opened by <user> on <machine>"
+        r"%USERPROFILE%\x opened by <redacted> on <redacted>"
     );
 }

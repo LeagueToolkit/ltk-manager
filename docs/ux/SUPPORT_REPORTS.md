@@ -88,26 +88,26 @@ notification center keeps a title and a description in memory until the app clos
 A status word has the meaning that [League diagnostics](LEAGUE_DIAGNOSTICS.md#feature-status)
 gives it.
 
-| Feature                 | Status  | Note                                                           |
-| ----------------------- | ------- | -------------------------------------------------------------- |
-| Log levels and filter   | Planned | The DLL's level, the host's level, a default level of `warn`   |
-| Run, session, game ids  | Planned | Three spans, written on every line                             |
-| The redactor            | Planned | One crate, known values first, patterns second                 |
-| Redacted log file       | Planned | The redactor runs in the file writer                           |
-| Canary test             | Planned | A CI run that plants private values and searches every output  |
-| Support report          | Planned | An allowlisted zip, built by named builders                    |
-| Report preview          | Planned | The file list, the redacted text and the replacement counts    |
-| Save and copy           | Planned | A file on disk, and a short summary on the clipboard           |
-| `Get help` entry points | Planned | Error toasts, both crash screens, the menu, the mod card       |
-| Game record             | Planned | One small record for every game, clean games included          |
-| Advisory                | Planned | A coded condition that changes what the user gets              |
-| Mod trace               | Planned | Why one mod did or did not reach the last game                 |
-| Error reference         | Planned | A short id on an error, the same id on its log line            |
-| Upload and report code  | Planned | One code to paste. Needs an endpoint and an ADR                |
-| Report reader           | Planned | A web page behind the GitHub login                             |
-| Patcher codes           | Planned | Every DLL and host warn or error carries a code. `ltk-patcher` |
-| Code table by delivery  | Planned | The table for a DLL build travels with that build              |
-| Host line buffer        | Planned | The last game's DLL lines in a file, for a closed manager      |
+| Feature                 | Status      | Note                                                                                 |
+| ----------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| Log levels and filter   | Available   | The DLL's level, the host's level, a default level of `warn`                         |
+| Run, session, game ids  | Planned     | Three spans, written on every line                                                   |
+| The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
+| Redacted log file       | Available   | The redactor runs in the file writer                                                 |
+| Canary test             | Available   | A CI run that registers private values and searches every output                     |
+| Support report          | Planned     | An allowlisted zip, built by named builders                                          |
+| Report preview          | Planned     | The file list, the redacted text and the replacement counts                          |
+| Save and copy           | Planned     | A file on disk, and a short summary on the clipboard                                 |
+| `Get help` entry points | Planned     | Error toasts, both crash screens, the menu, the mod card                             |
+| Game record             | Planned     | One small record for every game, clean games included                                |
+| Advisory                | Planned     | A coded condition that changes what the user gets                                    |
+| Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
+| Error reference         | Planned     | A short id on an error, the same id on its log line                                  |
+| Upload and report code  | Planned     | One code to paste. Needs an endpoint and an ADR                                      |
+| Report reader           | Planned     | A web page behind the GitHub login                                                   |
+| Patcher codes           | Planned     | Every DLL and host warn or error carries a code. `ltk-patcher`                       |
+| Code table by delivery  | Planned     | The table for a DLL build travels with that build                                    |
+| Host line buffer        | Planned     | The last game's DLL lines in a file, for a closed manager                            |
 
 ## Vocabulary
 
@@ -184,18 +184,21 @@ A pattern guesses what a private string looks like. A known value is the string 
 matched exactly in every spelling. The redactor is built at startup from the values the process
 holds, and a value is registered when the process reads it.
 
-| Known value                                  | Replaced with      |
-| -------------------------------------------- | ------------------ |
-| The profile directory                        | `%USERPROFILE%`    |
-| The username, four characters or longer      | `<user>`           |
-| The computer name                            | `<machine>`        |
-| The League install path                      | `<league>`         |
-| The mod storage path                         | `<data>`           |
-| The workshop path, and each project path     | `<workshop>`       |
-| `telemetrySecret`, the delivery bearer token | `<secret>`         |
-| The delivery install id                      | `<install>`        |
-| The RuneForge username and user id           | `<runeforge-user>` |
-| The lockfile password, once read             | `<secret>`         |
+| Known value                                  | Replaced with   |
+| -------------------------------------------- | --------------- |
+| The profile directory                        | `%USERPROFILE%` |
+| The League install path                      | `<league>`      |
+| The mod storage path                         | `<data>`        |
+| The workshop path, and each project path     | `<workshop>`    |
+| The username, four characters or longer      | `<redacted>`    |
+| The computer name                            | `<redacted>`    |
+| `telemetrySecret`, the delivery bearer token | `<redacted>`    |
+| The delivery install id                      | `<redacted>`    |
+| The RuneForge username and user id           | `<redacted>`    |
+| The lockfile password, once read             | `<redacted>`    |
+
+Only a path has a placeholder of its own, because a maintainer needs to see which folder a path is
+under. Every other value reads `<redacted>`, which is also what the game log reader writes.
 
 A path value is matched in each spelling the code can write: backslashes, forward slashes, the
 `{:?}` form with doubled backslashes, the `\\?\` prefix, the 8.3 short name, and any letter case.
@@ -211,15 +214,17 @@ username would match inside ordinary words.
 
 | Pattern                                       | Replaced with                       |
 | --------------------------------------------- | ----------------------------------- |
-| `<drive>:\Users\<name>\` for any other name   | `<drive>:\Users\<other>\`           |
+| `<drive>:\Users\<name>\` for any other name   | `<drive>:\Users\<redacted>\`        |
 | A URL                                         | The scheme, host and path. No query |
 | An `ltk://` link                              | The action. No payload              |
-| An IPv4 or IPv6 address, loopback excepted    | `<ip>`                              |
-| A UUID                                        | `<uuid>`                            |
-| A Riot ID in quotes, `'Name#Tag'`             | `<riot-id>`                         |
-| An email address                              | `<email>`                           |
-| `Bearer <text>`, and `token=`, `key=` values  | `<secret>`                          |
+| An IPv4 or IPv6 address, loopback excepted    | `<redacted>`                        |
+| A Riot ID in quotes, `'Name#Tag'`             | `'<redacted>'`                      |
+| An email address                              | `<redacted>`                        |
+| `Bearer <text>`, and `token=`, `key=` values  | `<redacted>`                        |
 | The game log fields `redact_line` drops today | As today                            |
+
+A UUID is kept. A mod id is a UUID, and the log lines of one mod are joined by it. The game log
+reader removes the UUIDs of game log lines.
 
 ### Where it runs
 
@@ -262,12 +267,24 @@ before anything leaves. Telemetry sends a digest and never a name, and that rule
 
 ### The canary test
 
-A test starts the backend with a planted profile directory, username, League path, deep link with
-a query string and each secret. It runs an install, an overlay build and a failed patcher start.
-It then searches the log file, every file of a support report, the incident report text and the
-telemetry spool for each planted value in each spelling. One hit fails the build. The planted
-username runs in four forms: ASCII, with a space, Cyrillic and CJK. A log call
-added next year is covered without anybody remembering this document.
+`crates/ltk-manager-core/tests/redaction_canary.rs` uses a profile directory, a username, a
+computer name, a League path, a mod storage path, a workshop path, a deep link with a signed URL
+and the telemetry secret. It installs a mod, runs a patcher session whose host does not exist, and
+runs a patcher start that fails before the build. It then searches four outputs for each of those
+values: the log as the log file writer writes it, the incident report text, the fields of the
+incident token and the telemetry events. One hit fails the build. The username runs in
+four forms: ASCII, with a space, Cyrillic and CJK. A log call added next year is covered without
+anybody remembering this document.
+
+A value is searched in any letter case, with either separator, with doubled separators and in its
+percent-encoded form. The 8.3 short name is not searched.
+
+The test does not run the code that needs a window. It repeats the two log lines of the deep link
+handler over the real parser. The files of a support report join the searched outputs when the
+report exists.
+
+Telemetry replaces the profile directory only. The test does not search the telemetry events for
+the League path, the mod storage path or the workshop path.
 
 The manifest of a report carries the redactor's ruleset version and a count of replacements for
 each rule, so a maintainer sees which rules a report was built with.

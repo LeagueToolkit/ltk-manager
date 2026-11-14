@@ -363,6 +363,30 @@ mod tests {
     use ltk_manager_base::config::WadBlocklistEntry;
 
     #[test]
+    fn load_settings_registers_the_league_path_with_the_redactor() {
+        let dir = tempfile::tempdir().unwrap();
+        let league = dir.path().join("Registered League");
+        let settings = Settings {
+            config: Config {
+                league_path: Some(league.clone()),
+                ..Config::default()
+            },
+            ..Settings::default()
+        };
+        let path = dir.path().join("settings.json");
+        fs::write(&path, serde_json::to_string(&settings).unwrap()).unwrap();
+
+        load_settings(&path);
+
+        let logged = format!("reading {}", league.join("Game").display());
+        let separator = std::path::MAIN_SEPARATOR;
+        assert_eq!(
+            ltk_redact::redact(&logged),
+            format!("reading <league>{separator}Game")
+        );
+    }
+
+    #[test]
     fn settings_default_values() {
         let settings = Settings::default();
         assert!(settings.config.league_path.is_none());

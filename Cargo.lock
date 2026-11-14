@@ -3613,6 +3613,7 @@ dependencies = [
  "ltk-manager-problems",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
+ "ltk-redact",
  "ltk-telemetry",
  "ltk_hash",
  "ltk_meta",
@@ -3627,6 +3628,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
+ "tracing-subscriber",
  "uuid",
 ]
 
@@ -3770,6 +3772,7 @@ dependencies = [
  "chrono",
  "fs-err",
  "ltk-manager-base",
+ "ltk-redact",
  "ltk-telemetry",
  "minisign-verify",
  "parking_lot",
