@@ -1,33 +1,17 @@
-import { DotsThreeVerticalIcon, FolderOpenIcon, WheelchairIcon } from "@phosphor-icons/react";
+import { DotsThreeVerticalIcon, FolderOpenIcon, LifebuoyIcon } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
 import { useState } from "react";
 
 import { Menu, Tooltip, useToast } from "@/components";
 import { m } from "@/i18n";
-import { api, type AppInfo, unwrap } from "@/lib/tauri";
-import { useLatestIncidentToken } from "@/modules/diagnostics";
+import { api, unwrap } from "@/lib/tauri";
+import { openGetHelp } from "@/modules/support";
 import { twMerge } from "@/utils";
 
 import { cellActive, cellBase, cellInactive } from "./cells";
 
-function buildBugReportUrl(appInfo: AppInfo | undefined, diagnosticToken: string | null): string {
-  const params = new URLSearchParams({ template: "bug_report.yml" });
-  if (appInfo) {
-    params.set("version", appInfo.version);
-    params.set("os", `${appInfo.os} ${appInfo.arch}`);
-  }
-  if (diagnosticToken) params.set("diagnostic", diagnosticToken);
-
-  return `https://github.com/LeagueToolkit/ltk-manager/issues/new?${params.toString()}`;
-}
-
-interface AppMenuProps {
-  appInfo?: AppInfo;
-}
-
 /** The titlebar actions that report no state of their own, behind one cell. */
-export function AppMenu({ appInfo }: AppMenuProps) {
-  const diagnosticToken = useLatestIncidentToken();
+export function AppMenu() {
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -66,11 +50,8 @@ export function AppMenu({ appInfo }: AppMenuProps) {
 
         <Menu.Separator />
 
-        <Menu.Item
-          icon={<WheelchairIcon weight="bold" className="size-4" />}
-          onClick={() => open(buildBugReportUrl(appInfo, diagnosticToken))}
-        >
-          {m.shell_menu_bug_report_action()}
+        <Menu.Item icon={<LifebuoyIcon weight="bold" className="size-4" />} onClick={openGetHelp}>
+          {m.shell_menu_get_help_action()}
         </Menu.Item>
         <Menu.Item
           icon={<DiscordIcon className="size-4" />}

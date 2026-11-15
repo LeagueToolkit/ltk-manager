@@ -52,6 +52,7 @@ import {
   useAutoStartPatcher,
   useDevLogStream,
 } from "@/modules/shell";
+import { GetHelpDialog } from "@/modules/support";
 import { UpdateNotificationLazy, useUpdateCheck } from "@/modules/updater";
 import { useDisplayStore, useSearchObjects, useUpdaterFoundAtLaunch } from "@/stores";
 
@@ -249,6 +250,7 @@ function RootLayout() {
       <InstallMismatchDialog />
       <DiagnosticsNoticeDialog />
       <KeySheet />
+      <GetHelpDialog />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />
         <InstallListDialogLazy />

@@ -74,7 +74,7 @@ Only on `outcome: verdict`.
 | `consequence`    | yes    | What the verdict means for the player            |
 | `game_phase`     | yes    | How far the game got                             |
 | `scan_status`    | yes    | How the archive scan ended                       |
-| `incident_token` | yes    | The same token `Report a Bug` puts in its URL    |
+| `incident_token` | yes    | The same token the issue form URL carries        |
 | `evidence_codes` | yes    | The codes the evidence carried, as a list of ids |
 | `suspect_count`  | yes    | How many mods were named                         |
 | `suspects`       | yes    | Each named mod as `{ digest, reason }`           |

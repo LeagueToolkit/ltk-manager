@@ -16,6 +16,7 @@ import { commandNames as patcher } from "@/lib/ipc/patcher";
 import { commandNames as preview } from "@/lib/ipc/preview";
 import { commandNames as runeforge } from "@/lib/ipc/runeforge";
 import { commandNames as settings } from "@/lib/ipc/settings";
+import { commandNames as support } from "@/lib/ipc/support";
 import { commandNames as workshop } from "@/lib/ipc/workshop";
 
 /**
@@ -42,5 +43,6 @@ export const commandNames = {
   preview,
   runeforge,
   settings,
+  support,
   workshop,
 } as const;

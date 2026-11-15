@@ -372,4 +372,8 @@ services! {
         analyze_project,
         fix_problems,
     }
+    support("support") {
+        build_support_report,
+        save_support_report,
+    }
 }

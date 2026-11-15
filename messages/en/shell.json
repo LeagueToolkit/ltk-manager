@@ -11,8 +11,8 @@
       }
     }
   ],
-  "shell_menu_bug_report_action": "Report a bug",
   "shell_menu_discord_action": "Join our Discord",
+  "shell_menu_get_help_action": "Get help",
   "shell_menu_label": "More",
   "shell_menu_storage_action": "Open storage directory",
   "shell_menu_storage_error_title": "Failed to open directory",

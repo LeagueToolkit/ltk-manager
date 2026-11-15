@@ -23,6 +23,7 @@ pub mod preview;
 pub mod runeforge;
 pub mod settings;
 pub(crate) mod shared;
+pub mod support;
 pub mod workshop;
 
 #[cfg(test)]

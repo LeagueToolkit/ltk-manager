@@ -1,0 +1,48 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "support_build_failed_title": "Could not build the report",
+  "support_copy_action": "Copy for Discord",
+  "support_copy_done_hint": "Paste it in Discord and attach {file} from your Downloads folder.",
+  "support_copy_done_title": "Summary copied",
+  "support_copy_failed_title": "Could not copy the summary",
+  "support_dialog_description": "A report for the people who help you with LTK Manager",
+  "support_dialog_title": "Get help",
+  "support_found_empty": "No game on record went wrong.",
+  "support_found_label": "The manager found",
+  "support_holds_game_log_label": "League's own game log",
+  "support_holds_incidents_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} incident",
+        "countPlural=other": "{count} incidents"
+      }
+    }
+  ],
+  "support_holds_label": "What the report holds",
+  "support_holds_log_label": "The app log",
+  "support_holds_summary_label": "Summary and file list",
+  "support_holds_system_label": "System checks, settings and mod list",
+  "support_issue_action": "Open a GitHub issue",
+  "support_mod_empty": "No mod in particular",
+  "support_mod_label": "Which mod?",
+  "support_preview_action": "Preview",
+  "support_preview_description": "Every file of the report, as it leaves",
+  "support_preview_file_label": "File",
+  "support_preview_title": "Report preview",
+  "support_privacy_hint": "No account name and no file of yours is included.",
+  "support_problem_game_label": "The game crashed",
+  "support_problem_label": "What went wrong?",
+  "support_problem_manager_label": "The manager",
+  "support_problem_mod_label": "A mod does not show",
+  "support_replaced_description": "Replaced before anything leaves: {paths} paths, {links} links, {addresses} addresses and {other} other values.",
+  "support_replaced_empty": "The report held no private value to replace.",
+  "support_save_action": "Save as file",
+  "support_save_dialog_title": "Save support report",
+  "support_save_done_title": "Report saved",
+  "support_save_failed_title": "Could not save the report",
+  "support_save_filter_label": "Zip archive",
+  "support_text_label": "Anything to add?",
+  "support_text_placeholder": "Optional"
+}

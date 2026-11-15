@@ -32,7 +32,7 @@ use ltk_manager_core::{
     deep_link::parse_deep_link_url,
     log_dir::LogDir,
     patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
-    support_report::{AppIdentity, Description, Problem, SupportReport},
+    support_report::{AppIdentity, ReportDescription, ReportProblem, SupportReport},
 };
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
 use ltk_manager_runtime::{
@@ -315,8 +315,8 @@ impl Fixture {
             version: MANAGER_VERSION.to_owned(),
             release_build: true,
         };
-        let description = Description {
-            problem: Some(Problem::ModNotShown),
+        let description = ReportDescription {
+            problem: Some(ReportProblem::ModNotShown),
             mod_name: Some("Test Mod".to_owned()),
             text: format!(
                 "{} installed it from {}",
