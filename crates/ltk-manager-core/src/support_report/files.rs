@@ -16,7 +16,7 @@ use ltk_manager_runtime::{
 };
 use serde_json::{Value, json};
 
-use super::SupportReport;
+use super::{Finding, SupportReport};
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
@@ -127,14 +127,13 @@ impl SupportReport {
             self.add(format!("incidents/{id}.md"), &text);
         }
         if let Some(newest) = incidents.first() {
-            self.found = Some(format!(
-                "{} ({})\n\n{}\n\nIncident {}\nToken: {}",
-                newest.verdict.title,
-                newest.verdict.consequence,
-                newest.verdict.cause,
-                newest.id,
-                newest.token(&version)
-            ));
+            self.found = Some(Finding {
+                title: newest.verdict.title.clone(),
+                consequence: newest.verdict.consequence.to_string(),
+                cause: newest.verdict.cause.clone(),
+                incident_id: newest.id.clone(),
+                token: newest.token(&version),
+            });
         }
     }
 

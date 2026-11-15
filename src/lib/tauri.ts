@@ -41,6 +41,7 @@ import { commands as patcher } from "@/lib/ipc/patcher";
 import { commands as preview } from "@/lib/ipc/preview";
 import { commands as runeforge } from "@/lib/ipc/runeforge";
 import { commands as settings } from "@/lib/ipc/settings";
+import { commands as support } from "@/lib/ipc/support";
 import { commands as workshop } from "@/lib/ipc/workshop";
 import { map as mapResult } from "@/utils/result";
 
@@ -505,6 +506,12 @@ export const api = {
     telemetryIdentity: diagnostics.telemetryIdentity,
     resetTelemetrySecret: diagnostics.resetTelemetrySecret,
     trackUiError: diagnostics.trackUiError,
+  },
+
+  // Support reports.
+  support: {
+    buildReport: support.buildSupportReport,
+    saveReport: support.saveSupportReport,
   },
 
   // Launcher.

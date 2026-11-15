@@ -33,6 +33,16 @@ pub const MAX_REPORT_BYTES: usize = 2 * 1024 * 1024;
 /// The number of runs that the log of a report holds, the current run included.
 const LOG_RUNS: usize = 3;
 
+/// The largest size of the summary for a Discord message, in characters. A Discord message
+/// holds 2,000.
+pub const MAX_SUMMARY_CHARS: usize = 1500;
+
+/// The largest size of the problem line in the summary, in characters.
+const SUMMARY_LINE_CHARS: usize = 160;
+
+/// The largest size of the user's words and of the cause in the summary, in characters each.
+const SUMMARY_TEXT_CHARS: usize = 300;
+
 const REPORT_MD: &str = "report.md";
 const MANIFEST_JSON: &str = "manifest.json";
 const LOG_FILE: &str = "log/ltk-manager.log";
@@ -89,13 +99,13 @@ pub struct AppIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "kebab-case")]
-pub enum Problem {
+pub enum ReportProblem {
     ModNotShown,
     GameCrashed,
     Manager,
 }
 
-impl Problem {
+impl ReportProblem {
     /// Returns the English sentence for the problem, as `report.md` states it.
     fn sentence(self) -> &'static str {
         match self {
@@ -110,8 +120,8 @@ impl Problem {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct Description {
-    pub problem: Option<Problem>,
+pub struct ReportDescription {
+    pub problem: Option<ReportProblem>,
     /// The name of the mod that the report is about.
     pub mod_name: Option<String>,
     /// The user's own words. The text is redacted like every other part of a report.
@@ -124,6 +134,57 @@ pub struct ReportFile {
     /// The path of the file inside the zip, with `/` as the separator.
     pub path: String,
     pub contents: String,
+}
+
+/// What the manager found: the verdict of the newest incident.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Finding {
+    title: String,
+    consequence: String,
+    cause: String,
+    incident_id: String,
+    token: String,
+}
+
+/// One file of a report, as the dialog shows it before the report leaves.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReportPreviewFile {
+    pub path: String,
+    pub bytes: u32,
+    pub contents: String,
+}
+
+/// The number of replacements in a report, by the kind of value that was replaced.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReportReplacements {
+    /// The profile directory, the League, storage and workshop paths, and the path of
+    /// another user.
+    pub paths: u32,
+    /// URLs and `ltk://` links.
+    pub links: u32,
+    /// IP addresses and email addresses.
+    pub addresses: u32,
+    /// Every other value, such as the username, the computer name and a secret.
+    pub other: u32,
+}
+
+/// A complete report as the dialog shows it before the report leaves.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReportPreview {
+    pub id: String,
+    /// The file name of the zip.
+    pub file_name: String,
+    /// Every file of the report, in the order of the zip.
+    pub files: Vec<ReportPreviewFile>,
+    pub replaced: ReportReplacements,
+    /// The summary that `Copy for Discord` puts on the clipboard.
+    pub summary: String,
 }
 
 /// The entry of one file in the manifest.
@@ -158,9 +219,9 @@ pub struct SupportReport {
     id: String,
     created_at: DateTime<Utc>,
     app: AppIdentity,
-    description: Description,
-    /// What the manager found, as `report.md` states it. The incident builder sets it.
-    found: Option<String>,
+    description: ReportDescription,
+    /// What the manager found. The incident builder sets it.
+    found: Option<Finding>,
     files: Vec<ReportFile>,
     counts: Counts,
 }
@@ -169,7 +230,11 @@ impl SupportReport {
     /// Returns an empty report of the build `app`, created at `created_at`, with an id of
     /// eight random hex characters.
     #[must_use]
-    pub fn new(app: AppIdentity, description: Description, created_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        app: AppIdentity,
+        description: ReportDescription,
+        created_at: DateTime<Utc>,
+    ) -> Self {
         let mut id = uuid::Uuid::new_v4().simple().to_string();
         id.truncate(8);
         Self {
@@ -227,9 +292,10 @@ impl SupportReport {
     /// writes `report.md` and `manifest.json`.
     #[must_use]
     pub fn finish(mut self) -> BuiltReport {
-        let summary = self.summary();
-        self.add(REPORT_MD, &summary);
+        let report_md = self.report_md();
+        self.add(REPORT_MD, &report_md);
         self.cut_log_to_fit();
+        let summary = self.discord_summary();
 
         // `report.md` is the first file that a reader opens, so it is the first file.
         self.files.sort_by_key(|file| file.path != REPORT_MD);
@@ -263,42 +329,96 @@ impl SupportReport {
         BuiltReport {
             manifest,
             files: self.files,
+            summary,
         }
+    }
+
+    /// Returns the kind of the build, as `report.md` and the summary state it.
+    fn build_kind(&self) -> &'static str {
+        if self.app.release_build {
+            "release build"
+        } else {
+            "development build"
+        }
+    }
+
+    /// Returns the problem and the mod of the description as one line, in English.
+    fn problem_line(&self) -> String {
+        let problem = self.description.problem.map(ReportProblem::sentence);
+        match (problem, self.description.mod_name.as_deref()) {
+            (Some(problem), Some(name)) => format!("{problem}: {name}"),
+            (Some(problem), None) => problem.to_owned(),
+            (None, Some(name)) => format!("Mod: {name}"),
+            (None, None) => "Not stated".to_owned(),
+        }
+    }
+
+    /// Returns the summary for a Discord message, in English and redacted,
+    /// [`MAX_SUMMARY_CHARS`] characters at most.
+    ///
+    /// The summary states the versions, the problem, the user's words, the verdict and the
+    /// token of the newest incident, and the name of the zip.
+    fn discord_summary(&self) -> String {
+        let mut out = format!(
+            "**LTK Manager {}** on {} {}, {}\n**Problem:** {}\n",
+            self.app.version,
+            std::env::consts::OS,
+            std::env::consts::ARCH,
+            self.build_kind(),
+            text::first_chars(&self.problem_line(), SUMMARY_LINE_CHARS),
+        );
+        let words = self.description.text.trim();
+        if !words.is_empty() {
+            let words = text::first_chars(words, SUMMARY_TEXT_CHARS).replace('\n', " ");
+            out.push_str(&format!("> {words}\n"));
+        }
+        match &self.found {
+            Some(found) => out.push_str(&format!(
+                "**Found:** {} ({}). {}\n**Token:** `{}`\n",
+                found.title,
+                found.consequence,
+                text::first_chars(&found.cause, SUMMARY_TEXT_CHARS),
+                found.token
+            )),
+            None => out.push_str("**Found:** no incident on record\n"),
+        }
+        out.push_str(&format!(
+            "**Report:** `{}`, attached",
+            zip_name(self.created_at, &self.id)
+        ));
+
+        let redacted = ltk_redact::redact(&out);
+        text::first_chars(&redacted, MAX_SUMMARY_CHARS).to_owned()
     }
 
     /// Returns the text of `report.md`, in English, before redaction.
     ///
     /// The first line states the app identifier, the version and the kind of the build.
-    fn summary(&self) -> String {
-        let build = if self.app.release_build {
-            "release build"
-        } else {
-            "development build"
-        };
+    fn report_md(&self) -> String {
         let mut out = format!(
-            "{} {}, {build}, {} {}\n\n# LTK Manager support report {}\n\nCreated {} UTC\n",
+            "{} {}, {}, {} {}\n\n# LTK Manager support report {}\n\nCreated {} UTC\n",
             self.app.identifier,
             self.app.version,
+            self.build_kind(),
             std::env::consts::OS,
             std::env::consts::ARCH,
             self.id,
             self.created_at.format("%Y-%m-%d %H:%M"),
         );
 
-        out.push_str("\n## What went wrong\n\n");
-        let problem = self.description.problem.map(Problem::sentence);
-        match (problem, self.description.mod_name.as_deref()) {
-            (Some(problem), Some(name)) => out.push_str(&format!("{problem}: {name}\n")),
-            (Some(problem), None) => out.push_str(&format!("{problem}\n")),
-            (None, Some(name)) => out.push_str(&format!("Mod: {name}\n")),
-            (None, None) => out.push_str("Not stated\n"),
-        }
-        let text = self.description.text.trim();
-        if !text.is_empty() {
-            out.push_str(&format!("\n{text}\n"));
+        out.push_str(&format!(
+            "\n## What went wrong\n\n{}\n",
+            self.problem_line()
+        ));
+        let words = self.description.text.trim();
+        if !words.is_empty() {
+            out.push_str(&format!("\n{words}\n"));
         }
         if let Some(found) = &self.found {
-            out.push_str(&format!("\n## The manager found\n\n{found}\n"));
+            out.push_str(&format!(
+                "\n## The manager found\n\n{} ({})\n\n{}\n\nIncident {}\nToken: {}\n",
+                found.title, found.consequence, found.cause, found.incident_id, found.token
+            ));
         }
         out
     }
@@ -319,11 +439,17 @@ impl SupportReport {
     }
 }
 
+/// Returns the file name of the zip of the report `id` that was created at `created_at`.
+fn zip_name(created_at: DateTime<Utc>, id: &str) -> String {
+    format!("ltk-report-{}-{id}.zip", created_at.format("%Y-%m-%d"))
+}
+
 /// A complete report.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BuiltReport {
     manifest: Manifest,
     files: Vec<ReportFile>,
+    summary: String,
 }
 
 impl BuiltReport {
@@ -339,14 +465,48 @@ impl BuiltReport {
         &self.files
     }
 
+    /// Returns the summary for a Discord message, in English, [`MAX_SUMMARY_CHARS`]
+    /// characters at most.
+    #[must_use]
+    pub fn summary(&self) -> &str {
+        &self.summary
+    }
+
     /// Returns the file name of the zip: `ltk-report-<date>-<id>.zip`.
     #[must_use]
     pub fn file_name(&self) -> String {
-        format!(
-            "ltk-report-{}-{}.zip",
-            self.manifest.created_at.format("%Y-%m-%d"),
-            self.manifest.id
-        )
+        zip_name(self.manifest.created_at, &self.manifest.id)
+    }
+
+    /// Returns the report as the dialog shows it before the report leaves.
+    #[must_use]
+    pub fn preview(&self) -> ReportPreview {
+        let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
+        let mut replaced = ReportReplacements::default();
+        for (rule, replacements) in &self.manifest.replacements {
+            let kind = match *rule {
+                "profile" | "league" | "data" | "workshop" | "other-user" => &mut replaced.paths,
+                "url" | "deep-link" => &mut replaced.links,
+                "ipv4" | "ipv6" | "email" => &mut replaced.addresses,
+                _ => &mut replaced.other,
+            };
+            *kind += count(*replacements);
+        }
+        ReportPreview {
+            id: self.manifest.id.clone(),
+            file_name: self.file_name(),
+            files: self
+                .files
+                .iter()
+                .map(|file| ReportPreviewFile {
+                    path: file.path.clone(),
+                    bytes: count(file.contents.len()),
+                    contents: file.contents.clone(),
+                })
+                .collect(),
+            replaced,
+            summary: self.summary.clone(),
+        }
     }
 
     /// Writes the report to `writer` as a zip.

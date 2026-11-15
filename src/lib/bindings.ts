@@ -8127,6 +8127,59 @@ export type ReplacedSound = {
 	newSize: number,
 };
 
+/**  What the user says went wrong. */
+export type ReportDescription = {
+	problem: ReportProblem | null,
+	/**  The name of the mod that the report is about. */
+	modName: string | null,
+	/**  The user's own words. The text is redacted like every other part of a report. */
+	text: string,
+};
+
+/**  A complete report as the dialog shows it before the report leaves. */
+export type ReportPreview = {
+	id: string,
+	/**  The file name of the zip. */
+	fileName: string,
+	/**  Every file of the report, in the order of the zip. */
+	files: ReportPreviewFile[],
+	replaced: ReportReplacements,
+	/**  The summary that `Copy for Discord` puts on the clipboard. */
+	summary: string,
+};
+
+/**  One file of a report, as the dialog shows it before the report leaves. */
+export type ReportPreviewFile = {
+	path: string,
+	bytes: number,
+	contents: string,
+};
+
+/**  The kind of failure that the user reports. */
+export type ReportProblem = "mod-not-shown" | "game-crashed" | "manager";
+
+/**  The number of replacements in a report, by the kind of value that was replaced. */
+export type ReportReplacements = {
+	/**
+	 *  The profile directory, the League, storage and workshop paths, and the path of
+	 *  another user.
+	 */
+	paths: number,
+	/**  URLs and `ltk://` links. */
+	links: number,
+	/**  IP addresses and email addresses. */
+	addresses: number,
+	/**  Every other value, such as the username, the computer name and a secret. */
+	other: number,
+};
+
+/**  What the user chose in the `Get help` dialog. */
+export type ReportRequest = {
+	description: ReportDescription,
+	/**  Whether the report holds the game log of the newest incident. */
+	includeGameLog: boolean,
+};
+
 /**
  *  How an undo or a redo moved the rows of a tree, so a reader's expanded rows follow them.
  * 

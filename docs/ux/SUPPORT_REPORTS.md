@@ -95,10 +95,10 @@ gives it.
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
-| Support report          | In progress | An allowlisted zip, built by named builders. No command builds one yet               |
-| Report preview          | Planned     | The file list, the redacted text and the replacement counts                          |
-| Save and copy           | Planned     | A file on disk, and a short summary on the clipboard                                 |
-| `Get help` entry points | Planned     | Error toasts, both crash screens, the menu, the mod card                             |
+| Support report          | In progress | An allowlisted zip, built by named builders. Game records and the build are missing  |
+| Report preview          | Available   | The file list, the redacted text and the replacement counts                          |
+| Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
+| `Get help` entry points | In progress | The title bar menu opens the dialog. Toasts, crash screens and the mod card do not   |
 | Game record             | Planned     | One small record for every game, clean games included                                |
 | Advisory                | Planned     | A coded condition that changes what the user gets                                    |
 | Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
@@ -382,13 +382,17 @@ without that signature can save a report and cannot upload one.
   does not write English still sends a structured report
 - **The manager found** lists the advisories and the verdict the report rests on. A cause that has
   a fix shows the fix as the primary button, and the send actions move under `Send anyway`. A
-  report with no known cause shows the send actions as primary
-- **Preview** opens every file of the report as text, as it will leave
-- **Copy for Discord** writes the zip, reveals it in the file manager, and copies a summary of
-  under 1,500 characters: the versions, the user's choice and mod, each advisory and the verdict in
-  one line, and the incident token. A Discord message holds 2,000 characters
+  report with no known cause shows the send actions as primary. Until advisories and known causes
+  exist, the section shows the verdict of the newest incident and the send actions are primary
+- **Preview** opens every file of the report as text, as it will leave. The dialog builds the
+  report when it opens and again when a choice changes, and the backend keeps that report. The
+  two send actions write the report that was built, so the zip holds the files of the preview
+- **Copy for Discord** writes the zip to the Downloads folder, reveals it in the file manager, and
+  copies a summary of under 1,500 characters: the versions, the user's choice and mod, each
+  advisory and the verdict in one line, the incident token and the name of the zip. A Discord
+  message holds 2,000 characters
 - **Save as file** writes `ltk-report-<date>-<id>.zip` through the save dialog and reveals it
-- **Open a GitHub issue** sits under the two buttons, and opens the issue form with the version,
+- **Open a GitHub issue** sits beside the two buttons, and opens the issue form with the version,
   the token and the report code filled in
 
 Discord is where most of this support happens, so the Discord action is the primary one. Once the

@@ -1325,9 +1325,9 @@ and the checksum and date are the clues for anything else. The System tab shows 
 checksum and date on the `Patcher DLL present` check, for a support call.
 
 **Where it goes.** The second line of the report text, so a pasted report carries its
-token. The `Report a Bug` URL, as `&diagnostic=<token>`, with a matching field in the issue
-template, so the body a browser would truncate is a line instead of a page. And
-`Copy token` beside `Copy report` in the Games tab.
+token. The `Open a GitHub issue` URL of the `Get help` dialog, as `&diagnostic=<token>`,
+with a matching field in the issue template, so the body a browser would truncate is a
+line instead of a page. And `Copy token` beside `Copy report` in the Games tab.
 
 **Decoding it.** The decoder lives in the core crate beside the encoder, and reads the
 token against this build's tables: the verdict's kind, title and cost, the DLL's outcome,
@@ -1433,15 +1433,16 @@ dropped can reach it. The last-lines excerpt passes through the same redaction a
 header, because a later line can repeat the command line. The token holds less than the
 report: no excerpt, and a message that named a file on disk keeps the file's name alone.
 
-An incident leaves the machine two ways, and both carry less than the report. `Report a Bug`
-opens a browser on a prefilled issue the player reads before submitting, and the token in its
-URL decodes to the same facts the report shows. Anonymous diagnostics send one
-`game_session_ended` event while the switch in Settings is on, carrying the verdict, the
-evidence codes, that same token, and each suspect as a digest of the archive's bytes rather
-than a name. The identity on it is a hash of a local secret and the day's date, so it changes
-at midnight and the secret never leaves. [Telemetry](TELEMETRY.md) lists every event and every
-property, and [ADR-0034](../adr/0034-anonymous-diagnostics-leave-the-machine.md) records what
-the design gives up.
+An incident leaves the machine two ways, and both carry less than the report.
+`Open a GitHub issue` opens a browser on a prefilled issue the player reads before
+submitting, and the token in its URL decodes to the same facts the report shows. Anonymous
+diagnostics send one `game_session_ended` event while the switch in Settings is on, carrying
+the verdict, the evidence codes, that same token, and each suspect as a digest of the
+archive's bytes rather than a name. The identity on it is a hash of a local secret and the
+day's date, so it changes at midnight and the secret never leaves. [Telemetry](TELEMETRY.md)
+lists every event and every property, and
+[ADR-0034](../adr/0034-anonymous-diagnostics-leave-the-machine.md) records what the design
+gives up.
 
 The table above still holds. What the reader drops on the way in cannot reach an event either,
 because an event is built from the incident and the incident is built from the redacted read.

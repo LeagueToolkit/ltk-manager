@@ -127,6 +127,7 @@ fn main() {
         .plugin(services::links::plugin())
         .plugin(services::news::plugin())
         .plugin(services::runeforge::plugin())
+        .plugin(services::support::plugin())
         .plugin(services::workshop::plugin());
 
     builder

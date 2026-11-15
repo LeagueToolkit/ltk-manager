@@ -137,6 +137,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(telemetry_state);
     app.manage(launcher_state);
     app.manage(crate::services::launcher::LaunchState::default());
+    app.manage(crate::services::support::SupportReportState::default());
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
     app.manage(ltk_manager_assets::strings::StringKeyIndexState::default());

@@ -39,7 +39,7 @@ fn created_at() -> DateTime<Utc> {
         .expect("2026-11-15 is a real date")
 }
 
-fn report(description: Description) -> SupportReport {
+fn report(description: ReportDescription) -> SupportReport {
     SupportReport::new(app(), description, created_at())
 }
 
@@ -66,7 +66,7 @@ fn run(name: &str) -> String {
 
 #[test]
 fn add_settings_keeps_the_allowlisted_fields_only() {
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_settings(&json!({
         "readGameLog": true,
         "patchTft": false,
@@ -84,8 +84,8 @@ fn add_settings_keeps_the_allowlisted_fields_only() {
 
 #[test]
 fn report_md_states_the_build_first_and_redacts_the_description() {
-    let report = report(Description {
-        problem: Some(Problem::ModNotShown),
+    let report = report(ReportDescription {
+        problem: Some(ReportProblem::ModNotShown),
         mod_name: Some("Aatrox Justicar".to_owned()),
         text: "it broke, mail me at someone@example.com".to_owned(),
     })
@@ -106,7 +106,7 @@ fn report_md_states_the_build_first_and_redacts_the_description() {
 #[test]
 fn finish_lists_every_other_file_in_the_manifest() {
     let (_dir, logs) = log_dir(&run("only"));
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_log(&logs);
     report.add_settings(&json!({ "readGameLog": true }));
 
@@ -145,7 +145,7 @@ fn finish_cuts_the_log_first_if_the_files_exceed_the_limit() {
     let line = "INFO a log line of some length that repeats\n";
     let lines = MAX_REPORT_BYTES / line.len() + 100;
     let (_dir, logs) = log_dir(&line.repeat(lines));
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_log(&logs);
     report.add_settings(&json!({ "readGameLog": true }));
 
@@ -165,7 +165,7 @@ fn finish_cuts_the_log_first_if_the_files_exceed_the_limit() {
 #[test]
 fn write_zip_holds_each_file_with_its_contents() {
     let (_dir, logs) = log_dir(&run("only"));
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_log(&logs);
     let report = report.finish();
 
@@ -233,7 +233,7 @@ fn json_file(report: &BuiltReport, path: &str) -> serde_json::Value {
 
 #[test]
 fn add_system_checks_holds_the_checks_and_the_path_facts() {
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_system_checks(&CheckCtx {
         league_path: Some(PathBuf::from("/games/Ligue des légendes")),
         mod_storage_path: None,
@@ -264,7 +264,7 @@ fn path_facts_states_the_drive_of_a_windows_path() {
 fn add_library_lists_the_mods_of_the_active_profile() {
     let storage = tempfile::tempdir().unwrap();
     let (library, config) = library(storage.path());
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_library(&library, &config);
 
     let library = json_file(&report.finish(), "library.json");
@@ -284,7 +284,7 @@ fn add_incidents_writes_each_incident_and_states_the_newest_in_report_md() {
     let store = IncidentStore::new(dir.path().to_path_buf());
     let incident = incident();
     store.record(&incident).unwrap();
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_incidents(&store);
 
     let report = report.finish();
@@ -312,14 +312,14 @@ fn add_game_log_removes_the_private_fields_of_each_line() {
         game_base_dir: None,
     });
 
-    let mut with_log = report(Description::default());
+    let mut with_log = report(ReportDescription::default());
     with_log.add_game_log(&incident, &Config::default());
     assert_eq!(
         file(&with_log.finish(), "game-log/r3dlog.txt"),
         "000001.000| ALWAYS| connecting to <redacted>\n"
     );
 
-    let mut reader_off = report(Description::default());
+    let mut reader_off = report(ReportDescription::default());
     let config = Config {
         read_game_log: false,
         ..Config::default()
@@ -343,7 +343,7 @@ fn add_patcher_states_the_channel_and_the_staged_build() {
         digest: "ab".repeat(32),
         eol: 1_800_000_000,
     };
-    let mut report = report(Description::default());
+    let mut report = report(ReportDescription::default());
     report.add_patcher(Channel::Beta, Some(&staged));
 
     assert_eq!(
@@ -357,5 +357,86 @@ fn add_patcher_states_the_channel_and_the_staged_build() {
                 "built": null,
             },
         })
+    );
+}
+
+#[test]
+fn summary_stays_under_the_limit_for_the_longest_inputs() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = IncidentStore::new(dir.path().to_path_buf());
+    let mut incident = incident();
+    incident.verdict.cause = "The cause runs on. ".repeat(400);
+    store.record(&incident).unwrap();
+    let mut report = report(ReportDescription {
+        problem: Some(ReportProblem::ModNotShown),
+        mod_name: Some("A mod name of some length ".repeat(40)),
+        text: "It broke in a way that takes many words to tell.\n".repeat(200),
+    });
+    report.add_incidents(&store);
+
+    let report = report.finish();
+    let summary = report.summary();
+
+    assert!(summary.chars().count() <= MAX_SUMMARY_CHARS, "{summary}");
+    assert!(summary.contains("**Token:** `DIAG1-"), "{summary}");
+    assert!(
+        summary.ends_with(&format!("**Report:** `{}`, attached", report.file_name())),
+        "{summary}"
+    );
+}
+
+#[test]
+fn summary_states_that_no_incident_is_on_record() {
+    let report = report(ReportDescription {
+        problem: Some(ReportProblem::Manager),
+        mod_name: None,
+        text: "reach me at someone@example.com".to_owned(),
+    })
+    .finish();
+
+    let summary = report.summary();
+
+    assert!(
+        summary.contains("**Problem:** The manager has a problem\n"),
+        "{summary}"
+    );
+    assert!(summary.contains("> reach me at <redacted>\n"), "{summary}");
+    assert!(
+        summary.contains("**Found:** no incident on record\n"),
+        "{summary}"
+    );
+}
+
+#[test]
+fn preview_groups_the_replacements_by_kind() {
+    let report = report(ReportDescription {
+        problem: None,
+        mod_name: None,
+        text: r"from https://a.example/b?c=d by a@example.com at C:\Users\Other Person\Desktop"
+            .to_owned(),
+    })
+    .finish();
+
+    let preview = report.preview();
+
+    assert_eq!(
+        preview.replaced,
+        ReportReplacements {
+            paths: 1,
+            links: 1,
+            addresses: 1,
+            other: 0,
+        }
+    );
+    assert_eq!(preview.file_name, report.file_name());
+    let paths: Vec<&str> = preview
+        .files
+        .iter()
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(paths, [REPORT_MD, MANIFEST_JSON]);
+    assert_eq!(
+        preview.files[0].bytes as usize,
+        preview.files[0].contents.len()
     );
 }

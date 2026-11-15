@@ -130,21 +130,22 @@ fn open_elevated_terminal_inner(_with_banner: bool) -> AppResult<()> {
     ))
 }
 
+/// Returns the context that the System checks run over, for the install that `config` names.
+pub(crate) fn check_ctx(app_handle: &AppHandle, config: &Config) -> CheckCtx {
+    CheckCtx {
+        league_path: config.league_path.clone(),
+        mod_storage_path: crate::data_location::data_dir(app_handle, config),
+        mod_storage_is_default: config.mod_storage_path.is_none(),
+        patcher_dll_path: staged_patcher_dll(app_handle, config),
+        manager_exe: std::env::current_exe().ok(),
+    }
+}
+
 fn run_diagnostics_inner(
     app_handle: &AppHandle,
     settings: &State<SettingsState>,
 ) -> DiagnosticReport {
-    let snapshot = settings.config();
-    let storage_is_default = snapshot.mod_storage_path.is_none();
-    let mod_storage_path = crate::data_location::data_dir(app_handle, &snapshot);
-    let ctx = CheckCtx {
-        league_path: snapshot.league_path.clone(),
-        mod_storage_path,
-        mod_storage_is_default: storage_is_default,
-        patcher_dll_path: staged_patcher_dll(app_handle, &snapshot),
-        manager_exe: std::env::current_exe().ok(),
-    };
-    let checks = run_all(&ctx);
+    let checks = run_all(&check_ctx(app_handle, &settings.config()));
     let generated_at = chrono::Utc::now().to_rfc3339();
     DiagnosticReport {
         generated_at,
