@@ -259,6 +259,11 @@ fn install_item(
         source: source.to_owned(),
         id: item.id.clone(),
         version: item.version.clone(),
+        // The frontend opens the page in the browser, so only a public HTTPS page is kept.
+        page_url: item
+            .page_url
+            .clone()
+            .filter(|url| public_https_url(url).is_ok()),
     };
     let mod_id = match &outcome {
         InstallOutcome::Installed(installed)

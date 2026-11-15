@@ -95,6 +95,15 @@ impl UpdaterState {
         }
     }
 
+    /// Returns the version of the release that the last check found. Returns `None` if the
+    /// last check found no newer release, or if no check has run.
+    pub fn offered_version(&self) -> Option<String> {
+        self.0
+            .lock()
+            .as_ref()
+            .map(|staged| staged.update.version.clone())
+    }
+
     fn take_installer(&self) -> Option<(Update, Vec<u8>)> {
         let mut staged = self.0.lock();
         let installer = staged.as_mut()?.installer.take()?;

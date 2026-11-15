@@ -12,7 +12,10 @@ use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportStat
 use ltk_manager_runtime::{
     diagnostics::{
         CheckCtx,
-        incident::{ClassifyContext, Ending, GameInfo, GameRecord, Incident, OverlayOutcome},
+        incident::{
+            Because, ClassifyContext, Ending, GameInfo, GameRecord, Incident, OverlayOutcome,
+            Suspect,
+        },
         store::IncidentStore,
     },
     patcher::{
@@ -549,4 +552,88 @@ fn preview_groups_the_replacements_by_kind() {
         preview.files[0].bytes as usize,
         preview.files[0].contents.len()
     );
+}
+
+#[test]
+fn report_md_states_the_update_and_the_expired_patcher_on_the_first_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let staged = |eol: u32| StagedPatcher {
+        dir: dir.path().to_path_buf(),
+        version: "1.4.0".to_owned(),
+        digest: "ab".repeat(32),
+        eol,
+    };
+    let first_line = |report: SupportReport| {
+        let report = report.finish();
+        file(&report, REPORT_MD).lines().next().unwrap().to_owned()
+    };
+
+    let mut outdated = report(ReportDescription::default());
+    outdated.note_update("1.35.0");
+    outdated.add_patcher(Channel::Stable, Some(&staged(1_700_000_000)));
+    let line = first_line(outdated);
+    assert!(
+        line.starts_with(
+            "dev.leaguetoolkit.manager 1.34.0 (update 1.35.0 available), release build, "
+        ),
+        "{line}"
+    );
+    assert!(
+        line.ends_with(", patcher 1.4.0 past its end of life"),
+        "{line}"
+    );
+
+    let mut current = report(ReportDescription::default());
+    current.add_patcher(Channel::Stable, Some(&staged(1_800_000_000)));
+    let line = first_line(current);
+    assert!(!line.contains("update"), "{line}");
+    assert!(!line.contains("patcher"), "{line}");
+}
+
+#[test]
+fn author_summary_names_the_one_library_mod_of_the_incident() {
+    let suspect = |mod_id: Option<&str>, name: &str| Suspect {
+        mod_id: mod_id.map(str::to_owned),
+        project_path: None,
+        display_name: name.to_owned(),
+        because: "writes Aatrox.wad.client, which holds the path".to_owned(),
+        reason: Because::default(),
+    };
+    let author_summary = |suspects: Vec<Suspect>| {
+        let dir = tempfile::tempdir().unwrap();
+        let store = IncidentStore::new(dir.path().to_path_buf());
+        let mut incident = incident();
+        incident.suspects = suspects;
+        incident.game = Some(GameInfo {
+            version: "16.22".to_owned(),
+            content_version: "16.22.1".to_owned(),
+            log_path: String::new(),
+            game_base_dir: None,
+        });
+        store.record(&incident).unwrap();
+        let mut report = report(ReportDescription::default());
+        report.add_incidents(&store, None);
+        report.finish().preview().author_summary
+    };
+
+    let summary = author_summary(vec![suspect(Some("aatrox"), "Aatrox Justicar")])
+        .expect("one library mod is named");
+    assert!(
+        summary.starts_with(
+            "**Aatrox Justicar** did not work in game\nLTK Manager 1.34.0, League 16.22\n**Found:** "
+        ),
+        "{summary}"
+    );
+    assert!(summary.contains("**Token:** `DIAG1-"), "{summary}");
+
+    assert_eq!(author_summary(Vec::new()), None);
+    assert_eq!(
+        author_summary(vec![
+            suspect(Some("aatrox"), "Aatrox Justicar"),
+            suspect(Some("rift"), "Classic Rift"),
+        ]),
+        None
+    );
+    // A workshop project is the user's own work, so the report has no author to write to.
+    assert_eq!(author_summary(vec![suspect(None, "My project")]), None);
 }

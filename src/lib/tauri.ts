@@ -514,6 +514,7 @@ export const api = {
     saveReport: support.saveSupportReport,
     previousPanic: support.previousPanic,
     dismissPreviousPanic: support.dismissPreviousPanic,
+    listKnownIssues: support.listKnownIssues,
   },
 
   // Launcher.

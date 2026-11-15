@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 use fs_err as fs;
 use ltk_manager_core::{
+    known_issues::{self, KnownIssue},
     log_dir::{LogDir, PanicRecord},
     support_report::{AppIdentity, BuiltReport, ReportDescription, ReportPreview, SupportReport},
 };
@@ -17,11 +18,13 @@ use serde::Deserialize;
 use tauri::{AppHandle, Manager, State};
 
 use super::desktop::shell::reveal_in_explorer_inner;
-use crate::error::{AppError, IpcResult};
+use crate::error::{AppError, GitHubFeed, IpcResult};
 use crate::mods::ModLibraryState;
 use crate::patcher::PatcherDeliveryState;
-use crate::services::shared::off_thread;
+use crate::running_version;
+use crate::services::shared::{github_feed, off_thread};
 use crate::state::{IncidentStoreState, SettingsState};
+use crate::updater::UpdaterState;
 
 /// The report that `build_support_report` built last.
 #[derive(Default)]
@@ -64,6 +67,16 @@ pub fn previous_panic(panic: State<PreviousPanicState>) -> IpcResult<Option<Pani
 pub fn dismiss_previous_panic(panic: State<PreviousPanicState>) -> IpcResult<()> {
     *panic.0.lock() = None;
     IpcResult::ok(())
+}
+
+/// Reads the known issues that the maintainers publish for this build.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_known_issues() -> IpcResult<Vec<KnownIssue>> {
+    github_feed(GitHubFeed::KnownIssues, || {
+        known_issues::fetch(&running_version())
+    })
+    .await
 }
 
 /// Builds a support report, keeps it for `save_support_report` and returns it for the
@@ -133,6 +146,9 @@ fn build(app_handle: &AppHandle, request: ReportRequest) -> BuiltReport {
         release_build: !cfg!(debug_assertions),
     };
     let mut report = SupportReport::new(app, request.description, chrono::Utc::now());
+    if let Some(latest) = app_handle.state::<UpdaterState>().offered_version() {
+        report.note_update(latest);
+    }
 
     if let Some(log_dir) = crate::logging::default_log_dir() {
         report.add_log(&log_dir);

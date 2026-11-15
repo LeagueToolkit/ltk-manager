@@ -377,5 +377,6 @@ services! {
         save_support_report,
         previous_panic,
         dismiss_previous_panic,
+        list_known_issues,
     }
 }

@@ -222,6 +222,19 @@ struct Finding {
     cause: String,
     incident_id: String,
     token: String,
+    /// The name of the library mod that the incident names, if it names exactly one suspect.
+    suspect: Option<String>,
+    /// The version of the game of the incident.
+    game_version: Option<String>,
+}
+
+/// The newer builds that the manager knows of. The first line of `report.md` states them.
+#[derive(Debug, Default)]
+struct Outdated {
+    /// The manager release that the updater offers.
+    manager: Option<String>,
+    /// The version of the staged patcher, if the patcher is past its end of life.
+    patcher: Option<String>,
 }
 
 /// One file of a report, as the dialog shows it before the report leaves.
@@ -263,6 +276,9 @@ pub struct ReportPreview {
     pub replaced: ReportReplacements,
     /// The summary that `Copy for Discord` puts on the clipboard.
     pub summary: String,
+    /// The summary for the author of the mod that the incident names. `None` if the report
+    /// is about no incident, or if the incident does not name exactly one library mod.
+    pub author_summary: Option<String>,
 }
 
 /// The entry of one file in the manifest.
@@ -300,6 +316,7 @@ pub struct SupportReport {
     description: ReportDescription,
     /// What the manager found. The incident builder sets it.
     found: Option<Finding>,
+    outdated: Outdated,
     files: Vec<ReportFile>,
     counts: Counts,
 }
@@ -321,9 +338,16 @@ impl SupportReport {
             app,
             description,
             found: None,
+            outdated: Outdated::default(),
             files: Vec::new(),
             counts: Counts::default(),
         }
+    }
+
+    /// Records that the updater offers the manager release `latest`, so that the first line
+    /// of `report.md` states the installed and the latest version.
+    pub fn note_update(&mut self, latest: impl Into<String>) {
+        self.outdated.manager = Some(latest.into());
     }
 
     /// Adds `contents` as the file at `path`, redacted line by line. Every file enters a
@@ -374,6 +398,7 @@ impl SupportReport {
         self.add(REPORT_MD, &report_md);
         self.cut_log_to_fit();
         let summary = self.discord_summary();
+        let author_summary = self.author_summary();
 
         // `report.md` is the first file that a reader opens, so it is the first file.
         self.files.sort_by_key(|file| file.path != REPORT_MD);
@@ -408,6 +433,7 @@ impl SupportReport {
             manifest,
             files: self.files,
             summary,
+            author_summary,
         }
     }
 
@@ -418,6 +444,52 @@ impl SupportReport {
         } else {
             "development build"
         }
+    }
+
+    /// Returns the version, the kind and the platform of the build as one line, with the
+    /// newer builds that the manager knows of.
+    fn build_line(&self) -> String {
+        let mut line = self.app.version.clone();
+        if let Some(latest) = &self.outdated.manager {
+            line.push_str(&format!(" (update {latest} available)"));
+        }
+        line.push_str(&format!(
+            ", {}, {} {}",
+            self.build_kind(),
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        ));
+        if let Some(patcher) = &self.outdated.patcher {
+            line.push_str(&format!(", patcher {patcher} past its end of life"));
+        }
+        line
+    }
+
+    /// Returns the summary for the author of the mod that the incident names, in English and
+    /// redacted, [`MAX_SUMMARY_CHARS`] characters at most.
+    ///
+    /// Returns `None` if the report is about no incident, or if the incident does not name
+    /// exactly one library mod.
+    fn author_summary(&self) -> Option<String> {
+        let found = self.found.as_ref()?;
+        let suspect = found.suspect.as_ref()?;
+        let mut out = format!(
+            "**{suspect}** did not work in game\nLTK Manager {}",
+            self.app.version
+        );
+        if let Some(game) = &found.game_version {
+            out.push_str(&format!(", League {game}"));
+        }
+        out.push_str(&format!(
+            "\n**Found:** {} ({}). {}\n**Token:** `{}`",
+            found.title,
+            found.consequence,
+            text::first_chars(&found.cause, SUMMARY_TEXT_CHARS),
+            found.token
+        ));
+
+        let redacted = ltk_redact::redact(&out);
+        Some(text::first_chars(&redacted, MAX_SUMMARY_CHARS).to_owned())
     }
 
     /// Returns the problem and the mod of the description as one line, in English.
@@ -439,11 +511,8 @@ impl SupportReport {
     /// zip.
     fn discord_summary(&self) -> String {
         let mut out = format!(
-            "**LTK Manager {}** on {} {}, {}\n**Problem:** {}\n",
-            self.app.version,
-            std::env::consts::OS,
-            std::env::consts::ARCH,
-            self.build_kind(),
+            "**LTK Manager {}**\n**Problem:** {}\n",
+            self.build_line(),
             text::first_chars(&self.problem_line(), SUMMARY_LINE_CHARS),
         );
         if let Some(origin) = &self.description.origin {
@@ -478,15 +547,13 @@ impl SupportReport {
 
     /// Returns the text of `report.md`, in English, before redaction.
     ///
-    /// The first line states the app identifier, the version and the kind of the build.
+    /// The first line states the app identifier, the version, the kind of the build and the
+    /// newer builds that the manager knows of.
     fn report_md(&self) -> String {
         let mut out = format!(
-            "{} {}, {}, {} {}\n\n# LTK Manager support report {}\n\nCreated {} UTC\n",
+            "{} {}\n\n# LTK Manager support report {}\n\nCreated {} UTC\n",
             self.app.identifier,
-            self.app.version,
-            self.build_kind(),
-            std::env::consts::OS,
-            std::env::consts::ARCH,
+            self.build_line(),
             self.id,
             self.created_at.format("%Y-%m-%d %H:%M"),
         );
@@ -546,6 +613,7 @@ pub struct BuiltReport {
     manifest: Manifest,
     files: Vec<ReportFile>,
     summary: String,
+    author_summary: Option<String>,
 }
 
 impl BuiltReport {
@@ -602,6 +670,7 @@ impl BuiltReport {
                 .collect(),
             replaced,
             summary: self.summary.clone(),
+            author_summary: self.author_summary.clone(),
         }
     }
 

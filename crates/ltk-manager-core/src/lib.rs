@@ -6,6 +6,7 @@
 
 pub mod deep_link;
 pub mod github;
+pub mod known_issues;
 pub mod log_dir;
 pub mod news;
 pub mod patching;

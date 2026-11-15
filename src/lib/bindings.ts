@@ -3406,7 +3406,7 @@ export type GitHubErrorKind =
 "HTTP";
 
 /**  Which of the things GitHub publishes a read was after. */
-export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
+export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES" | "KNOWN_ISSUES";
 
 /**  Progress of a git repository import. */
 export type GitImportProgress = {
@@ -4604,6 +4604,17 @@ export type KindShape = {
 	key: PropertyKind | null,
 	/**  What an `Option`, a list or a `Map` holds. */
 	value: PropertyKind | null,
+};
+
+/**  One known issue that applies to the running build and has not expired. */
+export type KnownIssue = {
+	id: string,
+	/**  The verdict kinds that the issue explains, such as `missing-data`. */
+	verdicts: string[],
+	/**  The maintainers' message, in English. */
+	message: string,
+	/**  The page that `Read more` opens. */
+	url: string | null,
 };
 
 /**  The newest release of an owned post. */
@@ -6117,6 +6128,11 @@ export type ModOrigin = {
 	 *  project's own version.
 	 */
 	version: string | null,
+	/**
+	 *  The page of the mod on the site, as the install list named it. `None` for a mod
+	 *  that was installed before the origin held a page, or if the list named no page.
+	 */
+	pageUrl: string | null,
 };
 
 /**  One mod a repair could not finish, and what stopped it. */
@@ -8182,6 +8198,11 @@ export type ReportPreview = {
 	replaced: ReportReplacements,
 	/**  The summary that `Copy for Discord` puts on the clipboard. */
 	summary: string,
+	/**
+	 *  The summary for the author of the mod that the incident names. `None` if the report
+	 *  is about no incident, or if the incident does not name exactly one library mod.
+	 */
+	authorSummary: string | null,
 };
 
 /**  One file of a report, as the dialog shows it before the report leaves. */

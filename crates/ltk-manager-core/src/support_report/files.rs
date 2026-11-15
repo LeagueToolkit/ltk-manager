@@ -139,12 +139,18 @@ impl SupportReport {
         }
 
         let subject = incidents.into_iter().nth(subject)?;
+        let suspect = match subject.suspects.as_slice() {
+            [only] if only.mod_id.is_some() => Some(only.display_name.clone()),
+            _ => None,
+        };
         self.found = Some(Finding {
             title: subject.verdict.title.clone(),
             consequence: subject.verdict.consequence.to_string(),
             cause: subject.verdict.cause.clone(),
             incident_id: subject.id.clone(),
             token: subject.token(&version),
+            suspect,
+            game_version: subject.game.as_ref().map(|game| game.version.clone()),
         });
         Some(subject)
     }
@@ -170,8 +176,13 @@ impl SupportReport {
     /// Adds `patcher.json`: the delivery channel, and the build that a session on it runs.
     ///
     /// `staged` is the build that the delivery cache holds for `channel`, or `None` if no
-    /// build is staged.
+    /// build is staged. The first line of `report.md` states the version of a staged build
+    /// that is past its end of life at the time of the report.
     pub fn add_patcher(&mut self, channel: Channel, staged: Option<&StagedPatcher>) {
+        let now = u64::try_from(self.created_at.timestamp()).unwrap_or(0);
+        self.outdated.patcher = staged
+            .filter(|staged| staged.is_expired(now))
+            .map(|staged| staged.version.clone());
         let patcher = json!({
             "channel": channel.as_str(),
             "staged": staged.map(|staged| {

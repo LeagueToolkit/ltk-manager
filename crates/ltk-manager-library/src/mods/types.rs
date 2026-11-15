@@ -184,6 +184,9 @@ pub struct ModOrigin {
     /// The version the site listed, as the site writes it. Not always the
     /// project's own version.
     pub version: Option<String>,
+    /// The page of the mod on the site, as the install list named it. `None` for a mod
+    /// that was installed before the origin held a page, or if the list named no page.
+    pub page_url: Option<String>,
 }
 
 /// Fields to change on a mod's metadata. `None` leaves a field untouched.

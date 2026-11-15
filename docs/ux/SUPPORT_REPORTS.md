@@ -382,10 +382,9 @@ was replaced.
 
 - **What went wrong** is a select of three choices, and a mod picker. The text field is optional,
   so a user who does not write English still sends a structured report
-- **The manager found** lists the advisories and the verdict the report rests on. A cause that has
-  a fix shows the fix as the primary button, and the send actions move under `Send anyway`. A
-  report with no known cause shows the send actions as primary. Until advisories and known causes
-  exist, the section shows the verdict of the newest incident and the send actions are primary
+- **The manager found** lists the [known causes](#known-causes) and the verdict the report rests
+  on. A cause that has a fix shows the fix as the primary button, and the send actions move under
+  `Send anyway`. A report with no known cause shows the send actions as primary
 - **Preview** opens every file of the report as text, as it will leave. The dialog builds the
   report when it opens and again when a choice changes, and the backend keeps that report. The
   two send actions write the report that was built, so the zip holds the files of the preview
@@ -403,30 +402,47 @@ ends with the report code in place of a file to attach.
 
 ### Known causes
 
-The dialog checks four sources for a cause before it offers to send. Each one shows its own fix as
-the primary button and moves the send actions under `Send anyway`.
+The dialog checks four sources for a cause before it offers to send. Each one is a row of `The
+manager found`, in this order. The fix of the first row is the primary button of the dialog, and
+the send actions move under `Send anyway`, one menu button that holds `Copy for Discord`, `Save
+as file` and `Open a GitHub issue`.
 
-| Source                              | The dialog shows                      | Primary button        |
-| ----------------------------------- | ------------------------------------- | --------------------- |
-| An advisory or a verdict with a fix | The sentence for the code             | The fix of that code  |
-| An update is available              | The installed and the latest version  | `Update now`          |
-| A published known issue             | The maintainers' message and its link | `Read more`           |
-| The evidence names one mod          | `The problem is in this mod`          | `Open the mod's page` |
+| Source                     | The row shows                        | Button                |
+| -------------------------- | ------------------------------------ | --------------------- |
+| An update is available     | The installed and the latest version | `Update now`          |
+| A published known issue    | The maintainers' message             | `Read more`           |
+| A verdict with a fix       | The verdict and its cause            | `Rebuild overlay`     |
+| The evidence names one mod | `The problem is in this mod`         | `Open the mod's page` |
 
-**Updates.** A report from an outdated manager or patcher states both versions on its first line.
+An update comes first, because it can hold the fix for every row after it. A known issue is the
+maintainers' answer to the verdict, so it stands above the verdict. A verdict without a fix keeps
+its row and is not a known cause. An advisory with a fix joins the verdict row when advisories
+exist.
 
-**Known issues.** `config/known-issues.json` in the repository maps advisory codes and verdict
-kinds to a short message, a link and the versions it applies to. The app fetches it the way it
-fetches the news. The session bar shows the message beside a matching advisory or verdict, so a
-failure that hits every install on a patch day is answered before a user opens the dialog.
-Maintainers publish and withdraw an entry without a release.
+**Updates.** `Update now` closes the dialog and opens the update dialog, which holds the download,
+the restart and the warning for a running game. The crash screen shows no update row, because the
+root layout mounts the update dialog. A report from an outdated manager states the installed and
+the latest version on its first line. A report with a patcher past its end of life states the
+version of that patcher on the same line. The Discord summary has the same line.
 
-**The mod's author.** A mod is named when it is unhealthy, when its archive failed verification,
-or when it is the one suspect of an incident. `Open the mod's page` uses the origin that the
-library index records, a RuneForge post or the install link. The dialog also copies a summary
-written for the author. A mod with no recorded origin gets the sentence and no button.
+**Known issues.** `config/known-issues.json` in the repository maps verdict kinds to a short
+message, a link and the versions it applies to. `config/README.md` documents the schema. The app
+fetches it the way it fetches the news, and keeps an answer for 30 minutes. The session bar shows
+the message under a matching verdict, with `Read more`, so a failure that hits every install on
+a patch day is answered before a user opens the dialog. Maintainers publish and withdraw an entry
+without a release. An entry gains advisory codes when advisories exist.
 
-The zip writer and the save dialog exist already, in the mod export.
+**The verdict's fix.** `Rebuild overlay` is the one fix that a verdict offers as an action. The
+other hints of a verdict are sentences, and the Games tab shows them.
+
+**The mod's author.** The row shows if the incident names exactly one suspect and the suspect is
+a library mod. A workshop project is the user's own work, so it gets no row. `Open the mod's
+page` uses the page that the library index records as the origin of the mod. An install list
+records it, and only as a public HTTPS address. `Copy for the author` copies a summary for the
+author: the mod, the versions of the manager and of League, the verdict and the incident token. A
+mod with no recorded page gets the sentence and `Copy for the author`, and no page button. A mod
+that is unhealthy or that failed verification is named in the library, by
+[mod health](MOD_HEALTH.md).
 
 ### Entry points
 

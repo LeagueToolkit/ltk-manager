@@ -18,19 +18,29 @@ import {
 } from "@/components";
 import { useDebouncedValue } from "@/hooks";
 import { m } from "@/i18n";
-import type { Incident, ReportPreview, ReportProblem, ReportRequest } from "@/lib/tauri";
-import { useIncidents, useIncidentToken, verdictTitle } from "@/modules/diagnostics";
+import type { ReportPreview, ReportProblem, ReportRequest } from "@/lib/tauri";
+import { useIncidents, useIncidentToken } from "@/modules/diagnostics";
 import { useInstalledMods } from "@/modules/library";
 import { useAppInfo, useSettings } from "@/modules/settings";
-import { type GetHelpContext, useDialog, useGetHelpDialog, useNotificationsStore } from "@/stores";
+import {
+  type GetHelpContext,
+  useDialog,
+  useGetHelpDialog,
+  useNotificationsStore,
+  useUpdaterSetDialogOpen,
+  useUpdaterUpdate,
+} from "@/stores";
 import { formatBytes } from "@/utils/formatBytes";
 
-import { useSaveSupportReport, useSupportReport } from "../api";
+import { useKnownIssues, useSaveSupportReport, useSupportReport } from "../api";
+import { findings, isKnownCause } from "../utils/findings";
 import { bugReportUrl } from "../utils/issueUrl";
 import { describeOrigin, type OriginCopy } from "../utils/origin";
 import { groupReportFiles, type ReportGroupId } from "../utils/reportGroups";
 import { shownErrors } from "../utils/shownErrors";
+import { Findings } from "./Findings";
 import { ReportPreviewDialog } from "./ReportPreviewDialog";
+import { SendActions } from "./SendActions";
 
 /** The value of the mod picker for a report that is about no mod in particular. */
 const NO_MOD = "";
@@ -99,11 +109,18 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   const { data: appInfo } = useAppInfo();
   const { data: settings } = useSettings();
   const notifications = useNotificationsStore((s) => s.notifications);
+  const { data: issues = [] } = useKnownIssues();
+  const offeredUpdate = useUpdaterUpdate();
+  const openUpdateDialog = useUpdaterSetDialogOpen();
   const subject =
     incidents.find((incident) => incident.id === context.incidentId) ?? incidents[0] ?? null;
   const gameLogOffered = Boolean(subject?.game?.logPath) && settings?.readGameLog === true;
   const token = useIncidentToken(subject?.id ?? null);
   const origin = context.origin ?? null;
+  // The crash screen has no update dialog, because the root layout mounts it.
+  const update = origin?.kind === "crash" ? null : offeredUpdate;
+  const found = findings({ update, issues, incident: subject, mods });
+  const sendAnyway = found.some(isKnownCause);
 
   const [problem, setProblem] = useState<ReportProblem>(origin ? "manager" : "mod-not-shown");
   const [modId, setModId] = useState(NO_MOD);
@@ -165,6 +182,11 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
     );
   }
 
+  function handleUpdate() {
+    onClose();
+    openUpdateDialog(true);
+  }
+
   const modOptions = [
     { value: NO_MOD, label: m.support_mod_empty() },
     ...mods.map((mod) => ({ value: mod.id, label: mod.displayName })),
@@ -207,7 +229,11 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
 
         {origin && <Origin copy={describeOrigin(origin)} />}
 
-        <Found incident={subject} />
+        <Findings
+          findings={found}
+          authorSummary={preview?.authorSummary ?? null}
+          onUpdate={handleUpdate}
+        />
 
         <Stack gap={2}>
           <Inline justify="between" align="center">
@@ -237,27 +263,15 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
         </Stack>
       </Dialog.Body>
 
-      <Dialog.Footer className="justify-between">
-        <Button
-          variant="ghost"
-          onClick={() => void openUrl(bugReportUrl(appInfo, token.data ?? null))}
-        >
-          {m.support_issue_action()}
-        </Button>
-        <Inline gap={3}>
-          <Button disabled={!preview || busy} onClick={() => preview && void handleSave(preview)}>
-            {m.support_save_action()}
-          </Button>
-          <Button
-            variant="filled"
-            tone="accent"
-            loading={saveReport.isPending}
-            disabled={!preview || busy}
-            onClick={() => preview && handleCopy(preview)}
-          >
-            {m.support_copy_action()}
-          </Button>
-        </Inline>
+      <Dialog.Footer className={sendAnyway ? "justify-end" : "justify-between"}>
+        <SendActions
+          sendAnyway={sendAnyway}
+          ready={Boolean(preview) && !busy}
+          sending={saveReport.isPending}
+          onIssue={() => void openUrl(bugReportUrl(appInfo, token.data ?? null))}
+          onSave={() => preview && void handleSave(preview)}
+          onCopy={() => preview && handleCopy(preview)}
+        />
       </Dialog.Footer>
 
       {preview && (
@@ -282,24 +296,6 @@ function Origin({ copy }: { copy: OriginCopy }) {
       >
         <p className="text-sm font-medium text-surface-100">{copy.title}</p>
         <p className="font-mono text-xs break-words text-surface-300 select-text">{copy.detail}</p>
-      </div>
-    </Stack>
-  );
-}
-
-/** The verdict of the incident that the report is about. Renders nothing without an incident. */
-function Found({ incident }: { incident: Incident | null }) {
-  if (!incident) return null;
-
-  return (
-    <Stack gap={1.5}>
-      <span className={OVERLINE}>{m.support_found_label()}</span>
-      <div
-        data-ui="GetHelpDialog:found"
-        className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
-      >
-        <p className="text-sm font-medium text-surface-100">{verdictTitle(incident)}</p>
-        <p className="text-sm text-surface-300 select-text">{incident.verdict.cause}</p>
       </div>
     </Stack>
   );

@@ -1,6 +1,11 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "support_build_failed_title": "Could not build the report",
+  "support_cause_issue_action": "Read more",
+  "support_cause_mod_copy_action": "Copy for the author",
+  "support_cause_mod_page_action": "Open the mod's page",
+  "support_cause_mod_title": "The problem is in this mod",
+  "support_cause_update_title": "Update available",
   "support_copy_action": "Copy for Discord",
   "support_copy_done_hint": "Attach {file} from Downloads.",
   "support_copy_done_title": "Summary copied",
@@ -42,6 +47,7 @@
   "support_save_done_title": "Report saved",
   "support_save_failed_title": "Could not save the report",
   "support_save_filter_label": "Zip archive",
+  "support_send_anyway_label": "Send anyway",
   "support_text_label": "Anything to add?",
   "support_text_placeholder": "Optional"
 }

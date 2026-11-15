@@ -3,6 +3,7 @@ import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import {
   api,
   type AppError,
+  type KnownIssue,
   type PanicRecord,
   type ReportPreview,
   type ReportRequest,
@@ -10,6 +11,9 @@ import {
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
 import { supportKeys } from "./keys";
+
+/** The time for which an answer of the known issues feed is fresh, in milliseconds. */
+const KNOWN_ISSUES_STALE_MS = 30 * 60 * 1000;
 
 export const supportQueries = {
   /* Never cached past its request: the backend keeps the newest report only, and
@@ -31,5 +35,13 @@ export const supportQueries = {
       queryKey: supportKeys.previousPanic(),
       queryFn: queryFn(api.support.previousPanic),
       staleTime: Infinity,
+    }),
+
+  knownIssues: () =>
+    queryOptions<KnownIssue[], AppError>({
+      queryKey: supportKeys.knownIssues(),
+      queryFn: queryFn(api.support.listKnownIssues),
+      staleTime: KNOWN_ISSUES_STALE_MS,
+      retry: 1,
     }),
 };
