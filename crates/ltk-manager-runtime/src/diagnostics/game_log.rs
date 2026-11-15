@@ -366,6 +366,20 @@ pub fn redact_line(line: &str) -> Cow<'_, str> {
     out
 }
 
+/// Reads the game log at `path` and returns it with the private fields of each line removed,
+/// as [`redact_line`] removes them. Bytes that are not valid UTF-8 are replaced.
+///
+/// # Errors
+///
+/// Returns the error of the file read.
+pub fn read_redacted(path: &Path) -> io::Result<String> {
+    let bytes = fs::read(path)?;
+    Ok(String::from_utf8_lossy(&bytes)
+        .split_inclusive('\n')
+        .map(redact_line)
+        .collect())
+}
+
 /// The reader's state over one pass of the stream.
 #[derive(Debug, Default)]
 struct Reader {

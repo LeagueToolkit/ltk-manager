@@ -12,11 +12,14 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use ltk_manager_base::utils::text;
 use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
-use crate::log_dir::{LogDir, newest};
+use crate::log_dir::LogDir;
+
+mod files;
 
 #[cfg(test)]
 mod tests;
@@ -119,7 +122,7 @@ pub struct Description {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReportFile {
     /// The path of the file inside the zip, with `/` as the separator.
-    pub path: &'static str,
+    pub path: String,
     pub contents: String,
 }
 
@@ -127,7 +130,7 @@ pub struct ReportFile {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileEntry {
-    pub path: &'static str,
+    pub path: String,
     pub bytes: usize,
 }
 
@@ -156,6 +159,8 @@ pub struct SupportReport {
     created_at: DateTime<Utc>,
     app: AppIdentity,
     description: Description,
+    /// What the manager found, as `report.md` states it. The incident builder sets it.
+    found: Option<String>,
     files: Vec<ReportFile>,
     counts: Counts,
 }
@@ -172,6 +177,7 @@ impl SupportReport {
             created_at,
             app,
             description,
+            found: None,
             files: Vec::new(),
             counts: Counts::default(),
         }
@@ -179,13 +185,13 @@ impl SupportReport {
 
     /// Adds `contents` as the file at `path`, redacted line by line. Every file enters a
     /// report here.
-    fn add(&mut self, path: &'static str, contents: &str) {
+    fn add(&mut self, path: impl Into<String>, contents: &str) {
         let mut redacted = String::with_capacity(contents.len());
         for line in contents.split_inclusive('\n') {
             redacted.push_str(&ltk_redact::redact_counting(line, &mut self.counts));
         }
         self.files.push(ReportFile {
-            path,
+            path: path.into(),
             contents: redacted,
         });
     }
@@ -240,7 +246,7 @@ impl SupportReport {
                 .files
                 .iter()
                 .map(|file| FileEntry {
-                    path: file.path,
+                    path: file.path.clone(),
                     bytes: file.contents.len(),
                 })
                 .collect(),
@@ -250,7 +256,7 @@ impl SupportReport {
         self.files.insert(
             1,
             ReportFile {
-                path: MANIFEST_JSON,
+                path: MANIFEST_JSON.to_owned(),
                 contents: json,
             },
         );
@@ -291,6 +297,9 @@ impl SupportReport {
         if !text.is_empty() {
             out.push_str(&format!("\n{text}\n"));
         }
+        if let Some(found) = &self.found {
+            out.push_str(&format!("\n## The manager found\n\n{found}\n"));
+        }
         out
     }
 
@@ -305,7 +314,7 @@ impl SupportReport {
         };
         if let Some(log) = self.files.iter_mut().find(|file| file.path == LOG_FILE) {
             let keep = log.contents.len().saturating_sub(excess);
-            log.contents = newest(&log.contents, keep).to_owned();
+            log.contents = text::last_lines(&log.contents, keep).to_owned();
         }
     }
 }
@@ -348,7 +357,7 @@ impl BuiltReport {
     pub fn write_zip(&self, writer: impl Write + Seek) -> io::Result<()> {
         let mut zip = ZipWriter::new(writer);
         for file in &self.files {
-            zip.start_file(file.path, SimpleFileOptions::default())?;
+            zip.start_file(file.path.as_str(), SimpleFileOptions::default())?;
             zip.write_all(file.contents.as_bytes())?;
         }
         zip.finish()?;

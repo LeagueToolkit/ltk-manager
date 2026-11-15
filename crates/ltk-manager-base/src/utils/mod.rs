@@ -5,4 +5,5 @@ pub mod lazy_slot;
 pub mod locale;
 pub mod natural_order;
 pub mod path;
+pub mod text;
 pub mod thumbnail;

@@ -1650,3 +1650,15 @@ fn pass_defines_are_spaced_at_each_name() {
     assert_eq!(classify::spaced_defines("TRANSITION=1"), "TRANSITION=1");
     assert_eq!(classify::spaced_defines(""), "");
 }
+
+#[test]
+fn game_log_path_is_none_if_the_incident_names_no_log() {
+    let mut incident = fixtures::incident("a", "2026-08-21T21:14:02+00:00");
+    assert!(incident.game_log_path().is_some());
+
+    incident.game.as_mut().unwrap().log_path.clear();
+    assert_eq!(incident.game_log_path(), None);
+
+    incident.game = None;
+    assert_eq!(incident.game_log_path(), None);
+}

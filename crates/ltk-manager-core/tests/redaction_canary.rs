@@ -37,12 +37,14 @@ use ltk_manager_core::{
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
 use ltk_manager_runtime::{
     diagnostics::{
+        CheckCtx,
         binary_id::PatcherBinaries,
-        incident::{Incident, OverlayOutcome},
+        incident::{GameInfo, Incident, OverlayOutcome},
         store::IncidentStore,
         token::IncidentToken,
     },
     patcher::{
+        delivery::{Channel, StagedPatcher},
         events::PatcherEvents,
         injector::WadScanFailure,
         state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig},
@@ -94,6 +96,20 @@ fn no_output_holds_a_private_value() {
             support_report.contains("%USERPROFILE"),
             "the support report of the `{username}` run holds no replaced path"
         );
+        for file in [
+            "log/ltk-manager.log",
+            "settings.json",
+            "system.json",
+            "library.json",
+            "incidents/",
+            "game-log/r3dlog.txt",
+            "patcher.json",
+        ] {
+            assert!(
+                support_report.contains(file),
+                "the support report of the `{username}` run holds no {file}"
+            );
+        }
 
         let everywhere = [username, MACHINE, SECRET, LINK_TOKEN];
         let paths = [LEAGUE, STORAGE, WORKSHOP];
@@ -184,14 +200,7 @@ impl Fixture {
     fn run(&self) -> Outputs {
         self.receive_deep_link();
 
-        let library = ModLibrary::new(
-            Arc::new(NullEventSink),
-            Some(self.app_data.clone()),
-            MANAGER_VERSION,
-            Arc::new(ChecksumMismatchState::default()),
-            Arc::new(WadReportState::new(self.config.mod_storage_path.as_deref())),
-            Arc::new(WadPathResolverState::default()),
-        );
+        let library = self.library();
         self.install_mod(&library);
 
         let sink = Arc::new(RecordingSink::new());
@@ -244,7 +253,54 @@ impl Fixture {
         }
     }
 
-    /// Builds a support report and returns every file of it as one text.
+    /// The mod library of the fixture.
+    fn library(&self) -> ModLibrary {
+        ModLibrary::new(
+            Arc::new(NullEventSink),
+            Some(self.app_data.clone()),
+            MANAGER_VERSION,
+            Arc::new(ChecksumMismatchState::default()),
+            Arc::new(WadReportState::new(self.config.mod_storage_path.as_deref())),
+            Arc::new(WadPathResolverState::default()),
+        )
+    }
+
+    /// Writes a game log under the League path and returns the newest incident of the
+    /// store as an incident of that log.
+    ///
+    /// The log holds the League path and the secret on its command line, and the profile
+    /// directory on another line.
+    fn incident_with_game_log(&self, store: &IncidentStore) -> Incident {
+        let league = self.config.league_path.as_deref().expect("a League path");
+        let logs = league.join("Logs").join("GameLogs");
+        fs::create_dir_all(&logs).expect("the game log directory");
+        let log = logs.join("2026-11-15T14-02-00_r3dlog.txt");
+        let lines = format!(
+            "000000.000| ALWAYS| Command Line: \"{game}\" \"-GameBaseDir={league}\" -RiotClientAuthToken={SECRET}\n\
+             000001.000| ALWAYS| reading {profile}\n",
+            game = league.join("Game").join("League of Legends.exe").display(),
+            league = league.display(),
+            profile = self.profile.join("AppData").display(),
+        );
+        fs::write(&log, lines).expect("the game log");
+
+        let mut incident = store
+            .list()
+            .expect("the incident store")
+            .into_iter()
+            .next()
+            .expect("the failed session recorded an incident");
+        incident.game = Some(GameInfo {
+            version: "16.22".to_owned(),
+            content_version: "16.22.1".to_owned(),
+            log_path: log.to_string_lossy().into_owned(),
+            game_base_dir: Some(league.to_string_lossy().into_owned()),
+        });
+        incident
+    }
+
+    /// Builds a support report with every file that a builder writes, and returns the files
+    /// as one text.
     ///
     /// The log file of the report holds `raw_log`, as a release that did not redact the log
     /// wrote it. The settings hold the paths, the secret and two fields that the allowlist
@@ -277,6 +333,24 @@ impl Fixture {
             "telemetrySecret": SECRET,
             "runeforge": { "username": self.username },
         }));
+        report.add_system_checks(&CheckCtx {
+            league_path: self.config.league_path.clone(),
+            mod_storage_path: self.config.mod_storage_path.clone(),
+            mod_storage_is_default: false,
+            patcher_dll_path: Some(self.app_data.join("patcher").join("ltk_patcher_dll.dll")),
+            manager_exe: Some(self.profile.join("ltk-manager.exe")),
+        });
+        report.add_library(&self.library(), &self.config);
+        let store = IncidentStore::new(self.app_data.join("incidents"));
+        report.add_incidents(&store);
+        report.add_game_log(&self.incident_with_game_log(&store), &self.config);
+        let staged = StagedPatcher {
+            dir: self.app_data.join("patcher"),
+            version: "1.0.0".to_owned(),
+            digest: "ab".repeat(32),
+            eol: 1_800_000_000,
+        };
+        report.add_patcher(Channel::Stable, Some(&staged));
 
         report
             .finish()

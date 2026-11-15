@@ -183,12 +183,12 @@ pub fn reveal_game_log(id: String, incidents: State<IncidentStoreState>) -> IpcR
 
 fn reveal_game_log_inner(id: &str, incidents: &State<IncidentStoreState>) -> AppResult<()> {
     let incident = find_incident(incidents, id)?;
-    let Some(game) = incident.game else {
+    let Some(path) = incident.game_log_path() else {
         return Err(AppError::Other(
             "This incident has no game log to open".to_string(),
         ));
     };
-    reveal_in_explorer_inner(&game.log_path)
+    reveal_in_explorer_inner(&path.to_string_lossy())
 }
 
 /// The incident as the text a support thread wants, with its token on the

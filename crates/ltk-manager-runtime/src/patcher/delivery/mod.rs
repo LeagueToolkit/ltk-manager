@@ -396,7 +396,7 @@ impl PatcherDelivery {
     /// Searches the channels of `channel` in order for a build that is usable and staged.
     /// Returns the first such build within its end of life. If every such build is past its
     /// end of life, returns the first one, because the DLL itself decides that.
-    fn staged(&self, channel: Channel, now: u64) -> Option<StagedPatcher> {
+    pub fn staged(&self, channel: Channel, now: u64) -> Option<StagedPatcher> {
         let state = self.load();
         let revoked = self.revoked(&state);
         let mut expired = None;

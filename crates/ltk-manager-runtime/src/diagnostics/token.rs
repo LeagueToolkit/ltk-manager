@@ -25,6 +25,7 @@ use super::incident::{
     ClientReason, Consequence, Ending, EvidenceCode, GamePhase, Incident, LaunchKind, OriginKind,
     OverlayOutcome, ScanMode, ScanStatus, SkippedArchive, VerdictKind,
 };
+use ltk_manager_base::utils::text::first_chars;
 
 /// The format's name, which opens every token.
 pub const FORMAT: &str = "DIAG";
@@ -172,7 +173,7 @@ impl IncidentToken {
         )
         .then(|| incident.overlay_detail.as_deref())
         .flatten()
-        .map(|detail| cut(&without_paths(detail), DETAIL_CHARS));
+        .map(|detail| first_chars(&without_paths(detail), DETAIL_CHARS).to_owned());
 
         Self {
             ended_at,
@@ -194,7 +195,7 @@ impl IncidentToken {
                 .ending
                 .exit_reason
                 .as_deref()
-                .map(|reason| cut(reason, REASON_CHARS)),
+                .map(|reason| first_chars(reason, REASON_CHARS).to_owned()),
             exit_code: incident.ending.exit_code,
             crashed: incident.ending.crashed,
             duration_secs: incident.duration_secs(),
@@ -205,14 +206,14 @@ impl IncidentToken {
             suspects: incident
                 .suspects
                 .iter()
-                .map(|suspect| cut(&suspect.display_name, NAME_CHARS))
+                .map(|suspect| first_chars(&suspect.display_name, NAME_CHARS).to_owned())
                 .collect(),
             skipped: incident
                 .skipped
                 .iter()
                 .map(|skipped| SkippedArchive {
                     wad: skipped.wad.clone(),
-                    why: cut(&without_paths(&skipped.why), WHY_CHARS),
+                    why: first_chars(&without_paths(&skipped.why), WHY_CHARS).to_owned(),
                 })
                 .collect(),
             redirected_count: saturate(incident.redirected.len()),
@@ -221,10 +222,9 @@ impl IncidentToken {
             host: incident.patcher.host.clone(),
             patcher_ok: incident.patcher.matches_bundle,
             scan_status,
-            failure: incident
-                .failure
-                .as_ref()
-                .map(|failure| cut(&without_paths(&failure.summary()), DETAIL_CHARS)),
+            failure: incident.failure.as_ref().map(|failure| {
+                first_chars(&without_paths(&failure.summary()), DETAIL_CHARS).to_owned()
+            }),
             overlay_detail,
         }
     }
@@ -732,10 +732,6 @@ fn saturate(count: usize) -> u16 {
 
 fn saturate_u32(value: u32) -> u16 {
     u16::try_from(value).unwrap_or(u16::MAX)
-}
-
-fn cut(text: &str, chars: usize) -> String {
-    text.chars().take(chars).collect()
 }
 
 #[cfg(test)]
