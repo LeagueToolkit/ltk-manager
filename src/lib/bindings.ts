@@ -4502,6 +4502,15 @@ export type IntegrationStatus = {
 	operation: IntegrationOperation | null,
 };
 
+/**  The failure of a command as it crosses IPC: the error and the reference of its log line. */
+export type IpcError = {
+	/**
+	 *  Eight hex characters. The log line of the failure holds the same characters, so a
+	 *  reference that a user copies finds the line.
+	 */
+	ref: string,
+} & AppErrorResponse;
+
 /**
  *  One effect a skin draws on a joint: an idle effect, or an effect of a persistent condition.
  * 
@@ -6998,6 +7007,16 @@ export type PagePatch = {
 	sprites: PatchSprite[],
 };
 
+/**
+ *  The time and the build of a panic. The log of the run holds the message and the location,
+ *  so the record holds no text that needs redaction.
+ */
+export type PanicRecord = {
+	at: string,
+	/**  The version of the build that panicked. */
+	version: string,
+};
+
 /**  What a [`PassDriver`] writes. */
 export type ParamDriverKind = 
 /**
@@ -8127,14 +8146,31 @@ export type ReplacedSound = {
 	newSize: number,
 };
 
-/**  What the user says went wrong. */
+/**  What the user says went wrong, and what the manager showed before the user said it. */
 export type ReportDescription = {
 	problem: ReportProblem | null,
 	/**  The name of the mod that the report is about. */
 	modName: string | null,
 	/**  The user's own words. The text is redacted like every other part of a report. */
 	text: string,
+	/**  The event that led the user to the dialog. `None` if the user opened it from a menu. */
+	origin: ReportOrigin | null,
+	/**  The errors that the notification center holds from this run, oldest first. */
+	errors: ShownError[],
 };
+
+/**  The event that led the user to the `Get help` dialog. */
+export type ReportOrigin = 
+/**  A screen of the manager failed to render. */
+{ kind: "crash"; 
+/**  The route of the screen, such as `/library`. */
+route: string; 
+/**  The message of the error that the screen threw. */
+message: string } | 
+/**  The run before this one ended in a panic. */
+{ kind: "panic"; panic: PanicRecord } | 
+/**  A command failed and the manager showed the error. */
+{ kind: "error"; error: ShownError };
 
 /**  A complete report as the dialog shows it before the report leaves. */
 export type ReportPreview = {
@@ -8176,7 +8212,9 @@ export type ReportReplacements = {
 /**  What the user chose in the `Get help` dialog. */
 export type ReportRequest = {
 	description: ReportDescription,
-	/**  Whether the report holds the game log of the newest incident. */
+	/**  The incident that the report is about. The newest incident if `None`. */
+	incidentId: string | null,
+	/**  Whether the report holds the game log of that incident. */
 	includeGameLog: boolean,
 };
 
@@ -9248,6 +9286,18 @@ export type ShippedSkin = {
 	asset: AssetRef,
 	/**  The `SkinCharacterDataProperties` object's hash, `0x` and eight hex digits. */
 	entry: string,
+};
+
+/**  An error that the manager showed to the user. */
+export type ShownError = {
+	/**  The title that the manager showed with the error. */
+	title: string,
+	/**  The code of the error, such as `IO`. */
+	code: string,
+	/**  The kind under the code, if the code has several kinds. */
+	kind: string | null,
+	/**  The reference that the log line of the error holds. */
+	ref: string | null,
 };
 
 /**

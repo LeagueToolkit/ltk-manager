@@ -88,6 +88,7 @@ fn report_md_states_the_build_first_and_redacts_the_description() {
         problem: Some(ReportProblem::ModNotShown),
         mod_name: Some("Aatrox Justicar".to_owned()),
         text: "it broke, mail me at someone@example.com".to_owned(),
+        ..ReportDescription::default()
     })
     .finish();
 
@@ -285,7 +286,7 @@ fn add_incidents_writes_each_incident_and_states_the_newest_in_report_md() {
     let incident = incident();
     store.record(&incident).unwrap();
     let mut report = report(ReportDescription::default());
-    report.add_incidents(&store);
+    report.add_incidents(&store, None);
 
     let report = report.finish();
 
@@ -297,6 +298,108 @@ fn add_incidents_writes_each_incident_and_states_the_newest_in_report_md() {
     assert!(summary.contains("## The manager found"), "{summary}");
     assert!(summary.contains(&incident.verdict.title), "{summary}");
     assert!(summary.contains("Token: DIAG1-"), "{summary}");
+}
+
+#[test]
+fn add_incidents_states_the_subject_in_report_md() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = IncidentStore::new(dir.path().to_path_buf());
+    let mut older = incident();
+    older.id = "older-incident".to_owned();
+    older.ended_at = "2026-11-15T13:00:00Z".to_owned();
+    let newest = incident();
+    store.record(&older).unwrap();
+    store.record(&newest).unwrap();
+    assert_eq!(store.list().unwrap()[0].id, newest.id);
+
+    let mut about_older = report(ReportDescription::default());
+    let subject = about_older.add_incidents(&store, Some(&older.id));
+    assert_eq!(subject.map(|incident| incident.id), Some(older.id.clone()));
+    let summary = about_older.finish();
+    let summary = file(&summary, REPORT_MD);
+    assert!(summary.contains("Incident older-incident\n"), "{summary}");
+
+    let mut about_unknown = report(ReportDescription::default());
+    let subject = about_unknown.add_incidents(&store, Some("not-on-record"));
+    assert_eq!(subject.map(|incident| incident.id), Some(newest.id));
+}
+
+#[test]
+fn report_md_states_the_origin_and_the_shown_errors() {
+    let error = |title: &str, reference: Option<&str>| ShownError {
+        title: title.to_owned(),
+        code: "IO".to_owned(),
+        kind: None,
+        reference: reference.map(str::to_owned),
+    };
+    let report = report(ReportDescription {
+        origin: Some(ReportOrigin::Error {
+            error: error("Could not save the file", Some("ab12cd34")),
+        }),
+        errors: vec![
+            error("Could not read the file", None),
+            error("Could not save the file", Some("ab12cd34")),
+        ],
+        ..ReportDescription::default()
+    })
+    .finish();
+
+    let summary = file(&report, REPORT_MD);
+    assert!(
+        summary.contains(
+            "## Opened from\n\nThe manager showed an error: Could not save the file (IO, ref ab12cd34)\n"
+        ),
+        "{summary}"
+    );
+    assert!(
+        summary.contains(
+            "## Errors shown in this run\n\n- Could not read the file (IO)\n- Could not save the file (IO, ref ab12cd34)\n"
+        ),
+        "{summary}"
+    );
+    assert!(
+        report
+            .summary()
+            .contains("**From:** The manager showed an error: Could not save the file"),
+        "{}",
+        report.summary()
+    );
+}
+
+#[test]
+fn report_md_states_the_crash_and_the_panic_as_the_origin() {
+    let crash = report(ReportDescription {
+        origin: Some(ReportOrigin::Crash {
+            route: "/library".to_owned(),
+            message: r"TypeError: no file at C:\Users\Other Person\mod.fantome".to_owned(),
+        }),
+        ..ReportDescription::default()
+    })
+    .finish();
+    let summary = file(&crash, REPORT_MD);
+    assert!(
+        summary.contains("The screen `/library` crashed: TypeError: no file at "),
+        "{summary}"
+    );
+    assert!(!summary.contains("Other Person"), "{summary}");
+
+    let panic = report(ReportDescription {
+        origin: Some(ReportOrigin::Panic {
+            panic: PanicRecord {
+                at: created_at(),
+                version: "1.33.0".to_owned(),
+            },
+        }),
+        ..ReportDescription::default()
+    })
+    .finish();
+    let summary = file(&panic, REPORT_MD);
+    assert!(
+        summary.contains(
+            "The run before this one closed unexpectedly at 2026-11-15 14:02 UTC, on version 1.33.0\n"
+        ),
+        "{summary}"
+    );
 }
 
 #[test]
@@ -371,8 +474,13 @@ fn summary_stays_under_the_limit_for_the_longest_inputs() {
         problem: Some(ReportProblem::ModNotShown),
         mod_name: Some("A mod name of some length ".repeat(40)),
         text: "It broke in a way that takes many words to tell.\n".repeat(200),
+        origin: Some(ReportOrigin::Crash {
+            route: "/library".to_owned(),
+            message: "The screen threw an error with a long message. ".repeat(100),
+        }),
+        errors: Vec::new(),
     });
-    report.add_incidents(&store);
+    report.add_incidents(&store, None);
 
     let report = report.finish();
     let summary = report.summary();
@@ -391,6 +499,7 @@ fn summary_states_that_no_incident_is_on_record() {
         problem: Some(ReportProblem::Manager),
         mod_name: None,
         text: "reach me at someone@example.com".to_owned(),
+        ..ReportDescription::default()
     })
     .finish();
 
@@ -414,6 +523,7 @@ fn preview_groups_the_replacements_by_kind() {
         mod_name: None,
         text: r"from https://a.example/b?c=d by a@example.com at C:\Users\Other Person\Desktop"
             .to_owned(),
+        ..ReportDescription::default()
     })
     .finish();
 

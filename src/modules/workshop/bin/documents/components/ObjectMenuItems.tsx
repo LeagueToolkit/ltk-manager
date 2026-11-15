@@ -2,7 +2,7 @@ import { ArrowCounterClockwiseIcon, CopySimpleIcon, MinusCircleIcon } from "@pho
 import { use } from "react";
 
 import { ContextMenu, useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { BinRow, ObjectEdit } from "@/lib/tauri";
 
 import { BinEditContext } from "../../tree/hooks/useBinEdit";
@@ -25,7 +25,7 @@ export function ObjectMenuItems({ row }: { row: BinRow }) {
   function send(objectEdit: ObjectEdit) {
     void edit?.object(objectEdit).then((result) => {
       if (!result.ok) {
-        toast.error(m.workshop_bin_object_edit_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_object_edit_failed_title(), result.error);
       }
     });
   }

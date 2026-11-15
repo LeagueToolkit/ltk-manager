@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api } from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
@@ -115,7 +115,7 @@ export function usePlaceableActions(): PlaceableActions {
 
       const references = await api.bin.readMapNameReferences(materials, item.name);
       if (!references.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(references.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), references.error);
         return false;
       }
 
@@ -150,7 +150,7 @@ export function usePlaceableActions(): PlaceableActions {
 
         const text = await api.bin.copyValue(materials, chunk.entry, placeablePath(item.key));
         if (!text.ok) {
-          toast.error(m.workshop_bin_edit_refused_title(), errorSummary(text.error));
+          toast.failure(m.workshop_bin_edit_refused_title(), text.error);
           return false;
         }
         copied.push({ chunk: chunk.entry, key: item.key, text: text.value });

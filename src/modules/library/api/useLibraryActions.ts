@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, getLocale, m } from "@/i18n";
+import { getLocale, m } from "@/i18n";
 import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
@@ -90,7 +90,7 @@ export function useLibraryActions() {
       },
       onError: (error) => {
         handleCloseImportDialog();
-        toast.error(m.library_import_failed_title(), errorSummary(error));
+        toast.failure(m.library_import_failed_title(), error);
       },
     });
   }
@@ -162,10 +162,7 @@ export function useLibraryActions() {
       const path = unwrap(result);
       await api.revealInExplorer(path);
     } catch (error: unknown) {
-      toast.error(
-        m.library_storage_open_failed_title(),
-        error instanceof Error ? error.message : String(error),
-      );
+      toast.failure(m.library_storage_open_failed_title(), error);
     }
   }
 

@@ -6,13 +6,14 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import React, { type ReactNode } from "react";
 import ReactDOM from "react-dom/client";
 
-import { ErrorBoundary, RouteCrashScreen } from "./components";
+import { ErrorBoundary } from "./components";
 import { ConfirmHost } from "./components/ConfirmDialog";
 import { ToastProvider } from "./components/ToastProvider";
 import { installGlobalErrorHandlers } from "./lib/crashReporting";
 import { queryClient } from "./lib/query";
 import { api } from "./lib/tauri";
 import { useTheme } from "./modules/settings";
+import { GetHelpCrashScreen, RouteCrashScreen } from "./modules/support";
 import { routeTree } from "./routeTree.gen";
 
 const router = createRouter({
@@ -51,7 +52,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <ToastProvider>
-          <ErrorBoundary>
+          <ErrorBoundary fallback={(_retry, error) => <GetHelpCrashScreen error={error} />}>
             <RouterProvider router={router} />
           </ErrorBoundary>
           <ConfirmHost />

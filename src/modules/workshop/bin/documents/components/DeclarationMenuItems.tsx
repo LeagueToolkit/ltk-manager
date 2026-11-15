@@ -9,7 +9,7 @@ import { use } from "react";
 
 import { ContextMenu, Menu, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinDocumentId, type BinRow, type DeclaredMark } from "@/lib/tauri";
 
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
@@ -65,7 +65,7 @@ export function DeclarationMenuItems({ row }: { row: BinRow }) {
     );
     void declared.then(({ result }) => {
       if (!result.ok) {
-        toast.error(m.workshop_bin_reference_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_reference_failed_title(), result.error);
         return;
       }
       invalidate();

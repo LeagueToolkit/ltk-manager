@@ -10,7 +10,6 @@ import {
   Grid,
   Inline,
   OVERLINE,
-  SegmentedControl,
   SelectField,
   Spinner,
   Stack,
@@ -23,13 +22,14 @@ import type { Incident, ReportPreview, ReportProblem, ReportRequest } from "@/li
 import { useIncidents, useIncidentToken, verdictTitle } from "@/modules/diagnostics";
 import { useInstalledMods } from "@/modules/library";
 import { useAppInfo, useSettings } from "@/modules/settings";
-import { useDialog } from "@/stores/createDialogStore";
+import { type GetHelpContext, useDialog, useGetHelpDialog, useNotificationsStore } from "@/stores";
 import { formatBytes } from "@/utils/formatBytes";
 
 import { useSaveSupportReport, useSupportReport } from "../api";
-import { useGetHelpDialog } from "../state/getHelp";
 import { bugReportUrl } from "../utils/issueUrl";
+import { describeOrigin, type OriginCopy } from "../utils/origin";
 import { groupReportFiles, type ReportGroupId } from "../utils/reportGroups";
+import { shownErrors } from "../utils/shownErrors";
 import { ReportPreviewDialog } from "./ReportPreviewDialog";
 
 /** The value of the mod picker for a report that is about no mod in particular. */
@@ -72,24 +72,40 @@ function groupLabel(id: ReportGroupId, incidents: number): string {
  * The form mounts only while the dialog is open, so each opening starts from an empty form.
  */
 export function GetHelpDialog() {
-  const { isOpen, close } = useDialog(useGetHelpDialog);
+  const { isOpen, payload, close } = useDialog(useGetHelpDialog);
 
   if (!isOpen) return null;
 
-  return <GetHelpForm onClose={close} />;
+  return <GetHelpForm context={payload ?? {}} onClose={close} />;
 }
 
-function GetHelpForm({ onClose }: { onClose: () => void }) {
+interface GetHelpFormProps {
+  /** The incident and the event that the dialog was opened from. */
+  context: GetHelpContext;
+  onClose: () => void;
+}
+
+/**
+ * The contents of the `Get help` dialog, open for as long as it is mounted.
+ *
+ * The report is about the incident of `context`, and about the newest incident if `context`
+ * names none. An origin in `context` is a failure of the manager, so the form starts on that
+ * choice.
+ */
+export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   const toast = useToast();
   const { data: mods = [] } = useInstalledMods();
   const { data: incidents = [] } = useIncidents();
   const { data: appInfo } = useAppInfo();
   const { data: settings } = useSettings();
-  const newestIncident = incidents[0] ?? null;
-  const gameLogOffered = Boolean(newestIncident?.game?.logPath) && settings?.readGameLog === true;
-  const token = useIncidentToken(newestIncident?.id ?? null);
+  const notifications = useNotificationsStore((s) => s.notifications);
+  const subject =
+    incidents.find((incident) => incident.id === context.incidentId) ?? incidents[0] ?? null;
+  const gameLogOffered = Boolean(subject?.game?.logPath) && settings?.readGameLog === true;
+  const token = useIncidentToken(subject?.id ?? null);
+  const origin = context.origin ?? null;
 
-  const [problem, setProblem] = useState<ReportProblem>("mod-not-shown");
+  const [problem, setProblem] = useState<ReportProblem>(origin ? "manager" : "mod-not-shown");
   const [modId, setModId] = useState(NO_MOD);
   const [text, setText] = useState("");
   const [includeGameLog, setIncludeGameLog] = useState(true);
@@ -99,7 +115,14 @@ function GetHelpForm({ onClose }: { onClose: () => void }) {
   const aboutMod = problem === "mod-not-shown";
   const modName = mods.find((mod) => mod.id === modId)?.displayName ?? null;
   const request: ReportRequest = {
-    description: { problem, modName: aboutMod ? modName : null, text: restedText },
+    description: {
+      problem,
+      modName: aboutMod ? modName : null,
+      text: restedText,
+      origin,
+      errors: shownErrors(notifications),
+    },
+    incidentId: context.incidentId ?? null,
     includeGameLog,
   };
 
@@ -152,21 +175,18 @@ function GetHelpForm({ onClose }: { onClose: () => void }) {
       open
       onClose={onClose}
       title={m.support_dialog_title()}
-      description={m.support_dialog_description()}
       size="lg"
       data-ui="GetHelpDialog"
     >
       <Dialog.Body>
-        <Stack gap={1.5}>
-          <span className="text-sm font-medium text-surface-200">{m.support_problem_label()}</span>
-          <SegmentedControl
-            className="w-full"
-            aria-label={m.support_problem_label()}
-            options={PROBLEMS.map((option) => ({ value: option, label: problemLabel(option) }))}
-            value={problem}
-            onChange={setProblem}
-          />
-        </Stack>
+        <SelectField
+          label={m.support_problem_label()}
+          options={PROBLEMS.map((option) => ({ value: option, label: problemLabel(option) }))}
+          value={problem}
+          onValueChange={(value) =>
+            setProblem(PROBLEMS.find((option) => option === value) ?? problem)
+          }
+        />
 
         {aboutMod && (
           <SelectField
@@ -185,7 +205,9 @@ function GetHelpForm({ onClose }: { onClose: () => void }) {
           onChange={(event) => setText(event.target.value)}
         />
 
-        <Found incident={newestIncident} />
+        {origin && <Origin copy={describeOrigin(origin)} />}
+
+        <Found incident={subject} />
 
         <Stack gap={2}>
           <Inline justify="between" align="center">
@@ -249,21 +271,36 @@ function GetHelpForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** The verdict of the newest incident, which is what the report rests on. */
+/** The event that led the user to the dialog, as the report states it. */
+function Origin({ copy }: { copy: OriginCopy }) {
+  return (
+    <Stack gap={1.5}>
+      <span className={OVERLINE}>{m.support_origin_label()}</span>
+      <div
+        data-ui="GetHelpDialog:origin"
+        className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
+      >
+        <p className="text-sm font-medium text-surface-100">{copy.title}</p>
+        <p className="font-mono text-xs break-words text-surface-300 select-text">{copy.detail}</p>
+      </div>
+    </Stack>
+  );
+}
+
+/** The verdict of the incident that the report is about. Renders nothing without an incident. */
 function Found({ incident }: { incident: Incident | null }) {
+  if (!incident) return null;
+
   return (
     <Stack gap={1.5}>
       <span className={OVERLINE}>{m.support_found_label()}</span>
-      {!incident && <p className="text-sm text-surface-400">{m.support_found_empty()}</p>}
-      {incident && (
-        <div
-          data-ui="GetHelpDialog:found"
-          className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
-        >
-          <p className="text-sm font-medium text-surface-100">{verdictTitle(incident)}</p>
-          <p className="text-sm text-surface-300 select-text">{incident.verdict.cause}</p>
-        </div>
-      )}
+      <div
+        data-ui="GetHelpDialog:found"
+        className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
+      >
+        <p className="text-sm font-medium text-surface-100">{verdictTitle(incident)}</p>
+        <p className="text-sm text-surface-300 select-text">{incident.verdict.cause}</p>
+      </div>
     </Stack>
   );
 }
@@ -313,10 +350,11 @@ function ReportContents({
         )}
       </Grid>
 
-      <p className="text-sm text-surface-400">
-        {replacedAny && m.support_replaced_description({ paths, links, addresses, other })}
-        {!replacedAny && m.support_replaced_empty()} {m.support_privacy_hint()}
-      </p>
+      {replacedAny && (
+        <p className="text-sm text-surface-400">
+          {m.support_replaced_description({ paths, links, addresses, other })}
+        </p>
+      )}
     </Stack>
   );
 }

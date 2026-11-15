@@ -123,7 +123,9 @@ function AreaAction({ area, label, bytes, clearPending }: AreaActionProps) {
       },
       onError: (error) => {
         const { description, detail } = describeError(error);
-        toast.error(m.settings_disk_clear_failed_title({ area: label }), description ?? detail);
+        toast.failure(m.settings_disk_clear_failed_title({ area: label }), error, {
+          description: description ?? detail,
+        });
       },
     });
   }

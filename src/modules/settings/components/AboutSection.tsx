@@ -1,10 +1,11 @@
-import { FileTextIcon, InfoIcon, ScrollIcon } from "@phosphor-icons/react";
+import { FileTextIcon, InfoIcon, LifebuoyIcon, ScrollIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
 import { Button, ExternalLink, SectionCard } from "@/components";
 import { m, Marked } from "@/i18n";
 import { type AppInfo, revealPath } from "@/lib/tauri";
 import { UpdateCheckRow } from "@/modules/updater";
+import { openGetHelp } from "@/stores";
 
 import { LicensesDialog } from "./LicensesDialog";
 
@@ -29,6 +30,10 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <UpdateCheckRow />
+            <Button variant="outline" onClick={() => openGetHelp()}>
+              <LifebuoyIcon className="size-4" weight="bold" />
+              {m.common_get_help_action()}
+            </Button>
             {appInfo?.logFilePath && (
               <Button variant="outline" onClick={() => revealPath(appInfo.logFilePath!)}>
                 <FileTextIcon className="size-4" weight="bold" />

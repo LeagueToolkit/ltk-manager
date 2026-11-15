@@ -11,7 +11,6 @@ import {
   Tooltip,
   useToast,
 } from "@/components";
-import { errorSummary } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import { SidePanel, type SidePanelSection } from "@/modules/editor";
 import {
@@ -92,7 +91,7 @@ export function ContentSidebar({
           queryClient.invalidateQueries({ queryKey: workshopKeys.contentTree(project.path) });
           onSelect(name);
         },
-        onError: (err) => toast.error(`Failed to create layer: ${errorSummary(err)}`),
+        onError: (err) => toast.failure("Failed to create layer", err),
       },
     );
   }

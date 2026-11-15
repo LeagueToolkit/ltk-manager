@@ -1,7 +1,7 @@
 import { CheckCircleIcon, FileArchiveIcon } from "@phosphor-icons/react";
 
 import { Button, SectionCard, useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { FileTypeOwner, FileTypeStatus, ModFileType } from "@/lib/tauri";
 
 import { useLoadedSettings } from "../api";
@@ -37,8 +37,7 @@ function FileTypeRow({ status, hidden }: { status: FileTypeStatus; hidden: boole
 
   function choose() {
     openDefaultApps.mutate(undefined, {
-      onError: (error) =>
-        toast.error(m.settings_file_types_choose_error_title(), errorSummary(error)),
+      onError: (error) => toast.failure(m.settings_file_types_choose_error_title(), error),
     });
   }
 

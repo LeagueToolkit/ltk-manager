@@ -27,7 +27,6 @@ export function ReportPreviewDialog({ open, onClose, files }: ReportPreviewDialo
       open={open}
       onClose={onClose}
       title={m.support_preview_title()}
-      description={m.support_preview_description()}
       size="xl"
       data-ui="ReportPreviewDialog"
     >

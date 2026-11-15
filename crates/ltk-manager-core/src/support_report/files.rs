@@ -105,19 +105,30 @@ impl SupportReport {
     /// Adds the newest incidents of `store`, five at most: `incidents/<id>.json` with the
     /// incident and `incidents/<id>.md` with its report text.
     ///
-    /// The newest incident is what `report.md` states that the manager found. Adds nothing
-    /// if the store cannot be read.
-    pub fn add_incidents(&mut self, store: &IncidentStore) {
+    /// The subject is the incident `subject`, and the newest incident if `subject` is `None`
+    /// or names no incident of the store. `report.md` states the subject as what the manager
+    /// found. Adds the subject too if it is older than the newest five. Returns the subject.
+    /// Adds nothing and returns `None` if the store cannot be read.
+    pub fn add_incidents(
+        &mut self,
+        store: &IncidentStore,
+        subject: Option<&str>,
+    ) -> Option<Incident> {
         let incidents = match store.list() {
             Ok(incidents) => incidents,
             Err(e) => {
                 tracing::warn!("Could not list the incidents for the support report: {e}");
-                return;
+                return None;
             }
         };
+        let subject = subject
+            .and_then(|id| incidents.iter().position(|incident| incident.id == id))
+            .unwrap_or(0);
         let version = self.app.version.clone();
         // The store names its files by the id, so an id is one path component.
-        for incident in incidents.iter().take(INCIDENTS) {
+        let newest = incidents.iter().take(INCIDENTS);
+        let older_subject = incidents.get(subject).filter(|_| subject >= INCIDENTS);
+        for incident in newest.chain(older_subject) {
             let id = &incident.id;
             let token = incident.token(&version);
             if let Ok(json) = serde_json::to_string_pretty(incident) {
@@ -126,15 +137,16 @@ impl SupportReport {
             let text = incident.report_text(&version, Some(&token), &[]);
             self.add(format!("incidents/{id}.md"), &text);
         }
-        if let Some(newest) = incidents.first() {
-            self.found = Some(Finding {
-                title: newest.verdict.title.clone(),
-                consequence: newest.verdict.consequence.to_string(),
-                cause: newest.verdict.cause.clone(),
-                incident_id: newest.id.clone(),
-                token: newest.token(&version),
-            });
-        }
+
+        let subject = incidents.into_iter().nth(subject)?;
+        self.found = Some(Finding {
+            title: subject.verdict.title.clone(),
+            consequence: subject.verdict.consequence.to_string(),
+            cause: subject.verdict.cause.clone(),
+            incident_id: subject.id.clone(),
+            token: subject.token(&version),
+        });
+        Some(subject)
     }
 
     /// Adds `game-log/r3dlog.txt`: the game log of `incident`, with the private fields of

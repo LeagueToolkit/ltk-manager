@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   api,
   type AssetRef,
@@ -313,7 +313,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
         ),
       );
       if (!result.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), result.error);
         return false;
       }
 
@@ -372,7 +372,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
         const title = undo
           ? m.workshop_bin_undo_failed_title()
           : m.workshop_bin_redo_failed_title();
-        toast.error(title, errorSummary(result.error));
+        toast.failure(title, result.error);
         return true;
       }
       if (result.value === null) return false;
@@ -409,7 +409,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
           api.bin.edit(id, { kind: "createAndEdit", objects: [...objects], edits: [] }),
         );
         if (!result.ok) {
-          toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+          toast.failure(m.workshop_bin_edit_refused_title(), result.error);
           return null;
         }
         landed(id);

@@ -4,6 +4,7 @@ import {
   FolderOpenIcon,
   GearSixIcon,
   GitBranchIcon,
+  LifebuoyIcon,
   PackageIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
@@ -12,6 +13,7 @@ import { useMemo } from "react";
 
 import { m } from "@/i18n";
 import { shortcutOf } from "@/modules/keys";
+import { openGetHelp } from "@/stores";
 
 import { useOpenFolder } from "../../folders/hooks/useOpenFolder";
 import { useRefreshGameIndex } from "../../gameBrowser";
@@ -98,6 +100,14 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
         keywords: ["preferences", "options"],
         icon: <GearSixIcon className={GLYPH} />,
         run: () => void navigate({ to: "/settings" }),
+      },
+      {
+        id: "support.getHelp",
+        title: m.common_get_help_action(),
+        group: m.workshop_command_help_group_label(),
+        keywords: ["support", "report", "bug", "problem", "log", "discord"],
+        icon: <LifebuoyIcon className={GLYPH} />,
+        run: () => openGetHelp(),
       },
     ],
     [imports, navigate, openFolder.pick, openNewProjectDialog, refresh],

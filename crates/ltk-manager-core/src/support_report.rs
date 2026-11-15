@@ -17,7 +17,7 @@ use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
-use crate::log_dir::LogDir;
+use crate::log_dir::{LogDir, PanicRecord};
 
 mod files;
 
@@ -42,6 +42,9 @@ const SUMMARY_LINE_CHARS: usize = 160;
 
 /// The largest size of the user's words and of the cause in the summary, in characters each.
 const SUMMARY_TEXT_CHARS: usize = 300;
+
+/// The number of shown errors that `report.md` lists, newest last.
+const MAX_SHOWN_ERRORS: usize = 20;
 
 const REPORT_MD: &str = "report.md";
 const MANIFEST_JSON: &str = "manifest.json";
@@ -116,7 +119,78 @@ impl ReportProblem {
     }
 }
 
-/// What the user says went wrong.
+/// An error that the manager showed to the user.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ShownError {
+    /// The title that the manager showed with the error.
+    pub title: String,
+    /// The code of the error, such as `IO`.
+    pub code: String,
+    /// The kind under the code, if the code has several kinds.
+    pub kind: Option<String>,
+    /// The reference that the log line of the error holds.
+    #[serde(rename = "ref")]
+    pub reference: Option<String>,
+}
+
+impl ShownError {
+    /// Returns the error as one line, such as `Could not save the file (IO, ref ab12cd34)`.
+    fn line(&self) -> String {
+        let mut facts = self.code.clone();
+        if let Some(kind) = &self.kind {
+            facts.push_str(&format!(" {kind}"));
+        }
+        if let Some(reference) = &self.reference {
+            facts.push_str(&format!(", ref {reference}"));
+        }
+        format!("{} ({facts})", self.title)
+    }
+}
+
+/// The event that led the user to the `Get help` dialog.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum ReportOrigin {
+    /// A screen of the manager failed to render.
+    Crash {
+        /// The route of the screen, such as `/library`.
+        route: String,
+        /// The message of the error that the screen threw.
+        message: String,
+    },
+    /// The run before this one ended in a panic.
+    Panic { panic: PanicRecord },
+    /// A command failed and the manager showed the error.
+    Error { error: ShownError },
+}
+
+impl ReportOrigin {
+    /// Returns the English sentence for the origin, as `report.md` states it.
+    fn sentence(&self) -> String {
+        match self {
+            Self::Crash { route, message } => {
+                format!("The screen `{route}` crashed: {message}")
+            }
+            Self::Panic { panic } => format!(
+                "The run before this one closed unexpectedly at {} UTC, on version {}",
+                panic.at.format("%Y-%m-%d %H:%M"),
+                panic.version
+            ),
+            Self::Error { error } => {
+                format!("The manager showed an error: {}", error.line())
+            }
+        }
+    }
+}
+
+/// What the user says went wrong, and what the manager showed before the user said it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
@@ -126,6 +200,10 @@ pub struct ReportDescription {
     pub mod_name: Option<String>,
     /// The user's own words. The text is redacted like every other part of a report.
     pub text: String,
+    /// The event that led the user to the dialog. `None` if the user opened it from a menu.
+    pub origin: Option<ReportOrigin>,
+    /// The errors that the notification center holds from this run, oldest first.
+    pub errors: Vec<ShownError>,
 }
 
 /// One file of a report, after redaction.
@@ -136,7 +214,7 @@ pub struct ReportFile {
     pub contents: String,
 }
 
-/// What the manager found: the verdict of the newest incident.
+/// What the manager found: the verdict of the incident that the report is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Finding {
     title: String,
@@ -356,8 +434,9 @@ impl SupportReport {
     /// Returns the summary for a Discord message, in English and redacted,
     /// [`MAX_SUMMARY_CHARS`] characters at most.
     ///
-    /// The summary states the versions, the problem, the user's words, the verdict and the
-    /// token of the newest incident, and the name of the zip.
+    /// The summary states the versions, the problem, the origin, the user's words, the
+    /// verdict and the token of the incident that the report is about, and the name of the
+    /// zip.
     fn discord_summary(&self) -> String {
         let mut out = format!(
             "**LTK Manager {}** on {} {}, {}\n**Problem:** {}\n",
@@ -367,6 +446,12 @@ impl SupportReport {
             self.build_kind(),
             text::first_chars(&self.problem_line(), SUMMARY_LINE_CHARS),
         );
+        if let Some(origin) = &self.description.origin {
+            out.push_str(&format!(
+                "**From:** {}\n",
+                text::first_chars(&origin.sentence().replace('\n', " "), SUMMARY_LINE_CHARS)
+            ));
+        }
         let words = self.description.text.trim();
         if !words.is_empty() {
             let words = text::first_chars(words, SUMMARY_TEXT_CHARS).replace('\n', " ");
@@ -414,11 +499,22 @@ impl SupportReport {
         if !words.is_empty() {
             out.push_str(&format!("\n{words}\n"));
         }
+        if let Some(origin) = &self.description.origin {
+            out.push_str(&format!("\n## Opened from\n\n{}\n", origin.sentence()));
+        }
         if let Some(found) = &self.found {
             out.push_str(&format!(
                 "\n## The manager found\n\n{} ({})\n\n{}\n\nIncident {}\nToken: {}\n",
                 found.title, found.consequence, found.cause, found.incident_id, found.token
             ));
+        }
+        let errors = &self.description.errors;
+        if !errors.is_empty() {
+            out.push_str("\n## Errors shown in this run\n\n");
+            let first = errors.len().saturating_sub(MAX_SHOWN_ERRORS);
+            for error in &errors[first..] {
+                out.push_str(&format!("- {}\n", error.line()));
+            }
         }
         out
     }

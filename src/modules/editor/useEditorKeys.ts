@@ -1,5 +1,5 @@
 import { useToast } from "@/components";
-import { errorMessage, m } from "@/i18n";
+import { m } from "@/i18n";
 import { useKeys } from "@/modules/keys";
 
 import { documentFind } from "./state/documentFinds";
@@ -72,7 +72,7 @@ export function useEditorKeys({
     if (!write) return;
 
     void write().catch((error: unknown) => {
-      toast.error(m.editor_save_failed_hint(), errorMessage(error));
+      toast.failure(m.editor_save_failed_hint(), error);
     });
   }
 

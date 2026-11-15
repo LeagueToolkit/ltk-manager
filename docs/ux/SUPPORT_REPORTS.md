@@ -98,11 +98,11 @@ gives it.
 | Support report          | In progress | An allowlisted zip, built by named builders. Game records and the build are missing  |
 | Report preview          | Available   | The file list, the redacted text and the replacement counts                          |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
-| `Get help` entry points | In progress | The title bar menu opens the dialog. Toasts, crash screens and the mod card do not   |
+| `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
 | Game record             | Planned     | One small record for every game, clean games included                                |
 | Advisory                | Planned     | A coded condition that changes what the user gets                                    |
 | Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
-| Error reference         | Planned     | A short id on an error, the same id on its log line                                  |
+| Error reference         | Available   | A short id on an error, the same id on its log line                                  |
 | Upload and report code  | Planned     | One code to paste. Needs an endpoint and an ADR                                      |
 | Report reader           | Planned     | A web page behind the GitHub login                                                   |
 | Patcher codes           | Planned     | Every DLL and host warn or error carries a code. `ltk-patcher`                       |
@@ -353,8 +353,7 @@ without that signature can save a report and cannot upload one.
 +--------------------------------------------------------------------+
 | Get help                                                           |
 |                                                                    |
-| What went wrong?                                                   |
-| (o) A mod does not show   ( ) The game crashed   ( ) The manager   |
+| What went wrong?   [ A mod does not show                      v ]  |
 |                                                                    |
 | Which mod?   [ Aatrox Justicar                                v ]  |
 |                                                                    |
@@ -365,21 +364,24 @@ without that signature can save a report and cannot upload one.
 | ! The patcher was not running in your last game                    |
 |   Aatrox Justicar was not in the game.          [ Start patcher ]  |
 |                                                                    |
-| WHAT THE REPORT HOLDS                                    Preview   |
-|   The app log, 3 runs                                   212 KB     |
+| REPORT CONTENTS                                          Preview   |
+|   App log                                               212 KB     |
 |   5 games, 1 incident                                    31 KB     |
-|   System checks, settings, 14 mods of profile Default    18 KB     |
-|   [x] League's own game log                              44 KB     |
+|   System checks, settings, mods                          18 KB     |
+|   [x] Game log                                           44 KB     |
 |                                                                    |
-|   61 paths, 4 links and 2 addresses were replaced.                 |
-|   No account name and no file of yours is included.                |
+|   Replaced: 61 paths, 4 links, 2 addresses, 0 other                |
 |                                                                    |
 |   Send anyway:        Save as file        Copy for Discord         |
 +--------------------------------------------------------------------+
 ```
 
-- **What went wrong** is three choices and a mod picker. The text field is optional, so a user who
-  does not write English still sends a structured report
+The dialog holds labels and data and no explanatory sentence. It has no subtitle, shows `The
+manager found` only if an incident is on record, and shows the replacement counts only if a value
+was replaced.
+
+- **What went wrong** is a select of three choices, and a mod picker. The text field is optional,
+  so a user who does not write English still sends a structured report
 - **The manager found** lists the advisories and the verdict the report rests on. A cause that has
   a fix shows the fix as the primary button, and the send actions move under `Send anyway`. A
   report with no known cause shows the send actions as primary. Until advisories and known causes
@@ -440,8 +442,32 @@ The zip writer and the save dialog exist already, in the mod export.
 | Settings, About                    | `Get help`, and `Open log folder` below it                     |
 | The command palette                | `Get help`                                                     |
 
-A route render crash shows the router's unstyled `Something went wrong!` today and sends no
-telemetry, because no error component is set. The `defaultErrorComponent` fixes both.
+The router's `defaultErrorComponent` renders the crash screen and sends the telemetry event for a
+route render crash.
+
+Each entry point opens the dialog with the context it has, and the report states that context.
+
+| Context     | From                               | The report                                               |
+| ----------- | ---------------------------------- | -------------------------------------------------------- |
+| An incident | The Games tab and the verdict line | States that incident under `The manager found`           |
+| A crash     | The crash screen and a route error | States the route and the message of the error            |
+| A panic     | The line in the session bar        | States the time and the version of the run that panicked |
+| An error    | `Get help` on an error toast       | States the title, the code and the `ref` of the error    |
+| No context  | The menus and the command palette  | States the newest incident                               |
+
+`report.md` states a crash, a panic or an error under `Opened from`, and the Discord summary has
+the same sentence on a `From` line. The dialog starts on `The manager` for these three.
+
+**The crash screen** mounts the dialog itself. The root layout mounts the dialog of the app, and
+the root layout is part of the tree that crashed.
+
+**The panic line.** The panic hook writes `panic.json` in the log directory with the time and the
+version. A run that exits normally deletes the file. The next start reads the file and deletes
+it, so a record at startup is the panic that closed the run before. The line stays until the user
+dismisses it, and a verdict or a failed start takes its place while one is shown. The record
+holds no message, because the log of that run holds the panic and the report holds that log.
+
+**The command palette** is the palette of the workshop, which is the only one that the app has.
 
 ### When the manager does not start
 
@@ -634,8 +660,9 @@ which the log cannot show. The panel says that, and `Get help` is the action.
 
 ### Error reference
 
-An `AppErrorResponse` gains `ref`, eight characters, and the backend writes the same `ref` on the
-error's log line. A toast for a failed command gains two actions.
+The error of a failed command gains `ref`, eight hex characters, and the backend writes one log
+line for the failure with the same `ref`: `ref=<ref> code=<CODE>` and the fields of the error, at
+`warn` with the target `command`. A toast for a failed command gains two actions.
 
 | Action     | On                 | Does                                                                         |
 | ---------- | ------------------ | ---------------------------------------------------------------------------- |
@@ -646,8 +673,12 @@ The unexpected codes are `UNKNOWN`, `IO`, `INTERNAL_STATE`, `WAD`, `OVERLAY` and
 for any other code reaches `Get help` through `Details`, so a routine error, such as a League path
 that is not set, does not invite a report.
 
+A toast has `Details` if its caller passes the error to the toast. A toast that reports no
+backend error, such as a clipboard failure, has none. An error that an event carries has a code
+and no `ref`, because no command returned it.
+
 The notification center keeps the code and the `ref` with the entry. The entries of the current
-run go into `report.md`.
+run go into `report.md`, under `Errors shown in this run`, 20 at most.
 
 An `UNKNOWN` code is a failure that no variant names. `app_error` telemetry already counts them. A
 message that reaches a set count in a week gets a variant and a sentence in the catalog.

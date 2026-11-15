@@ -328,21 +328,79 @@ fn ipc_result_err_serialization() {
     assert_eq!(json["error"]["detail"], "disk full");
 }
 
-/// The wire, in one line: a code and the fields, and nothing else.
+/// The wire, in one line: a code, the fields and the reference, and nothing else.
 #[test]
-fn the_envelope_carries_the_code_and_the_fields_only() {
+fn the_envelope_carries_the_code_the_fields_and_the_ref_only() {
     let result: IpcResult<()> = Err::<(), AppError>(AppError::SchemaVersionTooNew {
         file_version: 4,
         max_supported: 3,
     })
     .into();
+    let IpcResult::Err { error } = &result else {
+        panic!("the result is an error");
+    };
     assert_eq!(
         serde_json::to_value(&result).unwrap(),
         serde_json::json!({
             "ok": false,
-            "error": { "code": "SCHEMA_VERSION_TOO_NEW", "fileVersion": 4, "maxSupported": 3 }
+            "error": {
+                "code": "SCHEMA_VERSION_TOO_NEW",
+                "fileVersion": 4,
+                "maxSupported": 3,
+                "ref": error.reference,
+            }
         })
     );
+}
+
+/// The lines that a subscriber wrote, shared with the test that installed it.
+#[derive(Clone, Default)]
+struct CapturedLog(std::sync::Arc<parking_lot::Mutex<Vec<u8>>>);
+
+impl std::io::Write for CapturedLog {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.lock().extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn failed_command_ref_is_on_one_log_line() {
+    let log = CapturedLog::default();
+    let writer = log.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(move || writer.clone())
+        .finish();
+
+    let failed = |detail: &str| -> IpcError {
+        let result: IpcResult<()> = IpcResult::err(AppErrorResponse::Io {
+            detail: detail.into(),
+        });
+        match result {
+            IpcResult::Err { error } => error,
+            IpcResult::Ok { .. } => panic!("the result is an error"),
+        }
+    };
+    let (first, second) = tracing::subscriber::with_default(subscriber, || {
+        (failed("disk full"), failed("access denied"))
+    });
+
+    assert_eq!(first.reference.len(), 8);
+    assert_ne!(first.reference, second.reference);
+
+    let text = String::from_utf8(log.0.lock().clone()).unwrap();
+    let lines: Vec<&str> = text
+        .lines()
+        .filter(|line| line.contains(&first.reference))
+        .collect();
+    assert_eq!(lines.len(), 1, "{text}");
+    assert!(lines[0].contains("code=IO"), "{text}");
+    assert!(lines[0].contains("disk full"), "{text}");
 }
 
 #[test]

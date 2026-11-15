@@ -2,12 +2,15 @@ import { create } from "zustand";
 
 // eslint-disable-next-line no-restricted-imports -- the leaf, so the barrel does not close a cycle back to this store
 import type { ToastType } from "@/components/toastType";
+import type { ErrorDetails } from "@/utils/errors";
 
 export interface Notification {
   id: string;
   title: string;
   description?: string;
   type: ToastType;
+  /** The facts of the backend error that the notification reports. */
+  error?: ErrorDetails;
   timestamp: number;
   read: boolean;
 }

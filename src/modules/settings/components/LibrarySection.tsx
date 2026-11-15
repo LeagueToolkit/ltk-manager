@@ -91,7 +91,7 @@ function DataLocationRow({ value }: { value: string | null }) {
       onSuccess: (plan) => setPlanned({ plan, target }),
       onError: (error) => {
         const { title, description, detail } = describeError(error);
-        toast.error(title, description ?? detail);
+        toast.failure(title, error, { description: description ?? detail });
       },
     });
   }

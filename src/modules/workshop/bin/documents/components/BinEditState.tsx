@@ -108,7 +108,7 @@ export function useBinReload(document: BinDocumentId, asset: AssetRef, onReload:
   function reload() {
     void api.bin.reload(document).then((result) => {
       if (!result.ok) {
-        toast.error(m.workshop_bin_reload_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_reload_failed_title(), result.error);
         return;
       }
       forgetBinSave(key);

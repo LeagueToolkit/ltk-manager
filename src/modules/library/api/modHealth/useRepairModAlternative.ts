@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError, type FixReport } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -43,8 +43,6 @@ export function useRepairModAlternative() {
     onError: (error) =>
       match(error)
         .with({ code: "MOD_NOT_FOUND" }, () => toast.error(m.library_mod_missing_title()))
-        .otherwise(() =>
-          toast.error(m.library_health_alternative_failed_title(), errorSummary(error)),
-        ),
+        .otherwise(() => toast.failure(m.library_health_alternative_failed_title(), error)),
   });
 }

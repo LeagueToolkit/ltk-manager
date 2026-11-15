@@ -1,7 +1,7 @@
 import { use } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { Result } from "@/utils/result";
 
 import { useDeclaredLink, useDeclares } from "../../documents/hooks/useDeclared";
@@ -38,7 +38,7 @@ export function useSendDependencyEdit(): (call: Promise<Result<unknown>>) => voi
   return (call) => {
     void call.then((result) => {
       if (!result.ok) {
-        toast.error(m.workshop_bin_dependency_edit_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_dependency_edit_failed_title(), result.error);
       }
     });
   };

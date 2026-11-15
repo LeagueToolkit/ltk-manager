@@ -1,7 +1,6 @@
 import { useState } from "react";
 
 import { Button, Dialog, Field, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 
 import { useRenameProjectDialog } from "../../state";
 import { useRenameProject } from "../api/useRenameProject";
@@ -48,7 +47,7 @@ export function RenameProjectDialog() {
           toast.success("Project renamed", `Now at ${slug}`);
           closeDialog();
         },
-        onError: (err) => toast.error("Could not rename this project", errorSummary(err)),
+        onError: (err) => toast.failure("Could not rename this project", err),
       },
     );
   }

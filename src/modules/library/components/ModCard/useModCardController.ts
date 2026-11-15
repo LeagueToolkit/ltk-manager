@@ -1,7 +1,6 @@
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import { api, type InstalledMod, type ModStorage } from "@/lib/tauri";
 import {
   useSetModStorage,
@@ -122,8 +121,7 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     setModStorage.mutate(
       { modId: mod.id, storage },
       {
-        onError: (error) =>
-          toast.error("Could not change how this mod is stored", errorSummary(error)),
+        onError: (error) => toast.failure("Could not change how this mod is stored", error),
       },
     );
   }

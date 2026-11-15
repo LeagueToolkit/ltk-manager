@@ -128,7 +128,7 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
       await onSet(accelerator);
       toast.success("Hotkey set", `Hotkey set to ${accelerator}`);
     } catch (err) {
-      toast.error("Failed to set hotkey", err instanceof Error ? err.message : String(err));
+      toast.failure("Failed to set hotkey", err);
     } finally {
       await api.resumeHotkeys();
       setIsPending(false);
@@ -141,7 +141,7 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
       await onSet(null);
       toast.success("Hotkey cleared");
     } catch (err) {
-      toast.error("Failed to clear hotkey", err instanceof Error ? err.message : String(err));
+      toast.failure("Failed to clear hotkey", err);
     } finally {
       setIsPending(false);
     }

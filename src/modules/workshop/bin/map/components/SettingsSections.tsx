@@ -2,7 +2,7 @@ import { MinusCircleIcon, PlusCircleIcon, PlusIcon } from "@phosphor-icons/react
 import { useMemo } from "react";
 
 import { Button, Disclosure, IconButton, useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AssetRef, type BinDocumentId, type BinEdit, type BinRow } from "@/lib/tauri";
 
 import { useBinRead } from "../../documents/hooks/useBinRead";
@@ -107,7 +107,7 @@ function SectionList({
   const edit = async (change: BinEdit) => {
     const { result, id } = await send((id) => api.bin.edit(id, change));
     if (!result.ok) {
-      toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+      toast.failure(m.workshop_bin_edit_refused_title(), result.error);
       return;
     }
     landed(id);
@@ -270,7 +270,7 @@ function PartTree({ part, source, label, objectName, onNotOpen }: PartTreeProps)
       }),
     );
     if (!result.ok) {
-      toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+      toast.failure(m.workshop_bin_edit_refused_title(), result.error);
       return;
     }
     landed(id);

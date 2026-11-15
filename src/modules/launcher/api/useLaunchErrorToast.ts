@@ -25,7 +25,7 @@ export function useLaunchErrorToast() {
       if (error.code === "LAUNCHER" && error.error.kind === "STOPPED") return;
 
       const { title, description, detail } = launchErrorCopy(error);
-      toast.error(title, description ?? detail);
+      toast.failure(title, error, { description: description ?? detail });
       console.error("Failed to launch League:", error);
     },
     [toast],

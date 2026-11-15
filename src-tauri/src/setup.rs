@@ -138,6 +138,9 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(launcher_state);
     app.manage(crate::services::launcher::LaunchState::default());
     app.manage(crate::services::support::SupportReportState::default());
+    app.manage(crate::services::support::PreviousPanicState::take_from(
+        crate::logging::default_log_dir().as_ref(),
+    ));
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
     app.manage(ltk_manager_assets::strings::StringKeyIndexState::default());
@@ -302,6 +305,11 @@ pub fn handle_run_event(app_handle: &tauri::AppHandle, event: tauri::RunEvent) {
         // five minutes waiting for a game that will never come now.
         let launcher: tauri::State<'_, LauncherState> = app_handle.state();
         launcher.launcher().shutdown();
+
+        // Last, so a panic during the shutdown above keeps its record for the next start.
+        if let Some(log_dir) = crate::logging::default_log_dir() {
+            log_dir.clear_panic();
+        }
     }
 }
 

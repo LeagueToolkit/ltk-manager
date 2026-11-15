@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { use, useCallback } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 
 import { sendEach } from "../../skin/hooks/useDynamicsEdit";
@@ -37,7 +37,7 @@ export function useAdjustApply(
 
       const refused = await sendEach({ send, landed }, adjustEdits(system, adjust));
       if (refused !== null) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(refused));
+        toast.failure(m.workshop_bin_edit_refused_title(), refused);
         return false;
       }
 

@@ -15,7 +15,7 @@ import { shapesOf } from "../../utils/colliders";
 import type { WireChain } from "../../utils/dynamicsModel";
 import { useColliderEdit, useColliderFiles } from "../useColliders";
 
-const { send, toast } = vi.hoisted(() => ({ send: vi.fn(), toast: { error: vi.fn() } }));
+const { send, toast } = vi.hoisted(() => ({ send: vi.fn(), toast: { failure: vi.fn() } }));
 
 vi.mock("../useDynamicsEdit", () => ({ useDynamicsEdit: () => send }));
 vi.mock("@/components", async (importOriginal) => ({
@@ -59,7 +59,7 @@ let sent: SentSave[] = [];
 beforeEach(() => {
   sent = [];
   send.mockReset();
-  toast.error.mockReset();
+  toast.failure.mockReset();
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: { shapes: ColliderShapes }) => {
     if (command !== commandNames.preview.saveSkinColliders || args === undefined) {
@@ -111,10 +111,11 @@ describe("useColliderEdit", () => {
     expect(shapes()).toEqual(sphere(1));
 
     await commit(sphere(2));
-    await answer(0, { ok: false, error: { code: "PREVIEW", detail: "Disk full" } });
+    const refusal = { code: "PREVIEW", detail: "Disk full" };
+    await answer(0, { ok: false, error: refusal });
 
     await waitFor(() => expect(shapes()).toEqual(sphere(1)));
-    expect(toast.error).toHaveBeenCalledWith("The collider file was not saved", expect.any(String));
+    expect(toast.failure).toHaveBeenCalledWith("The collider file was not saved", refusal);
   });
 
   it("leaves the read of a shipped file alone when its save lands in the layer", async () => {

@@ -2,7 +2,7 @@ import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query"
 import { useCallback } from "react";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   api,
   type AppError,
@@ -92,7 +92,7 @@ export function useVoiceEdit({ document, asset, onNotOpen }: VoiceDocument) {
     async (edit: BinEdit): Promise<boolean> => {
       const { result, id } = await send((at) => api.bin.edit(at, edit));
       if (!result.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), result.error);
         return false;
       }
 
@@ -140,7 +140,7 @@ export function useCopyForSkin(
       }
 
       const refuse = (error: AppError) => {
-        toast.error(m.audio_voice_copy_failed_title(), errorSummary(error));
+        toast.failure(m.audio_voice_copy_failed_title(), error);
         return false;
       };
 
@@ -172,7 +172,7 @@ export function useCopyForSkin(
       });
       if (!edited.ok) {
         void api.bin.close(id);
-        toast.error(m.audio_voice_copy_failed_title(), errorSummary(edited.error));
+        toast.failure(m.audio_voice_copy_failed_title(), edited.error);
         return false;
       }
 

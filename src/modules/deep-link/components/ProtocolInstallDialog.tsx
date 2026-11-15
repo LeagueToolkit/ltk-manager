@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 
 import { Button, Dialog, Progress, useToast } from "@/components";
-import { describeError, errorSummary, m, Marked } from "@/i18n";
+import { describeError, m, Marked } from "@/i18n";
 import type { AppError, ProtocolInstallProgress, Settings } from "@/lib/tauri";
 import { useSaveSettings, useSettings } from "@/modules/settings";
 import { useQueuedDialog } from "@/stores";
@@ -62,7 +62,7 @@ export function ProtocolInstallDialog() {
           }
         },
         onError: (err) => {
-          toast.error(m.deep_link_install_failed_title(), errorSummary(err));
+          toast.failure(m.deep_link_install_failed_title(), err);
         },
       },
     );

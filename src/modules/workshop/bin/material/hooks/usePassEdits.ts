@@ -1,7 +1,7 @@
 import { use } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinEdit, type LeafValue, type ValueEdit } from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
@@ -57,7 +57,7 @@ export function usePassEdits(
     void (async () => {
       const { result, id } = await send((document) => api.bin.edit(document, call));
       if (!result.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), result.error);
         return;
       }
       landed(id);

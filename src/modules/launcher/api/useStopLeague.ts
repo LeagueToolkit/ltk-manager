@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -23,7 +22,7 @@ export function useStopLeague() {
       return unwrapForQuery(result);
     },
     onError: (error) => {
-      toast.error("Couldn't close League", errorSummary(error));
+      toast.failure("Couldn't close League", error);
       console.error("Failed to close League:", error);
     },
   });

@@ -32,7 +32,9 @@ use ltk_manager_core::{
     deep_link::parse_deep_link_url,
     log_dir::LogDir,
     patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
-    support_report::{AppIdentity, ReportDescription, ReportProblem, SupportReport},
+    support_report::{
+        AppIdentity, ReportDescription, ReportOrigin, ReportProblem, ShownError, SupportReport,
+    },
 };
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
 use ltk_manager_runtime::{
@@ -315,14 +317,26 @@ impl Fixture {
             version: MANAGER_VERSION.to_owned(),
             release_build: true,
         };
+        let downloads = self.profile.join("Downloads");
+        let shown = ShownError {
+            title: format!("Could not read {}", downloads.display()),
+            code: "IO".to_owned(),
+            kind: None,
+            reference: Some("ab12cd34".to_owned()),
+        };
         let description = ReportDescription {
             problem: Some(ReportProblem::ModNotShown),
             mod_name: Some("Test Mod".to_owned()),
             text: format!(
                 "{} installed it from {}",
                 self.username,
-                self.profile.join("Downloads").display()
+                downloads.display()
             ),
+            origin: Some(ReportOrigin::Crash {
+                route: "/library".to_owned(),
+                message: format!("no file at {}", downloads.display()),
+            }),
+            errors: vec![shown],
         };
         let mut report = SupportReport::new(app, description, chrono::Utc::now());
         report.add_log(&LogDir::new(&log_dir));
@@ -342,7 +356,7 @@ impl Fixture {
         });
         report.add_library(&self.library(), &self.config);
         let store = IncidentStore::new(self.app_data.join("incidents"));
-        report.add_incidents(&store);
+        report.add_incidents(&store, None);
         report.add_game_log(&self.incident_with_game_log(&store), &self.config);
         let staged = StagedPatcher {
             dir: self.app_data.join("patcher"),

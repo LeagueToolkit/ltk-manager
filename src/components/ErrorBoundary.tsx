@@ -1,17 +1,18 @@
 import { WarningOctagonIcon } from "@phosphor-icons/react";
-import { open } from "@tauri-apps/plugin-shell";
-import { Component, type ErrorInfo, type ReactNode, useEffect } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
 
 import { m } from "@/i18n";
 import { currentRoute, describeThrown, reportUiError } from "@/lib/crashReporting";
 
 import { Button } from "./Button";
 
-const BUG_REPORT_URL =
-  "https://github.com/LeagueToolkit/ltk-manager/issues/new?template=bug_report.yml";
+interface CrashScreenProps {
+  /** Opens the `Get help` dialog. The screen offers a reload only without it. */
+  onGetHelp?: () => void;
+}
 
-/** The whole-window screen for a render that threw, with a reload and a bug report link. */
-export function CrashScreen() {
+/** The whole-window screen for a render that threw, with a reload and `Get help`. */
+export function CrashScreen({ onGetHelp }: CrashScreenProps) {
   return (
     <div
       className="flex h-screen w-screen items-center justify-center bg-surface-950 p-8"
@@ -24,9 +25,11 @@ export function CrashScreen() {
           <p className="text-sm text-surface-400">{m.common_crash_description()}</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => void open(BUG_REPORT_URL)}>
-            {m.common_crash_report_action()}
-          </Button>
+          {onGetHelp && (
+            <Button variant="ghost" onClick={onGetHelp}>
+              {m.common_get_help_action()}
+            </Button>
+          )}
           <Button onClick={() => window.location.reload()}>{m.common_crash_reload_action()}</Button>
         </div>
       </div>
@@ -34,38 +37,22 @@ export function CrashScreen() {
   );
 }
 
-/**
- * The router's error component. Reports `error` once and renders the crash screen.
- *
- * The router catches a route's render error before `ErrorBoundary` sees it, so the report
- * has to be sent here.
- */
-export function RouteCrashScreen({ error }: { error: unknown }) {
-  useEffect(() => {
-    reportUiError({
-      ...describeThrown(error),
-      componentStack: null,
-      route: currentRoute(),
-      handled: true,
-    });
-  }, [error]);
-
-  return <CrashScreen />;
-}
-
 interface ErrorBoundaryProps {
   children: ReactNode;
   /**
-   * What to draw in place of the children once one threw, given the way to draw them again.
+   * What to draw in place of the children once one threw, given the way to draw them again
+   * and the value that was thrown.
    *
    * A boundary around one pane draws a notice in that pane. The one above the router draws
    * the whole-window fallback and offers a reload instead.
    */
-  fallback?: (retry: () => void) => ReactNode;
+  fallback?: (retry: () => void, error: unknown) => ReactNode;
 }
 
 interface ErrorBoundaryState {
   crashed: boolean;
+  /** The value that the children threw. */
+  error: unknown;
 }
 
 /**
@@ -75,10 +62,10 @@ interface ErrorBoundaryState {
  * the router so a crash on any screen still draws something a reader can act on.
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { crashed: false };
+  state: ErrorBoundaryState = { crashed: false, error: null };
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
-    return { crashed: true };
+  static getDerivedStateFromError(error: unknown): ErrorBoundaryState {
+    return { crashed: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -91,12 +78,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   retry = () => {
-    this.setState({ crashed: false });
+    this.setState({ crashed: false, error: null });
   };
 
   render() {
     if (!this.state.crashed) return this.props.children;
-    if (this.props.fallback) return this.props.fallback(this.retry);
+    if (this.props.fallback) return this.props.fallback(this.retry, this.state.error);
 
     return <CrashScreen />;
   }

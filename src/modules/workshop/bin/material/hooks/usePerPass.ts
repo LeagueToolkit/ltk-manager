@@ -1,7 +1,7 @@
 import { use } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinRow, type PropertyEdit, type SchemaParam } from "@/lib/tauri";
 
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
@@ -69,7 +69,7 @@ export function usePerPass({
         api.bin.edit(document, { kind: "editProperties", edits }),
       );
       if (!result.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), result.error);
         return;
       }
       landed(id);

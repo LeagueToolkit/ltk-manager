@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, Info } from "lucide-react";
 import { useState } from "react";
 
 import { IconButton, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
@@ -38,7 +37,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
           onRenamed(renamed);
         },
         onError: (err) => {
-          toast.error(`Failed to rename: ${errorSummary(err)}`);
+          toast.failure("Failed to rename", err);
         },
       },
     );

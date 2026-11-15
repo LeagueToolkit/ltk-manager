@@ -32,6 +32,13 @@ function NotificationItem({
         {notification.description && (
           <p className="truncate text-xs text-surface-400">{notification.description}</p>
         )}
+        {notification.error && (
+          <p className="truncate font-mono text-xs text-surface-400 select-text">
+            {[notification.error.code, notification.error.kind, notification.error.ref]
+              .filter((part) => part !== null)
+              .join(" · ")}
+          </p>
+        )}
         <p className="mt-0.5 text-xs text-surface-500">
           {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
         </p>

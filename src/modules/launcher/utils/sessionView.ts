@@ -2,6 +2,7 @@ import type {
   Incident,
   LaunchProgress,
   OverlayProgress,
+  PanicRecord,
   PatcherPhase,
   PrepareStep,
 } from "@/lib/tauri";
@@ -25,6 +26,8 @@ export interface SessionInputs {
   readonly stopping: boolean;
   readonly incident: Incident | null;
   readonly failure: PatcherFailure | null;
+  /** The panic that closed the run before this one, until the user dismisses it. */
+  readonly previousPanic: PanicRecord | null;
   readonly patcherAvailable: boolean;
   /** A mod in the library is broken, which the bar draws an item for. */
   readonly hasBroken: boolean;
@@ -46,6 +49,7 @@ export type SessionView =
   | { readonly kind: "stopping" }
   | { readonly kind: "verdict"; readonly incident: Incident }
   | { readonly kind: "failure"; readonly failure: PatcherFailure }
+  | { readonly kind: "panic"; readonly panic: PanicRecord }
   | { readonly kind: "idle"; readonly hint: string }
   | { readonly kind: "inGame"; readonly hint: string; readonly version: string | null }
   | { readonly kind: "running" }
@@ -129,12 +133,18 @@ export function deriveSessionView(inputs: SessionInputs): SessionView {
   if (phase === "idle" && !showsLaunch && session === null) {
     // Where the patcher cannot run, "idle" is a permanent fact rather than a
     // state the user can act on, and `PatcherUnsupported` already explains why.
-    if (!inputs.patcherAvailable) return { kind: inputs.hasBroken ? "itemsOnly" : "hidden" };
+    const panic = inputs.previousPanic;
+    if (!inputs.patcherAvailable) {
+      if (panic) return { kind: "panic", panic };
+      return { kind: inputs.hasBroken ? "itemsOnly" : "hidden" };
+    }
 
     // The incident is the classified record of a failure, so it outranks the
-    // raw start failure that preceded it.
+    // raw start failure that preceded it. Both are about a game, which is what the
+    // user is doing now, so both outrank the panic of the run before.
     if (inputs.incident) return { kind: "verdict", incident: inputs.incident };
     if (inputs.failure) return { kind: "failure", failure: inputs.failure };
+    if (panic) return { kind: "panic", panic };
 
     return { kind: "idle", hint: idleHint(inputs.leagueRunning) };
   }

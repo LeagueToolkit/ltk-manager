@@ -21,7 +21,8 @@ import {
   useChromeSlotFilled,
 } from "@/components";
 import { usePlatformSupport } from "@/hooks";
-import type { Incident, VerdictKind } from "@/lib/tauri";
+import { m } from "@/i18n";
+import type { Incident, PanicRecord, VerdictKind } from "@/lib/tauri";
 import {
   ConsequenceChip,
   isInformational,
@@ -35,7 +36,9 @@ import {
   usePatcherStatus,
   useRebuildOverlayAction,
 } from "@/modules/patcher";
+import { useDismissPreviousPanic, usePreviousPanic } from "@/modules/support";
 import {
+  openGetHelp,
   type PatcherFailure,
   useIncidentLineStore,
   usePatcherFailureStore,
@@ -245,6 +248,14 @@ function VerdictLine({ incident }: { incident: Incident }) {
         }
         onDismiss={handleDismiss}
       >
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => openGetHelp({ incidentId: incident.id })}
+          className="h-5"
+        >
+          {m.common_get_help_action()}
+        </Button>
         {offersRebuild(verdict) && (
           <Button
             variant="ghost"
@@ -257,6 +268,30 @@ function VerdictLine({ incident }: { incident: Incident }) {
           </Button>
         )}
       </LineActions>
+    </RestingLine>
+  );
+}
+
+/**
+ * The panic that closed the run before this one, in the idle line's place.
+ *
+ * The line stays until the user closes it. `Get help` opens the dialog with the panic as the
+ * origin of the report.
+ */
+function PanicLine({ panic }: { panic: PanicRecord }) {
+  const dismiss = useDismissPreviousPanic();
+
+  return (
+    <RestingLine part="panic">
+      <WarningIcon className="size-3.5 shrink-0 text-warning-text" weight="fill" />
+      <span className="shrink-0 font-medium text-surface-300">
+        {m.support_origin_panic_title()}
+      </span>
+      <LineActions
+        label={m.common_get_help_action()}
+        onAction={() => openGetHelp({ origin: { kind: "panic", panic } })}
+        onDismiss={() => dismiss.mutate()}
+      />
     </RestingLine>
   );
 }
@@ -343,6 +378,7 @@ export function SessionBar() {
   const incident = useIncidentLineStore((s) => s.incident);
   const failure = usePatcherFailureStore((s) => s.failure);
   const clearFailure = usePatcherFailureStore((s) => s.clear);
+  const { data: previousPanic = null } = usePreviousPanic();
   const { data: platform } = usePlatformSupport();
   const broken = useHealthVerdicts({ health: "broken" });
   const pageActions = useChromeSlotFilled("status");
@@ -363,6 +399,7 @@ export function SessionBar() {
     stopping,
     incident,
     failure,
+    previousPanic,
     patcherAvailable: platform?.patcherAvailable ?? true,
     hasBroken: broken.length > 0,
     leagueRunning: availability?.leagueRunning ?? false,
@@ -383,6 +420,7 @@ export function SessionBar() {
     ))
     .with({ kind: "verdict" }, ({ incident }) => <VerdictLine incident={incident} />)
     .with({ kind: "failure" }, ({ failure }) => <FailureLine failure={failure} />)
+    .with({ kind: "panic" }, ({ panic }) => <PanicLine panic={panic} />)
     .with({ kind: "idle" }, ({ hint }) => (
       <RestingLine>
         <span className="inline-flex size-2 shrink-0 rounded-full border border-surface-600" />

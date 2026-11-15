@@ -13,7 +13,7 @@ import {
   useConfirm,
   useToast,
 } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
 import { ChampionPicker, ChampionPortrait, useChampionRoster } from "@/modules/champions";
 import { libraryKeys, useEditMod, useModEffectiveCategories } from "@/modules/library/api";
@@ -129,7 +129,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
           queryClient.invalidateQueries({ queryKey: libraryKeys.thumbnail(mod.id) });
           onDone();
         },
-        onError: (error) => toast.error(m.library_details_save_failed_title(), errorSummary(error)),
+        onError: (error) => toast.failure(m.library_details_save_failed_title(), error),
       },
     );
   }

@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import { Menu, useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -16,7 +16,7 @@ export function ModCardUpdateItem({ modId }: { modId: string }) {
   const update = useMutation<InstalledMod, AppError, string>({
     mutationFn: async (filePath: string) => unwrapForQuery(await api.updateMod(modId, filePath)),
     onSuccess: () => toast.success(m.library_mod_update_success_title()),
-    onError: (error) => toast.error(m.library_mod_update_error_title(), errorSummary(error)),
+    onError: (error) => toast.failure(m.library_mod_update_error_title(), error),
     onSettled: () => client.invalidateQueries({ queryKey: libraryKeys.all }),
   });
 
