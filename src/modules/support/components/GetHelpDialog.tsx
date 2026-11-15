@@ -175,7 +175,6 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
       open
       onClose={onClose}
       title={m.support_dialog_title()}
-      description={m.support_dialog_description()}
       size="lg"
       data-ui="GetHelpDialog"
     >
@@ -288,21 +287,20 @@ function Origin({ copy }: { copy: OriginCopy }) {
   );
 }
 
-/** The verdict of the incident that the report is about. */
+/** The verdict of the incident that the report is about. Renders nothing without an incident. */
 function Found({ incident }: { incident: Incident | null }) {
+  if (!incident) return null;
+
   return (
     <Stack gap={1.5}>
       <span className={OVERLINE}>{m.support_found_label()}</span>
-      {!incident && <p className="text-sm text-surface-400">{m.support_found_empty()}</p>}
-      {incident && (
-        <div
-          data-ui="GetHelpDialog:found"
-          className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
-        >
-          <p className="text-sm font-medium text-surface-100">{verdictTitle(incident)}</p>
-          <p className="text-sm text-surface-300 select-text">{incident.verdict.cause}</p>
-        </div>
-      )}
+      <div
+        data-ui="GetHelpDialog:found"
+        className="rounded-md border border-surface-700/50 bg-surface-900 px-3 py-2"
+      >
+        <p className="text-sm font-medium text-surface-100">{verdictTitle(incident)}</p>
+        <p className="text-sm text-surface-300 select-text">{incident.verdict.cause}</p>
+      </div>
     </Stack>
   );
 }
@@ -352,10 +350,11 @@ function ReportContents({
         )}
       </Grid>
 
-      <p className="text-sm text-surface-400">
-        {replacedAny && m.support_replaced_description({ paths, links, addresses, other })}
-        {!replacedAny && m.support_replaced_empty()} {m.support_privacy_hint()}
-      </p>
+      {replacedAny && (
+        <p className="text-sm text-surface-400">
+          {m.support_replaced_description({ paths, links, addresses, other })}
+        </p>
+      )}
     </Stack>
   );
 }

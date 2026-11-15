@@ -287,7 +287,6 @@ function PanicLine({ panic }: { panic: PanicRecord }) {
       <span className="shrink-0 font-medium text-surface-300">
         {m.support_origin_panic_title()}
       </span>
-      <span className="truncate text-surface-500">{m.support_panic_line_hint()}</span>
       <LineActions
         label={m.common_get_help_action()}
         onAction={() => openGetHelp({ origin: { kind: "panic", panic } })}

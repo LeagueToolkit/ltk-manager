@@ -364,21 +364,24 @@ without that signature can save a report and cannot upload one.
 | ! The patcher was not running in your last game                    |
 |   Aatrox Justicar was not in the game.          [ Start patcher ]  |
 |                                                                    |
-| WHAT THE REPORT HOLDS                                    Preview   |
-|   The app log, 3 runs                                   212 KB     |
+| REPORT CONTENTS                                          Preview   |
+|   App log                                               212 KB     |
 |   5 games, 1 incident                                    31 KB     |
-|   System checks, settings, 14 mods of profile Default    18 KB     |
-|   [x] League's own game log                              44 KB     |
+|   System checks, settings, mods                          18 KB     |
+|   [x] Game log                                           44 KB     |
 |                                                                    |
-|   61 paths, 4 links and 2 addresses were replaced.                 |
-|   No account name and no file of yours is included.                |
+|   Replaced: 61 paths, 4 links, 2 addresses, 0 other                |
 |                                                                    |
 |   Send anyway:        Save as file        Copy for Discord         |
 +--------------------------------------------------------------------+
 ```
 
-- **What went wrong** is a select of three choices, and a mod picker. The text field is optional, so a user who
-  does not write English still sends a structured report
+The dialog holds labels and data and no explanatory sentence. It has no subtitle, shows `The
+manager found` only if an incident is on record, and shows the replacement counts only if a value
+was replaced.
+
+- **What went wrong** is a select of three choices, and a mod picker. The text field is optional,
+  so a user who does not write English still sends a structured report
 - **The manager found** lists the advisories and the verdict the report rests on. A cause that has
   a fix shows the fix as the primary button, and the send actions move under `Send anyway`. A
   report with no known cause shows the send actions as primary. Until advisories and known causes
