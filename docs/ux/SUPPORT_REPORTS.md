@@ -95,7 +95,7 @@ gives it.
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
-| Support report          | In progress | An allowlisted zip, built by named builders. The log and the settings are built      |
+| Support report          | In progress | An allowlisted zip, built by named builders. No command builds one yet               |
 | Report preview          | Planned     | The file list, the redacted text and the replacement counts                          |
 | Save and copy           | Planned     | A file on disk, and a short summary on the clipboard                                 |
 | `Get help` entry points | Planned     | Error toasts, both crash screens, the menu, the mod card                             |
@@ -302,22 +302,33 @@ file is included by default.
 | `manifest.json`       | Schema version, ruleset version, replacement counts, the file list             |
 | `log/ltk-manager.log` | The current run and the two runs before it, 2 MB at most, newest kept          |
 | `games/*.json`        | The last five game records                                                     |
-| `incidents/*.json`    | The last five incidents, and the report text of each                           |
-| `system.json`         | The System checks, run when the report is built                                |
+| `incidents/<id>.json` | Each of the last five incidents                                                |
+| `incidents/<id>.md`   | The report text of that incident                                               |
+| `system.json`         | The System checks, run when the report is built, and the path facts            |
 | `library.json`        | Each mod of the active profile, enabled first. Other profiles as a count       |
 | `overlay.json`        | The last build: fingerprint, per-mod counts, advisories                        |
 | `settings.json`       | An allowlist of fields. A path field holds its placeholder                     |
 | `patcher.json`        | The channel, the DLL's version, digest and build date, the code table version  |
 | `game-log/r3dlog.txt` | The incident's game log, redacted line by line. Ticked when an incident exists |
 
+Two files and one field wait for a later step. `games/*.json` waits for the game record.
+`overlay.json` waits for advisories, because no record of the last build exists before them, and
+`library.json` holds the archives, the override count and the content digest of each mod until
+then. The code table version in `patcher.json` waits for the patcher's code table.
+
 A report never holds `delivery.json`, `telemetrySecret`, the `runeforge` block, a credential, a mod
 file, an archive, a screenshot or anything under `Logs/GameCrashes`.
 
-A mod row holds the name, version, digest, enabled state, priority, layers, health verdict and
-archives.
+A mod row holds the id, name, version, digest, enabled state, priority, layers, health verdict,
+archives and override count.
+
+The path facts in `system.json` are the facts that a placeholder hides: the number of characters
+of the League path and of the storage path, the drive of each and whether a character is outside
+ASCII. The System checks state the drive kind and the cloud sync folder.
 
 The game log is included when the report rests on an incident, and the user can untick it. It is
-never included while `Read League's game log` is off in Settings.
+never included while `Read League's game log` is off in Settings. A game log over 512 KB keeps its
+first and its last lines.
 
 `report.md` and the clipboard summary are written in English whatever the app's language is. The
 user's own description is kept as typed.
