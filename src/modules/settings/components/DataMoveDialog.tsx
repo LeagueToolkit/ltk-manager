@@ -39,7 +39,7 @@ export function DataMoveDialog({ plan, target, onClose }: DataMoveDialogProps) {
     move.mutate(target, {
       onError: (error) => {
         const { title, description, detail } = describeError(error);
-        toast.error(title, description ?? detail);
+        toast.failure(title, error, { description: description ?? detail });
         onClose();
       },
     });

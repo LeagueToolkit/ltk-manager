@@ -64,7 +64,7 @@ export function BulkUninstallDialog() {
       }
       setSelection(result.failed.map((f) => f.id));
     } catch (error: unknown) {
-      toast.error("Uninstall failed", error instanceof Error ? error.message : String(error));
+      toast.failure("Uninstall failed", error);
     }
   }
 

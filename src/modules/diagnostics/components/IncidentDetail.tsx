@@ -4,6 +4,7 @@ import {
   ClipboardTextIcon,
   FileTextIcon,
   HashIcon,
+  LifebuoyIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,9 +13,10 @@ import type { ReactNode } from "react";
 
 import { Button, Tooltip, useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
-import { errorMessage, errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type Incident, type Suspect } from "@/lib/tauri";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
+import { openGetHelp } from "@/stores";
 
 import {
   diagnosticsQueries,
@@ -183,7 +185,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       await navigator.clipboard.writeText(text);
       toast.success(m.diagnostics_report_copied_title(), m.diagnostics_report_copied_description());
     } catch (error) {
-      toast.error(m.diagnostics_report_copy_failed_title(), errorMessage(error));
+      toast.failure(m.diagnostics_report_copy_failed_title(), error);
     }
   }
 
@@ -193,7 +195,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       text =
         token.data ?? (await queryClient.fetchQuery(diagnosticsQueries.incidentToken(incident.id)));
     } catch (error) {
-      toast.error(m.diagnostics_token_build_failed_title(), errorMessage(error));
+      toast.failure(m.diagnostics_token_build_failed_title(), error);
       return;
     }
     await copy(text, "token");
@@ -201,8 +203,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
 
   function openGameLog() {
     revealLog.mutate(incident.id, {
-      onError: (error) =>
-        toast.error(m.diagnostics_game_log_open_failed_title(), errorSummary(error)),
+      onError: (error) => toast.failure(m.diagnostics_game_log_open_failed_title(), error),
     });
   }
 
@@ -210,7 +211,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
     rebuild.mutate(undefined, {
       onSuccess: () =>
         toast.success(m.patcher_rebuild_done_title(), m.patcher_rebuild_done_description()),
-      onError: (error) => toast.error(m.patcher_rebuild_failed_title(), errorSummary(error)),
+      onError: (error) => toast.failure(m.patcher_rebuild_failed_title(), error),
     });
   }
 
@@ -250,6 +251,13 @@ function IncidentActions({ incident }: { incident: Incident }) {
         onClick={copyToken}
       >
         {m.diagnostics_copy_token_action()}
+      </Button>
+      <Button
+        variant="outline"
+        left={<LifebuoyIcon weight="bold" className="size-4" />}
+        onClick={() => openGetHelp({ incidentId: incident.id })}
+      >
+        {m.common_get_help_action()}
       </Button>
       {!patcherRunning && rebuildButton}
       {patcherRunning && (

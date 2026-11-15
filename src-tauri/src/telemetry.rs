@@ -271,6 +271,19 @@ fn log_panic(info: &std::panic::PanicHookInfo<'_>) {
     }
 }
 
+/// Writes the panic record of this run to the log directory.
+///
+/// The next start shows the record if this run does not exit normally. Writes nothing if the
+/// log directory does not exist yet.
+fn record_panic() {
+    if let Some(log_dir) = crate::logging::default_log_dir() {
+        log_dir.record_panic(&ltk_manager_core::log_dir::PanicRecord {
+            at: Utc::now(),
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+        });
+    }
+}
+
 /// Report the frontend crash `error` describes.
 pub fn report_ui_error(error: &UiError) {
     if let Some(state) = STATE.get() {
@@ -287,6 +300,7 @@ pub fn install_panic_hook() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         log_panic(info);
+        record_panic();
         report_panic(info);
         previous(info);
     }));

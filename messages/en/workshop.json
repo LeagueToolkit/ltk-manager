@@ -2681,6 +2681,7 @@
   "workshop_card_unknown_author_label": "Unknown author",
   "workshop_card_unknown_label": "Unknown",
   "workshop_card_version_label": "v{version}",
+  "workshop_command_help_group_label": "Help",
   "workshop_command_import_fantome_action": "Import from Fantome",
   "workshop_command_import_git_action": "Import from a Git repository",
   "workshop_command_import_modpkg_action": "Import from Modpkg",

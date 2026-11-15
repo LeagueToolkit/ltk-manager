@@ -10,7 +10,13 @@ import { mockInvoke } from "@/test/mocks/tauri";
 
 import { useModCardController } from "../useModCardController";
 
-const toast = { toast: vi.fn(), success: vi.fn(), error: vi.fn(), task: vi.fn() };
+const toast = {
+  toast: vi.fn(),
+  success: vi.fn(),
+  error: vi.fn(),
+  failure: vi.fn(),
+  task: vi.fn(),
+};
 const skinhackFlag = { isFlagged: false, reason: "", infoOpen: false, setInfoOpen: vi.fn() };
 const setModStorage = { mutate: vi.fn(), isPending: false };
 const noopMutation = { mutate: vi.fn(), isPending: false };
@@ -176,12 +182,10 @@ describe("useModCardController storage", () => {
     act(() => view.current.onSetStorage("archive"));
 
     const { onError } = setModStorage.mutate.mock.calls[0][1];
-    act(() => onError({ code: "VALIDATION_FAILED", detail: "This mod is in a failed state." }));
+    const refusal = { code: "VALIDATION_FAILED", detail: "This mod is in a failed state." };
+    act(() => onError(refusal));
 
-    expect(toast.error).toHaveBeenCalledWith(
-      "Could not change how this mod is stored",
-      "This mod is in a failed state.",
-    );
+    expect(toast.failure).toHaveBeenCalledWith("Could not change how this mod is stored", refusal);
   });
 });
 

@@ -2,7 +2,7 @@ import { ArrowArcLeftIcon, ArrowArcRightIcon, FloppyDiskIcon } from "@phosphor-i
 import { use } from "react";
 
 import { useToast } from "@/components";
-import { errorMessage, m, readOnlyDescription } from "@/i18n";
+import { m, readOnlyDescription } from "@/i18n";
 import {
   type CommandMenu,
   type CommandMenuEntry,
@@ -43,7 +43,7 @@ export function useObjectCommands(): ObjectCommands {
   return {
     save: () => {
       void documentSave(documentId)?.().catch((error: unknown) => {
-        toast.error(m.editor_save_failed_hint(), errorMessage(error));
+        toast.failure(m.editor_save_failed_hint(), error);
       });
     },
     undo: () => documentHistory(documentId)?.("undo", null),

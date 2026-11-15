@@ -91,7 +91,11 @@ export function ContentLayerList({
           if (deletingSelected) onSelect("base");
         },
         onError: (err) =>
-          toast.error(m.workshop_layer_delete_failed_hint({ reason: errorSummary(err) })),
+          toast.toast({
+            type: "error",
+            title: m.workshop_layer_delete_failed_hint({ reason: errorSummary(err) }),
+            error: err,
+          }),
       },
     );
   }
@@ -101,7 +105,7 @@ export function ContentLayerList({
       { projectPath: project.path, layerNames: newOrder },
       {
         onSuccess: () => invalidateContent(),
-        onError: (err) => toast.error(`Failed to reorder: ${errorSummary(err)}`),
+        onError: (err) => toast.failure("Failed to reorder", err),
       },
     );
   }
@@ -347,7 +351,7 @@ function RowShell({
           followRename(layer.name, trimmed, updated);
           onRenamed();
         },
-        onError: (err) => toast.error(`Failed to rename: ${errorSummary(err)}`),
+        onError: (err) => toast.failure("Failed to rename", err),
         onSettled: () => setIsRenaming(false),
       },
     );

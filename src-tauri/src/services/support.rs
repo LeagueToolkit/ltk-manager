@@ -1,4 +1,5 @@
-//! The support service: building a support report, showing it and writing it as a zip.
+//! The support service: building a support report, showing it and writing it as a zip, and
+//! the panic of the run before this one.
 //!
 //! `build_support_report` builds a report and keeps it. `save_support_report` writes the
 //! report that was built, so the zip holds the files that the dialog showed. Per "The support
@@ -7,12 +8,13 @@
 use std::path::PathBuf;
 
 use fs_err as fs;
-use ltk_manager_core::support_report::{
-    AppIdentity, BuiltReport, ReportDescription, ReportPreview, SupportReport,
+use ltk_manager_core::{
+    log_dir::{LogDir, PanicRecord},
+    support_report::{AppIdentity, BuiltReport, ReportDescription, ReportPreview, SupportReport},
 };
 use parking_lot::Mutex;
 use serde::Deserialize;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, State};
 
 use super::desktop::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, IpcResult};
@@ -25,13 +27,43 @@ use crate::state::{IncidentStoreState, SettingsState};
 #[derive(Default)]
 pub struct SupportReportState(Mutex<Option<BuiltReport>>);
 
+/// The panic that closed the run before this one, until the user dismisses it.
+pub struct PreviousPanicState(Mutex<Option<PanicRecord>>);
+
+impl PreviousPanicState {
+    /// Takes the panic record out of `log_dir`. Holds no panic if `log_dir` is `None` or
+    /// holds no record.
+    pub fn take_from(log_dir: Option<&LogDir>) -> Self {
+        Self(Mutex::new(log_dir.and_then(LogDir::take_panic)))
+    }
+}
+
 /// What the user chose in the `Get help` dialog.
 #[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReportRequest {
     pub description: ReportDescription,
-    /// Whether the report holds the game log of the newest incident.
+    /// The incident that the report is about. The newest incident if `None`.
+    pub incident_id: Option<String>,
+    /// Whether the report holds the game log of that incident.
     pub include_game_log: bool,
+}
+
+/// Returns the panic that closed the run before this one.
+///
+/// Returns `None` if that run exited normally, or after `dismiss_previous_panic`.
+#[tauri::command]
+#[specta::specta]
+pub fn previous_panic(panic: State<PreviousPanicState>) -> IpcResult<Option<PanicRecord>> {
+    IpcResult::ok(panic.0.lock().clone())
+}
+
+/// Forgets the panic that closed the run before this one.
+#[tauri::command]
+#[specta::specta]
+pub fn dismiss_previous_panic(panic: State<PreviousPanicState>) -> IpcResult<()> {
+    *panic.0.lock() = None;
+    IpcResult::ok(())
 }
 
 /// Builds a support report, keeps it for `save_support_report` and returns it for the
@@ -112,16 +144,9 @@ fn build(app_handle: &AppHandle, request: ReportRequest) -> BuiltReport {
     report.add_library(&app_handle.state::<ModLibraryState>().0, &config);
 
     let incidents = app_handle.state::<IncidentStoreState>();
-    report.add_incidents(&incidents.0);
-    if request.include_game_log {
-        let newest = incidents
-            .0
-            .list()
-            .ok()
-            .and_then(|all| all.into_iter().next());
-        if let Some(incident) = newest {
-            report.add_game_log(&incident, &config);
-        }
+    let subject = report.add_incidents(&incidents.0, request.incident_id.as_deref());
+    if let Some(incident) = subject.filter(|_| request.include_game_log) {
+        report.add_game_log(&incident, &config);
     }
 
     let channel = crate::patcher::delivery::channel(&config);

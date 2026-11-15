@@ -2,7 +2,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api } from "@/lib/tauri";
 import { basename } from "@/utils/path";
 
@@ -40,7 +40,7 @@ export function useMeshExport(): (meshes: readonly number[] | null) => Promise<v
       if (result.ok) {
         toast.success(m.workshop_bin_map_export_done_title(), destination);
       } else {
-        toast.error(m.workshop_bin_map_export_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_map_export_failed_title(), result.error);
       }
     },
     [geometryDocument, materials, chosen, toast],
@@ -71,7 +71,7 @@ export function useMeshReimport(): (mesh: number) => Promise<void> {
         path,
       );
       if (!result.ok) {
-        toast.error(m.workshop_bin_map_import_read_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_map_import_read_failed_title(), result.error);
         return;
       }
       setReimport({ mesh, path, summary: result.value.summary, source: result.value.source });

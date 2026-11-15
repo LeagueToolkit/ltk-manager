@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Menu, Tooltip, useToast } from "@/components";
 import { m } from "@/i18n";
 import { api, unwrap } from "@/lib/tauri";
-import { openGetHelp } from "@/modules/support";
+import { openGetHelp } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { cellActive, cellBase, cellInactive } from "./cells";
@@ -21,10 +21,7 @@ export function AppMenu() {
       const path = unwrap(result);
       await api.revealInExplorer(path);
     } catch (error: unknown) {
-      toast.error(
-        m.shell_menu_storage_error_title(),
-        error instanceof Error ? error.message : String(error),
-      );
+      toast.failure(m.shell_menu_storage_error_title(), error);
     }
   }
 
@@ -50,7 +47,10 @@ export function AppMenu() {
 
         <Menu.Separator />
 
-        <Menu.Item icon={<LifebuoyIcon weight="bold" className="size-4" />} onClick={openGetHelp}>
+        <Menu.Item
+          icon={<LifebuoyIcon weight="bold" className="size-4" />}
+          onClick={() => openGetHelp()}
+        >
           {m.shell_menu_get_help_action()}
         </Menu.Item>
         <Menu.Item

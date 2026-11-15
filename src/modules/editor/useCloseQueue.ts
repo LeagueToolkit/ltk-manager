@@ -155,12 +155,14 @@ export function useCloseQueue<D extends EditorDocumentBase>({
       await save();
       closePending();
     } catch (error) {
-      toast.error(
-        m.editor_unsaved_save_failed_hint({
+      toast.toast({
+        type: "error",
+        title: m.editor_unsaved_save_failed_hint({
           title: title ?? pending.id,
           reason: errorMessage(error),
         }),
-      );
+        error,
+      });
       setQueue([]);
     } finally {
       setSaving(false);

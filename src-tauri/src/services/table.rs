@@ -375,5 +375,7 @@ services! {
     support("support") {
         build_support_report,
         save_support_report,
+        previous_panic,
+        dismiss_previous_panic,
     }
 }

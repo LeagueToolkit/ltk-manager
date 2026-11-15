@@ -190,7 +190,30 @@ impl AppErrorResponse {
 #[derive(Debug, Clone)]
 pub enum IpcResult<T> {
     Ok { value: T },
-    Err { error: AppErrorResponse },
+    Err { error: IpcError },
+}
+
+/// The number of characters in the reference of an error.
+const REF_CHARS: usize = 8;
+
+/// The failure of a command as it crosses IPC: the error and the reference of its log line.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct IpcError {
+    #[serde(flatten)]
+    pub error: AppErrorResponse,
+    /// Eight hex characters. The log line of the failure holds the same characters, so a
+    /// reference that a user copies finds the line.
+    #[serde(rename = "ref")]
+    pub reference: String,
+}
+
+impl IpcError {
+    /// Returns `error` with a new reference of eight random hex characters.
+    fn new(error: AppErrorResponse) -> Self {
+        let mut reference = uuid::Uuid::new_v4().simple().to_string();
+        reference.truncate(REF_CHARS);
+        Self { error, reference }
+    }
 }
 
 // Custom serialization to use actual boolean values for the `ok` field
@@ -236,7 +259,7 @@ impl<T: specta::Type> specta::Type for IpcResult<T> {
                 "Err".into(),
                 Variant::named()
                     .field("ok", literal("false"))
-                    .field("error", Field::new(AppErrorResponse::definition(types)))
+                    .field("error", Field::new(IpcError::definition(types)))
                     .build(),
             ),
         ];
@@ -258,19 +281,21 @@ impl<T> IpcResult<T> {
     }
 
     pub fn err(error: impl Into<AppErrorResponse>) -> Self {
-        let error = error.into();
+        let error = IpcError::new(error.into());
         report(&error);
         IpcResult::Err { error }
     }
 }
 
-/// Report `error` as a failure a reader hit, if diagnostics collect anything.
+/// Writes `error` to the log with its reference, and reports it as a failure a reader hit,
+/// if diagnostics collect anything.
 ///
 /// This is the one point every command error crosses on its way out, so it is
-/// where the diagnostics see one. The invoke handler cannot serve: its closure
+/// where the log and the diagnostics see one. The invoke handler cannot serve: its closure
 /// returns before the command resolves, so it never sees a result at all.
-fn report(error: &AppErrorResponse) {
-    let (code, kind, message) = reported(error);
+fn report(error: &IpcError) {
+    let (code, kind, message) = reported(&error.error);
+    tracing::warn!(target: "command", "ref={} code={code} {message}", error.reference);
     crate::telemetry::report_app_error(&code, kind.as_deref(), &message);
 }
 

@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   api,
   type AssetRef,
@@ -88,7 +88,7 @@ export function useGeometryDocument(
       .mapGeometrySave(open.id, materials, path)
       .then((result) => {
         if (!result.ok) {
-          toast.error(m.workshop_bin_map_geometry_save_failed_title(), errorSummary(result.error));
+          toast.failure(m.workshop_bin_map_geometry_save_failed_title(), result.error);
           return false;
         }
 
@@ -111,7 +111,7 @@ export function useGeometryDocument(
     let closed = false;
     void api.bin.mapGeometryOpen(opening).then((opened) => {
       if (!opened.ok) {
-        toast.error(m.workshop_bin_map_geometry_open_failed_title(), errorSummary(opened.error));
+        toast.failure(m.workshop_bin_map_geometry_open_failed_title(), opened.error);
         setFailed(key);
         return;
       }
@@ -168,7 +168,7 @@ export function useGeometryDocument(
 
       const result = await api.bin.mapGeometryEdit(open.id, change);
       if (!result.ok) {
-        toast.error(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_edit_refused_title(), result.error);
         return null;
       }
       await land(result.value);
@@ -187,7 +187,7 @@ export function useGeometryDocument(
         const title = undo
           ? m.workshop_bin_undo_failed_title()
           : m.workshop_bin_redo_failed_title();
-        toast.error(title, errorSummary(result.error));
+        toast.failure(title, result.error);
         return null;
       }
       if (result.value === null) return null;

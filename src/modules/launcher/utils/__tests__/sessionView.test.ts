@@ -13,6 +13,7 @@ const IDLE: SessionInputs = {
   stopping: false,
   incident: null,
   failure: null,
+  previousPanic: null,
   patcherAvailable: true,
   hasBroken: false,
   leagueRunning: false,
@@ -31,6 +32,20 @@ describe("deriveSessionView", () => {
     expect(deriveSessionView({ ...IDLE, patcherAvailable: false, hasBroken: true })).toEqual({
       kind: "itemsOnly",
     });
+  });
+
+  it("rests on the panic of the run before, under a verdict and a failed start", () => {
+    const panic = { at: "2026-11-15T14:02:00Z", version: "1.34.0" };
+    const incident = { id: "2026-11-15T14-02-00" } as SessionInputs["incident"];
+
+    expect(deriveSessionView({ ...IDLE, previousPanic: panic })).toEqual({ kind: "panic", panic });
+    expect(deriveSessionView({ ...IDLE, previousPanic: panic, incident }).kind).toBe("verdict");
+    expect(deriveSessionView({ ...IDLE, previousPanic: panic, patcherAvailable: false }).kind).toBe(
+      "panic",
+    );
+    expect(deriveSessionView({ ...IDLE, previousPanic: panic, phase: "patching" }).kind).toBe(
+      "running",
+    );
   });
 
   it("says the patcher is stopping over everything else", () => {

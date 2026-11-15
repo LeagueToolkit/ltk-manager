@@ -1,7 +1,6 @@
 import { ProhibitIcon } from "@phosphor-icons/react";
 
 import { Button, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import { m } from "@/paraglide/messages";
 
 import { useInstalledMods } from "../api/queries";
@@ -44,8 +43,7 @@ export function SuspectModAction({ modId }: { modId: string }) {
                 m.diagnostics_mod_disabled_title(),
                 m.diagnostics_mod_disabled_description({ name: mod.displayName }),
               ),
-            onError: (error) =>
-              toast.error(m.diagnostics_mod_disable_failed_title(), errorSummary(error)),
+            onError: (error) => toast.failure(m.diagnostics_mod_disable_failed_title(), error),
           },
         )
       }

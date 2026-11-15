@@ -126,3 +126,23 @@ fn remove_older_than_deletes_the_files_past_the_age() {
     assert!(!old.exists());
     assert!(dir.path().join("ltk-manager.2026-11-15.log").exists());
 }
+
+#[test]
+fn take_panic_returns_the_record_once() {
+    let (dir, logs) = log_dir(&[("2026-11-15", "new\n")]);
+    assert_eq!(logs.take_panic(), None);
+
+    let record = PanicRecord {
+        at: DateTime::from_timestamp(1_794_000_000, 0).unwrap(),
+        version: "1.34.0".to_owned(),
+    };
+    logs.record_panic(&record);
+
+    assert_eq!(logs.take_panic(), Some(record.clone()));
+    assert_eq!(logs.take_panic(), None);
+    assert!(dir.path().join("ltk-manager.2026-11-15.log").exists());
+
+    logs.record_panic(&record);
+    logs.clear_panic();
+    assert_eq!(logs.take_panic(), None);
+}

@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ErrorBoundary, RouteCrashScreen } from "@/components";
+import { ErrorBoundary } from "@/components";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -87,15 +87,13 @@ describe("ErrorBoundary", () => {
     expect(mockInvoke).not.toHaveBeenCalled();
   });
 
-  it("renders the crash screen for a route error and reports the error", () => {
-    render(<RouteCrashScreen error={new RangeError("out of range")} />);
-
-    expect(screen.getByText("The manager hit a problem")).toBeInTheDocument();
-    const call = mockInvoke.mock.calls.find(
-      ([name]) => name === commandNames.diagnostics.trackUiError,
+  it("hands the thrown value to the fallback", () => {
+    render(
+      <ErrorBoundary fallback={(_retry, error) => <p>{(error as Error).message}</p>}>
+        <Boom />
+      </ErrorBoundary>,
     );
-    const { error } = call![1] as { error: Record<string, unknown> };
-    expect(error.name).toBe("RangeError");
-    expect(error.handled).toBe(true);
+
+    expect(screen.getByText("x is not a function")).toBeInTheDocument();
   });
 });

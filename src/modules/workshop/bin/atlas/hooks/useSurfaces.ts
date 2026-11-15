@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type SheetSprite, type SurfaceSource } from "@/lib/tauri";
 
 import { sheetNameOf, surfaceEdits } from "../engine/edit/spriteEdits";
@@ -64,7 +64,7 @@ export function useSurfaces(view: View | null): Surfaces {
       try {
         const result = await api.bin.atlasMakeSurface(document, name, surfaceName, source);
         if (!result.ok) {
-          toast.error(m.workshop_bin_atlas_surface_failed(), errorSummary(result.error));
+          toast.failure(m.workshop_bin_atlas_surface_failed(), result.error);
           return;
         }
 

@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { useGetHelpDialog } from "@/stores/getHelp";
 import { useNotificationsStore } from "@/stores/notifications";
 
 import { type ToastData, type ToastTask, toastToEvict, useToast } from "../Toast";
@@ -184,6 +185,75 @@ describe("toastToEvict", () => {
     const toasts = [live("c", {}), live("b", { timeout: 5000 }), live("a", {})];
 
     expect(toastToEvict(toasts, 2)?.id).toBe("b");
+  });
+});
+
+describe("a failure toast", () => {
+  beforeEach(() => {
+    useNotificationsStore.getState().dismissAll();
+    useGetHelpDialog.getState().close();
+  });
+
+  const diskFull = { code: "IO", detail: "disk full", ref: "ab12cd34" };
+  const noLeague = { code: "LEAGUE_NOT_FOUND", ref: "ef56ab78" };
+
+  it("shows the code, the detail text and the reference under Details", async () => {
+    const user = await raiseWith((toast) => toast.failure("Could not save the file", diskFull));
+    expect(screen.queryByText("ab12cd34")).not.toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "Details" }));
+
+    const details = document.querySelector("[data-ui='Toast:details']");
+    expect(details).toHaveTextContent("IO");
+    expect(details).toHaveTextContent("ab12cd34");
+    expect(details).toHaveTextContent("disk full");
+  });
+
+  it("opens Get help with the code and the reference of an unexpected error", async () => {
+    const user = await raiseWith((toast) => toast.failure("Could not save the file", diskFull));
+
+    await user.click(await screen.findByRole("button", { name: "Get help" }));
+
+    expect(useGetHelpDialog.getState().payload).toEqual({
+      origin: {
+        kind: "error",
+        error: { title: "Could not save the file", code: "IO", kind: null, ref: "ab12cd34" },
+      },
+    });
+    await waitFor(() =>
+      expect(screen.queryByText("Could not save the file")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("offers Get help for a routine error under Details only", async () => {
+    const user = await raiseWith((toast) => toast.failure("Could not start", noLeague));
+    await screen.findByText("Could not start");
+    expect(screen.queryByRole("button", { name: "Get help" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Details" }));
+
+    expect(screen.getByRole("button", { name: "Get help" })).toBeInTheDocument();
+  });
+
+  it("offers no Details for a value that is not a backend error", async () => {
+    await raiseWith((toast) => toast.failure("Could not copy", new Error("denied")));
+
+    expect(await screen.findByText("denied")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the code and the reference with the notification", async () => {
+    await raiseWith((toast) =>
+      toast.failure("Could not save the file", diskFull, { notify: true }),
+    );
+
+    const [notification] = useNotificationsStore.getState().notifications;
+    expect(notification?.error).toEqual({
+      code: "IO",
+      kind: null,
+      detail: "disk full",
+      ref: "ab12cd34",
+    });
   });
 });
 

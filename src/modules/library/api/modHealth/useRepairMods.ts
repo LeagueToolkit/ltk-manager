@@ -3,7 +3,7 @@ import { useState } from "react";
 import { match } from "ts-pattern";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError, type LibraryRepairReport, type ModRepairProgress } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { unwrapForQuery } from "@/utils/query";
@@ -85,9 +85,7 @@ export function useRepairMods(): RepairRun {
             m.library_health_patcher_running_hint(),
           ),
         )
-        .otherwise(() =>
-          toast.error(m.library_health_repair_library_failed_title(), errorSummary(error)),
-        ),
+        .otherwise(() => toast.failure(m.library_health_repair_library_failed_title(), error)),
   });
 
   return { repair: run.mutate, isRepairing: run.isPending, progress };

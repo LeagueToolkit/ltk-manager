@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinDocumentId, type SheetSpec } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -81,7 +81,7 @@ export function useSpriteImport(view: View | null): SpriteImport {
         if (page !== null) {
           const patched = await api.bin.atlasPatchSprite(document, page.path, page.uv, file);
           if (!patched.ok) {
-            toast.error(m.workshop_bin_atlas_sprites_import_failed(), errorSummary(patched.error));
+            toast.failure(m.workshop_bin_atlas_sprites_import_failed(), patched.error);
             return;
           }
           if (patched.value !== null) {
@@ -93,7 +93,7 @@ export function useSpriteImport(view: View | null): SpriteImport {
 
         const result = await api.bin.atlasImportSprite(document, name, file, replace);
         if (!result.ok) {
-          toast.error(m.workshop_bin_atlas_sprites_import_failed(), errorSummary(result.error));
+          toast.failure(m.workshop_bin_atlas_sprites_import_failed(), result.error);
           return;
         }
 

@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinDocumentId, type UiFontChoice } from "@/lib/tauri";
 
 import { faceFileEdits, fontFaceEdit } from "../engine/edit/fontEdits";
@@ -40,7 +40,7 @@ export function useFontFaceImport(document: BinDocumentId | null): FontFaceImpor
       try {
         const file = await api.bin.atlasImportFontFile(document, picked);
         if (!file.ok) {
-          toast.error(m.workshop_bin_atlas_font_import_failed(), errorSummary(file.error));
+          toast.failure(m.workshop_bin_atlas_font_import_failed(), file.error);
           return;
         }
 

@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api } from "@/lib/tauri";
 
 import { workshopKeys } from "../../shared/api/keys";
@@ -20,7 +20,7 @@ export function useConvertManifests(projectPath: string): void {
   useEffect(() => {
     void api.declarations.convert(projectPath).then((result) => {
       if (!result.ok) {
-        toast.error(m.workshop_declarations_conversion_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_declarations_conversion_failed_title(), result.error);
         return;
       }
 

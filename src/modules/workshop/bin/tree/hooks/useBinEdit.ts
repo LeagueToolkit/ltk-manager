@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useCallback, useMemo, useRef } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   type AppError,
   api,
@@ -222,7 +222,7 @@ export function useBinEditor(
   const toast = useToast();
   /* A structural edit leaves no field to mark, so its refusal is stated where the reader is. */
   const refuse = useCallback(
-    (error: AppError) => toast.error(m.workshop_bin_edit_refused_title(), errorSummary(error)),
+    (error: AppError) => toast.failure(m.workshop_bin_edit_refused_title(), error),
     [toast],
   );
   /* The value added last and the line it came from, which Enter on the value returns to. */

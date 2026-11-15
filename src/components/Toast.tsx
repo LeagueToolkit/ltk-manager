@@ -1,14 +1,17 @@
 import { Toast as BaseToast, type ToastManager } from "@base-ui/react/toast";
 import { XIcon } from "@phosphor-icons/react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { describeError, errorMessage } from "@/i18n/errors";
 import { m } from "@/paraglide/messages";
+import { openGetHelp } from "@/stores/getHelp";
 import { useNotificationsStore } from "@/stores/notifications";
 import { twMerge } from "@/utils";
-import { isAppError } from "@/utils/errors";
+import { type ErrorDetails, errorDetails, isAppError } from "@/utils/errors";
 
 import { focusRing } from "./focus";
+import { ToastProgressBar, ToastTaskBar } from "./ToastBars";
+import { ErrorDetailsBlock, ToastActionButton, ToastErrorActions } from "./ToastErrorDetails";
 import { type ToastType } from "./toastType";
 import { statusGlyph, type StatusTone, statusText } from "./tone";
 
@@ -29,6 +32,13 @@ export interface ToastData {
   /** The actions under the description, in one row. */
   actions?: ToastAction[];
   /**
+   * The facts of the backend error that the toast reports.
+   *
+   * A toast with them offers `Details`, and offers `Get help` beside it if the code is one
+   * that the manager does not expect in normal use.
+   */
+  error?: ErrorDetails;
+  /**
    * A mark of the toast's own, where the type's glyph is not the subject.
    *
    * Sized as the type glyphs are, `size-5`, and coloured by the caller. The
@@ -48,6 +58,11 @@ export interface ToastData {
 export interface ToastOptions {
   /** Also record the toast in the notification center. Off by default. */
   notify?: boolean;
+}
+
+export interface FailureOptions extends ToastOptions {
+  /** The text under the title. The error's own words without one. */
+  description?: string;
 }
 
 /** A handle on a toast that stays open until the work behind it ends. */
@@ -83,7 +98,7 @@ export function reportUnhandledFailure(error: unknown, title?: string): void {
   toastManager.add({
     title: title ?? copy.title,
     description: title === undefined ? summary : (summary ?? copy.title),
-    data: { type: "error" },
+    data: { type: "error", error: isAppError(error) ? errorDetails(error) : undefined },
     timeout: 0,
   });
 }
@@ -171,93 +186,6 @@ const typeStripeClasses: Record<ToastType, string> = {
   info: "border-l-info",
 };
 
-const typeProgressColors: Record<ToastType, string> = {
-  success: "bg-success",
-  error: "bg-danger",
-  warning: "bg-warning",
-  info: "bg-info",
-};
-
-/**
- * The countdown, and what ends the toast when it runs out.
- *
- * The strip is what a reader is watching, so it is what decides: base-ui runs a
- * timer of its own and pauses it on rules this one does not share - a window
- * that was not focused when the toast arrived leaves it paused - which left
- * empty strips sitting on screen.
- */
-function ToastProgressBar({
-  timeout,
-  type,
-  paused,
-  onExpire,
-}: {
-  timeout: number;
-  type: ToastType;
-  paused: boolean;
-  onExpire: () => void;
-}) {
-  const [progress, setProgress] = useState(100);
-  const startTimeRef = useRef(Date.now());
-  const elapsedBeforePauseRef = useRef(0);
-  const rafRef = useRef<number>(undefined);
-  const expire = useRef(onExpire);
-
-  useEffect(() => {
-    expire.current = onExpire;
-  });
-
-  useEffect(() => {
-    if (paused) {
-      elapsedBeforePauseRef.current += Date.now() - startTimeRef.current;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      return;
-    }
-
-    startTimeRef.current = Date.now();
-
-    const tick = () => {
-      const elapsed = elapsedBeforePauseRef.current + (Date.now() - startTimeRef.current);
-      const remaining = Math.max(0, 100 - (elapsed / timeout) * 100);
-      setProgress(remaining);
-      if (remaining > 0) {
-        rafRef.current = requestAnimationFrame(tick);
-        return;
-      }
-      expire.current();
-    };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [paused, timeout]);
-
-  return (
-    <div
-      data-toast-countdown
-      className="absolute right-0 bottom-0 left-0 h-0.5 overflow-hidden rounded-b-lg"
-    >
-      <div
-        className={twMerge("h-full transition-none", typeProgressColors[type])}
-        style={{ width: `${progress}%` }}
-      />
-    </div>
-  );
-}
-
-/* The accent rather than the type color, because this strip reports work
-   rather than a status. */
-function ToastTaskBar({ value }: { value: number }) {
-  const clamped = Math.min(100, Math.max(0, value));
-
-  return (
-    <div className="absolute right-0 bottom-0 left-0 h-1 overflow-hidden rounded-b-lg bg-surface-700">
-      <div className="h-full bg-accent-500 transition-[width]" style={{ width: `${clamped}%` }} />
-    </div>
-  );
-}
-
 interface ToastItemProps {
   toast: LiveToast;
   /** The countdown holds, because the pointer or the focus is somewhere in the stack. */
@@ -271,6 +199,19 @@ export function ToastItem({ toast, paused }: ToastItemProps) {
   const tone = typeTone[type];
   const Glyph = statusGlyph[tone];
   const actions = toast.data?.actions ?? [];
+  const details = toast.data?.error;
+  const title = typeof toast.title === "string" ? toast.title : m.common_action_failed_title();
+  const [expanded, setExpanded] = useState(false);
+
+  function handleGetHelp(error: ErrorDetails) {
+    openGetHelp({
+      origin: {
+        kind: "error",
+        error: { title, code: error.code, kind: error.kind, ref: error.ref },
+      },
+    });
+    toastManager.close(toast.id);
+  }
 
   return (
     <BaseToast.Root
@@ -299,28 +240,33 @@ export function ToastItem({ toast, paused }: ToastItemProps) {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <BaseToast.Title className="text-sm font-medium text-surface-100" />
           <BaseToast.Description className="text-sm text-surface-400" />
-          {actions.length > 0 && (
+          {(actions.length > 0 || details) && (
             <div className="flex items-center gap-3">
               {actions.map((action) => (
-                <button
+                <ToastActionButton
                   key={action.label}
-                  type="button"
                   /* The action is the way out as much as the ✕ is: a toast still
                      sitting there is a press the reader has to make twice. */
                   onClick={() => {
                     action.onClick();
                     toastManager.close(toast.id);
                   }}
-                  className={twMerge(
-                    "cursor-pointer rounded-sm text-sm font-medium text-accent-400 transition-colors hover:text-accent-300",
-                    focusRing,
-                  )}
                 >
                   {action.label}
-                </button>
+                </ToastActionButton>
               ))}
+              {details && (
+                <ToastErrorActions
+                  title={title}
+                  details={details}
+                  expanded={expanded}
+                  onToggle={() => setExpanded((open) => !open)}
+                  onGetHelp={() => handleGetHelp(details)}
+                />
+              )}
             </div>
           )}
+          {details && expanded && <ErrorDetailsBlock details={details} />}
         </div>
         <BaseToast.Close
           /* DS-VEIL */
@@ -367,7 +313,12 @@ export function ToastViewport() {
     const recorded = evicted.data?.notified === true || isTimed(evicted);
     if (!recorded && typeof evicted.title === "string") {
       const description = typeof evicted.description === "string" ? evicted.description : undefined;
-      addNotification({ title: evicted.title, description, type: evicted.data?.type ?? "info" });
+      addNotification({
+        title: evicted.title,
+        description,
+        type: evicted.data?.type ?? "info",
+        error: evicted.data?.error,
+      });
     }
 
     toastManager.close(evicted.id);
@@ -431,15 +382,18 @@ export function useToast() {
         actions?: ToastAction[];
         icon?: ReactNode;
         notify?: boolean;
+        /** The value that was thrown, for a toast that words the failure itself. */
+        error?: unknown;
       }) => {
         const type = options.type ?? "info";
         const timeout = options.timeout ?? DEFAULT_TIMEOUT[type];
         const notified = Boolean(options.notify && options.title);
+        const details = isAppError(options.error) ? errorDetails(options.error) : undefined;
         if (options.notify && options.title) {
           /* The notification center stores what it can serialise, so a drawn
              description reaches the toast alone. */
           const stored = typeof options.description === "string" ? options.description : undefined;
-          addNotification({ title: options.title, description: stored, type });
+          addNotification({ title: options.title, description: stored, type, error: details });
         }
         return toastManager.add({
           title: options.title,
@@ -452,6 +406,7 @@ export function useToast() {
             ),
             icon: options.icon,
             notified,
+            error: details,
           },
           timeout: 0,
         });
@@ -467,6 +422,30 @@ export function useToast() {
           addNotification({ title, description, type: "error" });
         }
         return raise("error", title, description, options);
+      },
+      /**
+       * An error toast for a value that was thrown or returned as a failure.
+       *
+       * The description is the error's own words. A backend error adds `Details`, with its
+       * code and the reference of its log line.
+       */
+      failure: (title: string, error: unknown, options?: FailureOptions) => {
+        const description = options?.description ?? errorMessage(error);
+        const details = isAppError(error) ? errorDetails(error) : undefined;
+        if (options?.notify) {
+          addNotification({ title, description, type: "error", error: details });
+        }
+        return toastManager.add({
+          title,
+          description,
+          data: {
+            type: "error",
+            timeout: DEFAULT_TIMEOUT.error,
+            notified: options?.notify === true,
+            error: details,
+          },
+          timeout: 0,
+        });
       },
       warning: (title: string, description?: string, options?: ToastOptions) => {
         if (options?.notify) {

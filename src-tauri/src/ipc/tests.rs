@@ -141,7 +141,7 @@ fn the_envelope_is_the_shape_the_frontend_reads() {
     `ok`, so an arm that stops being a literal is what this has to fail on. */
     const ENVELOPE: &str = concat!(
         "({ ok: true; value: BinRows }) & { error?: never }",
-        " | ({ ok: false; error: AppErrorResponse }) & { value?: never }",
+        " | ({ ok: false; error: IpcError }) & { value?: never }",
     );
 
     let bindings = render_with(&crate::services::builder::<crate::services::bin::Table>());

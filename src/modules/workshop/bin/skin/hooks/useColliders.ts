@@ -8,7 +8,7 @@ import {
 import { useEffect, useMemo } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AssetRef, type BinDocumentId, type SkinModel } from "@/lib/tauri";
 import {
   bindWorld,
@@ -211,10 +211,7 @@ export function useColliderEdit(
           if (last) SAVES.delete(key);
 
           if (!answer.ok) {
-            toast.error(
-              m.workshop_bin_physics_colliders_failed_title(),
-              errorSummary(answer.error),
-            );
+            toast.failure(m.workshop_bin_physics_colliders_failed_title(), answer.error);
             if (last) client.setQueryData(shown, saves.landed);
             return;
           }

@@ -134,7 +134,7 @@ function ControllerScope({
       if (!result.ok) {
         const title =
           step === "undo" ? m.workshop_bin_undo_failed_title() : m.workshop_bin_redo_failed_title();
-        toast.error(title, errorSummary(result.error));
+        toast.failure(title, result.error);
         return true;
       }
       if (result.value === null) return false;

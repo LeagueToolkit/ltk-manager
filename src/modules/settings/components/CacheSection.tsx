@@ -139,7 +139,7 @@ export function CacheSection() {
         }
         toast.success("Hashtables updated", syncedLabel(report));
       },
-      onError: (err) => toast.error("Sync failed", errorSummary(err)),
+      onError: (err) => toast.failure("Sync failed", err),
       onSettled: () => setProgress(null),
     });
   }

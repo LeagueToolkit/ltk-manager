@@ -2,6 +2,7 @@ export * from "./appMark";
 export * from "./createDialogStore";
 export * from "./dialogQueue";
 export * from "./display";
+export * from "./getHelp";
 export * from "./incidentLine";
 export * from "./installMismatch";
 export * from "./modHealthDrawer";

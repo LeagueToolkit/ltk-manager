@@ -1,7 +1,7 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 
 import { Button, EmptyState, ErrorState, Skeleton, useConfirm, useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 import { useLibraryActions, useRebuildNewerIndex } from "@/modules/library/api";
 import { hasErrorCode } from "@/utils/errors";
@@ -47,8 +47,7 @@ function NewerIndexState({ error }: { error: AppError }) {
     if (!confirmed) return;
 
     rebuild.mutate(undefined, {
-      onError: (failure) =>
-        toast.error(m.library_index_rebuild_failed_title(), errorSummary(failure)),
+      onError: (failure) => toast.failure(m.library_index_rebuild_failed_title(), failure),
     });
   }
 

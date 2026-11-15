@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinDocumentId, type ModuleAction } from "@/lib/tauri";
 
 import { followModuleAction } from "../../bin/documents/utils/declaredModule";
@@ -32,7 +32,7 @@ export function useManifestModuleAction(
       const before = modulesIn(queryClient.getQueryData(outline.queryKey), layer);
       const result = await api.declarations.moduleAction(projectPath, layer, action);
       if (!result.ok) {
-        toast.error(m.workshop_bin_module_action_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_module_action_failed_title(), result.error);
         return false;
       }
 

@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { createContext, use, useMemo } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   api,
   type AppError,
@@ -120,7 +120,7 @@ export function useRevertRow(): ((row: BinRow) => Promise<boolean>) | null {
       api.bin.revert(document, row.entry, row.path, changed.baseline),
     );
     if (!result.ok) {
-      toast.error(m.workshop_bin_change_revert_failed_title(), errorSummary(result.error));
+      toast.failure(m.workshop_bin_change_revert_failed_title(), result.error);
       return false;
     }
 

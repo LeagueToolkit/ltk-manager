@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AssetRef, type BinDocumentId } from "@/lib/tauri";
 import { type HistoryStep, useDocumentFlush, useDocumentHistory } from "@/modules/editor";
 
@@ -68,7 +68,7 @@ export function useBinTab(
             step === "undo"
               ? m.workshop_bin_undo_failed_title()
               : m.workshop_bin_redo_failed_title();
-          toast.error(title, errorSummary(result.error));
+          toast.failure(title, result.error);
           return;
         }
         if (result.value === null) return;

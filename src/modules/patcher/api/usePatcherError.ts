@@ -57,7 +57,7 @@ export function usePatcherError() {
     if (failure) setFailure(failure);
 
     if (!failure || failure.stage === "BUILD") {
-      toast.error(failure?.title ?? m.patcher_error_title(), errorSummary(error), { notify: true });
+      toast.failure(failure?.title ?? m.patcher_error_title(), error, { notify: true });
       return;
     }
 

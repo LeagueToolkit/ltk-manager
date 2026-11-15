@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, isErr } from "@/lib/tauri";
 
 /**
@@ -24,7 +24,7 @@ export function useFixCommandTerminal() {
 
       const result = await api.diagnostics.openElevatedTerminal(copied);
       if (isErr(result)) {
-        toast.error(m.diagnostics_fix_terminal_failed_title(), errorSummary(result.error));
+        toast.failure(m.diagnostics_fix_terminal_failed_title(), result.error);
         return;
       }
 
@@ -58,7 +58,7 @@ export function useFixLeagueElevated() {
   return useCallback(async () => {
     const result = await api.diagnostics.leagueAdminFixCommand();
     if (isErr(result)) {
-      toast.error(m.diagnostics_fix_terminal_failed_title(), errorSummary(result.error));
+      toast.failure(m.diagnostics_fix_terminal_failed_title(), result.error);
       return;
     }
 

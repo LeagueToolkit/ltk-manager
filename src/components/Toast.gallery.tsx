@@ -100,6 +100,38 @@ function Stack() {
   );
 }
 
+function Failures() {
+  const toast = useToast();
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        onClick={() =>
+          toast.failure("Could not save the file", {
+            code: "IO",
+            detail: "There is not enough space on the disk. (os error 112)",
+            ref: "ab12cd34",
+          })
+        }
+      >
+        Unexpected error
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() =>
+          toast.failure("Could not start the patcher", {
+            code: "LEAGUE_NOT_FOUND",
+            ref: "ef56ab78",
+          })
+        }
+      >
+        Routine error
+      </Button>
+    </>
+  );
+}
+
 const entry: GalleryEntry = {
   name: "Toast",
   family: "feedback",
@@ -108,6 +140,10 @@ const entry: GalleryEntry = {
     { name: "Four at most", render: () => <Stack /> },
     { name: "Actions", render: () => <Actions /> },
     { name: "Task", render: () => <Task /> },
+    {
+      name: "A backend error. Details on both, Get help beside it for an unexpected code",
+      render: () => <Failures />,
+    },
   ],
 };
 

@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 
 import { useToast } from "@/components/Toast";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { usePendingRebuildStore } from "@/stores";
 
 import { usePatcherStatus } from "./usePatcherStatus";
@@ -36,7 +36,7 @@ export function useRebuildOverlayAction() {
     mutate(undefined, {
       onSuccess: () =>
         toast.success(m.patcher_rebuild_done_title(), m.patcher_rebuild_done_description()),
-      onError: (error) => toast.error(m.patcher_rebuild_failed_title(), errorSummary(error)),
+      onError: (error) => toast.failure(m.patcher_rebuild_failed_title(), error),
     });
   }, [queue, mutate, toast]);
 

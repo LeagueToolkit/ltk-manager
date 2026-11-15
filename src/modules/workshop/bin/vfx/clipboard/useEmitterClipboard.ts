@@ -3,7 +3,7 @@ import { use } from "react";
 
 import { useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type BinEdit, type ObjectCreation, type TemplateEmitter } from "@/lib/tauri";
 
 import { emitterAtPath } from "../../curves/hooks/curvePlayhead";
@@ -94,7 +94,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     for (const emitter of emitters) {
       const result = await copyText(emitter.entry, emitter.wire);
       if (!result.ok) {
-        toast.error(m.workshop_bin_emitter_copy_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_emitter_copy_failed_title(), result.error);
         return;
       }
 
@@ -126,7 +126,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
   const apply = async (request: BinEdit) => {
     const { result, id } = await send((id) => api.bin.edit(id, request));
     if (!result.ok) {
-      toast.error(m.workshop_bin_emitter_edit_failed_title(), errorSummary(result.error));
+      toast.failure(m.workshop_bin_emitter_edit_failed_title(), result.error);
       return false;
     }
 

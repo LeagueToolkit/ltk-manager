@@ -58,7 +58,11 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
     save().then(
       () => toast.success(m.workshop_details_saved_hint()),
       (error: unknown) =>
-        toast.error(m.workshop_details_save_failed_hint({ reason: errorMessage(error) })),
+        toast.toast({
+          type: "error",
+          title: m.workshop_details_save_failed_hint({ reason: errorMessage(error) }),
+          error,
+        }),
     );
   }
 

@@ -11,7 +11,7 @@ import {
   useToast,
   Field,
 } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { useFixLeagueElevated } from "@/modules/diagnostics/api";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -38,7 +38,7 @@ export function PatchingSection() {
     rebuildOverlay(undefined, {
       onSuccess: () =>
         toast.success("Overlay rebuilt", "The overlay was regenerated from scratch."),
-      onError: (error) => toast.error("Rebuild failed", errorSummary(error)),
+      onError: (error) => toast.failure("Rebuild failed", error),
     });
   };
 

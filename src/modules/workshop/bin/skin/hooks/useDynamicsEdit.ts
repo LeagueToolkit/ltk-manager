@@ -1,7 +1,7 @@
 import { use, useMemo } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError, type BinEdit, type ValueEdit } from "@/lib/tauri";
 
 import { useDeclares } from "../../documents/hooks/useDeclared";
@@ -97,7 +97,7 @@ export function useDynamicsEdit(entry: string): Send | null {
     return (edits: ValueEdit[]) => {
       void sendDynamics(sends, entry, declares, edits).then((refused) => {
         if (refused !== null) {
-          toast.error(m.workshop_bin_edit_refused_title(), errorSummary(refused));
+          toast.failure(m.workshop_bin_edit_refused_title(), refused);
         }
       });
     };

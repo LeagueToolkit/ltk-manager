@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type ModelSummary, type ObjectCreation } from "@/lib/tauri";
 
 import type { GroundProbeFn } from "../components/GroundProbe";
@@ -59,7 +59,7 @@ export function useMeshImport(
     async (path: string, dropped: readonly [number, number] | null) => {
       const result = await api.bin.mapImportInspect(path);
       if (!result.ok) {
-        toast.error(m.workshop_bin_map_import_read_failed_title(), errorSummary(result.error));
+        toast.failure(m.workshop_bin_map_import_read_failed_title(), result.error);
         return;
       }
       setRequest({
@@ -116,7 +116,7 @@ export function useMeshImport(
         if (created.length > 0) {
           const result = await api.bin.mapImportMaterials(materials, chosen.map, created);
           if (!result.ok) {
-            toast.error(m.workshop_bin_map_import_failed_title(), errorSummary(result.error));
+            toast.failure(m.workshop_bin_map_import_failed_title(), result.error);
             return;
           }
           objects = result.value;

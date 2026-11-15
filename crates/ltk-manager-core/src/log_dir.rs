@@ -6,8 +6,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::utils::text;
+use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
@@ -18,10 +20,26 @@ pub const RUN_START: &str = "Starting LTK Manager v";
 /// The file in the log directory that holds the ruleset version of the last rewrite.
 const REDACTED_MARKER: &str = ".redacted";
 
-/// The directory that holds the daily log files of the app.
+/// The file in the log directory that holds the panic record of a run.
+const PANIC_RECORD: &str = "panic.json";
+
+/// The time and the build of a panic. The log of the run holds the message and the location,
+/// so the record holds no text that needs redaction.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct PanicRecord {
+    pub at: DateTime<Utc>,
+    /// The version of the build that panicked.
+    pub version: String,
+}
+
+/// The directory that holds the daily log files of the app and the panic record.
 ///
 /// The log appender writes one file for each day, named
-/// `<FILE_PREFIX>.<date>.<FILE_SUFFIX>`. Every method reads or changes those files only.
+/// `<FILE_PREFIX>.<date>.<FILE_SUFFIX>`. A run that panics writes the panic record, and a
+/// run that exits normally deletes it, so a record at startup is the panic that closed the
+/// run before.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogDir(PathBuf);
 
@@ -41,6 +59,31 @@ impl LogDir {
     #[must_use]
     pub fn path(&self) -> &Path {
         &self.0
+    }
+
+    /// Writes `record` as the panic record of this run. Replaces an earlier record.
+    ///
+    /// Reports no failure, because the caller is the panic hook.
+    pub fn record_panic(&self, record: &PanicRecord) {
+        if let Ok(json) = serde_json::to_vec(record) {
+            let _ = fs::write(self.0.join(PANIC_RECORD), json);
+        }
+    }
+
+    /// Returns the panic record and deletes it.
+    ///
+    /// Returns `None` if the directory holds no record, or if the record cannot be parsed.
+    #[must_use]
+    pub fn take_panic(&self) -> Option<PanicRecord> {
+        let path = self.0.join(PANIC_RECORD);
+        let json = fs::read(&path).ok()?;
+        let _ = fs::remove_file(&path);
+        serde_json::from_slice(&json).ok()
+    }
+
+    /// Deletes the panic record. Does nothing if the directory holds no record.
+    pub fn clear_panic(&self) {
+        let _ = fs::remove_file(self.0.join(PANIC_RECORD));
     }
 
     /// Returns the path of each log file in the directory.
