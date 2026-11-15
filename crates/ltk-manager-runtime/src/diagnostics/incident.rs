@@ -482,6 +482,16 @@ pub struct Incident {
     pub dismissed: bool,
 }
 
+impl Incident {
+    /// Returns the path of the game log of the incident.
+    ///
+    /// Returns `None` if no game ran, or if the game left no log.
+    pub fn game_log_path(&self) -> Option<&Path> {
+        let path = self.game.as_ref()?.log_path.as_str();
+        (!path.is_empty()).then(|| Path::new(path))
+    }
+}
+
 /// The shaders a game log reports as failed, as facts the frontend puts into words.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]

@@ -22,10 +22,7 @@ use ltk_manager_runtime::{
 };
 use serde_json::json;
 
-use super::{
-    files::{first_and_last, path_facts},
-    *,
-};
+use super::{files::path_facts, *};
 use crate::log_dir::RUN_START;
 
 fn app() -> AppIdentity {
@@ -334,17 +331,6 @@ fn add_game_log_removes_the_private_fields_of_each_line() {
             .files()
             .iter()
             .all(|file| file.path != "game-log/r3dlog.txt")
-    );
-}
-
-#[test]
-fn first_and_last_keeps_both_ends_of_a_long_text() {
-    let text = "first\nsecond\nthird\nfourth\nfifth\n";
-
-    assert_eq!(first_and_last(text, 64), text);
-    assert_eq!(
-        first_and_last(text, 14),
-        "first\n[20 bytes left out]\nfifth\n"
     );
 }
 

@@ -625,3 +625,20 @@ fn reading_a_short_game_is_cheap() {
         "{elapsed:?} for 100 reads"
     );
 }
+
+#[test]
+fn read_redacted_removes_the_private_fields_of_each_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("2026-11-15T14-02-00_r3dlog.txt");
+    fs::write(
+        &path,
+        "000001.000| ALWAYS| connecting to 203.0.113.7\n000002.000| ALWAYS| GameID=4242 started\n",
+    )
+    .unwrap();
+
+    assert_eq!(
+        read_redacted(&path).unwrap(),
+        "000001.000| ALWAYS| connecting to <redacted>\n000002.000| ALWAYS| GameID=<redacted> started\n"
+    );
+    assert!(read_redacted(&dir.path().join("missing.txt")).is_err());
+}

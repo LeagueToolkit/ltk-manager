@@ -1,15 +1,13 @@
 //! The builders of the files that state what the machine, the library and the last games
 //! hold: the System checks, the mod list, the incidents, the game log and the patcher build.
 
-use std::{borrow::Cow, path::Path};
+use std::path::Path;
 
-use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_runtime::{
     diagnostics::{
-        self, CheckCtx, binary_id::BinaryId, game_log::redact_line, incident::Incident,
-        store::IncidentStore,
+        self, CheckCtx, binary_id::BinaryId, game_log, incident::Incident, store::IncidentStore,
     },
     patcher::{
         delivery::{Channel, StagedPatcher},
@@ -19,7 +17,7 @@ use ltk_manager_runtime::{
 use serde_json::{Value, json};
 
 use super::SupportReport;
-use crate::log_dir::newest;
+use crate::lines;
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
@@ -119,14 +117,15 @@ impl SupportReport {
             }
         };
         let version = self.app.version.clone();
+        // The store names its files by the id, so an id is one path component.
         for incident in incidents.iter().take(INCIDENTS) {
-            let name = file_name(&incident.id);
+            let id = &incident.id;
             let token = incident.token(&version);
             if let Ok(json) = serde_json::to_string_pretty(incident) {
-                self.add(format!("incidents/{name}.json"), &json);
+                self.add(format!("incidents/{id}.json"), &json);
             }
             let text = incident.report_text(&version, Some(&token), &[]);
-            self.add(format!("incidents/{name}.md"), &text);
+            self.add(format!("incidents/{id}.md"), &text);
         }
         if let Some(newest) = incidents.first() {
             self.found = Some(format!(
@@ -149,20 +148,12 @@ impl SupportReport {
         if !config.read_game_log {
             return;
         }
-        let Some(path) = incident.game.as_ref().map(|game| game.log_path.as_str()) else {
-            return;
-        };
-        if path.is_empty() {
-            return;
+        let log = incident
+            .game_log_path()
+            .and_then(|path| game_log::read_redacted(path).ok());
+        if let Some(log) = log {
+            self.add(GAME_LOG, &lines::first_and_last(&log, MAX_GAME_LOG_BYTES));
         }
-        let Ok(bytes) = fs::read(Path::new(path)) else {
-            return;
-        };
-        let log: String = String::from_utf8_lossy(&bytes)
-            .split_inclusive('\n')
-            .map(redact_line)
-            .collect();
-        self.add(GAME_LOG, &first_and_last(&log, MAX_GAME_LOG_BYTES));
     }
 
     /// Adds `patcher.json`: the delivery channel, and the build that a session on it runs.
@@ -207,39 +198,4 @@ pub(super) fn path_facts(path: Option<&Path>) -> Value {
         "drive": drive,
         "nonAscii": !text.is_ascii(),
     })
-}
-
-/// Returns `id` with every character that is not a letter, a digit, `-` or `_` as `_`, so
-/// that the id is one path component.
-fn file_name(id: &str) -> String {
-    id.chars()
-        .map(|c| {
-            if c.is_ascii_alphanumeric() || matches!(c, '-' | '_') {
-                c
-            } else {
-                '_'
-            }
-        })
-        .collect()
-}
-
-/// Returns `text` if it holds `max_bytes` at most. Returns its first and its last lines
-/// otherwise, half of `max_bytes` each, with one line between them that states the number
-/// of bytes that are left out.
-pub(super) fn first_and_last(text: &str, max_bytes: usize) -> Cow<'_, str> {
-    if text.len() <= max_bytes {
-        return Cow::Borrowed(text);
-    }
-    let half = max_bytes / 2;
-    let mut cut = half;
-    while !text.is_char_boundary(cut) {
-        cut -= 1;
-    }
-    let first = match text[..cut].rfind('\n') {
-        Some(newline) => &text[..=newline],
-        None => "",
-    };
-    let last = newest(text, half);
-    let left_out = text.len() - first.len() - last.len();
-    Cow::Owned(format!("{first}[{left_out} bytes left out]\n{last}"))
 }

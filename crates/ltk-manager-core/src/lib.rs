@@ -11,3 +11,5 @@ pub mod news;
 pub mod patching;
 pub mod releases;
 pub mod support_report;
+
+mod lines;

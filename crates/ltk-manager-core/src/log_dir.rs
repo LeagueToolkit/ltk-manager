@@ -92,7 +92,7 @@ impl LogDir {
             let line_start = log[..start].rfind('\n').map_or(0, |newline| newline + 1);
             log.drain(..line_start);
         }
-        let log = newest(&log, max_bytes);
+        let log = crate::lines::last(&log, max_bytes);
         (!log.is_empty()).then(|| log.to_owned())
     }
 
@@ -168,18 +168,4 @@ fn redact_file(path: &Path) -> io::Result<()> {
     let temporary = path.with_extension("log.redacting");
     fs::write(&temporary, redacted)?;
     fs::rename(&temporary, path)
-}
-
-/// Returns the last `max_bytes` bytes of `text`, starting at the start of a line.
-pub(crate) fn newest(text: &str, max_bytes: usize) -> &str {
-    let Some(mut cut) = text.len().checked_sub(max_bytes).filter(|cut| *cut > 0) else {
-        return text;
-    };
-    while !text.is_char_boundary(cut) {
-        cut += 1;
-    }
-    match text[cut..].find('\n') {
-        Some(newline) => &text[cut + newline + 1..],
-        None => "",
-    }
 }
