@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use super::download::{DownloadError, user_agent};
 use super::public_https_url;
 use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::text::first_chars;
 
 /// The manifest version this app reads. Any other version is refused whole.
 pub const MANIFEST_VERSION: u64 = 1;
@@ -347,11 +348,11 @@ fn too_large() -> AppError {
     ))
 }
 
-fn truncate(label: String) -> String {
-    match label.char_indices().nth(LABEL_MAX_CHARS) {
-        Some((idx, _)) => label[..idx].to_string(),
-        None => label,
-    }
+/// Returns `label` cut to its first [`LABEL_MAX_CHARS`] characters.
+fn truncate(mut label: String) -> String {
+    let end = first_chars(&label, LABEL_MAX_CHARS).len();
+    label.truncate(end);
+    label
 }
 
 /// A client with the request timeout, naming the running `version` in the `User-Agent`.

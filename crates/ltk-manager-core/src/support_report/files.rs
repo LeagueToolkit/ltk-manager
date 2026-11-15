@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use ltk_manager_base::config::Config;
+use ltk_manager_base::{config::Config, utils::text};
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_runtime::{
     diagnostics::{
@@ -17,7 +17,6 @@ use ltk_manager_runtime::{
 use serde_json::{Value, json};
 
 use super::SupportReport;
-use crate::lines;
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
@@ -152,7 +151,8 @@ impl SupportReport {
             .game_log_path()
             .and_then(|path| game_log::read_redacted(path).ok());
         if let Some(log) = log {
-            self.add(GAME_LOG, &lines::first_and_last(&log, MAX_GAME_LOG_BYTES));
+            let log = text::first_and_last_lines(&log, MAX_GAME_LOG_BYTES);
+            self.add(GAME_LOG, &log);
         }
     }
 

@@ -15,6 +15,7 @@ use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::events::{
     BackendEvent, EventSink, ProtocolInstallProgress, ProtocolInstallStage,
 };
+use ltk_manager_base::utils::text::first_chars;
 
 /// A `ltk://` deep link, as the route named in it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -176,7 +177,7 @@ fn required_url(pairs: &HashMap<String, String>) -> AppResult<&String> {
 fn label(pairs: &HashMap<String, String>, key: &str) -> Option<String> {
     pairs
         .get(key)
-        .map(|s| truncate_str(s, LABEL_MAX_CHARS).to_string())
+        .map(|value| first_chars(value, LABEL_MAX_CHARS).to_owned())
 }
 
 /// Parses `url` as one the app fetches from: `https`, on a host that is not local or private.
@@ -266,13 +267,6 @@ pub fn download_host(download_url: &str) -> Option<String> {
     Url::parse(download_url)
         .ok()
         .and_then(|u| u.host_str().map(|h| h.to_lowercase()))
-}
-
-fn truncate_str(s: &str, max_chars: usize) -> &str {
-    match s.char_indices().nth(max_chars) {
-        Some((idx, _)) => &s[..idx],
-        None => s,
-    }
 }
 
 #[cfg(test)]

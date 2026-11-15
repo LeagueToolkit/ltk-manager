@@ -7,6 +7,7 @@ use std::{
 };
 
 use fs_err as fs;
+use ltk_manager_base::utils::text;
 
 #[cfg(test)]
 mod tests;
@@ -92,7 +93,7 @@ impl LogDir {
             let line_start = log[..start].rfind('\n').map_or(0, |newline| newline + 1);
             log.drain(..line_start);
         }
-        let log = crate::lines::last(&log, max_bytes);
+        let log = text::last_lines(&log, max_bytes);
         (!log.is_empty()).then(|| log.to_owned())
     }
 

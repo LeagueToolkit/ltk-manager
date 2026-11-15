@@ -12,11 +12,12 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
+use ltk_manager_base::utils::text;
 use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
-use crate::{lines, log_dir::LogDir};
+use crate::log_dir::LogDir;
 
 mod files;
 
@@ -313,7 +314,7 @@ impl SupportReport {
         };
         if let Some(log) = self.files.iter_mut().find(|file| file.path == LOG_FILE) {
             let keep = log.contents.len().saturating_sub(excess);
-            log.contents = lines::last(&log.contents, keep).to_owned();
+            log.contents = text::last_lines(&log.contents, keep).to_owned();
         }
     }
 }
