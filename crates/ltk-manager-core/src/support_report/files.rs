@@ -1,5 +1,6 @@
-//! The builders of the files that state what the machine, the library and the last games
-//! hold: the System checks, the mod list, the incidents, the game log and the patcher build.
+//! The builders of the files that state what the machine, the library, the last games and
+//! the start hold: the System checks, the mod list, the incidents, the game log, the patcher
+//! build and the start without a window.
 
 use std::path::Path;
 
@@ -16,11 +17,12 @@ use ltk_manager_runtime::{
 };
 use serde_json::{Value, json};
 
-use super::{Finding, SupportReport};
+use super::{Finding, Startup, SupportReport};
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
 const PATCHER_JSON: &str = "patcher.json";
+const STARTUP_JSON: &str = "startup.json";
 const GAME_LOG: &str = "game-log/r3dlog.txt";
 
 /// The number of incidents that a report holds, newest first.
@@ -196,6 +198,36 @@ impl SupportReport {
             }),
         });
         self.add(PATCHER_JSON, &pretty(&patcher));
+    }
+
+    /// Adds `startup.json`: the version of the webview runtime, and the error that stopped
+    /// the start. `report.md` states both under `Startup`.
+    pub fn add_startup(&mut self, startup: Startup) {
+        let (version, error) = match &startup.webview {
+            Ok(version) => (Some(version), None),
+            Err(error) => (None, Some(error)),
+        };
+        let json = json!({
+            "webview": { "version": version, "error": error },
+            "failure": startup.failure,
+        });
+        self.add(STARTUP_JSON, &pretty(&json));
+        self.startup = Some(startup);
+    }
+}
+
+impl Startup {
+    /// Returns the start as the lines of the `Startup` section of `report.md`.
+    pub(super) fn lines(&self) -> String {
+        let start = match &self.failure {
+            Some(failure) => format!("The manager did not start: {failure}"),
+            None => "The report was built by `--report`, without a window.".to_owned(),
+        };
+        let webview = match &self.webview {
+            Ok(version) => format!("Webview runtime: {version}"),
+            Err(error) => format!("Webview runtime: not found ({error})"),
+        };
+        format!("- {start}\n- {webview}\n")
     }
 }
 

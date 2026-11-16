@@ -93,6 +93,14 @@ tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 
+# tauri-plugin-dialog depends on this version with these features, so the build holds one copy.
+rfd = { version = "0.16", default-features = false, features = [
+    "common-controls-v6",
+    "gtk3",
+] }
+# tauri depends on this version, so the data directory is the one that tauri resolves.
+dirs = "6"
+
 [target.'cfg(windows)'.dependencies]
 winreg = { workspace = true }
 windows-sys = { workspace = true, features = [

@@ -146,3 +146,18 @@ fn take_panic_returns_the_record_once() {
     logs.clear_panic();
     assert_eq!(logs.take_panic(), None);
 }
+
+#[test]
+fn panic_record_leaves_the_record_in_the_directory() {
+    let (_dir, logs) = log_dir(&[]);
+    assert_eq!(logs.panic_record(), None);
+
+    let record = PanicRecord {
+        at: DateTime::from_timestamp(1_794_000_000, 0).unwrap(),
+        version: "1.34.0".to_owned(),
+    };
+    logs.record_panic(&record);
+
+    assert_eq!(logs.panic_record(), Some(record.clone()));
+    assert_eq!(logs.take_panic(), Some(record));
+}

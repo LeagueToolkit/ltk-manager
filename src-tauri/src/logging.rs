@@ -110,7 +110,7 @@ fn build_file_writer() -> (
 }
 
 pub(crate) fn default_log_dir() -> Option<LogDir> {
-    const IDENTIFIER: &str = "dev.leaguetoolkit.manager";
+    use crate::IDENTIFIER;
 
     #[cfg(target_os = "windows")]
     if let Ok(appdata) = std::env::var("APPDATA") {

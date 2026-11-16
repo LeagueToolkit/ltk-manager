@@ -32,10 +32,14 @@ const SHELL_ENTRIES: [&str; 4] = [MOD_PREVIEWS, SHADERS, PATCHER, INCIDENTS];
 /// Returns the app data directory if `config` sets no storage path. Returns `None` if the
 /// setting is unset and the app data directory cannot be resolved.
 pub fn data_dir(app_handle: &AppHandle, config: &Config) -> Option<PathBuf> {
-    config
-        .mod_storage_path
-        .clone()
-        .or_else(|| crate::state::get_app_data_dir(app_handle))
+    data_dir_under(crate::state::get_app_data_dir(app_handle), config)
+}
+
+/// Resolves the data directory that `config` selects, for the app data directory `app_data`.
+///
+/// Returns `app_data` if `config` sets no storage path.
+pub fn data_dir_under(app_data: Option<PathBuf>, config: &Config) -> Option<PathBuf> {
+    config.mod_storage_path.clone().or(app_data)
 }
 
 /// What a move of the data directory does.

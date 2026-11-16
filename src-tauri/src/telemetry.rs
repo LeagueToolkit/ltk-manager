@@ -50,7 +50,7 @@ fn spool_dir(app_handle: &AppHandle) -> PathBuf {
         None => {
             warn!("No app data directory, keeping the telemetry spool under the temp directory");
             std::env::temp_dir()
-                .join("dev.leaguetoolkit.manager")
+                .join(crate::IDENTIFIER)
                 .join("telemetry")
         }
     }

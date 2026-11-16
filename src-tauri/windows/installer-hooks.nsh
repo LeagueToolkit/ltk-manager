@@ -82,9 +82,24 @@ FunctionEnd
   !insertmacro LtkRemovePerUserInstall
 !macroend
 
+; The Start menu entry for a user whose manager does not open, per "When the manager does
+; not start" in docs/ux/SUPPORT_REPORTS.md. An update writes it too, because an install
+; from before this entry has none.
+!macro NSIS_HOOK_POSTINSTALL
+  ${If} $NoShortcutMode <> 1
+    CreateShortcut "$SMPROGRAMS\${PRODUCTNAME} - Get help.lnk" "$INSTDIR\${MAINBINARYNAME}.exe" "--report"
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
   nsExec::Exec 'taskkill /F /T /IM ltk_patcher_host.exe'
   Pop $0
+
+  ; Here and not in the post hook, which runs after the template can have changed the
+  ; shell context to the current user. An update keeps the entry.
+  ${If} $UpdateMode <> 1
+    Delete "$SMPROGRAMS\${PRODUCTNAME} - Get help.lnk"
+  ${EndIf}
 !macroend
 
 ; Removes the mod file types the app registers for the user, per

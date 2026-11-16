@@ -10,7 +10,6 @@ use crate::services::launcher::LauncherState;
 use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_base::events::EventSink;
-use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use ltk_manager_runtime::diagnostics::telemetry;
 use std::sync::Arc;
 
@@ -60,18 +59,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let default_storage_dir = crate::state::get_app_data_dir(&app_handle);
     let storage_dir = crate::data_location::data_dir(&app_handle, &settings.config);
     let wad_reports = Arc::new(WadReportState::new(storage_dir.as_deref()));
-    let incidents_dir = match &storage_dir {
-        Some(dir) => dir.join(crate::data_location::INCIDENTS),
-        None => {
-            tracing::warn!("No data directory, keeping incidents under the temp directory");
-            std::env::temp_dir()
-                .join("dev.leaguetoolkit.manager")
-                .join("incidents")
-        }
-    };
-    let incident_store = IncidentStoreState(Arc::new(
-        IncidentStore::new(incidents_dir).with_keep(settings.config.keep_incidents as usize),
-    ));
+    let incident_store = IncidentStoreState::under(storage_dir.as_deref(), &settings.config);
     let checksum_mismatches = Arc::new(ChecksumMismatchState::default());
     // The library unpacks fantome archives, which needs the same chunk names
     // the browser resolves with, so both hold this one handle.

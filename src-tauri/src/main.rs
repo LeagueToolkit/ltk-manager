@@ -16,6 +16,7 @@ mod logging;
 mod mods;
 pub mod patcher;
 mod protocol;
+mod report_mode;
 mod services;
 mod settings_backup;
 mod setup;
@@ -40,6 +41,9 @@ use tauri::Manager;
 /// The one window the frontend runs in, which `tauri.conf.json` describes and `setup` creates.
 const MAIN_WINDOW: &str = "main";
 
+/// The identifier of the app, as `tauri.conf.json` states it.
+const IDENTIFIER: &str = "dev.leaguetoolkit.manager";
+
 /// The age at which a log file is deleted at startup.
 const LOG_RETENTION: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 60 * 60);
 
@@ -57,6 +61,13 @@ fn main() {
     telemetry::install_panic_hook();
 
     let logging_guards = logging::init();
+
+    // Before the run start line, so the report run does not count as a run of the log. Before
+    // the single-instance plugin, which hands the arguments to a running manager.
+    if let Some(report) = report_mode::ReportMode::from_args(std::env::args_os().skip(1)) {
+        report.run();
+        return;
+    }
 
     tracing::info!(
         "{}{}",
@@ -141,7 +152,7 @@ fn main() {
             });
         })
         .manage(logging_guards)
-        .setup(setup::run)
+        .setup(|app| setup::run(app).inspect_err(|error| report_mode::offer_report(error)))
         /* A reload runs no cleanup, so the handles the last page held are dropped here,
         before the new page can open any. */
         .on_page_load(|webview, payload| {
@@ -156,6 +167,9 @@ fn main() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+        .unwrap_or_else(|error| {
+            report_mode::offer_report(&error);
+            panic!("error while building tauri application: {error}")
+        })
         .run(setup::handle_run_event);
 }

@@ -8,9 +8,20 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
+/// The name of the settings file, under the app data directory.
+pub const SETTINGS_FILE: &str = "settings.json";
+
 /// Get the application data directory for storing settings using Tauri's path resolver.
 pub fn get_app_data_dir(app_handle: &AppHandle) -> Option<PathBuf> {
     app_handle.path().app_data_dir().ok()
+}
+
+/// Returns the application data directory, for a process that has no app.
+///
+/// Resolves the directory that [`get_app_data_dir`] returns. Returns `None` if the platform
+/// names no data directory for the user.
+pub fn app_data_dir_without_app() -> Option<PathBuf> {
+    dirs::data_dir().map(|dir| dir.join(crate::IDENTIFIER))
 }
 
 /// Returns the file that caches the game's chunk index, under the app cache directory.
@@ -30,7 +41,7 @@ pub fn game_index_cache_dir(app_handle: &AppHandle) -> Option<PathBuf> {
 
 /// Get the path to the settings file.
 pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
-    get_app_data_dir(app_handle).map(|p| p.join("settings.json"))
+    get_app_data_dir(app_handle).map(|p| p.join(SETTINGS_FILE))
 }
 
 /// Registers the paths and the secret of `settings` with the shared redactor, so that the
@@ -104,8 +115,28 @@ pub fn persist_settings(app_handle: &AppHandle, settings: &Settings) -> Result<(
 /// Application settings state.
 pub struct SettingsState(pub Mutex<Settings>);
 
-/// Tauri-managed handle to the incident store, under `<app_data_dir>/incidents`.
+/// Tauri-managed handle to the incident store, under `<data_dir>/incidents`.
 pub struct IncidentStoreState(pub Arc<IncidentStore>);
+
+impl IncidentStoreState {
+    /// Returns the store under `data_dir`, with the number of incidents that `config` keeps.
+    ///
+    /// The store is under the temp directory if `data_dir` is `None`.
+    pub fn under(data_dir: Option<&Path>, config: &Config) -> Self {
+        let dir = match data_dir {
+            Some(dir) => dir.join(crate::data_location::INCIDENTS),
+            None => {
+                tracing::warn!("No data directory, keeping incidents under the temp directory");
+                std::env::temp_dir()
+                    .join(crate::IDENTIFIER)
+                    .join(crate::data_location::INCIDENTS)
+            }
+        };
+        Self(Arc::new(
+            IncidentStore::new(dir).with_keep(config.keep_incidents as usize),
+        ))
+    }
+}
 
 impl SettingsState {
     pub fn new(app_handle: &AppHandle) -> Self {
