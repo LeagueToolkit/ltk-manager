@@ -70,15 +70,23 @@ impl LogDir {
         }
     }
 
+    /// Returns the panic record and leaves it in the directory.
+    ///
+    /// Returns `None` if the directory holds no record, or if the record cannot be parsed.
+    #[must_use]
+    pub fn panic_record(&self) -> Option<PanicRecord> {
+        let json = fs::read(self.0.join(PANIC_RECORD)).ok()?;
+        serde_json::from_slice(&json).ok()
+    }
+
     /// Returns the panic record and deletes it.
     ///
     /// Returns `None` if the directory holds no record, or if the record cannot be parsed.
     #[must_use]
     pub fn take_panic(&self) -> Option<PanicRecord> {
-        let path = self.0.join(PANIC_RECORD);
-        let json = fs::read(&path).ok()?;
-        let _ = fs::remove_file(&path);
-        serde_json::from_slice(&json).ok()
+        let record = self.panic_record();
+        self.clear_panic();
+        record
     }
 
     /// Deletes the panic record. Does nothing if the directory holds no record.

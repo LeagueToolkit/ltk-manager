@@ -54,6 +54,18 @@ impl PatcherDeliveryState {
     /// `data_dir` is `None`. The client has no attestation if the build has none or if its
     /// attestation names another manager version or host protocol.
     pub fn new(data_dir: Option<&Path>) -> Self {
+        let state = Self::without_cleanup(data_dir);
+        if let Some(delivery) = state.delivery() {
+            delivery.remove_unused();
+        }
+        state
+    }
+
+    /// Builds the client with its state under `data_dir`, and removes no staged build.
+    ///
+    /// For a process that reads the staged builds and starts no session. Returns the same
+    /// client as [`Self::new`].
+    pub fn without_cleanup(data_dir: Option<&Path>) -> Self {
         let manager = Version {
             pre: Prerelease::EMPTY,
             ..Version::parse(env!("CARGO_PKG_VERSION")).expect("CARGO_PKG_VERSION is semver")
@@ -89,9 +101,6 @@ impl PatcherDeliveryState {
                 protocol,
             })
         });
-        if let Some(delivery) = &delivery {
-            delivery.remove_unused();
-        }
 
         Self {
             delivery,

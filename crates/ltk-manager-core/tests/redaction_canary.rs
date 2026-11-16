@@ -33,7 +33,8 @@ use ltk_manager_core::{
     log_dir::LogDir,
     patching::{PatcherThread, PrepareHost, PreparedHost, SessionParams},
     support_report::{
-        AppIdentity, ReportDescription, ReportOrigin, ReportProblem, ShownError, SupportReport,
+        AppIdentity, ReportDescription, ReportOrigin, ReportProblem, ShownError, Startup,
+        SupportReport,
     },
 };
 use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
@@ -106,6 +107,7 @@ fn no_output_holds_a_private_value() {
             "incidents/",
             "game-log/r3dlog.txt",
             "patcher.json",
+            "startup.json",
         ] {
             assert!(
                 support_report.contains(file),
@@ -306,7 +308,8 @@ impl Fixture {
     ///
     /// The log file of the report holds `raw_log`, as a release that did not redact the log
     /// wrote it. The settings hold the paths, the secret and two fields that the allowlist
-    /// does not name. The description holds the username and a path.
+    /// does not name. The description and the start that failed hold the username and a
+    /// path.
     fn support_report(&self, raw_log: &str) -> String {
         let log_dir = self.app_data.join("logs");
         fs::create_dir_all(&log_dir).expect("the log directory");
@@ -365,6 +368,17 @@ impl Fixture {
             eol: 1_800_000_000,
         };
         report.add_patcher(Channel::Stable, Some(&staged));
+        report.add_startup(Startup {
+            webview: Err(format!(
+                "no runtime under {}",
+                self.profile.join("AppData").join("Local").display()
+            )),
+            failure: Some(format!(
+                "{} cannot create the window, no file at {}",
+                self.username,
+                self.app_data.join("EBWebView").display()
+            )),
+        });
 
         report
             .finish()

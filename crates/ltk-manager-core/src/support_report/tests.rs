@@ -467,6 +467,51 @@ fn add_patcher_states_the_channel_and_the_staged_build() {
 }
 
 #[test]
+fn add_startup_states_the_failure_and_the_webview_runtime() {
+    let mut report = report(ReportDescription::default());
+    report.add_startup(Startup {
+        webview: Ok("131.0.2903.86".to_owned()),
+        failure: Some("failed to create the window".to_owned()),
+    });
+    let report = report.finish();
+
+    assert_eq!(
+        json_file(&report, "startup.json"),
+        json!({
+            "webview": { "version": "131.0.2903.86", "error": null },
+            "failure": "failed to create the window",
+        })
+    );
+    assert!(file(&report, REPORT_MD).contains(
+        "## Startup\n\n\
+         - The manager did not start: failed to create the window\n\
+         - Webview runtime: 131.0.2903.86\n"
+    ));
+}
+
+#[test]
+fn add_startup_states_a_missing_webview_runtime() {
+    let mut report = report(ReportDescription::default());
+    report.add_startup(Startup {
+        webview: Err("no runtime is installed".to_owned()),
+        failure: None,
+    });
+    let report = report.finish();
+
+    assert_eq!(
+        json_file(&report, "startup.json"),
+        json!({
+            "webview": { "version": null, "error": "no runtime is installed" },
+            "failure": null,
+        })
+    );
+    assert!(file(&report, REPORT_MD).contains(
+        "- The report was built by `--report`, without a window.\n\
+         - Webview runtime: not found (no runtime is installed)\n"
+    ));
+}
+
+#[test]
 fn summary_stays_under_the_limit_for_the_longest_inputs() {
     let dir = tempfile::tempdir().unwrap();
     let store = IncidentStore::new(dir.path().to_path_buf());

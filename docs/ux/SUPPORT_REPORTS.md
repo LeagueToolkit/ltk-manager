@@ -98,6 +98,7 @@ gives it.
 | Support report          | In progress | An allowlisted zip, built by named builders. Game records and the build are missing  |
 | Report preview          | Available   | The file list and the redacted text of each file                                     |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
+| Report without a window | Available   | `--report`, a Start menu entry and a native dialog after a failed start              |
 | `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
 | Game record             | Planned     | One small record for every game, clean games included                                |
 | Advisory                | Planned     | A coded condition that changes what the user gets                                    |
@@ -309,6 +310,7 @@ file is included by default.
 | `overlay.json`        | The last build: fingerprint, per-mod counts, advisories                        |
 | `settings.json`       | An allowlist of fields. A path field holds its placeholder                     |
 | `patcher.json`        | The channel, the DLL's version, digest and build date, the code table version  |
+| `startup.json`        | From `--report` only: the webview runtime version, the error of the start      |
 | `game-log/r3dlog.txt` | The incident's game log, redacted line by line. Ticked when an incident exists |
 
 Two files and one field wait for a later step. `games/*.json` waits for the game record.
@@ -503,9 +505,27 @@ them, so the report builders live in the backend and need no webview.
 | The Start menu entry `LTK Manager - Get help` | Runs the executable with that flag. The installer adds it          |
 | A startup failure the backend detects         | A native dialog with the error and `Save report`                   |
 
-The report from this path holds the log, the System checks, the settings and the mod list. It adds
-the WebView2 runtime version and the result of the webview start, which the in-app report does
-not need.
+**`--report`** is read before the app is built, so the process opens no webview and a running
+manager does not take its arguments. The process deletes nothing that the next start reads: the
+panic record stays, and no staged patcher build is removed. It writes no run start line, so the
+report run is not one of the three runs of the log. The save dialog opens in the Downloads folder
+with the report's own file name.
+
+**The Start menu entry** is written by every install and every update, because an install from
+before this entry has none. `/NS` skips it, and the uninstaller removes it.
+
+**A startup failure** is an error of the app build or of the setup, which includes a webview that
+cannot be created. The manager starts a copy of itself with `--report` and the error, then ends
+with a panic, as it did before. The copy shows `LTK Manager did not start.` with the error and
+the buttons `Save report` and `Close`. The copy is another process, so its dialog stays open
+after the manager ends, and no dialog blocks the event loop of the manager. A webview that opens
+and shows nothing is not detected, and the Start menu entry serves that case.
+
+The report from this path holds the files of the in-app report without a game log, and states
+the problem `Manager problem`. It adds `startup.json` with the version of the webview runtime, or
+the error of the read if no runtime is installed, and the error that stopped the start.
+`report.md` states both under `Startup`. The trigger is the panic record, if the log directory
+holds one.
 
 ## Explaining the failure in the app
 

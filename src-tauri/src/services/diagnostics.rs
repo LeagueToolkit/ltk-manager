@@ -22,16 +22,6 @@ use ltk_manager_runtime::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
-/// Returns the delivered DLL that a session started from `config` runs, if one is staged.
-fn staged_patcher_dll(app_handle: &AppHandle, config: &Config) -> Option<PathBuf> {
-    let delivery = app_handle.state::<PatcherDeliveryState>();
-
-    delivery.delivery()?.staged_dll_path(
-        crate::patcher::delivery::channel(config),
-        crate::patcher::delivery::now(),
-    )
-}
-
 #[tauri::command]
 #[specta::specta]
 pub fn run_diagnostics(
@@ -131,12 +121,25 @@ fn open_elevated_terminal_inner(_with_banner: bool) -> AppResult<()> {
 }
 
 /// Returns the context that the System checks run over, for the install that `config` names.
-pub(crate) fn check_ctx(app_handle: &AppHandle, config: &Config) -> CheckCtx {
+///
+/// `data_dir` is the data directory that `config` selects. The patcher DLL is the build that
+/// `delivery` holds for a session started from `config`, if one is staged.
+pub(crate) fn check_ctx(
+    config: &Config,
+    data_dir: Option<PathBuf>,
+    delivery: &PatcherDeliveryState,
+) -> CheckCtx {
+    let patcher_dll_path = delivery.delivery().and_then(|delivery| {
+        delivery.staged_dll_path(
+            crate::patcher::delivery::channel(config),
+            crate::patcher::delivery::now(),
+        )
+    });
     CheckCtx {
         league_path: config.league_path.clone(),
-        mod_storage_path: crate::data_location::data_dir(app_handle, config),
+        mod_storage_path: data_dir,
         mod_storage_is_default: config.mod_storage_path.is_none(),
-        patcher_dll_path: staged_patcher_dll(app_handle, config),
+        patcher_dll_path,
         manager_exe: std::env::current_exe().ok(),
     }
 }
@@ -145,7 +148,12 @@ fn run_diagnostics_inner(
     app_handle: &AppHandle,
     settings: &State<SettingsState>,
 ) -> DiagnosticReport {
-    let checks = run_all(&check_ctx(app_handle, &settings.config()));
+    let config = settings.config();
+    let checks = run_all(&check_ctx(
+        &config,
+        crate::data_location::data_dir(app_handle, &config),
+        &app_handle.state::<PatcherDeliveryState>(),
+    ));
     let generated_at = chrono::Utc::now().to_rfc3339();
     DiagnosticReport {
         generated_at,

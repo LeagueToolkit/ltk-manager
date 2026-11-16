@@ -290,6 +290,17 @@ pub struct Manifest {
     pub files: Vec<FileEntry>,
 }
 
+/// A start of the manager that opened no window.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Startup {
+    /// The version of the webview runtime, which is WebView2 on Windows. The error of the
+    /// read if no runtime answers.
+    pub webview: Result<String, String>,
+    /// The error that stopped the start. `None` if the user asked for the report with
+    /// `--report`.
+    pub failure: Option<String>,
+}
+
 /// A report under construction. Each `add_` method is the builder of one file.
 #[derive(Debug)]
 pub struct SupportReport {
@@ -300,6 +311,8 @@ pub struct SupportReport {
     /// What the manager found. The incident builder sets it.
     found: Option<Finding>,
     outdated: Outdated,
+    /// The start without a window. The startup builder sets it.
+    startup: Option<Startup>,
     files: Vec<ReportFile>,
     counts: Counts,
 }
@@ -322,6 +335,7 @@ impl SupportReport {
             description,
             found: None,
             outdated: Outdated::default(),
+            startup: None,
             files: Vec::new(),
             counts: Counts::default(),
         }
@@ -548,6 +562,9 @@ impl SupportReport {
         }
         if let Some(origin) = &self.description.origin {
             out.push_str(&format!("\n## Trigger\n\n{}\n", origin.sentence()));
+        }
+        if let Some(startup) = &self.startup {
+            out.push_str(&format!("\n## Startup\n\n{}", startup.lines()));
         }
         if let Some(found) = &self.found {
             out.push_str(&format!(
