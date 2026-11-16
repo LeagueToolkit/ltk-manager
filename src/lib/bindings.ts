@@ -8195,7 +8195,6 @@ export type ReportPreview = {
 	fileName: string,
 	/**  Every file of the report, in the order of the zip. */
 	files: ReportPreviewFile[],
-	replaced: ReportReplacements,
 	/**  The summary that `Copy for Discord` puts on the clipboard. */
 	summary: string,
 	/**
@@ -8214,21 +8213,6 @@ export type ReportPreviewFile = {
 
 /**  The kind of failure that the user reports. */
 export type ReportProblem = "mod-not-shown" | "game-crashed" | "manager";
-
-/**  The number of replacements in a report, by the kind of value that was replaced. */
-export type ReportReplacements = {
-	/**
-	 *  The profile directory, the League, storage and workshop paths, and the path of
-	 *  another user.
-	 */
-	paths: number,
-	/**  URLs and `ltk://` links. */
-	links: number,
-	/**  IP addresses and email addresses. */
-	addresses: number,
-	/**  Every other value, such as the username, the computer name and a secret. */
-	other: number,
-};
 
 /**  What the user chose in the `Get help` dialog. */
 export type ReportRequest = {

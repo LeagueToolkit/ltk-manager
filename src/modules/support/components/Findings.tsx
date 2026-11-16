@@ -18,7 +18,7 @@ interface FindingsProps {
 }
 
 /**
- * `The manager found`: one row for each finding, in the order of `findings`.
+ * The `Findings` section: one row for each finding, in the order of `findings`.
  *
  * The fix of the first known cause is the primary button of the dialog. Renders nothing if
  * `findings` is empty.
@@ -57,10 +57,13 @@ function FindingRow({ finding, primary, authorSummary, onUpdate }: FindingRowPro
         <Row
           kind={finding.kind}
           title={m.support_cause_update_title()}
-          detail={m.updater_version_upgrade_label({ from: finding.installed, to: finding.latest })}
+          detail={m.support_cause_update_description({
+            installed: finding.installed,
+            latest: finding.latest,
+          })}
         >
           <FixButton primary={primary} onClick={onUpdate}>
-            {m.updater_install_action()}
+            {m.support_cause_update_action()}
           </FixButton>
         </Row>
       );
@@ -69,7 +72,7 @@ function FindingRow({ finding, primary, authorSummary, onUpdate }: FindingRowPro
         <Row kind={finding.kind} title={finding.issue.message}>
           {finding.issue.url && (
             <FixButton primary={primary} onClick={() => void openUrl(finding.issue.url!)}>
-              {m.support_cause_issue_action()}
+              {m.common_read_more_action()}
             </FixButton>
           )}
         </Row>

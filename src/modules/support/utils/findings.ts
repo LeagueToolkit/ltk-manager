@@ -2,7 +2,7 @@ import type { Incident, InstalledMod, KnownIssue, PendingUpdate } from "@/lib/ta
 import { offersRebuild } from "@/modules/diagnostics";
 
 /**
- * One row of `The manager found`.
+ * One row of the `Findings` section.
  *
  * Every kind but a verdict without a rebuild is a known cause: the manager knows a fix, so
  * the dialog offers the fix before the send actions.
@@ -75,7 +75,7 @@ export function findings({ update, issues, incident, mods }: FindingInputs): Fin
   return found;
 }
 
-/** Returns whether `finding` is a known cause, which moves the send actions to `Send anyway`. */
+/** Returns whether `finding` is a known cause, which moves the send actions into a menu. */
 export function isKnownCause(finding: Finding): boolean {
   return finding.kind !== "verdict" || finding.rebuild;
 }

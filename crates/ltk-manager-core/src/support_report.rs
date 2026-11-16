@@ -112,9 +112,9 @@ impl ReportProblem {
     /// Returns the English sentence for the problem, as `report.md` states it.
     fn sentence(self) -> &'static str {
         match self {
-            Self::ModNotShown => "A mod does not show",
-            Self::GameCrashed => "The game crashed",
-            Self::Manager => "The manager has a problem",
+            Self::ModNotShown => "Mod not showing in game",
+            Self::GameCrashed => "Game crash",
+            Self::Manager => "Manager problem",
         }
     }
 }
@@ -247,22 +247,6 @@ pub struct ReportPreviewFile {
     pub contents: String,
 }
 
-/// The number of replacements in a report, by the kind of value that was replaced.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct ReportReplacements {
-    /// The profile directory, the League, storage and workshop paths, and the path of
-    /// another user.
-    pub paths: u32,
-    /// URLs and `ltk://` links.
-    pub links: u32,
-    /// IP addresses and email addresses.
-    pub addresses: u32,
-    /// Every other value, such as the username, the computer name and a secret.
-    pub other: u32,
-}
-
 /// A complete report as the dialog shows it before the report leaves.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -273,7 +257,6 @@ pub struct ReportPreview {
     pub file_name: String,
     /// Every file of the report, in the order of the zip.
     pub files: Vec<ReportPreviewFile>,
-    pub replaced: ReportReplacements,
     /// The summary that `Copy for Discord` puts on the clipboard.
     pub summary: String,
     /// The summary for the author of the mod that the incident names. `None` if the report
@@ -481,7 +464,7 @@ impl SupportReport {
             out.push_str(&format!(", League {game}"));
         }
         out.push_str(&format!(
-            "\n**Found:** {} ({}). {}\n**Token:** `{}`",
+            "\n**Findings:** {} ({}). {}\n**Token:** `{}`",
             found.title,
             found.consequence,
             text::first_chars(&found.cause, SUMMARY_TEXT_CHARS),
@@ -517,7 +500,7 @@ impl SupportReport {
         );
         if let Some(origin) = &self.description.origin {
             out.push_str(&format!(
-                "**From:** {}\n",
+                "**Trigger:** {}\n",
                 text::first_chars(&origin.sentence().replace('\n', " "), SUMMARY_LINE_CHARS)
             ));
         }
@@ -528,13 +511,13 @@ impl SupportReport {
         }
         match &self.found {
             Some(found) => out.push_str(&format!(
-                "**Found:** {} ({}). {}\n**Token:** `{}`\n",
+                "**Findings:** {} ({}). {}\n**Token:** `{}`\n",
                 found.title,
                 found.consequence,
                 text::first_chars(&found.cause, SUMMARY_TEXT_CHARS),
                 found.token
             )),
-            None => out.push_str("**Found:** no incident on record\n"),
+            None => out.push_str("**Findings:** no incident on record\n"),
         }
         out.push_str(&format!(
             "**Report:** `{}`, attached",
@@ -558,20 +541,17 @@ impl SupportReport {
             self.created_at.format("%Y-%m-%d %H:%M"),
         );
 
-        out.push_str(&format!(
-            "\n## What went wrong\n\n{}\n",
-            self.problem_line()
-        ));
+        out.push_str(&format!("\n## Problem\n\n{}\n", self.problem_line()));
         let words = self.description.text.trim();
         if !words.is_empty() {
             out.push_str(&format!("\n{words}\n"));
         }
         if let Some(origin) = &self.description.origin {
-            out.push_str(&format!("\n## Opened from\n\n{}\n", origin.sentence()));
+            out.push_str(&format!("\n## Trigger\n\n{}\n", origin.sentence()));
         }
         if let Some(found) = &self.found {
             out.push_str(&format!(
-                "\n## The manager found\n\n{} ({})\n\n{}\n\nIncident {}\nToken: {}\n",
+                "\n## Findings\n\n{} ({})\n\n{}\n\nIncident {}\nToken: {}\n",
                 found.title, found.consequence, found.cause, found.incident_id, found.token
             ));
         }
@@ -646,16 +626,6 @@ impl BuiltReport {
     #[must_use]
     pub fn preview(&self) -> ReportPreview {
         let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
-        let mut replaced = ReportReplacements::default();
-        for (rule, replacements) in &self.manifest.replacements {
-            let kind = match *rule {
-                "profile" | "league" | "data" | "workshop" | "other-user" => &mut replaced.paths,
-                "url" | "deep-link" => &mut replaced.links,
-                "ipv4" | "ipv6" | "email" => &mut replaced.addresses,
-                _ => &mut replaced.other,
-            };
-            *kind += count(*replacements);
-        }
         ReportPreview {
             id: self.manifest.id.clone(),
             file_name: self.file_name(),
@@ -668,7 +638,6 @@ impl BuiltReport {
                     contents: file.contents.clone(),
                 })
                 .collect(),
-            replaced,
             summary: self.summary.clone(),
             author_summary: self.author_summary.clone(),
         }

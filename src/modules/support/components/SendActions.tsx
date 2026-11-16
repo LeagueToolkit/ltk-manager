@@ -5,7 +5,7 @@ import { m } from "@/i18n";
 
 interface SendActionsProps {
   /** Whether a known cause holds the primary button, so that the send actions are a menu. */
-  sendAnyway: boolean;
+  asMenu: boolean;
   /** Whether the report is built and no send is in flight. */
   ready: boolean;
   /** Whether a send is in flight. */
@@ -19,23 +19,16 @@ interface SendActionsProps {
  * The three ways a report leaves: a GitHub issue, a file and a summary for Discord.
  *
  * `Copy for Discord` is the primary button. If a known cause holds that place, the three
- * actions are items of one `Send anyway` menu.
+ * actions are items of one `Send report` menu.
  */
-export function SendActions({
-  sendAnyway,
-  ready,
-  sending,
-  onIssue,
-  onSave,
-  onCopy,
-}: SendActionsProps) {
-  if (sendAnyway) {
+export function SendActions({ asMenu, ready, sending, onIssue, onSave, onCopy }: SendActionsProps) {
+  if (asMenu) {
     return (
       <Menu.Root>
         <Menu.Trigger
           render={
             <Button loading={sending} right={<CaretDownIcon className="size-4" />}>
-              {m.support_send_anyway_label()}
+              {m.support_send_action()}
             </Button>
           }
         />

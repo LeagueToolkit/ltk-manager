@@ -120,7 +120,7 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   // The crash screen has no update dialog, because the root layout mounts it.
   const update = origin?.kind === "crash" ? null : offeredUpdate;
   const found = findings({ update, issues, incident: subject, mods });
-  const sendAnyway = found.some(isKnownCause);
+  const hasKnownCause = found.some(isKnownCause);
 
   const [problem, setProblem] = useState<ReportProblem>(origin ? "manager" : "mod-not-shown");
   const [modId, setModId] = useState(NO_MOD);
@@ -263,9 +263,9 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
         </Stack>
       </Dialog.Body>
 
-      <Dialog.Footer className={sendAnyway ? "justify-end" : "justify-between"}>
+      <Dialog.Footer className={hasKnownCause ? "justify-end" : "justify-between"}>
         <SendActions
-          sendAnyway={sendAnyway}
+          asMenu={hasKnownCause}
           ready={Boolean(preview) && !busy}
           sending={saveReport.isPending}
           onIssue={() => void openUrl(bugReportUrl(appInfo, token.data ?? null))}
@@ -309,7 +309,7 @@ interface ReportContentsProps {
   onIncludeGameLog: (include: boolean) => void;
 }
 
-/** The file groups of the report with their sizes, and the count of what was replaced. */
+/** The file groups of the report with their sizes. */
 function ReportContents({
   preview,
   gameLogOffered,
@@ -318,40 +318,30 @@ function ReportContents({
 }: ReportContentsProps) {
   const groups = groupReportFiles(preview.files).filter((group) => group.id !== "gameLog");
   const gameLog = preview.files.find((file) => file.path.startsWith("game-log/"));
-  const { paths, links, addresses, other } = preview.replaced;
-  const replacedAny = paths + links + addresses + other > 0;
 
   return (
-    <Stack gap={2}>
-      <Grid columns="minmax(0, 1fr) max-content" gap={3} rowGap={1}>
-        {groups.map((group) => (
-          <ContentsRow
-            key={group.id}
-            label={groupLabel(group.id, group.incidents)}
-            bytes={group.bytes}
+    <Grid columns="minmax(0, 1fr) max-content" gap={3} rowGap={1}>
+      {groups.map((group) => (
+        <ContentsRow
+          key={group.id}
+          label={groupLabel(group.id, group.incidents)}
+          bytes={group.bytes}
+        />
+      ))}
+      {gameLogOffered && (
+        <>
+          <Checkbox
+            size="sm"
+            label={m.support_holds_game_log_label()}
+            checked={includeGameLog}
+            onCheckedChange={(checked) => onIncludeGameLog(checked === true)}
           />
-        ))}
-        {gameLogOffered && (
-          <>
-            <Checkbox
-              size="sm"
-              label={m.support_holds_game_log_label()}
-              checked={includeGameLog}
-              onCheckedChange={(checked) => onIncludeGameLog(checked === true)}
-            />
-            <span className="text-sm text-surface-400 tabular-nums">
-              {gameLog && formatBytes(gameLog.bytes)}
-            </span>
-          </>
-        )}
-      </Grid>
-
-      {replacedAny && (
-        <p className="text-sm text-surface-400">
-          {m.support_replaced_description({ paths, links, addresses, other })}
-        </p>
+          <span className="text-right text-sm text-surface-400 tabular-nums">
+            {gameLog && formatBytes(gameLog.bytes)}
+          </span>
+        </>
       )}
-    </Stack>
+    </Grid>
   );
 }
 

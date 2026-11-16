@@ -102,7 +102,7 @@ fn report_md_states_the_build_first_and_redacts_the_description() {
         first_line.starts_with("dev.leaguetoolkit.manager 1.34.0, release build, "),
         "{first_line}"
     );
-    assert!(summary.contains("A mod does not show: Aatrox Justicar\n"));
+    assert!(summary.contains("Mod not showing in game: Aatrox Justicar\n"));
     assert!(summary.contains("it broke, mail me at <redacted>\n"));
     assert_eq!(report.manifest().replacements.get("email"), Some(&1));
 }
@@ -298,7 +298,7 @@ fn add_incidents_writes_each_incident_and_states_the_newest_in_report_md() {
     let text = file(&report, &format!("incidents/{}.md", incident.id));
     assert!(text.contains(&incident.verdict.title), "{text}");
     let summary = file(&report, REPORT_MD);
-    assert!(summary.contains("## The manager found"), "{summary}");
+    assert!(summary.contains("## Findings"), "{summary}");
     assert!(summary.contains(&incident.verdict.title), "{summary}");
     assert!(summary.contains("Token: DIAG1-"), "{summary}");
 }
@@ -350,7 +350,7 @@ fn report_md_states_the_origin_and_the_shown_errors() {
     let summary = file(&report, REPORT_MD);
     assert!(
         summary.contains(
-            "## Opened from\n\nThe manager showed an error: Could not save the file (IO, ref ab12cd34)\n"
+            "## Trigger\n\nThe manager showed an error: Could not save the file (IO, ref ab12cd34)\n"
         ),
         "{summary}"
     );
@@ -363,7 +363,7 @@ fn report_md_states_the_origin_and_the_shown_errors() {
     assert!(
         report
             .summary()
-            .contains("**From:** The manager showed an error: Could not save the file"),
+            .contains("**Trigger:** The manager showed an error: Could not save the file"),
         "{}",
         report.summary()
     );
@@ -509,38 +509,22 @@ fn summary_states_that_no_incident_is_on_record() {
     let summary = report.summary();
 
     assert!(
-        summary.contains("**Problem:** The manager has a problem\n"),
+        summary.contains("**Problem:** Manager problem\n"),
         "{summary}"
     );
     assert!(summary.contains("> reach me at <redacted>\n"), "{summary}");
     assert!(
-        summary.contains("**Found:** no incident on record\n"),
+        summary.contains("**Findings:** no incident on record\n"),
         "{summary}"
     );
 }
 
 #[test]
-fn preview_groups_the_replacements_by_kind() {
-    let report = report(ReportDescription {
-        problem: None,
-        mod_name: None,
-        text: r"from https://a.example/b?c=d by a@example.com at C:\Users\Other Person\Desktop"
-            .to_owned(),
-        ..ReportDescription::default()
-    })
-    .finish();
+fn preview_lists_each_file_with_its_size() {
+    let report = report(ReportDescription::default()).finish();
 
     let preview = report.preview();
 
-    assert_eq!(
-        preview.replaced,
-        ReportReplacements {
-            paths: 1,
-            links: 1,
-            addresses: 1,
-            other: 0,
-        }
-    );
     assert_eq!(preview.file_name, report.file_name());
     let paths: Vec<&str> = preview
         .files
@@ -620,7 +604,7 @@ fn author_summary_names_the_one_library_mod_of_the_incident() {
         .expect("one library mod is named");
     assert!(
         summary.starts_with(
-            "**Aatrox Justicar** did not work in game\nLTK Manager 1.34.0, League 16.22\n**Found:** "
+            "**Aatrox Justicar** did not work in game\nLTK Manager 1.34.0, League 16.22\n**Findings:** "
         ),
         "{summary}"
     );

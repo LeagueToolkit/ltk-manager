@@ -258,7 +258,7 @@ function VerdictLine({ incident }: { incident: Incident }) {
             onClick={() => void openUrl(issue.url!)}
             className="h-5"
           >
-            {m.support_cause_issue_action()}
+            {m.common_read_more_action()}
           </Button>
         )}
         <Button
@@ -298,7 +298,7 @@ function PanicLine({ panic }: { panic: PanicRecord }) {
     <RestingLine part="panic">
       <WarningIcon className="size-3.5 shrink-0 text-warning-text" weight="fill" />
       <span className="shrink-0 font-medium text-surface-300">
-        {m.support_origin_panic_title()}
+        {m.launcher_manager_crashed_label()}
       </span>
       <LineActions
         label={m.common_get_help_action()}
