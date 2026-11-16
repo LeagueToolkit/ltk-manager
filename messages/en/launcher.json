@@ -23,5 +23,6 @@
   "launcher_install_pbe_label": "PBE",
   "launcher_install_switch_failed_title": "Couldn't switch the League install",
   "launcher_install_switched_title": "League path changed",
-  "launcher_launch_failed_title": "Couldn't launch League"
+  "launcher_launch_failed_title": "Couldn't launch League",
+  "launcher_manager_crashed_label": "Manager crashed"
 }

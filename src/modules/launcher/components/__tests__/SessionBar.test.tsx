@@ -5,7 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { ChromePortal } from "@/components";
-import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/tauri";
+import type {
+  Incident,
+  KnownIssue,
+  LaunchProgress,
+  OverlayProgress,
+  PatcherPhase,
+} from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useIncidentLineStore, usePatcherFailureStore, usePlaySessionStore } from "@/stores";
 import { commandNames } from "@/test/commandNames";
@@ -45,6 +51,9 @@ async function emit(name: string, payload: unknown) {
   });
 }
 
+/** The known issues that the feed answers with. */
+let knownIssues: KnownIssue[] = [];
+
 function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning = false) {
   mockInvoke.mockImplementation((cmd: string) => {
     if (cmd === commandNames.patcher.getPatcherStatus) {
@@ -66,6 +75,9 @@ function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning
           leagueRunning,
         },
       });
+    }
+    if (cmd === commandNames.support.listKnownIssues) {
+      return Promise.resolve({ ok: true, value: knownIssues });
     }
     return Promise.resolve({ ok: true, value: null });
   });
@@ -160,6 +172,7 @@ const missingData: Incident = {
 
 describe("SessionBar", () => {
   beforeEach(() => {
+    knownIssues = [];
     mockInvoke.mockReset();
     mockNavigate.mockReset();
     handlers.clear();
@@ -357,6 +370,33 @@ describe("SessionBar", () => {
       expect(screen.getByText("No Mods Applied")).toBeInTheDocument();
       expect(screen.getByText("No mod ran")).toBeInTheDocument();
       expect(screen.queryByText("Aatrox Justicar")).not.toBeInTheDocument();
+    });
+
+    /// A failure that hits every install on a patch day is answered in the bar,
+    /// before the player opens anything.
+    it("shows the known issue that the maintainers publish for the verdict", async () => {
+      knownIssues = [
+        {
+          id: "2026-11-patch-16-23",
+          verdicts: ["missing-data"],
+          message: "Patch 16.23 moved the skin data. Update the manager.",
+          url: "https://github.com/LeagueToolkit/ltk-manager/issues/1100",
+        },
+        {
+          id: "other",
+          verdicts: ["graphics-fault"],
+          message: "A driver release breaks the game.",
+          url: null,
+        },
+      ];
+      useIncidentLineStore.setState({ incident: missingData });
+      await renderIdleBar();
+
+      expect(
+        await screen.findByText("Patch 16.23 moved the skin data. Update the manager."),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Read more" })).toBeInTheDocument();
+      expect(screen.queryByText("A driver release breaks the game.")).not.toBeInTheDocument();
     });
 
     /// The hint is the verdict's word that a rebuild is worth trying, so the

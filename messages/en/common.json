@@ -28,9 +28,9 @@
   "common_filter_maps_label": "Maps",
   "common_filter_popup_label": "Sort and filter",
   "common_filter_tags_label": "Tags",
+  "common_get_help_action": "Get help",
   "common_health_broken_label": "{count} broken",
   "common_health_flagged_label": "{count} flagged",
-  "common_get_help_action": "Get help",
   "common_health_repairs_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -50,6 +50,7 @@
   "common_palette_results_label": "Results",
   "common_palette_search_label": "Search",
   "common_path_open_action": "Open in file manager",
+  "common_read_more_action": "Read more",
   "common_retry_action": "Retry",
   "common_save_action": "Save",
   "common_sort_name_asc_label": "A–Z",

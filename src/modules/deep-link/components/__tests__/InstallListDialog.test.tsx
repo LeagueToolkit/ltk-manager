@@ -53,7 +53,7 @@ const kalista = createMockInstalledMod({
   id: "mod-a",
   name: "necron-kalista",
   displayName: "Necron Kalista",
-  origin: { source: "Runeforge", id: "a", version: "v1.0.0" },
+  origin: { source: "Runeforge", id: "a", version: "v1.0.0", pageUrl: null },
 });
 
 function report(over: Partial<InstallListReport> = {}): InstallListReport {

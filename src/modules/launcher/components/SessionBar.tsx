@@ -7,6 +7,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
+import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { match } from "ts-pattern";
 
@@ -36,7 +37,7 @@ import {
   usePatcherStatus,
   useRebuildOverlayAction,
 } from "@/modules/patcher";
-import { useDismissPreviousPanic, usePreviousPanic } from "@/modules/support";
+import { useDismissPreviousPanic, useKnownIssue, usePreviousPanic } from "@/modules/support";
 import {
   openGetHelp,
   type PatcherFailure,
@@ -201,13 +202,15 @@ function LineActions({
  *
  * It holds the bar until the user closes it, a build takes the bar back, or the
  * next game attaches. The incident itself waits on the Games tab. A verdict
- * with the rebuild hint offers the rebuild here too.
+ * with the rebuild hint offers the rebuild here too. A known issue that the maintainers
+ * publish for the verdict shows as the second line, with `Read more` if it has a page.
  */
 function VerdictLine({ incident }: { incident: Incident }) {
   const navigate = useNavigate();
   const dismiss = useDismissIncident();
   const rebuild = useRebuildOverlayAction();
   const clearFailure = usePatcherFailureStore((s) => s.clear);
+  const issue = useKnownIssue(incident);
   const { verdict, suspects } = incident;
   const [suspect] = suspects;
 
@@ -218,7 +221,7 @@ function VerdictLine({ incident }: { incident: Incident }) {
   }
 
   return (
-    <RestingLine part="verdict">
+    <RestingLine part="verdict" detail={issue?.message}>
       <VerdictGlyph kind={verdict.kind} />
       <span className="shrink-0 font-medium text-surface-300">League closed</span>
       <Middot />
@@ -248,6 +251,16 @@ function VerdictLine({ incident }: { incident: Incident }) {
         }
         onDismiss={handleDismiss}
       >
+        {issue?.url && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() => void openUrl(issue.url!)}
+            className="h-5"
+          >
+            {m.common_read_more_action()}
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="xs"
@@ -285,7 +298,7 @@ function PanicLine({ panic }: { panic: PanicRecord }) {
     <RestingLine part="panic">
       <WarningIcon className="size-3.5 shrink-0 text-warning-text" weight="fill" />
       <span className="shrink-0 font-medium text-surface-300">
-        {m.support_origin_panic_title()}
+        {m.launcher_manager_crashed_label()}
       </span>
       <LineActions
         label={m.common_get_help_action()}

@@ -160,6 +160,7 @@ pub enum GitHubFeed {
     Releases,
     Announcements,
     Notices,
+    KnownIssues,
 }
 
 impl AppErrorResponse {

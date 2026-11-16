@@ -96,7 +96,7 @@ gives it.
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
 | Support report          | In progress | An allowlisted zip, built by named builders. Game records and the build are missing  |
-| Report preview          | Available   | The file list, the redacted text and the replacement counts                          |
+| Report preview          | Available   | The file list and the redacted text of each file                                     |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
 | `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
 | Game record             | Planned     | One small record for every game, clean games included                                |
@@ -335,9 +335,8 @@ user's own description is kept as typed.
 
 The target size is under 500 KB, and the cap is 2 MB. The log is cut first when the cap is hit.
 
-**The user's own text is redacted.** `Anything to add?` passes the redactor like every other
-file, because a user can type a Riot ID, an email or a path. The preview shows the redacted text
-with each replaced part marked.
+**The user's own text is redacted.** `Notes` passes the redactor like every other file, because a
+user can type a Riot ID, an email or a path. The preview shows the redacted text.
 
 **A report holds no image.** An image cannot be redacted. When the mod trace ends at `The last game
 loaded this mod`, the dialog adds one line, `Add a screenshot to your message`, and the user
@@ -353,39 +352,45 @@ without that signature can save a report and cannot upload one.
 +--------------------------------------------------------------------+
 | Get help                                                           |
 |                                                                    |
-| What went wrong?   [ A mod does not show                      v ]  |
+| Problem                                                            |
+| [ Mod not showing in game                                      v ] |
+| Mod                                                                |
+| [ Aatrox Justicar                                              v ] |
+| Notes                                                              |
+| [ Optional                                                       ] |
 |                                                                    |
-| Which mod?   [ Aatrox Justicar                                v ]  |
+| FINDINGS                                                           |
+|   Update available                                                 |
+|   1.34.0 → 1.35.0                                  [ Update now ]  |
+|   Missing Game Data                                                |
+|   League failed to read a file.               [ Rebuild overlay ]  |
 |                                                                    |
-| Anything to add? (optional)                                        |
-| [                                                                ] |
-|                                                                    |
-| THE MANAGER FOUND                                                  |
-| ! The patcher was not running in your last game                    |
-|   Aatrox Justicar was not in the game.          [ Start patcher ]  |
-|                                                                    |
-| REPORT CONTENTS                                          Preview   |
-|   App log                                               212 KB     |
-|   5 games, 1 incident                                    31 KB     |
-|   System checks, settings, mods                          18 KB     |
+| FILES                                                    Preview   |
+|   Overview                                               2 KB      |
+|   Manager log                                           212 KB     |
+|   1 incident                                             31 KB     |
+|   System checks, settings, mod list                      18 KB     |
 |   [x] Game log                                           44 KB     |
 |                                                                    |
-|   Replaced: 61 paths, 4 links, 2 addresses, 0 other                |
-|                                                                    |
-|   Send anyway:        Save as file        Copy for Discord         |
+|                                                [ Send report v ]   |
 +--------------------------------------------------------------------+
 ```
 
-The dialog holds labels and data and no explanatory sentence. It has no subtitle, shows `The
-manager found` only if an incident is on record, and shows the replacement counts only if a value
-was replaced.
+The dialog holds labels and data and no explanatory sentence. It has no subtitle, and shows
+`Findings` only if the manager found something. The dialog does not show the replacement counts.
+`manifest.json` holds them.
 
-- **What went wrong** is a select of three choices, and a mod picker. The text field is optional,
-  so a user who does not write English still sends a structured report
-- **The manager found** lists the advisories and the verdict the report rests on. A cause that has
-  a fix shows the fix as the primary button, and the send actions move under `Send anyway`. A
-  report with no known cause shows the send actions as primary. Until advisories and known causes
-  exist, the section shows the verdict of the newest incident and the send actions are primary
+The wording follows "UI Copy" in `src/AGENTS.md`. A field label, a choice, a heading and a row
+title are noun phrases. An action label has no article. A failure title starts with `Couldn't`.
+
+- **Problem** is a select of three choices: `Mod not showing in game`, `Game crash` and
+  `Manager problem`. **Mod** is the mod picker, and it shows for the first choice. **Notes** is
+  optional, so a user who does not write English still sends a structured report
+- **Findings** lists the [known causes](#known-causes) and the verdict the report rests on. A
+  cause that has a fix shows the fix as the primary button, and the send actions move under
+  `Send report`. A report with no known cause shows the send actions as primary
+- **Files** lists the file groups of the report with their sizes: `Overview` is `report.md` and
+  `manifest.json`, and `Manager log` is the log of the manager
 - **Preview** opens every file of the report as text, as it will leave. The dialog builds the
   report when it opens and again when a choice changes, and the backend keeps that report. The
   two send actions write the report that was built, so the zip holds the files of the preview
@@ -394,7 +399,7 @@ was replaced.
   advisory and the verdict in one line, the incident token and the name of the zip. A Discord
   message holds 2,000 characters
 - **Save as file** writes `ltk-report-<date>-<id>.zip` through the save dialog and reveals it
-- **Open a GitHub issue** sits beside the two buttons, and opens the issue form with the version,
+- **Open GitHub issue** sits beside the two buttons, and opens the issue form with the version,
   the token and the report code filled in
 
 Discord is where most of this support happens, so the Discord action is the primary one. Once the
@@ -403,44 +408,61 @@ ends with the report code in place of a file to attach.
 
 ### Known causes
 
-The dialog checks four sources for a cause before it offers to send. Each one shows its own fix as
-the primary button and moves the send actions under `Send anyway`.
+The dialog checks four sources for a cause before it offers to send. Each one is a row of
+`Findings`, in this order. The fix of the first row is the primary button of the dialog, and the
+send actions move under `Send report`, one menu button that holds `Copy for Discord`, `Save as
+file` and `Open GitHub issue`.
 
-| Source                              | The dialog shows                      | Primary button        |
-| ----------------------------------- | ------------------------------------- | --------------------- |
-| An advisory or a verdict with a fix | The sentence for the code             | The fix of that code  |
-| An update is available              | The installed and the latest version  | `Update now`          |
-| A published known issue             | The maintainers' message and its link | `Read more`           |
-| The evidence names one mod          | `The problem is in this mod`          | `Open the mod's page` |
+| Source                     | The row shows                         | Button            |
+| -------------------------- | ------------------------------------- | ----------------- |
+| An update is available     | The installed and the latest version  | `Update now`      |
+| A published known issue    | The maintainers' message              | `Read more`       |
+| A verdict with a fix       | The verdict and its cause             | `Rebuild overlay` |
+| The evidence names one mod | `Suspect mod` and the name of the mod | `Open mod page`   |
 
-**Updates.** A report from an outdated manager or patcher states both versions on its first line.
+An update comes first, because it can hold the fix for every row after it. A known issue is the
+maintainers' answer to the verdict, so it stands above the verdict. A verdict without a fix keeps
+its row and is not a known cause. An advisory with a fix joins the verdict row when advisories
+exist.
 
-**Known issues.** `config/known-issues.json` in the repository maps advisory codes and verdict
-kinds to a short message, a link and the versions it applies to. The app fetches it the way it
-fetches the news. The session bar shows the message beside a matching advisory or verdict, so a
-failure that hits every install on a patch day is answered before a user opens the dialog.
-Maintainers publish and withdraw an entry without a release.
+**Updates.** `Update now` closes the dialog and opens the update dialog, which holds the download,
+the restart and the warning for a running game. The crash screen shows no update row, because the
+root layout mounts the update dialog. A report from an outdated manager states the installed and
+the latest version on its first line. A report with a patcher past its end of life states the
+version of that patcher on the same line. The Discord summary has the same line.
 
-**The mod's author.** A mod is named when it is unhealthy, when its archive failed verification,
-or when it is the one suspect of an incident. `Open the mod's page` uses the origin that the
-library index records, a RuneForge post or the install link. The dialog also copies a summary
-written for the author. A mod with no recorded origin gets the sentence and no button.
+**Known issues.** `config/known-issues.json` in the repository maps verdict kinds to a short
+message, a link and the versions it applies to. `config/README.md` documents the schema. The app
+fetches it the way it fetches the news, and keeps an answer for 30 minutes. The session bar shows
+the message under a matching verdict, with `Read more`, so a failure that hits every install on
+a patch day is answered before a user opens the dialog. Maintainers publish and withdraw an entry
+without a release. An entry gains advisory codes when advisories exist.
 
-The zip writer and the save dialog exist already, in the mod export.
+**The verdict's fix.** `Rebuild overlay` is the one fix that a verdict offers as an action. The
+other hints of a verdict are sentences, and the Games tab shows them.
+
+**The mod's author.** The row shows if the incident names exactly one suspect and the suspect is
+a library mod. A workshop project is the user's own work, so it gets no row. `Open mod page` uses
+the page that the library index records as the origin of the mod. An install list records it,
+and only as a public HTTPS address. `Copy for author` copies a summary for the author: the mod,
+the versions of the manager and of League, the verdict and the incident token. A mod with no
+recorded page gets the row and `Copy for author`, and no page button. A mod
+that is unhealthy or that failed verification is named in the library, by
+[mod health](MOD_HEALTH.md).
 
 ### Entry points
 
-| From                               | Does                                                           |
-| ---------------------------------- | -------------------------------------------------------------- |
-| An error toast                     | `Details` on every one. `Get help` on an unexpected code       |
-| The crash screen                   | The same action. Replaces the bare issue link                  |
-| A route error                      | A `defaultErrorComponent` that renders the crash screen        |
-| The next start after a panic       | One line in the session bar: `The manager closed unexpectedly` |
-| The title bar menu                 | `Get help`. `Report a Bug` is removed                          |
-| A mod card menu                    | `Not working in game?`, which opens the mod trace              |
-| The Games tab and the verdict line | `Get help` beside `Copy report`                                |
-| Settings, About                    | `Get help`, and `Open log folder` below it                     |
-| The command palette                | `Get help`                                                     |
+| From                               | Does                                                     |
+| ---------------------------------- | -------------------------------------------------------- |
+| An error toast                     | `Details` on every one. `Get help` on an unexpected code |
+| The crash screen                   | The same action. Replaces the bare issue link            |
+| A route error                      | A `defaultErrorComponent` that renders the crash screen  |
+| The next start after a panic       | One line in the session bar: `Manager crashed`           |
+| The title bar menu                 | `Get help`. `Report a Bug` is removed                    |
+| A mod card menu                    | `Not working in game?`, which opens the mod trace        |
+| The Games tab and the verdict line | `Get help` beside `Copy report`                          |
+| Settings, About                    | `Get help`, and `Open log folder` below it               |
+| The command palette                | `Get help`                                               |
 
 The router's `defaultErrorComponent` renders the crash screen and sends the telemetry event for a
 route render crash.
@@ -449,14 +471,15 @@ Each entry point opens the dialog with the context it has, and the report states
 
 | Context     | From                               | The report                                               |
 | ----------- | ---------------------------------- | -------------------------------------------------------- |
-| An incident | The Games tab and the verdict line | States that incident under `The manager found`           |
+| An incident | The Games tab and the verdict line | States that incident under `Findings`                    |
 | A crash     | The crash screen and a route error | States the route and the message of the error            |
 | A panic     | The line in the session bar        | States the time and the version of the run that panicked |
 | An error    | `Get help` on an error toast       | States the title, the code and the `ref` of the error    |
 | No context  | The menus and the command palette  | States the newest incident                               |
 
-`report.md` states a crash, a panic or an error under `Opened from`, and the Discord summary has
-the same sentence on a `From` line. The dialog starts on `The manager` for these three.
+`report.md` states a crash, a panic or an error under `Trigger`, and the Discord summary has the
+same sentence on a `Trigger` line. The dialog shows it under `Trigger` and starts on `Manager
+problem` for these three.
 
 **The crash screen** mounts the dialog itself. The root layout mounts the dialog of the app, and
 the root layout is part of the tree that crashed.
@@ -870,7 +893,7 @@ The team answered these on 2026-11-12.
 | Is League's game log in the report?              | Yes when an incident exists, and the user can untick it                       |
 | Does `Get help` replace `Report a Bug`?          | Yes                                                                           |
 | Which error toasts carry `Get help`?             | The unexpected codes. Every error toast carries `Details`                     |
-| What does the dialog do with a known cause?      | The fix is the primary action, and sending is under `Send anyway`             |
+| What does the dialog do with a known cause?      | The fix is the primary action, and sending is under `Send report`             |
 | How long does the service keep a report?         | 30 days                                                                       |
 | How does a maintainer sign in?                   | GitHub login, limited to a LeagueToolkit team                                 |
 | How is an upload admitted?                       | The delivery challenge, five a day for one install, no install id stored      |
