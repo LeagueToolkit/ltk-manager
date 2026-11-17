@@ -126,7 +126,7 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   const hasKnownCause = found.some(isKnownCause);
 
   const [problem, setProblem] = useState<ReportProblem>(origin ? "manager" : "mod-not-shown");
-  const [modId, setModId] = useState(NO_MOD);
+  const [modId, setModId] = useState(context.modId ?? NO_MOD);
   const [text, setText] = useState("");
   const [includeGameLog, setIncludeGameLog] = useState(true);
   const [previewing, setPreviewing] = useState(false);

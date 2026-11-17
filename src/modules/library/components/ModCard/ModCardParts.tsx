@@ -8,6 +8,7 @@ import {
   HeartbeatIcon,
   InfoIcon,
   PackageIcon,
+  QuestionIcon,
   ShieldWarningIcon,
   SpinnerGapIcon,
   TrashIcon,
@@ -38,7 +39,7 @@ import {
 import { useLibrarySidebarStore, useLibraryTableStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings/api";
-import { useModHealthDrawerStore } from "@/stores";
+import { openModTrace, useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { MoveToFolderSubmenu } from "../MoveToFolderMenu";
@@ -274,6 +275,14 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       </Menu.Item>
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
       {canCheckHealth && <ModCardHealthItem modId={mod.id} />}
+      <Menu.Item
+        icon={<QuestionIcon className="size-4" weight="bold" />}
+        onClick={() =>
+          openModTrace({ subject: { kind: "mod", id: mod.id }, name: mod.displayName })
+        }
+      >
+        {m.diagnostics_trace_action()}
+      </Menu.Item>
       <ModCardUpdateItem modId={mod.id} />
       <Menu.Item icon={<CopyIcon className="size-4" weight="bold" />} onClick={view.onCopyId}>
         {m.library_mod_copy_id_action()}

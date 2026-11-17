@@ -561,6 +561,20 @@ fn a_stamp_with_no_log_inside_is_refused() {
 }
 
 #[test]
+fn newest_game_start_is_the_newest_stamp_and_opens_no_log() {
+    let tmp = tempfile::tempdir().expect("a temp dir");
+    let logs = LeagueLogs::new(tmp.path());
+    assert_eq!(logs.newest_game_start(), None);
+
+    let game_logs = tmp.path().join("Logs/GameLogs");
+    fs::create_dir_all(game_logs.join("2026-08-17T07-20-00")).expect("an older stamp dir");
+    fs::create_dir_all(game_logs.join("2026-08-17T07-26-15")).expect("the newest stamp dir");
+    fs::create_dir_all(game_logs.join("not-a-stamp")).expect("a stray dir");
+
+    assert_eq!(logs.newest_game_start(), Some(at(7, 26, 15)));
+}
+
+#[test]
 fn no_game_logs_directory_is_no_log() {
     let tmp = tempfile::tempdir().expect("a temp dir");
     let window = GameWindow {

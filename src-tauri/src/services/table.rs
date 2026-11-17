@@ -274,6 +274,7 @@ services! {
         decode_incident_token,
         list_advisories,
         mute_advisory,
+        mod_trace,
         telemetry_identity,
         reset_telemetry_secret,
         track_ui_error,

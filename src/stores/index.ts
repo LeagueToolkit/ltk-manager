@@ -6,6 +6,7 @@ export * from "./getHelp";
 export * from "./incidentLine";
 export * from "./installMismatch";
 export * from "./modHealthDrawer";
+export * from "./modTrace";
 export * from "./notifications";
 export * from "./patcherFailure";
 export * from "./patcherSession";

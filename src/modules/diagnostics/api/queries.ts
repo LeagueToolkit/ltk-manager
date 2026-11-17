@@ -5,7 +5,9 @@ import {
   type AppError,
   type DiagnosticReport,
   type Incident,
+  type ModTrace,
   type ShownAdvisory,
+  type TraceSubject,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
@@ -62,5 +64,15 @@ export const diagnosticsQueries = {
       queryKey: diagnosticsKeys.advisories(),
       queryFn: queryFn(api.diagnostics.listAdvisories),
       staleTime: Infinity,
+    }),
+
+  /* Read again on each opening of the panel, and after each build and each game that
+     the backend records. */
+  trace: (subject: TraceSubject) =>
+    queryOptions<ModTrace, AppError>({
+      queryKey: diagnosticsKeys.trace(subject),
+      queryFn: queryFnWithArgs(api.diagnostics.modTrace, subject),
+      staleTime: 0,
+      gcTime: 0,
     }),
 } as const;

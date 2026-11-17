@@ -738,6 +738,19 @@ impl LeagueLogs {
         Self::header_agrees(&path, stamp.naive_local()).then_some(path)
     }
 
+    /// Returns the start of the newest game that League made a log directory for.
+    ///
+    /// Reads the names of `Logs/GameLogs` and opens no file. Returns `None` if the
+    /// directory cannot be read or holds no directory that is named for a start time.
+    #[must_use]
+    pub fn newest_game_start(&self) -> Option<DateTime<Local>> {
+        fs::read_dir(self.root.join("GameLogs"))
+            .ok()?
+            .flatten()
+            .filter_map(|entry| Self::parse_stamp(entry.file_name().to_str()?))
+            .max()
+    }
+
     /// A directory name, `YYYY-MM-DDTHH-MM-SS` in local time, as a moment.
     fn parse_stamp(name: &str) -> Option<DateTime<Local>> {
         NaiveDateTime::parse_from_str(name, "%Y-%m-%dT%H-%M-%S")

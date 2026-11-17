@@ -6257,6 +6257,14 @@ export type ModTiming = {
 	outcome: string,
 };
 
+/**  Why one mod, or one workshop project under test, did or did not reach the last game. */
+export type ModTrace = {
+	/**  The rows, top to bottom. The last row is the first one that failed, if any failed. */
+	rows: TraceRow[],
+	/**  `None` if no game is on record. */
+	lastGame: TracedGame | null,
+};
+
 /**
  *  Per-mod WAD footprint summary sent across the IPC boundary.
  * 
@@ -8411,6 +8419,17 @@ export type RowPath = {
 	label: string,
 };
 
+/**  How one row of a trace ended. */
+export type RowState = 
+/**  The row holds nothing that keeps the mod out of the game. */
+"pass" | 
+/**  The row holds a condition that can keep the mod out of the game. The trace goes on. */
+"warn" | 
+/**  The mod did not get past the row. The trace ends here. */
+"fail" | 
+/**  The manager holds no answer for the row. */
+"unknown";
+
 /**
  *  One rule's live findings, folded to what a mod user reads.
  * 
@@ -9931,6 +9950,83 @@ export type Tool =
 "tex-toolz" | 
 /**  Bin conversion, diff and patch tools. */
 "ritobin-tools";
+
+/**  What one row of a trace found. */
+export type TraceFact = 
+/**  The mod is enabled in the active profile. */
+{ kind: "enabled"; profile: string } | 
+/**  The mod is not enabled in the active profile. */
+{ kind: "not-enabled"; profile: string } | 
+/**  The verdict of the last health check of the mod. */
+{ kind: "health"; health: ModHealth; 
+/**  ISO-8601. */
+checkedAt: string } | 
+/**  The mod has no health verdict. */
+{ kind: "health-unchecked" } | 
+/**  The last build applied the mod. */
+{ kind: "overlay-built"; builtAt: string } | 
+/**  The last build applied the mod, and the mod or the game changed after it. */
+{ kind: "overlay-stale"; builtAt: string } | 
+/**  No build is on record. */
+{ kind: "overlay-not-built" } | 
+/**  The last build left the mod out and raised `advisory`. */
+{ kind: "overlay-left-out"; advisory: AdvisoryCode } | 
+/**
+ *  The last build did not get the mod. The mod was enabled, or the project was put
+ *  under test, after the build.
+ */
+{ kind: "overlay-without-mod"; builtAt: string } | 
+/**  The game archives that the mod patches, each by its last path segment. */
+{ kind: "archives"; archives: string[] } | 
+/**  The mod patches no game archive. */
+{ kind: "no-archives" } | 
+/**  The last build raised `code` about the mod and applied the mod. */
+{ kind: "advisory"; code: AdvisoryCode } | 
+/**  No game ran with the overlay of the last build. */
+{ kind: "game-none" } | 
+/**
+ *  League ran a game after the last build while the manager ran, and no patcher
+ *  session followed the game.
+ */
+{ kind: "game-patcher-not-running" } | 
+/**  League ran a game after the last build, before this run of the manager started. */
+{ kind: "game-unwatched" } | 
+/**  The overlay was not live in the last game. */
+{ kind: "game-overlay-not-live"; outcome: OverlayOutcome; 
+/**  The code that the patcher gave a refusal, such as `VRF00000008`. */
+patcherCode: string | null } | 
+/**  The patcher could not open `archives` of the mod in the last game. */
+{ kind: "game-archives-not-served"; archives: string[] } | 
+/**
+ *  The overlay was live, and League opened no archive of the mod. `champions` holds
+ *  the champions that the mod is for.
+ */
+{ kind: "game-archives-not-loaded"; champions: string[] } | 
+/**  The overlay was live, and League opened `loaded` of the `total` archives of the mod. */
+{ kind: "game-loaded"; loaded: number; total: number } | 
+/**  The overlay was live, and the manager holds no archive report of the mod. */
+{ kind: "game-overlay-live" };
+
+/**  One row of a trace. */
+export type TraceRow = {
+	state: RowState,
+	fact: TraceFact,
+};
+
+/**  The library mod or the workshop project that a trace is about. */
+export type TraceSubject = 
+/**  A mod of the library, by its id. */
+{ kind: "mod"; id: string } | 
+/**  A workshop project, by its directory. */
+{ kind: "project"; path: string };
+
+/**  The newest game that a patcher session followed, for the last line of the panel. */
+export type TracedGame = {
+	startedAt: string,
+	endedAt: string,
+	/**  Whether the session stopped while the game was running. */
+	stillRunning: boolean,
+};
 
 /**  One entry of `mTrackDataMap`. */
 export type Track = {

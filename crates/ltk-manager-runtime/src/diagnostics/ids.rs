@@ -13,10 +13,19 @@ use std::{
     },
 };
 
+use chrono::{DateTime, Utc};
 use parking_lot::{Mutex, const_mutex};
 
 /// The text before the run id on a log line.
 const RUN_PREFIX: &str = "run{id=";
+
+/// One run of the manager.
+#[derive(Debug)]
+struct Run {
+    /// Eight random hex characters.
+    id: String,
+    started_at: DateTime<Utc>,
+}
 
 /// The ids that the log file formatter writes on each line.
 ///
@@ -25,7 +34,7 @@ const RUN_PREFIX: &str = "run{id=";
 /// before [`Self::start_run`].
 #[derive(Debug)]
 pub struct LogIds {
-    run: OnceLock<String>,
+    run: OnceLock<Run>,
     /// The number of sessions that started in this run.
     sessions: AtomicU32,
     /// The number of the running session, or 0 if no session runs.
@@ -57,17 +66,27 @@ impl LogIds {
     ///
     /// Returns the id of the first call if the run already started.
     pub fn start_run(&self) -> &str {
-        self.run.get_or_init(|| {
+        let run = self.run.get_or_init(|| {
             let mut id = uuid::Uuid::new_v4().simple().to_string();
             id.truncate(8);
-            id
-        })
+            Run {
+                id,
+                started_at: Utc::now(),
+            }
+        });
+        &run.id
     }
 
     /// Returns the id of the run, or `None` before [`Self::start_run`].
     #[must_use]
     pub fn run(&self) -> Option<&str> {
-        self.run.get().map(String::as_str)
+        self.run.get().map(|run| run.id.as_str())
+    }
+
+    /// Returns the time of the first [`Self::start_run`], or `None` before it.
+    #[must_use]
+    pub fn run_started_at(&self) -> Option<DateTime<Utc>> {
+        self.run.get().map(|run| run.started_at)
     }
 
     /// Starts the next patcher session of the run. The session ends when the returned scope

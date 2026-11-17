@@ -505,6 +505,7 @@ export const api = {
     decodeIncidentToken: diagnostics.decodeIncidentToken,
     listAdvisories: diagnostics.listAdvisories,
     muteAdvisory: diagnostics.muteAdvisory,
+    modTrace: diagnostics.modTrace,
     telemetryIdentity: diagnostics.telemetryIdentity,
     resetTelemetrySecret: diagnostics.resetTelemetrySecret,
     trackUiError: diagnostics.trackUiError,

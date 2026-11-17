@@ -26,8 +26,9 @@ import { diagnosticsKeys } from "./keys";
  * with the stage's own action. A wrong-install verdict raises the install
  * mismatch dialog with the log's install as the switch target.
  * `patcher-game-attached` takes the line down again, since the bar's job is
- * the present. `advisories-updated` refreshes the advisories, which the backend
- * emits after each build and after each game that it records.
+ * the present. `advisories-updated` refreshes the advisories and an open mod
+ * trace, which the backend emits after each build and after each game that it
+ * records.
  */
 export function useIncidentListeners() {
   const queryClient = useQueryClient();
@@ -73,6 +74,7 @@ export function useIncidentListeners() {
 
   useTauriEvent<unknown>("advisories-updated", () => {
     queryClient.invalidateQueries({ queryKey: diagnosticsKeys.advisories() });
+    queryClient.invalidateQueries({ queryKey: diagnosticsKeys.traces() });
   });
 }
 

@@ -6,6 +6,7 @@ export { EvidenceTimeline } from "./EvidenceTimeline";
 export { GamesTab } from "./GamesTab";
 export { IncidentDetail } from "./IncidentDetail";
 export { IncidentList } from "./IncidentList";
+export { ModTraceDialog } from "./ModTraceDialog";
 export { SeverityBadge, SeverityIcon } from "./SeverityBadge";
 export { SuspectBadge } from "./SuspectBadge";
 export { DecodedTokenCard, TokenDecoder } from "./TokenDecoder";
