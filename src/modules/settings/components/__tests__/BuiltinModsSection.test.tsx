@@ -154,3 +154,25 @@ describe("BuiltinModsSection map decorations", () => {
     );
   });
 });
+
+describe("BuiltinModsSection loading screen", () => {
+  it("hides assets picker when loading screen is disabled", () => {
+    const settings = freshSettings();
+    renderSection(settings);
+
+    expect(screen.queryByLabelText("assets")).not.toBeInTheDocument();
+  });
+
+  it("reveals assets picker when loading screen is enabled", () => {
+    const settings = freshSettings();
+    renderSection({
+      ...settings,
+      builtinMods: {
+        ...settings.builtinMods,
+        loadingScreen: { enabled: true, assets: "test.png" },
+      },
+    });
+
+    expect(screen.getByLabelText("assets")).toBeInTheDocument();
+  });
+});

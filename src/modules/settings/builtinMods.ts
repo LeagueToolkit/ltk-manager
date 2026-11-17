@@ -5,6 +5,7 @@ import type {
   InkingColorMode,
   InkingMaps,
   InkingScope,
+  LoadingScreenSettings,
   MapDecorationMode,
   MapSkinMode,
   Rgb8,
@@ -21,8 +22,20 @@ export function hasBuiltinMods(settings: Settings | undefined): boolean {
     builtinMods?.mapSkin === "classic" ||
     (builtinMods?.mapSkin === "forced" && builtinMods.forcedMapSkin !== "") ||
     Object.keys(builtinMods?.mapDecorations ?? {}).length > 0 ||
-    builtinMods?.characterInking?.enabled === true
+    builtinMods?.characterInking?.enabled === true ||
+    (builtinMods?.loadingScreen?.enabled === true && Boolean(builtinMods.loadingScreen.assets))
   );
+}
+
+/** Loading screen background as a fresh install holds it: off. */
+export const FRESH_LOADING_SCREEN: LoadingScreenSettings = {
+  enabled: false,
+  assets: null,
+};
+
+/** Returns the loading screen settings of `settings`. */
+export function loadingScreenOf(settings: Settings): LoadingScreenSettings {
+  return settings.builtinMods.loadingScreen ?? FRESH_LOADING_SCREEN;
 }
 
 /** Character inking as a fresh install holds it: off, on the Original preset. */
