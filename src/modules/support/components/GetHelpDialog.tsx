@@ -86,9 +86,9 @@ function groupLabel(id: ReportGroupId, count: number): string {
 export function GetHelpDialog() {
   const { isOpen, payload, close } = useDialog(useGetHelpDialog);
 
-  if (!isOpen) return null;
+  if (!isOpen || !payload) return null;
 
-  return <GetHelpForm context={payload ?? {}} onClose={close} />;
+  return <GetHelpForm context={payload} onClose={close} />;
 }
 
 interface GetHelpFormProps {
@@ -162,14 +162,18 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
     if (destination === null) return;
 
     saveReport.mutate(
-      { id: built.id, destination },
+      { id: built.id, destination, delivery: { entry: context.entry, route: "file" } },
       { onSuccess: (path) => toast.success(m.support_save_done_title(), path) },
     );
   }
 
   function handleCopy(built: ReportPreview) {
     saveReport.mutate(
-      { id: built.id, destination: null },
+      {
+        id: built.id,
+        destination: null,
+        delivery: { entry: context.entry, route: "discord" },
+      },
       {
         onSuccess: () => {
           navigator.clipboard.writeText(built.summary).then(

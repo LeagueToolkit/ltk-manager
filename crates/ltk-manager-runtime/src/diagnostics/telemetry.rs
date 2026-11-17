@@ -6,6 +6,7 @@
 //! path never appears, and the incident token carries the rest for anyone holding
 //! the id.
 
+use ltk_manager_base::advisory::AdvisoryCode;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_telemetry::Properties;
@@ -270,6 +271,9 @@ pub struct SessionFacts {
     pub game_patch: Option<String>,
     /// Identity of the DLL that ran, the first 16 hex of its SHA-256.
     pub patcher_dll: Option<String>,
+    /// The codes of the advisories that the game and its overlay build raised, each code
+    /// once. A code names no mod and no archive.
+    pub advisory_codes: Vec<AdvisoryCode>,
 }
 
 /// The properties a clean session reports.
@@ -380,6 +384,12 @@ fn describe_session(properties: &mut Properties, facts: &SessionFacts) {
     if let Some(dll) = &facts.patcher_dll {
         properties.insert("patcher_dll", dll.clone());
     }
+    let advisory_codes: Vec<String> = facts
+        .advisory_codes
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+    properties.insert("advisory_codes", advisory_codes);
 }
 
 /// The serialized name of a unit enum, which is what the vendor groups on.

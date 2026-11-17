@@ -935,17 +935,24 @@ need as the startup reconcile in League diagnostics.
 
 ## Telemetry
 
-Two additions, each with a row in [Telemetry](TELEMETRY.md) and a line on the privacy page before
-it ships.
+Two additions, each with a row in [Telemetry](TELEMETRY.md) and a line on the privacy page.
 
-| Event or property        | Carries                                                                |
-| ------------------------ | ---------------------------------------------------------------------- |
-| `game_session_ended`     | `advisory_codes`, the codes of the game and its build, as a list       |
-| `support_report_created` | The entry point, the route (`file`, `discord`, `upload`), the top code |
+| Event or property        | Carries                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| `game_session_ended`     | `advisory_codes`, the codes of the game and its build, as a list |
+| `support_report_created` | The entry point, the route (`file`, `discord`), the top code     |
 
 The first shows how often each "mod did not load" cause occurs across installs. The second shows
 which failures users ask for help with. A cause that is frequent in the second and has no advisory
 is the next advisory to write.
+
+The top code of a report is the first of three: the code of the error that the report was opened
+from, the verdict kind of its incident, and its advisory code that tells the most. The event
+carries `top_code_kind` with it, so a verdict kind and an advisory code are counted apart. The
+`upload` route joins the event with the [upload](#upload-and-the-report-code). A report that
+`--report` saves sends no event, because that process holds no telemetry handle.
+
+Neither addition is sent while `Anonymous diagnostics` is off.
 
 ## Measures
 

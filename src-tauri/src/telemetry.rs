@@ -12,6 +12,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 
 use chrono::Utc;
+use ltk_manager_core::support_report::{BuiltReport, ReportDelivery, SUPPORT_REPORT_CREATED};
 use ltk_manager_runtime::diagnostics::elevation::ElevationFacts;
 use ltk_manager_runtime::diagnostics::telemetry::{
     delivery_sync_failed, patcher_refused, PATCHER_DELIVERY_SYNC_FAILED, PATCHER_REFUSED,
@@ -376,6 +377,20 @@ impl TelemetryState {
             return;
         }
         self.handle().track(PATCHER_REFUSED, properties);
+    }
+
+    /// Report that `report` left the `Get help` dialog by `delivery`.
+    ///
+    /// One report reports once for each route, so a second save of the same report does
+    /// not count again.
+    pub fn report_support_report(&self, report: &BuiltReport, delivery: ReportDelivery) {
+        let location = format!("{}/{}", report.manifest().id, delivery.route);
+        let fingerprint = errors::fingerprint(SUPPORT_REPORT_CREATED, &location);
+        if !self.dedup.admits(&fingerprint, Utc::now()) {
+            return;
+        }
+        self.handle()
+            .track(SUPPORT_REPORT_CREATED, report.created_event(delivery));
     }
 
     /// Report a panic that said `message` at `file` and `line`.

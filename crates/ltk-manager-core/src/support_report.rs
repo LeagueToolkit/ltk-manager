@@ -13,13 +13,18 @@ use std::{
 
 use chrono::{DateTime, Utc};
 use ltk_manager_base::{advisory::Advisory, utils::text};
+use ltk_manager_runtime::diagnostics::incident::VerdictKind;
 use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
 
+pub use self::telemetry::{
+    ReportDelivery, ReportEntry, ReportRoute, SUPPORT_REPORT_CREATED, TopCode, TopCodeKind,
+};
 use crate::log_dir::{LogDir, PanicRecord};
 
 mod files;
+mod telemetry;
 
 #[cfg(test)]
 mod tests;
@@ -217,6 +222,7 @@ pub struct ReportFile {
 /// What the manager found: the verdict of the incident that the report is about.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Finding {
+    kind: VerdictKind,
     title: String,
     consequence: String,
     cause: String,
@@ -406,6 +412,7 @@ impl SupportReport {
         let report_md = self.report_md();
         self.add(REPORT_MD, &report_md);
         self.cut_log_to_fit();
+        let top_code = TopCode::of(&self);
         let summary = self.discord_summary();
         let author_summary = self.author_summary();
 
@@ -443,6 +450,7 @@ impl SupportReport {
             files: self.files,
             summary,
             author_summary,
+            top_code,
         }
     }
 
@@ -639,6 +647,7 @@ pub struct BuiltReport {
     files: Vec<ReportFile>,
     summary: String,
     author_summary: Option<String>,
+    top_code: Option<TopCode>,
 }
 
 impl BuiltReport {

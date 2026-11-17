@@ -17,7 +17,8 @@ use ltk_manager_core::{
     known_issues::{self, KnownIssue},
     log_dir::{LogDir, PanicRecord},
     support_report::{
-        AppIdentity, BuiltReport, ReportDescription, ReportPreview, Startup, SupportReport,
+        AppIdentity, BuiltReport, ReportDelivery, ReportDescription, ReportPreview, Startup,
+        SupportReport,
     },
 };
 use ltk_manager_runtime::diagnostics::{games::GameStore, store::IncidentStore};
@@ -111,13 +112,15 @@ pub async fn build_support_report(
 /// Writes the report `id` as a zip, reveals it in the file manager and returns its path.
 ///
 /// Writes to `destination` if it is set, and to the Downloads folder under the report's own
-/// file name otherwise. Fails if `id` is not the report that was built last, or if the zip
-/// cannot be written.
+/// file name otherwise. Reports `support_report_created` with `delivery` once the zip is
+/// written, if diagnostics are on. Fails if `id` is not the report that was built last, or
+/// if the zip cannot be written.
 #[tauri::command]
 #[specta::specta]
 pub async fn save_support_report(
     id: String,
     destination: Option<String>,
+    delivery: ReportDelivery,
     app_handle: AppHandle,
 ) -> IpcResult<String> {
     off_thread(move || {
@@ -138,6 +141,7 @@ pub async fn save_support_report(
                 .join(report.file_name()),
         };
         report.write_zip(fs::File::create(&path)?)?;
+        crate::telemetry::state(&app_handle).report_support_report(report, delivery);
 
         let path = path.to_string_lossy().into_owned();
         reveal_in_explorer_inner(&path)?;

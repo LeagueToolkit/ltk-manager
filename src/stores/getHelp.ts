@@ -1,9 +1,11 @@
-import type { ReportOrigin } from "@/lib/tauri";
+import type { ReportEntry, ReportOrigin } from "@/lib/tauri";
 
 import { createDialogStore } from "./createDialogStore";
 
-/** What the `Get help` dialog opens with. Every field is optional. */
+/** What the `Get help` dialog opens with. */
 export interface GetHelpContext {
+  /** Where the user opened the dialog. The telemetry event of a saved report holds it. */
+  entry: ReportEntry;
   /** The incident that the report is about. The dialog uses the newest incident without one. */
   incidentId?: string;
   /** The mod that the report is about. The form starts with it chosen. */
@@ -16,6 +18,6 @@ export interface GetHelpContext {
 export const useGetHelpDialog = createDialogStore<GetHelpContext>();
 
 /** Opens the `Get help` dialog with `context`. */
-export function openGetHelp(context: GetHelpContext = {}): void {
+export function openGetHelp(context: GetHelpContext): void {
   useGetHelpDialog.getState().open(context);
 }

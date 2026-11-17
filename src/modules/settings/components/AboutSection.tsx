@@ -30,7 +30,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <UpdateCheckRow />
-            <Button variant="outline" onClick={() => openGetHelp()}>
+            <Button variant="outline" onClick={() => openGetHelp({ entry: "settings" })}>
               <LifebuoyIcon className="size-4" weight="bold" />
               {m.common_get_help_action()}
             </Button>
