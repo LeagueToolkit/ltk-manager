@@ -437,6 +437,11 @@ advisory shows in the status bar, on the card of its mod, in the `Get help` dial
 support report, and raises no toast. See [support reports](docs/ux/SUPPORT_REPORTS.md).
 _Avoid_: notice, finding, warning
 
+**Mod trace** - the reading of why one mod, or one workshop project under test, did or did not
+reach the last game. It lists one row for each source, from the library index to the newest game
+record, and ends at the first row that fails. `Not working in game?` on a mod card opens it. See
+[support reports](docs/ux/SUPPORT_REPORTS.md#the-mod-trace).
+
 ## Audio
 
 The format words come from `ltk_wwise`: bank, media bank, event bank, package, media, source ID,

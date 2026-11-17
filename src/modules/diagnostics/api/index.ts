@@ -13,4 +13,5 @@ export { type ReportSubject, useIncidentReport } from "./useIncidentReport";
 export { useIncident, useIncidents, useLatestIncident } from "./useIncidents";
 export { useIncidentToken } from "./useIncidentToken";
 export { useLatestIncidentToken } from "./useLatestIncidentToken";
+export { useModTrace } from "./useModTrace";
 export { useRevealGameLog } from "./useRevealGameLog";

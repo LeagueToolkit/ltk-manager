@@ -6,6 +6,8 @@ import { createDialogStore } from "./createDialogStore";
 export interface GetHelpContext {
   /** The incident that the report is about. The dialog uses the newest incident without one. */
   incidentId?: string;
+  /** The mod that the report is about. The form starts with it chosen. */
+  modId?: string;
   /** The event that led the user to the dialog. */
   origin?: ReportOrigin;
 }

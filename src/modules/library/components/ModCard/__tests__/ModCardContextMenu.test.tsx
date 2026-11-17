@@ -20,7 +20,11 @@ vi.mock("@/modules/library/api", () => ({
   }),
 }));
 vi.mock("@/modules/settings/api", () => ({ useSettings: () => ({ data: { showModTags: true } }) }));
-vi.mock("@/stores", () => ({ useModHealthDrawerStore: () => vi.fn() }));
+const { mockOpenModTrace } = vi.hoisted(() => ({ mockOpenModTrace: vi.fn() }));
+vi.mock("@/stores", () => ({
+  openModTrace: mockOpenModTrace,
+  useModHealthDrawerStore: () => vi.fn(),
+}));
 
 /* Only the flags the menu reads are set, so the rest stays out of the way. */
 function view(over: Partial<ModCardView> = {}): ModCardView {
@@ -81,5 +85,15 @@ describe("a mod card's right click", () => {
 
     expect(await screen.findByRole("menuitem", { name: "Details" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Check Health" })).toBeNull();
+  });
+
+  it("opens the mod trace of the mod", async () => {
+    rightClick();
+
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Not working in game?" }));
+
+    expect(mockOpenModTrace).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: { kind: "mod", id: "a" } }),
+    );
   });
 });

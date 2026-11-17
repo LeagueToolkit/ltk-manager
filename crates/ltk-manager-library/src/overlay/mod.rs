@@ -57,6 +57,18 @@ impl WorkshopTestProject {
         }
     }
 
+    /// Returns the id of the project in an overlay build: `workshop:` and the name of the
+    /// project directory.
+    #[must_use]
+    pub fn overlay_id(&self) -> String {
+        let dir_name = self
+            .path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("unknown");
+        format!("workshop:{dir_name}")
+    }
+
     /// Whether the test turns `layer` on.
     pub fn is_layer_active(&self, layer: &str) -> bool {
         match &self.enabled_layers {
@@ -344,12 +356,7 @@ impl ModLibrary {
                 .path
                 .clone()
                 .try_into_utf8("workshop project path")?;
-            let dir_name = project
-                .path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown");
-            let id = format!("workshop:{}", dir_name);
+            let id = project.overlay_id();
             tracing::info!(
                 "Adding workshop project: id={}, path={}, layers={:?}",
                 id,

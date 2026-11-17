@@ -15,6 +15,8 @@ use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
 use ltk_manager_base::advisory::AdvisoryCode;
 use ltk_manager_base::config::Config;
 use ltk_manager_core::advisories::ShownAdvisory;
+use ltk_manager_core::mod_trace::{ModTrace, ModTracer, TraceSubject};
+use ltk_manager_runtime::diagnostics::ids::LogIds;
 use std::sync::Arc;
 
 use crate::telemetry::errors::UiError;
@@ -206,6 +208,29 @@ pub fn mute_advisory(
         .0
         .mute_advisory(&settings.config(), code, &mod_id)
         .into()
+}
+
+/// Returns why the mod or the project `subject` did or did not reach the last game: one
+/// row for each source, ending at the first row that fails.
+#[tauri::command]
+#[specta::specta]
+pub fn mod_trace(
+    subject: TraceSubject,
+    settings: State<SettingsState>,
+    library: State<ModLibraryState>,
+    games: State<GameStoreState>,
+) -> IpcResult<ModTrace> {
+    let config = settings.config();
+    let ids = LogIds::global();
+    ModTracer {
+        library: &library.0,
+        config: &config,
+        games: &games.0,
+        run_started_at: ids.run_started_at(),
+        game_open: ids.game().is_some(),
+    }
+    .trace(&subject)
+    .into()
 }
 
 /// Marks every undismissed incident dismissed, and answers the ids it touched.

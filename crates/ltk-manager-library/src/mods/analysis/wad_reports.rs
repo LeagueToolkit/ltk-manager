@@ -79,6 +79,15 @@ impl ModWadReport {
             derived,
         }
     }
+
+    /// Returns the game archives that the mod patches, each by its last path segment.
+    #[must_use]
+    pub fn archive_names(&self) -> Vec<String> {
+        self.affected_wads
+            .iter()
+            .map(|path| path.rsplit(['/', '\\']).next().unwrap_or(path).to_owned())
+            .collect()
+    }
 }
 
 /// Persisted form. Same shape as [`ModWadReport`] minus `is_stale`.

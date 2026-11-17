@@ -5,6 +5,7 @@ import {
   PackageIcon,
   PencilSimpleIcon,
   PlayIcon,
+  QuestionIcon,
   TrashIcon,
   XIcon,
 } from "@phosphor-icons/react";
@@ -22,7 +23,7 @@ import {
   useProjectSelectionActions,
   useWorkshopTestState,
 } from "@/modules/workshop/api";
-import { usePatcherSessionStore } from "@/stores";
+import { openModTrace, usePatcherSessionStore } from "@/stores";
 
 import { useForgetProjectFolder } from "../../folders/api/projectFolders";
 import { packFormats, usePackTarget } from "../../state";
@@ -81,6 +82,17 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
         onClick={actions.handleOpenLocation}
       >
         {m.workshop_card_open_location_action()}
+      </Menu.Item>
+      <Menu.Item
+        icon={<QuestionIcon weight="bold" className="size-4" />}
+        onClick={() =>
+          openModTrace({
+            subject: { kind: "project", path: project.path },
+            name: project.displayName,
+          })
+        }
+      >
+        {m.diagnostics_trace_action()}
       </Menu.Item>
       <Menu.Separator />
       {project.location === "opened" && (

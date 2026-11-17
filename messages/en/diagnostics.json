@@ -150,6 +150,11 @@
   "diagnostics_suspects_title": "Suspects",
   "diagnostics_telemetry_row_description": "Send anonymous reports when a game session ends badly, or when the manager hits an error it did not expect. No account, no address, no file paths and no mod names.",
   "diagnostics_token_build_failed_title": "Couldn't build the token",
+  "diagnostics_trace_action": "Not working in game?",
+  "diagnostics_trace_autostart_action": "Open startup settings",
+  "diagnostics_trace_failed_label": "The trace could not be read.",
+  "diagnostics_trace_last_game_label": "Last game: {when}, {duration}",
+  "diagnostics_trace_last_game_running_label": "Last game: {when}, {duration}, still running when the patcher stopped",
   "hint.close-game": "Close League of Legends and wait for it to exit, then start the patcher again.",
   "hint.check-game-path": "Check the League of Legends installation path in Settings.",
   "hint.copy-report": "Copy the report when you ask for help.",
@@ -179,5 +184,62 @@
   "hint.system-checks": "Run the System checks on the Diagnostics page.",
   "hint.texture-dimensions": "A modded texture whose width or height is not a multiple of 4 is the common cause, so check the dimensions of any texture you changed.",
   "hint.update-driver": "Update the graphics driver, and check the display settings when the update does not help.",
-  "hint.update-manager": "Update LTK Manager."
+  "hint.update-manager": "Update LTK Manager.",
+  "trace.archives.none": "Patches no game archive",
+  "trace.archives.some": [
+    {
+      "declarations": ["input count", "input names", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Patches {count} archive: {names}",
+        "countPlural=other": "Patches {count} archives: {names}"
+      }
+    }
+  ],
+  "trace.enabled.no": "Not enabled in profile {profile}",
+  "trace.enabled.yes": "Enabled in profile {profile}",
+  "trace.health.healthy": "Healthy, checked {when}",
+  "trace.health.repairable": "Has problems that a repair fixes, checked {when}",
+  "trace.health.unchecked": "Health not checked",
+  "trace.health.unrepairable": "Has problems, checked {when}",
+  "trace.last-game.archives-not-loaded": "League did not load this mod's archives",
+  "trace.last-game.archives-not-served": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "The patcher could not open {count} archive of this mod",
+        "countPlural=other": "The patcher could not open {count} archives of this mod"
+      }
+    }
+  ],
+  "trace.last-game.champions-absent": [
+    {
+      "declarations": ["input count", "input names", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{names} was not in the last game",
+        "countPlural=other": "{names} were not in the last game"
+      }
+    }
+  ],
+  "trace.last-game.loaded": "The last game loaded this mod",
+  "trace.last-game.no-game": "No game has run since the last build",
+  "trace.last-game.overlay-live": "The overlay was live in the last game",
+  "trace.last-game.overlay-not-live": "The last game did not load this mod",
+  "trace.last-game.partly-loaded": "The last game loaded {loaded} of the {total} archives of this mod",
+  "trace.last-game.patcher-not-running": "The patcher was not running in the last game",
+  "trace.last-game.unwatched": "The manager was not running during your last game, so no mod was applied",
+  "trace.outcome.disabled": "The patcher turned the overlay off after an archive failed its check.",
+  "trace.outcome.end-of-life": "The patcher is too old for this game version.",
+  "trace.outcome.hook-failed": "The patcher could not attach to the game.",
+  "trace.outcome.live": "The overlay was live.",
+  "trace.outcome.none": "The patcher did not report an overlay.",
+  "trace.outcome.refused": "The patcher refused the overlay.",
+  "trace.outcome.too-late": "League started before the patcher was ready.",
+  "trace.overlay.built": "In the overlay, built {when}",
+  "trace.overlay.left-out": "The last build left this mod out",
+  "trace.overlay.not-built": "No overlay is built",
+  "trace.overlay.stale": "In the overlay, built {when}. The mod or the game changed after the build",
+  "trace.overlay.without-mod": "Not in the overlay, built {when}"
 }

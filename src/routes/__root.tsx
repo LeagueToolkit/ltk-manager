@@ -18,7 +18,7 @@ import {
   ProtocolInstallDialogLazy,
   useDeepLinkListener,
 } from "@/modules/deep-link";
-import { useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
+import { ModTraceDialog, useCleanGameWatch, useIncidentListeners } from "@/modules/diagnostics";
 import { openKeySheet, useKeys } from "@/modules/keys";
 import {
   InstallMismatchDialog,
@@ -251,6 +251,7 @@ function RootLayout() {
       <DiagnosticsNoticeDialog />
       <KeySheet />
       <GetHelpDialog />
+      <ModTraceDialog />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />
         <InstallListDialogLazy />

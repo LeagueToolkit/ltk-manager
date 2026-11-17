@@ -64,6 +64,15 @@ impl AdvisoryCode {
             | Self::DllUnattested => None,
         }
     }
+
+    /// Returns whether a build that raises the code leaves the mod out of the overlay.
+    #[must_use]
+    pub fn leaves_mod_out(self) -> bool {
+        matches!(
+            self,
+            Self::ModMissing | Self::ModContentMissing | Self::EntryUnreadable
+        )
+    }
 }
 
 /// What the app tells the user about an advisory of the patcher.

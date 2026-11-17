@@ -99,10 +99,10 @@ gives it.
 | Report preview          | Available   | The file list and the redacted text of each file                                     |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
 | Report without a window | Available   | `--report`, a Start menu entry and a native dialog after a failed start              |
-| `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
+| `Get help` entry points | Available   | Every entry point. The mod card menu opens the mod trace, which holds `Get help`     |
 | Game record             | Available   | One small record for every game, clean games included                                |
 | Advisory                | In progress | Eight codes are raised. Four more wait for `ltk_overlay` and the patcher             |
-| Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
+| Mod trace               | Available   | Why one mod did or did not reach the last game                                       |
 | Error reference         | Available   | A short id on an error, the same id on its log line                                  |
 | Upload and report code  | Planned     | One code to paste. Needs an endpoint and an ADR                                      |
 | Report reader           | Planned     | A web page behind the GitHub login                                                   |
@@ -480,7 +480,7 @@ that is unhealthy or that failed verification is named in the library, by
 | A route error                      | A `defaultErrorComponent` that renders the crash screen  |
 | The next start after a panic       | One line in the session bar: `Manager crashed`           |
 | The title bar menu                 | `Get help`. `Report a Bug` is removed                    |
-| A mod card menu                    | `Not working in game?`, which opens the mod trace        |
+| A mod card or project card menu    | `Not working in game?`, which opens the mod trace        |
 | The Games tab and the verdict line | `Get help` beside `Copy report`                          |
 | Settings, About                    | `Get help`, and `Open log folder` below it               |
 | The command palette                | `Get help`                                               |
@@ -496,6 +496,7 @@ Each entry point opens the dialog with the context it has, and the report states
 | A crash     | The crash screen and a route error | States the route and the message of the error            |
 | A panic     | The line in the session bar        | States the time and the version of the run that panicked |
 | An error    | `Get help` on an error toast       | States the title, the code and the `ref` of the error    |
+| A mod       | `Get help` in the mod trace        | Names the mod. The form starts with the mod chosen       |
 | No context  | The menus and the command palette  | States the newest incident                               |
 
 `report.md` states a crash, a panic or an error under `Trigger`, and the Discord summary has the
@@ -708,59 +709,111 @@ recorder raises the advisory where it sets the overlay outcome that the classifi
 
 ### The mod trace
 
-`Not working in game?` on a mod card opens one panel. It reads the overlay build and the newest
-game record for that mod, top to bottom, and stops at the first row that fails.
+`Not working in game?` in the menu of a mod card or of a workshop project opens one panel. It
+reads the overlay build and the newest game record for that mod, top to bottom, and stops at the
+first row that fails.
 
 ```
 +--------------------------------------------------------------------+
 | Aatrox Justicar                                                    |
 |                                                                    |
 | v  Enabled in profile Default                                      |
-| v  Healthy, checked today                                          |
-| v  In the overlay, built 19:01 for League 16.22                    |
+| v  Healthy, checked 18:40                                          |
+| v  In the overlay, built 19:01                                     |
 | v  Patches 2 archives: Aatrox.wad.client, Global.wad.client        |
-| !  9 of 41 files are replaced by Aatrox Reforged, which is higher  |
+| !  No layer is chosen. The base layer alone is used.               |
 | x  The last game did not load this mod                             |
-|    The patcher refused the overlay (LTK-V008).                     |
-|    The sentence for this code, from the catalog.                   |
+|    The patcher refused the overlay. VRF00000008                    |
 |                                                                    |
-| Last game: 19:02, 24 minutes, patcher running                      |
+| Last game: 19:02, 24 min                                           |
 |                                                                    |
 |                                     Rebuild overlay     Get help   |
 +--------------------------------------------------------------------+
 ```
 
-| Row                | Reads from                                                    |
-| ------------------ | ------------------------------------------------------------- |
-| Enabled            | The library index                                             |
-| Health             | The mod health verdict                                        |
-| In the overlay     | The build's fingerprint against the mod's content fingerprint |
-| Archives           | `wad-reports.json`                                            |
-| Shadowed, unrouted | The build's advisories                                        |
-| The last game      | The game record: the overlay outcome, `redirected`, `skipped` |
+| Row            | Reads from                                 | Fails if                                    |
+| -------------- | ------------------------------------------ | ------------------------------------------- |
+| Enabled        | The library index                          | The mod is not enabled                      |
+| Health         | The mod health verdict                     | Never. Problems are a warning               |
+| In the overlay | `last-build.json` and the archive report   | No build, or the build did not hold the mod |
+| Archives       | `wad-reports.json`                         | The mod patches no archive                  |
+| Advisories     | The build's advisories about the mod       | Never. Each one is a warning                |
+| The last game  | The newest game record and `Logs/GameLogs` | See the readings                            |
 
-The last row has five readings.
+A row has one of four states: passed, warning, failed, and unknown for a row that the manager has
+no answer for. A row holds the reading of one source. The overlay row and the last game row each
+have a set of readings of their own. The backend sends a row as codes with typed fields, and the
+frontend catalog words it (ADR-0017).
 
-| The game record holds                                 | The row reads                                  |
-| ----------------------------------------------------- | ---------------------------------------------- |
-| No game since the mod was enabled                     | `No game has run since you enabled this mod`   |
-| A game, and the patcher was not running               | `The patcher was not running in the last game` |
-| A game whose overlay was not live, or was refused     | The reason, from the advisory or the outcome   |
-| A live overlay, and none of the mod's archives served | `League did not load this mod's archives`      |
-| A live overlay, and each of the mod's archives served | `The last game loaded this mod`                |
+```rust
+pub struct TraceRow {
+    pub state: RowState,
+    pub reading: RowReading,
+}
 
-**A game the manager did not watch.** A game that ran while the manager was closed has no game
-record until the [host line buffer](#the-contract-with-the-patcher) exists. The trace compares the
-newest directory under `Logs/GameLogs` with the newest game record. If the directory is newer, the
-last row reads `The manager was not running during your last game, so no mod was applied`, and
-offers the autostart setting. The check is one directory listing, and it does not run while
-`Read League's game log` is off.
+pub enum RowReading {
+    Enabled { enabled: bool, profile: String },
+    Health { check: Option<HealthCheck> },
+    Overlay(OverlayReading),
+    Archives { archives: Vec<String> },
+    Advisory { code: AdvisoryCode },
+    LastGame(GameReading),
+}
+```
 
-The fourth reading is common and correct. A champion's archive is served only in a game with that
-champion in it. The row says so: `Aatrox was not in the last game`.
+A row crosses IPC as one object, such as `{ state: "fail", row: "last-game", reading:
+"overlay-not-live", outcome: "refused" }`.
 
-The fifth reading is the honest end of what the manager knows. The mod was served and looks wrong,
-which the log cannot show. The panel says that, and `Get help` is the action.
+The overlay row fails with the sentence of the advisory if the build left the mod out. It fails
+with `Not in the overlay` if the mod was enabled after the build. It warns if the mod or the game
+changed after the build. The build record holds no League version, so the row states the time of
+the build alone. A mod without an archive report has no archives row.
+
+A workshop project has no enabled row and no health row. The trace reads the build for the id
+`workshop:<directory name>`.
+
+The last row has these readings.
+
+| The records hold                                        | The row reads                                         | State   |
+| ------------------------------------------------------- | ----------------------------------------------------- | ------- |
+| No game with the overlay of the last build              | `No game has run since the last build`                | Unknown |
+| A newer game log directory, made in this run            | `The patcher was not running in the last game`        | Failed  |
+| A newer game log directory, made before this run        | `The manager was not running during your last game`   | Failed  |
+| A game whose overlay was not live, or was refused       | `The last game did not load this mod`, and the reason | Failed  |
+| A live overlay, and an archive that the patcher skipped | `The patcher could not open 1 archive of this mod`    | Failed  |
+| A live overlay, and none of the mod's archives served   | `League did not load this mod's archives`             | Warning |
+| A live overlay, and at least one of the archives served | `The last game loaded this mod`                       | Passed  |
+| A live overlay, and no archive report of the mod        | `The overlay was live in the last game`               | Passed  |
+
+**Which game is the last game.** A game ran the last build if the overlay fingerprint of the game
+record equals the fingerprint of the build record. The trace compares the two times if either
+fingerprint is missing. The first reading says `since the last build` and not `since you enabled
+this mod`, because the manager keeps no time for the enabling of a mod.
+
+**A game the manager did not watch.** A game that ran with no patcher session has no game record
+until the [host line buffer](#the-contract-with-the-patcher) exists. The trace compares the newest
+directory under `Logs/GameLogs` with the last build and the newest game record. If the directory
+is newer than both, no session followed that game. The patcher was not running if this run of the
+manager had started by then. Otherwise the row reads `The manager was not running during your
+last game, so no mod was applied`, and the panel offers the startup settings. The check is one
+directory listing. It does not run while `Read League's game log` is off, or while a session
+follows a game.
+
+**A champion that was not in the game.** A champion's archive is served only in a game with that
+champion in it. If the archive report names the champions of the mod, the row says so:
+`Aatrox was not in the last game`.
+
+**A mod that is loaded in part.** A mod can patch an archive that the last game did not open, such
+as the archive of another locale. The row reads `The last game loaded 1 of the 2 archives of this
+mod`.
+
+`The last game loaded this mod` is the honest end of what the manager knows. The mod was served
+and looks wrong, which the log cannot show. `Get help` is the action, and the dialog opens with
+the mod chosen.
+
+**Actions.** The panel has `Rebuild overlay` and `Get help`. The rebuild is the primary button if
+a row holds a state that a rebuild fixes: no build, a mod that the build did not hold, a mod or a
+game that changed after the build, or an archive that the patcher could not open.
 
 ### Error reference
 
