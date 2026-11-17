@@ -1,6 +1,7 @@
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_runeforge::ConnectedAccount;
+use ltk_manager_runtime::diagnostics::games::GameStore;
 use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -118,23 +119,37 @@ pub struct SettingsState(pub Mutex<Settings>);
 /// Tauri-managed handle to the incident store, under `<data_dir>/incidents`.
 pub struct IncidentStoreState(pub Arc<IncidentStore>);
 
-impl IncidentStoreState {
-    /// Returns the store under `data_dir`, with the number of incidents that `config` keeps.
+/// Tauri-managed handle to the game store, under `<data_dir>/games`.
+pub struct GameStoreState(pub Arc<GameStore>);
+
+/// The stores of the patcher's records: the incidents and the games.
+pub struct RecordStores {
+    pub incidents: IncidentStoreState,
+    pub games: GameStoreState,
+}
+
+impl RecordStores {
+    /// Returns the stores under `data_dir`. The incident store keeps the number of
+    /// incidents that `config` sets.
     ///
-    /// The store is under the temp directory if `data_dir` is `None`.
+    /// The stores are under the temp directory if `data_dir` is `None`.
     pub fn under(data_dir: Option<&Path>, config: &Config) -> Self {
-        let dir = match data_dir {
-            Some(dir) => dir.join(crate::data_location::INCIDENTS),
+        let root = match data_dir {
+            Some(dir) => dir.to_path_buf(),
             None => {
-                tracing::warn!("No data directory, keeping incidents under the temp directory");
-                std::env::temp_dir()
-                    .join(crate::IDENTIFIER)
-                    .join(crate::data_location::INCIDENTS)
+                tracing::warn!(
+                    "No data directory, keeping the patcher's records under the temp directory"
+                );
+                std::env::temp_dir().join(crate::IDENTIFIER)
             }
         };
-        Self(Arc::new(
-            IncidentStore::new(dir).with_keep(config.keep_incidents as usize),
-        ))
+        let incidents = IncidentStore::new(root.join(crate::data_location::INCIDENTS))
+            .with_keep(config.keep_incidents as usize);
+        let games = GameStore::new(root.join(crate::data_location::GAMES));
+        Self {
+            incidents: IncidentStoreState(Arc::new(incidents)),
+            games: GameStoreState(Arc::new(games)),
+        }
     }
 }
 

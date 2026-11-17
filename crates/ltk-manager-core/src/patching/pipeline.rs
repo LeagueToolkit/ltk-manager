@@ -1,10 +1,11 @@
-//! From a closed game record to a stored incident.
+//! From a closed game record to a stored incident and a stored game record.
 //!
 //! The reader finds the game's log and the crash marker, the classifier reaches
-//! a verdict over the record and the library's footprints, the store keeps it,
-//! and [`PatcherEvents::incident_recorded`] carries it to the frontend. Every
-//! step that fails is logged and stepped over, so a failed store still
-//! announces the incident.
+//! a verdict over the record and the library's footprints, the incident store
+//! keeps the verdict, and [`PatcherEvents::incident_recorded`] carries it to the
+//! frontend. The game store keeps a record of every game, with or without a
+//! verdict. Every step that fails is logged and stepped over, so a failed store
+//! still announces the incident.
 
 use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
@@ -21,6 +22,7 @@ use ltk_manager_base::config::Config;
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_library::overlay::WorkshopTestProject;
 use ltk_manager_runtime::diagnostics::game_log::{GameWindow, LeagueLogs};
+use ltk_manager_runtime::diagnostics::games::GameStore;
 use ltk_manager_runtime::diagnostics::incident::{
     ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
     Suspect,
@@ -44,13 +46,20 @@ mod tests;
 /// trail the host's `exited` by a few seconds.
 const CRASH_MARKER_GRACE: Duration = Duration::seconds(30);
 
+/// Where the records of a session are written.
+#[derive(Debug, Clone)]
+pub struct SessionStores {
+    pub incidents: Arc<IncidentStore>,
+    pub games: Arc<GameStore>,
+}
+
 /// Reads, classifies, stores and announces one [`GameRecord`] at a time.
 pub struct IncidentPipeline {
     config: Config,
     host_flags: u32,
     library: ModLibrary,
     workshop_projects: Vec<WorkshopTestProject>,
-    store: Arc<IncidentStore>,
+    stores: SessionStores,
     events: Arc<dyn PatcherEvents>,
     telemetry: Telemetry,
     environment: Environment,
@@ -64,7 +73,7 @@ impl IncidentPipeline {
         host_flags: u32,
         library: ModLibrary,
         workshop_projects: Vec<WorkshopTestProject>,
-        store: Arc<IncidentStore>,
+        stores: SessionStores,
         events: Arc<dyn PatcherEvents>,
         telemetry: Telemetry,
     ) -> Self {
@@ -74,7 +83,7 @@ impl IncidentPipeline {
             host_flags,
             library,
             workshop_projects,
-            store,
+            stores,
             events,
             telemetry,
             environment,
@@ -97,8 +106,15 @@ impl IncidentPipeline {
 
     /// Reads the log and the crash marker, classifies, stores, and announces.
     ///
-    /// `None` when the game was clean and nothing is kept.
+    /// Writes the game record of every record that spans a game. Returns `None` if the
+    /// game reached no verdict. A record of a game that was still running when the session
+    /// stopped is written as a game record and reaches no verdict and no session event.
     pub fn run(&self, mut record: GameRecord) -> Option<Incident> {
+        if record.still_running {
+            self.store_game(&record, None);
+            return None;
+        }
+
         self.read_league_logs(&mut record);
         record.scan = self.scan_mode(&record);
 
@@ -127,12 +143,13 @@ impl IncidentPipeline {
                 "Incident recorded: {}",
                 incident.verdict.title
             );
-            if let Err(e) = self.store.record(incident) {
+            if let Err(e) = self.stores.incidents.record(incident) {
                 tracing::error!("Could not store incident {}: {e}", incident.id);
             }
         } else {
             tracing::info!("Game ended clean, no incident recorded");
         }
+        self.store_game(&record, outcome.as_ref());
 
         // Both branches report, because a verdict rate needs the sessions that
         // reached none as its denominator.
@@ -141,6 +158,18 @@ impl IncidentPipeline {
         let incident = outcome?;
         self.events.incident_recorded(incident.clone());
         Some(incident)
+    }
+
+    /// Writes the game record of `record`, with the id of `incident`. Writes nothing for a
+    /// session that failed before any game.
+    fn store_game(&self, record: &GameRecord, incident: Option<&Incident>) {
+        if !record.spans_a_game() {
+            return;
+        }
+        let game = record.stored(incident.map(|incident| incident.id.as_str()));
+        if let Err(e) = self.stores.games.record(&game) {
+            tracing::error!("Could not store the record of game {}: {e}", game.id);
+        }
     }
 
     /// Report that a session ended, whether or not it reached a verdict.
@@ -255,7 +284,7 @@ impl IncidentPipeline {
     /// [`Self::other_roots`] on a miss, and the crash marker is read from the
     /// install the log came from.
     fn read_league_logs(&self, record: &mut GameRecord) {
-        if !self.config.read_game_log || record.started_at == record.ended_at {
+        if !self.config.read_game_log || !record.spans_a_game() {
             return;
         }
         let Some(league_path) = self.config.league_path.as_deref() else {

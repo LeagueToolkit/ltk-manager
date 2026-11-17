@@ -9,13 +9,11 @@ use std::{
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::utils::text;
+use ltk_manager_runtime::diagnostics::ids::LogIds;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
-
-/// The text that starts the first log line of a run.
-pub const RUN_START: &str = "Starting LTK Manager v";
 
 /// The file in the log directory that holds the ruleset version of the last rewrite.
 const REDACTED_MARKER: &str = ".redacted";
@@ -117,34 +115,31 @@ impl LogDir {
 
     /// Returns the newest `runs` runs of the log, `max_bytes` at most.
     ///
-    /// A run starts at a line that holds [`RUN_START`]. Returns the whole log if it holds
-    /// fewer runs. Cuts the oldest lines if the runs exceed `max_bytes`. Skips a file that
-    /// cannot be read. Returns `None` if the directory holds no log text.
+    /// A run starts at a line that carries another run id than the line with an id before
+    /// it, so a line without an id belongs to the run before it. Returns the whole log if it
+    /// holds fewer runs. Cuts the oldest lines if the runs exceed `max_bytes`. Skips a file
+    /// that cannot be read. Returns `None` if the directory holds no log text.
     #[must_use]
     pub fn recent_runs(&self, runs: usize, max_bytes: usize) -> Option<String> {
         // The file name holds the date, so the order of the names is the order of the days.
         let mut paths: Vec<PathBuf> = self.files().ok()?.collect();
         paths.sort();
 
-        let mut log = String::new();
+        let mut log = Log::default();
         for path in paths.iter().rev() {
             let Ok(bytes) = fs::read(path) else {
                 continue;
             };
-            log.insert_str(0, &String::from_utf8_lossy(&bytes));
-            if log.matches(RUN_START).count() >= runs || log.len() >= max_bytes {
+            log.prepend(&String::from_utf8_lossy(&bytes));
+            // One run more than `runs`, because the oldest run of the text can start in an
+            // older file.
+            if log.run_starts().len() > runs || log.0.len() >= max_bytes {
                 break;
             }
         }
 
-        let starts: Vec<usize> = log.match_indices(RUN_START).map(|(at, _)| at).collect();
-        if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
-            // The marker sits after the timestamp and the level, so the run starts at the
-            // start of its line.
-            let line_start = log[..start].rfind('\n').map_or(0, |newline| newline + 1);
-            log.drain(..line_start);
-        }
-        let log = text::last_lines(&log, max_bytes);
+        log.keep_newest_runs(runs);
+        let log = text::last_lines(&log.0, max_bytes);
         (!log.is_empty()).then(|| log.to_owned())
     }
 
@@ -220,4 +215,40 @@ fn redact_file(path: &Path) -> io::Result<()> {
     let temporary = path.with_extension("log.redacting");
     fs::write(&temporary, redacted)?;
     fs::rename(&temporary, path)
+}
+
+/// The text of the log across the daily files, oldest line first.
+#[derive(Debug, Default)]
+struct Log(String);
+
+impl Log {
+    /// Adds `older`, the text of an older file, before the first line.
+    fn prepend(&mut self, older: &str) {
+        self.0.insert_str(0, older);
+    }
+
+    /// Returns the offset of each line that starts a run: a line that carries another run
+    /// id than the line with an id before it.
+    fn run_starts(&self) -> Vec<usize> {
+        let mut starts = Vec::new();
+        let mut current = None;
+        let mut offset = 0;
+        for line in self.0.split_inclusive('\n') {
+            if let Some(run) = LogIds::run_of(line).filter(|run| current != Some(*run)) {
+                starts.push(offset);
+                current = Some(run);
+            }
+            offset += line.len();
+        }
+        starts
+    }
+
+    /// Removes the lines before the newest `runs` runs. Keeps every line if the log holds
+    /// fewer runs.
+    fn keep_newest_runs(&mut self, runs: usize) {
+        let starts = self.run_starts();
+        if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
+            self.0.drain(..start);
+        }
+    }
 }

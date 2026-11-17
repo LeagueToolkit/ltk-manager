@@ -62,18 +62,16 @@ fn main() {
 
     let logging_guards = logging::init();
 
-    // Before the run start line, so the report run does not count as a run of the log. Before
-    // the single-instance plugin, which hands the arguments to a running manager.
+    // Before the run starts, so the lines of the report process carry no run id and are not
+    // a run of the log. Before the single-instance plugin, which hands the arguments to a
+    // running manager.
     if let Some(report) = report_mode::ReportMode::from_args(std::env::args_os().skip(1)) {
         report.run();
         return;
     }
 
-    tracing::info!(
-        "{}{}",
-        ltk_manager_core::log_dir::RUN_START,
-        env!("CARGO_PKG_VERSION")
-    );
+    ltk_manager_runtime::diagnostics::ids::LogIds::global().start_run();
+    tracing::info!("Starting LTK Manager v{}", env!("CARGO_PKG_VERSION"));
     if let Some(log_dir) = &logging_guards.log_dir {
         tracing::info!("Log directory: {}", log_dir.path().display());
         log_dir.remove_older_than(LOG_RETENTION);

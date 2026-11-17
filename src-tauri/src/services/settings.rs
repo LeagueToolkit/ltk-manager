@@ -180,8 +180,8 @@ pub async fn plan_data_move(
 /// Moves the data directory to `target`, or to the app data directory if `target` is `None`.
 ///
 /// Stores the new location and restarts the app, because the library watcher, the incident
-/// store and the patcher delivery read the data directory once at startup. The library index
-/// stays locked from the move until the settings name the new folder.
+/// store, the game store and the patcher delivery read the data directory once at startup.
+/// The library index stays locked from the move until the settings name the new folder.
 #[tauri::command]
 #[specta::specta]
 pub async fn move_data(target: Option<PathBuf>, app_handle: AppHandle) -> IpcResult<()> {

@@ -235,6 +235,7 @@ fn base(ended_at: DateTime<Utc>) -> GameRecord {
                 "redirected Aatrox.wad.client, Map11.wad.client, UI.wad.client",
             ),
         ],
+        ..GameRecord::open(started_at, SessionOrigin::Library)
     }
 }
 

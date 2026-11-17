@@ -14,6 +14,16 @@
   "support_dialog_title": "Get help",
   "support_found_label": "Findings",
   "support_holds_game_log_label": "Game log",
+  "support_holds_games_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} game",
+        "countPlural=other": "{count} games"
+      }
+    }
+  ],
   "support_holds_incidents_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],

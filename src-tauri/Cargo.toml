@@ -92,6 +92,8 @@ tar = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
+# tracing-subscriber depends on this version. Reads the level and the target of a `log` event.
+tracing-log = "0.2"
 
 # tauri-plugin-dialog depends on this version with these features, so the build holds one copy.
 rfd = { version = "0.16", default-features = false, features = [

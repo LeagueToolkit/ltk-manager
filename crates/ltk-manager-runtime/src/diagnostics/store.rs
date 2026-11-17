@@ -5,16 +5,15 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
 
 use super::incident::Incident;
-use ltk_manager_base::error::{AppError, AppResult};
-use ltk_manager_base::utils::fs::write_json;
+use super::record_dir::{Caps, RecordDir};
+use ltk_manager_base::error::AppResult;
 
 /// The incident files, capped by count and by size.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IncidentStore {
-    dir: PathBuf,
+    dir: RecordDir,
     keep: usize,
 }
 
@@ -27,7 +26,7 @@ impl IncidentStore {
     /// A store over `dir`, created on the first write.
     pub fn new(dir: PathBuf) -> Self {
         Self {
-            dir,
+            dir: RecordDir::new(dir),
             keep: Self::DEFAULT_KEEP,
         }
     }
@@ -40,7 +39,7 @@ impl IncidentStore {
 
     /// The directory the files live in.
     pub fn dir(&self) -> &PathBuf {
-        &self.dir
+        self.dir.path()
     }
 
     /// How many incidents the store keeps.
@@ -55,9 +54,11 @@ impl IncidentStore {
     ///
     /// The directory could not be created, or the file could not be written.
     pub fn record(&self, incident: &Incident) -> AppResult<()> {
-        fs::create_dir_all(&self.dir)?;
-        self.write(incident)?;
-        self.prune(&incident.id)
+        let caps = Caps {
+            keep: self.keep,
+            max_bytes: Self::MAX_BYTES,
+        };
+        self.dir.record(&incident.id, incident, caps)
     }
 
     /// Every incident, newest first. A missing directory is an empty list.
@@ -67,7 +68,7 @@ impl IncidentStore {
     /// The directory could not be listed.
     pub fn list(&self) -> AppResult<Vec<Incident>> {
         let mut incidents = Vec::new();
-        for path in self.files()? {
+        for path in self.dir.files()? {
             match Self::read(&path) {
                 Ok(incident) => incidents.push(incident),
                 Err(error) => tracing::warn!(
@@ -90,7 +91,7 @@ impl IncidentStore {
     ///
     /// The file exists and could not be read or parsed.
     pub fn get(&self, id: &str) -> AppResult<Option<Incident>> {
-        let path = self.path_of(id)?;
+        let path = self.dir.path_of(id)?;
         match fs::read(&path) {
             Ok(bytes) => {
                 let mut incident: Incident = serde_json::from_slice(&bytes)?;
@@ -125,7 +126,7 @@ impl IncidentStore {
     /// A file could not be rewritten.
     pub fn dismiss_all(&self) -> AppResult<Vec<String>> {
         let mut dismissed = Vec::new();
-        for path in self.files()? {
+        for path in self.dir.files()? {
             let mut incident = match Self::read(&path) {
                 Ok(incident) => incident,
                 Err(error) => {
@@ -146,122 +147,14 @@ impl IncidentStore {
         Ok(dismissed)
     }
 
-    /// The file for `id`. An id names one file and nothing above the directory.
-    fn path_of(&self, id: &str) -> AppResult<PathBuf> {
-        if id.is_empty() || id.contains(['/', '\\']) || id == "." || id == ".." {
-            return Err(AppError::InvalidPath(format!("Not an incident id: {id:?}")));
-        }
-        Ok(self.dir.join(format!("{id}.json")))
-    }
-
     fn write(&self, incident: &Incident) -> AppResult<()> {
-        write_json(&self.path_of(&incident.id)?, incident)
+        self.dir.write(&incident.id, incident)
     }
 
     fn read(path: &Path) -> AppResult<Incident> {
         let mut incident: Incident = serde_json::from_slice(&fs::read(path)?)?;
         incident.migrate();
         Ok(incident)
-    }
-
-    fn files(&self) -> AppResult<Vec<PathBuf>> {
-        let entries = match fs::read_dir(&self.dir) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(error) => return Err(error.into()),
-        };
-        let mut files = Vec::new();
-        for entry in entries {
-            let path = entry?.path();
-            if path.extension().is_some_and(|ext| ext == "json") {
-                files.push(path);
-            }
-        }
-        Ok(files)
-    }
-
-    /// Evicts until both caps hold. The order is dismissed first, then oldest
-    /// first, and the file just written is never a candidate.
-    fn prune(&self, just_written: &str) -> AppResult<()> {
-        let mut entries: Vec<Stored> = self.files()?.into_iter().filter_map(Stored::read).collect();
-        let mut count = entries.len();
-        let mut bytes: u64 = entries.iter().map(|entry| entry.bytes).sum();
-        entries.sort_by(|a, b| {
-            b.dismissed
-                .cmp(&a.dismissed)
-                .then_with(|| a.ended_at.cmp(&b.ended_at))
-                .then_with(|| a.id.cmp(&b.id))
-        });
-        for entry in entries {
-            if count <= self.keep && bytes <= Self::MAX_BYTES {
-                break;
-            }
-            if entry.id == just_written {
-                continue;
-            }
-            match fs::remove_file(&entry.path) {
-                Ok(()) => {
-                    count -= 1;
-                    bytes -= entry.bytes;
-                }
-                Err(error) => {
-                    tracing::warn!("Could not evict incident {}: {error}", entry.path.display())
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-/// The fields the eviction order reads, without the rest of the record.
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Head {
-    ended_at: String,
-    #[serde(default)]
-    dismissed: bool,
-}
-
-/// One file on disk, as the eviction order sees it.
-#[derive(Debug)]
-struct Stored {
-    path: PathBuf,
-    id: String,
-    ended_at: DateTime<Utc>,
-    dismissed: bool,
-    bytes: u64,
-}
-
-impl Stored {
-    /// A file that does not parse has nothing to lose, so it reads as
-    /// dismissed and goes first.
-    fn read(path: PathBuf) -> Option<Self> {
-        let meta = fs::metadata(&path).ok()?;
-        let id = path.file_stem()?.to_str()?.to_string();
-        let modified = meta
-            .modified()
-            .ok()
-            .map(DateTime::<Utc>::from)
-            .unwrap_or(DateTime::<Utc>::MIN_UTC);
-        let head: Option<Head> = fs::read(&path)
-            .ok()
-            .and_then(|bytes| serde_json::from_slice(&bytes).ok());
-        let (ended_at, dismissed) = match head {
-            Some(head) => (
-                DateTime::parse_from_rfc3339(&head.ended_at)
-                    .map(|at| at.with_timezone(&Utc))
-                    .unwrap_or(modified),
-                head.dismissed,
-            ),
-            None => (modified, true),
-        };
-        Some(Self {
-            path,
-            id,
-            ended_at,
-            dismissed,
-            bytes: meta.len(),
-        })
     }
 }
 

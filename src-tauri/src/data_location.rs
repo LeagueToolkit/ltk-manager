@@ -24,8 +24,11 @@ pub const PATCHER: &str = "patcher";
 /// The directory of the incident store, under the data directory.
 pub const INCIDENTS: &str = "incidents";
 
+/// The directory of the game store, under the data directory.
+pub const GAMES: &str = "games";
+
 /// Names of the entries that the shell writes under the data directory.
-const SHELL_ENTRIES: [&str; 4] = [MOD_PREVIEWS, SHADERS, PATCHER, INCIDENTS];
+const SHELL_ENTRIES: [&str; 5] = [MOD_PREVIEWS, SHADERS, PATCHER, INCIDENTS, GAMES];
 
 /// Resolves the data directory that `config` selects.
 ///

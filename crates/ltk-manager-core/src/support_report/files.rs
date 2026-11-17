@@ -8,7 +8,8 @@ use ltk_manager_base::{config::Config, utils::text};
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_runtime::{
     diagnostics::{
-        self, CheckCtx, binary_id::BinaryId, game_log, incident::Incident, store::IncidentStore,
+        self, CheckCtx, binary_id::BinaryId, game_log, games::GameStore, incident::Incident,
+        store::IncidentStore,
     },
     patcher::{
         delivery::{Channel, StagedPatcher},
@@ -27,6 +28,9 @@ const GAME_LOG: &str = "game-log/r3dlog.txt";
 
 /// The number of incidents that a report holds, newest first.
 const INCIDENTS: usize = 5;
+
+/// The number of game records that a report holds, newest first.
+const GAMES: usize = 5;
 
 /// The largest size of the game log in a report, in bytes. A longer log keeps its first and
 /// its last lines, because the first lines hold the launch and the last lines hold the end.
@@ -155,6 +159,25 @@ impl SupportReport {
             game_version: subject.game.as_ref().map(|game| game.version.clone()),
         });
         Some(subject)
+    }
+
+    /// Adds the newest game records of `store`, five at most, as `games/<id>.json`.
+    ///
+    /// A game record exists for every game that the patcher followed, clean games
+    /// included. Adds nothing if the store cannot be read.
+    pub fn add_games(&mut self, store: &GameStore) {
+        let games = match store.list() {
+            Ok(games) => games,
+            Err(e) => {
+                tracing::warn!("Could not list the games for the support report: {e}");
+                return;
+            }
+        };
+        for game in games.iter().take(GAMES) {
+            if let Ok(json) = serde_json::to_string_pretty(game) {
+                self.add(format!("games/{}.json", game.id), &json);
+            }
+        }
     }
 
     /// Adds `game-log/r3dlog.txt`: the game log of `incident`, with the private fields of

@@ -12,9 +12,11 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 
 use chrono::Utc;
+use ltk_manager_base::hashing::OverlayFingerprint;
 use parking_lot::Mutex;
 
 use crate::diagnostics::binary_id::PatcherBinaries;
+use crate::diagnostics::ids::LogIds;
 use crate::diagnostics::incident::{GameRecord, SessionFailure};
 
 use super::events::PatcherEvents;
@@ -74,7 +76,7 @@ impl SessionObserver {
             InjectorEvent::OverlayDeferred => self.events.overlay_deferred(),
             _ => {}
         }
-        let closed = self.recorder.lock().observe(&event, Utc::now());
+        let closed = self.with_recorder(|recorder| recorder.observe(&event, Utc::now()));
         if let Some(record) = closed {
             (self.records)(record);
         }
@@ -85,20 +87,37 @@ impl SessionObserver {
         self.recorder.lock().set_patcher(patcher);
     }
 
+    /// Records the fingerprint of the overlay that the session's later games run with.
+    pub fn set_overlay_fingerprint(&self, fingerprint: Option<OverlayFingerprint>) {
+        self.recorder.lock().set_overlay_fingerprint(fingerprint);
+    }
+
     /// The session failed, in the build or at the host. The record, with any
     /// open game folded in, goes to the handler.
     pub fn session_failed(&self, failure: SessionFailure) {
-        let record = self.recorder.lock().session_failed(failure, Utc::now());
+        let record = self.with_recorder(|recorder| recorder.session_failed(failure, Utc::now()));
         (self.records)(record);
     }
 
-    /// The session ended by request. A game still running is dropped unless
-    /// the scan rejected an archive, which is recorded.
+    /// The session ended by request. A game that is still running goes to the handler,
+    /// marked as still running unless the scan rejected an archive.
     pub fn session_stopped(&self) {
-        let closed = self.recorder.lock().session_stopped(Utc::now());
+        let closed = self.with_recorder(|recorder| recorder.session_stopped(Utc::now()));
         if let Some(record) = closed {
             (self.records)(record);
         }
+    }
+
+    /// Runs `f` on the recorder. Sets the game id of the log lines if `f` opened or closed
+    /// a game.
+    fn with_recorder<T>(&self, f: impl FnOnce(&mut GameRecorder) -> T) -> T {
+        let mut recorder = self.recorder.lock();
+        let before = recorder.open_since();
+        let out = f(&mut recorder);
+        if recorder.open_since() != before {
+            LogIds::global().set_game(recorder.open_game_id());
+        }
+        out
     }
 }
 

@@ -58,6 +58,10 @@ impl GameRecord {
             log: None,
             log_searched: false,
             timeline: Vec::new(),
+            overlay_fingerprint: None,
+            problems: Vec::new(),
+            still_running: false,
+            session: SessionIds::default(),
         }
     }
 
@@ -144,6 +148,23 @@ impl GameRecord {
         self.log.as_ref().is_some_and(|log| !log.torn_down)
     }
 
+    /// Returns the id of the game: the local time of its first sign, as
+    /// `2026-11-11T19-02-04`. The recorder knows it when the game opens.
+    pub fn game_id(&self) -> String {
+        self.started_at
+            .with_timezone(&Local)
+            .format("%Y-%m-%dT%H-%M-%S")
+            .to_string()
+    }
+
+    /// Returns whether the record spans a game. A record that spans no time is a session
+    /// that failed before any game.
+    pub fn spans_a_game(&self) -> bool {
+        self.started_at != self.ended_at
+    }
+
+    /// Returns the id of the incident of this record: the stamp of the game log, or the
+    /// id of the game if no log was read.
     fn id(&self) -> String {
         self.log_path
             .as_ref()
@@ -153,12 +174,7 @@ impl GameRecord {
                     .strip_suffix("_r3dlog.txt")
                     .map(str::to_string)
             })
-            .unwrap_or_else(|| {
-                self.started_at
-                    .with_timezone(&Local)
-                    .format("%Y-%m-%dT%H-%M-%S")
-                    .to_string()
-            })
+            .unwrap_or_else(|| self.game_id())
     }
 
     fn is_workshop(&self) -> bool {
