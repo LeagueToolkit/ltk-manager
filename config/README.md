@@ -91,20 +91,27 @@ a game, and in the `Get help` dialog before the send actions.
 }
 ```
 
-| Field       | Required | What it is                                                            |
-| ----------- | -------- | --------------------------------------------------------------------- |
-| `schema`    | yes      | `1`. A build reads this schema and nothing else                       |
-| `id`        | yes      | A stable name for the entry                                           |
-| `verdicts`  | yes      | The verdict kinds that the entry explains. An empty list matches none |
-| `message`   | yes      | One or two sentences in English                                       |
-| `url`       | no       | The page that `Read more` opens                                       |
-| `versions`  | no       | A semver range. The entry applies to a build inside the range only    |
-| `expiresAt` | no       | RFC 3339. The entry is withdrawn after this time                      |
+| Field        | Required | What it is                                                         |
+| ------------ | -------- | ------------------------------------------------------------------ |
+| `schema`     | yes      | `1`. A build reads this schema and nothing else                    |
+| `id`         | yes      | A stable name for the entry                                        |
+| `verdicts`   | no       | The verdict kinds that the entry explains                          |
+| `advisories` | no       | The advisory codes that the entry explains                         |
+| `message`    | yes      | One or two sentences in English                                    |
+| `url`        | no       | The page that `Read more` opens                                    |
+| `versions`   | no       | A semver range. The entry applies to a build inside the range only |
+| `expiresAt`  | no       | RFC 3339. The entry is withdrawn after this time                   |
+
+An entry with no verdict kind and no advisory code matches nothing.
 
 The verdict kinds are `patcher-did-not-run`, `overlay-build-failed`, `injection-host-failed`,
 `patcher-out-of-date`, `archive-rejected`, `skinhack-detected`, `overlay-disabled`, `unmodded`,
 `missing-data`, `corrupt-archive`, `texture-failed`, `out-of-memory`, `graphics-fault`,
 `stuck-loading`, `archive-skipped`, `ended-without-reason`, `wrong-install` and `shader-failed`.
+
+The advisory codes are `mod-missing`, `mod-content-missing`, `layers-unset`, `locale-missing`,
+`entry-unreadable`, `overlay-refused`, `archive-not-served`, `skin-data-stale`, `dll-unattested`
+and `patcher-uncoded`.
 
 An entry with a `versions` range or an `expiresAt` time that does not parse is not shown. A
 document on another schema, a document that does not parse and a document that cannot be fetched

@@ -1,6 +1,7 @@
-//! The builders of the files that state what the machine, the library, the last games and
-//! the start hold: the System checks, the mod list, the incidents, the game log, the patcher
-//! build and the start without a window.
+//! The builders of the files that state what the machine, the library, the last build, the
+//! last games and the start hold: the System checks, the mod list, the overlay build, the
+//! incidents, the game records, the game log, the patcher build and the start without a
+//! window.
 
 use std::path::Path;
 
@@ -18,10 +19,11 @@ use ltk_manager_runtime::{
 };
 use serde_json::{Value, json};
 
-use super::{Finding, Startup, SupportReport};
+use super::{Finding, ReportedAdvisory, Startup, SupportReport};
 
 const SYSTEM_JSON: &str = "system.json";
 const LIBRARY_JSON: &str = "library.json";
+const OVERLAY_JSON: &str = "overlay.json";
 const PATCHER_JSON: &str = "patcher.json";
 const STARTUP_JSON: &str = "startup.json";
 const GAME_LOG: &str = "game-log/r3dlog.txt";
@@ -161,7 +163,47 @@ impl SupportReport {
         Some(subject)
     }
 
+    /// Adds `overlay.json`: the last overlay build of `library`, with its fingerprint, the
+    /// mods that it applied, the archive and override counts of each, and the advisories
+    /// that it raised. `report.md` lists the advisories.
+    ///
+    /// A count is `null` for a mod that has no archive report. Adds nothing if no build
+    /// was recorded.
+    pub fn add_overlay(&mut self, library: &ModLibrary, config: &Config) {
+        let Some(build) = library.last_build(config) else {
+            return;
+        };
+        let reports = library.wad_reports().0.lock();
+        let mods: Vec<Value> = build
+            .mods
+            .iter()
+            .map(|id| {
+                let report = reports.get(id);
+                json!({
+                    "id": id,
+                    "archives": report.as_ref().map(|report| report.wad_count),
+                    "overrides": report.as_ref().map(|report| report.override_count),
+                })
+            })
+            .collect();
+        drop(reports);
+
+        let overlay = json!({
+            "builtAt": build.built_at,
+            "fingerprint": build.fingerprint,
+            "mods": mods,
+            "advisories": build.advisories,
+        });
+        self.add(OVERLAY_JSON, &pretty(&overlay));
+        self.advisories
+            .extend(build.advisories.iter().map(|advisory| ReportedAdvisory {
+                origin: "build".to_owned(),
+                advisory: advisory.clone(),
+            }));
+    }
+
     /// Adds the newest game records of `store`, five at most, as `games/<id>.json`.
+    /// `report.md` lists the advisories of the newest game.
     ///
     /// A game record exists for every game that the patcher followed, clean games
     /// included. Adds nothing if the store cannot be read.
@@ -177,6 +219,13 @@ impl SupportReport {
             if let Ok(json) = serde_json::to_string_pretty(game) {
                 self.add(format!("games/{}.json", game.id), &json);
             }
+        }
+        if let Some(newest) = games.first() {
+            self.advisories
+                .extend(newest.advisories.iter().map(|advisory| ReportedAdvisory {
+                    origin: format!("game {}", newest.id),
+                    advisory: advisory.clone(),
+                }));
         }
     }
 

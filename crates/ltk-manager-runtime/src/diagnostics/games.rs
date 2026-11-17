@@ -8,7 +8,9 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use fs_err as fs;
-use ltk_manager_base::{error::AppResult, hashing::OverlayFingerprint, utils::text};
+use ltk_manager_base::{
+    advisory::Advisories, error::AppResult, hashing::OverlayFingerprint, utils::text,
+};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -47,13 +49,18 @@ pub struct StoredGame {
     /// The records that the DLL and the host wrote at the warn or the error level, each
     /// distinct record once, as `<time> <source> <level> <text>`. Redacted.
     pub lines: Vec<String>,
+    /// The advisories that the game raised. The detail of each is redacted. A record
+    /// from before advisories holds none.
+    #[serde(default)]
+    pub advisories: Advisories,
 }
 
 impl GameRecord {
     /// Returns the record as the game store keeps it, for a game whose incident is
     /// `incident`.
     ///
-    /// The lines and the reason of each skipped archive pass the shared redactor.
+    /// The lines, the reason of each skipped archive and the detail of each advisory pass
+    /// the shared redactor.
     #[must_use]
     pub fn stored(&self, incident: Option<&str>) -> StoredGame {
         let lines = self
@@ -90,6 +97,9 @@ impl GameRecord {
             skipped,
             incident: incident.map(str::to_owned),
             lines,
+            advisories: self
+                .advisories
+                .with_details(|detail| ltk_redact::redact(detail).into_owned()),
         }
     }
 }

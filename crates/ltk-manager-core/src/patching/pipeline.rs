@@ -160,15 +160,16 @@ impl IncidentPipeline {
         Some(incident)
     }
 
-    /// Writes the game record of `record`, with the id of `incident`. Writes nothing for a
-    /// session that failed before any game.
+    /// Writes the game record of `record`, with the id of `incident`, and announces it.
+    /// Writes nothing for a session that failed before any game.
     fn store_game(&self, record: &GameRecord, incident: Option<&Incident>) {
         if !record.spans_a_game() {
             return;
         }
         let game = record.stored(incident.map(|incident| incident.id.as_str()));
-        if let Err(e) = self.stores.games.record(&game) {
-            tracing::error!("Could not store the record of game {}: {e}", game.id);
+        match self.stores.games.record(&game) {
+            Ok(()) => self.events.game_recorded(),
+            Err(e) => tracing::error!("Could not store the record of game {}: {e}", game.id),
         }
     }
 

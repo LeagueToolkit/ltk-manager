@@ -19,10 +19,12 @@ use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
+use chrono::Utc;
 use fs_err::File;
 use ltk_manager_assets::mod_archive::open_modpkg;
+use ltk_manager_base::advisory::{Advisories, Advisory, AdvisoryCode, AdvisorySubject};
 use ltk_manager_base::config::Config;
-use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt};
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, message_with_sources};
 use ltk_overlay::{FantomeContent, FsModContent, ModContentProvider, ModpkgContent};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -69,9 +71,21 @@ impl ModLibrary {
         })
     }
 
+    /// Returns the slug of the active profile and its enabled mods as overlay inputs, in
+    /// the order of their priority.
+    ///
+    /// Raises an advisory on `advisories` for each enabled mod that the overlay does not
+    /// get in full. A mod that is not in the library, a mod whose content is missing and a
+    /// mod whose content or project cannot be read are left out. A mod that has several
+    /// layers and no saved choice is applied with `base` alone.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the index cannot be read or holds no active profile.
     pub fn get_enabled_mods_for_overlay(
         &self,
         config: &Config,
+        advisories: &mut Advisories,
     ) -> AppResult<(ProfileSlug, Vec<ltk_overlay::EnabledMod>)> {
         self.with_index(config, |storage_dir, index| {
             let active_profile_id = index.active_profile_id.clone();
@@ -81,27 +95,46 @@ impl ModLibrary {
                 .find(|p| p.id == active_profile_id)
                 .ok_or_else(|| AppError::Other("Active profile not found".to_string()))?;
 
+            let now = Utc::now();
             let mut enabled_mods = Vec::new();
 
             // Process mods in the order they appear in enabled_mods list (maintains priority)
             for mod_id in &active_profile.enabled_mods {
+                let advisory =
+                    |code| Advisory::new(code, now).about(AdvisorySubject::mod_id(mod_id.as_str()));
+
                 let Some(entry) = index.mods.iter().find(|m| &m.id == mod_id) else {
-                    tracing::warn!("Mod {} in profile but not found in library", mod_id);
+                    advisories.raise(advisory(AdvisoryCode::ModMissing));
                     continue;
                 };
 
                 if !entry.is_present(storage_dir) {
-                    tracing::warn!("Skipping mod {}: content missing on disk", entry.id);
+                    advisories.raise(advisory(AdvisoryCode::ModContentMissing));
                     continue;
                 }
 
-                let content = entry.content_provider(storage_dir)?;
-                let enabled_layers = active_profile.enabled_overlay_layers(entry, storage_dir)?;
+                let inputs = entry.content_provider(storage_dir).and_then(|content| {
+                    let layers = active_profile.overlay_layers(entry, storage_dir)?;
+                    Ok((content, layers))
+                });
+                let (content, layers) = match inputs {
+                    Ok(inputs) => inputs,
+                    Err(e) => {
+                        advisories.raise(
+                            advisory(AdvisoryCode::EntryUnreadable)
+                                .with_detail(message_with_sources(&e)),
+                        );
+                        continue;
+                    }
+                };
+                if layers.unset {
+                    advisories.raise(advisory(AdvisoryCode::LayersUnset));
+                }
 
                 enabled_mods.push(ltk_overlay::EnabledMod {
                     id: entry.id.clone(),
                     content,
-                    enabled_layers,
+                    enabled_layers: layers.enabled,
                 });
             }
 
@@ -110,42 +143,57 @@ impl ModLibrary {
     }
 }
 
+/// The layers that the overlay applies for one mod.
+struct OverlayLayers {
+    /// The layers to apply, or `None` for every layer, which is the default of the
+    /// overlay builder.
+    enabled: Option<HashSet<String>>,
+    /// Whether the mod has several layers and the profile holds no choice for it, so
+    /// that `base` alone applies.
+    unset: bool,
+}
+
 impl Profile {
-    /// Resolves which layers the overlay should apply for `entry` under this profile.
+    /// Resolves the layers that the overlay applies for `entry` under this profile.
     ///
-    /// Returns `None` to apply every layer (the overlay builder's default), or
-    /// `Some(set)` naming the exact layers to apply. Layers are opt-in: with no
-    /// saved layer config, a multi-layer mod applies only its always-on `base`
-    /// layer, while a single-layer mod falls back to the default so a plain mod
-    /// still applies when simply enabled.
-    fn enabled_overlay_layers(
+    /// Layers are opt-in. A mod with several layers and no saved choice applies its
+    /// always-on `base` layer alone. A mod with one layer applies every layer, so that a
+    /// plain mod applies when it is enabled.
+    fn overlay_layers(
         &self,
         entry: &LibraryModEntry,
         storage_dir: &Path,
-    ) -> AppResult<Option<HashSet<String>>> {
+    ) -> AppResult<OverlayLayers> {
         if let Some(states) = self.layer_states.get(&entry.id) {
-            return Ok(Some(
-                states
-                    .iter()
-                    .filter(|&(_, &enabled)| enabled)
-                    .map(|(name, _)| name.clone())
-                    .collect(),
-            ));
+            let enabled = states
+                .iter()
+                .filter(|&(_, &enabled)| enabled)
+                .map(|(name, _)| name.clone())
+                .collect();
+            return Ok(OverlayLayers {
+                enabled: Some(enabled),
+                unset: false,
+            });
         }
 
         let project = load_mod_project(&entry.mod_dir(storage_dir))?;
         if project.layers.len() <= 1 {
-            return Ok(None);
+            return Ok(OverlayLayers {
+                enabled: None,
+                unset: false,
+            });
         }
 
-        Ok(Some(
-            project
-                .layers
-                .iter()
-                .filter(|l| l.name == "base")
-                .map(|l| l.name.clone())
-                .collect(),
-        ))
+        let base = project
+            .layers
+            .iter()
+            .filter(|l| l.name == "base")
+            .map(|l| l.name.clone())
+            .collect();
+        Ok(OverlayLayers {
+            enabled: Some(base),
+            unset: true,
+        })
     }
 }
 

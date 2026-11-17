@@ -12,6 +12,7 @@ use parking_lot::Mutex;
 
 use ltk_telemetry::Telemetry;
 
+use ltk_manager_base::advisory::Advisories;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, message_with_sources};
 use ltk_manager_base::events::{OverlayProgress, PrepareStep};
@@ -61,6 +62,9 @@ pub fn workshop_tests(config: &StoredPatcherConfig) -> Vec<WorkshopTestProject> 
 pub struct PreparedHost {
     pub exe: PathBuf,
     pub binaries: PatcherBinaries,
+    /// The advisories that the delivery of the patcher raised. Each build of the session
+    /// records them.
+    pub advisories: Advisories,
 }
 
 /// Prepares the host of a session on the session thread, because it can wait for a download.
@@ -186,6 +190,7 @@ impl PatcherThread {
             }
         };
         self.observer.set_patcher(host.binaries);
+        let host_advisories = host.advisories;
 
         if self.stop_flag.load(Ordering::SeqCst) {
             tracing::info!("Stop requested while preparing the patcher host, exiting");
@@ -197,7 +202,9 @@ impl PatcherThread {
         let mut rebuilds = 0u64;
 
         loop {
-            let Some(overlay_prefix) = self.build_overlay(force_rebuild, rebuilds) else {
+            let Some(overlay_prefix) =
+                self.build_overlay(force_rebuild, rebuilds, &host_advisories)
+            else {
                 return;
             };
             force_rebuild = false;
@@ -229,8 +236,14 @@ impl PatcherThread {
 
     /// Build the overlay and return its prefix path, or `None` on failure or
     /// an early stop (state already reset). `rebuilds` counts the builds the
-    /// session ran before this one.
-    fn build_overlay(&self, force_rebuild: bool, rebuilds: u64) -> Option<String> {
+    /// session ran before this one. The record of the build holds the advisories of the
+    /// build and `host_advisories`.
+    fn build_overlay(
+        &self,
+        force_rebuild: bool,
+        rebuilds: u64,
+        host_advisories: &Advisories,
+    ) -> Option<String> {
         self.refresh.clear();
 
         let stop_flag = Arc::clone(&self.stop_flag);
@@ -263,13 +276,16 @@ impl PatcherThread {
             overlay_root,
             outcome,
             timings,
-            fingerprint,
+            mut record,
         } = build;
-        self.observer.set_overlay_fingerprint(fingerprint);
+        record.advisories.merge(host_advisories.clone());
+        self.observer
+            .set_overlay_fingerprint(record.fingerprint.clone());
         self.report_overlay_built(&timings, rebuilds);
-        // Refreshes the library badges. Advisory, so it happens even if we are
+        // Refreshes the library badges and the advisories. It happens even if we are
         // about to bail on a stop request - the data is already correct.
-        self.library.record_overlay_build(outcome);
+        self.library
+            .record_overlay_build(&self.config, outcome, &record);
 
         if self.stop_flag.load(Ordering::SeqCst) {
             tracing::info!("Stop requested after overlay build, exiting");

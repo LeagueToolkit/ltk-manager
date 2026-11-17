@@ -429,6 +429,14 @@ See ADR-0074.
 release workflow and baked into the build. The delivery service registers an install only with an
 attestation that verifies, and denies builds by their attested version.
 
+**Advisory** - a coded condition that the manager handled and that changes what the user gets,
+such as a mod that the build left out or an overlay that the patcher refused. The build or the
+game went on, so an advisory is not an error. An overlay build and a game each hold the
+advisories that they raised. The backend sends the code, and the frontend catalog words it. An
+advisory shows in the status bar, on the card of its mod, in the `Get help` dialog and in the
+support report, and raises no toast. See [support reports](docs/ux/SUPPORT_REPORTS.md).
+_Avoid_: notice, finding, warning
+
 ## Audio
 
 The format words come from `ltk_wwise`: bank, media bank, event bank, package, media, source ID,

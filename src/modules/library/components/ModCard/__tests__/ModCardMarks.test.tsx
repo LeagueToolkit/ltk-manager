@@ -11,6 +11,7 @@ import { ModCardList } from "../ModCardList";
 import type { ModCardView } from "../useModCardController";
 
 vi.mock("@/modules/diagnostics", () => ({
+  AdvisoryBadge: () => null,
   SuspectBadge: () => <button type="button">suspect</button>,
 }));
 vi.mock("../../ModHealthBadge", () => ({

@@ -179,9 +179,159 @@ fn the_overlay_takes_a_fantome_with_no_archive_and_skips_a_missing_mod() {
     };
     crate::mods::index::document::save_library_index(storage.path(), &index).unwrap();
 
-    let (_slug, enabled) = library.get_enabled_mods_for_overlay(&config).unwrap();
+    let mut advisories = Advisories::default();
+    let (_slug, enabled) = library
+        .get_enabled_mods_for_overlay(&config, &mut advisories)
+        .unwrap();
     let ids: Vec<&str> = enabled.iter().map(|m| m.id.as_str()).collect();
     assert_eq!(ids, vec!["keep"]);
+    let raised: Vec<_> = advisories
+        .iter()
+        .map(|advisory| (advisory.code, advisory.subject.clone()))
+        .collect();
+    assert_eq!(
+        raised,
+        [(
+            AdvisoryCode::ModContentMissing,
+            Some(AdvisorySubject::mod_id("gone"))
+        )]
+    );
+}
+
+/// Saves an index that holds `mods` and whose active profile enables `enabled`, in that
+/// order.
+fn save_profile(storage: &Path, mods: Vec<LibraryModEntry>, enabled: &[&str]) {
+    let index = LibraryIndex {
+        version: 0,
+        mods,
+        profiles: vec![make_test_profile(
+            "p1",
+            "Default",
+            enabled.to_vec(),
+            enabled.to_vec(),
+        )],
+        active_profile_id: "p1".to_string(),
+        folders: vec![LibraryFolder {
+            id: ROOT_FOLDER_ID.to_string(),
+            name: String::new(),
+            mod_ids: enabled.iter().map(|id| (*id).to_string()).collect(),
+            kept_sort: None,
+        }],
+        folder_order: vec![ROOT_FOLDER_ID.to_string()],
+    };
+    crate::mods::index::document::save_library_index(storage, &index).unwrap();
+}
+
+/// Returns the ids of the mods that the overlay gets, and the code and the subject of each
+/// advisory that the resolve raised.
+fn resolve(
+    library: &ModLibrary,
+    config: &Config,
+) -> (Vec<String>, Vec<(AdvisoryCode, Option<AdvisorySubject>)>) {
+    let mut advisories = Advisories::default();
+    let (_slug, enabled) = library
+        .get_enabled_mods_for_overlay(config, &mut advisories)
+        .unwrap();
+    let ids = enabled.into_iter().map(|m| m.id).collect();
+    let raised = advisories
+        .iter()
+        .map(|advisory| (advisory.code, advisory.subject.clone()))
+        .collect();
+    (ids, raised)
+}
+
+#[test]
+fn a_mod_in_the_profile_and_not_in_the_library_raises_mod_missing() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    place_unpacked_mod(storage.path(), "keep-me", false);
+    save_profile(
+        storage.path(),
+        vec![make_unpacked_entry("keep", "keep-me")],
+        &["keep", "ghost"],
+    );
+
+    let (ids, raised) = resolve(&library, &config);
+
+    assert_eq!(ids, ["keep"]);
+    assert_eq!(
+        raised,
+        [(
+            AdvisoryCode::ModMissing,
+            Some(AdvisorySubject::mod_id("ghost"))
+        )]
+    );
+}
+
+#[test]
+fn a_mod_with_layers_and_no_choice_applies_base_and_raises_layers_unset() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    place_unpacked_mod(storage.path(), "layered", false);
+    let config_path = storage
+        .path()
+        .mods_dir()
+        .join("layered")
+        .join("mod.config.json");
+    let mut project: ltk_mod_project::ModProject =
+        serde_json::from_slice(&fs::read(&config_path).unwrap()).unwrap();
+    let mut extra = project.layers[0].clone();
+    extra.name = "extra".to_string();
+    project.layers.push(extra);
+    fs::write(&config_path, serde_json::to_vec(&project).unwrap()).unwrap();
+    save_profile(
+        storage.path(),
+        vec![make_unpacked_entry("layered", "layered")],
+        &["layered"],
+    );
+
+    let mut advisories = Advisories::default();
+    let (_slug, enabled) = library
+        .get_enabled_mods_for_overlay(&config, &mut advisories)
+        .unwrap();
+
+    assert_eq!(
+        enabled[0].enabled_layers,
+        Some(HashSet::from(["base".to_string()]))
+    );
+    let codes: Vec<AdvisoryCode> = advisories.iter().map(|advisory| advisory.code).collect();
+    assert_eq!(codes, [AdvisoryCode::LayersUnset]);
+}
+
+#[test]
+fn a_mod_whose_project_cannot_be_read_is_left_out_and_raises_entry_unreadable() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    place_unpacked_mod(storage.path(), "keep-me", false);
+    place_unpacked_mod(storage.path(), "broken", false);
+    fs::write(
+        storage
+            .path()
+            .mods_dir()
+            .join("broken")
+            .join("mod.config.json"),
+        "{ not json",
+    )
+    .unwrap();
+    save_profile(
+        storage.path(),
+        vec![
+            make_unpacked_entry("keep", "keep-me"),
+            make_unpacked_entry("broken", "broken"),
+        ],
+        &["broken", "keep"],
+    );
+
+    let (ids, raised) = resolve(&library, &config);
+
+    assert_eq!(ids, ["keep"]);
+    assert_eq!(
+        raised,
+        [(
+            AdvisoryCode::EntryUnreadable,
+            Some(AdvisorySubject::mod_id("broken"))
+        )]
+    );
 }
 
 /// Before the layout migration runs, a fantome's content is still inside its

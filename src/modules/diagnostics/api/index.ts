@@ -1,5 +1,7 @@
 export { diagnosticsKeys } from "./keys";
+export { type AdvisoryMute } from "./mutations";
 export { diagnosticsQueries } from "./queries";
+export { useAdvisories, useMuteAdvisory, useShownAdvisories } from "./useAdvisories";
 export { CLEAN_GAME_GRACE_MS, useCleanGameWatch } from "./useCleanGameWatch";
 export { useDecodeIncidentToken } from "./useDecodeIncidentToken";
 export { useDiagnostics } from "./useDiagnostics";

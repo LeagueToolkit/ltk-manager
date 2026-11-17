@@ -503,6 +503,8 @@ export const api = {
     incidentReport: diagnostics.incidentReport,
     incidentToken: diagnostics.incidentToken,
     decodeIncidentToken: diagnostics.decodeIncidentToken,
+    listAdvisories: diagnostics.listAdvisories,
+    muteAdvisory: diagnostics.muteAdvisory,
     telemetryIdentity: diagnostics.telemetryIdentity,
     resetTelemetrySecret: diagnostics.resetTelemetrySecret,
     trackUiError: diagnostics.trackUiError,

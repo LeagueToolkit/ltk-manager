@@ -51,6 +51,61 @@ export type AddableFields = {
 	fields: AddableField[],
 };
 
+/**  The code of an advisory, on the wire and in the stores. */
+export type AdvisoryCode = 
+/**  The mod is in the profile and not in the library. */
+"mod-missing" | 
+/**  The files of the mod are missing on disk. */
+"mod-content-missing" | 
+/**  The mod has several layers and none is chosen, so the build applies `base` alone. */
+"layers-unset" | 
+/**
+ *  The strings of the mod target a locale that the game does not have. Nothing raises
+ *  it until `ltk_overlay` reports the condition for each mod.
+ */
+"locale-missing" | 
+/**  The entry of the mod cannot be read, so the build skips the mod. */
+"entry-unreadable" | 
+/**  The patcher refused the overlay, so no mod was in the game. */
+"overlay-refused" | 
+/**  The patcher could not open one modded archive, and the game read its own. */
+"archive-not-served" | 
+/**
+ *  The skin check of the patcher ran against another game version. Nothing raises it
+ *  until the patcher writes a record for the condition.
+ */
+"skin-data-stale" | 
+/**  The patcher that the delivery service offers failed its check, so it is not used. */
+"dll-unattested" | 
+/**  The patcher wrote an error record that the manager does not know. */
+"patcher-uncoded";
+
+/**  What raised an advisory. */
+export type AdvisorySource = 
+/**  The last overlay build. */
+"build" | 
+/**  The newest game. */
+"game";
+
+/**  What an advisory is about. */
+export type AdvisorySubject = 
+/**  A mod of the library, by its id. */
+{ kind: "mod"; id: string } | 
+/**  A game archive, by its last path segment. */
+{ kind: "archive"; name: string } | 
+/**  A workshop project under test, by its path. */
+{ kind: "project"; path: string };
+
+/**  What the app tells the user about an advisory of the patcher. */
+export type AdvisoryTier = 
+/**
+ *  A cause in the user's environment, such as a file that cannot be opened. The app
+ *  names the cause and a fix.
+ */
+"environment" | 
+/**  A refusal of the integrity checks. The app shows the code and no reason. */
+"integrity";
+
 /**  A fact about one alternative fix, which the frontend words in the note of the repair. */
 export type AlternativeCaveat = 
 /**
@@ -4611,6 +4666,8 @@ export type KnownIssue = {
 	id: string,
 	/**  The verdict kinds that the issue explains, such as `missing-data`. */
 	verdicts: string[],
+	/**  The advisory codes that the issue explains, such as `overlay-refused`. */
+	advisories: string[],
 	/**  The maintainers' message, in English. */
 	message: string,
 	/**  The page that `Read more` opens. */
@@ -9291,6 +9348,23 @@ export type ShippedSkin = {
 	asset: AssetRef,
 	/**  The `SkinCharacterDataProperties` object's hash, `0x` and eight hex digits. */
 	entry: string,
+};
+
+/**  One advisory as the app shows it. */
+export type ShownAdvisory = {
+	code: AdvisoryCode,
+	/**  The tier of an advisory of the patcher. `None` for an advisory of the manager. */
+	tier: AdvisoryTier | null,
+	subject: AdvisorySubject | null,
+	/**  The code that the patcher gave the condition, such as `VRF00000008`. */
+	patcherCode: string | null,
+	source: AdvisorySource,
+	at: string,
+	/**
+	 *  Whether the user muted the code for the mod. The session bar and the mod card leave
+	 *  a muted advisory out.
+	 */
+	muted: boolean,
 };
 
 /**  An error that the manager showed to the user. */

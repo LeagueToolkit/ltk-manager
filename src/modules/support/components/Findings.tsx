@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Button, OVERLINE, Stack, useToast } from "@/components";
 import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
-import { verdictTitle } from "@/modules/diagnostics";
+import { advisoryText, verdictTitle } from "@/modules/diagnostics";
 import { useRebuildOverlayAction } from "@/modules/patcher";
 
 import { type Finding, isKnownCause } from "../utils/findings";
@@ -33,7 +33,7 @@ export function Findings({ findings, authorSummary, onUpdate }: FindingsProps) {
       <span className={OVERLINE}>{m.support_found_label()}</span>
       {findings.map((finding, index) => (
         <FindingRow
-          key={finding.kind}
+          key={rowKey(finding)}
           finding={finding}
           primary={index === primary}
           authorSummary={authorSummary}
@@ -42,6 +42,13 @@ export function Findings({ findings, authorSummary, onUpdate }: FindingsProps) {
       ))}
     </Stack>
   );
+}
+
+/** Returns the key of the row of `finding`. Every kind but an advisory has one row. */
+function rowKey(finding: Finding): string {
+  if (finding.kind === "advisory") return `advisory:${finding.code}`;
+
+  return finding.kind;
 }
 
 interface FindingRowProps extends Omit<FindingsProps, "findings"> {
@@ -88,6 +95,8 @@ function FindingRow({ finding, primary, authorSummary, onUpdate }: FindingRowPro
           authorSummary={authorSummary}
         />
       );
+    case "advisory":
+      return <AdvisoryRow finding={finding} primary={primary} />;
   }
 }
 
@@ -104,6 +113,27 @@ function VerdictRow({ incident, rebuild, primary }: VerdictRowProps) {
   return (
     <Row kind="verdict" title={verdictTitle(incident)} detail={incident.verdict.cause}>
       {rebuild && (
+        <FixButton primary={primary} loading={action.pending} onClick={action.run}>
+          {action.label}
+        </FixButton>
+      )}
+    </Row>
+  );
+}
+
+interface AdvisoryRowProps {
+  finding: Extract<Finding, { kind: "advisory" }>;
+  primary: boolean;
+}
+
+/** The sentence of an advisory code, with the subjects and the code of the patcher under it. */
+function AdvisoryRow({ finding, primary }: AdvisoryRowProps) {
+  const action = useRebuildOverlayAction();
+  const detail = [finding.subjects.join(", "), finding.patcherCode].filter(Boolean).join(" · ");
+
+  return (
+    <Row kind="advisory" title={advisoryText(finding.code)} detail={detail}>
+      {finding.rebuild && (
         <FixButton primary={primary} loading={action.pending} onClick={action.run}>
           {action.label}
         </FixButton>

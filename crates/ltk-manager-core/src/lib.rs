@@ -4,6 +4,7 @@
 //! Tauri-free, like every crate below it. UI-facing conditions are reported through listener
 //! traits, and the Tauri shell in `src-tauri` supplies the adapters.
 
+pub mod advisories;
 pub mod deep_link;
 pub mod github;
 pub mod known_issues;

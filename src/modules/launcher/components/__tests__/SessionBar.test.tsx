@@ -79,6 +79,9 @@ function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning
     if (cmd === commandNames.support.listKnownIssues) {
       return Promise.resolve({ ok: true, value: knownIssues });
     }
+    if (cmd === commandNames.diagnostics.listAdvisories) {
+      return Promise.resolve({ ok: true, value: [] });
+    }
     return Promise.resolve({ ok: true, value: null });
   });
 }
@@ -379,12 +382,14 @@ describe("SessionBar", () => {
         {
           id: "2026-11-patch-16-23",
           verdicts: ["missing-data"],
+          advisories: [],
           message: "Patch 16.23 moved the skin data. Update the manager.",
           url: "https://github.com/LeagueToolkit/ltk-manager/issues/1100",
         },
         {
           id: "other",
           verdicts: ["graphics-fault"],
+          advisories: [],
           message: "A driver release breaks the game.",
           url: null,
         },

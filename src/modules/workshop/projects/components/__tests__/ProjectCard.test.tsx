@@ -10,7 +10,10 @@ import { renderWithProviders } from "@/test/utils";
 import { useRenameProjectDialog, useWorkshopSelectionStore } from "../../../state";
 import { ProjectCard } from "../ProjectCard";
 
-vi.mock("@/modules/diagnostics", () => ({ SuspectBadge: () => null }));
+vi.mock("@/modules/diagnostics", () => ({
+  AdvisoryBadge: () => null,
+  SuspectBadge: () => null,
+}));
 vi.mock("../../api/useProjectThumbnail", () => ({
   useProjectThumbnail: () => ({ data: undefined }),
 }));

@@ -4,9 +4,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use chrono::Utc;
+use ltk_manager_base::advisory::{Advisories, Advisory, AdvisoryCode};
 use ltk_manager_base::config::Config;
 use ltk_manager_runtime::patcher::delivery::{
-    attested_build, Channel, DeliveryError, PatcherDelivery, StagedPatcher,
+    attested_build, Channel, DeliveryError, DeliveryFailure, PatcherDelivery, StagedPatcher,
 };
 use parking_lot::Mutex;
 use semver::{Prerelease, Version};
@@ -44,6 +46,9 @@ const BUNDLED_HOST_PROTOCOL: &str = include_str!("../../host-protocol");
 pub struct PatcherDeliveryState {
     delivery: Option<Arc<PatcherDelivery>>,
     syncing: Arc<Mutex<()>>,
+    /// Why the patcher that the service offers is not used: the build attestation was
+    /// rejected, or the last sync failed a check. `None` if the last sync passed.
+    failed_check: Arc<Mutex<Option<String>>>,
 }
 
 impl PatcherDeliveryState {
@@ -83,13 +88,17 @@ impl PatcherDeliveryState {
             attested_build(attestation)
                 .is_some_and(|build| build.version == release && build.protocol == protocol)
         });
-        if ATTESTATION.is_some() && attestation.is_none() {
+        let rejected = ATTESTATION.is_some() && attestation.is_none();
+        if rejected {
             tracing::warn!(
                 %release,
                 protocol,
                 "The build attestation does not name this manager version and host protocol. The patcher DLL is not downloaded"
             );
         }
+        let failed_check = rejected.then(|| {
+            "the build attestation does not name this manager version and host protocol".to_owned()
+        });
 
         let delivery = data_dir.filter(|_| cfg!(windows)).map(|dir| {
             Arc::new(PatcherDelivery {
@@ -105,6 +114,7 @@ impl PatcherDeliveryState {
         Self {
             delivery,
             syncing: Arc::new(Mutex::new(())),
+            failed_check: Arc::new(Mutex::new(failed_check)),
         }
     }
 
@@ -113,24 +123,58 @@ impl PatcherDeliveryState {
         self.delivery.as_deref()
     }
 
+    /// Raises `dll-unattested` on `advisories` if the patcher that the service offers is
+    /// not used because it failed a check. A session then runs an older staged build.
+    pub fn raise_failed_check(&self, advisories: &mut Advisories) {
+        if let Some(reason) = self.failed_check.lock().as_deref() {
+            advisories
+                .raise(Advisory::new(AdvisoryCode::DllUnattested, Utc::now()).with_detail(reason));
+        }
+    }
+
     /// Syncs the channel of `config` on a background thread, after any running sync.
     ///
     /// Skips the sync if the build has no attestation.
     pub fn sync_in_background(&self, config: &Config) {
-        let Some(delivery) = self
+        let attested = self
             .delivery
-            .clone()
-            .filter(|delivery| delivery.attestation.is_some())
-        else {
+            .as_ref()
+            .is_some_and(|delivery| delivery.attestation.is_some());
+        if !attested {
             return;
-        };
+        }
 
-        let syncing = Arc::clone(&self.syncing);
+        let state = self.clone();
         let channel = channel(config);
         std::thread::spawn(move || {
-            let _guard = syncing.lock();
-            sync(&delivery, channel);
+            let _guard = state.syncing.lock();
+            state.sync(channel);
         });
+    }
+
+    /// Syncs `channel`, and logs and reports a failure. Keeps the failure of a check of
+    /// the offered patcher for [`Self::raise_failed_check`], and forgets it after a sync
+    /// that passes.
+    fn sync(&self, channel: Channel) {
+        let Some(delivery) = self.delivery() else {
+            return;
+        };
+        match delivery.sync(channel) {
+            Ok(_) => *self.failed_check.lock() = None,
+            Err(error) => {
+                tracing::warn!(%channel, %error, "Patcher delivery sync failed");
+                crate::telemetry::report_delivery_sync_failed(
+                    channel.as_str(),
+                    error.kind().as_str(),
+                );
+                if matches!(
+                    error.kind(),
+                    DeliveryFailure::Integrity | DeliveryFailure::Signature
+                ) {
+                    *self.failed_check.lock() = Some(error.to_string());
+                }
+            }
+        }
     }
 
     /// Selects the build that a session on `channel` runs, downloading it if needed.
@@ -180,13 +224,5 @@ pub fn channel(config: &Config) -> Channel {
         Channel::Beta
     } else {
         Channel::Stable
-    }
-}
-
-/// Syncs `channel`, and logs and reports a failure.
-fn sync(delivery: &PatcherDelivery, channel: Channel) {
-    if let Err(error) = delivery.sync(channel) {
-        tracing::warn!(%channel, %error, "Patcher delivery sync failed");
-        crate::telemetry::report_delivery_sync_failed(channel.as_str(), error.kind().as_str());
     }
 }

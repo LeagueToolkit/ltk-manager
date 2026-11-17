@@ -2,7 +2,7 @@ import { ShieldWarningIcon } from "@phosphor-icons/react";
 import { match } from "ts-pattern";
 
 import { Checkbox, Tooltip } from "@/components";
-import { SuspectBadge } from "@/modules/diagnostics";
+import { AdvisoryBadge, SuspectBadge } from "@/modules/diagnostics";
 import { twMerge } from "@/utils";
 
 import { LayerPopover } from "../LayerPopover";
@@ -131,6 +131,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
       >
         <ModHealthBadge modId={mod.id} />
         <SuspectBadge modId={mod.id} enabled={mod.enabled} />
+        <AdvisoryBadge modId={mod.id} enabled={mod.enabled} />
       </span>
 
       <div

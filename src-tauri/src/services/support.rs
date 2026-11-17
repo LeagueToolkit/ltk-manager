@@ -239,6 +239,7 @@ impl ReportSources {
             &self.delivery,
         ));
         report.add_library(&self.library, config);
+        report.add_overlay(&self.library, config);
 
         let subject = report.add_incidents(&self.incidents, request.incident_id.as_deref());
         if let Some(incident) = subject.filter(|_| request.include_game_log) {

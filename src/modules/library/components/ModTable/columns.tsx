@@ -12,7 +12,7 @@ import {
   Tooltip,
 } from "@/components";
 import { m } from "@/i18n";
-import { SuspectBadge } from "@/modules/diagnostics";
+import { AdvisoryBadge, SuspectBadge } from "@/modules/diagnostics";
 import { useFolders } from "@/modules/library/api";
 import { twMerge } from "@/utils";
 
@@ -172,6 +172,7 @@ function HealthCell({ view }: CellProps) {
     <span {...stop} className="flex items-center gap-1 empty:hidden">
       <ModHealthBadge modId={view.mod.id} />
       <SuspectBadge modId={view.mod.id} enabled={view.mod.enabled} />
+      <AdvisoryBadge modId={view.mod.id} enabled={view.mod.enabled} />
     </span>
   );
 }

@@ -21,6 +21,7 @@
 //! slug. `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` describes its
 //! contents and why a modpkg's differ from a fantome's.
 
+mod advisory_mutes;
 mod analysis;
 mod archive;
 mod health;
@@ -35,6 +36,7 @@ mod types;
 #[cfg(test)]
 pub(crate) mod test_support;
 
+pub use advisory_mutes::MutedAdvisories;
 pub use analysis::categorize::{ChampionRoster, DerivedCategorization, champion_display_name};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};

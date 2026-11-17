@@ -26,7 +26,8 @@ import { diagnosticsKeys } from "./keys";
  * with the stage's own action. A wrong-install verdict raises the install
  * mismatch dialog with the log's install as the switch target.
  * `patcher-game-attached` takes the line down again, since the bar's job is
- * the present.
+ * the present. `advisories-updated` refreshes the advisories, which the backend
+ * emits after each build and after each game that it records.
  */
 export function useIncidentListeners() {
   const queryClient = useQueryClient();
@@ -69,6 +70,10 @@ export function useIncidentListeners() {
   });
 
   useTauriEvent<unknown>("patcher-game-attached", () => clear());
+
+  useTauriEvent<unknown>("advisories-updated", () => {
+    queryClient.invalidateQueries({ queryKey: diagnosticsKeys.advisories() });
+  });
 }
 
 function toastTypeFor(incident: Incident) {

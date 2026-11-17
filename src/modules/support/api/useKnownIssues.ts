@@ -19,5 +19,5 @@ export function useKnownIssues() {
 export function useKnownIssue(incident: Incident | null): KnownIssue | null {
   const { data: issues = [] } = useKnownIssues();
 
-  return knownIssueFor(issues, incident);
+  return knownIssueFor(issues, incident, []);
 }

@@ -21,6 +21,7 @@ use super::ids::SessionIds;
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::{InjectionStage, SessionOrigin};
+use ltk_manager_base::advisory::Advisories;
 use ltk_manager_base::error::{ErrorKind, OverlayErrorCategory};
 use ltk_manager_base::hashing::OverlayFingerprint;
 
@@ -611,6 +612,9 @@ pub struct GameRecord {
     pub still_running: bool,
     /// The run and the session of the game, set on every record from the recorder.
     pub session: SessionIds,
+    /// The advisories that the game raised: the conditions that the patcher handled and
+    /// that changed what the user got.
+    pub advisories: Advisories,
 }
 
 /// What an enabled library mod writes, for the suspect match.

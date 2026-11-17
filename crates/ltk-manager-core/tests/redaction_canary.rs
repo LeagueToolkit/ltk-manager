@@ -24,6 +24,7 @@ use ltk_manager_assets::{
     test_util::{make_named_fantome_zip, place_game_wad, point_at_installed_build},
 };
 use ltk_manager_base::{
+    advisory::{Advisories, Advisory, AdvisoryCode},
     config::Config,
     error::AppError,
     events::{NullEventSink, OverlayProgress},
@@ -122,6 +123,7 @@ fn no_output_holds_a_private_value() {
             "settings.json",
             "system.json",
             "library.json",
+            "overlay.json",
             "incidents/",
             "games/",
             "game-log/r3dlog.txt",
@@ -131,6 +133,13 @@ fn no_output_holds_a_private_value() {
             assert!(
                 support_report.contains(file),
                 "the support report of the `{username}` run holds no {file}"
+            );
+        }
+        // A line of the `Advisories` section of `report.md` is `- <origin>: [<code>] ...`.
+        for code in ["dll-unattested", "archive-not-served", "patcher-uncoded"] {
+            assert!(
+                support_report.contains(&format!(": [{code}]")),
+                "the support report of the `{username}` run lists no {code} advisory"
             );
         }
 
@@ -237,9 +246,18 @@ impl Fixture {
         );
 
         // The host of the first session does not exist, so the session fails after the
-        // overlay build. The second start fails before the build.
+        // overlay build. The second start fails before the build. The advisory of the
+        // host holds the path of the host in its detail.
         let host_exe = self.app_data.join("patcher").join("ltk_patcher_host.exe");
         let exe = host_exe.clone();
+        let mut advisories = Advisories::default();
+        advisories.raise(
+            Advisory::new(AdvisoryCode::DllUnattested, chrono::Utc::now()).with_detail(format!(
+                "{} holds no attestation for {}",
+                self.username,
+                host_exe.display()
+            )),
+        );
         let incident = self
             .run_session(
                 &library,
@@ -248,6 +266,7 @@ impl Fixture {
                     Ok(PreparedHost {
                         exe,
                         binaries: PatcherBinaries::default(),
+                        advisories,
                     })
                 }),
                 true,
@@ -293,7 +312,7 @@ impl Fixture {
     ///
     /// The events are the ones that the injector emits for the lines of a host, because
     /// the test has no host process. The records of the DLL hold the username, the League
-    /// path and the storage path.
+    /// path and the storage path. Two of them raise an advisory with a detail.
     fn follow_game(&self, library: &ModLibrary, telemetry: &Telemetry) {
         let league = self.config.league_path.as_deref().expect("a League path");
         let storage = self
@@ -344,7 +363,8 @@ impl Fixture {
         });
         observer.observe(InjectorEvent::Problem {
             source: EvidenceSource::Dll,
-            level: tracing::Level::WARN,
+            level: tracing::Level::ERROR,
+            coded: false,
             text: format!(
                 "{} cannot read {}",
                 self.username,
@@ -458,6 +478,7 @@ impl Fixture {
             manager_exe: Some(self.profile.join("ltk-manager.exe")),
         });
         report.add_library(&self.library(), &self.config);
+        report.add_overlay(&self.library(), &self.config);
         let store = IncidentStore::new(self.app_data.join("incidents"));
         report.add_incidents(&store, None);
         report.add_game_log(&self.incident_with_game_log(&store), &self.config);
@@ -583,6 +604,7 @@ impl PatcherEvents for Events {
     fn incident_recorded(&self, incident: Incident) {
         let _ = self.incidents.send(incident);
     }
+    fn game_recorded(&self) {}
 }
 
 /// The log of the process, unredacted and as the log file writer writes it.

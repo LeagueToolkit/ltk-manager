@@ -514,6 +514,8 @@ declare_events! {
     ChecksumMismatchesUpdated => "checksum-mismatches-updated",
     /// Per-mod WAD analysis results changed.
     WadReportsUpdated => "wad-reports-updated",
+    /// The advisories of the last build or of the last game changed, or one was muted.
+    AdvisoriesUpdated => "advisories-updated",
     /// Per-mod health verdicts changed.
     ModHealthVerdictsUpdated => "mod-health-verdicts-updated",
     /// A mod health sweep advanced to the next mod.

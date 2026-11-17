@@ -11,7 +11,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
-import { SuspectBadge } from "@/modules/diagnostics";
+import { AdvisoryBadge, SuspectBadge } from "@/modules/diagnostics";
 import { twMerge } from "@/utils";
 
 import {
@@ -124,6 +124,7 @@ function NameCell({ view }: ProjectCellProps) {
       </span>
       <span {...stop} className="flex shrink-0 items-center gap-1.5 empty:hidden">
         <SuspectBadge projectPath={view.project.path} />
+        <AdvisoryBadge projectPath={view.project.path} />
         {view.isTestingThis && !runButtonsShown && <TestingPill />}
       </span>
     </span>
