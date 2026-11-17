@@ -1,5 +1,6 @@
 //! The settings, errors, events and helpers every LTK Manager crate shares.
 
+pub mod advisory;
 pub mod budget;
 pub mod config;
 pub mod error;

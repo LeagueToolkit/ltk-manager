@@ -1,3 +1,4 @@
+export { AdvisoryBadge } from "./AdvisoryBadge";
 export { CheckRow } from "./CheckRow";
 export { ConsequenceChip } from "./ConsequenceChip";
 export { DiagnosticsReportView } from "./DiagnosticsReport";

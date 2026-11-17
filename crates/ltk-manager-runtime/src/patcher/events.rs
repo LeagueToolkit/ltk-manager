@@ -44,4 +44,7 @@ pub trait PatcherEvents: Send + Sync {
 
     /// A game went wrong, and its incident is classified and stored.
     fn incident_recorded(&self, incident: Incident);
+
+    /// The record of a game is stored, with the advisories that the game raised.
+    fn game_recorded(&self);
 }

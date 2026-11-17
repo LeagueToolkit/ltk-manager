@@ -9,9 +9,12 @@
 
 use super::desktop::shell::reveal_in_explorer_inner;
 use crate::error::{AppError, AppResult, IpcResult};
+use crate::mods::ModLibraryState;
 use crate::patcher::PatcherDeliveryState;
-use crate::state::{IncidentStoreState, SettingsState};
+use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
+use ltk_manager_base::advisory::AdvisoryCode;
 use ltk_manager_base::config::Config;
+use ltk_manager_core::advisories::ShownAdvisory;
 use std::sync::Arc;
 
 use crate::telemetry::errors::UiError;
@@ -174,6 +177,35 @@ pub fn list_incidents(incidents: State<IncidentStoreState>) -> IpcResult<Vec<Inc
 #[specta::specta]
 pub fn dismiss_incident(id: String, incidents: State<IncidentStoreState>) -> IpcResult<()> {
     incidents.0.dismiss(&id).into()
+}
+
+/// Returns the advisories that the app shows: those of the last overlay build, then those
+/// of the newest game if that game ended after the build. A muted advisory is among them,
+/// marked as muted.
+#[tauri::command]
+#[specta::specta]
+pub fn list_advisories(
+    settings: State<SettingsState>,
+    library: State<ModLibraryState>,
+    games: State<GameStoreState>,
+) -> IpcResult<Vec<ShownAdvisory>> {
+    ShownAdvisory::list(&library.0, &settings.config(), &games.0).into()
+}
+
+/// Mutes the advisory `code` for the mod `mod_id`, so the session bar and the mod card
+/// leave it out. The mute ends when the content or the priority of the mod changes.
+#[tauri::command]
+#[specta::specta]
+pub fn mute_advisory(
+    code: AdvisoryCode,
+    mod_id: String,
+    settings: State<SettingsState>,
+    library: State<ModLibraryState>,
+) -> IpcResult<()> {
+    library
+        .0
+        .mute_advisory(&settings.config(), code, &mod_id)
+        .into()
 }
 
 /// Marks every undismissed incident dismissed, and answers the ids it touched.

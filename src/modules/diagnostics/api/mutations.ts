@@ -1,6 +1,13 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type DecodedIncident, type Incident } from "@/lib/tauri";
+import {
+  type AdvisoryCode,
+  api,
+  type AppError,
+  type DecodedIncident,
+  type Incident,
+  type ShownAdvisory,
+} from "@/lib/tauri";
 import { useIncidentLineStore } from "@/stores";
 import { mutationFn } from "@/utils/query";
 
@@ -82,5 +89,47 @@ export const incidentMutations = {
     mutationOptions<DecodedIncident, AppError, string>({
       meta: { silentError: true },
       mutationFn: mutationFn(api.diagnostics.decodeIncidentToken),
+    }),
+} as const;
+
+/** One advisory code of one mod, which is what a mute applies to. */
+export interface AdvisoryMute {
+  code: AdvisoryCode;
+  modId: string;
+}
+
+/** The advisory list as it stood before an optimistic mute. */
+interface AdvisoriesRollback {
+  previous?: ShownAdvisory[];
+}
+
+/** Writes against the advisories that the app shows. */
+export const advisoryMutations = {
+  /* Optimistic, because the mute is the user's own statement. The row leaves the list
+     before the backend answers. */
+  mute: (client: QueryClient) =>
+    mutationOptions<null, AppError, AdvisoryMute, AdvisoriesRollback>({
+      mutationFn: mutationFn(({ code, modId }) => api.diagnostics.muteAdvisory(code, modId)),
+      onMutate: async ({ code, modId }) => {
+        const key = diagnosticsKeys.advisories();
+        await client.cancelQueries({ queryKey: key });
+        const previous = client.getQueryData<ShownAdvisory[]>(key);
+        client.setQueryData<ShownAdvisory[]>(key, (old) =>
+          old?.map((advisory) => {
+            const { subject } = advisory;
+            if (advisory.code !== code || subject?.kind !== "mod" || subject.id !== modId) {
+              return advisory;
+            }
+            return { ...advisory, muted: true };
+          }),
+        );
+        return { previous };
+      },
+      onError: (_error, _mute, context) => {
+        if (context?.previous) {
+          client.setQueryData(diagnosticsKeys.advisories(), context.previous);
+        }
+      },
+      onSettled: () => client.invalidateQueries({ queryKey: diagnosticsKeys.advisories() }),
     }),
 } as const;

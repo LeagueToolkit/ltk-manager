@@ -1,5 +1,37 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "advisory.archive-not-served": "The patcher could not open the modded archive.",
+  "advisory.dll-unattested": "The downloaded patcher failed its check.",
+  "advisory.entry-unreadable": "The entry of the mod cannot be read.",
+  "advisory.layers-unset": "No layer is chosen. The base layer alone is used.",
+  "advisory.locale-missing": "The strings target a locale that the game does not have.",
+  "advisory.mod-content-missing": "The files of the mod are missing on disk.",
+  "advisory.mod-missing": "The mod is in the profile and not in the library.",
+  "advisory.overlay-refused": "The patcher refused the overlay. No mod was in the game.",
+  "advisory.patcher-uncoded": "The patcher reported an error that the manager does not know.",
+  "advisory.skin-data-stale": "The skin check ran against another game version.",
+  "diagnostics_advisories_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} advisory",
+        "countPlural=other": "{count} advisories"
+      }
+    }
+  ],
+  "diagnostics_advisories_not_applied_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod was not applied",
+        "countPlural=other": "{count} mods were not applied"
+      }
+    }
+  ],
+  "diagnostics_advisories_title": "Advisories",
+  "diagnostics_advisory_mute_action": "Do not show again for this mod",
   "diagnostics_copy_report_action": "Copy report",
   "diagnostics_copy_token_action": "Copy token",
   "diagnostics_day_today_label": "Today",

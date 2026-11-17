@@ -49,6 +49,7 @@ import {
 
 import { useCancelLaunch, useLaunchAvailability, useLaunchProgress } from "../api";
 import { deriveSessionView, type SessionView, type StepState } from "../utils/sessionView";
+import { AdvisoryStatusItem } from "./AdvisoryStatusItem";
 
 const dotClasses: Record<StepState, string> = {
   pending: "border border-surface-600 bg-transparent",
@@ -105,6 +106,7 @@ function Bar({ working, children }: { working?: boolean; children?: ReactNode })
       )}
       {working && <BorderShimmer />}
       <div className="min-w-0 flex-1">{children}</div>
+      <AdvisoryStatusItem />
       <ModHealthStatusItem />
       <ChromeSlot name="status" />
     </div>

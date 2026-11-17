@@ -19,7 +19,7 @@ import {
 import { useDebouncedValue } from "@/hooks";
 import { m } from "@/i18n";
 import type { ReportPreview, ReportProblem, ReportRequest } from "@/lib/tauri";
-import { useIncidents, useIncidentToken } from "@/modules/diagnostics";
+import { useAdvisories, useIncidents, useIncidentToken } from "@/modules/diagnostics";
 import { useInstalledMods } from "@/modules/library";
 import { useAppInfo, useSettings } from "@/modules/settings";
 import {
@@ -112,6 +112,7 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   const { data: settings } = useSettings();
   const notifications = useNotificationsStore((s) => s.notifications);
   const { data: issues = [] } = useKnownIssues();
+  const { data: advisories = [] } = useAdvisories();
   const offeredUpdate = useUpdaterUpdate();
   const openUpdateDialog = useUpdaterSetDialogOpen();
   const subject =
@@ -121,7 +122,7 @@ export function GetHelpForm({ context, onClose }: GetHelpFormProps) {
   const origin = context.origin ?? null;
   // The crash screen has no update dialog, because the root layout mounts it.
   const update = origin?.kind === "crash" ? null : offeredUpdate;
-  const found = findings({ update, issues, incident: subject, mods });
+  const found = findings({ update, issues, incident: subject, advisories, mods });
   const hasKnownCause = found.some(isKnownCause);
 
   const [problem, setProblem] = useState<ReportProblem>(origin ? "manager" : "mod-not-shown");

@@ -133,6 +133,11 @@ impl PatcherEvents for TauriPatcherEvents {
     fn incident_recorded(&self, incident: Incident) {
         let _ = self.app_handle.emit("incident-recorded", incident);
     }
+
+    /// Through the sink of the library, which announces the advisories of a build too.
+    fn game_recorded(&self) {
+        TauriEventSink::new(self.app_handle.clone()).emit(BackendEvent::AdvisoriesUpdated);
+    }
 }
 
 /// The tray icon a phase maps to. Pure so the mapping is testable without an

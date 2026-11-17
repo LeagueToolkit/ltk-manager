@@ -2,14 +2,15 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::mods::advisory_mutes::ADVISORY_MUTES_FILENAME;
 use crate::mods::analysis::wad_reports::WAD_REPORTS_FILENAME;
 use crate::mods::health::{LEGACY_VERDICTS_FILENAME, MOD_HEALTH_VERDICTS_FILENAME};
 use crate::mods::index::document::INDEX_FILE;
-use crate::overlay::BUILD_VERSION_MARKER;
 use crate::overlay::builtin_mods::DIR as BUILTIN_DIR;
+use crate::overlay::{BUILD_RECORD_FILENAME, BUILD_VERSION_MARKER};
 
 /// Names of the entries that a library writes at the root of its storage directory.
-const ROOT_ENTRIES: [&str; 9] = [
+const ROOT_ENTRIES: [&str; 11] = [
     INDEX_FILE,
     "mods",
     "archives",
@@ -19,6 +20,8 @@ const ROOT_ENTRIES: [&str; 9] = [
     MOD_HEALTH_VERDICTS_FILENAME,
     LEGACY_VERDICTS_FILENAME,
     BUILD_VERSION_MARKER,
+    BUILD_RECORD_FILENAME,
+    ADVISORY_MUTES_FILENAME,
 ];
 
 /// The folders of the mod storage directory, read on the directory's path.

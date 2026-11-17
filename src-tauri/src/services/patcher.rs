@@ -12,6 +12,7 @@ use crate::patcher::{
     StoredPatcherConfig,
 };
 use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
+use ltk_manager_base::advisory::Advisories;
 use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
@@ -312,7 +313,14 @@ fn prepare_host(
         option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
     );
 
-    Ok(PreparedHost { exe, binaries })
+    let mut advisories = Advisories::default();
+    delivery.raise_failed_check(&mut advisories);
+
+    Ok(PreparedHost {
+        exe,
+        binaries,
+        advisories,
+    })
 }
 
 /// Stop the running patcher.

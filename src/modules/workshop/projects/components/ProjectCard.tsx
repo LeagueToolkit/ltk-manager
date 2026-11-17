@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { Checkbox } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
-import { SuspectBadge } from "@/modules/diagnostics";
+import { AdvisoryBadge, SuspectBadge } from "@/modules/diagnostics";
 import { isChord } from "@/modules/keys";
 import { twMerge } from "@/utils";
 
@@ -122,6 +122,7 @@ export function ProjectCard({ project, onEdit, tabIndex }: ProjectCardProps) {
           <div className="mb-1 flex flex-wrap items-center gap-1.5 empty:hidden">
             <ProjectPills project={project} max={3} />
             <SuspectBadge projectPath={project.path} />
+            <AdvisoryBadge projectPath={project.path} />
           </div>
           <div className="flex items-center gap-1.5 text-xs text-surface-500">
             <span>{m.workshop_card_version_label({ version: project.version })}</span>

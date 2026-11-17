@@ -25,6 +25,8 @@ pub struct KnownIssue {
     pub id: String,
     /// The verdict kinds that the issue explains, such as `missing-data`.
     pub verdicts: Vec<String>,
+    /// The advisory codes that the issue explains, such as `overlay-refused`.
+    pub advisories: Vec<String>,
     /// The maintainers' message, in English.
     pub message: String,
     /// The page that `Read more` opens.
@@ -47,6 +49,8 @@ struct PublishedIssue {
     id: String,
     #[serde(default)]
     verdicts: Vec<String>,
+    #[serde(default)]
+    advisories: Vec<String>,
     message: String,
     #[serde(default)]
     url: Option<String>,
@@ -94,6 +98,7 @@ fn current(document: Document, running: &Version, now: DateTime<Utc>) -> Vec<Kno
         .map(|issue| KnownIssue {
             id: issue.id,
             verdicts: issue.verdicts,
+            advisories: issue.advisories,
             message: issue.message,
             url: issue.url,
         })

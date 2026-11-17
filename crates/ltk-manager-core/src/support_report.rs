@@ -12,7 +12,7 @@ use std::{
 };
 
 use chrono::{DateTime, Utc};
-use ltk_manager_base::utils::text;
+use ltk_manager_base::{advisory::Advisory, utils::text};
 use ltk_redact::Counts;
 use serde::{Deserialize, Serialize};
 use zip::{ZipWriter, write::SimpleFileOptions};
@@ -237,6 +237,14 @@ struct Outdated {
     patcher: Option<String>,
 }
 
+/// An advisory as `report.md` states it, with what raised it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ReportedAdvisory {
+    /// `build`, or `game <id>`.
+    origin: String,
+    advisory: Advisory,
+}
+
 /// One file of a report, as the dialog shows it before the report leaves.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -313,6 +321,9 @@ pub struct SupportReport {
     outdated: Outdated,
     /// The start without a window. The startup builder sets it.
     startup: Option<Startup>,
+    /// The advisories of the last build and of the newest game. The overlay builder and
+    /// the games builder set them. A muted advisory is among them.
+    advisories: Vec<ReportedAdvisory>,
     files: Vec<ReportFile>,
     counts: Counts,
 }
@@ -336,6 +347,7 @@ impl SupportReport {
             found: None,
             outdated: Outdated::default(),
             startup: None,
+            advisories: Vec::new(),
             files: Vec::new(),
             counts: Counts::default(),
         }
@@ -533,6 +545,16 @@ impl SupportReport {
             )),
             None => out.push_str("**Findings:** no incident on record\n"),
         }
+        if !self.advisories.is_empty() {
+            let mut codes: Vec<String> = Vec::new();
+            for reported in &self.advisories {
+                let code = reported.advisory.code.to_string();
+                if !codes.contains(&code) {
+                    codes.push(code);
+                }
+            }
+            out.push_str(&format!("**Advisories:** {}\n", codes.join(", ")));
+        }
         out.push_str(&format!(
             "**Report:** `{}`, attached",
             zip_name(self.created_at, &self.id)
@@ -571,6 +593,12 @@ impl SupportReport {
                 "\n## Findings\n\n{} ({})\n\n{}\n\nIncident {}\nToken: {}\n",
                 found.title, found.consequence, found.cause, found.incident_id, found.token
             ));
+        }
+        if !self.advisories.is_empty() {
+            out.push_str("\n## Advisories\n\n");
+            for reported in &self.advisories {
+                out.push_str(&format!("- {}: {}\n", reported.origin, reported.advisory));
+            }
         }
         let errors = &self.description.errors;
         if !errors.is_empty() {

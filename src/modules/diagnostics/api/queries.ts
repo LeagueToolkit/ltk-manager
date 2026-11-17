@@ -1,6 +1,12 @@
 import { queryOptions } from "@tanstack/react-query";
 
-import { api, type AppError, type DiagnosticReport, type Incident } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type DiagnosticReport,
+  type Incident,
+  type ShownAdvisory,
+} from "@/lib/tauri";
 import { queryFn, queryFnWithArgs } from "@/utils/query";
 
 import { hintTexts } from "../utils/hints";
@@ -46,6 +52,15 @@ export const diagnosticsQueries = {
     queryOptions<string, AppError>({
       queryKey: diagnosticsKeys.incidentToken(id),
       queryFn: queryFnWithArgs(api.diagnostics.incidentToken, id),
+      staleTime: Infinity,
+    }),
+
+  /* Stable until `advisories-updated` or a mute invalidates it. The backend emits the
+     event after each build and after each game that it records. */
+  advisories: () =>
+    queryOptions<ShownAdvisory[], AppError>({
+      queryKey: diagnosticsKeys.advisories(),
+      queryFn: queryFn(api.diagnostics.listAdvisories),
       staleTime: Infinity,
     }),
 } as const;

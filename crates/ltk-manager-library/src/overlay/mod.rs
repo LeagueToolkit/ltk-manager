@@ -8,6 +8,7 @@
 mod artifacts;
 mod build;
 pub mod builtin_mods;
+mod record;
 mod resolve;
 
 pub(crate) use artifacts::{BUILD_VERSION_MARKER, OverlayStorageExt};
@@ -17,11 +18,15 @@ pub use builtin_mods::{
     MapDecoration, Regenerate, forcible_map_skins, inking_maps, map_decorations, outline_values,
     write_inking_preview,
 };
+pub(crate) use record::BUILD_RECORD_FILENAME;
+pub use record::BuildRecord;
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
+use chrono::Utc;
 use fs_err as fs;
+use ltk_manager_base::advisory::Advisories;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
 use ltk_manager_base::events::{BackendEvent, OverlayProgress, PrepareStep};
@@ -71,8 +76,9 @@ pub struct OverlayBuild {
     pub outcome: OverlayBuildOutcome,
     /// How long the parts of the build took.
     pub timings: OverlayTimings,
-    /// The fingerprint of the overlay. `None` if the overlay state cannot be read.
-    pub fingerprint: Option<OverlayFingerprint>,
+    /// The mods that the build applied, the fingerprint of the overlay and the advisories
+    /// that the build raised. [`ModLibrary::record_overlay_build`] persists it.
+    pub record: BuildRecord,
 }
 
 /// How long the parts of one overlay build took.
@@ -194,7 +200,9 @@ impl ModLibrary {
         storage_dir.invalidate_stale_overlays(self.app_version());
 
         let game_dir = ltk_manager_base::utils::game::GameDir::resolve(config)?;
-        let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
+        let mut advisories = Advisories::default();
+        let (profile_slug, enabled_mods) =
+            self.get_enabled_mods_for_overlay(config, &mut advisories)?;
 
         let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
@@ -266,6 +274,7 @@ impl ModLibrary {
         );
 
         let state_dir = ltk_overlay::StateDir::new(utf8_state_dir.clone());
+        let applied = mods.iter().map(|applied| applied.id.clone()).collect();
         let inputs = OverlayBuildInputs {
             game_dir: game_dir.into_path().try_into_utf8("game directory")?,
             overlay_root: overlay_root.clone().try_into_utf8("overlay root")?,
@@ -304,7 +313,12 @@ impl ModLibrary {
                 build,
                 builtins: builtin_timings,
             },
-            fingerprint: OverlayFingerprint::read(&state_dir),
+            record: BuildRecord {
+                built_at: Utc::now(),
+                fingerprint: OverlayFingerprint::read(&state_dir),
+                mods: applied,
+                advisories,
+            },
         })
     }
 
@@ -355,14 +369,25 @@ impl ModLibrary {
 
     /// Persist what a build found and tell the frontend the snapshots moved.
     ///
-    /// The WAD reports are advisory UI data, so a failure to write them is
-    /// logged and swallowed — a patch that worked must not be reported as failed
-    /// because a badge cache could not be written.
+    /// Writes `record` as the record of the last build, with the advisories that the
+    /// build raised. The record and the WAD reports are data for the UI and the support
+    /// report, so a failure to write them is logged and swallowed. A patch that worked
+    /// must not be reported as failed because a cache could not be written.
     ///
     /// `OverlayBuilder::build()` emits its own `Complete` progress event before
     /// returning, so the frontend can see the build finish before these land.
     /// The dedicated events are how it learns the caches are ready to query.
-    pub fn record_overlay_build(&self, outcome: OverlayBuildOutcome) {
+    pub fn record_overlay_build(
+        &self,
+        config: &Config,
+        outcome: OverlayBuildOutcome,
+        record: &BuildRecord,
+    ) {
+        match self.storage_dir(config).and_then(|dir| record.save(&dir)) {
+            Ok(()) => self.events().emit(BackendEvent::AdvisoriesUpdated),
+            Err(e) => tracing::warn!("Failed to persist the build record: {}", e),
+        }
+
         self.checksum_mismatches()
             .record(outcome.checksum_mismatches);
         self.events().emit(BackendEvent::ChecksumMismatchesUpdated);
@@ -374,6 +399,14 @@ impl ModLibrary {
             Ok(()) => self.events().emit(BackendEvent::WadReportsUpdated),
             Err(e) => tracing::warn!("Failed to persist per-mod WAD reports: {}", e),
         }
+    }
+
+    /// Returns the record of the last overlay build, or `None` if no build was recorded
+    /// or the record cannot be read.
+    #[must_use]
+    pub fn last_build(&self, config: &Config) -> Option<BuildRecord> {
+        let storage_dir = self.storage_dir(config).ok()?;
+        BuildRecord::load(&storage_dir)
     }
 
     /// Force a full rebuild of the active profile's overlay.
@@ -389,7 +422,7 @@ impl ModLibrary {
     /// the user is asking for when they reach for this.
     pub fn rebuild_overlay(&self, config: &Config) -> AppResult<PathBuf> {
         let build = self.ensure_overlay(config, &[], true, || false)?;
-        self.record_overlay_build(build.outcome);
+        self.record_overlay_build(config, build.outcome, &build.record);
         Ok(build.overlay_root)
     }
 }

@@ -95,13 +95,13 @@ gives it.
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
-| Support report          | In progress | An allowlisted zip, built by named builders. The last overlay build is missing       |
+| Support report          | Available   | An allowlisted zip, built by named builders                                          |
 | Report preview          | Available   | The file list and the redacted text of each file                                     |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
 | Report without a window | Available   | `--report`, a Start menu entry and a native dialog after a failed start              |
 | `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
 | Game record             | Available   | One small record for every game, clean games included                                |
-| Advisory                | Planned     | A coded condition that changes what the user gets                                    |
+| Advisory                | In progress | Eight codes are raised. Four more wait for `ltk_overlay` and the patcher             |
 | Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
 | Error reference         | Available   | A short id on an error, the same id on its log line                                  |
 | Upload and report code  | Planned     | One code to paste. Needs an endpoint and an ADR                                      |
@@ -121,8 +121,8 @@ gives it.
 | Mod trace      | The per-mod reading of the overlay build and the last game record               |
 | Known value    | A private string that the manager holds at run time, such as the user's profile |
 
-`Advisory` gets a GLOSSARY entry before any code uses it. `Notice` is taken by the news feed,
-`Finding` by mod health and `Verdict` by both mod health and League diagnostics.
+`Advisory` has a GLOSSARY entry. `Notice` is taken by the news feed, `Finding` by mod health and
+`Verdict` by both mod health and League diagnostics.
 
 An incident stays what it is. A game record exists for every game, and an incident exists for a
 game whose record the classifier gave a verdict.
@@ -318,16 +318,22 @@ file is included by default.
 | `incidents/<id>.md`   | The report text of that incident                                               |
 | `system.json`         | The System checks, run when the report is built, and the path facts            |
 | `library.json`        | Each mod of the active profile, enabled first. Other profiles as a count       |
-| `overlay.json`        | The last build: fingerprint, per-mod counts, advisories                        |
+| `overlay.json`        | The last build: time, fingerprint, per-mod counts, advisories                  |
 | `settings.json`       | An allowlist of fields. A path field holds its placeholder                     |
 | `patcher.json`        | The channel, the DLL's version, digest and build date, the code table version  |
 | `startup.json`        | From `--report` only: the webview runtime version, the error of the start      |
 | `game-log/r3dlog.txt` | The incident's game log, redacted line by line. Ticked when an incident exists |
 
-One file and one field wait for a later step. `overlay.json` waits for advisories, because no
-record of the last build exists before them, and `library.json` holds the archives, the override
-count and the content digest of each mod until then. The code table version in `patcher.json`
-waits for the patcher's code table.
+`overlay.json` holds the archive count and the override count of each mod that the build applied.
+A count is `null` for a mod that has no archive report. `library.json` holds the same counts and
+the content digest of every mod of the profile. A report has no `overlay.json` before the first
+build. One field waits for a later step: the code table version in `patcher.json` waits for the
+patcher's code table.
+
+`report.md` has an `Advisories` section with one line for each advisory of the last build and of
+the newest game: what raised it, the code, the subject, the code of the patcher and the detail. A
+muted advisory is in the section. The Discord summary has one `Advisories` line with each code
+once.
 
 A report never holds `delivery.json`, `telemetrySecret`, the `runeforge` block, a credential, a mod
 file, an archive, a screenshot or anything under `Logs/GameCrashes`.
@@ -421,22 +427,24 @@ ends with the report code in place of a file to attach.
 
 ### Known causes
 
-The dialog checks four sources for a cause before it offers to send. Each one is a row of
+The dialog checks five sources for a cause before it offers to send. Each one is a row of
 `Findings`, in this order. The fix of the first row is the primary button of the dialog, and the
 send actions move under `Send report`, one menu button that holds `Copy for Discord`, `Save as
 file` and `Open GitHub issue`.
 
-| Source                     | The row shows                         | Button            |
-| -------------------------- | ------------------------------------- | ----------------- |
-| An update is available     | The installed and the latest version  | `Update now`      |
-| A published known issue    | The maintainers' message              | `Read more`       |
-| A verdict with a fix       | The verdict and its cause             | `Rebuild overlay` |
-| The evidence names one mod | `Suspect mod` and the name of the mod | `Open mod page`   |
+| Source                     | The row shows                                | Button            |
+| -------------------------- | -------------------------------------------- | ----------------- |
+| An update is available     | The installed and the latest version         | `Update now`      |
+| A published known issue    | The maintainers' message                     | `Read more`       |
+| A verdict with a fix       | The verdict and its cause                    | `Rebuild overlay` |
+| The evidence names one mod | `Suspect mod` and the name of the mod        | `Open mod page`   |
+| An advisory code           | The sentence, the subjects, the patcher code | `Rebuild overlay` |
 
 An update comes first, because it can hold the fix for every row after it. A known issue is the
-maintainers' answer to the verdict, so it stands above the verdict. A verdict without a fix keeps
-its row and is not a known cause. An advisory with a fix joins the verdict row when advisories
-exist.
+maintainers' answer to the verdict or to an advisory, so it stands above both. A verdict without a
+fix keeps its row and is not a known cause. Each advisory code of the last build and of the
+newest game has one row, muted advisories included. The row of `archive-not-served` offers the
+rebuild unless the verdict row offers it. An advisory row without a button is not a known cause.
 
 **Updates.** `Update now` closes the dialog and opens the update dialog, which holds the download,
 the restart and the warning for a running game. The crash screen shows no update row, because the
@@ -444,12 +452,12 @@ root layout mounts the update dialog. A report from an outdated manager states t
 the latest version on its first line. A report with a patcher past its end of life states the
 version of that patcher on the same line. The Discord summary has the same line.
 
-**Known issues.** `config/known-issues.json` in the repository maps verdict kinds to a short
-message, a link and the versions it applies to. `config/README.md` documents the schema. The app
-fetches it the way it fetches the news, and keeps an answer for 30 minutes. The session bar shows
-the message under a matching verdict, with `Read more`, so a failure that hits every install on
-a patch day is answered before a user opens the dialog. Maintainers publish and withdraw an entry
-without a release. An entry gains advisory codes when advisories exist.
+**Known issues.** `config/known-issues.json` in the repository maps verdict kinds and advisory
+codes to a short message, a link and the versions it applies to. `config/README.md` documents the
+schema. The app fetches it the way it fetches the news, and keeps an answer for 30 minutes. The
+session bar shows the message under a matching verdict, with `Read more`, so a failure that hits
+every install on a patch day is answered before a user opens the dialog. An entry that lists an
+advisory code shows in the dialog. Maintainers publish and withdraw an entry without a release.
 
 **The verdict's fix.** `Rebuild overlay` is the one fix that a verdict offers as an action. The
 other hints of a verdict are sentences, and the Games tab shows them.
@@ -561,6 +569,7 @@ pub struct StoredGame {
     pub skipped: Vec<SkippedArchive>,
     pub incident: Option<String>,
     pub lines: Vec<String>,
+    pub advisories: Advisories,
 }
 ```
 
@@ -573,12 +582,12 @@ pub struct StoredGame {
 | `redirected`          | The archives that the DLL served from the overlay                                |
 | `incident`            | The id of the incident, if the classifier gave the game a verdict                |
 | `lines`               | The warn and error records of the DLL and the host, redacted                     |
+| `advisories`          | The advisories that the game raised, with a redacted detail                      |
 
 `lines` holds each distinct record once, 64 at most, so a record that repeats does not fill the
 list. The store keeps the newest 20 records under `games/<id>.json`, 200 KB together. A session
 that failed before any game leaves an incident and no game record. A game that is still running
-when the session stops leaves a game record, no incident and no session event. The advisories of
-a game join the record with the advisory step.
+when the session stops leaves a game record, no incident and no session event.
 
 No page lists the game records. The mod trace and the support report read them, and the Games tab
 stays a list of incidents. The record is built from patcher events and reads no file of League, so
@@ -587,28 +596,33 @@ the `Read League's game log` setting does not gate it.
 ### Advisories
 
 An advisory is a condition that the manager handled and that changes what the user gets. It has a
-stable code, a severity, a subject and typed fields. It crosses IPC as a code, and the frontend
-catalog words it (ADR-0017).
+stable code, a subject and typed fields. It crosses IPC as a code, and the frontend catalog words
+it (ADR-0017).
 
 ```rust
 pub struct Advisory {
     pub code: AdvisoryCode,
-    pub severity: Severity,
-    pub subject: Option<Subject>,
-    pub fields: BTreeMap<String, String>,
-    pub at: String,
+    pub subject: Option<AdvisorySubject>,
+    pub patcher_code: Option<String>,
+    pub detail: Option<String>,
+    pub at: DateTime<Utc>,
 }
 
-pub enum Subject {
-    Mod(ModId),
-    Archive(String),
-    Project(String),
+pub enum AdvisorySubject {
+    Mod { id: String },
+    Archive { name: String },
+    Project { path: String },
 }
 ```
 
-One function raises an advisory. It writes the log line with the code and records the advisory on
-the open build or game. A `warn!` about a condition that changes what the user gets is replaced by
-that call, so the log and the record cannot disagree.
+`patcher_code` is the code that the patcher gave the condition, such as `VRF00000008`. `detail`
+is the text of an error or the record of the patcher. The detail is for the support report: no
+type that crosses IPC holds it, so the app cannot show it. An advisory has no severity, because
+the code decides how the app shows it.
+
+`Advisories::raise` is the one function that raises an advisory. It writes the log line with the
+code and records the advisory on the build or the game that the list belongs to, so the log and
+the record cannot disagree. A list holds one advisory for each code and subject, 64 at most.
 
 | Code                  | Raised by         | Subject | The user reads                                              |
 | --------------------- | ----------------- | ------- | ----------------------------------------------------------- |
@@ -618,19 +632,31 @@ that call, so the log and the record cannot disagree.
 | `mod-shadowed`        | `ltk_overlay`     | Mod     | Every file of the mod is replaced by a higher mod           |
 | `layers-unset`        | Overlay content   | Mod     | The mod has layers and none is chosen. `base` alone is used |
 | `locale-missing`      | `ltk_overlay`     | Mod     | The mod's strings target a locale the game does not have    |
-| `entry-unreadable`    | Library index     | Mod     | The mod's entry cannot be read                              |
+| `entry-unreadable`    | Overlay content   | Mod     | The mod's entry cannot be read                              |
 | `overlay-refused`     | The DLL, `LTK-V*` | None    | The patcher refused the overlay. No mod was in the game     |
 | `archive-not-served`  | The DLL           | Archive | The patcher could not open one modded archive               |
 | `skin-data-stale`     | The DLL           | Archive | The skin check ran against another game version             |
 | `dll-unattested`      | Delivery          | None    | The downloaded patcher failed its check                     |
 | `patcher-uncoded`     | The injector      | None    | The patcher reported an error the manager does not know     |
 
-`mod-shadowed` and the per-mod form of `overrides-unrouted` need `ltk_overlay` to report conflicts.
-`BuildResult::conflicts` exists and is always empty today.
+Eight codes are raised today. `mod-shadowed`, the per-mod form of `overrides-unrouted` and
+`locale-missing` need `ltk_overlay` to report conflicts and locales for each mod.
+`BuildResult::conflicts` exists and is always empty today. `skin-data-stale` needs a record from
+the patcher. The catalog words `locale-missing` and `skin-data-stale` already, so a later step adds
+the source alone.
 
-`patcher-uncoded` is the row that covers next year. A DLL warn or error record that matches no
-phrase and no code is kept on the game record and raises this advisory with the record's text. The
-user sees that something was reported, and a report carries the line.
+`entry-unreadable` changes the build. A mod whose entry cannot be read failed the whole build
+before. The build now leaves the mod out and raises the advisory.
+
+`dll-unattested` is raised if the attestation of the build was rejected, or if the last sync of
+the delivery channel failed an integrity or a signature check. Every build of the session records
+it, and a sync that passes clears it.
+
+`patcher-uncoded` is the row that covers next year. A DLL error record that matches no phrase and
+no code raises this advisory with the record's text, so the user sees that something was reported
+and a report carries the line. A warn record that matches no phrase stays in `lines` of the game
+record and raises nothing, because the DLL writes warn records in games that work. The patcher
+codes of a later step replace the level with the tier of the code.
 
 **Two tiers.** A precise reason for an integrity refusal tells a bypass author what to change, so
 an advisory from the patcher has one of two tiers.
@@ -644,30 +670,41 @@ The detail of an integrity advisory goes into the support report and nowhere in 
 patcher's code table sets the tier of each code. A code with no tier is an integrity code, so an
 older manager never explains a code that it does not know.
 
-**Where an advisory shows.** An advisory raises no toast and no dialog.
+**Where an advisory shows.** An advisory raises no toast and no dialog. The app shows the
+advisories of the last build, and the advisories of the newest game if that game ended after the
+build. The next build replaces both.
 
-- The session bar, after a build or a game: `2 mods were not applied`, with `Details`. The line
-  stays until the next build or game
-- The mod card, on the suspect badge's shape, while the advisory is from the newest build or game
+- The status bar, as a cell beside the mod health cell: `2 mods were not applied`. The cell opens
+  a list with the subject, the sentence and the patcher's code of each advisory. The cell is not
+  the activity line, so it stays while the line says `Patcher running` or `In game`
+- The card of the mod or the project, on the suspect badge's shape. An advisory about a mod that is
+  not in the library has no card, so the status bar alone shows it
 - The mod trace
-- The `Get help` dialog
+- The `Get help` dialog, as one row of `Findings` for each code
 - The support report
+
+The list in the status bar offers `Rebuild overlay` for `archive-not-served`, and the row of the
+dialog does the same unless the verdict offers it.
 
 **Muting.** Some advisories describe a state the user chose, such as a mod that a higher mod
 replaces on purpose. `Do not show again for this mod` mutes one code for one mod. A muted advisory
-is absent from the session bar and the badge, and stays in the mod trace and the report. A change
-to the mod's content or its priority clears the mute.
+is absent from the status bar and the badge, and stays in the `Get help` dialog, the mod trace and
+the report. A change to the mod's content or its priority clears the mute. The mutes are in
+`advisory-mutes.json` in the mod storage folder, each with the content digest and the priority of
+the mod at the time of the mute. The record of the last build is `last-build.json` in the same
+folder.
 
-**Workshop projects.** A project under test is an advisory subject. The project card and the
-project bar's Test action show the advisory, and the mod trace opens from the project. A modder is
-the user who can act on `N files match no game archive`.
+**Workshop projects.** A project under test is an advisory subject. The project card shows the
+advisory, and the mod trace opens from the project. A modder is the user who can act on
+`N files match no game archive`. No code that is raised today is about a project, so the first
+advisory on a project card comes with the `ltk_overlay` step.
 
 **A code newer than the manager.** The sentence comes from the code table delivered with the DLL,
 in English, with the code. The next manager release adds the code to the catalog and its
 translations.
 
 A game with an `overlay-refused` advisory is an incident with the `No mods applied` verdict. The
-classifier reads the advisory the way it reads the other overlay outcomes.
+recorder raises the advisory where it sets the overlay outcome that the classifier reads.
 
 ### The mod trace
 

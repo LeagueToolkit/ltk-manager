@@ -13,6 +13,7 @@ ts = ["dep:specta"]
 
 [dependencies]
 camino = { workspace = true }
+chrono = { workspace = true }
 fs-err = { workspace = true }
 image = { workspace = true }
 ltk_fantome = { workspace = true }

@@ -6,12 +6,14 @@
 //! its inputs, so every transition is a unit test.
 
 use chrono::{DateTime, Utc};
+use ltk_manager_base::advisory::{Advisory, AdvisoryCode, AdvisorySubject};
 use ltk_manager_base::hashing::OverlayFingerprint;
 
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::ids::SessionIds;
 use crate::diagnostics::incident::{
-    Ending, EvidenceSource, GameRecord, RawEvidence, SessionFailure, SkippedArchive,
+    Ending, EvidenceSource, GameRecord, OverlayDetail, OverlayOutcome, RawEvidence, SessionFailure,
+    SkippedArchive,
 };
 
 use super::injector::InjectorEvent;
@@ -106,6 +108,15 @@ impl GameRecorder {
                 let record = self.open_or_attach(now);
                 record.overlay = *outcome;
                 record.overlay_detail = detail.clone();
+                if *outcome == OverlayOutcome::Refused {
+                    let code = match detail {
+                        Some(OverlayDetail::Code(code)) => Some(code.clone()),
+                        _ => None,
+                    };
+                    record.advisories.raise(
+                        Advisory::new(AdvisoryCode::OverlayRefused, now).with_patcher_code(code),
+                    );
+                }
                 None
             }
             InjectorEvent::WadRedirected { wad } => {
@@ -125,6 +136,11 @@ impl GameRecorder {
                     wad: wad.clone(),
                     why: why.clone(),
                 });
+                record.advisories.raise(
+                    Advisory::new(AdvisoryCode::ArchiveNotServed, now)
+                        .about(AdvisorySubject::archive(wad.as_str()))
+                        .with_detail(why.as_str()),
+                );
                 None
             }
             InjectorEvent::Launch(kind) => {
@@ -151,8 +167,19 @@ impl GameRecorder {
                 source,
                 level,
                 text,
+                coded,
             } => {
                 self.push_problem(*source, *level, text, now);
+                // A warn record that the manager does not know raises nothing, because
+                // the DLL writes warn records in games that work.
+                if !coded
+                    && *level == tracing::Level::ERROR
+                    && let Some(record) = self.open.as_mut()
+                {
+                    record.advisories.raise(
+                        Advisory::new(AdvisoryCode::PatcherUncoded, now).with_detail(text.as_str()),
+                    );
+                }
                 None
             }
             InjectorEvent::OverlayDeferred => None,
@@ -619,7 +646,68 @@ mod tests {
             source,
             level,
             text: text.to_string(),
+            coded: true,
         }
+    }
+
+    /// A record of the DLL that carries no phrase that the manager knows.
+    fn uncoded(level: tracing::Level, text: &str) -> InjectorEvent {
+        InjectorEvent::Problem {
+            source: EvidenceSource::Dll,
+            level,
+            text: text.to_string(),
+            coded: false,
+        }
+    }
+
+    #[test]
+    fn a_game_raises_the_advisories_of_its_events() {
+        let mut recorder = recorder();
+        recorder.observe(&InjectorEvent::GameFound, at(1));
+        recorder.observe(
+            &InjectorEvent::Overlay {
+                outcome: OverlayOutcome::Refused,
+                detail: Some(OverlayDetail::Code("VRF00000008".to_string())),
+            },
+            at(2),
+        );
+        recorder.observe(
+            &InjectorEvent::WadSkipped {
+                wad: "Ahri.wad.client".to_string(),
+                why: "open modded file: not found".to_string(),
+            },
+            at(3),
+        );
+        recorder.observe(&uncoded(tracing::Level::WARN, "failed to parse bin"), at(4));
+        recorder.observe(&uncoded(tracing::Level::ERROR, "kernel32 not found"), at(5));
+        recorder.observe(&uncoded(tracing::Level::ERROR, "kernel32 not found"), at(6));
+        recorder.observe(
+            &problem(EvidenceSource::Dll, tracing::Level::ERROR, "init done"),
+            at(7),
+        );
+
+        let record = recorder.observe(&InjectorEvent::GameExited, at(9)).unwrap();
+
+        let raised: Vec<Advisory> = record.advisories.iter().cloned().collect();
+        assert_eq!(
+            raised,
+            [
+                Advisory::new(AdvisoryCode::OverlayRefused, at(2))
+                    .with_patcher_code(Some("VRF00000008".to_string())),
+                Advisory::new(AdvisoryCode::ArchiveNotServed, at(3))
+                    .about(AdvisorySubject::archive("Ahri.wad.client"))
+                    .with_detail("open modded file: not found"),
+                Advisory::new(AdvisoryCode::PatcherUncoded, at(5))
+                    .with_detail("kernel32 not found"),
+            ]
+        );
+        // The warn record raises nothing, and the game record keeps its line.
+        assert!(
+            record
+                .problems
+                .iter()
+                .any(|problem| problem.line == "WARN failed to parse bin")
+        );
     }
 
     #[test]

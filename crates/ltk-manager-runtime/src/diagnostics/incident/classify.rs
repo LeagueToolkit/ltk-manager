@@ -62,6 +62,7 @@ impl GameRecord {
             problems: Vec::new(),
             still_running: false,
             session: SessionIds::default(),
+            advisories: Advisories::default(),
         }
     }
 

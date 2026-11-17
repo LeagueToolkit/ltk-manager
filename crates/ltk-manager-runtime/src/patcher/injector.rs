@@ -79,6 +79,9 @@ pub enum InjectorEvent {
         source: EvidenceSource,
         level: tracing::Level,
         text: String,
+        /// Whether the record carries a phrase that the manager knows. A record of the
+        /// host is always coded.
+        coded: bool,
     },
 }
 
@@ -290,7 +293,7 @@ impl Injector {
                 // fatal failures via `status failed`. Keep it so the EOF branch can
                 // surface it as the reason if the host then dies.
                 tracing::warn!("[ltk-host] error: {}", message);
-                self.emit_problem(EvidenceSource::Host, tracing::Level::WARN, &message);
+                self.emit_problem(EvidenceSource::Host, tracing::Level::WARN, &message, true);
                 state.last_error = Some(message);
             }
             Some(HostEvent::DllLog {
@@ -305,10 +308,10 @@ impl Injector {
                     record_level,
                     format_args!("[ltk-dll pid={pid} tid={tid} {level}] {message}"),
                 );
-                self.handle_dll_record(pid, &timestamp, &level, &message, state);
+                let coded = self.handle_dll_record(pid, &timestamp, &level, &message, state);
                 // After the typed event of the record, which can open the game.
                 if record_level <= tracing::Level::WARN {
-                    self.emit_problem(EvidenceSource::Dll, record_level, &message);
+                    self.emit_problem(EvidenceSource::Dll, record_level, &message, coded);
                 }
             }
             None => tracing::trace!("[ltk-host] unparsed: {}", line),
@@ -370,6 +373,7 @@ impl Injector {
                     EvidenceSource::Host,
                     tracing::Level::ERROR,
                     &format!("failed: {message}"),
+                    true,
                 );
                 self.emit_host_line(timestamp, format!("failed: {message}"));
                 return Err(InjectorError::Failed(message));
@@ -380,6 +384,8 @@ impl Injector {
 
     /// Fold one DLL record into the session: the scan-failure batch, the pid
     /// an attach was waiting for, and the typed line it carries.
+    ///
+    /// Returns whether the record carries a phrase that the manager knows.
     fn handle_dll_record(
         &self,
         pid: u64,
@@ -387,7 +393,7 @@ impl Injector {
         level: &str,
         message: &str,
         session: &mut SessionState,
-    ) {
+    ) -> bool {
         let level = DllLevel::parse(level);
         session.record_wad_failure(level, message);
         if session.take_awaiting_attach() {
@@ -398,11 +404,11 @@ impl Injector {
             if level == DllLevel::Error {
                 self.emit_dll_line(timestamp, message);
             }
-            return;
+            return false;
         };
 
         let event = match line {
-            DllLine::ScanFailed => return,
+            DllLine::ScanFailed => return true,
             DllLine::InitDone => InjectorEvent::Overlay {
                 outcome: OverlayOutcome::Live,
                 detail: None,
@@ -429,13 +435,14 @@ impl Injector {
             },
             DllLine::Redirected { wad } => {
                 self.emit_event(InjectorEvent::WadRedirected { wad });
-                return;
+                return true;
             }
             DllLine::WadSkipped { wad, why } => InjectorEvent::WadSkipped { wad, why },
             DllLine::Launch(kind) => InjectorEvent::Launch(kind),
         };
         self.emit_event(event);
         self.emit_dll_line(timestamp, message);
+        true
     }
 
     /// Report an attach the DLL never put a pid to.
@@ -461,11 +468,12 @@ impl Injector {
         });
     }
 
-    fn emit_problem(&self, source: EvidenceSource, level: tracing::Level, text: &str) {
+    fn emit_problem(&self, source: EvidenceSource, level: tracing::Level, text: &str, coded: bool) {
         self.emit_event(InjectorEvent::Problem {
             source,
             level,
             text: text.to_string(),
+            coded,
         });
     }
 
@@ -1068,10 +1076,11 @@ mod tests {
             .filter(|e| matches!(e, InjectorEvent::Problem { .. }))
             .cloned()
             .collect();
-        let problem = |source, level, text: &str| InjectorEvent::Problem {
+        let problem = |source, level, text: &str, coded| InjectorEvent::Problem {
             source,
             level,
             text: text.to_string(),
+            coded,
         };
         assert_eq!(
             problems,
@@ -1079,22 +1088,26 @@ mod tests {
                 problem(
                     EvidenceSource::Dll,
                     tracing::Level::WARN,
-                    "ltk_patcher_dll::verify: slow archive"
+                    "ltk_patcher_dll::verify: slow archive",
+                    false
                 ),
                 problem(
                     EvidenceSource::Dll,
                     tracing::Level::ERROR,
-                    "ltk_patcher_dll::entry: init done"
+                    "ltk_patcher_dll::entry: init done",
+                    true
                 ),
                 problem(
                     EvidenceSource::Host,
                     tracing::Level::WARN,
-                    "unknown command"
+                    "unknown command",
+                    true
                 ),
                 problem(
                     EvidenceSource::Host,
                     tracing::Level::ERROR,
-                    "failed: lost the game"
+                    "failed: lost the game",
+                    true
                 ),
             ]
         );

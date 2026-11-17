@@ -7,8 +7,15 @@ use std::{
 use chrono::TimeZone;
 use fs_err as fs;
 use ltk_manager_assets::{hashtables::WadPathResolverState, test_util::make_named_fantome_zip};
-use ltk_manager_base::{config::Config, events::NullEventSink};
-use ltk_manager_library::mods::{ChecksumMismatchState, ModLibrary, WadReportState};
+use ltk_manager_base::{
+    advisory::{Advisories, AdvisoryCode, AdvisorySubject},
+    config::Config,
+    events::NullEventSink,
+};
+use ltk_manager_library::{
+    mods::{ChecksumMismatchState, ModLibrary, WadReportState},
+    overlay::BuildRecord,
+};
 use ltk_manager_runtime::{
     diagnostics::{
         CheckCtx,
@@ -341,6 +348,81 @@ fn add_games_writes_the_newest_five_game_records() {
         json_file(&report, &expected[0])["redirected"],
         json!(["Ahri.wad.client"])
     );
+}
+
+#[test]
+fn add_overlay_holds_the_last_build_and_report_md_lists_the_advisories() {
+    let dir = tempfile::tempdir().unwrap();
+    let (library, config) = library(dir.path());
+    let mut advisories = Advisories::default();
+    advisories.raise(
+        Advisory::new(AdvisoryCode::ModMissing, created_at())
+            .about(AdvisorySubject::mod_id("ghost")),
+    );
+    let build = BuildRecord {
+        built_at: created_at(),
+        fingerprint: None,
+        mods: vec!["applied".to_owned()],
+        advisories,
+    };
+    build.save(dir.path()).unwrap();
+
+    let games = GameStore::new(dir.path().join("games"));
+    let mut game = GameRecord::open(created_at(), SessionOrigin::Library);
+    game.ended_at = created_at() + chrono::Duration::minutes(20);
+    game.advisories.raise(
+        Advisory::new(AdvisoryCode::OverlayRefused, created_at())
+            .with_patcher_code(Some("VRF00000008".to_owned())),
+    );
+    let game = game.stored(None);
+    games.record(&game).unwrap();
+
+    let mut report = report(ReportDescription::default());
+    report.add_overlay(&library, &config);
+    report.add_games(&games);
+    let report = report.finish();
+
+    let overlay = json_file(&report, "overlay.json");
+    assert_eq!(
+        overlay["mods"],
+        json!([{ "id": "applied", "archives": null, "overrides": null }])
+    );
+    assert_eq!(overlay["advisories"][0]["code"], json!("mod-missing"));
+    let summary = file(&report, REPORT_MD);
+    assert!(
+        summary.contains(&format!(
+            "## Advisories\n\n\
+             - build: [mod-missing] mod ghost\n\
+             - game {}: [overlay-refused] [VRF00000008]\n",
+            game.id
+        )),
+        "{summary}"
+    );
+    assert!(
+        report
+            .summary()
+            .contains("**Advisories:** mod-missing, overlay-refused\n"),
+        "{}",
+        report.summary()
+    );
+}
+
+#[test]
+fn add_overlay_adds_nothing_before_any_build() {
+    let dir = tempfile::tempdir().unwrap();
+    let (library, config) = library(dir.path());
+    let mut report = report(ReportDescription::default());
+    report.add_overlay(&library, &config);
+
+    let report = report.finish();
+
+    assert!(
+        report
+            .files()
+            .iter()
+            .all(|file| file.path != "overlay.json")
+    );
+    assert!(!file(&report, REPORT_MD).contains("## Advisories"));
 }
 
 #[test]

@@ -4,4 +4,5 @@ export const diagnosticsKeys = {
   incidents: () => [...diagnosticsKeys.all, "incidents"] as const,
   incidentReport: (id: string) => [...diagnosticsKeys.incidents(), id, "report"] as const,
   incidentToken: (id: string) => [...diagnosticsKeys.incidents(), id, "token"] as const,
+  advisories: () => [...diagnosticsKeys.all, "advisories"] as const,
 };

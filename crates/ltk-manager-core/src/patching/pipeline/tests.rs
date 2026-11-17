@@ -32,6 +32,7 @@ impl PatcherEvents for SilentEvents {
     fn game_exited(&self) {}
     fn overlay_deferred(&self) {}
     fn incident_recorded(&self, _incident: Incident) {}
+    fn game_recorded(&self) {}
 }
 
 struct Harness {
