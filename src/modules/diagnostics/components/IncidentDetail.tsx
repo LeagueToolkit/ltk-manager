@@ -255,7 +255,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       <Button
         variant="outline"
         left={<LifebuoyIcon weight="bold" className="size-4" />}
-        onClick={() => openGetHelp({ incidentId: incident.id })}
+        onClick={() => openGetHelp({ entry: "games-tab", incidentId: incident.id })}
       >
         {m.common_get_help_action()}
       </Button>

@@ -25,6 +25,7 @@ fn facts() -> SessionFacts {
         overlay: OverlayOutcome::Live,
         game_patch: Some("16.16.804.9184".to_string()),
         patcher_dll: Some("9048d9ead98d5ce5".to_string()),
+        advisory_codes: vec![AdvisoryCode::ModMissing, AdvisoryCode::OverlayRefused],
     }
 }
 
@@ -85,6 +86,24 @@ fn an_overlay_build_reports_its_reason_and_the_bucket_of_each_part() {
     assert_eq!(properties.get("build_bucket"), Some(&json!("under-1s")));
     assert_eq!(properties.get("builtins"), Some(&json!(3)));
     assert_eq!(properties.get("builtins_reused"), Some(&json!(2)));
+}
+
+#[test]
+fn a_session_carries_the_advisory_codes_as_a_list_of_codes() {
+    let clean = clean_session(&environment(), &facts());
+    let none = clean_session(
+        &environment(),
+        &SessionFacts {
+            advisory_codes: Vec::new(),
+            ..facts()
+        },
+    );
+
+    assert_eq!(
+        clean.get("advisory_codes"),
+        Some(&json!(["mod-missing", "overlay-refused"]))
+    );
+    assert_eq!(none.get("advisory_codes"), Some(&json!([])));
 }
 
 #[test]

@@ -43,7 +43,10 @@ function ModTracePanel({ target, onClose }: ModTracePanelProps) {
 
   function handleGetHelp() {
     onClose();
-    openGetHelp({ modId: target.subject.kind === "mod" ? target.subject.id : undefined });
+    openGetHelp({
+      entry: "mod-trace",
+      modId: target.subject.kind === "mod" ? target.subject.id : undefined,
+    });
   }
 
   function handleSettings() {

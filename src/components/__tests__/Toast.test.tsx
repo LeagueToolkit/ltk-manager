@@ -215,6 +215,7 @@ describe("a failure toast", () => {
     await user.click(await screen.findByRole("button", { name: "Get help" }));
 
     expect(useGetHelpDialog.getState().payload).toEqual({
+      entry: "error-toast",
       origin: {
         kind: "error",
         error: { title: "Could not save the file", code: "IO", kind: null, ref: "ab12cd34" },

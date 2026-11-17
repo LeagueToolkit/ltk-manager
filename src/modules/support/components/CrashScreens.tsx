@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 
 import { CrashScreen } from "@/components";
 import { currentRoute, describeThrown, reportUiError } from "@/lib/crashReporting";
-import type { ReportOrigin } from "@/lib/tauri";
+import type { ReportEntry, ReportOrigin } from "@/lib/tauri";
 
 import { GetHelpForm } from "./GetHelpDialog";
+
+interface GetHelpCrashScreenProps {
+  error: unknown;
+  /** The screen that the report is opened from. The whole-window crash screen if not set. */
+  entry?: ReportEntry;
+}
 
 /**
  * The whole-window crash screen with `Get help`, for the render error `error`.
@@ -12,7 +18,7 @@ import { GetHelpForm } from "./GetHelpDialog";
  * The screen mounts the dialog itself. The root layout mounts the dialog of the app, and the
  * root layout is part of the tree that crashed.
  */
-export function GetHelpCrashScreen({ error }: { error: unknown }) {
+export function GetHelpCrashScreen({ error, entry = "crash-screen" }: GetHelpCrashScreenProps) {
   const [helping, setHelping] = useState(false);
   // Read once, because the route can change while the screen is up.
   const [origin] = useState<ReportOrigin>(() => ({
@@ -24,7 +30,7 @@ export function GetHelpCrashScreen({ error }: { error: unknown }) {
   return (
     <>
       <CrashScreen onGetHelp={() => setHelping(true)} />
-      {helping && <GetHelpForm context={{ origin }} onClose={() => setHelping(false)} />}
+      {helping && <GetHelpForm context={{ entry, origin }} onClose={() => setHelping(false)} />}
     </>
   );
 }
@@ -45,5 +51,5 @@ export function RouteCrashScreen({ error }: { error: unknown }) {
     });
   }, [error]);
 
-  return <GetHelpCrashScreen error={error} />;
+  return <GetHelpCrashScreen error={error} entry="route-error" />;
 }

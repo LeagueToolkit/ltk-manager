@@ -788,3 +788,149 @@ fn author_summary_names_the_one_library_mod_of_the_incident() {
     // A workshop project is the user's own work, so the report has no author to write to.
     assert_eq!(author_summary(vec![suspect(None, "My project")]), None);
 }
+
+/// A report that was opened from an error with `code`.
+fn opened_from_error(code: &str) -> SupportReport {
+    report(ReportDescription {
+        origin: Some(ReportOrigin::Error {
+            error: ShownError {
+                title: "Could not save the file".to_owned(),
+                code: code.to_owned(),
+                kind: None,
+                reference: Some("ab12cd34".to_owned()),
+            },
+        }),
+        ..ReportDescription::default()
+    })
+}
+
+/// A store with one incident, which has the verdict of a crash with no reason.
+fn incident_store() -> (tempfile::TempDir, IncidentStore) {
+    let dir = tempfile::tempdir().unwrap();
+    let store = IncidentStore::new(dir.path().to_path_buf());
+    store.record(&incident()).unwrap();
+    (dir, store)
+}
+
+/// A store with one game that raised an advisory for each of `codes`.
+fn game_store(codes: &[AdvisoryCode]) -> (tempfile::TempDir, GameStore) {
+    let dir = tempfile::tempdir().unwrap();
+    let store = GameStore::new(dir.path().to_path_buf());
+    let mut game = GameRecord::open(created_at(), SessionOrigin::Library);
+    game.ended_at = created_at() + chrono::Duration::minutes(20);
+    for code in codes {
+        game.advisories.raise(
+            Advisory::new(*code, created_at())
+                .about(AdvisorySubject::mod_id("aatrox"))
+                .with_detail(r"C:\Users\someone\mods\aatrox"),
+        );
+    }
+    store.record(&game.stored(None)).unwrap();
+    (dir, store)
+}
+
+fn top_code(report: SupportReport) -> Option<(TopCodeKind, String)> {
+    let report = report.finish();
+    report.top_code().map(|top| (top.kind, top.code.clone()))
+}
+
+#[test]
+fn created_event_holds_the_entry_the_route_and_the_top_code_and_nothing_else() {
+    let (_dir, games) = game_store(&[AdvisoryCode::ModMissing]);
+    let mut report = report(ReportDescription {
+        mod_name: Some("Aatrox Justicar".to_owned()),
+        text: r"it broke in C:\Users\someone".to_owned(),
+        ..ReportDescription::default()
+    });
+    report.add_games(&games);
+
+    let event = report.finish().created_event(ReportDelivery {
+        entry: ReportEntry::ModTrace,
+        route: ReportRoute::Discord,
+    });
+
+    assert_eq!(
+        serde_json::to_value(&event).unwrap(),
+        json!({
+            "app_version": "1.34.0",
+            "entry": "mod-trace",
+            "route": "discord",
+            "top_code": "mod-missing",
+            "top_code_kind": "advisory",
+        })
+    );
+}
+
+#[test]
+fn created_event_holds_no_top_code_for_a_report_without_a_code() {
+    let event = report(ReportDescription::default())
+        .finish()
+        .created_event(ReportDelivery {
+            entry: ReportEntry::TitleBar,
+            route: ReportRoute::File,
+        });
+
+    assert_eq!(
+        serde_json::to_value(&event).unwrap(),
+        json!({ "app_version": "1.34.0", "entry": "title-bar", "route": "file" })
+    );
+}
+
+#[test]
+fn top_code_is_the_error_then_the_verdict_then_the_advisory() {
+    let (_incidents_dir, incidents) = incident_store();
+    let (_games_dir, games) = game_store(&[AdvisoryCode::ModMissing]);
+    let verdict = serde_json::to_value(incident().verdict.kind).unwrap();
+    let verdict = verdict.as_str().unwrap().to_owned();
+
+    let mut with_all = opened_from_error("IO");
+    with_all.add_incidents(&incidents, None);
+    with_all.add_games(&games);
+    let mut with_verdict = report(ReportDescription::default());
+    with_verdict.add_incidents(&incidents, None);
+    with_verdict.add_games(&games);
+    let mut with_advisory = report(ReportDescription::default());
+    with_advisory.add_games(&games);
+
+    assert_eq!(
+        top_code(with_all),
+        Some((TopCodeKind::Error, "IO".to_owned()))
+    );
+    assert_eq!(
+        top_code(with_verdict),
+        Some((TopCodeKind::Verdict, verdict))
+    );
+    assert_eq!(
+        top_code(with_advisory),
+        Some((TopCodeKind::Advisory, "mod-missing".to_owned()))
+    );
+}
+
+#[test]
+fn top_code_leaves_out_an_error_code_that_is_not_a_code() {
+    assert_eq!(
+        top_code(opened_from_error(r"Could not read C:\Users")),
+        None
+    );
+    assert_eq!(top_code(opened_from_error("")), None);
+    assert_eq!(
+        top_code(opened_from_error("MOD_NOT_FOUND")),
+        Some((TopCodeKind::Error, "MOD_NOT_FOUND".to_owned()))
+    );
+}
+
+#[test]
+fn top_code_is_the_advisory_that_tells_the_most() {
+    let (_dir, games) = game_store(&[
+        AdvisoryCode::LayersUnset,
+        AdvisoryCode::OverlayRefused,
+        AdvisoryCode::ModMissing,
+    ]);
+    let mut report = report(ReportDescription::default());
+    report.add_games(&games);
+
+    assert_eq!(
+        top_code(report),
+        Some((TopCodeKind::Advisory, "overlay-refused".to_owned()))
+    );
+}

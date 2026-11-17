@@ -49,7 +49,7 @@ export function AppMenu() {
 
         <Menu.Item
           icon={<LifebuoyIcon weight="bold" className="size-4" />}
-          onClick={() => openGetHelp()}
+          onClick={() => openGetHelp({ entry: "title-bar" })}
         >
           {m.shell_menu_get_help_action()}
         </Menu.Item>

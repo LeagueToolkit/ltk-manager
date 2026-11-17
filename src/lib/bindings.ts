@@ -8285,6 +8285,15 @@ export type ReplacedSound = {
 	newSize: number,
 };
 
+/**
+ *  Where a report was opened and how it left, as the dialog states it when the report is
+ *  saved.
+ */
+export type ReportDelivery = {
+	entry: ReportEntry,
+	route: ReportRoute,
+};
+
 /**  What the user says went wrong, and what the manager showed before the user said it. */
 export type ReportDescription = {
 	problem: ReportProblem | null,
@@ -8297,6 +8306,29 @@ export type ReportDescription = {
 	/**  The errors that the notification center holds from this run, oldest first. */
 	errors: ShownError[],
 };
+
+/**  Where the user opened the `Get help` dialog. */
+export type ReportEntry = 
+/**  `Get help` on an error toast. */
+"error-toast" | 
+/**  The screen that replaces the app after a crash of the frontend. */
+"crash-screen" | 
+/**  The screen that replaces one route after its render failed. */
+"route-error" | 
+/**  The `Manager crashed` line of the session bar. */
+"panic-line" | 
+/**  The verdict line of the session bar. */
+"verdict-line" | 
+/**  An incident on the Games tab. */
+"games-tab" | 
+/**  The mod trace panel. */
+"mod-trace" | 
+/**  The About section of the settings. */
+"settings" | 
+/**  The title bar menu. */
+"title-bar" | 
+/**  The command palette. */
+"command-palette";
 
 /**  The event that led the user to the `Get help` dialog. */
 export type ReportOrigin = 
@@ -8345,6 +8377,13 @@ export type ReportRequest = {
 	/**  Whether the report holds the game log of that incident. */
 	includeGameLog: boolean,
 };
+
+/**  How a report left the dialog. */
+export type ReportRoute = 
+/**  `Save as file`. */
+"file" | 
+/**  `Copy for Discord`, which saves the zip and copies the summary. */
+"discord";
 
 /**
  *  How an undo or a redo moved the rows of a tree, so a reader's expanded rows follow them.

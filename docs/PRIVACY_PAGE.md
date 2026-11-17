@@ -32,12 +32,18 @@ manager decided went wrong, and roughly how common it is, without you doing anyt
 - how many mods you had enabled, as a number
 - your manager version, your Windows build, and your installed game patch
 - if a mod was blamed, a scrambled fingerprint of that mod's file and the reason it was blamed
+- codes for conditions the manager handled, such as "a mod was left out of the build", without
+  the name of the mod
 
 **When the manager itself fails**: an error message, a crash message, and the file and line it
 came from.
 
-That is everything. There is no tracking of what you click, no analytics on how you use the app,
-and no advertising of any kind.
+**When you save or copy a support report**: that a report was made, which part of the app you
+opened it from, whether you saved a file or copied a summary, and one code that names the
+problem. The report itself is not sent. It stays on your machine until you share it.
+
+That is everything. Apart from where you opened a support report, there is no tracking of what
+you click. There are no analytics on how you use the app, and no advertising of any kind.
 
 ### What is never collected
 

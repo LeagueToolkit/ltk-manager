@@ -107,7 +107,7 @@ export function useGlobalCommands(): readonly ProjectCommand[] {
         group: m.workshop_command_help_group_label(),
         keywords: ["support", "report", "bug", "problem", "log", "discord"],
         icon: <LifebuoyIcon className={GLYPH} />,
-        run: () => openGetHelp(),
+        run: () => openGetHelp({ entry: "command-palette" }),
       },
     ],
     [imports, navigate, openFolder.pick, openNewProjectDialog, refresh],

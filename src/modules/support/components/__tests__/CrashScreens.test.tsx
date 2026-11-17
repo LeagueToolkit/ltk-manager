@@ -32,15 +32,17 @@ describe("the crash screens", () => {
     await userEvent.click(screen.getByRole("button", { name: "Get help" }));
 
     expect(JSON.parse(screen.getByTestId("get-help").textContent ?? "")).toEqual({
+      entry: "crash-screen",
       origin: { kind: "crash", route: "/library", message: "x is not a function" },
     });
   });
 
-  it("reports a route error and renders the crash screen", () => {
+  it("reports a route error and opens Get help as a route error", async () => {
     render(<RouteCrashScreen error={new RangeError("out of range")} />);
 
     expect(screen.getByText("The manager hit a problem")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Get help" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Get help" }));
+    expect(JSON.parse(screen.getByTestId("get-help").textContent ?? "").entry).toBe("route-error");
     const call = mockInvoke.mock.calls.find(
       ([name]) => name === commandNames.diagnostics.trackUiError,
     );

@@ -1,5 +1,9 @@
 use std::sync::Arc;
 
+use ltk_manager_core::support_report::{
+    AppIdentity, ReportDescription, ReportEntry, ReportOrigin, ReportRoute, ShownError,
+    SupportReport,
+};
 use ltk_telemetry::sink::RecordingSink;
 use ltk_telemetry::{Config, Scrubber, Secret, Telemetry};
 
@@ -189,6 +193,62 @@ fn a_refused_start_reports_once_a_window_with_its_reason() {
             .get("reason")
             .and_then(|reason| reason.as_str()),
         Some("LEAGUE_ELEVATED")
+    );
+}
+
+#[test]
+fn a_saved_report_reports_once_a_route_with_codes_only() {
+    let (state, sink, _spool) = recording();
+    let app = AppIdentity {
+        identifier: "dev.leaguetoolkit.manager".to_owned(),
+        version: "1.34.0".to_owned(),
+        release_build: true,
+    };
+    let description = ReportDescription {
+        mod_name: Some("Aatrox Justicar".to_owned()),
+        text: format!(r"it broke in {PROFILE_DIR}\Downloads"),
+        origin: Some(ReportOrigin::Error {
+            error: ShownError {
+                title: format!(r"Could not read {PROFILE_DIR}\Downloads"),
+                code: "IO".to_owned(),
+                kind: None,
+                reference: Some("ab12cd34".to_owned()),
+            },
+        }),
+        ..ReportDescription::default()
+    };
+    let report = SupportReport::new(app, description, Utc::now()).finish();
+    let by = |route| ReportDelivery {
+        entry: ReportEntry::ErrorToast,
+        route,
+    };
+
+    state.report_support_report(&report, by(ReportRoute::Discord));
+    state.report_support_report(&report, by(ReportRoute::Discord));
+    state.report_support_report(&report, by(ReportRoute::File));
+    state.handle().flush();
+
+    let events = sink.events();
+    let routes: Vec<_> = events
+        .iter()
+        .map(|event| event.properties().get("route").cloned())
+        .collect();
+    assert_eq!(routes, [Some("discord".into()), Some("file".into())]);
+    assert_eq!(events[0].name(), SUPPORT_REPORT_CREATED);
+
+    let mut sent = events[0].properties().as_map().clone();
+    for added in ["distinct_id", "$process_person_profile"] {
+        assert!(sent.remove(added).is_some(), "the transport adds {added}");
+    }
+    assert_eq!(
+        serde_json::Value::Object(sent),
+        serde_json::json!({
+            "app_version": "1.34.0",
+            "entry": "error-toast",
+            "route": "discord",
+            "top_code": "IO",
+            "top_code_kind": "error",
+        })
     );
 }
 
