@@ -15,7 +15,7 @@ use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
 use ltk_manager_base::advisory::AdvisoryCode;
 use ltk_manager_base::config::Config;
 use ltk_manager_core::advisories::ShownAdvisory;
-use ltk_manager_core::mod_trace::{ModTrace, TraceSources, TraceSubject};
+use ltk_manager_core::mod_trace::{ModTrace, ModTracer, TraceSubject};
 use ltk_manager_runtime::diagnostics::ids::LogIds;
 use std::sync::Arc;
 
@@ -222,7 +222,7 @@ pub fn mod_trace(
 ) -> IpcResult<ModTrace> {
     let config = settings.config();
     let ids = LogIds::global();
-    TraceSources {
+    ModTracer {
         library: &library.0,
         config: &config,
         games: &games.0,

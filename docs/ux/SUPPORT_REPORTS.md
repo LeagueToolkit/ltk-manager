@@ -741,8 +741,28 @@ first row that fails.
 | The last game  | The newest game record and `Logs/GameLogs` | See the readings                            |
 
 A row has one of four states: passed, warning, failed, and unknown for a row that the manager has
-no answer for. The backend sends each row as a code with typed fields, and the frontend catalog
-words it (ADR-0017).
+no answer for. A row holds the reading of one source. The overlay row and the last game row each
+have a set of readings of their own. The backend sends a row as codes with typed fields, and the
+frontend catalog words it (ADR-0017).
+
+```rust
+pub struct TraceRow {
+    pub state: RowState,
+    pub reading: RowReading,
+}
+
+pub enum RowReading {
+    Enabled { enabled: bool, profile: String },
+    Health { check: Option<HealthCheck> },
+    Overlay(OverlayReading),
+    Archives { archives: Vec<String> },
+    Advisory { code: AdvisoryCode },
+    LastGame(GameReading),
+}
+```
+
+A row crosses IPC as one object, such as `{ state: "fail", row: "last-game", reading:
+"overlay-not-live", outcome: "refused" }`.
 
 The overlay row fails with the sentence of the advisory if the build left the mod out. It fails
 with `Not in the overlay` if the mod was enabled after the build. It warns if the mod or the game

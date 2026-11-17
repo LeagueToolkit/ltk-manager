@@ -28,13 +28,16 @@ vi.mock("@/modules/patcher", () => ({
 const BUILT_AT = "2026-11-17T19:01:00Z";
 
 const REFUSED: TraceRow[] = [
-  { state: "pass", fact: { kind: "enabled", profile: "Default" } },
-  { state: "unknown", fact: { kind: "health-unchecked" } },
-  { state: "pass", fact: { kind: "overlay-built", builtAt: BUILT_AT } },
-  { state: "warn", fact: { kind: "advisory", code: "layers-unset" } },
+  { state: "pass", row: "enabled", enabled: true, profile: "Default" },
+  { state: "unknown", row: "health", check: null },
+  { state: "pass", row: "overlay", reading: "built", builtAt: BUILT_AT },
+  { state: "warn", row: "advisory", code: "layers-unset" },
   {
     state: "fail",
-    fact: { kind: "game-overlay-not-live", outcome: "refused", patcherCode: "VRF00000008" },
+    row: "last-game",
+    reading: "overlay-not-live",
+    outcome: "refused",
+    patcherCode: "VRF00000008",
   },
 ];
 
@@ -111,7 +114,7 @@ describe("ModTraceDialog", () => {
 
   it("rebuilds the overlay from the panel", async () => {
     openFor({
-      rows: [{ state: "fail", fact: { kind: "overlay-without-mod", builtAt: BUILT_AT } }],
+      rows: [{ state: "fail", row: "overlay", reading: "without-mod", builtAt: BUILT_AT }],
       lastGame: null,
     });
 
@@ -121,7 +124,10 @@ describe("ModTraceDialog", () => {
   });
 
   it("offers the startup settings for a game that the manager did not watch", async () => {
-    openFor({ rows: [{ state: "fail", fact: { kind: "game-unwatched" } }], lastGame: null });
+    openFor({
+      rows: [{ state: "fail", row: "last-game", reading: "unwatched" }],
+      lastGame: null,
+    });
 
     await userEvent.click(await screen.findByRole("button", { name: "Open startup settings" }));
 

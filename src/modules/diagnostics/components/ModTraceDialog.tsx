@@ -4,13 +4,13 @@ import type { ReactNode } from "react";
 
 import { Button, Dialog, Spinner } from "@/components";
 import { m } from "@/i18n";
-import type { RowState, TracedGame, TraceRow } from "@/lib/tauri";
+import type { LastGame, RowState, TraceRow } from "@/lib/tauri";
 import { useRebuildOverlayAction } from "@/modules/patcher";
 import { type ModTraceTarget, openGetHelp, useDialog, useModTraceDialog } from "@/stores";
 
 import { useModTrace } from "../api";
 import { formatDuration } from "../utils/incident";
-import { factDetail, factText, formatWhen, traceFix } from "../utils/modTrace";
+import { formatWhen, rowDetail, rowText, traceFix } from "../utils/modTrace";
 
 /** The setting that starts the manager with the computer. */
 const AUTOSTART_SETTING = "general.autoRun";
@@ -61,7 +61,7 @@ function ModTracePanel({ target, onClose }: ModTracePanelProps) {
         {trace && (
           <ul className="space-y-2">
             {trace.rows.map((row) => (
-              <Row key={JSON.stringify(row.fact)} row={row} />
+              <Row key={JSON.stringify(row)} row={row} />
             ))}
           </ul>
         )}
@@ -89,20 +89,20 @@ function ModTracePanel({ target, onClose }: ModTracePanelProps) {
   );
 }
 
-/** One row: the glyph of its state, the sentence of its fact and the detail under it. */
+/** One row: the glyph of its state, the sentence of its reading and the detail under it. */
 function Row({ row }: { row: TraceRow }) {
-  const detail = factDetail(row.fact);
+  const detail = rowDetail(row);
 
   return (
     <li
       data-ui="ModTraceDialog:row"
-      data-kind={row.fact.kind}
+      data-row={row.row}
       data-state={row.state}
       className="flex items-start gap-2"
     >
       <StateGlyph state={row.state} />
       <div className="min-w-0">
-        <p className="text-sm text-surface-100 select-text">{factText(row.fact)}</p>
+        <p className="text-sm text-surface-100 select-text">{rowText(row)}</p>
         {detail && <p className="text-sm text-surface-400 select-text">{detail}</p>}
       </div>
     </li>
@@ -125,7 +125,7 @@ function StateGlyph({ state }: { state: RowState }) {
 }
 
 /** Returns the line under the rows: when the newest followed game started and how long it ran. */
-function lastGameLine({ startedAt, endedAt, stillRunning }: TracedGame): string {
+function lastGameLine({ startedAt, endedAt, stillRunning }: LastGame): string {
   const fields = {
     when: formatWhen(startedAt),
     duration: formatDuration(startedAt, endedAt) ?? "",
