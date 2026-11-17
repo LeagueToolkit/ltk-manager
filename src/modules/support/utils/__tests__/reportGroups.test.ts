@@ -20,10 +20,10 @@ describe("groupReportFiles", () => {
     ]);
 
     expect(groups).toEqual([
-      { id: "summary", bytes: 15, incidents: 0 },
-      { id: "log", bytes: 200, incidents: 0 },
-      { id: "system", bytes: 53, incidents: 0 },
-      { id: "gameLog", bytes: 400, incidents: 0 },
+      { id: "summary", bytes: 15, count: 0 },
+      { id: "log", bytes: 200, count: 0 },
+      { id: "system", bytes: 53, count: 0 },
+      { id: "gameLog", bytes: 400, count: 0 },
     ]);
   });
 
@@ -35,7 +35,20 @@ describe("groupReportFiles", () => {
       file("incidents/b.md", 40),
     ]);
 
-    expect(groups).toEqual([{ id: "incidents", bytes: 280, incidents: 2 }]);
+    expect(groups).toEqual([{ id: "incidents", bytes: 280, count: 2 }]);
+  });
+
+  it("counts the game records and shows them after the incidents", () => {
+    const groups = groupReportFiles([
+      file("games/2026-11-15T14-02-00.json", 300),
+      file("games/2026-11-15T15-10-00.json", 200),
+      file("incidents/a.json", 100),
+    ]);
+
+    expect(groups).toEqual([
+      { id: "incidents", bytes: 100, count: 1 },
+      { id: "games", bytes: 500, count: 2 },
+    ]);
   });
 
   it("returns no group if the report holds no file", () => {

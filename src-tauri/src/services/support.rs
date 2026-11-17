@@ -20,7 +20,7 @@ use ltk_manager_core::{
         AppIdentity, BuiltReport, ReportDescription, ReportPreview, Startup, SupportReport,
     },
 };
-use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::{games::GameStore, store::IncidentStore};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager, State};
@@ -31,7 +31,7 @@ use crate::mods::{ChecksumMismatchState, ModLibrary, ModLibraryState, WadReportS
 use crate::patcher::PatcherDeliveryState;
 use crate::running_version;
 use crate::services::shared::{github_feed, off_thread};
-use crate::state::{IncidentStoreState, Settings, SettingsState, SETTINGS_FILE};
+use crate::state::{GameStoreState, IncidentStoreState, Settings, SettingsState, SETTINGS_FILE};
 use crate::updater::UpdaterState;
 
 /// The report that `build_support_report` built last.
@@ -152,6 +152,7 @@ pub struct ReportSources {
     data_dir: Option<PathBuf>,
     library: ModLibrary,
     incidents: Arc<IncidentStore>,
+    games: Arc<GameStore>,
     delivery: PatcherDeliveryState,
     /// The manager release that the updater offers.
     latest: Option<String>,
@@ -167,6 +168,7 @@ impl ReportSources {
             data_dir: crate::data_location::data_dir(app_handle, &settings.config),
             library: app_handle.state::<ModLibraryState>().0.clone(),
             incidents: Arc::clone(&app_handle.state::<IncidentStoreState>().0),
+            games: Arc::clone(&app_handle.state::<GameStoreState>().0),
             delivery: app_handle.state::<PatcherDeliveryState>().inner().clone(),
             latest: app_handle.state::<UpdaterState>().offered_version(),
             startup: None,
@@ -197,6 +199,7 @@ impl ReportSources {
         Self {
             library,
             incidents: IncidentStoreState::under(data_dir.as_deref(), &settings.config).0,
+            games: GameStoreState::under(data_dir.as_deref()).0,
             delivery: PatcherDeliveryState::without_cleanup(data_dir.as_deref()),
             latest: None,
             startup: Some(startup),
@@ -238,6 +241,7 @@ impl ReportSources {
         if let Some(incident) = subject.filter(|_| request.include_game_log) {
             report.add_game_log(&incident, config);
         }
+        report.add_games(&self.games);
 
         let channel = crate::patcher::delivery::channel(config);
         let staged = self

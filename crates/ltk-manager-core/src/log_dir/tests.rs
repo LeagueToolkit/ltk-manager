@@ -12,8 +12,12 @@ fn log_dir(days: &[(&str, &str)]) -> (tempfile::TempDir, LogDir) {
     (dir, logs)
 }
 
-fn run(name: &str) -> String {
-    format!("INFO {RUN_START}1.34.0\nINFO {name} line\n")
+/// The two lines of the run `id`, as the log file formatter writes them.
+fn run(id: &str) -> String {
+    format!(
+        "2026-11-15T14:02:00.000000Z  INFO run{{id={id}}}: ltk_manager: Starting LTK Manager v1.34.0\n\
+         2026-11-15T14:02:01.000000Z  WARN run{{id={id}}}:session{{n=1}}: ltk_manager: a line\n"
+    )
 }
 
 #[test]
@@ -56,12 +60,44 @@ fn recent_runs_keeps_the_newest_runs_across_files() {
 }
 
 #[test]
+fn recent_runs_reads_the_start_of_a_run_from_an_older_file() {
+    let (first_line, second_line) = {
+        let run = run("second");
+        let (first, second) = run.split_once('\n').unwrap();
+        (format!("{first}\n"), second.to_owned())
+    };
+    let (_dir, logs) = log_dir(&[
+        ("2026-11-14", &[run("first"), first_line.clone()].concat()),
+        ("2026-11-15", &second_line),
+    ]);
+
+    assert_eq!(
+        logs.recent_runs(1, MAX_BYTES).unwrap(),
+        [first_line, second_line].concat()
+    );
+}
+
+#[test]
+fn recent_runs_keeps_a_line_without_an_id_in_the_run_before_it() {
+    let report_run = "2026-11-15T14:03:00.000000Z  INFO ltk_manager::report_mode: a line\n";
+    let (_dir, logs) = log_dir(&[(
+        "2026-11-15",
+        &[&run("first"), &run("second"), report_run, &run("third")].concat(),
+    )]);
+
+    assert_eq!(
+        logs.recent_runs(2, MAX_BYTES).unwrap(),
+        [&run("second"), report_run, &run("third")].concat()
+    );
+}
+
+#[test]
 fn recent_runs_returns_the_whole_log_if_it_holds_fewer_runs() {
-    let (_dir, logs) = log_dir(&[("2026-11-15", "INFO a line before any start\n")]);
+    let (_dir, logs) = log_dir(&[("2026-11-15", "INFO a line of an older release\n")]);
 
     assert_eq!(
         logs.recent_runs(3, MAX_BYTES).unwrap(),
-        "INFO a line before any start\n"
+        "INFO a line of an older release\n"
     );
 }
 

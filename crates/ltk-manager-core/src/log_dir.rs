@@ -9,13 +9,11 @@ use std::{
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::utils::text;
+use ltk_manager_runtime::diagnostics::ids;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
 mod tests;
-
-/// The text that starts the first log line of a run.
-pub const RUN_START: &str = "Starting LTK Manager v";
 
 /// The file in the log directory that holds the ruleset version of the last rewrite.
 const REDACTED_MARKER: &str = ".redacted";
@@ -117,9 +115,10 @@ impl LogDir {
 
     /// Returns the newest `runs` runs of the log, `max_bytes` at most.
     ///
-    /// A run starts at a line that holds [`RUN_START`]. Returns the whole log if it holds
-    /// fewer runs. Cuts the oldest lines if the runs exceed `max_bytes`. Skips a file that
-    /// cannot be read. Returns `None` if the directory holds no log text.
+    /// A run starts at a line that carries another run id than the line with an id before
+    /// it, so a line without an id belongs to the run before it. Returns the whole log if it
+    /// holds fewer runs. Cuts the oldest lines if the runs exceed `max_bytes`. Skips a file
+    /// that cannot be read. Returns `None` if the directory holds no log text.
     #[must_use]
     pub fn recent_runs(&self, runs: usize, max_bytes: usize) -> Option<String> {
         // The file name holds the date, so the order of the names is the order of the days.
@@ -132,17 +131,16 @@ impl LogDir {
                 continue;
             };
             log.insert_str(0, &String::from_utf8_lossy(&bytes));
-            if log.matches(RUN_START).count() >= runs || log.len() >= max_bytes {
+            // One run more than `runs`, because the oldest run of the text can start in an
+            // older file.
+            if run_starts(&log).len() > runs || log.len() >= max_bytes {
                 break;
             }
         }
 
-        let starts: Vec<usize> = log.match_indices(RUN_START).map(|(at, _)| at).collect();
+        let starts = run_starts(&log);
         if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
-            // The marker sits after the timestamp and the level, so the run starts at the
-            // start of its line.
-            let line_start = log[..start].rfind('\n').map_or(0, |newline| newline + 1);
-            log.drain(..line_start);
+            log.drain(..start);
         }
         let log = text::last_lines(&log, max_bytes);
         (!log.is_empty()).then(|| log.to_owned())
@@ -220,4 +218,20 @@ fn redact_file(path: &Path) -> io::Result<()> {
     let temporary = path.with_extension("log.redacting");
     fs::write(&temporary, redacted)?;
     fs::rename(&temporary, path)
+}
+
+/// Returns the offset of each line of `log` that starts a run: a line that carries another
+/// run id than the line with an id before it.
+fn run_starts(log: &str) -> Vec<usize> {
+    let mut starts = Vec::new();
+    let mut current = None;
+    let mut offset = 0;
+    for line in log.split_inclusive('\n') {
+        if let Some(run) = ids::run_of(line).filter(|run| current != Some(*run)) {
+            starts.push(offset);
+            current = Some(run);
+        }
+        offset += line.len();
+    }
+    starts
 }

@@ -1,9 +1,12 @@
 use fs_err as fs;
 use ltk_manager_core::log_dir::LogDir;
+use ltk_manager_runtime::diagnostics::ids::LogIds;
 use std::path::PathBuf;
 use std::sync::{Arc, OnceLock};
 use tracing_appender::{non_blocking, non_blocking::WorkerGuard, rolling};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+mod format;
 
 /// Return value from logging initialization, holding guards that must live for the app lifetime.
 pub struct LoggingGuards {
@@ -36,6 +39,7 @@ pub fn init() -> LoggingGuards {
 
     if let Some(writer) = writer {
         let file_layer = tracing_subscriber::fmt::layer()
+            .event_format(format::LineFormat::new(LogIds::global()))
             .with_writer(writer)
             .with_ansi(false);
         registry.with(file_layer).init();
@@ -64,6 +68,7 @@ pub fn init() -> LoggingGuards {
 
     if let Some(writer) = writer {
         let file_layer = tracing_subscriber::fmt::layer()
+            .event_format(format::LineFormat::new(LogIds::global()))
             .with_writer(writer)
             .with_ansi(false);
         registry.with(file_layer).init();

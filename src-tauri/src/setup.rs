@@ -7,7 +7,7 @@ use crate::events::TauriEventSink;
 use crate::mods::{ChecksumMismatchState, ModLibrary, ModLibraryState, WadReportState};
 use crate::patcher::{PatcherDeliveryState, PatcherHostState, PatcherState};
 use crate::services::launcher::LauncherState;
-use crate::state::{IncidentStoreState, SettingsState};
+use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_base::events::EventSink;
 use ltk_manager_runtime::diagnostics::telemetry;
@@ -60,6 +60,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let storage_dir = crate::data_location::data_dir(&app_handle, &settings.config);
     let wad_reports = Arc::new(WadReportState::new(storage_dir.as_deref()));
     let incident_store = IncidentStoreState::under(storage_dir.as_deref(), &settings.config);
+    let game_store = GameStoreState::under(storage_dir.as_deref());
     let checksum_mismatches = Arc::new(ChecksumMismatchState::default());
     // The library unpacks fantome archives, which needs the same chunk names
     // the browser resolves with, so both hold this one handle.
@@ -110,6 +111,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(PatcherHostState::default());
     app.manage(patcher_delivery);
     app.manage(incident_store);
+    app.manage(game_store);
     let telemetry_state = Arc::new(crate::telemetry::TelemetryState::new(telemetry, remote));
     crate::telemetry::install(&telemetry_state);
     let elevation = ltk_manager_runtime::diagnostics::elevation::log_facts();

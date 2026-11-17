@@ -72,8 +72,8 @@ export const commands = {
 	 *  Moves the data directory to `target`, or to the app data directory if `target` is `None`.
 	 * 
 	 *  Stores the new location and restarts the app, because the library watcher, the incident
-	 *  store and the patcher delivery read the data directory once at startup. The library index
-	 *  stays locked from the move until the settings name the new folder.
+	 *  store, the game store and the patcher delivery read the data directory once at startup.
+	 *  The library index stays locked from the move until the settings name the new folder.
 	 */
 	moveData: (target: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: IpcError }) & { value?: never }>("plugin:settings|move_data", { target }),
 	/**  Measures the disk usage of the manager's data. */

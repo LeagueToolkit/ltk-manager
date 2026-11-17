@@ -1,6 +1,7 @@
 use fs_err as fs;
 use ltk_manager_base::config::Config;
 use ltk_manager_runeforge::ConnectedAccount;
+use ltk_manager_runtime::diagnostics::games::GameStore;
 use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -123,18 +124,35 @@ impl IncidentStoreState {
     ///
     /// The store is under the temp directory if `data_dir` is `None`.
     pub fn under(data_dir: Option<&Path>, config: &Config) -> Self {
-        let dir = match data_dir {
-            Some(dir) => dir.join(crate::data_location::INCIDENTS),
-            None => {
-                tracing::warn!("No data directory, keeping incidents under the temp directory");
-                std::env::temp_dir()
-                    .join(crate::IDENTIFIER)
-                    .join(crate::data_location::INCIDENTS)
-            }
-        };
+        let dir = records_dir(data_dir, crate::data_location::INCIDENTS);
         Self(Arc::new(
             IncidentStore::new(dir).with_keep(config.keep_incidents as usize),
         ))
+    }
+}
+
+/// Tauri-managed handle to the game store, under `<data_dir>/games`.
+pub struct GameStoreState(pub Arc<GameStore>);
+
+impl GameStoreState {
+    /// Returns the store under `data_dir`.
+    ///
+    /// The store is under the temp directory if `data_dir` is `None`.
+    pub fn under(data_dir: Option<&Path>) -> Self {
+        let dir = records_dir(data_dir, crate::data_location::GAMES);
+        Self(Arc::new(GameStore::new(dir)))
+    }
+}
+
+/// Returns the directory `name` of the patcher's records: under `data_dir`, or under the
+/// temp directory if `data_dir` is `None`.
+fn records_dir(data_dir: Option<&Path>, name: &str) -> PathBuf {
+    match data_dir {
+        Some(dir) => dir.join(name),
+        None => {
+            tracing::warn!("No data directory, keeping {name} under the temp directory");
+            std::env::temp_dir().join(crate::IDENTIFIER).join(name)
+        }
     }
 }
 

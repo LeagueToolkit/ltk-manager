@@ -18,12 +18,12 @@ use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_library::overlay::{OverlayBuild, OverlayTimings, WorkshopTestProject};
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
+use ltk_manager_runtime::diagnostics::ids::LogIds;
 use ltk_manager_runtime::diagnostics::incident::SessionFailure;
-use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use ltk_manager_runtime::diagnostics::telemetry;
 use ltk_manager_runtime::launcher::is_game_running;
 
-use super::pipeline::IncidentPipeline;
+use super::pipeline::{IncidentPipeline, SessionStores};
 use ltk_manager_runtime::patcher::error::PatcherError;
 use ltk_manager_runtime::patcher::events::PatcherEvents;
 use ltk_manager_runtime::patcher::host::{HostConfig, HostLogLevel, PatcherHost};
@@ -74,8 +74,8 @@ pub struct SessionParams {
     pub library: ModLibrary,
     pub workshop_projects: Vec<WorkshopTestProject>,
     pub host_flags: u32,
-    /// Where the session's incidents are written.
-    pub incident_store: Arc<IncidentStore>,
+    /// Where the session's incidents and game records are written.
+    pub stores: SessionStores,
     /// Whether the overlay is built from scratch rather than reused.
     pub force_rebuild: bool,
     /// Where the session reports that it ended.
@@ -133,7 +133,7 @@ impl PatcherThread {
             library,
             workshop_projects,
             host_flags,
-            incident_store,
+            stores,
             force_rebuild,
             telemetry,
         } = params;
@@ -142,13 +142,15 @@ impl PatcherThread {
             host_flags,
             library.clone(),
             workshop_projects.clone(),
-            incident_store,
+            stores,
             Arc::clone(&events),
             telemetry.clone(),
         ));
+        // The log lines carry the session from here until the session thread ends.
+        let scope = LogIds::global().begin_session();
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
-            GameRecorder::new(origin),
+            GameRecorder::new(origin, scope.ids()),
             Arc::new(move |record| pipeline.spawn(record)),
         ));
         let session = Self {
@@ -165,7 +167,10 @@ impl PatcherThread {
             force_rebuild,
             telemetry,
         };
-        patcher_state.thread_handle = Some(thread::spawn(move || session.run(prepare_host)));
+        patcher_state.thread_handle = Some(thread::spawn(move || {
+            let _scope = scope;
+            session.run(prepare_host);
+        }));
         Ok(())
     }
 
@@ -258,7 +263,9 @@ impl PatcherThread {
             overlay_root,
             outcome,
             timings,
+            fingerprint,
         } = build;
+        self.observer.set_overlay_fingerprint(fingerprint);
         self.report_overlay_built(&timings, rebuilds);
         // Refreshes the library badges. Advisory, so it happens even if we are
         // about to bail on a stop request - the data is already correct.

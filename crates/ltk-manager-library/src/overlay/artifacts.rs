@@ -154,3 +154,59 @@ pub(super) fn clean_corrupt_overlay_state(state_dir: &camino::Utf8Path) {
         }
     }
 }
+
+/// Returns the fingerprint of the overlay that the state file under `state_dir` describes:
+/// sixteen hex characters over the fingerprint of the game directory and the fingerprint of
+/// each patched archive. Two builds with one fingerprint wrote the same archives.
+///
+/// Returns `None` if the state file is missing or cannot be read.
+pub(super) fn overlay_fingerprint(state_dir: &camino::Utf8Path) -> Option<String> {
+    let path = ltk_overlay::StateDir::new(state_dir).overlay_state();
+    let state = ltk_overlay::OverlayState::load(&path).ok().flatten()?;
+    let facts = serde_json::to_vec(&(state.game_fingerprint, &state.wad_fingerprints)).ok()?;
+    Some(ltk_manager_base::hashing::content_hash(&facts))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use camino::Utf8Path;
+    use ltk_overlay::{OverlayState, StateDir};
+
+    use super::overlay_fingerprint;
+
+    /// Saves a state with `mods` enabled and the patched archives `wads` under `dir`.
+    fn save(dir: &Utf8Path, mods: &[&str], wads: &[(&str, u64)]) {
+        let state = OverlayState::new(
+            mods.iter().map(|id| (*id).to_owned()).collect(),
+            BTreeMap::new(),
+            7,
+            Vec::new(),
+            Vec::new(),
+            wads.iter()
+                .map(|(wad, hash)| ((*wad).to_owned(), *hash))
+                .collect(),
+        );
+        state
+            .save(&StateDir::new(dir).overlay_state())
+            .expect("the state saves");
+    }
+
+    #[test]
+    fn overlay_fingerprint_follows_the_patched_archives() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = Utf8Path::from_path(temp.path()).unwrap();
+        assert_eq!(overlay_fingerprint(dir), None);
+
+        save(dir, &["a"], &[("Ahri.wad.client", 1)]);
+        let first = overlay_fingerprint(dir).expect("a fingerprint");
+        assert_eq!(first.len(), 16);
+
+        save(dir, &["a", "b"], &[("Ahri.wad.client", 1)]);
+        assert_eq!(overlay_fingerprint(dir), Some(first.clone()));
+
+        save(dir, &["a", "b"], &[("Ahri.wad.client", 2)]);
+        assert_ne!(overlay_fingerprint(dir), Some(first));
+    }
+}

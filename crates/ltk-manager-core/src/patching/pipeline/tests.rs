@@ -9,9 +9,11 @@ use tempfile::TempDir;
 use super::*;
 use ltk_manager_assets::hashtables::WadPathResolverState;
 use ltk_manager_base::config::Config;
-use ltk_manager_base::error::AppError;
+use ltk_manager_base::error::{AppError, ErrorKind};
 use ltk_manager_library::mods::{ChecksumMismatchState, WadReportState};
-use ltk_manager_runtime::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
+use ltk_manager_runtime::diagnostics::incident::{
+    Ending, GameRecord, LaunchKind, OverlayOutcome, SessionFailure,
+};
 use ltk_manager_runtime::patcher::SessionOrigin;
 use ltk_manager_runtime::patcher::injector::WadScanFailure;
 use ltk_manager_runtime::patcher::state::PatcherPhase;
@@ -40,17 +42,17 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
-        Self::with(true)
+        Self::with(true, Config::default())
     }
 
     fn off() -> Self {
-        Self::with(false)
+        Self::with(false, Config::default())
     }
 
-    fn with(reports: bool) -> Self {
+    fn with(reports: bool, config: Config) -> Self {
         let sink = Arc::new(RecordingSink::new());
         let storage = TempDir::new().expect("a temporary directory");
-        let incidents = TempDir::new().expect("a temporary directory");
+        let records = TempDir::new().expect("a temporary directory");
         let spool = TempDir::new().expect("a temporary directory");
 
         let telemetry = if reports {
@@ -73,11 +75,14 @@ impl Harness {
         );
 
         let pipeline = IncidentPipeline::new(
-            Config::default(),
+            config,
             0,
             library,
             Vec::new(),
-            Arc::new(IncidentStore::new(incidents.path().to_path_buf())),
+            SessionStores {
+                incidents: Arc::new(IncidentStore::new(records.path().join("incidents"))),
+                games: Arc::new(GameStore::new(records.path().join("games"))),
+            },
             Arc::new(SilentEvents),
             telemetry,
         );
@@ -85,7 +90,7 @@ impl Harness {
         Self {
             pipeline,
             sink,
-            _dirs: (storage, incidents, spool),
+            _dirs: (storage, records, spool),
         }
     }
 
@@ -213,4 +218,73 @@ fn no_mod_name_or_path_reaches_a_reported_session() {
             "{forbidden} reached the payload: {rendered}"
         );
     }
+}
+
+#[test]
+fn a_clean_game_leaves_a_record_that_names_the_served_archives() {
+    // The record is built from patcher events, so the game log reader does not gate it.
+    let config = Config {
+        read_game_log: false,
+        ..Config::default()
+    };
+    let harness = Harness::with(true, config);
+    let mut record = clean_record();
+    record.redirected = vec![
+        "Ahri.wad.client".to_string(),
+        "Map11.wad.client".to_string(),
+    ];
+
+    let incident = harness.pipeline.run(record.clone());
+
+    assert!(incident.is_none(), "the record classifies to no verdict");
+    let games = harness.pipeline.stores.games.list().unwrap();
+    assert_eq!(games, [record.stored(None)]);
+    assert_eq!(games[0].redirected, record.redirected);
+    assert_eq!(games[0].overlay, OverlayOutcome::Live);
+}
+
+#[test]
+fn a_game_with_a_verdict_names_its_incident_in_the_record() {
+    let harness = Harness::new();
+
+    let incident = harness
+        .pipeline
+        .run(crashed_record())
+        .expect("the record classifies to a verdict");
+
+    let games = harness.pipeline.stores.games.list().unwrap();
+    assert_eq!(games.len(), 1);
+    assert_eq!(games[0].incident.as_deref(), Some(incident.id.as_str()));
+}
+
+#[test]
+fn a_game_that_was_still_running_is_stored_and_reaches_no_verdict() {
+    let harness = Harness::new();
+    let mut record = crashed_record();
+    record.still_running = true;
+
+    let incident = harness.pipeline.run(record);
+
+    assert!(incident.is_none());
+    let games = harness.pipeline.stores.games.list().unwrap();
+    assert_eq!(games.len(), 1);
+    assert!(games[0].still_running);
+    assert_eq!(harness.pipeline.stores.incidents.list().unwrap(), []);
+    assert!(harness.reported_nothing());
+}
+
+#[test]
+fn a_session_that_failed_before_any_game_leaves_no_game_record() {
+    let harness = Harness::new();
+    let mut record = GameRecord::open(at(0), SessionOrigin::Library);
+    record.failure = Some(SessionFailure::Build {
+        kind: ErrorKind::Other,
+        category: None,
+        message: "Overlay build failed".to_string(),
+    });
+
+    let incident = harness.pipeline.run(record);
+
+    assert!(incident.is_some(), "a failed session is an incident");
+    assert_eq!(harness.pipeline.stores.games.list().unwrap(), []);
 }

@@ -8,9 +8,10 @@ use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
     PatcherDeliveryState, PatcherError, PatcherEvents, PatcherHostState, PatcherPhase,
-    PatcherSession, PatcherState, PatcherThread, PreparedHost, SessionParams, StoredPatcherConfig,
+    PatcherSession, PatcherState, PatcherThread, PreparedHost, SessionParams, SessionStores,
+    StoredPatcherConfig,
 };
-use crate::state::{IncidentStoreState, SettingsState};
+use crate::state::{GameStoreState, IncidentStoreState, SettingsState};
 use ltk_manager_base::events::{OverlayProgress, PrepareStep};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
@@ -247,14 +248,17 @@ pub(crate) fn start_patcher_inner(
     let prepare_events = Arc::clone(&events);
     let prepare_host =
         Box::new(move || prepare_host(&delivery, channel, &injector_exe, &*prepare_events));
-    // The cap is a setting, so the session's store reads it as a snapshot.
-    let incident_store = Arc::new(
-        incidents
-            .0
-            .as_ref()
-            .clone()
-            .with_keep(config_snapshot.keep_incidents as usize),
-    );
+    let stores = SessionStores {
+        // The cap is a setting, so the session's store reads it as a snapshot.
+        incidents: Arc::new(
+            incidents
+                .0
+                .as_ref()
+                .clone()
+                .with_keep(config_snapshot.keep_incidents as usize),
+        ),
+        games: Arc::clone(&app_handle.state::<GameStoreState>().0),
+    };
 
     PatcherThread::start(
         events,
@@ -267,7 +271,7 @@ pub(crate) fn start_patcher_inner(
             library: library.0.clone(),
             workshop_projects,
             host_flags,
-            incident_store,
+            stores,
             force_rebuild: config.force_rebuild.unwrap_or(false),
             telemetry: telemetry.handle(),
         },

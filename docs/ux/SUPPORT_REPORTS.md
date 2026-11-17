@@ -91,16 +91,16 @@ gives it.
 | Feature                 | Status      | Note                                                                                 |
 | ----------------------- | ----------- | ------------------------------------------------------------------------------------ |
 | Log levels and filter   | Available   | The DLL's level, the host's level, a default level of `warn`                         |
-| Run, session, game ids  | Planned     | Three spans, written on every line                                                   |
+| Run, session, game ids  | Available   | Three ids, written on every line of the log file                                     |
 | The redactor            | In progress | One crate, known values first, patterns second. Some known values are not registered |
 | Redacted log file       | Available   | The redactor runs in the file writer                                                 |
 | Canary test             | Available   | A CI run that registers private values and searches every output                     |
-| Support report          | In progress | An allowlisted zip, built by named builders. Game records and the build are missing  |
+| Support report          | In progress | An allowlisted zip, built by named builders. The last overlay build is missing       |
 | Report preview          | Available   | The file list and the redacted text of each file                                     |
 | Save and copy           | Available   | A file on disk, and a short summary on the clipboard                                 |
 | Report without a window | Available   | `--report`, a Start menu entry and a native dialog after a failed start              |
 | `Get help` entry points | In progress | Every entry point but the mod card menu, which needs the mod trace                   |
-| Game record             | Planned     | One small record for every game, clean games included                                |
+| Game record             | Available   | One small record for every game, clean games included                                |
 | Advisory                | Planned     | A coded condition that changes what the user gets                                    |
 | Mod trace               | Planned     | Why one mod did or did not reach the last game                                       |
 | Error reference         | Available   | A short id on an error, the same id on its log line                                  |
@@ -151,9 +151,9 @@ shows a cost that a player can notice.
 
 ### Ids
 
-Three spans carry three ids, and the formatter writes the open spans on every line.
+Three ids are written on every line of the log file.
 
-| Span      | Opens                          | Id                           |
+| Id        | Set                            | Value                        |
 | --------- | ------------------------------ | ---------------------------- |
 | `run`     | At process start               | Eight hex characters, random |
 | `session` | When the patcher thread starts | A counter inside the run     |
@@ -163,7 +163,18 @@ Three spans carry three ids, and the formatter writes the open spans on every li
 2026-11-11T19:02:11.412Z  WARN run{id=4be1c07a}:session{n=2}:game{id=2026-11-11T19-02-04}: ltk_dll: [LTK-V008] host verification failed, refusing overlay
 ```
 
-The report builder cuts the log by `run` id. The game record keeps its lines by `game` id.
+The ids are process-wide and are not tracing spans. A span belongs to the thread that entered it,
+and the lines of a session come from the session thread, the reader of the host's stderr, the
+workers of the overlay build and the command threads. A manager process is one run, runs one
+session at a time and follows one game at a time, so one value of each id is correct for every
+thread. The log file formatter reads the three ids and writes them after the level. A line that
+another thread writes during a game carries the id of that game.
+
+A line has no `session` between sessions and no `game` between games. The process of `--report`
+starts no run, so its lines carry no id.
+
+The report builder cuts the log by `run` id: a run starts at a line that carries another run id
+than the line with an id before it. A line without an id belongs to the run before it.
 
 ### Retention
 
@@ -313,10 +324,10 @@ file is included by default.
 | `startup.json`        | From `--report` only: the webview runtime version, the error of the start      |
 | `game-log/r3dlog.txt` | The incident's game log, redacted line by line. Ticked when an incident exists |
 
-Two files and one field wait for a later step. `games/*.json` waits for the game record.
-`overlay.json` waits for advisories, because no record of the last build exists before them, and
-`library.json` holds the archives, the override count and the content digest of each mod until
-then. The code table version in `patcher.json` waits for the patcher's code table.
+One file and one field wait for a later step. `overlay.json` waits for advisories, because no
+record of the last build exists before them, and `library.json` holds the archives, the override
+count and the content digest of each mod until then. The code table version in `patcher.json`
+waits for the patcher's code table.
 
 A report never holds `delivery.json`, `telemetrySecret`, the `runeforge` block, a credential, a mod
 file, an archive, a screenshot or anything under `Logs/GameCrashes`.
@@ -534,27 +545,40 @@ named in the app, and a user who reads the reason does not file an issue.
 
 ### The game record
 
-The recorder keeps a record for every game and stops dropping it on a clean ending.
+The recorder keeps a record for every game and the pipeline stores it, whatever the ending.
 
 ```rust
-pub struct GameRecord {
+pub struct StoredGame {
     pub id: String,
     pub run: String,
     pub session: u32,
-    pub started_at: String,
-    pub ended_at: String,
+    pub started_at: DateTime<Utc>,
+    pub ended_at: DateTime<Utc>,
+    pub still_running: bool,
     pub overlay: OverlayOutcome,
-    pub overlay_fingerprint: String,
+    pub overlay_fingerprint: Option<String>,
     pub redirected: Vec<String>,
-    pub skipped: Vec<SkippedWad>,
-    pub advisories: Vec<Advisory>,
+    pub skipped: Vec<SkippedArchive>,
     pub incident: Option<String>,
     pub lines: Vec<String>,
 }
 ```
 
-`lines` holds the warn and error records of the game, redacted, 64 at most. The store keeps the
-newest 20 records under `games/<id>.json`, 200 KB together. A record is under 10 KB.
+| Field                 | Holds                                                                            |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `id`                  | The local time of the first sign of the game. The log lines of the game carry it |
+| `run`, `session`      | The ids of the run and of the patcher session                                    |
+| `still_running`       | The session stopped while the game ran. `ended_at` is the time of the stop       |
+| `overlay_fingerprint` | Sixteen hex characters over the game fingerprint and each patched archive        |
+| `redirected`          | The archives that the DLL served from the overlay                                |
+| `incident`            | The id of the incident, if the classifier gave the game a verdict                |
+| `lines`               | The warn and error records of the DLL and the host, redacted                     |
+
+`lines` holds each distinct record once, 64 at most, so a record that repeats does not fill the
+list. The store keeps the newest 20 records under `games/<id>.json`, 200 KB together. A session
+that failed before any game leaves an incident and no game record. A game that is still running
+when the session stops leaves a game record, no incident and no session event. The advisories of
+a game join the record with the advisory step.
 
 No page lists the game records. The mod trace and the support report read them, and the Games tab
 stays a list of incidents. The record is built from patcher events and reads no file of League, so

@@ -73,6 +73,13 @@ pub enum InjectorEvent {
         at_host: String,
         text: String,
     },
+    /// A record that the DLL or the host wrote at the warn or the error level, kept for
+    /// the game record.
+    Problem {
+        source: EvidenceSource,
+        level: tracing::Level,
+        text: String,
+    },
 }
 
 /// A single archive that failed the injected DLL's integrity scan.
@@ -283,6 +290,7 @@ impl Injector {
                 // fatal failures via `status failed`. Keep it so the EOF branch can
                 // surface it as the reason if the host then dies.
                 tracing::warn!("[ltk-host] error: {}", message);
+                self.emit_problem(EvidenceSource::Host, tracing::Level::WARN, &message);
                 state.last_error = Some(message);
             }
             Some(HostEvent::DllLog {
@@ -292,11 +300,16 @@ impl Injector {
                 level,
                 message,
             }) => {
+                let record_level = host::dll_record_level(&level);
                 host::log_at(
-                    host::dll_record_level(&level),
+                    record_level,
                     format_args!("[ltk-dll pid={pid} tid={tid} {level}] {message}"),
                 );
                 self.handle_dll_record(pid, &timestamp, &level, &message, state);
+                // After the typed event of the record, which can open the game.
+                if record_level <= tracing::Level::WARN {
+                    self.emit_problem(EvidenceSource::Dll, record_level, &message);
+                }
             }
             None => tracing::trace!("[ltk-host] unparsed: {}", line),
         }
@@ -315,6 +328,12 @@ impl Injector {
     ) -> Result<(), InjectorError> {
         match state {
             HostState::Injecting => {
+                // The game opens before its first line is logged, so the line carries the
+                // game id.
+                if message == host_status::GAME_FOUND {
+                    session.game_open = true;
+                    self.emit_event(InjectorEvent::GameFound);
+                }
                 tracing::info!("[ltk-host] injecting: {}", message);
                 match message.as_str() {
                     host_status::SCANNING_FOR_GAME => {
@@ -322,10 +341,7 @@ impl Injector {
                         session.game_open = false;
                         self.emit_event(InjectorEvent::Scanning);
                     }
-                    host_status::GAME_FOUND => {
-                        session.game_open = true;
-                        self.emit_event(InjectorEvent::GameFound);
-                    }
+                    host_status::GAME_FOUND => {}
                     _ => self.emit_host_line(timestamp, message),
                 }
             }
@@ -350,6 +366,11 @@ impl Injector {
             HostState::Failed => {
                 tracing::error!("[ltk-host] failed: {}", message);
                 self.flush_attach(session);
+                self.emit_problem(
+                    EvidenceSource::Host,
+                    tracing::Level::ERROR,
+                    &format!("failed: {message}"),
+                );
                 self.emit_host_line(timestamp, format!("failed: {message}"));
                 return Err(InjectorError::Failed(message));
             }
@@ -437,6 +458,14 @@ impl Injector {
             source: EvidenceSource::Dll,
             at_host: at_host.to_string(),
             text: dll_lines::strip_target(message).to_string(),
+        });
+    }
+
+    fn emit_problem(&self, source: EvidenceSource, level: tracing::Level, text: &str) {
+        self.emit_event(InjectorEvent::Problem {
+            source,
+            level,
+            text: text.to_string(),
         });
     }
 
@@ -639,12 +668,17 @@ mod tests {
                 .collect()
         }
 
-        /// The emitted events with the timeline lines filtered out, which is the
-        /// sequence a recorder's state machine runs on.
+        /// The emitted events with the timeline lines and the problems filtered out, which
+        /// is the sequence a recorder's state machine runs on.
         fn typed(&self) -> Vec<InjectorEvent> {
             self.emitted()
                 .into_iter()
-                .filter(|e| !matches!(e, InjectorEvent::Line { .. }))
+                .filter(|e| {
+                    !matches!(
+                        e,
+                        InjectorEvent::Line { .. } | InjectorEvent::Problem { .. }
+                    )
+                })
                 .collect()
         }
     }
@@ -1013,5 +1047,63 @@ mod tests {
                 },
             ]
         );
+    }
+
+    #[test]
+    fn warn_and_error_records_are_problems() {
+        let mut harness = Harness::new();
+        harness.send("status 1.0000000 injecting game found");
+        harness.send(&dll_line("INFO", "ltk_patcher_dll::entry: an info record"));
+        harness.send(&dll_line("WARN", "ltk_patcher_dll::verify: slow archive"));
+        harness.send(&dll_line("ERROR", "ltk_patcher_dll::entry: init done"));
+        harness.send("error 2.0000000 unknown command");
+        harness.send("status 3.0000000 failed lost the game");
+        harness.close();
+
+        let _ = harness.run();
+
+        let emitted = harness.emitted();
+        let problems: Vec<_> = emitted
+            .iter()
+            .filter(|e| matches!(e, InjectorEvent::Problem { .. }))
+            .cloned()
+            .collect();
+        let problem = |source, level, text: &str| InjectorEvent::Problem {
+            source,
+            level,
+            text: text.to_string(),
+        };
+        assert_eq!(
+            problems,
+            [
+                problem(
+                    EvidenceSource::Dll,
+                    tracing::Level::WARN,
+                    "ltk_patcher_dll::verify: slow archive"
+                ),
+                problem(
+                    EvidenceSource::Dll,
+                    tracing::Level::ERROR,
+                    "ltk_patcher_dll::entry: init done"
+                ),
+                problem(
+                    EvidenceSource::Host,
+                    tracing::Level::WARN,
+                    "unknown command"
+                ),
+                problem(
+                    EvidenceSource::Host,
+                    tracing::Level::ERROR,
+                    "failed: lost the game"
+                ),
+            ]
+        );
+        // The typed event of a record comes before its problem, because it can open the game.
+        let overlay = emitted
+            .iter()
+            .position(|e| matches!(e, InjectorEvent::Overlay { .. }));
+        let init_done = emitted.iter().position(|e| e == &problems[1]);
+        assert!(overlay < init_done);
+        assert_eq!(emitted.first(), Some(&InjectorEvent::GameFound));
     }
 }
