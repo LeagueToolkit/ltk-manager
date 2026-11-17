@@ -62,7 +62,6 @@ mod tests {
         sync::{Arc, Mutex},
     };
 
-    use ltk_manager_runtime::diagnostics::ids;
     use tracing_subscriber::fmt::MakeWriter;
 
     use super::*;
@@ -122,7 +121,7 @@ mod tests {
                 " WARN run{{id={run}}}:session{{n=1}}:game{{id=2026-11-11T19-02-04}}: ltk_dll: refusing overlay code=8\n"
             )
         );
-        assert_eq!(ids::run_of(&line), Some(run.as_str()));
+        assert_eq!(LogIds::run_of(&line), Some(run.as_str()));
     }
 
     #[test]

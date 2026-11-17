@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use fs_err as fs;
-use ltk_manager_base::{error::AppResult, utils::text};
+use ltk_manager_base::{error::AppResult, hashing::OverlayFingerprint, utils::text};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -38,7 +38,7 @@ pub struct StoredGame {
     pub overlay: OverlayOutcome,
     /// The fingerprint of the overlay that the game ran with. `None` if the overlay state
     /// could not be read.
-    pub overlay_fingerprint: Option<String>,
+    pub overlay_fingerprint: Option<OverlayFingerprint>,
     /// The archives that the DLL served from the overlay, each by its last path segment.
     pub redirected: Vec<String>,
     pub skipped: Vec<SkippedArchive>,
@@ -197,7 +197,9 @@ mod tests {
         let mut record = record(0);
         record.ended_at = at(30);
         record.overlay = OverlayOutcome::Live;
-        record.overlay_fingerprint = Some("ab12cd34ef567890".to_owned());
+        let fingerprint: OverlayFingerprint =
+            serde_json::from_str(r#""ab12cd34ef567890""#).unwrap();
+        record.overlay_fingerprint = Some(fingerprint.clone());
         record.redirected = vec!["Ahri.wad.client".to_owned()];
         record.skipped = vec![SkippedArchive {
             wad: "Map11.wad.client".to_owned(),
@@ -215,10 +217,7 @@ mod tests {
         assert_eq!((game.run.as_str(), game.session), ("4be1c07a", 2));
         assert_eq!((game.started_at, game.ended_at), (at(0), at(30)));
         assert_eq!(game.overlay, OverlayOutcome::Live);
-        assert_eq!(
-            game.overlay_fingerprint.as_deref(),
-            Some("ab12cd34ef567890")
-        );
+        assert_eq!(game.overlay_fingerprint, Some(fingerprint));
         assert_eq!(game.redirected, ["Ahri.wad.client"]);
         assert_eq!(game.skipped, record.skipped);
         assert_eq!(game.incident.as_deref(), Some("2026-08-21T21-00-05"));

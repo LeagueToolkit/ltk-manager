@@ -26,6 +26,7 @@ use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
 use ltk_manager_base::events::{BackendEvent, OverlayProgress, PrepareStep};
 use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_base::hashing::OverlayFingerprint;
 use ltk_manager_bin::meta_schema::{self, PatchSchema};
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
@@ -70,10 +71,8 @@ pub struct OverlayBuild {
     pub outcome: OverlayBuildOutcome,
     /// How long the parts of the build took.
     pub timings: OverlayTimings,
-    /// The fingerprint of the overlay: sixteen hex characters over the fingerprint of the
-    /// game directory and of each patched archive. `None` if the overlay state cannot be
-    /// read.
-    pub fingerprint: Option<String>,
+    /// The fingerprint of the overlay. `None` if the overlay state cannot be read.
+    pub fingerprint: Option<OverlayFingerprint>,
 }
 
 /// How long the parts of one overlay build took.
@@ -266,7 +265,7 @@ impl ModLibrary {
             schema.at(build).build().is_some()
         );
 
-        let fingerprint_state_dir = utf8_state_dir.clone();
+        let state_dir = ltk_overlay::StateDir::new(utf8_state_dir.clone());
         let inputs = OverlayBuildInputs {
             game_dir: game_dir.into_path().try_into_utf8("game directory")?,
             overlay_root: overlay_root.clone().try_into_utf8("overlay root")?,
@@ -305,7 +304,7 @@ impl ModLibrary {
                 build,
                 builtins: builtin_timings,
             },
-            fingerprint: artifacts::overlay_fingerprint(&fingerprint_state_dir),
+            fingerprint: OverlayFingerprint::read(&state_dir),
         })
     }
 

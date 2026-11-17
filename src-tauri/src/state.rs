@@ -119,39 +119,36 @@ pub struct SettingsState(pub Mutex<Settings>);
 /// Tauri-managed handle to the incident store, under `<data_dir>/incidents`.
 pub struct IncidentStoreState(pub Arc<IncidentStore>);
 
-impl IncidentStoreState {
-    /// Returns the store under `data_dir`, with the number of incidents that `config` keeps.
-    ///
-    /// The store is under the temp directory if `data_dir` is `None`.
-    pub fn under(data_dir: Option<&Path>, config: &Config) -> Self {
-        let dir = records_dir(data_dir, crate::data_location::INCIDENTS);
-        Self(Arc::new(
-            IncidentStore::new(dir).with_keep(config.keep_incidents as usize),
-        ))
-    }
-}
-
 /// Tauri-managed handle to the game store, under `<data_dir>/games`.
 pub struct GameStoreState(pub Arc<GameStore>);
 
-impl GameStoreState {
-    /// Returns the store under `data_dir`.
-    ///
-    /// The store is under the temp directory if `data_dir` is `None`.
-    pub fn under(data_dir: Option<&Path>) -> Self {
-        let dir = records_dir(data_dir, crate::data_location::GAMES);
-        Self(Arc::new(GameStore::new(dir)))
-    }
+/// The stores of the patcher's records: the incidents and the games.
+pub struct RecordStores {
+    pub incidents: IncidentStoreState,
+    pub games: GameStoreState,
 }
 
-/// Returns the directory `name` of the patcher's records: under `data_dir`, or under the
-/// temp directory if `data_dir` is `None`.
-fn records_dir(data_dir: Option<&Path>, name: &str) -> PathBuf {
-    match data_dir {
-        Some(dir) => dir.join(name),
-        None => {
-            tracing::warn!("No data directory, keeping {name} under the temp directory");
-            std::env::temp_dir().join(crate::IDENTIFIER).join(name)
+impl RecordStores {
+    /// Returns the stores under `data_dir`. The incident store keeps the number of
+    /// incidents that `config` sets.
+    ///
+    /// The stores are under the temp directory if `data_dir` is `None`.
+    pub fn under(data_dir: Option<&Path>, config: &Config) -> Self {
+        let root = match data_dir {
+            Some(dir) => dir.to_path_buf(),
+            None => {
+                tracing::warn!(
+                    "No data directory, keeping the patcher's records under the temp directory"
+                );
+                std::env::temp_dir().join(crate::IDENTIFIER)
+            }
+        };
+        let incidents = IncidentStore::new(root.join(crate::data_location::INCIDENTS))
+            .with_keep(config.keep_incidents as usize);
+        let games = GameStore::new(root.join(crate::data_location::GAMES));
+        Self {
+            incidents: IncidentStoreState(Arc::new(incidents)),
+            games: GameStoreState(Arc::new(games)),
         }
     }
 }

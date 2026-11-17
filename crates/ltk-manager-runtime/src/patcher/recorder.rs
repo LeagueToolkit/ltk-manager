@@ -6,6 +6,7 @@
 //! its inputs, so every transition is a unit test.
 
 use chrono::{DateTime, Utc};
+use ltk_manager_base::hashing::OverlayFingerprint;
 
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::ids::SessionIds;
@@ -30,7 +31,7 @@ pub struct GameRecorder {
     origin: SessionOrigin,
     session: SessionIds,
     patcher: PatcherBinaries,
-    overlay_fingerprint: Option<String>,
+    overlay_fingerprint: Option<OverlayFingerprint>,
     open: Option<GameRecord>,
 }
 
@@ -54,7 +55,7 @@ impl GameRecorder {
     }
 
     /// Sets the fingerprint of the overlay that is kept on every later record.
-    pub fn set_overlay_fingerprint(&mut self, fingerprint: Option<String>) {
+    pub fn set_overlay_fingerprint(&mut self, fingerprint: Option<OverlayFingerprint>) {
         self.overlay_fingerprint = fingerprint;
     }
 
@@ -660,7 +661,9 @@ mod tests {
     #[test]
     fn a_record_keeps_the_overlay_fingerprint_of_its_session() {
         let mut recorder = recorder();
-        recorder.set_overlay_fingerprint(Some("ab12cd34ef567890".to_string()));
+        let fingerprint: OverlayFingerprint =
+            serde_json::from_str(r#""ab12cd34ef567890""#).unwrap();
+        recorder.set_overlay_fingerprint(Some(fingerprint.clone()));
         recorder.observe(&InjectorEvent::GameFound, at(1));
         assert_eq!(
             recorder.open_game_id(),
@@ -669,10 +672,7 @@ mod tests {
 
         let record = recorder.observe(&InjectorEvent::GameExited, at(9)).unwrap();
 
-        assert_eq!(
-            record.overlay_fingerprint.as_deref(),
-            Some("ab12cd34ef567890")
-        );
+        assert_eq!(record.overlay_fingerprint, Some(fingerprint));
         assert_eq!(recorder.open_game_id(), None);
     }
 }

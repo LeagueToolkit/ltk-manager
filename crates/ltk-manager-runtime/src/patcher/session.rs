@@ -12,6 +12,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::Receiver;
 
 use chrono::Utc;
+use ltk_manager_base::hashing::OverlayFingerprint;
 use parking_lot::Mutex;
 
 use crate::diagnostics::binary_id::PatcherBinaries;
@@ -87,7 +88,7 @@ impl SessionObserver {
     }
 
     /// Records the fingerprint of the overlay that the session's later games run with.
-    pub fn set_overlay_fingerprint(&self, fingerprint: Option<String>) {
+    pub fn set_overlay_fingerprint(&self, fingerprint: Option<OverlayFingerprint>) {
         self.recorder.lock().set_overlay_fingerprint(fingerprint);
     }
 

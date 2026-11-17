@@ -31,7 +31,9 @@ use crate::mods::{ChecksumMismatchState, ModLibrary, ModLibraryState, WadReportS
 use crate::patcher::PatcherDeliveryState;
 use crate::running_version;
 use crate::services::shared::{github_feed, off_thread};
-use crate::state::{GameStoreState, IncidentStoreState, Settings, SettingsState, SETTINGS_FILE};
+use crate::state::{
+    GameStoreState, IncidentStoreState, RecordStores, Settings, SettingsState, SETTINGS_FILE,
+};
 use crate::updater::UpdaterState;
 
 /// The report that `build_support_report` built last.
@@ -196,10 +198,11 @@ impl ReportSources {
             Arc::new(WadReportState::new(data_dir.as_deref())),
             Arc::new(WadPathResolverState::default()),
         );
+        let records = RecordStores::under(data_dir.as_deref(), &settings.config);
         Self {
             library,
-            incidents: IncidentStoreState::under(data_dir.as_deref(), &settings.config).0,
-            games: GameStoreState::under(data_dir.as_deref()).0,
+            incidents: records.incidents.0,
+            games: records.games.0,
             delivery: PatcherDeliveryState::without_cleanup(data_dir.as_deref()),
             latest: None,
             startup: Some(startup),

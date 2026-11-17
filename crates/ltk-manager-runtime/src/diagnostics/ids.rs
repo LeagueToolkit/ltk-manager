@@ -101,6 +101,15 @@ impl LogIds {
     pub fn game(&self) -> Option<String> {
         self.game.lock().clone()
     }
+
+    /// Returns the run id of the log line `line`, as the ids are formatted after the time
+    /// and the level. Returns `None` if the line carries no run id.
+    #[must_use]
+    pub fn run_of(line: &str) -> Option<&str> {
+        let ids = line.split_whitespace().nth(2)?;
+        let (run, _) = ids.strip_prefix(RUN_PREFIX)?.split_once('}')?;
+        Some(run)
+    }
 }
 
 impl Default for LogIds {
@@ -171,15 +180,6 @@ impl Drop for SessionScope<'_> {
     }
 }
 
-/// Returns the run id of the log line `line`, as [`LogIds`] formats it after the time and
-/// the level. Returns `None` if the line carries no run id.
-#[must_use]
-pub fn run_of(line: &str) -> Option<&str> {
-    let ids = line.split_whitespace().nth(2)?;
-    let (run, _) = ids.strip_prefix(RUN_PREFIX)?.split_once('}')?;
-    Some(run)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,9 +239,9 @@ mod tests {
     #[test]
     fn run_of_reads_the_id_after_the_time_and_the_level() {
         let line = "2026-11-11T19:02:11.412Z  WARN run{id=4be1c07a}:session{n=2}:game{id=2026-11-11T19-02-04}: ltk_dll: refused";
-        assert_eq!(run_of(line), Some("4be1c07a"));
+        assert_eq!(LogIds::run_of(line), Some("4be1c07a"));
         assert_eq!(
-            run_of("2026-11-11T19:02:11.412Z  INFO run{id=4be1c07a}: ltk_manager: started"),
+            LogIds::run_of("2026-11-11T19:02:11.412Z  INFO run{id=4be1c07a}: ltk_manager: started"),
             Some("4be1c07a")
         );
     }
@@ -249,15 +249,17 @@ mod tests {
     #[test]
     fn run_of_returns_none_for_a_line_without_a_run_id() {
         assert_eq!(
-            run_of("2026-11-11T19:02:11.412Z  INFO ltk_manager: a line of an older release"),
+            LogIds::run_of(
+                "2026-11-11T19:02:11.412Z  INFO ltk_manager: a line of an older release"
+            ),
             None
         );
         assert_eq!(
-            run_of(
+            LogIds::run_of(
                 "2026-11-11T19:02:11.412Z  INFO ltk_manager: the text run{id=4be1c07a} in a message"
             ),
             None
         );
-        assert_eq!(run_of(""), None);
+        assert_eq!(LogIds::run_of(""), None);
     }
 }

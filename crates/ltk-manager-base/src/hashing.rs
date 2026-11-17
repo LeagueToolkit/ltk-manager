@@ -1,5 +1,5 @@
-//! A bin hash hashed from its name at compile time, and as it crosses IPC, and the hash that
-//! identifies content.
+//! A bin hash hashed from its name at compile time, and as it crosses IPC, the hash that
+//! identifies content, and the fingerprint of a built overlay.
 
 use std::fmt;
 use std::io::{self, Read, Write};
@@ -7,6 +7,7 @@ use std::path::Path;
 use std::str::FromStr;
 
 use ltk_hash::BinHash;
+use ltk_overlay::{OverlayState, StateDir};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 use sha2::{Digest, Sha256};
 
@@ -158,6 +159,51 @@ impl<'de> Deserialize<'de> for HexBinHash {
     }
 }
 
+/// The fingerprint of a built overlay: [`CONTENT_HASH_CHARS`] hex digits over the fingerprint
+/// of the game directory and the fingerprint of each patched archive. Two builds with one
+/// fingerprint wrote the same archives.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct OverlayFingerprint(String);
+
+impl OverlayFingerprint {
+    /// Returns the fingerprint of the overlay that `state` describes.
+    #[must_use]
+    pub fn of(state: &OverlayState) -> Self {
+        let mut facts = state.game_fingerprint.to_le_bytes().to_vec();
+        for (wad, fingerprint) in &state.wad_fingerprints {
+            facts.extend_from_slice(wad.as_bytes());
+            // A byte that no path holds, so two names cannot run together.
+            facts.push(0);
+            facts.extend_from_slice(&fingerprint.to_le_bytes());
+        }
+        Self(content_hash(&facts))
+    }
+
+    /// Reads the fingerprint of the overlay whose state file is in `state_dir`.
+    ///
+    /// Returns `None` if the state file is missing or cannot be read.
+    #[must_use]
+    pub fn read(state_dir: &StateDir) -> Option<Self> {
+        let state = OverlayState::load(&state_dir.overlay_state())
+            .ok()
+            .flatten()?;
+        Some(Self::of(&state))
+    }
+
+    /// Returns the fingerprint as its hex digits.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for OverlayFingerprint {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -178,5 +224,49 @@ mod tests {
         for text in ["", "0x", "0x123456789", "0xnothex"] {
             assert!(text.parse::<HexBinHash>().is_err(), "{text:?} parsed");
         }
+    }
+
+    /// Saves a state with `mods` enabled and the patched archives `wads` in `dir`.
+    fn save_overlay_state(dir: &StateDir, mods: &[&str], wads: &[(&str, u64)]) {
+        let state = OverlayState::new(
+            mods.iter().map(|id| (*id).to_owned()).collect(),
+            std::collections::BTreeMap::new(),
+            7,
+            Vec::new(),
+            Vec::new(),
+            wads.iter()
+                .map(|(wad, hash)| ((*wad).to_owned(), *hash))
+                .collect(),
+        );
+        state.save(&dir.overlay_state()).expect("the state saves");
+    }
+
+    #[test]
+    fn overlay_fingerprint_follows_the_patched_archives() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir = StateDir::new(camino::Utf8Path::from_path(temp.path()).unwrap());
+        assert_eq!(OverlayFingerprint::read(&dir), None);
+
+        save_overlay_state(&dir, &["a"], &[("Ahri.wad.client", 1)]);
+        let first = OverlayFingerprint::read(&dir).expect("a fingerprint");
+        assert_eq!(first.as_str().len(), CONTENT_HASH_CHARS);
+
+        save_overlay_state(&dir, &["a", "b"], &[("Ahri.wad.client", 1)]);
+        assert_eq!(OverlayFingerprint::read(&dir), Some(first.clone()));
+
+        save_overlay_state(&dir, &["a", "b"], &[("Ahri.wad.client", 2)]);
+        assert_ne!(OverlayFingerprint::read(&dir), Some(first));
+    }
+
+    #[test]
+    fn an_overlay_fingerprint_is_stored_as_its_hex_digits() {
+        let fingerprint: OverlayFingerprint =
+            serde_json::from_str(r#""ab12cd34ef567890""#).unwrap();
+
+        assert_eq!(fingerprint.to_string(), "ab12cd34ef567890");
+        assert_eq!(
+            serde_json::to_string(&fingerprint).unwrap(),
+            r#""ab12cd34ef567890""#
+        );
     }
 }

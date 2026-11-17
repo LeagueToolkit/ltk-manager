@@ -22,6 +22,7 @@ use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::{InjectionStage, SessionOrigin};
 use ltk_manager_base::error::{ErrorKind, OverlayErrorCategory};
+use ltk_manager_base::hashing::OverlayFingerprint;
 
 /// What the DLL said after it attached.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -601,7 +602,7 @@ pub struct GameRecord {
     pub timeline: Vec<RawEvidence>,
     /// The fingerprint of the overlay that the game ran with, set on every record from
     /// the recorder. `None` if the overlay state could not be read.
-    pub overlay_fingerprint: Option<String>,
+    pub overlay_fingerprint: Option<OverlayFingerprint>,
     /// The records that the DLL and the host wrote at the warn or the error level, each
     /// distinct record once. The line starts with the level.
     pub problems: Vec<RawEvidence>,

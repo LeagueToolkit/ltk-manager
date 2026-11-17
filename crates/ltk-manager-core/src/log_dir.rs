@@ -9,7 +9,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_manager_base::utils::text;
-use ltk_manager_runtime::diagnostics::ids;
+use ltk_manager_runtime::diagnostics::ids::LogIds;
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]
@@ -125,24 +125,21 @@ impl LogDir {
         let mut paths: Vec<PathBuf> = self.files().ok()?.collect();
         paths.sort();
 
-        let mut log = String::new();
+        let mut log = Log::default();
         for path in paths.iter().rev() {
             let Ok(bytes) = fs::read(path) else {
                 continue;
             };
-            log.insert_str(0, &String::from_utf8_lossy(&bytes));
+            log.prepend(&String::from_utf8_lossy(&bytes));
             // One run more than `runs`, because the oldest run of the text can start in an
             // older file.
-            if run_starts(&log).len() > runs || log.len() >= max_bytes {
+            if log.run_starts().len() > runs || log.0.len() >= max_bytes {
                 break;
             }
         }
 
-        let starts = run_starts(&log);
-        if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
-            log.drain(..start);
-        }
-        let log = text::last_lines(&log, max_bytes);
+        log.keep_newest_runs(runs);
+        let log = text::last_lines(&log.0, max_bytes);
         (!log.is_empty()).then(|| log.to_owned())
     }
 
@@ -220,18 +217,38 @@ fn redact_file(path: &Path) -> io::Result<()> {
     fs::rename(&temporary, path)
 }
 
-/// Returns the offset of each line of `log` that starts a run: a line that carries another
-/// run id than the line with an id before it.
-fn run_starts(log: &str) -> Vec<usize> {
-    let mut starts = Vec::new();
-    let mut current = None;
-    let mut offset = 0;
-    for line in log.split_inclusive('\n') {
-        if let Some(run) = ids::run_of(line).filter(|run| current != Some(*run)) {
-            starts.push(offset);
-            current = Some(run);
-        }
-        offset += line.len();
+/// The text of the log across the daily files, oldest line first.
+#[derive(Debug, Default)]
+struct Log(String);
+
+impl Log {
+    /// Adds `older`, the text of an older file, before the first line.
+    fn prepend(&mut self, older: &str) {
+        self.0.insert_str(0, older);
     }
-    starts
+
+    /// Returns the offset of each line that starts a run: a line that carries another run
+    /// id than the line with an id before it.
+    fn run_starts(&self) -> Vec<usize> {
+        let mut starts = Vec::new();
+        let mut current = None;
+        let mut offset = 0;
+        for line in self.0.split_inclusive('\n') {
+            if let Some(run) = LogIds::run_of(line).filter(|run| current != Some(*run)) {
+                starts.push(offset);
+                current = Some(run);
+            }
+            offset += line.len();
+        }
+        starts
+    }
+
+    /// Removes the lines before the newest `runs` runs. Keeps every line if the log holds
+    /// fewer runs.
+    fn keep_newest_runs(&mut self, runs: usize) {
+        let starts = self.run_starts();
+        if let Some(start) = starts.len().checked_sub(runs).map(|first| starts[first]) {
+            self.0.drain(..start);
+        }
+    }
 }
