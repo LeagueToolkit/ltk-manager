@@ -38,7 +38,8 @@ pub use bank_set::{
 };
 pub use bin_audio::{
     Audience, AudienceName, BankList, BankSite, BinAudio, ContextualRule, ContextualRules,
-    HolderAudio, SOUND_TARGETS, SiteStep, SitedUnit, SoundField,
+    HolderAudio, SOUND_TARGETS, SiteStep, SitedUnit, SoundField, announcement_template_matches,
+    expand_announcement_template,
 };
 pub use cache::SoundCache;
 pub use contextual::{ContextualMatch, compose_vo_names, contextual_names, spell_segment};
@@ -65,7 +66,9 @@ pub use lookup::{
 };
 pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
-pub use references::{BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow};
+pub use references::{
+    BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow, unit_row,
+};
 pub use sound::{SoundError, media, sound};
 pub use sound_scope::{EventMatches, scope_bins, scoped_units};
 pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};
