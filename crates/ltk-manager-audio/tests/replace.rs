@@ -224,17 +224,17 @@ fn replace_refuses_media_that_a_sound_of_another_bank_reads_from_a_bank() {
 #[test]
 fn replace_refuses_wem_of_other_codec() {
     let mut document = document();
-    let mut pcm = fixture("clipped_vorbis.wem");
-    pcm[20..22].copy_from_slice(&1u16.to_le_bytes());
+    let mut unsupported = fixture("clipped_vorbis.wem");
+    unsupported[20..22].copy_from_slice(&0x1234u16.to_le_bytes());
 
-    let refused = replace(&mut document, BANKED_SOURCE, pcm);
+    let refused = replace(&mut document, BANKED_SOURCE, unsupported);
 
-    assert!(matches!(refused, Err(BankEditError::Codec(0x0001))));
+    assert!(matches!(refused, Err(BankEditError::Codec(0x1234))));
     assert!(document.media().is_empty());
 }
 
 #[test]
-fn delete_of_sound_keeps_replaced_media() {
+fn delete_of_sound_drops_unused_replaced_media() {
     let wem = fixture("clipped_vorbis.wem");
     let mut document = document();
     replace(&mut document, BANKED_SOURCE, wem).expect("replace");
@@ -251,7 +251,61 @@ fn delete_of_sound_keeps_replaced_media() {
         )
         .expect("delete");
 
+    assert!(document.replaced().is_empty());
+    assert!(!document.media()[0].contains(SourceId(BANKED_SOURCE)));
+
+    assert!(document.undo().expect("undo"));
     assert_eq!(document.replaced(), [BANKED_SOURCE]);
+    assert!(document.media()[0].contains(SourceId(BANKED_SOURCE)));
+}
+
+#[test]
+fn delete_of_sound_keeps_media_that_another_bank_plays() {
+    let wem = fixture("clipped_vorbis.wem");
+    let mut document = document();
+    replace(&mut document, BANKED_SOURCE, wem).expect("replace");
+    let set = set_of(&document, &[MEDIA, PACKAGE, OTHER]);
+    let parent = sound(document.bytes(), BANKED_SOUND).node.parent.0;
+
+    document
+        .edit(
+            &BankEdit::Delete {
+                object: BANKED_SOUND,
+                parent: Some(parent),
+            },
+            &EditContext::new(&set),
+        )
+        .expect("delete");
+
+    assert_eq!(document.replaced(), [BANKED_SOURCE]);
+    assert!(document.media()[0].contains(SourceId(BANKED_SOURCE)));
+}
+
+#[test]
+fn delete_of_sound_drops_original_media() {
+    let mut document = document();
+    let set = set_of(&document, &[MEDIA, PACKAGE]);
+    let files = files();
+    let parent = sound(document.bytes(), BANKED_SOUND).node.parent.0;
+
+    document
+        .edit(
+            &BankEdit::Delete {
+                object: BANKED_SOUND,
+                parent: Some(parent),
+            },
+            &EditContext::new(&set).with_files(&files),
+        )
+        .expect("delete");
+
+    assert_eq!(document.media().len(), 1);
+    assert_eq!(document.media()[0].path(), MEDIA);
+    assert!(!document.media()[0].contains(SourceId(BANKED_SOURCE)));
+    assert!(document.media()[0].is_changed());
+
+    assert!(document.undo().expect("undo"));
+    assert!(document.media()[0].contains(SourceId(BANKED_SOURCE)));
+    assert!(!document.media()[0].is_changed());
 }
 
 #[test]

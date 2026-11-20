@@ -112,7 +112,7 @@ impl EventBank {
             }
         }
 
-        let declared = ranked_units(&opened.path, indexes);
+        let declared = ranked_units(&opened.path, indexes, Some(names));
         let mut contexts: HashMap<ObjectId, Vec<EventContext>> = HashMap::new();
         for found in contextual_names(&declared, indexes, &ids, names) {
             event_names.insert(&found.name);

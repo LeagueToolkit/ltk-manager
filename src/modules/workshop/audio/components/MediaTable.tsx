@@ -36,6 +36,7 @@ import {
   nextSort,
 } from "../utils/mediaRows";
 import { movedIndex, pageRows } from "../utils/rowKeys";
+import { type PickMode, pickMode } from "../utils/rowSelection";
 import { AUDIO_LIST_GROUP, audioRowClasses, MIDDLE_BUTTON } from "./audioRow";
 import { MediaThumbnail } from "./WaveformThumbnail";
 
@@ -45,9 +46,13 @@ interface MediaTableProps {
   readonly sort: MediaSort | null;
   readonly onSort: (sort: MediaSort | null) => void;
   readonly selected: number | null;
-  readonly onSelect: (source: number) => void;
+  readonly picked: ReadonlySet<number>;
+  readonly onSelect: (source: number, mode: PickMode) => void;
+  readonly onSelectAll: () => void;
+  readonly onClear: () => void;
   readonly player: MediaPlayer;
   readonly actions: MediaActions;
+  readonly focusSerial?: number | null;
 }
 
 /** The height of a row in px at 100% zoom: `h-6` is six spacing units of 4.5px. */
@@ -64,11 +69,16 @@ export function MediaTable({
   sort,
   onSort,
   selected,
+  picked,
   onSelect,
+  onSelectAll,
+  onClear,
   player,
   actions,
+  focusSerial = null,
 }: MediaTableProps) {
   const scroller = useRef<HTMLDivElement>(null);
+  const lastFocusSerial = useRef<number | null | undefined>(undefined);
   const [menuRow, setMenuRow] = useState<MediaRow | null>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const headerRef = useResizeObserver<HTMLDivElement>((element) => {
@@ -89,18 +99,25 @@ export function MediaTable({
   });
   useRemeasure(virtualizer, rowHeight);
 
-  const selectedIndex = rows.findIndex((row) => row.sourceId === selected);
+  const selectedIndex = selected === null ? -1 : rows.findIndex((row) => row.sourceId === selected);
 
   /* A selection made outside the table, such as the event tree's Show media, scrolls into view. */
   useEffect(() => {
-    if (selectedIndex >= 0) virtualizer.scrollToIndex(selectedIndex, { align: "auto" });
-  }, [selectedIndex, virtualizer]);
+    if (selectedIndex < 0) return;
 
-  function selectAt(index: number) {
+    const isFocusRequest = focusSerial != null && focusSerial !== lastFocusSerial.current;
+    lastFocusSerial.current = focusSerial;
+    const frameId = requestAnimationFrame(() => {
+      virtualizer.scrollToIndex(selectedIndex, { align: isFocusRequest ? "center" : "auto" });
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [selectedIndex, selected, focusSerial, virtualizer, rows.length]);
+
+  function selectAt(index: number, range = false) {
     const row = rows[Math.max(0, Math.min(rows.length - 1, index))];
     if (row === undefined) return;
 
-    onSelect(row.sourceId);
+    onSelect(row.sourceId, range ? "range" : "only");
     virtualizer.scrollToIndex(rows.indexOf(row), { align: "auto" });
   }
 
@@ -122,6 +139,15 @@ export function MediaTable({
         if (target !== null) selectAt(target);
         return true;
       }
+      case "extendRange": {
+        const page = pageRows(scroller.current, rowHeight);
+        const target = movedIndex(key, selectedIndex, rows.length, page);
+        if (target !== null) selectAt(target, true);
+        return true;
+      }
+      case "selectAll":
+        onSelectAll();
+        return true;
       case "play":
       case "enter":
         if (row?.playback.kind === "playable") player.toggle(row.sourceId);
@@ -140,6 +166,13 @@ export function MediaTable({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
+
+    if (event.key === "Escape") {
+      onClear();
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
 
     const command = resolveCommand(event, "media");
     const handled = command === null ? typeAhead(event) : run(command, event.key);
@@ -161,16 +194,33 @@ export function MediaTable({
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger
-        onContextMenuCapture={() => setMenuRow(rows[selectedIndex] ?? null)}
+        onContextMenuCapture={() =>
+          setMenuRow(selectedIndex >= 0 ? (rows[selectedIndex] ?? null) : null)
+        }
         ref={scroller}
         role="grid"
         tabIndex={0}
         aria-label={m.audio_table_label()}
+        aria-multiselectable
         aria-rowcount={rows.length}
         aria-activedescendant={selected === null ? undefined : rowId(selected)}
         onKeyDown={handleKeyDown}
+        onClick={(event) => {
+          if (
+            (event.target as HTMLElement).closest('[data-ui="MediaTable:row"], [role="row"]') ===
+            null
+          ) {
+            onClear();
+          }
+        }}
         onFocus={(event) => {
-          if (event.target === event.currentTarget && selectedIndex < 0) selectAt(0);
+          if (
+            event.target === event.currentTarget &&
+            selectedIndex < 0 &&
+            event.currentTarget.matches(":focus-visible")
+          ) {
+            selectAt(0);
+          }
         }}
         data-ui="MediaTable"
         className={twMerge(
@@ -220,17 +270,27 @@ export function MediaTable({
                   data-index={item.index}
                   className="absolute top-0 left-0 w-full"
                   style={{ transform: `translateY(${item.start - headerHeight}px)` }}
-                  onContextMenu={() => setMenuRow(row)}
+                  onContextMenu={() => {
+                    if (!picked.has(row.sourceId)) {
+                      onSelect(row.sourceId, "only");
+                    }
+                    setMenuRow(row);
+                  }}
                 >
                   <MediaLine
                     row={row}
                     index={item.index}
-                    selected={row.sourceId === selected}
+                    selected={row.sourceId === selected || picked.has(row.sourceId)}
                     playing={player.playing === row.sourceId}
                     failed={player.failed.has(row.sourceId)}
                     url={player.url(row.sourceId)}
-                    onSelect={() => onSelect(row.sourceId)}
-                    onToggle={() => player.toggle(row.sourceId)}
+                    onSelect={(event) => onSelect(row.sourceId, pickMode(event))}
+                    onToggle={() => {
+                      if (!picked.has(row.sourceId)) {
+                        onSelect(row.sourceId, "only");
+                      }
+                      player.toggle(row.sourceId);
+                    }}
                   />
                 </div>
               );
@@ -277,7 +337,7 @@ interface MediaLineProps {
   readonly failed: boolean;
   /** The URL that the row plays from. */
   readonly url: string;
-  readonly onSelect: () => void;
+  readonly onSelect: (event: React.MouseEvent) => void;
   readonly onToggle: () => void;
 }
 
@@ -315,20 +375,11 @@ function MediaLine({
         if (event.button !== MIDDLE_BUTTON || row.playback.kind !== "playable") return;
 
         event.preventDefault();
-        onSelect();
         onToggle();
       }}
     >
       <span role="gridcell" className={COLUMN.play}>
-        <PlayButton
-          row={row}
-          playing={playing}
-          failed={failed}
-          onToggle={() => {
-            onSelect();
-            onToggle();
-          }}
-        />
+        <PlayButton row={row} playing={playing} failed={failed} onToggle={onToggle} />
       </span>
       <Cell className={twMerge(COLUMN.source, "font-mono text-code text-surface-200 select-text")}>
         {source}

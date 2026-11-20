@@ -61,6 +61,22 @@ pub const EVENT_FIELDS: &[(BinHash, &[BinHash])] = &[
             named("RollOverEvent"),
         ],
     ),
+    (
+        named("AnnouncementDefinition"),
+        &[
+            named("SoundKey"),
+            named("SpectatorSoundKey"),
+            named("mValue"),
+        ],
+    ),
+    (
+        named("AnnouncementDefinitionData"),
+        &[
+            named("SoundKey"),
+            named("SpectatorSoundKey"),
+            named("mValue"),
+        ],
+    ),
 ];
 
 /// The field hash of `skinAudioProperties` on `SkinCharacterDataProperties`.

@@ -50,6 +50,22 @@ pub const SOUND_TARGETS: &[(BinHash, &[BinHash])] = &[
         named("VfxEmitterAudio"),
         &[named("SoundOnCreate"), named("SoundPersistent")],
     ),
+    (
+        named("AnnouncementDefinition"),
+        &[
+            named("SoundKey"),
+            named("SpectatorSoundKey"),
+            named("mValue"),
+        ],
+    ),
+    (
+        named("AnnouncementDefinitionData"),
+        &[
+            named("SoundKey"),
+            named("SpectatorSoundKey"),
+            named("mValue"),
+        ],
+    ),
 ];
 
 /// One field of a [`SOUND_TARGETS`] holder, and the event name it holds.
@@ -330,6 +346,11 @@ impl<'a, V: TreeValue<'a>> Visitor<'a, V> for Found {
             if let Some(name) = text(inner.get(field)?)?
                 && !name.is_empty()
             {
+                if name.contains('@') {
+                    for expanded in expand_announcement_template(&name) {
+                        self.audio.event_names.push(expanded);
+                    }
+                }
                 self.audio.event_names.push(name);
             }
         }
@@ -550,4 +571,97 @@ fn texts<'a, V: TreeValue<'a>>(value: Option<V>) -> Result<Vec<String>, ltk_meta
         }
     }
     Ok(items)
+}
+
+/// Expands placeholders of an announcement template into concrete event names.
+#[must_use]
+pub fn expand_announcement_template(template: &str) -> Vec<String> {
+    if !template.contains('@') {
+        return vec![template.to_owned()];
+    }
+
+    let mut results = vec![template.to_owned()];
+    let replacements: &[(&[&str], &[&str])] = &[
+        (&["@voice@", "@Voice@"], &["GlobalFemale1", "GlobalMale1"]),
+        (
+            &["@MapNumber@", "@mapnumber@", "@map@"],
+            &["11", "12", "21", "22", "30"],
+        ),
+        (&["@Team@", "@team@"], &["Order", "Chaos"]),
+    ];
+
+    for (tokens, values) in replacements {
+        let mut next = Vec::new();
+        for text in results {
+            let matching_token = tokens.iter().find(|&&tok| {
+                text.to_ascii_lowercase()
+                    .contains(&tok.to_ascii_lowercase())
+            });
+            if let Some(&token) = matching_token {
+                let token_lower = token.to_ascii_lowercase();
+                for value in *values {
+                    let mut replaced = text.clone();
+                    while let Some(pos) = replaced.to_ascii_lowercase().find(&token_lower) {
+                        replaced.replace_range(pos..pos + token.len(), value);
+                    }
+                    next.push(replaced);
+                }
+            } else {
+                next.push(text);
+            }
+        }
+        results = next;
+    }
+
+    results.sort();
+    results.dedup();
+    results
+}
+
+/// Returns `true` if `template` matches `event_name`.
+#[must_use]
+pub fn announcement_template_matches(template: &str, event_name: &str) -> bool {
+    if template.eq_ignore_ascii_case(event_name) {
+        return true;
+    }
+    if !template.contains('@') {
+        return false;
+    }
+
+    let parts: Vec<&str> = template.split('@').collect();
+    if parts.len() < 3 {
+        return false;
+    }
+
+    let mut remainder = event_name;
+    for (i, part) in parts.iter().enumerate() {
+        if i % 2 == 0 {
+            if part.is_empty() {
+                continue;
+            }
+            if i == 0 {
+                if !remainder
+                    .to_ascii_lowercase()
+                    .starts_with(&part.to_ascii_lowercase())
+                {
+                    return false;
+                }
+                remainder = &remainder[part.len()..];
+            } else if i == parts.len() - 1 {
+                return remainder
+                    .to_ascii_lowercase()
+                    .ends_with(&part.to_ascii_lowercase());
+            } else {
+                let pos = match remainder
+                    .to_ascii_lowercase()
+                    .find(&part.to_ascii_lowercase())
+                {
+                    Some(p) => p,
+                    None => return false,
+                };
+                remainder = &remainder[pos + part.len()..];
+            }
+        }
+    }
+    true
 }
