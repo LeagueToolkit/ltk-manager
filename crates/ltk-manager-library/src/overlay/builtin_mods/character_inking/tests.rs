@@ -4,7 +4,7 @@ use super::super::{Context, Regenerate, inject};
 use super::*;
 use fs_err as fs;
 use ltk_hash::BinHash;
-use ltk_manager_base::config::{InkingColorMode, Rgb8};
+use ltk_manager_base::config::{BaseSkinsScope, InkingColorMode, Rgb8};
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 use ltk_overlay::{EnabledMod, FsModContent, ModContentProvider as _};

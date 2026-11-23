@@ -63,6 +63,8 @@ than the fallback to `skin0.bin` the loader's code describes. A ward survives it
   not count.
 - **Modded champions** takes in each character for which a mod ships `skin0.bin` or a base model
   file. **Every champion** takes in each character with a skin bin in a champion archive.
+- An **excluded** champion, named lowercased in `builtinMods.baseSkinsExcluded`, keeps every
+  skin of its archive in either scope, its companions' included.
 - A skin bin is named by its plain path, by the WAD path tables, or as the skin bin of a
   character a champion archive is named after. The tables name a champion's companions, such as
   Tibbers in Annie's archive.
