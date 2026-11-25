@@ -187,6 +187,9 @@ pub struct BuiltinModSettings {
     pub default_ward_skins: bool,
     /// Which champions show their base skin on every skin.
     pub base_skins: BaseSkinsScope,
+    /// Lowercased champion names, as the champion archives are named, that keep their skins
+    /// while base skins is on.
+    pub base_skins_excluded: BTreeSet<String>,
     /// Which map skin every game shows.
     pub map_skin: MapSkinMode,
     /// The `name` of the map skin [`MapSkinMode::Forced`] shows, kept while another mode is on.
@@ -563,6 +566,15 @@ mod tests {
         let config: Config =
             serde_json::from_str(r#"{ "builtinMods": { "baseSkins": "allChampions" } }"#).unwrap();
         assert_eq!(config.builtin_mods.base_skins, BaseSkinsScope::AllChampions);
+        assert!(config.builtin_mods.base_skins_excluded.is_empty());
+
+        let config: Config =
+            serde_json::from_str(r#"{ "builtinMods": { "baseSkinsExcluded": ["riven"] } }"#)
+                .unwrap();
+        assert_eq!(
+            config.builtin_mods.base_skins_excluded,
+            BTreeSet::from(["riven".to_owned()])
+        );
 
         let config: Config = serde_json::from_str(
             r#"{ "builtinMods": { "mapSkin": "forced", "forcedMapSkin": "Sodapop_SRS" } }"#,

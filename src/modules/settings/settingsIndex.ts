@@ -121,6 +121,11 @@ const INDEX = [
     aliases: ["patching.baseSkins"],
   },
   {
+    id: "builtins.baseSkinsExcluded",
+    key: "builtinMods.baseSkinsExcluded",
+    title: m.settings_builtins_base_skins_excluded_title(),
+  },
+  {
     id: "builtins.mapSkin",
     key: "builtinMods.mapSkin",
     title: m.settings_builtins_map_skin_title(),

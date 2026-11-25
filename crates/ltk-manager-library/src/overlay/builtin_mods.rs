@@ -141,7 +141,7 @@ fn enabled(settings: &BuiltinModSettings) -> Vec<Box<dyn BuiltinMod>> {
     if settings.default_ward_skins {
         enabled.push(Box::new(DefaultWardSkins));
     }
-    if let Some(base_skins) = BaseSkins::of(settings.base_skins) {
+    if let Some(base_skins) = BaseSkins::of(settings) {
         enabled.push(Box::new(base_skins));
     }
     if let Some(character_inking) = CharacterInking::of(settings) {

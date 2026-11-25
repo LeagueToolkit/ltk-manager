@@ -8,7 +8,7 @@ mod textures;
 
 pub use outline::{InkingOutline, InkingSide, outline_values};
 
-use super::base_skins::{BaseSkins, Champions};
+use super::base_skins::BaseSkins;
 use super::game_skins::GameSkins;
 use super::mod_skins::ModSkins;
 use super::overrides::{Overrides, quoted};
@@ -16,7 +16,7 @@ use super::skin_bin::SkinBin;
 use super::{BuiltinMod, Context, check_called_off, mounted};
 use ltk_manager_assets::game_wads::mount_wad;
 use ltk_manager_base::config::{
-    BaseSkinsScope, BuiltinModSettings, CharacterInking as InkingSettings, InkingMaps, InkingScope,
+    BuiltinModSettings, CharacterInking as InkingSettings, InkingMaps, InkingScope,
 };
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::game::{GameDir, archive_stem};
@@ -203,8 +203,8 @@ pub fn write_inking_preview(
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct CharacterInking {
     settings: InkingSettings,
-    /// The champions base skins stands in for, whose skin bins then hold skin 0's objects.
-    base_skins: Option<Champions>,
+    /// The base skins mod, whose stand-in skin bins hold skin 0's objects.
+    base_skins: Option<BaseSkins>,
 }
 
 impl CharacterInking {
@@ -214,14 +214,9 @@ impl CharacterInking {
             return None;
         }
 
-        let base_skins = match settings.base_skins {
-            BaseSkinsScope::Off => None,
-            BaseSkinsScope::ModdedChampions => Some(Champions::Modded),
-            BaseSkinsScope::AllChampions => Some(Champions::All),
-        };
         Some(Self {
             settings: settings.character_inking.clone(),
-            base_skins,
+            base_skins: BaseSkins::of(settings),
         })
     }
 
@@ -425,8 +420,9 @@ impl BuiltinMod for CharacterInking {
         let mut mods = ModSkins::load(cx.mods, game, cx.cache_dir);
         let stood_in: BTreeSet<SkinBin> = self
             .base_skins
-            .map(|champions| {
-                BaseSkins { champions }
+            .as_ref()
+            .map(|base_skins| {
+                base_skins
                     .stand_in_targets(game, &mods)
                     .into_values()
                     .flatten()

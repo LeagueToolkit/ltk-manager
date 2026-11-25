@@ -11,7 +11,7 @@ use ltk_meta::{Bin, BinObject};
 use ltk_overlay::ModContentProvider as _;
 use ltk_wad::WadHash;
 use ltk_wad::{WadBuilder, WadChunkBuilder};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::io::Write as _;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -766,7 +766,10 @@ fn base_skins(
     mods: &mut [EnabledMod],
 ) -> Vec<(String, Vec<u8>)> {
     files(&generate(
-        &BaseSkins { champions },
+        &BaseSkins {
+            champions,
+            excluded: BTreeSet::new(),
+        },
         game,
         cache_dir,
         tables,
@@ -1244,6 +1247,42 @@ fn all_champions_take_a_mod_s_base_skin_and_leave_a_skin_a_mod_ships() {
     assert_eq!(
         stand_ins(&files),
         [stand_in("Ahri.wad.client", &skin("ahri", 1), MOD)]
+    );
+}
+
+#[test]
+fn all_champions_leave_every_skin_of_an_excluded_champion() {
+    let game = tempfile::tempdir().unwrap();
+    build_wad(
+        &champions_dir(game.path()).join("Ahri.wad.client"),
+        &[&skin("ahri", 0), &skin("ahri", 1)],
+    );
+    build_wad(
+        &champions_dir(game.path()).join("Annie.wad.client"),
+        &[
+            &skin("annie", 0),
+            &skin("annie", 1),
+            &skin("annietibbers", 0),
+            &skin("annietibbers", 1),
+        ],
+    );
+    let tables = Tables::naming(&[skin("annietibbers", 0), skin("annietibbers", 1)]);
+    let builtin = tempfile::tempdir().unwrap();
+
+    let files = files(&generate(
+        &BaseSkins {
+            champions: Champions::All,
+            excluded: BTreeSet::from(["annie".to_owned()]),
+        },
+        game.path(),
+        builtin.path(),
+        &tables,
+        &mut [],
+    ));
+
+    assert_eq!(
+        stand_ins(&files),
+        [stand_in("Ahri.wad.client", &skin("ahri", 1), GAME)]
     );
 }
 

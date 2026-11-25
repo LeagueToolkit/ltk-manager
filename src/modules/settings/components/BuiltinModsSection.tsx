@@ -1,13 +1,20 @@
 import { PuzzlePieceIcon } from "@phosphor-icons/react";
+import { useQuery } from "@tanstack/react-query";
 import { type ReactNode } from "react";
 
-import { SectionCard, SegmentedControl, Switch } from "@/components";
+import { MultiSelect, SectionCard, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
 import type { ForcibleMapSkin } from "@/lib/tauri";
+import { championQueries } from "@/modules/champions";
 
 import { useForcibleMapSkins } from "../api";
 import { useLoadedSettings, useUpdateSettings } from "../api";
-import { baseSkinsOptions, mapSkinDescription, mapSkinOptions } from "../builtinMods";
+import {
+  baseSkinsOptions,
+  mapSkinDescription,
+  mapSkinOptions,
+  missingChoices,
+} from "../builtinMods";
 import { CharacterInkingRows } from "./CharacterInkingRows";
 import { ForcedMapSkinPicker } from "./ForcedMapSkinPicker";
 import { MapDecorationsControl } from "./MapDecorationsControl";
@@ -55,6 +62,8 @@ export function BuiltinModsSection() {
           }
         />
 
+        <BaseSkinsExcludedRow />
+
         <SettingRow
           setting="builtinMods.mapSkin"
           description={mapSkinDescription(settings.builtinMods.mapSkin ?? "game")}
@@ -83,6 +92,75 @@ export function BuiltinModsSection() {
       </SettingRows>
     </SectionCard>
   );
+}
+
+/** The champions that keep their own skins, drawn only while base skins is on. */
+function BaseSkinsExcludedRow() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
+  const leaguePath = settings.leaguePath;
+  const hidden = (settings.builtinMods.baseSkins ?? "off") === "off";
+  const excluded = settings.builtinMods.baseSkinsExcluded ?? [];
+  const { data, isPending } = useQuery({
+    ...championQueries.roster(leaguePath),
+    enabled: !hidden && !!leaguePath,
+  });
+
+  const options = (data ?? []).map((champion) => ({
+    value: champion.id.toLowerCase(),
+    label: champion.name ?? champion.id,
+  }));
+  const missing = isPending
+    ? []
+    : missingChoices(
+        excluded,
+        options.map((option) => option.value),
+      );
+
+  return (
+    <SettingRow
+      setting="builtinMods.baseSkinsExcluded"
+      dependent
+      hidden={hidden}
+      layout="stacked"
+      description={excludedChampionsDescription(!!leaguePath, missing)}
+      hint={m.settings_builtins_base_skins_excluded_hint()}
+      control={
+        <MultiSelect
+          variant="field"
+          options={options}
+          selected={new Set(excluded)}
+          placeholder={m.settings_builtins_base_skins_excluded_placeholder()}
+          label={m.settings_builtins_base_skins_excluded_title()}
+          disabled={!leaguePath || isPending}
+          onChange={(selected) =>
+            update({
+              builtinMods: { ...settings.builtinMods, baseSkinsExcluded: [...selected].sort() },
+            })
+          }
+        />
+      }
+    />
+  );
+}
+
+/** What the excluded champions row says about the list as it stands. */
+function excludedChampionsDescription(hasPath: boolean, missing: string[]): ReactNode {
+  if (!hasPath) {
+    return m.settings_builtins_base_skins_excluded_no_path();
+  }
+
+  if (missing.length > 0) {
+    return (
+      <span className="text-warning-text">
+        {m.settings_builtins_base_skins_excluded_missing_description({
+          names: missing.join(", "),
+        })}
+      </span>
+    );
+  }
+
+  return m.settings_builtins_base_skins_excluded_description();
 }
 
 /** The chosen skin's row, drawn only while the map skin mode is `forced`. */

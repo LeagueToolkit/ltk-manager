@@ -977,6 +977,11 @@ export type BuiltinModSettings = {
 	defaultWardSkins?: boolean,
 	/**  Which champions show their base skin on every skin. */
 	baseSkins?: BaseSkinsScope,
+	/**
+	 *  Lowercased champion names, as the champion archives are named, that keep their skins
+	 *  while base skins is on.
+	 */
+	baseSkinsExcluded?: string[],
 	/**  Which map skin every game shows. */
 	mapSkin?: MapSkinMode,
 	/**  The `name` of the map skin [`MapSkinMode::Forced`] shows, kept while another mode is on. */
