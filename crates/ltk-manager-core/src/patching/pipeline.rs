@@ -18,6 +18,7 @@ use fs_err as fs;
 use ltk_telemetry::Telemetry;
 
 use ltk_manager_assets::hashtables::{HashtableCache, LayeredHashDb, PathRef};
+use ltk_manager_base::advisory::AdvisoryCode;
 use ltk_manager_base::config::Config;
 use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_library::overlay::WorkshopTestProject;
@@ -201,6 +202,7 @@ impl IncidentPipeline {
                 .as_ref()
                 .and_then(|log| log.build_version.clone()),
             patcher_dll: record.patcher.dll.as_ref().map(|dll| dll.hash.clone()),
+            advisory_codes: self.advisory_codes(record),
         };
 
         let properties = match incident {
@@ -212,6 +214,32 @@ impl IncidentPipeline {
             }
         };
         self.telemetry.track(GAME_SESSION_ENDED, properties);
+    }
+
+    /// Returns the codes of the advisories that the overlay build of the game and the game
+    /// of `record` raised, the codes of the build first, each code once.
+    ///
+    /// The last build is the build of the game, unless both hold an overlay fingerprint and
+    /// the two differ.
+    fn advisory_codes(&self, record: &GameRecord) -> Vec<AdvisoryCode> {
+        let build = self.library.last_build(&self.config).filter(|build| {
+            match (&build.fingerprint, &record.overlay_fingerprint) {
+                (Some(built), Some(ran)) => built == ran,
+                _ => true,
+            }
+        });
+        let raised = build
+            .iter()
+            .flat_map(|build| &build.advisories)
+            .chain(&record.advisories);
+
+        let mut codes = Vec::new();
+        for advisory in raised {
+            if !codes.contains(&advisory.code) {
+                codes.push(advisory.code);
+            }
+        }
+        codes
     }
 
     /// Each suspect as a digest and a reason, with nothing that names it.

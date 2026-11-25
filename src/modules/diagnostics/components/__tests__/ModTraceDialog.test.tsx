@@ -108,7 +108,7 @@ describe("ModTraceDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Get help" }));
 
-    expect(useGetHelpDialog.getState().payload).toEqual({ modId: "aatrox" });
+    expect(useGetHelpDialog.getState().payload).toEqual({ entry: "mod-trace", modId: "aatrox" });
     expect(useModTraceDialog.getState().isOpen).toBe(false);
   });
 

@@ -266,7 +266,7 @@ function VerdictLine({ incident }: { incident: Incident }) {
         <Button
           variant="ghost"
           size="xs"
-          onClick={() => openGetHelp({ incidentId: incident.id })}
+          onClick={() => openGetHelp({ entry: "verdict-line", incidentId: incident.id })}
           className="h-5"
         >
           {m.common_get_help_action()}
@@ -304,7 +304,7 @@ function PanicLine({ panic }: { panic: PanicRecord }) {
       </span>
       <LineActions
         label={m.common_get_help_action()}
-        onAction={() => openGetHelp({ origin: { kind: "panic", panic } })}
+        onAction={() => openGetHelp({ entry: "panic-line", origin: { kind: "panic", panic } })}
         onDismiss={() => dismiss.mutate()}
       />
     </RestingLine>

@@ -8,9 +8,11 @@ use tempfile::TempDir;
 
 use super::*;
 use ltk_manager_assets::hashtables::WadPathResolverState;
+use ltk_manager_base::advisory::{Advisories, Advisory, AdvisorySubject};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, ErrorKind};
 use ltk_manager_library::mods::{ChecksumMismatchState, WadReportState};
+use ltk_manager_library::overlay::BuildRecord;
 use ltk_manager_runtime::diagnostics::incident::{
     Ending, GameRecord, LaunchKind, OverlayOutcome, SessionFailure,
 };
@@ -154,6 +156,40 @@ fn a_session_with_no_verdict_reports_one_clean_event() {
     assert_eq!(payload["properties"]["duration_bucket"], json!("15-30m"));
     assert_eq!(payload["properties"]["injected"], json!(true));
     assert_eq!(payload["properties"]["origin"], json!("library"));
+}
+
+#[test]
+fn a_session_reports_the_advisory_codes_of_its_build_and_its_game_once_each() {
+    let harness = Harness::new();
+    let mut advisories = Advisories::default();
+    for id in ["first", "second"] {
+        advisories.raise(
+            Advisory::new(AdvisoryCode::ModMissing, at(0))
+                .about(AdvisorySubject::mod_id(id))
+                .with_detail(r"C:\Users\someone\mods"),
+        );
+    }
+    let build = BuildRecord {
+        built_at: at(0),
+        fingerprint: None,
+        mods: Vec::new(),
+        advisories,
+    };
+    build
+        .save(harness._dirs.0.path())
+        .expect("the build record");
+    let mut record = clean_record();
+    record.advisories.raise(
+        Advisory::new(AdvisoryCode::ArchiveNotServed, at(1))
+            .about(AdvisorySubject::archive("Ahri.wad.client")),
+    );
+
+    harness.pipeline.run(record);
+
+    assert_eq!(
+        harness.payload()["properties"]["advisory_codes"],
+        json!(["mod-missing", "archive-not-served"])
+    );
 }
 
 #[test]

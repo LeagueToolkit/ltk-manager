@@ -39,18 +39,24 @@ because a verdict rate needs a denominator.
 
 ### What the session was
 
-| Property          | Always | What it is                                 |
-| ----------------- | ------ | ------------------------------------------ |
-| `outcome`         | yes    | `clean` or `verdict`                       |
-| `enabled_mods`    | yes    | How many mods were enabled, as a count     |
-| `injected`        | yes    | Whether injection happened                 |
-| `origin`          | yes    | How the session started                    |
-| `launch_kind`     | yes    | What was launched                          |
-| `overlay_outcome` | yes    | How building the overlay ended             |
-| `duration_bucket` | no     | How long the session ran, as a range       |
-| `scan_mode`       | no     | Which archive scan the run used            |
-| `game_patch`      | no     | The installed game patch                   |
-| `patcher_dll`     | no     | The DLL that ran, as 16 hex of its SHA-256 |
+| Property          | Always | What it is                                                 |
+| ----------------- | ------ | ---------------------------------------------------------- |
+| `outcome`         | yes    | `clean` or `verdict`                                       |
+| `enabled_mods`    | yes    | How many mods were enabled, as a count                     |
+| `injected`        | yes    | Whether injection happened                                 |
+| `origin`          | yes    | How the session started                                    |
+| `launch_kind`     | yes    | What was launched                                          |
+| `overlay_outcome` | yes    | How building the overlay ended                             |
+| `advisory_codes`  | yes    | The advisory codes of the game and of its build, as a list |
+| `duration_bucket` | no     | How long the session ran, as a range                       |
+| `scan_mode`       | no     | Which archive scan the run used                            |
+| `game_patch`      | no     | The installed game patch                                   |
+| `patcher_dll`     | no     | The DLL that ran, as 16 hex of its SHA-256                 |
+
+`advisory_codes` holds each code once, such as `mod-missing` or `overlay-refused`, and is empty
+for a game that raised none. The codes of the build come first. The build is the last overlay
+build, unless the build record and the game record hold overlay fingerprints that differ. A code
+names no mod and no archive: the subject and the detail of an advisory stay on the machine.
 
 The duration is a range rather than a number of seconds, because the exact second a game ran is
 close to a fingerprint across a day and answers no question a range does not.
@@ -90,6 +96,34 @@ A suspect's `digest` is a truncated SHA-256: over the mod archive's bytes for a 
 storage, and over the mod's lowercased sorted wad paths for a mod in project storage. No display
 name, no project path and no mod id travels. `reason` is the coded reason the mod was named, from
 the same vocabulary the app draws in a tooltip.
+
+## `support_report_created`
+
+One per support report and route, when the zip is written. `Copy for Discord` writes the zip too,
+so it reports. A second save of the same report by the same route does not report again.
+
+| Property        | Always | What it is                                                    |
+| --------------- | ------ | ------------------------------------------------------------- |
+| `app_version`   | yes    | The manager's own version                                     |
+| `entry`         | yes    | Where the `Get help` dialog was opened                        |
+| `route`         | yes    | `file` for `Save as file`, `discord` for `Copy for Discord`   |
+| `top_code`      | no     | The one code that names the failure of the report             |
+| `top_code_kind` | no     | The set that the code is from: `error`, `verdict`, `advisory` |
+
+`entry` is one of `error-toast`, `crash-screen`, `route-error`, `panic-line`, `verdict-line`,
+`games-tab`, `mod-trace`, `settings`, `title-bar` and `command-palette`.
+
+The top code is the first of three that the report holds. The code of the error that the report
+was opened from, such as `IO`, is first. The verdict kind of the incident of the report, such as
+`missing-data`, is second. The advisory code that tells the most, such as `overlay-refused`, is
+third. A report with none of the three has no top code. An error code travels only if it is made
+of capital letters, digits and underscores, because the frontend sends it.
+
+The event carries nothing of the report itself: no file, no summary, no description, no mod name
+and no report id. The upload route joins `route` when the upload exists.
+
+A report that `ltk-manager.exe --report` saves sends no event. That process runs without the
+app, and the spool is written by one process at a time.
 
 ## `app_error`
 

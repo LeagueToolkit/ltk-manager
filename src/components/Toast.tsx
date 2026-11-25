@@ -205,6 +205,7 @@ export function ToastItem({ toast, paused }: ToastItemProps) {
 
   function handleGetHelp(error: ErrorDetails) {
     openGetHelp({
+      entry: "error-toast",
       origin: {
         kind: "error",
         error: { title, code: error.code, kind: error.kind, ref: error.ref },

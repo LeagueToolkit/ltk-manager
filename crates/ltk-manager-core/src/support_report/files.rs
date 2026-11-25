@@ -152,6 +152,7 @@ impl SupportReport {
             _ => None,
         };
         self.found = Some(Finding {
+            kind: subject.verdict.kind,
             title: subject.verdict.title.clone(),
             consequence: subject.verdict.consequence.to_string(),
             cause: subject.verdict.cause.clone(),
