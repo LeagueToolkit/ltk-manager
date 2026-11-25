@@ -8,7 +8,8 @@
 use ltk_hash::BinHash;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_audio::{
-    events_list_edits, AudioIndex, BankReferences, BinAudio, ListEdit, SiteNames, BANK_EVENTS,
+    events_list_edits, unit_row, AudioIndex, BankReferences, BinAudio, ListEdit, SiteNames,
+    BANK_EVENTS,
 };
 use ltk_manager_bin::bin_document::{
     BinDocumentId, BinDocuments, BinEdit, HistoryStep, LeafValue, NewItem, ValueEdit,
@@ -181,8 +182,29 @@ pub(super) fn follow_events(
         .filter(|row| matches!(row.asset, Some(AssetRef::Layer { .. })))
         .cloned()
         .collect();
+
     let targets = if in_project.is_empty() {
-        rows.into_iter().take(1).collect()
+        let is_announcer = path.to_ascii_lowercase().contains("announcer");
+        let project_fallback = indexes.first().and_then(|project_index| {
+            project_index.units().iter().find(|indexed| {
+                let bin_lower = indexed.bin.to_ascii_lowercase();
+                let is_map = bin_lower.contains("map");
+                let is_announcer_unit = is_announcer
+                    && (indexed.unit.name.to_ascii_lowercase().contains("announcer")
+                        || indexed
+                            .unit
+                            .bank_path
+                            .iter()
+                            .any(|p| p.to_ascii_lowercase().contains("announcer")));
+                (is_announcer && (is_map || is_announcer_unit)) || is_map
+            })
+        });
+
+        if let Some(fallback_unit) = project_fallback {
+            vec![unit_row(fallback_unit, None, names)]
+        } else {
+            rows.into_iter().take(1).collect()
+        }
     } else {
         in_project
     };

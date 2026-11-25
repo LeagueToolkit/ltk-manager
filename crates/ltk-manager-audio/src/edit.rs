@@ -182,6 +182,8 @@ pub enum BankEdit {
     NewEvent { name: String },
     /// Creates the event `name` with a copy of every action of `event` and of what they play.
     CopyEvent { event: u32, name: String },
+    /// Creates the event `name` with shallow copies of the actions of `event` without duplicating their subtrees.
+    AliasEvent { event: u32, name: String },
     /// Gives the event `event` the ID of `name`, with its actions.
     RenameEvent { event: u32, name: String },
     /// Adds `node` under `parent`.
@@ -205,6 +207,8 @@ pub enum BankEdit {
     },
     /// Applies every edit of `edits`, in order, as one undo step.
     Batch { edits: Vec<BankEdit> },
+    /// Upgrades the bank to version 145.
+    Upgrade,
 }
 
 impl BankEdit {
@@ -219,12 +223,14 @@ impl BankEdit {
             | Self::AddChild { .. }
             | Self::NewEvent { .. }
             | Self::CopyEvent { .. }
+            | Self::AliasEvent { .. }
             | Self::RenameEvent { .. }
             | Self::AddNode { .. }
             | Self::Duplicate { .. }
             | Self::Delete { .. }
             | Self::Wrap { .. }
-            | Self::Batch { .. } => None,
+            | Self::Batch { .. }
+            | Self::Upgrade => None,
         }
     }
 }
@@ -441,7 +447,7 @@ pub enum BankEditError {
 
     /// The WEM is of a codec that the game does not play.
     #[error(
-        "The WEM is codec {0:#06x}, and the game plays only Wwise Vorbis. Convert it to Vorbis \
+        "The WEM is codec {0:#06x}, which is not supported. Convert it to Vorbis \
          in the Wwise authoring tool, then import the converted file."
     )]
     Codec(u16),
@@ -535,6 +541,39 @@ impl EventBankDocument {
     #[must_use]
     pub fn version(&self) -> u32 {
         self.bank.header().version.0
+    }
+
+    /// Returns `true` if the bank is older than version 145 and can be upgraded.
+    #[must_use]
+    pub fn can_upgrade(&self) -> bool {
+        self.bank.header().version < BankVersion::CURRENT && self.bank.upgrade().is_ok()
+    }
+
+    /// Upgrades the bank to version 145.
+    pub fn upgrade(&mut self) -> Result<(), BankEditError> {
+        if self.bank.header().version >= BankVersion::CURRENT {
+            return Ok(());
+        }
+
+        let upgraded = self.bank.upgrade()?;
+        let mut bytes = Vec::new();
+        upgraded.to_writer(&mut bytes)?;
+
+        self.bank = upgraded;
+        self.bytes = bytes;
+        self.opened = self
+            .bank
+            .hierarchy()
+            .map(|hierarchy| {
+                hierarchy
+                    .objects()
+                    .iter()
+                    .map(|object| (object.id(), object.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.revision += 1;
+        Ok(())
     }
 
     /// Returns `true` if the bank takes edits: a version 145 bank with a hierarchy.
@@ -655,7 +694,7 @@ impl EventBankDocument {
     ///
     /// # Errors
     ///
-    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if no media file of the set holds
+    /// Fails if `wem` is not a WEM that decodes or has an unsupported codec, if no media file of the set holds
     /// the media, if the opened bank holds it itself, if a sound of another bank would need
     /// another size, and for the reasons of [`EventBankDocument::edit`].
     pub fn replace(
@@ -685,6 +724,9 @@ impl EventBankDocument {
         edit: &BankEdit,
         context: &EditContext<'_>,
     ) -> Result<(), BankEditError> {
+        if matches!(edit, BankEdit::Upgrade) {
+            return self.upgrade();
+        }
         self.transact(context, |tx| apply(tx, edit))
     }
 
@@ -697,7 +739,7 @@ impl EventBankDocument {
     ///
     /// # Errors
     ///
-    /// Fails if `wem` is not a Wwise Vorbis WEM that decodes, if the set has no sound to copy or
+    /// Fails if `wem` is not a WEM that decodes or has an unsupported codec, if the set has no sound to copy or
     /// no media file to add the media to, and for the reasons of [`EventBankDocument::edit`].
     pub fn import(
         &mut self,
@@ -762,6 +804,9 @@ impl EventBankDocument {
         context: &EditContext<'_>,
         body: impl FnOnce(&mut Tx<'_, '_>) -> Result<(), BankEditError>,
     ) -> Result<(), BankEditError> {
+        if self.bank.header().version < BankVersion::CURRENT && self.can_upgrade() {
+            self.upgrade()?;
+        }
         self.check()?;
         let mut tx = Tx::new(&mut self.bank, &mut self.media, &mut self.names, context)?;
         let result = body(&mut tx);
@@ -795,7 +840,7 @@ impl EventBankDocument {
     /// Returns the version of the bank if it takes edits.
     fn check(&self) -> Result<BankVersion, BankEditError> {
         let version = self.bank.header().version;
-        if version != BankVersion::CURRENT {
+        if version != BankVersion::CURRENT && !self.can_upgrade() {
             return Err(BankEditError::Legacy(version.0));
         }
         if self.bank.hierarchy().is_none() {
@@ -834,7 +879,9 @@ fn apply(tx: &mut Tx<'_, '_>, edit: &BankEdit) -> Result<(), BankEditError> {
         BankEdit::Target { action, target } => retarget(tx, *action, *target),
         BankEdit::NewEvent { name } => structure::new_event(tx, name, None),
         BankEdit::CopyEvent { event, name } => structure::new_event(tx, name, Some(*event)),
+        BankEdit::AliasEvent { event, name } => structure::alias_event(tx, *event, name),
         BankEdit::RenameEvent { event, name } => structure::rename_event(tx, *event, name),
+        BankEdit::Upgrade => Ok(()),
         BankEdit::AddNode { parent, node } => structure::add_node(tx, parent, node).map(drop),
         BankEdit::AddChild { container, child } => {
             let parent = NodeParent::Container {
@@ -1128,6 +1175,7 @@ fn set_source(sound: &mut Sound, source: u32, set: &BankSet) -> Result<(), BankE
                 media: source,
                 container: "package",
             })?;
+            sound.source.in_memory_size = 0;
         }
         _ => return Err(BankEditError::Prefetched(sound.id.0)),
     }

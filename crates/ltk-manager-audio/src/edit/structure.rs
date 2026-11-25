@@ -20,8 +20,28 @@ use super::{
 use crate::bank_set::BankContent;
 use crate::decode::decode;
 
-/// The plugin ID of the Wwise Vorbis codec, the only codec that the game plays.
+/// The plugin ID of the Wwise Vorbis codec.
 pub(super) const VORBIS_PLUGIN: u32 = 0x0004_0001;
+
+/// The plugin ID of the Wwise Opus codec.
+pub(super) const OPUS_PLUGIN: u32 = 0x0006_0001;
+
+/// The plugin ID of the Wwise ADPCM codec.
+pub(super) const ADPCM_PLUGIN: u32 = 0x0002_0002;
+
+/// The plugin ID of the Wwise PCM codec.
+pub(super) const PCM_PLUGIN: u32 = 0x0001_0001;
+
+/// Returns the plugin ID that plays `codec`, or `None` if the codec is unsupported.
+pub(super) fn plugin_id_for_codec(codec: WemCodec) -> Option<u32> {
+    match codec {
+        WemCodec::VORBIS => Some(VORBIS_PLUGIN),
+        WemCodec::OPUS | WemCodec::WWISE_OPUS | WemCodec(0x0302) => Some(OPUS_PLUGIN),
+        WemCodec::ADPCM => Some(ADPCM_PLUGIN),
+        WemCodec::PCM | WemCodec::PCM_EXTENSIBLE => Some(PCM_PLUGIN),
+        _ => None,
+    }
+}
 
 /// Creates the event `name` with no action, or with a deep copy of the actions of `copy_of`.
 pub(super) fn new_event(
@@ -45,6 +65,38 @@ pub(super) fn new_event(
         for action in event(tx, ObjectId(original))?.actions {
             actions.push(copy_action(tx, action)?);
         }
+    }
+
+    tx.push(&Typed::Event(Event { id, actions }))?;
+    tx.names.push(name.to_owned());
+    Ok(())
+}
+
+/// Creates the event `name` with shallow copies of the actions of `event` without duplicating their subtrees.
+pub(super) fn alias_event(
+    tx: &mut Tx<'_, '_>,
+    event: u32,
+    name: &str,
+) -> Result<(), BankEditError> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err(BankEditError::EventName);
+    }
+
+    let id = ObjectId::from_name(name);
+    if tx.is_object_taken(id) {
+        return Err(BankEditError::EventExists(name.to_owned()));
+    }
+    tx.drawn.insert(id.0);
+
+    let original = self::event(tx, ObjectId(event))?;
+    let mut actions = Vec::new();
+    for action_id in original.actions {
+        let Typed::Action(action) = tx.typed(action_id)? else {
+            continue;
+        };
+        let copied = copy_play(tx, &action, action.target)?;
+        actions.push(copied);
     }
 
     tx.push(&Typed::Event(Event { id, actions }))?;
@@ -95,17 +147,27 @@ pub(super) fn add_node(
         (NodeParent::Event { event }, NewNode::Existing { node }) => {
             let target = ObjectId(node);
             match tx.locate(target) {
-                Some((kind, _)) if PLAY_TARGETS.contains(&kind) => {}
-                _ => return Err(BankEditError::NoNode(node)),
+                Some((ObjectKind::ACTION, _)) => {
+                    let mut parent = self::event(tx, ObjectId(event))?;
+                    if !parent.actions.contains(&target) {
+                        parent.actions.push(target);
+                        tx.put(&Typed::Event(parent))?;
+                    }
+                    Ok(target)
+                }
+                Some((kind, _)) if PLAY_TARGETS.contains(&kind) => {
+                    add_play(tx, ObjectId(event), target)?;
+                    Ok(target)
+                }
+                _ => Err(BankEditError::NoNode(node)),
             }
-            add_play(tx, ObjectId(event), target)?;
-            Ok(target)
         }
         (_, NewNode::Sound { source }) => place(tx, parent, |tx, parent, near| {
             let template = template_sound(tx, near)?;
             let (stream, size) = media_of(tx, SourceId(source))?;
             let mut sound = new_sound(tx, &template, parent, SourceId(source), stream, size);
-            sound.source.plugin_id = template.source.plugin_id;
+            sound.source.plugin_id =
+                media_plugin_id(tx, SourceId(source)).unwrap_or(template.source.plugin_id);
             Ok(Typed::Sound(sound))
         }),
         (_, NewNode::Container { container }) => place(tx, parent, |tx, parent, near| {
@@ -127,7 +189,8 @@ pub(super) fn import(
     parent: &NodeParent,
     wem: Vec<u8>,
 ) -> Result<(ObjectId, SourceId), BankEditError> {
-    check_wem(&wem)?;
+    let info = check_wem(&wem)?;
+    let plugin_id = plugin_id_for_codec(info.codec).ok_or(BankEditError::Codec(info.codec.0))?;
 
     let mut added = SourceId(0);
     let sound = place(tx, parent, |tx, parent, near| {
@@ -141,7 +204,7 @@ pub(super) fn import(
         added = source;
 
         let mut sound = new_sound(tx, &template, parent, source, stream, size);
-        sound.source.plugin_id = VORBIS_PLUGIN;
+        sound.source.plugin_id = plugin_id;
         Ok(Typed::Sound(sound))
     })?;
     Ok((sound, added))
@@ -369,7 +432,11 @@ fn place(
 
             let node = build(tx, container, Some(container))?;
             let id = node.id();
-            tx.push(&node)?;
+            if let Some(at) = tx.position(container) {
+                tx.insert(at, &node)?;
+            } else {
+                tx.push(&node)?;
+            }
             adopt(tx, container, id, None)?;
             Ok(id)
         }
@@ -380,7 +447,11 @@ fn place(
             let mixer = event_mixer(tx);
             let node = build(tx, mixer, None)?;
             let id = node.id();
-            tx.push(&node)?;
+            if let Some(at) = tx.position(mixer) {
+                tx.insert(at, &node)?;
+            } else {
+                tx.push(&node)?;
+            }
             if is_mixer_of_opened(tx, mixer) {
                 adopt(tx, mixer, id, None)?;
             }
@@ -571,18 +642,9 @@ fn holders(tx: &Tx<'_, '_>, id: ObjectId) -> Vec<ObjectId> {
         .collect()
 }
 
-/// Removes the media `source` if the document added it as a new media and no sound but `sound`
-/// plays it. A replaced media stays.
+/// Removes the media `source` if no sound but `sound` plays it.
 fn drop_unused_media(tx: &mut Tx<'_, '_>, sound: ObjectId, source: SourceId) {
-    let Some(file) = tx
-        .media
-        .iter()
-        .position(|file| file.added(source) && !file.is_original(source))
-    else {
-        return;
-    };
-
-    let used = tx.objects().iter().any(|object| {
+    let used_in_opened = tx.objects().iter().any(|object| {
         object.id() != sound
             && object.kind() == ObjectKind::SOUND
             && matches!(
@@ -590,8 +652,49 @@ fn drop_unused_media(tx: &mut Tx<'_, '_>, sound: ObjectId, source: SourceId) {
                 Ok(Some(Typed::Sound(other))) if other.source.source_id == source
             )
     });
-    if !used {
-        tx.remove_media(file, source);
+    if used_in_opened {
+        return;
+    }
+
+    let used_in_set = tx
+        .context
+        .set
+        .files()
+        .iter()
+        .skip(1)
+        .filter_map(|file| match file.content() {
+            BankContent::Bank { bank } => bank.hierarchy().map(|h| (bank, h)),
+            _ => None,
+        })
+        .any(|(bank, hierarchy)| {
+            hierarchy
+                .objects()
+                .iter()
+                .filter(|object| object.kind() == ObjectKind::SOUND)
+                .filter_map(|object| object.decode(bank.header().version).ok().flatten())
+                .any(|typed| {
+                    matches!(typed, Typed::Sound(other) if other.source.source_id == source)
+                })
+        });
+    if used_in_set {
+        return;
+    }
+
+    if let Some(pkg_idx) = tx.context.set.package_with_media(source) {
+        let path = tx.context.set.files()[pkg_idx].path().to_owned();
+        let _ = read_media_file(tx, &path, true);
+    }
+    if let Some(bank_idx) = tx.context.set.bank_with_media(source)
+        && bank_idx != 0
+    {
+        let path = tx.context.set.files()[bank_idx].path().to_owned();
+        let _ = read_media_file(tx, &path, false);
+    }
+
+    for file in 0..tx.media.len() {
+        if tx.media[file].contains(source) {
+            tx.remove_media(file, source);
+        }
     }
 }
 
@@ -677,8 +780,8 @@ fn insert_in_event(
     tx.put(&Typed::Event(owner))
 }
 
-/// Pushes a copy of the node `id` and of every node below it of the opened bank, each with a
-/// fresh ID, and returns the copy's ID.
+/// Inserts a copy of the node `id` and of every node below it beside each original node of the
+/// opened bank, each with a fresh ID, and returns the copy's ID.
 ///
 /// The copy's `parent` is that of `id`. An actor-mixer parent lists the copy, and a container
 /// parent lists it only when the caller adopts it.
@@ -725,7 +828,14 @@ fn copy_node(
             });
         }
     };
-    tx.push(&copy)?;
+    let at = tx
+        .position(id)
+        .or_else(|| parent.and_then(|p| tx.position(p)));
+    if let Some(at) = at {
+        tx.insert(at, &copy)?;
+    } else {
+        tx.push(&copy)?;
+    }
     Ok(fresh)
 }
 
@@ -768,7 +878,14 @@ fn new_wrapper(
     }
 
     let id = wrapper.id;
-    tx.push(&Typed::Container(wrapper))?;
+    let at = tx
+        .position(parent)
+        .or_else(|| ids.first().and_then(|&first| tx.position(first)));
+    if let Some(at) = at {
+        tx.insert(at, &Typed::Container(wrapper))?;
+    } else {
+        tx.push(&Typed::Container(wrapper))?;
+    }
     Ok(id)
 }
 
@@ -862,7 +979,11 @@ fn new_sound(
     sound.node.parent = parent;
     sound.source.source_id = source;
     sound.source.stream_type = stream;
-    sound.source.in_memory_size = size;
+    sound.source.in_memory_size = match stream {
+        StreamType::DATA_BANK => size,
+        StreamType::PREFETCH => template.source.in_memory_size.min(size),
+        _ => 0,
+    };
     sound
 }
 
@@ -1065,13 +1186,29 @@ pub(super) fn read_media_file(
     Ok(tx.media.len() - 1)
 }
 
-/// Fails if `wem` is not a Wwise Vorbis WEM that decodes.
+/// Returns the plugin ID of the media `source`, read from the document's media files or the set.
+fn media_plugin_id(tx: &Tx<'_, '_>, source: SourceId) -> Option<u32> {
+    let media = tx
+        .media
+        .iter()
+        .find_map(|file| file.media(source))
+        .or_else(|| tx.context.set.banked_media(source))?;
+    let info = WemInfo::from_bytes(media).ok()?;
+    plugin_id_for_codec(info.codec)
+}
+
+/// Fails if `wem` is not a WEM that decodes or has an unsupported codec.
 pub(super) fn check_wem(wem: &[u8]) -> Result<WemInfo, BankEditError> {
     let info = WemInfo::from_bytes(wem).map_err(|error| BankEditError::Wem(error.to_string()))?;
-    if info.codec != WemCodec::VORBIS {
+    if plugin_id_for_codec(info.codec).is_none() {
         return Err(BankEditError::Codec(info.codec.0));
     }
-    decode(SourceId(0), wem).map_err(|error| BankEditError::Wem(error.reason.to_string()))?;
+    if matches!(
+        info.codec,
+        WemCodec::VORBIS | WemCodec::PCM | WemCodec::PCM_EXTENSIBLE
+    ) {
+        decode(SourceId(0), wem).map_err(|error| BankEditError::Wem(error.reason.to_string()))?;
+    }
     Ok(info)
 }
 

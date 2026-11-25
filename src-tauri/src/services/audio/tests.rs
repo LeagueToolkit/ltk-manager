@@ -393,3 +393,26 @@ fn layer_copy_refuses_game_sandbox_and_skips_layer_file() {
         None
     );
 }
+
+#[test]
+fn write_copy_creates_missing_parents_and_writes_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    fs_err::create_dir_all(tmp.path().join("content").join("base")).unwrap();
+
+    let target = AssetRef::Layer {
+        project: tmp.path().to_string_lossy().into_owned(),
+        layer: "base".to_owned(),
+        path: "Archive.wad.client/nested/bank.bnk".to_owned(),
+    };
+
+    bank::write_copy(&target, b"test_bytes").unwrap();
+
+    let written = tmp
+        .path()
+        .join("content")
+        .join("base")
+        .join("Archive.wad.client")
+        .join("nested")
+        .join("bank.bnk");
+    assert_eq!(fs_err::read(written).unwrap(), b"test_bytes");
+}
