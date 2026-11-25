@@ -3,12 +3,12 @@ import { useState } from "react";
 
 import { AlertBox, Button, Checkbox, Code, ProgressBar, Spinner, useConfirm } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import {
-  type IntegrationAction,
-  type IntegrationStage,
-  type IntegrationStatus,
-  type MenuStatus,
-  type Tool,
+import type {
+  IntegrationAction,
+  IntegrationStage,
+  IntegrationStatus,
+  MenuStatus,
+  Tool,
 } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 

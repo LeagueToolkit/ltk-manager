@@ -9,9 +9,10 @@ import {
   inkingOf,
   inkingMapsOptions,
   inkingScopeOptions,
+  loadingScreenOf,
   mapSkinOptions,
 } from "./builtinMods";
-import { inkingField, type SettingKey } from "./settingKey";
+import { inkingField, loadingScreenField, type SettingKey } from "./settingKey";
 
 /** Reads a key from whichever store owns it. */
 export function settingValue(
@@ -24,6 +25,8 @@ export function settingValue(
   if (key.startsWith("layout.")) return layout[key.slice(7) as LayoutSettingKey];
   const inking = inkingField(key);
   if (inking) return inkingOf(settings)[inking];
+  const loadingScreen = loadingScreenField(key);
+  if (loadingScreen) return loadingScreenOf(settings)[loadingScreen];
   if (key.startsWith("builtinMods."))
     return settings.builtinMods[key.slice(12) as keyof BuiltinModSettings];
   if (key.startsWith("audio.")) return settings.audio[key.slice(6) as keyof AudioSettings];
@@ -151,6 +154,8 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   "builtinMods.characterInking.opacity": percent,
   "builtinMods.characterInking.cameraDistance": plain,
   "builtinMods.characterInking.deathFade": (value) => `${(Number(value) / 1000).toFixed(1)} s`,
+  "builtinMods.loadingScreen.enabled": onOff,
+  "builtinMods.loadingScreen.assets": optional("None", plain),
 
   theme: titleCase,
   accentColor: accentName,
